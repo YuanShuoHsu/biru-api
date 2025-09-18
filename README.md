@@ -190,7 +190,7 @@ export class AppModule {}
 ```bash
 # https://docs.nestjs.com/websockets/gateways
 
-pnpm add @nestjs/websockets @nestjs/platform-socket.io
+pnpm add @nestjs/websockets @nestjs/platform-socket.io socket.io
 ```
 
 ## Swagger
