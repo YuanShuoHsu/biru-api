@@ -73,6 +73,7 @@ To quickly create a CRUD controller with built-in validation, you can use the CL
 
 ```bash
 # https://docs.nestjs.com/techniques/configuration
+
 pnpm add @nestjs/config
 
 # app.module.tsJS
@@ -90,6 +91,7 @@ export class AppModule {}
 
 ```bash
 # https://docs.nestjs.com/techniques/validation
+
 pnpm add class-validator class-transformer
 ```
 
@@ -97,6 +99,7 @@ pnpm add class-validator class-transformer
 
 ```bash
 # https://docs.nestjs.com/techniques/cookies
+
 pnpm add cookie-parser
 pnpm add -D @types/cookie-parser
 
@@ -107,6 +110,7 @@ app.use(cookieParser());
 
 ```bash
 # https://docs.nestjs.com/techniques/http-module
+
 pnpm add @nestjs/axios axios
 
 @Module({
@@ -127,6 +131,7 @@ pnpm add @nestjs/jwt
 
 ```bash
 # https://docs.nestjs.com/security/encryption-and-hashing
+
 pnpm add bcrypt
 pnpm add -D @types/bcrypt
 ```
@@ -135,6 +140,7 @@ pnpm add -D @types/bcrypt
 
 ```bash
 # https://docs.nestjs.com/security/helmet
+
 pnpm add helmet
 
 import helmet from 'helmet';
@@ -158,6 +164,7 @@ const app = await NestFactory.create(AppModule, {
 
 ```bash
 # https://docs.nestjs.com/security/rate-limiting
+
 pnpm add @nestjs/throttler
 
 app.module.ts
@@ -176,6 +183,14 @@ app.module.ts
 })
 
 export class AppModule {}
+```
+
+## Websockets
+
+```bash
+# https://docs.nestjs.com/websockets/gateways
+
+pnpm add @nestjs/websockets @nestjs/platform-socket.io
 ```
 
 ## Swagger
@@ -213,6 +228,7 @@ void bootstrap();
 
 ```bash
 # https://docs.nestjs.com/recipes/passport
+
 pnpm add @nestjs/passport passport passport-local
 pnpm add -D @types/passport-local
 
@@ -225,6 +241,7 @@ pnpm add -D @types/passport-jwt
 ```bash
 # https://docs.nestjs.com/recipes/prisma
 # https://www.prisma.io/docs/orm/tools/prisma-cli
+
 pnpm install prisma --save-dev
 pnpm prisma
 pnpm prisma init
@@ -248,6 +265,7 @@ app.setGlobalPrefix('api');
 
 ```bash
 # https://github.com/uuidjs/uuid
+
 pnpm add uuid
 ```
 
