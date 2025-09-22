@@ -241,6 +241,7 @@ pnpm add -D @types/passport-jwt
 ```bash
 # https://docs.nestjs.com/recipes/prisma
 # https://www.prisma.io/docs/orm/tools/prisma-cli
+# https://www.prisma.io/docs/orm/reference/prisma-config-reference
 
 pnpm install prisma --save-dev
 pnpm prisma
@@ -249,6 +250,7 @@ pnpm prisma migrate dev --name init
 tree prisma
 pnpm @prisma/client
 pnpm prisma generate
+pnpm add -D dotenv
 ```
 
 ## Global prefix
