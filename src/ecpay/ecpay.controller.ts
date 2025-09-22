@@ -125,8 +125,6 @@ export class EcpayController {
 
     // console.log(existingInvoiceInfo);
 
-    console.log(existingInvoiceInfo.length);
-
     if (toBeAdded.length === 0) return;
 
     // const addResults = [];
