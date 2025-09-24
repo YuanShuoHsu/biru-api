@@ -1,0 +1,130 @@
+model Menu {
+  id        String     @id @default(uuid())
+  name      Json
+  createdAt DateTime   @default(now())
+  items     MenuItem[]
+  updatedAt DateTime   @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model MenuItem {
+  id          String   @id @default(uuid())
+  name        Json
+  createdAt   DateTime @default(now())
+  description Json
+  imageUrl    String
+  isActive    Boolean  @default(true)
+  price       Int
+  sold        Int      @default(0)
+  stock       Int?
+  updatedAt   DateTime @updatedAt
+
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  options MenuItemOption[]
+  recipes MenuItemRecipe[]
+
+  @@index([menuId])
+}
+
+model Option {
+  id        String   @id @default(uuid())
+  name      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  choices     Choice[]
+  itemOptions MenuItemOption[]
+}
+
+model Choice {
+  id        String   @id @default(uuid())
+  name      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  optionId String
+  option   Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  menuItemChoices MenuItemChoice[]
+
+  @@index([optionId])
+}
+
+model MenuItemOption {
+  menuItemId String
+  optionId   String
+  multiple   Boolean @default(false)
+  required   Boolean @default(false)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  option   Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  choices MenuItemChoice[]
+
+  @@id([menuItemId, optionId])
+  @@index([optionId])
+}
+
+model MenuItemChoice {
+  menuItemId String
+  optionId   String
+  choiceId   String
+
+  extraCost Int     @default(0)
+  isActive  Boolean @default(true)
+  isShared  Boolean @default(false)
+  sold      Int     @default(0)
+  stock     Int?
+
+  option  MenuItemOption @relation(fields: [menuItemId, optionId], references: [menuItemId, optionId], onDelete: Cascade)
+  choice  Choice         @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+  recipes ChoiceRecipe[]
+
+  @@id([menuItemId, optionId, choiceId])
+  @@index([choiceId])
+}
+
+model RecipeItem {
+  id        String   @id @default(uuid())
+  name      Json
+  createdAt DateTime @default(now())
+  unit      Json
+  updatedAt DateTime @updatedAt
+
+  menuItemRecipes MenuItemRecipe[]
+  choiceRecipes   ChoiceRecipe[]
+}
+
+model MenuItemRecipe {
+  usage Float
+
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  recipeItemId String
+  recipeItem   RecipeItem @relation(fields: [recipeItemId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, recipeItemId])
+  @@index([recipeItemId])
+}
+
+model ChoiceRecipe {
+  usage Float
+
+  menuItemId     String
+  optionId       String
+  choiceId       String
+  menuItemChoice MenuItemChoice @relation(fields: [menuItemId, optionId, choiceId], references: [menuItemId, optionId, choiceId], onDelete: Cascade)
+
+  recipeItemId String
+  recipeItem   RecipeItem @relation(fields: [recipeItemId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, optionId, choiceId, recipeItemId])
+  @@index([recipeItemId])
+}

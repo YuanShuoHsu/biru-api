@@ -12,6 +12,7 @@ import { EventsModule } from './events/events.module';
 import { PostModule } from './post/post.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
+import { MenuModule } from './menu/menu.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     PostModule,
     UsersModule,
     EventsModule,
+    MenuModule,
   ],
   controllers: [AppController],
   providers: [

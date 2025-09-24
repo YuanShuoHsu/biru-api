@@ -1,0 +1,9 @@
+model Store {
+  id        String   @id
+  name      Json
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  menus Menu[]
+}
