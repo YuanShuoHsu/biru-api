@@ -1,44 +1,36 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 
-import { CreateStoreDto } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 import { StoresService } from './stores.service';
 
 @Controller('stores')
+@Public()
 export class StoresController {
   constructor(private readonly storesService: StoresService) {}
 
-  @Post()
-  create(@Body() createStoreDto: CreateStoreDto) {
-    return this.storesService.create(createStoreDto);
-  }
+  // @Post()
+  // create(@Body() createStoreDto: CreateStoreDto) {
+  //   return this.storesService.create(createStoreDto);
+  // }
 
   @Get()
   findAll() {
     return this.storesService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.storesService.findOne(+id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.storesService.findOne(+id);
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto) {
-    return this.storesService.update(+id, updateStoreDto);
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto) {
+  //   return this.storesService.update(+id, updateStoreDto);
+  // }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.storesService.remove(+id);
-  }
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.storesService.remove(+id);
+  // }
 }
