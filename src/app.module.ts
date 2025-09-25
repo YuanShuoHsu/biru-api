@@ -9,10 +9,11 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
+import { MenusModule } from './menus/menus.module';
 import { PostModule } from './post/post.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { StoresModule } from './stores/stores.module';
 import { UsersModule } from './users/users.module';
-import { MenuModule } from './menu/menu.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { MenuModule } from './menu/menu.module';
     PostModule,
     UsersModule,
     EventsModule,
-    MenuModule,
+    StoresModule,
+    MenusModule,
   ],
   controllers: [AppController],
   providers: [

@@ -3,19 +3,15 @@ import { Injectable } from '@nestjs/common';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 
-import { PrismaService } from '../prisma/prisma.service';
-
 @Injectable()
-export class MenuService {
-  constructor(private readonly prisma: PrismaService) {}
-
+export class MenusService {
   create(createMenuDto: CreateMenuDto) {
     console.log(createMenuDto);
     return 'This action adds a new menu';
   }
 
   findAll() {
-    return `This action returns all events`;
+    return `This action returns all menus`;
   }
 
   findOne(id: number) {
