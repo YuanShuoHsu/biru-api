@@ -2,7 +2,7 @@ import { Store } from 'prisma/types/stores.types';
 
 export const stores: Store[] = [
   {
-    id: '77bdf46c-3e03-59ae-a029-51fe95a0b4f8',
+    id: 'aerotropolis',
     name: {
       'zh-TW': '航空城店',
       en: 'Aerotropolis',
@@ -14,7 +14,7 @@ export const stores: Store[] = [
     updatedAt: '2024-06-01T00:00:00Z',
   },
   {
-    id: '9a63dfb4-5544-5c7a-9220-f1c947ec679a',
+    id: 'dayuan',
     name: {
       'zh-TW': '大園店',
       en: 'Dayuan',

@@ -1,5 +1,6 @@
-import { Prisma, PrismaClient } from '@prisma/client';
 import { v5 as uuidv5 } from 'uuid';
+
+import { Prisma, PrismaClient } from '@prisma/client';
 
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
@@ -50,37 +51,37 @@ async function main() {
       where: { id: s.id },
       create: {
         id: s.id,
-        name: s.name as JsonValue,
+        name: s.name,
         isActive: true,
       },
       update: {
-        name: s.name as JsonValue,
+        name: s.name,
         isActive: true,
       },
     });
   }
 
-  for (const cat of menus) {
-    for (const item of cat.items) {
+  for (const menu of menus) {
+    for (const item of menu.items) {
       for (const ri of item.recipes ?? []) {
         await upsertRecipeItem({
           id: ri.id,
-          name: ri.name as JsonValue,
-          unit: ri.unit as JsonValue,
+          name: ri.name,
+          unit: ri.unit,
         });
       }
 
       for (const opt of item.options ?? []) {
-        await upsertOption(opt.id, opt.name as JsonValue);
+        await upsertOption(opt.id, opt.name);
 
         for (const ch of opt.choices ?? []) {
-          await upsertChoice(opt.id, ch.id, ch.name as JsonValue);
+          await upsertChoice(opt.id, ch.id, ch.name);
 
           for (const ri of ch.recipes ?? []) {
             await upsertRecipeItem({
               id: ri.id,
-              name: ri.name as JsonValue,
-              unit: ri.unit as JsonValue,
+              name: ri.name,
+              unit: ri.unit,
             });
           }
         }
@@ -89,31 +90,31 @@ async function main() {
   }
 
   for (const store of stores) {
-    for (const cat of menus) {
-      const menuId = v5MenuId(store.id, cat.id);
+    for (const menu of menus) {
+      const menuId = v5MenuId(store.id, menu.id);
 
       await prisma.menu.upsert({
         where: { id: menuId },
         create: {
           id: menuId,
-          name: cat.name as JsonValue,
+          name: menu.name,
           storeId: store.id,
         },
         update: {
-          name: cat.name as JsonValue,
+          name: menu.name,
           storeId: store.id,
         },
       });
 
-      for (const item of cat.items) {
+      for (const item of menu.items) {
         const menuItemId = v5MenuItemId(store.id, item.id);
 
         await prisma.menuItem.upsert({
           where: { id: menuItemId },
           create: {
             id: menuItemId,
-            name: item.name as JsonValue,
-            description: item.description as JsonValue,
+            name: item.name,
+            description: item.description,
             imageUrl: item.imageUrl,
             isActive: item.isActive,
             price: item.price,
@@ -122,8 +123,8 @@ async function main() {
             menuId,
           },
           update: {
-            name: item.name as JsonValue,
-            description: item.description as JsonValue,
+            name: item.name,
+            description: item.description,
             imageUrl: item.imageUrl,
             isActive: item.isActive,
             price: item.price,
