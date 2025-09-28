@@ -1,41 +1,41 @@
-import { LocalizedText } from './locale.types';
+import type { LocalizedText } from './locale.types';
 
 interface RecipeItem {
   id: string;
   name: LocalizedText;
-  createdAt: string;
+  createdAt: Date;
   unit: LocalizedText;
   usage: number;
-  updatedAt: string;
+  updatedAt: Date;
 }
 
 interface Choice {
   id: string;
   name: LocalizedText;
-  createdAt: string;
+  createdAt: Date;
   extraCost: number;
   isActive: boolean;
   isShared: boolean;
   recipes: RecipeItem[];
   sold: number;
   stock: number | null;
-  updatedAt: string;
+  updatedAt: Date;
 }
 
 interface Option {
   id: string;
   name: LocalizedText;
   choices: Choice[];
-  createdAt: string;
+  createdAt: Date;
   multiple: boolean;
   required: boolean;
-  updatedAt: string;
+  updatedAt: Date;
 }
 
 interface MenuItem {
   id: string;
   name: LocalizedText;
-  createdAt: string;
+  createdAt: Date;
   description: LocalizedText;
   imageUrl: string;
   isActive: boolean;
@@ -44,13 +44,13 @@ interface MenuItem {
   recipes: RecipeItem[];
   sold: number;
   stock: number | null;
-  updatedAt: string;
+  updatedAt: Date;
 }
 
 export interface Menu {
   id: string;
   name: LocalizedText;
-  createdAt: string;
+  createdAt: Date;
   items: MenuItem[];
-  updatedAt: string;
+  updatedAt: Date;
 }

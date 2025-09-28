@@ -1,0 +1,13 @@
+model Table {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    isActive  Boolean  @default(true)
+    slug      String
+    updatedAt DateTime @updatedAt
+
+    storeId String
+    store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+    @@unique([storeId, slug])
+    @@index([storeId])
+}

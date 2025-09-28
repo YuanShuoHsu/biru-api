@@ -1,9 +1,11 @@
 model Store {
-  id        String   @id
-  name      Json
+  id        String   @id @default(uuid())
+  name      Json     @default("{}")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
+  slug      String   @unique
   updatedAt DateTime @updatedAt
 
-  menus Menu[]
+  menus  Menu[]
+  tables Table[]
 }

@@ -1,8 +1,9 @@
+import { randomUUID } from 'crypto';
 import { Store } from 'prisma/types/stores.types';
 
 export const stores: Store[] = [
   {
-    id: 'aerotropolis',
+    id: randomUUID(),
     name: {
       'zh-TW': '航空城店',
       en: 'Aerotropolis',
@@ -10,11 +11,13 @@ export const stores: Store[] = [
       ko: '에어로트로폴리스점',
       'zh-CN': '航空城店',
     },
-    createdAt: '2024-06-01T00:00:00Z',
-    updatedAt: '2024-06-01T00:00:00Z',
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: 'aerotropolis',
+    updatedAt: new Date(),
   },
   {
-    id: 'dayuan',
+    id: randomUUID(),
     name: {
       'zh-TW': '大園店',
       en: 'Dayuan',
@@ -22,7 +25,9 @@ export const stores: Store[] = [
       ko: '다위안점',
       'zh-CN': '大园店',
     },
-    createdAt: '2024-06-01T00:00:00Z',
-    updatedAt: '2024-06-01T00:00:00Z',
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: 'dayuan',
+    updatedAt: new Date(),
   },
 ];

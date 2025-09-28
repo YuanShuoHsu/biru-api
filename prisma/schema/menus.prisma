@@ -1,6 +1,6 @@
 model Menu {
   id        String     @id @default(uuid())
-  name      Json
+  name      Json       @default("{}")
   createdAt DateTime   @default(now())
   items     MenuItem[]
   updatedAt DateTime   @updatedAt
@@ -13,9 +13,9 @@ model Menu {
 
 model MenuItem {
   id          String   @id @default(uuid())
-  name        Json
+  name        Json     @default("{}")
   createdAt   DateTime @default(now())
-  description Json
+  description Json     @default("{}")
   imageUrl    String
   isActive    Boolean  @default(true)
   price       Int
@@ -34,7 +34,7 @@ model MenuItem {
 
 model Option {
   id        String   @id @default(uuid())
-  name      Json
+  name      Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -44,7 +44,7 @@ model Option {
 
 model Choice {
   id        String   @id @default(uuid())
-  name      Json
+  name      Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -92,9 +92,9 @@ model MenuItemChoice {
 
 model RecipeItem {
   id        String   @id @default(uuid())
-  name      Json
+  name      Json     @default("{}")
   createdAt DateTime @default(now())
-  unit      Json
+  unit      Json     @default("{}")
   updatedAt DateTime @updatedAt
 
   menuItemRecipes MenuItemRecipe[]

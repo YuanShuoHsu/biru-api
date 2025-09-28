@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
+import { StoreDto } from './dto/read-all-store.dto';
 import { StoresService } from './stores.service';
 
 @Controller('stores')
@@ -15,7 +16,7 @@ export class StoresController {
   // }
 
   @Get()
-  findAll() {
+  findAll(): Promise<StoreDto[]> {
     return this.storesService.findAll();
   }
 
