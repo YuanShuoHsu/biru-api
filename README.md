@@ -1,35 +1,35 @@
-# biru-nest
+# biru-api
 
 ## NestJS
 
 ```bash
 # https://docs.nestjs.com/
 
-nest new biru-nest --strict
+nest new biru-api --strict
 ✨  We will scaffold your app in a few seconds..
 
 ✔ Which package manager would you ❤️  to use? pnpm
-CREATE biru-nest/.prettierrc (51 bytes)
-CREATE biru-nest/README.md (5036 bytes)
-CREATE biru-nest/eslint.config.mjs (836 bytes)
-CREATE biru-nest/nest-cli.json (171 bytes)
-CREATE biru-nest/package.json (2035 bytes)
-CREATE biru-nest/tsconfig.build.json (97 bytes)
-CREATE biru-nest/tsconfig.json (541 bytes)
-CREATE biru-nest/src/app.controller.ts (274 bytes)
-CREATE biru-nest/src/app.module.ts (249 bytes)
-CREATE biru-nest/src/app.service.ts (142 bytes)
-CREATE biru-nest/src/main.ts (228 bytes)
-CREATE biru-nest/src/app.controller.spec.ts (617 bytes)
-CREATE biru-nest/test/jest-e2e.json (183 bytes)
-CREATE biru-nest/test/app.e2e-spec.ts (674 bytes)
+CREATE biru-api/.prettierrc (51 bytes)
+CREATE biru-api/README.md (5036 bytes)
+CREATE biru-api/eslint.config.mjs (836 bytes)
+CREATE biru-api/nest-cli.json (171 bytes)
+CREATE biru-api/package.json (2035 bytes)
+CREATE biru-api/tsconfig.build.json (97 bytes)
+CREATE biru-api/tsconfig.json (541 bytes)
+CREATE biru-api/src/app.controller.ts (274 bytes)
+CREATE biru-api/src/app.module.ts (249 bytes)
+CREATE biru-api/src/app.service.ts (142 bytes)
+CREATE biru-api/src/main.ts (228 bytes)
+CREATE biru-api/src/app.controller.spec.ts (617 bytes)
+CREATE biru-api/test/jest-e2e.json (183 bytes)
+CREATE biru-api/test/app.e2e-spec.ts (674 bytes)
 
 ✔ Installation in progress... ☕
 
-🚀  Successfully created project biru-nest
+🚀  Successfully created project biru-api
 👉  Get started with the following commands:
 
-$ cd biru-nest
+$ cd biru-api
 $ pnpm run start
 
 
@@ -375,4 +375,4 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 
-# biru-nest
+# biru-api
