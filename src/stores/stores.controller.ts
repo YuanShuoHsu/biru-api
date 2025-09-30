@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
-import { StoreDto } from './dto/read-all-store.dto';
+import { StoreDto } from './dto/read-stores.dto';
 import { StoresService } from './stores.service';
 
 @Controller('stores')
