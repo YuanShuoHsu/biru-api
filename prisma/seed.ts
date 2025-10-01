@@ -4,16 +4,33 @@ import { Prisma, PrismaClient } from '@prisma/client';
 
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
+import { tables } from './data/tables.data';
+
+import type { LocalizedText } from './types/locale.types';
 
 const prisma = new PrismaClient();
-
-type JsonValue = Prisma.InputJsonValue;
 
 const v5MenuId = (storeId: string, menuId: string) => uuidv5(storeId, menuId);
 const v5MenuItemId = (storeId: string, menuItemId: string) =>
   uuidv5(storeId, menuItemId);
 
-async function upsertOption(optionId: string, name: JsonValue) {
+const optIdFromEn = (name: LocalizedText) => {
+  const optEn = name?.['en'];
+  if (!optEn)
+    throw new Error(`Option name missing 'en': ${JSON.stringify(name)}`);
+
+  return uuidv5(`biru:opt:${optEn}`, uuidv5.URL);
+};
+
+const choiceIdFromEn = (optName: LocalizedText, chName: LocalizedText) => {
+  const optEn = optName?.['en'];
+  const chEn = chName?.['en'];
+  if (!optEn || !chEn) throw new Error('Missing en on option/choice');
+
+  return uuidv5(`biru:cho:${optEn}:${chEn}`, uuidv5.URL);
+};
+
+async function upsertOption(optionId: string, name: Prisma.InputJsonValue) {
   await prisma.option.upsert({
     where: { id: optionId },
     create: { id: optionId, name },
@@ -24,7 +41,7 @@ async function upsertOption(optionId: string, name: JsonValue) {
 async function upsertChoice(
   optionId: string,
   choiceId: string,
-  name: JsonValue,
+  name: Prisma.InputJsonValue,
 ) {
   await prisma.choice.upsert({
     where: { id: choiceId },
@@ -35,8 +52,8 @@ async function upsertChoice(
 
 async function upsertRecipeItem(ri: {
   id: string;
-  name: JsonValue;
-  unit: JsonValue;
+  name: Prisma.InputJsonValue;
+  unit: Prisma.InputJsonValue;
 }) {
   await prisma.recipeItem.upsert({
     where: { id: ri.id },
@@ -53,12 +70,33 @@ async function main() {
         id: s.id,
         name: s.name,
         isActive: true,
+        slug: s.slug,
       },
       update: {
         name: s.name,
         isActive: true,
+        slug: s.slug,
       },
     });
+  }
+
+  for (const s of stores) {
+    for (const t of tables) {
+      await prisma.table.upsert({
+        where: {
+          storeId_slug: { storeId: s.id, slug: t.slug },
+        },
+        create: {
+          storeId: s.id,
+          slug: t.slug,
+          isActive: t.isActive ?? true,
+        },
+        update: {
+          isActive: t.isActive ?? true,
+          slug: t.slug,
+        },
+      });
+    }
   }
 
   for (const menu of menus) {
@@ -72,10 +110,12 @@ async function main() {
       }
 
       for (const opt of item.options ?? []) {
-        await upsertOption(opt.id, opt.name);
+        const optId = optIdFromEn(opt.name);
+        await upsertOption(optId, opt.name);
 
         for (const ch of opt.choices ?? []) {
-          await upsertChoice(opt.id, ch.id, ch.name);
+          const chId = choiceIdFromEn(opt.name, ch.name);
+          await upsertChoice(optId, chId, ch.name);
 
           for (const ri of ch.recipes ?? []) {
             await upsertRecipeItem({
@@ -147,13 +187,13 @@ async function main() {
         }
 
         for (const opt of item.options ?? []) {
+          const optId = optIdFromEn(opt.name);
+
           await prisma.menuItemOption.upsert({
-            where: {
-              menuItemId_optionId: { menuItemId, optionId: opt.id },
-            },
+            where: { menuItemId_optionId: { menuItemId, optionId: optId } },
             create: {
               menuItemId,
-              optionId: opt.id,
+              optionId: optId,
               multiple: opt.multiple ?? false,
               required: opt.required ?? false,
             },
@@ -164,15 +204,17 @@ async function main() {
           });
 
           await prisma.menuItemChoice.deleteMany({
-            where: { menuItemId, optionId: opt.id },
+            where: { menuItemId, optionId: optId },
           });
 
           for (const ch of opt.choices ?? []) {
+            const chId = choiceIdFromEn(opt.name, ch.name);
+
             await prisma.menuItemChoice.create({
               data: {
                 menuItemId,
-                optionId: opt.id,
-                choiceId: ch.id,
+                optionId: optId,
+                choiceId: chId,
                 extraCost: ch.extraCost ?? 0,
                 isActive: ch.isActive ?? true,
                 isShared: ch.isShared ?? false,
@@ -185,8 +227,8 @@ async function main() {
               await prisma.choiceRecipe.create({
                 data: {
                   menuItemId,
-                  optionId: opt.id,
-                  choiceId: ch.id,
+                  optionId: optId,
+                  choiceId: chId,
                   recipeItemId: r.id,
                   usage: r.usage,
                 },
