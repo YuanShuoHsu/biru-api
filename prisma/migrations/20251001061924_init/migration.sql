@@ -4,7 +4,7 @@ CREATE TYPE "public"."Role" AS ENUM ('admin', 'manager', 'staff', 'user');
 -- CreateTable
 CREATE TABLE "public"."Menu" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "storeId" TEXT NOT NULL,
@@ -15,9 +15,9 @@ CREATE TABLE "public"."Menu" (
 -- CreateTable
 CREATE TABLE "public"."MenuItem" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "description" JSONB NOT NULL,
+    "description" JSONB NOT NULL DEFAULT '{}',
     "imageUrl" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "price" INTEGER NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE "public"."MenuItem" (
 -- CreateTable
 CREATE TABLE "public"."Option" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -42,7 +42,7 @@ CREATE TABLE "public"."Option" (
 -- CreateTable
 CREATE TABLE "public"."Choice" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "optionId" TEXT NOT NULL,
@@ -77,9 +77,9 @@ CREATE TABLE "public"."MenuItemChoice" (
 -- CreateTable
 CREATE TABLE "public"."RecipeItem" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "unit" JSONB NOT NULL,
+    "unit" JSONB NOT NULL DEFAULT '{}',
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "RecipeItem_pkey" PRIMARY KEY ("id")
@@ -119,12 +119,25 @@ CREATE TABLE "public"."Post" (
 -- CreateTable
 CREATE TABLE "public"."Store" (
     "id" TEXT NOT NULL,
-    "name" JSONB NOT NULL,
+    "name" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "slug" TEXT NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Store_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."Table" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "slug" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "storeId" TEXT NOT NULL,
+
+    CONSTRAINT "Table_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -158,6 +171,15 @@ CREATE INDEX "MenuItemRecipe_recipeItemId_idx" ON "public"."MenuItemRecipe"("rec
 
 -- CreateIndex
 CREATE INDEX "ChoiceRecipe_recipeItemId_idx" ON "public"."ChoiceRecipe"("recipeItemId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Store_slug_key" ON "public"."Store"("slug");
+
+-- CreateIndex
+CREATE INDEX "Table_storeId_idx" ON "public"."Table"("storeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Table_storeId_slug_key" ON "public"."Table"("storeId", "slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
@@ -197,3 +219,6 @@ ALTER TABLE "public"."ChoiceRecipe" ADD CONSTRAINT "ChoiceRecipe_recipeItemId_fk
 
 -- AddForeignKey
 ALTER TABLE "public"."Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."Table" ADD CONSTRAINT "Table_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
