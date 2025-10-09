@@ -1,236 +1,196 @@
-import { v5 as uuidv5 } from 'uuid';
-
 import { Prisma, PrismaClient } from '@prisma/client';
 
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
 import { tables } from './data/tables.data';
 
-import type { LocalizedText } from './types/locale.types';
-
 const prisma = new PrismaClient();
-
-const v5MenuId = (storeId: string, menuId: string) => uuidv5(storeId, menuId);
-const v5MenuItemId = (storeId: string, menuItemId: string) =>
-  uuidv5(storeId, menuItemId);
-
-const optIdFromEn = (name: LocalizedText) => {
-  const optEn = name?.['en'];
-  if (!optEn)
-    throw new Error(`Option name missing 'en': ${JSON.stringify(name)}`);
-
-  return uuidv5(`biru:opt:${optEn}`, uuidv5.URL);
-};
-
-const choiceIdFromEn = (optName: LocalizedText, chName: LocalizedText) => {
-  const optEn = optName?.['en'];
-  const chEn = chName?.['en'];
-  if (!optEn || !chEn) throw new Error('Missing en on option/choice');
-
-  return uuidv5(`biru:cho:${optEn}:${chEn}`, uuidv5.URL);
-};
-
-async function upsertOption(optionId: string, name: Prisma.InputJsonValue) {
-  await prisma.option.upsert({
-    where: { id: optionId },
-    create: { id: optionId, name },
-    update: { name },
-  });
-}
-
-async function upsertChoice(
-  optionId: string,
-  choiceId: string,
-  name: Prisma.InputJsonValue,
-) {
-  await prisma.choice.upsert({
-    where: { id: choiceId },
-    create: { id: choiceId, name, optionId },
-    update: { name, optionId },
-  });
-}
-
-async function upsertRecipeItem(ri: {
-  id: string;
-  name: Prisma.InputJsonValue;
-  unit: Prisma.InputJsonValue;
-}) {
-  await prisma.recipeItem.upsert({
-    where: { id: ri.id },
-    create: { id: ri.id, name: ri.name, unit: ri.unit },
-    update: { name: ri.name, unit: ri.unit },
-  });
-}
 
 async function main() {
   for (const s of stores) {
-    await prisma.store.upsert({
-      where: { id: s.id },
+    const store = await prisma.store.upsert({
+      where: { slug: s.slug },
       create: {
         id: s.id,
         name: s.name,
-        isActive: true,
+        createdAt: s.createdAt,
+        isActive: s.isActive,
         slug: s.slug,
+        updatedAt: s.updatedAt,
       },
       update: {
         name: s.name,
-        isActive: true,
-        slug: s.slug,
+        isActive: s.isActive,
       },
     });
-  }
 
-  for (const s of stores) {
     for (const t of tables) {
       await prisma.table.upsert({
         where: {
-          storeId_slug: { storeId: s.id, slug: t.slug },
+          storeId_slug: {
+            storeId: store.id,
+            slug: t.slug,
+          },
         },
         create: {
-          storeId: s.id,
+          storeId: store.id,
+          name: t.name,
           slug: t.slug,
-          isActive: t.isActive ?? true,
+          isActive: t.isActive,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
         },
         update: {
-          isActive: t.isActive ?? true,
-          slug: t.slug,
+          name: t.name,
+          isActive: t.isActive,
         },
       });
     }
-  }
 
-  for (const menu of menus) {
-    for (const item of menu.items) {
-      for (const ri of item.recipes ?? []) {
-        await upsertRecipeItem({
-          id: ri.id,
-          name: ri.name,
-          unit: ri.unit,
-        });
-      }
-
-      for (const opt of item.options ?? []) {
-        const optId = optIdFromEn(opt.name);
-        await upsertOption(optId, opt.name);
-
-        for (const ch of opt.choices ?? []) {
-          const chId = choiceIdFromEn(opt.name, ch.name);
-          await upsertChoice(optId, chId, ch.name);
-
-          for (const ri of ch.recipes ?? []) {
-            await upsertRecipeItem({
-              id: ri.id,
-              name: ri.name,
-              unit: ri.unit,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  for (const store of stores) {
-    for (const menu of menus) {
-      const menuId = v5MenuId(store.id, menu.id);
-
-      await prisma.menu.upsert({
-        where: { id: menuId },
+    for (const m of menus) {
+      const menu = await prisma.menu.upsert({
+        where: { storeId_key: { storeId: store.id, key: m.key } },
         create: {
-          id: menuId,
-          name: menu.name,
+          key: m.key,
+          name: m.name,
+          createdAt: m.createdAt,
+          isActive: m.isActive,
+          updatedAt: m.updatedAt,
           storeId: store.id,
         },
         update: {
-          name: menu.name,
-          storeId: store.id,
+          name: m.name,
+          isActive: m.isActive,
         },
+        select: { id: true, key: true },
       });
 
-      for (const item of menu.items) {
-        const menuItemId = v5MenuItemId(store.id, item.id);
-
-        await prisma.menuItem.upsert({
-          where: { id: menuItemId },
+      for (const mi of m.items) {
+        const menuItem = await prisma.menuItem.upsert({
+          where: { menuId_key: { menuId: menu.id, key: mi.key } },
           create: {
-            id: menuItemId,
-            name: item.name,
-            description: item.description,
-            imageUrl: item.imageUrl,
-            isActive: item.isActive,
-            price: item.price,
-            sold: item.sold ?? 0,
-            stock: item.stock ?? null,
-            menuId,
+            key: mi.key,
+            name: mi.name,
+            createdAt: mi.createdAt,
+            description: mi.description,
+            imageUrl: mi.imageUrl,
+            isActive: mi.isActive,
+            price: mi.price,
+            sold: mi.sold,
+            stock: mi.stock,
+            updatedAt: mi.updatedAt,
+            menuId: menu.id,
           },
           update: {
-            name: item.name,
-            description: item.description,
-            imageUrl: item.imageUrl,
-            isActive: item.isActive,
-            price: item.price,
-            sold: item.sold ?? 0,
-            stock: item.stock ?? null,
+            name: mi.name,
+            description: mi.description,
+            imageUrl: mi.imageUrl,
+            isActive: mi.isActive,
+            price: mi.price,
+            sold: mi.sold,
+            stock: mi.stock,
           },
+          select: { id: true, key: true },
         });
 
-        await prisma.menuItemRecipe.deleteMany({
-          where: { menuItemId },
-        });
-        for (const r of item.recipes ?? []) {
-          await prisma.menuItemRecipe.create({
-            data: {
-              menuItemId,
-              recipeItemId: r.id,
-              usage: r.usage,
+        for (const ing of mi.ingredients) {
+          await prisma.menuItemIngredient.upsert({
+            where: {
+              menuItemId_key: { menuItemId: menuItem.id, key: ing.key },
+            },
+            create: {
+              key: ing.key,
+              name: ing.name,
+              unit: ing.unit,
+              usage: new Prisma.Decimal(ing.usage),
+              createdAt: ing.createdAt,
+              updatedAt: ing.updatedAt,
+              menuItemId: menuItem.id,
+            },
+            update: {
+              name: ing.name,
+              unit: ing.unit,
+              usage: new Prisma.Decimal(ing.usage),
             },
           });
         }
 
-        for (const opt of item.options ?? []) {
-          const optId = optIdFromEn(opt.name);
-
-          await prisma.menuItemOption.upsert({
-            where: { menuItemId_optionId: { menuItemId, optionId: optId } },
+        for (const opt of mi.options) {
+          const option = await prisma.menuItemOption.upsert({
+            where: {
+              menuItemId_key: { menuItemId: menuItem.id, key: opt.key },
+            },
             create: {
-              menuItemId,
-              optionId: optId,
-              multiple: opt.multiple ?? false,
-              required: opt.required ?? false,
+              key: opt.key,
+              name: opt.name,
+              createdAt: opt.createdAt,
+              isActive: opt.isActive,
+              multiple: opt.multiple,
+              required: opt.required,
+              updatedAt: opt.updatedAt,
+              menuItemId: menuItem.id,
             },
             update: {
-              multiple: opt.multiple ?? false,
-              required: opt.required ?? false,
+              name: opt.name,
+              isActive: opt.isActive,
+              multiple: opt.multiple,
+              required: opt.required,
             },
+            select: { id: true, key: true },
           });
 
-          await prisma.menuItemChoice.deleteMany({
-            where: { menuItemId, optionId: optId },
-          });
-
-          for (const ch of opt.choices ?? []) {
-            const chId = choiceIdFromEn(opt.name, ch.name);
-
-            await prisma.menuItemChoice.create({
-              data: {
-                menuItemId,
-                optionId: optId,
-                choiceId: chId,
-                extraCost: ch.extraCost ?? 0,
-                isActive: ch.isActive ?? true,
-                isShared: ch.isShared ?? false,
-                sold: ch.sold ?? 0,
-                stock: ch.stock ?? null,
+          for (const ch of opt.choices) {
+            const choice = await prisma.menuItemOptionChoice.upsert({
+              where: {
+                menuItemOptionId_key: {
+                  menuItemOptionId: option.id,
+                  key: ch.key,
+                },
               },
+              create: {
+                key: ch.key,
+                name: ch.name,
+                createdAt: ch.createdAt,
+                extraCost: ch.extraCost,
+                isActive: ch.isActive,
+                isShared: ch.isShared,
+                sold: ch.sold,
+                stock: ch.stock,
+                updatedAt: ch.updatedAt,
+                menuItemOptionId: option.id,
+              },
+              update: {
+                name: ch.name,
+                extraCost: ch.extraCost,
+                isActive: ch.isActive,
+                isShared: ch.isShared,
+                sold: ch.sold,
+                stock: ch.stock,
+              },
+              select: { id: true, key: true },
             });
 
-            for (const r of ch.recipes ?? []) {
-              await prisma.choiceRecipe.create({
-                data: {
-                  menuItemId,
-                  optionId: optId,
-                  choiceId: chId,
-                  recipeItemId: r.id,
-                  usage: r.usage,
+            for (const cing of ch.ingredients) {
+              await prisma.menuItemOptionChoiceIngredient.upsert({
+                where: {
+                  menuItemOptionChoiceId_key: {
+                    menuItemOptionChoiceId: choice.id,
+                    key: cing.key,
+                  },
+                },
+                create: {
+                  key: cing.key,
+                  name: cing.name,
+                  unit: cing.unit,
+                  usage: new Prisma.Decimal(cing.usage),
+                  createdAt: cing.createdAt,
+                  updatedAt: cing.updatedAt,
+                  menuItemOptionChoiceId: choice.id,
+                },
+                update: {
+                  name: cing.name,
+                  unit: cing.unit,
+                  usage: new Prisma.Decimal(cing.usage),
                 },
               });
             }

@@ -1,29 +1,58 @@
 import { Injectable } from '@nestjs/common';
 
-import { CreateMenuDto } from './dto/create-menu.dto';
-import { UpdateMenuDto } from './dto/update-menu.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class MenusService {
-  create(createMenuDto: CreateMenuDto) {
-    console.log(createMenuDto);
-    return 'This action adds a new menu';
+  constructor(private readonly prisma: PrismaService) {}
+  // create(createMenuDto: CreateMenuDto) {
+  //   console.log(createMenuDto);
+  //   return 'This action adds a new menu';
+  // }
+
+  findAll(storeId: string) {
+    return this.prisma.menu.findMany({
+      where: { storeId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        menuItems: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+          include: {
+            menuItemIngredients: {
+              orderBy: { createdAt: 'asc' },
+            },
+            menuItemOptions: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+              include: {
+                menuItemOptionChoices: {
+                  where: { isActive: true },
+                  orderBy: { createdAt: 'asc' },
+                  include: {
+                    menuItemOptionChoiceIngredients: {
+                      orderBy: { createdAt: 'asc' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
-  findAll() {
-    return `This action returns all menus`;
-  }
+  // findOne(id: number) {
+  //   return `This action returns a #${id} menu`;
+  // }
 
-  findOne(id: number) {
-    return `This action returns a #${id} menu`;
-  }
+  // update(id: number, updateMenuDto: UpdateMenuDto) {
+  //   console.log(updateMenuDto);
+  //   return `This action updates a #${id} menu`;
+  // }
 
-  update(id: number, updateMenuDto: UpdateMenuDto) {
-    console.log(updateMenuDto);
-    return `This action updates a #${id} menu`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} menu`;
-  }
+  // remove(id: number) {
+  //   return `This action removes a #${id} menu`;
+  // }
 }

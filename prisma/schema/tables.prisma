@@ -1,8 +1,9 @@
 model Table {
     id        String   @id @default(uuid())
+    name      Json     @default("{}")
     createdAt DateTime @default(now())
     isActive  Boolean  @default(true)
-    slug      String
+    slug      String   @db.VarChar(64)
     updatedAt DateTime @updatedAt
 
     storeId String

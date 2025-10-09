@@ -1,7 +1,8 @@
 import type { LocalizedText } from './locale.types';
 
-interface RecipeItem {
+interface Ingredient {
   id: string;
+  key: string;
   name: LocalizedText;
   createdAt: Date;
   unit: LocalizedText;
@@ -11,12 +12,13 @@ interface RecipeItem {
 
 interface Choice {
   id: string;
+  key: string;
   name: LocalizedText;
   createdAt: Date;
   extraCost: number;
+  ingredients: Ingredient[];
   isActive: boolean;
   isShared: boolean;
-  recipes: RecipeItem[];
   sold: number;
   stock: number | null;
   updatedAt: Date;
@@ -24,9 +26,11 @@ interface Choice {
 
 interface Option {
   id: string;
+  key: string;
   name: LocalizedText;
   choices: Choice[];
   createdAt: Date;
+  isActive: boolean;
   multiple: boolean;
   required: boolean;
   updatedAt: Date;
@@ -34,14 +38,15 @@ interface Option {
 
 interface MenuItem {
   id: string;
+  key: string;
   name: LocalizedText;
   createdAt: Date;
   description: LocalizedText;
   imageUrl: string;
+  ingredients: Ingredient[];
   isActive: boolean;
   options: Option[];
   price: number;
-  recipes: RecipeItem[];
   sold: number;
   stock: number | null;
   updatedAt: Date;
@@ -49,8 +54,10 @@ interface MenuItem {
 
 export interface Menu {
   id: string;
+  key: string;
   name: LocalizedText;
   createdAt: Date;
+  isActive: boolean;
   items: MenuItem[];
   updatedAt: Date;
 }

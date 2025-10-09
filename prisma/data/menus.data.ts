@@ -4,6 +4,7 @@ import { Menu } from 'prisma/types/menus.types';
 export const menus: Menu[] = [
   {
     id: randomUUID(),
+    key: 'coffee',
     name: {
       'zh-TW': '咖啡',
       en: 'Coffee',
@@ -12,9 +13,11 @@ export const menus: Menu[] = [
       'zh-CN': '咖啡',
     },
     createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
     items: [
       {
         id: randomUUID(),
+        key: 'classic-latte',
         name: {
           'zh-TW': '經典拿鐵',
           en: 'Classic Latte',
@@ -35,6 +38,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'size',
             name: {
               'zh-TW': '尺寸',
               en: 'Size',
@@ -45,6 +49,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'm',
                 name: {
                   'zh-TW': 'M',
                   en: 'M',
@@ -56,9 +61,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'milk',
                     name: {
                       'zh-TW': '牛奶',
                       en: 'Milk',
@@ -84,6 +90,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'l',
                 name: {
                   'zh-TW': 'L',
                   en: 'L',
@@ -95,9 +102,10 @@ export const menus: Menu[] = [
                 extraCost: 20,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'milk',
                     name: {
                       'zh-TW': '牛奶',
                       en: 'Milk',
@@ -123,12 +131,14 @@ export const menus: Menu[] = [
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
           {
             id: randomUUID(),
+            key: 'sweetness',
             name: {
               'zh-TW': '甜度',
               en: 'Sweetness',
@@ -139,6 +149,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'no-sugar',
                 name: {
                   'zh-TW': '無糖',
                   en: 'No Sugar',
@@ -150,13 +161,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 10,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'less-sugar',
                 name: {
                   'zh-TW': '少糖',
                   en: 'Less Sugar',
@@ -168,9 +180,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -196,6 +209,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'regular',
                 name: {
                   'zh-TW': '正常',
                   en: 'Regular',
@@ -207,9 +221,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -235,12 +250,14 @@ export const menus: Menu[] = [
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
           {
             id: randomUUID(),
+            key: 'ice-level',
             name: {
               'zh-TW': '冰塊',
               en: 'Ice Level',
@@ -251,6 +268,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'regular-ice',
                 name: {
                   'zh-TW': '正常',
                   en: 'Regular Ice',
@@ -262,9 +280,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -290,6 +309,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'less-ice',
                 name: {
                   'zh-TW': '去冰',
                   en: 'Less Ice',
@@ -301,13 +321,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 2,
                 stock: 0,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'hot',
                 name: {
                   'zh-TW': '熱飲',
                   en: 'Hot',
@@ -319,19 +340,21 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 6,
                 stock: null,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
           {
             id: randomUUID(),
+            key: 'toppings',
             name: {
               'zh-TW': '加料',
               en: 'Toppings',
@@ -342,6 +365,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'pearls',
                 name: {
                   'zh-TW': '珍珠',
                   en: 'Pearls',
@@ -353,13 +377,14 @@ export const menus: Menu[] = [
                 extraCost: 10,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 8,
                 stock: 0,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'pudding',
                 name: {
                   'zh-TW': '布丁',
                   en: 'Pudding',
@@ -371,26 +396,28 @@ export const menus: Menu[] = [
                 extraCost: 15,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 10,
                 stock: 0,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: true,
             required: false,
             updatedAt: new Date(),
           },
         ],
         price: 120,
-        recipes: [],
+        ingredients: [],
         sold: 4,
         stock: null,
         updatedAt: new Date(),
       },
       {
         id: randomUUID(),
+        key: 'caramel-macchiato',
         name: {
           'zh-TW': '焦糖瑪奇朵',
           en: 'Caramel Macchiato',
@@ -411,6 +438,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'size',
             name: {
               'zh-TW': '尺寸',
               en: 'Size',
@@ -421,6 +449,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'm',
                 name: {
                   'zh-TW': 'M',
                   en: 'M',
@@ -432,13 +461,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 10,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'l',
                 name: {
                   'zh-TW': 'L',
                   en: 'L',
@@ -450,19 +480,21 @@ export const menus: Menu[] = [
                 extraCost: 20,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 5,
                 stock: null,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
           {
             id: randomUUID(),
+            key: 'sweetness',
             name: {
               'zh-TW': '甜度',
               en: 'Sweetness',
@@ -473,6 +505,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'no-sugar',
                 name: {
                   'zh-TW': '無糖',
                   en: 'No Sugar',
@@ -484,13 +517,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 6,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'less-sugar',
                 name: {
                   'zh-TW': '少糖',
                   en: 'Less Sugar',
@@ -502,9 +536,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -530,6 +565,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'regular',
                 name: {
                   'zh-TW': '正常',
                   en: 'Regular',
@@ -541,9 +577,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -569,13 +606,14 @@ export const menus: Menu[] = [
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
         ],
         price: 130,
-        recipes: [],
+        ingredients: [],
         sold: 5,
         stock: 2,
         updatedAt: new Date(),
@@ -585,6 +623,7 @@ export const menus: Menu[] = [
   },
   {
     id: randomUUID(),
+    key: 'tea',
     name: {
       'zh-TW': '茶飲',
       en: 'Tea',
@@ -593,9 +632,11 @@ export const menus: Menu[] = [
       'zh-CN': '茶饮',
     },
     createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
     items: [
       {
         id: randomUUID(),
+        key: 'jasmine-green-tea',
         name: {
           'zh-TW': '茉香綠茶',
           en: 'Jasmine Green Tea',
@@ -616,6 +657,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'ice-level',
             name: {
               'zh-TW': '冰塊',
               en: 'Ice Level',
@@ -626,6 +668,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'regular-ice',
                 name: {
                   'zh-TW': '正常',
                   en: 'Regular Ice',
@@ -637,9 +680,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -665,6 +709,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'less-ice',
                 name: {
                   'zh-TW': '去冰',
                   en: 'Less Ice',
@@ -676,13 +721,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 8,
                 stock: 0,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'hot',
                 name: {
                   'zh-TW': '熱飲',
                   en: 'Hot',
@@ -694,26 +740,28 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 9,
                 stock: null,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
         ],
         price: 80,
-        recipes: [],
+        ingredients: [],
         sold: 9,
         stock: 20,
         updatedAt: new Date(),
       },
       {
         id: randomUUID(),
+        key: 'earl-grey-milk-tea',
         name: {
           'zh-TW': '伯爵鮮奶茶',
           en: 'Earl Grey Milk Tea',
@@ -734,6 +782,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'size',
             name: {
               'zh-TW': '尺寸',
               en: 'Size',
@@ -744,6 +793,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'm',
                 name: {
                   'zh-TW': 'M',
                   en: 'M',
@@ -755,13 +805,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 7,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'l',
                 name: {
                   'zh-TW': 'L',
                   en: 'L',
@@ -773,19 +824,21 @@ export const menus: Menu[] = [
                 extraCost: 20,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 9,
                 stock: null,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
           {
             id: randomUUID(),
+            key: 'sweetness',
             name: {
               'zh-TW': '甜度',
               en: 'Sweetness',
@@ -796,6 +849,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'no-sugar',
                 name: {
                   'zh-TW': '無糖',
                   en: 'No Sugar',
@@ -807,13 +861,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 8,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'less-sugar',
                 name: {
                   'zh-TW': '少糖',
                   en: 'Less Sugar',
@@ -825,9 +880,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -853,6 +909,7 @@ export const menus: Menu[] = [
               },
               {
                 id: randomUUID(),
+                key: 'regular',
                 name: {
                   'zh-TW': '正常',
                   en: 'Regular',
@@ -864,9 +921,10 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [
+                ingredients: [
                   {
                     id: randomUUID(),
+                    key: 'syrup',
                     name: {
                       'zh-TW': '糖漿',
                       en: 'Syrup',
@@ -892,13 +950,14 @@ export const menus: Menu[] = [
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
         ],
         price: 110,
-        recipes: [],
+        ingredients: [],
         sold: 3,
         stock: 5,
         updatedAt: new Date(),
@@ -908,6 +967,7 @@ export const menus: Menu[] = [
   },
   {
     id: randomUUID(),
+    key: 'signature-drinks',
     name: {
       'zh-TW': '招牌特調',
       en: 'Signature Drinks',
@@ -916,9 +976,11 @@ export const menus: Menu[] = [
       'zh-CN': '招牌特调',
     },
     createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
     items: [
       {
         id: randomUUID(),
+        key: 'fruit-sparkling-drink',
         name: {
           'zh-TW': '水果氣泡飲',
           en: 'Fruit Sparkling Drink',
@@ -939,6 +1001,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'toppings',
             name: {
               'zh-TW': '加料',
               en: 'Toppings',
@@ -949,6 +1012,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'chia-seeds',
                 name: {
                   'zh-TW': '奇亞籽',
                   en: 'Chia Seeds',
@@ -960,13 +1024,14 @@ export const menus: Menu[] = [
                 extraCost: 10,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 10,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'mint',
                 name: {
                   'zh-TW': '薄荷',
                   en: 'Mint',
@@ -978,13 +1043,14 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 6,
                 stock: null,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'pudding',
                 name: {
                   'zh-TW': '布丁',
                   en: 'Pudding',
@@ -996,26 +1062,28 @@ export const menus: Menu[] = [
                 extraCost: 15,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 10,
                 stock: 0,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: true,
             required: false,
             updatedAt: new Date(),
           },
         ],
         price: 140,
-        recipes: [],
+        ingredients: [],
         sold: 2,
         stock: 3,
         updatedAt: new Date(),
       },
       {
         id: randomUUID(),
+        key: 'matcha-sparkling-latte',
         name: {
           'zh-TW': '抹茶氣泡拿鐵',
           en: 'Matcha Sparkling Latte',
@@ -1036,6 +1104,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'size',
             name: {
               'zh-TW': '尺寸',
               en: 'Size',
@@ -1046,6 +1115,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'l',
                 name: {
                   'zh-TW': 'L',
                   en: 'L',
@@ -1057,20 +1127,21 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: false,
-                recipes: [],
+                ingredients: [],
                 sold: 4,
                 stock: null,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: false,
             required: true,
             updatedAt: new Date(),
           },
         ],
         price: 150,
-        recipes: [],
+        ingredients: [],
         sold: 7,
         stock: 6,
         updatedAt: new Date(),
@@ -1080,6 +1151,7 @@ export const menus: Menu[] = [
   },
   {
     id: randomUUID(),
+    key: 'pastries',
     name: {
       'zh-TW': '甜點',
       en: 'Pastries',
@@ -1088,9 +1160,11 @@ export const menus: Menu[] = [
       'zh-CN': '甜点',
     },
     createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
     items: [
       {
         id: randomUUID(),
+        key: 'classic-croissant',
         name: {
           'zh-TW': '經典可頌',
           en: 'Classic Croissant',
@@ -1110,13 +1184,14 @@ export const menus: Menu[] = [
         isActive: true,
         options: [],
         price: 60,
-        recipes: [],
+        ingredients: [],
         sold: 2,
         stock: 8,
         updatedAt: new Date(),
       },
       {
         id: randomUUID(),
+        key: 'chocolate-cake',
         name: {
           'zh-TW': '巧克力蛋糕',
           en: 'Chocolate Cake',
@@ -1136,7 +1211,7 @@ export const menus: Menu[] = [
         isActive: true,
         options: [],
         price: 90,
-        recipes: [],
+        ingredients: [],
         sold: 4,
         stock: 2,
         updatedAt: new Date(),
@@ -1146,6 +1221,7 @@ export const menus: Menu[] = [
   },
   {
     id: randomUUID(),
+    key: 'snacks',
     name: {
       'zh-TW': '輕食',
       en: 'Snacks',
@@ -1154,9 +1230,11 @@ export const menus: Menu[] = [
       'zh-CN': '轻食',
     },
     createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
     items: [
       {
         id: randomUUID(),
+        key: 'ham-cheese-sandwich',
         name: {
           'zh-TW': '火腿起司三明治',
           en: 'Ham & Cheese Sandwich',
@@ -1177,6 +1255,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'toppings',
             name: {
               'zh-TW': '加料',
               en: 'Toppings',
@@ -1187,6 +1266,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'tomato',
                 name: {
                   'zh-TW': '番茄',
                   en: 'Tomato',
@@ -1198,13 +1278,14 @@ export const menus: Menu[] = [
                 extraCost: 5,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 3,
                 stock: 4,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'lettuce',
                 name: {
                   'zh-TW': '生菜',
                   en: 'Lettuce',
@@ -1216,26 +1297,28 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 7,
                 stock: 5,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: true,
             required: false,
             updatedAt: new Date(),
           },
         ],
         price: 150,
-        recipes: [],
+        ingredients: [],
         sold: 8,
         stock: 0,
         updatedAt: new Date(),
       },
       {
         id: randomUUID(),
+        key: 'chicken-salad',
         name: {
           'zh-TW': '雞肉沙拉',
           en: 'Chicken Salad',
@@ -1256,6 +1339,7 @@ export const menus: Menu[] = [
         options: [
           {
             id: randomUUID(),
+            key: 'toppings',
             name: {
               'zh-TW': '加料',
               en: 'Toppings',
@@ -1266,6 +1350,7 @@ export const menus: Menu[] = [
             choices: [
               {
                 id: randomUUID(),
+                key: 'tomato',
                 name: {
                   'zh-TW': '番茄',
                   en: 'Tomato',
@@ -1277,13 +1362,14 @@ export const menus: Menu[] = [
                 extraCost: 5,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 3,
                 stock: 5,
                 updatedAt: new Date(),
               },
               {
                 id: randomUUID(),
+                key: 'lettuce',
                 name: {
                   'zh-TW': '生菜',
                   en: 'Lettuce',
@@ -1295,20 +1381,21 @@ export const menus: Menu[] = [
                 extraCost: 0,
                 isActive: true,
                 isShared: true,
-                recipes: [],
+                ingredients: [],
                 sold: 7,
                 stock: 5,
                 updatedAt: new Date(),
               },
             ],
             createdAt: new Date('2024-06-01T00:00:00Z'),
+            isActive: true,
             multiple: true,
             required: false,
             updatedAt: new Date(),
           },
         ],
         price: 160,
-        recipes: [],
+        ingredients: [],
         sold: 5,
         stock: 8,
         updatedAt: new Date(),
