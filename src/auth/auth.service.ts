@@ -31,11 +31,11 @@ export class AuthService {
     email,
     firstName,
     lastName,
-    picture,
-  }: Pick<
-    User,
-    'email' | 'firstName' | 'lastName' | 'picture'
-  >): Promise<User | null> {
+    photo,
+  }: Pick<User, 'email'> &
+    Partial<
+      Pick<User, 'firstName' | 'lastName' | 'photo'>
+    >): Promise<User | null> {
     if (!email) return null;
 
     let user = await this.usersService.user({ email });
@@ -46,7 +46,7 @@ export class AuthService {
         firstName,
         lastName,
         password: '',
-        picture,
+        photo,
         provider: 'google',
       });
     }

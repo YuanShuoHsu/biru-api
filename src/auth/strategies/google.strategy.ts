@@ -24,16 +24,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: Profile,
+    { emails, name, photos }: Profile,
   ): Promise<User> {
-    const email = profile.emails?.[0]?.value;
+    const email = emails?.[0]?.value;
     if (!email) throw new UnauthorizedException();
 
     const user = await this.authService.validateGoogleUser({
       email,
-      firstName: profile.name?.givenName ?? '',
-      lastName: profile.name?.familyName ?? '',
-      picture: profile.photos?.[0].value ?? '',
+      firstName: name?.givenName,
+      lastName: name?.familyName,
+      photo: photos?.[0].value,
     });
     if (!user) throw new UnauthorizedException();
 

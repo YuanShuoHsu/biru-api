@@ -60,6 +60,20 @@ $ pnpm run start
 }
 ```
 
+CLI Plugin
+
+```bash
+# https://docs.nestjs.com/openapi/cli-plugin
+
+{
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "plugins": ["@nestjs/swagger"]
+  }
+}
+```
+
 ## Controllers
 
 ```bash

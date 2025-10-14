@@ -1,20 +1,26 @@
-import { IsDefined, IsEmail, IsOptional, IsString } from 'class-validator';
-
 import { ApiProperty } from '@nestjs/swagger';
 
+import { IsEmail, Matches, MinLength } from 'class-validator';
+
 export class CreateUserDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsDefined()
+  @ApiProperty({
+    description: '電子郵件',
+    example: 'birucoffee@example.com',
+  })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'password123' })
-  @IsDefined()
-  @IsString()
-  password: string;
+  @ApiProperty({ description: '名', example: 'Coffee' })
+  firstName: string;
 
-  @ApiProperty({ example: 'Biru', required: false })
-  @IsOptional()
-  @IsString()
-  name?: string;
+  @ApiProperty({ description: '姓', example: 'Biru' })
+  lastName: string;
+
+  @ApiProperty({
+    description: '密碼（至少 8 碼，需包含英文字母與數字）',
+    example: 'password123',
+  })
+  @MinLength(8)
+  @Matches(/^(?=.*[a-zA-Z])(?=.*\d).{8,}$/)
+  password: string;
 }

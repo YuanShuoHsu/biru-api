@@ -14,10 +14,10 @@ model User {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   email     String   @unique
-  firstName String?
-  lastName  String?
+  firstName String   @default("")
+  lastName  String   @default("")
   password  String
-  picture   String?
+  photo     String   @default("/images/IMG_4590.jpg")
   posts     Post[]
   provider  Provider @default(local)
   role      Role     @default(user)
