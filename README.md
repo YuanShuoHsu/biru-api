@@ -228,12 +228,16 @@ void bootstrap();
 
 ```bash
 # https://docs.nestjs.com/recipes/passport
+# https://www.passportjs.org/packages/passport-google-oauth20/
 
 pnpm add @nestjs/passport passport passport-local
 pnpm add -D @types/passport-local
 
 pnpm add @nestjs/jwt passport-jwt
 pnpm add -D @types/passport-jwt
+
+pnpm add passport-google-oauth20
+pnpm add -D @types/passport-google-oauth20
 ```
 
 ## Prisma

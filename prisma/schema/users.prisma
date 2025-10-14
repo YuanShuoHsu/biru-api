@@ -1,3 +1,8 @@
+enum Provider {
+  local
+  google
+}
+
 enum Role {
   admin
   manager
@@ -6,10 +11,15 @@ enum Role {
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  name     String?
-  password String
-  role     Role    @default(user)
-  posts    Post[]
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  password  String
+  picture   String?
+  posts     Post[]
+  provider  Provider @default(local)
+  role      Role     @default(user)
+  updatedAt DateTime @updatedAt
 }

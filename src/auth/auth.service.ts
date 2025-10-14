@@ -1,11 +1,10 @@
-import * as bcrypt from 'bcrypt';
-
-import { UsersService } from '../users/users.service';
-
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
+import * as bcrypt from 'bcrypt';
+
 import { User } from '@prisma/client';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +25,33 @@ export class AuthService {
     if (!isMatch) return null;
 
     return result;
+  }
+
+  async validateGoogleUser({
+    email,
+    firstName,
+    lastName,
+    picture,
+  }: Pick<
+    User,
+    'email' | 'firstName' | 'lastName' | 'picture'
+  >): Promise<User | null> {
+    if (!email) return null;
+
+    let user = await this.usersService.user({ email });
+
+    if (!user) {
+      user = await this.usersService.createUser({
+        email,
+        firstName,
+        lastName,
+        password: '',
+        picture,
+        provider: 'google',
+      });
+    }
+
+    return user;
   }
 
   async login(user: Omit<User, 'password'>): Promise<{ access_token: string }> {

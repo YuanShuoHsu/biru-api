@@ -1,18 +1,13 @@
-import { AuthService } from './auth.service';
-
-import { Public } from './decorators/public.decorator';
-
-import { CreateAuthDto } from './dto/create-auth.dto';
-
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
-
-import { RequestWithUser } from './types';
-
-import { ApiCreateResponse } from '../common/decorators/api-response.decorator';
-
 import { Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation } from '@nestjs/swagger';
+
+import { AuthService } from './auth.service';
+import { Public } from './decorators/public.decorator';
+import { CreateAuthDto } from './dto/create-auth.dto';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import { RequestWithUser } from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -23,7 +18,6 @@ export class AuthController {
   @Post('login')
   @ApiOperation({ summary: '登入並取得 JWT' })
   @ApiBody({ type: CreateAuthDto })
-  @ApiCreateResponse()
   async login(@Request() req: RequestWithUser) {
     return this.authService.login(req.user);
   }
@@ -32,5 +26,17 @@ export class AuthController {
   @Get('profile')
   getProfile(@Request() req: RequestWithUser) {
     return req.user;
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleOAuthGuard)
+  async googleLogin() {}
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthGuard)
+  googleLoginCallback(@Request() req: RequestWithUser) {
+    return this.authService.login(req.user);
   }
 }
