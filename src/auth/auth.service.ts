@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { Provider, User } from '@prisma/client';
 
 import { UsersService } from 'src/users/users.service';
 
@@ -51,8 +51,8 @@ export class AuthService {
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
         ...(photo ? { photo } : {}),
-        provider: 'google',
         password: tempPassword,
+        provider: Provider.google,
       });
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
