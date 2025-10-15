@@ -1,11 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-
 import { Provider, Role } from '@prisma/client';
+
 import { IsEmail, IsUrl } from 'class-validator';
 
 export class User {
   @ApiProperty({ description: '使用者 ID', example: 1 })
   id: number;
+
+  @ApiProperty({
+    description: '建立時間',
+    example: '2025-10-14T12:34:56.000Z',
+  })
+  createdAt: Date;
 
   @ApiProperty({
     description: '電子郵件',
@@ -46,12 +52,6 @@ export class User {
     example: Role.user,
   })
   role: Role;
-
-  @ApiProperty({
-    description: '建立時間',
-    example: '2025-10-14T12:34:56.000Z',
-  })
-  createdAt: Date;
 
   @ApiProperty({
     description: '最後更新時間',
