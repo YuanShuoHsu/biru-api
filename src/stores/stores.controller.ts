@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiOperation } from '@nestjs/swagger';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -16,6 +17,7 @@ export class StoresController {
   // }
 
   @Get()
+  @ApiOperation({ summary: '查詢所有門市' })
   findAll(): Promise<StoreDto[]> {
     return this.storesService.findAll();
   }
