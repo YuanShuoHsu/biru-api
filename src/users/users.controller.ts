@@ -1,21 +1,27 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
+import { User } from '@prisma/client';
 
 import { Public } from '../auth/decorators/public.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
-import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly userService: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Public()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
-  signup(@Body() userData: CreateUserDto): Promise<User> {
-    return this.userService.createUser(userData);
+  async signup(
+    @Body() userData: CreateUserDto,
+  ): Promise<Omit<User, 'password'>> {
+    const user = await this.usersService.createUser(userData);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...result } = user;
+    return result;
   }
 
   // @Get()

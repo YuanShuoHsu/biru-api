@@ -20,7 +20,7 @@ class LocalizedName {
   'zh-CN': string;
 }
 
-export class StoreDto {
+export class ReadStoreDto {
   @ApiProperty({
     description: '門市 ID',
     example: '550e8400-e29b-41d4-a716-446655440000',

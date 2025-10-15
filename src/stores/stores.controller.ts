@@ -3,7 +3,7 @@ import { ApiOperation } from '@nestjs/swagger';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
-import { StoreDto } from './dto/read-stores.dto';
+import { ReadStoreDto } from './dto/read-store.dto';
 import { StoresService } from './stores.service';
 
 @Controller('stores')
@@ -18,7 +18,7 @@ export class StoresController {
 
   @Get()
   @ApiOperation({ summary: '查詢所有門市' })
-  findAll(): Promise<StoreDto[]> {
+  findAll(): Promise<ReadStoreDto[]> {
     return this.storesService.findAll();
   }
 

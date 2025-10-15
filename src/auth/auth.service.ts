@@ -1,10 +1,18 @@
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
-import * as bcrypt from 'bcrypt';
-
 import { User } from '@prisma/client';
+
 import { UsersService } from 'src/users/users.service';
+
+interface GoogleUserInput {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  photo?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -32,29 +40,32 @@ export class AuthService {
     firstName,
     lastName,
     photo,
-  }: Pick<User, 'email'> &
-    Partial<
-      Pick<User, 'firstName' | 'lastName' | 'photo'>
-    >): Promise<User | null> {
-    if (!email) return null;
-
-    let user = await this.usersService.user({ email });
+  }: GoogleUserInput): Promise<Omit<User, 'password'> | null> {
+    const user = await this.usersService.user({ email });
 
     if (!user) {
-      user = await this.usersService.createUser({
+      const tempPassword = crypto.randomBytes(16).toString('hex');
+
+      const createUser = await this.usersService.createUser({
         email,
-        firstName,
-        lastName,
-        password: '',
-        photo,
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
+        ...(photo ? { photo } : {}),
         provider: 'google',
+        password: tempPassword,
       });
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...result } = createUser;
+      return result;
     }
 
-    return user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...result } = user;
+    return result;
   }
 
-  async login(user: Omit<User, 'password'>): Promise<{ access_token: string }> {
+  async login(user: User): Promise<{ access_token: string }> {
     const payload = { sub: user.id, email: user.email };
 
     return {

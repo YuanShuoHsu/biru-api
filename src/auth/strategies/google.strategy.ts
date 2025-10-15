@@ -1,10 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { User } from '@prisma/client';
 
 import { Profile, Strategy } from 'passport-google-oauth20';
 
-import { User } from '@prisma/client';
 import { AuthService } from '../auth.service';
 
 @Injectable()
@@ -25,7 +25,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     accessToken: string,
     refreshToken: string,
     { emails, name, photos }: Profile,
-  ): Promise<User> {
+  ): Promise<Omit<User, 'password'>> {
     const email = emails?.[0]?.value;
     if (!email) throw new UnauthorizedException();
 
