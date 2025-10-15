@@ -1,10 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
-import { User } from '@prisma/client';
 
 import { Public } from '../auth/decorators/public.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { UserResponseDto } from './dto/user.response';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -14,9 +14,7 @@ export class UsersController {
   @Public()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
-  async signup(
-    @Body() userData: CreateUserDto,
-  ): Promise<Omit<User, 'password'>> {
+  async signup(@Body() userData: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.createUser(userData);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
