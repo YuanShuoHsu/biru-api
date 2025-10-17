@@ -4,7 +4,7 @@ import { ApiOperation } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
-import { UserResponseDto } from './dto/user.response';
+import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')

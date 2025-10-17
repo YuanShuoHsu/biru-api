@@ -1,5 +1,4 @@
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -46,14 +45,12 @@ export class AuthService {
     const user = await this.usersService.user({ email });
 
     if (!user) {
-      const tempPassword = crypto.randomBytes(16).toString('hex');
-
       const createUser = await this.usersService.createUser({
         email,
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
         ...(photo ? { photo } : {}),
-        password: tempPassword,
+        password: '',
         provider: Provider.google,
       });
 

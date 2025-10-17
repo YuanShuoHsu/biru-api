@@ -16,7 +16,7 @@ model User {
   email     String   @unique
   firstName String   @default("")
   lastName  String   @default("")
-  password  String
+  password  String   @default("")
   photo     String   @default("/images/IMG_4590.jpg")
   posts     Post[]
   provider  Provider @default(local)
