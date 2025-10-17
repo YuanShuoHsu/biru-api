@@ -2,10 +2,11 @@ import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -27,6 +28,9 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api');
+
+  const adapterHost = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new AllExceptionsFilter(adapterHost));
 
   const config = new DocumentBuilder()
     .addGlobalResponse({
