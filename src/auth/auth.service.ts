@@ -6,6 +6,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Provider, User } from '@prisma/client';
 
 import { UsersService } from 'src/users/users.service';
+import { jwtConstants } from './constants';
+import { JwtPayload } from './types';
 
 interface GoogleUserInput {
   email: string;
@@ -65,11 +67,37 @@ export class AuthService {
     return result;
   }
 
-  async login(user: User): Promise<{ access_token: string }> {
+  async login(
+    user: User,
+  ): Promise<{ access_token: string; refresh_token: string }> {
     const payload = { sub: user.id, email: user.email };
 
-    return {
-      access_token: await this.jwtService.signAsync(payload),
-    };
+    const access_token = await this.jwtService.signAsync(payload, {
+      secret: jwtConstants.access.secret,
+      expiresIn: jwtConstants.access.expiresIn,
+    });
+
+    const refresh_token = await this.jwtService.signAsync(payload, {
+      secret: jwtConstants.refresh.secret,
+      expiresIn: jwtConstants.refresh.expiresIn,
+    });
+
+    return { access_token, refresh_token };
+  }
+
+  async refresh(refreshToken: string): Promise<{ access_token: string }> {
+    const payload = await this.jwtService.verifyAsync<JwtPayload>(
+      refreshToken,
+      {
+        secret: jwtConstants.refresh.secret,
+      },
+    );
+
+    const access_token = await this.jwtService.signAsync(payload, {
+      secret: jwtConstants.access.secret,
+      expiresIn: jwtConstants.access.expiresIn,
+    });
+
+    return { access_token };
   }
 }

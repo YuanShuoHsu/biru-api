@@ -38,4 +38,10 @@ export class AuthController {
   googleLoginCallback(@Request() req: RequestWithUser) {
     return this.authService.login(req.user);
   }
+
+  @UseGuards(LocalAuthGuard)
+  @Post('logout')
+  async logout(@Request() req: RequestWithUser) {
+    return this.authService.logout();
+  }
 }
