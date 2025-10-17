@@ -20,7 +20,11 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     ConfigModule.forRoot({ isGlobal: true }),
     EcpayModule,
+    EventsModule,
+    MenusModule,
     PrismaModule,
+    PostModule,
+    StoresModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -29,11 +33,7 @@ import { UsersModule } from './users/users.module';
         },
       ],
     }),
-    PostModule,
     UsersModule,
-    EventsModule,
-    StoresModule,
-    MenusModule,
   ],
   controllers: [AppController],
   providers: [
