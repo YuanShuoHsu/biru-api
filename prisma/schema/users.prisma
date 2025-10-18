@@ -11,15 +11,29 @@ enum Role {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
+  id            String         @id @default(uuid())
+  createdAt     DateTime       @default(now())
+  email         String         @unique
+  firstName     String         @default("")
+  lastName      String         @default("")
+  password      String         @default("")
+  photo         String         @default("/images/IMG_4590.jpg")
+  posts         Post[]
+  provider      Provider       @default(local)
+  refreshTokens RefreshToken[]
+  role          Role           @default(user)
+  updatedAt     DateTime       @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
   createdAt DateTime @default(now())
-  email     String   @unique
-  firstName String   @default("")
-  lastName  String   @default("")
-  password  String   @default("")
-  photo     String   @default("/images/IMG_4590.jpg")
-  posts     Post[]
-  provider  Provider @default(local)
-  role      Role     @default(user)
+  hashed    String
+  revoked   Boolean  @default(false)
   updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

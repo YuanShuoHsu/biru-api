@@ -3,7 +3,7 @@ model Store {
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
-  slug      String   @unique @db.VarChar(64)
+  slug      String   @unique
   updatedAt DateTime @updatedAt
 
   menus  Menu[]

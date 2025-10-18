@@ -1,6 +1,6 @@
 model Menu {
   id        String   @id @default(uuid())
-  key       String   @db.VarChar(64)
+  key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
@@ -17,7 +17,7 @@ model Menu {
 
 model MenuItem {
   id          String   @id @default(uuid())
-  key         String   @db.VarChar(64)
+  key         String
   name        Json     @default("{}")
   createdAt   DateTime @default(now())
   description Json     @default("{}")
@@ -40,7 +40,7 @@ model MenuItem {
 
 model MenuItemOption {
   id        String   @id @default(uuid())
-  key       String   @db.VarChar(64)
+  key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
@@ -59,7 +59,7 @@ model MenuItemOption {
 
 model MenuItemIngredient {
   id        String   @id @default(uuid())
-  key       String   @db.VarChar(64)
+  key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   unit      Json     @default("{}")
@@ -75,7 +75,7 @@ model MenuItemIngredient {
 
 model MenuItemOptionChoice {
   id        String   @id @default(uuid())
-  key       String   @db.VarChar(64)
+  key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   extraCost Int      @default(0)
@@ -96,7 +96,7 @@ model MenuItemOptionChoice {
 
 model MenuItemOptionChoiceIngredient {
   id        String   @id @default(uuid())
-  key       String   @db.VarChar(64)
+  key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   unit      Json     @default("{}")

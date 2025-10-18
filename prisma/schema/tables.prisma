@@ -3,7 +3,7 @@ model Table {
     name      Json     @default("{}")
     createdAt DateTime @default(now())
     isActive  Boolean  @default(true)
-    slug      String   @db.VarChar(64)
+    slug      String
     updatedAt DateTime @updatedAt
 
     storeId String
