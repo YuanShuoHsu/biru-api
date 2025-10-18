@@ -140,7 +140,7 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "firstName" TEXT NOT NULL DEFAULT '',
     "lastName" TEXT NOT NULL DEFAULT '',
-    "password" TEXT NOT NULL DEFAULT '',
+    "password" TEXT NOT NULL,
     "photo" TEXT NOT NULL DEFAULT '/images/IMG_4590.jpg',
     "provider" "Provider" NOT NULL DEFAULT 'local',
     "role" "Role" NOT NULL DEFAULT 'user',
