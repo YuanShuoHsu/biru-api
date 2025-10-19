@@ -13,6 +13,7 @@ import { jwtConstants } from './constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 
@@ -26,7 +27,6 @@ import { LocalStrategy } from './strategies/local.strategy';
     UsersModule,
   ],
   providers: [
-    AuthService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -35,9 +35,11 @@ import { LocalStrategy } from './strategies/local.strategy';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    AuthService,
     GoogleStrategy,
-    LocalStrategy,
     JwtStrategy,
+    LocalStrategy,
+    JwtRefreshStrategy,
   ],
   controllers: [AuthController],
   exports: [AuthService],

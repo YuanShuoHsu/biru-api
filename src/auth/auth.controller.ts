@@ -13,7 +13,6 @@ import { Public } from './decorators/public.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RequestWithUser } from './types';
 
@@ -33,7 +32,6 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req: RequestWithUser) {
     return req.user;
@@ -49,6 +47,23 @@ export class AuthController {
   @UseGuards(GoogleOAuthGuard)
   googleLoginCallback(@Request() req: RequestWithUser) {
     return this.authService.login(req.user);
+  }
+
+  // @Public()
+  // @UseGuards(JwtRefreshAuthGuard)
+  // @Post('refresh')
+  // @ApiOperation({
+  //   summary: '刷新 Token',
+  // })
+  // async refresh(@Body() dto: RefreshDto, @Request() req: RequestWithUser) {
+  //   return this.authService.refresh(dto.refreshToken);
+  // }
+
+  @ApiBearerAuth()
+  @Post('logout')
+  @ApiOperation({ summary: '登出' })
+  async logout(@Request() req: RequestWithUser) {
+    return this.authService.logout(req.user.id);
   }
 
   // @Public()

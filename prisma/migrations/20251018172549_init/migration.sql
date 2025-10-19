@@ -153,8 +153,8 @@ CREATE TABLE "User" (
 CREATE TABLE "RefreshToken" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "hashed" TEXT NOT NULL,
-    "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "hash" TEXT NOT NULL,
+    "isRevoked" BOOLEAN NOT NULL DEFAULT false,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT NOT NULL,
 

@@ -7,12 +7,15 @@ import { jwtConstants } from '../constants';
 import { JwtPayload } from '../types';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromBodyField('refresh'),
       ignoreExpiration: false,
-      secretOrKey: jwtConstants.access.secret,
+      secretOrKey: jwtConstants.refresh.secret,
     });
   }
 

@@ -28,8 +28,8 @@ model User {
 model RefreshToken {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
-  hashed    String
-  revoked   Boolean  @default(false)
+  hash      String
+  isRevoked Boolean  @default(false)
   updatedAt DateTime @updatedAt
 
   userId String
