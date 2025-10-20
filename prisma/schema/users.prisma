@@ -1,39 +1,61 @@
-enum Provider {
-  local
-  google
-}
-
 enum Role {
-  admin
-  manager
-  staff
-  user
+  ADMIN
+  MANAGER
+  STAFF
+  USER
 }
 
 model User {
-  id            String         @id @default(uuid())
-  createdAt     DateTime       @default(now())
-  email         String         @unique
-  firstName     String         @default("")
-  lastName      String         @default("")
-  password      String
-  photo         String         @default("/images/IMG_4590.jpg")
+  id            String    @id @default(uuid())
+  accounts      Account[]
+  createdAt     DateTime  @default(now())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  firstName     String    @default("")
+  lastName      String    @default("")
+  image         String    @default("/images/IMG_4590.jpg")
   posts         Post[]
-  provider      Provider       @default(local)
-  refreshTokens RefreshToken[]
-  role          Role           @default(user)
-  updatedAt     DateTime       @updatedAt
+  role          Role      @default(USER)
+  sessions      Session[]
+  updatedAt     DateTime  @updatedAt
 }
 
-model RefreshToken {
+model Session {
   id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  hash      String
-  isRevoked Boolean  @default(false)
-  updatedAt DateTime @updatedAt
+  createdAt DateTime
+  expiresAt DateTime
+  ipAddress String?
+  token     String   @unique
+  updatedAt DateTime
+  userAgent String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-  @@index([userId])
+model Account {
+  id                    String    @id @default(uuid())
+  accessToken           String?
+  accessTokenExpiresAt  DateTime?
+  accountId             String
+  createdAt             DateTime
+  idToken               String?
+  password              String?
+  providerId            String
+  refreshToken          String?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  updatedAt             DateTime
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  createdAt  DateTime?
+  expiresAt  DateTime
+  identifier String
+  updatedAt  DateTime?
+  value      String
 }

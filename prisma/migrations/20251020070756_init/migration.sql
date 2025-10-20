@@ -1,8 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Provider" AS ENUM ('local', 'google');
-
--- CreateEnum
-CREATE TYPE "Role" AS ENUM ('admin', 'manager', 'staff', 'user');
+CREATE TYPE "Role" AS ENUM ('ADMIN', 'MANAGER', 'STAFF', 'USER');
 
 -- CreateTable
 CREATE TABLE "Menu" (
@@ -100,10 +97,10 @@ CREATE TABLE "Post" (
     "id" SERIAL NOT NULL,
     "content" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "published" BOOLEAN DEFAULT false,
+    "published" BOOLEAN NOT NULL DEFAULT false,
     "title" TEXT NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "authorId" TEXT,
+    "authorId" TEXT NOT NULL,
 
     CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
 );
@@ -138,27 +135,59 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "email" TEXT NOT NULL,
+    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "firstName" TEXT NOT NULL DEFAULT '',
     "lastName" TEXT NOT NULL DEFAULT '',
-    "password" TEXT NOT NULL,
-    "photo" TEXT NOT NULL DEFAULT '/images/IMG_4590.jpg',
-    "provider" "Provider" NOT NULL DEFAULT 'local',
-    "role" "Role" NOT NULL DEFAULT 'user',
+    "image" TEXT NOT NULL DEFAULT '/images/IMG_4590.jpg',
+    "role" "Role" NOT NULL DEFAULT 'USER',
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "RefreshToken" (
+CREATE TABLE "Session" (
     "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "hash" TEXT NOT NULL,
-    "isRevoked" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "ipAddress" TEXT,
+    "token" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "userAgent" TEXT,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Account" (
+    "id" TEXT NOT NULL,
+    "accessToken" TEXT,
+    "accessTokenExpiresAt" TIMESTAMP(3),
+    "accountId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL,
+    "idToken" TEXT,
+    "password" TEXT,
+    "providerId" TEXT NOT NULL,
+    "refreshToken" TEXT,
+    "refreshTokenExpiresAt" TIMESTAMP(3),
+    "scope" TEXT,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT NOT NULL,
 
-    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Account_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Verification" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "identifier" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3),
+    "value" TEXT NOT NULL,
+
+    CONSTRAINT "Verification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -213,7 +242,7 @@ CREATE UNIQUE INDEX "Table_storeId_slug_key" ON "Table"("storeId", "slug");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE INDEX "RefreshToken_userId_idx" ON "RefreshToken"("userId");
+CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
 
 -- AddForeignKey
 ALTER TABLE "Menu" ADD CONSTRAINT "Menu_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -234,10 +263,13 @@ ALTER TABLE "MenuItemOptionChoice" ADD CONSTRAINT "MenuItemOptionChoice_menuItem
 ALTER TABLE "MenuItemOptionChoiceIngredient" ADD CONSTRAINT "MenuItemOptionChoiceIngredient_menuItemOptionChoiceId_fkey" FOREIGN KEY ("menuItemOptionChoiceId") REFERENCES "MenuItemOptionChoice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Table" ADD CONSTRAINT "Table_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

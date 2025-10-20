@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { LoginAuthDto } from './dto/login-auth.dto';
+import { LoginDto } from './dto/login.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RequestWithUser } from './types';
@@ -25,7 +25,7 @@ export class AuthController {
   @Post('login')
   @ApiOperation({ summary: '登入並取得 JWT' })
   async login(
-    @Body() _dto: LoginAuthDto,
+    @Body() _dto: LoginDto,
     @Request() req: RequestWithUser,
   ): Promise<AuthResponseDto> {
     return this.authService.login(req.user);

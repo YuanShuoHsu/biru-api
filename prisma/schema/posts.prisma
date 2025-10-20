@@ -2,12 +2,12 @@ model Post {
   id        Int      @id @default(autoincrement())
   content   String?
   createdAt DateTime @default(now())
-  published Boolean? @default(false)
+  published Boolean  @default(false)
   title     String
   updatedAt DateTime @updatedAt
 
-  authorId String?
-  author   User?   @relation(fields: [authorId], references: [id])
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
 
   @@index([authorId])
 }
