@@ -5,11 +5,13 @@ import { Provider, User } from '@prisma/client';
 import type { Response } from 'express';
 
 import { AccountsService } from 'src/accounts/accounts.service';
+import { normalizeEmail } from 'src/common/utils/email';
 import { compare, hash } from 'src/common/utils/hashing';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 
 import { jwtConstants } from './constants';
+import { GoogleUserPayload } from './types';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +23,8 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, pass: string): Promise<User | null> {
-    const user = await this.usersService.user({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const user = await this.usersService.user({ email: normalizedEmail });
     if (!user) return null;
 
     const account = await this.accountsService.account({
@@ -34,24 +37,6 @@ export class AuthService {
 
     return user;
   }
-
-  // if (!user) {
-  //   const createUser = await this.usersService.createUser({
-  //     email,
-  //     ...(firstName ? { firstName } : {}),
-  //     ...(image ? { image } : {}),
-  //     ...(lastName ? { lastName } : {}),
-  //     accounts: {
-  //       create: {
-  //         providerId: Provider.GOOGLE,
-  //         accountId: profileId,
-  //         accessToken: accessTokenHash,
-  //         ...(refreshTokenHash && { refreshToken: refreshTokenHash }),
-  //         scope,
-  //         // idToken: ..., // 通常不長存
-  //       },
-  //     },
-  //   });
 
   async login(
     user: User,
@@ -98,6 +83,51 @@ export class AuthService {
     });
 
     return { access_token: accessToken };
+  }
+
+  async loginWithGoogle(
+    {
+      accessToken,
+      accountId,
+      email,
+      emailVerified,
+      firstName,
+      idToken,
+      image,
+      lastName,
+      refreshToken,
+      scope,
+    }: GoogleUserPayload,
+    meta: { ip: string; userAgent?: string },
+    res: Response,
+  ) {
+    const normalizedEmail = normalizeEmail(email);
+    let user = await this.usersService.user({ email: normalizedEmail });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          ...(emailVerified ? { emailVerified } : {}),
+          ...(firstName ? { firstName } : {}),
+          ...(image ? { image } : {}),
+          ...(lastName ? { lastName } : {}),
+          accounts: {
+            create: {
+              accessToken,
+              accountId,
+              idToken,
+              providerId: Provider.GOOGLE,
+              ...(refreshToken ? { refreshToken } : {}),
+              scope,
+            },
+          },
+        },
+        include: { accounts: true },
+      });
+    }
+
+    return this.login(user, meta, res);
   }
 
   // async refresh(

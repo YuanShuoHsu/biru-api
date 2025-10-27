@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { Provider } from '@prisma/client';
 
 import {
   GoogleCallbackParameters,
@@ -38,20 +37,22 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google', 5) {
     const { id_token, scope } = params;
     const { id, emails, name, photos } = profile;
 
+    const email = emails?.[0]?.value;
+    if (!email) return done(new UnauthorizedException(), false);
+
     const user = {
       accessToken,
       accountId: id,
-      email: emails?.[0]?.value,
+      email,
       emailVerified: emails?.[0]?.verified,
       firstName: name?.givenName,
       idToken: id_token,
       image: photos?.[0].value,
       lastName: name?.familyName,
-      providerId: Provider.GOOGLE,
       refreshToken,
       scope,
     };
 
-    done(null, user);
+    return done(null, user);
   }
 }

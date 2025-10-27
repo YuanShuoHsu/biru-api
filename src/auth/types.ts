@@ -7,6 +7,21 @@ export interface JwtPayload {
   sub: string;
 }
 
+export interface GoogleUserPayload {
+  accessToken: string;
+  accountId: string;
+  email: string;
+  emailVerified?: boolean;
+  firstName?: string;
+  idToken: string;
+  image?: string;
+  lastName?: string;
+  refreshToken?: string;
+  scope: string;
+}
+
 export interface RequestWithUser extends Request {
   user: User;
 }
+
+export type RequestWithGoogleUser = Request & { user: GoogleUserPayload };

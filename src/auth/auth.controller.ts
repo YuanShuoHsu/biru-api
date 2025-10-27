@@ -18,7 +18,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
-import { RequestWithUser } from './types';
+import { RequestWithGoogleUser, RequestWithUser } from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -50,12 +50,18 @@ export class AuthController {
   @UseGuards(GoogleOAuthGuard)
   async googleLogin() {}
 
-  // @Public()
-  // @Get('google/callback')
-  // @UseGuards(GoogleOAuthGuard)
-  // googleLoginCallback(@Request() req: RequestWithUser) {
-  //   return this.authService.login(req.user);
-  // }
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthGuard)
+  googleLoginCallback(
+    @Ip() ip: string,
+    @Request() req: RequestWithGoogleUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    const userAgent = req.get('user-agent');
+
+    return this.authService.loginWithGoogle(req.user, { ip, userAgent }, res);
+  }
 
   // @Public()
   // @UseGuards(JwtRefreshAuthGuard)

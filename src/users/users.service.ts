@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Provider, User } from '@prisma/client';
 
+import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -43,7 +44,7 @@ export class UsersService {
   }: Omit<Prisma.UserCreateInput, 'accounts'> & {
     password: string;
   }): Promise<User> {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
 
     return this.prisma.user.create({
