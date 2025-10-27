@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('ADMIN', 'MANAGER', 'STAFF', 'USER');
 
+-- CreateEnum
+CREATE TYPE "Provider" AS ENUM ('LOCAL', 'GOOGLE');
+
 -- CreateTable
 CREATE TABLE "Menu" (
     "id" TEXT NOT NULL,
@@ -137,8 +140,8 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "firstName" TEXT NOT NULL DEFAULT '',
-    "lastName" TEXT NOT NULL DEFAULT '',
     "image" TEXT NOT NULL DEFAULT '/images/IMG_4590.jpg',
+    "lastName" TEXT NOT NULL DEFAULT '',
     "role" "Role" NOT NULL DEFAULT 'USER',
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -148,7 +151,7 @@ CREATE TABLE "User" (
 -- CreateTable
 CREATE TABLE "Session" (
     "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "ipAddress" TEXT,
     "token" TEXT NOT NULL,
@@ -165,10 +168,10 @@ CREATE TABLE "Account" (
     "accessToken" TEXT,
     "accessTokenExpiresAt" TIMESTAMP(3),
     "accountId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "idToken" TEXT,
     "password" TEXT,
-    "providerId" TEXT NOT NULL,
+    "providerId" "Provider" NOT NULL DEFAULT 'LOCAL',
     "refreshToken" TEXT,
     "refreshTokenExpiresAt" TIMESTAMP(3),
     "scope" TEXT,
@@ -181,10 +184,10 @@ CREATE TABLE "Account" (
 -- CreateTable
 CREATE TABLE "Verification" (
     "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "identifier" TEXT NOT NULL,
-    "updatedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "value" TEXT NOT NULL,
 
     CONSTRAINT "Verification_pkey" PRIMARY KEY ("id")
@@ -243,6 +246,18 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
+
+-- CreateIndex
+CREATE INDEX "Session_userId_idx" ON "Session"("userId");
+
+-- CreateIndex
+CREATE INDEX "Account_userId_idx" ON "Account"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Account_providerId_accountId_key" ON "Account"("providerId", "accountId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Account_userId_providerId_key" ON "Account"("userId", "providerId");
 
 -- AddForeignKey
 ALTER TABLE "Menu" ADD CONSTRAINT "Menu_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;

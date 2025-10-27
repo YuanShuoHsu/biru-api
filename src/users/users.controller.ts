@@ -1,9 +1,21 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 
-import { Public } from '../auth/decorators/public.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
@@ -14,41 +26,46 @@ export class UsersController {
   @Public()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
-  async signup(@Body() userData: CreateUserDto): Promise<UserResponseDto> {
-    const user = await this.usersService.createUser(userData);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user;
-    return result;
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    return this.usersService.createUser(createUserDto);
   }
 
-  // @Get()
-  // @ApiOperation({ summary: '查詢所有使用者' })
-  // findAll(): Promise<User[]> {
-  //   return this.userService.users({});
-  // }
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
+  @Get()
+  @ApiOperation({ summary: '查詢所有使用者' })
+  findAll(): Promise<UserResponseDto[]> {
+    return this.usersService.users({});
+  }
 
-  // @Get(':id')
-  // @ApiOperation({ summary: '查詢使用者' })
-  // findOne(@Param('id') id: string): Promise<User | null> {
-  //   return this.userService.user({ id: Number(id) });
-  // }
+  @ApiBearerAuth()
+  @Get(':id')
+  @ApiOperation({ summary: '查詢使用者' })
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
+    const user = await this.usersService.user({ id });
+    if (!user) throw new NotFoundException();
 
-  // @Patch(':id')
-  // @ApiOperation({ summary: '更新使用者' })
-  // update(
-  //   @Param('id') id: string,
-  //   @Body() data: { name?: string; email?: string },
-  // ): Promise<User> {
-  //   return this.userService.updateUser({
-  //     where: { id: Number(id) },
-  //     data,
-  //   });
-  // }
+    return user;
+  }
 
-  // @Delete(':id')
-  // @ApiOperation({ summary: '刪除使用者' })
-  // remove(@Param('id') id: string): Promise<User> {
-  //   return this.userService.deleteUser({ id: Number(id) });
-  // }
+  @ApiBearerAuth()
+  @Patch(':id')
+  @ApiOperation({ summary: '更新使用者' })
+  update(
+    @Body() updateUserDto: UpdateUserDto,
+    @Param('id') id: string,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateUser({
+      data: updateUserDto,
+      where: { id },
+    });
+  }
+
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Delete(':id')
+  @ApiOperation({ summary: '刪除使用者' })
+  remove(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.usersService.deleteUser({ id });
+  }
 }

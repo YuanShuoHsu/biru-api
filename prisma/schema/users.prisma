@@ -12,25 +12,17 @@ model User {
   email         String    @unique
   emailVerified Boolean   @default(false)
   firstName     String    @default("")
-  lastName      String    @default("")
   image         String    @default("/images/IMG_4590.jpg")
+  lastName      String    @default("")
   posts         Post[]
   role          Role      @default(USER)
   sessions      Session[]
   updatedAt     DateTime  @updatedAt
 }
 
-model Session {
-  id        String   @id @default(uuid())
-  createdAt DateTime
-  expiresAt DateTime
-  ipAddress String?
-  token     String   @unique
-  updatedAt DateTime
-  userAgent String?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum Provider {
+  LOCAL
+  GOOGLE
 }
 
 model Account {
@@ -38,24 +30,43 @@ model Account {
   accessToken           String?
   accessTokenExpiresAt  DateTime?
   accountId             String
-  createdAt             DateTime
+  createdAt             DateTime  @default(now())
   idToken               String?
   password              String?
-  providerId            String
+  providerId            Provider  @default(LOCAL)
   refreshToken          String?
   refreshTokenExpiresAt DateTime?
   scope                 String?
-  updatedAt             DateTime
+  updatedAt             DateTime  @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@unique([userId, providerId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  ipAddress String?
+  token     String   @unique
+  updatedAt DateTime @updatedAt
+  userAgent String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Verification {
-  id         String    @id @default(uuid())
-  createdAt  DateTime?
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
   expiresAt  DateTime
   identifier String
-  updatedAt  DateTime?
+  updatedAt  DateTime @updatedAt
   value      String
 }

@@ -6,24 +6,26 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MenusModule } from './menus/menus.module';
-import { PostModule } from './post/post.module';
+import { PostsModule } from './posts/posts.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StoresModule } from './stores/stores.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    AccountsModule,
     AuthModule,
     ConfigModule.forRoot({ isGlobal: true }),
     EcpayModule,
     EventsModule,
     MenusModule,
+    PostsModule,
     PrismaModule,
-    PostModule,
     StoresModule,
     ThrottlerModule.forRoot({
       throttlers: [

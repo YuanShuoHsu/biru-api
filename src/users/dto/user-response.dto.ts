@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Provider, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 
 import { IsEmail, IsNotEmpty, IsUrl } from 'class-validator';
 
@@ -23,12 +23,22 @@ export class UserResponseDto {
   @IsEmail()
   email: string;
 
+  @ApiProperty({ description: '是否已驗證電子郵件', example: false })
+  emailVerified: boolean;
+
   @ApiProperty({
     description: '名',
     example: 'Coffee',
   })
   @IsNotEmpty()
   firstName: string;
+
+  @ApiProperty({
+    description: '頭像 URL',
+    example: 'https://example.com/avatar.png',
+  })
+  @IsUrl()
+  image: string;
 
   @ApiProperty({
     description: '姓',
@@ -38,23 +48,9 @@ export class UserResponseDto {
   lastName: string;
 
   @ApiProperty({
-    description: '頭像 URL',
-    example: 'https://example.com/avatar.png',
-  })
-  @IsUrl()
-  photo: string;
-
-  @ApiProperty({
-    description: '身份驗證提供者',
-    enum: Provider,
-    example: Provider.google,
-  })
-  provider: Provider;
-
-  @ApiProperty({
     description: '角色',
     enum: Role,
-    example: Role.user,
+    example: Role.USER,
   })
   role: Role;
 

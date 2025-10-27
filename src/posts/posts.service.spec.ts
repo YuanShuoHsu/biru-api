@@ -1,8 +1,8 @@
-import { PostsService } from './post.service';
-
 import { Test, TestingModule } from '@nestjs/testing';
 
-describe('PostService', () => {
+import { PostsService } from './posts.service';
+
+describe('PostsService', () => {
   let service: PostsService;
 
   beforeEach(async () => {

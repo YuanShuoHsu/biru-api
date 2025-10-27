@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
+import { AccountsModule } from 'src/accounts/accounts.module';
 import { UsersModule } from 'src/users/users.module';
 
 import { AuthController } from './auth.controller';
@@ -19,6 +20,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 
 @Module({
   imports: [
+    AccountsModule,
     JwtModule.register({
       secret: jwtConstants.access.secret,
       signOptions: { expiresIn: jwtConstants.access.expiresIn },

@@ -1,18 +1,18 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { User } from '@prisma/client';
+import { Provider } from '@prisma/client';
 
-import { Profile, Strategy } from 'passport-google-oauth20';
-
-import { AuthService } from '../auth.service';
+import {
+  GoogleCallbackParameters,
+  Profile,
+  Strategy,
+  VerifyCallback,
+} from 'passport-google-oauth20';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private authService: AuthService,
-    configService: ConfigService,
-  ) {
+export class GoogleStrategy extends PassportStrategy(Strategy, 'google', 5) {
+  constructor(configService: ConfigService) {
     super({
       clientID: configService.getOrThrow('GOOGLE_CLIENT_ID'),
       clientSecret: configService.getOrThrow('GOOGLE_CLIENT_SECRET'),
@@ -21,22 +21,37 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(
+  authorizationParams(): { [key: string]: string } {
+    return {
+      access_type: 'offline',
+      prompt: 'consent',
+    };
+  }
+
+  validate(
     accessToken: string,
     refreshToken: string,
-    { emails, name, photos }: Profile,
-  ): Promise<Omit<User, 'password'>> {
-    const email = emails?.[0]?.value;
-    if (!email) throw new UnauthorizedException();
+    params: GoogleCallbackParameters,
+    profile: Profile,
+    done: VerifyCallback,
+  ) {
+    const { id_token, scope } = params;
+    const { id, emails, name, photos } = profile;
 
-    const user = await this.authService.validateGoogleUser({
-      email,
+    const user = {
+      accessToken,
+      accountId: id,
+      email: emails?.[0]?.value,
+      emailVerified: emails?.[0]?.verified,
       firstName: name?.givenName,
+      idToken: id_token,
+      image: photos?.[0].value,
       lastName: name?.familyName,
-      photo: photos?.[0].value,
-    });
-    if (!user) throw new UnauthorizedException();
+      providerId: Provider.GOOGLE,
+      refreshToken,
+      scope,
+    };
 
-    return user;
+    done(null, user);
   }
 }

@@ -1,8 +1,9 @@
-import { PrismaService } from '../prisma/prisma.service';
+// https://docs.nestjs.com/recipes/prisma
 
 import { Injectable } from '@nestjs/common';
-
 import { Post, Prisma } from '@prisma/client';
+
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PostsService {

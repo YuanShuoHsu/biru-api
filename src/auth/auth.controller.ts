@@ -2,11 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  Ip,
   Post,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import type { Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
@@ -23,12 +27,16 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  @ApiOperation({ summary: '登入並取得 JWT' })
+  @ApiOperation({ summary: '使用者登入' })
   async login(
     @Body() _dto: LoginDto,
+    @Ip() ip: string,
     @Request() req: RequestWithUser,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    return this.authService.login(req.user);
+    const userAgent = req.get('user-agent');
+
+    return this.authService.login(req.user, { ip, userAgent }, res);
   }
 
   @ApiBearerAuth()
@@ -42,12 +50,12 @@ export class AuthController {
   @UseGuards(GoogleOAuthGuard)
   async googleLogin() {}
 
-  @Public()
-  @Get('google/callback')
-  @UseGuards(GoogleOAuthGuard)
-  googleLoginCallback(@Request() req: RequestWithUser) {
-    return this.authService.login(req.user);
-  }
+  // @Public()
+  // @Get('google/callback')
+  // @UseGuards(GoogleOAuthGuard)
+  // googleLoginCallback(@Request() req: RequestWithUser) {
+  //   return this.authService.login(req.user);
+  // }
 
   // @Public()
   // @UseGuards(JwtRefreshAuthGuard)
@@ -59,12 +67,12 @@ export class AuthController {
   //   return this.authService.refresh(dto.refreshToken);
   // }
 
-  @ApiBearerAuth()
-  @Post('logout')
-  @ApiOperation({ summary: '登出' })
-  async logout(@Request() req: RequestWithUser) {
-    return this.authService.logout(req.user.id);
-  }
+  // @ApiBearerAuth()
+  // @Post('logout')
+  // @ApiOperation({ summary: '登出' })
+  // async logout(@Request() req: RequestWithUser) {
+  //   // return this.authService.logout(req.user.id);
+  // }
 
   // @Public()
   // @Post('refresh')

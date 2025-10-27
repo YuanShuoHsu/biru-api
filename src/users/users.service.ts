@@ -1,10 +1,9 @@
 // https://docs.nestjs.com/recipes/prisma
 
-import * as bcrypt from 'bcrypt';
-
 import { Injectable } from '@nestjs/common';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, Provider, User } from '@prisma/client';
 
+import { hash } from 'src/common/utils/hashing';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -14,7 +13,7 @@ export class UsersService {
   async user(
     userWhereUniqueInput: Prisma.UserWhereUniqueInput,
   ): Promise<User | null> {
-    return await this.prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: userWhereUniqueInput,
     });
   }
@@ -27,6 +26,7 @@ export class UsersService {
     orderBy?: Prisma.UserOrderByWithRelationInput;
   }): Promise<User[]> {
     const { skip, take, cursor, where, orderBy } = params;
+
     return await this.prisma.user.findMany({
       skip,
       take,
@@ -37,25 +37,36 @@ export class UsersService {
   }
 
   async createUser({
+    email,
     password,
     ...rest
-  }: Prisma.UserCreateInput): Promise<User> {
-    const saltOrRounds = 10;
-    const hash = await bcrypt.hash(password, saltOrRounds);
+  }: Omit<Prisma.UserCreateInput, 'accounts'> & {
+    password: string;
+  }): Promise<User> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const hashedPassword = await hash(password);
 
     return this.prisma.user.create({
       data: {
         ...rest,
-        password: hash,
+        email: normalizedEmail,
+        accounts: {
+          create: {
+            accountId: normalizedEmail,
+            password: hashedPassword,
+            providerId: Provider.LOCAL,
+          },
+        },
       },
     });
   }
 
   async updateUser(params: {
-    where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
+    where: Prisma.UserWhereUniqueInput;
   }): Promise<User> {
-    const { where, data } = params;
+    const { data, where } = params;
+
     return await this.prisma.user.update({
       data,
       where,
