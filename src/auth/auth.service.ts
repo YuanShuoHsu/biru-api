@@ -7,7 +7,7 @@ import type { Response } from 'express';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { normalizeEmail } from 'src/common/utils/email';
 import { compare, hash } from 'src/common/utils/hashing';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { SessionsService } from 'src/sessions/sessions.service';
 import { UsersService } from 'src/users/users.service';
 
 import { jwtConstants } from './constants';
@@ -17,9 +17,9 @@ import { GoogleUserPayload } from './types';
 export class AuthService {
   constructor(
     private accountsService: AccountsService,
-    private usersService: UsersService,
     private jwtService: JwtService,
-    private prisma: PrismaService,
+    private sessionService: SessionsService,
+    private usersService: UsersService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<User | null> {
@@ -39,11 +39,11 @@ export class AuthService {
   }
 
   async login(
-    user: User,
-    meta: { ip: string; userAgent?: string },
+    { id, email }: User,
+    { ip, userAgent }: { ip: string; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: id, email };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -64,14 +64,12 @@ export class AuthService {
 
     const refreshTokenHash = await hash(refreshToken);
 
-    await this.prisma.session.create({
-      data: {
-        expiresAt: refreshTokenExpiresAt,
-        ipAddress: meta.ip,
-        userAgent: meta.userAgent,
-        userId: user.id,
-        token: refreshTokenHash,
-      },
+    await this.sessionService.createSession({
+      expiresAt: refreshTokenExpiresAt,
+      ipAddress: ip,
+      user: { connect: { id } },
+      userAgent,
+      token: refreshTokenHash,
     });
 
     res.cookie('refresh_token', refreshToken, {
@@ -106,42 +104,32 @@ export class AuthService {
     let user = await this.usersService.user({ email: normalizedEmail });
 
     if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: normalizedEmail,
-          ...(emailVerified ? { emailVerified } : {}),
-          ...(firstName ? { firstName } : {}),
-          ...(image ? { image } : {}),
-          ...(lastName ? { lastName } : {}),
-          accounts: {
-            create: {
-              accessToken,
-              accessTokenExpiresAt,
-              accountId,
-              idToken,
-              providerId: Provider.GOOGLE,
-              ...(refreshToken ? { refreshToken } : {}),
-              scope,
-            },
+      user = await this.usersService.createUser({
+        email: normalizedEmail,
+        ...(emailVerified ? { emailVerified } : {}),
+        ...(firstName ? { firstName } : {}),
+        ...(image ? { image } : {}),
+        ...(lastName ? { lastName } : {}),
+        accounts: {
+          create: {
+            accessToken,
+            accessTokenExpiresAt,
+            accountId,
+            idToken,
+            providerId: Provider.GOOGLE,
+            ...(refreshToken ? { refreshToken } : {}),
+            scope,
           },
         },
-        include: { accounts: true },
       });
     } else {
-      await this.prisma.account.upsert({
-        where: {
-          userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
-        },
-        update: {
-          accessTokenExpiresAt,
-          accessToken,
-          accountId,
-          idToken,
-          scope,
-          ...(refreshToken ? { refreshToken } : {}),
-        },
-        create: {
-          userId: user.id,
+      const account = await this.accountsService.account({
+        userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
+      });
+
+      if (!account) {
+        await this.accountsService.createAccount({
+          user: { connect: { id: user.id } },
           accessToken,
           accessTokenExpiresAt,
           accountId,
@@ -149,11 +137,55 @@ export class AuthService {
           providerId: Provider.GOOGLE,
           ...(refreshToken ? { refreshToken } : {}),
           scope,
-        },
-      });
+        });
+      } else {
+        await this.accountsService.updateAccount({
+          where: {
+            userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
+          },
+          data: {
+            accessToken,
+            accessTokenExpiresAt,
+            accountId,
+            idToken,
+            ...(refreshToken ? { refreshToken } : {}),
+            scope,
+          },
+        });
+      }
     }
 
     return this.login(user, meta, res);
+  }
+
+  async logout(refreshToken: string | undefined, res: Response) {
+    if (!refreshToken) return { success: true };
+
+    const { sub } = await this.jwtService.verifyAsync<{ sub: string }>(
+      refreshToken,
+      { secret: jwtConstants.refresh.secret },
+    );
+
+    const sessions = await this.sessionService.sessions({
+      where: { userId: sub },
+    });
+
+    for (const session of sessions) {
+      const match = await compare(refreshToken, session.token);
+      if (match) {
+        await this.sessionService.deleteSession({ id: session.id });
+        break;
+      }
+    }
+
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      path: '/auth',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    return { success: true };
   }
 
   // async refresh(
@@ -208,12 +240,5 @@ export class AuthService {
   //   });
 
   //   return { access_token: newAccess, refresh_token: newRefresh };
-  // }
-
-  // async logout(userId: string) {
-  //   return await this.prisma.refreshToken.updateMany({
-  //     where: { userId, isRevoked: false },
-  //     data: { isRevoked: true },
-  //   });
   // }
 }

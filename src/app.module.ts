@@ -13,6 +13,7 @@ import { EventsModule } from './events/events.module';
 import { MenusModule } from './menus/menus.module';
 import { PostsModule } from './posts/posts.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SessionsModule } from './sessions/sessions.module';
 import { StoresModule } from './stores/stores.module';
 import { UsersModule } from './users/users.module';
 
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     MenusModule,
     PostsModule,
     PrismaModule,
+    SessionsModule,
     StoresModule,
     ThrottlerModule.forRoot({
       throttlers: [

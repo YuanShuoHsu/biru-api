@@ -15,6 +15,24 @@ export class AccountsService {
     });
   }
 
+  async createAccount(data: Prisma.AccountCreateInput): Promise<Account> {
+    return this.prisma.account.create({
+      data,
+    });
+  }
+
+  async updateAccount(params: {
+    data: Prisma.AccountUpdateInput;
+    where: Prisma.AccountWhereUniqueInput;
+  }): Promise<Account> {
+    const { data, where } = params;
+
+    return await this.prisma.account.update({
+      data,
+      where,
+    });
+  }
+
   // create(createAccountDto: CreateAccountDto) {
   //   return 'This action adds a new account';
   // }

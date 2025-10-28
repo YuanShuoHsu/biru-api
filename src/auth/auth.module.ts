@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { AccountsModule } from 'src/accounts/accounts.module';
+import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
 
 import { AuthController } from './auth.controller';
@@ -26,6 +27,7 @@ import { LocalStrategy } from './strategies/local.strategy';
       signOptions: { expiresIn: jwtConstants.access.expiresIn },
     }),
     PassportModule,
+    SessionsModule,
     UsersModule,
   ],
   providers: [

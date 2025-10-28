@@ -30,13 +30,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google', 5) {
   validate(
     accessToken: string,
     refreshToken: string,
-    params: GoogleCallbackParameters,
-    profile: Profile,
+    { expires_in, id_token, scope }: GoogleCallbackParameters,
+    { id, emails, name, photos }: Profile,
     done: VerifyCallback,
   ) {
-    const { expires_in, id_token, scope } = params;
-    const { id, emails, name, photos } = profile;
-
     const email = emails?.[0]?.value;
     if (!email) return done(new UnauthorizedException(), false);
 

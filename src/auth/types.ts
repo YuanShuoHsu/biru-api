@@ -26,3 +26,7 @@ export interface RequestWithUser extends Request {
 }
 
 export type RequestWithGoogleUser = Request & { user: GoogleUserPayload };
+
+export type RequestWithCookies = Omit<Request, 'cookies'> & {
+  cookies: Record<string, string>;
+};

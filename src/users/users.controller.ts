@@ -27,7 +27,7 @@ export class UsersController {
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return this.usersService.createUser(createUserDto);
+    return this.usersService.createUserWithPassword(createUserDto);
   }
 
   @ApiBearerAuth()

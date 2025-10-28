@@ -1,15 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 
-import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { jwtConstants } from '../constants';
-import { JwtPayload } from '../types';
-
-type RequestWithCookies = Omit<Request, 'cookies'> & {
-  cookies: Record<string, string>;
-};
+import type { JwtPayload, RequestWithCookies } from '../types';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(

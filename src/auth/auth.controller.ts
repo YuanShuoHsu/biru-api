@@ -18,7 +18,11 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
-import { RequestWithGoogleUser, RequestWithUser } from './types';
+import type {
+  RequestWithCookies,
+  RequestWithGoogleUser,
+  RequestWithUser,
+} from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -63,6 +67,18 @@ export class AuthController {
     return this.authService.loginWithGoogle(req.user, { ip, userAgent }, res);
   }
 
+  @Public()
+  @Post('logout')
+  @ApiOperation({ summary: '登出' })
+  async logout(
+    @Request() req: RequestWithCookies,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies.refresh_token;
+
+    return this.authService.logout(refreshToken, res);
+  }
+
   // @Public()
   // @UseGuards(JwtRefreshAuthGuard)
   // @Post('refresh')
@@ -73,24 +89,11 @@ export class AuthController {
   //   return this.authService.refresh(dto.refreshToken);
   // }
 
-  // @ApiBearerAuth()
-  // @Post('logout')
-  // @ApiOperation({ summary: '登出' })
-  // async logout(@Request() req: RequestWithUser) {
-  //   // return this.authService.logout(req.user.id);
-  // }
-
   // @Public()
   // @Post('refresh')
   // @ApiOperation({ summary: '使用 Refresh Token 換發 Access Token' })
   // @ApiBody({ type: RefreshDto })
   // async refresh(@Body() dto: RefreshDto) {
   //   return this.authService.refresh(dto.refreshToken);
-  // }
-
-  // @UseGuards(LocalAuthGuard)
-  // @Post('logout')
-  // async logout(@Request() req: RequestWithUser) {
-  //   return this.authService.logout();
   // }
 }

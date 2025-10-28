@@ -37,26 +37,31 @@ export class UsersService {
     });
   }
 
-  async createUser({
+  async createUser(data: Prisma.UserCreateInput): Promise<User> {
+    return this.prisma.user.create({
+      data,
+    });
+  }
+
+  async createUserWithPassword({
     email,
     password,
     ...rest
-  }: Omit<Prisma.UserCreateInput, 'accounts'> & {
+  }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
+    email: string;
     password: string;
   }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
 
-    return this.prisma.user.create({
-      data: {
-        ...rest,
-        email: normalizedEmail,
-        accounts: {
-          create: {
-            accountId: normalizedEmail,
-            password: hashedPassword,
-            providerId: Provider.LOCAL,
-          },
+    return this.createUser({
+      ...rest,
+      email: normalizedEmail,
+      accounts: {
+        create: {
+          accountId: normalizedEmail,
+          password: hashedPassword,
+          providerId: Provider.LOCAL,
         },
       },
     });
