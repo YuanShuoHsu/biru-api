@@ -88,6 +88,7 @@ export class AuthService {
   async loginWithGoogle(
     {
       accessToken,
+      accessTokenExpiresAt,
       accountId,
       email,
       emailVerified,
@@ -107,7 +108,7 @@ export class AuthService {
     if (!user) {
       user = await this.prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           ...(emailVerified ? { emailVerified } : {}),
           ...(firstName ? { firstName } : {}),
           ...(image ? { image } : {}),
@@ -115,6 +116,7 @@ export class AuthService {
           accounts: {
             create: {
               accessToken,
+              accessTokenExpiresAt,
               accountId,
               idToken,
               providerId: Provider.GOOGLE,
@@ -124,6 +126,30 @@ export class AuthService {
           },
         },
         include: { accounts: true },
+      });
+    } else {
+      await this.prisma.account.upsert({
+        where: {
+          userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
+        },
+        update: {
+          accessTokenExpiresAt,
+          accessToken,
+          accountId,
+          idToken,
+          scope,
+          ...(refreshToken ? { refreshToken } : {}),
+        },
+        create: {
+          userId: user.id,
+          accessToken,
+          accessTokenExpiresAt,
+          accountId,
+          idToken,
+          providerId: Provider.GOOGLE,
+          ...(refreshToken ? { refreshToken } : {}),
+          scope,
+        },
       });
     }
 

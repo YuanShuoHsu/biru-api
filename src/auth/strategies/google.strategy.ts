@@ -34,7 +34,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google', 5) {
     profile: Profile,
     done: VerifyCallback,
   ) {
-    const { id_token, scope } = params;
+    const { expires_in, id_token, scope } = params;
     const { id, emails, name, photos } = profile;
 
     const email = emails?.[0]?.value;
@@ -42,6 +42,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google', 5) {
 
     const user = {
       accessToken,
+      accessTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
       accountId: id,
       email,
       emailVerified: emails?.[0]?.verified,

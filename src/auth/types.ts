@@ -9,6 +9,7 @@ export interface JwtPayload {
 
 export interface GoogleUserPayload {
   accessToken: string;
+  accessTokenExpiresAt: Date;
   accountId: string;
   email: string;
   emailVerified?: boolean;
