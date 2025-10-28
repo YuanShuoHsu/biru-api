@@ -45,6 +45,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Get('profile')
+  @ApiOperation({ summary: '查詢登入使用者資料' })
   getProfile(@Request() req: RequestWithUser) {
     return req.user;
   }
@@ -52,11 +53,13 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: '前往 Google 登入' })
   async googleLogin() {}
 
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: '完成 Google 登入' })
   googleLoginCallback(
     @Ip() ip: string,
     @Request() req: RequestWithGoogleUser,
