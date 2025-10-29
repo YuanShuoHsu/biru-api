@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import type {
@@ -68,6 +69,7 @@ export class AuthController {
     const userAgent = req.get('user-agent');
 
     return this.authService.loginWithGoogle(req.user, { ip, userAgent }, res);
+    // 記得後端 redirect
   }
 
   @Public()
@@ -76,7 +78,7 @@ export class AuthController {
   async logout(
     @Request() req: RequestWithCookies,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<LogoutResponseDto> {
     const refreshToken = req.cookies.refresh_token;
 
     return this.authService.logout(refreshToken, res);

@@ -75,7 +75,7 @@ export class AuthService {
     res.cookie('refresh_token', refreshToken, {
       expires: refreshTokenExpiresAt,
       httpOnly: true,
-      path: '/auth',
+      path: '/api/auth',
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
     });
@@ -159,31 +159,34 @@ export class AuthService {
   }
 
   async logout(refreshToken: string | undefined, res: Response) {
+    // 要確認一下能不能更好 像是 success: true
+    // 有問題一直使用 login 會創建新的 refresh token 會產生越來越多 session
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      path: '/api/auth',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
     if (!refreshToken) return { success: true };
 
     const { sub } = await this.jwtService.verifyAsync<{ sub: string }>(
       refreshToken,
       { secret: jwtConstants.refresh.secret },
     );
+    console.log(sub, 'sub');
 
     const sessions = await this.sessionService.sessions({
       where: { userId: sub },
     });
 
-    for (const session of sessions) {
-      const match = await compare(refreshToken, session.token);
+    for (const { id, token } of sessions) {
+      const match = await compare(refreshToken, token);
       if (match) {
-        await this.sessionService.deleteSession({ id: session.id });
+        await this.sessionService.deleteSession({ id });
         break;
       }
     }
-
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      path: '/auth',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
 
     return { success: true };
   }
