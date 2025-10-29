@@ -3,8 +3,8 @@ import { User } from '@prisma/client';
 import type { Request } from 'express';
 
 export interface JwtPayload {
-  email: string;
   sub: string;
+  email: string;
 }
 
 export interface GoogleUserPayload {
