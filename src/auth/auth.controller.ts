@@ -75,7 +75,7 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
-  @ApiOperation({ summary: '使用 Refresh Token 換發 Access Token' })
+  @ApiOperation({ summary: '使用者憑證續期' })
   async refresh(
     @Ip() ip: string,
     @Request() req: RequestWithCookies,
@@ -89,7 +89,7 @@ export class AuthController {
 
   @Public()
   @Post('logout')
-  @ApiOperation({ summary: '登出' })
+  @ApiOperation({ summary: '使用者登出' })
   async logout(
     @Request() req: RequestWithCookies,
     @Res({ passthrough: true }) res: Response,
