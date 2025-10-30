@@ -54,11 +54,12 @@ model Session {
   ipAddress String?
   token     String   @unique
   updatedAt DateTime @updatedAt
-  userAgent String?
+  userAgent String   @default("")
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, userAgent])
   @@index([userId])
 }
 

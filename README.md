@@ -109,6 +109,14 @@ export class AppModule {}
 pnpm add class-validator class-transformer
 ```
 
+## Task scheduling
+
+```bash
+# https://docs.nestjs.com/techniques/task-scheduling
+
+pnpm add @nestjs/schedule
+```
+
 ## Cookies
 
 ```bash

@@ -7,6 +7,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class SessionsService {
   constructor(private prisma: PrismaService) {}
 
+  async session(
+    sessionWhereUniqueInput: Prisma.SessionWhereUniqueInput,
+  ): Promise<Session | null> {
+    return this.prisma.session.findUnique({
+      where: sessionWhereUniqueInput,
+    });
+  }
+
   async sessions(params: {
     skip?: number;
     take?: number;
@@ -31,29 +39,29 @@ export class SessionsService {
     });
   }
 
+  async updateSession(params: {
+    data: Prisma.SessionUpdateInput;
+    where: Prisma.SessionWhereUniqueInput;
+  }): Promise<Session> {
+    const { data, where } = params;
+
+    return await this.prisma.session.update({
+      data,
+      where,
+    });
+  }
+
   async deleteSession(where: Prisma.SessionWhereUniqueInput): Promise<Session> {
     return await this.prisma.session.delete({
       where,
     });
   }
 
-  // create(createSessionDto: CreateSessionDto) {
-  //   return 'This action adds a new session';
-  // }
-
-  // findAll() {
-  //   return `This action returns all sessions`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} session`;
-  // }
-
-  // update(id: number, updateSessionDto: UpdateSessionDto) {
-  //   return `This action updates a #${id} session`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} session`;
-  // }
+  async deleteSessions(
+    where: Prisma.SessionWhereInput,
+  ): Promise<{ count: number }> {
+    return await this.prisma.session.deleteMany({
+      where,
+    });
+  }
 }

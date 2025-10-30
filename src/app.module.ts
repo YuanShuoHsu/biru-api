@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
@@ -15,6 +16,7 @@ import { PostsModule } from './posts/posts.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { StoresModule } from './stores/stores.module';
+import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -27,8 +29,10 @@ import { UsersModule } from './users/users.module';
     MenusModule,
     PostsModule,
     PrismaModule,
+    ScheduleModule.forRoot(),
     SessionsModule,
     StoresModule,
+    TasksModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {

@@ -74,6 +74,20 @@ export class AuthController {
   }
 
   @Public()
+  @Post('refresh')
+  @ApiOperation({ summary: '使用 Refresh Token 換發 Access Token' })
+  async refresh(
+    @Ip() ip: string,
+    @Request() req: RequestWithCookies,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    const userAgent = req.get('user-agent');
+    const refreshToken = req.cookies.refresh_token;
+
+    return this.authService.refresh(refreshToken, { ip, userAgent }, res);
+  }
+
+  @Public()
   @Post('logout')
   @ApiOperation({ summary: '登出' })
   async logout(
@@ -84,22 +98,4 @@ export class AuthController {
 
     return this.authService.logout(refreshToken, res);
   }
-
-  // @Public()
-  // @UseGuards(JwtRefreshAuthGuard)
-  // @Post('refresh')
-  // @ApiOperation({
-  //   summary: '刷新 Token',
-  // })
-  // async refresh(@Body() dto: RefreshDto, @Request() req: RequestWithUser) {
-  //   return this.authService.refresh(dto.refreshToken);
-  // }
-
-  // @Public()
-  // @Post('refresh')
-  // @ApiOperation({ summary: '使用 Refresh Token 換發 Access Token' })
-  // @ApiBody({ type: RefreshDto })
-  // async refresh(@Body() dto: RefreshDto) {
-  //   return this.authService.refresh(dto.refreshToken);
-  // }
 }

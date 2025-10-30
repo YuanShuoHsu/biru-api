@@ -18,7 +18,7 @@ export class AuthService {
   constructor(
     private accountsService: AccountsService,
     private jwtService: JwtService,
-    private sessionService: SessionsService,
+    private sessionsService: SessionsService,
     private usersService: UsersService,
   ) {}
 
@@ -40,7 +40,7 @@ export class AuthService {
 
   async login(
     { id, email }: User,
-    { ip, userAgent }: { ip: string; userAgent?: string },
+    { ip, userAgent = '' }: { ip: string; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
     const payload = { sub: id, email };
@@ -61,15 +61,35 @@ export class AuthService {
         exp: number;
       }>(refreshToken, { secret: jwtConstants.refresh.secret });
     const refreshTokenExpiresAt = new Date(refreshTokenExpiresAtSeconds * 1000);
-
     const refreshTokenHash = await hash(refreshToken);
 
-    await this.sessionService.createSession({
-      expiresAt: refreshTokenExpiresAt,
-      ipAddress: ip,
-      user: { connect: { id } },
-      userAgent,
-      token: refreshTokenHash,
+    const session = await this.sessionsService.session({
+      userId_userAgent: { userId: id, userAgent },
+    });
+
+    if (!session) {
+      await this.sessionsService.createSession({
+        expiresAt: refreshTokenExpiresAt,
+        ipAddress: ip,
+        token: refreshTokenHash,
+        user: { connect: { id } },
+        userAgent,
+      });
+    } else {
+      await this.sessionsService.updateSession({
+        where: { id: session.id },
+        data: {
+          expiresAt: refreshTokenExpiresAt,
+          ipAddress: ip,
+          token: refreshTokenHash,
+          userAgent,
+        },
+      });
+    }
+
+    await this.sessionsService.deleteSessions({
+      userId: id,
+      expiresAt: { lt: new Date() },
     });
 
     res.cookie('refresh_token', refreshToken, {
@@ -158,9 +178,96 @@ export class AuthService {
     return this.login(user, meta, res);
   }
 
-  async logout(refreshToken: string | undefined, res: Response) {
-    // 要確認一下能不能更好 像是 success: true
-    // 有問題一直使用 login 會創建新的 refresh token 會產生越來越多 session
+  async refresh(
+    refreshToken: string,
+    { ip, userAgent = '' }: { ip: string; userAgent?: string },
+    res: Response,
+  ): Promise<{ access_token: string }> {
+    const { sub, email } = await this.jwtService.verifyAsync<{
+      sub: string;
+      email: string;
+    }>(refreshToken, { secret: jwtConstants.refresh.secret });
+
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        { sub, email },
+        {
+          secret: jwtConstants.access.secret,
+          expiresIn: jwtConstants.access.expiresIn,
+        },
+      ),
+      this.jwtService.signAsync(
+        { sub, email },
+        {
+          secret: jwtConstants.refresh.secret,
+          expiresIn: jwtConstants.refresh.expiresIn,
+        },
+      ),
+    ]);
+
+    const { exp: newRefreshTokenExpiresAtSeconds } =
+      await this.jwtService.verifyAsync<{ exp: number }>(newRefreshToken, {
+        secret: jwtConstants.refresh.secret,
+      });
+    const newRefreshTokenExpiresAt = new Date(
+      newRefreshTokenExpiresAtSeconds * 1000,
+    );
+    const newRefreshTokenHash = await hash(newRefreshToken);
+
+    const sessions = await this.sessionsService.sessions({
+      where: { userId: sub },
+    });
+
+    for (const { id, token } of sessions) {
+      const match = await compare(refreshToken, token);
+      if (match) {
+        await this.sessionsService.updateSession({
+          where: { id },
+          data: {
+            expiresAt: newRefreshTokenExpiresAt,
+            ipAddress: ip,
+            token: newRefreshTokenHash,
+            userAgent,
+          },
+        });
+        break;
+      }
+    }
+
+    await this.sessionsService.deleteSessions({
+      userId: sub,
+      expiresAt: { lt: new Date() },
+    });
+
+    res.cookie('refresh_token', newRefreshToken, {
+      expires: newRefreshTokenExpiresAt,
+      httpOnly: true,
+      path: '/api/auth',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    return { access_token: newAccessToken };
+  }
+
+  async logout(refreshToken: string, res: Response) {
+    const { sub } = await this.jwtService.verifyAsync<{ sub: string }>(
+      refreshToken,
+      { secret: jwtConstants.refresh.secret },
+    );
+
+    const sessions = await this.sessionsService.sessions({
+      where: { userId: sub },
+    });
+
+    for (const { id, token } of sessions) {
+      const match = await compare(refreshToken, token);
+      if (match) {
+        await this.sessionsService.deleteSession({ id });
+        break;
+      }
+    }
+
     res.clearCookie('refresh_token', {
       httpOnly: true,
       path: '/api/auth',
@@ -168,80 +275,6 @@ export class AuthService {
       secure: process.env.NODE_ENV === 'production',
     });
 
-    if (!refreshToken) return { success: true };
-
-    const { sub } = await this.jwtService.verifyAsync<{ sub: string }>(
-      refreshToken,
-      { secret: jwtConstants.refresh.secret },
-    );
-    console.log(sub, 'sub');
-
-    const sessions = await this.sessionService.sessions({
-      where: { userId: sub },
-    });
-
-    for (const { id, token } of sessions) {
-      const match = await compare(refreshToken, token);
-      if (match) {
-        await this.sessionService.deleteSession({ id });
-        break;
-      }
-    }
-
     return { success: true };
   }
-
-  // async refresh(
-  //   refreshToken: string,
-  // ): Promise<{ access_token: string; refresh_token: string }> {
-  //   const payload = await this.jwtService.verifyAsync<JwtPayload>(
-  //     refreshToken,
-  //     {
-  //       secret: jwtConstants.refresh.secret,
-  //     },
-  //   );
-
-  //   const tokens = await this.prisma.refreshToken.findMany({
-  //     where: { userId: payload.sub, isRevoked: false },
-  //   });
-
-  //   let matched = false;
-  //   for (const record of tokens) {
-  //     const isMatch = await bcrypt.compare(refreshToken, String(record.hash));
-  //     if (isMatch) {
-  //       matched = true;
-
-  //       await this.prisma.refreshToken.update({
-  //         where: { id: record.id },
-  //         data: { isRevoked: true },
-  //       });
-  //       break;
-  //     }
-  //   }
-  //   if (!matched) throw new UnauthorizedException();
-
-  //   const user = await this.usersService.user({ id: payload.sub });
-  //   if (!user) throw new UnauthorizedException();
-
-  //   const newPayload = { sub: user.id, email: user.email };
-
-  //   const newAccess = await this.jwtService.signAsync(newPayload, {
-  //     secret: jwtConstants.access.secret,
-  //     expiresIn: jwtConstants.access.expiresIn,
-  //   });
-
-  //   const newRefresh = await this.jwtService.signAsync(newPayload, {
-  //     secret: jwtConstants.refresh.secret,
-  //     expiresIn: jwtConstants.refresh.expiresIn,
-  //   });
-
-  //   await this.prisma.refreshToken.create({
-  //     data: {
-  //       userId: user.id,
-  //       hash: await bcrypt.hash(newRefresh, 10),
-  //     },
-  //   });
-
-  //   return { access_token: newAccess, refresh_token: newRefresh };
-  // }
 }

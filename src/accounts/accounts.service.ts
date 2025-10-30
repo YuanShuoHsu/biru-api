@@ -15,6 +15,24 @@ export class AccountsService {
     });
   }
 
+  async accounts(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.AccountWhereUniqueInput;
+    where?: Prisma.AccountWhereInput;
+    orderBy?: Prisma.AccountOrderByWithRelationInput;
+  }): Promise<Account[]> {
+    const { skip, take, cursor, where, orderBy } = params;
+
+    return this.prisma.account.findMany({
+      skip,
+      take,
+      cursor,
+      where,
+      orderBy,
+    });
+  }
+
   async createAccount(data: Prisma.AccountCreateInput): Promise<Account> {
     return this.prisma.account.create({
       data,
@@ -33,23 +51,9 @@ export class AccountsService {
     });
   }
 
-  // create(createAccountDto: CreateAccountDto) {
-  //   return 'This action adds a new account';
-  // }
-
-  // findAll() {
-  //   return `This action returns all accounts`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} account`;
-  // }
-
-  // update(id: number, updateAccountDto: UpdateAccountDto) {
-  //   return `This action updates a #${id} account`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} account`;
-  // }
+  async deleteAccount(where: Prisma.AccountWhereUniqueInput): Promise<Account> {
+    return await this.prisma.account.delete({
+      where,
+    });
+  }
 }
