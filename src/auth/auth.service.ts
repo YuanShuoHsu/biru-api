@@ -40,7 +40,11 @@ export class AuthService {
 
   async login(
     { id, email }: User,
-    { ip, userAgent = '' }: { ip: string; userAgent?: string },
+    {
+      ip,
+      rememberMe,
+      userAgent = '',
+    }: { ip: string; rememberMe: boolean; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
     const payload = { sub: id, email };
@@ -93,7 +97,7 @@ export class AuthService {
     });
 
     res.cookie('refresh_token', refreshToken, {
-      expires: refreshTokenExpiresAt,
+      ...(rememberMe ? { expires: refreshTokenExpiresAt } : {}),
       httpOnly: true,
       path: '/api/auth',
       sameSite: 'lax',
@@ -117,7 +121,7 @@ export class AuthService {
       refreshToken,
       scope,
     }: GoogleUserPayload,
-    meta: { ip: string; userAgent?: string },
+    meta: { ip: string; rememberMe: boolean; userAgent?: string },
     res: Response,
   ) {
     const normalizedEmail = normalizeEmail(email);

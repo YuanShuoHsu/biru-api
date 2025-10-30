@@ -4,6 +4,7 @@ import {
   Get,
   Ip,
   Post,
+  Query,
   Request,
   Res,
   UseGuards,
@@ -35,14 +36,15 @@ export class AuthController {
   @Post('login')
   @ApiOperation({ summary: '使用者登入' })
   async login(
-    @Body() _dto: LoginDto,
+    @Body() dto: LoginDto,
     @Ip() ip: string,
     @Request() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
+    const rememberMe = dto.rememberMe;
     const userAgent = req.get('user-agent');
 
-    return this.authService.login(req.user, { ip, userAgent }, res);
+    return this.authService.login(req.user, { ip, rememberMe, userAgent }, res);
   }
 
   @ApiBearerAuth()
@@ -64,13 +66,19 @@ export class AuthController {
   @ApiOperation({ summary: '完成 Google 登入' })
   googleLoginCallback(
     @Ip() ip: string,
+    @Query('state') state: string,
     @Request() req: RequestWithGoogleUser,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponseDto> {
+  ) {
+    const rememberMe = state === 'true';
     const userAgent = req.get('user-agent');
 
-    return this.authService.loginWithGoogle(req.user, { ip, userAgent }, res);
-    // 記得後端 redirect
+    return this.authService.loginWithGoogle(
+      req.user,
+      { ip, rememberMe, userAgent },
+      res,
+    );
+    // // 記得後端 redirect
   }
 
   @Public()
