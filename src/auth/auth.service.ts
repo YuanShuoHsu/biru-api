@@ -43,7 +43,7 @@ export class AuthService {
     {
       ip,
       rememberMe,
-      userAgent = '',
+      userAgent,
     }: { ip: string; rememberMe: boolean; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
@@ -67,9 +67,11 @@ export class AuthService {
     const refreshTokenExpiresAt = new Date(refreshTokenExpiresAtSeconds * 1000);
     const refreshTokenHash = await hash(refreshToken);
 
-    const session = await this.sessionsService.session({
-      userId_userAgent: { userId: id, userAgent },
-    });
+    const session = userAgent
+      ? await this.sessionsService.session({
+          userId_userAgent: { userId: id, userAgent },
+        })
+      : null;
 
     if (!session) {
       await this.sessionsService.createSession({
@@ -77,7 +79,7 @@ export class AuthService {
         ipAddress: ip,
         token: refreshTokenHash,
         user: { connect: { id } },
-        userAgent,
+        ...(userAgent ? { userAgent } : {}),
       });
     } else {
       await this.sessionsService.updateSession({
@@ -184,7 +186,7 @@ export class AuthService {
 
   async refresh(
     refreshToken: string,
-    { ip, userAgent = '' }: { ip: string; userAgent?: string },
+    { ip, userAgent }: { ip: string; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
     const { sub, email } = await this.jwtService.verifyAsync<{
@@ -231,7 +233,7 @@ export class AuthService {
             expiresAt: newRefreshTokenExpiresAt,
             ipAddress: ip,
             token: newRefreshTokenHash,
-            userAgent,
+            userAgent: userAgent || null,
           },
         });
         break;

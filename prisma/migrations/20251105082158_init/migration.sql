@@ -136,12 +136,15 @@ CREATE TABLE "Table" (
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
+    "countryCode" TEXT NOT NULL DEFAULT '+886',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "email" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "firstName" TEXT NOT NULL DEFAULT '',
     "image" TEXT NOT NULL DEFAULT '/images/IMG_4590.jpg',
     "lastName" TEXT NOT NULL DEFAULT '',
+    "phone" TEXT,
+    "phoneVerified" BOOLEAN NOT NULL DEFAULT false,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -175,7 +178,7 @@ CREATE TABLE "Session" (
     "ipAddress" TEXT,
     "token" TEXT NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "userAgent" TEXT NOT NULL DEFAULT '',
+    "userAgent" TEXT,
     "userId" TEXT NOT NULL,
 
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
@@ -243,6 +246,9 @@ CREATE UNIQUE INDEX "Table_storeId_slug_key" ON "Table"("storeId", "slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_countryCode_phone_key" ON "User"("countryCode", "phone");
 
 -- CreateIndex
 CREATE INDEX "Account_userId_idx" ON "Account"("userId");

@@ -8,16 +8,21 @@ enum Role {
 model User {
   id            String    @id @default(uuid())
   accounts      Account[]
+  countryCode   String    @default("+886")
   createdAt     DateTime  @default(now())
   email         String    @unique
   emailVerified Boolean   @default(false)
   firstName     String    @default("")
   image         String    @default("/images/IMG_4590.jpg")
   lastName      String    @default("")
+  phone         String?
+  phoneVerified Boolean   @default(false)
   posts         Post[]
   role          Role      @default(USER)
   sessions      Session[]
   updatedAt     DateTime  @updatedAt
+
+  @@unique([countryCode, phone])
 }
 
 enum Provider {
@@ -54,7 +59,7 @@ model Session {
   ipAddress String?
   token     String   @unique
   updatedAt DateTime @updatedAt
-  userAgent String   @default("")
+  userAgent String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
