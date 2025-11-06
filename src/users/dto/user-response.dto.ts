@@ -10,6 +10,9 @@ export class UserResponseDto {
   })
   id: string;
 
+  @ApiProperty({ description: '電話國碼', example: '+886' })
+  countryCode: string;
+
   @ApiProperty({
     description: '建立時間',
     example: '2025-10-14T12:34:56.000Z',
@@ -46,6 +49,12 @@ export class UserResponseDto {
   })
   @IsNotEmpty()
   lastName: string;
+
+  @ApiProperty({ description: '電話', example: '0912345678', nullable: true })
+  phone: string | null;
+
+  @ApiProperty({ description: '是否已驗證電話', example: false })
+  phoneVerified: boolean;
 
   @ApiProperty({
     description: '角色',

@@ -13,12 +13,13 @@ import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 import type { Response } from 'express';
 
+import { UserResponseDto } from 'src/users/dto/user-response.dto';
+
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
-import { ProfileResponseDto } from './dto/profile-response.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -52,7 +53,7 @@ export class AuthController {
   @ApiBearerAuth()
   @Get('profile')
   @ApiOperation({ summary: '查詢登入使用者資料' })
-  getProfile(@Request() req: RequestWithUser): ProfileResponseDto {
+  getProfile(@Request() req: RequestWithUser): UserResponseDto {
     return req.user;
   }
 
