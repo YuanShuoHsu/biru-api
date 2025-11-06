@@ -21,9 +21,10 @@ export interface GoogleUserPayload {
   scope: string;
 }
 
-export interface RequestWithUser extends Request {
-  user: User;
-}
+export type RequestWithUser = Request & { user: User };
+
+export type RefreshUser = User & { refreshToken: string };
+export type RequestWithRefreshUser = Request & { user: RefreshUser };
 
 export type RequestWithGoogleUser = Request & { user: GoogleUserPayload };
 

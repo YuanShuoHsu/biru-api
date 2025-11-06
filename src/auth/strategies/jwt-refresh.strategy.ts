@@ -1,17 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { jwtConstants } from '../constants';
-import type { JwtPayload, RequestWithCookies } from '../types';
+import type { JwtPayload, RefreshUser, RequestWithCookies } from '../types';
+
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
   Strategy,
   'jwt-refresh',
 ) {
-  constructor() {
+  constructor(private readonly usersService: UsersService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (req: RequestWithCookies) => {
@@ -24,9 +26,16 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  validate(req: RequestWithCookies, payload: JwtPayload) {
+  async validate(
+    req: RequestWithCookies,
+    payload: JwtPayload,
+  ): Promise<RefreshUser> {
     const refreshToken = req.cookies.refresh_token;
+    if (!refreshToken) throw new UnauthorizedException();
 
-    return { id: payload.sub, email: payload.email, refreshToken };
+    const user = await this.usersService.user({ id: payload.sub });
+    if (!user) throw new UnauthorizedException();
+
+    return { ...user, refreshToken };
   }
 }

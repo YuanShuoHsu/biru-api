@@ -20,10 +20,12 @@ import { LoginDto } from './dto/login.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import type {
   RequestWithCookies,
   RequestWithGoogleUser,
+  RequestWithRefreshUser,
   RequestWithUser,
 } from './types';
 
@@ -81,18 +83,17 @@ export class AuthController {
     // // 記得後端 redirect
   }
 
-  @Public()
+  @UseGuards(JwtRefreshAuthGuard)
   @Post('refresh')
   @ApiOperation({ summary: '使用者憑證續期' })
   async refresh(
     @Ip() ip: string,
-    @Request() req: RequestWithCookies,
+    @Request() req: RequestWithRefreshUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const userAgent = req.get('user-agent');
-    const refreshToken = req.cookies.refresh_token;
 
-    return this.authService.refresh(refreshToken, { ip, userAgent }, res);
+    return this.authService.refresh(req.user, { ip, userAgent }, res);
   }
 
   @Public()

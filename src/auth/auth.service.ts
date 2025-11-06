@@ -11,7 +11,7 @@ import { SessionsService } from 'src/sessions/sessions.service';
 import { UsersService } from 'src/users/users.service';
 
 import { jwtConstants } from './constants';
-import { GoogleUserPayload } from './types';
+import { GoogleUserPayload, RefreshUser } from './types';
 
 @Injectable()
 export class AuthService {
@@ -185,15 +185,10 @@ export class AuthService {
   }
 
   async refresh(
-    refreshToken: string,
+    { id: sub, email, refreshToken }: RefreshUser,
     { ip, userAgent }: { ip: string; userAgent?: string },
     res: Response,
   ): Promise<{ access_token: string }> {
-    const { sub, email } = await this.jwtService.verifyAsync<{
-      sub: string;
-      email: string;
-    }>(refreshToken, { secret: jwtConstants.refresh.secret });
-
     const [newAccessToken, newRefreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { sub, email },

@@ -13,6 +13,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { jwtConstants } from './constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
@@ -43,6 +44,7 @@ import { LocalStrategy } from './strategies/local.strategy';
     GoogleStrategy,
     JwtStrategy,
     LocalStrategy,
+    JwtRefreshAuthGuard,
     JwtRefreshStrategy,
   ],
   controllers: [AuthController],
