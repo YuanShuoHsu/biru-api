@@ -84,6 +84,7 @@ export class AuthController {
     // // 記得後端 redirect
   }
 
+  @Public()
   @UseGuards(JwtRefreshAuthGuard)
   @Post('refresh')
   @ApiOperation({ summary: '使用者憑證續期' })
@@ -92,9 +93,7 @@ export class AuthController {
     @Request() req: RequestWithRefreshUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    const userAgent = req.get('user-agent');
-
-    return this.authService.refresh(req.user, { ip, userAgent }, res);
+    return this.authService.refresh(req.user, { ip }, res);
   }
 
   @Public()

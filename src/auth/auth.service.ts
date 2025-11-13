@@ -186,7 +186,7 @@ export class AuthService {
 
   async refresh(
     { id: sub, email, refreshToken }: RefreshUser,
-    { ip, userAgent }: { ip: string; userAgent?: string },
+    { ip }: { ip: string },
     res: Response,
   ): Promise<{ access_token: string }> {
     const [newAccessToken, newRefreshToken] = await Promise.all([
@@ -228,7 +228,6 @@ export class AuthService {
             expiresAt: newRefreshTokenExpiresAt,
             ipAddress: ip,
             token: newRefreshTokenHash,
-            userAgent: userAgent || null,
           },
         });
         break;
