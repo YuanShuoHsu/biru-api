@@ -7,6 +7,10 @@ export interface JwtPayload {
   email: string;
 }
 
+export interface RefreshJwtPayload extends JwtPayload {
+  rememberMe: boolean;
+}
+
 export interface GoogleUserPayload {
   accessToken: string;
   accessTokenExpiresAt: Date;
@@ -23,7 +27,10 @@ export interface GoogleUserPayload {
 
 export type RequestWithUser = Request & { user: User };
 
-export type RefreshUser = User & { refreshToken: string };
+export type RefreshUser = User & {
+  refreshToken: string;
+  rememberMe: boolean;
+};
 export type RequestWithRefreshUser = Request & { user: RefreshUser };
 
 export type RequestWithGoogleUser = Request & { user: GoogleUserPayload };

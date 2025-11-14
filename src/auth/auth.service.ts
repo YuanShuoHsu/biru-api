@@ -48,13 +48,14 @@ export class AuthService {
     res: Response,
   ): Promise<{ access_token: string }> {
     const payload = { sub: id, email };
+    const refreshPayload = { ...payload, rememberMe };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: jwtConstants.access.secret,
         expiresIn: jwtConstants.access.expiresIn,
       }),
-      this.jwtService.signAsync(payload, {
+      this.jwtService.signAsync(refreshPayload, {
         secret: jwtConstants.refresh.secret,
         expiresIn: jwtConstants.refresh.expiresIn,
       }),
@@ -185,7 +186,7 @@ export class AuthService {
   }
 
   async refresh(
-    { id: sub, email, refreshToken }: RefreshUser,
+    { id: sub, email, refreshToken, rememberMe }: RefreshUser,
     { ip }: { ip: string },
     res: Response,
   ): Promise<{ access_token: string }> {
@@ -198,7 +199,7 @@ export class AuthService {
         },
       ),
       this.jwtService.signAsync(
-        { sub, email },
+        { sub, email, rememberMe },
         {
           secret: jwtConstants.refresh.secret,
           expiresIn: jwtConstants.refresh.expiresIn,
@@ -240,7 +241,7 @@ export class AuthService {
     });
 
     res.cookie('refresh_token', newRefreshToken, {
-      expires: newRefreshTokenExpiresAt,
+      ...(rememberMe ? { expires: newRefreshTokenExpiresAt } : {}),
       httpOnly: true,
       path: '/api/auth',
       sameSite: 'lax',

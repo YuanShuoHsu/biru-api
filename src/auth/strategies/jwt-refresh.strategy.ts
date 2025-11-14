@@ -4,7 +4,11 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { jwtConstants } from '../constants';
-import type { JwtPayload, RefreshUser, RequestWithCookies } from '../types';
+import type {
+  RefreshJwtPayload,
+  RefreshUser,
+  RequestWithCookies,
+} from '../types';
 
 import { UsersService } from 'src/users/users.service';
 
@@ -28,7 +32,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
   async validate(
     req: RequestWithCookies,
-    payload: JwtPayload,
+    payload: RefreshJwtPayload,
   ): Promise<RefreshUser> {
     const refreshToken = req.cookies.refresh_token;
     if (!refreshToken) throw new UnauthorizedException();
@@ -36,6 +40,13 @@ export class JwtRefreshStrategy extends PassportStrategy(
     const user = await this.usersService.user({ id: payload.sub });
     if (!user) throw new UnauthorizedException();
 
-    return { ...user, refreshToken };
+    const rememberMe = payload.rememberMe;
+    if (rememberMe === undefined) throw new UnauthorizedException();
+
+    return {
+      ...user,
+      refreshToken,
+      rememberMe,
+    };
   }
 }
