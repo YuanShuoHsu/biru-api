@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Table } from 'prisma/types/tables.types';
+import type { Table } from 'prisma/types/tables.types';
 
 export const tables: Table[] = [
   {

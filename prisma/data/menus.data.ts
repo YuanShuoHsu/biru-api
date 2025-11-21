@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Menu } from 'prisma/types/menus.types';
+import type { Menu } from 'prisma/types/menus.types';
 
 export const menus: Menu[] = [
   {

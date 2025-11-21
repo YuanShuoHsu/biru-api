@@ -1,10 +1,14 @@
-import { Prisma, PrismaClient } from '@prisma/client';
-
+import { PrismaPg } from '@prisma/adapter-pg';
+import 'dotenv/config';
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
 import { tables } from './data/tables.data';
+import { Prisma, PrismaClient } from './generated/client';
 
-const prisma = new PrismaClient();
+const connectionString = `${process.env.DATABASE_URL}`;
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   for (const s of stores) {

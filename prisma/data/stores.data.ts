@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Store } from 'prisma/types/stores.types';
+import type { Store } from 'prisma/types/stores.types';
 
 export const stores: Store[] = [
   {

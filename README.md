@@ -270,7 +270,9 @@ pnpm add -D @types/passport-google-oauth20
 # https://www.prisma.io/docs/orm/reference/prisma-config-reference
 # https://www.prisma.io/docs/orm/prisma-migrate/workflows/seeding
 
-pnpm install prisma --save-dev
+pnpm add -D prisma @types/node @types/pg
+pnpm add @prisma/client @prisma/adapter-pg pg dotenv
+
 pnpm prisma
 pnpm prisma init
 pnpm prisma migrate dev --name init
@@ -278,10 +280,10 @@ tree prisma
 pnpm @prisma/client
 pnpm prisma generate
 
-pnpm add -D dotenv
-
 pnpm add -D typescript ts-node @types/node
 pnpm add -D tsx
+
+prisma studio
 ```
 
 ## Global prefix
