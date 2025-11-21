@@ -9,8 +9,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
 
+import { Role } from 'prisma/generated/client';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 

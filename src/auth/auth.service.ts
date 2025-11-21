@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Provider, User } from '@prisma/client';
 
 import type { Response } from 'express';
-
+import { Provider, User } from 'prisma/generated/client';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { normalizeEmail } from 'src/common/utils/email';
 import { compare, hash } from 'src/common/utils/hashing';

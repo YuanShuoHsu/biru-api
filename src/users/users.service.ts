@@ -1,8 +1,8 @@
 // https://docs.nestjs.com/recipes/prisma
 
 import { Injectable } from '@nestjs/common';
-import { Prisma, Provider, User } from '@prisma/client';
 
+import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
 import { PrismaService } from 'src/prisma/prisma.service';

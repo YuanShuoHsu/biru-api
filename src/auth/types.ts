@@ -1,6 +1,5 @@
-import { User } from '@prisma/client';
-
 import type { Request } from 'express';
+import { User } from 'prisma/generated/client';
 
 export interface JwtPayload {
   sub: string;
