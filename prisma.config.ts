@@ -8,7 +8,7 @@ import { env } from 'prisma/config';
 
 export default {
   datasource: {
-    url: env('DATABASE_URL'),
+    url: env('DIRECT_URL'),
   },
   migrations: {
     path: path.join('prisma', 'migrations'),
