@@ -1,3 +1,4 @@
+// https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections
 // https://www.prisma.io/docs/orm/reference/prisma-config-reference
 
 import 'dotenv/config';
