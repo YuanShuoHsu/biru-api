@@ -70,9 +70,9 @@ model Session {
 
 model Verification {
   id         String   @id @default(uuid())
+  code       String
   createdAt  DateTime @default(now())
   expiresAt  DateTime
   identifier String
   updatedAt  DateTime @updatedAt
-  value      String
 }

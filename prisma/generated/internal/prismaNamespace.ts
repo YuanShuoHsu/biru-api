@@ -1599,11 +1599,11 @@ export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeo
 
 export const VerificationScalarFieldEnum = {
   id: 'id',
+  code: 'code',
   createdAt: 'createdAt',
   expiresAt: 'expiresAt',
   identifier: 'identifier',
-  updatedAt: 'updatedAt',
-  value: 'value'
+  updatedAt: 'updatedAt'
 } as const
 
 export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[keyof typeof VerificationScalarFieldEnum]

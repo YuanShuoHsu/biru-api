@@ -187,11 +187,11 @@ CREATE TABLE "Session" (
 -- CreateTable
 CREATE TABLE "Verification" (
     "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "identifier" TEXT NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "value" TEXT NOT NULL,
 
     CONSTRAINT "Verification_pkey" PRIMARY KEY ("id")
 );
