@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 import type { Response } from 'express';
@@ -9,13 +10,15 @@ import { compare, hash } from 'src/common/utils/hashing';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { UsersService } from 'src/users/users.service';
 
-import { jwtConstants } from './constants';
+import jwtConstantsConfig from './jwtConstants.config';
 import { GoogleUserPayload, RefreshUser } from './types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private accountsService: AccountsService,
+    @Inject(jwtConstantsConfig.KEY)
+    private readonly jwtConstants: ConfigType<typeof jwtConstantsConfig>,
     private jwtService: JwtService,
     private sessionsService: SessionsService,
     private usersService: UsersService,
@@ -51,19 +54,19 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: jwtConstants.access.secret,
-        expiresIn: jwtConstants.access.expiresIn,
+        secret: this.jwtConstants.access.secret,
+        expiresIn: this.jwtConstants.access.expiresIn,
       }),
       this.jwtService.signAsync(refreshPayload, {
-        secret: jwtConstants.refresh.secret,
-        expiresIn: jwtConstants.refresh.expiresIn,
+        secret: this.jwtConstants.refresh.secret,
+        expiresIn: this.jwtConstants.refresh.expiresIn,
       }),
     ]);
 
     const { exp: refreshTokenExpiresAtSeconds } =
       await this.jwtService.verifyAsync<{
         exp: number;
-      }>(refreshToken, { secret: jwtConstants.refresh.secret });
+      }>(refreshToken, { secret: this.jwtConstants.refresh.secret });
     const refreshTokenExpiresAt = new Date(refreshTokenExpiresAtSeconds * 1000);
     const refreshTokenHash = await hash(refreshToken);
 
@@ -193,22 +196,22 @@ export class AuthService {
       this.jwtService.signAsync(
         { sub, email },
         {
-          secret: jwtConstants.access.secret,
-          expiresIn: jwtConstants.access.expiresIn,
+          secret: this.jwtConstants.access.secret,
+          expiresIn: this.jwtConstants.access.expiresIn,
         },
       ),
       this.jwtService.signAsync(
         { sub, email, rememberMe },
         {
-          secret: jwtConstants.refresh.secret,
-          expiresIn: jwtConstants.refresh.expiresIn,
+          secret: this.jwtConstants.refresh.secret,
+          expiresIn: this.jwtConstants.refresh.expiresIn,
         },
       ),
     ]);
 
     const { exp: newRefreshTokenExpiresAtSeconds } =
       await this.jwtService.verifyAsync<{ exp: number }>(newRefreshToken, {
-        secret: jwtConstants.refresh.secret,
+        secret: this.jwtConstants.refresh.secret,
       });
     const newRefreshTokenExpiresAt = new Date(
       newRefreshTokenExpiresAtSeconds * 1000,
@@ -253,7 +256,7 @@ export class AuthService {
   async logout(refreshToken: string, res: Response) {
     const { sub } = await this.jwtService.verifyAsync<{ sub: string }>(
       refreshToken,
-      { secret: jwtConstants.refresh.secret },
+      { secret: this.jwtConstants.refresh.secret },
     );
 
     const sessions = await this.sessionsService.sessions({
