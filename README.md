@@ -284,6 +284,9 @@ pnpm add -D typescript ts-node @types/node
 pnpm add -D tsx
 
 prisma studio
+
+# https://github.com/prisma/prisma/issues/28581
+pnpm add @prisma/client-runtime-utils
 ```
 
 ## Global prefix
