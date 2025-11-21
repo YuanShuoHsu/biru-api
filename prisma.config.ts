@@ -1,6 +1,7 @@
 // https://www.prisma.io/docs/orm/reference/prisma-config-reference
 
 import 'dotenv/config';
+
 import path from 'node:path';
 import type { PrismaConfig } from 'prisma';
 import { env } from 'prisma/config';

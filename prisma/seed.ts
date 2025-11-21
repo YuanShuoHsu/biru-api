@@ -1,5 +1,7 @@
-import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
+
+import { PrismaPg } from '@prisma/adapter-pg';
+
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
 import { tables } from './data/tables.data';
