@@ -14,7 +14,7 @@ import { Gender as GenderEnum } from 'prisma/generated/enums';
 export class CreateUserDto {
   @ApiProperty({
     description: '生日',
-    example: '2024-04-04',
+    example: '2024-04-04T00:00:00.000Z',
   })
   @IsDateString()
   birthDate: string;
