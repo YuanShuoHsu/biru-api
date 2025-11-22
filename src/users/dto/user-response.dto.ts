@@ -12,10 +12,7 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '生日',
-    type: String,
-    format: 'date-time',
     example: '2024-04-04T00:00:00.000Z',
-    nullable: true,
   })
   birthDate: Date | null;
 
@@ -62,7 +59,7 @@ export class UserResponseDto {
   })
   lastName: string;
 
-  @ApiProperty({ description: '電話', example: '0912345678', nullable: true })
+  @ApiProperty({ description: '電話', example: '0912345678' })
   phone: string | null;
 
   @ApiProperty({ description: '是否已驗證電話', example: false })

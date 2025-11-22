@@ -18,6 +18,7 @@ export class UpdateUserDto {
     example: '2024-04-04',
   })
   @IsDateString()
+  @IsNotEmpty()
   @IsOptional()
   birthDate?: string;
 
