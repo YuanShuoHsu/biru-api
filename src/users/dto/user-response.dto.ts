@@ -15,8 +15,9 @@ export class UserResponseDto {
     type: String,
     format: 'date-time',
     example: '2024-04-04T00:00:00.000Z',
+    nullable: true,
   })
-  birthDate: string;
+  birthDate: Date | null;
 
   @ApiProperty({ description: '電話國碼', example: '+886' })
   countryCode: string;

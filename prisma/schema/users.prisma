@@ -14,7 +14,7 @@ enum Role {
 model User {
   id            String    @id @default(uuid())
   accounts      Account[]
-  birthDate     DateTime
+  birthDate     DateTime?
   countryCode   String    @default("+886")
   createdAt     DateTime  @default(now())
   email         String    @unique
