@@ -1,3 +1,9 @@
+enum Gender {
+  FEMALE
+  MALE
+  NOT_DISCLOSED
+}
+
 enum Role {
   ADMIN
   MANAGER
@@ -8,11 +14,13 @@ enum Role {
 model User {
   id            String    @id @default(uuid())
   accounts      Account[]
+  birthDate     DateTime
   countryCode   String    @default("+886")
   createdAt     DateTime  @default(now())
   email         String    @unique
   emailVerified Boolean   @default(false)
   firstName     String    @default("")
+  gender        Gender    @default(NOT_DISCLOSED)
   image         String    @default("/images/IMG_4590.jpg")
   lastName      String    @default("")
   phone         String?

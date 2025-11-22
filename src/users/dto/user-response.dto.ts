@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { IsEmail, IsNotEmpty, IsUrl } from 'class-validator';
-import { Role } from 'prisma/generated/client';
+import type { Gender, Role } from 'prisma/generated/client';
+import { Gender as GenderEnum, Role as RoleEnum } from 'prisma/generated/enums';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -9,6 +9,14 @@ export class UserResponseDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   id: string;
+
+  @ApiProperty({
+    description: '生日',
+    type: String,
+    format: 'date-time',
+    example: '2024-04-04T00:00:00.000Z',
+  })
+  birthDate: string;
 
   @ApiProperty({ description: '電話國碼', example: '+886' })
   countryCode: string;
@@ -23,7 +31,6 @@ export class UserResponseDto {
     description: '電子郵件',
     example: 'birucoffee@example.com',
   })
-  @IsEmail()
   email: string;
 
   @ApiProperty({ description: '是否已驗證電子郵件', example: false })
@@ -33,21 +40,25 @@ export class UserResponseDto {
     description: '名',
     example: 'Coffee',
   })
-  @IsNotEmpty()
   firstName: string;
+
+  @ApiProperty({
+    description: '性別',
+    enum: GenderEnum,
+    example: GenderEnum.NOT_DISCLOSED,
+  })
+  gender: Gender;
 
   @ApiProperty({
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
-  @IsUrl()
   image: string;
 
   @ApiProperty({
     description: '姓',
     example: 'Biru',
   })
-  @IsNotEmpty()
   lastName: string;
 
   @ApiProperty({ description: '電話', example: '0912345678', nullable: true })
@@ -58,8 +69,8 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '角色',
-    enum: Role,
-    example: Role.USER,
+    enum: RoleEnum,
+    example: RoleEnum.USER,
   })
   role: Role;
 

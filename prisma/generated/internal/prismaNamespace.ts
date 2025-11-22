@@ -1548,11 +1548,13 @@ export type TableScalarFieldEnum = (typeof TableScalarFieldEnum)[keyof typeof Ta
 
 export const UserScalarFieldEnum = {
   id: 'id',
+  birthDate: 'birthDate',
   countryCode: 'countryCode',
   createdAt: 'createdAt',
   email: 'email',
   emailVerified: 'emailVerified',
   firstName: 'firstName',
+  gender: 'gender',
   image: 'image',
   lastName: 'lastName',
   phone: 'phone',
@@ -1729,6 +1731,20 @@ export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
  * Reference to a field of type 'Decimal[]'
  */
 export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Gender'
+ */
+export type EnumGenderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Gender'>
+    
+
+
+/**
+ * Reference to a field of type 'Gender[]'
+ */
+export type ListEnumGenderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Gender[]'>
     
 
 

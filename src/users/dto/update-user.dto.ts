@@ -2,9 +2,25 @@
 
 import { ApiProperty } from '@nestjs/swagger';
 
-import { IsNotEmpty, IsOptional, IsUrl } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsUrl,
+} from 'class-validator';
+import type { Gender } from 'prisma/generated/client';
+import { Gender as GenderEnum } from 'prisma/generated/enums';
 
 export class UpdateUserDto {
+  @ApiProperty({
+    description: '生日',
+    example: '2024-04-04',
+  })
+  @IsDateString()
+  @IsOptional()
+  birthDate?: string;
+
   @ApiProperty({ description: '電話國碼', example: '+886' })
   @IsNotEmpty()
   @IsOptional()
@@ -14,6 +30,15 @@ export class UpdateUserDto {
   @IsNotEmpty()
   @IsOptional()
   firstName?: string;
+
+  @ApiProperty({
+    description: '性別',
+    enum: GenderEnum,
+    example: GenderEnum.NOT_DISCLOSED,
+  })
+  @IsEnum(GenderEnum)
+  @IsOptional()
+  gender?: Gender;
 
   @ApiProperty({
     description: '頭像 URL',
