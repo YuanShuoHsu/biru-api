@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   Matches,
   MinLength,
 } from 'class-validator';
@@ -18,6 +19,14 @@ export class CreateUserDto {
   })
   @IsDateString()
   birthDate: string;
+
+  @ApiProperty({
+    description: '國碼（選填）',
+    example: '+886',
+  })
+  @IsNotEmpty()
+  @IsOptional()
+  countryCode?: string;
 
   @ApiProperty({
     description: '電子郵件',
@@ -40,7 +49,8 @@ export class CreateUserDto {
 
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsNotEmpty()
-  lastName: string;
+  @IsOptional()
+  lastName?: string;
 
   @ApiProperty({
     description: '密碼（至少 8 碼，需包含英文字母與數字）',
@@ -49,4 +59,12 @@ export class CreateUserDto {
   @MinLength(8)
   @Matches(/^(?=.*[a-zA-Z])(?=.*\d).{8,}$/)
   password: string;
+
+  @ApiProperty({
+    description: '聯絡電話（選填）',
+    example: '0912345678',
+  })
+  @IsNotEmpty()
+  @IsOptional()
+  phone?: string;
 }

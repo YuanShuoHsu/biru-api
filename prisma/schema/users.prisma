@@ -21,7 +21,7 @@ model User {
   emailVerified Boolean   @default(false)
   firstName     String    @default("")
   gender        Gender    @default(NOT_DISCLOSED)
-  image         String    @default("/images/IMG_4590.jpg")
+  image         String?
   lastName      String    @default("")
   phone         String?
   phoneVerified Boolean   @default(false)

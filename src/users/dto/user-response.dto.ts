@@ -51,7 +51,7 @@ export class UserResponseDto {
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
-  image: string;
+  image: string | null;
 
   @ApiProperty({
     description: '姓',
