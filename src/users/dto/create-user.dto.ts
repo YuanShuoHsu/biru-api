@@ -22,12 +22,11 @@ export class CreateUserDto {
   birthDate: string;
 
   @ApiProperty({
-    description: '國碼（選填）',
+    description: '國碼',
     example: '+886',
   })
   @IsNotEmpty()
-  @IsOptional()
-  countryCode?: string;
+  countryCode: string;
 
   @ApiProperty({
     description: '電子郵件',
@@ -52,8 +51,7 @@ export class CreateUserDto {
     description: '是否訂閱電子報',
     example: true,
   })
-  @IsOptional()
-  isSubscribed?: boolean;
+  isSubscribed: boolean;
 
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsNotEmpty()
@@ -69,10 +67,9 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({
-    description: '聯絡電話（選填）',
+    description: '聯絡電話',
     example: '0912345678',
   })
   @IsNotEmpty()
-  @IsOptional()
-  phone?: string;
+  phone: string;
 }
