@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-
 import {
   IsDateString,
   IsEmail,
@@ -15,9 +14,11 @@ import { Gender as GenderEnum } from 'prisma/generated/enums';
 export class CreateUserDto {
   @ApiProperty({
     description: '生日',
-    example: '2024-04-04T00:00:00.000Z',
+    example: '2024-04-04',
+    format: 'date',
   })
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   birthDate: string;
 
   @ApiProperty({
