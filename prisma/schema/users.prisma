@@ -22,6 +22,7 @@ model User {
   firstName     String    @default("")
   gender        Gender    @default(NOT_DISCLOSED)
   image         String?
+  isSubscribed  Boolean   @default(true)
   lastName      String    @default("")
   phone         String?
   phoneVerified Boolean   @default(false)

@@ -214,6 +214,7 @@ export type TableScalarFieldEnum = (typeof TableScalarFieldEnum)[keyof typeof Ta
 export const UserScalarFieldEnum = {
   id: 'id',
   birthDate: 'birthDate',
+  isSubscribed: 'isSubscribed',
   countryCode: 'countryCode',
   createdAt: 'createdAt',
   email: 'email',

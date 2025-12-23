@@ -48,6 +48,13 @@ export class CreateUserDto {
   @IsEnum(GenderEnum)
   gender: Gender;
 
+  @ApiProperty({
+    description: '是否訂閱電子報',
+    example: true,
+  })
+  @IsOptional()
+  isSubscribed?: boolean;
+
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsNotEmpty()
   @IsOptional()

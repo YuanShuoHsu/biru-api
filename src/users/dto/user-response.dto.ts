@@ -55,6 +55,12 @@ export class UserResponseDto {
   image: string | null;
 
   @ApiProperty({
+    description: '是否訂閱電子報',
+    example: true,
+  })
+  isSubscribed: boolean;
+
+  @ApiProperty({
     description: '姓',
     example: 'Biru',
   })

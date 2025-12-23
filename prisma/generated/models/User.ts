@@ -27,6 +27,7 @@ export type AggregateUser = {
 export type UserMinAggregateOutputType = {
   id: string | null
   birthDate: Date | null
+  isSubscribed: boolean | null
   countryCode: string | null
   createdAt: Date | null
   email: string | null
@@ -44,6 +45,7 @@ export type UserMinAggregateOutputType = {
 export type UserMaxAggregateOutputType = {
   id: string | null
   birthDate: Date | null
+  isSubscribed: boolean | null
   countryCode: string | null
   createdAt: Date | null
   email: string | null
@@ -61,6 +63,7 @@ export type UserMaxAggregateOutputType = {
 export type UserCountAggregateOutputType = {
   id: number
   birthDate: number
+  isSubscribed: number
   countryCode: number
   createdAt: number
   email: number
@@ -80,6 +83,7 @@ export type UserCountAggregateOutputType = {
 export type UserMinAggregateInputType = {
   id?: true
   birthDate?: true
+  isSubscribed?: true
   countryCode?: true
   createdAt?: true
   email?: true
@@ -97,6 +101,7 @@ export type UserMinAggregateInputType = {
 export type UserMaxAggregateInputType = {
   id?: true
   birthDate?: true
+  isSubscribed?: true
   countryCode?: true
   createdAt?: true
   email?: true
@@ -114,6 +119,7 @@ export type UserMaxAggregateInputType = {
 export type UserCountAggregateInputType = {
   id?: true
   birthDate?: true
+  isSubscribed?: true
   countryCode?: true
   createdAt?: true
   email?: true
@@ -204,6 +210,7 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type UserGroupByOutputType = {
   id: string
   birthDate: Date | null
+  isSubscribed: boolean
   countryCode: string
   createdAt: Date
   email: string
@@ -242,6 +249,7 @@ export type UserWhereInput = {
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
   birthDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  isSubscribed?: Prisma.BoolFilter<"User"> | boolean
   countryCode?: Prisma.StringFilter<"User"> | string
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   email?: Prisma.StringFilter<"User"> | string
@@ -262,6 +270,7 @@ export type UserWhereInput = {
 export type UserOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   birthDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  isSubscribed?: Prisma.SortOrder
   countryCode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -287,6 +296,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   birthDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  isSubscribed?: Prisma.BoolFilter<"User"> | boolean
   countryCode?: Prisma.StringFilter<"User"> | string
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   emailVerified?: Prisma.BoolFilter<"User"> | boolean
@@ -306,6 +316,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   birthDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  isSubscribed?: Prisma.SortOrder
   countryCode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -329,6 +340,7 @@ export type UserScalarWhereWithAggregatesInput = {
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
   birthDate?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  isSubscribed?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   countryCode?: Prisma.StringWithAggregatesFilter<"User"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
@@ -346,6 +358,7 @@ export type UserScalarWhereWithAggregatesInput = {
 export type UserCreateInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -366,6 +379,7 @@ export type UserCreateInput = {
 export type UserUncheckedCreateInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -386,6 +400,7 @@ export type UserUncheckedCreateInput = {
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -406,6 +421,7 @@ export type UserUpdateInput = {
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -426,6 +442,7 @@ export type UserUncheckedUpdateInput = {
 export type UserCreateManyInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -443,6 +460,7 @@ export type UserCreateManyInput = {
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -460,6 +478,7 @@ export type UserUpdateManyMutationInput = {
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -487,6 +506,7 @@ export type UserCountryCodePhoneCompoundUniqueInput = {
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   birthDate?: Prisma.SortOrder
+  isSubscribed?: Prisma.SortOrder
   countryCode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -504,6 +524,7 @@ export type UserCountOrderByAggregateInput = {
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   birthDate?: Prisma.SortOrder
+  isSubscribed?: Prisma.SortOrder
   countryCode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -521,6 +542,7 @@ export type UserMaxOrderByAggregateInput = {
 export type UserMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   birthDate?: Prisma.SortOrder
+  isSubscribed?: Prisma.SortOrder
   countryCode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -592,6 +614,7 @@ export type UserUpdateOneRequiredWithoutSessionsNestedInput = {
 export type UserCreateWithoutPostsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -611,6 +634,7 @@ export type UserCreateWithoutPostsInput = {
 export type UserUncheckedCreateWithoutPostsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -646,6 +670,7 @@ export type UserUpdateToOneWithWhereWithoutPostsInput = {
 export type UserUpdateWithoutPostsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -665,6 +690,7 @@ export type UserUpdateWithoutPostsInput = {
 export type UserUncheckedUpdateWithoutPostsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -684,6 +710,7 @@ export type UserUncheckedUpdateWithoutPostsInput = {
 export type UserCreateWithoutAccountsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -703,6 +730,7 @@ export type UserCreateWithoutAccountsInput = {
 export type UserUncheckedCreateWithoutAccountsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -738,6 +766,7 @@ export type UserUpdateToOneWithWhereWithoutAccountsInput = {
 export type UserUpdateWithoutAccountsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -757,6 +786,7 @@ export type UserUpdateWithoutAccountsInput = {
 export type UserUncheckedUpdateWithoutAccountsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -776,6 +806,7 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
 export type UserCreateWithoutSessionsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -795,6 +826,7 @@ export type UserCreateWithoutSessionsInput = {
 export type UserUncheckedCreateWithoutSessionsInput = {
   id?: string
   birthDate?: Date | string | null
+  isSubscribed?: boolean
   countryCode?: string
   createdAt?: Date | string
   email: string
@@ -830,6 +862,7 @@ export type UserUpdateToOneWithWhereWithoutSessionsInput = {
 export type UserUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -849,6 +882,7 @@ export type UserUpdateWithoutSessionsInput = {
 export type UserUncheckedUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSubscribed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   countryCode?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -917,6 +951,7 @@ export type UserCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Types.E
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   birthDate?: boolean
+  isSubscribed?: boolean
   countryCode?: boolean
   createdAt?: boolean
   email?: boolean
@@ -938,6 +973,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   birthDate?: boolean
+  isSubscribed?: boolean
   countryCode?: boolean
   createdAt?: boolean
   email?: boolean
@@ -955,6 +991,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   birthDate?: boolean
+  isSubscribed?: boolean
   countryCode?: boolean
   createdAt?: boolean
   email?: boolean
@@ -972,6 +1009,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectScalar = {
   id?: boolean
   birthDate?: boolean
+  isSubscribed?: boolean
   countryCode?: boolean
   createdAt?: boolean
   email?: boolean
@@ -986,7 +1024,7 @@ export type UserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "birthDate" | "countryCode" | "createdAt" | "email" | "emailVerified" | "firstName" | "gender" | "image" | "lastName" | "phone" | "phoneVerified" | "role" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "birthDate" | "isSubscribed" | "countryCode" | "createdAt" | "email" | "emailVerified" | "firstName" | "gender" | "image" | "lastName" | "phone" | "phoneVerified" | "role" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   posts?: boolean | Prisma.User$postsArgs<ExtArgs>
@@ -1006,6 +1044,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     birthDate: Date | null
+    isSubscribed: boolean
     countryCode: string
     createdAt: Date
     email: string
@@ -1446,6 +1485,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
   readonly birthDate: Prisma.FieldRef<"User", 'DateTime'>
+  readonly isSubscribed: Prisma.FieldRef<"User", 'Boolean'>
   readonly countryCode: Prisma.FieldRef<"User", 'String'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly email: Prisma.FieldRef<"User", 'String'>

@@ -2,6 +2,7 @@
 
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -42,6 +43,14 @@ export class UpdateUserDto {
   @IsEnum(GenderEnum)
   @IsOptional()
   gender?: Gender;
+
+  @ApiProperty({
+    description: '是否訂閱電子報',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isSubscribed?: boolean;
 
   @ApiProperty({
     description: '頭像 URL',
