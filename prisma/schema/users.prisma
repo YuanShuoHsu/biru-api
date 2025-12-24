@@ -12,24 +12,26 @@ enum Role {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  accounts      Account[]
-  birthDate     DateTime?
-  countryCode   String    @default("+886")
-  createdAt     DateTime  @default(now())
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  firstName     String    @default("")
-  gender        Gender    @default(NOT_DISCLOSED)
-  image         String?
-  isSubscribed  Boolean   @default(true)
-  lastName      String    @default("")
-  phone         String?
-  phoneVerified Boolean   @default(false)
-  posts         Post[]
-  role          Role      @default(USER)
-  sessions      Session[]
-  updatedAt     DateTime  @updatedAt
+  id                     String    @id @default(uuid())
+  accounts               Account[]
+  birthDate              DateTime?
+  countryCode            String    @default("+886")
+  createdAt              DateTime  @default(now())
+  email                  String    @unique
+  emailVerified          Boolean   @default(false)
+  emailVerifiedAt        DateTime?
+  emailVerificationToken String?   @unique
+  firstName              String    @default("")
+  gender                 Gender    @default(NOT_DISCLOSED)
+  image                  String?
+  isSubscribed           Boolean   @default(true)
+  lastName               String    @default("")
+  phone                  String?
+  phoneVerified          Boolean   @default(false)
+  posts                  Post[]
+  role                   Role      @default(USER)
+  sessions               Session[]
+  updatedAt              DateTime  @updatedAt
 
   @@unique([countryCode, phone])
 }

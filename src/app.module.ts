@@ -11,6 +11,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
+import { MailModule } from './mail/mail.module';
 import { MenusModule } from './menus/menus.module';
 import { PostsModule } from './posts/posts.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     EcpayModule,
     EventsModule,
+    MailModule,
     MenusModule,
     PostsModule,
     PrismaModule,

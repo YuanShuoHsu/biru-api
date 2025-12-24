@@ -2,14 +2,19 @@
 
 import { Injectable } from '@nestjs/common';
 
+import { randomUUID } from 'crypto';
 import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
+import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private mailService: MailService,
+    private prisma: PrismaService,
+  ) {}
 
   async user(
     userWhereUniqueInput: Prisma.UserWhereUniqueInput,
@@ -53,10 +58,12 @@ export class UsersService {
   }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
+    const emailVerificationToken = randomUUID();
 
-    return this.createUser({
+    const user = await this.createUser({
       ...rest,
       email: normalizedEmail,
+      emailVerificationToken,
       accounts: {
         create: {
           accountId: normalizedEmail,
@@ -65,6 +72,10 @@ export class UsersService {
         },
       },
     });
+
+    await this.mailService.sendVerificationEmail(user, emailVerificationToken);
+
+    return user;
   }
 
   async updateUser(params: {

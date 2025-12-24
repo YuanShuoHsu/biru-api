@@ -135,7 +135,9 @@ export class AuthService {
     if (!user) {
       user = await this.usersService.createUser({
         email: normalizedEmail,
-        ...(emailVerified ? { emailVerified } : {}),
+        ...(emailVerified
+          ? { emailVerified: true, emailVerifiedAt: new Date() }
+          : {}),
         ...(firstName ? { firstName } : {}),
         ...(image ? { image } : {}),
         ...(lastName ? { lastName } : {}),

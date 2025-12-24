@@ -307,6 +307,25 @@ app.setGlobalPrefix('api');
 pnpm add uuid
 ```
 
+## mailer
+
+```bash
+# https://www.npmjs.com/package/@nestjs-modules/mailer
+# https://github.com/nest-modules/mailer
+# https://nest-modules.github.io/mailer/docs/mailer.html
+
+# https://www.npmjs.com/package/preview-email
+# https://github.com/forwardemail/test-preview-emails-cross-browsers-ios-simulator-nodejs-javascript
+
+# https://github.com/ActiveCampaign/postmark-templates
+
+pnpm add @nestjs-modules/mailer nodemailer
+pnpm add -D @types/nodemailer
+pnpm add handlebars
+
+pnpm add preview-email
+```
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
