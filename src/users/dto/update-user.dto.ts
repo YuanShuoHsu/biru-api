@@ -1,14 +1,12 @@
-// src/users/dto/update-profile.dto.ts
-
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
+  IsDate,
   IsEnum,
   IsNotEmpty,
   IsOptional,
   IsUrl,
-  Matches,
 } from 'class-validator';
 import type { Gender } from 'prisma/generated/client';
 import { Gender as GenderEnum } from 'prisma/generated/enums';
@@ -19,11 +17,10 @@ export class UpdateUserDto {
     example: '2024-04-04',
     format: 'date',
   })
-  @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/)
-  @IsNotEmpty()
+  @IsDate()
+  @Type(() => Date)
   @IsOptional()
-  birthDate?: string;
+  birthDate?: Date;
 
   @ApiProperty({ description: '電話國碼', example: '+886' })
   @IsNotEmpty()

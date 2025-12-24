@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
+  IsDate,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -18,9 +19,9 @@ export class CreateUserDto {
     example: '2024-04-04',
     format: 'date',
   })
-  @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/)
-  birthDate: string;
+  @IsDate()
+  @Type(() => Date)
+  birthDate: Date;
 
   @ApiProperty({
     description: '國碼',

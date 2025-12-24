@@ -17,10 +17,22 @@ export class AllExceptionsFilter
   }
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    const isProduction = process.env.NODE_ENV === 'production';
     const message =
       exception instanceof HttpException
         ? exception.getResponse()
-        : { message: 'Internal server error' };
+        : isProduction
+          ? { message: 'Internal server error' }
+          : {
+              message:
+                exception instanceof Error
+                  ? exception.message
+                  : String(exception),
+              stack:
+                exception instanceof Error
+                  ? exception.stack
+                  : String(exception),
+            };
 
     const { httpAdapter } = this.adapterHost;
     const ctx = host.switchToHttp();
