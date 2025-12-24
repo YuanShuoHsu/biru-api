@@ -3,6 +3,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { join } from 'node:path';
 import { PrismaModule } from 'src/prisma/prisma.module';
 
 import { MailController } from './mail.controller';
@@ -34,7 +35,7 @@ import { MailService } from './mail.service';
           },
           preview: isPreview,
           template: {
-            dir: __dirname + '/templates',
+            dir: join(process.cwd(), 'views', 'mail'),
             adapter: new HandlebarsAdapter(),
             options: {
               strict: true,

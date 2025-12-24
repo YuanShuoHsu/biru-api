@@ -307,6 +307,16 @@ app.setGlobalPrefix('api');
 pnpm add uuid
 ```
 
+## Model-View-Controller
+
+```bash
+# https://docs.nestjs.com/techniques/mvc
+# https://github.com/pillarjs/hbs
+# https://handlebarsjs.com/
+
+pnpm add hbs
+```
+
 ## mailer
 
 ```bash
@@ -321,7 +331,6 @@ pnpm add uuid
 
 pnpm add @nestjs-modules/mailer nodemailer
 pnpm add -D @types/nodemailer
-pnpm add handlebars
 
 pnpm add preview-email
 ```

@@ -42,7 +42,7 @@ export class MailService {
       .sendMail({
         to: email,
         subject: 'Welcome to Biru Coffee! Confirm your Email',
-        template: __dirname + '/templates/welcome',
+        template: 'welcome',
         context: {
           name,
           url,
