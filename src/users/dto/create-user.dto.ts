@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -51,6 +52,7 @@ export class CreateUserDto {
     description: '是否訂閱電子報',
     example: true,
   })
+  @IsBoolean()
   isSubscribed: boolean;
 
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
