@@ -301,7 +301,7 @@ export type MenuItemIngredientCreateInput = {
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
   usage: runtime.Decimal | runtime.DecimalJsLike | number | string
-  menuItem: Prisma.MenuItemCreateNestedOneWithoutMenuItemIngredientsInput
+  menuItem: Prisma.MenuItemCreateNestedOneWithoutIngredientsInput
 }
 
 export type MenuItemIngredientUncheckedCreateInput = {
@@ -323,7 +323,7 @@ export type MenuItemIngredientUpdateInput = {
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
-  menuItem?: Prisma.MenuItemUpdateOneRequiredWithoutMenuItemIngredientsNestedInput
+  menuItem?: Prisma.MenuItemUpdateOneRequiredWithoutIngredientsNestedInput
 }
 
 export type MenuItemIngredientUncheckedUpdateInput = {

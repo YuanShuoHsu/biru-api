@@ -28,8 +28,8 @@ model MenuItem {
   stock       Int?
   updatedAt   DateTime @updatedAt
 
-  options             MenuItemOption[]
-  menuItemIngredients MenuItemIngredient[]
+  options     MenuItemOption[]
+  ingredients MenuItemIngredient[]
 
   menuId String
   menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
@@ -85,7 +85,7 @@ model MenuItemOptionChoice {
   stock     Int?
   updatedAt DateTime @updatedAt
 
-  menuItemOptionChoiceIngredients MenuItemOptionChoiceIngredient[]
+  ingredients MenuItemOptionChoiceIngredient[]
 
   menuItemOptionId String
   menuItemOption   MenuItemOption @relation(fields: [menuItemOptionId], references: [id], onDelete: Cascade)

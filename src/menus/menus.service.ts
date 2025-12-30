@@ -19,7 +19,7 @@ export class MenusService {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
           include: {
-            menuItemIngredients: {
+            ingredients: {
               orderBy: { createdAt: 'asc' },
             },
             options: {
@@ -30,7 +30,7 @@ export class MenusService {
                   where: { isActive: true },
                   orderBy: { createdAt: 'asc' },
                   include: {
-                    menuItemOptionChoiceIngredients: {
+                    ingredients: {
                       orderBy: { createdAt: 'asc' },
                     },
                   },
