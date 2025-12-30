@@ -42,7 +42,6 @@ export class MenusService {
       },
     });
   }
-}
 
   // findOne(id: number) {
   //   return `This action returns a #${id} menu`;
