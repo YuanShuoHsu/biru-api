@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Menu } from 'prisma/types/menus.types';
 
-export const menus: Menu[] = [
+export const menus: Omit<Menu, 'storeId'>[] = [
   {
     id: randomUUID(),
     key: 'coffee',

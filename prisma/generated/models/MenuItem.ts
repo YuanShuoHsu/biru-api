@@ -369,7 +369,7 @@ export type MenuItemCreateInput = {
   updatedAt?: Date | string
   options?: Prisma.MenuItemOptionCreateNestedManyWithoutMenuItemInput
   ingredients?: Prisma.MenuItemIngredientCreateNestedManyWithoutMenuItemInput
-  menu: Prisma.MenuCreateNestedOneWithoutMenuItemsInput
+  menu: Prisma.MenuCreateNestedOneWithoutItemsInput
 }
 
 export type MenuItemUncheckedCreateInput = {
@@ -403,7 +403,7 @@ export type MenuItemUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   options?: Prisma.MenuItemOptionUpdateManyWithoutMenuItemNestedInput
   ingredients?: Prisma.MenuItemIngredientUpdateManyWithoutMenuItemNestedInput
-  menu?: Prisma.MenuUpdateOneRequiredWithoutMenuItemsNestedInput
+  menu?: Prisma.MenuUpdateOneRequiredWithoutItemsNestedInput
 }
 
 export type MenuItemUncheckedUpdateInput = {
@@ -715,7 +715,7 @@ export type MenuItemCreateWithoutOptionsInput = {
   stock?: number | null
   updatedAt?: Date | string
   ingredients?: Prisma.MenuItemIngredientCreateNestedManyWithoutMenuItemInput
-  menu: Prisma.MenuCreateNestedOneWithoutMenuItemsInput
+  menu: Prisma.MenuCreateNestedOneWithoutItemsInput
 }
 
 export type MenuItemUncheckedCreateWithoutOptionsInput = {
@@ -763,7 +763,7 @@ export type MenuItemUpdateWithoutOptionsInput = {
   stock?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ingredients?: Prisma.MenuItemIngredientUpdateManyWithoutMenuItemNestedInput
-  menu?: Prisma.MenuUpdateOneRequiredWithoutMenuItemsNestedInput
+  menu?: Prisma.MenuUpdateOneRequiredWithoutItemsNestedInput
 }
 
 export type MenuItemUncheckedUpdateWithoutOptionsInput = {
@@ -795,7 +795,7 @@ export type MenuItemCreateWithoutIngredientsInput = {
   stock?: number | null
   updatedAt?: Date | string
   options?: Prisma.MenuItemOptionCreateNestedManyWithoutMenuItemInput
-  menu: Prisma.MenuCreateNestedOneWithoutMenuItemsInput
+  menu: Prisma.MenuCreateNestedOneWithoutItemsInput
 }
 
 export type MenuItemUncheckedCreateWithoutIngredientsInput = {
@@ -843,7 +843,7 @@ export type MenuItemUpdateWithoutIngredientsInput = {
   stock?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   options?: Prisma.MenuItemOptionUpdateManyWithoutMenuItemNestedInput
-  menu?: Prisma.MenuUpdateOneRequiredWithoutMenuItemsNestedInput
+  menu?: Prisma.MenuUpdateOneRequiredWithoutItemsNestedInput
 }
 
 export type MenuItemUncheckedUpdateWithoutIngredientsInput = {

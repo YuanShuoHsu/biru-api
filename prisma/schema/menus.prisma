@@ -6,7 +6,7 @@ model Menu {
   isActive  Boolean  @default(true)
   updatedAt DateTime @updatedAt
 
-  menuItems MenuItem[]
+  items MenuItem[]
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)

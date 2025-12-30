@@ -59,5 +59,6 @@ export interface Menu {
   createdAt: Date;
   isActive: boolean;
   items: MenuItem[];
+  storeId: string;
   updatedAt: Date;
 }

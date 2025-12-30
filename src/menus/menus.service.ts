@@ -15,7 +15,7 @@ export class MenusService {
       where: { storeId, isActive: true },
       orderBy: { createdAt: 'asc' },
       include: {
-        menuItems: {
+        items: {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
           include: {
