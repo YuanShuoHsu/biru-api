@@ -27,11 +27,11 @@ export type AggregateMenuItemOptionChoiceIngredient = {
 }
 
 export type MenuItemOptionChoiceIngredientAvgAggregateOutputType = {
-  usage: runtime.Decimal | null
+  usage: number | null
 }
 
 export type MenuItemOptionChoiceIngredientSumAggregateOutputType = {
-  usage: runtime.Decimal | null
+  usage: number | null
 }
 
 export type MenuItemOptionChoiceIngredientMinAggregateOutputType = {
@@ -39,7 +39,7 @@ export type MenuItemOptionChoiceIngredientMinAggregateOutputType = {
   key: string | null
   createdAt: Date | null
   updatedAt: Date | null
-  usage: runtime.Decimal | null
+  usage: number | null
   menuItemOptionChoiceId: string | null
 }
 
@@ -48,7 +48,7 @@ export type MenuItemOptionChoiceIngredientMaxAggregateOutputType = {
   key: string | null
   createdAt: Date | null
   updatedAt: Date | null
-  usage: runtime.Decimal | null
+  usage: number | null
   menuItemOptionChoiceId: string | null
 }
 
@@ -196,7 +196,7 @@ export type MenuItemOptionChoiceIngredientGroupByOutputType = {
   createdAt: Date
   unit: runtime.JsonValue
   updatedAt: Date
-  usage: runtime.Decimal
+  usage: number
   menuItemOptionChoiceId: string
   _count: MenuItemOptionChoiceIngredientCountAggregateOutputType | null
   _avg: MenuItemOptionChoiceIngredientAvgAggregateOutputType | null
@@ -230,7 +230,7 @@ export type MenuItemOptionChoiceIngredientWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
   unit?: Prisma.JsonFilter<"MenuItemOptionChoiceIngredient">
   updatedAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
-  usage?: Prisma.DecimalFilter<"MenuItemOptionChoiceIngredient"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFilter<"MenuItemOptionChoiceIngredient"> | number
   menuItemOptionChoiceId?: Prisma.StringFilter<"MenuItemOptionChoiceIngredient"> | string
   menuItemOptionChoice?: Prisma.XOR<Prisma.MenuItemOptionChoiceScalarRelationFilter, Prisma.MenuItemOptionChoiceWhereInput>
 }
@@ -258,7 +258,7 @@ export type MenuItemOptionChoiceIngredientWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
   unit?: Prisma.JsonFilter<"MenuItemOptionChoiceIngredient">
   updatedAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
-  usage?: Prisma.DecimalFilter<"MenuItemOptionChoiceIngredient"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFilter<"MenuItemOptionChoiceIngredient"> | number
   menuItemOptionChoiceId?: Prisma.StringFilter<"MenuItemOptionChoiceIngredient"> | string
   menuItemOptionChoice?: Prisma.XOR<Prisma.MenuItemOptionChoiceScalarRelationFilter, Prisma.MenuItemOptionChoiceWhereInput>
 }, "id" | "menuItemOptionChoiceId_key">
@@ -289,7 +289,7 @@ export type MenuItemOptionChoiceIngredientScalarWhereWithAggregatesInput = {
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"MenuItemOptionChoiceIngredient"> | Date | string
   unit?: Prisma.JsonWithAggregatesFilter<"MenuItemOptionChoiceIngredient">
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"MenuItemOptionChoiceIngredient"> | Date | string
-  usage?: Prisma.DecimalWithAggregatesFilter<"MenuItemOptionChoiceIngredient"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatWithAggregatesFilter<"MenuItemOptionChoiceIngredient"> | number
   menuItemOptionChoiceId?: Prisma.StringWithAggregatesFilter<"MenuItemOptionChoiceIngredient"> | string
 }
 
@@ -300,7 +300,7 @@ export type MenuItemOptionChoiceIngredientCreateInput = {
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
   menuItemOptionChoice: Prisma.MenuItemOptionChoiceCreateNestedOneWithoutIngredientsInput
 }
 
@@ -311,7 +311,7 @@ export type MenuItemOptionChoiceIngredientUncheckedCreateInput = {
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
   menuItemOptionChoiceId: string
 }
 
@@ -322,7 +322,7 @@ export type MenuItemOptionChoiceIngredientUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
   menuItemOptionChoice?: Prisma.MenuItemOptionChoiceUpdateOneRequiredWithoutIngredientsNestedInput
 }
 
@@ -333,7 +333,7 @@ export type MenuItemOptionChoiceIngredientUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
   menuItemOptionChoiceId?: Prisma.StringFieldUpdateOperationsInput | string
 }
 
@@ -344,7 +344,7 @@ export type MenuItemOptionChoiceIngredientCreateManyInput = {
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
   menuItemOptionChoiceId: string
 }
 
@@ -355,7 +355,7 @@ export type MenuItemOptionChoiceIngredientUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type MenuItemOptionChoiceIngredientUncheckedUpdateManyInput = {
@@ -365,7 +365,7 @@ export type MenuItemOptionChoiceIngredientUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
   menuItemOptionChoiceId?: Prisma.StringFieldUpdateOperationsInput | string
 }
 
@@ -470,7 +470,7 @@ export type MenuItemOptionChoiceIngredientCreateWithoutMenuItemOptionChoiceInput
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
 }
 
 export type MenuItemOptionChoiceIngredientUncheckedCreateWithoutMenuItemOptionChoiceInput = {
@@ -480,7 +480,7 @@ export type MenuItemOptionChoiceIngredientUncheckedCreateWithoutMenuItemOptionCh
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
 }
 
 export type MenuItemOptionChoiceIngredientCreateOrConnectWithoutMenuItemOptionChoiceInput = {
@@ -519,7 +519,7 @@ export type MenuItemOptionChoiceIngredientScalarWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
   unit?: Prisma.JsonFilter<"MenuItemOptionChoiceIngredient">
   updatedAt?: Prisma.DateTimeFilter<"MenuItemOptionChoiceIngredient"> | Date | string
-  usage?: Prisma.DecimalFilter<"MenuItemOptionChoiceIngredient"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFilter<"MenuItemOptionChoiceIngredient"> | number
   menuItemOptionChoiceId?: Prisma.StringFilter<"MenuItemOptionChoiceIngredient"> | string
 }
 
@@ -530,7 +530,7 @@ export type MenuItemOptionChoiceIngredientCreateManyMenuItemOptionChoiceInput = 
   createdAt?: Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Date | string
-  usage: runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage: number
 }
 
 export type MenuItemOptionChoiceIngredientUpdateWithoutMenuItemOptionChoiceInput = {
@@ -540,7 +540,7 @@ export type MenuItemOptionChoiceIngredientUpdateWithoutMenuItemOptionChoiceInput
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type MenuItemOptionChoiceIngredientUncheckedUpdateWithoutMenuItemOptionChoiceInput = {
@@ -550,7 +550,7 @@ export type MenuItemOptionChoiceIngredientUncheckedUpdateWithoutMenuItemOptionCh
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type MenuItemOptionChoiceIngredientUncheckedUpdateManyWithoutMenuItemOptionChoiceInput = {
@@ -560,7 +560,7 @@ export type MenuItemOptionChoiceIngredientUncheckedUpdateManyWithoutMenuItemOpti
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   unit?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  usage?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  usage?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 
@@ -635,7 +635,7 @@ export type $MenuItemOptionChoiceIngredientPayload<ExtArgs extends runtime.Types
     createdAt: Date
     unit: runtime.JsonValue
     updatedAt: Date
-    usage: runtime.Decimal
+    usage: number
     menuItemOptionChoiceId: string
   }, ExtArgs["result"]["menuItemOptionChoiceIngredient"]>
   composites: {}
@@ -1067,7 +1067,7 @@ export interface MenuItemOptionChoiceIngredientFieldRefs {
   readonly createdAt: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'DateTime'>
   readonly unit: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'Json'>
   readonly updatedAt: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'DateTime'>
-  readonly usage: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'Decimal'>
+  readonly usage: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'Float'>
   readonly menuItemOptionChoiceId: Prisma.FieldRef<"MenuItemOptionChoiceIngredient", 'String'>
 }
     

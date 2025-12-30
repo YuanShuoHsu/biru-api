@@ -64,7 +64,7 @@ model MenuItemIngredient {
   createdAt DateTime @default(now())
   unit      Json     @default("{}")
   updatedAt DateTime @updatedAt
-  usage     Decimal  @db.Decimal(10, 3)
+  usage     Float
 
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
@@ -101,7 +101,7 @@ model MenuItemOptionChoiceIngredient {
   createdAt DateTime @default(now())
   unit      Json     @default("{}")
   updatedAt DateTime @updatedAt
-  usage     Decimal  @db.Decimal(10, 3)
+  usage     Float
 
   menuItemOptionChoiceId String
   menuItemOptionChoice   MenuItemOptionChoice @relation(fields: [menuItemOptionChoiceId], references: [id], onDelete: Cascade)

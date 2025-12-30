@@ -5,7 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { menus } from './data/menus.data';
 import { stores } from './data/stores.data';
 import { tables } from './data/tables.data';
-import { Prisma, PrismaClient } from './generated/client';
+import { PrismaClient } from './generated/client';
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
@@ -108,7 +108,7 @@ async function main() {
               key: ing.key,
               name: ing.name,
               unit: ing.unit,
-              usage: new Prisma.Decimal(ing.usage),
+              usage: ing.usage,
               createdAt: ing.createdAt,
               updatedAt: ing.updatedAt,
               menuItemId: menuItem.id,
@@ -116,7 +116,7 @@ async function main() {
             update: {
               name: ing.name,
               unit: ing.unit,
-              usage: new Prisma.Decimal(ing.usage),
+              usage: ing.usage,
             },
           });
         }
@@ -188,7 +188,7 @@ async function main() {
                   key: cing.key,
                   name: cing.name,
                   unit: cing.unit,
-                  usage: new Prisma.Decimal(cing.usage),
+                  usage: cing.usage,
                   createdAt: cing.createdAt,
                   updatedAt: cing.updatedAt,
                   menuItemOptionChoiceId: choice.id,
@@ -196,7 +196,7 @@ async function main() {
                 update: {
                   name: cing.name,
                   unit: cing.unit,
-                  usage: new Prisma.Decimal(cing.usage),
+                  usage: cing.usage,
                 },
               });
             }
