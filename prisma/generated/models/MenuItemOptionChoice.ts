@@ -356,7 +356,7 @@ export type MenuItemOptionChoiceCreateInput = {
   stock?: number | null
   updatedAt?: Date | string
   menuItemOptionChoiceIngredients?: Prisma.MenuItemOptionChoiceIngredientCreateNestedManyWithoutMenuItemOptionChoiceInput
-  menuItemOption: Prisma.MenuItemOptionCreateNestedOneWithoutMenuItemOptionChoicesInput
+  menuItemOption: Prisma.MenuItemOptionCreateNestedOneWithoutChoicesInput
 }
 
 export type MenuItemOptionChoiceUncheckedCreateInput = {
@@ -386,7 +386,7 @@ export type MenuItemOptionChoiceUpdateInput = {
   stock?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   menuItemOptionChoiceIngredients?: Prisma.MenuItemOptionChoiceIngredientUpdateManyWithoutMenuItemOptionChoiceNestedInput
-  menuItemOption?: Prisma.MenuItemOptionUpdateOneRequiredWithoutMenuItemOptionChoicesNestedInput
+  menuItemOption?: Prisma.MenuItemOptionUpdateOneRequiredWithoutChoicesNestedInput
 }
 
 export type MenuItemOptionChoiceUncheckedUpdateInput = {
@@ -655,7 +655,7 @@ export type MenuItemOptionChoiceCreateWithoutMenuItemOptionChoiceIngredientsInpu
   sold?: number
   stock?: number | null
   updatedAt?: Date | string
-  menuItemOption: Prisma.MenuItemOptionCreateNestedOneWithoutMenuItemOptionChoicesInput
+  menuItemOption: Prisma.MenuItemOptionCreateNestedOneWithoutChoicesInput
 }
 
 export type MenuItemOptionChoiceUncheckedCreateWithoutMenuItemOptionChoiceIngredientsInput = {
@@ -699,7 +699,7 @@ export type MenuItemOptionChoiceUpdateWithoutMenuItemOptionChoiceIngredientsInpu
   sold?: Prisma.IntFieldUpdateOperationsInput | number
   stock?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  menuItemOption?: Prisma.MenuItemOptionUpdateOneRequiredWithoutMenuItemOptionChoicesNestedInput
+  menuItemOption?: Prisma.MenuItemOptionUpdateOneRequiredWithoutChoicesNestedInput
 }
 
 export type MenuItemOptionChoiceUncheckedUpdateWithoutMenuItemOptionChoiceIngredientsInput = {

@@ -22,11 +22,11 @@ export class MenusService {
             menuItemIngredients: {
               orderBy: { createdAt: 'asc' },
             },
-            menuItemOptions: {
+            options: {
               where: { isActive: true },
               orderBy: { createdAt: 'asc' },
               include: {
-                menuItemOptionChoices: {
+                choices: {
                   where: { isActive: true },
                   orderBy: { createdAt: 'asc' },
                   include: {
@@ -42,6 +42,7 @@ export class MenusService {
       },
     });
   }
+}
 
   // findOne(id: number) {
   //   return `This action returns a #${id} menu`;

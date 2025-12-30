@@ -28,7 +28,7 @@ model MenuItem {
   stock       Int?
   updatedAt   DateTime @updatedAt
 
-  menuItemOptions     MenuItemOption[]
+  options             MenuItemOption[]
   menuItemIngredients MenuItemIngredient[]
 
   menuId String
@@ -48,7 +48,7 @@ model MenuItemOption {
   required  Boolean  @default(false)
   updatedAt DateTime @updatedAt
 
-  menuItemOptionChoices MenuItemOptionChoice[]
+  choices MenuItemOptionChoice[]
 
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
