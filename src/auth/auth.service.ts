@@ -154,6 +154,18 @@ export class AuthService {
         },
       });
     } else {
+      user = await this.usersService.updateUser({
+        where: { id: user.id },
+        data: {
+          ...(emailVerified
+            ? { emailVerified: true, emailVerifiedAt: new Date() }
+            : {}),
+          ...(firstName ? { firstName } : {}),
+          ...(image ? { image } : {}),
+          ...(lastName ? { lastName } : {}),
+        },
+      });
+
       const account = await this.accountsService.account({
         userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
       });
