@@ -6,9 +6,10 @@ import type { Request } from 'express';
 @Injectable()
 export class GoogleOAuthGuard extends AuthGuard('google') {
   override getAuthenticateOptions(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest<Request>();
-    const rememberMe = request.query.rememberMe === 'true';
+    const { query } = context.switchToHttp().getRequest<Request>();
 
-    return { state: rememberMe ? 'true' : 'false' };
+    const state = Buffer.from(JSON.stringify(query)).toString('base64');
+
+    return { state };
   }
 }

@@ -67,21 +67,31 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleOAuthGuard)
   @ApiOperation({ summary: '完成 Google 登入' })
-  googleLoginCallback(
+  async googleLoginCallback(
     @Ip() ip: string,
     @Query('state') state: string,
     @Request() req: RequestWithGoogleUser,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
-    const rememberMe = state === 'true';
+    const stateString = Buffer.from(state, 'base64').toString('utf-8');
+    const query = JSON.parse(stateString) as Record<string, string>;
+
+    const rememberMe = query.rememberMe === 'true';
     const userAgent = req.get('user-agent');
 
-    return this.authService.loginWithGoogle(
+    const { access_token } = await this.authService.loginWithGoogle(
       req.user,
       { ip, rememberMe, userAgent },
       res,
     );
-    // // 記得後端 redirect
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { rememberMe: _, lang, ...rest } = query;
+    const params = new URLSearchParams({ token: access_token, ...rest });
+
+    const redirectUrl = `${process.env.NEXT_URL}/${lang || ''}/auth/callback?${params.toString()}`;
+
+    res.redirect(redirectUrl);
   }
 
   @Public()
