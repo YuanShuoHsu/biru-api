@@ -86,11 +86,10 @@ export class AuthController {
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { rememberMe: _, lang, ...rest } = query;
-    const params = new URLSearchParams({ token: access_token, ...rest });
+    const { lang, redirect, rememberMe: _ } = query;
+    const params = new URLSearchParams({ token: access_token, redirect });
 
     const redirectUrl = `${process.env.NEXT_URL}/${lang || ''}/auth/callback?${params.toString()}`;
-
     res.redirect(redirectUrl);
   }
 
