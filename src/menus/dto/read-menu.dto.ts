@@ -1,7 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { JsonValue } from '@prisma/client/runtime/client';
 
-export class ReadMenuItemOptionChoiceIngredientDto {
+export class LocalizedFieldDto {
+  @ApiProperty({ example: '繁體中文' })
+  'zh-TW': string;
+
+  @ApiProperty({ example: 'English' })
+  en: string;
+
+  @ApiProperty({ example: '日本語' })
+  ja: string;
+
+  @ApiProperty({ example: '한국어' })
+  ko: string;
+
+  @ApiProperty({ example: '简体中文' })
+  'zh-CN': string;
+}
+
+export class BaseDto {
   @ApiProperty()
   id: string;
 
@@ -9,16 +26,18 @@ export class ReadMenuItemOptionChoiceIngredientDto {
   key: string;
 
   @ApiProperty()
-  name: JsonValue;
-
-  @ApiProperty()
   createdAt: Date;
 
   @ApiProperty()
-  unit: JsonValue;
-
-  @ApiProperty()
   updatedAt: Date;
+}
+
+export class ReadMenuItemOptionChoiceIngredientDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
+  name: JsonValue;
+
+  @ApiProperty({ type: LocalizedFieldDto })
+  unit: JsonValue;
 
   @ApiProperty()
   usage: number;
@@ -27,18 +46,9 @@ export class ReadMenuItemOptionChoiceIngredientDto {
   menuItemOptionChoiceId: string;
 }
 
-export class ReadMenuItemOptionChoiceDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  key: string;
-
-  @ApiProperty()
+export class ReadMenuItemOptionChoiceDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
   name: JsonValue;
-
-  @ApiProperty()
-  createdAt: Date;
 
   @ApiProperty()
   extraCost: number;
@@ -52,11 +62,8 @@ export class ReadMenuItemOptionChoiceDto {
   @ApiProperty()
   sold: number;
 
-  @ApiProperty({ required: false, nullable: true })
-  stock: number | null;
-
   @ApiProperty()
-  updatedAt: Date;
+  stock: number | null;
 
   @ApiProperty()
   menuItemOptionId: string;
@@ -65,24 +72,12 @@ export class ReadMenuItemOptionChoiceDto {
   ingredients: ReadMenuItemOptionChoiceIngredientDto[];
 }
 
-export class ReadMenuItemIngredientDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  key: string;
-
-  @ApiProperty()
+export class ReadMenuItemIngredientDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
   name: JsonValue;
 
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
+  @ApiProperty({ type: LocalizedFieldDto })
   unit: JsonValue;
-
-  @ApiProperty()
-  updatedAt: Date;
 
   @ApiProperty()
   usage: number;
@@ -91,18 +86,9 @@ export class ReadMenuItemIngredientDto {
   menuItemId: string;
 }
 
-export class ReadMenuItemOptionDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  key: string;
-
-  @ApiProperty()
+export class ReadMenuItemOptionDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
   name: JsonValue;
-
-  @ApiProperty()
-  createdAt: Date;
 
   @ApiProperty()
   isActive: boolean;
@@ -114,29 +100,17 @@ export class ReadMenuItemOptionDto {
   required: boolean;
 
   @ApiProperty()
-  updatedAt: Date;
-
-  @ApiProperty()
   menuItemId: string;
 
   @ApiProperty({ type: [ReadMenuItemOptionChoiceDto] })
   choices: ReadMenuItemOptionChoiceDto[];
 }
 
-export class ReadMenuItemDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  key: string;
-
-  @ApiProperty()
+export class ReadMenuItemDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
   name: JsonValue;
 
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
+  @ApiProperty({ type: LocalizedFieldDto })
   description: JsonValue;
 
   @ApiProperty()
@@ -151,11 +125,8 @@ export class ReadMenuItemDto {
   @ApiProperty()
   sold: number;
 
-  @ApiProperty({ required: false, nullable: true })
-  stock: number | null;
-
   @ApiProperty()
-  updatedAt: Date;
+  stock: number | null;
 
   @ApiProperty()
   menuId: string;
@@ -167,24 +138,12 @@ export class ReadMenuItemDto {
   ingredients: ReadMenuItemIngredientDto[];
 }
 
-export class ReadMenuDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  key: string;
-
-  @ApiProperty()
+export class ReadMenuDto extends BaseDto {
+  @ApiProperty({ type: LocalizedFieldDto })
   name: JsonValue;
 
   @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
   isActive: boolean;
-
-  @ApiProperty()
-  updatedAt: Date;
 
   @ApiProperty()
   storeId: string;
