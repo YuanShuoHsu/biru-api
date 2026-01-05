@@ -1,7 +1,9 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
 import { Public } from 'src/auth/decorators/public.decorator';
+import { ReadMenuDto } from 'src/menus/dto/read-menu.dto';
+import { MenusService } from 'src/menus/menus.service';
 
 import { ReadStoreDto } from './dto/read-store.dto';
 import { StoresService } from './stores.service';
@@ -9,7 +11,10 @@ import { StoresService } from './stores.service';
 @Controller('stores')
 @Public()
 export class StoresController {
-  constructor(private readonly storesService: StoresService) {}
+  constructor(
+    private readonly menusService: MenusService,
+    private readonly storesService: StoresService,
+  ) {}
 
   // @Post()
   // create(@Body() createStoreDto: CreateStoreDto) {
@@ -20,6 +25,12 @@ export class StoresController {
   @ApiOperation({ summary: '查詢所有門市' })
   findAll(): Promise<ReadStoreDto[]> {
     return this.storesService.findAll();
+  }
+
+  @Get(':id/menus')
+  @ApiOperation({ summary: '查詢店家菜單' })
+  findMenus(@Param('id') id: string): Promise<ReadMenuDto[]> {
+    return this.menusService.findAll(id);
   }
 
   // @Get(':id')
