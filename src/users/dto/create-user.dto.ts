@@ -24,11 +24,25 @@ export class CreateUserDto {
   birthDate: Date;
 
   @ApiProperty({
-    description: '國碼',
-    example: '+886',
+    description: '國家代碼',
+    example: 'TW',
   })
   @IsNotEmpty()
   countryCode: string;
+
+  @ApiProperty({
+    description: '國家名稱',
+    example: 'Taiwan',
+  })
+  @IsNotEmpty()
+  countryLabel: string;
+
+  @ApiProperty({
+    description: '國際電話區號',
+    example: '+886',
+  })
+  @IsNotEmpty()
+  countryPhone: string;
 
   @ApiProperty({
     description: '電子郵件',
@@ -70,9 +84,9 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({
-    description: '聯絡電話',
-    example: '0912345678',
+    description: '聯絡電話（不含國碼）',
+    example: '0123456789',
   })
   @IsNotEmpty()
-  phone: string;
+  phoneNumber: string;
 }

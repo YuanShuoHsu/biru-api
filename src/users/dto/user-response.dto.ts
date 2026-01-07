@@ -17,8 +17,14 @@ export class UserResponseDto {
   })
   birthDate: Date | null;
 
-  @ApiProperty({ description: '電話國碼', example: '+886' })
+  @ApiProperty({ description: 'ISO 3166-1 alpha-2 國家代碼', example: 'TW' })
   countryCode: string;
+
+  @ApiProperty({ description: '國家名稱', example: 'Taiwan' })
+  countryLabel: string;
+
+  @ApiProperty({ description: '國際電話區號', example: '+886' })
+  countryPhone: string;
 
   @ApiProperty({
     description: '建立時間',
@@ -72,8 +78,8 @@ export class UserResponseDto {
   })
   lastName: string;
 
-  @ApiProperty({ description: '電話', example: '0912345678' })
-  phone: string | null;
+  @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
+  phoneNumber: string | null;
 
   @ApiProperty({ description: '是否已驗證電話', example: false })
   phoneVerified: boolean;

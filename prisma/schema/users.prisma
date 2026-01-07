@@ -15,7 +15,9 @@ model User {
   id                     String    @id @default(uuid())
   accounts               Account[]
   birthDate              DateTime?
-  countryCode            String    @default("+886")
+  countryCode            String    @default("TW")
+  countryLabel           String    @default("Taiwan")
+  countryPhone           String    @default("+886")
   createdAt              DateTime  @default(now())
   email                  String    @unique
   emailVerified          Boolean   @default(false)
@@ -26,14 +28,14 @@ model User {
   image                  String?
   isSubscribed           Boolean   @default(true)
   lastName               String    @default("")
-  phone                  String?
+  phoneNumber            String?
   phoneVerified          Boolean   @default(false)
   posts                  Post[]
   role                   Role      @default(USER)
   sessions               Session[]
   updatedAt              DateTime  @updatedAt
 
-  @@unique([countryCode, phone])
+  @@unique([countryCode, phoneNumber])
 }
 
 enum Provider {

@@ -1550,6 +1550,8 @@ export const UserScalarFieldEnum = {
   id: 'id',
   birthDate: 'birthDate',
   countryCode: 'countryCode',
+  countryLabel: 'countryLabel',
+  countryPhone: 'countryPhone',
   createdAt: 'createdAt',
   email: 'email',
   emailVerified: 'emailVerified',
@@ -1560,7 +1562,7 @@ export const UserScalarFieldEnum = {
   image: 'image',
   isSubscribed: 'isSubscribed',
   lastName: 'lastName',
-  phone: 'phone',
+  phoneNumber: 'phoneNumber',
   phoneVerified: 'phoneVerified',
   role: 'role',
   updatedAt: 'updatedAt'

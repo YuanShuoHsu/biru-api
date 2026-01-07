@@ -22,10 +22,20 @@ export class UpdateUserDto {
   @IsOptional()
   birthDate?: Date;
 
-  @ApiProperty({ description: '電話國碼', example: '+886' })
+  @ApiProperty({ description: '國家代碼', example: 'TW' })
   @IsNotEmpty()
   @IsOptional()
   countryCode?: string;
+
+  @ApiProperty({ description: '國家名稱', example: 'Taiwan' })
+  @IsNotEmpty()
+  @IsOptional()
+  countryLabel?: string;
+
+  @ApiProperty({ description: '國際電話區號', example: '+886' })
+  @IsNotEmpty()
+  @IsOptional()
+  countryPhone?: string;
 
   @ApiProperty({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
@@ -63,10 +73,10 @@ export class UpdateUserDto {
   lastName?: string;
 
   @ApiProperty({
-    description: '聯絡電話',
-    example: '0912345678',
+    description: '聯絡電話（不含國碼）',
+    example: '0123456789',
   })
   @IsNotEmpty()
   @IsOptional()
-  phone?: string;
+  phoneNumber?: string;
 }
