@@ -56,7 +56,7 @@ export class UserResponseDto {
   @ApiProperty({
     description: '性別',
     enum: GenderEnum,
-    example: GenderEnum.NOT_DISCLOSED,
+    example: GenderEnum.OTHER,
   })
   gender: Gender;
 

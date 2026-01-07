@@ -58,7 +58,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: '性別',
     enum: GenderEnum,
-    example: GenderEnum.NOT_DISCLOSED,
+    example: GenderEnum.OTHER,
   })
   @IsEnum(GenderEnum)
   gender: Gender;

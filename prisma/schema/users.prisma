@@ -1,7 +1,7 @@
 enum Gender {
   FEMALE
   MALE
-  NOT_DISCLOSED
+  OTHER
 }
 
 enum Role {
@@ -24,7 +24,7 @@ model User {
   emailVerifiedAt        DateTime?
   emailVerificationToken String?   @unique
   firstName              String    @default("")
-  gender                 Gender    @default(NOT_DISCLOSED)
+  gender                 Gender    @default(OTHER)
   image                  String?
   isSubscribed           Boolean   @default(true)
   lastName               String    @default("")
