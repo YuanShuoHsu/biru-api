@@ -29,6 +29,8 @@ export class AuthService {
     const user = await this.usersService.user({ email: normalizedEmail });
     if (!user) return null;
 
+    if (!user.emailVerified) return null;
+
     const account = await this.accountsService.account({
       userId_providerId: { userId: user.id, providerId: Provider.LOCAL },
     });
