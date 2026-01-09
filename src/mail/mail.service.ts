@@ -34,9 +34,13 @@ export class MailService {
   public async sendVerificationEmail(
     { email, firstName, lastName }: User,
     token: string,
+    { lang, redirect }: { lang: string; redirect?: string },
   ): Promise<void> {
     const name = `${firstName} ${lastName}`;
-    const url = `${process.env.NEXT_URL}/auth/verify-email?token=${token}`;
+    const redirectParam = redirect
+      ? `redirect=${encodeURIComponent(redirect)}`
+      : '';
+    const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?${redirectParam}&token=${token}`;
 
     await this.mailerService
       .sendMail({

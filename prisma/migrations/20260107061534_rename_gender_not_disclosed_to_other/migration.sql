@@ -5,14 +5,15 @@
 
 */
 -- AlterEnum
-BEGIN;
 CREATE TYPE "Gender_new" AS ENUM ('FEMALE', 'MALE', 'OTHER');
 ALTER TABLE "User" ALTER COLUMN "gender" DROP DEFAULT;
-UPDATE "User" SET "gender" = 'OTHER' WHERE "gender" = 'NOT_DISCLOSED';
-ALTER TABLE "User" ALTER COLUMN "gender" TYPE "Gender_new" USING ("gender"::text::"Gender_new");
+ALTER TABLE "User" ALTER COLUMN "gender" TYPE "Gender_new" USING (
+  CASE
+    WHEN "gender"::text = 'NOT_DISCLOSED' THEN 'OTHER'::"Gender_new"
+    ELSE "gender"::text::"Gender_new"
+  END
+);
 ALTER TYPE "Gender" RENAME TO "Gender_old";
 ALTER TYPE "Gender_new" RENAME TO "Gender";
 DROP TYPE "Gender_old";
 ALTER TABLE "User" ALTER COLUMN "gender" SET DEFAULT 'OTHER';
-COMMIT;
-

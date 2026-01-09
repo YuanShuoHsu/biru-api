@@ -70,8 +70,14 @@ export class CreateUserDto {
   @IsBoolean()
   isSubscribed: boolean;
 
-  @ApiProperty({ description: '姓（選填）', example: 'Biru' })
+  @ApiProperty({
+    description: '偏好語言',
+    example: 'zh-TW',
+  })
   @IsNotEmpty()
+  lang: string;
+
+  @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsOptional()
   lastName?: string;
 
@@ -89,4 +95,11 @@ export class CreateUserDto {
   })
   @IsNotEmpty()
   phoneNumber: string;
+
+  @ApiProperty({
+    description: '重定向 URL',
+    example: 'https://example.com/dashboard',
+  })
+  @IsOptional()
+  redirect?: string;
 }
