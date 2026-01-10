@@ -52,13 +52,11 @@ export class UsersService {
     email,
     lang,
     password,
-    redirect,
     ...rest
   }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
     email: string;
     lang: string;
     password: string;
-    redirect?: string;
   }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
@@ -77,10 +75,11 @@ export class UsersService {
       },
     });
 
-    await this.mailService.sendVerificationEmail(user, emailVerificationToken, {
+    await this.mailService.sendVerificationEmail(
+      user,
+      emailVerificationToken,
       lang,
-      redirect,
-    });
+    );
 
     return user;
   }

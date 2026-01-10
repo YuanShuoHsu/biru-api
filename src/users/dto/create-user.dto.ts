@@ -95,11 +95,4 @@ export class CreateUserDto {
   })
   @IsNotEmpty()
   phoneNumber: string;
-
-  @ApiProperty({
-    description: '重定向 URL',
-    example: 'https://example.com/dashboard',
-  })
-  @IsOptional()
-  redirect?: string;
 }
