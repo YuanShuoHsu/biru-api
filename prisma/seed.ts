@@ -19,6 +19,7 @@ async function main() {
       create: {
         id: s.id,
         name: s.name,
+        address: s.address,
         createdAt: s.createdAt,
         isActive: s.isActive,
         slug: s.slug,
@@ -26,6 +27,7 @@ async function main() {
       },
       update: {
         name: s.name,
+        address: s.address,
         isActive: s.isActive,
       },
     });

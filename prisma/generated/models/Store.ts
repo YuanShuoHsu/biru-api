@@ -26,6 +26,7 @@ export type AggregateStore = {
 
 export type StoreMinAggregateOutputType = {
   id: string | null
+  address: string | null
   createdAt: Date | null
   isActive: boolean | null
   slug: string | null
@@ -34,6 +35,7 @@ export type StoreMinAggregateOutputType = {
 
 export type StoreMaxAggregateOutputType = {
   id: string | null
+  address: string | null
   createdAt: Date | null
   isActive: boolean | null
   slug: string | null
@@ -43,6 +45,7 @@ export type StoreMaxAggregateOutputType = {
 export type StoreCountAggregateOutputType = {
   id: number
   name: number
+  address: number
   createdAt: number
   isActive: number
   slug: number
@@ -53,6 +56,7 @@ export type StoreCountAggregateOutputType = {
 
 export type StoreMinAggregateInputType = {
   id?: true
+  address?: true
   createdAt?: true
   isActive?: true
   slug?: true
@@ -61,6 +65,7 @@ export type StoreMinAggregateInputType = {
 
 export type StoreMaxAggregateInputType = {
   id?: true
+  address?: true
   createdAt?: true
   isActive?: true
   slug?: true
@@ -70,6 +75,7 @@ export type StoreMaxAggregateInputType = {
 export type StoreCountAggregateInputType = {
   id?: true
   name?: true
+  address?: true
   createdAt?: true
   isActive?: true
   slug?: true
@@ -152,6 +158,7 @@ export type StoreGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
 export type StoreGroupByOutputType = {
   id: string
   name: runtime.JsonValue
+  address: string
   createdAt: Date
   isActive: boolean
   slug: string
@@ -182,6 +189,7 @@ export type StoreWhereInput = {
   NOT?: Prisma.StoreWhereInput | Prisma.StoreWhereInput[]
   id?: Prisma.StringFilter<"Store"> | string
   name?: Prisma.JsonFilter<"Store">
+  address?: Prisma.StringFilter<"Store"> | string
   createdAt?: Prisma.DateTimeFilter<"Store"> | Date | string
   isActive?: Prisma.BoolFilter<"Store"> | boolean
   slug?: Prisma.StringFilter<"Store"> | string
@@ -193,6 +201,7 @@ export type StoreWhereInput = {
 export type StoreOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  address?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -208,6 +217,7 @@ export type StoreWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.StoreWhereInput[]
   NOT?: Prisma.StoreWhereInput | Prisma.StoreWhereInput[]
   name?: Prisma.JsonFilter<"Store">
+  address?: Prisma.StringFilter<"Store"> | string
   createdAt?: Prisma.DateTimeFilter<"Store"> | Date | string
   isActive?: Prisma.BoolFilter<"Store"> | boolean
   updatedAt?: Prisma.DateTimeFilter<"Store"> | Date | string
@@ -218,6 +228,7 @@ export type StoreWhereUniqueInput = Prisma.AtLeast<{
 export type StoreOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  address?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -233,6 +244,7 @@ export type StoreScalarWhereWithAggregatesInput = {
   NOT?: Prisma.StoreScalarWhereWithAggregatesInput | Prisma.StoreScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Store"> | string
   name?: Prisma.JsonWithAggregatesFilter<"Store">
+  address?: Prisma.StringWithAggregatesFilter<"Store"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Store"> | Date | string
   isActive?: Prisma.BoolWithAggregatesFilter<"Store"> | boolean
   slug?: Prisma.StringWithAggregatesFilter<"Store"> | string
@@ -242,6 +254,7 @@ export type StoreScalarWhereWithAggregatesInput = {
 export type StoreCreateInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -253,6 +266,7 @@ export type StoreCreateInput = {
 export type StoreUncheckedCreateInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -264,6 +278,7 @@ export type StoreUncheckedCreateInput = {
 export type StoreUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -275,6 +290,7 @@ export type StoreUpdateInput = {
 export type StoreUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -286,6 +302,7 @@ export type StoreUncheckedUpdateInput = {
 export type StoreCreateManyInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -295,6 +312,7 @@ export type StoreCreateManyInput = {
 export type StoreUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -304,6 +322,7 @@ export type StoreUpdateManyMutationInput = {
 export type StoreUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -318,6 +337,7 @@ export type StoreScalarRelationFilter = {
 export type StoreCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  address?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -326,6 +346,7 @@ export type StoreCountOrderByAggregateInput = {
 
 export type StoreMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  address?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -334,6 +355,7 @@ export type StoreMaxOrderByAggregateInput = {
 
 export type StoreMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  address?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -371,6 +393,7 @@ export type StoreUpdateOneRequiredWithoutTablesNestedInput = {
 export type StoreCreateWithoutMenusInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -381,6 +404,7 @@ export type StoreCreateWithoutMenusInput = {
 export type StoreUncheckedCreateWithoutMenusInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -407,6 +431,7 @@ export type StoreUpdateToOneWithWhereWithoutMenusInput = {
 export type StoreUpdateWithoutMenusInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -417,6 +442,7 @@ export type StoreUpdateWithoutMenusInput = {
 export type StoreUncheckedUpdateWithoutMenusInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -427,6 +453,7 @@ export type StoreUncheckedUpdateWithoutMenusInput = {
 export type StoreCreateWithoutTablesInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -437,6 +464,7 @@ export type StoreCreateWithoutTablesInput = {
 export type StoreUncheckedCreateWithoutTablesInput = {
   id?: string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: string
   createdAt?: Date | string
   isActive?: boolean
   slug: string
@@ -463,6 +491,7 @@ export type StoreUpdateToOneWithWhereWithoutTablesInput = {
 export type StoreUpdateWithoutTablesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -473,6 +502,7 @@ export type StoreUpdateWithoutTablesInput = {
 export type StoreUncheckedUpdateWithoutTablesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  address?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -523,6 +553,7 @@ export type StoreCountOutputTypeCountTablesArgs<ExtArgs extends runtime.Types.Ex
 export type StoreSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  address?: boolean
   createdAt?: boolean
   isActive?: boolean
   slug?: boolean
@@ -535,6 +566,7 @@ export type StoreSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
 export type StoreSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  address?: boolean
   createdAt?: boolean
   isActive?: boolean
   slug?: boolean
@@ -544,6 +576,7 @@ export type StoreSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 export type StoreSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  address?: boolean
   createdAt?: boolean
   isActive?: boolean
   slug?: boolean
@@ -553,13 +586,14 @@ export type StoreSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 export type StoreSelectScalar = {
   id?: boolean
   name?: boolean
+  address?: boolean
   createdAt?: boolean
   isActive?: boolean
   slug?: boolean
   updatedAt?: boolean
 }
 
-export type StoreOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "createdAt" | "isActive" | "slug" | "updatedAt", ExtArgs["result"]["store"]>
+export type StoreOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "address" | "createdAt" | "isActive" | "slug" | "updatedAt", ExtArgs["result"]["store"]>
 export type StoreInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   menus?: boolean | Prisma.Store$menusArgs<ExtArgs>
   tables?: boolean | Prisma.Store$tablesArgs<ExtArgs>
@@ -577,6 +611,7 @@ export type $StorePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     name: runtime.JsonValue
+    address: string
     createdAt: Date
     isActive: boolean
     slug: string
@@ -1008,6 +1043,7 @@ export interface Prisma__StoreClient<T, Null = never, ExtArgs extends runtime.Ty
 export interface StoreFieldRefs {
   readonly id: Prisma.FieldRef<"Store", 'String'>
   readonly name: Prisma.FieldRef<"Store", 'Json'>
+  readonly address: Prisma.FieldRef<"Store", 'String'>
   readonly createdAt: Prisma.FieldRef<"Store", 'DateTime'>
   readonly isActive: Prisma.FieldRef<"Store", 'Boolean'>
   readonly slug: Prisma.FieldRef<"Store", 'String'>

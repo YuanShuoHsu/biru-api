@@ -1,6 +1,7 @@
 model Store {
   id        String   @id @default(uuid())
   name      Json     @default("{}")
+  address   String   @default("")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
   slug      String   @unique
