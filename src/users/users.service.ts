@@ -78,17 +78,11 @@ export class UsersService {
       },
     });
 
-    // try catch 測試之後要刪除
-    try {
-      await this.mailService.sendVerificationEmail(
-        user,
-        emailVerificationToken,
-        lang,
-        userAgent,
-      );
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-    }
+    this.mailService
+      .sendVerificationEmail(user, emailVerificationToken, lang, userAgent)
+      .catch((error) => {
+        console.error('Failed to send verification email (background):', error);
+      });
 
     return user;
   }
