@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { User } from 'prisma/generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UAParser } from 'ua-parser-js';
 
 @Injectable()
 export class MailService {
@@ -31,15 +32,6 @@ export class MailService {
   //   return `This action removes a #${id} mail`;
   // }
 
-  private parseUserAgent(userAgent = ''): { os: string; browser: string } {
-    const os =
-      userAgent.match(/(Mac|Win|Linux|Android|iPhone|iPad)/i)?.[0] || 'Unknown';
-    const browser =
-      userAgent.match(/(Chrome|Safari|Firefox|Edge|Edg)/i)?.[0] || 'Unknown';
-
-    return { os, browser };
-  }
-
   public async sendVerificationEmail(
     { email, firstName, lastName }: User,
     token: string,
@@ -50,7 +42,11 @@ export class MailService {
     const support_url = `${process.env.NEXT_URL}/${lang}/company/contact`;
     const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
 
-    const { browser, os } = this.parseUserAgent(userAgent);
+    const parser = new UAParser(userAgent);
+    const {
+      browser: { name: browser_name },
+      os: { name: operating_system },
+    } = parser.getResult();
 
     await this.mailerService
       .sendMail({
@@ -58,9 +54,9 @@ export class MailService {
         subject: 'Welcome to Biru Coffee! Confirm your Email',
         template: 'welcome',
         context: {
-          browser_name: browser,
+          browser_name,
           name,
-          operating_system: os,
+          operating_system,
           support_url,
           url,
         },
