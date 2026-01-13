@@ -48,16 +48,19 @@ export class UsersService {
     });
   }
 
-  async createUserWithPassword({
-    email,
-    lang,
-    password,
-    ...rest
-  }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
-    email: string;
-    lang: string;
-    password: string;
-  }): Promise<User> {
+  async createUserWithPassword(
+    {
+      email,
+      lang,
+      password,
+      ...rest
+    }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
+      email: string;
+      lang: string;
+      password: string;
+    },
+    userAgent: string,
+  ): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
     const emailVerificationToken = randomUUID();
@@ -79,6 +82,7 @@ export class UsersService {
       user,
       emailVerificationToken,
       lang,
+      userAgent,
     );
 
     return user;

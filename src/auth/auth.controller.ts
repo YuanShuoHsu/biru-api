@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Ip,
   Post,
   Query,
@@ -40,12 +41,12 @@ export class AuthController {
   @ApiOperation({ summary: '使用者登入' })
   async login(
     @Body() dto: LoginDto,
+    @Headers('user-agent') userAgent: string,
     @Ip() ip: string,
     @Request() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const rememberMe = dto.rememberMe;
-    const userAgent = req.get('user-agent');
 
     return this.authService.login(req.user, { ip, rememberMe, userAgent }, res);
   }
@@ -69,6 +70,7 @@ export class AuthController {
   @ApiOperation({ summary: '完成 Google 登入' })
   async googleLoginCallback(
     @Ip() ip: string,
+    @Headers('user-agent') userAgent: string,
     @Query('state') state: string,
     @Request() req: RequestWithGoogleUser,
     @Res() res: Response,
@@ -77,7 +79,6 @@ export class AuthController {
     const query = JSON.parse(stateString) as Record<string, string>;
 
     const rememberMe = query.rememberMe === 'true';
-    const userAgent = req.get('user-agent');
 
     const { access_token } = await this.authService.loginWithGoogle(
       req.user,

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   NotFoundException,
   Param,
   Patch,
@@ -26,8 +27,11 @@ export class UsersController {
   @Public()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
-  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return this.usersService.createUserWithPassword(createUserDto);
+  async create(
+    @Body() createUserDto: CreateUserDto,
+    @Headers('user-agent') userAgent: string,
+  ): Promise<UserResponseDto> {
+    return this.usersService.createUserWithPassword(createUserDto, userAgent);
   }
 
   @ApiBearerAuth()

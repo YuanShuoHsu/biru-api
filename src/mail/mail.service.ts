@@ -31,13 +31,26 @@ export class MailService {
   //   return `This action removes a #${id} mail`;
   // }
 
+  private parseUserAgent(userAgent = ''): { os: string; browser: string } {
+    const os =
+      userAgent.match(/(Mac|Win|Linux|Android|iPhone|iPad)/i)?.[0] || 'Unknown';
+    const browser =
+      userAgent.match(/(Chrome|Safari|Firefox|Edge|Edg)/i)?.[0] || 'Unknown';
+
+    return { os, browser };
+  }
+
   public async sendVerificationEmail(
     { email, firstName, lastName }: User,
     token: string,
     lang: string,
+    userAgent: string,
   ): Promise<void> {
     const name = `${firstName} ${lastName}`;
+    const support_url = `${process.env.NEXT_URL}/${lang}/company/contact`;
     const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
+
+    const { browser, os } = this.parseUserAgent(userAgent);
 
     await this.mailerService
       .sendMail({
@@ -45,7 +58,10 @@ export class MailService {
         subject: 'Welcome to Biru Coffee! Confirm your Email',
         template: 'welcome',
         context: {
+          browser_name: browser,
           name,
+          operating_system: os,
+          support_url,
           url,
         },
       })
