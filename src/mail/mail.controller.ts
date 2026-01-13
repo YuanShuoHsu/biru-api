@@ -41,4 +41,11 @@ export class MailController {
   async verify(@Body() dto: VerifyEmailDto) {
     return this.mailService.verifyEmail(dto.token);
   }
+
+  @Public()
+  @Post('test')
+  @ApiOperation({ summary: '測試 SMTP 設定 (同步執行)' })
+  async test(@Body() body: { email: string }) {
+    return this.mailService.sendTestEmail(body.email);
+  }
 }
