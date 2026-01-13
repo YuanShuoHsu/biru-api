@@ -43,10 +43,9 @@ export class MailService {
     const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
 
     const parser = new UAParser(userAgent);
-    const {
-      browser: { name: browser_name },
-      os: { name: operating_system },
-    } = parser.getResult();
+    const result = parser.getResult();
+    const browser_name = result.browser?.name;
+    const operating_system = result.os?.name;
 
     await this.mailerService
       .sendMail({
