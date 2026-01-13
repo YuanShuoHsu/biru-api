@@ -48,7 +48,7 @@ export class AuthService {
       ip,
       rememberMe,
       userAgent,
-    }: { ip: string; rememberMe: boolean; userAgent?: string },
+    }: { ip: string; rememberMe: boolean; userAgent: string },
     res: Response,
   ): Promise<{ access_token: string }> {
     const payload = { sub: id, email };
@@ -128,7 +128,7 @@ export class AuthService {
       refreshToken,
       scope,
     }: GoogleUserPayload,
-    meta: { ip: string; rememberMe: boolean; userAgent?: string },
+    meta: { ip: string; rememberMe: boolean; userAgent: string },
     res: Response,
   ) {
     const normalizedEmail = normalizeEmail(email);
