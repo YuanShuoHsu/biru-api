@@ -335,6 +335,17 @@ pnpm add -D @types/nodemailer
 pnpm add preview-email
 ```
 
+## nestjs-i18n
+
+```bash
+# https://awesome-nestjs.com/components-and-libraries/internationalization.html
+# https://www.npmjs.com/package/nestjs-i18n
+# https://github.com/ToonvanStrijp/nestjs-i18n
+# https://nestjs-i18n.com/
+
+pnpm add nestjs-i18n
+```
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
