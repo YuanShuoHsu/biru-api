@@ -3,6 +3,7 @@ import { ApiOperation } from '@nestjs/swagger';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
+import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { MailService } from './mail.service';
 
@@ -38,14 +39,14 @@ export class MailController {
   @Public()
   @Post('verify-email')
   @ApiOperation({ summary: '驗證使用者 Email' })
-  async verify(@Body() dto: VerifyEmailDto) {
-    return this.mailService.verifyEmail(dto.token);
+  async verify(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.mailService.verifyEmail(verifyEmailDto);
   }
 
   @Public()
   @Post('test')
-  @ApiOperation({ summary: '測試 SMTP 設定 (同步執行)' })
-  async test(@Body() body: { email: string }) {
-    return this.mailService.sendTestEmail(body.email);
+  @ApiOperation({ summary: '測試 SMTP 設定' })
+  async test(@Body() sendTestEmailDto: SendTestEmailDto) {
+    return this.mailService.sendTestEmail(sendTestEmailDto);
   }
 }

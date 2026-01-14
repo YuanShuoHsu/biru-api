@@ -5,6 +5,9 @@ import { User } from 'prisma/generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UAParser } from 'ua-parser-js';
 
+import { SendTestEmailDto } from './dto/send-test-email.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+
 @Injectable()
 export class MailService {
   constructor(
@@ -64,7 +67,7 @@ export class MailService {
       .catch(() => {});
   }
 
-  async verifyEmail(token: string) {
+  async verifyEmail({ token }: VerifyEmailDto) {
     const user = await this.prisma.user.findUnique({
       where: { emailVerificationToken: token },
     });
@@ -81,21 +84,15 @@ export class MailService {
     });
   }
 
-  public async sendTestEmail(
-    email: string,
-  ): Promise<{ success: boolean; result: unknown }> {
-    try {
-      const result = (await this.mailerService.sendMail({
+  public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
+    await this.mailerService
+      .sendMail({
         to: email,
         subject: 'Biru Coffee SMTP Test',
         text: 'If you receive this email, your SMTP configuration is correct!',
         html: '<b>If you receive this email, your SMTP configuration is correct!</b>',
-      })) as unknown;
-      return { success: true, result };
-    } catch (error) {
-      console.error('SMTP Test Failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(`SMTP Test Failed: ${message}`);
-    }
+      })
+      .then(() => {})
+      .catch(() => {});
   }
 }

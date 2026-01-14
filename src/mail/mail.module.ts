@@ -14,7 +14,7 @@ import { MailService } from './mail.service';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => {
-        const isPreview = config.get('NODE_ENV') !== 'production';
+        const isPreview = config.get('MAIL_PREVIEW') === 'true';
 
         return {
           transport: isPreview
