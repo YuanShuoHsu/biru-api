@@ -51,12 +51,10 @@ export class UsersService {
   async createUserWithPassword(
     {
       email,
-      lang,
       password,
       ...rest
     }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
       email: string;
-      lang: string;
       password: string;
     },
     userAgent: string,
@@ -79,7 +77,7 @@ export class UsersService {
     });
 
     this.mailService
-      .sendVerificationEmail(user, emailVerificationToken, lang, userAgent)
+      .sendVerificationEmail(user, emailVerificationToken, userAgent)
       .catch((error) => {
         console.error('Failed to send verification email (background):', error);
       });

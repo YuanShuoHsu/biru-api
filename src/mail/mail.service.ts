@@ -1,6 +1,7 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { I18nContext } from 'nestjs-i18n';
 import { User } from 'prisma/generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UAParser } from 'ua-parser-js';
@@ -38,10 +39,10 @@ export class MailService {
   public async sendVerificationEmail(
     { email, firstName, lastName }: User,
     token: string,
-    lang: string,
     userAgent: string,
   ): Promise<void> {
     const name = `${firstName} ${lastName}`;
+    const lang = I18nContext.current()?.lang;
     const support_url = `${process.env.NEXT_URL}/${lang}/company/contact`;
     const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
 

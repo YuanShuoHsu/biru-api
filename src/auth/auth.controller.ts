@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 import type { Response } from 'express';
+import { I18n, I18nContext } from 'nestjs-i18n';
 
 import { UserResponseDto } from 'src/users/dto/user-response.dto';
 
@@ -74,6 +75,7 @@ export class AuthController {
     @Query('state') state: string,
     @Request() req: RequestWithGoogleUser,
     @Res() res: Response,
+    @I18n() i18n: I18nContext,
   ) {
     const stateString = Buffer.from(state, 'base64').toString('utf-8');
     const query = JSON.parse(stateString) as Record<string, string>;
@@ -87,10 +89,10 @@ export class AuthController {
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { lang, redirect, rememberMe: _ } = query;
+    const { redirect, rememberMe: _ } = query;
     const params = new URLSearchParams({ token: access_token, redirect });
 
-    const redirectUrl = `${process.env.NEXT_URL}/${lang || ''}/auth/callback?${params.toString()}`;
+    const redirectUrl = `${process.env.NEXT_URL}/${i18n.lang}/auth/callback?${params.toString()}`;
     res.redirect(redirectUrl);
   }
 

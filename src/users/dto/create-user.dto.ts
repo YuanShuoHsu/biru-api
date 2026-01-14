@@ -70,13 +70,6 @@ export class CreateUserDto {
   @IsBoolean()
   isSubscribed: boolean;
 
-  @ApiProperty({
-    description: '偏好語言',
-    example: 'zh-TW',
-  })
-  @IsNotEmpty()
-  lang: string;
-
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsOptional()
   lastName?: string;
