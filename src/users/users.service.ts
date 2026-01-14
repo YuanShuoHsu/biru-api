@@ -1,5 +1,6 @@
 // https://docs.nestjs.com/recipes/prisma
 
+import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
@@ -12,6 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class UsersService {
   constructor(
+    private readonly mailerService: MailerService,
     private mailService: MailService,
     private prisma: PrismaService,
   ) {}
@@ -76,11 +78,11 @@ export class UsersService {
       },
     });
 
-    this.mailService
-      .sendVerificationEmail(user, emailVerificationToken, userAgent)
-      .catch((error) => {
-        console.error('Failed to send verification email (background):', error);
-      });
+    await this.mailService.sendVerificationEmail(
+      user,
+      emailVerificationToken,
+      userAgent,
+    );
 
     return user;
   }
