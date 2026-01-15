@@ -6,7 +6,7 @@
     "preheader": "歡迎來到 Biru Coffee！請確認您的電子郵件地址。",
     "product_name": "Biru Coffee",
     "salutation": "謝謝，<br>Biru Coffee 團隊",
-    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有要求重設密碼，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有註冊此帳號，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
     "subject": "歡迎來到 Biru Coffee！請確認您的電子郵件",
     "title": "歡迎您，{name}！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"

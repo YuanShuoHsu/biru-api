@@ -6,7 +6,7 @@
     "preheader": "Biru Coffeeへようこそ！メールアドレスをご確認ください。",
     "product_name": "Biru Coffee",
     "salutation": "ありがとうございます。<br>Biru Coffee チーム",
-    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードリセットをリクエストしていない場合は、このメールを無視してください。ご質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントに登録していない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "Biru Coffeeへようこそ！メールアドレスをご確認ください",
     "title": "ようこそ、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
