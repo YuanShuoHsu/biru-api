@@ -1,0 +1,12 @@
+{
+  "welcome": {
+    "action_button": "确认电子邮件",
+    "intro": "感谢您试用 Biru Coffee。我们很高兴您的加入。若要开始使用 Biru Coffee，请确认您的帐户。",
+    "preheader": "欢迎来到 Biru Coffee！请确认您的电子邮件地址。",
+    "salutation": "谢谢，<br>Biru Coffee 团队",
+    "security_notice": "出于安全考量，此请求来自使用 {browser_name} 的 {operating_system} 设备。如果您没有请求重置密码，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系支持团队</a>。",
+    "subject": "欢迎来到 Biru Coffee！请确认您的电子邮件",
+    "title": "欢迎您，{name}！",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  }
+}

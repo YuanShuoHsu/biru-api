@@ -1,8 +1,9 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { I18nContext } from 'nestjs-i18n';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 import { User } from 'prisma/generated/client';
+import { I18nTranslations } from 'src/generated/i18n.generated';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UAParser } from 'ua-parser-js';
 
@@ -14,6 +15,7 @@ export class MailService {
   constructor(
     private readonly mailerService: MailerService,
     private prisma: PrismaService,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
   // create(createMailDto: CreateMailDto) {
@@ -54,7 +56,7 @@ export class MailService {
     await this.mailerService
       .sendMail({
         to: email,
-        subject: 'Welcome to Biru Coffee! Confirm your Email',
+        subject: this.i18n.t('mail.welcome.subject'),
         template: 'welcome',
         context: {
           browser_name,

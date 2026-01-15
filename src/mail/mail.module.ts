@@ -3,6 +3,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 import { PrismaModule } from 'src/prisma/prisma.module';
 
@@ -13,7 +14,8 @@ import { MailService } from './mail.service';
   imports: [
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => {
+      inject: [ConfigService, I18nService],
+      useFactory: (config: ConfigService, i18n: I18nService) => {
         const isPreview = config.get('MAIL_PREVIEW') === 'true';
 
         return {
@@ -36,14 +38,15 @@ import { MailService } from './mail.service';
           preview: isPreview,
           template: {
             dir: join(process.cwd(), 'views', 'mail'),
-            adapter: new HandlebarsAdapter(),
+            adapter: new HandlebarsAdapter({
+              t: i18n.hbsHelper,
+            }),
             options: {
               strict: true,
             },
           },
         };
       },
-      inject: [ConfigService],
     }),
     PrismaModule,
   ],

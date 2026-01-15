@@ -3,7 +3,7 @@
 
 import 'dotenv/config';
 
-import path from 'node:path';
+import { join } from 'node:path';
 import type { PrismaConfig } from 'prisma';
 import { env } from 'prisma/config';
 
@@ -12,8 +12,8 @@ export default {
     url: env('DIRECT_URL'),
   },
   migrations: {
-    path: path.join('prisma', 'migrations'),
+    path: join('prisma', 'migrations'),
     seed: 'tsx prisma/seed.ts',
   },
-  schema: path.join('prisma', 'schema'),
+  schema: join('prisma', 'schema'),
 } satisfies PrismaConfig;

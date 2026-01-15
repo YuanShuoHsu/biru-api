@@ -343,6 +343,8 @@ pnpm add preview-email
 # https://github.com/ToonvanStrijp/nestjs-i18n
 # https://nestjs-i18n.com/
 
+# https://nestjs-i18n.com/guides/mailer
+
 pnpm add nestjs-i18n
 ```
 

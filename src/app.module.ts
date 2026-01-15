@@ -10,7 +10,7 @@ import {
   I18nModule,
   QueryResolver,
 } from 'nestjs-i18n';
-import * as path from 'path';
+import { join } from 'node:path';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -39,9 +39,13 @@ import { UsersModule } from './users/users.module';
       useFactory: (configService: ConfigService) => ({
         fallbackLanguage: configService.getOrThrow('FALLBACK_LANGUAGE'),
         loaderOptions: {
-          path: path.join(__dirname, '../i18n/'),
+          path: join(__dirname, '../i18n/'),
           watch: true,
         },
+        typesOutputPath: join(
+          __dirname,
+          '../../src/generated/i18n.generated.ts',
+        ),
       }),
       resolvers: [
         { use: QueryResolver, options: ['lang'] },

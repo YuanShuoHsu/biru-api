@@ -1,0 +1,12 @@
+{
+  "welcome": {
+    "action_button": "이메일 확인",
+    "intro": "Biru Coffee를 이용해 주셔서 감사합니다. Biru Coffee를 시작하려면 계정을 확인해주세요.",
+    "preheader": "Biru Coffee에 오신 것을 환영합니다! 이메일 주소를 확인해주세요.",
+    "salutation": "감사합니다.<br>Biru Coffee 팀",
+    "security_notice": "보안을 위해 이 요청은 {browser_name}을 사용하는 {operating_system} 기기에서 수신되었습니다. 비밀번호 재설정을 요청하지 않으셨다면 이 이메일을 무시하시거나, 질문이 있으시면 <a href=\"{support_url}\">지원팀에 문의</a>해주세요.",
+    "subject": "Biru Coffee에 오신 것을 환영합니다! 이메일을 확인해주세요",
+    "title": "환영합니다, {name}님!",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
+  }
+}
