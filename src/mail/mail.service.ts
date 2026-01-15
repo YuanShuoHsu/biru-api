@@ -61,6 +61,7 @@ export class MailService {
         template: 'welcome',
         context: {
           browser_name,
+          i18nLang: lang,
           name,
           operating_system,
           support_url,
