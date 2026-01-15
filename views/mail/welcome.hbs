@@ -412,8 +412,7 @@
   </head>
 
   <body>
-    <span class='preheader'>Welcome to Biru Coffee! Please confirm your email
-      address.</span>
+    <span class='preheader'>{{t 'mail.welcome.preheader'}}</span>
     <table
       class='email-wrapper'
       width='100%'
@@ -436,7 +435,7 @@
                   href='https://example.com'
                   class='f-fallback email-masthead_name'
                 >
-                  Biru Coffee
+                  {{t 'mail.welcome.product_name'}}
                 </a>
               </td>
             </tr>
@@ -460,10 +459,8 @@
                   <tr>
                     <td class='content-cell'>
                       <div class='f-fallback'>
-                        <h1>Welcome, {{name}}!</h1>
-                        <p>Thanks for trying Biru Coffee. We’re thrilled to have
-                          you on board. To get started with Biru Coffee, please
-                          confirm your account.</p>
+                        <h1>{{t 'mail.welcome.title' this}}</h1>
+                        <p>{{t 'mail.welcome.intro'}}</p>
                         <!-- Action -->
                         <table
                           class='body-action'
@@ -490,29 +487,22 @@
                                       href='{{url}}'
                                       class='f-fallback button button--green'
                                       target='_blank'
-                                    >Confirm Email</a>
+                                    >{{t 'mail.welcome.action_button'}}</a>
                                   </td>
                                 </tr>
                               </table>
                             </td>
                           </tr>
                         </table>
-                        <p>For security, this request was received from a
-                          {{operating_system}}
-                          device using
-                          {{browser_name}}. If you did not request a password
-                          reset, please ignore this email or
-                          <a href='{{support_url}}'>contact support</a>
-                          if you have questions.</p>
-                        <p>Thanks,
-                          <br />The Biru Coffee Team</p>
+                        <p>{{{t 'mail.welcome.security_notice' this}}}</p>
+                        <p>{{{t 'mail.welcome.salutation'}}}</p>
                         <!-- Sub copy -->
                         <table class='body-sub' role='presentation'>
                           <tr>
                             <td>
-                              <p class='f-fallback sub'>If you’re having trouble
-                                with the button above, copy and paste the URL
-                                below into your web browser.</p>
+                              <p class='f-fallback sub'>{{t
+                                  'mail.welcome.trouble_hint'
+                                }}</p>
                               <p class='f-fallback sub'>{{url}}</p>
                             </td>
                           </tr>
@@ -536,9 +526,7 @@
                   <tr>
                     <td class='content-cell' align='center'>
                       <p class='f-fallback sub align-center'>
-                        Biru Coffee
-                        <br />1234 Street Rd.
-                        <br />Suite 1234
+                        {{{t 'mail.welcome.address'}}}
                       </p>
                     </td>
                   </tr>

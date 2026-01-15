@@ -43,15 +43,16 @@ export class MailService {
     token: string,
     userAgent: string,
   ): Promise<void> {
-    const name = `${firstName} ${lastName}`;
     const lang = I18nContext.current()?.lang;
+    const name =
+      lang === 'en' ? `${firstName} ${lastName}` : `${lastName} ${firstName}`;
     const support_url = `${process.env.NEXT_URL}/${lang}/company/contact`;
     const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
 
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
-    const browser_name = result.browser?.name;
-    const operating_system = result.os?.name;
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
 
     await this.mailerService
       .sendMail({

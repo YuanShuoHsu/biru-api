@@ -1,8 +1,10 @@
 {
   "welcome": {
     "action_button": "メールアドレスを確認",
+    "address": "Biru Coffee<br />1234 Street Rd.<br />Suite 1234",
     "intro": "Biru Coffeeをお試しいただきありがとうございます。Biru Coffeeの使用を開始するには、アカウントを確認してください。",
     "preheader": "Biru Coffeeへようこそ！メールアドレスをご確認ください。",
+    "product_name": "Biru Coffee",
     "salutation": "ありがとうございます。<br>Biru Coffee チーム",
     "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードリセットをリクエストしていない場合は、このメールを無視してください。ご質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "Biru Coffeeへようこそ！メールアドレスをご確認ください",

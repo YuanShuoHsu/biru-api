@@ -8,8 +8,10 @@ export type I18nTranslations = {
     "mail": {
         "welcome": {
             "action_button": string;
+            "address": string;
             "intro": string;
             "preheader": string;
+            "product_name": string;
             "salutation": string;
             "security_notice": string;
             "subject": string;

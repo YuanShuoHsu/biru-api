@@ -1,8 +1,10 @@
 {
   "welcome": {
     "action_button": "確認電子郵件",
+    "address": "Biru Coffee<br />1234 Street Rd.<br />Suite 1234",
     "intro": "感謝您試用 Biru Coffee。我們很高興您的加入。若要開始使用 Biru Coffee，請確認您的帳戶。",
     "preheader": "歡迎來到 Biru Coffee！請確認您的電子郵件地址。",
+    "product_name": "Biru Coffee",
     "salutation": "謝謝，<br>Biru Coffee 團隊",
     "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有要求重設密碼，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
     "subject": "歡迎來到 Biru Coffee！請確認您的電子郵件",
