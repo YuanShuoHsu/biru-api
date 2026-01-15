@@ -1,8 +1,10 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { User } from 'prisma/generated/client';
+import { PRODUCT_NAME } from 'src/common/constants';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UAParser } from 'ua-parser-js';
@@ -13,6 +15,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 @Injectable()
 export class MailService {
   constructor(
+    private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
     private prisma: PrismaService,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -46,8 +49,10 @@ export class MailService {
     const lang = I18nContext.current()?.lang;
     const name =
       lang === 'en' ? `${firstName} ${lastName}` : `${lastName} ${firstName}`;
-    const support_url = `${process.env.NEXT_URL}/${lang}/company/contact`;
-    const url = `${process.env.NEXT_URL}/${lang}/auth/verify-email?token=${token}`;
+    const productName = PRODUCT_NAME;
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const url = `${baseUrl}/${lang}/auth/verify-email?token=${token}`;
 
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
@@ -57,13 +62,16 @@ export class MailService {
     await this.mailerService
       .sendMail({
         to: email,
-        subject: this.i18n.t('mail.welcome.subject'),
+        subject: this.i18n.t('mail.welcome.subject', {
+          args: { productName },
+        }),
         template: 'welcome',
         context: {
           browser_name,
           i18nLang: lang,
           name,
           operating_system,
+          productName,
           support_url,
           url,
         },

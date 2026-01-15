@@ -412,7 +412,7 @@
   </head>
 
   <body>
-    <span class='preheader'>{{t 'mail.welcome.preheader'}}</span>
+    <span class='preheader'>{{t 'mail.welcome.preheader' this}}</span>
     <table
       class='email-wrapper'
       width='100%'
@@ -435,7 +435,7 @@
                   href='https://example.com'
                   class='f-fallback email-masthead_name'
                 >
-                  {{t 'mail.welcome.product_name'}}
+                  {{productName}}
                 </a>
               </td>
             </tr>
@@ -460,7 +460,7 @@
                     <td class='content-cell'>
                       <div class='f-fallback'>
                         <h1>{{t 'mail.welcome.title' this}}</h1>
-                        <p>{{t 'mail.welcome.intro'}}</p>
+                        <p>{{t 'mail.welcome.intro' this}}</p>
                         <!-- Action -->
                         <table
                           class='body-action'
@@ -495,7 +495,7 @@
                           </tr>
                         </table>
                         <p>{{{t 'mail.welcome.security_notice' this}}}</p>
-                        <p>{{{t 'mail.welcome.salutation'}}}</p>
+                        <p>{{{t 'mail.welcome.salutation' this}}}</p>
                         <!-- Sub copy -->
                         <table class='body-sub' role='presentation'>
                           <tr>
@@ -526,7 +526,7 @@
                   <tr>
                     <td class='content-cell' align='center'>
                       <p class='f-fallback sub align-center'>
-                        {{{t 'mail.welcome.address'}}}
+                        {{{t 'mail.welcome.address' this}}}
                       </p>
                     </td>
                   </tr>
