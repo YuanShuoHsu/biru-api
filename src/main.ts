@@ -1,10 +1,10 @@
-import { ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { I18nMiddleware, I18nValidationPipe } from 'nestjs-i18n';
 import { join } from 'node:path';
 
 import { AppModule } from './app.module';
@@ -17,9 +17,9 @@ async function bootstrap() {
   app.setBaseViewsDir(join(__dirname, '..', 'views'));
   app.setViewEngine('hbs');
 
-  app.use(helmet());
-
   app.use(cookieParser());
+  app.use(helmet());
+  app.use(I18nMiddleware);
 
   app.enableCors({
     credentials: true,
@@ -27,7 +27,7 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(
-    new ValidationPipe({
+    new I18nValidationPipe({
       forbidNonWhitelisted: true,
       transform: true,
       whitelist: true,

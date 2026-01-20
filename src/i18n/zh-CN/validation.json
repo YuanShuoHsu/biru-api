@@ -1,0 +1,8 @@
+{
+  "isEmail": "必须是有效的电子邮件地址",
+  "isNotEmpty": "此项不能为空",
+  "isNumber": "必须是数字",
+  "isString": "必须是字符串",
+  "maxLength": "长度必须小于 {constraints.0} 个字符",
+  "minLength": "长度必须大于 {constraints.0} 个字符"
+}

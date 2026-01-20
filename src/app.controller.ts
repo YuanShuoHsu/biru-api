@@ -17,6 +17,6 @@ export class AppController {
   @Public()
   @Get('translated')
   getTranslatedHello(@I18n() i18n: I18nContext) {
-    return i18n.t('test.HELLO');
+    return i18n.t('test.hello');
   }
 }

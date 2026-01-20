@@ -1,0 +1,8 @@
+{
+  "isEmail": "Must be a valid email address",
+  "isNotEmpty": "Should not be empty",
+  "isNumber": "Must be a number",
+  "isString": "Must be a string",
+  "maxLength": "Must be shorter than {constraints.0} characters",
+  "minLength": "Must be longer than {constraints.0} characters"
+}

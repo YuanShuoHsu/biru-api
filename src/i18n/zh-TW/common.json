@@ -1,0 +1,6 @@
+{
+  "exceptions": {
+    "internalServerError": "內部伺服器錯誤",
+    "tooManyRequests": "請求過於頻繁，請稍後再試"
+  }
+}
