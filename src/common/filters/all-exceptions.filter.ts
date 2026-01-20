@@ -37,19 +37,15 @@ export class AllExceptionsFilter
 
     const message =
       httpStatus === Number(HttpStatus.TOO_MANY_REQUESTS)
-        ? {
-            message: i18n?.t('common.exceptions.tooManyRequests', {
-              lang: i18n?.lang,
-            }),
-          }
+        ? i18n?.t('common.exceptions.tooManyRequests', {
+            lang: i18n?.lang,
+          })
         : exception instanceof HttpException
           ? exception.getResponse()
           : isProduction
-            ? {
-                message: i18n?.t('common.exceptions.internalServerError', {
-                  lang: i18n?.lang,
-                }),
-              }
+            ? i18n?.t('common.exceptions.internalServerError', {
+                lang: i18n?.lang,
+              })
             : {
                 message:
                   exception instanceof Error
