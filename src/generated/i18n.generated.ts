@@ -32,6 +32,7 @@ export type I18nTranslations = {
         "emailAlreadyVerified": string;
         "emailNotVerified": string;
         "invalidCredentials": string;
+        "invalidVerificationToken": string;
         "userNotFound": string;
     };
     "validation": {

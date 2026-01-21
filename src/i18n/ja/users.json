@@ -2,5 +2,6 @@
   "emailAlreadyVerified": "メールアドレスは既に確認済みです",
   "emailNotVerified": "メールアドレスがまだ確認されていません",
   "invalidCredentials": "メールアドレスまたはパスワードが正しくありません",
+  "invalidVerificationToken": "無効な確認トークン",
   "userNotFound": "ユーザーが見つかりません"
 }

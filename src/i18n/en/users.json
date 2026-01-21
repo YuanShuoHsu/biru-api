@@ -2,5 +2,6 @@
   "emailAlreadyVerified": "Email already verified",
   "emailNotVerified": "Email not verified",
   "invalidCredentials": "Invalid email or password",
+  "invalidVerificationToken": "Invalid verification token",
   "userNotFound": "User not found"
 }

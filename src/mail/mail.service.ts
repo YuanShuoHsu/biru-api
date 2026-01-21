@@ -91,8 +91,12 @@ export class MailService {
     const user = await this.prisma.user.findUnique({
       where: { emailVerificationToken: token },
     });
-
-    if (!user) throw new BadRequestException('Invalid verification token');
+    if (!user)
+      throw new NotFoundException(
+        this.i18n.t('users.invalidVerificationToken'),
+      );
+    if (user.emailVerified)
+      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
 
     return await this.prisma.user.update({
       where: { emailVerificationToken: token },

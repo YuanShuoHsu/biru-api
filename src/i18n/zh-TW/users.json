@@ -2,5 +2,6 @@
   "emailAlreadyVerified": "信箱已驗證",
   "emailNotVerified": "信箱尚未驗證",
   "invalidCredentials": "帳號或密碼錯誤",
+  "invalidVerificationToken": "無效的驗證代碼",
   "userNotFound": "使用者不存在"
 }
