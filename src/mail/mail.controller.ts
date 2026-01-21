@@ -1,8 +1,9 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Headers, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
 import { Public } from 'src/auth/decorators/public.decorator';
 
+import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { MailService } from './mail.service';
@@ -37,10 +38,20 @@ export class MailController {
   // }
 
   @Public()
-  @Post('verify-email')
+  @Post('verify')
   @ApiOperation({ summary: '驗證使用者 Email' })
   async verify(@Body() verifyEmailDto: VerifyEmailDto) {
     return this.mailService.verifyEmail(verifyEmailDto);
+  }
+
+  @Public()
+  @Post('resend')
+  @ApiOperation({ summary: '重新寄送驗證信' })
+  async resend(
+    @Body() resendEmailDto: ResendEmailDto,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.mailService.resendEmail(resendEmailDto.email, userAgent);
   }
 
   @Public()
