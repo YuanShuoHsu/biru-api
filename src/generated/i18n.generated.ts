@@ -4,37 +4,41 @@
 import type { Path } from "nestjs-i18n";
 /* prettier-ignore */
 export type I18nTranslations = {
-    "common": {
-        "exceptions": {
-            "tooManyRequests": string;
-            "internalServerError": string;
-        };
+  common: {
+    exceptions: {
+      internalServerError: string;
+      tooManyRequests: string;
     };
-    "mail": {
-        "welcome": {
-            "action_button": string;
-            "address": string;
-            "intro": string;
-            "preheader": string;
-            "product_name": string;
-            "salutation": string;
-            "security_notice": string;
-            "subject": string;
-            "title": string;
-            "trouble_hint": string;
-        };
+  };
+  mail: {
+    welcome: {
+      action_button: string;
+      address: string;
+      intro: string;
+      preheader: string;
+      product_name: string;
+      salutation: string;
+      security_notice: string;
+      subject: string;
+      title: string;
+      trouble_hint: string;
     };
-    "test": {
-        "hello": string;
-    };
-    "validation": {
-        "isEmail": string;
-        "isNotEmpty": string;
-        "isNumber": string;
-        "isString": string;
-        "maxLength": string;
-        "minLength": string;
-    };
+  };
+  test: {
+    hello: string;
+  };
+  users: {
+    userNotFound: string;
+    emailAlreadyVerified: string;
+  };
+  validation: {
+    isEmail: string;
+    isNotEmpty: string;
+    isNumber: string;
+    isString: string;
+    maxLength: string;
+    minLength: string;
+  };
 };
 /* prettier-ignore */
 export type I18nPath = Path<I18nTranslations>;

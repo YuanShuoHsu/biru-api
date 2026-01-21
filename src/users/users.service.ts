@@ -1,12 +1,18 @@
 // https://docs.nestjs.com/recipes/prisma
 
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
+import { I18nService } from 'nestjs-i18n';
 import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
+import { I18nTranslations } from 'src/generated/i18n.generated';
 import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -16,6 +22,7 @@ export class UsersService {
     private readonly mailerService: MailerService,
     private mailService: MailService,
     private prisma: PrismaService,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
   async user(
@@ -85,6 +92,35 @@ export class UsersService {
     );
 
     return user;
+  }
+
+  async resendVerificationEmail(
+    email: string,
+    userAgent: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
+
+    if (user.emailVerified)
+      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
+
+    const emailVerificationToken = randomUUID();
+
+    await this.updateUser({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+      },
+    });
+
+    await this.mailService.sendVerificationEmail(
+      user,
+      emailVerificationToken,
+      userAgent,
+    );
   }
 
   async updateUser(params: {

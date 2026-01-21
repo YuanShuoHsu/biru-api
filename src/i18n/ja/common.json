@@ -1,6 +1,6 @@
 {
   "exceptions": {
     "internalServerError": "内部サーバーエラー",
-    "tooManyRequests": "リクエストが多すぎます。後でもう一度お試しください"
+    "tooManyRequests": "リクエストが多すぎます"
   }
 }

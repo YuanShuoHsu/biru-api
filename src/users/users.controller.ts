@@ -16,6 +16,7 @@ import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -23,6 +24,16 @@ import { UsersService } from './users.service';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Public()
+  @Post('resend-verification')
+  @ApiOperation({ summary: '重新寄送驗證信' })
+  async resendVerification(
+    @Body() dto: ResendVerificationDto,
+    @Headers('user-agent') userAgent: string,
+  ): Promise<void> {
+    return this.usersService.resendVerificationEmail(dto.email, userAgent);
+  }
 
   @Public()
   @Post()
