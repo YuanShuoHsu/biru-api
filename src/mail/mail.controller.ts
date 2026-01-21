@@ -51,7 +51,7 @@ export class MailController {
     @Body() resendEmailDto: ResendEmailDto,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.mailService.resendEmail(resendEmailDto.email, userAgent);
+    return this.mailService.resendEmail(resendEmailDto, userAgent);
   }
 
   @Public()

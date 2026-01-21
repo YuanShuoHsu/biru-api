@@ -52,10 +52,12 @@ export class UsersService {
     {
       email,
       password,
+      redirect,
       ...rest
     }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
       email: string;
       password: string;
+      redirect?: string;
     },
     userAgent: string,
   ): Promise<User> {
@@ -76,7 +78,12 @@ export class UsersService {
       },
     });
 
-    await this.mailService.sendEmail(user, emailVerificationToken, userAgent);
+    await this.mailService.sendEmail(
+      user,
+      emailVerificationToken,
+      userAgent,
+      redirect,
+    );
 
     return user;
   }

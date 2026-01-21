@@ -14,6 +14,7 @@ import { I18nTranslations } from 'src/generated/i18n.generated';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UAParser } from 'ua-parser-js';
 
+import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
@@ -47,9 +48,10 @@ export class MailService {
   // }
 
   public async sendEmail(
-    { email, firstName, lastName }: User,
+    { email, firstName, id, lastName }: User,
     token: string,
     userAgent: string,
+    redirect?: string,
   ): Promise<void> {
     const lang = I18nContext.current()?.lang;
     const name =
@@ -57,7 +59,7 @@ export class MailService {
     const productName = PRODUCT_NAME;
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;
-    const url = `${baseUrl}/${lang}/auth/verify-email?token=${token}`;
+    const url = `${baseUrl}/${lang}/auth/verify-email?email=${email}&id=${id}&redirect=${redirect}&token=${token}`;
 
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
@@ -102,7 +104,10 @@ export class MailService {
     });
   }
 
-  async resendEmail(email: string, userAgent: string): Promise<void> {
+  async resendEmail(
+    { email, redirect }: ResendEmailDto,
+    userAgent: string,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -119,7 +124,7 @@ export class MailService {
       },
     });
 
-    await this.sendEmail(user, emailVerificationToken, userAgent);
+    await this.sendEmail(user, emailVerificationToken, userAgent, redirect);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
