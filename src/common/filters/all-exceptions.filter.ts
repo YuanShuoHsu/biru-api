@@ -58,7 +58,7 @@ export class AllExceptionsFilter
               };
 
     const responseBody = {
-      message,
+      ...(typeof message === 'string' ? { message } : message),
       path: String(httpAdapter.getRequestUrl(ctx.getRequest())),
       statusCode: httpStatus,
       success: false,
