@@ -101,9 +101,7 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
-
     if (user.emailVerified)
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
 

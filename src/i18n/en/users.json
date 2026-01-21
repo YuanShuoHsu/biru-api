@@ -1,5 +1,6 @@
 {
   "emailAlreadyVerified": "Email already verified",
   "emailNotVerified": "Email not verified",
+  "invalidCredentials": "Invalid email or password",
   "userNotFound": "User not found"
 }

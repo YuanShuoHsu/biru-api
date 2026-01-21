@@ -27,10 +27,11 @@ export class AuthService {
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<User | null> {
+  async validateUser(email: string, pass: string): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const user = await this.usersService.user({ email: normalizedEmail });
-    if (!user) return null;
+    if (!user)
+      throw new UnauthorizedException(this.i18n.t('users.userNotFound'));
 
     if (!user.emailVerified)
       throw new UnauthorizedException(this.i18n.t('users.emailNotVerified'));
@@ -38,10 +39,12 @@ export class AuthService {
     const account = await this.accountsService.account({
       userId_providerId: { userId: user.id, providerId: Provider.LOCAL },
     });
-    if (!account?.password) return null;
+    if (!account?.password)
+      throw new UnauthorizedException(this.i18n.t('users.invalidCredentials'));
 
     const isMatch = await compare(pass, account.password);
-    if (!isMatch) return null;
+    if (!isMatch)
+      throw new UnauthorizedException(this.i18n.t('users.invalidCredentials'));
 
     return user;
   }

@@ -28,9 +28,10 @@ export type I18nTranslations = {
     hello: string;
   };
   users: {
-    userNotFound: string;
     emailAlreadyVerified: string;
     emailNotVerified: string;
+    invalidCredentials: string;
+    userNotFound: string;
   };
   validation: {
     isEmail: string;

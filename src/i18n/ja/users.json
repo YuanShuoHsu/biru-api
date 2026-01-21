@@ -1,5 +1,6 @@
 {
   "emailAlreadyVerified": "メールアドレスは既に確認済みです",
   "emailNotVerified": "メールアドレスがまだ確認されていません",
+  "invalidCredentials": "メールアドレスまたはパスワードが正しくありません",
   "userNotFound": "ユーザーが見つかりません"
 }
