@@ -110,11 +110,11 @@ export class MailService {
   }
 
   async resendEmail(
-    { email, redirect }: ResendEmailDto,
+    { id, email, redirect }: ResendEmailDto,
     userAgent: string,
   ): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { id, email },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified)
