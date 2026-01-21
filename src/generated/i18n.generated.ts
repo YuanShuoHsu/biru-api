@@ -30,6 +30,7 @@ export type I18nTranslations = {
   users: {
     userNotFound: string;
     emailAlreadyVerified: string;
+    emailNotVerified: string;
   };
   validation: {
     isEmail: string;

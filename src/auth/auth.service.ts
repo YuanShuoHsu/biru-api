@@ -1,12 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 import type { Response } from 'express';
+import { I18nService } from 'nestjs-i18n';
 import { Provider, User } from 'prisma/generated/client';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { normalizeEmail } from 'src/common/utils/email';
 import { compare, hash } from 'src/common/utils/hashing';
+import { I18nTranslations } from 'src/generated/i18n.generated';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { UsersService } from 'src/users/users.service';
 
@@ -22,6 +24,7 @@ export class AuthService {
     private jwtService: JwtService,
     private sessionsService: SessionsService,
     private usersService: UsersService,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<User | null> {
@@ -29,7 +32,8 @@ export class AuthService {
     const user = await this.usersService.user({ email: normalizedEmail });
     if (!user) return null;
 
-    if (!user.emailVerified) return null;
+    if (!user.emailVerified)
+      throw new UnauthorizedException(this.i18n.t('users.emailNotVerified'));
 
     const account = await this.accountsService.account({
       userId_providerId: { userId: user.id, providerId: Provider.LOCAL },

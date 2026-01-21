@@ -1,4 +1,5 @@
 {
   "emailAlreadyVerified": "Email already verified",
+  "emailNotVerified": "Email not verified",
   "userNotFound": "User not found"
 }

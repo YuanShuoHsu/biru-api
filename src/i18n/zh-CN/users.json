@@ -1,4 +1,5 @@
 {
   "emailAlreadyVerified": "邮箱已验证",
+  "emailNotVerified": "邮箱尚未验证",
   "userNotFound": "用户不存在"
 }
