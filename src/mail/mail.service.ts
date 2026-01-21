@@ -87,19 +87,20 @@ export class MailService {
       .catch(() => {});
   }
 
-  async verifyEmail({ token }: VerifyEmailDto) {
+  async verifyEmail({ id, token }: VerifyEmailDto) {
     const user = await this.prisma.user.findUnique({
-      where: { emailVerificationToken: token },
+      where: { id },
     });
-    if (!user)
-      throw new NotFoundException(
-        this.i18n.t('users.invalidVerificationToken'),
-      );
+    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified)
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
+    if (user.emailVerificationToken !== token)
+      throw new BadRequestException(
+        this.i18n.t('users.invalidVerificationToken'),
+      );
 
     return await this.prisma.user.update({
-      where: { emailVerificationToken: token },
+      where: { id },
       data: {
         emailVerified: true,
         emailVerifiedAt: new Date(),
