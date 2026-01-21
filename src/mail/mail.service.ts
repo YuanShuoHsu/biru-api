@@ -46,7 +46,7 @@ export class MailService {
   //   return `This action removes a #${id} mail`;
   // }
 
-  public async sendVerificationEmail(
+  public async sendEmail(
     { email, firstName, lastName }: User,
     token: string,
     userAgent: string,
@@ -119,7 +119,7 @@ export class MailService {
       },
     });
 
-    await this.sendVerificationEmail(user, emailVerificationToken, userAgent);
+    await this.sendEmail(user, emailVerificationToken, userAgent);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
