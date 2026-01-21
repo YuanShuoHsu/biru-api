@@ -1,4 +1,9 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -32,9 +37,8 @@ export class AuthService {
     const user = await this.usersService.user({ email: normalizedEmail });
     if (!user)
       throw new UnauthorizedException(this.i18n.t('users.userNotFound'));
-
     if (!user.emailVerified)
-      throw new UnauthorizedException(this.i18n.t('users.emailNotVerified'));
+      throw new ForbiddenException(this.i18n.t('users.emailNotVerified'));
 
     const account = await this.accountsService.account({
       userId_providerId: { userId: user.id, providerId: Provider.LOCAL },
