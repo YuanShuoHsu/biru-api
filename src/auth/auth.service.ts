@@ -37,8 +37,12 @@ export class AuthService {
     const user = await this.usersService.user({ email: normalizedEmail });
     if (!user)
       throw new UnauthorizedException(this.i18n.t('users.userNotFound'));
-    if (!user.emailVerified)
-      throw new ForbiddenException(this.i18n.t('users.emailNotVerified'));
+    if (!user.emailVerified) {
+      throw new ForbiddenException({
+        id: user.id,
+        message: this.i18n.t('users.emailNotVerified'),
+      });
+    }
 
     const account = await this.accountsService.account({
       userId_providerId: { userId: user.id, providerId: Provider.LOCAL },
