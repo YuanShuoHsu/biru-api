@@ -38,22 +38,6 @@ model User {
   @@unique([countryCode, phoneNumber])
 }
 
-model Session {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  ipAddress String?
-  token     String   @unique
-  updatedAt DateTime @updatedAt
-  userAgent String?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, userAgent])
-  @@index([userId])
-}
-
 model Verification {
   id         String   @id @default(uuid())
   code       String
