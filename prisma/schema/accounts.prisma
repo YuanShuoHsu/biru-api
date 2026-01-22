@@ -1,0 +1,26 @@
+enum Provider {
+    LOCAL
+    GOOGLE
+}
+
+model Account {
+    id                    String    @id @default(uuid())
+    accessToken           String?
+    accessTokenExpiresAt  DateTime?
+    accountId             String
+    createdAt             DateTime  @default(now())
+    idToken               String?
+    password              String?
+    providerId            Provider  @default(LOCAL)
+    refreshToken          String?
+    refreshTokenExpiresAt DateTime?
+    scope                 String?
+    updatedAt             DateTime  @updatedAt
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([providerId, accountId])
+    @@unique([userId, providerId])
+    @@index([userId])
+}
