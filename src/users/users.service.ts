@@ -6,13 +6,13 @@ import { randomUUID } from 'crypto';
 import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
-import { MailService } from 'src/mail/mail.service';
+import { MailsService } from 'src/mails/mails.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
   constructor(
-    private mailService: MailService,
+    private mailsService: MailsService,
     private prisma: PrismaService,
   ) {}
 
@@ -78,7 +78,7 @@ export class UsersService {
       },
     });
 
-    await this.mailService.sendEmail(
+    await this.mailsService.sendEmail(
       user,
       emailVerificationToken,
       userAgent,

@@ -7,8 +7,8 @@ import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 import { PrismaModule } from 'src/prisma/prisma.module';
 
-import { MailController } from './mail.controller';
-import { MailService } from './mail.service';
+import { MailsController } from './mails.controller';
+import { MailsService } from './mails.service';
 
 @Module({
   imports: [
@@ -50,8 +50,8 @@ import { MailService } from './mail.service';
     }),
     PrismaModule,
   ],
-  controllers: [MailController],
-  providers: [MailService],
-  exports: [MailService],
+  controllers: [MailsController],
+  providers: [MailsService],
+  exports: [MailsService],
 })
-export class MailModule {}
+export class MailsModule {}

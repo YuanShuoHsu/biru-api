@@ -6,11 +6,11 @@ import { Public } from 'src/auth/decorators/public.decorator';
 import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { MailService } from './mail.service';
+import { MailsService } from './mails.service';
 
-@Controller('mail')
-export class MailController {
-  constructor(private readonly mailService: MailService) {}
+@Controller('mails')
+export class MailsController {
+  constructor(private readonly mailsService: MailsService) {}
 
   // @Post()
   // create(@Body() createMailDto: CreateMailDto) {
@@ -41,7 +41,7 @@ export class MailController {
   @Post('verify')
   @ApiOperation({ summary: '驗證使用者 Email' })
   async verify(@Body() verifyEmailDto: VerifyEmailDto) {
-    return this.mailService.verifyEmail(verifyEmailDto);
+    return this.mailsService.verifyEmail(verifyEmailDto);
   }
 
   @Public()
@@ -51,13 +51,13 @@ export class MailController {
     @Body() resendEmailDto: ResendEmailDto,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.mailService.resendEmail(resendEmailDto, userAgent);
+    return this.mailsService.resendEmail(resendEmailDto, userAgent);
   }
 
   @Public()
   @Post('test')
   @ApiOperation({ summary: '測試 SMTP 設定' })
   async test(@Body() sendTestEmailDto: SendTestEmailDto) {
-    return this.mailService.sendTestEmail(sendTestEmailDto);
+    return this.mailsService.sendTestEmail(sendTestEmailDto);
   }
 }

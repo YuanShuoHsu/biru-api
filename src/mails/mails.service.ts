@@ -19,7 +19,7 @@ import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Injectable()
-export class MailService {
+export class MailsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
