@@ -92,11 +92,11 @@ export class MailsService {
   }
 
   async verifyEmail({ identifier, token }: VerifyEmailDto) {
-    const [user, verificationToken] = await Promise.all([
+    const [user, verification] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: identifier },
       }),
-      this.prisma.verificationToken.findUnique({
+      this.prisma.verification.findUnique({
         where: {
           identifier_token: {
             identifier,
@@ -106,12 +106,12 @@ export class MailsService {
       }),
     ]);
 
-    if (!verificationToken)
+    if (!verification)
       throw new BadRequestException(
         this.i18n.t('users.invalidVerificationToken'),
       );
-    if (verificationToken.expiresAt < new Date()) {
-      await this.prisma.verificationToken.delete({
+    if (verification.expiresAt < new Date()) {
+      await this.prisma.verification.delete({
         where: {
           identifier_token: { identifier, token },
         },
@@ -123,7 +123,7 @@ export class MailsService {
 
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified) {
-      await this.prisma.verificationToken.delete({
+      await this.prisma.verification.delete({
         where: {
           identifier_token: { identifier, token },
         },
@@ -139,7 +139,7 @@ export class MailsService {
       },
     });
 
-    await this.prisma.verificationToken.delete({
+    await this.prisma.verification.delete({
       where: {
         identifier_token: { identifier, token },
       },
@@ -160,11 +160,11 @@ export class MailsService {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.verificationToken.deleteMany({
+    await this.prisma.verification.deleteMany({
       where: { identifier: user.id },
     });
 
-    await this.prisma.verificationToken.create({
+    await this.prisma.verification.create({
       data: {
         expiresAt,
         identifier: user.id,

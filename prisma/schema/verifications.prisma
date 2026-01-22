@@ -1,0 +1,10 @@
+model Verification {
+    identifier String
+    createdAt  DateTime @default(now())
+    expiresAt  DateTime
+    token      String
+    updatedAt  DateTime @updatedAt
+
+    @@id([identifier, token])
+    @@map("verifications")
+}

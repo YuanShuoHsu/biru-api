@@ -36,14 +36,3 @@ model User {
   @@unique([countryCode, phoneNumber])
   @@map("users")
 }
-
-model VerificationToken {
-  identifier String
-  createdAt  DateTime @default(now())
-  expiresAt  DateTime
-  token      String
-  updatedAt  DateTime @updatedAt
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
-}

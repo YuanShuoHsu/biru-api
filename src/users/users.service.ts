@@ -79,7 +79,7 @@ export class UsersService {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.verificationToken.create({
+    await this.prisma.verification.create({
       data: {
         expiresAt,
         identifier: user.id,
