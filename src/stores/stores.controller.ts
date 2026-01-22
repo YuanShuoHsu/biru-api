@@ -24,7 +24,7 @@ export class StoresController {
   @Get()
   @ApiOperation({ summary: '查詢所有門市' })
   findAll(): Promise<ReadStoreDto[]> {
-    return this.storesService.findAll();
+    return this.storesService.stores({});
   }
 
   @Get(':id/menus')
