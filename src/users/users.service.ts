@@ -8,12 +8,14 @@ import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
 import { MailsService } from 'src/mails/mails.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { VerificationsService } from 'src/verifications/verifications.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private mailsService: MailsService,
     private prisma: PrismaService,
+    private verificationsService: VerificationsService,
   ) {}
 
   async user(
@@ -79,12 +81,14 @@ export class UsersService {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.verification.create({
-      data: {
-        expiresAt,
-        identifier: user.id,
-        token,
-      },
+    await this.verificationsService.deleteVerifications({
+      identifier: user.id,
+    });
+
+    await this.verificationsService.createVerification({
+      expiresAt,
+      identifier: user.id,
+      token,
     });
 
     await this.mailsService.sendEmail(user, token, userAgent, redirect);

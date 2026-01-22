@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { VerificationsModule } from 'src/verifications/verifications.module';
 
 import { MailsController } from './mails.controller';
 import { MailsService } from './mails.service';
@@ -48,7 +48,7 @@ import { MailsService } from './mails.service';
         };
       },
     }),
-    PrismaModule,
+    VerificationsModule,
   ],
   controllers: [MailsController],
   providers: [MailsService],

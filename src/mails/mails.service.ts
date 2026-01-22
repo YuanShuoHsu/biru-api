@@ -12,6 +12,7 @@ import { User } from 'prisma/generated/client';
 import { PRODUCT_NAME } from 'src/common/constants';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { VerificationsService } from 'src/verifications/verifications.service';
 import { UAParser } from 'ua-parser-js';
 
 import { ResendEmailDto } from './dto/resend-email.dto';
@@ -22,9 +23,10 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 export class MailsService {
   constructor(
     private readonly configService: ConfigService,
+    private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
     private prisma: PrismaService,
-    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly verificationsService: VerificationsService,
   ) {}
 
   // create(createMailDto: CreateMailDto) {
@@ -96,12 +98,10 @@ export class MailsService {
       this.prisma.user.findUnique({
         where: { id: identifier },
       }),
-      this.prisma.verification.findUnique({
-        where: {
-          identifier_token: {
-            identifier,
-            token,
-          },
+      this.verificationsService.verification({
+        identifier_token: {
+          identifier,
+          token,
         },
       }),
     ]);
@@ -111,11 +111,10 @@ export class MailsService {
         this.i18n.t('users.invalidVerificationToken'),
       );
     if (verification.expiresAt < new Date()) {
-      await this.prisma.verification.delete({
-        where: {
-          identifier_token: { identifier, token },
-        },
+      await this.verificationsService.deleteVerification({
+        identifier_token: { identifier, token },
       });
+
       throw new BadRequestException(
         this.i18n.t('users.invalidVerificationToken'),
       );
@@ -123,10 +122,8 @@ export class MailsService {
 
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified) {
-      await this.prisma.verification.delete({
-        where: {
-          identifier_token: { identifier, token },
-        },
+      await this.verificationsService.deleteVerification({
+        identifier_token: { identifier, token },
       });
 
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
@@ -138,11 +135,8 @@ export class MailsService {
         emailVerified: new Date(),
       },
     });
-
-    await this.prisma.verification.delete({
-      where: {
-        identifier_token: { identifier, token },
-      },
+    await this.verificationsService.deleteVerification({
+      identifier_token: { identifier, token },
     });
   }
 
@@ -160,16 +154,14 @@ export class MailsService {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.verification.deleteMany({
-      where: { identifier: user.id },
+    await this.verificationsService.deleteVerifications({
+      identifier: user.id,
     });
 
-    await this.prisma.verification.create({
-      data: {
-        expiresAt,
-        identifier: user.id,
-        token,
-      },
+    await this.verificationsService.createVerification({
+      expiresAt,
+      identifier: user.id,
+      token,
     });
 
     await this.sendEmail(user, token, userAgent, redirect);
