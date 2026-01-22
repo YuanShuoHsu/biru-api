@@ -59,7 +59,11 @@ export class MailsService {
     const productName = PRODUCT_NAME;
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;
-    const url = `${baseUrl}/${lang}/auth/verify-email?email=${encodeURIComponent(email)}&id=${id}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''}&token=${token}`;
+    const url = `${baseUrl}/${lang}/auth/verify-email?email=${encodeURIComponent(
+      email,
+    )}&identifier=${id}${
+      redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+    }&token=${token}`;
 
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
