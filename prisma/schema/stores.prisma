@@ -1,5 +1,5 @@
 model Store {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   name      Json     @default("{}")
   address   String   @default("")
   createdAt DateTime @default(now())
@@ -9,4 +9,6 @@ model Store {
 
   menus  Menu[]
   tables Table[]
+
+  @@map("stores")
 }

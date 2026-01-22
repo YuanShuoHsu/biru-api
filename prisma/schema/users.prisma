@@ -12,37 +12,38 @@ enum Role {
 }
 
 model User {
-  id                     String    @id @default(uuid())
-  accounts               Account[]
-  birthDate              DateTime?
-  countryCode            String    @default("TW")
-  countryLabel           String    @default("Taiwan")
-  countryPhone           String    @default("+886")
-  createdAt              DateTime  @default(now())
-  email                  String    @unique
-  emailVerified          Boolean   @default(false)
-  emailVerifiedAt        DateTime?
-  emailVerificationToken String?   @unique
-  firstName              String    @default("")
-  gender                 Gender    @default(OTHER)
-  image                  String?
-  isSubscribed           Boolean   @default(true)
-  lastName               String    @default("")
-  phoneNumber            String?
-  phoneVerified          Boolean   @default(false)
-  posts                  Post[]
-  role                   Role      @default(USER)
-  sessions               Session[]
-  updatedAt              DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  accounts      Account[]
+  birthDate     DateTime?
+  countryCode   String    @default("TW")
+  countryLabel  String    @default("Taiwan")
+  countryPhone  String    @default("+886")
+  createdAt     DateTime  @default(now())
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  firstName     String    @default("")
+  gender        Gender    @default(OTHER)
+  image         String?
+  isSubscribed  Boolean   @default(true)
+  lastName      String    @default("")
+  phoneNumber   String?
+  phoneVerified Boolean   @default(false)
+  posts         Post[]
+  role          Role      @default(USER)
+  sessions      Session[]
+  updatedAt     DateTime  @updatedAt
 
   @@unique([countryCode, phoneNumber])
+  @@map("users")
 }
 
-model Verification {
-  id         String   @id @default(uuid())
-  code       String
+model VerificationToken {
+  identifier String
   createdAt  DateTime @default(now())
   expiresAt  DateTime
-  identifier String
+  token      String
   updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }

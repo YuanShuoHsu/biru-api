@@ -45,7 +45,10 @@ export class AuthService {
     }
 
     const account = await this.accountsService.account({
-      userId_providerId: { userId: user.id, providerId: Provider.LOCAL },
+      userId_providerAccountId: {
+        userId: user.id,
+        providerAccountId: Provider.LOCAL,
+      },
     });
     if (!account?.password)
       throw new UnauthorizedException(this.i18n.t('users.invalidCredentials'));
@@ -152,9 +155,7 @@ export class AuthService {
     if (!user) {
       user = await this.usersService.createUser({
         email: normalizedEmail,
-        ...(emailVerified
-          ? { emailVerified: true, emailVerifiedAt: new Date() }
-          : {}),
+        ...(emailVerified ? { emailVerified: new Date() } : {}),
         ...(firstName ? { firstName } : {}),
         ...(image ? { image } : {}),
         ...(lastName ? { lastName } : {}),
@@ -164,7 +165,7 @@ export class AuthService {
             accessTokenExpiresAt,
             accountId,
             idToken,
-            providerId: Provider.GOOGLE,
+            providerAccountId: Provider.GOOGLE,
             ...(refreshToken ? { refreshToken } : {}),
             scope,
           },
@@ -174,9 +175,7 @@ export class AuthService {
       user = await this.usersService.updateUser({
         where: { id: user.id },
         data: {
-          ...(emailVerified
-            ? { emailVerified: true, emailVerifiedAt: new Date() }
-            : {}),
+          ...(emailVerified ? { emailVerified: new Date() } : {}),
           ...(firstName ? { firstName } : {}),
           ...(image ? { image } : {}),
           ...(lastName ? { lastName } : {}),
@@ -184,7 +183,10 @@ export class AuthService {
       });
 
       const account = await this.accountsService.account({
-        userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
+        userId_providerAccountId: {
+          userId: user.id,
+          providerAccountId: Provider.GOOGLE,
+        },
       });
 
       if (!account) {
@@ -194,14 +196,17 @@ export class AuthService {
           accessTokenExpiresAt,
           accountId,
           idToken,
-          providerId: Provider.GOOGLE,
+          providerAccountId: Provider.GOOGLE,
           ...(refreshToken ? { refreshToken } : {}),
           scope,
         });
       } else {
         await this.accountsService.updateAccount({
           where: {
-            userId_providerId: { userId: user.id, providerId: Provider.GOOGLE },
+            userId_providerAccountId: {
+              userId: user.id,
+              providerAccountId: Provider.GOOGLE,
+            },
           },
           data: {
             accessToken,

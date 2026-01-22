@@ -1,5 +1,5 @@
 model Menu {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -13,10 +13,11 @@ model Menu {
 
   @@unique([storeId, key])
   @@index([storeId])
+  @@map("menus")
 }
 
 model MenuItem {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   key         String
   name        Json     @default("{}")
   createdAt   DateTime @default(now())
@@ -36,10 +37,11 @@ model MenuItem {
 
   @@unique([menuId, key])
   @@index([menuId])
+  @@map("menu_items")
 }
 
 model MenuItemOption {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -55,10 +57,11 @@ model MenuItemOption {
 
   @@unique([menuItemId, key])
   @@index([menuItemId])
+  @@map("menu_item_options")
 }
 
 model MenuItemIngredient {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -71,10 +74,11 @@ model MenuItemIngredient {
 
   @@unique([menuItemId, key])
   @@index([menuItemId])
+  @@map("menu_item_ingredients")
 }
 
 model MenuItemOptionChoice {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -92,10 +96,11 @@ model MenuItemOptionChoice {
 
   @@unique([menuItemOptionId, key])
   @@index([menuItemOptionId])
+  @@map("menu_item_option_choices")
 }
 
 model MenuItemOptionChoiceIngredient {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   key       String
   name      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -108,4 +113,5 @@ model MenuItemOptionChoiceIngredient {
 
   @@unique([menuItemOptionChoiceId, key])
   @@index([menuItemOptionChoiceId])
+  @@map("menu_item_option_choice_ingredients")
 }

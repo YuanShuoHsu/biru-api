@@ -63,27 +63,31 @@ export class UsersService {
   ): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
-    const emailVerificationToken = randomUUID();
 
     const user = await this.createUser({
       ...rest,
       email: normalizedEmail,
-      emailVerificationToken,
       accounts: {
         create: {
           accountId: normalizedEmail,
           password: hashedPassword,
-          providerId: Provider.LOCAL,
+          providerAccountId: Provider.LOCAL,
         },
       },
     });
 
-    await this.mailsService.sendEmail(
-      user,
-      emailVerificationToken,
-      userAgent,
-      redirect,
-    );
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.verificationToken.create({
+      data: {
+        expiresAt,
+        identifier: user.id,
+        token,
+      },
+    });
+
+    await this.mailsService.sendEmail(user, token, userAgent, redirect);
 
     return user;
   }

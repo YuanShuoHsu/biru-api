@@ -38,14 +38,11 @@ export class UserResponseDto {
   })
   email: string;
 
-  @ApiProperty({ description: '是否已驗證電子郵件', example: false })
-  emailVerified: boolean;
-
   @ApiProperty({
     description: '電子郵件驗證時間',
     example: '2025-10-14T12:34:56.000Z',
   })
-  emailVerifiedAt: Date | null;
+  emailVerified: Date | null;
 
   @ApiProperty({
     description: '名',

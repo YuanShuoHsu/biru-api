@@ -1,14 +1,15 @@
 model Table {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   name      Json     @default("{}")
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
   slug      String
+  storeId   String   @map("store_id")
   updatedAt DateTime @updatedAt
 
-  storeId String
-  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, slug])
   @@index([storeId])
+  @@map("tables")
 }

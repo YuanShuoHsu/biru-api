@@ -4,23 +4,24 @@ enum Provider {
 }
 
 model Account {
-    id                    String    @id @default(uuid())
+    id                    String    @id @default(cuid())
     accessToken           String?
     accessTokenExpiresAt  DateTime?
     accountId             String
     createdAt             DateTime  @default(now())
     idToken               String?
     password              String?
-    providerId            Provider  @default(LOCAL)
+    providerAccountId     Provider  @default(LOCAL) @map("provider_account_id")
     refreshToken          String?
     refreshTokenExpiresAt DateTime?
     scope                 String?
     updatedAt             DateTime  @updatedAt
+    userId                String    @map("user_id")
 
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([providerId, accountId])
-    @@unique([userId, providerId])
+    @@unique([providerAccountId, accountId])
+    @@unique([userId, providerAccountId])
     @@index([userId])
+    @@map("accounts")
 }

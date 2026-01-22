@@ -87,49 +87,88 @@ export class MailsService {
       .catch(() => {});
   }
 
-  async verifyEmail({ id, token }: VerifyEmailDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-    });
-    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
-    if (user.emailVerified)
-      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
-    if (user.emailVerificationToken !== token)
+  async verifyEmail({ identifier, token }: VerifyEmailDto) {
+    const [user, verificationToken] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: identifier },
+      }),
+      this.prisma.verificationToken.findUnique({
+        where: {
+          identifier_token: {
+            identifier,
+            token,
+          },
+        },
+      }),
+    ]);
+
+    if (!verificationToken)
       throw new BadRequestException(
         this.i18n.t('users.invalidVerificationToken'),
       );
+    if (verificationToken.expiresAt < new Date()) {
+      await this.prisma.verificationToken.delete({
+        where: {
+          identifier_token: { identifier, token },
+        },
+      });
+      throw new BadRequestException(
+        this.i18n.t('users.invalidVerificationToken'),
+      );
+    }
 
-    return await this.prisma.user.update({
-      where: { id },
+    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
+    if (user.emailVerified) {
+      await this.prisma.verificationToken.delete({
+        where: {
+          identifier_token: { identifier, token },
+        },
+      });
+
+      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
       data: {
-        emailVerified: true,
-        emailVerifiedAt: new Date(),
-        emailVerificationToken: null,
+        emailVerified: new Date(),
+      },
+    });
+
+    await this.prisma.verificationToken.delete({
+      where: {
+        identifier_token: { identifier, token },
       },
     });
   }
 
   async resendEmail(
-    { id, email, redirect }: ResendEmailDto,
+    { identifier, redirect }: ResendEmailDto,
     userAgent: string,
   ): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id, email },
+    const user = await this.prisma.user.findUnique({
+      where: { id: identifier },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified)
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
 
-    const emailVerificationToken = randomUUID();
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.user.update({
-      where: { id: user.id },
+    await this.prisma.verificationToken.deleteMany({
+      where: { identifier: user.id },
+    });
+
+    await this.prisma.verificationToken.create({
       data: {
-        emailVerificationToken,
+        expiresAt,
+        identifier: user.id,
+        token,
       },
     });
 
-    await this.sendEmail(user, emailVerificationToken, userAgent, redirect);
+    await this.sendEmail(user, token, userAgent, redirect);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {

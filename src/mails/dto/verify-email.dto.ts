@@ -9,7 +9,7 @@ export class VerifyEmailDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  id: string;
+  identifier: string;
 
   @ApiProperty({
     description: '信箱驗證 Token',
