@@ -80,7 +80,7 @@ export class MenusService {
   }
 
   findAll(storeId: string) {
-    return this.menus({
+    return this.prisma.menu.findMany({
       where: { storeId, isActive: true },
       orderBy: { createdAt: 'asc' },
       include: {
