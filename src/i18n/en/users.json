@@ -1,7 +1,9 @@
 {
+  "emailAlreadyExists": "This email is already registered",
   "emailAlreadyVerified": "Email already verified",
   "emailNotVerified": "Email not verified",
   "invalidCredentials": "Invalid email or password",
   "invalidVerificationToken": "Invalid verification token",
+  "phoneNumberAlreadyExists": "This phone number is already registered",
   "userNotFound": "User not found"
 }

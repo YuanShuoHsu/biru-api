@@ -1,7 +1,9 @@
 {
+  "emailAlreadyExists": "此電子郵件已被註冊",
   "emailAlreadyVerified": "信箱已驗證",
   "emailNotVerified": "信箱尚未驗證",
   "invalidCredentials": "帳號或密碼錯誤",
   "invalidVerificationToken": "無效的驗證代碼",
+  "phoneNumberAlreadyExists": "此電話號碼已被註冊",
   "userNotFound": "使用者不存在"
 }

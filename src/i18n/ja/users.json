@@ -1,7 +1,9 @@
 {
+  "emailAlreadyExists": "このメールアドレスは既に登録されています",
   "emailAlreadyVerified": "メールアドレスは既に確認済みです",
   "emailNotVerified": "メールアドレスがまだ確認されていません",
   "invalidCredentials": "メールアドレスまたはパスワードが正しくありません",
   "invalidVerificationToken": "無効な確認トークン",
+  "phoneNumberAlreadyExists": "この電話番号は既に登録されています",
   "userNotFound": "ユーザーが見つかりません"
 }

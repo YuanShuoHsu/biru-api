@@ -1,7 +1,9 @@
 {
+  "emailAlreadyExists": "此电子邮件已被注册",
   "emailAlreadyVerified": "邮箱已验证",
   "emailNotVerified": "邮箱尚未验证",
   "invalidCredentials": "账号或密码错误",
   "invalidVerificationToken": "无效的验证令牌",
+  "phoneNumberAlreadyExists": "此电话号码已被注册",
   "userNotFound": "用户不存在"
 }

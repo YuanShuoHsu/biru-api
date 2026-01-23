@@ -1,8 +1,9 @@
 // https://docs.nestjs.com/recipes/prisma
 
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
+import { I18nService } from 'nestjs-i18n';
 import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
@@ -10,9 +11,12 @@ import { MailsService } from 'src/mails/mails.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { VerificationsService } from 'src/verifications/verifications.service';
 
+import { CreateUserDto } from './dto/create-user.dto';
+
 @Injectable()
 export class UsersService {
   constructor(
+    private i18n: I18nService,
     private mailsService: MailsService,
     private prisma: PrismaService,
     private verificationsService: VerificationsService,
@@ -52,23 +56,41 @@ export class UsersService {
 
   async createUserWithPassword(
     {
+      countryCode,
       email,
       password,
+      phoneNumber,
       redirect,
       ...rest
-    }: Omit<Prisma.UserCreateInput, 'accounts' | 'email'> & {
-      email: string;
-      password: string;
-      redirect?: string;
-    },
+    }: CreateUserDto,
     userAgent: string,
   ): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
 
+    const emailExists = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (emailExists)
+      throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
+
+    const phoneExists = await this.prisma.user.findUnique({
+      where: {
+        countryCode_phoneNumber: {
+          countryCode,
+          phoneNumber,
+        },
+      },
+    });
+
+    if (phoneExists)
+      throw new ConflictException(
+        this.i18n.t('users.phoneNumberAlreadyExists'),
+      );
+
     const user = await this.createUser({
       ...rest,
-      email: normalizedEmail,
       accounts: {
         create: {
           accountId: normalizedEmail,
@@ -76,6 +98,9 @@ export class UsersService {
           providerAccountId: Provider.LOCAL,
         },
       },
+      countryCode,
+      email: normalizedEmail,
+      phoneNumber,
     });
 
     const token = randomUUID();

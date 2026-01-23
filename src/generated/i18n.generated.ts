@@ -29,10 +29,12 @@ export type I18nTranslations = {
         "hello": string;
     };
     "users": {
+        "emailAlreadyExists": string;
         "emailAlreadyVerified": string;
         "emailNotVerified": string;
         "invalidCredentials": string;
         "invalidVerificationToken": string;
+        "phoneNumberAlreadyExists": string;
         "userNotFound": string;
     };
     "validation": {
