@@ -1,8 +1,6 @@
 import { Body, Controller, Headers, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
-import { Public } from 'src/auth/decorators/public.decorator';
-
 import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -37,14 +35,12 @@ export class MailsController {
   //   return this.mailService.remove(+id);
   // }
 
-  @Public()
   @Post('verify')
   @ApiOperation({ summary: '驗證使用者 Email' })
   async verify(@Body() verifyEmailDto: VerifyEmailDto) {
     return this.mailsService.verifyEmail(verifyEmailDto);
   }
 
-  @Public()
   @Post('resend')
   @ApiOperation({ summary: '重新寄送驗證信' })
   async resend(
@@ -54,7 +50,6 @@ export class MailsController {
     return this.mailsService.resendEmail(resendEmailDto, userAgent);
   }
 
-  @Public()
   @Post('test')
   @ApiOperation({ summary: '測試 SMTP 設定' })
   async test(@Body() sendTestEmailDto: SendTestEmailDto) {

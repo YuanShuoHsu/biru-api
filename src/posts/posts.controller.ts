@@ -9,7 +9,7 @@ import {
   Put,
 } from '@nestjs/common';
 
-import { Post as PostModel } from 'prisma/generated/client';
+import { Post as PostModel } from 'src/generated/prisma/client';
 
 import { PostsService } from './posts.service';
 

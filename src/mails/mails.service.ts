@@ -8,9 +8,9 @@ import { ConfigService } from '@nestjs/config';
 
 import { randomUUID } from 'crypto';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { User } from 'prisma/generated/client';
 import { PRODUCT_NAME } from 'src/common/constants';
 import { I18nTranslations } from 'src/generated/i18n.generated';
+import { User } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { VerificationsService } from 'src/verifications/verifications.service';
 import { UAParser } from 'ua-parser-js';

@@ -1,7 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
-import { Public } from 'src/auth/decorators/public.decorator';
 import { ReadMenuDto } from 'src/menus/dto/read-menu.dto';
 import { MenusService } from 'src/menus/menus.service';
 
@@ -9,7 +8,6 @@ import { ReadStoreDto } from './dto/read-store.dto';
 import { StoresService } from './stores.service';
 
 @Controller('stores')
-@Public()
 export class StoresController {
   constructor(
     private readonly menusService: MenusService,

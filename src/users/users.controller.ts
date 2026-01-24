@@ -11,10 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
-import { Role } from 'prisma/generated/client';
-import { Public } from 'src/auth/decorators/public.decorator';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -24,7 +20,6 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Public()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
   async create(
@@ -35,7 +30,6 @@ export class UsersController {
   }
 
   @ApiBearerAuth()
-  @Roles(Role.ADMIN)
   @Get()
   @ApiOperation({ summary: '查詢所有使用者' })
   findAll(): Promise<UserResponseDto[]> {
@@ -66,7 +60,6 @@ export class UsersController {
   }
 
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.MANAGER)
   @Delete(':id')
   @ApiOperation({ summary: '刪除使用者' })
   remove(@Param('id') id: string): Promise<UserResponseDto> {

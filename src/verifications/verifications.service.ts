@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 import { I18nService } from 'nestjs-i18n';
-import { Prisma, Verification } from 'prisma/generated/client';
 import { I18nTranslations } from 'src/generated/i18n.generated';
+import { Prisma, Verification } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()

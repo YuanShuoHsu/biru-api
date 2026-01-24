@@ -8,8 +8,8 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import type { Gender } from 'prisma/generated/client';
-import { Gender as GenderEnum } from 'prisma/generated/enums';
+import type { Gender } from 'src/generated/prisma/client';
+import { Gender as GenderEnum } from 'src/generated/prisma/enums';
 
 export class UpdateUserDto {
   @ApiProperty({

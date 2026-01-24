@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { JsonValue } from '@prisma/client/runtime/client';
+import type { JsonValue } from '@prisma/client/runtime/client';
 
 import { IsUUID, MaxLength } from 'class-validator';
 

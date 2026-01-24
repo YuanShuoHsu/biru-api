@@ -12,11 +12,11 @@ import {
 } from 'nestjs-i18n';
 import { join } from 'node:path';
 
+import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { AccountsModule } from './accounts/accounts.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
-import { AccountsModule } from './accounts/accounts.module';
-import { AuthModule } from './auth/auth.module';
+import { auth } from './auth';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
@@ -32,7 +32,7 @@ import { VerificationsModule } from './verifications/verifications.module';
 @Module({
   imports: [
     AccountsModule,
-    AuthModule,
+    AuthModule.forRoot({ auth }),
     ConfigModule.forRoot({ isGlobal: true }),
     EcpayModule,
     EventsModule,
@@ -40,13 +40,10 @@ import { VerificationsModule } from './verifications/verifications.module';
       useFactory: (configService: ConfigService) => ({
         fallbackLanguage: configService.getOrThrow('FALLBACK_LANGUAGE'),
         loaderOptions: {
-          path: join(__dirname, '../i18n/'),
+          path: join(__dirname, '/i18n/'),
           watch: true,
         },
-        typesOutputPath: join(
-          __dirname,
-          '../../src/generated/i18n.generated.ts',
-        ),
+        typesOutputPath: join(__dirname, '../src/generated/i18n.generated.ts'),
       }),
       resolvers: [
         { use: QueryResolver, options: ['lang'] },

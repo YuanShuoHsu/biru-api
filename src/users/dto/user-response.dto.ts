@@ -1,7 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import type { Gender, Role } from 'prisma/generated/client';
-import { Gender as GenderEnum, Role as RoleEnum } from 'prisma/generated/enums';
+import type { Gender, Role } from 'src/generated/prisma/client';
+import {
+  Gender as GenderEnum,
+  Role as RoleEnum,
+} from 'src/generated/prisma/enums';
 
 export class UserResponseDto {
   @ApiProperty({

@@ -4,9 +4,9 @@ import { ConflictException, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import { I18nService } from 'nestjs-i18n';
-import { Prisma, Provider, User } from 'prisma/generated/client';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
+import { Prisma, Provider, User } from 'src/generated/prisma/client';
 import { MailsService } from 'src/mails/mails.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { VerificationsService } from 'src/verifications/verifications.service';

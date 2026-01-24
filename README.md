@@ -267,6 +267,7 @@ pnpm add -D @types/passport-google-oauth20
 ```bash
 # https://docs.nestjs.com/recipes/prisma
 # https://www.prisma.io/docs/orm/tools/prisma-cli
+# https://www.prisma.io/docs/guides/nestjs
 # https://www.prisma.io/docs/orm/reference/prisma-config-reference
 # https://www.prisma.io/docs/orm/prisma-migrate/workflows/seeding
 
@@ -284,6 +285,7 @@ pnpm add -D typescript ts-node @types/node
 pnpm add -D tsx
 
 prisma studio
+
 
 # https://github.com/prisma/prisma/issues/28581
 pnpm add @prisma/client-runtime-utils
@@ -346,6 +348,93 @@ pnpm add preview-email
 # https://nestjs-i18n.com/guides/mailer
 
 pnpm add nestjs-i18n
+```
+
+## Better Auth
+
+```bash
+# https://www.better-auth.com/
+# https://www.better-auth.com/docs/installation
+
+pnpm add better-auth
+
+# .env
+
+BETTER_AUTH_SECRET=ErBNX5WC4O6SUX5VQTN1rAznBwP2stpB
+BETTER_AUTH_URL=http://localhost:3001
+
+# auth.ts
+
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+// If your Prisma file is located elsewhere, you can change the path
+import { PrismaClient } from "@/generated/prisma/client";
+
+const prisma = new PrismaClient();
+
+export const auth = betterAuth({
+    database: prismaAdapter(prisma, {
+        provider: "sqlite", // or "mysql", "postgresql", ...etc
+    }),
+});
+
+npx @better-auth/cli generate
+
+npx @better-auth/cli migrate
+
+# https://www.better-auth.com/docs/concepts/cli
+
+pnpm dlx @better-auth/cli@latest init
+
+import { betterAuth } from "better-auth";
+
+export const auth = betterAuth({
+  //...other options
+  emailAndPassword: {
+    enabled: true,
+  },
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID as string,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+    },
+  },
+});
+
+# https://www.better-auth.com/docs/integrations/nestjs
+# https://github.com/ThallesP/nestjs-better-auth
+
+pnpm add @thallesp/nestjs-better-auth
+
+# main.ts
+
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false, // Required for Better Auth
+  });
+  await app.listen(process.env.PORT ?? 3000);
+}
+bootstrap();
+
+# app.module.ts
+
+import { Module } from '@nestjs/common';
+import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { auth } from "./auth"; // Your Better Auth instance
+
+@Module({
+  imports: [
+    AuthModule.forRoot({ auth }),
+  ],
+})
+export class AppModule {}
+
+#  https://www.better-auth.com/docs/concepts/database
+# https://www.prisma.io/docs/guides/nestjs
+
 ```
 
 <p align="center">
@@ -446,5 +535,3 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
-# biru-api
