@@ -360,7 +360,7 @@ pnpm add better-auth
 
 # .env
 
-BETTER_AUTH_SECRET=ErBNX5WC4O6SUX5VQTN1rAznBwP2stpB
+BETTER_AUTH_SECRET=
 BETTER_AUTH_URL=http://localhost:3001
 
 # auth.ts
