@@ -262,35 +262,6 @@ pnpm add passport-google-oauth20
 pnpm add -D @types/passport-google-oauth20
 ```
 
-## Prisma
-
-```bash
-# https://docs.nestjs.com/recipes/prisma
-# https://www.prisma.io/docs/orm/tools/prisma-cli
-# https://www.prisma.io/docs/guides/nestjs
-# https://www.prisma.io/docs/orm/reference/prisma-config-reference
-# https://www.prisma.io/docs/orm/prisma-migrate/workflows/seeding
-
-pnpm add -D prisma @types/node @types/pg
-pnpm add @prisma/client @prisma/adapter-pg pg dotenv
-
-pnpm prisma
-pnpm prisma init
-pnpm prisma migrate dev --name init
-tree prisma
-pnpm @prisma/client
-pnpm prisma generate
-
-pnpm add -D typescript ts-node @types/node
-pnpm add -D tsx
-
-prisma studio
-
-
-# https://github.com/prisma/prisma/issues/28581
-pnpm add @prisma/client-runtime-utils
-```
-
 ## Global prefix
 
 ```bash
@@ -366,15 +337,12 @@ BETTER_AUTH_URL=http://localhost:3001
 # auth.ts
 
 import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-// If your Prisma file is located elsewhere, you can change the path
-import { PrismaClient } from "@/generated/prisma/client";
-
-const prisma = new PrismaClient();
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { db } from "@/db"; // your drizzle instance
 
 export const auth = betterAuth({
-    database: prismaAdapter(prisma, {
-        provider: "sqlite", // or "mysql", "postgresql", ...etc
+    database: drizzleAdapter(db, {
+        provider: "pg", // or "mysql", "sqlite"
     }),
 });
 
@@ -433,8 +401,16 @@ import { auth } from "./auth"; // Your Better Auth instance
 export class AppModule {}
 
 #  https://www.better-auth.com/docs/concepts/database
-# https://www.prisma.io/docs/guides/nestjs
+```
 
+## Drizzle ORM
+
+```bash
+# https://orm.drizzle.team/
+# https://orm.drizzle.team/docs/get-started/postgresql-new
+
+pnpm add drizzle-orm pg dotenv
+pnpm add -D drizzle-kit tsx @types/pg
 ```
 
 <p align="center">

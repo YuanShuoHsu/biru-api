@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-
-import type { Gender, Role } from 'src/generated/prisma/client';
-import {
-  Gender as GenderEnum,
-  Role as RoleEnum,
-} from 'src/generated/prisma/enums';
+import { Gender, Role } from 'src/common/enums';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -55,8 +50,8 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '性別',
-    enum: GenderEnum,
-    example: GenderEnum.OTHER,
+    enum: Gender,
+    example: Gender.OTHER,
   })
   gender: Gender;
 
@@ -86,8 +81,8 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '角色',
-    enum: RoleEnum,
-    example: RoleEnum.USER,
+    enum: Role,
+    example: Role.USER,
   })
   role: Role;
 

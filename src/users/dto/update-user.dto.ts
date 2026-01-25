@@ -8,8 +8,7 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import type { Gender } from 'src/generated/prisma/client';
-import { Gender as GenderEnum } from 'src/generated/prisma/enums';
+import { Gender } from 'src/common/enums';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -44,10 +43,10 @@ export class UpdateUserDto {
 
   @ApiProperty({
     description: '性別',
-    enum: GenderEnum,
-    example: GenderEnum.OTHER,
+    enum: Gender,
+    example: Gender.OTHER,
   })
-  @IsEnum(GenderEnum)
+  @IsEnum(Gender)
   @IsOptional()
   gender?: Gender;
 
