@@ -13,13 +13,12 @@ import {
   timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
+import { Gender, Role } from 'src/common/enums';
 
 // Enums
 export const providerEnum = pgEnum('Provider', ['LOCAL', 'GOOGLE']);
 export const genderEnum = pgEnum('Gender', ['FEMALE', 'MALE', 'OTHER']);
 export const roleEnum = pgEnum('Role', ['ADMIN', 'MANAGER', 'STAFF', 'USER']);
-
-// Tables
 
 export const users = pgTable(
   'users',
@@ -35,13 +34,13 @@ export const users = pgTable(
     email: text('email').unique().notNull(),
     emailVerified: timestamp('email_verified', { mode: 'date' }),
     firstName: text('firstName').default('').notNull(),
-    gender: genderEnum('gender').default('OTHER').notNull(),
+    gender: genderEnum('gender').default('OTHER').notNull().$type<Gender>(),
     image: text('image'),
     isSubscribed: boolean('isSubscribed').default(true).notNull(),
     lastName: text('lastName').default('').notNull(),
     phoneNumber: text('phoneNumber'),
     phoneVerified: boolean('phoneVerified').default(false).notNull(),
-    role: roleEnum('role').default('USER').notNull(),
+    role: roleEnum('role').default('USER').notNull().$type<Role>(),
     updatedAt: timestamp('updatedAt', { mode: 'date' })
       .defaultNow()
       .notNull()

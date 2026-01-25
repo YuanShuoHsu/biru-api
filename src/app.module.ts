@@ -17,6 +17,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { auth } from './auth';
+import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
@@ -33,6 +34,7 @@ import { VerificationsModule } from './verifications/verifications.module';
     AccountsModule,
     AuthModule.forRoot({ auth }),
     ConfigModule.forRoot({ isGlobal: true }),
+    DrizzleModule,
     EcpayModule,
     EventsModule,
     I18nModule.forRootAsync({
