@@ -1,7 +1,8 @@
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { Gender, Role } from 'src/common/enums';
 
-import { genderEnum, roleEnum } from './enums';
+export const genderEnum = pgEnum('Gender', ['FEMALE', 'MALE', 'OTHER']);
+export const roleEnum = pgEnum('Role', ['ADMIN', 'MANAGER', 'STAFF', 'USER']);
 
 export const user = pgTable('user', {
   id: text('id')

@@ -1,4 +1,3 @@
-export * from './enums';
 export * from './menus';
 export * from './posts';
 export * from './relations';

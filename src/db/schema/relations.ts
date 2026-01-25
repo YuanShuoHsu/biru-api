@@ -11,7 +11,7 @@ import {
   menuItemOptions,
   menuItems,
   menus,
-} from '../schema';
+} from './menus';
 
 export const userRelations = relations(user, ({ many }) => ({
   accounts: many(account),
