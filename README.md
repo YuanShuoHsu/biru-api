@@ -60,7 +60,7 @@ $ pnpm run start
 }
 ```
 
-CLI Plugin
+## CLI Plugin
 
 ```bash
 # https://docs.nestjs.com/openapi/cli-plugin
@@ -408,9 +408,11 @@ export class AppModule {}
 ```bash
 # https://orm.drizzle.team/
 # https://orm.drizzle.team/docs/get-started/postgresql-new
+# https://orm.drizzle.team/docs/seed-overview
 
 pnpm add drizzle-orm pg dotenv
 pnpm add -D drizzle-kit tsx @types/pg
+pnpm add drizzle-seed
 ```
 
 <p align="center">

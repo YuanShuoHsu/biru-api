@@ -45,7 +45,7 @@ export const orderItems = pgTable('order_items', {
     .references(() => menuItems.id, { onDelete: 'cascade' }),
   quantity: integer('quantity').notNull(),
   notes: text('notes'),
-  chosenOptions: json('chosen_options').default([]).notNull(), // Specific customizations
+  chosenOptions: json('chosen_options').default([]).notNull(),
   ...timestamps,
 });
 
