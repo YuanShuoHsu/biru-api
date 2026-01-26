@@ -22,7 +22,6 @@ import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
 import { MenusModule } from './menus/menus.module';
-import { PostsModule } from './posts/posts.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { StoresModule } from './stores/stores.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -55,7 +54,6 @@ import { VerificationsModule } from './verifications/verifications.module';
     }),
     MailsModule,
     MenusModule,
-    PostsModule,
     ScheduleModule.forRoot(),
     SessionsModule,
     StoresModule,
