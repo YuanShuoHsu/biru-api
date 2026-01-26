@@ -9,13 +9,14 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
-import { Gender, Role } from 'src/common/enums';
+import { GenderEnum, RoleEnum } from 'src/common/enums/user';
+import { enumValues } from 'src/common/utils/enum';
 
 import { timestamps } from './columns.helpers';
 import { posts } from './posts';
 
-export const genderEnum = pgEnum('Gender', ['FEMALE', 'MALE', 'OTHER']);
-export const roleEnum = pgEnum('Role', ['ADMIN', 'MANAGER', 'STAFF', 'USER']);
+export const gendersEnum = pgEnum('genders', enumValues(GenderEnum));
+export const rolesEnum = pgEnum('roles', enumValues(RoleEnum));
 
 export const user = pgTable('user', {
   id: text('id')
@@ -23,7 +24,7 @@ export const user = pgTable('user', {
     .$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull(),
+  emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
   ...timestamps,
   // Custom fields
@@ -31,13 +32,13 @@ export const user = pgTable('user', {
   countryCode: text('country_code').default('TW').notNull(),
   countryLabel: text('country_label').default('Taiwan').notNull(),
   countryPhone: text('country_phone').default('+886').notNull(),
+  emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').default('').notNull(),
-  gender: genderEnum('gender').default('OTHER').notNull().$type<Gender>(),
-  isSubscribed: boolean('is_subscribed').default(true).notNull(),
+  gender: gendersEnum('gender').default('OTHER').notNull().$type<GenderEnum>(),
   lastName: text('last_name').default('').notNull(),
   phoneNumber: text('phone_number'),
   phoneVerified: boolean('phone_verified').default(false).notNull(),
-  role: roleEnum('role').default('USER').notNull().$type<Role>(),
+  role: rolesEnum('role').default('USER').notNull().$type<RoleEnum>(),
 });
 
 export const session = pgTable(

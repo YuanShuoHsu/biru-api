@@ -1,10 +1,10 @@
-export enum Gender {
+export enum GenderEnum {
   FEMALE = 'FEMALE',
   MALE = 'MALE',
   OTHER = 'OTHER',
 }
 
-export enum Role {
+export enum RoleEnum {
   ADMIN = 'ADMIN',
   MANAGER = 'MANAGER',
   STAFF = 'STAFF',
