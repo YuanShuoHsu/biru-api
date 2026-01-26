@@ -13,7 +13,6 @@ import { GenderEnum, RoleEnum } from 'src/common/enums/user';
 import { enumValues } from 'src/common/utils/enum';
 
 import { timestamps } from './columns.helpers';
-import { posts } from './posts';
 
 export const gendersEnum = pgEnum('genders', enumValues(GenderEnum));
 export const rolesEnum = pgEnum('roles', enumValues(RoleEnum));
@@ -98,7 +97,6 @@ export const verification = pgTable(
 
 export const userRelations = relations(user, ({ many }) => ({
   accounts: many(account),
-  posts: many(posts),
   sessions: many(session),
 }));
 
