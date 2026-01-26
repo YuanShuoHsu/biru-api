@@ -5,7 +5,9 @@ import {
   menuItemOptions,
   menuItems,
   menus,
-} from '../../../schema/stores';
+  stores,
+  tables,
+} from '../../schema/stores';
 
 export type MenuItemIngredient = Omit<
   typeof menuItemIngredients.$inferSelect,
@@ -39,3 +41,7 @@ export type MenuItem = Omit<typeof menuItems.$inferSelect, 'menuId'> & {
 export type Menu = Omit<typeof menus.$inferSelect, 'storeId'> & {
   items: MenuItem[];
 };
+
+export type Table = Omit<typeof tables.$inferSelect, 'storeId'>;
+
+export type Store = typeof stores.$inferSelect;

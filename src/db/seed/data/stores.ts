@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import type { Menu } from '../../types/stores/menus';
+import type { Menu, Store, Table } from '../types/stores';
 
 export const menus: Menu[] = [
   {
@@ -1403,5 +1403,87 @@ export const menus: Menu[] = [
       },
     ],
     updatedAt: new Date(),
+  },
+];
+
+export const tables: Table[] = [
+  {
+    id: randomUUID(),
+    name: {
+      'zh-TW': '1 號桌',
+      en: 'Table 1',
+      ja: '1番テーブル',
+      ko: '1번 테이블',
+      'zh-CN': '1 号桌',
+    },
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: '1',
+    updatedAt: new Date(),
+  },
+  {
+    id: randomUUID(),
+    name: {
+      'zh-TW': '2 號桌',
+      en: 'Table 2',
+      ja: '2番テーブル',
+      ko: '2번 테이블',
+      'zh-CN': '2 号桌',
+    },
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: '2',
+    updatedAt: new Date(),
+  },
+  {
+    id: randomUUID(),
+    name: {
+      'zh-TW': '3 號桌',
+      en: 'Table 3',
+      ja: '3番テーブル',
+      ko: '3번 테이블',
+      'zh-CN': '3 号桌',
+    },
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: '3',
+    updatedAt: new Date(),
+  },
+];
+
+export const stores: (Store & { tables: Table[]; menus: Menu[] })[] = [
+  {
+    id: randomUUID(),
+    name: {
+      'zh-TW': '航空城店',
+      en: 'Aerotropolis',
+      ja: 'エアロトロポリス店',
+      ko: '에어로트로폴리스점',
+      'zh-CN': '航空城店',
+    },
+    address: '桃園市大園區中華路298號',
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: 'aerotropolis',
+    updatedAt: new Date(),
+    menus,
+    tables,
+  },
+  {
+    id: randomUUID(),
+    name: {
+      'zh-TW': '大園店',
+      en: 'Dayuan',
+      ja: '大園店',
+      ko: '다위안점',
+      'zh-CN': '大园店',
+    },
+    address: '桃園市大園區中正西路12號',
+    createdAt: new Date('2024-06-01T00:00:00Z'),
+    isActive: true,
+    slug: 'dayuan',
+    updatedAt: new Date(),
+    menus,
+    tables,
   },
 ];
