@@ -2,7 +2,7 @@ import { relations } from 'drizzle-orm';
 
 import { posts } from './posts';
 import { stores, tables } from './stores';
-import { account, session, user, verification } from './users';
+import { user } from './users';
 
 import {
   menuItemIngredients,
@@ -12,28 +12,6 @@ import {
   menuItems,
   menus,
 } from './menus';
-
-export const userRelations = relations(user, ({ many }) => ({
-  accounts: many(account),
-  posts: many(posts),
-  sessions: many(session),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
-  }),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id],
-  }),
-}));
-
-export const verificationRelations = relations(verification, () => ({}));
 
 export const postRelations = relations(posts, ({ one }) => ({
   author: one(user, {
