@@ -1,12 +1,7 @@
-import {
-  boolean,
-  index,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { boolean, index, pgTable, serial, text } from 'drizzle-orm/pg-core';
 
+import { timestamps } from './columns.helpers';
 import { user } from './users';
 
 export const posts = pgTable(
@@ -17,17 +12,16 @@ export const posts = pgTable(
       .notNull()
       .references(() => user.id),
     content: text('content'),
-    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     published: boolean('published').default(false).notNull(),
     title: text('title').notNull(),
-    updatedAt: timestamp('updatedAt', { mode: 'date' })
-      .defaultNow()
-      .notNull()
-      .$onUpdate(() => new Date()),
+    ...timestamps,
   },
-  (table) => {
-    return {
-      authorIdIdx: index('posts_author_id_idx').on(table.authorId),
-    };
-  },
+  (table) => [index('posts_author_id_idx').on(table.authorId)],
 );
+
+export const postRelations = relations(posts, ({ one }) => ({
+  author: one(user, {
+    fields: [posts.authorId],
+    references: [user.id],
+  }),
+}));
