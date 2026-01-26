@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
-import { menus as menusData } from './data/menus';
+
 import { stores as storesData } from './data/stores';
-import { tables as tablesData } from './data/tables';
 
 import { db } from '../index';
 import {
@@ -39,7 +38,7 @@ async function main() {
       })
       .returning();
 
-    for (const t of tablesData) {
+    for (const t of s.tables) {
       await db
         .insert(tables)
         .values({
@@ -61,7 +60,7 @@ async function main() {
         });
     }
 
-    for (const m of menusData) {
+    for (const m of s.menus) {
       const [menu] = await db
         .insert(menus)
         .values({

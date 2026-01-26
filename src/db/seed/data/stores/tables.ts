@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import type { Table } from '../types/tables';
+import type { Table } from '../../types/stores/tables';
 
 export const tables: Table[] = [
   {

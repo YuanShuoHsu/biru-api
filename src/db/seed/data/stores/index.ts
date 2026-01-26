@@ -1,7 +1,11 @@
 import { randomUUID } from 'crypto';
-import type { Store } from '../types/stores';
 
-export const stores: Store[] = [
+import { menus } from './menus';
+import { tables } from './tables';
+
+import type { Menu, Store, Table } from '../../types/stores';
+
+export const stores: (Store & { tables: Table[]; menus: Menu[] })[] = [
   {
     id: randomUUID(),
     name: {
@@ -16,6 +20,8 @@ export const stores: Store[] = [
     isActive: true,
     slug: 'aerotropolis',
     updatedAt: new Date(),
+    menus,
+    tables,
   },
   {
     id: randomUUID(),
@@ -31,5 +37,7 @@ export const stores: Store[] = [
     isActive: true,
     slug: 'dayuan',
     updatedAt: new Date(),
+    menus,
+    tables,
   },
 ];

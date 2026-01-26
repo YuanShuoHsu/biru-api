@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
-import type { Menu } from '../types/menus';
 
-export const menus: Omit<Menu, 'storeId'>[] = [
+import type { Menu } from '../../types/stores/menus';
+
+export const menus: Menu[] = [
   {
     id: randomUUID(),
     key: 'coffee',
