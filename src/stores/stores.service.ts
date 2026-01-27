@@ -1,79 +1,66 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { and, eq, gte, SQL } from 'drizzle-orm';
+import * as schema from 'src/db/schema';
+import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import { Prisma, Store } from 'src/generated/prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+type Store = typeof schema.stores.$inferSelect;
+type CreateStore = typeof schema.stores.$inferInsert;
 
 @Injectable()
 export class StoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  // create(createStoreDto: CreateStoreDto) {
-  //   console.log(createStoreDto);
-  //   return 'This action adds a new store';
-  // }
-
-  // findAll() {
-  //   return `This action returns all stores`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} store`;
-  // }
-
-  // update(id: number, updateStoreDto: UpdateStoreDto) {
-  //   console.log(updateStoreDto);
-  //   return `This action updates a #${id} store`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} store`;
-  // }
-
-  async store(
-    storeWhereUniqueInput: Prisma.StoreWhereUniqueInput,
-  ): Promise<Store | null> {
-    return this.prisma.store.findUnique({
-      where: storeWhereUniqueInput,
+  async store(where: { id: string }): Promise<Store | null> {
+    const result = await this.db.query.stores.findFirst({
+      where: eq(schema.stores.id, where.id),
     });
+    return result || null;
   }
 
   async stores(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Prisma.StoreWhereUniqueInput;
-    where?: Prisma.StoreWhereInput;
-    orderBy?: Prisma.StoreOrderByWithRelationInput;
+    offset?: number;
+    limit?: number;
+    cursor?: { id: string };
+    where?: SQL;
+    orderBy?: SQL | SQL[];
   }): Promise<Store[]> {
-    const { skip, take, cursor, where, orderBy } = params;
-    return this.prisma.store.findMany({
-      skip,
-      take,
-      cursor,
-      where,
+    const { offset, limit, cursor, where, orderBy } = params;
+    return this.db.query.stores.findMany({
+      where: (stores) =>
+        and(where, cursor?.id ? gte(stores.id, cursor.id) : undefined),
       orderBy,
+      limit,
+      offset,
     });
   }
 
-  async createStore(data: Prisma.StoreCreateInput): Promise<Store> {
-    return this.prisma.store.create({
-      data,
-    });
+  async createStore(data: CreateStore): Promise<Store> {
+    const [store] = await this.db
+      .insert(schema.stores)
+      .values(data)
+      .returning();
+    return store;
   }
 
   async updateStore(params: {
-    where: Prisma.StoreWhereUniqueInput;
-    data: Prisma.StoreUpdateInput;
+    where: { id: string };
+    data: Partial<CreateStore>;
   }): Promise<Store> {
     const { where, data } = params;
-    return this.prisma.store.update({
-      data,
-      where,
-    });
+    const [store] = await this.db
+      .update(schema.stores)
+      .set(data)
+      .where(eq(schema.stores.id, where.id))
+      .returning();
+    return store;
   }
 
-  async deleteStore(where: Prisma.StoreWhereUniqueInput): Promise<Store> {
-    return this.prisma.store.delete({
-      where,
-    });
+  async deleteStore(where: { id: string }): Promise<Store> {
+    const [store] = await this.db
+      .delete(schema.stores)
+      .where(eq(schema.stores.id, where.id))
+      .returning();
+    return store;
   }
 }
