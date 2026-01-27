@@ -74,86 +74,93 @@ const generateTableNames = (count: number) =>
 async function main() {
   await reset(db, schema);
 
-  await seed(db, schema).refine((funcs) => {
-    return {
-      stores: {
-        count: 10,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateStoreNames(20) }),
-          address: funcs.streetAddress(),
-          isActive: funcs.default({ defaultValue: true }),
-          slug: funcs.uuid(),
-        },
+  await seed(db, schema).refine((funcs) => ({
+    stores: {
+      count: 10,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateStoreNames(20) }),
+        address: funcs.streetAddress(),
+        isActive: funcs.default({ defaultValue: true }),
+        slug: funcs.uuid(),
       },
-      tables: {
-        count: 40,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateTableNames(100) }),
-          isActive: funcs.boolean(),
-          slug: funcs.uuid(),
-        },
+    },
+    tables: {
+      count: 40,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateTableNames(100) }),
+        isActive: funcs.boolean(),
+        slug: funcs.uuid(),
       },
-      menus: {
-        count: 20,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateMenuNames(50) }),
-          key: funcs.uuid(),
-        },
+    },
+    menus: {
+      count: 20,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateMenuNames(50) }),
+        key: funcs.uuid(),
+        isActive: funcs.boolean(),
       },
-      menuItems: {
-        count: 100,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateMenuItemNames(200) }),
-          description: funcs.valuesFromArray({
-            values: generateDescriptions(200),
-          }),
-          price: funcs.int({ minValue: 50, maxValue: 1000 }),
-          sold: funcs.int({ minValue: 0, maxValue: 5000 }),
-          stock: funcs.int({ minValue: 0, maxValue: 200 }),
-          imageUrl: funcs.default({ defaultValue: '/images/IMG_4590.jpg' }),
-          key: funcs.uuid(),
-        },
+    },
+    menuItems: {
+      count: 100,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateMenuItemNames(200) }),
+        description: funcs.valuesFromArray({
+          values: generateDescriptions(200),
+        }),
+        price: funcs.int({ minValue: 50, maxValue: 1000 }),
+        sold: funcs.int({ minValue: 0, maxValue: 5000 }),
+        stock: funcs.int({ minValue: 0, maxValue: 200 }),
+        imageUrl: funcs.default({ defaultValue: '/images/IMG_4590.jpg' }),
+        key: funcs.uuid(),
+        isActive: funcs.boolean(),
       },
-      menuItemIngredients: {
-        count: 200,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateIngredientNames(300) }),
-          unit: funcs.valuesFromArray({ values: generateUnitNames(50) }),
-          key: funcs.uuid(),
-          usage: funcs.int({ minValue: 1, maxValue: 10 }),
-        },
+    },
+    menuItemIngredients: {
+      count: 200,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateIngredientNames(300) }),
+        unit: funcs.valuesFromArray({ values: generateUnitNames(50) }),
+        key: funcs.uuid(),
+        usage: funcs.int({ minValue: 1, maxValue: 10 }),
       },
-      menuItemOptions: {
-        count: 60,
-        columns: {
-          name: funcs.valuesFromArray({ values: generateOptionNames(100) }),
-          key: funcs.uuid(),
-        },
-        with: {
-          menuItemOptionChoices: [
-            { weight: 0.4, count: [2, 3] },
-            { weight: 0.6, count: [4, 5] },
-          ],
-        },
+    },
+    menuItemOptions: {
+      count: 60,
+      columns: {
+        name: funcs.valuesFromArray({ values: generateOptionNames(100) }),
+        key: funcs.uuid(),
+        isActive: funcs.boolean(),
+        multiple: funcs.boolean(),
+        required: funcs.boolean(),
       },
-      menuItemOptionChoices: {
-        columns: {
-          name: funcs.valuesFromArray({ values: generateChoiceNames(300) }),
-          key: funcs.uuid(),
-          extraCost: funcs.int({ minValue: 0, maxValue: 100 }),
-        },
+      with: {
+        menuItemOptionChoices: [
+          { weight: 0.4, count: [2, 3] },
+          { weight: 0.6, count: [4, 5] },
+        ],
       },
-      menuItemOptionChoiceIngredients: {
-        count: 100,
-        columns: {
-          key: funcs.uuid(),
-          name: funcs.valuesFromArray({ values: generateIngredientNames(200) }),
-          unit: funcs.valuesFromArray({ values: generateUnitNames(50) }),
-          usage: funcs.int({ minValue: 1, maxValue: 10 }),
-        },
+    },
+    menuItemOptionChoices: {
+      columns: {
+        name: funcs.valuesFromArray({ values: generateChoiceNames(300) }),
+        key: funcs.uuid(),
+        extraCost: funcs.int({ minValue: 0, maxValue: 100 }),
+        isActive: funcs.boolean(),
+        isShared: funcs.boolean(),
+        sold: funcs.int({ minValue: 0, maxValue: 500 }),
+        stock: funcs.int({ minValue: 0, maxValue: 100 }),
       },
-    };
-  });
+    },
+    menuItemOptionChoiceIngredients: {
+      count: 100,
+      columns: {
+        key: funcs.uuid(),
+        name: funcs.valuesFromArray({ values: generateIngredientNames(200) }),
+        unit: funcs.valuesFromArray({ values: generateUnitNames(50) }),
+        usage: funcs.int({ minValue: 1, maxValue: 10 }),
+      },
+    },
+  }));
 }
 
 void main();

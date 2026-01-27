@@ -1,8 +1,10 @@
 import { randomUUID } from 'crypto';
+import { reset } from 'drizzle-seed';
 
 import { stores as storesData } from './data/stores';
 
 import { db } from '../index';
+import * as schema from '../schema';
 import {
   menuItemIngredients,
   menuItemOptionChoiceIngredients,
@@ -15,6 +17,8 @@ import {
 } from '../schema';
 
 async function main() {
+  await reset(db, schema);
+
   for (const s of storesData) {
     const [store] = await db
       .insert(stores)
