@@ -1,24 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { JsonValue } from '@prisma/client/runtime/client';
 
 import { IsUUID, MaxLength } from 'class-validator';
 
-class LocalizedName {
-  @ApiProperty({ example: '航空城店' })
-  'zh-TW': string;
-
-  @ApiProperty({ example: 'Aerotropolis' })
-  en: string;
-
-  @ApiProperty({ example: 'エアロトロポリス店' })
-  ja: string;
-
-  @ApiProperty({ example: '에어로트로폴리스점' })
-  ko: string;
-
-  @ApiProperty({ example: '航空城店' })
-  'zh-CN': string;
-}
+import { LocalizedFieldDto } from 'src/common/dto/localized-field.dto';
 
 export class ReadStoreDto {
   @ApiProperty({
@@ -30,9 +14,9 @@ export class ReadStoreDto {
 
   @ApiProperty({
     description: '門市名稱',
-    type: LocalizedName,
+    type: LocalizedFieldDto,
   })
-  name: JsonValue;
+  name: LocalizedFieldDto;
 
   @ApiProperty({
     description: '建立時間',

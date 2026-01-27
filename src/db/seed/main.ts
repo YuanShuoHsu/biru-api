@@ -174,6 +174,39 @@ async function main() {
         usage: funcs.int({ minValue: 1, maxValue: 10 }),
       },
     },
+    user: {
+      count: 0,
+    },
+    account: {
+      count: 0,
+      columns: {
+        userId: funcs.valuesFromArray({ values: ['dummy'] }),
+      },
+    },
+    session: {
+      count: 0,
+      columns: {
+        userId: funcs.valuesFromArray({ values: ['dummy'] }),
+      },
+    },
+    verification: {
+      count: 0,
+    },
+    orders: {
+      count: 0,
+      columns: {
+        userId: funcs.valuesFromArray({ values: ['dummy'] }),
+        storeId: funcs.valuesFromArray({ values: ['dummy'] }),
+        tableId: funcs.valuesFromArray({ values: ['dummy'] }),
+      },
+    },
+    orderItems: {
+      count: 0,
+      columns: {
+        orderId: funcs.valuesFromArray({ values: ['dummy'] }),
+        menuItemId: funcs.valuesFromArray({ values: ['dummy'] }),
+      },
+    },
   }));
 }
 
