@@ -95,7 +95,7 @@ async function main() {
             name: mi.name,
             createdAt: mi.createdAt,
             description: mi.description,
-            imageUrl: mi.imageUrl,
+            image: mi.image,
             isActive: mi.isActive,
             price: mi.price,
             sold: mi.sold,
@@ -108,7 +108,7 @@ async function main() {
             set: {
               name: mi.name,
               description: mi.description,
-              imageUrl: mi.imageUrl,
+              image: mi.image,
               isActive: mi.isActive,
               price: mi.price,
               sold: mi.sold,

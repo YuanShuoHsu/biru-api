@@ -34,7 +34,7 @@ export const menus: Menu[] = [
           ko: '진한 에스프레소와 부드러운 우유 거품.',
           'zh-CN': '浓郁的意式浓缩配绵密奶泡。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -434,7 +434,7 @@ export const menus: Menu[] = [
           ko: '달콤한 카라멜과 진한 에스프레소의 완벽한 조화.',
           'zh-CN': '香甜焦糖与浓郁浓缩完美结合。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -653,7 +653,7 @@ export const menus: Menu[] = [
           ko: '상쾌한 자스민 향과 녹차의 완벽한 조화.',
           'zh-CN': '清新茉莉花香与绿茶完美融合。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: false,
         options: [
           {
@@ -778,7 +778,7 @@ export const menus: Menu[] = [
           ko: '진한 얼그레이와 신선한 우유의 부드러운 조화.',
           'zh-CN': '浓醇伯爵茶搭配鲜奶，口感顺滑。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -997,7 +997,7 @@ export const menus: Menu[] = [
           ko: '신선한 과일과 탄산수의 상쾌한 조합.',
           'zh-CN': '新鲜水果搭配气泡水，清爽解腻。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -1100,7 +1100,7 @@ export const menus: Menu[] = [
           ko: '말차, 우유, 탄산의 상쾌한 조화.',
           'zh-CN': '抹茶与牛奶气泡完美结合。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -1181,7 +1181,7 @@ export const menus: Menu[] = [
           ko: '겉은 바삭하고 속은 부드러운 프랑스식 크루아상.',
           'zh-CN': '外酥内软的法式可颂。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [],
         price: 60,
@@ -1208,7 +1208,7 @@ export const menus: Menu[] = [
           ko: '진한 다크 초콜릿 스펀지 케이크.',
           'zh-CN': '浓郁黑巧克力海绵蛋糕。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [],
         price: 90,
@@ -1251,7 +1251,7 @@ export const menus: Menu[] = [
           ko: '햄, 치즈, 상추를 프렌치 번에 넣은 샌드위치.',
           'zh-CN': '火腿、起司与生菜夹于法式软包中。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {
@@ -1335,7 +1335,7 @@ export const menus: Menu[] = [
           ko: '신선한 채소와 구운 치킨이 어우러진 샐러드.',
           'zh-CN': '新鲜生菜搭配香煎鸡肉。',
         },
-        imageUrl: '/images/IMG_4590.jpg',
+        image: '/images/IMG_4590.jpg',
         isActive: true,
         options: [
           {

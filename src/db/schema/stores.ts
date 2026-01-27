@@ -79,7 +79,7 @@ export const menuItems = pgTable(
       .default({})
       .notNull()
       .$type<LocalizedText>(),
-    imageUrl: text('image_url').default('/images/IMG_4590.jpg').notNull(),
+    image: text('image'),
     isActive: boolean('is_active').default(true).notNull(),
     price: integer('price').notNull(),
     sold: integer('sold').default(0).notNull(),

@@ -14,13 +14,15 @@ import * as schema from '../schema';
 
 import type { LocalizedText } from '../../common/types/locale';
 
-const generateLocalizedItem = (generator: (f: Faker) => string) => {
+const generateLocalizedItem = (
+  generator: (f: Faker, locale: keyof LocalizedText) => string,
+) => {
   const localized: LocalizedText = {
-    en: generator(fakerEN),
-    'zh-TW': generator(fakerZH_TW),
-    ja: generator(fakerJA),
-    ko: generator(fakerKO),
-    'zh-CN': generator(fakerZH_CN),
+    en: generator(fakerEN, 'en'),
+    'zh-TW': generator(fakerZH_TW, 'zh-TW'),
+    ja: generator(fakerJA, 'ja'),
+    ko: generator(fakerKO, 'ko'),
+    'zh-CN': generator(fakerZH_CN, 'zh-CN'),
   };
 
   return JSON.stringify(localized);
@@ -29,6 +31,20 @@ const generateLocalizedItem = (generator: (f: Faker) => string) => {
 const generateStoreNames = (count: number) =>
   Array.from({ length: count }, () =>
     generateLocalizedItem((f) => f.company.name()),
+  );
+
+const generateTableNames = (count: number) =>
+  Array.from({ length: count }, () =>
+    generateLocalizedItem((f, locale) => {
+      const prefix = {
+        en: 'Table',
+        'zh-TW': '桌號',
+        ja: '卓',
+        ko: '테이블',
+        'zh-CN': '桌号',
+      }[locale];
+      return `${prefix} ${f.string.numeric(2)}`;
+    }),
   );
 
 const generateMenuNames = (count: number) =>
@@ -46,6 +62,9 @@ const generateDescriptions = (count: number) =>
     generateLocalizedItem((f) => f.food.description()),
   );
 
+const generateImageUrls = (count: number) =>
+  Array.from({ length: count }, () => fakerEN.image.url());
+
 const generateIngredientNames = (count: number) =>
   Array.from({ length: count }, () =>
     generateLocalizedItem((f) => f.food.ingredient()),
@@ -58,17 +77,12 @@ const generateUnitNames = (count: number) =>
 
 const generateOptionNames = (count: number) =>
   Array.from({ length: count }, () =>
-    generateLocalizedItem((f) => f.commerce.productAdjective() + ' Service'),
+    generateLocalizedItem((f) => f.commerce.productAdjective()),
   );
 
 const generateChoiceNames = (count: number) =>
   Array.from({ length: count }, () =>
     generateLocalizedItem((f) => f.commerce.productMaterial()),
-  );
-
-const generateTableNames = (count: number) =>
-  Array.from({ length: count }, () =>
-    generateLocalizedItem((f) => `Table ${f.string.numeric(2)}`),
   );
 
 async function main() {
@@ -104,15 +118,15 @@ async function main() {
       count: 100,
       columns: {
         name: funcs.valuesFromArray({ values: generateMenuItemNames(200) }),
+        key: funcs.uuid(),
         description: funcs.valuesFromArray({
           values: generateDescriptions(200),
         }),
+        image: funcs.valuesFromArray({ values: generateImageUrls(100) }),
+        isActive: funcs.boolean(),
         price: funcs.int({ minValue: 50, maxValue: 1000 }),
         sold: funcs.int({ minValue: 0, maxValue: 5000 }),
         stock: funcs.int({ minValue: 0, maxValue: 200 }),
-        imageUrl: funcs.default({ defaultValue: '/images/IMG_4590.jpg' }),
-        key: funcs.uuid(),
-        isActive: funcs.boolean(),
       },
     },
     menuItemIngredients: {

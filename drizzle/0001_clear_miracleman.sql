@@ -1,0 +1,1 @@
+ALTER TABLE "menu_items" RENAME COLUMN "image_url" TO "image";
