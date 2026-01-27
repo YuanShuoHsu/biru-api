@@ -185,8 +185,9 @@ export class ReadMenuItemDto {
   @ApiProperty({
     description: '圖片路徑',
     example: 'https://example.com/image.jpg',
+    nullable: true,
   })
-  image: string;
+  image: string | null;
 
   @ApiProperty({ description: '是否啟用', example: true })
   isActive: boolean;

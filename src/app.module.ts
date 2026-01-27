@@ -13,7 +13,6 @@ import {
 import { join } from 'node:path';
 
 import { AuthModule } from '@thallesp/nestjs-better-auth';
-import { AccountsModule } from './accounts/accounts.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { auth } from './auth';
@@ -21,16 +20,12 @@ import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
-import { MenusModule } from './menus/menus.module';
-import { SessionsModule } from './sessions/sessions.module';
 import { StoresModule } from './stores/stores.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
-import { VerificationsModule } from './verifications/verifications.module';
 
 @Module({
   imports: [
-    AccountsModule,
     AuthModule.forRoot({ auth }),
     ConfigModule.forRoot({ isGlobal: true }),
     DrizzleModule,
@@ -53,9 +48,7 @@ import { VerificationsModule } from './verifications/verifications.module';
       inject: [ConfigService],
     }),
     MailsModule,
-    MenusModule,
     ScheduleModule.forRoot(),
-    SessionsModule,
     StoresModule,
     TasksModule,
     ThrottlerModule.forRoot({
@@ -67,7 +60,6 @@ import { VerificationsModule } from './verifications/verifications.module';
       ],
     }),
     UsersModule,
-    VerificationsModule,
   ],
   controllers: [AppController],
   providers: [

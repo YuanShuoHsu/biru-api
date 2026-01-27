@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gte, SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, SQL } from 'drizzle-orm';
 import * as schema from 'src/db/schema';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+
+import { ReadMenuDto } from './dto/read-menu.dto';
 
 type Store = typeof schema.stores.$inferSelect;
 type CreateStore = typeof schema.stores.$inferInsert;
@@ -62,5 +64,57 @@ export class StoresService {
       .where(eq(schema.stores.id, where.id))
       .returning();
     return store;
+  }
+
+  async menus(params: {
+    offset?: number;
+    limit?: number;
+    cursor?: { id: string };
+    where?: SQL;
+    orderBy?: SQL | SQL[];
+    id?: string;
+  }): Promise<ReadMenuDto[]> {
+    const { offset, limit, cursor, where, orderBy, id } = params;
+    return this.db.query.menus.findMany({
+      where: (menus) => {
+        const filters: (SQL | undefined)[] = [where];
+        if (id) filters.push(eq(menus.storeId, id));
+        filters.push(eq(menus.isActive, true));
+
+        const combinedFilters = filters.filter(Boolean) as SQL[];
+        return combinedFilters.length > 0 ? and(...combinedFilters) : undefined;
+      },
+      orderBy: orderBy || ((menus, { asc }) => asc(menus.createdAt)),
+      limit,
+      offset,
+      with: {
+        items: {
+          where: eq(schema.menuItems.isActive, true),
+          orderBy: [asc(schema.menuItems.createdAt)],
+          with: {
+            ingredients: {
+              orderBy: [asc(schema.menuItemIngredients.createdAt)],
+            },
+            options: {
+              where: eq(schema.menuItemOptions.isActive, true),
+              orderBy: [asc(schema.menuItemOptions.createdAt)],
+              with: {
+                choices: {
+                  where: eq(schema.menuItemOptionChoices.isActive, true),
+                  orderBy: [asc(schema.menuItemOptionChoices.createdAt)],
+                  with: {
+                    ingredients: {
+                      orderBy: [
+                        asc(schema.menuItemOptionChoiceIngredients.createdAt),
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   }
 }
