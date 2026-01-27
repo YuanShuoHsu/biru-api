@@ -409,10 +409,12 @@ export class AppModule {}
 # https://orm.drizzle.team/
 # https://orm.drizzle.team/docs/get-started/postgresql-new
 # https://orm.drizzle.team/docs/seed-overview
+# https://fakerjs.dev/
 
 pnpm add drizzle-orm pg dotenv
 pnpm add -D drizzle-kit tsx @types/pg
 pnpm add drizzle-seed
+pnpm add -D @faker-js/faker
 ```
 
 <p align="center">
