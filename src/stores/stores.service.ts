@@ -73,34 +73,41 @@ export class StoresService {
     where?: SQL;
     orderBy?: SQL | SQL[];
     id?: string;
+    isActive?: boolean;
   }): Promise<ReadMenuDto[]> {
-    const { offset, limit, cursor, where, orderBy, id } = params;
+    const { offset, limit, cursor, where, orderBy, id, isActive } = params;
     return this.db.query.menus.findMany({
-      where: (menus) => {
-        const filters: (SQL | undefined)[] = [where];
-        if (id) filters.push(eq(menus.storeId, id));
-        filters.push(eq(menus.isActive, true));
-
-        const combinedFilters = filters.filter(Boolean) as SQL[];
-        return combinedFilters.length > 0 ? and(...combinedFilters) : undefined;
-      },
+      where: (menus) =>
+        and(
+          where,
+          cursor?.id ? gte(menus.id, cursor.id) : undefined,
+          id ? eq(menus.storeId, id) : undefined,
+          isActive !== undefined ? eq(menus.isActive, isActive) : undefined,
+        ),
       orderBy: orderBy || ((menus, { asc }) => asc(menus.createdAt)),
       limit,
       offset,
       with: {
         items: {
-          where: eq(schema.menuItems.isActive, true),
+          where:
+            isActive === true ? eq(schema.menuItems.isActive, true) : undefined,
           orderBy: [asc(schema.menuItems.createdAt)],
           with: {
             ingredients: {
               orderBy: [asc(schema.menuItemIngredients.createdAt)],
             },
             options: {
-              where: eq(schema.menuItemOptions.isActive, true),
+              where:
+                isActive === true
+                  ? eq(schema.menuItemOptions.isActive, true)
+                  : undefined,
               orderBy: [asc(schema.menuItemOptions.createdAt)],
               with: {
                 choices: {
-                  where: eq(schema.menuItemOptionChoices.isActive, true),
+                  where:
+                    isActive === true
+                      ? eq(schema.menuItemOptionChoices.isActive, true)
+                      : undefined,
                   orderBy: [asc(schema.menuItemOptionChoices.createdAt)],
                   with: {
                     ingredients: {

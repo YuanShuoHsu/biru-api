@@ -17,9 +17,10 @@ export class StoresController {
 
   @Get(':id/menus')
   @ApiOperation({ summary: '查詢店家菜單' })
-  findMenus(@Param('id') id: string): Promise<ReadMenuDto[]> {
+  findAllMenus(@Param('id') id: string): Promise<ReadMenuDto[]> {
     return this.storesService.menus({
       id,
+      isActive: true,
     });
   }
 }
