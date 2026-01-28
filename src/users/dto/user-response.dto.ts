@@ -1,12 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender, Role } from 'src/common/enums';
+
+import { GenderEnum, RoleEnum } from 'src/common/enums/user';
 
 export class UserResponseDto {
   @ApiProperty({
-    description: '使用者 ID',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id: string;
+
+  @ApiProperty({ description: '姓名', example: 'Coffee' })
+  name: string;
 
   @ApiProperty({
     description: '生日',
@@ -30,17 +34,20 @@ export class UserResponseDto {
   })
   createdAt: Date;
 
-  @ApiProperty({
-    description: '電子郵件',
-    example: 'birucoffee@example.com',
-  })
+  @ApiProperty({ description: '電子郵件', example: 'biru@example.com' })
   email: string;
 
   @ApiProperty({
-    description: '電子郵件驗證時間',
-    example: '2025-10-14T12:34:56.000Z',
+    description: '是否訂閱電子報',
+    example: true,
   })
-  emailVerified: Date | null;
+  emailSubscribed: boolean;
+
+  @ApiProperty({
+    description: '是否已驗證電子郵件',
+    example: true,
+  })
+  emailVerified: boolean;
 
   @ApiProperty({
     description: '名',
@@ -50,22 +57,16 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '性別',
-    enum: Gender,
-    example: Gender.OTHER,
+    enum: GenderEnum,
+    example: GenderEnum.OTHER,
   })
-  gender: Gender;
+  gender: GenderEnum;
 
   @ApiProperty({
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
   image: string | null;
-
-  @ApiProperty({
-    description: '是否訂閱電子報',
-    example: true,
-  })
-  isSubscribed: boolean;
 
   @ApiProperty({
     description: '姓',
@@ -81,10 +82,10 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '角色',
-    enum: Role,
-    example: Role.USER,
+    enum: RoleEnum,
+    example: RoleEnum.USER,
   })
-  role: Role;
+  role: RoleEnum;
 
   @ApiProperty({
     description: '最後更新時間',

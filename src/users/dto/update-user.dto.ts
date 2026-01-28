@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -8,7 +9,7 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import { Gender } from 'src/common/enums';
+import { GenderEnum } from 'src/common/enums/user';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -17,8 +18,8 @@ export class UpdateUserDto {
     format: 'date',
   })
   @IsDate()
-  @Type(() => Date)
   @IsOptional()
+  @Type(() => Date)
   birthDate?: Date;
 
   @ApiProperty({ description: '國家代碼', example: 'TW' })
@@ -36,6 +37,14 @@ export class UpdateUserDto {
   @IsOptional()
   countryPhone?: string;
 
+  @ApiProperty({
+    description: '是否訂閱電子報',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  emailSubscribed?: boolean;
+
   @ApiProperty({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
   @IsOptional()
@@ -43,20 +52,12 @@ export class UpdateUserDto {
 
   @ApiProperty({
     description: '性別',
-    enum: Gender,
-    example: Gender.OTHER,
+    enum: GenderEnum,
+    example: GenderEnum.OTHER,
   })
-  @IsEnum(Gender)
+  @IsEnum(GenderEnum)
   @IsOptional()
-  gender?: Gender;
-
-  @ApiProperty({
-    description: '是否訂閱電子報',
-    example: true,
-  })
-  @IsBoolean()
-  @IsOptional()
-  isSubscribed?: boolean;
+  gender?: GenderEnum;
 
   @ApiProperty({
     description: '頭像 URL',

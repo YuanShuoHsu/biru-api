@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -10,7 +11,7 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { Gender } from 'src/common/enums';
+import { GenderEnum } from 'src/common/enums/user';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -50,24 +51,25 @@ export class CreateUserDto {
   @IsEmail()
   email: string;
 
+  @ApiProperty({
+    description: '是否訂閱電子報',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  emailSubscribed?: boolean;
+
   @ApiProperty({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
   firstName: string;
 
   @ApiProperty({
     description: '性別',
-    enum: Gender,
-    example: Gender.OTHER,
+    enum: GenderEnum,
+    example: GenderEnum.OTHER,
   })
-  @IsEnum(Gender)
-  gender: Gender;
-
-  @ApiProperty({
-    description: '是否訂閱電子報',
-    example: true,
-  })
-  @IsBoolean()
-  isSubscribed: boolean;
+  @IsEnum(GenderEnum)
+  gender: GenderEnum;
 
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsOptional()
