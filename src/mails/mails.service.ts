@@ -1,23 +1,27 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { randomUUID } from 'crypto';
+import { and, eq } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { PRODUCT_NAME } from 'src/common/constants';
+import { PRODUCT_NAME } from 'src/common/constants/product';
+import * as schema from 'src/db/schema';
+import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { I18nTranslations } from 'src/generated/i18n.generated';
-import { User } from 'src/generated/prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { VerificationsService } from 'src/verifications/verifications.service';
 import { UAParser } from 'ua-parser-js';
 
 import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+
+type User = typeof schema.user.$inferSelect;
 
 @Injectable()
 export class MailsService {
@@ -25,32 +29,16 @@ export class MailsService {
     private readonly configService: ConfigService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
-    private prisma: PrismaService,
-    private readonly verificationsService: VerificationsService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
-  // create(createMailDto: CreateMailDto) {
-  //   return 'This action adds a new mail';
-  // }
-
-  // findAll() {
-  //   return `This action returns all mail`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} mail`;
-  // }
-
-  // update(id: number, updateMailDto: UpdateMailDto) {
-  //   return `This action updates a #${id} mail`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} mail`;
-  // }
-
   public async sendEmail(
-    { email, firstName, id, lastName }: User,
+    {
+      email,
+      firstName,
+      id,
+      lastName,
+    }: Pick<User, 'email' | 'firstName' | 'id' | 'lastName'>,
     token: string,
     userAgent: string,
     redirect?: string,
@@ -62,7 +50,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;
     const url = `${baseUrl}/${lang}/auth/verify-email?email=${encodeURIComponent(
-      email,
+      email || '',
     )}&identifier=${id}${
       redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
     }&token=${token}`;
@@ -74,7 +62,7 @@ export class MailsService {
 
     await this.mailerService
       .sendMail({
-        to: email,
+        to: email || '',
         subject: this.i18n.t('mail.welcome.subject', {
           args: { productName },
         }),
@@ -94,26 +82,37 @@ export class MailsService {
   }
 
   async verifyEmail({ identifier, token }: VerifyEmailDto) {
-    const [user, verification] = await Promise.all([
-      this.prisma.user.findUnique({
-        where: { id: identifier },
-      }),
-      this.verificationsService.verification({
-        identifier_token: {
-          identifier,
-          token,
-        },
+    const [userResult, verification] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.user)
+        .where(eq(schema.user.id, identifier))
+        .limit(1),
+      this.db.query.verification.findFirst({
+        where: and(
+          eq(schema.verification.identifier, identifier),
+          eq(schema.verification.value, token),
+        ),
       }),
     ]);
 
-    if (!verification)
+    const user = userResult[0];
+
+    if (!verification) {
       throw new BadRequestException(
         this.i18n.t('users.invalidVerificationToken'),
       );
+    }
+
     if (verification.expiresAt < new Date()) {
-      await this.verificationsService.deleteVerification({
-        identifier_token: { identifier, token },
-      });
+      await this.db
+        .delete(schema.verification)
+        .where(
+          and(
+            eq(schema.verification.identifier, identifier),
+            eq(schema.verification.value, token),
+          ),
+        );
 
       throw new BadRequestException(
         this.i18n.t('users.invalidVerificationToken'),
@@ -121,22 +120,34 @@ export class MailsService {
     }
 
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
+
     if (user.emailVerified) {
-      await this.verificationsService.deleteVerification({
-        identifier_token: { identifier, token },
-      });
+      await this.db
+        .delete(schema.verification)
+        .where(
+          and(
+            eq(schema.verification.identifier, identifier),
+            eq(schema.verification.value, token),
+          ),
+        );
 
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: new Date(),
-      },
-    });
-    await this.verificationsService.deleteVerification({
-      identifier_token: { identifier, token },
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.user)
+        .set({ emailVerified: true })
+        .where(eq(schema.user.id, user.id));
+
+      await tx
+        .delete(schema.verification)
+        .where(
+          and(
+            eq(schema.verification.identifier, identifier),
+            eq(schema.verification.value, token),
+          ),
+        );
     });
   }
 
@@ -144,9 +155,13 @@ export class MailsService {
     { identifier, redirect }: ResendEmailDto,
     userAgent: string,
   ): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: identifier },
-    });
+    const userResult = await this.db
+      .select()
+      .from(schema.user)
+      .where(eq(schema.user.id, identifier))
+      .limit(1);
+    const user = userResult[0];
+
     if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
     if (user.emailVerified)
       throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
@@ -154,14 +169,16 @@ export class MailsService {
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.verificationsService.deleteVerifications({
-      identifier: user.id,
-    });
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.verification)
+        .where(eq(schema.verification.identifier, user.id));
 
-    await this.verificationsService.createVerification({
-      expiresAt,
-      identifier: user.id,
-      token,
+      await tx.insert(schema.verification).values({
+        expiresAt,
+        identifier: user.id,
+        value: token,
+      });
     });
 
     await this.sendEmail(user, token, userAgent, redirect);
