@@ -54,8 +54,8 @@ export class UsersController {
     @Param('id') id: string,
   ): Promise<UserResponseDto> {
     return this.usersService.updateUser({
-      data: updateUserDto,
       where: { id },
+      data: updateUserDto,
     });
   }
 

@@ -1,57 +1,62 @@
-// https://docs.nestjs.com/recipes/prisma
-
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { and, eq, gte, SQL } from 'drizzle-orm';
 
 import { randomUUID } from 'crypto';
 import { I18nService } from 'nestjs-i18n';
 import { normalizeEmail } from 'src/common/utils/email';
 import { hash } from 'src/common/utils/hashing';
-import { Prisma, Provider, User } from 'src/generated/prisma/client';
+import * as schema from 'src/db/schema';
+import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { MailsService } from 'src/mails/mails.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { VerificationsService } from 'src/verifications/verifications.service';
 
+import { RoleEnum } from 'src/common/enums/user';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+
+type User = typeof schema.user.$inferSelect;
+type CreateUser = typeof schema.user.$inferInsert;
 
 @Injectable()
 export class UsersService {
   constructor(
     private i18n: I18nService,
     private mailsService: MailsService,
-    private prisma: PrismaService,
-    private verificationsService: VerificationsService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
-  async user(
-    userWhereUniqueInput: Prisma.UserWhereUniqueInput,
-  ): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: userWhereUniqueInput,
+  async user(params: { id?: string; email?: string }): Promise<User | null> {
+    const { id, email } = params;
+    const result = await this.db.query.user.findFirst({
+      where: (user) =>
+        and(
+          id ? eq(user.id, id) : undefined,
+          email ? eq(user.email, email) : undefined,
+        ),
     });
+    return result || null;
   }
 
   async users(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Prisma.UserWhereUniqueInput;
-    where?: Prisma.UserWhereInput;
-    orderBy?: Prisma.UserOrderByWithRelationInput;
+    offset?: number;
+    limit?: number;
+    cursor?: { id: string };
+    where?: SQL;
+    orderBy?: SQL | SQL[];
   }): Promise<User[]> {
-    const { skip, take, cursor, where, orderBy } = params;
-
-    return await this.prisma.user.findMany({
-      skip,
-      take,
-      cursor,
-      where,
+    const { offset, limit, cursor, where, orderBy } = params;
+    return await this.db.query.user.findMany({
+      where: (user) =>
+        and(where, cursor?.id ? gte(user.id, cursor.id) : undefined),
       orderBy,
+      limit,
+      offset,
     });
   }
 
-  async createUser(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({
-      data,
-    });
+  async createUser(data: CreateUser): Promise<User> {
+    const results = await this.db.insert(schema.user).values(data).returning();
+    return results[0];
   }
 
   async createUserWithPassword(
@@ -68,52 +73,69 @@ export class UsersService {
     const normalizedEmail = normalizeEmail(email);
     const hashedPassword = await hash(password);
 
-    const emailExists = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
+    const emailExists = await this.user({ email: normalizedEmail });
     if (emailExists)
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
 
-    const phoneExists = await this.prisma.user.findUnique({
-      where: {
-        countryCode_phoneNumber: {
-          countryCode,
-          phoneNumber,
-        },
-      },
+    const phoneExistsResult = await this.db.query.user.findFirst({
+      where: and(
+        eq(schema.user.countryCode, countryCode || ''),
+        eq(schema.user.phoneNumber, phoneNumber || ''),
+      ),
     });
 
-    if (phoneExists)
+    if (phoneExistsResult)
       throw new ConflictException(
         this.i18n.t('users.phoneNumberAlreadyExists'),
       );
 
-    const user = await this.createUser({
-      ...rest,
-      accounts: {
-        create: {
-          accountId: normalizedEmail,
-          password: hashedPassword,
-          providerAccountId: Provider.LOCAL,
-        },
-      },
-      countryCode,
-      email: normalizedEmail,
-      phoneNumber,
+    const user = await this.db.transaction(async (tx) => {
+      const [newUser] = await tx
+        .insert(schema.user)
+        .values({
+          birthDate: rest.birthDate,
+          countryCode,
+          countryLabel: rest.countryLabel,
+          countryPhone: rest.countryPhone,
+          createdAt: new Date(),
+          email: normalizedEmail,
+          emailVerified: false,
+          firstName: rest.firstName,
+          gender: rest.gender,
+          image: null,
+          emailSubscribed: rest.emailSubscribed,
+          lastName: rest.lastName,
+          name: `${rest.firstName} ${rest.lastName || ''}`.trim(),
+          phoneNumber,
+          phoneVerified: false,
+          role: RoleEnum.USER,
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      await tx.insert(schema.account).values({
+        accountId: normalizedEmail,
+        password: hashedPassword,
+        providerId: 'LOCAL',
+        userId: newUser.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      return newUser;
     });
 
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.verificationsService.deleteVerifications({
-      identifier: user.id,
-    });
+    await this.db
+      .delete(schema.verification)
+      .where(eq(schema.verification.identifier, user.id));
 
-    await this.verificationsService.createVerification({
+    await this.db.insert(schema.verification).values({
       expiresAt,
       identifier: user.id,
-      token,
+      value: token,
     });
 
     await this.mailsService.sendEmail(user, token, userAgent, redirect);
@@ -122,20 +144,23 @@ export class UsersService {
   }
 
   async updateUser(params: {
-    data: Prisma.UserUpdateInput;
-    where: Prisma.UserWhereUniqueInput;
+    where: { id: string };
+    data: UpdateUserDto;
   }): Promise<User> {
-    const { data, where } = params;
-
-    return await this.prisma.user.update({
-      data,
-      where,
-    });
+    const { where, data } = params;
+    const [user] = await this.db
+      .update(schema.user)
+      .set(data)
+      .where(eq(schema.user.id, where.id))
+      .returning();
+    return user;
   }
 
-  async deleteUser(where: Prisma.UserWhereUniqueInput): Promise<User> {
-    return await this.prisma.user.delete({
-      where,
-    });
+  async deleteUser(where: { id: string }): Promise<User> {
+    const [user] = await this.db
+      .delete(schema.user)
+      .where(eq(schema.user.id, where.id))
+      .returning();
+    return user;
   }
 }
