@@ -19,6 +19,12 @@ export class ReadStoreDto {
   name: LocalizedFieldDto;
 
   @ApiProperty({
+    description: '地址',
+    example: '台北市信義區市府路45號',
+  })
+  address: string;
+
+  @ApiProperty({
     description: '建立時間',
     example: '2025-10-14T12:34:56.000Z',
   })
