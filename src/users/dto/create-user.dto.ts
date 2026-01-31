@@ -71,6 +71,13 @@ export class CreateUserDto {
   @IsEnum(GenderEnum)
   gender: GenderEnum;
 
+  @ApiProperty({
+    description: '頭像 URL',
+    example: 'https://example.com/avatar.jpg',
+  })
+  @IsOptional()
+  image?: string;
+
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
   @IsOptional()
   lastName?: string;
