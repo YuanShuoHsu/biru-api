@@ -19,15 +19,6 @@ export class UserResponseDto {
   })
   birthDate: Date | null;
 
-  @ApiProperty({ description: 'ISO 3166-1 alpha-2 國家代碼', example: 'TW' })
-  countryCode: string;
-
-  @ApiProperty({ description: '國家名稱', example: 'Taiwan' })
-  countryLabel: string;
-
-  @ApiProperty({ description: '國際電話區號', example: '+886' })
-  countryPhone: string;
-
   @ApiProperty({
     description: '建立時間',
     example: '2025-10-14T12:34:56.000Z',

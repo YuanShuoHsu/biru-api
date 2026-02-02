@@ -15,6 +15,13 @@
       "when": 1769498964963,
       "tag": "0001_clear_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770038857376,
+      "tag": "0002_yielding_red_shift",
+      "breakpoints": true
     }
   ]
 }

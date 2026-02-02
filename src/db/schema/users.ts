@@ -28,9 +28,6 @@ export const user = pgTable('user', {
   ...timestamps,
   // Custom fields
   birthDate: timestamp('birth_date'),
-  countryCode: text('country_code').default('TW').notNull(),
-  countryLabel: text('country_label').default('Taiwan').notNull(),
-  countryPhone: text('country_phone').default('+886').notNull(),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').default('').notNull(),
   gender: gendersEnum('gender').default('OTHER').notNull().$type<GenderEnum>(),

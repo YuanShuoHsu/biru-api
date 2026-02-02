@@ -60,14 +60,7 @@ export class UsersService {
   }
 
   async createUserWithPassword(
-    {
-      countryCode,
-      email,
-      password,
-      phoneNumber,
-      redirect,
-      ...rest
-    }: CreateUserDto,
+    { email, password, phoneNumber, redirect, ...rest }: CreateUserDto,
     userAgent: string,
   ): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
@@ -78,10 +71,7 @@ export class UsersService {
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
 
     const phoneExistsResult = await this.db.query.user.findFirst({
-      where: and(
-        eq(schema.user.countryCode, countryCode || ''),
-        eq(schema.user.phoneNumber, phoneNumber || ''),
-      ),
+      where: eq(schema.user.phoneNumber, phoneNumber || ''),
     });
 
     if (phoneExistsResult)
@@ -94,9 +84,6 @@ export class UsersService {
         .insert(schema.user)
         .values({
           birthDate: rest.birthDate,
-          countryCode,
-          countryLabel: rest.countryLabel,
-          countryPhone: rest.countryPhone,
           createdAt: new Date(),
           email: normalizedEmail,
           emailSubscribed: rest.emailSubscribed,
