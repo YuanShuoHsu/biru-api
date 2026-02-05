@@ -1,4 +1,6 @@
 // https://www.better-auth.com/docs/concepts/cli
+// https://www.better-auth.com/docs/concepts/database
+// https://orm.drizzle.team/docs/sql-schema-declaration
 
 import { relations } from 'drizzle-orm';
 import {
@@ -9,13 +11,21 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
-import { GenderEnum, RoleEnum } from 'src/common/enums/user';
-import { enumValues } from 'src/common/utils/enum';
 
 import { timestamps } from './columns.helpers';
 
-export const gendersEnum = pgEnum('genders', enumValues(GenderEnum));
-export const rolesEnum = pgEnum('roles', enumValues(RoleEnum));
+export const gendersEnum = pgEnum('genders', ['female', 'male', 'other']);
+export type GenderEnum = (typeof gendersEnum.enumValues)[number];
+
+export const langsEnum = pgEnum('langs', ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']);
+export type LangEnum = (typeof langsEnum.enumValues)[number];
+
+export const rolesEnum = pgEnum('roles', ['admin', 'manager', 'staff', 'user']);
+export type RoleEnum = (typeof rolesEnum.enumValues)[number];
+
+export const DEFAULT_GENDER: GenderEnum = 'other';
+export const DEFAULT_LANG: LangEnum = 'zh-TW';
+export const DEFAULT_ROLE: RoleEnum = 'user';
 
 export const user = pgTable('user', {
   id: text('id')
@@ -26,15 +36,16 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
   ...timestamps,
-  // Custom fields
-  birthDate: timestamp('birth_date'),
+  // additional fields
+  birthDate: timestamp('birth_date').notNull(),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
-  firstName: text('first_name').default('').notNull(),
-  gender: gendersEnum('gender').default('OTHER').notNull().$type<GenderEnum>(),
-  lastName: text('last_name').default('').notNull(),
-  phoneNumber: text('phone_number'),
+  firstName: text('first_name').notNull(),
+  gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
+  lang: langsEnum().default(DEFAULT_LANG).notNull(),
+  lastName: text('last_name'),
+  phoneNumber: text('phone_number').notNull().unique(),
   phoneVerified: boolean('phone_verified').default(false).notNull(),
-  role: rolesEnum('role').default('USER').notNull().$type<RoleEnum>(),
+  role: rolesEnum().default(DEFAULT_ROLE).notNull(),
 });
 
 export const session = pgTable(

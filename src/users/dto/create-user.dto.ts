@@ -8,10 +8,15 @@ import {
   IsEnum,
   IsNotEmpty,
   IsOptional,
+  IsUrl,
   Matches,
   MinLength,
 } from 'class-validator';
-import { GenderEnum } from 'src/common/enums/user';
+import {
+  DEFAULT_GENDER,
+  type GenderEnum,
+  gendersEnum,
+} from 'src/db/schema/users';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -20,6 +25,7 @@ export class CreateUserDto {
     format: 'date',
   })
   @IsDate()
+  @IsNotEmpty()
   @Type(() => Date)
   birthDate: Date;
 
@@ -28,6 +34,7 @@ export class CreateUserDto {
     example: 'birucoffee@example.com',
   })
   @IsEmail()
+  @IsNotEmpty()
   email: string;
 
   @ApiProperty({
@@ -44,17 +51,20 @@ export class CreateUserDto {
 
   @ApiProperty({
     description: '性別',
-    enum: GenderEnum,
-    example: GenderEnum.OTHER,
+    enum: gendersEnum.enumValues,
+    example: DEFAULT_GENDER,
   })
-  @IsEnum(GenderEnum)
+  @IsEnum(gendersEnum.enumValues)
+  @IsNotEmpty()
   gender: GenderEnum;
 
   @ApiProperty({
     description: '頭像 URL',
     example: 'https://example.com/avatar.jpg',
   })
+  @IsNotEmpty()
   @IsOptional()
+  @IsUrl()
   image?: string;
 
   @ApiProperty({ description: '姓（選填）', example: 'Biru' })
@@ -65,6 +75,7 @@ export class CreateUserDto {
     description: '密碼（至少 8 碼，需包含英文字母與數字）',
     example: 'password123',
   })
+  @IsNotEmpty()
   @MinLength(8)
   @Matches(/^(?=.*[a-zA-Z])(?=.*\d).{8,}$/)
   password: string;
@@ -80,6 +91,7 @@ export class CreateUserDto {
     description: '重定向 URL',
     example: '/dashboard',
   })
+  @IsNotEmpty()
   @IsOptional()
   redirect?: string;
 }

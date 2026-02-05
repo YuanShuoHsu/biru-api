@@ -9,16 +9,17 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import type { LocalizedText } from 'src/common/types/locale';
 
 import { timestamps } from './columns.helpers';
+
+import type { LocalizedText } from '../../common/types/locale';
 
 export const stores = pgTable('stores', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: json('name').default({}).notNull().$type<LocalizedText>(),
-  address: text('address').default('').notNull(),
+  address: text('address').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   slug: text('slug').unique().notNull(),
   ...timestamps,

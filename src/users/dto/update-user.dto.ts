@@ -9,7 +9,11 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import { GenderEnum } from 'src/common/enums/user';
+import {
+  DEFAULT_GENDER,
+  type GenderEnum,
+  gendersEnum,
+} from 'src/db/schema/users';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -18,6 +22,7 @@ export class UpdateUserDto {
     format: 'date',
   })
   @IsDate()
+  @IsNotEmpty()
   @IsOptional()
   @Type(() => Date)
   birthDate?: Date;
@@ -37,10 +42,11 @@ export class UpdateUserDto {
 
   @ApiProperty({
     description: '性別',
-    enum: GenderEnum,
-    example: GenderEnum.OTHER,
+    enum: gendersEnum.enumValues,
+    example: DEFAULT_GENDER,
   })
-  @IsEnum(GenderEnum)
+  @IsEnum(gendersEnum.enumValues)
+  @IsNotEmpty()
   @IsOptional()
   gender?: GenderEnum;
 
@@ -48,12 +54,12 @@ export class UpdateUserDto {
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
+  @IsNotEmpty()
   @IsOptional()
   @IsUrl()
   image?: string;
 
   @ApiProperty({ description: '姓', example: 'Biru' })
-  @IsNotEmpty()
   @IsOptional()
   lastName?: string;
 

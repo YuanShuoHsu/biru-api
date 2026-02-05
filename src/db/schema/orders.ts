@@ -1,16 +1,18 @@
 import { relations } from 'drizzle-orm';
 import { integer, json, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
-import { OrderStatusEnum } from 'src/common/enums/order';
-import { enumValues } from 'src/common/utils/enum';
 
 import { timestamps } from './columns.helpers';
 import { menuItems, stores, tables } from './stores';
 import { user } from './users';
 
-export const orderStatusEnum = pgEnum(
-  'order_status',
-  enumValues(OrderStatusEnum),
-);
+export const orderStatusesEnum = pgEnum('order_statuses', [
+  'pending',
+  'completed',
+  'cancelled',
+]);
+export type OrderStatusEnum = (typeof orderStatusesEnum.enumValues)[number];
+
+export const DEFAULT_ORDER_STATUS: OrderStatusEnum = 'pending';
 
 export const orders = pgTable('orders', {
   id: text('id')
@@ -25,10 +27,7 @@ export const orders = pgTable('orders', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  status: orderStatusEnum('status')
-    .default('PENDING')
-    .notNull()
-    .$type<OrderStatusEnum>(),
+  status: orderStatusesEnum().default(DEFAULT_ORDER_STATUS).notNull(),
   totalPrice: integer('total_price').notNull(),
   ...timestamps,
 });

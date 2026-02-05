@@ -44,8 +44,9 @@ export class MailsService {
     redirect?: string,
   ): Promise<void> {
     const lang = I18nContext.current()?.lang;
-    const name =
-      lang === 'en' ? `${firstName} ${lastName}` : `${lastName} ${firstName}`;
+    const name = (lang === 'en' ? [firstName, lastName] : [lastName, firstName])
+      .filter(Boolean)
+      .join(' ');
     const productName = PRODUCT_NAME;
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;

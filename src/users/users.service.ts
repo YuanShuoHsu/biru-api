@@ -1,16 +1,15 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { and, eq, gte, SQL } from 'drizzle-orm';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 
-import { randomUUID } from 'crypto';
+import { and, eq, gte, SQL } from 'drizzle-orm';
 import { I18nService } from 'nestjs-i18n';
-import { normalizeEmail } from 'src/common/utils/email';
-import { hash } from 'src/common/utils/hashing';
+import { auth } from 'src/auth';
 import * as schema from 'src/db/schema';
+import type { LangEnum } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { MailsService } from 'src/mails/mails.service';
 
-import { RoleEnum } from 'src/common/enums/user';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -20,19 +19,20 @@ type CreateUser = typeof schema.user.$inferInsert;
 @Injectable()
 export class UsersService {
   constructor(
+    private readonly authService: AuthService,
     private i18n: I18nService,
     private mailsService: MailsService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
-  async user(params: { id?: string; email?: string }): Promise<User | null> {
-    const { id, email } = params;
+  async user(where: Partial<User>): Promise<User | null> {
     const result = await this.db.query.user.findFirst({
-      where: (user) =>
-        and(
-          id ? eq(user.id, id) : undefined,
-          email ? eq(user.email, email) : undefined,
-        ),
+      where: (user) => {
+        const conditions = Object.entries(where)
+          .filter(([, value]) => value !== undefined)
+          .map(([key, value]) => eq(user[key as keyof User], value!));
+        return and(...conditions);
+      },
     });
     return result || null;
   }
@@ -61,73 +61,40 @@ export class UsersService {
 
   async createUserWithPassword(
     { email, password, phoneNumber, redirect, ...rest }: CreateUserDto,
-    userAgent: string,
+    lang: LangEnum,
   ): Promise<User> {
-    const normalizedEmail = normalizeEmail(email);
-    const hashedPassword = await hash(password);
-
-    const emailExists = await this.user({ email: normalizedEmail });
-    if (emailExists)
+    const existingEmail = await this.user({ email });
+    if (existingEmail)
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
 
-    const phoneExistsResult = await this.db.query.user.findFirst({
-      where: eq(schema.user.phoneNumber, phoneNumber || ''),
-    });
-
-    if (phoneExistsResult)
+    const existingPhoneNumber = await this.user({ phoneNumber });
+    if (existingPhoneNumber)
       throw new ConflictException(
         this.i18n.t('users.phoneNumberAlreadyExists'),
       );
 
-    const user = await this.db.transaction(async (tx) => {
-      const [newUser] = await tx
-        .insert(schema.user)
-        .values({
-          birthDate: rest.birthDate,
-          createdAt: new Date(),
-          email: normalizedEmail,
-          emailSubscribed: rest.emailSubscribed,
-          emailVerified: false,
-          firstName: rest.firstName,
-          gender: rest.gender,
-          image: rest.image,
-          lastName: rest.lastName,
-          name: `${rest.firstName} ${rest.lastName || ''}`.trim(),
-          phoneNumber,
-          phoneVerified: false,
-          role: RoleEnum.USER,
-          updatedAt: new Date(),
-        })
-        .returning();
-
-      await tx.insert(schema.account).values({
-        accountId: normalizedEmail,
-        password: hashedPassword,
-        providerId: 'LOCAL',
-        userId: newUser.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      return newUser;
+    const res = await auth.api.signUpEmail({
+      body: {
+        birthDate: rest.birthDate,
+        callbackURL: redirect,
+        email,
+        emailSubscribed: rest.emailSubscribed,
+        firstName: rest.firstName,
+        gender: rest.gender,
+        image: rest.image,
+        lang,
+        lastName: rest.lastName,
+        name: [rest.firstName, rest.lastName].filter(Boolean).join(' '),
+        password,
+        phoneNumber,
+      },
     });
 
-    const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await this.db
-      .delete(schema.verification)
-      .where(eq(schema.verification.identifier, user.id));
-
-    await this.db.insert(schema.verification).values({
-      expiresAt,
-      identifier: user.id,
-      value: token,
-    });
-
-    await this.mailsService.sendEmail(user, token, userAgent, redirect);
-
-    return user;
+    return {
+      ...res.user,
+      image: res.user.image || null,
+      lastName: res.user.lastName || null,
+    };
   }
 
   async updateUser(params: {

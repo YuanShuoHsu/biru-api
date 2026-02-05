@@ -3,13 +3,15 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   NotFoundException,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import { I18nLang } from 'nestjs-i18n';
+import type { LangEnum } from 'src/db/schema/users';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -24,9 +26,9 @@ export class UsersController {
   @ApiOperation({ summary: '註冊使用者' })
   async create(
     @Body() createUserDto: CreateUserDto,
-    @Headers('user-agent') userAgent: string,
+    @I18nLang() lang: LangEnum,
   ): Promise<UserResponseDto> {
-    return this.usersService.createUserWithPassword(createUserDto, userAgent);
+    return this.usersService.createUserWithPassword(createUserDto, lang);
   }
 
   @ApiBearerAuth()

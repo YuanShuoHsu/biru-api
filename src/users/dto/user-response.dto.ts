@@ -1,6 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { GenderEnum, RoleEnum } from 'src/common/enums/user';
+import {
+  DEFAULT_GENDER,
+  DEFAULT_ROLE,
+  gendersEnum,
+  rolesEnum,
+  type GenderEnum,
+  type RoleEnum,
+} from 'src/db/schema/users';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -48,8 +55,8 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '性別',
-    enum: GenderEnum,
-    example: GenderEnum.OTHER,
+    enum: gendersEnum.enumValues,
+    example: DEFAULT_GENDER,
   })
   gender: GenderEnum;
 
@@ -63,18 +70,18 @@ export class UserResponseDto {
     description: '姓',
     example: 'Biru',
   })
-  lastName: string;
+  lastName: string | null;
 
   @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
-  phoneNumber: string | null;
+  phoneNumber: string;
 
   @ApiProperty({ description: '是否已驗證電話', example: false })
   phoneVerified: boolean;
 
   @ApiProperty({
     description: '角色',
-    enum: RoleEnum,
-    example: RoleEnum.USER,
+    enum: rolesEnum.enumValues,
+    example: DEFAULT_ROLE,
   })
   role: RoleEnum;
 
