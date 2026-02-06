@@ -10,6 +10,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { I18nLang } from 'nestjs-i18n';
 import type { LangEnum } from 'src/db/schema/users';
@@ -23,6 +24,7 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @AllowAnonymous()
   @Post()
   @ApiOperation({ summary: '註冊使用者' })
   async create(
