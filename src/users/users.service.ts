@@ -5,7 +5,7 @@ import { and, eq, gte, SQL } from 'drizzle-orm';
 import { I18nService } from 'nestjs-i18n';
 import { auth } from 'src/auth';
 import * as schema from 'src/db/schema';
-import type { LangEnum } from 'src/db/schema/users';
+import type { CreateUser, LangEnum, User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { MailsService } from 'src/mails/mails.service';
@@ -13,9 +13,6 @@ import { MailsService } from 'src/mails/mails.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-
-type User = typeof schema.user.$inferSelect;
-type CreateUser = typeof schema.user.$inferInsert;
 
 @Injectable()
 export class UsersService {

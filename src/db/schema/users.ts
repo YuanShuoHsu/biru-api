@@ -48,6 +48,9 @@ export const user = pgTable('user', {
   role: rolesEnum().default(DEFAULT_ROLE).notNull(),
 });
 
+export type User = typeof user.$inferSelect;
+export type CreateUser = typeof user.$inferInsert;
+
 export const session = pgTable(
   'session',
   {
