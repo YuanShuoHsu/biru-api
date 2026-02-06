@@ -64,13 +64,13 @@ export class UserResponseDto {
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
-  image: string | null;
+  image?: string | null;
 
   @ApiProperty({
     description: '姓',
     example: 'Biru',
   })
-  lastName: string | null;
+  lastName?: string | null;
 
   @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
   phoneNumber: string;

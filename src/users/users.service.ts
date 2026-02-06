@@ -12,6 +12,7 @@ import { MailsService } from 'src/mails/mails.service';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 
 type User = typeof schema.user.$inferSelect;
 type CreateUser = typeof schema.user.$inferInsert;
@@ -74,7 +75,7 @@ export class UsersService {
     }: CreateUserDto,
     lang: LangEnum,
     headers: HeadersInit,
-  ): Promise<User> {
+  ): Promise<UserResponseDto> {
     const existingEmail = await this.user({ email });
     if (existingEmail)
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
@@ -103,13 +104,7 @@ export class UsersService {
       headers,
     });
 
-    const { image: resImage, lastName: resLastName, ...userRest } = res.user;
-
-    return {
-      ...userRest,
-      image: resImage || null,
-      lastName: resLastName || null,
-    };
+    return res.user;
   }
 
   async updateUser(params: {
