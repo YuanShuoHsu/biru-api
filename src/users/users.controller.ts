@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   NotFoundException,
   Param,
   Patch,
@@ -27,8 +28,13 @@ export class UsersController {
   async create(
     @Body() createUserDto: CreateUserDto,
     @I18nLang() lang: LangEnum,
+    @Headers() headers: HeadersInit,
   ): Promise<UserResponseDto> {
-    return this.usersService.createUserWithPassword(createUserDto, lang);
+    return this.usersService.createUserWithPassword(
+      createUserDto,
+      lang,
+      headers,
+    );
   }
 
   @ApiBearerAuth()

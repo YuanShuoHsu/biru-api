@@ -60,8 +60,20 @@ export class UsersService {
   }
 
   async createUserWithPassword(
-    { email, password, phoneNumber, redirect, ...rest }: CreateUserDto,
+    {
+      birthDate,
+      email,
+      emailSubscribed,
+      firstName,
+      gender,
+      image,
+      lastName,
+      password,
+      phoneNumber,
+      redirect,
+    }: CreateUserDto,
     lang: LangEnum,
+    headers: HeadersInit,
   ): Promise<User> {
     const existingEmail = await this.user({ email });
     if (existingEmail)
@@ -75,25 +87,28 @@ export class UsersService {
 
     const res = await auth.api.signUpEmail({
       body: {
-        birthDate: rest.birthDate,
+        birthDate,
         callbackURL: redirect,
         email,
-        emailSubscribed: rest.emailSubscribed,
-        firstName: rest.firstName,
-        gender: rest.gender,
-        image: rest.image,
+        emailSubscribed,
+        firstName,
+        gender,
+        image,
         lang,
-        lastName: rest.lastName,
-        name: [rest.firstName, rest.lastName].filter(Boolean).join(' '),
+        lastName,
+        name: [firstName, lastName].filter(Boolean).join(' '),
         password,
         phoneNumber,
       },
+      headers,
     });
 
+    const { image: resImage, lastName: resLastName, ...userRest } = res.user;
+
     return {
-      ...res.user,
-      image: res.user.image || null,
-      lastName: res.user.lastName || null,
+      ...userRest,
+      image: resImage || null,
+      lastName: resLastName || null,
     };
   }
 
