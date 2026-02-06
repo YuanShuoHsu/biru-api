@@ -76,7 +76,7 @@ export class UserResponseDto {
   phoneNumber: string;
 
   @ApiProperty({ description: '是否已驗證電話', example: false })
-  phoneVerified: boolean;
+  phoneNumberVerified: boolean;
 
   @ApiProperty({
     description: '角色',

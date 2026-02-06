@@ -1,6 +1,7 @@
+// https://orm.drizzle.team/docs/sql-schema-declaration
 // https://www.better-auth.com/docs/concepts/cli
 // https://www.better-auth.com/docs/concepts/database
-// https://orm.drizzle.team/docs/sql-schema-declaration
+// https://www.better-auth.com/docs/plugins/phone-number
 
 import { relations } from 'drizzle-orm';
 import {
@@ -44,7 +45,9 @@ export const user = pgTable('user', {
   lang: langsEnum().default(DEFAULT_LANG).notNull(),
   lastName: text('last_name'),
   phoneNumber: text('phone_number').notNull().unique(),
-  phoneVerified: boolean('phone_verified').default(false).notNull(),
+  phoneNumberVerified: boolean('phone_number_verified')
+    .default(false)
+    .notNull(),
   role: rolesEnum().default(DEFAULT_ROLE).notNull(),
 });
 

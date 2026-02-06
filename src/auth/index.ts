@@ -86,7 +86,7 @@ export const auth = betterAuth({
         type: 'string',
         required: true,
       },
-      phoneVerified: {
+      phoneNumberVerified: {
         type: 'boolean',
         required: true,
         defaultValue: false,
