@@ -71,7 +71,7 @@ export class UsersService {
       redirectTo,
     }: CreateUserDto,
     lang: LangEnum,
-    headers: HeadersInit,
+    headers: Headers,
   ): Promise<UserResponseDto> {
     const existingEmail = await this.user({ email });
     if (existingEmail)

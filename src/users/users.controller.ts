@@ -3,14 +3,16 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   NotFoundException,
   Param,
   Patch,
   Post,
+  Request,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
+import type { Request as ExpressRequest } from 'express';
 
 import { I18nLang } from 'nestjs-i18n';
 import type { LangEnum } from 'src/db/schema/users';
@@ -30,12 +32,12 @@ export class UsersController {
   async create(
     @Body() createUserDto: CreateUserDto,
     @I18nLang() lang: LangEnum,
-    @Headers() headers: HeadersInit,
+    @Request() req: ExpressRequest,
   ): Promise<UserResponseDto> {
     return this.usersService.createUserWithPassword(
       createUserDto,
       lang,
-      headers,
+      fromNodeHeaders(req.headers),
     );
   }
 
