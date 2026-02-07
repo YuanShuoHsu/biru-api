@@ -36,6 +36,13 @@
       "when": 1770393969639,
       "tag": "0004_rename_phone_verified",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770449893990,
+      "tag": "0005_drop_removed_users_fields",
+      "breakpoints": true
     }
   ]
 }
