@@ -59,16 +59,16 @@ export class UsersService {
 
   async createUserWithPassword(
     {
-      birthDate,
+      // birthDate,
       email,
       emailSubscribed,
       firstName,
-      gender,
+      // gender,
       image,
       lastName,
       password,
-      phoneNumber,
-      redirect,
+      // phoneNumber,
+      redirectTo,
     }: CreateUserDto,
     lang: LangEnum,
     headers: HeadersInit,
@@ -77,26 +77,20 @@ export class UsersService {
     if (existingEmail)
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
 
-    const existingPhoneNumber = await this.user({ phoneNumber });
-    if (existingPhoneNumber)
-      throw new ConflictException(
-        this.i18n.t('users.phoneNumberAlreadyExists'),
-      );
-
     const res = await auth.api.signUpEmail({
       body: {
-        birthDate,
-        callbackURL: redirect,
+        // birthDate,
+        callbackURL: redirectTo,
         email,
         emailSubscribed,
         firstName,
-        gender,
+        // gender,
         image,
         lang,
         lastName,
         name: [firstName, lastName].filter(Boolean).join(' '),
         password,
-        phoneNumber,
+        // phoneNumber,
       },
       headers,
     });

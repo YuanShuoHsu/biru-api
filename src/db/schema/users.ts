@@ -38,16 +38,16 @@ export const user = pgTable('user', {
   image: text('image'),
   ...timestamps,
   // additional fields
-  birthDate: timestamp('birth_date').notNull(),
+  // birthDate: timestamp('birth_date').notNull(),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').notNull(),
-  gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
+  // gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
   lang: langsEnum().default(DEFAULT_LANG).notNull(),
   lastName: text('last_name'),
-  phoneNumber: text('phone_number').notNull().unique(),
-  phoneNumberVerified: boolean('phone_number_verified')
-    .default(false)
-    .notNull(),
+  // phoneNumber: text('phone_number').notNull().unique(),
+  // phoneNumberVerified: boolean('phone_number_verified')
+  //   .default(false)
+  //   .notNull(),
   role: rolesEnum().default(DEFAULT_ROLE).notNull(),
 });
 

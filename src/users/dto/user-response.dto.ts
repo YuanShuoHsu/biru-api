@@ -2,10 +2,13 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import {
   DEFAULT_GENDER,
+  DEFAULT_LANG,
   DEFAULT_ROLE,
   gendersEnum,
+  langsEnum,
   rolesEnum,
   type GenderEnum,
+  type LangEnum,
   type RoleEnum,
 } from 'src/db/schema/users';
 
@@ -65,6 +68,13 @@ export class UserResponseDto {
     example: 'https://example.com/avatar.png',
   })
   image?: string | null;
+
+  @ApiProperty({
+    description: '語言',
+    enum: langsEnum.enumValues,
+    example: DEFAULT_LANG,
+  })
+  lang: LangEnum;
 
   @ApiProperty({
     description: '姓',

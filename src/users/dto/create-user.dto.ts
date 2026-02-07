@@ -1,33 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDate,
   IsEmail,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsUrl,
   Matches,
   MinLength,
 } from 'class-validator';
-import {
-  DEFAULT_GENDER,
-  type GenderEnum,
-  gendersEnum,
-} from 'src/db/schema/users';
 
 export class CreateUserDto {
-  @ApiProperty({
-    description: '生日',
-    example: '2024-04-04',
-    format: 'date',
-  })
-  @IsDate()
-  @IsNotEmpty()
-  @Type(() => Date)
-  birthDate: Date;
+  // @ApiProperty({
+  //   description: '生日',
+  //   example: '2024-04-04',
+  //   format: 'date',
+  // })
+  // @IsDate()
+  // @IsNotEmpty()
+  // @Type(() => Date)
+  // birthDate: Date;
 
   @ApiProperty({
     description: '電子郵件',
@@ -49,14 +41,14 @@ export class CreateUserDto {
   @IsNotEmpty()
   firstName: string;
 
-  @ApiProperty({
-    description: '性別',
-    enum: gendersEnum.enumValues,
-    example: DEFAULT_GENDER,
-  })
-  @IsEnum(gendersEnum.enumValues)
-  @IsNotEmpty()
-  gender: GenderEnum;
+  // @ApiProperty({
+  //   description: '性別',
+  //   enum: gendersEnum.enumValues,
+  //   example: DEFAULT_GENDER,
+  // })
+  // @IsEnum(gendersEnum.enumValues)
+  // @IsNotEmpty()
+  // gender: GenderEnum;
 
   @ApiProperty({
     description: '頭像 URL',
@@ -80,12 +72,12 @@ export class CreateUserDto {
   @Matches(/^(?=.*[a-zA-Z])(?=.*\d).{8,}$/)
   password: string;
 
-  @ApiProperty({
-    description: '聯絡電話（不含國碼）',
-    example: '0123456789',
-  })
-  @IsNotEmpty()
-  phoneNumber: string;
+  // @ApiProperty({
+  //   description: '聯絡電話（不含國碼）',
+  //   example: '0123456789',
+  // })
+  // @IsNotEmpty()
+  // phoneNumber: string;
 
   @ApiProperty({
     description: '重定向 URL',
@@ -93,5 +85,5 @@ export class CreateUserDto {
   })
   @IsNotEmpty()
   @IsOptional()
-  redirect?: string;
+  redirectTo?: string;
 }

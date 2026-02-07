@@ -55,10 +55,10 @@ export const auth = betterAuth({
   socialProviders: {},
   user: {
     additionalFields: {
-      birthDate: {
-        type: 'date',
-        required: true,
-      },
+      // birthDate: {
+      //   type: 'date',
+      //   required: true,
+      // },
       emailSubscribed: {
         type: 'boolean',
         required: true,
@@ -68,11 +68,11 @@ export const auth = betterAuth({
         type: 'string',
         required: true,
       },
-      gender: {
-        type: schema.gendersEnum.enumValues,
-        required: true,
-        defaultValue: schema.DEFAULT_GENDER,
-      },
+      // gender: {
+      //   type: schema.gendersEnum.enumValues,
+      //   required: true,
+      //   defaultValue: schema.DEFAULT_GENDER,
+      // },
       lang: {
         type: schema.langsEnum.enumValues,
         required: true,
@@ -82,16 +82,16 @@ export const auth = betterAuth({
         type: 'string',
         required: false,
       },
-      phoneNumber: {
-        type: 'string',
-        required: true,
-      },
-      phoneNumberVerified: {
-        type: 'boolean',
-        required: true,
-        defaultValue: false,
-        input: false,
-      },
+      // phoneNumber: {
+      //   type: 'string',
+      //   required: true,
+      // },
+      // phoneNumberVerified: {
+      //   type: 'boolean',
+      //   required: true,
+      //   defaultValue: false,
+      //   input: false,
+      // },
       role: {
         type: schema.rolesEnum.enumValues,
         required: true,
