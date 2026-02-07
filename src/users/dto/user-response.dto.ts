@@ -1,13 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import {
-  DEFAULT_GENDER,
   DEFAULT_LANG,
   DEFAULT_ROLE,
-  gendersEnum,
   langsEnum,
   rolesEnum,
-  type GenderEnum,
   type LangEnum,
   type RoleEnum,
 } from 'src/db/schema/users';
@@ -22,12 +19,12 @@ export class UserResponseDto {
   @ApiProperty({ description: '姓名', example: 'Coffee' })
   name: string;
 
-  @ApiProperty({
-    description: '生日',
-    example: '2024-04-04',
-    format: 'date',
-  })
-  birthDate: Date | null;
+  // @ApiProperty({
+  //   description: '生日',
+  //   example: '2024-04-04',
+  //   format: 'date',
+  // })
+  // birthDate: Date | null;
 
   @ApiProperty({
     description: '建立時間',
@@ -56,12 +53,12 @@ export class UserResponseDto {
   })
   firstName: string;
 
-  @ApiProperty({
-    description: '性別',
-    enum: gendersEnum.enumValues,
-    example: DEFAULT_GENDER,
-  })
-  gender: GenderEnum;
+  // @ApiProperty({
+  //   description: '性別',
+  //   enum: gendersEnum.enumValues,
+  //   example: DEFAULT_GENDER,
+  // })
+  // gender: GenderEnum;
 
   @ApiProperty({
     description: '頭像 URL',
@@ -82,11 +79,11 @@ export class UserResponseDto {
   })
   lastName?: string | null;
 
-  @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
-  phoneNumber: string;
+  // @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
+  // phoneNumber: string | null;
 
-  @ApiProperty({ description: '是否已驗證電話', example: false })
-  phoneNumberVerified: boolean;
+  // @ApiProperty({ description: '是否已驗證電話', example: false })
+  // phoneNumberVerified: boolean;
 
   @ApiProperty({
     description: '角色',
