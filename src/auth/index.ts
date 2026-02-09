@@ -8,96 +8,93 @@ import { betterAuth } from 'better-auth/minimal';
 
 import { db } from '../db';
 import * as schema from '../db/schema';
+import type { MailsService } from '../mails/mails.service';
 
-export const auth = betterAuth({
-  account: {
-    accountLinking: {
-      enabled: true,
+export const createAuth = (mailsService: MailsService) =>
+  betterAuth({
+    account: {
+      accountLinking: {
+        enabled: true,
+      },
     },
-  },
-  appName: 'biru-api',
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
-  emailAndPassword: {
-    enabled: true,
-    sendResetPassword: async () => {
-      // TODO: Implement sendEmail integration
-      /*
+    appName: 'biru-api',
+    database: drizzleAdapter(db, {
+      provider: 'pg',
+      schema,
+    }),
+    emailAndPassword: {
+      enabled: true,
+      sendResetPassword: async () => {
+        // TODO: Implement sendEmail integration
+        /*
       void sendEmail({
         to: user.email,
         subject: 'Reset your password',
         text: `Click the link to reset your password: ${url}`,
       });
       */
+      },
+      requireEmailVerification: true,
     },
-    requireEmailVerification: true,
-  },
-  emailVerification: {
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async () => {
-      // TODO: Implement sendEmail integration
-      /*
-      void sendEmail({
-        to: user.email,
-        subject: 'Verify your email address',
-        text: `Click the link to verify your email: ${url}`,
-      });
-      */
+    emailVerification: {
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await mailsService.sendEmail(user, url);
+      },
+      sendOnSignIn: true,
     },
-    sendOnSignIn: true,
-  },
-  plugins: [],
-  rateLimit: {
-    enabled: true,
-  },
-  socialProviders: {},
-  user: {
-    additionalFields: {
-      // birthDate: {
-      //   type: 'date',
-      //   required: true,
-      // },
-      emailSubscribed: {
-        type: 'boolean',
-        required: true,
-        defaultValue: true,
-      },
-      firstName: {
-        type: 'string',
-        required: true,
-      },
-      // gender: {
-      //   type: schema.gendersEnum.enumValues,
-      //   required: true,
-      //   defaultValue: schema.DEFAULT_GENDER,
-      // },
-      lang: {
-        type: schema.langsEnum.enumValues,
-        required: true,
-        defaultValue: schema.DEFAULT_LANG,
-      },
-      lastName: {
-        type: 'string',
-        required: false,
-      },
-      // phoneNumber: {
-      //   type: 'string',
-      //   required: true,
-      // },
-      // phoneNumberVerified: {
-      //   type: 'boolean',
-      //   required: true,
-      //   defaultValue: false,
-      //   input: false,
-      // },
-      role: {
-        type: schema.rolesEnum.enumValues,
-        required: true,
-        defaultValue: schema.DEFAULT_ROLE,
-        input: false,
+    plugins: [],
+    rateLimit: {
+      enabled: true,
+    },
+    socialProviders: {},
+    user: {
+      additionalFields: {
+        // birthDate: {
+        //   type: 'date',
+        //   required: true,
+        // },
+        emailSubscribed: {
+          type: 'boolean',
+          required: true,
+          defaultValue: true,
+        },
+        firstName: {
+          type: 'string',
+          required: true,
+        },
+        // gender: {
+        //   type: schema.gendersEnum.enumValues,
+        //   required: true,
+        //   defaultValue: schema.DEFAULT_GENDER,
+        // },
+        lang: {
+          type: schema.langsEnum.enumValues,
+          required: true,
+          defaultValue: schema.DEFAULT_LANG,
+        },
+        lastName: {
+          type: 'string',
+          required: false,
+        },
+        // phoneNumber: {
+        //   type: 'string',
+        //   required: true,
+        // },
+        // phoneNumberVerified: {
+        //   type: 'boolean',
+        //   required: true,
+        //   defaultValue: false,
+        //   input: false,
+        // },
+        role: {
+          type: schema.rolesEnum.enumValues,
+          required: true,
+          defaultValue: schema.DEFAULT_ROLE,
+          input: false,
+        },
       },
     },
-  },
-});
+  });
+
+export type Auth = ReturnType<typeof createAuth>;

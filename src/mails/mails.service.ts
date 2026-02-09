@@ -9,9 +9,11 @@ import { ConfigService } from '@nestjs/config';
 
 import { randomUUID } from 'crypto';
 import { and, eq } from 'drizzle-orm';
+import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { PRODUCT_NAME } from 'src/common/constants/product';
 import * as schema from 'src/db/schema';
+import type { User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { I18nTranslations } from 'src/generated/i18n.generated';
@@ -21,41 +23,27 @@ import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
-type User = typeof schema.user.$inferSelect;
-
 @Injectable()
 export class MailsService {
   constructor(
+    private readonly cls: ClsService,
     private readonly configService: ConfigService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
   public async sendEmail(
-    {
-      email,
-      firstName,
-      id,
-      lastName,
-    }: Pick<User, 'email' | 'firstName' | 'id' | 'lastName'>,
-    token: string,
-    userAgent: string,
-    redirect?: string,
+    { email, name }: Pick<User, 'email' | 'name'>,
+    url: string,
   ): Promise<void> {
     const lang = I18nContext.current()?.lang;
-    const name = (lang === 'en' ? [firstName, lastName] : [lastName, firstName])
-      .filter(Boolean)
-      .join(' ');
     const productName = PRODUCT_NAME;
+
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;
-    const url = `${baseUrl}/${lang}/auth/verify-email?email=${encodeURIComponent(
-      email || '',
-    )}&identifier=${id}${
-      redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
-    }&token=${token}`;
 
+    const userAgent = this.cls.get<string>('userAgent');
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
     const browser_name = result.browser?.name || 'Unknown';
@@ -63,7 +51,7 @@ export class MailsService {
 
     await this.mailerService
       .sendMail({
-        to: email || '',
+        to: email,
         subject: this.i18n.t('mail.welcome.subject', {
           args: { productName },
         }),
@@ -152,10 +140,7 @@ export class MailsService {
     });
   }
 
-  async resendEmail(
-    { identifier, redirect }: ResendEmailDto,
-    userAgent: string,
-  ): Promise<void> {
+  async resendEmail({ identifier }: ResendEmailDto): Promise<void> {
     const userResult = await this.db
       .select()
       .from(schema.user)
@@ -182,7 +167,7 @@ export class MailsService {
       });
     });
 
-    await this.sendEmail(user, token, userAgent, redirect);
+    await this.sendEmail(user, token);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {

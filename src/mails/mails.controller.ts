@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
 import { ResendEmailDto } from './dto/resend-email.dto';
@@ -43,11 +43,8 @@ export class MailsController {
 
   @Post('resend')
   @ApiOperation({ summary: '重新寄送驗證信' })
-  async resend(
-    @Body() resendEmailDto: ResendEmailDto,
-    @Headers('user-agent') userAgent: string,
-  ) {
-    return this.mailsService.resendEmail(resendEmailDto, userAgent);
+  async resend(@Body() resendEmailDto: ResendEmailDto) {
+    return this.mailsService.resendEmail(resendEmailDto);
   }
 
   @Post('test')

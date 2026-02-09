@@ -1,9 +1,9 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
+import type { Auth } from 'src/auth';
 
 import { and, eq, gte, SQL } from 'drizzle-orm';
 import { I18nService } from 'nestjs-i18n';
-import { auth } from 'src/auth';
 import * as schema from 'src/db/schema';
 import type { CreateUser, LangEnum, User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -17,7 +17,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 @Injectable()
 export class UsersService {
   constructor(
-    private readonly authService: AuthService,
+    private authService: AuthService<Auth>,
     private i18n: I18nService,
     private mailsService: MailsService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -77,7 +77,7 @@ export class UsersService {
     if (existingEmail)
       throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
 
-    const res = await auth.api.signUpEmail({
+    const res = await this.authService.api.signUpEmail({
       body: {
         // birthDate,
         callbackURL: redirectTo,

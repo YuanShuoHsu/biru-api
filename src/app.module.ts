@@ -12,21 +12,40 @@ import {
 } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
+import { ClsModule } from 'nestjs-cls';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { auth } from './auth';
+import { createAuth } from './auth';
+import { AuthModule } from './auth/auth.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
+import { MailsService } from './mails/mails.service';
 import { StoresModule } from './stores/stores.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    AuthModule.forRoot({ auth }),
+    AuthModule,
+    BetterAuthModule.forRootAsync({
+      imports: [MailsModule],
+      inject: [MailsService],
+      useFactory: (mailsService: MailsService) => ({
+        auth: createAuth(mailsService),
+      }),
+    }),
+    ClsModule.forRoot({
+      global: true,
+      middleware: {
+        mount: true,
+        setup: (cls, req: Request) => {
+          cls.set('userAgent', req.headers.get('user-agent'));
+        },
+      },
+    }),
     ConfigModule.forRoot({ isGlobal: true }),
     DrizzleModule,
     EcpayModule,
