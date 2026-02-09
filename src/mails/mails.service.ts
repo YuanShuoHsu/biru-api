@@ -38,12 +38,6 @@ export class MailsService {
     private readonly mailerService: MailerService,
   ) {}
 
-  async verifyEmail({ token }: VerifyEmailDto) {
-    return await this.betterAuthService.api.verifyEmail({
-      query: { token },
-    });
-  }
-
   public async sendEmail(
     { email, name }: Pick<User, 'email' | 'name'>,
     url: string,
@@ -89,6 +83,12 @@ export class MailsService {
       })
       .then(() => {})
       .catch(() => {});
+  }
+
+  async verifyEmail({ token }: VerifyEmailDto) {
+    return await this.betterAuthService.api.verifyEmail({
+      query: { token },
+    });
   }
 
   async resendEmail({ identifier }: ResendEmailDto): Promise<void> {
