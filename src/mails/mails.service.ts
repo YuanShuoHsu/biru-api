@@ -36,12 +36,22 @@ export class MailsService {
   public async sendEmail(
     { email, name }: Pick<User, 'email' | 'name'>,
     url: string,
+    token: string,
   ): Promise<void> {
     const lang = I18nContext.current()?.lang;
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const parsedUrl = new URL(url);
+    const callbackURL = parsedUrl.searchParams.get('callbackURL');
+    const verifyParams = new URLSearchParams({
+      email,
+      token,
+      ...(callbackURL && { redirectTo: callbackURL }),
+    });
+    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
 
     const userAgent = this.cls.get<string>('userAgent');
     const parser = new UAParser(userAgent);
@@ -63,7 +73,7 @@ export class MailsService {
           operating_system,
           productName,
           support_url,
-          url,
+          url: verifyEmailUrl,
         },
       })
       .then(() => {})
@@ -167,7 +177,7 @@ export class MailsService {
       });
     });
 
-    await this.sendEmail(user, token);
+    // await this.sendEmail(user, dummyUrl);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
