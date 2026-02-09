@@ -6,11 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 
 import { randomUUID } from 'crypto';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import type { Auth } from 'src/auth';
 import { PRODUCT_NAME } from 'src/common/constants/product';
 import * as schema from 'src/db/schema';
 import type { User } from 'src/db/schema/users';
@@ -26,6 +28,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 @Injectable()
 export class MailsService {
   constructor(
+    private readonly authService: AuthService<Auth>,
     private readonly cls: ClsService,
     private readonly configService: ConfigService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -80,73 +83,9 @@ export class MailsService {
       .catch(() => {});
   }
 
-  async verifyEmail({ identifier, token }: VerifyEmailDto) {
-    const [userResult, verification] = await Promise.all([
-      this.db
-        .select()
-        .from(schema.user)
-        .where(eq(schema.user.id, identifier))
-        .limit(1),
-      this.db.query.verification.findFirst({
-        where: and(
-          eq(schema.verification.identifier, identifier),
-          eq(schema.verification.value, token),
-        ),
-      }),
-    ]);
-
-    const user = userResult[0];
-
-    if (!verification) {
-      throw new BadRequestException(
-        this.i18n.t('users.invalidVerificationToken'),
-      );
-    }
-
-    if (verification.expiresAt < new Date()) {
-      await this.db
-        .delete(schema.verification)
-        .where(
-          and(
-            eq(schema.verification.identifier, identifier),
-            eq(schema.verification.value, token),
-          ),
-        );
-
-      throw new BadRequestException(
-        this.i18n.t('users.invalidVerificationToken'),
-      );
-    }
-
-    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
-
-    if (user.emailVerified) {
-      await this.db
-        .delete(schema.verification)
-        .where(
-          and(
-            eq(schema.verification.identifier, identifier),
-            eq(schema.verification.value, token),
-          ),
-        );
-
-      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
-    }
-
-    await this.db.transaction(async (tx) => {
-      await tx
-        .update(schema.user)
-        .set({ emailVerified: true })
-        .where(eq(schema.user.id, user.id));
-
-      await tx
-        .delete(schema.verification)
-        .where(
-          and(
-            eq(schema.verification.identifier, identifier),
-            eq(schema.verification.value, token),
-          ),
-        );
+  async verifyEmail({ token }: VerifyEmailDto) {
+    return await this.authService.api.verifyEmail({
+      query: { token },
     });
   }
 
