@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
@@ -10,6 +11,7 @@ import { MailsService } from './mails.service';
 export class MailsController {
   constructor(private readonly mailsService: MailsService) {}
 
+  @AllowAnonymous()
   @Post('verify')
   @ApiOperation({ summary: '驗證使用者 Email' })
   async verify(@Body() verifyEmailDto: VerifyEmailDto) {

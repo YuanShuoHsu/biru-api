@@ -30,12 +30,12 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 export class MailsService {
   constructor(
     @Inject(forwardRef(() => BetterAuthService))
+    private readonly betterAuthService: BetterAuthService<Auth>,
     private readonly cls: ClsService,
     private readonly configService: ConfigService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
-    private readonly betterAuthService: BetterAuthService<Auth>,
   ) {}
 
   async verifyEmail({ token }: VerifyEmailDto) {
