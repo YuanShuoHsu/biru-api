@@ -4,6 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import type { Request } from 'express';
+
 import {
   AcceptLanguageResolver,
   HeaderResolver,
@@ -42,7 +44,7 @@ import { UsersModule } from './users/users.module';
       middleware: {
         mount: true,
         setup: (cls, req: Request) => {
-          cls.set('userAgent', req.headers.get('user-agent'));
+          cls.set('userAgent', req.headers['user-agent']);
         },
       },
     }),
