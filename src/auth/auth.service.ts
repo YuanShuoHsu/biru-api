@@ -1,27 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { AuthService as BetterAuthService } from '@thallesp/nestjs-better-auth';
 
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import type { Auth } from './index';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
-  }
+  constructor(private readonly betterAuthService: BetterAuthService<Auth>) {}
 
-  findAll() {
-    return `This action returns all auth`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
-
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+  async verifyEmail({ token }: VerifyEmailDto) {
+    return await this.betterAuthService.api.verifyEmail({
+      query: { token },
+    });
   }
 }
