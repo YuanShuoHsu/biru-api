@@ -8,12 +8,13 @@ import {
   Patch,
   Post,
   Request,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { fromNodeHeaders } from 'better-auth/node';
-import type { Request as ExpressRequest } from 'express';
+import type { Request as ExpressRequest, Response } from 'express';
 import { I18nLang } from 'nestjs-i18n';
 import type { LangEnum } from 'src/db/schema/users';
 import { VerifyEmailDto } from 'src/users/dto/verify-email.dto';
@@ -45,8 +46,14 @@ export class UsersController {
   @AllowAnonymous()
   @Post('verify-email')
   @ApiOperation({ summary: '驗證使用者 Email' })
-  async verify(@Body() verifyEmailDto: VerifyEmailDto) {
-    return this.usersService.verifyEmail(verifyEmailDto);
+  async verify(
+    @Body() verifyEmailDto: VerifyEmailDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    const response = await this.usersService.verifyEmail(verifyEmailDto);
+    for (const [key, value] of response.headers) res.setHeader(key, value);
+
+    return response.json();
   }
 
   @ApiBearerAuth()

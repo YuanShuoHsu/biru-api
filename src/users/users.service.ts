@@ -99,6 +99,7 @@ export class UsersService {
 
   async verifyEmail({ token }: VerifyEmailDto) {
     return await this.authService.api.verifyEmail({
+      asResponse: true,
       query: { token },
     });
   }
