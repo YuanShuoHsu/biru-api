@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 
 import { and, eq, gte, SQL } from 'drizzle-orm';
@@ -14,7 +9,7 @@ import type { CreateUser, LangEnum, User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import { VerifyEmailDto } from 'src/mails/dto/verify-email.dto';
+import { VerifyEmailDto } from 'src/users/dto/verify-email.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -102,12 +97,7 @@ export class UsersService {
     return res.user;
   }
 
-  async verifyEmail({ email, token }: VerifyEmailDto) {
-    const user = await this.user({ email });
-
-    if (user?.emailVerified)
-      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
-
+  async verifyEmail({ token }: VerifyEmailDto) {
     return await this.authService.api.verifyEmail({
       query: { token },
     });

@@ -16,7 +16,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import type { Request as ExpressRequest } from 'express';
 import { I18nLang } from 'nestjs-i18n';
 import type { LangEnum } from 'src/db/schema/users';
-import { VerifyEmailDto } from 'src/mails/dto/verify-email.dto';
+import { VerifyEmailDto } from 'src/users/dto/verify-email.dto';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';

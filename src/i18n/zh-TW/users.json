@@ -1,6 +1,6 @@
 {
   "emailAlreadyExists": "此電子郵件已被註冊",
-  "emailAlreadyVerified": "信箱已驗證",
+  "emailAlreadyVerified": "此信箱已驗證過",
   "emailNotVerified": "信箱尚未驗證",
   "invalidCredentials": "帳號或密碼錯誤",
   "invalidVerificationToken": "無效的驗證代碼",
