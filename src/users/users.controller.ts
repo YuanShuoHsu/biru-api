@@ -11,11 +11,12 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request as ExpressRequest } from 'express';
-
 import { I18nLang } from 'nestjs-i18n';
 import type { LangEnum } from 'src/db/schema/users';
+import { VerifyEmailDto } from 'src/mails/dto/verify-email.dto';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,6 +40,13 @@ export class UsersController {
       lang,
       fromNodeHeaders(req.headers),
     );
+  }
+
+  @AllowAnonymous()
+  @Post('verify-email')
+  @ApiOperation({ summary: '驗證使用者 Email' })
+  async verify(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.usersService.verifyEmail(verifyEmailDto);
   }
 
   @ApiBearerAuth()

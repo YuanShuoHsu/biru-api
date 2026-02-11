@@ -1,19 +1,16 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import {
   BadRequestException,
-  forwardRef,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthService as BetterAuthService } from '@thallesp/nestjs-better-auth';
 
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { Auth } from 'src/auth';
 import { PRODUCT_NAME } from 'src/common/constants/product';
 import * as schema from 'src/db/schema';
 import type { User } from 'src/db/schema/users';
@@ -24,13 +21,10 @@ import { UAParser } from 'ua-parser-js';
 
 import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Injectable()
 export class MailsService {
   constructor(
-    @Inject(forwardRef(() => BetterAuthService))
-    private readonly betterAuthService: BetterAuthService<Auth>,
     private readonly cls: ClsService,
     private readonly configService: ConfigService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -83,12 +77,6 @@ export class MailsService {
       })
       .then(() => {})
       .catch(() => {});
-  }
-
-  async verifyEmail({ token }: VerifyEmailDto) {
-    return await this.betterAuthService.api.verifyEmail({
-      query: { token },
-    });
   }
 
   async resendEmail({ identifier }: ResendEmailDto): Promise<void> {
