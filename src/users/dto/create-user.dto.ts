@@ -63,6 +63,10 @@ export class CreateUserDto {
   @IsOptional()
   lastName?: string;
 
+  @ApiProperty({ description: '全名', example: 'Biru Coffee' })
+  @IsNotEmpty()
+  name: string;
+
   @ApiProperty({
     description: '密碼（至少 8 碼，需包含英文字母與數字）',
     example: 'password123',
