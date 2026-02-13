@@ -47,6 +47,7 @@ export const createAuth = (mailsService: MailsService) =>
       enabled: true,
     },
     socialProviders: {},
+    trustedOrigins: [process.env.NEXT_URL!],
     user: {
       additionalFields: {
         // birthDate: {
