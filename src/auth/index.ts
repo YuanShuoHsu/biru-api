@@ -38,8 +38,9 @@ export const createAuth = (mailsService: MailsService) =>
     },
     emailVerification: {
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url, token }) =>
-        await mailsService.sendEmail(user, url, token),
+      sendVerificationEmail: async ({ user, url, token }, request) => {
+        await mailsService.sendEmail({ user, url, token }, request);
+      },
       sendOnSignIn: true,
     },
     plugins: [],

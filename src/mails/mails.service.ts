@@ -10,10 +10,10 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { ClsService } from 'nestjs-cls';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nService } from 'nestjs-i18n';
 import { PRODUCT_NAME } from 'src/common/constants/product';
 import * as schema from 'src/db/schema';
-import type { User } from 'src/db/schema/users';
+import { DEFAULT_LANG, type User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { I18nTranslations } from 'src/generated/i18n.generated';
@@ -33,14 +33,21 @@ export class MailsService {
   ) {}
 
   public async sendEmail(
-    { email, name }: Pick<User, 'email' | 'name'>,
-    url: string,
-    token: string,
+    {
+      user: { email, name },
+      url,
+      token,
+    }: {
+      user: Pick<User, 'email' | 'name'>;
+      url: string;
+      token: string;
+    },
+    request?: Request,
   ): Promise<void> {
-    const lang = I18nContext.current()?.lang;
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
     const parsedUrl = new URL(url);
@@ -52,7 +59,7 @@ export class MailsService {
     });
     const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
 
-    const userAgent = this.cls.get<string>('userAgent');
+    const userAgent = request?.headers.get('user-agent') || undefined;
     const parser = new UAParser(userAgent);
     const result = parser.getResult();
     const browser_name = result.browser?.name || 'Unknown';
