@@ -16,5 +16,5 @@ export class ResendEmailDto {
     example: '/dashboard',
   })
   @IsOptional()
-  redirect?: string;
+  callbackURL?: string;
 }

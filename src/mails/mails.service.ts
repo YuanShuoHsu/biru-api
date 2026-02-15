@@ -1,33 +1,19 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { randomUUID } from 'crypto';
-import { eq } from 'drizzle-orm';
-import { ClsService } from 'nestjs-cls';
 import { I18nService } from 'nestjs-i18n';
 import { PRODUCT_NAME } from 'src/common/constants/product';
-import * as schema from 'src/db/schema';
 import { DEFAULT_LANG, type User } from 'src/db/schema/users';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { UAParser } from 'ua-parser-js';
 
-import { ResendEmailDto } from './dto/resend-email.dto';
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 
 @Injectable()
 export class MailsService {
   constructor(
-    private readonly cls: ClsService,
     private readonly configService: ConfigService,
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
   ) {}
@@ -84,36 +70,6 @@ export class MailsService {
       })
       .then(() => {})
       .catch(() => {});
-  }
-
-  async resendEmail({ identifier }: ResendEmailDto): Promise<void> {
-    const userResult = await this.db
-      .select()
-      .from(schema.user)
-      .where(eq(schema.user.id, identifier))
-      .limit(1);
-    const user = userResult[0];
-
-    if (!user) throw new NotFoundException(this.i18n.t('users.userNotFound'));
-    if (user.emailVerified)
-      throw new BadRequestException(this.i18n.t('users.emailAlreadyVerified'));
-
-    const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await this.db.transaction(async (tx) => {
-      await tx
-        .delete(schema.verification)
-        .where(eq(schema.verification.identifier, user.id));
-
-      await tx.insert(schema.verification).values({
-        expiresAt,
-        identifier: user.id,
-        value: token,
-      });
-    });
-
-    // await this.sendEmail(user, dummyUrl);
   }
 
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {

@@ -6,20 +6,9 @@ import {
   NotFoundException,
   Param,
   Patch,
-  Post,
-  Request,
-  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { fromNodeHeaders } from 'better-auth/node';
-import type { Request as ExpressRequest, Response } from 'express';
-import { I18nLang } from 'nestjs-i18n';
-import type { LangEnum } from 'src/db/schema/users';
-import { VerifyEmailDto } from 'src/users/dto/verify-email.dto';
-
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -27,34 +16,6 @@ import { UsersService } from './users.service';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  @AllowAnonymous()
-  @Post()
-  @ApiOperation({ summary: '註冊使用者' })
-  async create(
-    @Body() createUserDto: CreateUserDto,
-    @I18nLang() lang: LangEnum,
-    @Request() req: ExpressRequest,
-  ): Promise<UserResponseDto> {
-    return this.usersService.createUserWithPassword(
-      createUserDto,
-      lang,
-      fromNodeHeaders(req.headers),
-    );
-  }
-
-  @AllowAnonymous()
-  @Post('verify-email')
-  @ApiOperation({ summary: '驗證使用者 Email' })
-  async verify(
-    @Body() verifyEmailDto: VerifyEmailDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<any> {
-    const response = await this.usersService.verifyEmail(verifyEmailDto);
-    for (const [key, value] of response.headers) res.setHeader(key, value);
-
-    return response.json();
-  }
 
   @ApiBearerAuth()
   @Get()

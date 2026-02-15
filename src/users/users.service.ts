@@ -1,26 +1,16 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { AuthService } from '@thallesp/nestjs-better-auth';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { and, eq, gte, SQL } from 'drizzle-orm';
-import { I18nService } from 'nestjs-i18n';
-import type { Auth } from 'src/auth';
 import * as schema from 'src/db/schema';
-import type { CreateUser, LangEnum, User } from 'src/db/schema/users';
+import type { CreateUser, User } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from './dto/user-response.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private authService: AuthService<Auth>,
-    private i18n: I18nService,
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async user(where: Partial<User>): Promise<User | null> {
     const result = await this.db.query.user.findFirst({
@@ -54,54 +44,6 @@ export class UsersService {
   async createUser(data: CreateUser): Promise<User> {
     const results = await this.db.insert(schema.user).values(data).returning();
     return results[0];
-  }
-
-  async createUserWithPassword(
-    {
-      // birthDate,
-      email,
-      emailSubscribed,
-      firstName,
-      // gender,
-      image,
-      lastName,
-      password,
-      // phoneNumber,
-      redirectTo,
-    }: CreateUserDto,
-    lang: LangEnum,
-    headers: Headers,
-  ): Promise<UserResponseDto> {
-    const existingEmail = await this.user({ email });
-    if (existingEmail)
-      throw new ConflictException(this.i18n.t('users.emailAlreadyExists'));
-
-    const res = await this.authService.api.signUpEmail({
-      body: {
-        // birthDate,
-        callbackURL: redirectTo,
-        email,
-        emailSubscribed,
-        firstName,
-        // gender,
-        image,
-        lang,
-        lastName,
-        name: [firstName, lastName].filter(Boolean).join(' '),
-        password,
-        // phoneNumber,
-      },
-      headers,
-    });
-
-    return res.user;
-  }
-
-  async verifyEmail({ token }: VerifyEmailDto) {
-    return await this.authService.api.verifyEmail({
-      asResponse: true,
-      query: { token },
-    });
   }
 
   async updateUser(params: {

@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
+import { PRODUCT_NAME } from 'src/common/constants/product';
 
 import { MailsController } from './mails.controller';
 import { MailsService } from './mails.service';
@@ -32,7 +33,7 @@ import { MailsService } from './mails.service';
                 },
               },
           defaults: {
-            from: `"Biru Coffee" <${config.get('MAIL_USER')}>`,
+            from: `"${PRODUCT_NAME}" <${config.get('MAIL_USER')}>`,
           },
           preview: isPreview,
           template: {
