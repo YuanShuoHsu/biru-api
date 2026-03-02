@@ -41,7 +41,6 @@ export const createAuth = (mailsService: MailsService) =>
       sendVerificationEmail: async ({ user, url, token }, request) => {
         await mailsService.sendEmail({ user, url, token }, request);
       },
-      sendOnSignIn: true,
     },
     plugins: [],
     rateLimit: {
