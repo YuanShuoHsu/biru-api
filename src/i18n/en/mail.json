@@ -4,11 +4,21 @@
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "Thanks for trying {productName}. We’re thrilled to have you on board. To get started with {productName}, please confirm your account.",
     "preheader": "Welcome to {productName}! Please confirm your email address.",
-    "product_name": "{productName}",
     "salutation": "Thanks,<br>The {productName} Team",
     "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not sign up for an account, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
     "subject": "Welcome to {productName}! Confirm your Email",
     "title": "Welcome, {name}!",
+    "trouble_hint": "If you’re having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "welcome_verified": {
+    "action_button": "Get Started",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "Thanks for verifying your email address for {productName}. We’re thrilled to have you on board. You can now start using {productName}.",
+    "preheader": "Your email has been verified — welcome to {productName}!",
+    "salutation": "Thanks,<br>The {productName} Team",
+    "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not verify your account, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
+    "subject": "Welcome to {productName}! You’re all set",
+    "title": "You’re verified, {name}!",
     "trouble_hint": "If you’re having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }

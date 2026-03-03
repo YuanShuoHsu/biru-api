@@ -13,7 +13,7 @@
   </head>
 
   <body>
-    <span class='preheader'>{{t 'mail.welcome.preheader' this}}</span>
+    <span class='preheader'>{{t 'mail.welcome_verified.preheader' this}}</span>
     <table
       class='email-wrapper'
       width='100%'
@@ -33,7 +33,7 @@
             <tr>
               <td class='email-masthead'>
                 <a
-                  href='{{home_url}}'
+                  href='{{url}}'
                   class='f-fallback email-masthead_name'
                 >
                   {{productName}}
@@ -60,8 +60,8 @@
                   <tr>
                     <td class='content-cell'>
                       <div class='f-fallback'>
-                        <h1>{{t 'mail.welcome.title' this}}</h1>
-                        <p>{{t 'mail.welcome.intro' this}}</p>
+                        <h1>{{t 'mail.welcome_verified.title' this}}</h1>
+                        <p>{{t 'mail.welcome_verified.intro' this}}</p>
                         <!-- Action -->
                         <table
                           class='body-action'
@@ -88,21 +88,21 @@
                                       href='{{url}}'
                                       class='f-fallback button button--green'
                                       target='_blank'
-                                    >{{t 'mail.welcome.action_button'}}</a>
+                                    >{{t 'mail.welcome_verified.action_button'}}</a>
                                   </td>
                                 </tr>
                               </table>
                             </td>
                           </tr>
                         </table>
-                        <p>{{{t 'mail.welcome.security_notice' this}}}</p>
-                        <p>{{{t 'mail.welcome.salutation' this}}}</p>
+                        <p>{{{t 'mail.welcome_verified.security_notice' this}}}</p>
+                        <p>{{{t 'mail.welcome_verified.salutation' this}}}</p>
                         <!-- Sub copy -->
                         <table class='body-sub' role='presentation'>
                           <tr>
                             <td>
                               <p class='f-fallback sub'>{{t
-                                  'mail.welcome.trouble_hint'
+                                  'mail.welcome_verified.trouble_hint'
                                 }}</p>
                               <p class='f-fallback sub'>{{url}}</p>
                             </td>
@@ -127,7 +127,7 @@
                   <tr>
                     <td class='content-cell' align='center'>
                       <p class='f-fallback sub align-center'>
-                        {{{t 'mail.welcome.address' this}}}
+                        {{{t 'mail.welcome_verified.address' this}}}
                       </p>
                     </td>
                   </tr>

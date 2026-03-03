@@ -45,6 +45,14 @@ import { MailsService } from './mails.service';
               strict: true,
             },
           },
+          options: {
+            partials: {
+              dir: join(process.cwd(), 'views', 'mail', 'styles'),
+              options: {
+                strict: true,
+              },
+            },
+          },
         };
       },
     }),

@@ -17,7 +17,17 @@ export type I18nTranslations = {
             "address": string;
             "intro": string;
             "preheader": string;
-            "product_name": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
+        "welcome_verified": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
             "salutation": string;
             "security_notice": string;
             "subject": string;

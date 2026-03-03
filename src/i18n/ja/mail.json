@@ -2,13 +2,23 @@
   "welcome": {
     "action_button": "メールアドレスを確認",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "{productName}をお試しいただきありがとうございます。{productName}の使用を開始するには、アカウントを確認してください。",
+    "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
     "preheader": "{productName}へようこそ！メールアドレスをご確認ください。",
-    "product_name": "{productName}",
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントに登録していない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName}へようこそ！メールアドレスをご確認ください",
     "title": "ようこそ、{name}さん！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "welcome_verified": {
+    "action_button": "はじめる",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName} のメールアドレスを認証いただきありがとうございます。ご参加いただき大変嬉しく思います。今すぐ {productName} の使用を開始いただけます。",
+    "preheader": "メールアドレスが確認されました — {productName}へようこそ！",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントの確認に覚えがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName}へようこそ！準備完了",
+    "title": "確認完了、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   }
 }
