@@ -120,7 +120,7 @@ export class MailsService {
     {
       user: { email, name },
     }: {
-      user: { email: string; name: string };
+      user: Pick<User, 'email' | 'name'>;
     },
     request?: Request,
   ): Promise<void> {

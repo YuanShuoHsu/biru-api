@@ -24,9 +24,10 @@ export const createAuth = (mailsService: MailsService) =>
     }),
     emailAndPassword: {
       enabled: true,
-      onExistingUserSignUp: async ({ user }, request) => {
-        await mailsService.onExistingUserSignUp({ user }, request);
-      },
+      // 1.5.x 的版本有點問題，先不要升級也不要用它 onExistingUserSignUp
+      // onExistingUserSignUp: async ({ user }, request) => {
+      //   await mailsService.onExistingUserSignUp({ user }, request);
+      // },
       requireEmailVerification: true,
       sendResetPassword: async () => {
         // TODO: Implement sendEmail integration
