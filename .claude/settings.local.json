@@ -3,7 +3,11 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(python3:*)",
-      "WebFetch(domain:nestjs-i18n.com)"
+      "WebFetch(domain:nestjs-i18n.com)",
+      "Bash(node:*)",
+      "Bash(pnpm info:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }

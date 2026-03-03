@@ -1,24 +1,35 @@
 {
-  "welcome": {
+  "send_verification_email": {
     "action_button": "Confirm Email",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "Thanks for trying {productName}. We’re thrilled to have you on board. To get started with {productName}, please confirm your account.",
+    "intro": "Thanks for trying {productName}. We're thrilled to have you on board. To get started with {productName}, please confirm your account.",
     "preheader": "Welcome to {productName}! Please confirm your email address.",
     "salutation": "Thanks,<br>The {productName} Team",
     "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not sign up for an account, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
     "subject": "Welcome to {productName}! Confirm your Email",
     "title": "Welcome, {name}!",
-    "trouble_hint": "If you’re having trouble with the button above, copy and paste the URL below into your web browser."
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
-  "welcome_verified": {
+  "after_email_verification": {
     "action_button": "Get Started",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "Thanks for verifying your email address for {productName}. We’re thrilled to have you on board. You can now start using {productName}.",
-    "preheader": "Your email has been verified — welcome to {productName}!",
+    "intro": "Thanks for verifying your email address for {productName}. We're thrilled to have you on board. You can now start using {productName}.",
+    "preheader": "Welcome to {productName}! Your email has been verified.",
     "salutation": "Thanks,<br>The {productName} Team",
     "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not verify your account, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
-    "subject": "Welcome to {productName}! You’re all set",
-    "title": "You’re verified, {name}!",
-    "trouble_hint": "If you’re having trouble with the button above, copy and paste the URL below into your web browser."
+    "subject": "Welcome to {productName}! You're all set",
+    "title": "You're verified, {name}!",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "on_existing_user_sign_up": {
+    "action_button": "Sign In",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "Someone tried to create a {productName} account using your email address. If this was you, you can simply sign in instead. Your existing {productName} account remains safe and accessible.",
+    "preheader": "If this wasn't you, your {productName} account is still safe.",
+    "salutation": "Thanks,<br>The {productName} Team",
+    "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not make this request, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
+    "subject": "Sign-up attempt with your {productName} account",
+    "title": "Heads up, {name}!",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }

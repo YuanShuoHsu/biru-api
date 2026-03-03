@@ -55,10 +55,10 @@ export class MailsService {
     await this.mailerService
       .sendMail({
         to: email,
-        subject: this.i18n.t('mail.welcome.subject', {
+        subject: this.i18n.t('mail.send_verification_email.subject', {
           args: { productName },
         }),
-        template: 'welcome',
+        template: 'send-verification-email',
         context: {
           browser_name,
           home_url,
@@ -98,10 +98,10 @@ export class MailsService {
     await this.mailerService
       .sendMail({
         to: email,
-        subject: this.i18n.t('mail.welcome_verified.subject', {
+        subject: this.i18n.t('mail.after_email_verification.subject', {
           args: { productName },
         }),
-        template: 'welcome-verified',
+        template: 'after-email-verification',
         context: {
           browser_name,
           i18nLang: lang,
@@ -110,6 +110,48 @@ export class MailsService {
           productName,
           support_url,
           url,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  public async onExistingUserSignUp(
+    {
+      user: { email, name },
+    }: {
+      user: { email: string; name: string };
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const userAgent = request?.headers.get('user-agent') || undefined;
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
+          args: { productName },
+        }),
+        template: 'on-existing-user-sign-up',
+        context: {
+          browser_name,
+          i18nLang: lang,
+          name,
+          operating_system,
+          productName,
+          sign_in_url,
+          support_url,
         },
       })
       .then(() => {})

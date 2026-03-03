@@ -1,5 +1,5 @@
 {
-  "welcome": {
+  "send_verification_email": {
     "action_button": "メールアドレスを確認",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
@@ -10,15 +10,26 @@
     "title": "ようこそ、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
-  "welcome_verified": {
+  "after_email_verification": {
     "action_button": "はじめる",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{productName} のメールアドレスを認証いただきありがとうございます。ご参加いただき大変嬉しく思います。今すぐ {productName} の使用を開始いただけます。",
-    "preheader": "メールアドレスが確認されました — {productName}へようこそ！",
+    "preheader": "{productName}へようこそ！メールアドレスが確認されました。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントの確認に覚えがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName}へようこそ！準備完了",
     "title": "確認完了、{name}さん！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "on_existing_user_sign_up": {
+    "action_button": "サインイン",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "あなたのメールアドレスを使用して {productName} アカウントへの登録が試みられました。ご本人の操作であれば、そのままサインインしてください。お客様の {productName} アカウントは引き続き安全にご利用いただけます。",
+    "preheader": "ご本人でない場合も、{productName} アカウントは安全です。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このリクエストに覚えがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} アカウントへの登録が試みられました",
+    "title": "ご確認ください、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   }
 }

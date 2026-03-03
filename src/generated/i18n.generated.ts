@@ -12,7 +12,7 @@ export type I18nTranslations = {
         };
     };
     "mail": {
-        "welcome": {
+        "send_verification_email": {
             "action_button": string;
             "address": string;
             "intro": string;
@@ -23,7 +23,18 @@ export type I18nTranslations = {
             "title": string;
             "trouble_hint": string;
         };
-        "welcome_verified": {
+        "after_email_verification": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
+        "on_existing_user_sign_up": {
             "action_button": string;
             "address": string;
             "intro": string;

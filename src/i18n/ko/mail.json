@@ -1,5 +1,5 @@
 {
-  "welcome": {
+  "send_verification_email": {
     "action_button": "이메일 확인",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{productName}를 이용해 주셔서 감사합니다. 함께하게 되어 기쁩니다. {productName}를 시작하려면 계정을 확인해주세요.",
@@ -10,15 +10,26 @@
     "title": "환영합니다, {name}님!",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
   },
-  "welcome_verified": {
+  "after_email_verification": {
     "action_button": "시작하기",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{productName}의 이메일 주소를 인증해 주셔서 감사합니다. 함께하게 되어 기쁩니다. 이제 {productName}를 시작하실 수 있습니다.",
-    "preheader": "이메일이 인증되었습니다 — {productName}에 오신 것을 환영합니다!",
+    "preheader": "{productName}에 오신 것을 환영합니다! 이메일이 인증되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
     "security_notice": "보안을 위해 이 요청은 {browser_name}을 사용하는 {operating_system} 기기에서 수신되었습니다. 이 계정을 인증하지 않으셨다면 이 이메일을 무시하시거나, 질문이 있으시면 <a href=\"{support_url}\">지원팀에 문의</a>해주세요.",
     "subject": "{productName}에 오신 것을 환영합니다! 준비 완료",
     "title": "인증 완료, {name}님!",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
+  },
+  "on_existing_user_sign_up": {
+    "action_button": "로그인",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "누군가 귀하의 이메일 주소로 {productName} 계정 가입을 시도했습니다. 본인이 시도하셨다면 바로 로그인하시면 됩니다. 귀하의 {productName} 계정은 안전하게 유지되고 있습니다.",
+    "preheader": "본인이 아니어도 {productName} 계정은 안전합니다.",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "security_notice": "보안을 위해 이 요청은 {browser_name}을 사용하는 {operating_system} 기기에서 수신되었습니다. 본인이 요청하지 않으셨다면 이 이메일을 무시하시거나, 질문이 있으시면 <a href=\"{support_url}\">지원팀에 문의</a>해주세요.",
+    "subject": "{productName} 계정으로 가입 시도가 있었습니다",
+    "title": "확인하세요, {name}님!",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
   }
 }

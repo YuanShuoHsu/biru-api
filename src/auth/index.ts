@@ -24,6 +24,10 @@ export const createAuth = (mailsService: MailsService) =>
     }),
     emailAndPassword: {
       enabled: true,
+      onExistingUserSignUp: async ({ user }, request) => {
+        await mailsService.onExistingUserSignUp({ user }, request);
+      },
+      requireEmailVerification: true,
       sendResetPassword: async () => {
         // TODO: Implement sendEmail integration
         /*
@@ -34,7 +38,6 @@ export const createAuth = (mailsService: MailsService) =>
       });
       */
       },
-      requireEmailVerification: true,
     },
     emailVerification: {
       afterEmailVerification: async (user, request) => {

@@ -1,5 +1,5 @@
 {
-  "welcome": {
+  "send_verification_email": {
     "action_button": "确认电子邮件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "感谢您试用 {productName}。我们很高兴您的加入。若要开始使用 {productName}，请确认您的帐户。",
@@ -10,15 +10,26 @@
     "title": "欢迎您，{name}！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
-  "welcome_verified": {
+  "after_email_verification": {
     "action_button": "立即开始",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "感谢您完成 {productName} 的电子邮件验证。我们很高兴您的加入。您现在可以开始使用 {productName}。",
-    "preheader": "您的电子邮件已验证 — 欢迎来到 {productName}！",
+    "preheader": "欢迎使用 {productName}！您的电子邮件已验证。",
     "salutation": "谢谢，<br>{productName} 团队",
     "security_notice": "出于安全考量，此请求来自使用 {browser_name} 的 {operating_system} 设备。如果您没有进行此验证，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
     "subject": "欢迎来到 {productName}！您已准备就绪",
     "title": "验证成功，{name}！",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "on_existing_user_sign_up": {
+    "action_button": "立即登录",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "有人尝试使用您的电子邮件地址注册 {productName} 账号。如果这是您本人的操作，您可以直接登录。您的 {productName} 账号仍然安全无虞。",
+    "preheader": "这不是您吗？您的 {productName} 账号仍然安全。",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "security_notice": "出于安全考量，此请求来自使用 {browser_name} 的 {operating_system} 设备。如果您没有进行此操作，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
+    "subject": "有人尝试使用您的 {productName} 账号注册",
+    "title": "注意，{name}！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }
