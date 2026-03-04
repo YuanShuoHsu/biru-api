@@ -18,62 +18,6 @@ export class MailsService {
     private readonly mailerService: MailerService,
   ) {}
 
-  public async sendVerificationEmail(
-    {
-      user: { email, name },
-      url,
-      token,
-    }: {
-      user: Pick<User, 'email' | 'name'>;
-      url: string;
-      token: string;
-    },
-    request?: Request,
-  ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
-
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const verifyParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
-
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
-
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_verification_email.subject', {
-          args: { productName },
-        }),
-        template: 'send-verification-email',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
-  }
-
   public async afterEmailVerification(
     {
       user: { email, name },
@@ -158,6 +102,61 @@ export class MailsService {
       .catch(() => {});
   }
 
+  public async sendResetPassword(
+    {
+      user: { email, name },
+      url,
+      token,
+    }: {
+      user: Pick<User, 'email' | 'name'>;
+      url: string;
+      token: string;
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const parsedUrl = new URL(url);
+    const callbackURL = parsedUrl.searchParams.get('callbackURL');
+    const resetParams = new URLSearchParams({
+      token,
+      ...(callbackURL && { redirectTo: callbackURL }),
+    });
+    const resetPasswordUrl = `${baseUrl}/${lang}/auth/reset-password?${resetParams.toString()}`;
+
+    const userAgent = request?.headers.get('user-agent') || undefined;
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.send_reset_password.subject', {
+          args: { productName },
+        }),
+        template: 'send-reset-password',
+        context: {
+          browser_name,
+          home_url,
+          i18nLang: lang,
+          name,
+          operating_system,
+          productName,
+          support_url,
+          url: resetPasswordUrl,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
     await this.mailerService
       .sendMail({
@@ -165,6 +164,62 @@ export class MailsService {
         subject: 'Biru Coffee SMTP Test',
         text: 'If you receive this email, your SMTP configuration is correct!',
         html: '<b>If you receive this email, your SMTP configuration is correct!</b>',
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  public async sendVerificationEmail(
+    {
+      user: { email, name },
+      url,
+      token,
+    }: {
+      user: Pick<User, 'email' | 'name'>;
+      url: string;
+      token: string;
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const parsedUrl = new URL(url);
+    const callbackURL = parsedUrl.searchParams.get('callbackURL');
+    const verifyParams = new URLSearchParams({
+      email,
+      token,
+      ...(callbackURL && { redirectTo: callbackURL }),
+    });
+    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
+
+    const userAgent = request?.headers.get('user-agent') || undefined;
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.send_verification_email.subject', {
+          args: { productName },
+        }),
+        template: 'send-verification-email',
+        context: {
+          browser_name,
+          home_url,
+          i18nLang: lang,
+          name,
+          operating_system,
+          productName,
+          support_url,
+          url: verifyEmailUrl,
+        },
       })
       .then(() => {})
       .catch(() => {});

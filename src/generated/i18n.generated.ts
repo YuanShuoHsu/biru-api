@@ -12,17 +12,6 @@ export type I18nTranslations = {
         };
     };
     "mail": {
-        "send_verification_email": {
-            "action_button": string;
-            "address": string;
-            "intro": string;
-            "preheader": string;
-            "salutation": string;
-            "security_notice": string;
-            "subject": string;
-            "title": string;
-            "trouble_hint": string;
-        };
         "after_email_verification": {
             "action_button": string;
             "address": string;
@@ -35,6 +24,28 @@ export type I18nTranslations = {
             "trouble_hint": string;
         };
         "on_existing_user_sign_up": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
+        "send_reset_password": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
+        "send_verification_email": {
             "action_button": string;
             "address": string;
             "intro": string;

@@ -1,15 +1,4 @@
 {
-  "send_verification_email": {
-    "action_button": "メールアドレスを確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
-    "preheader": "{productName}へようこそ！メールアドレスをご確認ください。",
-    "salutation": "ありがとうございます。<br>{productName} チーム",
-    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントに登録していない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
-    "subject": "{productName}へようこそ！メールアドレスをご確認ください",
-    "title": "ようこそ、{name}さん！",
-    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
-  },
   "after_email_verification": {
     "action_button": "はじめる",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
@@ -30,6 +19,28 @@
     "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このリクエストに覚えがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName} アカウントへの登録が試みられました",
     "title": "ご確認ください、{name}さん！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "send_reset_password": {
+    "action_button": "パスワードをリセット",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName} のパスワードリセットをリクエストしました。下のボタンをクリックして新しいパスワードを設定してください。このリンクは1時間有効です。",
+    "preheader": "{productName} のパスワードをリセットします。このリンクは1時間で期限切れになります。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードリセットをリクエストしていない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} パスワードをリセット",
+    "title": "{name}さん、パスワードをリセットしてください！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "send_verification_email": {
+    "action_button": "メールアドレスを確認",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
+    "preheader": "{productName}へようこそ！メールアドレスをご確認ください。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このアカウントに登録していない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName}へようこそ！メールアドレスをご確認ください",
+    "title": "ようこそ、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   }
 }

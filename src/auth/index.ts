@@ -29,15 +29,8 @@ export const createAuth = (mailsService: MailsService) =>
       //   await mailsService.onExistingUserSignUp({ user }, request);
       // },
       requireEmailVerification: true,
-      sendResetPassword: async () => {
-        // TODO: Implement sendEmail integration
-        /*
-      void sendEmail({
-        to: user.email,
-        subject: 'Reset your password',
-        text: `Click the link to reset your password: ${url}`,
-      });
-      */
+      sendResetPassword: async ({ user, url, token }, request) => {
+        await mailsService.sendResetPassword({ user, url, token }, request);
       },
     },
     emailVerification: {
