@@ -102,6 +102,48 @@ export class MailsService {
       .catch(() => {});
   }
 
+  public async onPasswordReset(
+    {
+      user: { email, name },
+    }: {
+      user: Pick<User, 'email' | 'name'>;
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const userAgent = request?.headers.get('user-agent') || undefined;
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.on_password_reset.subject', {
+          args: { productName },
+        }),
+        template: 'on-password-reset',
+        context: {
+          browser_name,
+          i18nLang: lang,
+          name,
+          operating_system,
+          productName,
+          sign_in_url,
+          support_url,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
   public async sendResetPassword(
     {
       user: { email, name },

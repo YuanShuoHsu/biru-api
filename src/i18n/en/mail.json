@@ -21,6 +21,17 @@
     "title": "Heads up, {name}!",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
+  "on_password_reset": {
+    "action_button": "Sign In",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "Your {productName} password has been successfully reset. You can now sign in with your new password.",
+    "preheader": "Your {productName} password was successfully changed.",
+    "salutation": "Thanks,<br>The {productName} Team",
+    "security_notice": "For security, this request was received from a {operating_system} device using {browser_name}. If you did not reset your password, please <a href=\"{support_url}\">contact support</a> immediately.",
+    "subject": "Your {productName} password has been reset",
+    "title": "Password changed, {name}!",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
   "send_reset_password": {
     "action_button": "Reset Password",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

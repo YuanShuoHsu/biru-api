@@ -7,7 +7,9 @@
       "Bash(node:*)",
       "Bash(pnpm info:*)",
       "Bash(pnpm dlx:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "mcp__better-auth__ask-question-about-better-auth",
+      "Bash(find:*)"
     ]
   }
 }

@@ -21,6 +21,17 @@
     "title": "ご確認ください、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "on_password_reset": {
+    "action_button": "サインイン",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName} のパスワードが正常にリセットされました。新しいパスワードでサインインできます。",
+    "preheader": "{productName} のパスワードが正常に変更されました。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードをリセットしていない場合は、直ちに<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} のパスワードがリセットされました",
+    "title": "パスワードが変更されました、{name}さん！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
   "send_reset_password": {
     "action_button": "パスワードをリセット",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

@@ -21,6 +21,17 @@
     "title": "注意，{name}！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "on_password_reset": {
+    "action_button": "立即登入",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "您的 {productName} 密碼已成功重設。您現在可以使用新密碼登入。",
+    "preheader": "您的 {productName} 密碼已成功變更。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有重設密碼，請立即<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "您的 {productName} 密碼已重設",
+    "title": "密碼已變更，{name}！",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
   "send_reset_password": {
     "action_button": "重置密碼",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

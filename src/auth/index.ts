@@ -28,6 +28,9 @@ export const createAuth = (mailsService: MailsService) =>
       // onExistingUserSignUp: async ({ user }, request) => {
       //   await mailsService.onExistingUserSignUp({ user }, request);
       // },
+      onPasswordReset: async ({ user }, request) => {
+        await mailsService.onPasswordReset({ user }, request);
+      },
       requireEmailVerification: true,
       sendResetPassword: async ({ user, url, token }, request) => {
         await mailsService.sendResetPassword({ user, url, token }, request);
