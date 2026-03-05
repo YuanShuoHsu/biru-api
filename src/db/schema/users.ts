@@ -13,7 +13,7 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
+import { invitation, member } from './organizations';
 
 export const gendersEnum = pgEnum('genders', ['female', 'male', 'other']);
 export type GenderEnum = (typeof gendersEnum.enumValues)[number];
@@ -21,22 +21,20 @@ export type GenderEnum = (typeof gendersEnum.enumValues)[number];
 export const langsEnum = pgEnum('langs', ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']);
 export type LangEnum = (typeof langsEnum.enumValues)[number];
 
-export const rolesEnum = pgEnum('roles', ['admin', 'manager', 'staff', 'user']);
-export type RoleEnum = (typeof rolesEnum.enumValues)[number];
-
 export const DEFAULT_GENDER: GenderEnum = 'other';
 export const DEFAULT_LANG: LangEnum = 'zh-TW';
-export const DEFAULT_ROLE: RoleEnum = 'user';
 
 export const user = pgTable('user', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+  id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
-  ...timestamps,
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
   // additional fields
   // birthDate: timestamp('birth_date').notNull(),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
@@ -48,7 +46,6 @@ export const user = pgTable('user', {
   // phoneNumberVerified: boolean('phone_number_verified')
   //   .default(false)
   //   .notNull(),
-  role: rolesEnum().default(DEFAULT_ROLE).notNull(),
 });
 
 export type User = typeof user.$inferSelect;
@@ -57,17 +54,19 @@ export type CreateUser = typeof user.$inferInsert;
 export const session = pgTable(
   'session',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey(),
+    expiresAt: timestamp('expires_at').notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .$onUpdate(() => new Date())
+      .notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    token: text('token').unique().notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    ipAddress: text('ip_address'),
-    userAgent: text('user_agent'),
-    ...timestamps,
+    activeOrganizationId: text('active_organization_id'),
   },
   (table) => [index('session_userId_idx').on(table.userId)],
 );
@@ -75,22 +74,23 @@ export const session = pgTable(
 export const account = pgTable(
   'account',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    accountId: text('account_id').notNull(),
-    providerId: text('provider_id').notNull(),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
     accessTokenExpiresAt: timestamp('access_token_expires_at'),
     refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
     scope: text('scope'),
-    idToken: text('id_token'),
     password: text('password'),
-    ...timestamps,
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => [index('account_userId_idx').on(table.userId)],
 );
@@ -98,32 +98,36 @@ export const account = pgTable(
 export const verification = pgTable(
   'verification',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey(),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
     expiresAt: timestamp('expires_at').notNull(),
-    ...timestamps,
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
 export const userRelations = relations(user, ({ many }) => ({
-  accounts: many(account),
   sessions: many(session),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
-  }),
+  accounts: many(account),
+  members: many(member),
+  invitations: many(invitation),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
     fields: [session.userId],
+    references: [user.id],
+  }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
     references: [user.id],
   }),
 }));

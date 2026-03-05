@@ -2,11 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import {
   DEFAULT_LANG,
-  DEFAULT_ROLE,
   langsEnum,
-  rolesEnum,
   type LangEnum,
-  type RoleEnum,
 } from 'src/db/schema/users';
 
 export class UserResponseDto {
@@ -84,13 +81,6 @@ export class UserResponseDto {
 
   // @ApiProperty({ description: '是否已驗證電話', example: false })
   // phoneNumberVerified: boolean;
-
-  @ApiProperty({
-    description: '角色',
-    enum: rolesEnum.enumValues,
-    example: DEFAULT_ROLE,
-  })
-  role: RoleEnum;
 
   @ApiProperty({
     description: '最後更新時間',

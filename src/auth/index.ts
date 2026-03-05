@@ -5,6 +5,7 @@
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
+import { organization } from 'better-auth/plugins';
 
 import { db } from '../db';
 import * as schema from '../db/schema';
@@ -50,7 +51,13 @@ export const createAuth = (mailsService: MailsService) =>
         await mailsService.sendVerificationEmail({ user, url, token }, request);
       },
     },
-    plugins: [],
+    plugins: [
+      organization({
+        async sendInvitationEmail(data) {
+          await mailsService.sendOrganizationInvitation(data);
+        },
+      }),
+    ],
     rateLimit: {
       enabled: true,
     },
@@ -100,12 +107,6 @@ export const createAuth = (mailsService: MailsService) =>
         //   defaultValue: false,
         //   input: false,
         // },
-        role: {
-          type: schema.rolesEnum.enumValues,
-          required: true,
-          defaultValue: schema.DEFAULT_ROLE,
-          input: false,
-        },
       },
     },
   });

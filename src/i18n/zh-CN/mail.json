@@ -43,6 +43,17 @@
     "title": "{name}，请重置您的密码！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "organization_invitation": {
+    "action_button": "接受邀请",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{inviterName} 邀请您以 {role} 身份加入 {productName} 上的 {organizationName}。请点击下方按钮接受邀请。",
+    "preheader": "您已被邀请加入 {productName} 上的 {organizationName}。",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "security_notice": "出于安全考量，此邀请由 {inviterName} 通过 {productName} 账号发送。如果您不认识此邀请，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
+    "subject": "您已被邀请加入 {productName} 上的 {organizationName}",
+    "title": "您收到一份邀请！",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
   "send_verification_email": {
     "action_button": "确认电子邮件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

@@ -43,6 +43,17 @@
     "title": "Reset your password, {name}!",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
+  "organization_invitation": {
+    "action_button": "Accept Invitation",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{inviterName} has invited you to join {organizationName} on {productName} as a {role}. Click the button below to accept the invitation.",
+    "preheader": "You've been invited to join {organizationName} on {productName}.",
+    "salutation": "Thanks,<br>The {productName} Team",
+    "security_notice": "For security, this invitation was sent by {inviterName} via a {productName} account. If you did not expect this invitation, please ignore this email or <a href=\"{support_url}\">contact support</a> if you have questions.",
+    "subject": "You're invited to join {organizationName} on {productName}",
+    "title": "You've been invited!",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
   "send_verification_email": {
     "action_button": "Confirm Email",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

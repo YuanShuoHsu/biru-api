@@ -32,6 +32,17 @@
     "title": "パスワードが変更されました、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "organization_invitation": {
+    "action_button": "招待を承認する",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{inviterName} さんが {productName} の {organizationName} に {role} として招待しています。下のボタンをクリックして招待を承認してください。",
+    "preheader": "{productName} の {organizationName} に招待されました。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、この招待は {inviterName} さんが {productName} アカウントから送信しました。この招待に心当たりがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} の {organizationName} に招待されました",
+    "title": "招待が届いています！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
   "send_reset_password": {
     "action_button": "パスワードをリセット",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

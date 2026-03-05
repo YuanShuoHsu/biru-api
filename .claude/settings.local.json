@@ -9,7 +9,11 @@
       "Bash(pnpm dlx:*)",
       "Bash(pnpm add:*)",
       "mcp__better-auth__ask-question-about-better-auth",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__better-auth__search-better-auth-docs",
+      "Bash(pnpm drizzle-kit:*)",
+      "Bash(pnpm run:*)",
+      "Bash(npx:*)"
     ]
   }
 }

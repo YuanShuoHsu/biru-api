@@ -200,6 +200,42 @@ export class MailsService {
       .catch(() => {});
   }
 
+  public async sendOrganizationInvitation(data: {
+    id: string;
+    email: string;
+    role: string;
+    organization: { name: string };
+    inviter: { user: { name: string; email: string } };
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const invite_url = `${baseUrl}/${lang}/auth/accept-invitation/${data.id}`;
+
+    await this.mailerService
+      .sendMail({
+        to: data.email,
+        subject: this.i18n.t('mail.organization_invitation.subject', {
+          args: { organizationName: data.organization.name, productName },
+        }),
+        template: 'organization-invitation',
+        context: {
+          home_url,
+          i18nLang: lang,
+          inviterName: data.inviter.user.name,
+          organizationName: data.organization.name,
+          productName,
+          role: data.role,
+          support_url,
+          url: invite_url,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
   public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
     await this.mailerService
       .sendMail({

@@ -43,6 +43,17 @@
     "title": "{name}，請重置您的密碼！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "organization_invitation": {
+    "action_button": "接受邀請",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{inviterName} 邀請您以 {role} 身份加入 {productName} 上的 {organizationName}。請點擊下方按鈕接受邀請。",
+    "preheader": "您已被邀請加入 {productName} 上的 {organizationName}。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此邀請由 {inviterName} 透過 {productName} 帳號發送。如果您不認識此邀請，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "您已被邀請加入 {productName} 上的 {organizationName}",
+    "title": "您收到一份邀請！",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
   "send_verification_email": {
     "action_button": "確認電子郵件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
