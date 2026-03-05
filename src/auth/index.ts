@@ -54,7 +54,12 @@ export const createAuth = (mailsService: MailsService) =>
     rateLimit: {
       enabled: true,
     },
-    socialProviders: {},
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
     trustedOrigins: [process.env.NEXT_URL!],
     user: {
       additionalFields: {
