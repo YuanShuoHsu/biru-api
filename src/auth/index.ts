@@ -56,9 +56,11 @@ export const createAuth = (mailsService: MailsService) =>
     plugins: [
       organization({
         ac,
+        cancelPendingInvitationsOnReInvite: true,
         dynamicAccessControl: {
           enabled: true,
         },
+        requireEmailVerificationOnInvitation: true,
         roles: { owner, admin, member },
         async sendInvitationEmail(data) {
           await mailsService.sendOrganizationInvitation(data);

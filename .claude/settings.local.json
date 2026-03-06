@@ -13,7 +13,8 @@
       "mcp__better-auth__search-better-auth-docs",
       "Bash(pnpm drizzle-kit:*)",
       "Bash(pnpm run:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "WebFetch(domain:better-auth.com)"
     ]
   }
 }
