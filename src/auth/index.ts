@@ -76,7 +76,13 @@ export const createAuth = (mailsService: MailsService) =>
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       },
     },
-    trustedOrigins: [process.env.NEXT_URL!],
+    trustedOrigins: [process.env.BETTER_AUTH_URL!, process.env.NEXT_URL!],
+    // advanced: {
+    //   crossSubDomainCookies: {
+    //     enabled: true,
+    //     domain: '.birucoffee.com',
+    //   },
+    // },
     user: {
       additionalFields: {
         // birthDate: {
