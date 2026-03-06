@@ -77,12 +77,12 @@ export const createAuth = (mailsService: MailsService) =>
       },
     },
     trustedOrigins: [process.env.BETTER_AUTH_URL!, process.env.NEXT_URL!],
-    // advanced: {
-    //   crossSubDomainCookies: {
-    //     enabled: true,
-    //     domain: '.birucoffee.com',
-    //   },
-    // },
+    advanced: {
+      crossSubDomainCookies: {
+        enabled: true,
+        domain: '.birucoffee.com',
+      },
+    },
     user: {
       additionalFields: {
         // birthDate: {
