@@ -1,10 +1,10 @@
 // https://www.better-auth.com/docs/plugins/organization#custom-permissions
-// import from 'better-auth/plugins/access' (not 'better-auth/plugins') to keep bundle small
+
+import { createAccessControl } from 'better-auth/plugins/access';
 import {
   adminAc,
   defaultStatements,
 } from 'better-auth/plugins/organization/access';
-import { createAccessControl } from 'better-auth/plugins/access';
 
 const statement = {
   ...defaultStatements,
