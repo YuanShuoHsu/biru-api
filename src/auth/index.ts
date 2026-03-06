@@ -7,6 +7,8 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins';
 
+import { ac, admin, member, owner } from './permissions';
+
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
@@ -53,6 +55,11 @@ export const createAuth = (mailsService: MailsService) =>
     },
     plugins: [
       organization({
+        ac,
+        dynamicAccessControl: {
+          enabled: true,
+        },
+        roles: { owner, admin, member },
         async sendInvitationEmail(data) {
           await mailsService.sendOrganizationInvitation(data);
         },

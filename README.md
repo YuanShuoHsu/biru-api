@@ -400,7 +400,9 @@ import { auth } from "./auth"; // Your Better Auth instance
 })
 export class AppModule {}
 
-#  https://www.better-auth.com/docs/concepts/database
+# https://www.better-auth.com/docs/concepts/database
+
+# https://better-auth.com/docs/plugins/organization
 ```
 
 ## Drizzle ORM
