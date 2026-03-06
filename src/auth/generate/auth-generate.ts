@@ -14,7 +14,7 @@ export const auth = betterAuth({
   },
   advanced: {
     crossSubDomainCookies: {
-      enabled: true,
+      enabled: process.env.NODE_ENV === 'production',
       domain: '.birucoffee.com',
     },
   },

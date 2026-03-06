@@ -22,7 +22,7 @@ export const createAuth = (mailsService: MailsService) =>
     },
     advanced: {
       crossSubDomainCookies: {
-        enabled: true,
+        enabled: process.env.NODE_ENV === 'production',
         domain: '.birucoffee.com',
       },
     },
