@@ -20,6 +20,12 @@ export const createAuth = (mailsService: MailsService) =>
         enabled: true,
       },
     },
+    advanced: {
+      crossSubDomainCookies: {
+        enabled: true,
+        domain: '.birucoffee.com',
+      },
+    },
     appName: 'biru-api',
     database: drizzleAdapter(db, {
       provider: 'pg',
@@ -77,12 +83,6 @@ export const createAuth = (mailsService: MailsService) =>
       },
     },
     trustedOrigins: [process.env.NEXT_URL!],
-    advanced: {
-      crossSubDomainCookies: {
-        enabled: true,
-        domain: '.birucoffee.com',
-      },
-    },
     user: {
       additionalFields: {
         // birthDate: {

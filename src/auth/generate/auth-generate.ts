@@ -12,6 +12,12 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: '.birucoffee.com',
+    },
+  },
   appName: 'biru-api',
   database: drizzleAdapter(db, {
     provider: 'pg',
