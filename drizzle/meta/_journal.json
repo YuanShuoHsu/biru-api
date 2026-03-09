@@ -71,6 +71,13 @@
       "when": 1772708341752,
       "tag": "0009_red_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773036731570,
+      "tag": "0010_strong_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
-import { organization } from 'better-auth/plugins';
+import { admin as adminPlugin, organization } from 'better-auth/plugins';
 
 import { ac, admin, member, owner } from './permissions';
 
@@ -60,6 +60,7 @@ export const createAuth = (mailsService: MailsService) =>
       },
     },
     plugins: [
+      adminPlugin(),
       organization({
         ac,
         cancelPendingInvitationsOnReInvite: true,
