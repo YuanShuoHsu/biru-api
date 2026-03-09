@@ -46,7 +46,7 @@ export const createAuth = (mailsService: MailsService) =>
       //   id,
       // }),
       enabled: true,
-      // 1.5.x 的版本有點問題，先不要升級也不要用它 onExistingUserSignUp
+      // 尚有型別問題，未來升級再添加
       // onExistingUserSignUp: async ({ user }, request) => {
       //   await mailsService.onExistingUserSignUp({ user }, request);
       // },
