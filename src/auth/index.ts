@@ -2,6 +2,8 @@
 // https://www.better-auth.com/docs/concepts/email
 // https://www.better-auth.com/docs/concepts/rate-limit
 // https://www.better-auth.com/docs/concepts/users-accounts
+// https://better-auth.com/docs/plugins/admin
+// https://better-auth.com/docs/plugins/organization
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
@@ -32,6 +34,17 @@ export const createAuth = (mailsService: MailsService) =>
       schema,
     }),
     emailAndPassword: {
+      // 尚有型別問題，未來升級再添加
+      // customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
+      //   ...coreFields,
+      //   // Admin plugin fields (in schema order)
+      //   role: 'user', // or your configured defaultRole
+      //   banned: false,
+      //   banReason: null,
+      //   banExpires: null,
+      //   ...additionalFields,
+      //   id,
+      // }),
       enabled: true,
       // 1.5.x 的版本有點問題，先不要升級也不要用它 onExistingUserSignUp
       // onExistingUserSignUp: async ({ user }, request) => {

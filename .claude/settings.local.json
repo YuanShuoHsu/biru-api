@@ -16,7 +16,8 @@
       "Bash(npx:*)",
       "WebFetch(domain:better-auth.com)",
       "Bash(git:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
