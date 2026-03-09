@@ -8,12 +8,22 @@
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
 import { admin as adminPlugin, organization } from 'better-auth/plugins';
+import { eq } from 'drizzle-orm';
 
 import { ac, admin, member, owner } from './permissions';
 
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
+
+const getInitialOrganization = async (userId: string) => {
+  const membership = await db.query.member.findFirst({
+    where: eq(schema.member.userId, userId),
+    with: { organization: true },
+  });
+
+  return membership?.organization;
+};
 
 export const createAuth = (mailsService: MailsService) =>
   betterAuth({
@@ -29,6 +39,22 @@ export const createAuth = (mailsService: MailsService) =>
       },
     },
     appName: 'biru-api',
+    databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            const organization = await getInitialOrganization(session.userId);
+
+            return {
+              data: {
+                ...session,
+                activeOrganizationId: organization?.id,
+              },
+            };
+          },
+        },
+      },
+    },
     database: drizzleAdapter(db, {
       provider: 'pg',
       schema,
