@@ -2,6 +2,7 @@
 // https://www.better-auth.com/docs/concepts/email
 // https://www.better-auth.com/docs/concepts/rate-limit
 // https://www.better-auth.com/docs/concepts/users-accounts
+// https://better-auth.com/docs/concepts/oauth
 // https://better-auth.com/docs/plugins/admin
 // https://better-auth.com/docs/plugins/organization
 
@@ -113,6 +114,12 @@ export const createAuth = (mailsService: MailsService) =>
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        mapProfileToUser: (profile) => {
+          return {
+            firstName: profile.given_name,
+            lastName: profile.family_name,
+          };
+        },
       },
     },
     trustedOrigins: [process.env.NEXT_URL!],
