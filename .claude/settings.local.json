@@ -1,23 +1,7 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "defaultMode": "bypassPermissions",
   "permissions": {
-    "allow": [
-      "mcp__ide__getDiagnostics",
-      "Bash(python3:*)",
-      "WebFetch(domain:nestjs-i18n.com)",
-      "Bash(node:*)",
-      "Bash(pnpm info:*)",
-      "Bash(pnpm dlx:*)",
-      "Bash(pnpm add:*)",
-      "mcp__better-auth__ask-question-about-better-auth",
-      "Bash(find:*)",
-      "mcp__better-auth__search-better-auth-docs",
-      "Bash(pnpm drizzle-kit:*)",
-      "Bash(pnpm run:*)",
-      "Bash(npx:*)",
-      "WebFetch(domain:better-auth.com)",
-      "Bash(git:*)",
-      "Bash(openssl rand:*)",
-      "WebFetch(domain:github.com)"
-    ]
+    "deny": ["Bash(git *)"]
   }
 }
