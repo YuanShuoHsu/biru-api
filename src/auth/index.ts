@@ -71,10 +71,9 @@ export const createAuth = (mailsService: MailsService) =>
       //   id,
       // }),
       enabled: true,
-      // 尚有型別問題，未來升級再添加
-      // onExistingUserSignUp: async ({ user }, request) => {
-      //   await mailsService.onExistingUserSignUp({ user }, request);
-      // },
+      onExistingUserSignUp: async ({ user }, request) => {
+        await mailsService.onExistingUserSignUp({ user }, request);
+      },
       onPasswordReset: async ({ user }, request) => {
         await mailsService.onPasswordReset({ user }, request);
       },
