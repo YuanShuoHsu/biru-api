@@ -6,8 +6,6 @@ import { admin as adminPlugin, organization } from 'better-auth/plugins';
 import { db } from '../../db';
 import * as schema from '../../db/schema';
 
-import { ac, admin, member, owner } from '../permissions';
-
 export const auth = betterAuth({
   account: {
     accountLinking: {
@@ -35,13 +33,8 @@ export const auth = betterAuth({
   plugins: [
     adminPlugin(),
     organization({
-      ac,
       cancelPendingInvitationsOnReInvite: true,
-      dynamicAccessControl: {
-        enabled: true,
-      },
       requireEmailVerificationOnInvitation: true,
-      roles: { owner, admin, member },
     }),
   ],
   rateLimit: {

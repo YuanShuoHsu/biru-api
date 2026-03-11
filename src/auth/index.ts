@@ -10,8 +10,6 @@ import { betterAuth } from 'better-auth/minimal';
 import { admin as adminPlugin, organization } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 
-import { ac, admin, member, owner } from './permissions';
-
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
@@ -101,13 +99,8 @@ export const createAuth = (mailsService: MailsService) =>
     plugins: [
       adminPlugin(),
       organization({
-        ac,
         cancelPendingInvitationsOnReInvite: true,
-        dynamicAccessControl: {
-          enabled: true,
-        },
         requireEmailVerificationOnInvitation: true,
-        roles: { owner, admin, member },
         async sendInvitationEmail(data) {
           await mailsService.sendOrganizationInvitation(data);
         },
