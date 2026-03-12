@@ -121,7 +121,7 @@ export const createAuth = (mailsService: MailsService) =>
         },
       },
     },
-    trustedOrigins: [process.env.NEXT_URL!],
+    trustedOrigins: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
     user: {
       additionalFields: {
         // birthDate: {

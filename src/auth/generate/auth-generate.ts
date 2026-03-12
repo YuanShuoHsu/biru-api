@@ -46,7 +46,7 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
   },
-  trustedOrigins: [process.env.NEXT_URL!],
+  trustedOrigins: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
   user: {
     additionalFields: {
       // birthDate: {

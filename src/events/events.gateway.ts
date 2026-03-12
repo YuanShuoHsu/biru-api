@@ -13,7 +13,7 @@ import { EventsService } from './events.service';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.NEXT_URL,
+    origin: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
   },
 })
 export class EventsGateway {

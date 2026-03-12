@@ -25,7 +25,7 @@ async function bootstrap() {
 
   app.enableCors({
     credentials: true,
-    origin: process.env.NEXT_URL,
+    origin: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
   });
 
   app.useGlobalPipes(
