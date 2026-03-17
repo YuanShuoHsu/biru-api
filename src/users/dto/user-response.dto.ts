@@ -1,10 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import {
-  DEFAULT_LANG,
-  langsEnum,
-  type LangEnum,
-} from 'src/db/schema/users';
+import { DEFAULT_LANG, langsEnum, type LangEnum } from 'src/db/schema/users';
 
 export class UserResponseDto {
   @ApiProperty({
