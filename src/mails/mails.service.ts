@@ -30,7 +30,7 @@ export class MailsService {
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
-    const url = `${baseUrl}/${lang}`;
+    const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
     const userAgent = request?.headers.get('user-agent') || undefined;
@@ -48,12 +48,13 @@ export class MailsService {
         template: 'after-email-verification',
         context: {
           browser_name,
+          home_url,
           i18nLang: lang,
           name,
           operating_system,
           productName,
           support_url,
-          url,
+          url: home_url,
         },
       })
       .then(() => {})
@@ -72,6 +73,7 @@ export class MailsService {
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -90,6 +92,7 @@ export class MailsService {
         template: 'on-existing-user-sign-up',
         context: {
           browser_name,
+          home_url,
           i18nLang: lang,
           name,
           operating_system,
@@ -114,6 +117,7 @@ export class MailsService {
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -132,12 +136,63 @@ export class MailsService {
         template: 'on-password-reset',
         context: {
           browser_name,
+          home_url,
           i18nLang: lang,
           name,
           operating_system,
           productName,
           sign_in_url,
           support_url,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  public async sendInvitationEmail(
+    {
+      id,
+      email,
+      role,
+      organization: { name: organizationName },
+      inviter: {
+        user: { name: inviterName },
+      },
+    }: {
+      id: string;
+      email: string;
+      role: string;
+      organization: { name: string };
+      inviter: { user: { name: string; email: string } };
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const inviteParams = new URLSearchParams({ email, token: id });
+    const invite_url = `${baseUrl}/${lang}/auth/accept-invitation?${inviteParams.toString()}`;
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.organization_invitation.subject', {
+          args: { organizationName, productName },
+        }),
+        template: 'organization-invitation',
+        context: {
+          home_url,
+          i18nLang: lang,
+          inviterName,
+          organizationName,
+          productName,
+          role,
+          support_url,
+          url: invite_url,
         },
       })
       .then(() => {})
@@ -194,42 +249,6 @@ export class MailsService {
           productName,
           support_url,
           url: resetPasswordUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
-  }
-
-  public async sendOrganizationInvitation(data: {
-    id: string;
-    email: string;
-    role: string;
-    organization: { name: string };
-    inviter: { user: { name: string; email: string } };
-  }): Promise<void> {
-    const productName = PRODUCT_NAME;
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = DEFAULT_LANG;
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
-    const invite_url = `${baseUrl}/${lang}/auth/accept-invitation/${data.id}`;
-
-    await this.mailerService
-      .sendMail({
-        to: data.email,
-        subject: this.i18n.t('mail.organization_invitation.subject', {
-          args: { organizationName: data.organization.name, productName },
-        }),
-        template: 'organization-invitation',
-        context: {
-          home_url,
-          i18nLang: lang,
-          inviterName: data.inviter.user.name,
-          organizationName: data.organization.name,
-          productName,
-          role: data.role,
-          support_url,
-          url: invite_url,
         },
       })
       .then(() => {})

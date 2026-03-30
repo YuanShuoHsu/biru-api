@@ -101,8 +101,14 @@ export const createAuth = (mailsService: MailsService) =>
       organization({
         cancelPendingInvitationsOnReInvite: true,
         requireEmailVerificationOnInvitation: true,
-        async sendInvitationEmail(data) {
-          await mailsService.sendOrganizationInvitation(data);
+        async sendInvitationEmail(
+          { id, email, role, organization, inviter },
+          request,
+        ) {
+          await mailsService.sendInvitationEmail(
+            { id, email, role, organization, inviter },
+            request,
+          );
         },
       }),
     ],
