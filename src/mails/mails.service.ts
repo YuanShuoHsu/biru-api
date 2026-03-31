@@ -174,7 +174,7 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
-    const inviteParams = new URLSearchParams({ email, token: id });
+    const inviteParams = new URLSearchParams({ email, id });
     const invite_url = `${baseUrl}/${lang}/auth/accept-invitation?${inviteParams.toString()}`;
 
     await this.mailerService
