@@ -59,17 +59,15 @@ export const createAuth = (mailsService: MailsService) =>
       schema,
     }),
     emailAndPassword: {
-      // 尚有型別問題，未來升級再添加
-      // customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
-      //   ...coreFields,
-      //   // Admin plugin fields (in schema order)
-      //   role: 'user', // or your configured defaultRole
-      //   banned: false,
-      //   banReason: null,
-      //   banExpires: null,
-      //   ...additionalFields,
-      //   id,
-      // }),
+      customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
+        ...coreFields,
+        role: 'user',
+        banned: false,
+        banReason: null,
+        banExpires: null,
+        ...additionalFields,
+        id,
+      }),
       enabled: true,
       onExistingUserSignUp: async ({ user }, request) => {
         await mailsService.onExistingUserSignUp({ user }, request);
