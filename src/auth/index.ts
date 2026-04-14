@@ -8,7 +8,11 @@
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
-import { admin as adminPlugin, organization } from 'better-auth/plugins';
+import {
+  admin as adminPlugin,
+  multiSession,
+  organization,
+} from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 
 import { db } from '../db';
@@ -96,6 +100,7 @@ export const createAuth = (mailsService: MailsService) =>
     },
     plugins: [
       adminPlugin(),
+      multiSession(),
       organization({
         cancelPendingInvitationsOnReInvite: true,
         requireEmailVerificationOnInvitation: true,
