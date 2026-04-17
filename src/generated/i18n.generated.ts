@@ -67,6 +67,17 @@ export type I18nTranslations = {
             "title": string;
             "trouble_hint": string;
         };
+        "send_change_email_confirmation": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
         "send_verification_email": {
             "action_button": string;
             "address": string;

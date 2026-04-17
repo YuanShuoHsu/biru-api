@@ -54,6 +54,17 @@
     "title": "您收到一份邀請！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "send_change_email_confirmation": {
+    "action_button": "確認更換電子郵件",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "我們收到將您 {productName} 帳號的電子郵件更換為 <strong>{newEmail}</strong> 的申請。請點擊下方按鈕確認此更換，此連結有效期為 1 小時。",
+    "preheader": "請確認您的 {productName} 電子郵件地址變更。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有申請此變更，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "請確認您的 {productName} 電子郵件地址變更",
+    "title": "{name}，請確認您的電子郵件變更！",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
   "send_verification_email": {
     "action_button": "確認電子郵件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
