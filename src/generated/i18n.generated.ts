@@ -45,17 +45,6 @@ export type I18nTranslations = {
             "title": string;
             "trouble_hint": string;
         };
-        "send_reset_password": {
-            "action_button": string;
-            "address": string;
-            "intro": string;
-            "preheader": string;
-            "salutation": string;
-            "security_notice": string;
-            "subject": string;
-            "title": string;
-            "trouble_hint": string;
-        };
         "organization_invitation": {
             "action_button": string;
             "address": string;
@@ -68,6 +57,17 @@ export type I18nTranslations = {
             "trouble_hint": string;
         };
         "send_change_email_confirmation": {
+            "action_button": string;
+            "address": string;
+            "intro": string;
+            "preheader": string;
+            "salutation": string;
+            "security_notice": string;
+            "subject": string;
+            "title": string;
+            "trouble_hint": string;
+        };
+        "send_reset_password": {
             "action_button": string;
             "address": string;
             "intro": string;

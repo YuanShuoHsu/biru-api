@@ -132,18 +132,6 @@ export const createAuth = (mailsService: MailsService) =>
     },
     trustedOrigins: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
     user: {
-      changeEmail: {
-        enabled: true,
-        sendChangeEmailConfirmation: async (
-          { user, newEmail, url, token },
-          request,
-        ) => {
-          await mailsService.sendChangeEmailConfirmation(
-            { user, newEmail, url, token },
-            request,
-          );
-        },
-      },
       additionalFields: {
         // birthDate: {
         //   type: 'date',
@@ -182,6 +170,18 @@ export const createAuth = (mailsService: MailsService) =>
         //   defaultValue: false,
         //   input: false,
         // },
+      },
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: async (
+          { user, newEmail, url, token },
+          request,
+        ) => {
+          await mailsService.sendChangeEmailConfirmation(
+            { user, newEmail, url, token },
+            request,
+          );
+        },
       },
     },
   });

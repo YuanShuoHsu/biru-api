@@ -32,17 +32,6 @@
     "title": "密碼已變更，{name}！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
-  "send_reset_password": {
-    "action_button": "重置密碼",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "您申請了重置 {productName} 密碼。請點擊下方按鈕設定新密碼，此連結有效期為 1 小時。",
-    "preheader": "重置您的 {productName} 密碼，此連結將在 1 小時後過期。",
-    "salutation": "謝謝，<br>{productName} 團隊",
-    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有申請重置密碼，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
-    "subject": "重置您的 {productName} 密碼",
-    "title": "{name}，請重置您的密碼！",
-    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
-  },
   "organization_invitation": {
     "action_button": "接受邀請",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
@@ -63,6 +52,17 @@
     "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有申請此變更，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
     "subject": "請確認您的 {productName} 電子郵件地址變更",
     "title": "{name}，請確認您的電子郵件變更！",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "send_reset_password": {
+    "action_button": "重置密碼",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "您申請了重置 {productName} 密碼。請點擊下方按鈕設定新密碼，此連結有效期為 1 小時。",
+    "preheader": "重置您的 {productName} 密碼，此連結將在 1 小時後過期。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有申請重置密碼，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "重置您的 {productName} 密碼",
+    "title": "{name}，請重置您的密碼！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
   "send_verification_email": {

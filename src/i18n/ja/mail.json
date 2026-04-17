@@ -43,17 +43,6 @@
     "title": "招待が届いています！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
-  "send_reset_password": {
-    "action_button": "パスワードをリセット",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
-    "intro": "{productName} のパスワードリセットをリクエストしました。下のボタンをクリックして新しいパスワードを設定してください。このリンクは1時間有効です。",
-    "preheader": "{productName} のパスワードをリセットします。このリンクは1時間で期限切れになります。",
-    "salutation": "ありがとうございます。<br>{productName} チーム",
-    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードリセットをリクエストしていない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
-    "subject": "{productName} パスワードをリセット",
-    "title": "{name}さん、パスワードをリセットしてください！",
-    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
-  },
   "send_change_email_confirmation": {
     "action_button": "メールアドレス変更を確認",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
@@ -63,6 +52,17 @@
     "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。このリクエストに覚えがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName} メールアドレス変更の確認",
     "title": "{name}さん、メールアドレスの変更を確認してください！",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "send_reset_password": {
+    "action_button": "パスワードをリセット",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName} のパスワードリセットをリクエストしました。下のボタンをクリックして新しいパスワードを設定してください。このリンクは1時間有効です。",
+    "preheader": "{productName} のパスワードをリセットします。このリンクは1時間で期限切れになります。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{operating_system}デバイス（{browser_name}）から受信されました。パスワードリセットをリクエストしていない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} パスワードをリセット",
+    "title": "{name}さん、パスワードをリセットしてください！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
   "send_verification_email": {
