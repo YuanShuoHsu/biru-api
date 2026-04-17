@@ -149,6 +149,65 @@ export class MailsService {
       .catch(() => {});
   }
 
+  public async sendChangeEmailConfirmation(
+    {
+      user: { email, name },
+      newEmail,
+      url,
+      token,
+    }: {
+      user: Pick<User, 'email' | 'name'>;
+      newEmail: string;
+      url: string;
+      token: string;
+    },
+    request?: Request,
+  ): Promise<void> {
+    const productName = PRODUCT_NAME;
+
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
+    const home_url = `${baseUrl}/${lang}`;
+    const support_url = `${baseUrl}/${lang}/company/contact`;
+
+    const parsedUrl = new URL(url);
+    const callbackURL = parsedUrl.searchParams.get('callbackURL');
+    const verifyParams = new URLSearchParams({
+      email,
+      token,
+      ...(callbackURL && { redirectTo: callbackURL }),
+    });
+    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
+
+    const userAgent = request?.headers.get('user-agent') || undefined;
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+    const browser_name = result.browser?.name || 'Unknown';
+    const operating_system = result.os?.name || 'Unknown';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
+          args: { productName },
+        }),
+        template: 'send-change-email-confirmation',
+        context: {
+          browser_name,
+          home_url,
+          i18nLang: lang,
+          name,
+          newEmail,
+          operating_system,
+          productName,
+          support_url,
+          url: verifyEmailUrl,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
   public async sendInvitationEmail(
     {
       id,
@@ -262,65 +321,6 @@ export class MailsService {
         subject: 'Biru Coffee SMTP Test',
         text: 'If you receive this email, your SMTP configuration is correct!',
         html: '<b>If you receive this email, your SMTP configuration is correct!</b>',
-      })
-      .then(() => {})
-      .catch(() => {});
-  }
-
-  public async sendChangeEmailConfirmation(
-    {
-      user: { email, name },
-      newEmail,
-      url,
-      token,
-    }: {
-      user: Pick<User, 'email' | 'name'>;
-      newEmail: string;
-      url: string;
-      token: string;
-    },
-    request?: Request,
-  ): Promise<void> {
-    const productName = PRODUCT_NAME;
-
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANG;
-    const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
-
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const verifyParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
-
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
-
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
-          args: { productName },
-        }),
-        template: 'send-change-email-confirmation',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          newEmail,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
       })
       .then(() => {})
       .catch(() => {});
