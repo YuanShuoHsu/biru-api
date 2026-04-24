@@ -65,6 +65,17 @@
     "title": "{name}さん、パスワードをリセットしてください！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "send_delete_account_verification": {
+    "action_button": "アカウント削除を確認",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "{productName} アカウントの永久削除リクエストを受け付けました。下のボタンをクリックして操作を確認してください。このリンクの有効期限は1時間です。確認しない場合、アカウントは削除されません。",
+    "preheader": "{productName} アカウントの削除リクエストを確認してください。",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "security_notice": "セキュリティのため、このリクエストは{browser_name}を使用する{operating_system}デバイスから受信しました。アカウントの削除を申請していない場合は、このメールを無視するか、直ちに<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
+    "subject": "{productName} アカウントの削除確認",
+    "title": "{name}さん、アカウントを削除しますか？",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
   "send_verification_email": {
     "action_button": "メールアドレスを確認",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

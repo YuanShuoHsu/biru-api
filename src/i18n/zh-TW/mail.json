@@ -65,6 +65,17 @@
     "title": "{name}，請重置您的密碼！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "send_delete_account_verification": {
+    "action_button": "確認刪除帳號",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "我們收到永久刪除您 {productName} 帳號的申請。請點擊下方按鈕確認此操作，此連結有效期為 1 小時。如果您未確認，帳號將不會被刪除。",
+    "preheader": "請確認您的 {productName} 帳號刪除申請。",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "security_notice": "基於安全考量，此請求來自使用 {browser_name} 的 {operating_system} 裝置。如果您沒有申請刪除帳號，請忽略此郵件，如有疑問請立即<a href=\"{support_url}\">聯繫客服</a>。",
+    "subject": "請確認您的 {productName} 帳號刪除申請",
+    "title": "{name}，您確定要刪除帳號嗎？",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
   "send_verification_email": {
     "action_button": "確認電子郵件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

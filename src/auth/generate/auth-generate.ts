@@ -10,7 +10,13 @@ export const auth = betterAuth({
   account: {
     accountLinking: {
       enabled: true,
+      allowUnlinkingAll: false,
+      trustedProviders: ['google'],
+      updateUserInfoOnLink: true,
     },
+  },
+  deleteUser: {
+    enabled: true,
   },
   advanced: {
     crossSubDomainCookies: {

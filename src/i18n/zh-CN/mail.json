@@ -65,6 +65,17 @@
     "title": "{name}，请重置您的密码！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "send_delete_account_verification": {
+    "action_button": "确认删除账号",
+    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "intro": "我们收到永久删除您 {productName} 账号的申请。请点击下方按钮确认此操作，此链接有效期为 1 小时。如果您未确认，账号将不会被删除。",
+    "preheader": "请确认您的 {productName} 账号删除申请。",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "security_notice": "出于安全考量，此请求来自使用 {browser_name} 的 {operating_system} 设备。如果您没有申请删除账号，请忽略此邮件，如有疑问请立即<a href=\"{support_url}\">联系客服</a>。",
+    "subject": "请确认您的 {productName} 账号删除申请",
+    "title": "{name}，您确定要删除账号吗？",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
   "send_verification_email": {
     "action_button": "确认电子邮件",
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",

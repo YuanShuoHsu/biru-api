@@ -33,6 +33,29 @@ export const createAuth = (mailsService: MailsService) =>
     account: {
       accountLinking: {
         enabled: true,
+        allowUnlinkingAll: false,
+        trustedProviders: ['google'],
+        updateUserInfoOnLink: true,
+      },
+    },
+    deleteUser: {
+      enabled: true,
+      sendDeleteAccountVerification: async (
+        {
+          user,
+          url,
+          token,
+        }: {
+          user: { email: string; name: string };
+          url: string;
+          token: string;
+        },
+        request?: Request,
+      ) => {
+        await mailsService.sendDeleteAccountVerification(
+          { user, url, token },
+          request,
+        );
       },
     },
     advanced: {
