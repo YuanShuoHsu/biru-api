@@ -38,26 +38,6 @@ export const createAuth = (mailsService: MailsService) =>
         updateUserInfoOnLink: true,
       },
     },
-    deleteUser: {
-      enabled: true,
-      sendDeleteAccountVerification: async (
-        {
-          user,
-          url,
-          token,
-        }: {
-          user: { email: string; name: string };
-          url: string;
-          token: string;
-        },
-        request?: Request,
-      ) => {
-        await mailsService.sendDeleteAccountVerification(
-          { user, url, token },
-          request,
-        );
-      },
-    },
     advanced: {
       crossSubDomainCookies: {
         enabled: process.env.NODE_ENV === 'production',
@@ -202,6 +182,26 @@ export const createAuth = (mailsService: MailsService) =>
         ) => {
           await mailsService.sendChangeEmailConfirmation(
             { user, newEmail, url, token },
+            request,
+          );
+        },
+      },
+      deleteUser: {
+        enabled: true,
+        sendDeleteAccountVerification: async (
+          {
+            user,
+            url,
+            token,
+          }: {
+            user: { email: string; name: string };
+            url: string;
+            token: string;
+          },
+          request?: Request,
+        ) => {
+          await mailsService.sendDeleteAccountVerification(
+            { user, url, token },
             request,
           );
         },
