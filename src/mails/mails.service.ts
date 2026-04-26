@@ -230,6 +230,7 @@ export class MailsService {
     const parsedUrl = new URL(url);
     const callbackURL = parsedUrl.searchParams.get('callbackURL');
     const deleteParams = new URLSearchParams({
+      email,
       token,
       ...(callbackURL && { redirectTo: callbackURL }),
     });
