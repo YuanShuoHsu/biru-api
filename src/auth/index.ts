@@ -124,8 +124,8 @@ export const createAuth = (mailsService: MailsService) =>
     },
     socialProviders: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID as string,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         mapProfileToUser: (profile) => {
           return {
             firstName: profile.given_name,
