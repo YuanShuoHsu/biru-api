@@ -6,12 +6,8 @@
 import { relations } from 'drizzle-orm';
 import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
-import { invitation, member } from './organizations';
-
 import { DEFAULT_LANG, langsEnum } from './enums';
-
-export { DEFAULT_GENDER, DEFAULT_LANG, gendersEnum, langsEnum } from './enums';
-export type { GenderEnum, LangEnum } from './enums';
+import { invitation, member, teamMember } from './organizations';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -25,7 +21,7 @@ export const user = pgTable('user', {
     .$onUpdate(() => new Date())
     .notNull(),
   role: text('role'),
-  banned: boolean('banned'),
+  banned: boolean('banned').default(false),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires'),
   // additional fields
@@ -61,6 +57,7 @@ export const session = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     impersonatedBy: text('impersonated_by'),
     activeOrganizationId: text('active_organization_id'),
+    activeTeamId: text('active_team_id'),
   },
   (table) => [index('session_userId_idx').on(table.userId)],
 );
@@ -108,6 +105,7 @@ export const verification = pgTable(
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  teamMembers: many(teamMember),
   members: many(member),
   invitations: many(invitation),
 }));

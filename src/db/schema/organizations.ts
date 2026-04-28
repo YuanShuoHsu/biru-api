@@ -34,25 +34,41 @@ export const organization = pgTable(
 
 export type Organization = typeof organization.$inferSelect;
 
-export const organizationRole = pgTable(
-  'organization_role',
+export const team = pgTable(
+  'team',
   {
     id: text('id').primaryKey(),
+    name: text('name').notNull(),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
-    role: text('role').notNull(),
-    permission: text('permission').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').$onUpdate(() => new Date()),
   },
+  (table) => [index('team_organizationId_idx').on(table.organizationId)],
+);
+
+export type Team = typeof team.$inferSelect;
+
+export const teamMember = pgTable(
+  'team_member',
+  {
+    id: text('id').primaryKey(),
+    teamId: text('team_id')
+      .notNull()
+      .references(() => team.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at'),
+  },
   (table) => [
-    index('organizationRole_organizationId_idx').on(table.organizationId),
-    index('organizationRole_role_idx').on(table.role),
+    index('teamMember_teamId_idx').on(table.teamId),
+    index('teamMember_userId_idx').on(table.userId),
   ],
 );
 
-export type OrganizationRole = typeof organizationRole.$inferSelect;
+export type TeamMember = typeof teamMember.$inferSelect;
 
 export const member = pgTable(
   'member',
@@ -84,6 +100,7 @@ export const invitation = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     role: text('role'),
+    teamId: text('team_id'),
     status: text('status').default('pending').notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -100,20 +117,29 @@ export const invitation = pgTable(
 export type Invitation = typeof invitation.$inferSelect;
 
 export const organizationRelations = relations(organization, ({ many }) => ({
-  organizationRoles: many(organizationRole),
+  teams: many(team),
   members: many(member),
   invitations: many(invitation),
 }));
 
-export const organizationRoleRelations = relations(
-  organizationRole,
-  ({ one }) => ({
-    organization: one(organization, {
-      fields: [organizationRole.organizationId],
-      references: [organization.id],
-    }),
+export const teamRelations = relations(team, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [team.organizationId],
+    references: [organization.id],
   }),
-);
+  teamMembers: many(teamMember),
+}));
+
+export const teamMemberRelations = relations(teamMember, ({ one }) => ({
+  team: one(team, {
+    fields: [teamMember.teamId],
+    references: [team.id],
+  }),
+  user: one(user, {
+    fields: [teamMember.userId],
+    references: [user.id],
+  }),
+}));
 
 export const memberRelations = relations(member, ({ one }) => ({
   organization: one(organization, {

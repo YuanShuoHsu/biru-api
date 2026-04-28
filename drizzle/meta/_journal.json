@@ -78,6 +78,13 @@
       "when": 1773036731570,
       "tag": "0010_strong_valeria_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777368697800,
+      "tag": "0011_heavy_pyro",
+      "breakpoints": true
     }
   ]
 }

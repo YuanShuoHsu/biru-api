@@ -13,7 +13,7 @@ import {
   DEFAULT_GENDER,
   type GenderEnum,
   gendersEnum,
-} from 'src/db/schema/users';
+} from 'src/db/schema/enums';
 
 export class UpdateUserDto {
   @ApiProperty({

@@ -4,7 +4,8 @@ import { ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
 import { PRODUCT_NAME } from 'src/common/constants/product';
-import { DEFAULT_LANG, type User } from 'src/db/schema/users';
+import { DEFAULT_LANG } from 'src/db/schema/enums';
+import type { User } from 'src/db/schema/users';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { UAParser } from 'ua-parser-js';
 
