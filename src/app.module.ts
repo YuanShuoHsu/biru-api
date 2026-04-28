@@ -1,11 +1,5 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-
 import type { Request } from 'express';
-
+import { ClsModule } from 'nestjs-cls';
 import {
   AcceptLanguageResolver,
   HeaderResolver,
@@ -14,8 +8,6 @@ import {
 } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
-import { ClsModule } from 'nestjs-cls';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createAuth } from './auth';
@@ -25,9 +17,16 @@ import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
-import { StoresModule } from './stores/stores.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
+
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
+import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 @Module({
   imports: [
@@ -70,7 +69,6 @@ import { UsersModule } from './users/users.module';
     }),
     MailsModule,
     ScheduleModule.forRoot(),
-    StoresModule,
     TasksModule,
     ThrottlerModule.forRoot({
       throttlers: [

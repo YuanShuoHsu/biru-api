@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  boolean,
   index,
   pgTable,
   text,
@@ -7,6 +8,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
+import { DEFAULT_LANG, langsEnum } from './enums';
 import { user } from './users';
 
 export const organization = pgTable(
@@ -18,6 +20,14 @@ export const organization = pgTable(
     logo: text('logo'),
     createdAt: timestamp('created_at').notNull(),
     metadata: text('metadata'),
+    // additional fields
+    supportedLocales: langsEnum('supported_locales')
+      .array()
+      .notNull()
+      .default([]),
+    defaultLocale: langsEnum('default_locale').default(DEFAULT_LANG).notNull(),
+    address: text('address'),
+    isActive: boolean('is_active').default(true).notNull(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );

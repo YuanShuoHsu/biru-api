@@ -4,25 +4,14 @@
 // https://www.better-auth.com/docs/plugins/phone-number
 
 import { relations } from 'drizzle-orm';
-import {
-  boolean,
-  index,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { invitation, member } from './organizations';
 
-export const gendersEnum = pgEnum('genders', ['female', 'male', 'other']);
-export type GenderEnum = (typeof gendersEnum.enumValues)[number];
+import { DEFAULT_LANG, langsEnum } from './enums';
 
-export const langsEnum = pgEnum('langs', ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']);
-export type LangEnum = (typeof langsEnum.enumValues)[number];
-
-export const DEFAULT_GENDER: GenderEnum = 'other';
-export const DEFAULT_LANG: LangEnum = 'zh-TW';
+export { DEFAULT_GENDER, DEFAULT_LANG, gendersEnum, langsEnum } from './enums';
+export type { GenderEnum, LangEnum } from './enums';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
