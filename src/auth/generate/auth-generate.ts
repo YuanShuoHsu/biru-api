@@ -41,6 +41,9 @@ export const auth = betterAuth({
     organization({
       cancelPendingInvitationsOnReInvite: true,
       requireEmailVerificationOnInvitation: true,
+      teams: {
+        enabled: true,
+      },
     }),
   ],
   rateLimit: {

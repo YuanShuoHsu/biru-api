@@ -117,6 +117,9 @@ export const createAuth = (mailsService: MailsService) =>
             request,
           );
         },
+        teams: {
+          enabled: true,
+        },
       }),
     ],
     rateLimit: {
