@@ -119,6 +119,7 @@ export const createAuth = (mailsService: MailsService) =>
         },
         teams: {
           enabled: true,
+          allowRemovingAllTeams: true,
         },
       }),
     ],

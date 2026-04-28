@@ -43,6 +43,7 @@ export const auth = betterAuth({
       requireEmailVerificationOnInvitation: true,
       teams: {
         enabled: true,
+        allowRemovingAllTeams: true,
       },
     }),
   ],
