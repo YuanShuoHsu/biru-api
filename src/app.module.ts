@@ -1,3 +1,10 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
+
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
 import {
@@ -20,14 +27,6 @@ import { MailsService } from './mails/mails.service';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
-
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 @Module({
   imports: [
