@@ -21,10 +21,6 @@ export const organization = pgTable(
     createdAt: timestamp('created_at').notNull(),
     metadata: text('metadata'),
     // additional fields
-    supportedLocales: langsEnum('supported_locales')
-      .array()
-      .notNull()
-      .default([]),
     defaultLocale: langsEnum('default_locale').default(DEFAULT_LANG).notNull(),
     address: text('address'),
     isActive: boolean('is_active').default(true).notNull(),
