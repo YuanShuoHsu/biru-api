@@ -9,6 +9,12 @@ import { OrganizationsService } from './organizations.service';
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
+  @Get()
+  @ApiOperation({ summary: '查詢所有組織' })
+  findAll(): Promise<OrganizationResponseDto[]> {
+    return this.organizationsService.organizations({});
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: '查詢組織' })
   async findOne(@Param('slug') slug: string): Promise<OrganizationResponseDto> {

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, SQL } from 'drizzle-orm';
 import type { Organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -8,6 +8,22 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 @Injectable()
 export class OrganizationsService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+
+  organizations(params: {
+    offset?: number;
+    limit?: number;
+    where?: SQL;
+    orderBy?: SQL | SQL[];
+  }): Promise<Organization[]> {
+    const { offset, limit, where, orderBy } = params;
+
+    return this.db.query.organization.findMany({
+      where,
+      orderBy,
+      limit,
+      offset,
+    });
+  }
 
   async organization(
     where: Partial<Organization>,
