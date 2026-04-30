@@ -1,9 +1,11 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { OrganizationResponseDto } from './dto/organization-response.dto';
 import { OrganizationsService } from './organizations.service';
 
+@AllowAnonymous()
 @ApiTags('organizations')
 @Controller('organizations')
 export class OrganizationsController {
