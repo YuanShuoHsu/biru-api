@@ -17,6 +17,7 @@ import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
@@ -68,6 +69,7 @@ import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
       inject: [ConfigService],
     }),
     MailsModule,
+    OrganizationsModule,
     ScheduleModule.forRoot(),
     TasksModule,
     ThrottlerModule.forRoot({
