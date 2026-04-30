@@ -9,7 +9,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 export class OrganizationsService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  organizations(params: {
+  async organizations(params: {
     offset?: number;
     limit?: number;
     where?: SQL;
@@ -17,7 +17,7 @@ export class OrganizationsService {
   }): Promise<Organization[]> {
     const { offset, limit, where, orderBy } = params;
 
-    return this.db.query.organization.findMany({
+    return await this.db.query.organization.findMany({
       where,
       orderBy,
       limit,
