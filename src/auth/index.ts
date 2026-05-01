@@ -108,6 +108,42 @@ export const createAuth = (mailsService: MailsService) =>
       organization({
         cancelPendingInvitationsOnReInvite: true,
         requireEmailVerificationOnInvitation: true,
+        schema: {
+          organization: {
+            additionalFields: {
+              // https://schema.org/PostalAddress
+              addressCountry: {
+                type: 'string',
+                required: false,
+                defaultValue: 'TW',
+              },
+              addressLocality: {
+                type: 'string',
+                required: false,
+              },
+              addressRegion: {
+                type: 'string',
+                required: false,
+              },
+              extendedAddress: {
+                type: 'string',
+                required: false,
+              },
+              postOfficeBoxNumber: {
+                type: 'string',
+                required: false,
+              },
+              postalCode: {
+                type: 'string',
+                required: false,
+              },
+              streetAddress: {
+                type: 'string',
+                required: false,
+              },
+            },
+          },
+        },
         async sendInvitationEmail(
           { id, email, role, organization, inviter },
           request,

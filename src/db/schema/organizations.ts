@@ -22,7 +22,16 @@ export const organization = pgTable(
     metadata: text('metadata'),
     // additional fields
     defaultLocale: langsEnum('default_locale').default(DEFAULT_LANG).notNull(),
-    address: text('address'),
+
+    // https://schema.org/PostalAddress
+    addressCountry: text('address_country').default('TW'),
+    addressLocality: text('address_locality'),
+    addressRegion: text('address_region'),
+    extendedAddress: text('extended_address'),
+    postOfficeBoxNumber: text('post_office_box_number'),
+    postalCode: text('postal_code'),
+    streetAddress: text('street_address'),
+
     isActive: boolean('is_active').default(true).notNull(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
