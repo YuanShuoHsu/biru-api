@@ -29,7 +29,7 @@ export const organization = pgTable(
     postalCode: text('postal_code'),
     streetAddress: text('street_address'),
 
-    isActive: boolean('is_active').default(true).notNull(),
+    isOpen: boolean('is_open').default(true).notNull(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );
