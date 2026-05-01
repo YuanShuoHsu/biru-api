@@ -13,15 +13,37 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   logo: string | null;
 
+  @ApiProperty()
+  createdAt: Date;
+
   @ApiPropertyOptional()
-  address: string | null;
+  metadata: string | null;
 
   @ApiProperty()
   defaultLocale: string;
 
-  @ApiProperty()
-  isActive: boolean;
+  // https://schema.org/PostalAddress
+  @ApiPropertyOptional({ default: 'TW' })
+  addressCountry: string | null;
+
+  @ApiPropertyOptional()
+  addressLocality: string | null;
+
+  @ApiPropertyOptional()
+  addressRegion: string | null;
+
+  @ApiPropertyOptional()
+  extendedAddress: string | null;
+
+  @ApiPropertyOptional()
+  postOfficeBoxNumber: string | null;
+
+  @ApiPropertyOptional()
+  postalCode: string | null;
+
+  @ApiPropertyOptional()
+  streetAddress: string | null;
 
   @ApiProperty()
-  createdAt: Date;
+  isActive: boolean;
 }
