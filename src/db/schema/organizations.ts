@@ -8,7 +8,6 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { DEFAULT_LANG, langsEnum } from './enums';
 import { user } from './users';
 
 export const organization = pgTable(
@@ -21,8 +20,6 @@ export const organization = pgTable(
     createdAt: timestamp('created_at').notNull(),
     metadata: text('metadata'),
     // additional fields
-    defaultLocale: langsEnum('default_locale').default(DEFAULT_LANG).notNull(),
-
     // https://schema.org/PostalAddress
     addressCountry: text('address_country').default('TW'),
     addressLocality: text('address_locality'),

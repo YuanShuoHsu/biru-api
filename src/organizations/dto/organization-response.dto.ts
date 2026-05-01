@@ -19,9 +19,6 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   metadata: string | null;
 
-  @ApiProperty()
-  defaultLocale: string;
-
   // https://schema.org/PostalAddress
   @ApiPropertyOptional({ default: 'TW' })
   addressCountry: string | null;
