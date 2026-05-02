@@ -154,16 +154,12 @@ export const offer = pgTable(
     priceValidUntil: text('price_valid_until'),
     validFrom: text('valid_from'),
     validThrough: text('valid_through'),
-    // https://schema.org/Offer - sku
     sku: text('sku'),
-    // https://schema.org/Offer - eligibleQuantity (QuantitativeValue)
     eligibleQuantityMin: integer('eligible_quantity_min'),
     eligibleQuantityMax: integer('eligible_quantity_max'),
-    // https://schema.org/Offer - seller
     sellerId: text('seller_id').references(() => organization.id, {
       onDelete: 'set null',
     }),
-    // https://schema.org/Offer - eligibleRegion
     eligibleRegion: text('eligible_region').array(),
     ...timestamps,
   },
@@ -200,8 +196,6 @@ export const menuItemAddOn = pgTable(
 );
 
 export type MenuItemAddOn = typeof menuItemAddOn.$inferSelect;
-
-// Relations
 
 export const menuRelations = relations(menu, ({ one, many }) => ({
   organization: one(organization, {
