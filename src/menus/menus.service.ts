@@ -38,7 +38,7 @@ export class MenusService {
     const result = await this.db.query.menu.findFirst({
       where: eq(menu.id, where.id),
     });
-    return result ?? null;
+    return result || null;
   }
 
   async updateMenu(params: {
@@ -84,7 +84,7 @@ export class MenusService {
     const result = await this.db.query.menuSection.findFirst({
       where: eq(menuSection.id, where.id),
     });
-    return result ?? null;
+    return result || null;
   }
 
   async updateMenuSection(params: {

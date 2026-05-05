@@ -53,6 +53,7 @@ export class MenusController {
   async findMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
     const result = await this.menusService.menu({ id: menuId });
     if (!result) throw new NotFoundException();
+
     return result;
   }
 
@@ -102,6 +103,7 @@ export class MenusController {
   ): Promise<MenuSectionResponseDto> {
     const result = await this.menusService.menuSection({ id: sectionId });
     if (!result) throw new NotFoundException();
+
     return result;
   }
 
