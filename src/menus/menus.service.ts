@@ -2,38 +2,23 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-import {
-  menu,
-  menuItem,
-  menuItemAddOn,
-  menuSection,
-  offer,
-} from 'src/db/schema/menus';
-import type {
-  Menu,
-  MenuItemAddOn,
-  MenuItem,
-  MenuSection,
-  Offer,
-} from 'src/db/schema/menus';
+import type { Menu, MenuItem, MenuSection } from 'src/db/schema/menus';
+import { menu, menuItem, menuSection } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import type { CreateMenuDto } from './dto/create-menu.dto';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
-import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import type { CreateOfferDto } from './dto/create-offer.dto';
-import type { UpdateMenuDto } from './dto/update-menu.dto';
+import type { CreateMenuDto } from './dto/create-menu.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
-import type { UpdateOfferDto } from './dto/update-offer.dto';
+import type { UpdateMenuDto } from './dto/update-menu.dto';
 
 @Injectable()
 export class MenusService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  // Menu
+  // ── Menu ──────────────────────────────────────────────────────────
 
   async createMenu(organizationId: string, data: CreateMenuDto): Promise<Menu> {
     const [created] = await this.db
@@ -76,7 +61,7 @@ export class MenusService {
     return deleted;
   }
 
-  // MenuSection
+  // ── MenuSection ───────────────────────────────────────────────────
 
   async createMenuSection(
     menuId: string,
@@ -87,6 +72,12 @@ export class MenusService {
       .values({ id: uuidv4(), menuId, ...data })
       .returning();
     return created;
+  }
+
+  async menuSections(menuId: string): Promise<MenuSection[]> {
+    return this.db.query.menuSection.findMany({
+      where: eq(menuSection.menuId, menuId),
+    });
   }
 
   async menuSection(where: { id: string }): Promise<MenuSection | null> {
@@ -116,21 +107,23 @@ export class MenusService {
     return deleted;
   }
 
-  // MenuItem
+  // ── MenuItem ──────────────────────────────────────────────────────
 
-  async createMenuItem(data: CreateMenuItemDto): Promise<MenuItem> {
+  async createMenuItem(
+    sectionId: string,
+    data: CreateMenuItemDto,
+  ): Promise<MenuItem> {
     const [created] = await this.db
       .insert(menuItem)
-      .values({ id: uuidv4(), ...data })
+      .values({ id: uuidv4(), menuSectionId: sectionId, ...data })
       .returning();
     return created;
   }
 
-  async menuItem(where: { id: string }): Promise<MenuItem | null> {
-    const result = await this.db.query.menuItem.findFirst({
-      where: eq(menuItem.id, where.id),
+  async menuSectionItems(sectionId: string): Promise<MenuItem[]> {
+    return this.db.query.menuItem.findMany({
+      where: eq(menuItem.menuSectionId, sectionId),
     });
-    return result ?? null;
   }
 
   async updateMenuItem(params: {
@@ -149,64 +142,6 @@ export class MenusService {
     const [deleted] = await this.db
       .delete(menuItem)
       .where(eq(menuItem.id, where.id))
-      .returning();
-    return deleted;
-  }
-
-  // Offer
-
-  async createOffer(data: CreateOfferDto): Promise<Offer> {
-    const [created] = await this.db
-      .insert(offer)
-      .values({ id: uuidv4(), ...data })
-      .returning();
-    return created;
-  }
-
-  async offer(where: { id: string }): Promise<Offer | null> {
-    const result = await this.db.query.offer.findFirst({
-      where: eq(offer.id, where.id),
-    });
-    return result ?? null;
-  }
-
-  async updateOffer(params: {
-    where: { id: string };
-    data: UpdateOfferDto;
-  }): Promise<Offer> {
-    const [updated] = await this.db
-      .update(offer)
-      .set(params.data)
-      .where(eq(offer.id, params.where.id))
-      .returning();
-    return updated;
-  }
-
-  async deleteOffer(where: { id: string }): Promise<Offer> {
-    const [deleted] = await this.db
-      .delete(offer)
-      .where(eq(offer.id, where.id))
-      .returning();
-    return deleted;
-  }
-
-  // MenuItemAddOn
-
-  async createMenuItemAddOn(
-    menuItemId: string,
-    data: CreateMenuItemAddOnDto,
-  ): Promise<MenuItemAddOn> {
-    const [created] = await this.db
-      .insert(menuItemAddOn)
-      .values({ id: uuidv4(), menuItemId, ...data })
-      .returning();
-    return created;
-  }
-
-  async deleteMenuItemAddOn(where: { id: string }): Promise<MenuItemAddOn> {
-    const [deleted] = await this.db
-      .delete(menuItemAddOn)
-      .where(eq(menuItemAddOn.id, where.id))
       .returning();
     return deleted;
   }

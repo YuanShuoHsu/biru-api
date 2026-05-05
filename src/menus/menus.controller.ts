@@ -10,20 +10,15 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CreateMenuDto } from './dto/create-menu.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
-import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import { CreateOfferDto } from './dto/create-offer.dto';
-import { MenuItemAddOnResponseDto } from './dto/menu-item-add-on-response.dto';
+import { CreateMenuDto } from './dto/create-menu.dto';
 import { MenuItemResponseDto } from './dto/menu-item-response.dto';
 import { MenuResponseDto } from './dto/menu-response.dto';
 import { MenuSectionResponseDto } from './dto/menu-section-response.dto';
-import { OfferResponseDto } from './dto/offer-response.dto';
-import { UpdateMenuDto } from './dto/update-menu.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
-import { UpdateOfferDto } from './dto/update-offer.dto';
+import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenusService } from './menus.service';
 
 @ApiTags('menus')
@@ -53,35 +48,35 @@ export class MenusController {
   }
 
   @ApiBearerAuth()
-  @Get('menus/:id')
+  @Get('menus/:menuId')
   @ApiOperation({ summary: '取得菜單詳情' })
-  async findMenu(@Param('id') id: string): Promise<MenuResponseDto> {
-    const result = await this.menusService.menu({ id });
+  async findMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
+    const result = await this.menusService.menu({ id: menuId });
     if (!result) throw new NotFoundException();
     return result;
   }
 
   @ApiBearerAuth()
-  @Patch('menus/:id')
+  @Patch('menus/:menuId')
   @ApiOperation({ summary: '更新菜單' })
   updateMenu(
-    @Param('id') id: string,
+    @Param('menuId') menuId: string,
     @Body() dto: UpdateMenuDto,
   ): Promise<MenuResponseDto> {
-    return this.menusService.updateMenu({ where: { id }, data: dto });
+    return this.menusService.updateMenu({ where: { id: menuId }, data: dto });
   }
 
   @ApiBearerAuth()
-  @Delete('menus/:id')
+  @Delete('menus/:menuId')
   @ApiOperation({ summary: '刪除菜單' })
-  deleteMenu(@Param('id') id: string): Promise<MenuResponseDto> {
-    return this.menusService.deleteMenu({ id });
+  deleteMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
+    return this.menusService.deleteMenu({ id: menuId });
   }
 
   // ── MenuSection ───────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @Post('menus/:menuId/sections')
+  @Post('menus/:menuId/menu-sections')
   @ApiOperation({ summary: '建立菜單分類' })
   createMenuSection(
     @Param('menuId') menuId: string,
@@ -91,121 +86,87 @@ export class MenusController {
   }
 
   @ApiBearerAuth()
-  @Get('menu-sections/:id')
+  @Get('menus/:menuId/menu-sections')
+  @ApiOperation({ summary: '取得菜單所有分類' })
+  findAllMenuSections(
+    @Param('menuId') menuId: string,
+  ): Promise<MenuSectionResponseDto[]> {
+    return this.menusService.menuSections(menuId);
+  }
+
+  @ApiBearerAuth()
+  @Get('menu-sections/:sectionId')
   @ApiOperation({ summary: '取得菜單分類詳情' })
   async findMenuSection(
-    @Param('id') id: string,
+    @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
-    const result = await this.menusService.menuSection({ id });
+    const result = await this.menusService.menuSection({ id: sectionId });
     if (!result) throw new NotFoundException();
     return result;
   }
 
   @ApiBearerAuth()
-  @Patch('menu-sections/:id')
+  @Patch('menu-sections/:sectionId')
   @ApiOperation({ summary: '更新菜單分類' })
   updateMenuSection(
-    @Param('id') id: string,
+    @Param('sectionId') sectionId: string,
     @Body() dto: UpdateMenuSectionDto,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.updateMenuSection({ where: { id }, data: dto });
+    return this.menusService.updateMenuSection({
+      where: { id: sectionId },
+      data: dto,
+    });
   }
 
   @ApiBearerAuth()
-  @Delete('menu-sections/:id')
+  @Delete('menu-sections/:sectionId')
   @ApiOperation({ summary: '刪除菜單分類' })
-  deleteMenuSection(@Param('id') id: string): Promise<MenuSectionResponseDto> {
-    return this.menusService.deleteMenuSection({ id });
+  deleteMenuSection(
+    @Param('sectionId') sectionId: string,
+  ): Promise<MenuSectionResponseDto> {
+    return this.menusService.deleteMenuSection({ id: sectionId });
   }
 
   // ── MenuItem ──────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @Post('menu-items')
+  @Post('menu-sections/:sectionId/menu-items')
   @ApiOperation({ summary: '建立菜單品項' })
-  createMenuItem(@Body() dto: CreateMenuItemDto): Promise<MenuItemResponseDto> {
-    return this.menusService.createMenuItem(dto);
+  createMenuItem(
+    @Param('sectionId') sectionId: string,
+    @Body() dto: CreateMenuItemDto,
+  ): Promise<MenuItemResponseDto> {
+    return this.menusService.createMenuItem(sectionId, dto);
   }
 
   @ApiBearerAuth()
-  @Get('menu-items/:id')
-  @ApiOperation({ summary: '取得菜單品項詳情' })
-  async findMenuItem(@Param('id') id: string): Promise<MenuItemResponseDto> {
-    const result = await this.menusService.menuItem({ id });
-    if (!result) throw new NotFoundException();
-    return result;
+  @Get('menu-sections/:sectionId/menu-items')
+  @ApiOperation({ summary: '取得分類所有品項' })
+  findAllMenuSectionItems(
+    @Param('sectionId') sectionId: string,
+  ): Promise<MenuItemResponseDto[]> {
+    return this.menusService.menuSectionItems(sectionId);
   }
 
   @ApiBearerAuth()
-  @Patch('menu-items/:id')
+  @Patch('menu-items/:menuItemId')
   @ApiOperation({ summary: '更新菜單品項' })
   updateMenuItem(
-    @Param('id') id: string,
+    @Param('menuItemId') menuItemId: string,
     @Body() dto: UpdateMenuItemDto,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.updateMenuItem({ where: { id }, data: dto });
+    return this.menusService.updateMenuItem({
+      where: { id: menuItemId },
+      data: dto,
+    });
   }
 
   @ApiBearerAuth()
-  @Delete('menu-items/:id')
+  @Delete('menu-items/:menuItemId')
   @ApiOperation({ summary: '刪除菜單品項' })
-  deleteMenuItem(@Param('id') id: string): Promise<MenuItemResponseDto> {
-    return this.menusService.deleteMenuItem({ id });
-  }
-
-  // ── Offer ─────────────────────────────────────────────────────────
-
-  @ApiBearerAuth()
-  @Post('offers')
-  @ApiOperation({ summary: '建立報價' })
-  createOffer(@Body() dto: CreateOfferDto): Promise<OfferResponseDto> {
-    return this.menusService.createOffer(dto);
-  }
-
-  @ApiBearerAuth()
-  @Get('offers/:id')
-  @ApiOperation({ summary: '取得報價詳情' })
-  async findOffer(@Param('id') id: string): Promise<OfferResponseDto> {
-    const result = await this.menusService.offer({ id });
-    if (!result) throw new NotFoundException();
-    return result;
-  }
-
-  @ApiBearerAuth()
-  @Patch('offers/:id')
-  @ApiOperation({ summary: '更新報價' })
-  updateOffer(
-    @Param('id') id: string,
-    @Body() dto: UpdateOfferDto,
-  ): Promise<OfferResponseDto> {
-    return this.menusService.updateOffer({ where: { id }, data: dto });
-  }
-
-  @ApiBearerAuth()
-  @Delete('offers/:id')
-  @ApiOperation({ summary: '刪除報價' })
-  deleteOffer(@Param('id') id: string): Promise<OfferResponseDto> {
-    return this.menusService.deleteOffer({ id });
-  }
-
-  // ── MenuItemAddOn ─────────────────────────────────────────────────
-
-  @ApiBearerAuth()
-  @Post('menu-items/:itemId/add-ons')
-  @ApiOperation({ summary: '新增品項附加選項' })
-  createMenuItemAddOn(
-    @Param('itemId') itemId: string,
-    @Body() dto: CreateMenuItemAddOnDto,
-  ): Promise<MenuItemAddOnResponseDto> {
-    return this.menusService.createMenuItemAddOn(itemId, dto);
-  }
-
-  @ApiBearerAuth()
-  @Delete('menu-item-add-ons/:id')
-  @ApiOperation({ summary: '刪除品項附加選項' })
-  deleteMenuItemAddOn(
-    @Param('id') id: string,
-  ): Promise<MenuItemAddOnResponseDto> {
-    return this.menusService.deleteMenuItemAddOn({ id });
+  deleteMenuItem(
+    @Param('menuItemId') menuItemId: string,
+  ): Promise<MenuItemResponseDto> {
+    return this.menusService.deleteMenuItem({ id: menuItemId });
   }
 }

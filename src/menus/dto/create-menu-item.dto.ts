@@ -88,20 +88,6 @@ const RESTRICTED_DIET_VALUES: RestrictedDiet[] = [
 ];
 
 export class CreateMenuItemDto {
-  @ApiPropertyOptional({
-    description: 'Assign directly to menu (Menu.hasMenuItem)',
-  })
-  @IsOptional()
-  @IsString()
-  menuId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Assign to a section (MenuSection.hasMenuItem)',
-  })
-  @IsOptional()
-  @IsString()
-  menuSectionId?: string;
-
   @ApiProperty()
   @IsString()
   name: string;
