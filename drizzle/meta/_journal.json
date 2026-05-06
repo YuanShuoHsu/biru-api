@@ -127,6 +127,13 @@
       "when": 1777737324122,
       "tag": "0017_same_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1777999198198,
+      "tag": "0018_nostalgic_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

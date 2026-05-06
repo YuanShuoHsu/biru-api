@@ -100,6 +100,7 @@ export const menuSection = pgTable(
     name: text('name').notNull(),
     description: text('description'),
     image: text('image'),
+    sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
   (table) => [
@@ -125,6 +126,7 @@ export const menuItem = pgTable(
     url: text('url'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
     nutrition: jsonb('nutrition').$type<NutritionInformation>(),
+    sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
   (table) => [

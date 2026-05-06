@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { asc, count, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { Menu, MenuItem, MenuSection } from 'src/db/schema/menus';
@@ -25,6 +25,7 @@ export class MenusService {
       .insert(menu)
       .values({ id: uuidv4(), organizationId, ...data })
       .returning();
+
     return created;
   }
 
@@ -38,6 +39,7 @@ export class MenusService {
     const result = await this.db.query.menu.findFirst({
       where: eq(menu.id, where.id),
     });
+
     return result || null;
   }
 
@@ -50,6 +52,7 @@ export class MenusService {
       .set(params.data)
       .where(eq(menu.id, params.where.id))
       .returning();
+
     return updated;
   }
 
@@ -58,6 +61,7 @@ export class MenusService {
       .delete(menu)
       .where(eq(menu.id, where.id))
       .returning();
+
     return deleted;
   }
 
@@ -67,16 +71,38 @@ export class MenusService {
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(menuSection)
+      .where(eq(menuSection.menuId, menuId));
+
     const [created] = await this.db
       .insert(menuSection)
-      .values({ id: uuidv4(), menuId, ...data })
+      .values({ id: uuidv4(), menuId, sortOrder: total, ...data })
       .returning();
+
     return created;
   }
 
   async menuSections(menuId: string): Promise<MenuSection[]> {
-    return this.db.query.menuSection.findMany({
-      where: eq(menuSection.menuId, menuId),
+    return (
+      this.db
+        .select()
+        .from(menuSection)
+        .where(eq(menuSection.menuId, menuId))
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        .orderBy(asc(menuSection.sortOrder))
+    );
+  }
+
+  async reorderMenuSections(menuId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < ids.length; i++) {
+        await tx
+          .update(menuSection)
+          .set({ sortOrder: i })
+          .where(eq(menuSection.id, ids[i]));
+      }
     });
   }
 
@@ -84,6 +110,7 @@ export class MenusService {
     const result = await this.db.query.menuSection.findFirst({
       where: eq(menuSection.id, where.id),
     });
+
     return result || null;
   }
 
@@ -96,6 +123,7 @@ export class MenusService {
       .set(params.data)
       .where(eq(menuSection.id, params.where.id))
       .returning();
+
     return updated;
   }
 
@@ -104,6 +132,7 @@ export class MenusService {
       .delete(menuSection)
       .where(eq(menuSection.id, where.id))
       .returning();
+
     return deleted;
   }
 
@@ -113,16 +142,42 @@ export class MenusService {
     sectionId: string,
     data: CreateMenuItemDto,
   ): Promise<MenuItem> {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(menuItem)
+      .where(eq(menuItem.menuSectionId, sectionId));
+
     const [created] = await this.db
       .insert(menuItem)
-      .values({ id: uuidv4(), menuSectionId: sectionId, ...data })
+      .values({
+        id: uuidv4(),
+        menuSectionId: sectionId,
+        sortOrder: total,
+        ...data,
+      })
       .returning();
     return created;
   }
 
   async menuSectionItems(sectionId: string): Promise<MenuItem[]> {
-    return this.db.query.menuItem.findMany({
-      where: eq(menuItem.menuSectionId, sectionId),
+    return (
+      this.db
+        .select()
+        .from(menuItem)
+        .where(eq(menuItem.menuSectionId, sectionId))
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        .orderBy(asc(menuItem.sortOrder))
+    );
+  }
+
+  async reorderMenuItems(sectionId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < ids.length; i++) {
+        await tx
+          .update(menuItem)
+          .set({ sortOrder: i })
+          .where(eq(menuItem.id, ids[i]));
+      }
     });
   }
 
@@ -135,6 +190,7 @@ export class MenusService {
       .set(params.data)
       .where(eq(menuItem.id, params.where.id))
       .returning();
+
     return updated;
   }
 
@@ -143,6 +199,7 @@ export class MenusService {
       .delete(menuItem)
       .where(eq(menuItem.id, where.id))
       .returning();
+
     return deleted;
   }
 }

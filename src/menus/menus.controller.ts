@@ -16,6 +16,7 @@ import { CreateMenuDto } from './dto/create-menu.dto';
 import { MenuItemResponseDto } from './dto/menu-item-response.dto';
 import { MenuResponseDto } from './dto/menu-response.dto';
 import { MenuSectionResponseDto } from './dto/menu-section-response.dto';
+import { ReorderDto } from './dto/reorder.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -32,10 +33,10 @@ export class MenusController {
   @Post('organizations/:organizationId/menus')
   @ApiOperation({ summary: '建立菜單' })
   createMenu(
+    @Body() createMenuDto: CreateMenuDto,
     @Param('organizationId') organizationId: string,
-    @Body() dto: CreateMenuDto,
   ): Promise<MenuResponseDto> {
-    return this.menusService.createMenu(organizationId, dto);
+    return this.menusService.createMenu(organizationId, createMenuDto);
   }
 
   @ApiBearerAuth()
@@ -61,10 +62,13 @@ export class MenusController {
   @Patch('menus/:menuId')
   @ApiOperation({ summary: '更新菜單' })
   updateMenu(
+    @Body() updateMenuDto: UpdateMenuDto,
     @Param('menuId') menuId: string,
-    @Body() dto: UpdateMenuDto,
   ): Promise<MenuResponseDto> {
-    return this.menusService.updateMenu({ where: { id: menuId }, data: dto });
+    return this.menusService.updateMenu({
+      where: { id: menuId },
+      data: updateMenuDto,
+    });
   }
 
   @ApiBearerAuth()
@@ -80,10 +84,10 @@ export class MenusController {
   @Post('menus/:menuId/menu-sections')
   @ApiOperation({ summary: '建立菜單分類' })
   createMenuSection(
+    @Body() createMenuSectionDto: CreateMenuSectionDto,
     @Param('menuId') menuId: string,
-    @Body() dto: CreateMenuSectionDto,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.createMenuSection(menuId, dto);
+    return this.menusService.createMenuSection(menuId, createMenuSectionDto);
   }
 
   @ApiBearerAuth()
@@ -93,6 +97,16 @@ export class MenusController {
     @Param('menuId') menuId: string,
   ): Promise<MenuSectionResponseDto[]> {
     return this.menusService.menuSections(menuId);
+  }
+
+  @ApiBearerAuth()
+  @Patch('menus/:menuId/menu-sections/reorder')
+  @ApiOperation({ summary: '重新排序菜單分類' })
+  reorderMenuSections(
+    @Body() reorderDto: ReorderDto,
+    @Param('menuId') menuId: string,
+  ): Promise<void> {
+    return this.menusService.reorderMenuSections(menuId, reorderDto.ids);
   }
 
   @ApiBearerAuth()
@@ -111,12 +125,12 @@ export class MenusController {
   @Patch('menu-sections/:sectionId')
   @ApiOperation({ summary: '更新菜單分類' })
   updateMenuSection(
+    @Body() updateMenuSectionDto: UpdateMenuSectionDto,
     @Param('sectionId') sectionId: string,
-    @Body() dto: UpdateMenuSectionDto,
   ): Promise<MenuSectionResponseDto> {
     return this.menusService.updateMenuSection({
       where: { id: sectionId },
-      data: dto,
+      data: updateMenuSectionDto,
     });
   }
 
@@ -135,10 +149,10 @@ export class MenusController {
   @Post('menu-sections/:sectionId/menu-items')
   @ApiOperation({ summary: '建立菜單品項' })
   createMenuItem(
+    @Body() createMenuItemDto: CreateMenuItemDto,
     @Param('sectionId') sectionId: string,
-    @Body() dto: CreateMenuItemDto,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.createMenuItem(sectionId, dto);
+    return this.menusService.createMenuItem(sectionId, createMenuItemDto);
   }
 
   @ApiBearerAuth()
@@ -151,15 +165,25 @@ export class MenusController {
   }
 
   @ApiBearerAuth()
+  @Patch('menu-sections/:sectionId/menu-items/reorder')
+  @ApiOperation({ summary: '重新排序菜單品項' })
+  reorderMenuItems(
+    @Body() reorderDto: ReorderDto,
+    @Param('sectionId') sectionId: string,
+  ): Promise<void> {
+    return this.menusService.reorderMenuItems(sectionId, reorderDto.ids);
+  }
+
+  @ApiBearerAuth()
   @Patch('menu-items/:menuItemId')
   @ApiOperation({ summary: '更新菜單品項' })
   updateMenuItem(
+    @Body() updateMenuItemDto: UpdateMenuItemDto,
     @Param('menuItemId') menuItemId: string,
-    @Body() dto: UpdateMenuItemDto,
   ): Promise<MenuItemResponseDto> {
     return this.menusService.updateMenuItem({
       where: { id: menuItemId },
-      data: dto,
+      data: updateMenuItemDto,
     });
   }
 
