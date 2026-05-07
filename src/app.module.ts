@@ -24,6 +24,7 @@ import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
+import { RolesGuard } from './menus/guards/roles.guard';
 import { MenusModule } from './menus/menus.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -86,6 +87,10 @@ import { UsersModule } from './users/users.module';
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

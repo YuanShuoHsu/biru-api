@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Roles } from './decorators/roles.decorator';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuSectionDto } from './dto/create-menu-section.dto';
 import { CreateMenuDto } from './dto/create-menu.dto';
@@ -23,14 +24,15 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenusService } from './menus.service';
 
 @ApiTags('menus')
+@ApiBearerAuth()
 @Controller()
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 
   // ── Menu ──────────────────────────────────────────────────────────
 
-  @ApiBearerAuth()
   @Post('organizations/:organizationId/menus')
+  @Roles({ menu: ['create'] }, 'organizationId')
   @ApiOperation({ summary: '建立菜單' })
   createMenu(
     @Body() createMenuDto: CreateMenuDto,
@@ -39,8 +41,8 @@ export class MenusController {
     return this.menusService.createMenu(organizationId, createMenuDto);
   }
 
-  @ApiBearerAuth()
   @Get('organizations/:organizationId/menus')
+  @Roles({ menu: ['read'] }, 'organizationId')
   @ApiOperation({ summary: '取得組織所有菜單' })
   findAllMenus(
     @Param('organizationId') organizationId: string,
@@ -48,8 +50,8 @@ export class MenusController {
     return this.menusService.menus(organizationId);
   }
 
-  @ApiBearerAuth()
   @Get('menus/:menuId')
+  @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單詳情' })
   async findMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
     const result = await this.menusService.menu({ id: menuId });
@@ -58,8 +60,8 @@ export class MenusController {
     return result;
   }
 
-  @ApiBearerAuth()
   @Patch('menus/:menuId')
+  @Roles({ menu: ['update'] }, 'menuId')
   @ApiOperation({ summary: '更新菜單' })
   updateMenu(
     @Body() updateMenuDto: UpdateMenuDto,
@@ -71,8 +73,8 @@ export class MenusController {
     });
   }
 
-  @ApiBearerAuth()
   @Delete('menus/:menuId')
+  @Roles({ menu: ['delete'] }, 'menuId')
   @ApiOperation({ summary: '刪除菜單' })
   deleteMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
     return this.menusService.deleteMenu({ id: menuId });
@@ -80,8 +82,8 @@ export class MenusController {
 
   // ── MenuSection ───────────────────────────────────────────────────
 
-  @ApiBearerAuth()
   @Post('menus/:menuId/menu-sections')
+  @Roles({ menu: ['create'] }, 'menuId')
   @ApiOperation({ summary: '建立菜單分類' })
   createMenuSection(
     @Body() createMenuSectionDto: CreateMenuSectionDto,
@@ -90,8 +92,8 @@ export class MenusController {
     return this.menusService.createMenuSection(menuId, createMenuSectionDto);
   }
 
-  @ApiBearerAuth()
   @Get('menus/:menuId/menu-sections')
+  @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有分類' })
   findAllMenuSections(
     @Param('menuId') menuId: string,
@@ -99,8 +101,8 @@ export class MenusController {
     return this.menusService.menuSections(menuId);
   }
 
-  @ApiBearerAuth()
   @Patch('menus/:menuId/menu-sections/reorder')
+  @Roles({ menu: ['update'] }, 'menuId')
   @ApiOperation({ summary: '重新排序菜單分類' })
   reorderMenuSections(
     @Body() reorderDto: ReorderDto,
@@ -109,8 +111,8 @@ export class MenusController {
     return this.menusService.reorderMenuSections(menuId, reorderDto.ids);
   }
 
-  @ApiBearerAuth()
   @Get('menu-sections/:sectionId')
+  @Roles({ menu: ['read'] }, 'sectionId')
   @ApiOperation({ summary: '取得菜單分類詳情' })
   async findMenuSection(
     @Param('sectionId') sectionId: string,
@@ -121,8 +123,8 @@ export class MenusController {
     return result;
   }
 
-  @ApiBearerAuth()
   @Patch('menu-sections/:sectionId')
+  @Roles({ menu: ['update'] }, 'sectionId')
   @ApiOperation({ summary: '更新菜單分類' })
   updateMenuSection(
     @Body() updateMenuSectionDto: UpdateMenuSectionDto,
@@ -134,8 +136,8 @@ export class MenusController {
     });
   }
 
-  @ApiBearerAuth()
   @Delete('menu-sections/:sectionId')
+  @Roles({ menu: ['delete'] }, 'sectionId')
   @ApiOperation({ summary: '刪除菜單分類' })
   deleteMenuSection(
     @Param('sectionId') sectionId: string,
@@ -145,8 +147,8 @@ export class MenusController {
 
   // ── MenuItem ──────────────────────────────────────────────────────
 
-  @ApiBearerAuth()
   @Post('menu-sections/:sectionId/menu-items')
+  @Roles({ menu: ['create'] }, 'sectionId')
   @ApiOperation({ summary: '建立菜單品項' })
   createMenuItem(
     @Body() createMenuItemDto: CreateMenuItemDto,
@@ -155,8 +157,8 @@ export class MenusController {
     return this.menusService.createMenuItem(sectionId, createMenuItemDto);
   }
 
-  @ApiBearerAuth()
   @Get('menu-sections/:sectionId/menu-items')
+  @Roles({ menu: ['read'] }, 'sectionId')
   @ApiOperation({ summary: '取得分類所有品項' })
   findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
@@ -164,8 +166,8 @@ export class MenusController {
     return this.menusService.menuSectionItems(sectionId);
   }
 
-  @ApiBearerAuth()
   @Patch('menu-sections/:sectionId/menu-items/reorder')
+  @Roles({ menu: ['update'] }, 'sectionId')
   @ApiOperation({ summary: '重新排序菜單品項' })
   reorderMenuItems(
     @Body() reorderDto: ReorderDto,
@@ -174,8 +176,8 @@ export class MenusController {
     return this.menusService.reorderMenuItems(sectionId, reorderDto.ids);
   }
 
-  @ApiBearerAuth()
   @Patch('menu-items/:menuItemId')
+  @Roles({ menu: ['update'] }, 'menuItemId')
   @ApiOperation({ summary: '更新菜單品項' })
   updateMenuItem(
     @Body() updateMenuItemDto: UpdateMenuItemDto,
@@ -187,8 +189,8 @@ export class MenusController {
     });
   }
 
-  @ApiBearerAuth()
   @Delete('menu-items/:menuItemId')
+  @Roles({ menu: ['delete'] }, 'menuItemId')
   @ApiOperation({ summary: '刪除菜單品項' })
   deleteMenuItem(
     @Param('menuItemId') menuItemId: string,

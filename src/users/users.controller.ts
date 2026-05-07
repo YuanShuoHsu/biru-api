@@ -13,18 +13,17 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
+@ApiBearerAuth()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @ApiBearerAuth()
   @Get()
   @ApiOperation({ summary: '查詢所有使用者' })
   findAll(): Promise<UserResponseDto[]> {
     return this.usersService.users({});
   }
 
-  @ApiBearerAuth()
   @Get(':id')
   @ApiOperation({ summary: '查詢使用者' })
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
@@ -34,7 +33,6 @@ export class UsersController {
     return user;
   }
 
-  @ApiBearerAuth()
   @Patch(':id')
   @ApiOperation({ summary: '更新使用者' })
   update(
@@ -47,7 +45,6 @@ export class UsersController {
     });
   }
 
-  @ApiBearerAuth()
   @Delete(':id')
   @ApiOperation({ summary: '刪除使用者' })
   remove(@Param('id') id: string): Promise<UserResponseDto> {

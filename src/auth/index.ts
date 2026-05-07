@@ -16,6 +16,8 @@ import {
 } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 
+import { ac, admin, member, owner } from './permissions';
+
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
@@ -106,6 +108,8 @@ export const createAuth = (mailsService: MailsService) =>
       adminPlugin(),
       multiSession(),
       organization({
+        ac,
+        roles: { owner, admin, member },
         cancelPendingInvitationsOnReInvite: true,
         requireEmailVerificationOnInvitation: true,
         schema: {
