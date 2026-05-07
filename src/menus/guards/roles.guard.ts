@@ -6,6 +6,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AuthService } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
@@ -26,13 +28,13 @@ import {
 
 type AuthRequest = Request & {
   params: Record<string, string>;
-  session?: { user: { id: string } };
 };
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
+    private authService: AuthService,
     @Inject(DRIZZLE) private db: DrizzleDB,
   ) {}
 
@@ -43,9 +45,12 @@ export class RolesGuard implements CanActivate {
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles) return true;
 
-    const { session, params } = context
+    const { headers, params } = context
       .switchToHttp()
       .getRequest<AuthRequest>();
+    const session = await this.authService.api.getSession({
+      headers: fromNodeHeaders(headers),
+    });
     const userId = session?.user.id;
     if (!userId) throw new ForbiddenException();
 
