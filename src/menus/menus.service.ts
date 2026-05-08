@@ -84,24 +84,36 @@ export class MenusService {
     return created;
   }
 
-  async menuSections(menuId: string): Promise<MenuSection[]> {
-    return (
+  async menuSections(
+    menuId: string,
+    pagination: { limit?: number; offset?: number } = {},
+  ): Promise<{ data: MenuSection[]; total: number }> {
+    const { limit = 10, offset = 0 } = pagination;
+
+    const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuSection)
         .where(eq(menuSection.menuId, menuId))
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        .orderBy(asc(menuSection.sortOrder))
-    );
+        .orderBy(asc(menuSection.sortOrder), asc(menuSection.id))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(menuSection)
+        .where(eq(menuSection.menuId, menuId)),
+    ]);
+
+    return { data, total };
   }
 
-  async reorderMenuSections(menuId: string, ids: string[]): Promise<void> {
+  async reorderMenuSections(_menuId: string, ids: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      for (let i = 0; i < ids.length; i++) {
+      for (const [i, id] of ids.entries()) {
         await tx
           .update(menuSection)
           .set({ sortOrder: i })
-          .where(eq(menuSection.id, ids[i]));
+          .where(eq(menuSection.id, id));
       }
     });
   }
@@ -159,24 +171,36 @@ export class MenusService {
     return created;
   }
 
-  async menuSectionItems(sectionId: string): Promise<MenuItem[]> {
-    return (
+  async menuSectionItems(
+    sectionId: string,
+    pagination: { limit?: number; offset?: number } = {},
+  ): Promise<{ data: MenuItem[]; total: number }> {
+    const { limit = 10, offset = 0 } = pagination;
+
+    const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuItem)
         .where(eq(menuItem.menuSectionId, sectionId))
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        .orderBy(asc(menuItem.sortOrder))
-    );
+        .orderBy(asc(menuItem.sortOrder), asc(menuItem.id))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(menuItem)
+        .where(eq(menuItem.menuSectionId, sectionId)),
+    ]);
+
+    return { data, total };
   }
 
-  async reorderMenuItems(sectionId: string, ids: string[]): Promise<void> {
+  async reorderMenuItems(_sectionId: string, ids: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      for (let i = 0; i < ids.length; i++) {
+      for (const [i, id] of ids.entries()) {
         await tx
           .update(menuItem)
           .set({ sortOrder: i })
-          .where(eq(menuItem.id, ids[i]));
+          .where(eq(menuItem.id, id));
       }
     });
   }

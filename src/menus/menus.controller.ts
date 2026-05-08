@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -17,6 +18,7 @@ import { CreateMenuDto } from './dto/create-menu.dto';
 import { MenuItemResponseDto } from './dto/menu-item-response.dto';
 import { MenuResponseDto } from './dto/menu-response.dto';
 import { MenuSectionResponseDto } from './dto/menu-section-response.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
@@ -97,8 +99,9 @@ export class MenusController {
   @ApiOperation({ summary: '取得菜單所有分類' })
   findAllMenuSections(
     @Param('menuId') menuId: string,
-  ): Promise<MenuSectionResponseDto[]> {
-    return this.menusService.menuSections(menuId);
+    @Query() query: PaginationQueryDto,
+  ): Promise<{ data: MenuSectionResponseDto[]; total: number }> {
+    return this.menusService.menuSections(menuId, query);
   }
 
   @Patch('menus/:menuId/menu-sections/reorder')
@@ -162,8 +165,9 @@ export class MenusController {
   @ApiOperation({ summary: '取得分類所有品項' })
   findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
-  ): Promise<MenuItemResponseDto[]> {
-    return this.menusService.menuSectionItems(sectionId);
+    @Query() query: PaginationQueryDto,
+  ): Promise<{ data: MenuItemResponseDto[]; total: number }> {
+    return this.menusService.menuSectionItems(sectionId, query);
   }
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
