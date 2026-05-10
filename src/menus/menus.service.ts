@@ -107,12 +107,16 @@ export class MenusService {
     return { data, total };
   }
 
-  async reorderMenuSections(_menuId: string, ids: string[]): Promise<void> {
+  async reorderMenuSections(
+    _menuId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
       for (const [i, id] of ids.entries()) {
         await tx
           .update(menuSection)
-          .set({ sortOrder: i })
+          .set({ sortOrder: offset + i })
           .where(eq(menuSection.id, id));
       }
     });
@@ -194,12 +198,16 @@ export class MenusService {
     return { data, total };
   }
 
-  async reorderMenuItems(_sectionId: string, ids: string[]): Promise<void> {
+  async reorderMenuItems(
+    _sectionId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
       for (const [i, id] of ids.entries()) {
         await tx
           .update(menuItem)
-          .set({ sortOrder: i })
+          .set({ sortOrder: offset + i })
           .where(eq(menuItem.id, id));
       }
     });

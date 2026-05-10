@@ -108,10 +108,10 @@ export class MenusController {
   @Roles({ menu: ['update'] }, 'menuId')
   @ApiOperation({ summary: '重新排序菜單分類' })
   reorderMenuSections(
-    @Body() reorderDto: ReorderDto,
+    @Body() { ids, offset }: ReorderDto,
     @Param('menuId') menuId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuSections(menuId, reorderDto.ids);
+    return this.menusService.reorderMenuSections(menuId, ids, offset);
   }
 
   @Get('menu-sections/:sectionId')
@@ -174,10 +174,10 @@ export class MenusController {
   @Roles({ menu: ['update'] }, 'sectionId')
   @ApiOperation({ summary: '重新排序菜單品項' })
   reorderMenuItems(
-    @Body() reorderDto: ReorderDto,
+    @Body() { ids, offset }: ReorderDto,
     @Param('sectionId') sectionId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItems(sectionId, reorderDto.ids);
+    return this.menusService.reorderMenuItems(sectionId, ids, offset);
   }
 
   @Patch('menu-items/:menuItemId')
