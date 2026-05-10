@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -13,4 +13,12 @@ export class PaginationQueryDto {
   @IsInt()
   @Min(0)
   offset?: number = 0;
+
+  @IsOptional()
+  @IsIn(['name', 'createdAt', 'updatedAt'])
+  sortBy?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortDirection?: 'asc' | 'desc';
 }

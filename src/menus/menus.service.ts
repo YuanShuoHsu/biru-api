@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { asc, count, eq } from 'drizzle-orm';
+import { SQL, asc, count, desc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { Menu, MenuItem, MenuSection } from 'src/db/schema/menus';
@@ -86,16 +86,26 @@ export class MenusService {
 
   async menuSections(
     menuId: string,
-    pagination: { limit?: number; offset?: number } = {},
+    query: {
+      limit?: number;
+      offset?: number;
+      sortBy?: 'name' | 'createdAt' | 'updatedAt';
+      sortDirection?: 'asc' | 'desc';
+    } = {},
   ): Promise<{ data: MenuSection[]; total: number }> {
-    const { limit = 10, offset = 0 } = pagination;
+    const { limit = 10, offset = 0, sortBy, sortDirection = 'desc' } = query;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] = sortBy
+      ? [dir(menuSection[sortBy])]
+      : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuSection)
         .where(eq(menuSection.menuId, menuId))
-        .orderBy(asc(menuSection.sortOrder), asc(menuSection.id))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       this.db
@@ -177,16 +187,26 @@ export class MenusService {
 
   async menuSectionItems(
     sectionId: string,
-    pagination: { limit?: number; offset?: number } = {},
+    query: {
+      limit?: number;
+      offset?: number;
+      sortBy?: 'name' | 'createdAt' | 'updatedAt';
+      sortDirection?: 'asc' | 'desc';
+    } = {},
   ): Promise<{ data: MenuItem[]; total: number }> {
-    const { limit = 10, offset = 0 } = pagination;
+    const { limit = 10, offset = 0, sortBy, sortDirection = 'desc' } = query;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] = sortBy
+      ? [dir(menuItem[sortBy])]
+      : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuItem)
         .where(eq(menuItem.menuSectionId, sectionId))
-        .orderBy(asc(menuItem.sortOrder), asc(menuItem.id))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       this.db
