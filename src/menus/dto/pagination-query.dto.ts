@@ -16,7 +16,7 @@ export class PaginationQueryDto {
 
   @IsOptional()
   @IsIn(['name', 'createdAt', 'updatedAt'])
-  sortBy?: string;
+  sortBy?: 'name' | 'createdAt' | 'updatedAt';
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
