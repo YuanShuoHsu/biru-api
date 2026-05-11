@@ -6,9 +6,11 @@ import {
   NotFoundException,
   Param,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -22,6 +24,14 @@ export class UsersController {
   @ApiOperation({ summary: '查詢所有使用者' })
   findAll(): Promise<UserResponseDto[]> {
     return this.usersService.users({});
+  }
+
+  @Get('list')
+  @ApiOperation({ summary: '查詢所有使用者' })
+  findList(
+    @Query() query: ListUsersQueryDto,
+  ): Promise<{ data: UserResponseDto[]; total: number }> {
+    return this.usersService.listUsers(query);
   }
 
   @Get(':id')
