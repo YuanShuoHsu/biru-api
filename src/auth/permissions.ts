@@ -27,4 +27,3 @@ export const member = ac.newRole({
   ...memberAc.statements,
   menu: ['read'],
 });
-

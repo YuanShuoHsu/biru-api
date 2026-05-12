@@ -76,7 +76,8 @@ export class ListUsersQueryDto {
   offset?: number = 0;
 
   @ApiPropertyOptional({
-    description: 'Quick Filter 搜尋值（前端已完成語系轉換的 DB 值）',
+    description:
+      'Quick Filter 搜尋值。可傳一般文字，或 role:admin、banned:true、emailSubscribed:false 等欄位 token',
   })
   @IsOptional()
   @IsString()

@@ -28,6 +28,30 @@ import type { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 type StringField = typeof user.name | typeof user.email;
+type QuickFilterField = 'role' | 'banned' | 'emailSubscribed';
+
+function parseQuickFilterValue(value: string):
+  | {
+      field: QuickFilterField;
+      value: string;
+    }
+  | undefined {
+  const [field, ...rest] = value.split(':');
+  const filterValue = rest.join(':');
+
+  if (!filterValue) return undefined;
+
+  if (field === 'role' && (filterValue === 'admin' || filterValue === 'user')) {
+    return { field, value: filterValue };
+  }
+
+  if (
+    (field === 'banned' || field === 'emailSubscribed') &&
+    (filterValue === 'true' || filterValue === 'false')
+  ) {
+    return { field, value: filterValue };
+  }
+}
 
 function buildFilterCondition(
   field: StringField,
@@ -74,6 +98,27 @@ function buildSearchCondition(
       return ilike(field, `${value}%`);
     case 'ends_with':
       return ilike(field, `%${value}`);
+  }
+}
+
+function buildQuickFilterCondition(value: string): SQL | undefined {
+  const parsedValue = parseQuickFilterValue(value);
+
+  if (!parsedValue) {
+    return or(
+      ilike(user.name, `%${value}%`),
+      ilike(user.email, `%${value}%`),
+      ilike(sql`${user.createdAt}::text`, `%${value}%`),
+    );
+  }
+
+  switch (parsedValue.field) {
+    case 'role':
+      return eq(user.role, parsedValue.value);
+    case 'banned':
+      return eq(user.banned, parsedValue.value === 'true');
+    case 'emailSubscribed':
+      return eq(user.emailSubscribed, parsedValue.value === 'true');
   }
 }
 
@@ -128,14 +173,7 @@ export class UsersService {
     } = query;
 
     const quickFilterCondition = quickFilterValue
-      ? or(
-          ilike(user.name, `%${quickFilterValue}%`),
-          ilike(user.email, `%${quickFilterValue}%`),
-          ilike(sql`${user.createdAt}::text`, `%${quickFilterValue}%`),
-          eq(user.role, quickFilterValue),
-          eq(sql`${user.banned}::text`, quickFilterValue),
-          eq(sql`${user.emailSubscribed}::text`, quickFilterValue),
-        )
+      ? buildQuickFilterCondition(quickFilterValue)
       : undefined;
 
     const columnFilterCondition =
