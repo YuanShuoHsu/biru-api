@@ -80,6 +80,7 @@ export const menu = pgTable(
     description: text('description'),
     image: text('image'),
     inLanguage: text('in_language'),
+    url: text('url'),
     ...timestamps,
   },
   (table) => [index('menu_organizationId_idx').on(table.organizationId)],
@@ -150,6 +151,8 @@ export const offer = pgTable(
     menuSectionId: text('menu_section_id').references(() => menuSection.id, {
       onDelete: 'cascade',
     }),
+    name: text('name'),
+    description: text('description'),
     price: numeric('price', { precision: 10, scale: 2 }),
     priceCurrency: text('price_currency').default('TWD'),
     availability: itemAvailabilityEnum('availability').default('InStock'),

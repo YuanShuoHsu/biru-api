@@ -134,6 +134,20 @@
       "when": 1777999198198,
       "tag": "0018_nostalgic_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778694446760,
+      "tag": "0019_bent_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778694699692,
+      "tag": "0020_steep_the_fallen",
+      "breakpoints": true
     }
   ]
 }
