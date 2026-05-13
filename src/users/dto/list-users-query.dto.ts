@@ -16,6 +16,17 @@ export const TEXT_FILTER_OPERATORS = [
 
 export const ENUM_FILTER_OPERATORS = ['is', 'not', 'isAnyOf'] as const;
 
+export const DATE_FILTER_OPERATORS = [
+  'is',
+  'not',
+  'after',
+  'onOrAfter',
+  'before',
+  'onOrBefore',
+  'isEmpty',
+  'isNotEmpty',
+] as const;
+
 export const ALL_FILTER_OPERATORS = [
   'contains',
   'doesNotContain',
@@ -25,27 +36,35 @@ export const ALL_FILTER_OPERATORS = [
   'endsWith',
   'isEmpty',
   'isNotEmpty',
+  'isAnyOf',
   'is',
   'not',
-  'isAnyOf',
+  'after',
+  'onOrAfter',
+  'before',
+  'onOrBefore',
 ] as const;
 
 export type TextFilterOperator = (typeof TEXT_FILTER_OPERATORS)[number];
 export type EnumFilterOperator = (typeof ENUM_FILTER_OPERATORS)[number];
+export type DateFilterOperator = (typeof DATE_FILTER_OPERATORS)[number];
 export type FilterOperator = (typeof ALL_FILTER_OPERATORS)[number];
 
 export const STRING_FILTER_FIELDS = ['name', 'email'] as const;
 export const ENUM_FILTER_FIELDS = ['role'] as const;
 export const BOOLEAN_FILTER_FIELDS = ['banned', 'emailSubscribed'] as const;
+export const DATE_FILTER_FIELDS = ['createdAt'] as const;
 export const ALL_FILTER_FIELDS = [
   ...STRING_FILTER_FIELDS,
   ...ENUM_FILTER_FIELDS,
   ...BOOLEAN_FILTER_FIELDS,
+  ...DATE_FILTER_FIELDS,
 ] as const;
 
 export type StringFilterField = (typeof STRING_FILTER_FIELDS)[number];
 export type EnumFilterField = (typeof ENUM_FILTER_FIELDS)[number];
 export type BooleanFilterField = (typeof BOOLEAN_FILTER_FIELDS)[number];
+export type DateFilterField = (typeof DATE_FILTER_FIELDS)[number];
 export type FilterField = (typeof ALL_FILTER_FIELDS)[number];
 
 export const SEARCH_OPERATORS = ['contains', 'startsWith', 'endsWith'] as const;

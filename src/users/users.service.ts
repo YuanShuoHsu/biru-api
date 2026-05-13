@@ -25,6 +25,8 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import type {
   BooleanFilterField,
+  DateFilterField,
+  DateFilterOperator,
   EnumFilterField,
   EnumFilterOperator,
   ListUsersQueryDto,
@@ -34,6 +36,7 @@ import type {
 } from './dto/list-users-query.dto';
 import {
   BOOLEAN_FILTER_FIELDS,
+  DATE_FILTER_FIELDS,
   ENUM_FILTER_FIELDS,
   ENUM_FILTER_OPERATORS,
   STRING_FILTER_FIELDS,
@@ -186,10 +189,40 @@ const buildQuickFilterCondition = (
   }
 };
 
+const buildDateFilterCondition = (
+  field: typeof user.createdAt,
+  operator: DateFilterOperator,
+  value: string | undefined,
+  timezone: string,
+): SQL | undefined => {
+  if (operator === 'isEmpty') return isNull(field);
+  if (operator === 'isNotEmpty') return isNotNull(field);
+  if (!value) return undefined;
+
+  const localDate = sql`DATE(${field} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`;
+  const targetDate = sql`${value}::date`;
+
+  switch (operator) {
+    case 'is':
+      return sql`${localDate} = ${targetDate}`;
+    case 'not':
+      return sql`${localDate} != ${targetDate}`;
+    case 'after':
+      return sql`${localDate} > ${targetDate}`;
+    case 'onOrAfter':
+      return sql`${localDate} >= ${targetDate}`;
+    case 'before':
+      return sql`${localDate} < ${targetDate}`;
+    case 'onOrBefore':
+      return sql`${localDate} <= ${targetDate}`;
+  }
+};
+
 const buildColumnFilterCondition = (
   filterField: NonNullable<ListUsersQueryDto['filterField']>,
   filterOperator: NonNullable<ListUsersQueryDto['filterOperator']>,
   filterValue: string | undefined,
+  timezone: string,
 ): SQL | undefined => {
   const isEnumOp = (ENUM_FILTER_OPERATORS as readonly string[]).includes(
     filterOperator,
@@ -204,6 +237,15 @@ const buildColumnFilterCondition = (
       user[filterField as StringFilterField],
       filterOperator as TextFilterOperator,
       filterValue ?? '',
+    );
+  }
+
+  if ((DATE_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    return buildDateFilterCondition(
+      user[filterField as DateFilterField],
+      filterOperator as DateFilterOperator,
+      filterValue,
+      timezone,
     );
   }
 
@@ -283,7 +325,12 @@ export class UsersService {
 
     const columnFilterCondition =
       filterField && filterOperator
-        ? buildColumnFilterCondition(filterField, filterOperator, filterValue)
+        ? buildColumnFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            String(timezone),
+          )
         : undefined;
 
     const searchCondition =
