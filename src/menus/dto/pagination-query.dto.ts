@@ -1,6 +1,62 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
+export const STRING_FILTER_FIELDS = ['name', 'description'] as const;
+export const DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
+export const ALL_FILTER_FIELDS = [
+  ...STRING_FILTER_FIELDS,
+  ...DATE_FILTER_FIELDS,
+] as const;
+
+export const STRING_FILTER_OPERATORS = [
+  'contains',
+  'doesNotContain',
+  'equals',
+  'doesNotEqual',
+  'startsWith',
+  'endsWith',
+  'isEmpty',
+  'isNotEmpty',
+  'isAnyOf',
+] as const;
+export const DATE_FILTER_OPERATORS = [
+  'is',
+  'not',
+  'after',
+  'onOrAfter',
+  'before',
+  'onOrBefore',
+  'isEmpty',
+  'isNotEmpty',
+] as const;
+export const ALL_FILTER_OPERATORS = [
+  'contains',
+  'doesNotContain',
+  'equals',
+  'doesNotEqual',
+  'startsWith',
+  'endsWith',
+  'isEmpty',
+  'isNotEmpty',
+  'isAnyOf',
+  'is',
+  'not',
+  'after',
+  'onOrAfter',
+  'before',
+  'onOrBefore',
+] as const;
+
+export type StringFilterField = (typeof STRING_FILTER_FIELDS)[number];
+export type DateFilterField = (typeof DATE_FILTER_FIELDS)[number];
+export type FilterField = (typeof ALL_FILTER_FIELDS)[number];
+export type StringFilterOperator = (typeof STRING_FILTER_OPERATORS)[number];
+export type DateFilterOperator = (typeof DATE_FILTER_OPERATORS)[number];
+export type FilterOperator = (typeof ALL_FILTER_OPERATORS)[number];
+
+export const SEARCH_FIELDS = ['name', 'description'] as const;
+export const SEARCH_OPERATORS = ['contains', 'startsWith', 'endsWith'] as const;
+
 export class PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -15,47 +71,24 @@ export class PaginationQueryDto {
   offset?: number = 0;
 
   @IsOptional()
-  @IsIn(['name', 'description'])
-  filterField?: 'name' | 'description';
+  @IsIn(ALL_FILTER_FIELDS)
+  filterField?: FilterField;
 
   @IsOptional()
-  @IsIn([
-    'eq',
-    'ne',
-    'lt',
-    'lte',
-    'gt',
-    'gte',
-    'in',
-    'not_in',
-    'contains',
-    'starts_with',
-    'ends_with',
-  ])
-  filterOperator?:
-    | 'eq'
-    | 'ne'
-    | 'lt'
-    | 'lte'
-    | 'gt'
-    | 'gte'
-    | 'in'
-    | 'not_in'
-    | 'contains'
-    | 'starts_with'
-    | 'ends_with';
+  @IsIn(ALL_FILTER_OPERATORS)
+  filterOperator?: FilterOperator;
 
   @IsOptional()
   @IsString()
   filterValue?: string;
 
   @IsOptional()
-  @IsIn(['name', 'description'])
-  searchField?: 'name' | 'description';
+  @IsIn(SEARCH_FIELDS)
+  searchField?: (typeof SEARCH_FIELDS)[number];
 
   @IsOptional()
-  @IsIn(['contains', 'starts_with', 'ends_with'])
-  searchOperator?: 'contains' | 'starts_with' | 'ends_with';
+  @IsIn(SEARCH_OPERATORS)
+  searchOperator?: (typeof SEARCH_OPERATORS)[number];
 
   @IsOptional()
   @IsString()

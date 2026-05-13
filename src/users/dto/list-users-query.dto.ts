@@ -11,13 +11,23 @@ export const TEXT_FILTER_OPERATORS = [
   'endsWith',
   'isEmpty',
   'isNotEmpty',
+  'isAnyOf',
 ] as const;
 
 export const ENUM_FILTER_OPERATORS = ['is', 'not', 'isAnyOf'] as const;
 
 export const ALL_FILTER_OPERATORS = [
-  ...TEXT_FILTER_OPERATORS,
-  ...ENUM_FILTER_OPERATORS,
+  'contains',
+  'doesNotContain',
+  'equals',
+  'doesNotEqual',
+  'startsWith',
+  'endsWith',
+  'isEmpty',
+  'isNotEmpty',
+  'is',
+  'not',
+  'isAnyOf',
 ] as const;
 
 export type TextFilterOperator = (typeof TEXT_FILTER_OPERATORS)[number];

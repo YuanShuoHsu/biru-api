@@ -11,10 +11,14 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
+  isNull,
   lt,
   lte,
   ne,
-  notInArray,
+  notIlike,
+  or,
+  sql,
 } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,42 +30,101 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
 import type { CreateMenuDto } from './dto/create-menu.dto';
+import {
+  DATE_FILTER_FIELDS,
+  PaginationQueryDto,
+  STRING_FILTER_FIELDS,
+  type FilterField,
+  type FilterOperator,
+} from './dto/pagination-query.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
 
-function buildTextCondition(
+const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
+
+const buildStringFilterCondition = (
   col: Column,
   operator: string,
   value: string,
-): SQL | undefined {
+): SQL | undefined => {
   switch (operator) {
-    case 'eq':
-      return eq(col, value);
-    case 'ne':
-      return ne(col, value);
-    case 'lt':
-      return lt(col, value);
-    case 'lte':
-      return lte(col, value);
-    case 'gt':
-      return gt(col, value);
-    case 'gte':
-      return gte(col, value);
     case 'contains':
       return ilike(col, `%${value}%`);
-    case 'starts_with':
+    case 'doesNotContain':
+      return notIlike(col, `%${value}%`);
+    case 'equals':
+      return eq(col, value);
+    case 'doesNotEqual':
+      return ne(col, value);
+    case 'startsWith':
       return ilike(col, `${value}%`);
-    case 'ends_with':
+    case 'endsWith':
       return ilike(col, `%${value}`);
-    case 'in':
-      return inArray(col, value.split(','));
-    case 'not_in':
-      return notInArray(col, value.split(','));
-    default:
-      return undefined;
+    case 'isEmpty':
+      return or(isNull(col), eq(col, ''));
+    case 'isNotEmpty':
+      return and(isNotNull(col), ne(col, ''));
+    case 'isAnyOf': {
+      const values = value.split(',').filter(Boolean);
+      if (values.length === 0) return undefined;
+
+      return values.length === 1 ? eq(col, values[0]) : inArray(col, values);
+    }
   }
-}
+};
+
+const buildDateFilterCondition = (
+  col: Column,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  if (operator === 'isEmpty') return isNull(col);
+  if (operator === 'isNotEmpty') return isNotNull(col);
+  if (!value) return undefined;
+
+  const dateCast = sql`${col}::date`;
+
+  switch (operator) {
+    case 'is':
+      return eq(dateCast, value);
+    case 'not':
+      return ne(dateCast, value);
+    case 'after':
+      return gt(dateCast, value);
+    case 'onOrAfter':
+      return gte(dateCast, value);
+    case 'before':
+      return lt(dateCast, value);
+    case 'onOrBefore':
+      return lte(dateCast, value);
+  }
+};
+
+const buildFilterCondition = (
+  filterField: FilterField,
+  filterOperator: FilterOperator,
+  filterValue: string | undefined,
+  fieldMap: Record<string, Column>,
+): SQL | undefined => {
+  const column = fieldMap[filterField];
+  if (!column) return undefined;
+
+  if ((STRING_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    if (!filterValue && !NO_VALUE_OPERATORS.includes(filterOperator))
+      return undefined;
+
+    return buildStringFilterCondition(
+      column,
+      filterOperator,
+      filterValue || '',
+    );
+  }
+
+  if ((DATE_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    return buildDateFilterCondition(column, filterOperator, filterValue || '');
+  }
+};
 
 @Injectable()
 export class MenusService {
@@ -135,18 +198,7 @@ export class MenusService {
 
   async menuSections(
     menuId: string,
-    query: {
-      limit?: number;
-      offset?: number;
-      filterField?: 'name' | 'description';
-      filterOperator?: string;
-      filterValue?: string;
-      searchField?: 'name' | 'description';
-      searchOperator?: string;
-      searchValue?: string;
-      sortBy?: 'name' | 'createdAt' | 'updatedAt';
-      sortDirection?: 'asc' | 'desc';
-    } = {},
+    query: PaginationQueryDto = {},
   ): Promise<{ data: MenuSection[]; total: number }> {
     const {
       limit = 10,
@@ -166,18 +218,29 @@ export class MenusService {
       ? [dir(menuSection[sortBy])]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
-    const sectionFieldMap = {
+    const sectionFieldMap: Record<string, Column> = {
       name: menuSection.name,
       description: menuSection.description,
+      createdAt: menuSection.createdAt,
+      updatedAt: menuSection.updatedAt,
     };
 
     const where = and(
       eq(menuSection.menuId, menuId),
-      filterField && filterOperator && filterValue
-        ? buildTextCondition(sectionFieldMap[filterField], filterOperator, filterValue)
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            sectionFieldMap,
+          )
         : undefined,
       searchField && searchOperator && searchValue
-        ? buildTextCondition(sectionFieldMap[searchField], searchOperator, searchValue)
+        ? buildStringFilterCondition(
+            sectionFieldMap[searchField],
+            searchOperator,
+            searchValue,
+          )
         : undefined,
     );
 
@@ -189,10 +252,7 @@ export class MenusService {
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
-      this.db
-        .select({ total: count() })
-        .from(menuSection)
-        .where(where),
+      this.db.select({ total: count() }).from(menuSection).where(where),
     ]);
 
     return { data, total };
@@ -268,18 +328,7 @@ export class MenusService {
 
   async menuSectionItems(
     sectionId: string,
-    query: {
-      limit?: number;
-      offset?: number;
-      filterField?: 'name' | 'description';
-      filterOperator?: string;
-      filterValue?: string;
-      searchField?: 'name' | 'description';
-      searchOperator?: string;
-      searchValue?: string;
-      sortBy?: 'name' | 'createdAt' | 'updatedAt';
-      sortDirection?: 'asc' | 'desc';
-    } = {},
+    query: PaginationQueryDto = {},
   ): Promise<{ data: MenuItem[]; total: number }> {
     const {
       limit = 10,
@@ -299,18 +348,29 @@ export class MenusService {
       ? [dir(menuItem[sortBy])]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
-    const itemFieldMap = {
+    const itemFieldMap: Record<string, Column> = {
       name: menuItem.name,
       description: menuItem.description,
+      createdAt: menuItem.createdAt,
+      updatedAt: menuItem.updatedAt,
     };
 
     const where = and(
       eq(menuItem.menuSectionId, sectionId),
-      filterField && filterOperator && filterValue
-        ? buildTextCondition(itemFieldMap[filterField], filterOperator, filterValue)
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            itemFieldMap,
+          )
         : undefined,
       searchField && searchOperator && searchValue
-        ? buildTextCondition(itemFieldMap[searchField], searchOperator, searchValue)
+        ? buildStringFilterCondition(
+            itemFieldMap[searchField],
+            searchOperator,
+            searchValue,
+          )
         : undefined,
     );
 
@@ -322,10 +382,7 @@ export class MenusService {
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
-      this.db
-        .select({ total: count() })
-        .from(menuItem)
-        .where(where),
+      this.db.select({ total: count() }).from(menuItem).where(where),
     ]);
 
     return { data, total };

@@ -44,12 +44,14 @@ type QuickFilterField = EnumFilterField | BooleanFilterField;
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
-function parseQuickFilterValue(value: string):
+const parseQuickFilterValue = (
+  value: string,
+):
   | {
       field: QuickFilterField;
       value: string;
     }
-  | undefined {
+  | undefined => {
   const [field, ...rest] = value.split(':');
   const filterValue = rest.join(':');
 
@@ -65,13 +67,13 @@ function parseQuickFilterValue(value: string):
   ) {
     return { field, value: filterValue };
   }
-}
+};
 
-function buildStringFilterCondition(
+const buildStringFilterCondition = (
   field: typeof user.name | typeof user.email,
   operator: TextFilterOperator,
   value: string,
-): SQL | undefined {
+): SQL | undefined => {
   switch (operator) {
     case 'equals':
       return eq(field, value);
@@ -89,14 +91,22 @@ function buildStringFilterCondition(
       return or(isNull(field), eq(field, ''));
     case 'isNotEmpty':
       return and(isNotNull(field), ne(field, ''));
-  }
-}
+    case 'isAnyOf': {
+      const values = value.split(',').filter(Boolean);
+      if (values.length === 0) return undefined;
 
-function buildEnumFilterCondition(
+      return values.length === 1
+        ? eq(field, values[0])
+        : inArray(field, values);
+    }
+  }
+};
+
+const buildEnumFilterCondition = (
   field: typeof user.role,
   operator: EnumFilterOperator,
   value: string,
-): SQL | undefined {
+): SQL | undefined => {
   const values = value.split(',').filter(Boolean);
   if (values.length === 0) return undefined;
 
@@ -110,13 +120,13 @@ function buildEnumFilterCondition(
         ? eq(field, values[0])
         : inArray(field, values);
   }
-}
+};
 
-function buildBooleanFilterCondition(
+const buildBooleanFilterCondition = (
   field: typeof user.banned | typeof user.emailSubscribed,
   operator: EnumFilterOperator,
   value: string,
-): SQL | undefined {
+): SQL | undefined => {
   const boolValues = value
     .split(',')
     .filter(Boolean)
@@ -132,13 +142,13 @@ function buildBooleanFilterCondition(
       if (boolValues.length >= 2) return undefined;
       return eq(field, boolValues[0]);
   }
-}
+};
 
-function buildSearchCondition(
+const buildSearchCondition = (
   field: typeof user.name | typeof user.email,
   operator: SearchOperator,
   value: string,
-): SQL | undefined {
+): SQL | undefined => {
   switch (operator) {
     case 'contains':
       return ilike(field, `%${value}%`);
@@ -147,12 +157,12 @@ function buildSearchCondition(
     case 'endsWith':
       return ilike(field, `%${value}`);
   }
-}
+};
 
-function buildQuickFilterCondition(
+const buildQuickFilterCondition = (
   value: string,
   timezone: string,
-): SQL | undefined {
+): SQL | undefined => {
   const parsedValue = parseQuickFilterValue(value);
 
   if (!parsedValue) {
@@ -174,21 +184,22 @@ function buildQuickFilterCondition(
     case 'emailSubscribed':
       return eq(user.emailSubscribed, parsedValue.value === 'true');
   }
-}
+};
 
-function buildColumnFilterCondition(
+const buildColumnFilterCondition = (
   filterField: NonNullable<ListUsersQueryDto['filterField']>,
   filterOperator: NonNullable<ListUsersQueryDto['filterOperator']>,
   filterValue: string | undefined,
-): SQL | undefined {
+): SQL | undefined => {
   const isEnumOp = (ENUM_FILTER_OPERATORS as readonly string[]).includes(
     filterOperator,
   );
 
   if ((STRING_FILTER_FIELDS as readonly string[]).includes(filterField)) {
-    if (isEnumOp) return undefined;
+    if (isEnumOp && filterOperator !== 'isAnyOf') return undefined;
     if (!filterValue && !NO_VALUE_OPERATORS.includes(filterOperator))
       return undefined;
+
     return buildStringFilterCondition(
       user[filterField as StringFilterField],
       filterOperator as TextFilterOperator,
@@ -213,7 +224,7 @@ function buildColumnFilterCondition(
       filterValue,
     );
   }
-}
+};
 
 @Injectable()
 export class UsersService {
