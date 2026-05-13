@@ -9,6 +9,7 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   isNotNull,
   isNull,
   ne,
@@ -22,11 +23,24 @@ import { user } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import type { ListUsersQueryDto } from './dto/list-users-query.dto';
+import type {
+  BooleanFilterField,
+  EnumFilterField,
+  EnumFilterOperator,
+  ListUsersQueryDto,
+  SearchOperator,
+  StringFilterField,
+  TextFilterOperator,
+} from './dto/list-users-query.dto';
+import {
+  BOOLEAN_FILTER_FIELDS,
+  ENUM_FILTER_FIELDS,
+  ENUM_FILTER_OPERATORS,
+  STRING_FILTER_FIELDS,
+} from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-type StringField = typeof user.name | typeof user.email;
-type QuickFilterField = 'role' | 'banned' | 'emailSubscribed';
+type QuickFilterField = EnumFilterField | BooleanFilterField;
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
@@ -53,9 +67,9 @@ function parseQuickFilterValue(value: string):
   }
 }
 
-function buildFilterCondition(
-  field: StringField,
-  operator: NonNullable<ListUsersQueryDto['filterOperator']>,
+function buildStringFilterCondition(
+  field: typeof user.name | typeof user.email,
+  operator: TextFilterOperator,
   value: string,
 ): SQL | undefined {
   switch (operator) {
@@ -78,17 +92,59 @@ function buildFilterCondition(
   }
 }
 
+function buildEnumFilterCondition(
+  field: typeof user.role,
+  operator: EnumFilterOperator,
+  value: string,
+): SQL | undefined {
+  const values = value.split(',').filter(Boolean);
+  if (values.length === 0) return undefined;
+
+  switch (operator) {
+    case 'is':
+      return eq(field, values[0]);
+    case 'not':
+      return ne(field, values[0]);
+    case 'isAnyOf':
+      return values.length === 1
+        ? eq(field, values[0])
+        : inArray(field, values);
+  }
+}
+
+function buildBooleanFilterCondition(
+  field: typeof user.banned | typeof user.emailSubscribed,
+  operator: EnumFilterOperator,
+  value: string,
+): SQL | undefined {
+  const boolValues = value
+    .split(',')
+    .filter(Boolean)
+    .map((v) => v === 'true');
+  if (boolValues.length === 0) return undefined;
+
+  switch (operator) {
+    case 'is':
+      return eq(field, boolValues[0]);
+    case 'not':
+      return ne(field, boolValues[0]);
+    case 'isAnyOf':
+      if (boolValues.length >= 2) return undefined;
+      return eq(field, boolValues[0]);
+  }
+}
+
 function buildSearchCondition(
-  field: StringField,
-  operator: NonNullable<ListUsersQueryDto['searchOperator']>,
+  field: typeof user.name | typeof user.email,
+  operator: SearchOperator,
   value: string,
 ): SQL | undefined {
   switch (operator) {
     case 'contains':
       return ilike(field, `%${value}%`);
-    case 'starts_with':
+    case 'startsWith':
       return ilike(field, `${value}%`);
-    case 'ends_with':
+    case 'endsWith':
       return ilike(field, `%${value}`);
   }
 }
@@ -117,6 +173,45 @@ function buildQuickFilterCondition(
       return eq(user.banned, parsedValue.value === 'true');
     case 'emailSubscribed':
       return eq(user.emailSubscribed, parsedValue.value === 'true');
+  }
+}
+
+function buildColumnFilterCondition(
+  filterField: NonNullable<ListUsersQueryDto['filterField']>,
+  filterOperator: NonNullable<ListUsersQueryDto['filterOperator']>,
+  filterValue: string | undefined,
+): SQL | undefined {
+  const isEnumOp = (ENUM_FILTER_OPERATORS as readonly string[]).includes(
+    filterOperator,
+  );
+
+  if ((STRING_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    if (isEnumOp) return undefined;
+    if (!filterValue && !NO_VALUE_OPERATORS.includes(filterOperator))
+      return undefined;
+    return buildStringFilterCondition(
+      user[filterField as StringFilterField],
+      filterOperator as TextFilterOperator,
+      filterValue ?? '',
+    );
+  }
+
+  if (!isEnumOp || !filterValue) return undefined;
+
+  if ((ENUM_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    return buildEnumFilterCondition(
+      user[filterField as EnumFilterField],
+      filterOperator as EnumFilterOperator,
+      filterValue,
+    );
+  }
+
+  if ((BOOLEAN_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+    return buildBooleanFilterCondition(
+      user[filterField as BooleanFilterField],
+      filterOperator as EnumFilterOperator,
+      filterValue,
+    );
   }
 }
 
@@ -176,14 +271,8 @@ export class UsersService {
       : undefined;
 
     const columnFilterCondition =
-      filterField &&
-      filterOperator &&
-      (filterValue || NO_VALUE_OPERATORS.includes(filterOperator))
-        ? buildFilterCondition(
-            user[filterField],
-            filterOperator,
-            filterValue || '',
-          )
+      filterField && filterOperator
+        ? buildColumnFilterCondition(filterField, filterOperator, filterValue)
         : undefined;
 
     const searchCondition =
