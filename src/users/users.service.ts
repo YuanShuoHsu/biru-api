@@ -100,7 +100,10 @@ function buildQuickFilterCondition(value: string): SQL | undefined {
     return or(
       ilike(user.name, `%${value}%`),
       ilike(user.email, `%${value}%`),
-      ilike(sql`${user.createdAt}::text`, `%${value}%`),
+      ilike(
+        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS')`,
+        `%${value}%`,
+      ),
     );
   }
 
