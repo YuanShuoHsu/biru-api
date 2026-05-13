@@ -206,11 +206,13 @@ export class MenusService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterValue,
       searchField,
       searchOperator,
       searchValue,
       sortBy,
       sortDirection = 'desc',
+      timezone = 'UTC',
     } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -233,6 +235,20 @@ export class MenusService {
             filterOperator,
             filterValue,
             sectionFieldMap,
+          )
+        : undefined,
+      quickFilterValue
+        ? or(
+            ilike(menuSection.name, `%${quickFilterValue}%`),
+            ilike(menuSection.description, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${menuSection.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${menuSection.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
           )
         : undefined,
       searchField && searchOperator && searchValue
@@ -336,11 +352,13 @@ export class MenusService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterValue,
       searchField,
       searchOperator,
       searchValue,
       sortBy,
       sortDirection = 'desc',
+      timezone = 'UTC',
     } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -363,6 +381,20 @@ export class MenusService {
             filterOperator,
             filterValue,
             itemFieldMap,
+          )
+        : undefined,
+      quickFilterValue
+        ? or(
+            ilike(menuItem.name, `%${quickFilterValue}%`),
+            ilike(menuItem.description, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${menuItem.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${menuItem.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
           )
         : undefined,
       searchField && searchOperator && searchValue

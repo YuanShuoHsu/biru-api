@@ -83,6 +83,10 @@ export class PaginationQueryDto {
   filterValue?: string;
 
   @IsOptional()
+  @IsString()
+  quickFilterValue?: string;
+
+  @IsOptional()
   @IsIn(SEARCH_FIELDS)
   searchField?: (typeof SEARCH_FIELDS)[number];
 
@@ -101,4 +105,8 @@ export class PaginationQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortDirection?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 }
