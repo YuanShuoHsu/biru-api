@@ -148,6 +148,20 @@
       "when": 1778694699692,
       "tag": "0020_steep_the_fallen",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1778695069292,
+      "tag": "0021_fast_mariko_yashida",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1778695251928,
+      "tag": "0022_goofy_jackal",
+      "breakpoints": true
     }
   ]
 }
