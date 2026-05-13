@@ -7,14 +7,12 @@ import {
   count,
   desc,
   eq,
-  gt,
   gte,
   ilike,
-  inArray,
-  lt,
-  lte,
+  isNotNull,
+  isNull,
   ne,
-  notInArray,
+  notIlike,
   or,
   sql,
 } from 'drizzle-orm';
@@ -29,6 +27,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 type StringField = typeof user.name | typeof user.email;
 type QuickFilterField = 'role' | 'banned' | 'emailSubscribed';
+
+const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
 function parseQuickFilterValue(value: string):
   | {
@@ -58,31 +58,23 @@ function buildFilterCondition(
   operator: NonNullable<ListUsersQueryDto['filterOperator']>,
   value: string,
 ): SQL | undefined {
-  const values = value.split(',').map((v) => v.trim());
-
   switch (operator) {
-    case 'eq':
+    case 'equals':
       return eq(field, value);
-    case 'ne':
+    case 'doesNotEqual':
       return ne(field, value);
-    case 'lt':
-      return lt(field, value);
-    case 'lte':
-      return lte(field, value);
-    case 'gt':
-      return gt(field, value);
-    case 'gte':
-      return gte(field, value);
-    case 'in':
-      return inArray(field, values);
-    case 'not_in':
-      return notInArray(field, values);
     case 'contains':
       return ilike(field, `%${value}%`);
-    case 'starts_with':
+    case 'doesNotContain':
+      return notIlike(field, `%${value}%`);
+    case 'startsWith':
       return ilike(field, `${value}%`);
-    case 'ends_with':
+    case 'endsWith':
       return ilike(field, `%${value}`);
+    case 'isEmpty':
+      return or(isNull(field), eq(field, ''));
+    case 'isNotEmpty':
+      return and(isNotNull(field), ne(field, ''));
   }
 }
 
@@ -177,8 +169,14 @@ export class UsersService {
       : undefined;
 
     const columnFilterCondition =
-      filterField && filterOperator && filterValue
-        ? buildFilterCondition(user[filterField], filterOperator, filterValue)
+      filterField &&
+      filterOperator &&
+      (filterValue || NO_VALUE_OPERATORS.includes(filterOperator))
+        ? buildFilterCondition(
+            user[filterField],
+            filterOperator,
+            filterValue || '',
+          )
         : undefined;
 
     const searchCondition =

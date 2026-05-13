@@ -14,48 +14,39 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: 'Column filter 運算子',
     enum: [
-      'eq',
-      'ne',
-      'lt',
-      'lte',
-      'gt',
-      'gte',
-      'in',
-      'not_in',
       'contains',
-      'starts_with',
-      'ends_with',
+      'doesNotContain',
+      'equals',
+      'doesNotEqual',
+      'startsWith',
+      'endsWith',
+      'isEmpty',
+      'isNotEmpty',
     ],
   })
   @IsOptional()
   @IsIn([
-    'eq',
-    'ne',
-    'lt',
-    'lte',
-    'gt',
-    'gte',
-    'in',
-    'not_in',
     'contains',
-    'starts_with',
-    'ends_with',
+    'doesNotContain',
+    'equals',
+    'doesNotEqual',
+    'startsWith',
+    'endsWith',
+    'isEmpty',
+    'isNotEmpty',
   ])
   filterOperator?:
-    | 'eq'
-    | 'ne'
-    | 'lt'
-    | 'lte'
-    | 'gt'
-    | 'gte'
-    | 'in'
-    | 'not_in'
     | 'contains'
-    | 'starts_with'
-    | 'ends_with';
+    | 'doesNotContain'
+    | 'equals'
+    | 'doesNotEqual'
+    | 'startsWith'
+    | 'endsWith'
+    | 'isEmpty'
+    | 'isNotEmpty';
 
   @ApiPropertyOptional({
-    description: 'Column filter 值（in/not_in 用逗號分隔）',
+    description: 'Column filter 值（isEmpty/isNotEmpty 時可省略）',
   })
   @IsOptional()
   @IsString()

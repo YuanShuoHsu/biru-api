@@ -1,5 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { SQL, asc, count, desc, eq } from 'drizzle-orm';
+import {
+  Column,
+  SQL,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  lt,
+  lte,
+  ne,
+  notInArray,
+} from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { Menu, MenuItem, MenuSection } from 'src/db/schema/menus';
@@ -13,6 +29,39 @@ import type { CreateMenuDto } from './dto/create-menu.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
+
+function buildTextCondition(
+  col: Column,
+  operator: string,
+  value: string,
+): SQL | undefined {
+  switch (operator) {
+    case 'eq':
+      return eq(col, value);
+    case 'ne':
+      return ne(col, value);
+    case 'lt':
+      return lt(col, value);
+    case 'lte':
+      return lte(col, value);
+    case 'gt':
+      return gt(col, value);
+    case 'gte':
+      return gte(col, value);
+    case 'contains':
+      return ilike(col, `%${value}%`);
+    case 'starts_with':
+      return ilike(col, `${value}%`);
+    case 'ends_with':
+      return ilike(col, `%${value}`);
+    case 'in':
+      return inArray(col, value.split(','));
+    case 'not_in':
+      return notInArray(col, value.split(','));
+    default:
+      return undefined;
+  }
+}
 
 @Injectable()
 export class MenusService {
@@ -89,29 +138,61 @@ export class MenusService {
     query: {
       limit?: number;
       offset?: number;
+      filterField?: 'name' | 'description';
+      filterOperator?: string;
+      filterValue?: string;
+      searchField?: 'name' | 'description';
+      searchOperator?: string;
+      searchValue?: string;
       sortBy?: 'name' | 'createdAt' | 'updatedAt';
       sortDirection?: 'asc' | 'desc';
     } = {},
   ): Promise<{ data: MenuSection[]; total: number }> {
-    const { limit = 10, offset = 0, sortBy, sortDirection = 'desc' } = query;
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      searchField,
+      searchOperator,
+      searchValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
       ? [dir(menuSection[sortBy])]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
+    const sectionFieldMap = {
+      name: menuSection.name,
+      description: menuSection.description,
+    };
+
+    const where = and(
+      eq(menuSection.menuId, menuId),
+      filterField && filterOperator && filterValue
+        ? buildTextCondition(sectionFieldMap[filterField], filterOperator, filterValue)
+        : undefined,
+      searchField && searchOperator && searchValue
+        ? buildTextCondition(sectionFieldMap[searchField], searchOperator, searchValue)
+        : undefined,
+    );
+
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuSection)
-        .where(eq(menuSection.menuId, menuId))
+        .where(where)
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       this.db
         .select({ total: count() })
         .from(menuSection)
-        .where(eq(menuSection.menuId, menuId)),
+        .where(where),
     ]);
 
     return { data, total };
@@ -190,29 +271,61 @@ export class MenusService {
     query: {
       limit?: number;
       offset?: number;
+      filterField?: 'name' | 'description';
+      filterOperator?: string;
+      filterValue?: string;
+      searchField?: 'name' | 'description';
+      searchOperator?: string;
+      searchValue?: string;
       sortBy?: 'name' | 'createdAt' | 'updatedAt';
       sortDirection?: 'asc' | 'desc';
     } = {},
   ): Promise<{ data: MenuItem[]; total: number }> {
-    const { limit = 10, offset = 0, sortBy, sortDirection = 'desc' } = query;
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      searchField,
+      searchOperator,
+      searchValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
       ? [dir(menuItem[sortBy])]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
+    const itemFieldMap = {
+      name: menuItem.name,
+      description: menuItem.description,
+    };
+
+    const where = and(
+      eq(menuItem.menuSectionId, sectionId),
+      filterField && filterOperator && filterValue
+        ? buildTextCondition(itemFieldMap[filterField], filterOperator, filterValue)
+        : undefined,
+      searchField && searchOperator && searchValue
+        ? buildTextCondition(itemFieldMap[searchField], searchOperator, searchValue)
+        : undefined,
+    );
+
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(menuItem)
-        .where(eq(menuItem.menuSectionId, sectionId))
+        .where(where)
         .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       this.db
         .select({ total: count() })
         .from(menuItem)
-        .where(eq(menuItem.menuSectionId, sectionId)),
+        .where(where),
     ]);
 
     return { data, total };
