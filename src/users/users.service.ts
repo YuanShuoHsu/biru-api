@@ -93,7 +93,10 @@ function buildSearchCondition(
   }
 }
 
-function buildQuickFilterCondition(value: string): SQL | undefined {
+function buildQuickFilterCondition(
+  value: string,
+  timezone: string,
+): SQL | undefined {
   const parsedValue = parseQuickFilterValue(value);
 
   if (!parsedValue) {
@@ -101,7 +104,7 @@ function buildQuickFilterCondition(value: string): SQL | undefined {
       ilike(user.name, `%${value}%`),
       ilike(user.email, `%${value}%`),
       ilike(
-        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS')`,
+        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
         `%${value}%`,
       ),
     );
@@ -165,10 +168,11 @@ export class UsersService {
       searchField,
       searchOperator,
       searchValue,
+      timezone = 'UTC',
     } = query;
 
     const quickFilterCondition = quickFilterValue
-      ? buildQuickFilterCondition(quickFilterValue)
+      ? buildQuickFilterCondition(quickFilterValue, String(timezone))
       : undefined;
 
     const columnFilterCondition =
