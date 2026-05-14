@@ -6,7 +6,9 @@ export type OrganizationParam =
   | 'organizationId'
   | 'menuId'
   | 'sectionId'
-  | 'menuItemId';
+  | 'menuItemId'
+  | 'offerId'
+  | 'addOnId';
 
 export const Roles = (
   action: Record<string, string[]>,

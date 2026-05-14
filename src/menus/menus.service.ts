@@ -22,8 +22,14 @@ import {
 } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { Menu, MenuItem, MenuSection } from 'src/db/schema/menus';
-import { menu, menuItem, menuSection } from 'src/db/schema/menus';
+import type {
+  Menu,
+  MenuItem,
+  MenuItemAddOn,
+  MenuSection,
+  Offer,
+} from 'src/db/schema/menus';
+import { menu, menuItem, menuItemAddOn, menuSection, offer } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -37,9 +43,12 @@ import {
   type FilterField,
   type FilterOperator,
 } from './dto/pagination-query.dto';
+import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
+import type { CreateOfferDto } from './dto/create-offer.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
+import type { UpdateOfferDto } from './dto/update-offer.dto';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
@@ -452,6 +461,78 @@ export class MenusService {
     const [deleted] = await this.db
       .delete(menuItem)
       .where(eq(menuItem.id, where.id))
+      .returning();
+
+    return deleted;
+  }
+
+  // ── Offer ─────────────────────────────────────────────────────────
+
+  async createOffer(menuItemId: string, data: CreateOfferDto): Promise<Offer> {
+    const [created] = await this.db
+      .insert(offer)
+      .values({ id: uuidv4(), menuItemId, ...data })
+      .returning();
+
+    return created;
+  }
+
+  async menuItemOffers(menuItemId: string): Promise<Offer[]> {
+    return this.db
+      .select()
+      .from(offer)
+      .where(eq(offer.menuItemId, menuItemId))
+      .orderBy(asc(offer.createdAt));
+  }
+
+  async updateOffer(params: {
+    where: { id: string };
+    data: UpdateOfferDto;
+  }): Promise<Offer> {
+    const [updated] = await this.db
+      .update(offer)
+      .set(params.data)
+      .where(eq(offer.id, params.where.id))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteOffer(where: { id: string }): Promise<Offer> {
+    const [deleted] = await this.db
+      .delete(offer)
+      .where(eq(offer.id, where.id))
+      .returning();
+
+    return deleted;
+  }
+
+  // ── MenuItemAddOn ─────────────────────────────────────────────────
+
+  async createMenuItemAddOn(
+    menuItemId: string,
+    data: CreateMenuItemAddOnDto,
+  ): Promise<MenuItemAddOn> {
+    const [created] = await this.db
+      .insert(menuItemAddOn)
+      .values({ id: uuidv4(), menuItemId, ...data })
+      .returning();
+
+    return created;
+  }
+
+  async menuItemAddOns(menuItemId: string): Promise<MenuItemAddOn[]> {
+    return this.db
+      .select()
+      .from(menuItemAddOn)
+      .where(eq(menuItemAddOn.menuItemId, menuItemId))
+      .orderBy(asc(menuItemAddOn.createdAt));
+  }
+
+  async deleteMenuItemAddOn(where: { id: string }): Promise<MenuItemAddOn> {
+    const [deleted] = await this.db
+      .delete(menuItemAddOn)
+      .where(eq(menuItemAddOn.id, where.id))
       .returning();
 
     return deleted;

@@ -16,7 +16,7 @@ import {
   member as memberRole,
   owner as ownerRole,
 } from 'src/auth/permissions';
-import { menu, menuItem, menuSection } from 'src/db/schema/menus';
+import { menu, menuItem, menuItemAddOn, menuSection, offer } from 'src/db/schema/menus';
 import { member } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -108,6 +108,34 @@ export class RolesGuard implements CanActivate {
         });
 
         return row?.menu?.organizationId;
+      }
+
+      case 'offerId': {
+        const row = await this.db.query.offer.findFirst({
+          where: eq(offer.id, params.offerId),
+          with: {
+            menuItem: { with: { menu: { columns: { organizationId: true } } } },
+            menuSection: {
+              with: { menu: { columns: { organizationId: true } } },
+            },
+          },
+        });
+
+        return (
+          row?.menuItem?.menu?.organizationId ??
+          row?.menuSection?.menu?.organizationId
+        );
+      }
+
+      case 'addOnId': {
+        const row = await this.db.query.menuItemAddOn.findFirst({
+          where: eq(menuItemAddOn.id, params.addOnId),
+          with: {
+            menuItem: { with: { menu: { columns: { organizationId: true } } } },
+          },
+        });
+
+        return row?.menuItem?.menu?.organizationId;
       }
     }
   }
