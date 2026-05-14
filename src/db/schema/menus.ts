@@ -80,7 +80,6 @@ export const menu = pgTable(
     description: text('description'),
     image: text('image'),
     inLanguage: text('in_language'),
-    url: text('url'),
     ...timestamps,
   },
   (table) => [index('menu_organizationId_idx').on(table.organizationId)],
@@ -125,7 +124,6 @@ export const menuItem = pgTable(
     name: text('name').notNull(),
     description: text('description'),
     image: text('image'),
-    url: text('url'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
     nutrition: jsonb('nutrition').$type<NutritionInformation>(),
     // additional fields

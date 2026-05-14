@@ -21,9 +21,6 @@ export class MenuItemResponseDto {
   @ApiPropertyOptional()
   image: string | null;
 
-  @ApiPropertyOptional()
-  url: string | null;
-
   @ApiPropertyOptional({ isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
 

@@ -102,11 +102,6 @@ export class CreateMenuItemDto {
   @IsString()
   image?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  url?: string;
-
   @ApiPropertyOptional({ enum: RESTRICTED_DIET_VALUES, isArray: true })
   @IsOptional()
   @IsArray()
