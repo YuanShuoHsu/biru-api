@@ -70,7 +70,14 @@ export type FilterField = (typeof ALL_FILTER_FIELDS)[number];
 export const SEARCH_OPERATORS = ['contains', 'startsWith', 'endsWith'] as const;
 export type SearchOperator = (typeof SEARCH_OPERATORS)[number];
 
-export const SORT_FIELDS = ['name', 'email', 'role', 'createdAt'] as const;
+export const SORT_FIELDS = [
+  'name',
+  'email',
+  'role',
+  'banned',
+  'emailSubscribed',
+  'createdAt',
+] as const;
 export type SortField = (typeof SORT_FIELDS)[number];
 
 export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
