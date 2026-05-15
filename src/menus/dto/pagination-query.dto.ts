@@ -57,6 +57,17 @@ export type FilterOperator = (typeof ALL_FILTER_OPERATORS)[number];
 export const SEARCH_FIELDS = ['name', 'description'] as const;
 export const SEARCH_OPERATORS = ['contains', 'startsWith', 'endsWith'] as const;
 
+export const SORT_FIELDS = [
+  'name',
+  'description',
+  'createdAt',
+  'updatedAt',
+] as const;
+export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
+
+export type SortField = (typeof SORT_FIELDS)[number];
+export type SortDirection = (typeof SORT_DIRECTIONS)[number];
+
 export class PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -99,12 +110,12 @@ export class PaginationQueryDto {
   searchValue?: string;
 
   @IsOptional()
-  @IsIn(['name', 'createdAt', 'updatedAt'])
-  sortBy?: 'name' | 'createdAt' | 'updatedAt';
+  @IsIn(SORT_FIELDS)
+  sortBy?: SortField;
 
   @IsOptional()
-  @IsIn(['asc', 'desc'])
-  sortDirection?: 'asc' | 'desc';
+  @IsIn(SORT_DIRECTIONS)
+  sortDirection?: SortDirection;
 
   @IsOptional()
   @IsString()
