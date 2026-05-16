@@ -9,7 +9,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import type { ItemAvailability } from 'src/db/schema/menus';
+import type {
+  AvailableDeliveryMethod,
+  BusinessEntityType,
+  ItemAvailability,
+} from 'src/db/schema/menus';
 
 export class EligibleQuantityDto {
   @ApiPropertyOptional()
@@ -40,6 +44,19 @@ export class EligibleQuantityDto {
   value?: number;
 }
 
+const BUSINESS_ENTITY_TYPE_VALUES: BusinessEntityType[] = [
+  'Business',
+  'Enduser',
+  'PublicInstitution',
+  'Reseller',
+];
+
+const AVAILABLE_DELIVERY_METHOD_VALUES: AvailableDeliveryMethod[] = [
+  'DeliveryModePickUp',
+  'DeliveryModeOwnFleet',
+  'ParcelService',
+];
+
 const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
   'BackOrder',
   'Discontinued',
@@ -56,16 +73,6 @@ const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
 ];
 
 export class CreateOfferDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  description?: string;
-
   @ApiPropertyOptional({ example: '150.00' })
   @IsOptional()
   @IsString()
@@ -117,9 +124,45 @@ export class CreateOfferDto {
   @ValidateNested()
   eligibleQuantity?: EligibleQuantityDto;
 
+  @ApiPropertyOptional({
+    enum: BUSINESS_ENTITY_TYPE_VALUES,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(BUSINESS_ENTITY_TYPE_VALUES, { each: true })
+  eligibleCustomerType?: BusinessEntityType[];
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  eligibleRegion?: string[];
+  validForMemberTier?: string[];
+
+  @ApiPropertyOptional({
+    enum: AVAILABLE_DELIVERY_METHOD_VALUES,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(AVAILABLE_DELIVERY_METHOD_VALUES, { each: true })
+  availableDeliveryMethod?: AvailableDeliveryMethod[];
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '預計準備時間，unitText 建議用 "minute"',
+  })
+  @IsOptional()
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  deliveryLeadTime?: EligibleQuantityDto;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '當日剩餘庫存數量',
+  })
+  @IsOptional()
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  inventoryLevel?: EligibleQuantityDto;
 }

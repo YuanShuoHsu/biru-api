@@ -176,6 +176,13 @@
       "when": 1778925447095,
       "tag": "0024_optimal_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1778939172304,
+      "tag": "0025_slow_thunderbird",
+      "breakpoints": true
     }
   ]
 }
