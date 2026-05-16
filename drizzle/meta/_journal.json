@@ -169,6 +169,13 @@
       "when": 1778748878756,
       "tag": "0023_fuzzy_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778925447095,
+      "tag": "0024_optimal_molten_man",
+      "breakpoints": true
     }
   ]
 }
