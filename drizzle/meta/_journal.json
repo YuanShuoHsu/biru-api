@@ -183,6 +183,20 @@
       "when": 1778939172304,
       "tag": "0025_slow_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1778939513265,
+      "tag": "0026_aromatic_lifeguard",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1778939708266,
+      "tag": "0027_flimsy_slapstick",
+      "breakpoints": true
     }
   ]
 }

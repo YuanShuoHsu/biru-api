@@ -44,6 +44,31 @@ export const availableDeliveryMethodEnum = pgEnum('available_delivery_method', [
 export type AvailableDeliveryMethod =
   (typeof availableDeliveryMethodEnum.enumValues)[number];
 
+// https://schema.org/PaymentMethod (GoodRelations official values)
+export const acceptedPaymentMethodEnum = pgEnum('accepted_payment_method', [
+  'Cash',
+  'DirectDebit',
+  'ByInvoice',
+  'ByBankTransferInAdvance',
+  'CheckInAdvance',
+  'COD',
+  'PayPal',
+]);
+export type AcceptedPaymentMethod =
+  (typeof acceptedPaymentMethodEnum.enumValues)[number];
+
+// https://schema.org/BusinessFunction
+export const businessFunctionEnum = pgEnum('business_function', [
+  'Sell',
+  'ProvideService',
+  'LeaseOut',
+  'Repair',
+  'Maintain',
+  'Dispose',
+  'ConstructionInstallation',
+]);
+export type BusinessFunction = (typeof businessFunctionEnum.enumValues)[number];
+
 // https://schema.org/BusinessEntityType
 export const businessEntityTypeEnum = pgEnum('business_entity_type', [
   'Business',
@@ -166,6 +191,24 @@ export interface QuantitativeValue {
   value?: number;
 }
 
+// https://schema.org/PriceSpecification
+export interface PriceSpecification {
+  price?: number;
+  priceCurrency?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  valueAddedTaxIncluded?: boolean;
+}
+
+// https://schema.org/OfferShippingDetails
+export interface OfferShippingDetails {
+  shippingRate?: { value?: number; currency?: string };
+  doesNotShip?: boolean;
+  transitTime?: QuantitativeValue;
+  shippingDestination?: string;
+  freeShippingThreshold?: number;
+}
+
 // https://schema.org/Offer
 export const offer = pgTable(
   'offer',
@@ -196,6 +239,14 @@ export const offer = pgTable(
     ).array(),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
+    acceptedPaymentMethod: acceptedPaymentMethodEnum(
+      'accepted_payment_method',
+    ).array(),
+    businessFunction: businessFunctionEnum('business_function').default('Sell'),
+    eligibleTransactionVolume: jsonb(
+      'eligible_transaction_volume',
+    ).$type<PriceSpecification>(),
+    shippingDetails: jsonb('shipping_details').$type<OfferShippingDetails>(),
     ...timestamps,
   },
   (table) => [

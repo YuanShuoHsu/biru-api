@@ -1,9 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type {
+  AcceptedPaymentMethod,
   AvailableDeliveryMethod,
   BusinessEntityType,
+  BusinessFunction,
   ItemAvailability,
+  OfferShippingDetails,
+  PriceSpecification,
   QuantitativeValue,
 } from 'src/db/schema/menus';
 
@@ -61,6 +65,18 @@ export class OfferResponseDto {
 
   @ApiPropertyOptional()
   inventoryLevel: QuantitativeValue | null;
+
+  @ApiPropertyOptional({ type: [String] })
+  acceptedPaymentMethod: AcceptedPaymentMethod[] | null;
+
+  @ApiPropertyOptional()
+  businessFunction: BusinessFunction | null;
+
+  @ApiPropertyOptional()
+  eligibleTransactionVolume: PriceSpecification | null;
+
+  @ApiPropertyOptional()
+  shippingDetails: OfferShippingDetails | null;
 
   @ApiProperty()
   createdAt: Date;

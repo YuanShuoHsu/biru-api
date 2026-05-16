@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -10,8 +11,10 @@ import {
 } from 'class-validator';
 
 import type {
+  AcceptedPaymentMethod,
   AvailableDeliveryMethod,
   BusinessEntityType,
+  BusinessFunction,
   ItemAvailability,
 } from 'src/db/schema/menus';
 
@@ -43,6 +46,97 @@ export class EligibleQuantityDto {
   @IsNumber()
   value?: number;
 }
+
+export class PriceSpecificationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  priceCurrency?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  minPrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  maxPrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  valueAddedTaxIncluded?: boolean;
+}
+
+export class ShippingRateDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  value?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+}
+
+export class OfferShippingDetailsDto {
+  @ApiPropertyOptional({ type: ShippingRateDto })
+  @IsOptional()
+  @Type(() => ShippingRateDto)
+  @ValidateNested()
+  shippingRate?: ShippingRateDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  doesNotShip?: boolean;
+
+  @ApiPropertyOptional({
+    type: EligibleQuantityDto,
+    description: '配送時間，unitText 建議用 "minute"',
+  })
+  @IsOptional()
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  transitTime?: EligibleQuantityDto;
+
+  @ApiPropertyOptional({ description: '配送目的地，例如 "Taipei City"' })
+  @IsOptional()
+  @IsString()
+  shippingDestination?: string;
+
+  @ApiPropertyOptional({ description: '免運費門檻金額' })
+  @IsOptional()
+  @IsNumber()
+  freeShippingThreshold?: number;
+}
+
+const ACCEPTED_PAYMENT_METHOD_VALUES: AcceptedPaymentMethod[] = [
+  'Cash',
+  'DirectDebit',
+  'ByInvoice',
+  'ByBankTransferInAdvance',
+  'CheckInAdvance',
+  'COD',
+  'PayPal',
+];
+
+const BUSINESS_FUNCTION_VALUES: BusinessFunction[] = [
+  'Sell',
+  'ProvideService',
+  'LeaseOut',
+  'Repair',
+  'Maintain',
+  'Dispose',
+  'ConstructionInstallation',
+];
 
 const BUSINESS_ENTITY_TYPE_VALUES: BusinessEntityType[] = [
   'Business',
@@ -165,4 +259,36 @@ export class CreateOfferDto {
   @Type(() => EligibleQuantityDto)
   @ValidateNested()
   inventoryLevel?: EligibleQuantityDto;
+
+  @ApiPropertyOptional({
+    enum: ACCEPTED_PAYMENT_METHOD_VALUES,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(ACCEPTED_PAYMENT_METHOD_VALUES, { each: true })
+  acceptedPaymentMethod?: AcceptedPaymentMethod[];
+
+  @ApiPropertyOptional({
+    enum: BUSINESS_FUNCTION_VALUES,
+    default: 'Sell',
+  })
+  @IsOptional()
+  @IsEnum(BUSINESS_FUNCTION_VALUES)
+  businessFunction?: BusinessFunction;
+
+  @ApiPropertyOptional({
+    type: PriceSpecificationDto,
+    description: '最低消費金額門檻，例如滿額優惠',
+  })
+  @IsOptional()
+  @Type(() => PriceSpecificationDto)
+  @ValidateNested()
+  eligibleTransactionVolume?: PriceSpecificationDto;
+
+  @ApiPropertyOptional({ type: OfferShippingDetailsDto })
+  @IsOptional()
+  @Type(() => OfferShippingDetailsDto)
+  @ValidateNested()
+  shippingDetails?: OfferShippingDetailsDto;
 }
