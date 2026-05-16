@@ -52,22 +52,6 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 
-// https://schema.org/NutritionInformation
-export interface NutritionInformation {
-  calories?: string;
-  carbohydrateContent?: string;
-  cholesterolContent?: string;
-  fatContent?: string;
-  fiberContent?: string;
-  proteinContent?: string;
-  saturatedFatContent?: string;
-  servingSize?: string;
-  sodiumContent?: string;
-  sugarContent?: string;
-  transFatContent?: string;
-  unsaturatedFatContent?: string;
-}
-
 // https://schema.org/Menu
 export const menu = pgTable(
   'menu',
@@ -112,6 +96,22 @@ export const menuSection = pgTable(
 
 export type MenuSection = typeof menuSection.$inferSelect;
 
+// https://schema.org/NutritionInformation
+export interface NutritionInformation {
+  calories?: string;
+  carbohydrateContent?: string;
+  cholesterolContent?: string;
+  fatContent?: string;
+  fiberContent?: string;
+  proteinContent?: string;
+  saturatedFatContent?: string;
+  servingSize?: string;
+  sodiumContent?: string;
+  sugarContent?: string;
+  transFatContent?: string;
+  unsaturatedFatContent?: string;
+}
+
 // https://schema.org/MenuItem
 export const menuItem = pgTable(
   'menu_item',
@@ -138,6 +138,15 @@ export const menuItem = pgTable(
 
 export type MenuItem = typeof menuItem.$inferSelect;
 
+// https://schema.org/QuantitativeValue
+export interface QuantitativeValue {
+  maxValue?: number;
+  minValue?: number;
+  unitCode?: string;
+  unitText?: string;
+  value?: number;
+}
+
 // https://schema.org/Offer
 export const offer = pgTable(
   'offer',
@@ -160,8 +169,7 @@ export const offer = pgTable(
     validFrom: text('valid_from'),
     validThrough: text('valid_through'),
     sku: text('sku'),
-    eligibleQuantityMin: integer('eligible_quantity_min'),
-    eligibleQuantityMax: integer('eligible_quantity_max'),
+    eligibleQuantity: jsonb('eligible_quantity').$type<QuantitativeValue>(),
     sellerId: text('seller_id').references(() => organization.id, {
       onDelete: 'set null',
     }),

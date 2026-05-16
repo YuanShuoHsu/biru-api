@@ -1,8 +1,44 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 
 import type { ItemAvailability } from 'src/db/schema/menus';
+
+export class EligibleQuantityDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  maxValue?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  minValue?: number;
+
+  @ApiPropertyOptional({
+    description: 'UN/CEFACT Common Code, e.g. "C62" for piece',
+  })
+  @IsOptional()
+  @IsString()
+  unitCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  unitText?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  value?: number;
+}
 
 const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
   'BackOrder',
@@ -75,17 +111,11 @@ export class CreateOfferDto {
   @IsString()
   sku?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: EligibleQuantityDto })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  eligibleQuantityMin?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  eligibleQuantityMax?: number;
+  @Type(() => EligibleQuantityDto)
+  @ValidateNested()
+  eligibleQuantity?: EligibleQuantityDto;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
