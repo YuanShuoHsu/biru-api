@@ -39,9 +39,6 @@ export class OfferResponseDto {
   @ApiPropertyOptional()
   eligibleQuantity: QuantitativeValue | null;
 
-  @ApiPropertyOptional({ type: [String] })
-  validForMemberTier: string[] | null;
-
   @ApiPropertyOptional()
   deliveryLeadTime: QuantitativeValue | null;
 

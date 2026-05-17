@@ -103,12 +103,6 @@ export class CreateOfferDto {
   @ValidateNested()
   eligibleQuantity?: EligibleQuantityDto;
 
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  validForMemberTier?: string[];
-
   @ApiPropertyOptional({
     type: EligibleQuantityDto,
     description: '預計準備時間，unitText 建議用 "minute"',
