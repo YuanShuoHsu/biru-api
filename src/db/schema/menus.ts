@@ -44,19 +44,6 @@ export const availableDeliveryMethodEnum = pgEnum('available_delivery_method', [
 export type AvailableDeliveryMethod =
   (typeof availableDeliveryMethodEnum.enumValues)[number];
 
-// https://schema.org/PaymentMethod (GoodRelations official values)
-export const acceptedPaymentMethodEnum = pgEnum('accepted_payment_method', [
-  'Cash',
-  'DirectDebit',
-  'ByInvoice',
-  'ByBankTransferInAdvance',
-  'CheckInAdvance',
-  'COD',
-  'PayPal',
-]);
-export type AcceptedPaymentMethod =
-  (typeof acceptedPaymentMethodEnum.enumValues)[number];
-
 // https://schema.org/ItemAvailability
 export const itemAvailabilityEnum = pgEnum('item_availability', [
   'BackOrder',
@@ -178,15 +165,6 @@ export interface PriceSpecification {
   valueAddedTaxIncluded?: boolean;
 }
 
-// https://schema.org/OfferShippingDetails
-export interface OfferShippingDetails {
-  shippingRate?: { value?: number; currency?: string };
-  doesNotShip?: boolean;
-  transitTime?: QuantitativeValue;
-  shippingDestination?: string;
-  freeShippingThreshold?: number;
-}
-
 // https://schema.org/Offer
 export const offer = pgTable(
   'offer',
@@ -213,13 +191,9 @@ export const offer = pgTable(
     ).array(),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
-    acceptedPaymentMethod: acceptedPaymentMethodEnum(
-      'accepted_payment_method',
-    ).array(),
     eligibleTransactionVolume: jsonb(
       'eligible_transaction_volume',
     ).$type<PriceSpecification>(),
-    shippingDetails: jsonb('shipping_details').$type<OfferShippingDetails>(),
     ...timestamps,
   },
   (table) => [
