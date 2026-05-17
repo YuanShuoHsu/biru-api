@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -12,7 +11,7 @@ import {
 
 import type { ItemAvailability } from 'src/db/schema/menus';
 
-export class EligibleQuantityDto {
+export class QuantitativeValueDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
@@ -97,27 +96,27 @@ export class CreateOfferDto {
   @IsString()
   validThrough?: string;
 
-  @ApiPropertyOptional({ type: EligibleQuantityDto })
+  @ApiPropertyOptional({ type: QuantitativeValueDto })
   @IsOptional()
-  @Type(() => EligibleQuantityDto)
+  @Type(() => QuantitativeValueDto)
   @ValidateNested()
-  eligibleQuantity?: EligibleQuantityDto;
+  eligibleQuantity?: QuantitativeValueDto;
 
   @ApiPropertyOptional({
-    type: EligibleQuantityDto,
+    type: QuantitativeValueDto,
     description: '預計準備時間，unitText 建議用 "minute"',
   })
   @IsOptional()
-  @Type(() => EligibleQuantityDto)
+  @Type(() => QuantitativeValueDto)
   @ValidateNested()
-  deliveryLeadTime?: EligibleQuantityDto;
+  deliveryLeadTime?: QuantitativeValueDto;
 
   @ApiPropertyOptional({
-    type: EligibleQuantityDto,
+    type: QuantitativeValueDto,
     description: '當日剩餘庫存數量',
   })
   @IsOptional()
-  @Type(() => EligibleQuantityDto)
+  @Type(() => QuantitativeValueDto)
   @ValidateNested()
-  inventoryLevel?: EligibleQuantityDto;
+  inventoryLevel?: QuantitativeValueDto;
 }
