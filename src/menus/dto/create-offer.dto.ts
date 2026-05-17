@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -9,10 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import type {
-  AvailableDeliveryMethod,
-  ItemAvailability,
-} from 'src/db/schema/menus';
+import type { ItemAvailability } from 'src/db/schema/menus';
 
 export class EligibleQuantityDto {
   @ApiPropertyOptional()
@@ -42,12 +40,6 @@ export class EligibleQuantityDto {
   @IsNumber()
   value?: number;
 }
-
-const AVAILABLE_DELIVERY_METHOD_VALUES: AvailableDeliveryMethod[] = [
-  'DeliveryModePickUp',
-  'DeliveryModeOwnFleet',
-  'ParcelService',
-];
 
 const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
   'BackOrder',
@@ -116,15 +108,6 @@ export class CreateOfferDto {
   @IsArray()
   @IsString({ each: true })
   validForMemberTier?: string[];
-
-  @ApiPropertyOptional({
-    enum: AVAILABLE_DELIVERY_METHOD_VALUES,
-    isArray: true,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(AVAILABLE_DELIVERY_METHOD_VALUES, { each: true })
-  availableDeliveryMethod?: AvailableDeliveryMethod[];
 
   @ApiPropertyOptional({
     type: EligibleQuantityDto,

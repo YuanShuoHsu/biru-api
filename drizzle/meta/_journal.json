@@ -204,6 +204,13 @@
       "when": 1779021118647,
       "tag": "0028_shocking_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1779027078882,
+      "tag": "0029_rainy_toxin",
+      "breakpoints": true
     }
   ]
 }

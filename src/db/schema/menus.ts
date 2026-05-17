@@ -35,15 +35,6 @@ export const restrictedDietEnum = pgEnum('restricted_diet', [
 ]);
 export type RestrictedDiet = (typeof restrictedDietEnum.enumValues)[number];
 
-// https://schema.org/DeliveryMethod
-export const availableDeliveryMethodEnum = pgEnum('available_delivery_method', [
-  'DeliveryModePickUp',
-  'DeliveryModeOwnFleet',
-  'ParcelService',
-]);
-export type AvailableDeliveryMethod =
-  (typeof availableDeliveryMethodEnum.enumValues)[number];
-
 // https://schema.org/ItemAvailability
 export const itemAvailabilityEnum = pgEnum('item_availability', [
   'BackOrder',
@@ -177,9 +168,6 @@ export const offer = pgTable(
     validThrough: text('valid_through'),
     eligibleQuantity: jsonb('eligible_quantity').$type<QuantitativeValue>(),
     validForMemberTier: text('valid_for_member_tier').array(),
-    availableDeliveryMethod: availableDeliveryMethodEnum(
-      'available_delivery_method',
-    ).array(),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
     ...timestamps,
