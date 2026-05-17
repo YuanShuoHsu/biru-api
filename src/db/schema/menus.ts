@@ -151,7 +151,7 @@ export type MenuItem = typeof menuItem.$inferSelect;
 export interface QuantitativeValue {
   maxValue?: number;
   minValue?: number;
-  unitCode?: string;
+  // unitCode?: string;
   unitText?: string;
   value?: number;
 }

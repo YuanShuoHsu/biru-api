@@ -25,12 +25,12 @@ export class EligibleQuantityDto {
   @IsNumber()
   minValue?: number;
 
-  @ApiPropertyOptional({
-    description: 'UN/CEFACT Common Code, e.g. "C62" for piece',
-  })
-  @IsOptional()
-  @IsString()
-  unitCode?: string;
+  // @ApiPropertyOptional({
+  //   description: 'UN/CEFACT Common Code, e.g. "C62" for piece',
+  // })
+  // @IsOptional()
+  // @IsString()
+  // unitCode?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
