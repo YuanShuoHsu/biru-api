@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -42,33 +41,6 @@ export class EligibleQuantityDto {
   @IsOptional()
   @IsNumber()
   value?: number;
-}
-
-export class PriceSpecificationDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  price?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  priceCurrency?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  minPrice?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  maxPrice?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  valueAddedTaxIncluded?: boolean;
 }
 
 const AVAILABLE_DELIVERY_METHOD_VALUES: AvailableDeliveryMethod[] = [
@@ -171,13 +143,4 @@ export class CreateOfferDto {
   @Type(() => EligibleQuantityDto)
   @ValidateNested()
   inventoryLevel?: EligibleQuantityDto;
-
-  @ApiPropertyOptional({
-    type: PriceSpecificationDto,
-    description: '最低消費金額門檻，例如滿額優惠',
-  })
-  @IsOptional()
-  @Type(() => PriceSpecificationDto)
-  @ValidateNested()
-  eligibleTransactionVolume?: PriceSpecificationDto;
 }

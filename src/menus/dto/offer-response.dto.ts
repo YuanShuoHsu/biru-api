@@ -3,7 +3,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
   AvailableDeliveryMethod,
   ItemAvailability,
-  PriceSpecification,
   QuantitativeValue,
 } from 'src/db/schema/menus';
 
@@ -55,9 +54,6 @@ export class OfferResponseDto {
 
   @ApiPropertyOptional()
   inventoryLevel: QuantitativeValue | null;
-
-  @ApiPropertyOptional()
-  eligibleTransactionVolume: PriceSpecification | null;
 
   @ApiProperty()
   createdAt: Date;

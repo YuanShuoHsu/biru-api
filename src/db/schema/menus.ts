@@ -156,15 +156,6 @@ export interface QuantitativeValue {
   value?: number;
 }
 
-// https://schema.org/PriceSpecification
-export interface PriceSpecification {
-  price?: number;
-  priceCurrency?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  valueAddedTaxIncluded?: boolean;
-}
-
 // https://schema.org/Offer
 export const offer = pgTable(
   'offer',
@@ -191,9 +182,6 @@ export const offer = pgTable(
     ).array(),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
-    eligibleTransactionVolume: jsonb(
-      'eligible_transaction_volume',
-    ).$type<PriceSpecification>(),
     ...timestamps,
   },
   (table) => [
