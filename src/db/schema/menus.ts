@@ -57,16 +57,6 @@ export const acceptedPaymentMethodEnum = pgEnum('accepted_payment_method', [
 export type AcceptedPaymentMethod =
   (typeof acceptedPaymentMethodEnum.enumValues)[number];
 
-// https://schema.org/BusinessEntityType
-export const businessEntityTypeEnum = pgEnum('business_entity_type', [
-  'Business',
-  'Enduser',
-  'PublicInstitution',
-  'Reseller',
-]);
-export type BusinessEntityType =
-  (typeof businessEntityTypeEnum.enumValues)[number];
-
 // https://schema.org/ItemAvailability
 export const itemAvailabilityEnum = pgEnum('item_availability', [
   'BackOrder',
@@ -216,11 +206,7 @@ export const offer = pgTable(
     priceValidUntil: text('price_valid_until'),
     validFrom: text('valid_from'),
     validThrough: text('valid_through'),
-    sku: text('sku'),
     eligibleQuantity: jsonb('eligible_quantity').$type<QuantitativeValue>(),
-    eligibleCustomerType: businessEntityTypeEnum(
-      'eligible_customer_type',
-    ).array(),
     validForMemberTier: text('valid_for_member_tier').array(),
     availableDeliveryMethod: availableDeliveryMethodEnum(
       'available_delivery_method',

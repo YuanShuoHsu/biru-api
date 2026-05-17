@@ -13,7 +13,6 @@ import {
 import type {
   AcceptedPaymentMethod,
   AvailableDeliveryMethod,
-  BusinessEntityType,
   ItemAvailability,
 } from 'src/db/schema/menus';
 
@@ -127,13 +126,6 @@ const ACCEPTED_PAYMENT_METHOD_VALUES: AcceptedPaymentMethod[] = [
   'PayPal',
 ];
 
-const BUSINESS_ENTITY_TYPE_VALUES: BusinessEntityType[] = [
-  'Business',
-  'Enduser',
-  'PublicInstitution',
-  'Reseller',
-];
-
 const AVAILABLE_DELIVERY_METHOD_VALUES: AvailableDeliveryMethod[] = [
   'DeliveryModePickUp',
   'DeliveryModeOwnFleet',
@@ -196,25 +188,11 @@ export class CreateOfferDto {
   @IsString()
   validThrough?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  sku?: string;
-
   @ApiPropertyOptional({ type: EligibleQuantityDto })
   @IsOptional()
   @Type(() => EligibleQuantityDto)
   @ValidateNested()
   eligibleQuantity?: EligibleQuantityDto;
-
-  @ApiPropertyOptional({
-    enum: BUSINESS_ENTITY_TYPE_VALUES,
-    isArray: true,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(BUSINESS_ENTITY_TYPE_VALUES, { each: true })
-  eligibleCustomerType?: BusinessEntityType[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

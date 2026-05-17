@@ -3,7 +3,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
   AcceptedPaymentMethod,
   AvailableDeliveryMethod,
-  BusinessEntityType,
   ItemAvailability,
   OfferShippingDetails,
   PriceSpecification,
@@ -45,13 +44,7 @@ export class OfferResponseDto {
   validThrough: string | null;
 
   @ApiPropertyOptional()
-  sku: string | null;
-
-  @ApiPropertyOptional()
   eligibleQuantity: QuantitativeValue | null;
-
-  @ApiPropertyOptional({ type: [String] })
-  eligibleCustomerType: BusinessEntityType[] | null;
 
   @ApiPropertyOptional({ type: [String] })
   validForMemberTier: string[] | null;
