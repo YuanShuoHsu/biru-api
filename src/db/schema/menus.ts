@@ -57,18 +57,6 @@ export const acceptedPaymentMethodEnum = pgEnum('accepted_payment_method', [
 export type AcceptedPaymentMethod =
   (typeof acceptedPaymentMethodEnum.enumValues)[number];
 
-// https://schema.org/BusinessFunction
-export const businessFunctionEnum = pgEnum('business_function', [
-  'Sell',
-  'ProvideService',
-  'LeaseOut',
-  'Repair',
-  'Maintain',
-  'Dispose',
-  'ConstructionInstallation',
-]);
-export type BusinessFunction = (typeof businessFunctionEnum.enumValues)[number];
-
 // https://schema.org/BusinessEntityType
 export const businessEntityTypeEnum = pgEnum('business_entity_type', [
   'Business',
@@ -242,7 +230,6 @@ export const offer = pgTable(
     acceptedPaymentMethod: acceptedPaymentMethodEnum(
       'accepted_payment_method',
     ).array(),
-    businessFunction: businessFunctionEnum('business_function').default('Sell'),
     eligibleTransactionVolume: jsonb(
       'eligible_transaction_volume',
     ).$type<PriceSpecification>(),

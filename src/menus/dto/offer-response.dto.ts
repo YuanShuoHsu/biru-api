@@ -4,7 +4,6 @@ import type {
   AcceptedPaymentMethod,
   AvailableDeliveryMethod,
   BusinessEntityType,
-  BusinessFunction,
   ItemAvailability,
   OfferShippingDetails,
   PriceSpecification,
@@ -68,9 +67,6 @@ export class OfferResponseDto {
 
   @ApiPropertyOptional({ type: [String] })
   acceptedPaymentMethod: AcceptedPaymentMethod[] | null;
-
-  @ApiPropertyOptional()
-  businessFunction: BusinessFunction | null;
 
   @ApiPropertyOptional()
   eligibleTransactionVolume: PriceSpecification | null;

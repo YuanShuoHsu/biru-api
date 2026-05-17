@@ -14,7 +14,6 @@ import type {
   AcceptedPaymentMethod,
   AvailableDeliveryMethod,
   BusinessEntityType,
-  BusinessFunction,
   ItemAvailability,
 } from 'src/db/schema/menus';
 
@@ -126,16 +125,6 @@ const ACCEPTED_PAYMENT_METHOD_VALUES: AcceptedPaymentMethod[] = [
   'CheckInAdvance',
   'COD',
   'PayPal',
-];
-
-const BUSINESS_FUNCTION_VALUES: BusinessFunction[] = [
-  'Sell',
-  'ProvideService',
-  'LeaseOut',
-  'Repair',
-  'Maintain',
-  'Dispose',
-  'ConstructionInstallation',
 ];
 
 const BUSINESS_ENTITY_TYPE_VALUES: BusinessEntityType[] = [
@@ -268,14 +257,6 @@ export class CreateOfferDto {
   @IsArray()
   @IsEnum(ACCEPTED_PAYMENT_METHOD_VALUES, { each: true })
   acceptedPaymentMethod?: AcceptedPaymentMethod[];
-
-  @ApiPropertyOptional({
-    enum: BUSINESS_FUNCTION_VALUES,
-    default: 'Sell',
-  })
-  @IsOptional()
-  @IsEnum(BUSINESS_FUNCTION_VALUES)
-  businessFunction?: BusinessFunction;
 
   @ApiPropertyOptional({
     type: PriceSpecificationDto,
