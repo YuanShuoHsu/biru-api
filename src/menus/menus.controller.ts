@@ -244,9 +244,7 @@ export class MenusController {
   @Delete('offers/:offerId')
   @Roles({ menu: ['delete'] }, 'offerId')
   @ApiOperation({ summary: '刪除品項定價' })
-  deleteOffer(
-    @Param('offerId') offerId: string,
-  ): Promise<OfferResponseDto> {
+  deleteOffer(@Param('offerId') offerId: string): Promise<OfferResponseDto> {
     return this.menusService.deleteOffer({ id: offerId });
   }
 

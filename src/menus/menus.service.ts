@@ -341,7 +341,7 @@ export class MenusService {
   async createMenuItem(
     sectionId: string,
     data: CreateMenuItemDto,
-  ): Promise<MenuItem> {
+  ): Promise<MenuItem & { offer: Offer | null }> {
     const [{ total }] = await this.db
       .select({ total: count() })
       .from(menuItem)
@@ -356,13 +356,14 @@ export class MenusService {
         ...data,
       })
       .returning();
-    return created;
+
+    return { ...created, offer: null };
   }
 
   async menuSectionItems(
     sectionId: string,
     query: PaginationQueryDto = {},
-  ): Promise<{ data: MenuItem[]; total: number }> {
+  ): Promise<{ data: (MenuItem & { offer: Offer | null })[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -478,23 +479,33 @@ export class MenusService {
   async updateMenuItem(params: {
     where: { id: string };
     data: UpdateMenuItemDto;
-  }): Promise<MenuItem> {
-    const [updated] = await this.db
-      .update(menuItem)
-      .set(params.data)
-      .where(eq(menuItem.id, params.where.id))
-      .returning();
+  }): Promise<MenuItem & { offer: Offer | null }> {
+    const [[updated], existingOffers] = await Promise.all([
+      this.db
+        .update(menuItem)
+        .set(params.data)
+        .where(eq(menuItem.id, params.where.id))
+        .returning(),
+      this.db
+        .select()
+        .from(offer)
+        .where(eq(offer.menuItemId, params.where.id))
+        .orderBy(asc(offer.createdAt))
+        .limit(1),
+    ]);
 
-    return updated;
+    return { ...updated, offer: existingOffers[0] ?? null };
   }
 
-  async deleteMenuItem(where: { id: string }): Promise<MenuItem> {
+  async deleteMenuItem(where: {
+    id: string;
+  }): Promise<MenuItem & { offer: Offer | null }> {
     const [deleted] = await this.db
       .delete(menuItem)
       .where(eq(menuItem.id, where.id))
       .returning();
 
-    return deleted;
+    return { ...deleted, offer: null };
   }
 
   // ── Offer ─────────────────────────────────────────────────────────
