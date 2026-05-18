@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 
 import type { NutritionInformation, RestrictedDiet } from 'src/db/schema/menus';
+import { CreateOfferDto } from './create-offer.dto';
 
 class NutritionInformationDto implements NutritionInformation {
   @ApiPropertyOptional()
@@ -114,4 +115,10 @@ export class CreateMenuItemDto {
   @ValidateNested()
   @Type(() => NutritionInformationDto)
   nutrition?: NutritionInformation;
+
+  @ApiPropertyOptional({ type: CreateOfferDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateOfferDto)
+  offer?: CreateOfferDto;
 }

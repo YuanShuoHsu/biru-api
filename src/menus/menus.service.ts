@@ -342,6 +342,8 @@ export class MenusService {
     sectionId: string,
     data: CreateMenuItemDto,
   ): Promise<MenuItem & { offer: Offer | null }> {
+    const { offer: offerData, ...itemData } = data;
+
     const [section, [{ total }]] = await Promise.all([
       this.db.query.menuSection.findFirst({
         where: eq(menuSection.id, sectionId),
@@ -353,18 +355,27 @@ export class MenusService {
         .where(eq(menuItem.menuSectionId, sectionId)),
     ]);
 
-    const [created] = await this.db
-      .insert(menuItem)
-      .values({
-        id: uuidv4(),
-        menuSectionId: sectionId,
-        menuId: section?.menuId,
-        sortOrder: total,
-        ...data,
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(menuItem)
+        .values({
+          id: uuidv4(),
+          menuSectionId: sectionId,
+          menuId: section?.menuId,
+          sortOrder: total,
+          ...itemData,
+        })
+        .returning();
 
-    return { ...created, offer: null };
+      if (!offerData) return { ...created, offer: null };
+
+      const [createdOffer] = await tx
+        .insert(offer)
+        .values({ id: uuidv4(), menuItemId: created.id, ...offerData })
+        .returning();
+
+      return { ...created, offer: createdOffer };
+    });
   }
 
   async menuSectionItems(
