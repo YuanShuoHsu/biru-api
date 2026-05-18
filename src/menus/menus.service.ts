@@ -200,17 +200,19 @@ export class MenusService {
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
-    const [{ total }] = await this.db
-      .select({ total: count() })
-      .from(menuSection)
-      .where(eq(menuSection.menuId, menuId));
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(menuSection)
+        .set({ sortOrder: sql`${menuSection.sortOrder} + 1` })
+        .where(eq(menuSection.menuId, menuId));
 
-    const [created] = await this.db
-      .insert(menuSection)
-      .values({ id: uuidv4(), menuId, sortOrder: total, ...data })
-      .returning();
+      const [created] = await tx
+        .insert(menuSection)
+        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data })
+        .returning();
 
-    return created;
+      return created;
+    });
   }
 
   async menuSections(
@@ -344,25 +346,24 @@ export class MenusService {
   ): Promise<MenuItem & { offer: Offer | null }> {
     const { offer: offerData, ...itemData } = data;
 
-    const [section, [{ total }]] = await Promise.all([
-      this.db.query.menuSection.findFirst({
-        where: eq(menuSection.id, sectionId),
-        columns: { menuId: true },
-      }),
-      this.db
-        .select({ total: count() })
-        .from(menuItem)
-        .where(eq(menuItem.menuSectionId, sectionId)),
-    ]);
+    const section = await this.db.query.menuSection.findFirst({
+      where: eq(menuSection.id, sectionId),
+      columns: { menuId: true },
+    });
 
     return this.db.transaction(async (tx) => {
+      await tx
+        .update(menuItem)
+        .set({ sortOrder: sql`${menuItem.sortOrder} + 1` })
+        .where(eq(menuItem.menuSectionId, sectionId));
+
       const [created] = await tx
         .insert(menuItem)
         .values({
           id: uuidv4(),
           menuSectionId: sectionId,
           menuId: section?.menuId,
-          sortOrder: total,
+          sortOrder: 0,
           ...itemData,
         })
         .returning();
