@@ -140,9 +140,6 @@ export type MenuItem = typeof menuItem.$inferSelect;
 
 // https://schema.org/QuantitativeValue
 export interface QuantitativeValue {
-  maxValue?: number;
-  minValue?: number;
-  // unitCode?: string;
   unitText?: string;
   value?: number;
 }

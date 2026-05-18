@@ -14,23 +14,6 @@ import type { ItemAvailability } from 'src/db/schema/menus';
 export class QuantitativeValueDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  maxValue?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  minValue?: number;
-
-  // @ApiPropertyOptional({
-  //   description: 'UN/CEFACT Common Code, e.g. "C62" for piece',
-  // })
-  // @IsOptional()
-  // @IsString()
-  // unitCode?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   unitText?: string;
 
