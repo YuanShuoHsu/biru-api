@@ -16,7 +16,13 @@ import {
   member as memberRole,
   owner as ownerRole,
 } from 'src/auth/permissions';
-import { menu, menuItem, menuItemAddOn, menuSection, offer } from 'src/db/schema/menus';
+import {
+  menu,
+  menuItem,
+  menuItemAddOn,
+  menuSection,
+  offer,
+} from 'src/db/schema/menus';
 import { member } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -104,10 +110,14 @@ export class RolesGuard implements CanActivate {
       case 'menuItemId': {
         const row = await this.db.query.menuItem.findFirst({
           where: eq(menuItem.id, params.menuItemId),
-          with: { menu: { columns: { organizationId: true } } },
+          with: {
+            menuSection: {
+              with: { menu: { columns: { organizationId: true } } },
+            },
+          },
         });
 
-        return row?.menu?.organizationId;
+        return row?.menuSection?.menu?.organizationId;
       }
 
       case 'offerId': {
