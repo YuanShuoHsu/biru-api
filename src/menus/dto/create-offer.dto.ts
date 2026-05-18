@@ -57,11 +57,6 @@ export class CreateOfferDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  priceValidUntil?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   validFrom?: string;
 
   @ApiPropertyOptional()

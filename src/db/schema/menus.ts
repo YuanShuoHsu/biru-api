@@ -158,7 +158,6 @@ export const offer = pgTable(
     price: numeric('price', { precision: 10, scale: 2 }),
     priceCurrency: text('price_currency').default('TWD'),
     availability: itemAvailabilityEnum('availability').default('InStock'),
-    priceValidUntil: text('price_valid_until'),
     validFrom: text('valid_from'),
     validThrough: text('valid_through'),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
