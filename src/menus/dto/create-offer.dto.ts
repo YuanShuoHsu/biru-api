@@ -57,16 +57,6 @@ export class CreateOfferDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  availabilityStarts?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  availabilityEnds?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   priceValidUntil?: string;
 
   @ApiPropertyOptional()

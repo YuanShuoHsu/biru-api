@@ -22,12 +22,6 @@ export class OfferResponseDto {
   availability: ItemAvailability | null;
 
   @ApiPropertyOptional()
-  availabilityStarts: string | null;
-
-  @ApiPropertyOptional()
-  availabilityEnds: string | null;
-
-  @ApiPropertyOptional()
   priceValidUntil: string | null;
 
   @ApiPropertyOptional()
