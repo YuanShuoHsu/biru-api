@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { NutritionInformation, RestrictedDiet } from 'src/db/schema/menus';
 
+import { OfferResponseDto } from './offer-response.dto';
+
 export class MenuItemResponseDto {
   @ApiProperty()
   id: string;
@@ -26,6 +28,9 @@ export class MenuItemResponseDto {
 
   @ApiPropertyOptional()
   nutrition: NutritionInformation | null;
+
+  @ApiPropertyOptional({ type: OfferResponseDto })
+  offer: OfferResponseDto | null;
 
   @ApiProperty()
   createdAt: Date;

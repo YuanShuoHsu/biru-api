@@ -426,7 +426,30 @@ export class MenusService {
       this.db.select({ total: count() }).from(menuItem).where(where),
     ]);
 
-    return { data, total };
+    const itemIds = data.map((item) => item.id);
+    const offers =
+      itemIds.length > 0
+        ? await this.db
+            .select()
+            .from(offer)
+            .where(inArray(offer.menuItemId, itemIds))
+            .orderBy(asc(offer.createdAt))
+        : [];
+
+    const offerByItemId = new Map<string, Offer>();
+    for (const o of offers) {
+      if (o.menuItemId && !offerByItemId.has(o.menuItemId)) {
+        offerByItemId.set(o.menuItemId, o);
+      }
+    }
+
+    return {
+      data: data.map((item) => ({
+        ...item,
+        offer: offerByItemId.get(item.id) ?? null,
+      })),
+      total,
+    };
   }
 
   async reorderMenuItems(
