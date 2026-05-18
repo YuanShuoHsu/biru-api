@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -10,6 +11,32 @@ import {
 } from 'class-validator';
 
 import type { ItemAvailability } from 'src/db/schema/menus';
+
+export class UnitPriceSpecificationDto {
+  @ApiPropertyOptional({ example: '150.00' })
+  @IsString()
+  price: string;
+
+  @ApiPropertyOptional({ example: 'TWD' })
+  @IsString()
+  priceCurrency: string;
+
+  @ApiPropertyOptional({
+    example: '2025-06-01T00:00:00+08:00',
+    description: '促銷開始時間（ISO 8601）',
+  })
+  @IsOptional()
+  @IsString()
+  validFrom?: string;
+
+  @ApiPropertyOptional({
+    example: '2025-06-30T23:59:59+08:00',
+    description: '促銷結束時間（ISO 8601）',
+  })
+  @IsOptional()
+  @IsString()
+  validThrough?: string;
+}
 
 export class QuantitativeValueDto {
   @ApiPropertyOptional()
@@ -54,16 +81,6 @@ export class CreateOfferDto {
   @IsEnum(ITEM_AVAILABILITY_VALUES)
   availability?: ItemAvailability;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  validFrom?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  validThrough?: string;
-
   @ApiPropertyOptional({
     type: QuantitativeValueDto,
     description: '預計準備時間，unitText 建議用 "minute"',
@@ -81,4 +98,11 @@ export class CreateOfferDto {
   @Type(() => QuantitativeValueDto)
   @ValidateNested()
   inventoryLevel?: QuantitativeValueDto;
+
+  @ApiPropertyOptional({ type: [UnitPriceSpecificationDto] })
+  @IsOptional()
+  @IsArray()
+  @Type(() => UnitPriceSpecificationDto)
+  @ValidateNested({ each: true })
+  priceSpecification?: UnitPriceSpecificationDto[];
 }

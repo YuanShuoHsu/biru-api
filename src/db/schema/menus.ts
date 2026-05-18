@@ -144,6 +144,14 @@ export interface QuantitativeValue {
   value?: number;
 }
 
+// https://schema.org/PriceSpecification
+export interface UnitPriceSpecification {
+  price: string;
+  priceCurrency: string;
+  validFrom?: string;
+  validThrough?: string;
+}
+
 // https://schema.org/Offer
 export const offer = pgTable(
   'offer',
@@ -158,10 +166,11 @@ export const offer = pgTable(
     price: numeric('price', { precision: 10, scale: 2 }),
     priceCurrency: text('price_currency').default('TWD'),
     availability: itemAvailabilityEnum('availability').default('InStock'),
-    validFrom: text('valid_from'),
-    validThrough: text('valid_through'),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
+    priceSpecification: jsonb('price_specification').$type<
+      UnitPriceSpecification[]
+    >(),
     ...timestamps,
   },
   (table) => [

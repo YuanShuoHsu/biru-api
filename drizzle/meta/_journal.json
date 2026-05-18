@@ -239,6 +239,13 @@
       "when": 1779081453518,
       "tag": "0033_left_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1779083101808,
+      "tag": "0034_opposite_firestar",
+      "breakpoints": true
     }
   ]
 }

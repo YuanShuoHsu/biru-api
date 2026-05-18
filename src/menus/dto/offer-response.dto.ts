@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { ItemAvailability, QuantitativeValue } from 'src/db/schema/menus';
+import type {
+  ItemAvailability,
+  QuantitativeValue,
+  UnitPriceSpecification,
+} from 'src/db/schema/menus';
 
 export class OfferResponseDto {
   @ApiProperty()
@@ -22,16 +26,13 @@ export class OfferResponseDto {
   availability: ItemAvailability | null;
 
   @ApiPropertyOptional()
-  validFrom: string | null;
-
-  @ApiPropertyOptional()
-  validThrough: string | null;
-
-  @ApiPropertyOptional()
   deliveryLeadTime: QuantitativeValue | null;
 
   @ApiPropertyOptional()
   inventoryLevel: QuantitativeValue | null;
+
+  @ApiPropertyOptional()
+  priceSpecification: UnitPriceSpecification[] | null;
 
   @ApiProperty()
   createdAt: Date;
