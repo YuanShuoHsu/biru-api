@@ -69,12 +69,6 @@ export class CreateOfferDto {
   @IsString()
   validThrough?: string;
 
-  @ApiPropertyOptional({ type: QuantitativeValueDto })
-  @IsOptional()
-  @Type(() => QuantitativeValueDto)
-  @ValidateNested()
-  eligibleQuantity?: QuantitativeValueDto;
-
   @ApiPropertyOptional({
     type: QuantitativeValueDto,
     description: '預計準備時間，unitText 建議用 "minute"',

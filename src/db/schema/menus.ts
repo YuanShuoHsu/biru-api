@@ -161,7 +161,6 @@ export const offer = pgTable(
     priceValidUntil: text('price_valid_until'),
     validFrom: text('valid_from'),
     validThrough: text('valid_through'),
-    eligibleQuantity: jsonb('eligible_quantity').$type<QuantitativeValue>(),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
     ...timestamps,
