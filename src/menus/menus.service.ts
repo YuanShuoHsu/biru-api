@@ -7,6 +7,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   ilike,
@@ -20,6 +21,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
@@ -29,13 +31,21 @@ import type {
   MenuSection,
   Offer,
 } from 'src/db/schema/menus';
-import { menu, menuItem, menuItemAddOn, menuSection, offer } from 'src/db/schema/menus';
+import {
+  menu,
+  menuItem,
+  menuItemAddOn,
+  menuSection,
+  offer,
+} from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
 import type { CreateMenuDto } from './dto/create-menu.dto';
+import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
   DATE_FILTER_FIELDS,
   PaginationQueryDto,
@@ -43,8 +53,6 @@ import {
   type FilterField,
   type FilterOperator,
 } from './dto/pagination-query.dto';
-import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
-import type { CreateOfferDto } from './dto/create-offer.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
@@ -532,32 +540,92 @@ export class MenusService {
 
   // ── MenuItemAddOn ─────────────────────────────────────────────────
 
+  private menuItemAddOnWithNames() {
+    const addOnMenuItem = alias(menuItem, 'add_on_menu_item');
+    const addOnMenuSection = alias(menuSection, 'add_on_menu_section');
+    return { addOnMenuItem, addOnMenuSection };
+  }
+
+  private async findMenuItemAddOnById(id: string): Promise<
+    MenuItemAddOn & {
+      addOnMenuItemName: string | null;
+      addOnMenuSectionName: string | null;
+    }
+  > {
+    const { addOnMenuItem, addOnMenuSection } = this.menuItemAddOnWithNames();
+    const [row] = await this.db
+      .select({
+        ...getTableColumns(menuItemAddOn),
+        addOnMenuItemName: addOnMenuItem.name,
+        addOnMenuSectionName: addOnMenuSection.name,
+      })
+      .from(menuItemAddOn)
+      .leftJoin(
+        addOnMenuItem,
+        eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+      )
+      .leftJoin(
+        addOnMenuSection,
+        eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+      )
+      .where(eq(menuItemAddOn.id, id));
+
+    return row;
+  }
+
   async createMenuItemAddOn(
     menuItemId: string,
     data: CreateMenuItemAddOnDto,
-  ): Promise<MenuItemAddOn> {
+  ): Promise<
+    MenuItemAddOn & {
+      addOnMenuItemName: string | null;
+      addOnMenuSectionName: string | null;
+    }
+  > {
     const [created] = await this.db
       .insert(menuItemAddOn)
       .values({ id: uuidv4(), menuItemId, ...data })
       .returning();
 
-    return created;
+    return this.findMenuItemAddOnById(created.id);
   }
 
-  async menuItemAddOns(menuItemId: string): Promise<MenuItemAddOn[]> {
+  async menuItemAddOns(menuItemId: string): Promise<
+    (MenuItemAddOn & {
+      addOnMenuItemName: string | null;
+      addOnMenuSectionName: string | null;
+    })[]
+  > {
+    const { addOnMenuItem, addOnMenuSection } = this.menuItemAddOnWithNames();
+
     return this.db
-      .select()
+      .select({
+        ...getTableColumns(menuItemAddOn),
+        addOnMenuItemName: addOnMenuItem.name,
+        addOnMenuSectionName: addOnMenuSection.name,
+      })
       .from(menuItemAddOn)
+      .leftJoin(
+        addOnMenuItem,
+        eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+      )
+      .leftJoin(
+        addOnMenuSection,
+        eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+      )
       .where(eq(menuItemAddOn.menuItemId, menuItemId))
       .orderBy(asc(menuItemAddOn.createdAt));
   }
 
-  async deleteMenuItemAddOn(where: { id: string }): Promise<MenuItemAddOn> {
-    const [deleted] = await this.db
-      .delete(menuItemAddOn)
-      .where(eq(menuItemAddOn.id, where.id))
-      .returning();
+  async deleteMenuItemAddOn(where: { id: string }): Promise<
+    MenuItemAddOn & {
+      addOnMenuItemName: string | null;
+      addOnMenuSectionName: string | null;
+    }
+  > {
+    const found = await this.findMenuItemAddOnById(where.id);
+    await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
-    return deleted;
+    return found;
   }
 }

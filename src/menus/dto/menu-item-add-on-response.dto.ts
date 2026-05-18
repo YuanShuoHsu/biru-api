@@ -11,7 +11,13 @@ export class MenuItemAddOnResponseDto {
   addOnMenuItemId: string | null;
 
   @ApiPropertyOptional()
+  addOnMenuItemName: string | null;
+
+  @ApiPropertyOptional()
   addOnMenuSectionId: string | null;
+
+  @ApiPropertyOptional()
+  addOnMenuSectionName: string | null;
 
   @ApiProperty()
   createdAt: Date;
