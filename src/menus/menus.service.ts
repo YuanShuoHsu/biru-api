@@ -498,21 +498,45 @@ export class MenusService {
     where: { id: string };
     data: UpdateMenuItemDto;
   }): Promise<MenuItem & { offer: Offer | null }> {
-    const [[updated], existingOffers] = await Promise.all([
-      this.db
-        .update(menuItem)
-        .set(params.data)
-        .where(eq(menuItem.id, params.where.id))
-        .returning(),
-      this.db
-        .select()
-        .from(offer)
-        .where(eq(offer.menuItemId, params.where.id))
-        .orderBy(asc(offer.createdAt))
-        .limit(1),
-    ]);
+    const { offer: offerData, ...itemData } = params.data;
 
-    return { ...updated, offer: existingOffers[0] ?? null };
+    return this.db.transaction(async (tx) => {
+      const [[updated], existingOffers] = await Promise.all([
+        tx
+          .update(menuItem)
+          .set(itemData)
+          .where(eq(menuItem.id, params.where.id))
+          .returning(),
+        tx
+          .select()
+          .from(offer)
+          .where(eq(offer.menuItemId, params.where.id))
+          .orderBy(asc(offer.createdAt))
+          .limit(1),
+      ]);
+
+      if (!offerData) return { ...updated, offer: existingOffers[0] ?? null };
+
+      const existingOffer = existingOffers[0];
+      let resultOffer: Offer;
+
+      if (existingOffer) {
+        const [updatedOffer] = await tx
+          .update(offer)
+          .set(offerData)
+          .where(eq(offer.id, existingOffer.id))
+          .returning();
+        resultOffer = updatedOffer;
+      } else {
+        const [createdOffer] = await tx
+          .insert(offer)
+          .values({ id: uuidv4(), menuItemId: params.where.id, ...offerData })
+          .returning();
+        resultOffer = createdOffer;
+      }
+
+      return { ...updated, offer: resultOffer };
+    });
   }
 
   async deleteMenuItem(where: {
