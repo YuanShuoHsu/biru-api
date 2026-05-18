@@ -145,7 +145,7 @@ export interface QuantitativeValue {
 }
 
 // https://schema.org/PriceSpecification
-export interface UnitPriceSpecification {
+export interface PriceSpecification {
   price: string;
   priceCurrency: string;
   validFrom?: string;
@@ -169,7 +169,7 @@ export const offer = pgTable(
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
     priceSpecification: jsonb('price_specification').$type<
-      UnitPriceSpecification[]
+      PriceSpecification[]
     >(),
     ...timestamps,
   },

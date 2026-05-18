@@ -12,7 +12,7 @@ import {
 
 import type { ItemAvailability } from 'src/db/schema/menus';
 
-export class UnitPriceSpecificationDto {
+export class PriceSpecificationDto {
   @ApiPropertyOptional({ example: '150.00' })
   @IsString()
   price: string;
@@ -99,10 +99,10 @@ export class CreateOfferDto {
   @ValidateNested()
   inventoryLevel?: QuantitativeValueDto;
 
-  @ApiPropertyOptional({ type: [UnitPriceSpecificationDto] })
+  @ApiPropertyOptional({ type: [PriceSpecificationDto] })
   @IsOptional()
   @IsArray()
-  @Type(() => UnitPriceSpecificationDto)
+  @Type(() => PriceSpecificationDto)
   @ValidateNested({ each: true })
-  priceSpecification?: UnitPriceSpecificationDto[];
+  priceSpecification?: PriceSpecificationDto[];
 }
