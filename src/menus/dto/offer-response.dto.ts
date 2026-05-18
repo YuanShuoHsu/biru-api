@@ -32,7 +32,7 @@ export class OfferResponseDto {
   inventoryLevel: QuantitativeValue | null;
 
   @ApiPropertyOptional()
-  priceSpecification: PriceSpecification[] | null;
+  priceSpecification: PriceSpecification | null;
 
   @ApiProperty()
   createdAt: Date;

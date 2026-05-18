@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -99,10 +98,9 @@ export class CreateOfferDto {
   @ValidateNested()
   inventoryLevel?: QuantitativeValueDto;
 
-  @ApiPropertyOptional({ type: [PriceSpecificationDto] })
+  @ApiPropertyOptional({ type: PriceSpecificationDto })
   @IsOptional()
-  @IsArray()
   @Type(() => PriceSpecificationDto)
-  @ValidateNested({ each: true })
-  priceSpecification?: PriceSpecificationDto[];
+  @ValidateNested()
+  priceSpecification?: PriceSpecificationDto;
 }

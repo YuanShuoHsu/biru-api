@@ -168,9 +168,9 @@ export const offer = pgTable(
     availability: itemAvailabilityEnum('availability').default('InStock'),
     deliveryLeadTime: jsonb('delivery_lead_time').$type<QuantitativeValue>(),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
-    priceSpecification: jsonb('price_specification').$type<
-      PriceSpecification[]
-    >(),
+    priceSpecification: jsonb(
+      'price_specification',
+    ).$type<PriceSpecification>(),
     ...timestamps,
   },
   (table) => [
