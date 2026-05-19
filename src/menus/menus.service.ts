@@ -698,8 +698,10 @@ export class MenusService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterValue,
       sortBy,
       sortDirection = 'asc',
+      timezone = 'UTC',
     } = query;
 
     const addOnFieldMap: Record<string, SQL> = {
@@ -750,6 +752,23 @@ export class MenusService {
     const where = and(
       eq(menuItemAddOn.menuItemId, menuItemId),
       filterCondition,
+      quickFilterValue
+        ? or(
+            ilike(
+              sql`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(addOnMenuItem.name, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${menuItemAddOn.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${menuItemAddOn.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
     );
 
     const [data, [{ total }]] = await Promise.all([
