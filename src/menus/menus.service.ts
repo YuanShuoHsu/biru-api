@@ -47,6 +47,11 @@ import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
 import type { CreateMenuDto } from './dto/create-menu.dto';
 import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
+  ADD_ON_DATE_FILTER_FIELDS,
+  ADD_ON_STRING_FILTER_FIELDS,
+  type AddOnPaginationQueryDto,
+} from './dto/add-on-pagination-query.dto';
+import {
   DATE_FILTER_FIELDS,
   PaginationQueryDto,
   STRING_FILTER_FIELDS,
@@ -666,40 +671,120 @@ export class MenusService {
     return this.findMenuItemAddOnById(created.id);
   }
 
-  async menuItemAddOns(menuItemId: string): Promise<
-    (MenuItemAddOn & {
+  async menuItemAddOns(
+    menuItemId: string,
+    query: AddOnPaginationQueryDto = {},
+  ): Promise<{
+    data: (MenuItemAddOn & {
       addOnMenuItemName: string | null;
       addOnMenuSectionName: string | null;
       addOnMenuItemSectionId: string | null;
       addOnMenuItemSectionName: string | null;
-    })[]
-  > {
+    })[];
+    total: number;
+  }> {
     const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
       this.menuItemAddOnWithNames();
 
-    return this.db
-      .select({
-        ...getTableColumns(menuItemAddOn),
-        addOnMenuItemName: addOnMenuItem.name,
-        addOnMenuSectionName: addOnMenuSection.name,
-        addOnMenuItemSectionId: addOnMenuItemSection.id,
-        addOnMenuItemSectionName: addOnMenuItemSection.name,
-      })
-      .from(menuItemAddOn)
-      .leftJoin(
-        addOnMenuItem,
-        eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
-      )
-      .leftJoin(
-        addOnMenuSection,
-        eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
-      )
-      .leftJoin(
-        addOnMenuItemSection,
-        eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
-      )
-      .where(eq(menuItemAddOn.menuItemId, menuItemId))
-      .orderBy(asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id));
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      sortBy,
+      sortDirection = 'asc',
+    } = query;
+
+    const addOnFieldMap: Record<string, Column> = {
+      addOnMenuSectionName: addOnMenuSection.name,
+      addOnMenuItemName: addOnMenuItem.name,
+      createdAt: menuItemAddOn.createdAt,
+      updatedAt: menuItemAddOn.updatedAt,
+    };
+
+    const filterCondition =
+      filterField && filterOperator
+        ? (() => {
+            const col = addOnFieldMap[filterField];
+            if (!col) return undefined;
+            if (
+              (ADD_ON_STRING_FILTER_FIELDS as readonly string[]).includes(
+                filterField,
+              )
+            ) {
+              return buildStringFilterCondition(
+                col,
+                filterOperator,
+                filterValue || '',
+              );
+            }
+            if (
+              (ADD_ON_DATE_FILTER_FIELDS as readonly string[]).includes(
+                filterField,
+              )
+            ) {
+              return buildDateFilterCondition(
+                col,
+                filterOperator,
+                filterValue || '',
+              );
+            }
+          })()
+        : undefined;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] =
+      sortBy && addOnFieldMap[sortBy]
+        ? [dir(addOnFieldMap[sortBy])]
+        : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
+
+    const where = and(
+      eq(menuItemAddOn.menuItemId, menuItemId),
+      filterCondition,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          ...getTableColumns(menuItemAddOn),
+          addOnMenuItemName: addOnMenuItem.name,
+          addOnMenuSectionName: addOnMenuSection.name,
+          addOnMenuItemSectionId: addOnMenuItemSection.id,
+          addOnMenuItemSectionName: addOnMenuItemSection.name,
+        })
+        .from(menuItemAddOn)
+        .leftJoin(
+          addOnMenuItem,
+          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+        )
+        .leftJoin(
+          addOnMenuSection,
+          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+        )
+        .leftJoin(
+          addOnMenuItemSection,
+          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
+        )
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(menuItemAddOn)
+        .leftJoin(
+          addOnMenuItem,
+          eq(menuItemAddOn.addOnMenuItemId, addOnMenuItem.id),
+        )
+        .leftJoin(
+          addOnMenuSection,
+          eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+        )
+        .where(where),
+    ]);
+
+    return { data, total };
   }
 
   async reorderMenuItemAddOns(

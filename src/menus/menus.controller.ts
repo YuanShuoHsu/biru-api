@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Roles } from './decorators/roles.decorator';
+import { AddOnPaginationQueryDto } from './dto/add-on-pagination-query.dto';
 import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuSectionDto } from './dto/create-menu-section.dto';
@@ -268,8 +269,9 @@ export class MenusController {
   @ApiOperation({ summary: '取得品項所有加購' })
   findAllMenuItemAddOns(
     @Param('menuItemId') menuItemId: string,
-  ): Promise<MenuItemAddOnResponseDto[]> {
-    return this.menusService.menuItemAddOns(menuItemId);
+    @Query() query: AddOnPaginationQueryDto,
+  ): Promise<{ data: MenuItemAddOnResponseDto[]; total: number }> {
+    return this.menusService.menuItemAddOns(menuItemId, query);
   }
 
   @Patch('menu-items/:menuItemId/add-ons/reorder')
