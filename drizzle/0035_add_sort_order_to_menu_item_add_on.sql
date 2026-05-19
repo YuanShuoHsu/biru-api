@@ -1,0 +1,1 @@
+ALTER TABLE "menu_item_add_on" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;

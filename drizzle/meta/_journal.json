@@ -246,6 +246,20 @@
       "when": 1779083101808,
       "tag": "0034_opposite_firestar",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1747612800000,
+      "tag": "0035_add_sort_order_to_menu_item_add_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779169384696,
+      "tag": "0036_adorable_energizer",
+      "breakpoints": true
     }
   ]
 }

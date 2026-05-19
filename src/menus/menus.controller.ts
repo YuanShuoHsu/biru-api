@@ -272,6 +272,16 @@ export class MenusController {
     return this.menusService.menuItemAddOns(menuItemId);
   }
 
+  @Patch('menu-items/:menuItemId/add-ons/reorder')
+  @Roles({ menu: ['update'] }, 'menuItemId')
+  @ApiOperation({ summary: '重新排序品項加購' })
+  reorderMenuItemAddOns(
+    @Body() { ids, offset }: ReorderDto,
+    @Param('menuItemId') menuItemId: string,
+  ): Promise<void> {
+    return this.menusService.reorderMenuItemAddOns(menuItemId, ids, offset);
+  }
+
   @Delete('menu-item-add-ons/:addOnId')
   @Roles({ menu: ['delete'] }, 'addOnId')
   @ApiOperation({ summary: '刪除品項加購' })

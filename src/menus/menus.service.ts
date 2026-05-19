@@ -649,10 +649,19 @@ export class MenusService {
       addOnMenuItemSectionName: string | null;
     }
   > {
-    const [created] = await this.db
-      .insert(menuItemAddOn)
-      .values({ id: uuidv4(), menuItemId, ...data })
-      .returning();
+    const created = await this.db.transaction(async (tx) => {
+      await tx
+        .update(menuItemAddOn)
+        .set({ sortOrder: sql`${menuItemAddOn.sortOrder} + 1` })
+        .where(eq(menuItemAddOn.menuItemId, menuItemId));
+
+      const [row] = await tx
+        .insert(menuItemAddOn)
+        .values({ id: uuidv4(), menuItemId, sortOrder: 0, ...data })
+        .returning();
+
+      return row;
+    });
 
     return this.findMenuItemAddOnById(created.id);
   }
@@ -690,7 +699,22 @@ export class MenusService {
         eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
       )
       .where(eq(menuItemAddOn.menuItemId, menuItemId))
-      .orderBy(asc(menuItemAddOn.createdAt));
+      .orderBy(asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id));
+  }
+
+  async reorderMenuItemAddOns(
+    _menuItemId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) {
+        await tx
+          .update(menuItemAddOn)
+          .set({ sortOrder: offset + i })
+          .where(eq(menuItemAddOn.id, id));
+      }
+    });
   }
 
   async deleteMenuItemAddOn(where: { id: string }): Promise<

@@ -196,6 +196,7 @@ export const menuItemAddOn = pgTable(
       () => menuSection.id,
       { onDelete: 'cascade' },
     ),
+    sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
   (table) => [
