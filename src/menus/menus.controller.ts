@@ -25,6 +25,7 @@ import { MenuSectionResponseDto } from './dto/menu-section-response.dto';
 import { OfferResponseDto } from './dto/offer-response.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { ReorderDto } from './dto/reorder.dto';
+import { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -282,6 +283,19 @@ export class MenusController {
     @Param('menuItemId') menuItemId: string,
   ): Promise<void> {
     return this.menusService.reorderMenuItemAddOns(menuItemId, ids, offset);
+  }
+
+  @Patch('menu-items/:menuItemId/add-ons/:addOnId')
+  @Roles({ menu: ['update'] }, 'menuItemId')
+  @ApiOperation({ summary: '更新品項加購' })
+  updateMenuItemAddOn(
+    @Body() updateMenuItemAddOnDto: UpdateMenuItemAddOnDto,
+    @Param('addOnId') addOnId: string,
+  ): Promise<MenuItemAddOnResponseDto> {
+    return this.menusService.updateMenuItemAddOn(
+      addOnId,
+      updateMenuItemAddOnDto,
+    );
   }
 
   @Delete('menu-item-add-ons/:addOnId')

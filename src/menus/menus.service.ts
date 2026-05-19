@@ -58,6 +58,7 @@ import {
   type FilterField,
   type FilterOperator,
 } from './dto/pagination-query.dto';
+import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
@@ -831,6 +832,25 @@ export class MenusService {
           .where(eq(menuItemAddOn.id, id));
       }
     });
+  }
+
+  async updateMenuItemAddOn(
+    id: string,
+    data: UpdateMenuItemAddOnDto,
+  ): Promise<
+    MenuItemAddOn & {
+      addOnMenuItemName: string | null;
+      addOnMenuSectionName: string | null;
+      addOnMenuItemSectionId: string | null;
+      addOnMenuItemSectionName: string | null;
+    }
+  > {
+    await this.db
+      .update(menuItemAddOn)
+      .set(data)
+      .where(eq(menuItemAddOn.id, id));
+
+    return this.findMenuItemAddOnById(id);
   }
 
   async deleteMenuItemAddOn(where: { id: string }): Promise<
