@@ -1,22 +1,42 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsNumber,
+  IsNumberString,
   IsOptional,
   IsString,
+  Validate,
   ValidateNested,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 
 import type { ItemAvailability } from 'src/db/schema/menus';
 
+@ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
+class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
+  validate(_: unknown, { object }: ValidationArguments): boolean {
+    const { validFrom, validThrough } = object as PriceSpecificationDto;
+    if (!validFrom || !validThrough) return true;
+
+    return new Date(validFrom) < new Date(validThrough);
+  }
+
+  defaultMessage(): string {
+    return 'validFrom 必須早於 validThrough';
+  }
+}
+
 export class PriceSpecificationDto {
-  @ApiPropertyOptional({ example: '150.00' })
-  @IsString()
+  @ApiProperty({ example: '150.00' })
+  @IsNumberString()
   price: string;
 
-  @ApiPropertyOptional({ example: 'TWD' })
+  @ApiProperty({ example: 'TWD' })
   @IsString()
   priceCurrency: string;
 
@@ -25,7 +45,7 @@ export class PriceSpecificationDto {
     description: '促銷開始時間（ISO 8601）',
   })
   @IsOptional()
-  @IsString()
+  @IsDateString()
   validFrom?: string;
 
   @ApiPropertyOptional({
@@ -33,7 +53,8 @@ export class PriceSpecificationDto {
     description: '促銷結束時間（ISO 8601）',
   })
   @IsOptional()
-  @IsString()
+  @IsDateString()
+  @Validate(IsValidFromBeforeValidThrough)
   validThrough?: string;
 }
 
@@ -65,15 +86,13 @@ const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
 ];
 
 export class CreateOfferDto {
-  @ApiPropertyOptional({ example: '150.00' })
-  @IsOptional()
-  @IsString()
-  price?: string;
+  @ApiProperty({ example: '150.00' })
+  @IsNumberString()
+  price: string;
 
-  @ApiPropertyOptional({ default: 'TWD' })
-  @IsOptional()
+  @ApiProperty({ default: 'TWD' })
   @IsString()
-  priceCurrency?: string;
+  priceCurrency: string;
 
   @ApiPropertyOptional({ enum: ITEM_AVAILABILITY_VALUES })
   @IsOptional()
