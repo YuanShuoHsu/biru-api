@@ -41,16 +41,16 @@ import {
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
-import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
-import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import type { CreateMenuDto } from './dto/create-menu.dto';
-import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
   ADD_ON_DATE_FILTER_FIELDS,
   ADD_ON_STRING_FILTER_FIELDS,
   type AddOnPaginationQueryDto,
 } from './dto/add-on-pagination-query.dto';
+import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
+import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
+import type { CreateMenuDto } from './dto/create-menu.dto';
+import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
   DATE_FILTER_FIELDS,
   PaginationQueryDto,
@@ -66,46 +66,52 @@ import type { UpdateOfferDto } from './dto/update-offer.dto';
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
 const buildStringFilterCondition = (
-  col: Column,
+  column: Column | SQL,
   operator: string,
   value: string,
 ): SQL | undefined => {
+  const colSql = sql`${column}`;
+
   switch (operator) {
     case 'contains':
-      return ilike(col, `%${value}%`);
+      return ilike(colSql, `%${value}%`);
     case 'doesNotContain':
-      return notIlike(col, `%${value}%`);
+      return notIlike(colSql, `%${value}%`);
     case 'equals':
-      return eq(col, value);
+      return eq(colSql, value);
     case 'doesNotEqual':
-      return ne(col, value);
+      return ne(colSql, value);
     case 'startsWith':
-      return ilike(col, `${value}%`);
+      return ilike(colSql, `${value}%`);
     case 'endsWith':
-      return ilike(col, `%${value}`);
+      return ilike(colSql, `%${value}`);
     case 'isEmpty':
-      return or(isNull(col), eq(col, ''));
+      return or(isNull(colSql), eq(colSql, ''));
     case 'isNotEmpty':
-      return and(isNotNull(col), ne(col, ''));
+      return and(isNotNull(colSql), ne(colSql, ''));
     case 'isAnyOf': {
       const values = value.split(',').filter(Boolean);
       if (values.length === 0) return undefined;
 
-      return values.length === 1 ? eq(col, values[0]) : inArray(col, values);
+      return values.length === 1
+        ? eq(colSql, values[0])
+        : inArray(colSql, values);
     }
   }
 };
 
 const buildDateFilterCondition = (
-  col: Column,
+  column: Column | SQL,
   operator: string,
   value: string,
 ): SQL | undefined => {
-  if (operator === 'isEmpty') return isNull(col);
-  if (operator === 'isNotEmpty') return isNotNull(col);
+  const colSql = sql`${column}`;
+
+  if (operator === 'isEmpty') return isNull(colSql);
+  if (operator === 'isNotEmpty') return isNotNull(colSql);
   if (!value) return undefined;
 
-  const dateCast = sql`${col}::date`;
+  const dateCast = sql`${colSql}::date`;
 
   switch (operator) {
     case 'is':
@@ -696,25 +702,27 @@ export class MenusService {
       sortDirection = 'asc',
     } = query;
 
-    const addOnFieldMap: Record<string, Column> = {
-      addOnMenuSectionName: addOnMenuSection.name,
-      addOnMenuItemName: addOnMenuItem.name,
-      createdAt: menuItemAddOn.createdAt,
-      updatedAt: menuItemAddOn.updatedAt,
+    const addOnFieldMap: Record<string, SQL> = {
+      addOnMenuSectionName: sql<
+        string | null
+      >`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
+      addOnMenuItemName: sql`${addOnMenuItem.name}`,
+      createdAt: sql`${menuItemAddOn.createdAt}`,
+      updatedAt: sql`${menuItemAddOn.updatedAt}`,
     };
 
     const filterCondition =
       filterField && filterOperator
         ? (() => {
-            const col = addOnFieldMap[filterField];
-            if (!col) return undefined;
+            const column = addOnFieldMap[filterField];
+            if (!column) return undefined;
             if (
               (ADD_ON_STRING_FILTER_FIELDS as readonly string[]).includes(
                 filterField,
               )
             ) {
               return buildStringFilterCondition(
-                col,
+                column,
                 filterOperator,
                 filterValue || '',
               );
@@ -725,7 +733,7 @@ export class MenusService {
               )
             ) {
               return buildDateFilterCondition(
-                col,
+                column,
                 filterOperator,
                 filterValue || '',
               );
@@ -780,6 +788,10 @@ export class MenusService {
         .leftJoin(
           addOnMenuSection,
           eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+        )
+        .leftJoin(
+          addOnMenuItemSection,
+          eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
         )
         .where(where),
     ]);
