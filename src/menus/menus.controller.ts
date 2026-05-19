@@ -298,8 +298,8 @@ export class MenusController {
     );
   }
 
-  @Delete('menu-item-add-ons/:addOnId')
-  @Roles({ menu: ['delete'] }, 'addOnId')
+  @Delete('menu-items/:menuItemId/add-ons/:addOnId')
+  @Roles({ menu: ['delete'] }, 'menuItemId')
   @ApiOperation({ summary: '刪除品項加購' })
   deleteMenuItemAddOn(
     @Param('addOnId') addOnId: string,
