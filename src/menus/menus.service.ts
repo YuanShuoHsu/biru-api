@@ -597,21 +597,28 @@ export class MenusService {
   private menuItemAddOnWithNames() {
     const addOnMenuItem = alias(menuItem, 'add_on_menu_item');
     const addOnMenuSection = alias(menuSection, 'add_on_menu_section');
-    return { addOnMenuItem, addOnMenuSection };
+    const addOnMenuItemSection = alias(menuSection, 'add_on_menu_item_section');
+
+    return { addOnMenuItem, addOnMenuSection, addOnMenuItemSection };
   }
 
   private async findMenuItemAddOnById(id: string): Promise<
     MenuItemAddOn & {
       addOnMenuItemName: string | null;
       addOnMenuSectionName: string | null;
+      addOnMenuItemSectionId: string | null;
+      addOnMenuItemSectionName: string | null;
     }
   > {
-    const { addOnMenuItem, addOnMenuSection } = this.menuItemAddOnWithNames();
+    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
+      this.menuItemAddOnWithNames();
     const [row] = await this.db
       .select({
         ...getTableColumns(menuItemAddOn),
         addOnMenuItemName: addOnMenuItem.name,
         addOnMenuSectionName: addOnMenuSection.name,
+        addOnMenuItemSectionId: addOnMenuItemSection.id,
+        addOnMenuItemSectionName: addOnMenuItemSection.name,
       })
       .from(menuItemAddOn)
       .leftJoin(
@@ -621,6 +628,10 @@ export class MenusService {
       .leftJoin(
         addOnMenuSection,
         eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
+      )
+      .leftJoin(
+        addOnMenuItemSection,
+        eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
       )
       .where(eq(menuItemAddOn.id, id));
 
@@ -634,6 +645,8 @@ export class MenusService {
     MenuItemAddOn & {
       addOnMenuItemName: string | null;
       addOnMenuSectionName: string | null;
+      addOnMenuItemSectionId: string | null;
+      addOnMenuItemSectionName: string | null;
     }
   > {
     const [created] = await this.db
@@ -648,15 +661,20 @@ export class MenusService {
     (MenuItemAddOn & {
       addOnMenuItemName: string | null;
       addOnMenuSectionName: string | null;
+      addOnMenuItemSectionId: string | null;
+      addOnMenuItemSectionName: string | null;
     })[]
   > {
-    const { addOnMenuItem, addOnMenuSection } = this.menuItemAddOnWithNames();
+    const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
+      this.menuItemAddOnWithNames();
 
     return this.db
       .select({
         ...getTableColumns(menuItemAddOn),
         addOnMenuItemName: addOnMenuItem.name,
         addOnMenuSectionName: addOnMenuSection.name,
+        addOnMenuItemSectionId: addOnMenuItemSection.id,
+        addOnMenuItemSectionName: addOnMenuItemSection.name,
       })
       .from(menuItemAddOn)
       .leftJoin(
@@ -667,6 +685,10 @@ export class MenusService {
         addOnMenuSection,
         eq(menuItemAddOn.addOnMenuSectionId, addOnMenuSection.id),
       )
+      .leftJoin(
+        addOnMenuItemSection,
+        eq(addOnMenuItem.menuSectionId, addOnMenuItemSection.id),
+      )
       .where(eq(menuItemAddOn.menuItemId, menuItemId))
       .orderBy(asc(menuItemAddOn.createdAt));
   }
@@ -675,6 +697,8 @@ export class MenusService {
     MenuItemAddOn & {
       addOnMenuItemName: string | null;
       addOnMenuSectionName: string | null;
+      addOnMenuItemSectionId: string | null;
+      addOnMenuItemSectionName: string | null;
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
