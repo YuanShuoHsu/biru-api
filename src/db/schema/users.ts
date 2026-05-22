@@ -25,6 +25,7 @@ export const user = pgTable('user', {
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires'),
   // additional fields
+  bio: text('bio'),
   // birthDate: timestamp('birth_date').notNull(),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').notNull(),

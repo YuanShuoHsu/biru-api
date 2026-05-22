@@ -32,7 +32,15 @@ export class OrganizationsService {
   ): Promise<OrganizationMemberResponseDto[]> {
     const members = await this.db.query.member.findMany({
       where: eq(member.organizationId, organizationId),
-      with: { user: true },
+      with: {
+        user: {
+          with: {
+            teamMembers: {
+              with: { team: true },
+            },
+          },
+        },
+      },
     });
 
     return members.map(({ id, role, createdAt, user }) => ({
@@ -41,8 +49,12 @@ export class OrganizationsService {
       createdAt,
       userId: user.id,
       firstName: user.firstName,
-      lastName: user.lastName ?? null,
-      image: user.image ?? null,
+      lastName: user.lastName || null,
+      image: user.image || null,
+      bio: user.bio || null,
+      teams: user.teamMembers
+        .filter(({ team }) => team.organizationId === organizationId)
+        .map(({ team }) => ({ id: team.id, name: team.name })),
     }));
   }
 

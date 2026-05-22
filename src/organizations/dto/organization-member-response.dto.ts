@@ -1,24 +1,38 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class OrganizationMemberResponseDto {
+export class OrganizationMemberTeamDto {
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  role: string;
+  name: string;
+}
+
+export class OrganizationMemberResponseDto {
+  @ApiPropertyOptional()
+  bio: string | null;
 
   @ApiProperty()
   createdAt: Date;
 
   @ApiProperty()
-  userId: string;
+  firstName: string;
 
   @ApiProperty()
-  firstName: string;
+  id: string;
+
+  @ApiPropertyOptional()
+  image: string | null;
 
   @ApiPropertyOptional()
   lastName: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty()
+  role: string;
+
+  @ApiProperty({ type: [OrganizationMemberTeamDto] })
+  teams: OrganizationMemberTeamDto[];
+
+  @ApiProperty()
+  userId: string;
 }
