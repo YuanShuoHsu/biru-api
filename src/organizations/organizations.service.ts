@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { and, eq, SQL } from 'drizzle-orm';
-import type { Organization } from 'src/db/schema/organizations';
+import { member, Organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+
+import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -23,6 +25,25 @@ export class OrganizationsService {
       limit,
       offset,
     });
+  }
+
+  async organizationMembers(
+    organizationId: string,
+  ): Promise<OrganizationMemberResponseDto[]> {
+    const members = await this.db.query.member.findMany({
+      where: eq(member.organizationId, organizationId),
+      with: { user: true },
+    });
+
+    return members.map(({ id, role, createdAt, user }) => ({
+      id,
+      role,
+      createdAt,
+      userId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName ?? null,
+      image: user.image ?? null,
+    }));
   }
 
   async organization(
