@@ -66,6 +66,10 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.NEXT_URL!, process.env.NEXT_ADMIN_URL!],
   user: {
     additionalFields: {
+      bio: {
+        type: 'string',
+        required: false,
+      },
       // birthDate: {
       //   type: 'date',
       //   required: true,
