@@ -37,4 +37,17 @@ export class OrganizationResponseDto {
 
   @ApiPropertyOptional()
   streetAddress: string | null;
+
+  // https://schema.org/LocalBusiness
+  @ApiPropertyOptional()
+  hasMap: string | null;
+
+  @ApiPropertyOptional()
+  mapEmbedUrl: string | null;
+
+  @ApiPropertyOptional()
+  openingHours: string | null;
+
+  @ApiPropertyOptional()
+  telephone: string | null;
 }

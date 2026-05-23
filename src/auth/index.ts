@@ -147,6 +147,10 @@ export const createAuth = (mailsService: MailsService) =>
                 type: 'string',
                 required: false,
               },
+              mapEmbedUrl: {
+                type: 'string',
+                required: false,
+              },
               openingHours: {
                 type: 'string',
                 required: false,
