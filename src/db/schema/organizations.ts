@@ -25,7 +25,6 @@ export const organization = pgTable(
     addressLocality: text('address_locality'),
     addressRegion: text('address_region'),
     extendedAddress: text('extended_address'),
-    postOfficeBoxNumber: text('post_office_box_number'),
     postalCode: text('postal_code'),
     streetAddress: text('street_address'),
 

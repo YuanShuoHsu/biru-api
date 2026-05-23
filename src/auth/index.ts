@@ -133,10 +133,6 @@ export const createAuth = (mailsService: MailsService) =>
                 type: 'string',
                 required: false,
               },
-              postOfficeBoxNumber: {
-                type: 'string',
-                required: false,
-              },
               postalCode: {
                 type: 'string',
                 required: false,

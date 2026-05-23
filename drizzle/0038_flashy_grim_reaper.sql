@@ -1,0 +1,1 @@
+ALTER TABLE "organization" DROP COLUMN "post_office_box_number";

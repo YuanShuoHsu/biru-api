@@ -33,9 +33,6 @@ export class OrganizationResponseDto {
   extendedAddress: string | null;
 
   @ApiPropertyOptional()
-  postOfficeBoxNumber: string | null;
-
-  @ApiPropertyOptional()
   postalCode: string | null;
 
   @ApiPropertyOptional()
