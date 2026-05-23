@@ -1,0 +1,1 @@
+ALTER TABLE "organization" DROP COLUMN "map_embed_url";

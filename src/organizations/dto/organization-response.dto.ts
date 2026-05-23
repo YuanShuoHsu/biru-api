@@ -43,9 +43,6 @@ export class OrganizationResponseDto {
   hasMap: string | null;
 
   @ApiPropertyOptional()
-  mapEmbedUrl: string | null;
-
-  @ApiPropertyOptional()
   openingHours: string | null;
 
   @ApiPropertyOptional()

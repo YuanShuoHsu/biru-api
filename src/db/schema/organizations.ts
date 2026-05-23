@@ -29,7 +29,6 @@ export const organization = pgTable(
 
     // https://schema.org/LocalBusiness
     hasMap: text('has_map'),
-    mapEmbedUrl: text('map_embed_url'),
     openingHours: text('opening_hours'),
     telephone: text('telephone'),
   },
