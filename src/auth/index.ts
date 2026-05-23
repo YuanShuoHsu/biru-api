@@ -142,6 +142,20 @@ export const createAuth = (mailsService: MailsService) =>
                 required: false,
               },
 
+              // https://schema.org/LocalBusiness
+              hasMap: {
+                type: 'string',
+                required: false,
+              },
+              openingHours: {
+                type: 'string',
+                required: false,
+              },
+              telephone: {
+                type: 'string',
+                required: false,
+              },
+
               isOpen: {
                 type: 'boolean',
                 required: false,
