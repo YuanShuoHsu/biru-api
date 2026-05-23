@@ -274,6 +274,13 @@
       "when": 1779526595396,
       "tag": "0038_flashy_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779530454634,
+      "tag": "0039_freezing_thing",
+      "breakpoints": true
     }
   ]
 }

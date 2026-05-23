@@ -28,6 +28,11 @@ export const organization = pgTable(
     postalCode: text('postal_code'),
     streetAddress: text('street_address'),
 
+    // https://schema.org/LocalBusiness
+    hasMap: text('has_map'),
+    openingHours: text('opening_hours'),
+    telephone: text('telephone'),
+
     isOpen: boolean('is_open').default(true).notNull(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
