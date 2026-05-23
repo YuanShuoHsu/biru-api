@@ -37,7 +37,4 @@ export class OrganizationResponseDto {
 
   @ApiPropertyOptional()
   streetAddress: string | null;
-
-  @ApiProperty()
-  isOpen: boolean;
 }

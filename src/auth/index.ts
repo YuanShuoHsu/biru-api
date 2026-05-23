@@ -155,12 +155,6 @@ export const createAuth = (mailsService: MailsService) =>
                 type: 'string',
                 required: false,
               },
-
-              isOpen: {
-                type: 'boolean',
-                required: false,
-                defaultValue: true,
-              },
             },
           },
         },

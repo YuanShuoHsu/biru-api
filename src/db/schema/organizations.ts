@@ -33,7 +33,6 @@ export const organization = pgTable(
     openingHours: text('opening_hours'),
     telephone: text('telephone'),
 
-    isOpen: boolean('is_open').default(true).notNull(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );
