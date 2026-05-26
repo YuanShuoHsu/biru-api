@@ -1,0 +1,1 @@
+ALTER TABLE "organization" ALTER COLUMN "address_country" DROP DEFAULT;

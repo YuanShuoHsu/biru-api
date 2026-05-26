@@ -20,7 +20,7 @@ export class OrganizationResponseDto {
   metadata: string | null;
 
   // https://schema.org/PostalAddress
-  @ApiPropertyOptional({ default: 'TW' })
+  @ApiPropertyOptional()
   addressCountry: string | null;
 
   @ApiPropertyOptional()

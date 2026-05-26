@@ -20,7 +20,7 @@ export const organization = pgTable(
     metadata: text('metadata'),
     // additional fields
     // https://schema.org/PostalAddress
-    addressCountry: text('address_country').default('TW'),
+    addressCountry: text('address_country'),
     addressLocality: text('address_locality'),
     addressRegion: text('address_region'),
     extendedAddress: text('extended_address'),

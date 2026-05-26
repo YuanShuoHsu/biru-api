@@ -119,7 +119,6 @@ export const createAuth = (mailsService: MailsService) =>
               addressCountry: {
                 type: 'string',
                 required: false,
-                defaultValue: 'TW',
               },
               addressLocality: {
                 type: 'string',
