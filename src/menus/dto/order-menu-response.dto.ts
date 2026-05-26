@@ -7,8 +7,8 @@ export class OrderMenuItemResponseDto {
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional()
-  description: string | null;
+  @ApiProperty()
+  description: string;
 
   @ApiPropertyOptional()
   image: string | null;
