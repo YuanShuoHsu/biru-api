@@ -82,7 +82,7 @@ export class OrderMenuItemResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuSectionResponseDto {
+export class OrderMenuResponseDto {
   @ApiProperty()
   id: string;
 

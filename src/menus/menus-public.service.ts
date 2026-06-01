@@ -5,7 +5,7 @@ import { menu, menuItem, menuSection } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import type { OrderMenuSectionResponseDto } from './dto/order-menu-response.dto';
+import type { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 
 @Injectable()
 export class PublicMenusService {
@@ -14,7 +14,7 @@ export class PublicMenusService {
   async findOrderMenu(
     organizationId: string,
     lang: string,
-  ): Promise<OrderMenuSectionResponseDto[]> {
+  ): Promise<OrderMenuResponseDto[]> {
     return this.db.query.menuSection.findMany({
       where: and(
         isNull(menuSection.parentSectionId),

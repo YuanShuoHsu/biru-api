@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { OrderMenuSectionResponseDto } from './dto/order-menu-response.dto';
+import { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 import { PublicMenusService } from './menus-public.service';
 
 @ApiTags('public')
@@ -14,7 +14,7 @@ export class PublicMenusController {
   findOrderMenu(
     @Param('organizationId') organizationId: string,
     @Query('lang') lang: string,
-  ): Promise<OrderMenuSectionResponseDto[]> {
+  ): Promise<OrderMenuResponseDto[]> {
     return this.publicMenusService.findOrderMenu(organizationId, lang);
   }
 }
