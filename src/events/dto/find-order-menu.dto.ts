@@ -2,7 +2,7 @@ import { IsString } from 'class-validator';
 
 export class FindOrderMenuDto {
   @IsString()
-  storeId: string;
+  organizationId: string;
 
   @IsString()
   lang: string;

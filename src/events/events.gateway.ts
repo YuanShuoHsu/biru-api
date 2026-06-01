@@ -23,7 +23,7 @@ export class EventsGateway {
   constructor(private readonly publicMenusService: PublicMenusService) {}
 
   @SubscribeMessage('orderMenu')
-  findOrderMenu(@MessageBody() { storeId, lang }: FindOrderMenuDto) {
-    return this.publicMenusService.findOrderMenu(storeId, lang);
+  findOrderMenu(@MessageBody() { organizationId, lang }: FindOrderMenuDto) {
+    return this.publicMenusService.findOrderMenu(organizationId, lang);
   }
 }
