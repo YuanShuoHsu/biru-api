@@ -6,6 +6,7 @@ import {
 } from '@nestjs/websockets';
 
 import { CreateEventDto } from './dto/create-event.dto';
+import { FindAllMenusDto } from './dto/find-all-menus.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventsService } from './events.service';
 
@@ -28,11 +29,8 @@ export class EventsGateway {
   ) {}
 
   @SubscribeMessage('findAllMenus')
-  findAllMenus(@MessageBody() body: { storeId: string; lang: string }) {
-    return this.publicMenusService.getOrderMenuByOrganizationId(
-      body.storeId,
-      body.lang,
-    );
+  findAllMenus(@MessageBody() { storeId, lang }: FindAllMenusDto) {
+    return this.publicMenusService.getOrderMenuByOrganizationId(storeId, lang);
   }
 
   @SubscribeMessage('createEvent')
