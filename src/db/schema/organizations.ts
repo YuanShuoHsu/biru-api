@@ -1,11 +1,19 @@
 import { relations } from 'drizzle-orm';
 import {
   index,
+  pgEnum,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+
+export const memberRoleEnum = pgEnum('member_role', [
+  'admin',
+  'member',
+  'owner',
+]);
+export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
 import { user } from './users';
 

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { memberRoleEnum, type MemberRole } from 'src/db/schema/organizations';
+
 export class OrganizationMemberTeamDto {
   @ApiProperty()
   id: string;
@@ -27,8 +29,8 @@ export class OrganizationMemberResponseDto {
   @ApiPropertyOptional()
   lastName: string | null;
 
-  @ApiProperty()
-  role: string;
+  @ApiProperty({ enum: memberRoleEnum.enumValues })
+  role: MemberRole;
 
   @ApiProperty({ type: [OrganizationMemberTeamDto] })
   teams: OrganizationMemberTeamDto[];

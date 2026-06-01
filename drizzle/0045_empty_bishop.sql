@@ -1,0 +1,1 @@
+CREATE TYPE "public"."member_role" AS ENUM('admin', 'member', 'owner');
