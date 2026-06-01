@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { menu, menuItem, menuSection } from 'src/db/schema/menus';
-import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -12,21 +11,28 @@ import type { OrderMenuSectionResponseDto } from './dto/order-menu-response.dto'
 export class PublicMenusService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async getOrderMenu(
-    slug: string,
+  async getOrderMenuByOrganizationId(
+    organizationId: string,
     lang: string,
   ): Promise<OrderMenuSectionResponseDto[]> {
-    const orgMenus = await this.db
-      .select({ menu, organizationId: organization.id })
+    const menus = await this.db
+      .select({ id: menu.id })
       .from(menu)
-      .innerJoin(organization, eq(organization.id, menu.organizationId))
-      .where(and(eq(organization.slug, slug), eq(menu.inLanguage, lang)));
+      .where(
+        and(eq(menu.organizationId, organizationId), eq(menu.inLanguage, lang)),
+      );
+    if (!menus.length) return [];
 
-    if (!orgMenus.length) return [];
+    return this.fetchOrderMenuSections(
+      organizationId,
+      menus.map(({ id }) => id),
+    );
+  }
 
-    const organizationId = orgMenus[0].organizationId;
-    const menuIds = orgMenus.map(({ menu }) => menu.id);
-
+  private async fetchOrderMenuSections(
+    organizationId: string,
+    menuIds: string[],
+  ): Promise<OrderMenuSectionResponseDto[]> {
     const sections = await this.db.query.menuSection.findMany({
       where: and(
         isNull(menuSection.parentSectionId),
