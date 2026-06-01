@@ -1,6 +1,6 @@
 import { IsString } from 'class-validator';
 
-export class FindAllMenusDto {
+export class FindOrderMenuDto {
   @IsString()
   storeId: string;
 

@@ -11,7 +11,7 @@ import type { OrderMenuSectionResponseDto } from './dto/order-menu-response.dto'
 export class PublicMenusService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async getMenuSections(
+  async findOrderMenu(
     organizationId: string,
     lang: string,
   ): Promise<OrderMenuSectionResponseDto[]> {

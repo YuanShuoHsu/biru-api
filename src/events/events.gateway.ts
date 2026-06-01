@@ -5,7 +5,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 
-import { FindAllMenusDto } from './dto/find-all-menus.dto';
+import { FindOrderMenuDto } from './dto/find-order-menu.dto';
 
 import { Server } from 'socket.io';
 import { PublicMenusService } from 'src/menus/menus-public.service';
@@ -22,8 +22,8 @@ export class EventsGateway {
 
   constructor(private readonly publicMenusService: PublicMenusService) {}
 
-  @SubscribeMessage('findAllMenus')
-  findAllMenus(@MessageBody() { storeId, lang }: FindAllMenusDto) {
-    return this.publicMenusService.getMenuSections(storeId, lang);
+  @SubscribeMessage('orderMenu')
+  findOrderMenu(@MessageBody() { storeId, lang }: FindOrderMenuDto) {
+    return this.publicMenusService.findOrderMenu(storeId, lang);
   }
 }
