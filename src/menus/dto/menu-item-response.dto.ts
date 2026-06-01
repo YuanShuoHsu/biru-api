@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { NutritionInformation, RestrictedDiet } from 'src/db/schema/menus';
+import type { RestrictedDiet } from 'src/db/schema/menus';
+import { restrictedDietEnum } from 'src/db/schema/menus';
 
 import { OfferResponseDto } from './offer-response.dto';
+import { NutritionInformationDto } from './nutrition-information.dto';
 
 export class MenuItemResponseDto {
   @ApiProperty()
@@ -23,11 +25,11 @@ export class MenuItemResponseDto {
   @ApiPropertyOptional()
   image: string | null;
 
-  @ApiPropertyOptional({ isArray: true })
+  @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
 
-  @ApiPropertyOptional()
-  nutrition: NutritionInformation | null;
+  @ApiPropertyOptional({ type: NutritionInformationDto })
+  nutrition: NutritionInformationDto | null;
 
   @ApiPropertyOptional({ type: OfferResponseDto })
   offer: OfferResponseDto | null;

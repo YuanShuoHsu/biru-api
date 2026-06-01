@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type {
-  ItemAvailability,
-  QuantitativeValue,
-  PriceSpecification,
-} from 'src/db/schema/menus';
+import type { ItemAvailability } from 'src/db/schema/menus';
+import { itemAvailabilityEnum } from 'src/db/schema/menus';
+
+import {
+  PriceSpecificationDto,
+  QuantitativeValueDto,
+} from './create-offer.dto';
 
 export class OfferResponseDto {
   @ApiProperty()
@@ -22,17 +24,17 @@ export class OfferResponseDto {
   @ApiPropertyOptional()
   priceCurrency: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
   availability: ItemAvailability | null;
 
-  @ApiPropertyOptional()
-  deliveryLeadTime: QuantitativeValue | null;
+  @ApiPropertyOptional({ type: QuantitativeValueDto })
+  deliveryLeadTime: QuantitativeValueDto | null;
 
-  @ApiPropertyOptional()
-  inventoryLevel: QuantitativeValue | null;
+  @ApiPropertyOptional({ type: QuantitativeValueDto })
+  inventoryLevel: QuantitativeValueDto | null;
 
-  @ApiPropertyOptional()
-  priceSpecification: PriceSpecification | null;
+  @ApiPropertyOptional({ type: PriceSpecificationDto })
+  priceSpecification: PriceSpecificationDto | null;
 
   @ApiProperty()
   createdAt: Date;

@@ -14,8 +14,8 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-
 import type { ItemAvailability } from 'src/db/schema/menus';
+import { itemAvailabilityEnum } from 'src/db/schema/menus';
 
 @ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
 class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
@@ -70,21 +70,6 @@ export class QuantitativeValueDto {
   value?: number;
 }
 
-const ITEM_AVAILABILITY_VALUES: ItemAvailability[] = [
-  'BackOrder',
-  'Discontinued',
-  'InStock',
-  'InStoreOnly',
-  'LimitedAvailability',
-  'MadeToOrder',
-  'OnlineOnly',
-  'OutOfStock',
-  'PreOrder',
-  'PreSale',
-  'Reserved',
-  'SoldOut',
-];
-
 export class CreateOfferDto {
   @ApiProperty({ example: '150.00' })
   @IsNumberString()
@@ -94,9 +79,9 @@ export class CreateOfferDto {
   @IsString()
   priceCurrency: string;
 
-  @ApiPropertyOptional({ enum: ITEM_AVAILABILITY_VALUES })
+  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
   @IsOptional()
-  @IsEnum(ITEM_AVAILABILITY_VALUES)
+  @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
 
   @ApiPropertyOptional({
