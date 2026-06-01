@@ -52,6 +52,15 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 
+export const languageEnum = pgEnum('language', [
+  'zh-TW',
+  'en',
+  'ja',
+  'ko',
+  'zh-CN',
+]);
+export type Language = (typeof languageEnum.enumValues)[number];
+
 // https://schema.org/Menu
 export const menu = pgTable(
   'menu',
@@ -63,7 +72,7 @@ export const menu = pgTable(
     name: text('name').notNull(),
     description: text('description'),
     image: text('image'),
-    inLanguage: text('in_language'),
+    inLanguage: languageEnum('in_language'),
     ...timestamps,
   },
   (table) => [index('menu_organizationId_idx').on(table.organizationId)],

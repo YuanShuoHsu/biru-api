@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { languageEnum, type Language } from 'src/db/schema/menus';
+
 export class MenuResponseDto {
   @ApiProperty()
   id: string;
@@ -16,8 +18,8 @@ export class MenuResponseDto {
   @ApiPropertyOptional()
   image: string | null;
 
-  @ApiPropertyOptional({ description: 'BCP 47 language tag, e.g. zh-TW' })
-  inLanguage: string | null;
+  @ApiPropertyOptional({ enum: languageEnum.enumValues })
+  inLanguage: Language | null;
 
   @ApiProperty()
   createdAt: Date;

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { languageEnum, type Language } from 'src/db/schema/menus';
 
 export class CreateMenuDto {
   @ApiProperty()
@@ -16,8 +18,8 @@ export class CreateMenuDto {
   @IsString()
   image?: string;
 
-  @ApiPropertyOptional({ description: 'BCP 47 language tag, e.g. zh-TW' })
+  @ApiPropertyOptional({ enum: languageEnum.enumValues })
   @IsOptional()
-  @IsString()
-  inLanguage?: string;
+  @IsEnum(languageEnum.enumValues)
+  inLanguage?: Language;
 }

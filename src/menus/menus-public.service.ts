@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import { menu, menuItem, menuSection } from 'src/db/schema/menus';
+import {
+  menu,
+  menuItem,
+  menuSection,
+  type Language,
+} from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -13,7 +18,7 @@ export class PublicMenusService {
 
   async findOrderMenu(
     organizationId: string,
-    lang: string,
+    lang: Language,
   ): Promise<OrderMenuResponseDto[]> {
     return this.db.query.menuSection.findMany({
       where: and(

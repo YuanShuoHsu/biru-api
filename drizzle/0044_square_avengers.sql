@@ -1,0 +1,2 @@
+CREATE TYPE "public"."language" AS ENUM('zh-TW', 'en', 'ja', 'ko', 'zh-CN');--> statement-breakpoint
+ALTER TABLE "menu" ALTER COLUMN "in_language" SET DATA TYPE "public"."language" USING "in_language"::"public"."language";
