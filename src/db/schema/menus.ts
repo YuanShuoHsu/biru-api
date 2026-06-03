@@ -217,6 +217,66 @@ export const menuItemAddOn = pgTable(
 
 export type MenuItemAddOn = typeof menuItemAddOn.$inferSelect;
 
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#ModifierGroup
+export const modifierGroup = pgTable(
+  'modifier_group',
+  {
+    id: text('id').primaryKey(),
+    menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
+    displayName: text('display_name').notNull(),
+    minSelectionCount: integer('min_selection_count').notNull().default(0),
+    maxSelectionCount: integer('max_selection_count'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [index('modifierGroup_menuId_idx').on(table.menuId)],
+);
+
+export type ModifierGroup = typeof modifierGroup.$inferSelect;
+
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#Modifier
+export const modifier = pgTable(
+  'modifier',
+  {
+    id: text('id').primaryKey(),
+    modifierGroupId: text('modifier_group_id')
+      .notNull()
+      .references(() => modifierGroup.id, { onDelete: 'cascade' }),
+    displayName: text('display_name').notNull(),
+    priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
+    availability: itemAvailabilityEnum('availability').default('InStock'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [index('modifier_modifierGroupId_idx').on(table.modifierGroupId)],
+);
+
+export type Modifier = typeof modifier.$inferSelect;
+
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#Item
+export const menuItemModifierGroup = pgTable(
+  'menu_item_modifier_group',
+  {
+    id: text('id').primaryKey(),
+    menuItemId: text('menu_item_id')
+      .notNull()
+      .references(() => menuItem.id, { onDelete: 'cascade' }),
+    modifierGroupId: text('modifier_group_id')
+      .notNull()
+      .references(() => modifierGroup.id, { onDelete: 'cascade' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [
+    index('menuItemModifierGroup_menuItemId_idx').on(table.menuItemId),
+    index('menuItemModifierGroup_modifierGroupId_idx').on(
+      table.modifierGroupId,
+    ),
+  ],
+);
+
+export type MenuItemModifierGroup = typeof menuItemModifierGroup.$inferSelect;
+
 export const menuRelations = relations(menu, ({ one, many }) => ({
   organization: one(organization, {
     fields: [menu.organizationId],
@@ -224,6 +284,7 @@ export const menuRelations = relations(menu, ({ one, many }) => ({
   }),
   menuSections: many(menuSection),
   menuItems: many(menuItem),
+  modifierGroups: many(modifierGroup),
 }));
 
 export const menuSectionRelations = relations(menuSection, ({ one, many }) => ({
@@ -252,6 +313,7 @@ export const menuItemRelations = relations(menuItem, ({ one, many }) => ({
   }),
   offers: many(offer),
   addOns: many(menuItemAddOn, { relationName: 'menuItemAddOns' }),
+  modifierGroups: many(menuItemModifierGroup),
 }));
 
 export const offerRelations = relations(offer, ({ one }) => ({
@@ -280,3 +342,36 @@ export const menuItemAddOnRelations = relations(menuItemAddOn, ({ one }) => ({
     references: [menuSection.id],
   }),
 }));
+
+export const modifierGroupRelations = relations(
+  modifierGroup,
+  ({ one, many }) => ({
+    menu: one(menu, {
+      fields: [modifierGroup.menuId],
+      references: [menu.id],
+    }),
+    modifiers: many(modifier),
+    menuItems: many(menuItemModifierGroup),
+  }),
+);
+
+export const modifierRelations = relations(modifier, ({ one }) => ({
+  modifierGroup: one(modifierGroup, {
+    fields: [modifier.modifierGroupId],
+    references: [modifierGroup.id],
+  }),
+}));
+
+export const menuItemModifierGroupRelations = relations(
+  menuItemModifierGroup,
+  ({ one }) => ({
+    menuItem: one(menuItem, {
+      fields: [menuItemModifierGroup.menuItemId],
+      references: [menuItem.id],
+    }),
+    modifierGroup: one(modifierGroup, {
+      fields: [menuItemModifierGroup.modifierGroupId],
+      references: [modifierGroup.id],
+    }),
+  }),
+);

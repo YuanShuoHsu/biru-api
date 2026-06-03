@@ -330,6 +330,13 @@
       "when": 1780335770319,
       "tag": "0046_sad_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780501478194,
+      "tag": "0047_nervous_dagger",
+      "breakpoints": true
     }
   ]
 }
