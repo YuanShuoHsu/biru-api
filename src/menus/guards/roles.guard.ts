@@ -21,6 +21,8 @@ import {
   menuItem,
   menuItemAddOn,
   menuSection,
+  modifier,
+  modifierGroup,
   offer,
 } from 'src/db/schema/menus';
 import { member } from 'src/db/schema/organizations';
@@ -146,6 +148,28 @@ export class RolesGuard implements CanActivate {
         });
 
         return row?.menuItem?.menu?.organizationId;
+      }
+
+      case 'groupId': {
+        const row = await this.db.query.modifierGroup.findFirst({
+          where: eq(modifierGroup.id, params.groupId),
+          with: { menu: { columns: { organizationId: true } } },
+        });
+
+        return row?.menu?.organizationId;
+      }
+
+      case 'modifierId': {
+        const row = await this.db.query.modifier.findFirst({
+          where: eq(modifier.id, params.modifierId),
+          with: {
+            modifierGroup: {
+              with: { menu: { columns: { organizationId: true } } },
+            },
+          },
+        });
+
+        return row?.modifierGroup?.menu?.organizationId;
       }
     }
   }

@@ -8,7 +8,9 @@ export type OrganizationParam =
   | 'sectionId'
   | 'menuItemId'
   | 'offerId'
-  | 'addOnId';
+  | 'addOnId'
+  | 'groupId'
+  | 'modifierId';
 
 export const Roles = (
   action: Record<string, string[]>,

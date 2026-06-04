@@ -28,14 +28,20 @@ import type {
   Menu,
   MenuItem,
   MenuItemAddOn,
+  MenuItemModifierGroup,
   MenuSection,
+  Modifier,
+  ModifierGroup,
   Offer,
 } from 'src/db/schema/menus';
 import {
   menu,
   menuItem,
   menuItemAddOn,
+  menuItemModifierGroup,
   menuSection,
+  modifier,
+  modifierGroup,
   offer,
 } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -47,21 +53,29 @@ import {
   type AddOnPaginationQueryDto,
 } from './dto/add-on-pagination-query.dto';
 import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
+import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
 import type { CreateMenuDto } from './dto/create-menu.dto';
+import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
+import type { CreateModifierDto } from './dto/create-modifier.dto';
 import type { CreateOfferDto } from './dto/create-offer.dto';
+import {
+  MODIFIER_DATE_FILTER_FIELDS,
+  MODIFIER_STRING_FILTER_FIELDS,
+  type ModifierPaginationQueryDto,
+} from './dto/modifier-pagination-query.dto';
 import {
   DATE_FILTER_FIELDS,
   PaginationQueryDto,
   STRING_FILTER_FIELDS,
-  type FilterField,
-  type FilterOperator,
 } from './dto/pagination-query.dto';
 import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import type { UpdateMenuDto } from './dto/update-menu.dto';
+import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
+import type { UpdateModifierDto } from './dto/update-modifier.dto';
 import type { UpdateOfferDto } from './dto/update-offer.dto';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
@@ -131,15 +145,17 @@ const buildDateFilterCondition = (
 };
 
 const buildFilterCondition = (
-  filterField: FilterField,
-  filterOperator: FilterOperator,
+  filterField: string,
+  filterOperator: string,
   filterValue: string | undefined,
-  fieldMap: Record<string, Column>,
+  fieldMap: Record<string, Column | SQL>,
+  stringFields: readonly string[],
+  dateFields: readonly string[],
 ): SQL | undefined => {
   const column = fieldMap[filterField];
   if (!column) return undefined;
 
-  if ((STRING_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+  if (stringFields.includes(filterField)) {
     if (!filterValue && !NO_VALUE_OPERATORS.includes(filterOperator))
       return undefined;
 
@@ -150,7 +166,7 @@ const buildFilterCondition = (
     );
   }
 
-  if ((DATE_FILTER_FIELDS as readonly string[]).includes(filterField)) {
+  if (dateFields.includes(filterField)) {
     return buildDateFilterCondition(column, filterOperator, filterValue || '');
   }
 };
@@ -266,6 +282,8 @@ export class MenusService {
             filterOperator,
             filterValue,
             sectionFieldMap,
+            STRING_FILTER_FIELDS,
+            DATE_FILTER_FIELDS,
           )
         : undefined,
       quickFilterValue
@@ -430,6 +448,8 @@ export class MenusService {
             filterOperator,
             filterValue,
             itemFieldMap,
+            STRING_FILTER_FIELDS,
+            DATE_FILTER_FIELDS,
           )
         : undefined,
       quickFilterValue
@@ -716,32 +736,14 @@ export class MenusService {
 
     const filterCondition =
       filterField && filterOperator
-        ? (() => {
-            const column = addOnFieldMap[filterField];
-            if (!column) return undefined;
-            if (
-              (ADD_ON_STRING_FILTER_FIELDS as readonly string[]).includes(
-                filterField,
-              )
-            ) {
-              return buildStringFilterCondition(
-                column,
-                filterOperator,
-                filterValue || '',
-              );
-            }
-            if (
-              (ADD_ON_DATE_FILTER_FIELDS as readonly string[]).includes(
-                filterField,
-              )
-            ) {
-              return buildDateFilterCondition(
-                column,
-                filterOperator,
-                filterValue || '',
-              );
-            }
-          })()
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            addOnFieldMap,
+            ADD_ON_STRING_FILTER_FIELDS,
+            ADD_ON_DATE_FILTER_FIELDS,
+          )
         : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -865,5 +867,428 @@ export class MenusService {
     await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
     return found;
+  }
+
+  // ── ModifierGroup ─────────────────────────────────────────────────
+
+  async createModifierGroup(
+    menuId: string,
+    data: CreateModifierGroupDto,
+  ): Promise<ModifierGroup> {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(modifierGroup)
+        .set({ sortOrder: sql`${modifierGroup.sortOrder} + 1` })
+        .where(eq(modifierGroup.menuId, menuId));
+
+      const [created] = await tx
+        .insert(modifierGroup)
+        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data })
+        .returning();
+
+      return created;
+    });
+  }
+
+  async modifierGroups(
+    menuId: string,
+    query: ModifierPaginationQueryDto = {},
+  ): Promise<{ data: ModifierGroup[]; total: number }> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+      timezone = 'UTC',
+    } = query;
+
+    const fieldMap: Record<string, Column> = {
+      displayName: modifierGroup.displayName,
+      createdAt: modifierGroup.createdAt,
+      updatedAt: modifierGroup.updatedAt,
+    };
+
+    const filterCondition =
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            MODIFIER_STRING_FILTER_FIELDS,
+            MODIFIER_DATE_FILTER_FIELDS,
+          )
+        : undefined;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] =
+      sortBy && fieldMap[sortBy]
+        ? [dir(fieldMap[sortBy])]
+        : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
+
+    const where = and(
+      eq(modifierGroup.menuId, menuId),
+      filterCondition,
+      quickFilterValue
+        ? or(
+            ilike(modifierGroup.displayName, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${modifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${modifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(modifierGroup)
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(modifierGroup).where(where),
+    ]);
+
+    return { data, total };
+  }
+
+  async reorderModifierGroups(
+    _menuId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) {
+        await tx
+          .update(modifierGroup)
+          .set({ sortOrder: offset + i })
+          .where(eq(modifierGroup.id, id));
+      }
+    });
+  }
+
+  async modifierGroup(where: { id: string }): Promise<ModifierGroup | null> {
+    const result = await this.db.query.modifierGroup.findFirst({
+      where: eq(modifierGroup.id, where.id),
+    });
+
+    return result || null;
+  }
+
+  async updateModifierGroup(params: {
+    where: { id: string };
+    data: UpdateModifierGroupDto;
+  }): Promise<ModifierGroup> {
+    const [updated] = await this.db
+      .update(modifierGroup)
+      .set(params.data)
+      .where(eq(modifierGroup.id, params.where.id))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteModifierGroup(where: { id: string }): Promise<ModifierGroup> {
+    const [deleted] = await this.db
+      .delete(modifierGroup)
+      .where(eq(modifierGroup.id, where.id))
+      .returning();
+
+    return deleted;
+  }
+
+  // ── Modifier ──────────────────────────────────────────────────────
+
+  async createModifier(
+    modifierGroupId: string,
+    data: CreateModifierDto,
+  ): Promise<Modifier> {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(modifier)
+        .set({ sortOrder: sql`${modifier.sortOrder} + 1` })
+        .where(eq(modifier.modifierGroupId, modifierGroupId));
+
+      const [created] = await tx
+        .insert(modifier)
+        .values({ id: uuidv4(), modifierGroupId, sortOrder: 0, ...data })
+        .returning();
+
+      return created;
+    });
+  }
+
+  async modifiers(
+    modifierGroupId: string,
+    query: ModifierPaginationQueryDto = {},
+  ): Promise<{ data: Modifier[]; total: number }> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+      timezone = 'UTC',
+    } = query;
+
+    const fieldMap: Record<string, Column> = {
+      displayName: modifier.displayName,
+      createdAt: modifier.createdAt,
+      updatedAt: modifier.updatedAt,
+    };
+
+    const filterCondition =
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            MODIFIER_STRING_FILTER_FIELDS,
+            MODIFIER_DATE_FILTER_FIELDS,
+          )
+        : undefined;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] =
+      sortBy && fieldMap[sortBy]
+        ? [dir(fieldMap[sortBy])]
+        : [asc(modifier.sortOrder), asc(modifier.id)];
+
+    const where = and(
+      eq(modifier.modifierGroupId, modifierGroupId),
+      filterCondition,
+      quickFilterValue
+        ? or(
+            ilike(modifier.displayName, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${modifier.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${modifier.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(modifier)
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(modifier).where(where),
+    ]);
+
+    return { data, total };
+  }
+
+  async reorderModifiers(
+    _modifierGroupId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) {
+        await tx
+          .update(modifier)
+          .set({ sortOrder: offset + i })
+          .where(eq(modifier.id, id));
+      }
+    });
+  }
+
+  async updateModifier(params: {
+    where: { id: string };
+    data: UpdateModifierDto;
+  }): Promise<Modifier> {
+    const [updated] = await this.db
+      .update(modifier)
+      .set(params.data)
+      .where(eq(modifier.id, params.where.id))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteModifier(where: { id: string }): Promise<Modifier> {
+    const [deleted] = await this.db
+      .delete(modifier)
+      .where(eq(modifier.id, where.id))
+      .returning();
+
+    return deleted;
+  }
+
+  // ── MenuItemModifierGroup ─────────────────────────────────────────
+
+  async createMenuItemModifierGroup(
+    menuItemId: string,
+    data: CreateMenuItemModifierGroupDto,
+  ): Promise<MenuItemModifierGroup> {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(menuItemModifierGroup)
+        .set({ sortOrder: sql`${menuItemModifierGroup.sortOrder} + 1` })
+        .where(eq(menuItemModifierGroup.menuItemId, menuItemId));
+
+      const [created] = await tx
+        .insert(menuItemModifierGroup)
+        .values({
+          id: uuidv4(),
+          menuItemId,
+          modifierGroupId: data.modifierGroupId,
+          sortOrder: 0,
+        })
+        .returning();
+
+      return created;
+    });
+  }
+
+  async menuItemModifierGroups(
+    menuItemId: string,
+    query: ModifierPaginationQueryDto = {},
+  ): Promise<{
+    data: (MenuItemModifierGroup & { modifierGroup: ModifierGroup })[];
+    total: number;
+  }> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+      timezone = 'UTC',
+    } = query;
+
+    const fieldMap: Record<string, Column> = {
+      displayName: modifierGroup.displayName,
+      createdAt: menuItemModifierGroup.createdAt,
+      updatedAt: menuItemModifierGroup.updatedAt,
+    };
+
+    const filterCondition =
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            MODIFIER_STRING_FILTER_FIELDS,
+            MODIFIER_DATE_FILTER_FIELDS,
+          )
+        : undefined;
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] =
+      sortBy && fieldMap[sortBy]
+        ? [dir(fieldMap[sortBy])]
+        : [asc(menuItemModifierGroup.sortOrder), asc(menuItemModifierGroup.id)];
+
+    const where = and(
+      eq(menuItemModifierGroup.menuItemId, menuItemId),
+      filterCondition,
+      quickFilterValue
+        ? or(
+            ilike(modifierGroup.displayName, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${menuItemModifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`TO_CHAR(${menuItemModifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: menuItemModifierGroup.id,
+          menuItemId: menuItemModifierGroup.menuItemId,
+          modifierGroupId: menuItemModifierGroup.modifierGroupId,
+          sortOrder: menuItemModifierGroup.sortOrder,
+          createdAt: menuItemModifierGroup.createdAt,
+          updatedAt: menuItemModifierGroup.updatedAt,
+          modifierGroup: {
+            id: modifierGroup.id,
+            menuId: modifierGroup.menuId,
+            displayName: modifierGroup.displayName,
+            minSelectionCount: modifierGroup.minSelectionCount,
+            maxSelectionCount: modifierGroup.maxSelectionCount,
+            sortOrder: modifierGroup.sortOrder,
+            createdAt: modifierGroup.createdAt,
+            updatedAt: modifierGroup.updatedAt,
+          },
+        })
+        .from(menuItemModifierGroup)
+        .innerJoin(
+          modifierGroup,
+          eq(menuItemModifierGroup.modifierGroupId, modifierGroup.id),
+        )
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(menuItemModifierGroup)
+        .innerJoin(
+          modifierGroup,
+          eq(menuItemModifierGroup.modifierGroupId, modifierGroup.id),
+        )
+        .where(where),
+    ]);
+
+    return { data, total };
+  }
+
+  async reorderMenuItemModifierGroups(
+    _menuItemId: string,
+    ids: string[],
+    offset: number,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) {
+        await tx
+          .update(menuItemModifierGroup)
+          .set({ sortOrder: offset + i })
+          .where(eq(menuItemModifierGroup.id, id));
+      }
+    });
+  }
+
+  async deleteMenuItemModifierGroup(where: {
+    id: string;
+  }): Promise<MenuItemModifierGroup> {
+    const [deleted] = await this.db
+      .delete(menuItemModifierGroup)
+      .where(eq(menuItemModifierGroup.id, where.id))
+      .returning();
+
+    return deleted;
   }
 }
