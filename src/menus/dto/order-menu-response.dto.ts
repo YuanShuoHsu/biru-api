@@ -1,13 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
+  itemAvailabilityEnum,
+  restrictedDietEnum,
+  type ItemAvailability,
+  type RestrictedDiet,
+} from 'src/db/schema/menus';
+
+import {
   PriceSpecificationDto,
   QuantitativeValueDto,
 } from './create-offer.dto';
 import { NutritionInformationDto } from './nutrition-information.dto';
-
-import type { ItemAvailability, RestrictedDiet } from 'src/db/schema/menus';
-import { itemAvailabilityEnum, restrictedDietEnum } from 'src/db/schema/menus';
 
 export class OrderMenuOfferResponseDto {
   @ApiProperty()

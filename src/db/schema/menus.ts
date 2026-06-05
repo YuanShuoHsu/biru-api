@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
+import { type LocalizedText } from './enums';
 import { organization } from './organizations';
 
 // https://schema.org/RestrictedDiet
@@ -52,15 +53,6 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 
-export const languageEnum = pgEnum('language', [
-  'zh-TW',
-  'en',
-  'ja',
-  'ko',
-  'zh-CN',
-]);
-export type Language = (typeof languageEnum.enumValues)[number];
-
 // https://schema.org/Menu
 export const menu = pgTable(
   'menu',
@@ -69,10 +61,9 @@ export const menu = pgTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    description: text('description'),
+    name: jsonb('name').notNull().$type<LocalizedText>(),
+    description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
-    inLanguage: languageEnum('in_language'),
     ...timestamps,
   },
   (table) => [index('menu_organizationId_idx').on(table.organizationId)],
@@ -90,8 +81,8 @@ export const menuSection = pgTable(
       (): AnyPgColumn => menuSection.id,
       { onDelete: 'cascade' },
     ),
-    name: text('name').notNull(),
-    description: text('description'),
+    name: jsonb('name').notNull().$type<LocalizedText>(),
+    description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
     // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
@@ -130,8 +121,8 @@ export const menuItem = pgTable(
     menuSectionId: text('menu_section_id').references(() => menuSection.id, {
       onDelete: 'cascade',
     }),
-    name: text('name').notNull(),
-    description: text('description'),
+    name: jsonb('name').notNull().$type<LocalizedText>(),
+    description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
     nutrition: jsonb('nutrition').$type<NutritionInformation>(),
@@ -223,7 +214,7 @@ export const modifierGroup = pgTable(
   {
     id: text('id').primaryKey(),
     menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
-    displayName: text('display_name').notNull(),
+    displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     minSelectionCount: integer('min_selection_count').notNull().default(0),
     maxSelectionCount: integer('max_selection_count'),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -242,7 +233,7 @@ export const modifier = pgTable(
     modifierGroupId: text('modifier_group_id')
       .notNull()
       .references(() => modifierGroup.id, { onDelete: 'cascade' }),
-    displayName: text('display_name').notNull(),
+    displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
     sortOrder: integer('sort_order').notNull().default(0),

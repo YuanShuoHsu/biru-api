@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+
 import {
   Column,
   SQL,
@@ -24,6 +25,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { LocalizedText } from 'src/db/schema/enums';
 import type {
   Menu,
   MenuItem,
@@ -56,7 +58,6 @@ import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto';
 import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import type { CreateMenuDto } from './dto/create-menu.dto';
 import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
 import type { CreateModifierDto } from './dto/create-modifier.dto';
 import type { CreateOfferDto } from './dto/create-offer.dto';
@@ -177,15 +178,6 @@ export class MenusService {
 
   // ── Menu ──────────────────────────────────────────────────────────
 
-  async createMenu(organizationId: string, data: CreateMenuDto): Promise<Menu> {
-    const [created] = await this.db
-      .insert(menu)
-      .values({ id: uuidv4(), organizationId, ...data })
-      .returning();
-
-    return created;
-  }
-
   async menus(organizationId: string): Promise<Menu[]> {
     return this.db.query.menu.findMany({
       where: eq(menu.organizationId, organizationId),
@@ -211,15 +203,6 @@ export class MenusService {
       .returning();
 
     return updated;
-  }
-
-  async deleteMenu(where: { id: string }): Promise<Menu> {
-    const [deleted] = await this.db
-      .delete(menu)
-      .where(eq(menu.id, where.id))
-      .returning();
-
-    return deleted;
   }
 
   // ── MenuSection ───────────────────────────────────────────────────
@@ -267,9 +250,9 @@ export class MenusService {
       ? [dir(menuSection[sortBy])]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
-    const sectionFieldMap: Record<string, Column> = {
-      name: menuSection.name,
-      description: menuSection.description,
+    const sectionFieldMap: Record<string, Column | SQL> = {
+      name: sql`${menuSection.name}::text`,
+      description: sql`${menuSection.description}::text`,
       createdAt: menuSection.createdAt,
       updatedAt: menuSection.updatedAt,
     };
@@ -288,8 +271,11 @@ export class MenusService {
         : undefined,
       quickFilterValue
         ? or(
-            ilike(menuSection.name, `%${quickFilterValue}%`),
-            ilike(menuSection.description, `%${quickFilterValue}%`),
+            ilike(sql`${menuSection.name}::text`, `%${quickFilterValue}%`),
+            ilike(
+              sql`${menuSection.description}::text`,
+              `%${quickFilterValue}%`,
+            ),
             ilike(
               sql`TO_CHAR(${menuSection.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
@@ -433,9 +419,9 @@ export class MenusService {
       ? [dir(menuItem[sortBy])]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
-    const itemFieldMap: Record<string, Column> = {
-      name: menuItem.name,
-      description: menuItem.description,
+    const itemFieldMap: Record<string, Column | SQL> = {
+      name: sql`${menuItem.name}::text`,
+      description: sql`${menuItem.description}::text`,
       createdAt: menuItem.createdAt,
       updatedAt: menuItem.updatedAt,
     };
@@ -454,8 +440,8 @@ export class MenusService {
         : undefined,
       quickFilterValue
         ? or(
-            ilike(menuItem.name, `%${quickFilterValue}%`),
-            ilike(menuItem.description, `%${quickFilterValue}%`),
+            ilike(sql`${menuItem.name}::text`, `%${quickFilterValue}%`),
+            ilike(sql`${menuItem.description}::text`, `%${quickFilterValue}%`),
             ilike(
               sql`TO_CHAR(${menuItem.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
@@ -636,10 +622,10 @@ export class MenusService {
 
   private async findMenuItemAddOnById(id: string): Promise<
     MenuItemAddOn & {
-      addOnMenuItemName: string | null;
-      addOnMenuSectionName: string | null;
+      addOnMenuItemName: LocalizedText | null;
+      addOnMenuSectionName: LocalizedText | null;
       addOnMenuItemSectionId: string | null;
-      addOnMenuItemSectionName: string | null;
+      addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
     const { addOnMenuItem, addOnMenuSection, addOnMenuItemSection } =
@@ -675,10 +661,10 @@ export class MenusService {
     data: CreateMenuItemAddOnDto,
   ): Promise<
     MenuItemAddOn & {
-      addOnMenuItemName: string | null;
-      addOnMenuSectionName: string | null;
+      addOnMenuItemName: LocalizedText | null;
+      addOnMenuSectionName: LocalizedText | null;
       addOnMenuItemSectionId: string | null;
-      addOnMenuItemSectionName: string | null;
+      addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
     const created = await this.db.transaction(async (tx) => {
@@ -703,10 +689,10 @@ export class MenusService {
     query: AddOnPaginationQueryDto = {},
   ): Promise<{
     data: (MenuItemAddOn & {
-      addOnMenuItemName: string | null;
-      addOnMenuSectionName: string | null;
+      addOnMenuItemName: LocalizedText | null;
+      addOnMenuSectionName: LocalizedText | null;
       addOnMenuItemSectionId: string | null;
-      addOnMenuItemSectionName: string | null;
+      addOnMenuItemSectionName: LocalizedText | null;
     })[];
     total: number;
   }> {
@@ -728,8 +714,8 @@ export class MenusService {
     const addOnFieldMap: Record<string, SQL> = {
       addOnMenuSectionName: sql<
         string | null
-      >`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
-      addOnMenuItemName: sql`${addOnMenuItem.name}`,
+      >`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
+      addOnMenuItemName: sql`${addOnMenuItem.name}::text`,
       createdAt: sql`${menuItemAddOn.createdAt}`,
       updatedAt: sql`${menuItemAddOn.updatedAt}`,
     };
@@ -758,10 +744,10 @@ export class MenusService {
       quickFilterValue
         ? or(
             ilike(
-              sql`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
+              sql`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
               `%${quickFilterValue}%`,
             ),
-            ilike(addOnMenuItem.name, `%${quickFilterValue}%`),
+            ilike(sql`${addOnMenuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(
               sql`TO_CHAR(${menuItemAddOn.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
@@ -841,10 +827,10 @@ export class MenusService {
     data: UpdateMenuItemAddOnDto,
   ): Promise<
     MenuItemAddOn & {
-      addOnMenuItemName: string | null;
-      addOnMenuSectionName: string | null;
+      addOnMenuItemName: LocalizedText | null;
+      addOnMenuSectionName: LocalizedText | null;
       addOnMenuItemSectionId: string | null;
-      addOnMenuItemSectionName: string | null;
+      addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
     await this.db
@@ -857,10 +843,10 @@ export class MenusService {
 
   async deleteMenuItemAddOn(where: { id: string }): Promise<
     MenuItemAddOn & {
-      addOnMenuItemName: string | null;
-      addOnMenuSectionName: string | null;
+      addOnMenuItemName: LocalizedText | null;
+      addOnMenuSectionName: LocalizedText | null;
       addOnMenuItemSectionId: string | null;
-      addOnMenuItemSectionName: string | null;
+      addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
@@ -906,8 +892,8 @@ export class MenusService {
       timezone = 'UTC',
     } = query;
 
-    const fieldMap: Record<string, Column> = {
-      displayName: modifierGroup.displayName,
+    const fieldMap: Record<string, Column | SQL> = {
+      displayName: sql`${modifierGroup.displayName}::text`,
       createdAt: modifierGroup.createdAt,
       updatedAt: modifierGroup.updatedAt,
     };
@@ -935,7 +921,10 @@ export class MenusService {
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(modifierGroup.displayName, `%${quickFilterValue}%`),
+            ilike(
+              sql`${modifierGroup.displayName}::text`,
+              `%${quickFilterValue}%`,
+            ),
             ilike(
               sql`TO_CHAR(${modifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
@@ -1044,8 +1033,8 @@ export class MenusService {
       timezone = 'UTC',
     } = query;
 
-    const fieldMap: Record<string, Column> = {
-      displayName: modifier.displayName,
+    const fieldMap: Record<string, Column | SQL> = {
+      displayName: sql`${modifier.displayName}::text`,
       createdAt: modifier.createdAt,
       updatedAt: modifier.updatedAt,
     };
@@ -1073,7 +1062,7 @@ export class MenusService {
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(modifier.displayName, `%${quickFilterValue}%`),
+            ilike(sql`${modifier.displayName}::text`, `%${quickFilterValue}%`),
             ilike(
               sql`TO_CHAR(${modifier.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
@@ -1182,8 +1171,8 @@ export class MenusService {
       timezone = 'UTC',
     } = query;
 
-    const fieldMap: Record<string, Column> = {
-      displayName: modifierGroup.displayName,
+    const fieldMap: Record<string, Column | SQL> = {
+      displayName: sql`${modifierGroup.displayName}::text`,
       createdAt: menuItemModifierGroup.createdAt,
       updatedAt: menuItemModifierGroup.updatedAt,
     };
@@ -1211,7 +1200,10 @@ export class MenusService {
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(modifierGroup.displayName, `%${quickFilterValue}%`),
+            ilike(
+              sql`${modifierGroup.displayName}::text`,
+              `%${quickFilterValue}%`,
+            ),
             ilike(
               sql`TO_CHAR(${menuItemModifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,

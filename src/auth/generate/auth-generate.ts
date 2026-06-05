@@ -89,9 +89,9 @@ export const auth = betterAuth({
       //   defaultValue: schema.DEFAULT_GENDER,
       // },
       lang: {
-        type: schema.langsEnum.enumValues,
+        type: schema.languagesEnum.enumValues,
         required: true,
-        defaultValue: schema.DEFAULT_LANG,
+        defaultValue: schema.DEFAULT_LANGUAGE,
       },
       lastName: {
         type: 'string',

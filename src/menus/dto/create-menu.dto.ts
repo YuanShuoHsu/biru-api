@@ -1,25 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { languageEnum, type Language } from 'src/db/schema/menus';
+import { IsObject, IsOptional, IsString } from 'class-validator';
+import type { LocalizedText } from 'src/db/schema/enums';
 
 export class CreateMenuDto {
-  @ApiProperty()
-  @IsString()
-  name: string;
+  @ApiProperty({ example: { 'zh-TW': '午餐菜單', en: 'Lunch Menu' } })
+  @IsObject()
+  name: LocalizedText;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsObject()
+  description?: LocalizedText;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   image?: string;
-
-  @ApiPropertyOptional({ enum: languageEnum.enumValues })
-  @IsOptional()
-  @IsEnum(languageEnum.enumValues)
-  inLanguage?: Language;
 }

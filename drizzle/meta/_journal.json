@@ -337,6 +337,20 @@
       "when": 1780501478194,
       "tag": "0047_nervous_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780587554154,
+      "tag": "0048_multilingual_menu_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1780637145270,
+      "tag": "0049_rename_langs_to_languages",
+      "breakpoints": true
     }
   ]
 }

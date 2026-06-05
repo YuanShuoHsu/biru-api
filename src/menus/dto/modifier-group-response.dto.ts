@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import type { LocalizedText } from 'src/db/schema/enums';
+
 import { ModifierResponseDto } from './modifier-response.dto';
 
 export class ModifierGroupResponseDto {
@@ -10,7 +12,7 @@ export class ModifierGroupResponseDto {
   menuId: string | null;
 
   @ApiProperty()
-  displayName: string;
+  displayName: LocalizedText;
 
   @ApiProperty({ description: '最少選擇數量；>= 1 代表必選' })
   minSelectionCount: number;

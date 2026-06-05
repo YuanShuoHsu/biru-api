@@ -6,7 +6,7 @@
 import { relations } from 'drizzle-orm';
 import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
-import { DEFAULT_LANG, langsEnum } from './enums';
+import { DEFAULT_LANGUAGE, languagesEnum } from './enums';
 import { invitation, member, teamMember } from './organizations';
 
 export const user = pgTable('user', {
@@ -30,7 +30,7 @@ export const user = pgTable('user', {
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').notNull(),
   // gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
-  lang: langsEnum().default(DEFAULT_LANG).notNull(),
+  lang: languagesEnum().default(DEFAULT_LANGUAGE).notNull(),
   lastName: text('last_name'),
   // phoneNumber: text('phone_number').notNull().unique(),
   // phoneNumberVerified: boolean('phone_number_verified')

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import type { LocalizedText } from 'src/db/schema/enums';
+
 export class MenuSectionResponseDto {
   @ApiProperty()
   id: string;
@@ -11,10 +13,10 @@ export class MenuSectionResponseDto {
   parentSectionId: string | null;
 
   @ApiProperty()
-  name: string;
+  name: LocalizedText;
 
   @ApiPropertyOptional()
-  description: string | null;
+  description: LocalizedText | null;
 
   @ApiPropertyOptional()
   image: string | null;

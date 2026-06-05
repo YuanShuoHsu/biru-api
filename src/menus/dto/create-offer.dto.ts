@@ -14,8 +14,10 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import type { ItemAvailability } from 'src/db/schema/menus';
-import { itemAvailabilityEnum } from 'src/db/schema/menus';
+import {
+  itemAvailabilityEnum,
+  type ItemAvailability,
+} from 'src/db/schema/menus';
 
 @ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
 class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {

@@ -2,15 +2,29 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import {
-  menu,
-  menuItem,
-  menuSection,
+  DEFAULT_LANGUAGE,
   type Language,
-} from 'src/db/schema/menus';
+  type LocalizedText,
+} from 'src/db/schema/enums';
+import { menu, menuItem, menuSection } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto';
+
+const localize = (
+  text: LocalizedText | null | undefined,
+  lang: Language,
+): string | null => {
+  if (!text) return null;
+
+  return (
+    text[lang] ||
+    text[DEFAULT_LANGUAGE] ||
+    Object.values(text).find(Boolean) ||
+    null
+  );
+};
 
 @Injectable()
 export class PublicMenusService {
@@ -20,7 +34,7 @@ export class PublicMenusService {
     organizationId: string,
     lang: Language,
   ): Promise<OrderMenuResponseDto[]> {
-    return this.db.query.menuSection.findMany({
+    const sections = await this.db.query.menuSection.findMany({
       where: and(
         isNull(menuSection.parentSectionId),
         inArray(
@@ -28,12 +42,7 @@ export class PublicMenusService {
           this.db
             .select({ id: menu.id })
             .from(menu)
-            .where(
-              and(
-                eq(menu.organizationId, organizationId),
-                eq(menu.inLanguage, lang),
-              ),
-            ),
+            .where(eq(menu.organizationId, organizationId)),
         ),
       ),
       orderBy: [asc(menuSection.sortOrder)],
@@ -44,5 +53,16 @@ export class PublicMenusService {
         },
       },
     });
+
+    return sections.map((section) => ({
+      ...section,
+      name: localize(section.name, lang) || '',
+      description: localize(section.description, lang),
+      menuItems: section.menuItems.map((item) => ({
+        ...item,
+        name: localize(item.name, lang) || '',
+        description: localize(item.description, lang),
+      })),
+    }));
   }
 }

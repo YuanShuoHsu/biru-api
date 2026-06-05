@@ -9,11 +9,7 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import {
-  DEFAULT_GENDER,
-  type GenderEnum,
-  gendersEnum,
-} from 'src/db/schema/enums';
+import { DEFAULT_GENDER, type Gender, gendersEnum } from 'src/db/schema/enums';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -48,7 +44,7 @@ export class UpdateUserDto {
   @IsEnum(gendersEnum.enumValues)
   @IsNotEmpty()
   @IsOptional()
-  gender?: GenderEnum;
+  gender?: Gender;
 
   @ApiProperty({
     description: '頭像 URL',

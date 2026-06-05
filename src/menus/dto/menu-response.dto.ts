@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { languageEnum, type Language } from 'src/db/schema/menus';
+import type { LocalizedText } from 'src/db/schema/enums';
 
 export class MenuResponseDto {
   @ApiProperty()
@@ -10,16 +10,13 @@ export class MenuResponseDto {
   organizationId: string;
 
   @ApiProperty()
-  name: string;
+  name: LocalizedText;
 
   @ApiPropertyOptional()
-  description: string | null;
+  description: LocalizedText | null;
 
   @ApiPropertyOptional()
   image: string | null;
-
-  @ApiPropertyOptional({ enum: languageEnum.enumValues })
-  inLanguage: Language | null;
 
   @ApiProperty()
   createdAt: Date;

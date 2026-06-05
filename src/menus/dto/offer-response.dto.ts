@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { ItemAvailability } from 'src/db/schema/menus';
-import { itemAvailabilityEnum } from 'src/db/schema/menus';
+import {
+  itemAvailabilityEnum,
+  type ItemAvailability,
+} from 'src/db/schema/menus';
 
 import {
   PriceSpecificationDto,

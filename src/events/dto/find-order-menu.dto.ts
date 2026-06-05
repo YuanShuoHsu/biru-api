@@ -1,10 +1,10 @@
 import { IsEnum, IsString } from 'class-validator';
-import { languageEnum, type Language } from 'src/db/schema/menus';
+import { languagesEnum, type Language } from 'src/db/schema/enums';
 
 export class FindOrderMenuDto {
   @IsString()
   organizationId: string;
 
-  @IsEnum(languageEnum.enumValues)
+  @IsEnum(languagesEnum.enumValues)
   lang: Language;
 }

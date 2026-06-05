@@ -17,7 +17,6 @@ import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import { CreateMenuDto } from './dto/create-menu.dto';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
 import { CreateModifierDto } from './dto/create-modifier.dto';
@@ -49,16 +48,6 @@ export class MenusController {
 
   // ── Menu ──────────────────────────────────────────────────────────
 
-  @Post('organizations/:organizationId/menus')
-  @Roles({ menu: ['create'] }, 'organizationId')
-  @ApiOperation({ summary: '建立菜單' })
-  createMenu(
-    @Body() createMenuDto: CreateMenuDto,
-    @Param('organizationId') organizationId: string,
-  ): Promise<MenuResponseDto> {
-    return this.menusService.createMenu(organizationId, createMenuDto);
-  }
-
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
   @ApiOperation({ summary: '取得組織所有菜單' })
@@ -89,13 +78,6 @@ export class MenusController {
       where: { id: menuId },
       data: updateMenuDto,
     });
-  }
-
-  @Delete('menus/:menuId')
-  @Roles({ menu: ['delete'] }, 'menuId')
-  @ApiOperation({ summary: '刪除菜單' })
-  deleteMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
-    return this.menusService.deleteMenu({ id: menuId });
   }
 
   // ── MenuSection ───────────────────────────────────────────────────

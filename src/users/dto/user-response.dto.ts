@@ -1,6 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { DEFAULT_LANG, langsEnum, type LangEnum } from 'src/db/schema/enums';
+import {
+  DEFAULT_LANGUAGE,
+  languagesEnum,
+  type Language,
+} from 'src/db/schema/enums';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -51,7 +55,7 @@ export class UserResponseDto {
   //   enum: gendersEnum.enumValues,
   //   example: DEFAULT_GENDER,
   // })
-  // gender: GenderEnum;
+  // gender: Gender;
 
   @ApiProperty({
     description: '頭像 URL',
@@ -61,10 +65,10 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: '語言',
-    enum: langsEnum.enumValues,
-    example: DEFAULT_LANG,
+    enum: languagesEnum.enumValues,
+    example: DEFAULT_LANGUAGE,
   })
-  lang: LangEnum;
+  lang: Language;
 
   @ApiProperty({
     description: '姓',

@@ -1,11 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+
+import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import type { LocalizedText } from 'src/db/schema/enums';
 
 export class UpdateModifierGroupDto {
   @ApiPropertyOptional({ description: '群組名稱' })
   @IsOptional()
-  @IsString()
-  displayName?: string;
+  @IsObject()
+  displayName?: LocalizedText;
 
   @ApiPropertyOptional({ description: '最少選擇數量；>= 1 代表必選' })
   @IsOptional()

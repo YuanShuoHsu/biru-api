@@ -15,6 +15,7 @@ import {
   organization,
 } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 
 import { ac, admin, member, owner } from './permissions';
 
@@ -109,9 +110,18 @@ export const createAuth = (mailsService: MailsService) =>
       multiSession(),
       organization({
         ac,
-        roles: { owner, admin, member },
         cancelPendingInvitationsOnReInvite: true,
+        organizationHooks: {
+          afterCreateOrganization: async ({ organization }) => {
+            await db.insert(schema.menu).values({
+              id: uuidv4(),
+              organizationId: organization.id,
+              name: { 'zh-TW': organization.name },
+            });
+          },
+        },
         requireEmailVerificationOnInvitation: true,
+        roles: { owner, admin, member },
         schema: {
           organization: {
             additionalFields: {
@@ -214,9 +224,9 @@ export const createAuth = (mailsService: MailsService) =>
         //   defaultValue: schema.DEFAULT_GENDER,
         // },
         lang: {
-          type: schema.langsEnum.enumValues,
+          type: schema.languagesEnum.enumValues,
           required: true,
-          defaultValue: schema.DEFAULT_LANG,
+          defaultValue: schema.DEFAULT_LANGUAGE,
         },
         lastName: {
           type: 'string',

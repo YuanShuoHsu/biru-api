@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { RestrictedDiet } from 'src/db/schema/menus';
-import { restrictedDietEnum } from 'src/db/schema/menus';
+import type { LocalizedText } from 'src/db/schema/enums';
+import { restrictedDietEnum, type RestrictedDiet } from 'src/db/schema/menus';
 
-import { OfferResponseDto } from './offer-response.dto';
 import { NutritionInformationDto } from './nutrition-information.dto';
+import { OfferResponseDto } from './offer-response.dto';
 
 export class MenuItemResponseDto {
   @ApiProperty()
@@ -17,10 +17,10 @@ export class MenuItemResponseDto {
   menuSectionId: string | null;
 
   @ApiProperty()
-  name: string;
+  name: LocalizedText;
 
   @ApiPropertyOptional()
-  description: string | null;
+  description: LocalizedText | null;
 
   @ApiPropertyOptional()
   image: string | null;

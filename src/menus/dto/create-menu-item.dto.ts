@@ -9,21 +9,25 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import type { NutritionInformation, RestrictedDiet } from 'src/db/schema/menus';
-import { restrictedDietEnum } from 'src/db/schema/menus';
+import type { LocalizedText } from 'src/db/schema/enums';
+import {
+  restrictedDietEnum,
+  type NutritionInformation,
+  type RestrictedDiet,
+} from 'src/db/schema/menus';
 
 import { CreateOfferDto } from './create-offer.dto';
 import { NutritionInformationDto } from './nutrition-information.dto';
 
 export class CreateMenuItemDto {
-  @ApiProperty()
-  @IsString()
-  name: string;
+  @ApiProperty({ example: { 'zh-TW': '拿鐵', en: 'Latte' } })
+  @IsObject()
+  name: LocalizedText;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsObject()
+  description?: LocalizedText;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -1,14 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNumberString, IsOptional, IsString } from 'class-validator';
 
-import type { ItemAvailability } from 'src/db/schema/menus';
-import { itemAvailabilityEnum } from 'src/db/schema/menus';
+import { IsEnum, IsNumberString, IsObject, IsOptional } from 'class-validator';
+import type { LocalizedText } from 'src/db/schema/enums';
+import {
+  itemAvailabilityEnum,
+  type ItemAvailability,
+} from 'src/db/schema/menus';
 
 export class UpdateModifierDto {
   @ApiPropertyOptional({ description: '選項名稱' })
   @IsOptional()
-  @IsString()
-  displayName?: string;
+  @IsObject()
+  displayName?: LocalizedText;
 
   @ApiPropertyOptional({ description: '加價金額', example: '10.00' })
   @IsOptional()

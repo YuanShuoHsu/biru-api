@@ -1,7 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { ItemAvailability } from 'src/db/schema/menus';
-import { itemAvailabilityEnum } from 'src/db/schema/menus';
+import type { LocalizedText } from 'src/db/schema/enums';
+import {
+  itemAvailabilityEnum,
+  type ItemAvailability,
+} from 'src/db/schema/menus';
 
 export class ModifierResponseDto {
   @ApiProperty()
@@ -11,7 +14,7 @@ export class ModifierResponseDto {
   modifierGroupId: string;
 
   @ApiProperty()
-  displayName: string;
+  displayName: LocalizedText;
 
   @ApiPropertyOptional({ description: '加價金額；null 代表不影響價格' })
   priceAdjustment: string | null;
