@@ -351,6 +351,13 @@
       "when": 1780637145270,
       "tag": "0049_rename_langs_to_languages",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1780903084903,
+      "tag": "0050_thankful_magik",
+      "breakpoints": true
     }
   ]
 }

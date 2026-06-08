@@ -14,6 +14,7 @@ import {
   pgEnum,
   pgTable,
   text,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
@@ -66,7 +67,10 @@ export const menu = pgTable(
     image: text('image'),
     ...timestamps,
   },
-  (table) => [index('menu_organizationId_idx').on(table.organizationId)],
+  (table) => [
+    index('menu_organizationId_idx').on(table.organizationId),
+    unique('menu_organizationId_unique').on(table.organizationId),
+  ],
 );
 
 export type Menu = typeof menu.$inferSelect;

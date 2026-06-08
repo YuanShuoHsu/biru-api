@@ -1,0 +1,1 @@
+ALTER TABLE "menu" ADD CONSTRAINT "menu_organizationId_unique" UNIQUE("organization_id");

@@ -113,11 +113,14 @@ export const createAuth = (mailsService: MailsService) =>
         cancelPendingInvitationsOnReInvite: true,
         organizationHooks: {
           afterCreateOrganization: async ({ organization }) => {
-            await db.insert(schema.menu).values({
-              id: uuidv4(),
-              organizationId: organization.id,
-              name: { 'zh-TW': organization.name },
-            });
+            await db
+              .insert(schema.menu)
+              .values({
+                id: uuidv4(),
+                organizationId: organization.id,
+                name: { 'zh-TW': organization.name },
+              })
+              .onConflictDoNothing();
           },
         },
         requireEmailVerificationOnInvitation: true,
