@@ -2,6 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
+import {
+  SORT_DIRECTIONS,
+  type SortDirection,
+} from 'src/common/constants/pagination';
+
 export const TEXT_FILTER_OPERATORS = [
   'contains',
   'doesNotContain',
@@ -80,13 +85,11 @@ export const SORT_FIELDS = [
 ] as const;
 export type SortField = (typeof SORT_FIELDS)[number];
 
-export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
-export type SortDirection = (typeof SORT_DIRECTIONS)[number];
-
 export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: 'Column filter 欄位',
     enum: ALL_FILTER_FIELDS,
+    enumName: 'UserFilterField',
   })
   @IsOptional()
   @IsIn(ALL_FILTER_FIELDS)
@@ -95,6 +98,7 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: 'Column filter 運算子',
     enum: ALL_FILTER_OPERATORS,
+    enumName: 'UserFilterOperator',
   })
   @IsOptional()
   @IsIn(ALL_FILTER_OPERATORS)
@@ -133,6 +137,7 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: 'Search 欄位',
     enum: STRING_FILTER_FIELDS,
+    enumName: 'UserSearchField',
   })
   @IsOptional()
   @IsIn(STRING_FILTER_FIELDS)
@@ -141,6 +146,7 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: 'Search 運算子',
     enum: SEARCH_OPERATORS,
+    enumName: 'UserSearchOperator',
   })
   @IsOptional()
   @IsIn(SEARCH_OPERATORS)
@@ -154,12 +160,17 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({
     description: '排序欄位',
     enum: SORT_FIELDS,
+    enumName: 'UserSortField',
   })
   @IsOptional()
   @IsIn(SORT_FIELDS)
   sortBy?: SortField;
 
-  @ApiPropertyOptional({ description: '排序方向', enum: SORT_DIRECTIONS })
+  @ApiPropertyOptional({
+    description: '排序方向',
+    enum: SORT_DIRECTIONS,
+    enumName: 'SortDirection',
+  })
   @IsOptional()
   @IsIn(SORT_DIRECTIONS)
   sortDirection?: SortDirection;
