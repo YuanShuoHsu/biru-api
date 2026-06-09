@@ -26,7 +26,10 @@ export class OfferResponseDto {
   @ApiPropertyOptional()
   priceCurrency: string | null;
 
-  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
+  @ApiPropertyOptional({
+    enum: itemAvailabilityEnum.enumValues,
+    enumName: 'ItemAvailability',
+  })
   availability: ItemAvailability | null;
 
   @ApiPropertyOptional({ type: QuantitativeValueDto })

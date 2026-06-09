@@ -365,6 +365,13 @@
       "when": 1780990012705,
       "tag": "0051_even_devos",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1780992003564,
+      "tag": "0052_brief_spirit",
+      "breakpoints": true
     }
   ]
 }

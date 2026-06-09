@@ -24,7 +24,10 @@ export class CreateModifierDto {
   @IsNumberString()
   priceAdjustment?: string;
 
-  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
+  @ApiPropertyOptional({
+    enum: itemAvailabilityEnum.enumValues,
+    enumName: 'ItemAvailability',
+  })
   @IsOptional()
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;

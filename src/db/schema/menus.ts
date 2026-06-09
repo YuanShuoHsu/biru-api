@@ -39,9 +39,9 @@ export type RestrictedDiet = (typeof restrictedDietEnum.enumValues)[number];
 
 // https://schema.org/ItemAvailability
 export const itemAvailabilityEnum = pgEnum('item_availability', [
-  'Discontinued',
   'InStock',
   'SoldOut',
+  'Discontinued',
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 

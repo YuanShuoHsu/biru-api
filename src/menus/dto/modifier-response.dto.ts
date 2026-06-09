@@ -19,7 +19,10 @@ export class ModifierResponseDto {
   @ApiPropertyOptional({ description: '加價金額；null 代表不影響價格' })
   priceAdjustment: string | null;
 
-  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
+  @ApiPropertyOptional({
+    enum: itemAvailabilityEnum.enumValues,
+    enumName: 'ItemAvailability',
+  })
   availability: ItemAvailability | null;
 
   @ApiProperty()

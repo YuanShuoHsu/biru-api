@@ -81,7 +81,10 @@ export class CreateOfferDto {
   @IsString()
   priceCurrency: string;
 
-  @ApiPropertyOptional({ enum: itemAvailabilityEnum.enumValues })
+  @ApiPropertyOptional({
+    enum: itemAvailabilityEnum.enumValues,
+    enumName: 'ItemAvailability',
+  })
   @IsOptional()
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
