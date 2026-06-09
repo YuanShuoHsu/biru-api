@@ -395,6 +395,25 @@ export class MenusService {
     });
   }
 
+  async menuItem(where: {
+    id: string;
+  }): Promise<(MenuItem & { offer: Offer | null }) | null> {
+    const [result, existingOffers] = await Promise.all([
+      this.db.query.menuItem.findFirst({
+        where: eq(menuItem.id, where.id),
+      }),
+      this.db
+        .select()
+        .from(offer)
+        .where(eq(offer.menuItemId, where.id))
+        .orderBy(asc(offer.createdAt))
+        .limit(1),
+    ]);
+    if (!result) return null;
+
+    return { ...result, offer: existingOffers[0] || null };
+  }
+
   async menuSectionItems(
     sectionId: string,
     query: PaginationQueryDto = {},

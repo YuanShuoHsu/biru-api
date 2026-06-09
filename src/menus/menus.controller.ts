@@ -178,6 +178,18 @@ export class MenusController {
     return this.menusService.reorderMenuItems(sectionId, ids, offset);
   }
 
+  @Get('menu-items/:menuItemId')
+  @Roles({ menu: ['read'] }, 'menuItemId')
+  @ApiOperation({ summary: '取得菜單品項詳情' })
+  async findMenuItem(
+    @Param('menuItemId') menuItemId: string,
+  ): Promise<MenuItemResponseDto> {
+    const result = await this.menusService.menuItem({ id: menuItemId });
+    if (!result) throw new NotFoundException();
+
+    return result;
+  }
+
   @Patch('menu-items/:menuItemId')
   @Roles({ menu: ['update'] }, 'menuItemId')
   @ApiOperation({ summary: '更新菜單品項' })
