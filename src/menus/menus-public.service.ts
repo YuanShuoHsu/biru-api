@@ -13,6 +13,7 @@ import {
   menuItemModifierGroup,
   menuSection,
   modifier,
+  offer,
 } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -57,16 +58,18 @@ export class PublicMenusService {
         menuItems: {
           orderBy: [asc(menuItem.sortOrder)],
           with: {
-            offers: true,
+            offers: { orderBy: [asc(offer.createdAt)] },
             addOns: {
               orderBy: [asc(menuItemAddOn.sortOrder)],
               with: {
-                addOnMenuItem: { with: { offers: true } },
+                addOnMenuItem: {
+                  with: { offers: { orderBy: [asc(offer.createdAt)] } },
+                },
                 addOnMenuSection: {
                   with: {
                     menuItems: {
                       orderBy: [asc(menuItem.sortOrder)],
-                      with: { offers: true },
+                      with: { offers: { orderBy: [asc(offer.createdAt)] } },
                     },
                   },
                 },
@@ -85,46 +88,63 @@ export class PublicMenusService {
       },
     });
 
-    return sections.map((section) => ({
-      ...section,
-      name: localize(section.name, lang) || '',
-      description: localize(section.description, lang),
-      menuItems: section.menuItems.map(
-        ({ addOns, modifierGroups, ...item }) => ({
-          ...item,
-          name: localize(item.name, lang) || '',
-          description: localize(item.description, lang),
-          addOns: addOns.map(
-            ({ addOnMenuItem, addOnMenuSection, ...addOn }) => ({
-              ...addOn,
-              menuItems: (addOnMenuItem
-                ? [addOnMenuItem]
-                : (addOnMenuSection?.menuItems ?? [])
-              ).map(({ id, name, image, offers }) => ({
-                id,
-                name: localize(name, lang) || '',
-                image,
-                offers,
-              })),
-            }),
+    return sections
+      .map((section) => ({
+        ...section,
+        name: localize(section.name, lang) || '',
+        description: localize(section.description, lang),
+        menuItems: section.menuItems
+          .filter(({ offers }) => offers[0]?.availability !== 'Discontinued')
+          .map(({ addOns, modifierGroups, ...item }) => ({
+            ...item,
+            name: localize(item.name, lang) || '',
+            description: localize(item.description, lang),
+            addOns: addOns.map(
+              ({ addOnMenuItem, addOnMenuSection, ...addOn }) => ({
+                ...addOn,
+                menuItems: (addOnMenuItem
+                  ? [addOnMenuItem]
+                  : (addOnMenuSection?.menuItems ?? [])
+                )
+                  .filter(
+                    ({ offers }) => offers[0]?.availability !== 'Discontinued',
+                  )
+                  .map(({ id, name, image, offers }) => ({
+                    id,
+                    name: localize(name, lang) || '',
+                    image,
+                    offers,
+                  })),
+              }),
+            ),
+            modifierGroups: modifierGroups
+              .map(({ sortOrder, modifierGroup: group }) => ({
+                id: group.id,
+                displayName: localize(group.displayName, lang) || '',
+                minSelectionCount: group.minSelectionCount,
+                maxSelectionCount: group.maxSelectionCount,
+                sortOrder,
+                modifiers: group.modifiers
+                  .filter((mod) => mod.availability !== 'Discontinued')
+                  .map((mod) => ({
+                    ...mod,
+                    displayName: localize(mod.displayName, lang) || '',
+                  })),
+                createdAt: group.createdAt,
+                updatedAt: group.updatedAt,
+              }))
+              .filter(
+                ({ minSelectionCount, modifiers }) =>
+                  minSelectionCount > 0 || modifiers.length > 0,
+              ),
+          }))
+          .filter(({ modifierGroups }) =>
+            modifierGroups.every(
+              ({ minSelectionCount, modifiers }) =>
+                modifiers.length >= minSelectionCount,
+            ),
           ),
-          modifierGroups: modifierGroups.map(
-            ({ sortOrder, modifierGroup: group }) => ({
-              id: group.id,
-              displayName: localize(group.displayName, lang) || '',
-              minSelectionCount: group.minSelectionCount,
-              maxSelectionCount: group.maxSelectionCount,
-              sortOrder,
-              modifiers: group.modifiers.map((mod) => ({
-                ...mod,
-                displayName: localize(mod.displayName, lang) || '',
-              })),
-              createdAt: group.createdAt,
-              updatedAt: group.updatedAt,
-            }),
-          ),
-        }),
-      ),
-    }));
+      }))
+      .filter(({ menuItems }) => menuItems.length > 0);
   }
 }
