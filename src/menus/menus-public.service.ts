@@ -6,7 +6,14 @@ import {
   type Language,
   type LocalizedText,
 } from 'src/db/schema/enums';
-import { menu, menuItem, menuSection } from 'src/db/schema/menus';
+import {
+  menu,
+  menuItem,
+  menuItemAddOn,
+  menuItemModifierGroup,
+  menuSection,
+  modifier,
+} from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -49,7 +56,31 @@ export class PublicMenusService {
       with: {
         menuItems: {
           orderBy: [asc(menuItem.sortOrder)],
-          with: { offers: true },
+          with: {
+            offers: true,
+            addOns: {
+              orderBy: [asc(menuItemAddOn.sortOrder)],
+              with: {
+                addOnMenuItem: { with: { offers: true } },
+                addOnMenuSection: {
+                  with: {
+                    menuItems: {
+                      orderBy: [asc(menuItem.sortOrder)],
+                      with: { offers: true },
+                    },
+                  },
+                },
+              },
+            },
+            modifierGroups: {
+              orderBy: [asc(menuItemModifierGroup.sortOrder)],
+              with: {
+                modifierGroup: {
+                  with: { modifiers: { orderBy: [asc(modifier.sortOrder)] } },
+                },
+              },
+            },
+          },
         },
       },
     });
@@ -58,11 +89,42 @@ export class PublicMenusService {
       ...section,
       name: localize(section.name, lang) || '',
       description: localize(section.description, lang),
-      menuItems: section.menuItems.map((item) => ({
-        ...item,
-        name: localize(item.name, lang) || '',
-        description: localize(item.description, lang),
-      })),
+      menuItems: section.menuItems.map(
+        ({ addOns, modifierGroups, ...item }) => ({
+          ...item,
+          name: localize(item.name, lang) || '',
+          description: localize(item.description, lang),
+          addOns: addOns.map(
+            ({ addOnMenuItem, addOnMenuSection, ...addOn }) => ({
+              ...addOn,
+              menuItems: (addOnMenuItem
+                ? [addOnMenuItem]
+                : (addOnMenuSection?.menuItems ?? [])
+              ).map(({ id, name, image, offers }) => ({
+                id,
+                name: localize(name, lang) || '',
+                image,
+                offers,
+              })),
+            }),
+          ),
+          modifierGroups: modifierGroups.map(
+            ({ sortOrder, modifierGroup: group }) => ({
+              id: group.id,
+              displayName: localize(group.displayName, lang) || '',
+              minSelectionCount: group.minSelectionCount,
+              maxSelectionCount: group.maxSelectionCount,
+              sortOrder,
+              modifiers: group.modifiers.map((mod) => ({
+                ...mod,
+                displayName: localize(mod.displayName, lang) || '',
+              })),
+              createdAt: group.createdAt,
+              updatedAt: group.updatedAt,
+            }),
+          ),
+        }),
+      ),
     }));
   }
 }
