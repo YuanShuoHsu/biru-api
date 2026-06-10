@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import {
   Column,
@@ -876,10 +876,28 @@ export class MenusService {
 
   // ── ModifierGroup ─────────────────────────────────────────────────
 
+  private validateSelectionCounts(
+    minSelectionCount: number,
+    maxSelectionCount: number | null,
+  ): void {
+    if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
+      throw new BadRequestException(
+        'maxSelectionCount must be greater than or equal to minSelectionCount',
+      );
+    }
+  }
+
   async createModifierGroup(
     menuId: string,
     data: CreateModifierGroupDto,
   ): Promise<ModifierGroup> {
+    const { minSelectionCount, maxSelectionCount } = data;
+
+    this.validateSelectionCounts(
+      minSelectionCount || 0,
+      maxSelectionCount || null,
+    );
+
     return this.db.transaction(async (tx) => {
       await tx
         .update(modifierGroup)
@@ -997,6 +1015,21 @@ export class MenusService {
     where: { id: string };
     data: UpdateModifierGroupDto;
   }): Promise<ModifierGroup> {
+    const { minSelectionCount, maxSelectionCount } = params.data;
+
+    if (minSelectionCount !== undefined || maxSelectionCount !== undefined) {
+      const existing = await this.modifierGroup({ id: params.where.id });
+
+      if (existing) {
+        this.validateSelectionCounts(
+          minSelectionCount ?? existing.minSelectionCount,
+          maxSelectionCount === undefined
+            ? existing.maxSelectionCount
+            : maxSelectionCount,
+        );
+      }
+    }
+
     const [updated] = await this.db
       .update(modifierGroup)
       .set(params.data)
