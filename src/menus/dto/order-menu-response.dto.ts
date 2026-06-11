@@ -193,7 +193,7 @@ export class OrderMenuItemResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuResponseDto {
+export class OrderMenuSectionResponseDto {
   @ApiProperty()
   id: string;
 
@@ -217,6 +217,29 @@ export class OrderMenuResponseDto {
 
   @ApiProperty({ type: [OrderMenuItemResponseDto] })
   menuItems: OrderMenuItemResponseDto[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class OrderMenuResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  description: string | null;
+
+  @ApiPropertyOptional()
+  image: string | null;
+
+  @ApiProperty({ type: [OrderMenuSectionResponseDto] })
+  sections: OrderMenuSectionResponseDto[];
 
   @ApiProperty()
   createdAt: Date;

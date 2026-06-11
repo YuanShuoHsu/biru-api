@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { asc, eq, isNull } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type Language,
@@ -14,6 +14,7 @@ import {
   menuSection,
   modifier,
   offer,
+  type Offer,
 } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -34,6 +35,12 @@ const localize = (
   );
 };
 
+const isDiscontinued = ({
+  offers,
+}: {
+  offers: Pick<Offer, 'availability'>[];
+}): boolean => offers[0]?.availability === 'Discontinued';
+
 @Injectable()
 export class PublicMenusService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -41,45 +48,45 @@ export class PublicMenusService {
   async findOrderMenu(
     organizationId: string,
     lang: Language,
-  ): Promise<OrderMenuResponseDto[]> {
-    const sections = await this.db.query.menuSection.findMany({
-      where: and(
-        isNull(menuSection.parentSectionId),
-        inArray(
-          menuSection.menuId,
-          this.db
-            .select({ id: menu.id })
-            .from(menu)
-            .where(eq(menu.organizationId, organizationId)),
-        ),
-      ),
-      orderBy: [asc(menuSection.sortOrder)],
+  ): Promise<OrderMenuResponseDto | null> {
+    const orderMenu = await this.db.query.menu.findFirst({
+      where: eq(menu.organizationId, organizationId),
       with: {
-        menuItems: {
-          orderBy: [asc(menuItem.sortOrder)],
+        menuSections: {
+          where: isNull(menuSection.parentSectionId),
+          orderBy: [asc(menuSection.sortOrder)],
           with: {
-            offers: { orderBy: [asc(offer.createdAt)] },
-            addOns: {
-              orderBy: [asc(menuItemAddOn.sortOrder)],
+            menuItems: {
+              orderBy: [asc(menuItem.sortOrder)],
               with: {
-                addOnMenuItem: {
-                  with: { offers: { orderBy: [asc(offer.createdAt)] } },
-                },
-                addOnMenuSection: {
+                offers: { orderBy: [asc(offer.createdAt)] },
+                addOns: {
+                  orderBy: [asc(menuItemAddOn.sortOrder)],
                   with: {
-                    menuItems: {
-                      orderBy: [asc(menuItem.sortOrder)],
+                    addOnMenuItem: {
                       with: { offers: { orderBy: [asc(offer.createdAt)] } },
+                    },
+                    addOnMenuSection: {
+                      with: {
+                        menuItems: {
+                          orderBy: [asc(menuItem.sortOrder)],
+                          with: {
+                            offers: { orderBy: [asc(offer.createdAt)] },
+                          },
+                        },
+                      },
                     },
                   },
                 },
-              },
-            },
-            modifierGroups: {
-              orderBy: [asc(menuItemModifierGroup.sortOrder)],
-              with: {
-                modifierGroup: {
-                  with: { modifiers: { orderBy: [asc(modifier.sortOrder)] } },
+                modifierGroups: {
+                  orderBy: [asc(menuItemModifierGroup.sortOrder)],
+                  with: {
+                    modifierGroup: {
+                      with: {
+                        modifiers: { orderBy: [asc(modifier.sortOrder)] },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -87,14 +94,15 @@ export class PublicMenusService {
         },
       },
     });
+    if (!orderMenu) return null;
 
-    return sections
+    const sections = orderMenu.menuSections
       .map((section) => ({
         ...section,
         name: localize(section.name, lang) || '',
         description: localize(section.description, lang),
         menuItems: section.menuItems
-          .filter(({ offers }) => offers[0]?.availability !== 'Discontinued')
+          .filter((entry) => !isDiscontinued(entry))
           .map(({ addOns, modifierGroups, ...item }) => ({
             ...item,
             name: localize(item.name, lang) || '',
@@ -106,9 +114,7 @@ export class PublicMenusService {
                   ? [addOnMenuItem]
                   : (addOnMenuSection?.menuItems ?? [])
                 )
-                  .filter(
-                    ({ offers }) => offers[0]?.availability !== 'Discontinued',
-                  )
+                  .filter((entry) => !isDiscontinued(entry))
                   .map(({ id, name, image, offers }) => ({
                     id,
                     name: localize(name, lang) || '',
@@ -146,5 +152,15 @@ export class PublicMenusService {
           ),
       }))
       .filter(({ menuItems }) => menuItems.length > 0);
+
+    return {
+      id: orderMenu.id,
+      name: localize(orderMenu.name, lang) || '',
+      description: localize(orderMenu.description, lang),
+      image: orderMenu.image,
+      sections,
+      createdAt: orderMenu.createdAt,
+      updatedAt: orderMenu.updatedAt,
+    };
   }
 }

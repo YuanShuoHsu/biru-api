@@ -1,5 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 import { PublicMenusService } from './menus-public.service';
@@ -13,11 +18,12 @@ export class PublicMenusController {
 
   @Get('order-menu')
   @ApiOperation({ summary: '取得點餐菜單' })
+  @ApiOkResponse({ type: OrderMenuResponseDto, description: '無菜單時為 null' })
   @ApiQuery({ name: 'lang', enum: languagesEnum.enumValues })
   findOrderMenu(
     @Param('organizationId') organizationId: string,
     @Query('lang') lang: Language,
-  ): Promise<OrderMenuResponseDto[]> {
+  ): Promise<OrderMenuResponseDto | null> {
     return this.publicMenusService.findOrderMenu(organizationId, lang);
   }
 }
