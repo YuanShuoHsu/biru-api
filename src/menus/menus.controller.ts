@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -17,9 +18,9 @@ import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
 import { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import { CreateOfferDto } from './dto/create-offer.dto';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
 import { CreateModifierDto } from './dto/create-modifier.dto';
+import { CreateOfferDto } from './dto/create-offer.dto';
 import { MenuItemAddOnResponseDto } from './dto/menu-item-add-on-response.dto';
 import { MenuItemModifierGroupResponseDto } from './dto/menu-item-modifier-group-response.dto';
 import { MenuItemResponseDto } from './dto/menu-item-response.dto';
@@ -31,18 +32,20 @@ import { ModifierResponseDto } from './dto/modifier-response.dto';
 import { OfferResponseDto } from './dto/offer-response.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { ReorderDto } from './dto/reorder.dto';
-import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
-import { UpdateModifierDto } from './dto/update-modifier.dto';
 import { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
+import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
+import { UpdateModifierDto } from './dto/update-modifier.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
+import { MenuEventsInterceptor } from './interceptors/menu-events.interceptor';
 import { MenusService } from './menus.service';
 
 @ApiTags('menus')
 @ApiBearerAuth()
 @Controller()
+@UseInterceptors(MenuEventsInterceptor)
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 

@@ -34,8 +34,9 @@ import {
   type OrganizationParam,
 } from '../decorators/roles.decorator';
 
-type AuthRequest = Request & {
+export type AuthRequest = Request & {
   params: Record<string, string>;
+  organizationId?: string;
 };
 
 @Injectable()
@@ -53,9 +54,8 @@ export class RolesGuard implements CanActivate {
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles) return true;
 
-    const { headers, params } = context
-      .switchToHttp()
-      .getRequest<AuthRequest>();
+    const request = context.switchToHttp().getRequest<AuthRequest>();
+    const { headers, params } = request;
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(headers),
     });
@@ -67,6 +67,8 @@ export class RolesGuard implements CanActivate {
       params,
     );
     if (!organizationId) throw new ForbiddenException();
+
+    request.organizationId = organizationId;
 
     const membership = await this.db.query.member.findFirst({
       where: and(

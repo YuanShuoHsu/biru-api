@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
@@ -52,6 +53,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     DrizzleModule,
     EcpayModule,
+    EventEmitterModule.forRoot(),
     EventsModule,
     I18nModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
