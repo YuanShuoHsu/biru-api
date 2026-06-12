@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { asc, eq, isNull } from 'drizzle-orm';
+import { asc, eq, inArray, isNull } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type Language,
@@ -14,6 +14,8 @@ import {
   menuSection,
   modifier,
   offer,
+  type Modifier,
+  type ModifierGroup,
   type Offer,
 } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -40,6 +42,58 @@ const isDiscontinued = ({
 }: {
   offers: Pick<Offer, 'availability'>[];
 }): boolean => offers[0]?.availability === 'Discontinued';
+
+const getActiveAddOnMenuItems = <
+  Item extends { offers: Pick<Offer, 'availability'>[] },
+>({
+  addOnMenuItem,
+  addOnMenuSection,
+}: {
+  addOnMenuItem: Item | null;
+  addOnMenuSection: { menuItems: Item[] } | null;
+}): Item[] =>
+  (addOnMenuItem ? [addOnMenuItem] : addOnMenuSection?.menuItems || []).filter(
+    (entry) => !isDiscontinued(entry),
+  );
+
+const modifierGroupsQuery = {
+  orderBy: [asc(menuItemModifierGroup.sortOrder)],
+  with: {
+    modifierGroup: {
+      with: {
+        modifiers: { orderBy: [asc(modifier.sortOrder)] },
+      },
+    },
+  },
+};
+
+const mapModifierGroups = (
+  modifierGroups: {
+    sortOrder: number;
+    modifierGroup: ModifierGroup & { modifiers: Modifier[] };
+  }[],
+  lang: Language,
+) =>
+  modifierGroups
+    .map(({ sortOrder, modifierGroup: group }) => ({
+      id: group.id,
+      displayName: localize(group.displayName, lang) || '',
+      minSelectionCount: group.minSelectionCount,
+      maxSelectionCount: group.maxSelectionCount,
+      sortOrder,
+      modifiers: group.modifiers
+        .filter((mod) => mod.availability !== 'Discontinued')
+        .map((mod) => ({
+          ...mod,
+          displayName: localize(mod.displayName, lang) || '',
+        })),
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+    }))
+    .filter(
+      ({ minSelectionCount, modifiers }) =>
+        minSelectionCount > 0 || modifiers.length > 0,
+    );
 
 @Injectable()
 export class PublicMenusService {
@@ -78,16 +132,7 @@ export class PublicMenusService {
                     },
                   },
                 },
-                modifierGroups: {
-                  orderBy: [asc(menuItemModifierGroup.sortOrder)],
-                  with: {
-                    modifierGroup: {
-                      with: {
-                        modifiers: { orderBy: [asc(modifier.sortOrder)] },
-                      },
-                    },
-                  },
-                },
+                modifierGroups: modifierGroupsQuery,
               },
             },
           },
@@ -95,6 +140,40 @@ export class PublicMenusService {
       },
     });
     if (!orderMenu) return null;
+
+    const addOnItemIds = [
+      ...new Set(
+        orderMenu.menuSections.flatMap(({ menuItems }) =>
+          menuItems.flatMap(({ addOns }) =>
+            addOns.flatMap((addOn) =>
+              getActiveAddOnMenuItems(addOn).map(({ id }) => id),
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    const addOnModifierGroupRows =
+      addOnItemIds.length > 0
+        ? await this.db.query.menuItemModifierGroup.findMany({
+            where: inArray(menuItemModifierGroup.menuItemId, addOnItemIds),
+            ...modifierGroupsQuery,
+          })
+        : [];
+
+    const addOnRowsByItemId = new Map<string, typeof addOnModifierGroupRows>();
+    for (const row of addOnModifierGroupRows) {
+      const rows = addOnRowsByItemId.get(row.menuItemId) || [];
+      rows.push(row);
+      addOnRowsByItemId.set(row.menuItemId, rows);
+    }
+
+    const addOnModifierGroupsByItemId = new Map(
+      [...addOnRowsByItemId].map(([itemId, rows]) => [
+        itemId,
+        mapModifierGroups(rows, lang),
+      ]),
+    );
 
     const sections = orderMenu.menuSections
       .map((section) => ({
@@ -110,39 +189,19 @@ export class PublicMenusService {
             addOns: addOns.map(
               ({ addOnMenuItem, addOnMenuSection, ...addOn }) => ({
                 ...addOn,
-                menuItems: (addOnMenuItem
-                  ? [addOnMenuItem]
-                  : (addOnMenuSection?.menuItems ?? [])
-                )
-                  .filter((entry) => !isDiscontinued(entry))
-                  .map(({ id, name, image, offers }) => ({
-                    id,
-                    name: localize(name, lang) || '',
-                    image,
-                    offers,
-                  })),
+                menuItems: getActiveAddOnMenuItems({
+                  addOnMenuItem,
+                  addOnMenuSection,
+                }).map(({ id, name, image, offers }) => ({
+                  id,
+                  name: localize(name, lang) || '',
+                  image,
+                  offers,
+                  modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
+                })),
               }),
             ),
-            modifierGroups: modifierGroups
-              .map(({ sortOrder, modifierGroup: group }) => ({
-                id: group.id,
-                displayName: localize(group.displayName, lang) || '',
-                minSelectionCount: group.minSelectionCount,
-                maxSelectionCount: group.maxSelectionCount,
-                sortOrder,
-                modifiers: group.modifiers
-                  .filter((mod) => mod.availability !== 'Discontinued')
-                  .map((mod) => ({
-                    ...mod,
-                    displayName: localize(mod.displayName, lang) || '',
-                  })),
-                createdAt: group.createdAt,
-                updatedAt: group.updatedAt,
-              }))
-              .filter(
-                ({ minSelectionCount, modifiers }) =>
-                  minSelectionCount > 0 || modifiers.length > 0,
-              ),
+            modifierGroups: mapModifierGroups(modifierGroups, lang),
           })),
       }))
       .filter(({ menuItems }) => menuItems.length > 0);

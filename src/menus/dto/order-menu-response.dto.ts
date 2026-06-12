@@ -51,49 +51,6 @@ export class OrderMenuOfferResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuAddOnItemResponseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  name: string;
-
-  @ApiPropertyOptional()
-  image: string | null;
-
-  @ApiProperty({ type: [OrderMenuOfferResponseDto] })
-  offers: OrderMenuOfferResponseDto[];
-}
-
-export class OrderMenuAddOnResponseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  menuItemId: string;
-
-  @ApiPropertyOptional()
-  addOnMenuItemId: string | null;
-
-  @ApiPropertyOptional()
-  addOnMenuSectionId: string | null;
-
-  @ApiProperty()
-  sortOrder: number;
-
-  @ApiProperty({
-    type: [OrderMenuAddOnItemResponseDto],
-    description: '解析後的加購品項（指向品項為單筆；指向區塊為其所有品項）',
-  })
-  menuItems: OrderMenuAddOnItemResponseDto[];
-
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
-  updatedAt: Date;
-}
-
 export class OrderMenuModifierResponseDto {
   @ApiProperty()
   id: string;
@@ -141,6 +98,52 @@ export class OrderMenuModifierGroupResponseDto {
 
   @ApiProperty({ type: [OrderMenuModifierResponseDto] })
   modifiers: OrderMenuModifierResponseDto[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class OrderMenuAddOnItemResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  image: string | null;
+
+  @ApiProperty({ type: [OrderMenuOfferResponseDto] })
+  offers: OrderMenuOfferResponseDto[];
+
+  @ApiProperty({ type: [OrderMenuModifierGroupResponseDto] })
+  modifierGroups: OrderMenuModifierGroupResponseDto[];
+}
+
+export class OrderMenuAddOnResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  menuItemId: string;
+
+  @ApiPropertyOptional()
+  addOnMenuItemId: string | null;
+
+  @ApiPropertyOptional()
+  addOnMenuSectionId: string | null;
+
+  @ApiProperty()
+  sortOrder: number;
+
+  @ApiProperty({
+    type: [OrderMenuAddOnItemResponseDto],
+    description: '解析後的加購品項（指向品項為單筆；指向區塊為其所有品項）',
+  })
+  menuItems: OrderMenuAddOnItemResponseDto[];
 
   @ApiProperty()
   createdAt: Date;
