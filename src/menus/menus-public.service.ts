@@ -143,13 +143,7 @@ export class PublicMenusService {
                 ({ minSelectionCount, modifiers }) =>
                   minSelectionCount > 0 || modifiers.length > 0,
               ),
-          }))
-          .filter(({ modifierGroups }) =>
-            modifierGroups.every(
-              ({ minSelectionCount, modifiers }) =>
-                modifiers.length >= minSelectionCount,
-            ),
-          ),
+          })),
       }))
       .filter(({ menuItems }) => menuItems.length > 0);
 
