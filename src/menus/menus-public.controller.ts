@@ -5,12 +5,14 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 import { PublicMenusService } from './menus-public.service';
 
 import { languagesEnum, type Language } from 'src/db/schema/enums';
 
+@AllowAnonymous()
 @ApiTags('public')
 @Controller('organizations/:organizationId')
 export class PublicMenusController {
