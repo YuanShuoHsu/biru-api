@@ -23,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
+import { LoveCodesModule } from './love-codes/love-codes.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
 import { RolesGuard } from './menus/guards/roles.guard';
@@ -71,6 +72,7 @@ import { UsersModule } from './users/users.module';
       ],
       inject: [ConfigService],
     }),
+    LoveCodesModule,
     MailsModule,
     MenusModule,
     OrganizationsModule,
