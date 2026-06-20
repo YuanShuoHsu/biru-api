@@ -8,7 +8,7 @@ export interface DonateCode {
 }
 
 const API_URL =
-  'https://www.einvoice.nat.gov.tw/portal/ods/api/v1/DonateCodeList';
+  'https://dataset.einvoice.nat.gov.tw/ods/portal/api/v1/DonateCodeList';
 const PAGE_SIZE = 500;
 
 @Injectable()
