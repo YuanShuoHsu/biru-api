@@ -12,6 +12,9 @@ interface GcisCompany {
   Company_Status_Desc: string;
 }
 
+// https://data.gov.tw/dataset/108337
+// https://data.gcis.nat.gov.tw/resources/swagger/index.html
+// http://data.gcis.nat.gov.tw/resources/swagger/swagger.json
 const GCIS_API_URL =
   'https://data.gcis.nat.gov.tw/od/data/api/5F64D864-61CB-4D0D-8AD9-492047CC1EA6';
 
