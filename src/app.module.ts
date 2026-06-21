@@ -20,10 +20,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { DonateCodesModule } from './donate-codes/donate-codes.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
-import { DonateCodesModule } from './donate-codes/donate-codes.module';
+import { GcisModule } from './gcis/gcis.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
 import { RolesGuard } from './menus/guards/roles.guard';
@@ -52,10 +53,12 @@ import { UsersModule } from './users/users.module';
       },
     }),
     ConfigModule.forRoot({ isGlobal: true }),
+    DonateCodesModule,
     DrizzleModule,
     EcpayModule,
     EventEmitterModule.forRoot(),
     EventsModule,
+    GcisModule,
     I18nModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
         fallbackLanguage: configService.getOrThrow('FALLBACK_LANGUAGE'),
@@ -72,7 +75,6 @@ import { UsersModule } from './users/users.module';
       ],
       inject: [ConfigService],
     }),
-    DonateCodesModule,
     MailsModule,
     MenusModule,
     OrganizationsModule,
