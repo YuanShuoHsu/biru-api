@@ -372,6 +372,13 @@
       "when": 1780992003564,
       "tag": "0052_brief_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1782208249474,
+      "tag": "0053_swift_black_bolt",
+      "breakpoints": true
     }
   ]
 }

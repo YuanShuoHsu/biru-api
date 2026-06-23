@@ -29,6 +29,7 @@ import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
 import { RolesGuard } from './menus/guards/roles.guard';
 import { MenusModule } from './menus/menus.module';
+import { OrdersModule } from './orders/orders.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
@@ -77,6 +78,7 @@ import { UsersModule } from './users/users.module';
     }),
     MailsModule,
     MenusModule,
+    OrdersModule,
     OrganizationsModule,
     ScheduleModule.forRoot(),
     TasksModule,
