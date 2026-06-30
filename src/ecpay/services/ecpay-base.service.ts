@@ -73,11 +73,11 @@ export class EcpayBaseService {
       .toUpperCase();
   }
 
-  aioCheckOutAll(dto: BaseEcpayDto): string {
+  aioCheckOutAll(base: BaseEcpayDto): string {
     const tradeNo = `ecpay${uuidv4().replace(/-/g, '').slice(0, 15)}`;
 
     const raw = {
-      ...dto,
+      ...base,
       MerchantID: this.merchantId,
       MerchantTradeNo: tradeNo,
       MerchantTradeDate: this.getEcpayDateString(),

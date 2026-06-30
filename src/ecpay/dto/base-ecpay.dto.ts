@@ -78,7 +78,7 @@ export class BaseEcpayDto {
   MerchantTradeNo: string;
 
   @ApiProperty({
-    description: `特店交易時間（必填）  
+    description: `特店交易時間（必填）
 格式為：yyyy/MM/dd HH:mm:ss`,
     example: '2025/06/07 15:00:00',
     maxLength: 20,
@@ -92,7 +92,7 @@ export class BaseEcpayDto {
   MerchantTradeDate: string;
 
   @ApiProperty({
-    description: `交易類型（必填）  
+    description: `交易類型（必填）
 請固定填入 aio`,
     enum: BaseEcpayPaymentType,
     example: BaseEcpayPaymentType.AIO,
@@ -117,7 +117,7 @@ export class BaseEcpayDto {
   TotalAmount: number;
 
   @ApiProperty({
-    description: `交易描述（必填）  
+    description: `交易描述（必填）
 請勿帶入特殊字元。`,
     example: '商品訂購',
     maxLength: 200,
@@ -204,7 +204,7 @@ export class BaseEcpayDto {
   CheckMacValue: string;
 
   @ApiProperty({
-    description: `CheckMacValue 加密類型（必填）  
+    description: `CheckMacValue 加密類型（必填）
 請固定填入 1，使用 SHA256 加密。`,
     enum: BaseEcpayEncryptType,
     example: BaseEcpayEncryptType.SHA256,
