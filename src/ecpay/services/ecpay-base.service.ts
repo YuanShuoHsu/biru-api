@@ -84,7 +84,6 @@ export class EcpayBaseService {
       PaymentType: 'aio',
       EncryptType: '1',
       ReturnURL: this.returnUrl,
-      ChoosePayment: 'ALL',
     };
 
     const payload = toStringRecord(raw);
