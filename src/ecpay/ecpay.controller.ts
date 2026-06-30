@@ -1,4 +1,4 @@
-import { BaseEcpayDto } from './dto/base-ecpay.dto';
+import { CheckoutEcpayDto } from './dto/checkout-ecpay.dto';
 import { IssueInvoiceEcpayDecryptedRequestDto } from './dto/issue-invoice-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
 
@@ -9,7 +9,7 @@ import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
-import { Body, Controller, Header, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('ecpay')
@@ -25,9 +25,8 @@ export class EcpayController {
 
   @Post()
   @AllowAnonymous()
-  @Header('Content-Type', 'text/html; charset=utf-8')
-  base(@Body() baseEcpayDto: BaseEcpayDto) {
-    return this.ecpayBaseService.aioCheckOutAll(baseEcpayDto);
+  base(@Body() dto: CheckoutEcpayDto) {
+    return this.ecpayBaseService.aioCheckOutAll(dto);
   }
 
   @Post('return')

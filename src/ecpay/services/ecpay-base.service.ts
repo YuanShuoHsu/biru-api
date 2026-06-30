@@ -1,7 +1,7 @@
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
-import { BaseEcpayDto } from '../dto/base-ecpay.dto';
+import { CheckoutEcpayDto } from '../dto/checkout-ecpay.dto';
 import { ReturnEcpayDto } from '../dto/return-ecpay.dto';
 import { EcpayMode } from '../types/ecpay.types';
 
@@ -73,7 +73,7 @@ export class EcpayBaseService {
       .toUpperCase();
   }
 
-  aioCheckOutAll(base: BaseEcpayDto): string {
+  aioCheckOutAll(base: CheckoutEcpayDto): string {
     const tradeNo = `ecpay${uuidv4().replace(/-/g, '').slice(0, 15)}`;
 
     const raw = {

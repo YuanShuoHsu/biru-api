@@ -194,7 +194,7 @@ export class BaseEcpayDto {
   ChoosePayment: BaseEcpayChoosePayment;
 
   @ApiProperty({
-    description: `檢查碼（必填）  
+    description: `檢查碼（必填）
 請參考檢查碼機制`,
     example: '85D927637935683EA756CDEF76498FEB9F5D098A7A1AC4F0CB3B3609A9D4116A',
   })
@@ -243,7 +243,7 @@ export class BaseEcpayDto {
   })
   @IsOptional()
   @IsNotEmpty()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @Length(1, 200)
   ClientBackURL?: string;
 
@@ -255,7 +255,7 @@ export class BaseEcpayDto {
   })
   @IsOptional()
   @IsNotEmpty()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @Length(1, 200)
   ItemURL?: string;
 
@@ -297,7 +297,7 @@ export class BaseEcpayDto {
   })
   @IsOptional()
   @IsNotEmpty()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @Length(1, 200)
   OrderResultURL?: string;
 
