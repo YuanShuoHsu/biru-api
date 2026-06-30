@@ -10,6 +10,7 @@ import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
 import { Body, Controller, Header, Post } from '@nestjs/common';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('ecpay')
 export class EcpayController {
@@ -23,12 +24,14 @@ export class EcpayController {
   ) {}
 
   @Post()
+  @AllowAnonymous()
   @Header('Content-Type', 'text/html; charset=utf-8')
   base(@Body() baseEcpayDto: BaseEcpayDto) {
     return this.ecpayBaseService.aioCheckOutAll(baseEcpayDto);
   }
 
   @Post('return')
+  @AllowAnonymous()
   return(@Body() returnEcpayDto: ReturnEcpayDto) {
     return this.ecpayBaseService.isCheckMacValueValid(returnEcpayDto);
   }
