@@ -407,13 +407,14 @@ export class BaseEcpayDto {
   CustomField4?: string;
 
   @ApiPropertyOptional({
-    description: `語系設定  
+    description: `語系設定
 預設語系為中文，若要變更語系參數值請帶：
 - ENG：英語
 - KOR：韓語
 - JPN：日語
 - CHI：簡體中文`,
     enum: BaseEcpayLanguage,
+    enumName: 'BaseEcpayLanguage',
     example: BaseEcpayLanguage.ENG,
     maxLength: 3,
     minLength: 3,
