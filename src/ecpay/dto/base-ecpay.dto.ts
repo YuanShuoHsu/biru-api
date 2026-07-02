@@ -29,6 +29,7 @@ enum BaseEcpayChoosePayment {
   ApplePay = 'ApplePay',
   BNPL = 'BNPL',
   WeiXin = 'WeiXin',
+  DigitalPayment = 'DigitalPayment',
   ALL = 'ALL',
 }
 
