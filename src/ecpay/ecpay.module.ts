@@ -7,11 +7,13 @@ import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
+import { OrdersModule } from '../orders/orders.module';
+
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule, OrdersModule],
   controllers: [EcpayController],
   providers: [
     EcpayBaseService,

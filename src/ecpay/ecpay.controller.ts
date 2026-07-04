@@ -2,6 +2,8 @@ import { CheckoutEcpayDto } from './dto/checkout-ecpay.dto';
 import { IssueInvoiceEcpayDecryptedRequestDto } from './dto/issue-invoice-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
 
+import { OrdersService } from '../orders/orders.service';
+
 import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service';
 import { EcpayBaseService } from './services/ecpay-base.service';
 import { EcpayGetGovInvoiceWordSettingService } from './services/ecpay-get-gov-invoice-word-setting.service';
@@ -10,6 +12,7 @@ import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
 import { Body, Controller, Post } from '@nestjs/common';
+import { ApiBody } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('ecpay')
@@ -21,18 +24,27 @@ export class EcpayController {
     private readonly ecpayAddInvoiceWordSettingService: EcpayAddInvoiceWordSettingService,
     private readonly ecpayUpdateInvoiceWordStatusService: EcpayUpdateInvoiceWordStatusService,
     private readonly ecpayIssueInvoiceService: EcpayIssueInvoiceService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   @Post()
   @AllowAnonymous()
-  base(@Body() dto: CheckoutEcpayDto) {
-    return this.ecpayBaseService.aioCheckOutAll(dto);
+  async checkout(@Body() dto: CheckoutEcpayDto) {
+    const { orderId, ...base } = dto;
+    const order = await this.ordersService.getPayableOrder(orderId);
+
+    return this.ecpayBaseService.aioCheckOutAll(order, base);
   }
 
   @Post('return')
   @AllowAnonymous()
-  return(@Body() returnEcpayDto: ReturnEcpayDto) {
-    return this.ecpayBaseService.isCheckMacValueValid(returnEcpayDto);
+  @ApiBody({ type: ReturnEcpayDto })
+  async return(@Body() body: Record<string, string>) {
+    const result = this.ecpayBaseService.isCheckMacValueValid(body);
+
+    if (result === '1|OK') await this.ordersService.recordPaymentResult(body);
+
+    return result;
   }
 
   @Post('get-gov-invoice-word-setting')

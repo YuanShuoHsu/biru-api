@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
 import { menuItem, modifier, offer } from 'src/db/schema/menus';
 import { order, orderItem } from 'src/db/schema/orders';
@@ -162,6 +162,8 @@ export class OrdersService {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         unitPrice: resolveUnitPrice(cartItem),
+        priceCurrency:
+          offerMap.get(cartItem.menuItemId)?.priceCurrency ?? 'TWD',
         orderQuantity: cartItem.quantity,
         modifiers: resolveModifierSnapshots(cartItem.modifiers),
         addOns: cartItem.addOns.map(resolveAddOnSnapshot),
@@ -200,5 +202,59 @@ export class OrdersService {
     });
 
     return { ...created!, items: created!.items };
+  }
+
+  async getOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { items: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+
+    return found;
+  }
+
+  async getPayableOrder(
+    orderId: string,
+  ): Promise<OrderResponseDto & { confirmationNumber: string }> {
+    const found = await this.db.query.order.findFirst({
+      where: eq(order.id, orderId),
+      with: { items: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+
+    const { confirmationNumber } = found;
+    if (!confirmationNumber)
+      throw new BadRequestException('Order does not require online payment');
+    if (found.orderStatus !== 'OrderPaymentDue')
+      throw new BadRequestException('Order is not awaiting payment');
+
+    return { ...found, confirmationNumber };
+  }
+
+  async recordPaymentResult(body: Record<string, string>): Promise<void> {
+    if (body.SimulatePaid === '1') return;
+
+    await this.db
+      .update(order)
+      .set({
+        orderStatus: body.RtnCode === '1' ? 'OrderProcessing' : 'OrderProblem',
+        paymentDate: body.PaymentDate
+          ? new Date(
+              `${body.PaymentDate.replace(/\//g, '-').replace(' ', 'T')}+08:00`,
+            )
+          : undefined,
+        paymentMethodId: body.card4no || undefined,
+        tradeNo: body.TradeNo,
+      })
+      .where(eq(order.confirmationNumber, body.MerchantTradeNo));
   }
 }

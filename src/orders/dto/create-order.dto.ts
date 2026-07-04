@@ -86,7 +86,11 @@ export class CreateOrderItemAddOnDto {
   @IsString()
   menuItemId: string;
 
-  @ApiProperty({ description: 'modifierGroupId → modifierIds[]' })
+  @ApiProperty({
+    additionalProperties: { items: { type: 'string' }, type: 'array' },
+    description: 'modifierGroupId → modifierIds[]',
+    type: 'object',
+  })
   @IsObject()
   modifiers: Record<string, string[]>;
 }
@@ -101,7 +105,11 @@ export class CreateOrderItemDto {
   @Min(1)
   quantity: number;
 
-  @ApiProperty({ description: 'modifierGroupId → modifierIds[]' })
+  @ApiProperty({
+    additionalProperties: { items: { type: 'string' }, type: 'array' },
+    description: 'modifierGroupId → modifierIds[]',
+    type: 'object',
+  })
   @IsObject()
   modifiers: Record<string, string[]>;
 

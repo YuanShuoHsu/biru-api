@@ -14,13 +14,21 @@ import { timestamps } from './columns.helpers';
 import { invoice } from './invoices';
 import { organization } from './organizations';
 
-export const orderModeEnum = pgEnum('order_mode', ['dineIn', 'pickup']);
+export const orderModeEnum = pgEnum('order_mode', [
+  'counter',
+  'dineIn',
+  'kiosk',
+  'pickup',
+]);
 export type OrderMode = (typeof orderModeEnum.enumValues)[number];
 
 // https://schema.org/PaymentMethod
 export const paymentMethodEnum = pgEnum('order_payment_method', [
+  'ApplePay',
   'Cash',
   'Credit',
+  'iPASS',
+  'Jkopay',
   'TWQR',
   'WeiXin',
 ]);
@@ -68,12 +76,17 @@ export const order = pgTable(
     customerEmail: text('customer_email'),
     customerNotes: text('customer_notes'),
     paymentMethod: paymentMethodEnum('payment_method').notNull(),
+    // https://schema.org/paymentMethodId
+    paymentMethodId: text('payment_method_id'),
     orderStatus: orderStatusEnum('order_status')
       .notNull()
       .default('OrderPaymentDue'),
     confirmationNumber: text('confirmation_number').unique(),
     orderDate: timestamp('order_date').defaultNow().notNull(),
     paymentDueDate: timestamp('payment_due_date'),
+    paymentDate: timestamp('payment_date'),
+    // 綠界交易編號 TradeNo
+    tradeNo: text('trade_no'),
     discount: numeric('discount', { precision: 10, scale: 2 }),
     discountCurrency: text('discount_currency').default('TWD'),
     discountCode: text('discount_code'),
@@ -99,6 +112,8 @@ export const orderItem = pgTable(
     menuItemId: text('menu_item_id').notNull(),
     menuItemName: text('menu_item_name').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
+    // https://schema.org/priceCurrency
+    priceCurrency: text('price_currency').default('TWD'),
     orderQuantity: integer('order_quantity').notNull(),
     modifiers: jsonb('modifiers').$type<OrderItemModifierSnapshot[]>(),
     addOns: jsonb('add_ons').$type<OrderItemAddOnSnapshot[]>(),

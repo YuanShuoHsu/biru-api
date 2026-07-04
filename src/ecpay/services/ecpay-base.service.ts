@@ -1,9 +1,9 @@
 import * as crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 
 import { CheckoutEcpayDto } from '../dto/checkout-ecpay.dto';
-import { ReturnEcpayDto } from '../dto/return-ecpay.dto';
 import { EcpayMode } from '../types/ecpay.types';
+
+import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -12,6 +12,15 @@ const getEcpayBaseApiUrl = (mode: EcpayMode): string => {
   return mode === 'Test'
     ? 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
     : 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5';
+};
+
+const ECPAY_CHOOSE_PAYMENT: Record<string, string> = {
+  ApplePay: 'ApplePay',
+  Credit: 'Credit',
+  iPASS: 'DigitalPayment',
+  Jkopay: 'DigitalPayment',
+  TWQR: 'TWQR',
+  WeiXin: 'WeiXin',
 };
 
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
@@ -41,15 +50,13 @@ export class EcpayBaseService {
   }
 
   private getEcpayDateString(): string {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const MM = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const HH = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
+    const taipei = new Date(Date.now() + 8 * 60 * 60 * 1000);
 
-    return `${yyyy}/${MM}/${dd} ${HH}:${mm}:${ss}`;
+    return taipei
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ')
+      .replace(/-/g, '/');
   }
 
   private generateCheckMacValue(params: Record<string, string>): string {
@@ -73,17 +80,33 @@ export class EcpayBaseService {
       .toUpperCase();
   }
 
-  aioCheckOutAll(base: CheckoutEcpayDto): string {
-    const tradeNo = `ecpay${uuidv4().replace(/-/g, '').slice(0, 15)}`;
+  aioCheckOutAll(
+    order: OrderResponseDto & { confirmationNumber: string },
+    base: Omit<CheckoutEcpayDto, 'orderId'>,
+  ): string {
+    const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
 
     const raw = {
       ...base,
-      MerchantID: this.merchantId,
-      MerchantTradeNo: tradeNo,
-      MerchantTradeDate: this.getEcpayDateString(),
-      PaymentType: 'aio',
+      ChoosePayment: choosePayment,
+      ...(choosePayment === 'DigitalPayment' && {
+        ChooseSubPayment: order.paymentMethod,
+      }),
       EncryptType: '1',
+      MerchantID: this.merchantId,
+      MerchantTradeDate: this.getEcpayDateString(),
+      MerchantTradeNo: order.confirmationNumber,
+      NeedExtraPaidInfo: 'Y',
+      PaymentType: 'aio',
+      ...(order.customerNotes && { Remark: order.customerNotes }),
       ReturnURL: this.returnUrl,
+      TotalAmount: Math.round(
+        order.items.reduce(
+          (sum, { orderQuantity, unitPrice }) =>
+            sum + Number(unitPrice) * orderQuantity,
+          0,
+        ),
+      ),
     };
 
     const payload = toStringRecord(raw);
@@ -102,7 +125,7 @@ export class EcpayBaseService {
   isCheckMacValueValid({
     CheckMacValue,
     ...rest
-  }: ReturnEcpayDto): '1|OK' | '0|FAIL' {
+  }: Record<string, string>): '1|OK' | '0|FAIL' {
     const payload = toStringRecord(rest);
     const checkValue = this.generateCheckMacValue(payload);
 

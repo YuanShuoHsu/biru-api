@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
@@ -19,5 +19,14 @@ export class OrdersController {
     @Body() dto: CreateOrderDto,
   ): Promise<OrderResponseDto> {
     return this.ordersService.createOrder(organizationSlug, dto);
+  }
+
+  @Get(':orderId')
+  @ApiOperation({ summary: '查詢訂單' })
+  findOne(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.getOrder(organizationSlug, orderId);
   }
 }
