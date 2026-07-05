@@ -60,7 +60,9 @@ export class EcpayBaseService {
   }
 
   private generateCheckMacValue(params: Record<string, string>): string {
-    const sorted = Object.keys(params).sort();
+    const sorted = Object.keys(params).sort((a, b) =>
+      a.toLowerCase() < b.toLowerCase() ? -1 : 1,
+    );
     const raw = `HashKey=${this.hashKey}&${sorted.map((k) => `${k}=${params[k]}`).join('&')}&HashIV=${this.hashIV}`;
     const urlEncoded = encodeURIComponent(raw)
       .toLowerCase()

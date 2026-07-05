@@ -11,7 +11,8 @@ import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Query, Redirect } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBody } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
@@ -25,7 +26,24 @@ export class EcpayController {
     private readonly ecpayUpdateInvoiceWordStatusService: EcpayUpdateInvoiceWordStatusService,
     private readonly ecpayIssueInvoiceService: EcpayIssueInvoiceService,
     private readonly ordersService: OrdersService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private getSafeRedirectUrl(redirect: string): string {
+    const fallbackUrl = this.configService.getOrThrow<string>('NEXT_URL');
+    const allowedOrigins = [
+      fallbackUrl,
+      this.configService.getOrThrow<string>('NEXT_ADMIN_URL'),
+    ].map((url) => new URL(url).origin);
+
+    try {
+      if (allowedOrigins.includes(new URL(redirect).origin)) return redirect;
+    } catch {
+      // redirect 不是合法 URL，落入 fallback
+    }
+
+    return fallbackUrl;
+  }
 
   @Post()
   @AllowAnonymous()
@@ -45,6 +63,21 @@ export class EcpayController {
     if (result === '1|OK') await this.ordersService.recordPaymentResult(body);
 
     return result;
+  }
+
+  @Post('result')
+  @AllowAnonymous()
+  @ApiBody({ type: ReturnEcpayDto })
+  @Redirect()
+  async result(
+    @Query('redirect') redirect: string,
+    @Body() body: Record<string, string>,
+  ) {
+    const result = this.ecpayBaseService.isCheckMacValueValid(body);
+
+    if (result === '1|OK') await this.ordersService.recordPaymentResult(body);
+
+    return { statusCode: 303, url: this.getSafeRedirectUrl(redirect) };
   }
 
   @Post('get-gov-invoice-word-setting')
