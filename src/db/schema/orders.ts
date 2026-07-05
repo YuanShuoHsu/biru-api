@@ -65,31 +65,31 @@ export const order = pgTable(
   'order',
   {
     id: text('id').primaryKey(),
+    confirmationNumber: text('confirmation_number').unique(),
+    customerEmail: text('customer_email'),
+    customerName: text('customer_name').notNull(),
+    customerNotes: text('customer_notes'),
+    customerPhone: text('customer_phone'),
+    discount: numeric('discount', { precision: 10, scale: 2 }),
+    discountCode: text('discount_code'),
+    discountCurrency: text('discount_currency').default('TWD'),
+    mode: orderModeEnum('mode').notNull(),
+    orderDate: timestamp('order_date').defaultNow().notNull(),
+    orderNumber: text('order_number').notNull(),
+    orderStatus: orderStatusEnum('order_status')
+      .notNull()
+      .default('OrderPaymentDue'),
+    paymentDate: timestamp('payment_date'),
+    paymentDueDate: timestamp('payment_due_date'),
+    paymentMethod: paymentMethodEnum('payment_method').notNull(),
+    paymentMethodId: text('payment_method_id'),
     // https://schema.org/seller
     sellerId: text('seller_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
-    mode: orderModeEnum('mode').notNull(),
-    orderNumber: text('order_number').notNull(),
-    customerName: text('customer_name').notNull(),
-    customerPhone: text('customer_phone'),
-    customerEmail: text('customer_email'),
-    customerNotes: text('customer_notes'),
-    paymentMethod: paymentMethodEnum('payment_method').notNull(),
-    // https://schema.org/paymentMethodId
-    paymentMethodId: text('payment_method_id'),
-    orderStatus: orderStatusEnum('order_status')
-      .notNull()
-      .default('OrderPaymentDue'),
-    confirmationNumber: text('confirmation_number').unique(),
-    orderDate: timestamp('order_date').defaultNow().notNull(),
-    paymentDueDate: timestamp('payment_due_date'),
-    paymentDate: timestamp('payment_date'),
+    // additional fields
     // 綠界交易編號 TradeNo
     tradeNo: text('trade_no'),
-    discount: numeric('discount', { precision: 10, scale: 2 }),
-    discountCurrency: text('discount_currency').default('TWD'),
-    discountCode: text('discount_code'),
     ...timestamps,
   },
   (table) => [
@@ -106,17 +106,17 @@ export const orderItem = pgTable(
   'order_item',
   {
     id: text('id').primaryKey(),
+    addOns: jsonb('add_ons').$type<OrderItemAddOnSnapshot[]>(),
+    menuItemId: text('menu_item_id').notNull(),
+    menuItemName: text('menu_item_name').notNull(),
+    modifiers: jsonb('modifiers').$type<OrderItemModifierSnapshot[]>(),
     orderId: text('order_id')
       .notNull()
       .references(() => order.id, { onDelete: 'cascade' }),
-    menuItemId: text('menu_item_id').notNull(),
-    menuItemName: text('menu_item_name').notNull(),
-    unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
+    orderQuantity: integer('order_quantity').notNull(),
     // https://schema.org/priceCurrency
     priceCurrency: text('price_currency').default('TWD'),
-    orderQuantity: integer('order_quantity').notNull(),
-    modifiers: jsonb('modifiers').$type<OrderItemModifierSnapshot[]>(),
-    addOns: jsonb('add_ons').$type<OrderItemAddOnSnapshot[]>(),
+    unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
     ...timestamps,
   },
   (table) => [index('orderItem_orderId_idx').on(table.orderId)],
