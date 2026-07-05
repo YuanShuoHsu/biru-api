@@ -45,6 +45,14 @@ export const orderStatusEnum = pgEnum('order_status', [
 ]);
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];
 
+// https://schema.org/customer
+export interface OrderCustomerSnapshot {
+  email?: string | null;
+  name: string;
+  remark?: string | null;
+  telephone?: string | null;
+}
+
 export interface OrderItemModifierSnapshot {
   modifierGroupId: string;
   modifierGroupName: string;
@@ -66,10 +74,7 @@ export const order = pgTable(
   {
     id: text('id').primaryKey(),
     confirmationNumber: text('confirmation_number').unique(),
-    customerEmail: text('customer_email'),
-    customerName: text('customer_name').notNull(),
-    customerNotes: text('customer_notes'),
-    customerPhone: text('customer_phone'),
+    customer: jsonb('customer').$type<OrderCustomerSnapshot>().notNull(),
     discount: numeric('discount', { precision: 10, scale: 2 }),
     discountCode: text('discount_code'),
     discountCurrency: text('discount_currency').default('TWD'),

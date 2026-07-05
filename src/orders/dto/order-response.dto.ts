@@ -39,15 +39,20 @@ export class OrderItemResponseDto {
   addOns?: OrderItemAddOnSnapshotDto[] | null;
 }
 
+// https://schema.org/customer
+export class OrderCustomerDto {
+  @ApiPropertyOptional() email?: string | null;
+  @ApiProperty() name: string;
+  @ApiPropertyOptional() remark?: string | null;
+  @ApiPropertyOptional() telephone?: string | null;
+}
+
 export class OrderResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() sellerId: string;
   @ApiProperty({ enum: orderModeEnum.enumValues }) mode: OrderMode;
   @ApiProperty() orderNumber: string;
-  @ApiProperty() customerName: string;
-  @ApiPropertyOptional() customerPhone?: string | null;
-  @ApiPropertyOptional() customerEmail?: string | null;
-  @ApiPropertyOptional() customerNotes?: string | null;
+  @ApiProperty({ type: OrderCustomerDto }) customer: OrderCustomerDto;
   @ApiProperty({ enum: paymentMethodEnum.enumValues })
   paymentMethod: PaymentMethod;
   @ApiPropertyOptional() paymentMethodId?: string | null;

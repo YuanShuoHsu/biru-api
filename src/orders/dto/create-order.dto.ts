@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsEmail,
   IsEnum,
@@ -20,6 +21,11 @@ import {
 } from 'src/db/schema/orders';
 
 export class CreateOrderCustomerDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @ApiProperty()
   @IsString()
   name: string;
@@ -27,17 +33,12 @@ export class CreateOrderCustomerDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  phone?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+  remark?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  notes?: string;
+  telephone?: string;
 }
 
 export class CreateOrderInvoiceDto {
@@ -142,6 +143,7 @@ export class CreateOrderDto {
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];

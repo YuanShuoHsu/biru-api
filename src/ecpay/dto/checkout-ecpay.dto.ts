@@ -17,3 +17,15 @@ export class CheckoutEcpayDto extends PickType(BaseEcpayDto, [
   @IsString()
   orderId: string;
 }
+
+export class CheckoutEcpayResponseDto {
+  @ApiProperty({ description: '綠界結帳端點，前端以 hidden form POST 導向' })
+  action: string;
+
+  @ApiProperty({
+    additionalProperties: { type: 'string' },
+    description: '表單欄位（含 CheckMacValue），逐一放入 hidden input',
+    type: 'object',
+  })
+  fields: Record<string, string>;
+}

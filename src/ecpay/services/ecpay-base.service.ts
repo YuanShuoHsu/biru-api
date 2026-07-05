@@ -1,6 +1,9 @@
 import * as crypto from 'crypto';
 
-import { CheckoutEcpayDto } from '../dto/checkout-ecpay.dto';
+import {
+  CheckoutEcpayDto,
+  CheckoutEcpayResponseDto,
+} from '../dto/checkout-ecpay.dto';
 import { EcpayMode } from '../types/ecpay.types';
 
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
@@ -85,7 +88,7 @@ export class EcpayBaseService {
   aioCheckOutAll(
     order: OrderResponseDto & { confirmationNumber: string },
     base: Omit<CheckoutEcpayDto, 'orderId'>,
-  ): string {
+  ): CheckoutEcpayResponseDto {
     const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
 
     const raw = {
@@ -100,7 +103,7 @@ export class EcpayBaseService {
       MerchantTradeNo: order.confirmationNumber,
       NeedExtraPaidInfo: 'Y',
       PaymentType: 'aio',
-      ...(order.customerNotes && { Remark: order.customerNotes }),
+      ...(order.customer.remark && { Remark: order.customer.remark }),
       ReturnURL: this.returnUrl,
       TotalAmount: Math.round(
         order.items.reduce(
@@ -114,14 +117,7 @@ export class EcpayBaseService {
     const payload = toStringRecord(raw);
     payload.CheckMacValue = this.generateCheckMacValue(payload);
 
-    const inputs = Object.entries(payload)
-      .map(([k, v]) => `<input type="hidden" name="${k}" value="${v}" />`)
-      .join('\n');
-
-    return `<form id="ecpayForm" method="POST" action="${this.apiUrl}">
-    ${inputs}
-    </form>
-    <script>document.getElementById('ecpayForm').submit();</script>`;
+    return { action: this.apiUrl, fields: payload };
   }
 
   isCheckMacValueValid({

@@ -1,3 +1,5 @@
+import { randomBytes, randomUUID } from 'crypto';
+
 import {
   BadRequestException,
   Inject,
@@ -7,8 +9,12 @@ import {
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
-import { menuItem, modifier, offer } from 'src/db/schema/menus';
-import { order, orderItem } from 'src/db/schema/orders';
+import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
+import {
+  order,
+  orderItem,
+  type OrderItemModifierSnapshot,
+} from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -16,40 +22,46 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type {
   CreateOrderDto,
   CreateOrderItemAddOnDto,
-  CreateOrderItemDto,
 } from './dto/create-order.dto';
 import type { OrderResponseDto } from './dto/order-response.dto';
 
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
 
-const generateId = (): string =>
-  Math.random().toString(36).slice(2) + Date.now().toString(36);
+const dateStamp = (): string =>
+  new Date(Date.now() + 8 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+    .replace(/-/g, '');
 
-const generateOrderNumber = (): string => {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${date}-${random}`;
-};
+const generateOrderNumber = (): string =>
+  `${dateStamp()}-${randomBytes(2).toString('hex').toUpperCase()}`;
 
-const generateConfirmationNumber = (): string => {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `ORD${date}${random}`;
-};
+const generateConfirmationNumber = (): string =>
+  `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
+
+const sumModifierAdjustments = (
+  modifiers: OrderItemModifierSnapshot[],
+): number =>
+  modifiers.reduce((sum, mod) => sum + Number(mod.priceAdjustment ?? 0), 0);
 
 @Injectable()
 export class OrdersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
+  private async getOrgBySlug(slug: string) {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, slug),
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    return org;
+  }
+
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
   ): Promise<OrderResponseDto> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-    });
-    if (!org) throw new NotFoundException('Organization not found');
+    const org = await this.getOrgBySlug(organizationSlug);
 
     const allMenuItemIds = [
       ...new Set([
@@ -67,9 +79,13 @@ export class OrdersService {
       ]),
     ];
 
-    const [menuItems, modifiers, offers] = await Promise.all([
+    const [orgMenu, menuItems, modifiers, offers] = await Promise.all([
+      this.db.query.menu.findFirst({
+        where: eq(menu.organizationId, org.id),
+      }),
       this.db.query.menuItem.findMany({
         where: inArray(menuItem.id, allMenuItemIds),
+        with: { menuSection: { with: { parentSection: true } } },
       }),
       allModifierIds.length > 0
         ? this.db.query.modifier.findMany({
@@ -81,15 +97,44 @@ export class OrdersService {
         where: inArray(offer.menuItemId, allMenuItemIds),
       }),
     ]);
+    if (!orgMenu) throw new NotFoundException('Menu not found');
 
-    const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
-    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+    const menuItemMap = new Map(
+      menuItems
+        .filter(
+          (m) =>
+            m.menuId === orgMenu.id ||
+            m.menuSection?.menuId === orgMenu.id ||
+            m.menuSection?.parentSection?.menuId === orgMenu.id,
+        )
+        .map((m) => [m.id, m]),
+    );
+    const modifierMap = new Map<string, (typeof modifiers)[number]>();
+    for (const m of modifiers) {
+      if (m.modifierGroup?.menuId === orgMenu.id) modifierMap.set(m.id, m);
+    }
     const offerMap = new Map<string, (typeof offers)[number]>();
     for (const o of offers) {
       if (o.menuItemId && !offerMap.has(o.menuItemId)) {
         offerMap.set(o.menuItemId, o);
       }
     }
+
+    const getMenuItem = (menuItemId: string) => {
+      const item = menuItemMap.get(menuItemId);
+      if (!item)
+        throw new BadRequestException(`MenuItem ${menuItemId} not found`);
+      return item;
+    };
+
+    const getOfferPrice = (menuItemId: string): string => {
+      const price = offerMap.get(menuItemId)?.price;
+      if (!price)
+        throw new BadRequestException(
+          `MenuItem ${menuItemId} has no offer price`,
+        );
+      return price;
+    };
 
     const resolveModifierSnapshots = (
       modifiersInput: Record<string, string[]>,
@@ -110,108 +155,77 @@ export class OrdersService {
         });
 
     const resolveAddOnSnapshot = (addOn: CreateOrderItemAddOnDto) => {
-      const item = menuItemMap.get(addOn.menuItemId);
-      if (!item)
-        throw new BadRequestException(
-          `Add-on menuItem ${addOn.menuItemId} not found`,
-        );
-      const itemOffer = offerMap.get(addOn.menuItemId);
+      const item = getMenuItem(addOn.menuItemId);
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        unitPrice: itemOffer?.price ?? '0',
+        unitPrice: getOfferPrice(addOn.menuItemId),
         modifiers: resolveModifierSnapshots(addOn.modifiers),
       };
     };
 
-    const resolveUnitPrice = (cartItem: CreateOrderItemDto): string => {
-      const basePrice = Number(offerMap.get(cartItem.menuItemId)?.price ?? 0);
+    const orderItemsData = dto.items.map((cartItem) => {
+      const item = getMenuItem(cartItem.menuItemId);
+      const itemModifiers = resolveModifierSnapshots(cartItem.modifiers);
+      const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
 
-      const modifierTotal = Object.values(cartItem.modifiers)
-        .flat()
-        .reduce(
-          (sum, modId) =>
-            sum + Number(modifierMap.get(modId)?.priceAdjustment ?? 0),
+      const unitPrice =
+        Number(getOfferPrice(cartItem.menuItemId)) +
+        sumModifierAdjustments(itemModifiers) +
+        addOns.reduce(
+          (sum, addOn) =>
+            sum +
+            Number(addOn.unitPrice) +
+            sumModifierAdjustments(addOn.modifiers),
           0,
         );
 
-      const addOnTotal = cartItem.addOns.reduce((sum, addOn) => {
-        const addOnPrice = Number(offerMap.get(addOn.menuItemId)?.price ?? 0);
-        const addOnModTotal = Object.values(addOn.modifiers)
-          .flat()
-          .reduce(
-            (s, modId) =>
-              s + Number(modifierMap.get(modId)?.priceAdjustment ?? 0),
-            0,
-          );
-        return sum + addOnPrice + addOnModTotal;
-      }, 0);
-
-      return (basePrice + modifierTotal + addOnTotal).toFixed(2);
-    };
-
-    const orderItemsData = dto.items.map((cartItem) => {
-      const item = menuItemMap.get(cartItem.menuItemId);
-      if (!item)
-        throw new BadRequestException(
-          `MenuItem ${cartItem.menuItemId} not found`,
-        );
-
       return {
-        id: generateId(),
+        id: randomUUID(),
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        unitPrice: resolveUnitPrice(cartItem),
+        unitPrice: unitPrice.toFixed(2),
         priceCurrency:
           offerMap.get(cartItem.menuItemId)?.priceCurrency ?? 'TWD',
         orderQuantity: cartItem.quantity,
-        modifiers: resolveModifierSnapshots(cartItem.modifiers),
-        addOns: cartItem.addOns.map(resolveAddOnSnapshot),
+        modifiers: itemModifiers,
+        addOns,
       };
     });
 
-    const orderId = generateId();
+    const orderId = randomUUID();
     const confirmationNumber =
       dto.payment !== 'Cash' ? generateConfirmationNumber() : null;
 
-    await this.db.transaction(async (tx) => {
-      await tx.insert(order).values({
-        id: orderId,
-        sellerId: org.id,
-        mode: dto.mode,
-        orderNumber: generateOrderNumber(),
-        customerName: dto.customer.name,
-        customerPhone: dto.customer.phone,
-        customerEmail: dto.customer.email,
-        customerNotes: dto.customer.notes,
-        paymentMethod: dto.payment,
-        orderStatus: 'OrderPaymentDue',
-        confirmationNumber,
-      });
+    return this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(order)
+        .values({
+          id: orderId,
+          sellerId: org.id,
+          mode: dto.mode,
+          orderNumber: generateOrderNumber(),
+          customer: dto.customer,
+          paymentMethod: dto.payment,
+          orderStatus: 'OrderPaymentDue',
+          confirmationNumber,
+        })
+        .returning();
 
-      if (orderItemsData.length > 0) {
-        await tx
-          .insert(orderItem)
-          .values(orderItemsData.map((i) => ({ ...i, orderId })));
-      }
+      const items = await tx
+        .insert(orderItem)
+        .values(orderItemsData.map((i) => ({ ...i, orderId })))
+        .returning();
+
+      return { ...created, items };
     });
-
-    const created = await this.db.query.order.findFirst({
-      where: eq(order.id, orderId),
-      with: { items: true },
-    });
-
-    return { ...created!, items: created!.items };
   }
 
   async getOrder(
     organizationSlug: string,
     orderId: string,
   ): Promise<OrderResponseDto> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-    });
-    if (!org) throw new NotFoundException('Organization not found');
+    const org = await this.getOrgBySlug(organizationSlug);
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -255,6 +269,11 @@ export class OrdersService {
         paymentMethodId: body.card4no || undefined,
         tradeNo: body.TradeNo,
       })
-      .where(eq(order.confirmationNumber, body.MerchantTradeNo));
+      .where(
+        and(
+          eq(order.confirmationNumber, body.MerchantTradeNo),
+          eq(order.orderStatus, 'OrderPaymentDue'),
+        ),
+      );
   }
 }

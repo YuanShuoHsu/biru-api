@@ -1,4 +1,7 @@
-import { CheckoutEcpayDto } from './dto/checkout-ecpay.dto';
+import {
+  CheckoutEcpayDto,
+  CheckoutEcpayResponseDto,
+} from './dto/checkout-ecpay.dto';
 import { IssueInvoiceEcpayDecryptedRequestDto } from './dto/issue-invoice-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
 
@@ -13,7 +16,7 @@ import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-inv
 
 import { Body, Controller, Post, Query, Redirect } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiBody } from '@nestjs/swagger';
+import { ApiBody, ApiCreatedResponse } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('ecpay')
@@ -47,6 +50,7 @@ export class EcpayController {
 
   @Post()
   @AllowAnonymous()
+  @ApiCreatedResponse({ type: CheckoutEcpayResponseDto })
   async checkout(@Body() dto: CheckoutEcpayDto) {
     const { orderId, ...base } = dto;
     const order = await this.ordersService.getPayableOrder(orderId);
