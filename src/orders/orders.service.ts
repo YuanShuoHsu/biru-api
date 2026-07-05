@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, count, eq, gte, inArray } from 'drizzle-orm';
 import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
 import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
 import {
@@ -34,8 +34,13 @@ const dateStamp = (): string =>
     .slice(0, 10)
     .replace(/-/g, '');
 
-const generateOrderNumber = (): string =>
-  `${dateStamp()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+const startOfToday = (): Date => {
+  const stamp = dateStamp();
+
+  return new Date(
+    `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T00:00:00+08:00`,
+  );
+};
 
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
@@ -194,17 +199,29 @@ export class OrdersService {
     });
 
     const orderId = randomUUID();
-    const confirmationNumber =
-      dto.payment !== 'Cash' ? generateConfirmationNumber() : null;
+    const confirmationNumber = generateConfirmationNumber();
 
     return this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, org.id))
+        .for('update');
+
+      const [{ value: todayCount }] = await tx
+        .select({ value: count() })
+        .from(order)
+        .where(
+          and(eq(order.sellerId, org.id), gte(order.createdAt, startOfToday())),
+        );
+
       const [created] = await tx
         .insert(order)
         .values({
           id: orderId,
           sellerId: org.id,
           mode: dto.mode,
-          orderNumber: generateOrderNumber(),
+          orderNumber: String(todayCount + 1),
           customer: dto.customer,
           paymentMethod: dto.payment,
           orderStatus: 'OrderPaymentDue',
@@ -246,7 +263,7 @@ export class OrdersService {
     if (!found) throw new NotFoundException('Order not found');
 
     const { confirmationNumber } = found;
-    if (!confirmationNumber)
+    if (found.paymentMethod === 'Cash' || !confirmationNumber)
       throw new BadRequestException('Order does not require online payment');
     if (found.orderStatus !== 'OrderPaymentDue')
       throw new BadRequestException('Order is not awaiting payment');

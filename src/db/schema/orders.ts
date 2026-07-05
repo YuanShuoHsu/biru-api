@@ -99,6 +99,7 @@ export const order = pgTable(
   },
   (table) => [
     index('order_sellerId_idx').on(table.sellerId),
+    index('order_sellerId_createdAt_idx').on(table.sellerId, table.createdAt),
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
   ],
