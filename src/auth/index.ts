@@ -235,11 +235,11 @@ export const createAuth = (mailsService: MailsService) =>
           type: 'string',
           required: false,
         },
-        // 未來物流可能需要 https://better-auth.com/docs/plugins/phone-number
-        // phoneNumber: {
-        //   type: 'string',
-        //   required: true,
-        // },
+        // 未來物流需要 https://better-auth.com/docs/plugins/phone-number
+        phoneNumber: {
+          type: 'string',
+          required: false,
+        },
         // phoneNumberVerified: {
         //   type: 'boolean',
         //   required: true,

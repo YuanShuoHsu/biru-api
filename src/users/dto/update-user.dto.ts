@@ -60,8 +60,8 @@ export class UpdateUserDto {
   lastName?: string;
 
   @ApiProperty({
-    description: '聯絡電話（不含國碼）',
-    example: '0123456789',
+    description: '聯絡電話（E.164 格式）',
+    example: '+886912345678',
   })
   @IsNotEmpty()
   @IsOptional()

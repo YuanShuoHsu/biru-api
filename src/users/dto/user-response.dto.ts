@@ -76,8 +76,8 @@ export class UserResponseDto {
   })
   lastName?: string | null;
 
-  // @ApiProperty({ description: '電話（不含國碼）', example: '0123456789' })
-  // phoneNumber: string | null;
+  @ApiProperty({ description: '電話（E.164 格式）', example: '+886912345678' })
+  phoneNumber?: string | null;
 
   // @ApiProperty({ description: '是否已驗證電話', example: false })
   // phoneNumberVerified: boolean;

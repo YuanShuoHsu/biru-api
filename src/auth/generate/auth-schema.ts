@@ -1,10 +1,10 @@
 import { relations } from 'drizzle-orm';
 import {
-  boolean,
-  index,
   pgTable,
   text,
   timestamp,
+  boolean,
+  index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -23,12 +23,14 @@ export const user = pgTable('user', {
   banned: boolean('banned').default(false),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires'),
+  bio: text('bio'),
   emailSubscribed: boolean('email_subscribed').default(true).notNull(),
   firstName: text('first_name').notNull(),
   lang: text('lang', { enum: ['en', 'ja', 'ko', 'zh-CN', 'zh-TW'] })
     .default('zh-TW')
     .notNull(),
   lastName: text('last_name'),
+  phoneNumber: text('phone_number'),
 });
 
 export const session = pgTable(

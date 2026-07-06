@@ -97,10 +97,10 @@ export const auth = betterAuth({
         type: 'string',
         required: false,
       },
-      // phoneNumber: {
-      //   type: 'string',
-      //   required: true,
-      // },
+      phoneNumber: {
+        type: 'string',
+        required: false,
+      },
       // phoneNumberVerified: {
       //   type: 'boolean',
       //   required: true,
