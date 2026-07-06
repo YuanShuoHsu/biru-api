@@ -9,16 +9,8 @@ import {
   desc,
   eq,
   getTableColumns,
-  gt,
-  gte,
   ilike,
   inArray,
-  isNotNull,
-  isNull,
-  lt,
-  lte,
-  ne,
-  notIlike,
   or,
   sql,
 } from 'drizzle-orm';
@@ -50,6 +42,11 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
+  buildFilterCondition,
+  buildStringFilterCondition,
+} from 'src/common/utils/data-grid-filters';
+
+import {
   ADD_ON_DATE_FILTER_FIELDS,
   ADD_ON_STRING_FILTER_FIELDS,
   type AddOnPaginationQueryDto,
@@ -78,99 +75,6 @@ import type { UpdateMenuDto } from './dto/update-menu.dto';
 import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import type { UpdateModifierDto } from './dto/update-modifier.dto';
 import type { UpdateOfferDto } from './dto/update-offer.dto';
-
-const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
-
-const buildStringFilterCondition = (
-  column: Column | SQL,
-  operator: string,
-  value: string,
-): SQL | undefined => {
-  const colSql = sql`${column}`;
-
-  switch (operator) {
-    case 'contains':
-      return ilike(colSql, `%${value}%`);
-    case 'doesNotContain':
-      return notIlike(colSql, `%${value}%`);
-    case 'equals':
-      return eq(colSql, value);
-    case 'doesNotEqual':
-      return ne(colSql, value);
-    case 'startsWith':
-      return ilike(colSql, `${value}%`);
-    case 'endsWith':
-      return ilike(colSql, `%${value}`);
-    case 'isEmpty':
-      return or(isNull(colSql), eq(colSql, ''));
-    case 'isNotEmpty':
-      return and(isNotNull(colSql), ne(colSql, ''));
-    case 'isAnyOf': {
-      const values = value.split(',').filter(Boolean);
-      if (values.length === 0) return undefined;
-
-      return values.length === 1
-        ? eq(colSql, values[0])
-        : inArray(colSql, values);
-    }
-  }
-};
-
-const buildDateFilterCondition = (
-  column: Column | SQL,
-  operator: string,
-  value: string,
-): SQL | undefined => {
-  const colSql = sql`${column}`;
-
-  if (operator === 'isEmpty') return isNull(colSql);
-  if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
-
-  const dateCast = sql`${colSql}::date`;
-
-  switch (operator) {
-    case 'is':
-      return eq(dateCast, value);
-    case 'not':
-      return ne(dateCast, value);
-    case 'after':
-      return gt(dateCast, value);
-    case 'onOrAfter':
-      return gte(dateCast, value);
-    case 'before':
-      return lt(dateCast, value);
-    case 'onOrBefore':
-      return lte(dateCast, value);
-  }
-};
-
-const buildFilterCondition = (
-  filterField: string,
-  filterOperator: string,
-  filterValue: string | undefined,
-  fieldMap: Record<string, Column | SQL>,
-  stringFields: readonly string[],
-  dateFields: readonly string[],
-): SQL | undefined => {
-  const column = fieldMap[filterField];
-  if (!column) return undefined;
-
-  if (stringFields.includes(filterField)) {
-    if (!filterValue && !NO_VALUE_OPERATORS.includes(filterOperator))
-      return undefined;
-
-    return buildStringFilterCondition(
-      column,
-      filterOperator,
-      filterValue || '',
-    );
-  }
-
-  if (dateFields.includes(filterField)) {
-    return buildDateFilterCondition(column, filterOperator, filterValue || '');
-  }
-};
 
 @Injectable()
 export class MenusService {

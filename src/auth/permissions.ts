@@ -9,6 +9,7 @@ import {
 const statement = {
   ...defaultStatements,
   menu: ['create', 'update', 'delete', 'read'],
+  order: ['read'],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -16,14 +17,17 @@ export const ac = createAccessControl(statement);
 export const owner = ac.newRole({
   ...ownerAc.statements,
   menu: ['create', 'update', 'delete', 'read'],
+  order: ['read'],
 });
 
 export const admin = ac.newRole({
   ...adminAc.statements,
   menu: ['create', 'update', 'delete', 'read'],
+  order: ['read'],
 });
 
 export const member = ac.newRole({
   ...memberAc.statements,
   menu: ['read'],
+  order: ['read'],
 });

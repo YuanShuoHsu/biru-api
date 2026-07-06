@@ -7,7 +7,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, count, eq, gte, inArray } from 'drizzle-orm';
+import {
+  Column,
+  SQL,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
 import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
 import {
@@ -19,10 +32,18 @@ import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
+
 import type {
   CreateOrderDto,
   CreateOrderItemAddOnDto,
 } from './dto/create-order.dto';
+import {
+  ORDER_DATE_FILTER_FIELDS,
+  ORDER_ENUM_FILTER_FIELDS,
+  ORDER_STRING_FILTER_FIELDS,
+  type OrderPaginationQueryDto,
+} from './dto/order-pagination-query.dto';
 import type { OrderResponseDto } from './dto/order-response.dto';
 
 const getName = (text: LocalizedText | null | undefined): string =>
@@ -236,6 +257,80 @@ export class OrdersService {
 
       return { ...created, items };
     });
+  }
+
+  async listOrders(
+    organizationSlug: string,
+    query: OrderPaginationQueryDto = {},
+  ): Promise<{ data: OrderResponseDto[]; total: number }> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+      timezone = 'UTC',
+    } = query;
+
+    const orderFieldMap: Record<string, Column | SQL> = {
+      orderNumber: order.orderNumber,
+      confirmationNumber: order.confirmationNumber,
+      customerName: sql`${order.customer}->>'name'`,
+      mode: sql`${order.mode}::text`,
+      paymentMethod: sql`${order.paymentMethod}::text`,
+      orderStatus: sql`${order.orderStatus}::text`,
+      paymentDate: order.paymentDate,
+      createdAt: order.createdAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] = sortBy
+      ? [dir(orderFieldMap[sortBy]), desc(order.createdAt)]
+      : [desc(order.createdAt)];
+
+    const where = and(
+      eq(order.sellerId, org.id),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            orderFieldMap,
+            ORDER_STRING_FILTER_FIELDS,
+            ORDER_DATE_FILTER_FIELDS,
+            ORDER_ENUM_FILTER_FIELDS,
+          )
+        : undefined,
+      quickFilterValue
+        ? or(
+            ilike(order.orderNumber, `%${quickFilterValue}%`),
+            ilike(sql`${order.confirmationNumber}`, `%${quickFilterValue}%`),
+            ilike(sql`${order.customer}->>'name'`, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${order.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db.query.order.findMany({
+        where,
+        orderBy,
+        limit,
+        offset,
+        with: { items: true },
+      }),
+      this.db.select({ total: count() }).from(order).where(where),
+    ]);
+
+    return { data, total };
   }
 
   async getOrder(

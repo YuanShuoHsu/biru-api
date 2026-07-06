@@ -25,7 +25,7 @@ import {
   modifierGroup,
   offer,
 } from 'src/db/schema/menus';
-import { member } from 'src/db/schema/organizations';
+import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -92,6 +92,15 @@ export class RolesGuard implements CanActivate {
     switch (organizationParam) {
       case 'organizationId':
         return params.organizationId;
+
+      case 'organizationSlug': {
+        const row = await this.db.query.organization.findFirst({
+          where: eq(organization.slug, params.organizationSlug),
+          columns: { id: true },
+        });
+
+        return row?.id;
+      }
 
       case 'menuId': {
         const row = await this.db.query.menu.findFirst({

@@ -4,6 +4,7 @@ export const ROLES_KEY = 'roles';
 
 export type OrganizationParam =
   | 'organizationId'
+  | 'organizationSlug'
   | 'menuId'
   | 'sectionId'
   | 'menuItemId'
