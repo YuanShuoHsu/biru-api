@@ -13,6 +13,7 @@ import {
 import { timestamps } from './columns.helpers';
 import { invoice } from './invoices';
 import { organization } from './organizations';
+import { user } from './users';
 
 export const orderModeEnum = pgEnum('order_mode', [
   'counter',
@@ -95,6 +96,10 @@ export const order = pgTable(
     // additional fields
     // 綠界交易編號 TradeNo
     tradeNo: text('trade_no'),
+    // https://schema.org/customer
+    userId: text('user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     ...timestamps,
   },
   (table) => [
@@ -102,6 +107,7 @@ export const order = pgTable(
     index('order_sellerId_createdAt_idx').on(table.sellerId, table.createdAt),
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
+    index('order_userId_createdAt_idx').on(table.userId, table.createdAt),
   ],
 );
 
@@ -134,6 +140,10 @@ export const orderRelations = relations(order, ({ one, many }) => ({
   seller: one(organization, {
     fields: [order.sellerId],
     references: [organization.id],
+  }),
+  user: one(user, {
+    fields: [order.userId],
+    references: [user.id],
   }),
   invoice: one(invoice, {
     fields: [order.id],

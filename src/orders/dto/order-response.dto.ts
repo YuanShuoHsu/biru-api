@@ -28,6 +28,7 @@ export class OrderItemAddOnSnapshotDto {
 
 export class OrderItemResponseDto {
   @ApiProperty() id: string;
+  @ApiProperty() orderId: string;
   @ApiProperty() menuItemId: string;
   @ApiProperty() menuItemName: string;
   @ApiProperty() unitPrice: string;
@@ -37,6 +38,8 @@ export class OrderItemResponseDto {
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })
   addOns?: OrderItemAddOnSnapshotDto[] | null;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
 }
 
 // https://schema.org/customer
@@ -50,6 +53,7 @@ export class OrderCustomerDto {
 export class OrderResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() sellerId: string;
+  @ApiPropertyOptional() userId?: string | null;
   @ApiProperty({ enum: orderModeEnum.enumValues }) mode: OrderMode;
   @ApiProperty() orderNumber: string;
   @ApiProperty({ type: OrderCustomerDto }) customer: OrderCustomerDto;
@@ -58,12 +62,33 @@ export class OrderResponseDto {
   @ApiPropertyOptional() paymentMethodId?: string | null;
   @ApiProperty({ enum: orderStatusEnum.enumValues }) orderStatus: OrderStatus;
   @ApiPropertyOptional() confirmationNumber?: string | null;
+  @ApiProperty() orderDate: Date;
   @ApiPropertyOptional() paymentDate?: Date | null;
+  @ApiPropertyOptional() paymentDueDate?: Date | null;
   @ApiPropertyOptional() tradeNo?: string | null;
   @ApiPropertyOptional() discount?: string | null;
   @ApiPropertyOptional() discountCode?: string | null;
+  @ApiPropertyOptional() discountCurrency?: string | null;
   @ApiPropertyOptional() invoice?: Invoice | null;
   @ApiProperty({ type: [OrderItemResponseDto] }) items: OrderItemResponseDto[];
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+}
+
+// https://schema.org/seller
+export class OrderSellerDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() slug: string;
+  @ApiPropertyOptional() logo?: string | null;
+  @ApiPropertyOptional() addressCountry?: string | null;
+}
+
+export class UserOrderResponseDto extends OrderResponseDto {
+  @ApiProperty({ type: OrderSellerDto }) seller: OrderSellerDto;
+}
+
+export class UserOrderListResponseDto {
+  @ApiProperty({ type: [UserOrderResponseDto] }) data: UserOrderResponseDto[];
+  @ApiProperty() total: number;
 }

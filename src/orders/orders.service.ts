@@ -44,7 +44,11 @@ import {
   ORDER_STRING_FILTER_FIELDS,
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto';
-import type { OrderResponseDto } from './dto/order-response.dto';
+import type {
+  OrderResponseDto,
+  UserOrderResponseDto,
+} from './dto/order-response.dto';
+import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
@@ -86,6 +90,7 @@ export class OrdersService {
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
+    userId: string | null,
   ): Promise<OrderResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -247,6 +252,7 @@ export class OrdersService {
           paymentMethod: dto.payment,
           orderStatus: 'OrderPaymentDue',
           confirmationNumber,
+          userId,
         })
         .returning();
 
@@ -326,6 +332,39 @@ export class OrdersService {
         limit,
         offset,
         with: { items: true },
+      }),
+      this.db.select({ total: count() }).from(order).where(where),
+    ]);
+
+    return { data, total };
+  }
+
+  async listUserOrders(
+    userId: string,
+    query: UserOrderPaginationQueryDto = {},
+  ): Promise<{ data: UserOrderResponseDto[]; total: number }> {
+    const { limit = 10, offset = 0 } = query;
+
+    const where = eq(order.userId, userId);
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db.query.order.findMany({
+        where,
+        orderBy: [desc(order.createdAt)],
+        limit,
+        offset,
+        with: {
+          items: true,
+          seller: {
+            columns: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              addressCountry: true,
+            },
+          },
+        },
       }),
       this.db.select({ total: count() }).from(order).where(where),
     ]);

@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import {
+  AllowAnonymous,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth';
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
@@ -20,8 +24,13 @@ export class OrdersController {
   create(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateOrderDto,
+    @Session() session: UserSession | null,
   ): Promise<OrderResponseDto> {
-    return this.ordersService.createOrder(organizationSlug, dto);
+    return this.ordersService.createOrder(
+      organizationSlug,
+      dto,
+      session?.user.id || null,
+    );
   }
 
   @Get()
