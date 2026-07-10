@@ -7,6 +7,7 @@ import {
 import { EcpayMode } from '../types/ecpay.types';
 
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
+import { sumOrderItems } from '../../common/utils/order-items';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -105,13 +106,9 @@ export class EcpayBaseService {
       PaymentType: 'aio',
       ...(order.customer.remark && { Remark: order.customer.remark }),
       ReturnURL: this.returnUrl,
-      TotalAmount: Math.round(
-        order.items.reduce(
-          (sum, { orderQuantity, unitPrice }) =>
-            sum + Number(unitPrice) * orderQuantity,
-          0,
-        ),
-      ),
+      TotalAmount:
+        Math.round(sumOrderItems(order.items)) -
+        Math.round(Number(order.discount || 0)),
     };
 
     const payload = toStringRecord(raw);

@@ -208,10 +208,10 @@ export const createAuth = (mailsService: MailsService) =>
           type: 'string',
           required: false,
         },
-        // birthDate: {
-        //   type: 'date',
-        //   required: true,
-        // },
+        birthDate: {
+          type: 'date',
+          required: false,
+        },
         emailSubscribed: {
           type: 'boolean',
           required: true,

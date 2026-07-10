@@ -135,6 +135,11 @@ export class CreateOrderDto {
   @IsEnum(paymentMethodEnum.enumValues)
   payment: PaymentMethod;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  discountCode?: string;
+
   @ApiPropertyOptional({ type: CreateOrderInvoiceDto })
   @IsOptional()
   @ValidateNested()

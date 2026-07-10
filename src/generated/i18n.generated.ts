@@ -6,6 +6,17 @@ import type { Path } from "nestjs-i18n";
 /* prettier-ignore */
 export type I18nTranslations = {
     "common": {
+        "coupons": {
+            "alreadyClaimed": string;
+            "expired": string;
+            "memberOnly": string;
+            "minSubtotal": string;
+            "notApplicable": string;
+            "notFound": string;
+            "notYetValid": string;
+            "perUserLimitReached": string;
+            "usedUp": string;
+        };
         "exceptions": {
             "internalServerError": string;
             "tooManyRequests": string;

@@ -17,27 +17,19 @@ import {
   eq,
   gte,
   ilike,
-  inArray,
   or,
   sql,
 } from 'drizzle-orm';
-import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
-import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
-import {
-  order,
-  orderItem,
-  type OrderItemModifierSnapshot,
-} from 'src/db/schema/orders';
+import { order, orderItem } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
+import { sumOrderItems } from 'src/common/utils/order-items';
+import { CouponsService } from 'src/coupons/coupons.service';
 
-import type {
-  CreateOrderDto,
-  CreateOrderItemAddOnDto,
-} from './dto/create-order.dto';
+import type { CreateOrderDto } from './dto/create-order.dto';
 import {
   ORDER_DATE_FILTER_FIELDS,
   ORDER_ENUM_FILTER_FIELDS,
@@ -50,8 +42,7 @@ import type {
 } from './dto/order-response.dto';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
-const getName = (text: LocalizedText | null | undefined): string =>
-  text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
+import { OrderPricingService } from './order-pricing.service';
 
 const dateStamp = (): string =>
   new Date(Date.now() + 8 * 60 * 60 * 1000)
@@ -70,14 +61,13 @@ const startOfToday = (): Date => {
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
 
-const sumModifierAdjustments = (
-  modifiers: OrderItemModifierSnapshot[],
-): number =>
-  modifiers.reduce((sum, mod) => sum + Number(mod.priceAdjustment ?? 0), 0);
-
 @Injectable()
 export class OrdersService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly couponsService: CouponsService,
+    private readonly orderPricingService: OrderPricingService,
+  ) {}
 
   private async getOrgBySlug(slug: string) {
     const org = await this.db.query.organization.findFirst({
@@ -94,135 +84,21 @@ export class OrdersService {
   ): Promise<OrderResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const allMenuItemIds = [
-      ...new Set([
-        ...dto.items.map((i) => i.menuItemId),
-        ...dto.items.flatMap((i) => i.addOns.map((a) => a.menuItemId)),
-      ]),
-    ];
-
-    const allModifierIds = [
-      ...new Set([
-        ...dto.items.flatMap((i) => Object.values(i.modifiers).flat()),
-        ...dto.items.flatMap((i) =>
-          i.addOns.flatMap((a) => Object.values(a.modifiers).flat()),
-        ),
-      ]),
-    ];
-
-    const [orgMenu, menuItems, modifiers, offers] = await Promise.all([
-      this.db.query.menu.findFirst({
-        where: eq(menu.organizationId, org.id),
-      }),
-      this.db.query.menuItem.findMany({
-        where: inArray(menuItem.id, allMenuItemIds),
-        with: { menuSection: { with: { parentSection: true } } },
-      }),
-      allModifierIds.length > 0
-        ? this.db.query.modifier.findMany({
-            where: inArray(modifier.id, allModifierIds),
-            with: { modifierGroup: true },
-          })
-        : Promise.resolve([]),
-      this.db.query.offer.findMany({
-        where: inArray(offer.menuItemId, allMenuItemIds),
-      }),
-    ]);
-    if (!orgMenu) throw new NotFoundException('Menu not found');
-
-    const menuItemMap = new Map(
-      menuItems
-        .filter(
-          (m) =>
-            m.menuId === orgMenu.id ||
-            m.menuSection?.menuId === orgMenu.id ||
-            m.menuSection?.parentSection?.menuId === orgMenu.id,
-        )
-        .map((m) => [m.id, m]),
+    const orderItemsData = await this.orderPricingService.resolveOrderItems(
+      org.id,
+      dto.items,
     );
-    const modifierMap = new Map<string, (typeof modifiers)[number]>();
-    for (const m of modifiers) {
-      if (m.modifierGroup?.menuId === orgMenu.id) modifierMap.set(m.id, m);
-    }
-    const offerMap = new Map<string, (typeof offers)[number]>();
-    for (const o of offers) {
-      if (o.menuItemId && !offerMap.has(o.menuItemId)) {
-        offerMap.set(o.menuItemId, o);
-      }
-    }
 
-    const getMenuItem = (menuItemId: string) => {
-      const item = menuItemMap.get(menuItemId);
-      if (!item)
-        throw new BadRequestException(`MenuItem ${menuItemId} not found`);
-      return item;
-    };
-
-    const getOfferPrice = (menuItemId: string): string => {
-      const price = offerMap.get(menuItemId)?.price;
-      if (!price)
-        throw new BadRequestException(
-          `MenuItem ${menuItemId} has no offer price`,
-        );
-      return price;
-    };
-
-    const resolveModifierSnapshots = (
-      modifiersInput: Record<string, string[]>,
-    ) =>
-      Object.values(modifiersInput)
-        .flat()
-        .map((modId) => {
-          const mod = modifierMap.get(modId);
-          if (!mod)
-            throw new BadRequestException(`Modifier ${modId} not found`);
-          return {
-            modifierGroupId: mod.modifierGroupId,
-            modifierGroupName: getName(mod.modifierGroup?.displayName),
-            modifierId: mod.id,
-            modifierName: getName(mod.displayName),
-            priceAdjustment: mod.priceAdjustment,
-          };
-        });
-
-    const resolveAddOnSnapshot = (addOn: CreateOrderItemAddOnDto) => {
-      const item = getMenuItem(addOn.menuItemId);
-      return {
-        menuItemId: item.id,
-        menuItemName: getName(item.name),
-        unitPrice: getOfferPrice(addOn.menuItemId),
-        modifiers: resolveModifierSnapshots(addOn.modifiers),
-      };
-    };
-
-    const orderItemsData = dto.items.map((cartItem) => {
-      const item = getMenuItem(cartItem.menuItemId);
-      const itemModifiers = resolveModifierSnapshots(cartItem.modifiers);
-      const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
-
-      const unitPrice =
-        Number(getOfferPrice(cartItem.menuItemId)) +
-        sumModifierAdjustments(itemModifiers) +
-        addOns.reduce(
-          (sum, addOn) =>
-            sum +
-            Number(addOn.unitPrice) +
-            sumModifierAdjustments(addOn.modifiers),
-          0,
-        );
-
-      return {
-        id: randomUUID(),
-        menuItemId: item.id,
-        menuItemName: getName(item.name),
-        unitPrice: unitPrice.toFixed(2),
-        priceCurrency:
-          offerMap.get(cartItem.menuItemId)?.priceCurrency ?? 'TWD',
-        orderQuantity: cartItem.quantity,
-        modifiers: itemModifiers,
-        addOns,
-      };
-    });
+    const subtotal = Math.round(sumOrderItems(orderItemsData));
+    const applied = dto.discountCode
+      ? await this.couponsService.getApplicableCoupon(
+          org.id,
+          dto.discountCode,
+          orderItemsData,
+          userId,
+        )
+      : null;
+    const total = subtotal - (applied?.discount ?? 0);
 
     const orderId = randomUUID();
     const confirmationNumber = generateConfirmationNumber();
@@ -253,12 +129,39 @@ export class OrdersService {
           orderStatus: 'OrderPaymentDue',
           confirmationNumber,
           userId,
+          ...(applied && {
+            discount: applied.discount.toFixed(2),
+            discountCode: applied.coupon.code,
+          }),
+          ...(total <= 0 && {
+            orderStatus: 'OrderProcessing' as const,
+            paymentDate: new Date(),
+          }),
         })
         .returning();
 
+      if (applied)
+        await this.couponsService.redeem(tx, {
+          couponId: applied.coupon.id,
+          orderId,
+          userCouponId: applied.userCouponId,
+        });
+
       const items = await tx
         .insert(orderItem)
-        .values(orderItemsData.map((i) => ({ ...i, orderId })))
+        .values(
+          orderItemsData.map((i) => ({
+            id: i.id,
+            addOns: i.addOns,
+            menuItemId: i.menuItemId,
+            menuItemName: i.menuItemName,
+            modifiers: i.modifiers,
+            orderId,
+            orderQuantity: i.orderQuantity,
+            priceCurrency: i.priceCurrency,
+            unitPrice: i.unitPrice,
+          })),
+        )
         .returning();
 
       return { ...created, items };
@@ -408,23 +311,39 @@ export class OrdersService {
   async recordPaymentResult(body: Record<string, string>): Promise<void> {
     if (body.SimulatePaid === '1') return;
 
-    await this.db
-      .update(order)
-      .set({
-        orderStatus: body.RtnCode === '1' ? 'OrderProcessing' : 'OrderProblem',
-        paymentDate: body.PaymentDate
-          ? new Date(
-              `${body.PaymentDate.replace(/\//g, '-').replace(' ', 'T')}+08:00`,
-            )
-          : undefined,
-        paymentMethodId: body.card4no || undefined,
-        tradeNo: body.TradeNo,
-      })
-      .where(
-        and(
-          eq(order.confirmationNumber, body.MerchantTradeNo),
-          eq(order.orderStatus, 'OrderPaymentDue'),
-        ),
-      );
+    const succeeded = body.RtnCode === '1';
+
+    await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(order)
+        .set({
+          orderStatus: succeeded ? 'OrderProcessing' : 'OrderProblem',
+          paymentDate: body.PaymentDate
+            ? new Date(
+                `${body.PaymentDate.replace(/\//g, '-').replace(' ', 'T')}+08:00`,
+              )
+            : undefined,
+          paymentMethodId: body.card4no || undefined,
+          tradeNo: body.TradeNo,
+        })
+        .where(
+          and(
+            eq(order.confirmationNumber, body.MerchantTradeNo),
+            eq(order.orderStatus, 'OrderPaymentDue'),
+          ),
+        )
+        .returning({
+          id: order.id,
+          discountCode: order.discountCode,
+          sellerId: order.sellerId,
+        });
+
+      if (!succeeded && updated?.discountCode)
+        await this.couponsService.restore(tx, {
+          code: updated.discountCode,
+          orderId: updated.id,
+          organizationId: updated.sellerId,
+        });
+    });
   }
 }

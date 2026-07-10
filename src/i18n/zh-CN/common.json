@@ -1,4 +1,15 @@
 {
+  "coupons": {
+    "alreadyClaimed": "您已领取过此优惠券",
+    "expired": "优惠码已过期",
+    "memberOnly": "此优惠码仅限会员使用",
+    "minSubtotal": "订单金额需满 {amount} 才能使用此优惠码",
+    "notApplicable": "此优惠码不适用于购物车内的商品",
+    "notFound": "优惠码无效",
+    "notYetValid": "优惠码尚未生效",
+    "perUserLimitReached": "您已使用过此优惠码",
+    "usedUp": "此优惠码已达使用上限"
+  },
   "exceptions": {
     "internalServerError": "内部服务器错误",
     "tooManyRequests": "请求过多"

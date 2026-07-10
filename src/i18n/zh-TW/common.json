@@ -1,4 +1,15 @@
 {
+  "coupons": {
+    "alreadyClaimed": "您已領取過此優惠券",
+    "expired": "優惠碼已過期",
+    "memberOnly": "此優惠碼限會員使用",
+    "minSubtotal": "訂單金額須滿 {amount} 才能使用此優惠碼",
+    "notApplicable": "此優惠碼不適用於購物車內的品項",
+    "notFound": "優惠碼無效",
+    "notYetValid": "優惠碼尚未生效",
+    "perUserLimitReached": "您已使用過此優惠碼",
+    "usedUp": "此優惠碼已達使用上限"
+  },
   "exceptions": {
     "internalServerError": "內部伺服器錯誤",
     "tooManyRequests": "請求過多"

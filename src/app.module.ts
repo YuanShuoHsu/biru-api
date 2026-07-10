@@ -20,6 +20,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { CouponsModule } from './coupons/coupons.module';
 import { DonateCodesModule } from './donate-codes/donate-codes.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
@@ -54,6 +55,7 @@ import { UsersModule } from './users/users.module';
       },
     }),
     ConfigModule.forRoot({ isGlobal: true }),
+    CouponsModule,
     DonateCodesModule,
     DrizzleModule,
     EcpayModule,

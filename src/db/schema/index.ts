@@ -1,3 +1,4 @@
+export * from './coupons';
 export * from './enums';
 export * from './invoices';
 export * from './menus';
