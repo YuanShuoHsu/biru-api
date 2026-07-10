@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Length,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -26,6 +27,14 @@ export class CreateCouponDto {
   @IsString()
   @MaxLength(64)
   code: string;
+
+  @ApiPropertyOptional({
+    description: '幣別（ISO 4217），未帶時預設 TWD；應與店家菜單幣別一致',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  discountCurrency?: string;
 
   @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
   @IsEnum(couponDiscountTypeEnum.enumValues)

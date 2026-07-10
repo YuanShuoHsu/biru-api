@@ -47,6 +47,7 @@ import type {
   ClaimableCouponDto,
   CouponResponseDto,
   CustomerCouponDto,
+  MyClaimableCouponDto,
   MyCouponResponseDto,
   UserCouponResponseDto,
 } from './dto/coupon-response.dto';
@@ -59,6 +60,7 @@ import type {
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,
   code: found.code,
+  discountCurrency: found.discountCurrency,
   discountType: found.discountType,
   discountValue: found.discountValue,
   minSubtotal: found.minSubtotal,
@@ -171,6 +173,7 @@ export class CouponsService {
       .values({
         id: randomUUID(),
         code,
+        discountCurrency: dto.discountCurrency,
         discountType: dto.discountType,
         discountValue: dto.discountValue.toFixed(2),
         isActive: dto.isActive ?? true,
@@ -245,6 +248,7 @@ export class CouponsService {
       .update(coupon)
       .set({
         code: dto.code?.trim(),
+        discountCurrency: dto.discountCurrency,
         discountType: dto.discountType,
         discountValue: dto.discountValue?.toFixed(2),
         isActive: dto.isActive,
@@ -542,7 +546,8 @@ export class CouponsService {
         return row;
       });
     } catch (error) {
-      if ((error as { code?: string }).code === '23505')
+      // drizzle 會把 pg 錯誤包成 DrizzleQueryError，原始錯誤碼在 cause
+      if ((error as { cause?: { code?: string } }).cause?.code === '23505')
         throw new BadRequestException(this.t('alreadyClaimed'));
       throw error;
     }
@@ -642,6 +647,46 @@ export class CouponsService {
         organizationSlug: organizationSlug || '',
       }),
     );
+  }
+
+  async getAllClaimable(userId: string): Promise<MyClaimableCouponDto[]> {
+    const claimables = await this.db
+      .select({
+        coupon,
+        organizationName: organization.name,
+        organizationSlug: organization.slug,
+      })
+      .from(coupon)
+      .innerJoin(organization, eq(coupon.organizationId, organization.id))
+      .where(
+        and(
+          eq(coupon.isActive, true),
+          eq(coupon.isClaimable, true),
+          this.withinValidity(),
+        ),
+      )
+      .orderBy(desc(coupon.createdAt));
+    if (claimables.length === 0) return [];
+
+    const claimed = await this.db.query.userCoupon.findMany({
+      where: and(
+        eq(userCoupon.userId, userId),
+        eq(userCoupon.source, 'claimed'),
+        inArray(
+          userCoupon.couponId,
+          claimables.map((c) => c.coupon.id),
+        ),
+      ),
+    });
+    const claimedIds = new Set(claimed.map((v) => v.couponId));
+
+    return claimables
+      .filter((c) => !claimedIds.has(c.coupon.id))
+      .map(({ coupon: c, organizationName, organizationSlug }) => ({
+        ...toCustomerCoupon(c),
+        organizationName,
+        organizationSlug: organizationSlug || '',
+      }));
   }
 
   async validate(

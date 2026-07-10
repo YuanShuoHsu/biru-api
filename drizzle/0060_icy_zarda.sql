@@ -1,0 +1,1 @@
+ALTER TABLE "coupon" ADD COLUMN "discount_currency" text DEFAULT 'TWD' NOT NULL;

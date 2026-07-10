@@ -14,6 +14,7 @@ import {
 export class CouponResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() code: string;
+  @ApiProperty() discountCurrency: string;
   @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
   discountType: CouponDiscountType;
   @ApiProperty() discountValue: string;
@@ -43,6 +44,7 @@ export class CouponResponseDto {
 export class CustomerCouponDto {
   @ApiProperty() id: string;
   @ApiProperty() code: string;
+  @ApiProperty() discountCurrency: string;
   @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
   discountType: CouponDiscountType;
   @ApiProperty() discountValue: string;
@@ -70,6 +72,11 @@ export class UserCouponResponseDto {
 }
 
 export class MyCouponResponseDto extends UserCouponResponseDto {
+  @ApiProperty() organizationName: string;
+  @ApiProperty() organizationSlug: string;
+}
+
+export class MyClaimableCouponDto extends CustomerCouponDto {
   @ApiProperty() organizationName: string;
   @ApiProperty() organizationSlug: string;
 }

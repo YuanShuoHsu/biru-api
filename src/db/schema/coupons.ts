@@ -48,6 +48,7 @@ export const coupon = pgTable(
   {
     id: text('id').primaryKey(),
     code: text('code').notNull(),
+    discountCurrency: text('discount_currency').notNull().default('TWD'),
     discountType: couponDiscountTypeEnum('discount_type').notNull(),
     discountValue: numeric('discount_value', {
       precision: 10,
