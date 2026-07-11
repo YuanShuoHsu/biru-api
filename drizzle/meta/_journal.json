@@ -428,6 +428,13 @@
       "when": 1783704472632,
       "tag": "0060_icy_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1783745870404,
+      "tag": "0061_rename_coupon_valid_until_to_valid_through",
+      "breakpoints": true
     }
   ]
 }

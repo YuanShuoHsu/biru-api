@@ -1,0 +1,1 @@
+ALTER TABLE "coupon" RENAME COLUMN "valid_until" TO "valid_through";

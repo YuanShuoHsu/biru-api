@@ -70,7 +70,7 @@ export const coupon = pgTable(
     totalLimit: integer('total_limit'),
     usedCount: integer('used_count').notNull().default(0),
     validFrom: timestamp('valid_from'),
-    validUntil: timestamp('valid_until'),
+    validThrough: timestamp('valid_through'),
     ...timestamps,
   },
   (table) => [

@@ -36,7 +36,7 @@ export class CouponResponseDto {
   @ApiPropertyOptional() totalLimit?: number | null;
   @ApiProperty() usedCount: number;
   @ApiPropertyOptional() validFrom?: Date | null;
-  @ApiPropertyOptional() validUntil?: Date | null;
+  @ApiPropertyOptional() validThrough?: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
@@ -51,7 +51,7 @@ export class CustomerCouponDto {
   @ApiPropertyOptional() minSubtotal?: string | null;
   @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
   @ApiPropertyOptional() validFrom?: Date | null;
-  @ApiPropertyOptional() validUntil?: Date | null;
+  @ApiPropertyOptional() validThrough?: Date | null;
 }
 
 export class AvailableCouponDto extends CustomerCouponDto {

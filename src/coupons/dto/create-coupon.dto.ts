@@ -120,7 +120,7 @@ export class CreateCouponDto {
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
   @IsDateString()
-  validUntil?: string | null;
+  validThrough?: string | null;
 }
 
 export class UpdateCouponDto extends PartialType(CreateCouponDto) {}

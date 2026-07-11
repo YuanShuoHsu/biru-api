@@ -66,7 +66,7 @@ const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   minSubtotal: found.minSubtotal,
   scope: found.scope,
   validFrom: found.validFrom,
-  validUntil: found.validUntil,
+  validThrough: found.validThrough,
 });
 
 @Injectable()
@@ -139,7 +139,7 @@ export class CouponsService {
     const now = new Date();
     return and(
       or(isNull(coupon.validFrom), lte(coupon.validFrom, now)),
-      or(isNull(coupon.validUntil), gte(coupon.validUntil, now)),
+      or(isNull(coupon.validThrough), gte(coupon.validThrough, now)),
     );
   }
 
@@ -189,7 +189,7 @@ export class CouponsService {
         scope: dto.scope ?? 'order',
         totalLimit: dto.totalLimit,
         validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
-        validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+        validThrough: dto.validThrough ? new Date(dto.validThrough) : undefined,
       })
       .returning();
 
@@ -270,11 +270,11 @@ export class CouponsService {
             : dto.validFrom
               ? new Date(dto.validFrom)
               : undefined,
-        validUntil:
-          dto.validUntil === null
+        validThrough:
+          dto.validThrough === null
             ? null
-            : dto.validUntil
-              ? new Date(dto.validUntil)
+            : dto.validThrough
+              ? new Date(dto.validThrough)
               : undefined,
       })
       .where(eq(coupon.id, couponId))
@@ -739,7 +739,7 @@ export class CouponsService {
     const now = new Date();
     if (found.validFrom && now < found.validFrom)
       throw new BadRequestException(this.t('notYetValid'));
-    if (found.validUntil && now > found.validUntil)
+    if (found.validThrough && now > found.validThrough)
       throw new BadRequestException(this.t('expired'));
 
     if (found.totalLimit !== null && found.usedCount >= found.totalLimit)
