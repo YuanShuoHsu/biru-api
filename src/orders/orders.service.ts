@@ -4,8 +4,10 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 import {
   Column,
@@ -17,6 +19,8 @@ import {
   eq,
   gte,
   ilike,
+  lt,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -61,8 +65,12 @@ const startOfToday = (): Date => {
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
 
+const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly couponsService: CouponsService,
@@ -302,7 +310,10 @@ export class OrdersService {
     const { confirmationNumber } = found;
     if (found.paymentMethod === 'Cash' || !confirmationNumber)
       throw new BadRequestException('Order does not require online payment');
-    if (found.orderStatus !== 'OrderPaymentDue')
+    if (
+      found.orderStatus !== 'OrderPaymentDue' ||
+      Date.now() - found.createdAt.getTime() > PAYMENT_WINDOW_MS
+    )
       throw new BadRequestException('Order is not awaiting payment');
 
     return { ...found, confirmationNumber };
@@ -344,6 +355,38 @@ export class OrdersService {
           orderId: updated.id,
           organizationId: updated.sellerId,
         });
+    });
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async cancelUnpaidOrders(): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const cancelled = await tx
+        .update(order)
+        .set({ orderStatus: 'OrderCancelled' })
+        .where(
+          and(
+            eq(order.orderStatus, 'OrderPaymentDue'),
+            lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
+            ne(order.paymentMethod, 'Cash'),
+          ),
+        )
+        .returning({
+          discountCode: order.discountCode,
+          id: order.id,
+          sellerId: order.sellerId,
+        });
+
+      for (const { discountCode, id, sellerId } of cancelled)
+        if (discountCode)
+          await this.couponsService.restore(tx, {
+            code: discountCode,
+            orderId: id,
+            organizationId: sellerId,
+          });
+
+      if (cancelled.length)
+        this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);
     });
   }
 }
