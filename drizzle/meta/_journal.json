@@ -435,6 +435,13 @@
       "when": 1783745870404,
       "tag": "0061_rename_coupon_valid_until_to_valid_through",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1783836176356,
+      "tag": "0062_points",
+      "breakpoints": true
     }
   ]
 }

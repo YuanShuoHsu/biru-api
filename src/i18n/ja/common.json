@@ -13,5 +13,9 @@
   "exceptions": {
     "internalServerError": "内部サーバーエラー",
     "tooManyRequests": "リクエストが多すぎます"
+  },
+  "points": {
+    "insufficient": "ポイントが不足しています",
+    "notRedeemable": "このクーポンはポイントと交換できません"
   }
 }

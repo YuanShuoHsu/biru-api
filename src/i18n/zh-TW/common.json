@@ -13,5 +13,9 @@
   "exceptions": {
     "internalServerError": "內部伺服器錯誤",
     "tooManyRequests": "請求過多"
+  },
+  "points": {
+    "insufficient": "點數不足",
+    "notRedeemable": "此優惠券無法用點數兌換"
   }
 }

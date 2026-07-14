@@ -167,6 +167,17 @@ export const createAuth = (mailsService: MailsService) =>
                 type: 'string',
                 required: false,
               },
+
+              // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
+              amountPerPoint: {
+                type: 'number',
+                required: false,
+              },
+              // 點數效期（年）；null = 永久有效
+              pointsValidityYears: {
+                type: 'number',
+                required: false,
+              },
             },
           },
         },

@@ -32,6 +32,7 @@ import { RolesGuard } from './menus/guards/roles.guard';
 import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { PointsModule } from './points/points.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
@@ -82,6 +83,7 @@ import { UsersModule } from './users/users.module';
     MenusModule,
     OrdersModule,
     OrganizationsModule,
+    PointsModule,
     ScheduleModule.forRoot(),
     TasksModule,
     ThrottlerModule.forRoot({

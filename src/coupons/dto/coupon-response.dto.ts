@@ -32,6 +32,7 @@ export class CouponResponseDto {
   @ApiPropertyOptional() minSubtotal?: string | null;
   @ApiProperty() organizationId: string;
   @ApiPropertyOptional() perUserLimit?: number | null;
+  @ApiPropertyOptional() pointsCost?: number | null;
   @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
   @ApiPropertyOptional() totalLimit?: number | null;
   @ApiProperty() usedCount: number;

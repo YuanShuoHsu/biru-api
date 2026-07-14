@@ -13,5 +13,9 @@
   "exceptions": {
     "internalServerError": "내부 서버 오류",
     "tooManyRequests": "요청이 너무 많습니다"
+  },
+  "points": {
+    "insufficient": "포인트가 부족합니다",
+    "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다"
   }
 }

@@ -40,6 +40,7 @@ export const userCouponSourceEnum = pgEnum('user_coupon_source', [
   'signup',
   'birthday',
   'spend',
+  'redeemed',
 ]);
 export type UserCouponSource = (typeof userCouponSourceEnum.enumValues)[number];
 
@@ -66,6 +67,8 @@ export const coupon = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     perUserLimit: integer('per_user_limit'),
+    // 兌換所需點數；null = 不可用點數兌換
+    pointsCost: integer('points_cost'),
     scope: couponScopeEnum('scope').notNull().default('order'),
     totalLimit: integer('total_limit'),
     usedCount: integer('used_count').notNull().default(0),

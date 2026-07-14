@@ -1,6 +1,8 @@
 import { relations } from 'drizzle-orm';
 import {
   index,
+  integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -39,6 +41,11 @@ export const organization = pgTable(
     hasMap: text('has_map'),
     openingHours: text('opening_hours'),
     telephone: text('telephone'),
+
+    // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
+    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
+    // 點數效期（年）；null = 永久有效
+    pointsValidityYears: integer('points_validity_years'),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );

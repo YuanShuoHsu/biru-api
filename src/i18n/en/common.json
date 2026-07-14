@@ -13,5 +13,9 @@
   "exceptions": {
     "internalServerError": "Internal server error",
     "tooManyRequests": "Too many requests"
+  },
+  "points": {
+    "insufficient": "Not enough points",
+    "notRedeemable": "This coupon cannot be redeemed with points"
   }
 }

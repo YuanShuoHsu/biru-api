@@ -21,6 +21,10 @@ export type I18nTranslations = {
             "internalServerError": string;
             "tooManyRequests": string;
         };
+        "points": {
+            "insufficient": string;
+            "notRedeemable": string;
+        };
     };
     "mail": {
         "after_email_verification": {

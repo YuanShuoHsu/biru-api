@@ -101,6 +101,15 @@ export class CreateCouponDto {
   @Min(1)
   perUserLimit?: number;
 
+  @ApiPropertyOptional({
+    description: '兌換所需點數；null = 不可用點數兌換',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pointsCost?: number | null;
+
   @ApiPropertyOptional({ enum: couponScopeEnum.enumValues })
   @IsOptional()
   @IsEnum(couponScopeEnum.enumValues)
