@@ -122,6 +122,30 @@ export const createAuth = (mailsService: MailsService) =>
               })
               .onConflictDoNothing();
           },
+          // pointsEnabledAt 由 server 推導，不信任 client 傳入值
+          beforeUpdateOrganization: async ({ organization: data, member }) => {
+            const touchesPoints =
+              Object.hasOwn(data, 'amountPerPoint') ||
+              Object.hasOwn(data, 'pointsEnabledAt');
+            if (!touchesPoints) return;
+
+            const current = await db.query.organization.findFirst({
+              columns: { amountPerPoint: true, pointsEnabledAt: true },
+              where: eq(schema.organization.id, member.organizationId),
+            });
+
+            const enabled = Object.hasOwn(data, 'amountPerPoint')
+              ? data.amountPerPoint != null
+              : current?.amountPerPoint != null;
+            if (!enabled)
+              return {
+                data: { pointsEnabledAt: null, pointsValidityYears: null },
+              };
+
+            return {
+              data: { pointsEnabledAt: current?.pointsEnabledAt ?? new Date() },
+            };
+          },
         },
         requireEmailVerificationOnInvitation: true,
         roles: { owner, admin, member },
@@ -171,6 +195,11 @@ export const createAuth = (mailsService: MailsService) =>
               // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
               amountPerPoint: {
                 type: 'number',
+                required: false,
+              },
+              // 點數啟用時間；僅累計此時間之後付款的訂單
+              pointsEnabledAt: {
+                type: 'date',
                 required: false,
               },
               // 點數效期（年）；null = 永久有效

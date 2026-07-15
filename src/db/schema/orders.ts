@@ -94,6 +94,9 @@ export const order = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
     // additional fields
+    // 付款當下的組織點數設定快照；null = 付款當時未啟用（早於此欄位的歷史訂單以組織現值計）
+    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
+    pointsValidityYears: integer('points_validity_years'),
     // 綠界交易編號 TradeNo
     tradeNo: text('trade_no'),
     // https://schema.org/customer

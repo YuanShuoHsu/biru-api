@@ -8,6 +8,7 @@
     "notFound": "クーポンコードが無効です",
     "notYetValid": "このクーポンコードはまだ有効ではありません",
     "perUserLimitReached": "このクーポンコードは既にご利用済みです",
+    "pointsOnly": "このクーポンコードはポイントと交換してからご利用いただけます",
     "usedUp": "このクーポンコードは利用上限に達しました"
   },
   "exceptions": {
@@ -16,6 +17,7 @@
   },
   "points": {
     "insufficient": "ポイントが不足しています",
-    "notRedeemable": "このクーポンはポイントと交換できません"
+    "notRedeemable": "このクーポンはポイントと交換できません",
+    "perUserLimitReached": "このクーポンは既に交換済みです"
   }
 }

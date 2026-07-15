@@ -13,8 +13,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  lt,
-  lte,
   notInArray,
   or,
   sql,
@@ -27,6 +25,8 @@ import { pointTransaction } from 'src/db/schema/points';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
+
+import { withinCapacity, withinValidity } from 'src/common/utils/coupons';
 
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
@@ -55,22 +55,33 @@ export class PointsService {
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  private t(key: 'insufficient' | 'notRedeemable'): string {
+  private t(
+    key: 'insufficient' | 'notRedeemable' | 'perUserLimitReached',
+  ): string {
     return this.i18n.t(`common.points.${key}`, {
+      lang: I18nContext.current()?.lang,
+    });
+  }
+
+  private tCoupons(key: 'usedUp'): string {
+    return this.i18n.t(`common.coupons.${key}`, {
       lang: I18nContext.current()?.lang,
     });
   }
 
   // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的未用點數收回
   private async syncEarned(userId: string): Promise<void> {
+    // 費率以付款當下的訂單快照為準；早於快照欄位的歷史訂單 fallback 組織現值
     const unrecorded = await this.db
       .select({
-        amountPerPoint: organization.amountPerPoint,
+        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
         discount: order.discount,
         orderId: order.id,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: organization.pointsValidityYears,
+        pointsValidityYears: sql<
+          number | null
+        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
         subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
       })
       .from(order)
@@ -88,18 +99,20 @@ export class PointsService {
           eq(order.userId, userId),
           isNotNull(order.paymentDate),
           notInArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
-          isNotNull(organization.amountPerPoint),
+          sql`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint}) > 0`,
+          // 僅累計啟用點數之後付款的訂單，避免回溯補發整段歷史
+          gte(order.paymentDate, organization.pointsEnabledAt),
           isNull(pointTransaction.id),
         ),
       )
-      .groupBy(order.id, organization.id, pointTransaction.id);
+      .groupBy(order.id, organization.id);
 
     const earns = unrecorded.flatMap((row) => {
       const total = Number(row.subtotal) - Number(row.discount || 0);
       const points = Math.floor(total / Number(row.amountPerPoint));
       if (points <= 0) return [];
 
-      const paymentDate = row.paymentDate || new Date();
+      const paymentDate = row.paymentDate!;
       const expiresAt = row.pointsValidityYears
         ? new Date(
             new Date(paymentDate).setFullYear(
@@ -122,9 +135,13 @@ export class PointsService {
       ];
     });
     if (earns.length > 0)
-      await this.db.insert(pointTransaction).values(earns).onConflictDoNothing();
+      await this.db
+        .insert(pointTransaction)
+        .values(earns)
+        .onConflictDoNothing();
 
     // 訂單事後取消／付款失敗：未動用的 earn 直接移除，已部分動用的清空餘點
+    // 取捨：已用這筆點數兌換出的券不追回（目前沒有已付款訂單的取消流程）
     const revocable = await this.db
       .select({
         id: pointTransaction.id,
@@ -151,22 +168,18 @@ export class PointsService {
       .map((r) => r.id);
 
     if (removableIds.length > 0)
-      await this.db
-        .delete(pointTransaction)
-        .where(inArray(pointTransaction.id, removableIds));
+      await this.db.delete(pointTransaction).where(
+        and(
+          inArray(pointTransaction.id, removableIds),
+          // 重驗仍未動用：與併發兌換有 race；落空者下次 sync 走清空餘點路徑
+          eq(pointTransaction.remainingPoints, pointTransaction.points),
+        ),
+      );
     if (drainableIds.length > 0)
       await this.db
         .update(pointTransaction)
         .set({ remainingPoints: 0, updatedAt: new Date() })
         .where(inArray(pointTransaction.id, drainableIds));
-  }
-
-  private withinValidity() {
-    const now = new Date();
-    return and(
-      or(isNull(coupon.validFrom), lte(coupon.validFrom, now)),
-      or(isNull(coupon.validThrough), gte(coupon.validThrough, now)),
-    );
   }
 
   private notExpired() {
@@ -202,8 +215,8 @@ export class PointsService {
         inArray(coupon.organizationId, organizationIds),
         eq(coupon.isActive, true),
         isNotNull(coupon.pointsCost),
-        or(isNull(coupon.totalLimit), lt(coupon.usedCount, coupon.totalLimit)),
-        this.withinValidity(),
+        withinCapacity(),
+        withinValidity(),
       ),
       orderBy: [asc(coupon.pointsCost)],
     });
@@ -249,7 +262,7 @@ export class PointsService {
         eq(coupon.id, couponId),
         eq(coupon.isActive, true),
         isNotNull(coupon.pointsCost),
-        this.withinValidity(),
+        withinValidity(),
       ),
     });
     if (!found?.pointsCost)
@@ -257,25 +270,38 @@ export class PointsService {
     const pointsCost = found.pointsCost;
 
     const created = await this.db.transaction(async (tx) => {
-      // 限量兌換：totalLimit 同時作為兌換上限；鎖券避免併發超發
+      // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
       if (found.totalLimit !== null) {
-        await tx
-          .select({ id: coupon.id })
+        const [locked] = await tx
+          .select({ usedCount: coupon.usedCount })
           .from(coupon)
           .where(eq(coupon.id, found.id))
           .for('update');
 
-        const [{ value: redeemedCount }] = await tx
+        const [{ value: reserved }] = await tx
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+          );
+        if (locked.usedCount + reserved >= found.totalLimit)
+          throw new BadRequestException(this.tCoupons('usedUp'));
+      }
+
+      // 每人限量：perUserLimit 同時作為兌換上限，避免囤券
+      if (found.perUserLimit !== null) {
+        const [{ value: redeemed }] = await tx
           .select({ value: count() })
           .from(userCoupon)
           .where(
             and(
               eq(userCoupon.couponId, found.id),
+              eq(userCoupon.userId, userId),
               eq(userCoupon.source, 'redeemed'),
             ),
           );
-        if (redeemedCount >= found.totalLimit)
-          throw new BadRequestException(this.t('notRedeemable'));
+        if (redeemed >= found.perUserLimit)
+          throw new BadRequestException(this.t('perUserLimitReached'));
       }
 
       // FIFO 扣點：先到期者先扣；鎖定餘點避免併發重複扣
@@ -294,7 +320,10 @@ export class PointsService {
             this.notExpired(),
           ),
         )
-        .orderBy(asc(pointTransaction.expiresAt), asc(pointTransaction.createdAt))
+        .orderBy(
+          asc(pointTransaction.expiresAt),
+          asc(pointTransaction.createdAt),
+        )
         .for('update');
 
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);

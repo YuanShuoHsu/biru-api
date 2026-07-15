@@ -8,6 +8,7 @@
     "notFound": "優惠碼無效",
     "notYetValid": "優惠碼尚未生效",
     "perUserLimitReached": "您已使用過此優惠碼",
+    "pointsOnly": "此優惠碼需以點數兌換後才能使用",
     "usedUp": "此優惠碼已達使用上限"
   },
   "exceptions": {
@@ -16,6 +17,7 @@
   },
   "points": {
     "insufficient": "點數不足",
-    "notRedeemable": "此優惠券無法用點數兌換"
+    "notRedeemable": "此優惠券無法用點數兌換",
+    "perUserLimitReached": "您已兌換過此優惠券"
   }
 }

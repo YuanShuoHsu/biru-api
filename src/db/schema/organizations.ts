@@ -44,6 +44,8 @@ export const organization = pgTable(
 
     // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
+    // 點數啟用時間；僅累計此時間之後付款的訂單
+    pointsEnabledAt: timestamp('points_enabled_at'),
     // 點數效期（年）；null = 永久有效
     pointsValidityYears: integer('points_validity_years'),
   },

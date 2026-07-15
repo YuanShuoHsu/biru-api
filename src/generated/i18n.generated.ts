@@ -15,6 +15,7 @@ export type I18nTranslations = {
             "notFound": string;
             "notYetValid": string;
             "perUserLimitReached": string;
+            "pointsOnly": string;
             "usedUp": string;
         };
         "exceptions": {
@@ -24,6 +25,7 @@ export type I18nTranslations = {
         "points": {
             "insufficient": string;
             "notRedeemable": string;
+            "perUserLimitReached": string;
         };
     };
     "mail": {

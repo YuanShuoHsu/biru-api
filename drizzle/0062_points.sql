@@ -16,6 +16,7 @@ CREATE TABLE "point_transaction" (
 --> statement-breakpoint
 ALTER TABLE "coupon" ADD COLUMN "points_cost" integer;--> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "amount_per_point" numeric(10, 2);--> statement-breakpoint
+ALTER TABLE "organization" ADD COLUMN "points_enabled_at" timestamp;--> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "points_validity_years" integer;--> statement-breakpoint
 ALTER TABLE "point_transaction" ADD CONSTRAINT "point_transaction_order_id_order_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."order"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "point_transaction" ADD CONSTRAINT "point_transaction_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

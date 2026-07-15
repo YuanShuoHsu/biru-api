@@ -8,6 +8,7 @@
     "notFound": "Invalid promo code",
     "notYetValid": "This promo code is not yet valid",
     "perUserLimitReached": "You have already used this promo code",
+    "pointsOnly": "This promo code must be redeemed with points before use",
     "usedUp": "This promo code has reached its usage limit"
   },
   "exceptions": {
@@ -16,6 +17,7 @@
   },
   "points": {
     "insufficient": "Not enough points",
-    "notRedeemable": "This coupon cannot be redeemed with points"
+    "notRedeemable": "This coupon cannot be redeemed with points",
+    "perUserLimitReached": "You have already redeemed this coupon"
   }
 }

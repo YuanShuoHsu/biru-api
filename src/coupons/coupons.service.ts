@@ -17,7 +17,6 @@ import {
   isNotNull,
   isNull,
   lt,
-  lte,
   ne,
   notInArray,
   or,
@@ -37,6 +36,11 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
+import {
+  notPointsRedeem,
+  withinCapacity,
+  withinValidity,
+} from 'src/common/utils/coupons';
 import { sumOrderItems } from 'src/common/utils/order-items';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service';
@@ -87,6 +91,7 @@ export class CouponsService {
       | 'notFound'
       | 'notYetValid'
       | 'perUserLimitReached'
+      | 'pointsOnly'
       | 'usedUp',
     args?: Record<string, unknown>,
   ): string {
@@ -135,24 +140,19 @@ export class CouponsService {
       );
   }
 
-  private withinValidity() {
-    const now = new Date();
-    return and(
-      or(isNull(coupon.validFrom), lte(coupon.validFrom, now)),
-      or(isNull(coupon.validThrough), gte(coupon.validThrough, now)),
-    );
-  }
-
   async create(
     organizationSlug: string,
     dto: CreateCouponDto,
   ): Promise<CouponResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
+
+    // 點數兌換券僅能以點數兌換取得：寫入時強制關閉其他取得管道
+    const pointsRedeem = dto.pointsCost != null;
+    const issueTrigger = pointsRedeem ? null : (dto.issueTrigger ?? null);
+    const issueMinSpend = pointsRedeem ? null : (dto.issueMinSpend ?? null);
+
     this.assertDiscountValue(dto.discountType, dto.discountValue);
-    this.assertIssueTrigger(
-      dto.issueTrigger ?? null,
-      dto.issueMinSpend ?? null,
-    );
+    this.assertIssueTrigger(issueTrigger, issueMinSpend);
     this.assertScopeTargets(
       dto.scope ?? 'order',
       dto.menuItemIds,
@@ -177,10 +177,10 @@ export class CouponsService {
         discountType: dto.discountType,
         discountValue: dto.discountValue.toFixed(2),
         isActive: dto.isActive ?? true,
-        isClaimable: dto.isClaimable ?? false,
-        isPublic: dto.isPublic ?? false,
-        issueMinSpend: dto.issueMinSpend?.toFixed(2),
-        issueTrigger: dto.issueTrigger,
+        isClaimable: pointsRedeem ? false : (dto.isClaimable ?? false),
+        isPublic: pointsRedeem ? false : (dto.isPublic ?? false),
+        issueMinSpend: issueMinSpend?.toFixed(2),
+        issueTrigger,
         menuItemIds: dto.menuItemIds,
         menuSectionIds: dto.menuSectionIds,
         minSubtotal: dto.minSubtotal?.toFixed(2),
@@ -218,14 +218,25 @@ export class CouponsService {
     });
     if (!found) throw new NotFoundException('Coupon not found');
 
+    // 點數兌換券僅能以點數兌換取得：寫入時強制關閉其他取得管道
+    const pointsRedeem =
+      (dto.pointsCost === undefined ? found.pointsCost : dto.pointsCost) !=
+      null;
+
     this.assertDiscountValue(
       dto.discountType ?? found.discountType,
       dto.discountValue ?? Number(found.discountValue),
     );
     this.assertIssueTrigger(
-      dto.issueTrigger === undefined ? found.issueTrigger : dto.issueTrigger,
-      dto.issueMinSpend ??
-        (found.issueMinSpend ? Number(found.issueMinSpend) : null),
+      pointsRedeem
+        ? null
+        : dto.issueTrigger === undefined
+          ? found.issueTrigger
+          : dto.issueTrigger,
+      pointsRedeem
+        ? null
+        : (dto.issueMinSpend ??
+            (found.issueMinSpend ? Number(found.issueMinSpend) : null)),
     );
     this.assertScopeTargets(
       dto.scope ?? found.scope,
@@ -253,10 +264,10 @@ export class CouponsService {
         discountType: dto.discountType,
         discountValue: dto.discountValue?.toFixed(2),
         isActive: dto.isActive,
-        isClaimable: dto.isClaimable,
-        isPublic: dto.isPublic,
-        issueMinSpend: dto.issueMinSpend?.toFixed(2),
-        issueTrigger: dto.issueTrigger,
+        isClaimable: pointsRedeem ? false : dto.isClaimable,
+        isPublic: pointsRedeem ? false : dto.isPublic,
+        issueMinSpend: pointsRedeem ? null : dto.issueMinSpend?.toFixed(2),
+        issueTrigger: pointsRedeem ? null : dto.issueTrigger,
         menuItemIds: dto.menuItemIds,
         menuSectionIds: dto.menuSectionIds,
         minSubtotal: dto.minSubtotal?.toFixed(2),
@@ -304,7 +315,8 @@ export class CouponsService {
         eq(coupon.organizationId, organizationId),
         eq(coupon.isActive, true),
         isNotNull(coupon.issueTrigger),
-        this.withinValidity(),
+        notPointsRedeem(),
+        withinValidity(),
       ),
     });
     if (autoCoupons.length === 0) return;
@@ -366,7 +378,12 @@ export class CouponsService {
                 and(
                   eq(order.sellerId, organizationId),
                   eq(order.userId, userId),
-                  ne(order.orderStatus, 'OrderCancelled'),
+                  // 與入點、每人限量一致：僅計已付款且未取消／未出問題的訂單
+                  isNotNull(order.paymentDate),
+                  notInArray(order.orderStatus, [
+                    'OrderCancelled',
+                    'OrderProblem',
+                  ]),
                 ),
               )
               .groupBy(order.id, order.discount)
@@ -419,11 +436,7 @@ export class CouponsService {
               isNull(userCoupon.usedAt),
               eq(coupon.organizationId, org.id),
               eq(coupon.isActive, true),
-              or(
-                isNull(coupon.totalLimit),
-                lt(coupon.usedCount, coupon.totalLimit),
-              ),
-              this.withinValidity(),
+              withinValidity(),
             ),
           )
           .orderBy(desc(userCoupon.createdAt))
@@ -436,8 +449,9 @@ export class CouponsService {
         eq(coupon.organizationId, org.id),
         eq(coupon.isActive, true),
         eq(coupon.isPublic, true),
-        or(isNull(coupon.totalLimit), lt(coupon.usedCount, coupon.totalLimit)),
-        this.withinValidity(),
+        notPointsRedeem(),
+        withinCapacity(),
+        withinValidity(),
         ...(walletCouponIds.length
           ? [notInArray(coupon.id, walletCouponIds)]
           : []),
@@ -468,7 +482,8 @@ export class CouponsService {
         eq(coupon.organizationId, org.id),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
-        this.withinValidity(),
+        notPointsRedeem(),
+        withinValidity(),
       ),
       orderBy: [desc(coupon.createdAt)],
     });
@@ -507,7 +522,8 @@ export class CouponsService {
         eq(coupon.organizationId, org.id),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
-        this.withinValidity(),
+        notPointsRedeem(),
+        withinValidity(),
       ),
     });
     if (!found) throw new BadRequestException(this.t('notFound'));
@@ -515,24 +531,21 @@ export class CouponsService {
     let created: UserCoupon;
     try {
       created = await this.db.transaction(async (tx) => {
-        // 限量領取：totalLimit 同時作為領取上限；鎖券避免併發超發
+        // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
         if (found.totalLimit !== null) {
-          await tx
-            .select({ id: coupon.id })
+          const [locked] = await tx
+            .select({ usedCount: coupon.usedCount })
             .from(coupon)
             .where(eq(coupon.id, found.id))
             .for('update');
 
-          const [{ value: claimedCount }] = await tx
+          const [{ value: reserved }] = await tx
             .select({ value: count() })
             .from(userCoupon)
             .where(
-              and(
-                eq(userCoupon.couponId, found.id),
-                eq(userCoupon.source, 'claimed'),
-              ),
+              and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
             );
-          if (claimedCount >= found.totalLimit)
+          if (locked.usedCount + reserved >= found.totalLimit)
             throw new BadRequestException(this.t('usedUp'));
         }
 
@@ -580,15 +593,36 @@ export class CouponsService {
     });
     if (!target) throw new NotFoundException('User not found');
 
-    const [created] = await this.db
-      .insert(userCoupon)
-      .values({
-        id: randomUUID(),
-        couponId: found.id,
-        source: 'granted',
-        userId: target.id,
-      })
-      .returning();
+    const created = await this.db.transaction(async (tx) => {
+      // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
+      if (found.totalLimit !== null) {
+        const [locked] = await tx
+          .select({ usedCount: coupon.usedCount })
+          .from(coupon)
+          .where(eq(coupon.id, found.id))
+          .for('update');
+
+        const [{ value: reserved }] = await tx
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+          );
+        if (locked.usedCount + reserved >= found.totalLimit)
+          throw new BadRequestException(this.t('usedUp'));
+      }
+
+      const [row] = await tx
+        .insert(userCoupon)
+        .values({
+          id: randomUUID(),
+          couponId: found.id,
+          source: 'granted',
+          userId: target.id,
+        })
+        .returning();
+      return row;
+    });
 
     return {
       id: created.id,
@@ -664,7 +698,8 @@ export class CouponsService {
         and(
           eq(coupon.isActive, true),
           eq(coupon.isClaimable, true),
-          this.withinValidity(),
+          notPointsRedeem(),
+          withinValidity(),
         ),
       )
       .orderBy(desc(coupon.createdAt));
@@ -744,9 +779,6 @@ export class CouponsService {
     if (found.validThrough && now > found.validThrough)
       throw new BadRequestException(this.t('expired'));
 
-    if (found.totalLimit !== null && found.usedCount >= found.totalLimit)
-      throw new BadRequestException(this.t('usedUp'));
-
     const voucher = userId
       ? await this.db.query.userCoupon.findFirst({
           where: and(
@@ -757,6 +789,22 @@ export class CouponsService {
           orderBy: [desc(userCoupon.createdAt)],
         })
       : undefined;
+
+    // 點數兌換券：須先以點數兌換取得，不可直接輸入代碼使用
+    if (!voucher && found.pointsCost !== null)
+      throw new BadRequestException(this.t('pointsOnly'));
+
+    // 持券者於發券時已保留額度；輸入代碼者需扣除保留額度後仍有餘量
+    if (!voucher && found.totalLimit !== null) {
+      const [{ value: reserved }] = await this.db
+        .select({ value: count() })
+        .from(userCoupon)
+        .where(
+          and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+        );
+      if (found.usedCount + reserved >= found.totalLimit)
+        throw new BadRequestException(this.t('usedUp'));
+    }
 
     if (!voucher && found.perUserLimit !== null) {
       if (!userId) throw new BadRequestException(this.t('memberOnly'));
@@ -820,10 +868,15 @@ export class CouponsService {
       .where(
         and(
           eq(coupon.id, applied.couponId),
-          or(
-            isNull(coupon.totalLimit),
-            lt(coupon.usedCount, coupon.totalLimit),
-          ),
+          // 持券者於發券時已保留額度，不再受 totalLimit 限制
+          ...(applied.userCouponId
+            ? []
+            : [
+                or(
+                  isNull(coupon.totalLimit),
+                  lt(coupon.usedCount, coupon.totalLimit),
+                ),
+              ]),
         ),
       )
       .returning({ id: coupon.id });

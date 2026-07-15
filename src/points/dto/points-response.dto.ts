@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsString } from 'class-validator';
 import {
   pointTransactionTypeEnum,
   type PointTransactionType,
@@ -29,10 +28,4 @@ export class MyPointsWalletDto {
   redeemableCoupons: PointsCouponDto[];
   @ApiProperty({ type: [PointTransactionDto] })
   transactions: PointTransactionDto[];
-}
-
-export class RedeemPointsDto {
-  @ApiProperty()
-  @IsString()
-  couponId: string;
 }

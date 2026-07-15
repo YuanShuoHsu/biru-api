@@ -8,6 +8,7 @@
     "notFound": "쿠폰 코드가 유효하지 않습니다",
     "notYetValid": "이 쿠폰 코드는 아직 사용할 수 없습니다",
     "perUserLimitReached": "이미 사용한 쿠폰 코드입니다",
+    "pointsOnly": "이 쿠폰 코드는 포인트로 교환한 후 사용할 수 있습니다",
     "usedUp": "이 쿠폰 코드는 사용 한도에 도달했습니다"
   },
   "exceptions": {
@@ -16,6 +17,7 @@
   },
   "points": {
     "insufficient": "포인트가 부족합니다",
-    "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다"
+    "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다",
+    "perUserLimitReached": "이미 교환한 쿠폰입니다"
   }
 }

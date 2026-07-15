@@ -1,6 +1,6 @@
 {
-  "id": "75cbef7e-2daa-45b7-910a-55fab6e1690a",
-  "prevId": "739b92d3-be1a-4b5f-a606-9cc6ce63a5b8",
+  "id": "c71852b7-469f-4a9f-8a56-c3f547aa5b10",
+  "prevId": "75cbef7e-2daa-45b7-910a-55fab6e1690a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1582,6 +1582,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "amount_per_point": {
+          "name": "amount_per_point",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "points_validity_years": {
+          "name": "points_validity_years",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "trade_no": {
           "name": "trade_no",

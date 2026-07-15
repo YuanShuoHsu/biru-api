@@ -144,6 +144,9 @@ export class OrdersService {
           ...(total <= 0 && {
             orderStatus: 'OrderProcessing' as const,
             paymentDate: new Date(),
+            // 付款當下的點數設定快照
+            amountPerPoint: org.amountPerPoint,
+            pointsValidityYears: org.pointsValidityYears,
           }),
         })
         .returning();
@@ -336,6 +339,11 @@ export class OrdersService {
             : undefined,
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
+          // 付款當下的點數設定快照
+          ...(succeeded && {
+            amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
+            pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
+          }),
         })
         .where(
           and(

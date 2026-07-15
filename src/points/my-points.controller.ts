@@ -4,10 +4,8 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
-import {
-  MyPointsWalletDto,
-  RedeemPointsDto,
-} from './dto/points-response.dto';
+import { MyPointsWalletDto } from './dto/points-response.dto';
+import { RedeemPointsDto } from './dto/redeem-points.dto';
 import { PointsService } from './points.service';
 
 @ApiTags('points')
