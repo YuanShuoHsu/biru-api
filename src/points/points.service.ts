@@ -30,6 +30,7 @@ import { withinCapacity, withinValidity } from 'src/common/utils/coupons';
 
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
+import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
 import type {
   MyPointsWalletDto,
   PointsCouponDto,
@@ -189,11 +190,19 @@ export class PointsService {
     );
   }
 
-  async getAllMine(userId: string): Promise<MyPointsWalletDto[]> {
+  async getAllMine(
+    userId: string,
+    query: PointsPaginationQueryDto = {},
+  ): Promise<MyPointsWalletDto[]> {
+    const { limit = 10, offset = 0 } = query;
+
     await this.syncEarned(userId);
 
     const transactions = await this.db
       .select({
+        confirmationNumber: order.confirmationNumber,
+        couponCode: coupon.code,
+        orderNumber: order.orderNumber,
         organizationName: organization.name,
         organizationSlug: organization.slug,
         transaction: pointTransaction,
@@ -203,6 +212,9 @@ export class PointsService {
         organization,
         eq(pointTransaction.organizationId, organization.id),
       )
+      .leftJoin(order, eq(pointTransaction.orderId, order.id))
+      .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
+      .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
       .where(eq(pointTransaction.userId, userId))
       .orderBy(desc(pointTransaction.createdAt));
     if (transactions.length === 0) return [];
@@ -240,13 +252,21 @@ export class PointsService {
         redeemableCoupons: redeemables
           .filter((c) => c.organizationId === organizationId)
           .map(toPointsCoupon),
-        transactions: mine.map(({ transaction }) => ({
-          id: transaction.id,
-          createdAt: transaction.createdAt,
-          expiresAt: transaction.expiresAt,
-          points: transaction.points,
-          type: transaction.type,
-        })),
+        transactions: mine
+          .slice(offset, offset + limit)
+          .map(
+            ({ confirmationNumber, couponCode, orderNumber, transaction }) => ({
+              id: transaction.id,
+              confirmationNumber,
+              couponCode,
+              createdAt: transaction.createdAt,
+              expiresAt: transaction.expiresAt,
+              orderNumber,
+              points: transaction.points,
+              type: transaction.type,
+            }),
+          ),
+        transactionsTotal: mine.length,
       };
     });
   }

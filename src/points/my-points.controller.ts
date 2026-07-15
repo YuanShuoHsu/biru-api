@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
+import { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
 import { MyPointsWalletDto } from './dto/points-response.dto';
 import { RedeemPointsDto } from './dto/redeem-points.dto';
 import { PointsService } from './points.service';
@@ -15,8 +16,11 @@ export class MyPointsController {
 
   @Get()
   @ApiOperation({ summary: '我的點數（跨店，含可兌換優惠券與明細）' })
-  getAllMine(@Session() session: UserSession): Promise<MyPointsWalletDto[]> {
-    return this.pointsService.getAllMine(session.user.id);
+  getAllMine(
+    @Query() query: PointsPaginationQueryDto,
+    @Session() session: UserSession,
+  ): Promise<MyPointsWalletDto[]> {
+    return this.pointsService.getAllMine(session.user.id, query);
   }
 
   @Post('redeem')
