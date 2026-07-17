@@ -31,9 +31,10 @@ export const pointTransaction = pgTable(
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
     }),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
+    // earn 的入點店家；redeem 屬品牌層，為 null
+    organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'cascade',
+    }),
     // earn 為正、redeem 為負
     points: integer('points').notNull(),
     // earn 尚未被兌換消耗的點數（FIFO 扣點用）；redeem 恆為 0

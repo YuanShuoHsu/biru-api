@@ -1,0 +1,1 @@
+ALTER TABLE "coupon" ADD COLUMN "applicable_organization_ids" text[];

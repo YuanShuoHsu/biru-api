@@ -456,6 +456,27 @@
       "when": 1784110784186,
       "tag": "0064_normalize_points_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1784210260603,
+      "tag": "0065_coupon_applicable_organizations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1784282532320,
+      "tag": "0066_drop_coupon_organization",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1784282646131,
+      "tag": "0067_point_transaction_org_nullable",
+      "breakpoints": true
     }
   ]
 }

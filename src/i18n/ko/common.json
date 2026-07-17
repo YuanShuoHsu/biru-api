@@ -5,6 +5,7 @@
     "memberOnly": "이 쿠폰 코드는 회원 전용입니다",
     "minSubtotal": "이 쿠폰 코드는 {amount} 이상 주문 시 사용할 수 있습니다",
     "notApplicable": "이 쿠폰 코드는 장바구니의 상품에 적용되지 않습니다",
+    "notApplicableHere": "이 쿠폰 코드는 이 매장에서 사용할 수 없습니다",
     "notFound": "쿠폰 코드가 유효하지 않습니다",
     "notYetValid": "이 쿠폰 코드는 아직 사용할 수 없습니다",
     "perUserLimitReached": "이미 사용한 쿠폰 코드입니다",

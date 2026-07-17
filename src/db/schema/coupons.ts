@@ -13,7 +13,6 @@ import {
 
 import { timestamps } from './columns.helpers';
 import { order } from './orders';
-import { organization } from './organizations';
 import { user } from './users';
 
 export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', [
@@ -48,6 +47,8 @@ export const coupon = pgTable(
   'coupon',
   {
     id: text('id').primaryKey(),
+    // 適用店家；null = 全部店家通用
+    applicableOrganizationIds: text('applicable_organization_ids').array(),
     code: text('code').notNull(),
     discountCurrency: text('discount_currency').notNull().default('TWD'),
     discountType: couponDiscountTypeEnum('discount_type').notNull(),
@@ -63,9 +64,6 @@ export const coupon = pgTable(
     menuItemIds: text('menu_item_ids').array(),
     menuSectionIds: text('menu_section_ids').array(),
     minSubtotal: numeric('min_subtotal', { precision: 10, scale: 2 }),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
     perUserLimit: integer('per_user_limit'),
     // 兌換所需點數；null = 不可用點數兌換
     pointsCost: integer('points_cost'),
@@ -76,13 +74,7 @@ export const coupon = pgTable(
     validThrough: timestamp('valid_through'),
     ...timestamps,
   },
-  (table) => [
-    index('coupon_organizationId_idx').on(table.organizationId),
-    uniqueIndex('coupon_organizationId_code_unique').on(
-      table.organizationId,
-      sql`lower(${table.code})`,
-    ),
-  ],
+  (table) => [uniqueIndex('coupon_code_unique').on(sql`lower(${table.code})`)],
 );
 
 export type Coupon = typeof coupon.$inferSelect;
@@ -115,11 +107,7 @@ export const userCoupon = pgTable(
 
 export type UserCoupon = typeof userCoupon.$inferSelect;
 
-export const couponRelations = relations(coupon, ({ many, one }) => ({
-  organization: one(organization, {
-    fields: [coupon.organizationId],
-    references: [organization.id],
-  }),
+export const couponRelations = relations(coupon, ({ many }) => ({
   userCoupons: many(userCoupon),
 }));
 

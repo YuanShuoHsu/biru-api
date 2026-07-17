@@ -23,6 +23,16 @@ import {
 } from 'src/db/schema/coupons';
 
 export class CreateCouponDto {
+  @ApiPropertyOptional({
+    description: '適用店家；null = 全部店家通用，發行店永遠視為適用',
+    nullable: true,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  applicableOrganizationIds?: string[] | null;
+
   @ApiProperty()
   @IsString()
   @MaxLength(64)

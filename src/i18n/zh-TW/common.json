@@ -5,6 +5,7 @@
     "memberOnly": "此優惠碼限會員使用",
     "minSubtotal": "訂單金額須滿 {amount} 才能使用此優惠碼",
     "notApplicable": "此優惠碼不適用於購物車內的品項",
+    "notApplicableHere": "此店家不適用此優惠碼",
     "notFound": "優惠碼無效",
     "notYetValid": "優惠碼尚未生效",
     "perUserLimitReached": "您已使用過此優惠碼",

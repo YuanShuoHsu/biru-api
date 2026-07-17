@@ -12,6 +12,7 @@ export type I18nTranslations = {
             "memberOnly": string;
             "minSubtotal": string;
             "notApplicable": string;
+            "notApplicableHere": string;
             "notFound": string;
             "notYetValid": string;
             "perUserLimitReached": string;

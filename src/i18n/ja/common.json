@@ -5,6 +5,7 @@
     "memberOnly": "このクーポンコードは会員限定です",
     "minSubtotal": "このクーポンコードは{amount}以上のご注文でご利用いただけます",
     "notApplicable": "このクーポンコードはカート内の商品には適用されません",
+    "notApplicableHere": "このクーポンコードはこの店舗ではご利用いただけません",
     "notFound": "クーポンコードが無効です",
     "notYetValid": "このクーポンコードはまだ有効ではありません",
     "perUserLimitReached": "このクーポンコードは既にご利用済みです",

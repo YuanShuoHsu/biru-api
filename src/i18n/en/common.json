@@ -5,6 +5,7 @@
     "memberOnly": "This promo code is for members only",
     "minSubtotal": "A minimum order of {amount} is required to use this promo code",
     "notApplicable": "This promo code does not apply to the items in your cart",
+    "notApplicableHere": "This promo code cannot be used at this store",
     "notFound": "Invalid promo code",
     "notYetValid": "This promo code is not yet valid",
     "perUserLimitReached": "You have already used this promo code",

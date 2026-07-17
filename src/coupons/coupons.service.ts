@@ -37,6 +37,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
+  applicableToOrganization,
   notPointsRedeem,
   withinCapacity,
   withinValidity,
@@ -88,6 +89,7 @@ export class CouponsService {
       | 'memberOnly'
       | 'minSubtotal'
       | 'notApplicable'
+      | 'notApplicableHere'
       | 'notFound'
       | 'notYetValid'
       | 'perUserLimitReached'
@@ -107,6 +109,45 @@ export class CouponsService {
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
+  }
+
+  // 空陣列視為 null（全部店家通用）；有值時驗證店家存在
+  private async normalizeApplicableOrganizationIds(
+    ids: string[] | null | undefined,
+  ): Promise<string[] | null | undefined> {
+    if (ids === undefined) return undefined;
+    if (!ids?.length) return null;
+
+    const unique = [...new Set(ids)];
+    const found = await this.db
+      .select({ value: count() })
+      .from(organization)
+      .where(inArray(organization.id, unique));
+    if (found[0].value !== unique.length)
+      throw new BadRequestException('Organization not found');
+    return unique;
+  }
+
+  // 限定店家的店名／slug 清單；null = 全部店家通用
+  private async getApplicableOrganizations(
+    coupons: Pick<Coupon, 'applicableOrganizationIds'>[],
+  ): Promise<Map<string, { name: string; slug: string }>> {
+    const ids = [
+      ...new Set(coupons.flatMap((c) => c.applicableOrganizationIds || [])),
+    ];
+    if (ids.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+      })
+      .from(organization)
+      .where(inArray(organization.id, ids));
+    return new Map(
+      rows.map((row) => [row.id, { name: row.name, slug: row.slug || '' }]),
+    );
   }
 
   private assertDiscountValue(
@@ -133,19 +174,22 @@ export class CouponsService {
     scope: Coupon['scope'],
     menuItemIds: string[] | null | undefined,
     menuSectionIds: string[] | null | undefined,
+    applicableOrganizationIds: string[] | null | undefined,
   ): void {
-    if (scope === 'item' && !menuItemIds?.length && !menuSectionIds?.length)
+    if (scope !== 'item') return;
+
+    if (!menuItemIds?.length && !menuSectionIds?.length)
       throw new BadRequestException(
         'menuItemIds or menuSectionIds is required for item scope',
       );
+    // 品項 ID 只存在於單一店家的菜單：品項券必須限定恰好一家店
+    if (applicableOrganizationIds?.length !== 1)
+      throw new BadRequestException(
+        'Item scope requires exactly one applicable organization',
+      );
   }
 
-  async create(
-    organizationSlug: string,
-    dto: CreateCouponDto,
-  ): Promise<CouponResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
+  async create(dto: CreateCouponDto): Promise<CouponResponseDto> {
     // 點數兌換券僅能以點數兌換取得：寫入時強制關閉其他取得管道
     const pointsRedeem = dto.pointsCost != null;
     const issueTrigger = pointsRedeem ? null : (dto.issueTrigger ?? null);
@@ -153,18 +197,20 @@ export class CouponsService {
 
     this.assertDiscountValue(dto.discountType, dto.discountValue);
     this.assertIssueTrigger(issueTrigger, issueMinSpend);
+    const applicableOrganizationIds =
+      await this.normalizeApplicableOrganizationIds(
+        dto.applicableOrganizationIds,
+      );
     this.assertScopeTargets(
       dto.scope ?? 'order',
       dto.menuItemIds,
       dto.menuSectionIds,
+      applicableOrganizationIds,
     );
 
     const code = dto.code.trim();
     const existing = await this.db.query.coupon.findFirst({
-      where: and(
-        eq(coupon.organizationId, org.id),
-        sql`lower(${coupon.code}) = lower(${code})`,
-      ),
+      where: sql`lower(${coupon.code}) = lower(${code})`,
     });
     if (existing) throw new BadRequestException('Coupon code already exists');
 
@@ -172,6 +218,7 @@ export class CouponsService {
       .insert(coupon)
       .values({
         id: randomUUID(),
+        applicableOrganizationIds,
         code,
         discountCurrency: dto.discountCurrency,
         discountType: dto.discountType,
@@ -184,7 +231,6 @@ export class CouponsService {
         menuItemIds: dto.menuItemIds,
         menuSectionIds: dto.menuSectionIds,
         minSubtotal: dto.minSubtotal?.toFixed(2),
-        organizationId: org.id,
         perUserLimit: dto.perUserLimit,
         pointsCost: dto.pointsCost,
         scope: dto.scope ?? 'order',
@@ -197,24 +243,18 @@ export class CouponsService {
     return created;
   }
 
-  async findAll(organizationSlug: string): Promise<CouponResponseDto[]> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
+  async findAll(): Promise<CouponResponseDto[]> {
     return this.db.query.coupon.findMany({
-      where: eq(coupon.organizationId, org.id),
       orderBy: [desc(coupon.createdAt)],
     });
   }
 
   async update(
-    organizationSlug: string,
     couponId: string,
     dto: UpdateCouponDto,
   ): Promise<CouponResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
     const found = await this.db.query.coupon.findFirst({
-      where: and(eq(coupon.id, couponId), eq(coupon.organizationId, org.id)),
+      where: eq(coupon.id, couponId),
     });
     if (!found) throw new NotFoundException('Coupon not found');
 
@@ -238,16 +278,22 @@ export class CouponsService {
         : (dto.issueMinSpend ??
             (found.issueMinSpend ? Number(found.issueMinSpend) : null)),
     );
+    const applicableOrganizationIds =
+      await this.normalizeApplicableOrganizationIds(
+        dto.applicableOrganizationIds,
+      );
     this.assertScopeTargets(
       dto.scope ?? found.scope,
       dto.menuItemIds ?? found.menuItemIds,
       dto.menuSectionIds ?? found.menuSectionIds,
+      applicableOrganizationIds === undefined
+        ? found.applicableOrganizationIds
+        : applicableOrganizationIds,
     );
 
     if (dto.code !== undefined) {
       const duplicated = await this.db.query.coupon.findFirst({
         where: and(
-          eq(coupon.organizationId, org.id),
           ne(coupon.id, couponId),
           sql`lower(${coupon.code}) = lower(${dto.code.trim()})`,
         ),
@@ -259,6 +305,7 @@ export class CouponsService {
     const [updated] = await this.db
       .update(coupon)
       .set({
+        applicableOrganizationIds,
         code: dto.code?.trim(),
         discountCurrency: dto.discountCurrency,
         discountType: dto.discountType,
@@ -296,12 +343,10 @@ export class CouponsService {
     return updated;
   }
 
-  async remove(organizationSlug: string, couponId: string): Promise<void> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
+  async remove(couponId: string): Promise<void> {
     const deleted = await this.db
       .delete(coupon)
-      .where(and(eq(coupon.id, couponId), eq(coupon.organizationId, org.id)))
+      .where(eq(coupon.id, couponId))
       .returning({ id: coupon.id });
     if (deleted.length === 0) throw new NotFoundException('Coupon not found');
   }
@@ -312,7 +357,7 @@ export class CouponsService {
   ): Promise<void> {
     const autoCoupons = await this.db.query.coupon.findMany({
       where: and(
-        eq(coupon.organizationId, organizationId),
+        applicableToOrganization(organizationId),
         eq(coupon.isActive, true),
         isNotNull(coupon.issueTrigger),
         notPointsRedeem(),
@@ -376,7 +421,10 @@ export class CouponsService {
               .innerJoin(orderItem, eq(orderItem.orderId, order.id))
               .where(
                 and(
-                  eq(order.sellerId, organizationId),
+                  // 全店通用券計全品牌消費；限定店家券只計適用店家
+                  ...(c.applicableOrganizationIds
+                    ? [inArray(order.sellerId, c.applicableOrganizationIds)]
+                    : []),
                   eq(order.userId, userId),
                   // 與入點、每人限量一致：僅計已付款且未取消／未出問題的訂單
                   isNotNull(order.paymentDate),
@@ -434,7 +482,7 @@ export class CouponsService {
             and(
               eq(userCoupon.userId, userId),
               isNull(userCoupon.usedAt),
-              eq(coupon.organizationId, org.id),
+              applicableToOrganization(org.id),
               eq(coupon.isActive, true),
               withinValidity(),
             ),
@@ -446,7 +494,7 @@ export class CouponsService {
 
     const publicCoupons = await this.db.query.coupon.findMany({
       where: and(
-        eq(coupon.organizationId, org.id),
+        applicableToOrganization(org.id),
         eq(coupon.isActive, true),
         eq(coupon.isPublic, true),
         notPointsRedeem(),
@@ -479,7 +527,7 @@ export class CouponsService {
 
     const claimables = await this.db.query.coupon.findMany({
       where: and(
-        eq(coupon.organizationId, org.id),
+        applicableToOrganization(org.id),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
@@ -510,16 +558,12 @@ export class CouponsService {
   }
 
   async claim(
-    organizationSlug: string,
     couponId: string,
     userId: string,
   ): Promise<UserCouponResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
     const found = await this.db.query.coupon.findFirst({
       where: and(
         eq(coupon.id, couponId),
-        eq(coupon.organizationId, org.id),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
@@ -576,15 +620,9 @@ export class CouponsService {
     };
   }
 
-  async grant(
-    organizationSlug: string,
-    couponId: string,
-    email: string,
-  ): Promise<UserCouponResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
+  async grant(couponId: string, email: string): Promise<UserCouponResponseDto> {
     const found = await this.db.query.coupon.findFirst({
-      where: and(eq(coupon.id, couponId), eq(coupon.organizationId, org.id)),
+      where: eq(coupon.id, couponId),
     });
     if (!found) throw new NotFoundException('Coupon not found');
 
@@ -645,7 +683,7 @@ export class CouponsService {
       .from(userCoupon)
       .innerJoin(coupon, eq(userCoupon.couponId, coupon.id))
       .where(
-        and(eq(userCoupon.userId, userId), eq(coupon.organizationId, org.id)),
+        and(eq(userCoupon.userId, userId), applicableToOrganization(org.id)),
       )
       .orderBy(desc(userCoupon.createdAt));
 
@@ -660,49 +698,41 @@ export class CouponsService {
 
   async getAllMine(userId: string): Promise<MyCouponResponseDto[]> {
     const vouchers = await this.db
-      .select({
-        coupon,
-        organizationName: organization.name,
-        organizationSlug: organization.slug,
-        voucher: userCoupon,
-      })
+      .select({ coupon, voucher: userCoupon })
       .from(userCoupon)
       .innerJoin(coupon, eq(userCoupon.couponId, coupon.id))
-      .innerJoin(organization, eq(coupon.organizationId, organization.id))
       .where(eq(userCoupon.userId, userId))
       .orderBy(desc(userCoupon.createdAt));
 
-    return vouchers.map(
-      ({ coupon: c, organizationName, organizationSlug, voucher }) => ({
-        id: voucher.id,
-        coupon: toCustomerCoupon(c),
-        source: voucher.source,
-        usedAt: voucher.usedAt,
-        createdAt: voucher.createdAt,
-        organizationName,
-        organizationSlug: organizationSlug || '',
-      }),
+    const orgs = await this.getApplicableOrganizations(
+      vouchers.map((v) => v.coupon),
     );
+
+    return vouchers.map(({ coupon: c, voucher }) => ({
+      id: voucher.id,
+      applicableOrganizationNames:
+        c.applicableOrganizationIds?.map((id) => orgs.get(id)?.name || '') ||
+        null,
+      applicableOrganizationSlugs:
+        c.applicableOrganizationIds?.map((id) => orgs.get(id)?.slug || '') ||
+        null,
+      coupon: toCustomerCoupon(c),
+      source: voucher.source,
+      usedAt: voucher.usedAt,
+      createdAt: voucher.createdAt,
+    }));
   }
 
   async getAllClaimable(userId: string): Promise<MyClaimableCouponDto[]> {
-    const claimables = await this.db
-      .select({
-        coupon,
-        organizationName: organization.name,
-        organizationSlug: organization.slug,
-      })
-      .from(coupon)
-      .innerJoin(organization, eq(coupon.organizationId, organization.id))
-      .where(
-        and(
-          eq(coupon.isActive, true),
-          eq(coupon.isClaimable, true),
-          notPointsRedeem(),
-          withinValidity(),
-        ),
-      )
-      .orderBy(desc(coupon.createdAt));
+    const claimables = await this.db.query.coupon.findMany({
+      where: and(
+        eq(coupon.isActive, true),
+        eq(coupon.isClaimable, true),
+        notPointsRedeem(),
+        withinValidity(),
+      ),
+      orderBy: [desc(coupon.createdAt)],
+    });
     if (claimables.length === 0) return [];
 
     const claimed = await this.db.query.userCoupon.findMany({
@@ -711,18 +741,24 @@ export class CouponsService {
         eq(userCoupon.source, 'claimed'),
         inArray(
           userCoupon.couponId,
-          claimables.map((c) => c.coupon.id),
+          claimables.map((c) => c.id),
         ),
       ),
     });
     const claimedIds = new Set(claimed.map((v) => v.couponId));
 
+    const orgs = await this.getApplicableOrganizations(claimables);
+
     return claimables
-      .filter((c) => !claimedIds.has(c.coupon.id))
-      .map(({ coupon: c, organizationName, organizationSlug }) => ({
+      .filter((c) => !claimedIds.has(c.id))
+      .map((c) => ({
         ...toCustomerCoupon(c),
-        organizationName,
-        organizationSlug: organizationSlug || '',
+        applicableOrganizationNames:
+          c.applicableOrganizationIds?.map((id) => orgs.get(id)?.name || '') ||
+          null,
+        applicableOrganizationSlugs:
+          c.applicableOrganizationIds?.map((id) => orgs.get(id)?.slug || '') ||
+          null,
       }));
   }
 
@@ -764,12 +800,17 @@ export class CouponsService {
     discount: number;
     userCouponId: string | null;
   }> {
-    const found = await this.db.query.coupon.findFirst({
-      where: and(
-        eq(coupon.organizationId, organizationId),
-        sql`lower(${coupon.code}) = lower(${code.trim()})`,
-      ),
+    // code 全域唯一：查碼後檢查是否適用本店
+    const matches = await this.db.query.coupon.findMany({
+      where: sql`lower(${coupon.code}) = lower(${code.trim()})`,
     });
+    const found = matches.find(
+      (c) =>
+        !c.applicableOrganizationIds ||
+        c.applicableOrganizationIds.includes(organizationId),
+    );
+    if (!found && matches.some((c) => c.isActive))
+      throw new BadRequestException(this.t('notApplicableHere'));
     if (!found || !found.isActive)
       throw new BadRequestException(this.t('notFound'));
 
@@ -814,7 +855,10 @@ export class CouponsService {
         .from(order)
         .where(
           and(
-            eq(order.sellerId, organizationId),
+            // 全店通用券計全品牌使用次數；限定店家券只計適用店家
+            ...(found.applicableOrganizationIds
+              ? [inArray(order.sellerId, found.applicableOrganizationIds)]
+              : []),
             eq(order.userId, userId),
             sql`lower(${order.discountCode}) = lower(${found.code})`,
             // 取消與付款失敗（已回補）的訂單不占用次數
@@ -904,21 +948,23 @@ export class CouponsService {
 
   // 付款失敗時回補：usedCount -1、錢包券恢復未使用
   async restore(
-    db: Pick<DrizzleDB, 'update'>,
-    applied: { code: string; orderId: string; organizationId: string },
+    db: Pick<DrizzleDB, 'select' | 'update'>,
+    applied: { code: string; orderId: string },
   ): Promise<void> {
-    await db
-      .update(coupon)
-      .set({
-        updatedAt: new Date(),
-        usedCount: sql`GREATEST(${coupon.usedCount} - 1, 0)`,
-      })
-      .where(
-        and(
-          eq(coupon.organizationId, applied.organizationId),
-          sql`lower(${coupon.code}) = lower(${applied.code})`,
-        ),
-      );
+    // code 全域唯一
+    const [found] = await db
+      .select({ id: coupon.id })
+      .from(coupon)
+      .where(sql`lower(${coupon.code}) = lower(${applied.code})`);
+
+    if (found)
+      await db
+        .update(coupon)
+        .set({
+          updatedAt: new Date(),
+          usedCount: sql`GREATEST(${coupon.usedCount} - 1, 0)`,
+        })
+        .where(eq(coupon.id, found.id));
 
     await db
       .update(userCoupon)

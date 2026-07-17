@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -6,6 +6,7 @@ import { CouponsService } from './coupons.service';
 import {
   MyClaimableCouponDto,
   MyCouponResponseDto,
+  UserCouponResponseDto,
 } from './dto/coupon-response.dto';
 
 @ApiTags('coupons')
@@ -25,5 +26,14 @@ export class MyCouponsController {
     @Session() session: UserSession,
   ): Promise<MyClaimableCouponDto[]> {
     return this.couponsService.getAllClaimable(session.user.id);
+  }
+
+  @Post(':couponId/claim')
+  @ApiOperation({ summary: '領取優惠券' })
+  claim(
+    @Param('couponId') couponId: string,
+    @Session() session: UserSession,
+  ): Promise<UserCouponResponseDto> {
+    return this.couponsService.claim(couponId, session.user.id);
   }
 }

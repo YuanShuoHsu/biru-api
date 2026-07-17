@@ -361,7 +361,6 @@ export class OrdersService {
         await this.couponsService.restore(tx, {
           code: updated.discountCode,
           orderId: updated.id,
-          organizationId: updated.sellerId,
         });
     });
   }
@@ -385,12 +384,11 @@ export class OrdersService {
           sellerId: order.sellerId,
         });
 
-      for (const { discountCode, id, sellerId } of cancelled)
+      for (const { discountCode, id } of cancelled)
         if (discountCode)
           await this.couponsService.restore(tx, {
             code: discountCode,
             orderId: id,
-            organizationId: sellerId,
           });
 
       if (cancelled.length)

@@ -13,6 +13,8 @@ import {
 
 export class CouponResponseDto {
   @ApiProperty() id: string;
+  @ApiPropertyOptional({ nullable: true, type: [String] })
+  applicableOrganizationIds?: string[] | null;
   @ApiProperty() code: string;
   @ApiProperty() discountCurrency: string;
   @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
@@ -30,7 +32,6 @@ export class CouponResponseDto {
   @ApiPropertyOptional({ type: [String] }) menuItemIds?: string[] | null;
   @ApiPropertyOptional({ type: [String] }) menuSectionIds?: string[] | null;
   @ApiPropertyOptional() minSubtotal?: string | null;
-  @ApiProperty() organizationId: string;
   @ApiPropertyOptional() perUserLimit?: number | null;
   @ApiPropertyOptional() pointsCost?: number | null;
   @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
@@ -73,11 +74,31 @@ export class UserCouponResponseDto {
 }
 
 export class MyCouponResponseDto extends UserCouponResponseDto {
-  @ApiProperty() organizationName: string;
-  @ApiProperty() organizationSlug: string;
+  @ApiPropertyOptional({
+    description: '限定店家的店名清單；null = 全部店家通用',
+    nullable: true,
+    type: [String],
+  })
+  applicableOrganizationNames?: string[] | null;
+  @ApiPropertyOptional({
+    description: '限定店家的 slug 清單；null = 全部店家通用',
+    nullable: true,
+    type: [String],
+  })
+  applicableOrganizationSlugs?: string[] | null;
 }
 
 export class MyClaimableCouponDto extends CustomerCouponDto {
-  @ApiProperty() organizationName: string;
-  @ApiProperty() organizationSlug: string;
+  @ApiPropertyOptional({
+    description: '限定店家的店名清單；null = 全部店家通用',
+    nullable: true,
+    type: [String],
+  })
+  applicableOrganizationNames?: string[] | null;
+  @ApiPropertyOptional({
+    description: '限定店家的 slug 清單；null = 全部店家通用',
+    nullable: true,
+    type: [String],
+  })
+  applicableOrganizationSlugs?: string[] | null;
 }

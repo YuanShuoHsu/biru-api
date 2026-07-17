@@ -5,7 +5,7 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
 import { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
-import { MyPointsWalletDto } from './dto/points-response.dto';
+import { MyPointsDto } from './dto/points-response.dto';
 import { RedeemPointsDto } from './dto/redeem-points.dto';
 import { PointsService } from './points.service';
 
@@ -15,11 +15,11 @@ export class MyPointsController {
   constructor(private readonly pointsService: PointsService) {}
 
   @Get()
-  @ApiOperation({ summary: '我的點數（跨店，含可兌換優惠券與明細）' })
+  @ApiOperation({ summary: '我的點數（全店家合併，含可兌換優惠券與明細）' })
   getAllMine(
     @Query() query: PointsPaginationQueryDto,
     @Session() session: UserSession,
-  ): Promise<MyPointsWalletDto[]> {
+  ): Promise<MyPointsDto> {
     return this.pointsService.getAllMine(session.user.id, query);
   }
 

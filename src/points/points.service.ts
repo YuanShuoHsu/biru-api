@@ -31,10 +31,7 @@ import { withinCapacity, withinValidity } from 'src/common/utils/coupons';
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
-import type {
-  MyPointsWalletDto,
-  PointsCouponDto,
-} from './dto/points-response.dto';
+import type { MyPointsDto, PointsCouponDto } from './dto/points-response.dto';
 
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   id: found.id,
@@ -193,7 +190,7 @@ export class PointsService {
   async getAllMine(
     userId: string,
     query: PointsPaginationQueryDto = {},
-  ): Promise<MyPointsWalletDto[]> {
+  ): Promise<MyPointsDto> {
     const { limit = 10, offset = 0 } = query;
 
     await this.syncEarned(userId);
@@ -204,11 +201,10 @@ export class PointsService {
         couponCode: coupon.code,
         orderNumber: order.orderNumber,
         organizationName: organization.name,
-        organizationSlug: organization.slug,
         transaction: pointTransaction,
       })
       .from(pointTransaction)
-      .innerJoin(
+      .leftJoin(
         organization,
         eq(pointTransaction.organizationId, organization.id),
       )
@@ -217,14 +213,9 @@ export class PointsService {
       .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
       .where(eq(pointTransaction.userId, userId))
       .orderBy(desc(pointTransaction.createdAt));
-    if (transactions.length === 0) return [];
 
-    const organizationIds = [
-      ...new Set(transactions.map((t) => t.transaction.organizationId)),
-    ];
     const redeemables = await this.db.query.coupon.findMany({
       where: and(
-        inArray(coupon.organizationId, organizationIds),
         eq(coupon.isActive, true),
         isNotNull(coupon.pointsCost),
         withinCapacity(),
@@ -233,42 +224,56 @@ export class PointsService {
       orderBy: [asc(coupon.pointsCost)],
     });
 
+    // 限定店家的店名清單；null = 全部店家通用
+    const applicableIds = [
+      ...new Set(redeemables.flatMap((c) => c.applicableOrganizationIds || [])),
+    ];
+    const applicableOrgs = applicableIds.length
+      ? await this.db
+          .select({ id: organization.id, name: organization.name })
+          .from(organization)
+          .where(inArray(organization.id, applicableIds))
+      : [];
+    const names = new Map(applicableOrgs.map((row) => [row.id, row.name]));
+
     const now = new Date();
 
-    return organizationIds.map((organizationId) => {
-      const mine = transactions.filter(
-        (t) => t.transaction.organizationId === organizationId,
-      );
-      return {
-        balance: mine.reduce(
-          (sum, t) =>
-            !t.transaction.expiresAt || t.transaction.expiresAt > now
-              ? sum + t.transaction.remainingPoints
-              : sum,
-          0,
+    return {
+      balance: transactions.reduce(
+        (sum, t) =>
+          !t.transaction.expiresAt || t.transaction.expiresAt > now
+            ? sum + t.transaction.remainingPoints
+            : sum,
+        0,
+      ),
+      redeemableCoupons: redeemables.map((c) => ({
+        ...toPointsCoupon(c),
+        applicableOrganizationNames:
+          c.applicableOrganizationIds?.map((id) => names.get(id) || '') || null,
+      })),
+      transactions: transactions
+        .slice(offset, offset + limit)
+        .map(
+          ({
+            confirmationNumber,
+            couponCode,
+            orderNumber,
+            organizationName,
+            transaction,
+          }) => ({
+            id: transaction.id,
+            confirmationNumber,
+            couponCode,
+            createdAt: transaction.createdAt,
+            expiresAt: transaction.expiresAt,
+            orderNumber,
+            organizationName,
+            points: transaction.points,
+            type: transaction.type,
+          }),
         ),
-        organizationName: mine[0].organizationName,
-        organizationSlug: mine[0].organizationSlug || '',
-        redeemableCoupons: redeemables
-          .filter((c) => c.organizationId === organizationId)
-          .map(toPointsCoupon),
-        transactions: mine
-          .slice(offset, offset + limit)
-          .map(
-            ({ confirmationNumber, couponCode, orderNumber, transaction }) => ({
-              id: transaction.id,
-              confirmationNumber,
-              couponCode,
-              createdAt: transaction.createdAt,
-              expiresAt: transaction.expiresAt,
-              orderNumber,
-              points: transaction.points,
-              type: transaction.type,
-            }),
-          ),
-        transactionsTotal: mine.length,
-      };
-    });
+      transactionsTotal: transactions.length,
+    };
   }
 
   async redeem(
@@ -324,7 +329,7 @@ export class PointsService {
           throw new BadRequestException(this.t('perUserLimitReached'));
       }
 
-      // FIFO 扣點：先到期者先扣；鎖定餘點避免併發重複扣
+      // FIFO 扣點：全店家合併餘額、先到期者先扣；鎖定餘點避免併發重複扣
       const earns = await tx
         .select({
           id: pointTransaction.id,
@@ -334,7 +339,6 @@ export class PointsService {
         .where(
           and(
             eq(pointTransaction.userId, userId),
-            eq(pointTransaction.organizationId, found.organizationId),
             eq(pointTransaction.type, 'earn'),
             gt(pointTransaction.remainingPoints, 0),
             this.notExpired(),
@@ -376,7 +380,6 @@ export class PointsService {
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),
-        organizationId: found.organizationId,
         points: -pointsCost,
         type: 'redeem',
         userCouponId: voucher.id,
