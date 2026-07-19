@@ -1,6 +1,14 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+
+import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { asc } from 'drizzle-orm';
 import { organization } from 'src/db/schema/organizations';
@@ -33,6 +41,7 @@ export class OrganizationsController {
   }
 
   @Get(':id/members')
+  @UseGuards(AdminGuard)
   @ApiOperation({ summary: '查詢組織成員' })
   findMembers(
     @Param('id') id: string,

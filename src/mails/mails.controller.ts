@@ -1,9 +1,12 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
+
+import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { SendTestEmailDto } from './dto/send-test-email.dto';
 import { MailsService } from './mails.service';
 
+@UseGuards(AdminGuard)
 @Controller('mails')
 export class MailsController {
   constructor(private readonly mailsService: MailsService) {}

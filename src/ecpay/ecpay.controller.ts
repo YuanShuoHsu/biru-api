@@ -14,10 +14,19 @@ import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
-import { Body, Controller, Post, Query, Redirect } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Query,
+  Redirect,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiCreatedResponse } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+
+import { AdminGuard } from 'src/common/guards/admin.guard';
 
 @Controller('ecpay')
 export class EcpayController {
@@ -85,6 +94,7 @@ export class EcpayController {
   }
 
   @Post('get-gov-invoice-word-setting')
+  @UseGuards(AdminGuard)
   async getGovInvoiceWordSetting() {
     const now = new Date();
     const timestamp = Math.floor(now.getTime() / 1000);
@@ -207,6 +217,7 @@ export class EcpayController {
   }
 
   @Post('issue-invoice')
+  @UseGuards(AdminGuard)
   issueInvoice(@Body() dto: IssueInvoiceEcpayDecryptedRequestDto) {
     return this.ecpayIssueInvoiceService.issueInvoice(dto);
   }

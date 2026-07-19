@@ -7,8 +7,11 @@ import {
   Param,
   Patch,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -16,6 +19,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
 @ApiBearerAuth()
+@UseGuards(AdminGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
