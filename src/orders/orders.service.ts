@@ -37,6 +37,7 @@ import type { CreateOrderDto } from './dto/create-order.dto';
 import {
   ORDER_DATE_FILTER_FIELDS,
   ORDER_ENUM_FILTER_FIELDS,
+  ORDER_NUMBER_FILTER_FIELDS,
   ORDER_STRING_FILTER_FIELDS,
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto';
@@ -206,6 +207,7 @@ export class OrdersService {
       orderStatus: sql`${order.orderStatus}::text`,
       paymentDate: order.paymentDate,
       createdAt: order.createdAt,
+      total: sql`(select coalesce(sum("oi"."unit_price" * "oi"."order_quantity"), 0) from "order_item" "oi" where "oi"."order_id" = ${order.id})`,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -224,6 +226,7 @@ export class OrdersService {
             ORDER_STRING_FILTER_FIELDS,
             ORDER_DATE_FILTER_FIELDS,
             ORDER_ENUM_FILTER_FIELDS,
+            ORDER_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       quickFilterValue
