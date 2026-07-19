@@ -904,7 +904,11 @@ export class CouponsService {
       .from(userCoupon)
       .innerJoin(coupon, eq(userCoupon.couponId, coupon.id))
       .where(
-        and(eq(userCoupon.userId, userId), applicableToOrganization(org.id)),
+        and(
+          eq(userCoupon.userId, userId),
+          eq(coupon.isActive, true),
+          applicableToOrganization(org.id),
+        ),
       )
       .orderBy(desc(userCoupon.createdAt));
 
@@ -922,7 +926,7 @@ export class CouponsService {
       .select({ coupon, voucher: userCoupon })
       .from(userCoupon)
       .innerJoin(coupon, eq(userCoupon.couponId, coupon.id))
-      .where(eq(userCoupon.userId, userId))
+      .where(and(eq(userCoupon.userId, userId), eq(coupon.isActive, true)))
       .orderBy(desc(userCoupon.createdAt));
 
     const orgs = await this.getApplicableOrganizations(
