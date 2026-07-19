@@ -83,6 +83,47 @@ export const buildDateFilterCondition = (
   }
 };
 
+export const buildNumberFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  const colSql = sql`${column}`;
+
+  if (operator === 'isEmpty') return isNull(colSql);
+  if (operator === 'isNotEmpty') return isNotNull(colSql);
+
+  if (operator === 'isAnyOf') {
+    const values = value
+      .split(',')
+      .map(Number)
+      .filter((v) => !Number.isNaN(v));
+    if (values.length === 0) return undefined;
+
+    return values.length === 1
+      ? eq(colSql, values[0])
+      : inArray(colSql, values);
+  }
+
+  const num = Number(value);
+  if (!value || Number.isNaN(num)) return undefined;
+
+  switch (operator) {
+    case '=':
+      return eq(colSql, num);
+    case '!=':
+      return ne(colSql, num);
+    case '>':
+      return gt(colSql, num);
+    case '>=':
+      return gte(colSql, num);
+    case '<':
+      return lt(colSql, num);
+    case '<=':
+      return lte(colSql, num);
+  }
+};
+
 export const buildEnumFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -116,6 +157,7 @@ export const buildFilterCondition = (
   stringFields: readonly string[],
   dateFields: readonly string[],
   enumFields: readonly string[] = [],
+  numberFields: readonly string[] = [],
 ): SQL | undefined => {
   const column = fieldMap[filterField];
   if (!column) return undefined;
@@ -137,5 +179,13 @@ export const buildFilterCondition = (
 
   if (enumFields.includes(filterField)) {
     return buildEnumFilterCondition(column, filterOperator, filterValue || '');
+  }
+
+  if (numberFields.includes(filterField)) {
+    return buildNumberFilterCondition(
+      column,
+      filterOperator,
+      filterValue || '',
+    );
   }
 };

@@ -14,6 +14,12 @@ export const FILTER_OPERATORS = [
   'onOrAfter',
   'before',
   'onOrBefore',
+  '=',
+  '!=',
+  '>',
+  '>=',
+  '<',
+  '<=',
 ] as const;
 
 export const SORT_DIRECTIONS = ['asc', 'desc'] as const;

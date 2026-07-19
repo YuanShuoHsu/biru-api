@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { CouponsService } from './coupons.service';
+import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto';
 import {
   CouponResponseDto,
   UserCouponResponseDto,
@@ -34,8 +36,10 @@ export class AdminCouponsController {
 
   @Get()
   @ApiOperation({ summary: '查詢優惠券列表' })
-  findAll(): Promise<CouponResponseDto[]> {
-    return this.couponsService.findAll();
+  findAll(
+    @Query() query: CouponPaginationQueryDto,
+  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+    return this.couponsService.findAll(query);
   }
 
   @Patch(':couponId')

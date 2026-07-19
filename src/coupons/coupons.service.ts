@@ -9,10 +9,12 @@ import {
 
 import {
   and,
+  asc,
   count,
   desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
@@ -21,6 +23,8 @@ import {
   notInArray,
   or,
   sql,
+  type Column,
+  type SQL,
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
@@ -29,6 +33,8 @@ import {
   type Coupon,
   type UserCoupon,
 } from 'src/db/schema/coupons';
+import { DEFAULT_LANGUAGE } from 'src/db/schema/enums';
+import { menuItem, menuSection } from 'src/db/schema/menus';
 import { order, orderItem } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
@@ -42,6 +48,8 @@ import {
   withinCapacity,
   withinValidity,
 } from 'src/common/utils/coupons';
+import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
+import { localize } from 'src/menus/menus-public.service';
 import { sumOrderItems } from 'src/common/utils/order-items';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service';
@@ -56,6 +64,13 @@ import type {
   MyCouponResponseDto,
   UserCouponResponseDto,
 } from './dto/coupon-response.dto';
+import {
+  COUPON_DATE_FILTER_FIELDS,
+  COUPON_ENUM_FILTER_FIELDS,
+  COUPON_NUMBER_FILTER_FIELDS,
+  COUPON_STRING_FILTER_FIELDS,
+  type CouponPaginationQueryDto,
+} from './dto/coupon-pagination-query.dto';
 import type { CreateCouponDto, UpdateCouponDto } from './dto/create-coupon.dto';
 import type {
   ValidateCouponDto,
@@ -243,10 +258,215 @@ export class CouponsService {
     return created;
   }
 
-  async findAll(): Promise<CouponResponseDto[]> {
-    return this.db.query.coupon.findMany({
-      orderBy: [desc(coupon.createdAt)],
-    });
+  async findAll(
+    query: CouponPaginationQueryDto = {},
+  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+    const {
+      lang = DEFAULT_LANGUAGE,
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+      timezone = 'UTC',
+    } = query;
+
+    const couponFieldMap: Record<string, Column | SQL> = {
+      code: coupon.code,
+      scope: sql`${coupon.scope}::text`,
+      discountValue: coupon.discountValue,
+      minSubtotal: coupon.minSubtotal,
+      usedCount: coupon.usedCount,
+      perUserLimit: coupon.perUserLimit,
+      pointsCost: coupon.pointsCost,
+      validFrom: coupon.validFrom,
+      isActive: sql`${coupon.isActive}::text`,
+      createdAt: coupon.createdAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    // 適用店家依顯示用的店家名稱排序(依陣列順序串接);null(全部店家)以空字串排最前
+    const applicableOrganizationNames = sql`COALESCE((SELECT string_agg(o.name, ', ' ORDER BY array_position(${coupon.applicableOrganizationIds}, o.id)) FROM organization o WHERE o.id = ANY(${coupon.applicableOrganizationIds})), '')`;
+    // 分類/品項名稱為多語系 jsonb,依 lang 解析(缺譯回退預設語言)後串接排序
+    const menuSectionNames = sql`COALESCE((SELECT string_agg(COALESCE(ms.name->>${lang}, ms.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuSectionIds}, ms.id)) FROM menu_section ms WHERE ms.id = ANY(${coupon.menuSectionIds})), '')`;
+    const menuItemNames = sql`COALESCE((SELECT string_agg(COALESCE(mi.name->>${lang}, mi.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuItemIds}, mi.id)) FROM menu_item mi WHERE mi.id = ANY(${coupon.menuItemIds})), '')`;
+    const orderBy: SQL[] =
+      sortBy === 'distribution'
+        ? // 取得管道為三旗標合成欄:公開 → 可領取 → 自動發放條件的複合排序
+          [
+            dir(coupon.isPublic),
+            dir(coupon.isClaimable),
+            dir(coupon.issueTrigger),
+            desc(coupon.createdAt),
+          ]
+        : sortBy === 'applicableOrganizationIds'
+          ? [dir(applicableOrganizationNames), desc(coupon.createdAt)]
+          : sortBy === 'menuSectionIds'
+            ? [dir(menuSectionNames), desc(coupon.createdAt)]
+            : sortBy === 'menuItemIds'
+              ? [dir(menuItemNames), desc(coupon.createdAt)]
+              : sortBy
+                ? [dir(couponFieldMap[sortBy]), desc(coupon.createdAt)]
+                : [desc(coupon.createdAt)];
+
+    const where = and(
+      filterField && filterOperator
+        ? filterField === 'applicableOrganizationIds'
+          ? this.buildApplicableOrganizationCondition(
+              filterOperator,
+              filterValue,
+            )
+          : filterField === 'distribution'
+            ? this.buildDistributionCondition(filterOperator, filterValue)
+            : buildFilterCondition(
+                filterField,
+                filterOperator,
+                filterValue,
+                couponFieldMap,
+                COUPON_STRING_FILTER_FIELDS,
+                COUPON_DATE_FILTER_FIELDS,
+                COUPON_ENUM_FILTER_FIELDS,
+                COUPON_NUMBER_FILTER_FIELDS,
+              )
+        : undefined,
+      quickFilterValue
+        ? or(
+            ilike(coupon.code, `%${quickFilterValue}%`),
+            ilike(
+              sql`TO_CHAR(${coupon.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              `%${quickFilterValue}%`,
+            ),
+          )
+        : undefined,
+    );
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db.query.coupon.findMany({
+        where,
+        orderBy,
+        limit,
+        offset,
+      }),
+      this.db.select({ total: count() }).from(coupon).where(where),
+    ]);
+
+    // 指定品項券的分類/品項名稱:一次撈齊本頁所有 ID 對應名稱供列表顯示
+    const sectionIds = [
+      ...new Set(rows.flatMap((r) => r.menuSectionIds || [])),
+    ];
+    const itemIds = [...new Set(rows.flatMap((r) => r.menuItemIds || []))];
+    const [sections, items] = await Promise.all([
+      sectionIds.length
+        ? this.db
+            .select({ id: menuSection.id, name: menuSection.name })
+            .from(menuSection)
+            .where(inArray(menuSection.id, sectionIds))
+        : [],
+      itemIds.length
+        ? this.db
+            .select({ id: menuItem.id, name: menuItem.name })
+            .from(menuItem)
+            .where(inArray(menuItem.id, itemIds))
+        : [],
+    ]);
+    const sectionNameMap = new Map(
+      sections.map(({ id, name }) => [id, localize(name, lang)]),
+    );
+    const itemNameMap = new Map(
+      items.map(({ id, name }) => [id, localize(name, lang)]),
+    );
+
+    const data = rows.map((row) => ({
+      ...row,
+      menuItemNames:
+        row.menuItemIds?.map((id) => itemNameMap.get(id) || id) ?? null,
+      menuSectionNames:
+        row.menuSectionIds?.map((id) => sectionNameMap.get(id) || id) ?? null,
+    }));
+
+    return { data, total };
+  }
+
+  // 適用店家篩選採「該店家可用」語意:null(全部店家通用)視為適用於任何店家
+  // 哨兵值 'all' 表示只找全部店家通用券(applicableOrganizationIds IS NULL)
+  private buildApplicableOrganizationCondition(
+    operator: string,
+    value: string | undefined,
+  ): SQL | undefined {
+    if (!value) return undefined;
+
+    const arr = coupon.applicableOrganizationIds;
+    const ids = value.split(',').filter(Boolean);
+    if (ids.length === 0) return undefined;
+
+    const hasAll = ids.includes('all');
+    const orgIds = ids.filter((id) => id !== 'all');
+    const idArray = sql`ARRAY[${sql.join(
+      orgIds.map((id) => sql`${id}`),
+      sql`, `,
+    )}]::text[]`;
+
+    switch (operator) {
+      case 'is':
+      case 'isAnyOf': {
+        const conditions: SQL[] = [];
+        if (hasAll) conditions.push(isNull(arr));
+        if (orgIds.length) {
+          const condition = or(isNull(arr), sql`${arr} && ${idArray}`);
+          if (condition) conditions.push(condition);
+        }
+        return conditions.length ? or(...conditions) : undefined;
+      }
+      case 'not':
+        return hasAll
+          ? isNotNull(arr)
+          : orgIds.length
+            ? and(isNotNull(arr), sql`NOT (${arr} && ${idArray})`)
+            : undefined;
+    }
+  }
+
+  // 取得管道篩選:公開/可領取為布林旗標,自動發放依 issueTrigger 比對
+  private buildDistributionCondition(
+    operator: string,
+    value: string | undefined,
+  ): SQL | undefined {
+    if (!value) return undefined;
+
+    const match = (v: string): SQL | undefined =>
+      v === 'isPublic'
+        ? eq(coupon.isPublic, true)
+        : v === 'isClaimable'
+          ? eq(coupon.isClaimable, true)
+          : v === 'signup' || v === 'birthday' || v === 'spend'
+            ? eq(coupon.issueTrigger, v)
+            : undefined;
+
+    switch (operator) {
+      case 'is':
+        return match(value);
+      case 'not': {
+        if (value === 'isPublic') return eq(coupon.isPublic, false);
+        if (value === 'isClaimable') return eq(coupon.isClaimable, false);
+        const condition = match(value);
+        return condition
+          ? or(
+              isNull(coupon.issueTrigger),
+              ne(coupon.issueTrigger, value as 'signup' | 'birthday' | 'spend'),
+            )
+          : undefined;
+      }
+      case 'isAnyOf': {
+        const conditions = value
+          .split(',')
+          .map(match)
+          .filter((condition): condition is SQL => !!condition);
+        return conditions.length ? or(...conditions) : undefined;
+      }
+    }
   }
 
   async update(

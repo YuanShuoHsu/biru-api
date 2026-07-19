@@ -30,7 +30,19 @@ export class CouponResponseDto {
   })
   issueTrigger?: CouponIssueTrigger | null;
   @ApiPropertyOptional({ type: [String] }) menuItemIds?: string[] | null;
+  @ApiPropertyOptional({
+    description: '指定品項的名稱清單（依 menuItemIds 順序，管理列表顯示用）',
+    nullable: true,
+    type: [String],
+  })
+  menuItemNames?: string[] | null;
   @ApiPropertyOptional({ type: [String] }) menuSectionIds?: string[] | null;
+  @ApiPropertyOptional({
+    description: '指定分類的名稱清單（依 menuSectionIds 順序，管理列表顯示用）',
+    nullable: true,
+    type: [String],
+  })
+  menuSectionNames?: string[] | null;
   @ApiPropertyOptional() minSubtotal?: string | null;
   @ApiPropertyOptional() perUserLimit?: number | null;
   @ApiPropertyOptional() pointsCost?: number | null;

@@ -23,7 +23,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 
-const localize = (
+export const localize = (
   text: LocalizedText | null | undefined,
   lang: Language,
 ): string | null => {
