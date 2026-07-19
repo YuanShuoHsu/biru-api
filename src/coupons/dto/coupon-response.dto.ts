@@ -66,6 +66,7 @@ export class CustomerCouponDto {
   @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
   @ApiPropertyOptional() validFrom?: Date | null;
   @ApiPropertyOptional() validThrough?: Date | null;
+  @ApiProperty() isActive: boolean;
 }
 
 export class AvailableCouponDto extends CustomerCouponDto {

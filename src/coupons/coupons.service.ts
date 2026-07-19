@@ -87,6 +87,7 @@ const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   scope: found.scope,
   validFrom: found.validFrom,
   validThrough: found.validThrough,
+  isActive: found.isActive,
 });
 
 @Injectable()
@@ -159,10 +160,19 @@ export class CouponsService {
         slug: organization.slug,
       })
       .from(organization)
-      .where(inArray(organization.id, ids));
+      .where(inArray(organization.id, ids))
+      .orderBy(asc(organization.createdAt));
     return new Map(
       rows.map((row) => [row.id, { name: row.name, slug: row.slug || '' }]),
     );
+  }
+
+  // 依店家建立時間排序 applicableOrganizationIds，與後台選單順序一致
+  private orderApplicableOrgIds(
+    ids: string[] | null | undefined,
+    orgs: Map<string, { name: string; slug: string }>,
+  ): string[] {
+    return [...orgs.keys()].filter((id) => ids?.includes(id));
   }
 
   private assertDiscountValue(
@@ -933,19 +943,25 @@ export class CouponsService {
       vouchers.map((v) => v.coupon),
     );
 
-    return vouchers.map(({ coupon: c, voucher }) => ({
-      id: voucher.id,
-      applicableOrganizationNames:
-        c.applicableOrganizationIds?.map((id) => orgs.get(id)?.name || '') ||
-        null,
-      applicableOrganizationSlugs:
-        c.applicableOrganizationIds?.map((id) => orgs.get(id)?.slug || '') ||
-        null,
-      coupon: toCustomerCoupon(c),
-      source: voucher.source,
-      usedAt: voucher.usedAt,
-      createdAt: voucher.createdAt,
-    }));
+    return vouchers.map(({ coupon: c, voucher }) => {
+      const orderedIds = this.orderApplicableOrgIds(
+        c.applicableOrganizationIds,
+        orgs,
+      );
+      return {
+        id: voucher.id,
+        applicableOrganizationNames: c.applicableOrganizationIds
+          ? orderedIds.map((id) => orgs.get(id)?.name || '')
+          : null,
+        applicableOrganizationSlugs: c.applicableOrganizationIds
+          ? orderedIds.map((id) => orgs.get(id)?.slug || '')
+          : null,
+        coupon: toCustomerCoupon(c),
+        source: voucher.source,
+        usedAt: voucher.usedAt,
+        createdAt: voucher.createdAt,
+      };
+    });
   }
 
   async getAllClaimable(userId: string): Promise<MyClaimableCouponDto[]> {
@@ -976,15 +992,21 @@ export class CouponsService {
 
     return claimables
       .filter((c) => !claimedIds.has(c.id))
-      .map((c) => ({
-        ...toCustomerCoupon(c),
-        applicableOrganizationNames:
-          c.applicableOrganizationIds?.map((id) => orgs.get(id)?.name || '') ||
-          null,
-        applicableOrganizationSlugs:
-          c.applicableOrganizationIds?.map((id) => orgs.get(id)?.slug || '') ||
-          null,
-      }));
+      .map((c) => {
+        const orderedIds = this.orderApplicableOrgIds(
+          c.applicableOrganizationIds,
+          orgs,
+        );
+        return {
+          ...toCustomerCoupon(c),
+          applicableOrganizationNames: c.applicableOrganizationIds
+            ? orderedIds.map((id) => orgs.get(id)?.name || '')
+            : null,
+          applicableOrganizationSlugs: c.applicableOrganizationIds
+            ? orderedIds.map((id) => orgs.get(id)?.slug || '')
+            : null,
+        };
+      });
   }
 
   async validate(

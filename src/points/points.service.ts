@@ -39,6 +39,7 @@ const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   discountCurrency: found.discountCurrency,
   discountType: found.discountType,
   discountValue: found.discountValue,
+  isActive: found.isActive,
   minSubtotal: found.minSubtotal,
   pointsCost: found.pointsCost!,
   scope: found.scope,
@@ -233,8 +234,10 @@ export class PointsService {
           .select({ id: organization.id, name: organization.name })
           .from(organization)
           .where(inArray(organization.id, applicableIds))
+          .orderBy(asc(organization.createdAt))
       : [];
     const names = new Map(applicableOrgs.map((row) => [row.id, row.name]));
+    const orderedOrgIds = [...names.keys()];
 
     const now = new Date();
 
@@ -248,8 +251,11 @@ export class PointsService {
       ),
       redeemableCoupons: redeemables.map((c) => ({
         ...toPointsCoupon(c),
-        applicableOrganizationNames:
-          c.applicableOrganizationIds?.map((id) => names.get(id) || '') || null,
+        applicableOrganizationNames: c.applicableOrganizationIds
+          ? orderedOrgIds
+              .filter((id) => c.applicableOrganizationIds?.includes(id))
+              .map((id) => names.get(id) || '')
+          : null,
       })),
       transactions: transactions
         .slice(offset, offset + limit)
@@ -397,6 +403,7 @@ export class PointsService {
         discountCurrency: found.discountCurrency,
         discountType: found.discountType,
         discountValue: found.discountValue,
+        isActive: found.isActive,
         minSubtotal: found.minSubtotal,
         scope: found.scope,
         validFrom: found.validFrom,
