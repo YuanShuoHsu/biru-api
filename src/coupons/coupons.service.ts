@@ -49,12 +49,19 @@ import {
   withinValidity,
 } from 'src/common/utils/coupons';
 import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
-import { localize } from 'src/menus/menus-public.service';
 import { sumOrderItems } from 'src/common/utils/order-items';
+import { localize } from 'src/menus/menus-public.service';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service';
 import { OrderPricingService } from '../orders/order-pricing.service';
 
+import {
+  COUPON_DATE_FILTER_FIELDS,
+  COUPON_ENUM_FILTER_FIELDS,
+  COUPON_NUMBER_FILTER_FIELDS,
+  COUPON_STRING_FILTER_FIELDS,
+  type CouponPaginationQueryDto,
+} from './dto/coupon-pagination-query.dto';
 import type {
   AvailableCouponDto,
   ClaimableCouponDto,
@@ -64,13 +71,6 @@ import type {
   MyCouponResponseDto,
   UserCouponResponseDto,
 } from './dto/coupon-response.dto';
-import {
-  COUPON_DATE_FILTER_FIELDS,
-  COUPON_ENUM_FILTER_FIELDS,
-  COUPON_NUMBER_FILTER_FIELDS,
-  COUPON_STRING_FILTER_FIELDS,
-  type CouponPaginationQueryDto,
-} from './dto/coupon-pagination-query.dto';
 import type { CreateCouponDto, UpdateCouponDto } from './dto/create-coupon.dto';
 import type {
   ValidateCouponDto,
@@ -720,6 +720,7 @@ export class CouponsService {
         notPointsRedeem(),
         withinCapacity(),
         withinValidity(),
+        ...(userId ? [] : [isNull(coupon.perUserLimit)]),
         ...(walletCouponIds.length
           ? [notInArray(coupon.id, walletCouponIds)]
           : []),
