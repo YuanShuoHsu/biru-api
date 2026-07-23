@@ -207,7 +207,7 @@ export class OrdersService {
       orderStatus: sql`${order.orderStatus}::text`,
       paymentDate: order.paymentDate,
       createdAt: order.createdAt,
-      total: sql`(select coalesce(sum("oi"."unit_price" * "oi"."order_quantity"), 0) from "order_item" "oi" where "oi"."order_id" = ${order.id})`,
+      total: sql`(select coalesce(sum("oi"."unit_price" * "oi"."order_quantity"), 0) from "order_item" "oi" where "oi"."order_id" = ${order.id}) - coalesce(${order.discount}, 0)`,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
