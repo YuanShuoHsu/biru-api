@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import {
@@ -24,6 +25,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import type { OrderStatus } from 'src/db/schema/orders';
 import { order, orderItem } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -32,6 +34,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
+import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 
 import type { CreateOrderDto } from './dto/create-order.dto';
 import {
@@ -76,6 +79,7 @@ export class OrdersService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly couponsService: CouponsService,
     private readonly orderPricingService: OrderPricingService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async getOrgBySlug(slug: string) {
@@ -112,7 +116,7 @@ export class OrdersService {
     const orderId = randomUUID();
     const confirmationNumber = generateConfirmationNumber();
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await tx
         .select({ id: organization.id })
         .from(organization)
@@ -178,6 +182,15 @@ export class OrdersService {
 
       return { ...created, items };
     });
+
+    if (result.orderStatus === 'OrderProcessing')
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId: result.id,
+        orderStatus: result.orderStatus,
+        organizationId: org.id,
+      });
+
+    return result;
   }
 
   async listOrders(
@@ -304,6 +317,95 @@ export class OrdersService {
     return found;
   }
 
+  async getOrderStatus(orderId: string): Promise<{ orderStatus: OrderStatus }> {
+    const found = await this.db.query.order.findFirst({
+      where: eq(order.id, orderId),
+      columns: { orderStatus: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+
+    return found;
+  }
+
+  private async transitionOrderStatus(
+    organizationSlug: string,
+    orderId: string,
+    fromStatuses: OrderStatus[],
+    getNextStatus: (found: OrderResponseDto) => OrderStatus,
+    errorMessage: string,
+  ): Promise<OrderResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { items: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+    if (!fromStatuses.includes(found.orderStatus))
+      throw new BadRequestException(errorMessage);
+
+    const orderStatus = getNextStatus(found);
+
+    const [updated] = await this.db
+      .update(order)
+      .set({ orderStatus })
+      .where(
+        and(eq(order.id, orderId), eq(order.orderStatus, found.orderStatus)),
+      )
+      .returning();
+    if (!updated) throw new BadRequestException(errorMessage);
+
+    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+      orderId,
+      orderStatus,
+      organizationId: org.id,
+    });
+
+    return { ...found, ...updated };
+  }
+
+  markOrderReady(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.transitionOrderStatus(
+      organizationSlug,
+      orderId,
+      ['OrderProcessing'],
+      () => 'OrderPickupAvailable',
+      'Order is not being processed',
+    );
+  }
+
+  confirmPickup(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.transitionOrderStatus(
+      organizationSlug,
+      orderId,
+      ['OrderPickupAvailable'],
+      () => 'OrderDelivered',
+      'Order is not available for pickup',
+    );
+  }
+
+  revertOrderReady(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.transitionOrderStatus(
+      organizationSlug,
+      orderId,
+      ['OrderDelivered', 'OrderPickupAvailable'],
+      (found) =>
+        found.orderStatus === 'OrderPickupAvailable'
+          ? 'OrderProcessing'
+          : 'OrderPickupAvailable',
+      'Order is not marked as ready',
+    );
+  }
+
   async getPayableOrder(
     orderId: string,
   ): Promise<OrderResponseDto & { confirmationNumber: string }> {
@@ -329,12 +431,15 @@ export class OrdersService {
     if (body.SimulatePaid === '1') return;
 
     const succeeded = body.RtnCode === '1';
+    const orderStatus: OrderStatus = succeeded
+      ? 'OrderProcessing'
+      : 'OrderProblem';
 
-    await this.db.transaction(async (tx) => {
+    const updated = await this.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(order)
         .set({
-          orderStatus: succeeded ? 'OrderProcessing' : 'OrderProblem',
+          orderStatus,
           paymentDate: body.PaymentDate
             ? new Date(
                 `${body.PaymentDate.replace(/\//g, '-').replace(' ', 'T')}+08:00`,
@@ -365,12 +470,21 @@ export class OrdersService {
           code: updated.discountCode,
           orderId: updated.id,
         });
+
+      return updated;
     });
+
+    if (updated)
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId: updated.id,
+        orderStatus,
+        organizationId: updated.sellerId,
+      });
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async cancelUnpaidOrders(): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    const cancelled = await this.db.transaction(async (tx) => {
       const cancelled = await tx
         .update(order)
         .set({ orderStatus: 'OrderCancelled' })
@@ -394,8 +508,17 @@ export class OrdersService {
             orderId: id,
           });
 
-      if (cancelled.length)
-        this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);
+      return cancelled;
     });
+
+    for (const { id, sellerId } of cancelled)
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId: id,
+        orderStatus: 'OrderCancelled',
+        organizationId: sellerId,
+      });
+
+    if (cancelled.length)
+      this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);
   }
 }

@@ -1,0 +1,1 @@
+CREATE INDEX "order_paymentDue_createdAt_idx" ON "order" USING btree ("order_status","created_at") WHERE "order"."order_status" = 'OrderPaymentDue';

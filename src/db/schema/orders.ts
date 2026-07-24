@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -111,6 +111,9 @@ export const order = pgTable(
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
     index('order_userId_createdAt_idx').on(table.userId, table.createdAt),
+    index('order_paymentDue_createdAt_idx')
+      .on(table.orderStatus, table.createdAt)
+      .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
   ],
 );
 

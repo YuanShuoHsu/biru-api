@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AllowAnonymous,
@@ -50,5 +58,37 @@ export class OrdersController {
     @Param('orderId') orderId: string,
   ): Promise<OrderResponseDto> {
     return this.ordersService.getOrder(organizationSlug, orderId);
+  }
+
+  @Patch(':orderId/ready')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '標記訂單可取餐' })
+  markReady(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.markOrderReady(organizationSlug, orderId);
+  }
+
+  @Patch(':orderId/picked-up')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '確認已取餐' })
+  confirmPickup(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.confirmPickup(organizationSlug, orderId);
+  }
+
+  @Patch(':orderId/processing')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '取消標記完成（退回上一個狀態：已送達→可取餐、可取餐→準備中）',
+  })
+  revertReady(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.revertOrderReady(organizationSlug, orderId);
   }
 }

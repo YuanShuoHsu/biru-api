@@ -11,11 +11,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
-import {
-  admin as adminRole,
-  member as memberRole,
-  owner as ownerRole,
-} from 'src/auth/permissions';
+import { isAuthorized } from 'src/auth/permissions';
 import {
   menu,
   menuItem,
@@ -52,7 +48,7 @@ export class RolesGuard implements CanActivate {
       action: Record<string, string[]>;
       organizationParam: OrganizationParam;
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
-    if (!requiredRoles) return true;
+    if (!requiredRoles || context.getType() !== 'http') return true;
 
     const request = context.switchToHttp().getRequest<AuthRequest>();
     const { headers, params } = request;
@@ -79,7 +75,7 @@ export class RolesGuard implements CanActivate {
     });
     if (!membership) throw new ForbiddenException();
 
-    if (!this.isAuthorized(membership.role, requiredRoles.action))
+    if (!isAuthorized(membership.role, requiredRoles.action))
       throw new ForbiddenException();
 
     return true;
@@ -182,22 +178,6 @@ export class RolesGuard implements CanActivate {
 
         return row?.modifierGroup?.menu?.organizationId;
       }
-    }
-  }
-
-  private isAuthorized(
-    role: string,
-    action: Record<string, string[]>,
-  ): boolean {
-    switch (role) {
-      case 'owner':
-        return ownerRole.authorize(action).success;
-      case 'admin':
-        return adminRole.authorize(action).success;
-      case 'member':
-        return memberRole.authorize(action).success;
-      default:
-        return false;
     }
   }
 }

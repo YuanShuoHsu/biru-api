@@ -8,8 +8,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
+import { WsException } from '@nestjs/websockets';
 
 import { I18nContext } from 'nestjs-i18n';
+import type { Socket } from 'socket.io';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 @Catch()
@@ -22,10 +24,6 @@ export class AllExceptionsFilter
   }
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const { httpAdapter } = this.adapterHost;
-
-    const ctx = host.switchToHttp();
-
     const httpStatus =
       exception instanceof HttpException
         ? exception.getStatus()
@@ -42,20 +40,39 @@ export class AllExceptionsFilter
           })
         : exception instanceof HttpException
           ? exception.getResponse()
-          : isProduction
-            ? i18n?.t('common.exceptions.internalServerError', {
-                lang: i18n?.lang,
-              })
-            : {
-                message:
-                  exception instanceof Error
-                    ? exception.message
-                    : String(exception),
-                stack:
-                  exception instanceof Error
-                    ? exception.stack
-                    : String(exception),
-              };
+          : exception instanceof WsException
+            ? exception.getError()
+            : isProduction
+              ? i18n?.t('common.exceptions.internalServerError', {
+                  lang: i18n?.lang,
+                })
+              : {
+                  message:
+                    exception instanceof Error
+                      ? exception.message
+                      : String(exception),
+                  stack:
+                    exception instanceof Error
+                      ? exception.stack
+                      : String(exception),
+                };
+
+    if (host.getType() !== 'http') {
+      host
+        .switchToWs()
+        .getClient<Socket>()
+        .emit('exception', {
+          ...(typeof message === 'string' ? { message } : message),
+          success: false,
+          timestamp: new Date().toISOString(),
+        });
+
+      return;
+    }
+
+    const { httpAdapter } = this.adapterHost;
+
+    const ctx = host.switchToHttp();
 
     const responseBody = {
       ...(typeof message === 'string' ? { message } : message),
