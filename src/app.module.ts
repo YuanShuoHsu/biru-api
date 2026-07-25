@@ -20,6 +20,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { BannersModule } from './banners/banners.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { DonateCodesModule } from './donate-codes/donate-codes.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
@@ -39,11 +40,13 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     AuthModule,
+    BannersModule,
     BetterAuthModule.forRootAsync({
       imports: [MailsModule],
       inject: [MailsService],
       useFactory: (mailsService: MailsService) => ({
         auth: createAuth(mailsService),
+        bodyParser: { json: { limit: '2mb' } },
       }),
     }),
     ClsModule.forRoot({
