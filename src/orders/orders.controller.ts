@@ -56,8 +56,13 @@ export class OrdersController {
   findOne(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
+    @Session() session: UserSession | null,
   ): Promise<OrderResponseDto> {
-    return this.ordersService.getOrder(organizationSlug, orderId);
+    return this.ordersService.getOrder(
+      organizationSlug,
+      orderId,
+      session?.user.id || null,
+    );
   }
 
   @Patch(':orderId/ready')

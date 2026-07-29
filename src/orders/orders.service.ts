@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -27,10 +28,11 @@ import {
 } from 'drizzle-orm';
 import type { OrderStatus } from 'src/db/schema/orders';
 import { order, orderItem } from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
+import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import { isAuthorized } from 'src/auth/permissions';
 import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
@@ -95,6 +97,11 @@ export class OrdersService {
     dto: CreateOrderDto,
     userId: string | null,
   ): Promise<OrderResponseDto> {
+    if (dto.mode === 'pickup' && dto.payment === 'Cash')
+      throw new BadRequestException('Cash is unavailable for this order mode');
+
+    const isDineIn = dto.mode === 'dineIn';
+
     const org = await this.getOrgBySlug(organizationSlug);
 
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
@@ -142,6 +149,8 @@ export class OrdersService {
           orderStatus: 'OrderPaymentDue',
           confirmationNumber,
           userId,
+          partySize: isDineIn ? dto.partySize : null,
+          tableNumber: isDineIn ? dto.tableNumber : null,
           ...(applied && {
             discount: applied.discount.toFixed(2),
             discountCode: applied.coupon.code,
@@ -220,6 +229,7 @@ export class OrdersService {
       orderStatus: sql`${order.orderStatus}::text`,
       paymentDate: order.paymentDate,
       createdAt: order.createdAt,
+      tableNumber: order.tableNumber,
       total: sql`(select coalesce(sum("oi"."unit_price" * "oi"."order_quantity"), 0) from "order_item" "oi" where "oi"."order_id" = ${order.id}) - coalesce(${order.discount}, 0)`,
     };
 
@@ -305,6 +315,7 @@ export class OrdersService {
   async getOrder(
     organizationSlug: string,
     orderId: string,
+    userId: string | null,
   ): Promise<OrderResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -313,6 +324,21 @@ export class OrdersService {
       with: { items: true },
     });
     if (!found) throw new NotFoundException('Order not found');
+
+    if (found.userId && found.userId !== userId) {
+      const membership = userId
+        ? await this.db.query.member.findFirst({
+            where: and(
+              eq(member.organizationId, org.id),
+              eq(member.userId, userId),
+            ),
+            columns: { role: true },
+          })
+        : null;
+
+      if (!membership || !isAuthorized(membership.role, { order: ['read'] }))
+        throw new ForbiddenException();
+    }
 
     return found;
   }

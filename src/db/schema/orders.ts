@@ -15,10 +15,11 @@ import { invoice } from './invoices';
 import { organization } from './organizations';
 import { user } from './users';
 
+// counter＝現場外帶、pickup＝線上外帶；kiosk 是收現金的機台不是點餐模式，故不在此列
 export const orderModeEnum = pgEnum('order_mode', [
   'counter',
   'dineIn',
-  'kiosk',
+  'driveThru',
   'pickup',
 ]);
 export type OrderMode = (typeof orderModeEnum.enumValues)[number];
@@ -97,6 +98,9 @@ export const order = pgTable(
     // 付款當下的組織點數設定快照；null = 付款當時未啟用（早於此欄位的歷史訂單以組織現值計）
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsValidityYears: integer('points_validity_years'),
+    // 內用桌號與用餐人數；其他點餐模式為 null
+    partySize: integer('party_size'),
+    tableNumber: integer('table_number'),
     // 綠界交易編號 TradeNo
     tradeNo: text('trade_no'),
     // https://schema.org/customer

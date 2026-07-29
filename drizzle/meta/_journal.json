@@ -491,6 +491,27 @@
       "when": 1784983466994,
       "tag": "0069_fearless_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1785324164214,
+      "tag": "0070_hard_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1785329158055,
+      "tag": "0071_shocking_black_crow",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1785333681667,
+      "tag": "0072_skinny_spot",
+      "breakpoints": true
     }
   ]
 }

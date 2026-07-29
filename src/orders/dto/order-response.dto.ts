@@ -66,6 +66,8 @@ export class OrderResponseDto {
   @ApiPropertyOptional() paymentDate?: Date | null;
   @ApiPropertyOptional() paymentDueDate?: Date | null;
   @ApiPropertyOptional() tradeNo?: string | null;
+  @ApiPropertyOptional() partySize?: number | null;
+  @ApiPropertyOptional() tableNumber?: number | null;
   @ApiPropertyOptional() discount?: string | null;
   @ApiPropertyOptional() discountCode?: string | null;
   @ApiPropertyOptional() discountCurrency?: string | null;
