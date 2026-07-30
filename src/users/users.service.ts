@@ -18,7 +18,10 @@ import {
   sql,
 } from 'drizzle-orm';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
-import { buildDateFilterCondition } from 'src/common/utils/data-grid-filters';
+import {
+  buildDateFilterCondition,
+  buildStringFilterCondition,
+} from 'src/common/utils/data-grid-filters';
 import * as schema from 'src/db/schema';
 import type { CreateUser, User } from 'src/db/schema/users';
 import { user } from 'src/db/schema/users';
@@ -71,39 +74,6 @@ const parseQuickFilterValue = (
     (filterValue === 'true' || filterValue === 'false')
   ) {
     return { field, value: filterValue };
-  }
-};
-
-const buildStringFilterCondition = (
-  field: typeof user.name | typeof user.email,
-  operator: TextFilterOperator,
-  value: string,
-): SQL | undefined => {
-  switch (operator) {
-    case 'equals':
-      return eq(field, value);
-    case 'doesNotEqual':
-      return ne(field, value);
-    case 'contains':
-      return ilike(field, `%${value}%`);
-    case 'doesNotContain':
-      return notIlike(field, `%${value}%`);
-    case 'startsWith':
-      return ilike(field, `${value}%`);
-    case 'endsWith':
-      return ilike(field, `%${value}`);
-    case 'isEmpty':
-      return or(isNull(field), eq(field, ''));
-    case 'isNotEmpty':
-      return and(isNotNull(field), ne(field, ''));
-    case 'isAnyOf': {
-      const values = value.split(',').filter(Boolean);
-      if (values.length === 0) return undefined;
-
-      return values.length === 1
-        ? eq(field, values[0])
-        : inArray(field, values);
-    }
   }
 };
 
