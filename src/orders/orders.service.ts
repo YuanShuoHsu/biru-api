@@ -33,13 +33,15 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
-  PLATFORM_TIMEZONE,
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
 } from 'src/common/constants/timezone';
 
 import { isAuthorized } from 'src/auth/permissions';
-import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
+import {
+  buildFilterCondition,
+  localTimeText,
+} from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
@@ -262,10 +264,7 @@ export class OrdersService {
             ilike(order.orderNumber, `%${quickFilterValue}%`),
             ilike(sql`${order.confirmationNumber}`, `%${quickFilterValue}%`),
             ilike(sql`${order.customer}->>'name'`, `%${quickFilterValue}%`),
-            ilike(
-              sql`TO_CHAR(${order.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-              `%${quickFilterValue}%`,
-            ),
+            ilike(localTimeText(order.createdAt), `%${quickFilterValue}%`),
           )
         : undefined,
     );

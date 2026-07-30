@@ -10,17 +10,13 @@ import {
   gte,
   ilike,
   inArray,
-  isNotNull,
-  isNull,
   ne,
-  notIlike,
   or,
-  sql,
 } from 'drizzle-orm';
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import {
   buildDateFilterCondition,
   buildStringFilterCondition,
+  localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import * as schema from 'src/db/schema';
 import type { CreateUser, User } from 'src/db/schema/users';
@@ -141,10 +137,7 @@ const buildQuickFilterCondition = (value: string): SQL | undefined => {
     return or(
       ilike(user.name, `%${value}%`),
       ilike(user.email, `%${value}%`),
-      ilike(
-        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-        `%${value}%`,
-      ),
+      ilike(localTimeText(user.createdAt), `%${value}%`),
     );
   }
 

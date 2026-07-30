@@ -17,7 +17,6 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import type { LocalizedText } from 'src/db/schema/enums';
 import type {
   Menu,
@@ -45,6 +44,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import {
   buildFilterCondition,
   buildStringFilterCondition,
+  localTimeText,
 } from 'src/common/utils/data-grid-filters';
 
 import {
@@ -181,11 +181,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuSection.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuSection.createdAt),
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuSection.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuSection.updatedAt),
               `%${quickFilterValue}%`,
             ),
           )
@@ -364,14 +364,8 @@ export class MenusService {
         ? or(
             ilike(sql`${menuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(sql`${menuItem.description}::text`, `%${quickFilterValue}%`),
-            ilike(
-              sql`TO_CHAR(${menuItem.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-              `%${quickFilterValue}%`,
-            ),
-            ilike(
-              sql`TO_CHAR(${menuItem.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-              `%${quickFilterValue}%`,
-            ),
+            ilike(localTimeText(menuItem.createdAt), `%${quickFilterValue}%`),
+            ilike(localTimeText(menuItem.updatedAt), `%${quickFilterValue}%`),
           )
         : undefined,
       searchField && searchOperator && searchValue
@@ -670,11 +664,11 @@ export class MenusService {
             ),
             ilike(sql`${addOnMenuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${menuItemAddOn.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuItemAddOn.createdAt),
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemAddOn.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuItemAddOn.updatedAt),
               `%${quickFilterValue}%`,
             ),
           )
@@ -864,11 +858,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${modifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(modifierGroup.createdAt),
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${modifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(modifierGroup.updatedAt),
               `%${quickFilterValue}%`,
             ),
           )
@@ -1015,14 +1009,8 @@ export class MenusService {
       quickFilterValue
         ? or(
             ilike(sql`${modifier.displayName}::text`, `%${quickFilterValue}%`),
-            ilike(
-              sql`TO_CHAR(${modifier.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-              `%${quickFilterValue}%`,
-            ),
-            ilike(
-              sql`TO_CHAR(${modifier.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
-              `%${quickFilterValue}%`,
-            ),
+            ilike(localTimeText(modifier.createdAt), `%${quickFilterValue}%`),
+            ilike(localTimeText(modifier.updatedAt), `%${quickFilterValue}%`),
           )
         : undefined,
     );
@@ -1156,11 +1144,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemModifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuItemModifierGroup.createdAt),
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemModifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
+              localTimeText(menuItemModifierGroup.updatedAt),
               `%${quickFilterValue}%`,
             ),
           )

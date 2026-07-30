@@ -21,6 +21,9 @@ import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
+export const localTimeText = (column: Column | SQL): SQL =>
+  sql`TO_CHAR(${column} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`;
+
 export const buildStringFilterCondition = (
   column: Column | SQL,
   operator: string,
