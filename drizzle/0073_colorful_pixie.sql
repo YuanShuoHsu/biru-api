@@ -1,0 +1,1 @@
+CREATE INDEX "order_sellerId_salesAt_idx" ON "order" USING btree ("seller_id",COALESCE("payment_date", "order_date"));

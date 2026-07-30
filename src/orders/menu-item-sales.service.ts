@@ -5,38 +5,26 @@ import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-// 熱銷統計視窗；改用累計銷量會讓上架越久的品項越佔優勢，與「熱銷」語意不符
+import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto';
+
 export const SALES_WINDOW_DAYS = 30;
 
 export const getSalesWindowStart = (days: number): Date =>
   new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-export type MenuItemSales = {
-  menuItemId: string;
-  menuItemName: string;
-  sold: number;
-};
-
 @Injectable()
 export class MenuItemSalesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  /**
-   * 依品項統計銷量，作為熱銷排行的唯一口徑。
-   *
-   * 口徑說明：
-   * - 現金訂單沒有線上付款流程可轉狀態，會一直停在 OrderPaymentDue，需另行納入，
-   *   否則內用現金訂單會被整批漏算；已取消／付款失敗的訂單則一律排除，
-   *   不倚賴「排程不會取消現金訂單」這個外部前提
-   * - 現金訂單的 paymentDate 為 null，時間軸退回必定有值的 orderDate
-   * - 加購品指向的同樣是菜單品項，數量跟隨父品項的 orderQuantity
-   * - 以 menuItemId 分組；品項名稱取最近一次的訂單快照，讓已下架的品項仍有名字可顯示
-   */
   private async querySales(
     organizationId: string,
     since: Date,
-  ): Promise<MenuItemSales[]> {
-    const { rows } = await this.db.execute<MenuItemSales>(sql`
+  ): Promise<MenuItemSalesResponseDto[]> {
+    const { rows } = await this.db.execute<{
+      menuItemId: string;
+      menuItemName: string;
+      sold: number;
+    }>(sql`
       WITH counted_orders AS (
         SELECT o.id
         FROM "order" o
@@ -84,7 +72,7 @@ export class MenuItemSalesService {
   async getSalesBySlug(
     organizationSlug: string,
     since: Date,
-  ): Promise<MenuItemSales[]> {
+  ): Promise<MenuItemSalesResponseDto[]> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
     });

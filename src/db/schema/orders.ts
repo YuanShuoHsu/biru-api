@@ -115,6 +115,10 @@ export const order = pgTable(
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
     index('order_userId_createdAt_idx').on(table.userId, table.createdAt),
+    index('order_sellerId_salesAt_idx').on(
+      table.sellerId,
+      sql`COALESCE(${table.paymentDate}, ${table.orderDate})`,
+    ),
     index('order_paymentDue_createdAt_idx')
       .on(table.orderStatus, table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
