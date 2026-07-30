@@ -180,6 +180,9 @@ export class OrderMenuItemResponseDto {
   @ApiProperty()
   sortOrder: number;
 
+  @ApiProperty({ description: '近期售出數量，含被加購的次數' })
+  sold: number;
+
   @ApiProperty({ type: [OrderMenuOfferResponseDto] })
   offers: OrderMenuOfferResponseDto[];
 

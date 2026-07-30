@@ -20,6 +20,11 @@ import {
 } from 'src/db/schema/menus';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import {
+  MenuItemSalesService,
+  SALES_WINDOW_DAYS,
+  getSalesWindowStart,
+} from 'src/orders/menu-item-sales.service';
 
 import type { OrderMenuResponseDto } from './dto/order-menu-response.dto';
 
@@ -97,48 +102,57 @@ const mapModifierGroups = (
 
 @Injectable()
 export class PublicMenusService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly menuItemSalesService: MenuItemSalesService,
+  ) {}
 
   async findOrderMenu(
     organizationId: string,
     lang: Language,
   ): Promise<OrderMenuResponseDto | null> {
-    const orderMenu = await this.db.query.menu.findFirst({
-      where: eq(menu.organizationId, organizationId),
-      with: {
-        menuSections: {
-          where: isNull(menuSection.parentSectionId),
-          orderBy: [asc(menuSection.sortOrder)],
-          with: {
-            menuItems: {
-              orderBy: [asc(menuItem.sortOrder)],
-              with: {
-                offers: { orderBy: [asc(offer.createdAt)] },
-                addOns: {
-                  orderBy: [asc(menuItemAddOn.sortOrder)],
-                  with: {
-                    addOnMenuItem: {
-                      with: { offers: { orderBy: [asc(offer.createdAt)] } },
-                    },
-                    addOnMenuSection: {
-                      with: {
-                        menuItems: {
-                          orderBy: [asc(menuItem.sortOrder)],
-                          with: {
-                            offers: { orderBy: [asc(offer.createdAt)] },
+    const [orderMenu, salesByMenuItemId] = await Promise.all([
+      this.db.query.menu.findFirst({
+        where: eq(menu.organizationId, organizationId),
+        with: {
+          menuSections: {
+            where: isNull(menuSection.parentSectionId),
+            orderBy: [asc(menuSection.sortOrder)],
+            with: {
+              menuItems: {
+                orderBy: [asc(menuItem.sortOrder)],
+                with: {
+                  offers: { orderBy: [asc(offer.createdAt)] },
+                  addOns: {
+                    orderBy: [asc(menuItemAddOn.sortOrder)],
+                    with: {
+                      addOnMenuItem: {
+                        with: { offers: { orderBy: [asc(offer.createdAt)] } },
+                      },
+                      addOnMenuSection: {
+                        with: {
+                          menuItems: {
+                            orderBy: [asc(menuItem.sortOrder)],
+                            with: {
+                              offers: { orderBy: [asc(offer.createdAt)] },
+                            },
                           },
                         },
                       },
                     },
                   },
+                  modifierGroups: modifierGroupsQuery,
                 },
-                modifierGroups: modifierGroupsQuery,
               },
             },
           },
         },
-      },
-    });
+      }),
+      this.menuItemSalesService.getSalesByMenuItemId(
+        organizationId,
+        getSalesWindowStart(SALES_WINDOW_DAYS),
+      ),
+    ]);
     if (!orderMenu) return null;
 
     const addOnItemIds = [
@@ -186,6 +200,7 @@ export class PublicMenusService {
             ...item,
             name: localize(item.name, lang) || '',
             description: localize(item.description, lang),
+            sold: salesByMenuItemId.get(item.id) || 0,
             addOns: addOns.map(
               ({ addOnMenuItem, addOnMenuSection, ...addOn }) => ({
                 ...addOn,
