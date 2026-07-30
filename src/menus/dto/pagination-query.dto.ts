@@ -88,8 +88,4 @@ export class PaginationQueryDto {
   @IsOptional()
   @IsIn(SORT_DIRECTIONS)
   sortDirection?: SortDirection;
-
-  @IsOptional()
-  @IsString()
-  timezone?: string;
 }

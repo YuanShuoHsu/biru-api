@@ -43,6 +43,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
+  PLATFORM_TIMEZONE,
   PLATFORM_UTC_OFFSET_MS,
   toPlatformTime,
 } from 'src/common/constants/timezone';
@@ -286,7 +287,6 @@ export class CouponsService {
       quickFilterValue,
       sortBy,
       sortDirection = 'desc',
-      timezone = 'UTC',
     } = query;
 
     const couponFieldMap: Record<string, Column | SQL> = {
@@ -351,7 +351,7 @@ export class CouponsService {
         ? or(
             ilike(coupon.code, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${coupon.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${coupon.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -626,8 +626,7 @@ export class CouponsService {
           const taiwanNow = toPlatformTime(now);
           if (
             !found.birthDate ||
-            toPlatformTime(found.birthDate).getUTCMonth() !==
-              taiwanNow.getUTCMonth()
+            found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
           )
             return;
 

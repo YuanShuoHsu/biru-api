@@ -33,6 +33,7 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
+  PLATFORM_TIMEZONE,
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
 } from 'src/common/constants/timezone';
@@ -222,7 +223,6 @@ export class OrdersService {
       quickFilterValue,
       sortBy,
       sortDirection = 'desc',
-      timezone = 'UTC',
     } = query;
 
     const orderFieldMap: Record<string, Column | SQL> = {
@@ -263,7 +263,7 @@ export class OrdersService {
             ilike(sql`${order.confirmationNumber}`, `%${quickFilterValue}%`),
             ilike(sql`${order.customer}->>'name'`, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${order.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${order.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )

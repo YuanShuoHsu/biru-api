@@ -174,11 +174,4 @@ export class ListUsersQueryDto {
   @IsOptional()
   @IsIn(SORT_DIRECTIONS)
   sortDirection?: SortDirection;
-
-  @ApiPropertyOptional({
-    description: '時區，用於 createdAt 本地時間比對，例如 Asia/Taipei',
-  })
-  @IsOptional()
-  @IsString()
-  timezone?: string;
 }

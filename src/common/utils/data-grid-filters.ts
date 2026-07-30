@@ -17,6 +17,8 @@ import {
   sql,
 } from 'drizzle-orm';
 
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
 export const buildStringFilterCondition = (
@@ -65,21 +67,22 @@ export const buildDateFilterCondition = (
   if (operator === 'isNotEmpty') return isNotNull(colSql);
   if (!value) return undefined;
 
-  const dateCast = sql`${colSql}::date`;
+  const localDate = sql`DATE(${colSql} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})`;
+  const targetDate = sql`${value}::date`;
 
   switch (operator) {
     case 'is':
-      return eq(dateCast, value);
+      return sql`${localDate} = ${targetDate}`;
     case 'not':
-      return ne(dateCast, value);
+      return sql`${localDate} != ${targetDate}`;
     case 'after':
-      return gt(dateCast, value);
+      return sql`${localDate} > ${targetDate}`;
     case 'onOrAfter':
-      return gte(dateCast, value);
+      return sql`${localDate} >= ${targetDate}`;
     case 'before':
-      return lt(dateCast, value);
+      return sql`${localDate} < ${targetDate}`;
     case 'onOrBefore':
-      return lte(dateCast, value);
+      return sql`${localDate} <= ${targetDate}`;
   }
 };
 

@@ -14,6 +14,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import { banner } from 'src/db/schema/banners';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -53,7 +54,6 @@ export class BannersService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-      timezone = 'UTC',
     } = query;
 
     const bannerFieldMap: Record<string, Column | SQL> = {
@@ -83,7 +83,7 @@ export class BannersService {
         : undefined,
       quickFilterValue
         ? ilike(
-            sql`TO_CHAR(${banner.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+            sql`TO_CHAR(${banner.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
             `%${quickFilterValue}%`,
           )
         : undefined,

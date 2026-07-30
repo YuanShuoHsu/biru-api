@@ -79,8 +79,4 @@ export class BannerPaginationQueryDto {
   @IsOptional()
   @IsIn(SORT_DIRECTIONS)
   sortDirection?: SortDirection;
-
-  @IsOptional()
-  @IsString()
-  timezone?: string;
 }

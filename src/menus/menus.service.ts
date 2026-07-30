@@ -17,6 +17,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import type { LocalizedText } from 'src/db/schema/enums';
 import type {
   Menu,
@@ -146,7 +147,6 @@ export class MenusService {
       searchValue,
       sortBy,
       sortDirection = 'desc',
-      timezone = 'UTC',
     } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -181,11 +181,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuSection.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuSection.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuSection.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuSection.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -334,7 +334,6 @@ export class MenusService {
       searchValue,
       sortBy,
       sortDirection = 'desc',
-      timezone = 'UTC',
     } = query;
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -366,11 +365,11 @@ export class MenusService {
             ilike(sql`${menuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(sql`${menuItem.description}::text`, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${menuItem.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItem.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItem.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItem.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -631,7 +630,6 @@ export class MenusService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-      timezone = 'UTC',
     } = query;
 
     const addOnFieldMap: Record<string, SQL> = {
@@ -672,11 +670,11 @@ export class MenusService {
             ),
             ilike(sql`${addOnMenuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${menuItemAddOn.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItemAddOn.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemAddOn.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItemAddOn.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -830,7 +828,6 @@ export class MenusService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-      timezone = 'UTC',
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
@@ -867,11 +864,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${modifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${modifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${modifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${modifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -986,7 +983,6 @@ export class MenusService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-      timezone = 'UTC',
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
@@ -1020,11 +1016,11 @@ export class MenusService {
         ? or(
             ilike(sql`${modifier.displayName}::text`, `%${quickFilterValue}%`),
             ilike(
-              sql`TO_CHAR(${modifier.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${modifier.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${modifier.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${modifier.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )
@@ -1124,7 +1120,6 @@ export class MenusService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-      timezone = 'UTC',
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
@@ -1161,11 +1156,11 @@ export class MenusService {
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemModifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItemModifierGroup.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
             ilike(
-              sql`TO_CHAR(${menuItemModifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+              sql`TO_CHAR(${menuItemModifierGroup.updatedAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
               `%${quickFilterValue}%`,
             ),
           )

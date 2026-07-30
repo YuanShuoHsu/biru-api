@@ -17,6 +17,8 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { buildDateFilterCondition } from 'src/common/utils/data-grid-filters';
 import * as schema from 'src/db/schema';
 import type { CreateUser, User } from 'src/db/schema/users';
 import { user } from 'src/db/schema/users';
@@ -162,10 +164,7 @@ const buildSearchCondition = (
   }
 };
 
-const buildQuickFilterCondition = (
-  value: string,
-  timezone: string,
-): SQL | undefined => {
+const buildQuickFilterCondition = (value: string): SQL | undefined => {
   const parsedValue = parseQuickFilterValue(value);
 
   if (!parsedValue) {
@@ -173,7 +172,7 @@ const buildQuickFilterCondition = (
       ilike(user.name, `%${value}%`),
       ilike(user.email, `%${value}%`),
       ilike(
-        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone}, 'YYYY-MM-DD HH24:MI:SS')`,
+        sql`TO_CHAR(${user.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD HH24:MI:SS')`,
         `%${value}%`,
       ),
     );
@@ -189,40 +188,10 @@ const buildQuickFilterCondition = (
   }
 };
 
-const buildDateFilterCondition = (
-  field: typeof user.createdAt,
-  operator: DateFilterOperator,
-  value: string | undefined,
-  timezone: string,
-): SQL | undefined => {
-  if (operator === 'isEmpty') return isNull(field);
-  if (operator === 'isNotEmpty') return isNotNull(field);
-  if (!value) return undefined;
-
-  const localDate = sql`DATE(${field} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`;
-  const targetDate = sql`${value}::date`;
-
-  switch (operator) {
-    case 'is':
-      return sql`${localDate} = ${targetDate}`;
-    case 'not':
-      return sql`${localDate} != ${targetDate}`;
-    case 'after':
-      return sql`${localDate} > ${targetDate}`;
-    case 'onOrAfter':
-      return sql`${localDate} >= ${targetDate}`;
-    case 'before':
-      return sql`${localDate} < ${targetDate}`;
-    case 'onOrBefore':
-      return sql`${localDate} <= ${targetDate}`;
-  }
-};
-
 const buildColumnFilterCondition = (
   filterField: NonNullable<ListUsersQueryDto['filterField']>,
   filterOperator: NonNullable<ListUsersQueryDto['filterOperator']>,
   filterValue: string | undefined,
-  timezone: string,
 ): SQL | undefined => {
   const isEnumOp = (ENUM_FILTER_OPERATORS as readonly string[]).includes(
     filterOperator,
@@ -244,8 +213,7 @@ const buildColumnFilterCondition = (
     return buildDateFilterCondition(
       user[filterField as DateFilterField],
       filterOperator as DateFilterOperator,
-      filterValue,
-      timezone,
+      filterValue ?? '',
     );
   }
 
@@ -316,21 +284,15 @@ export class UsersService {
       searchField,
       searchOperator,
       searchValue,
-      timezone = 'UTC',
     } = query;
 
     const quickFilterCondition = quickFilterValue
-      ? buildQuickFilterCondition(quickFilterValue, String(timezone))
+      ? buildQuickFilterCondition(quickFilterValue)
       : undefined;
 
     const columnFilterCondition =
       filterField && filterOperator
-        ? buildColumnFilterCondition(
-            filterField,
-            filterOperator,
-            filterValue,
-            String(timezone),
-          )
+        ? buildColumnFilterCondition(filterField, filterOperator, filterValue)
         : undefined;
 
     const searchCondition =
