@@ -43,6 +43,11 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
+  PLATFORM_UTC_OFFSET_MS,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
+
+import {
   applicableToOrganization,
   notPointsRedeem,
   withinCapacity,
@@ -618,10 +623,17 @@ export class CouponsService {
         }
 
         if (c.issueTrigger === 'birthday') {
-          if (!found.birthDate || found.birthDate.getMonth() !== now.getMonth())
+          const taiwanNow = toPlatformTime(now);
+          if (
+            !found.birthDate ||
+            toPlatformTime(found.birthDate).getUTCMonth() !==
+              taiwanNow.getUTCMonth()
+          )
             return;
 
-          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          const startOfYear = new Date(
+            Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) - PLATFORM_UTC_OFFSET_MS,
+          );
           const [{ value: issuedThisYear }] = await this.db
             .select({ value: count() })
             .from(userCoupon)

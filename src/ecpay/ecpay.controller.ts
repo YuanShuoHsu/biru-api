@@ -5,6 +5,8 @@ import {
 import { IssueInvoiceEcpayDecryptedRequestDto } from './dto/issue-invoice-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
 
+import { toPlatformTime } from 'src/common/constants/timezone';
+
 import { OrdersService } from '../orders/orders.service';
 
 import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service';
@@ -98,8 +100,9 @@ export class EcpayController {
   async getGovInvoiceWordSetting() {
     const now = new Date();
     const timestamp = Math.floor(now.getTime() / 1000);
-    const invoiceTerm = Math.floor(now.getMonth() / 2) + 1;
-    const rocYear = (now.getFullYear() - 1911).toString();
+    const taiwanNow = toPlatformTime(now);
+    const invoiceTerm = Math.floor(taiwanNow.getUTCMonth() / 2) + 1;
+    const rocYear = (taiwanNow.getUTCFullYear() - 1911).toString();
 
     const { InvoiceInfo: govInvoiceInfo } =
       await this.ecpayGetGovInvoiceWordSettingService.getGovInvoiceWordSetting({

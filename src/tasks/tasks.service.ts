@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { lt } from 'drizzle-orm';
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
@@ -11,7 +12,7 @@ export class TasksService {
 
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: 'Asia/Taipei' })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
   async handleCleanupCron() {
     const cleanupTargets = [
       { label: 'Sessions', table: schema.session },

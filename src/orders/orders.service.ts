@@ -32,6 +32,11 @@ import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import {
+  STORE_UTC_OFFSET,
+  STORE_UTC_OFFSET_MS,
+} from 'src/common/constants/timezone';
+
 import { isAuthorized } from 'src/auth/permissions';
 import { buildFilterCondition } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
@@ -55,7 +60,7 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 import { OrderPricingService } from './order-pricing.service';
 
 const dateStamp = (): string =>
-  new Date(Date.now() + 8 * 60 * 60 * 1000)
+  new Date(Date.now() + STORE_UTC_OFFSET_MS)
     .toISOString()
     .slice(0, 10)
     .replace(/-/g, '');
@@ -64,7 +69,7 @@ const startOfToday = (): Date => {
   const stamp = dateStamp();
 
   return new Date(
-    `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T00:00:00+08:00`,
+    `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T00:00:00${STORE_UTC_OFFSET}`,
   );
 };
 
@@ -473,7 +478,6 @@ export class OrdersService {
             : undefined,
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
-          // 付款當下的點數設定快照
           ...(succeeded && {
             amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
             pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
