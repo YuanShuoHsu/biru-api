@@ -47,30 +47,53 @@ pnpm jest src/users/users.service.spec.ts
 
 ### Module Map
 
-| Module        | Path           | Purpose                                              |
-| ------------- | -------------- | ---------------------------------------------------- |
-| DrizzleModule | `src/drizzle/` | **Global** — injects DB instance via `DRIZZLE` token |
-| AuthModule    | `src/auth/`    | better-auth config + email verification endpoints    |
-| UsersModule   | `src/users/`   | User CRUD, profile management                        |
-| StoresModule  | `src/stores/`  | Store/table/menu management with localized fields    |
-| EcpayModule   | `src/ecpay/`   | Payment gateway (checkout + invoices)                |
-| EventsModule  | `src/events/`  | WebSocket gateway                                    |
-| MailsModule   | `src/mails/`   | Transactional email sending                          |
-| TasksModule   | `src/tasks/`   | Scheduled tasks                                      |
+| Module              | Path                 | Purpose                                                           |
+| ------------------- | -------------------- | ----------------------------------------------------------------- |
+| DrizzleModule       | `src/drizzle/`       | **Global** — injects DB instance via `DRIZZLE` token              |
+| AuthModule          | `src/auth/`          | better-auth config, access-control statements, email verification |
+| OrganizationsModule | `src/organizations/` | Organizations (tenants), teams, members                           |
+| UsersModule         | `src/users/`         | User CRUD, admin-only user list with data-grid filters            |
+| MenusModule         | `src/menus/`         | Menus, sections, items, offers, add-ons, modifiers                |
+| OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
+| CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
+| PointsModule        | `src/points/`        | Loyalty point transactions and redemption                         |
+| BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
+| DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
+| GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |
+| EcpayModule         | `src/ecpay/`         | Payment gateway (AIO checkout + invoices)                         |
+| EventsModule        | `src/events/`        | Socket.io gateway (order status / menu updates)                   |
+| MailsModule         | `src/mails/`         | Transactional email sending                                       |
+| TasksModule         | `src/tasks/`         | Scheduled cleanup cron (daily 3AM, `PLATFORM_TIMEZONE`)           |
+
+Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
+routes live under `users/me/...` (orders, coupons, points).
+
+`DrizzleController` and `TasksController` are empty `nest generate` scaffolds — they register
+routes but expose nothing. Same for the empty `dto/` + `entities/` folders under `drizzle/`,
+`tasks/`, `gcis/`, and `organizations/`.
 
 ### Database Schema
 
-Schema files live in `src/db/schema/`. Three files:
+Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 
-- `users.ts` — `user`, `session`, `account`, `verification` tables (managed by better-auth)
-- `stores.ts` — `stores`, `tables`, `menus`
-- `orders.ts` — `orders`
+- `users.ts` — `user`, `session`, `account`, `verification` (managed by better-auth)
+- `organizations.ts` — `organization`, `team`, `teamMember`, `member`, `invitation`
+- `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
+- `orders.ts` — `order`, `orderItem`
+- `coupons.ts` — `coupon`, `userCoupon`
+- `points.ts` — `pointTransaction`
+- `banners.ts` — `banner`
+- `invoices.ts` — `invoice`
+- `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
+- `columns.helpers.ts` — shared column builders
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
 
 ### Localized Fields
 
-Many domain entities (stores, menus, tables) use a `LocalizedText` JSON type: `{ en, ja, ko, "zh-CN", "zh-TW" }`. The `LocalizedField` DTO in `src/common/dto/` is the shared input shape.
+Menu entities (menus, sections, items, modifiers) store localized copy as `jsonb` typed with
+`LocalizedText` — `Partial<Record<Language, string>>`, i.e. `{ en, ja, ko, "zh-CN", "zh-TW" }`,
+defined in `src/db/schema/enums.ts`. The `LocalizedField` DTO in `src/common/dto/` is the shared input shape.
 
 ### Dependency Injection Pattern
 
@@ -82,28 +105,70 @@ constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
 ### Roles & Auth
 
-User roles are `admin | manager | staff | user` (enum in `src/db/schema/users.ts`). The `better-auth` instance is configured in `src/auth/index.ts` and mounted at `/api/auth/*`.
+The `better-auth` instance is configured in `src/auth/index.ts` (admin, organization, and
+multiSession plugins) and mounted at `/api/auth/*`. There are **two separate authorization
+layers** — don't confuse them:
+
+**1. Platform admin** — `user.role` (plain `text` column on `user`, set to `'user'` on signup).
+Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes for
+`role === 'admin'`. Used for cross-tenant endpoints: `UsersController`, `AdminBannersController`,
+`AdminCouponsController`, ECPay invoice management.
+
+**2. Organization membership** — `member.role`, a pgEnum of `owner | admin | member`
+(`src/db/schema/organizations.ts`). This is the main tenant-scoped mechanism:
+
+- `src/auth/permissions.ts` declares the access-control statements (`coupon`, `menu`, `order`
+  × `create|read|update|delete`) and builds `owner` / `admin` / `member` roles via better-auth's
+  `createAccessControl`. `isAuthorized(role, action)` is the single entry point.
+- `@Roles(action, organizationParam)` (`src/menus/decorators/roles.decorator.ts`) annotates a
+  handler, e.g. `@Roles({ order: ['update'] }, 'organizationSlug')`.
+- `RolesGuard` (`src/menus/guards/roles.guard.ts`) is registered **globally** as `APP_GUARD` in
+  `AppModule`. It resolves the session, derives the `organizationId` from whichever route param
+  the decorator named — `organizationId`, `organizationSlug`, or by walking up the menu tree from
+  `menuId` / `sectionId` / `menuItemId` / `offerId` / `addOnId` / `groupId` / `modifierId` —
+  looks up the caller's `member` row, and calls `isAuthorized`. It also stashes the resolved
+  `organizationId` on the request. Handlers **without** `@Roles` are passed through untouched.
+
+When adding a tenant-scoped route whose param isn't already covered, extend both the
+`OrganizationParam` union and the `resolveOrganizationId` switch.
+
+Controllers often carry a class-level `@AllowAnonymous()` (from `@thallesp/nestjs-better-auth`)
+while individual handlers add `@Roles(...)` or `@UseGuards(AdminGuard)` — the guards run
+independently of `@AllowAnonymous`, so this combination is intentional, not a hole.
 
 ### Global Setup (`src/main.ts`)
 
 - API prefix: `/api`
-- Swagger docs at: `/api`
+- Swagger docs at: `/api` (currently mounted unconditionally, including in production)
 - Port: `PORT` env var (default 3001)
-- Global pipes: `ValidationPipe` with `transform: true`
-- Global filters: `AllExceptionsFilter` (i18n-aware)
-- Rate limiting: 10 req / 60s globally
+- `bodyParser: false` at the Nest factory — better-auth's module owns body parsing
+- Global pipes: `I18nValidationPipe` with `transform`, `whitelist`, `forbidNonWhitelisted`
+- Global filters: `AllExceptionsFilter` (i18n-aware; handles both HTTP and WS contexts)
+- Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
+- Rate limiting: 100 req / 60s globally
+- Also applied: `helmet`, `cookieParser`, `I18nMiddleware`, hbs view engine, CORS restricted to
+  `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 
 ### Environment Variables
 
-Required in `.env`:
+There is no `.env.example` and `ConfigModule.forRoot` runs without a `validationSchema`, so a
+missing variable fails at request time rather than at boot. Required in `.env`:
 
-- `DATABASE_URL` — PostgreSQL connection string
-- `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL`
-- `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS`
-- `ECPAY_*` — ECPay merchant credentials
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-- `NEXT_URL` — Frontend origin for CORS
-- `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`)
+- `DATABASE_URL` — PostgreSQL connection string (read directly via `process.env` in `src/db/index.ts`)
+- `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — read implicitly by better-auth
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth
+- `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS` — SMTP; `MAIL_PREVIEW=true` switches to jsonTransport + local preview
+- `ECPAY_BASE_MERCHANT_ID` / `ECPAY_BASE_HASH_KEY` / `ECPAY_BASE_HASH_IV` / `ECPAY_BASE_RETURN_URL` — AIO checkout
+- `ECPAY_INVOICE_MERCHANT_ID` / `ECPAY_INVOICE_HASH_KEY` / `ECPAY_INVOICE_HASH_IV` — invoicing
+- `ECPAY_OPERATION_MODE` — ECPay stage vs. production endpoint selection
+- `NEXT_URL` — Frontend origin (CORS + ECPay redirect allowlist)
+- `NEXT_ADMIN_URL` — Admin frontend origin (same two uses)
+- `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
+- `PORT` — HTTP port (default 3001)
+
+`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
+and `POSTMAN_API_KEY` are present in `.env` but referenced nowhere in `src/` — leftovers from
+before better-auth.
 
 ## Behavioral Guidelines
 
