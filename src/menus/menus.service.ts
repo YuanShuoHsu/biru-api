@@ -572,6 +572,17 @@ export class MenusService {
     return row;
   }
 
+  private validateAddOnMenuItem(
+    menuItemId: string,
+    addOnMenuItemId: string | null | undefined,
+  ): void {
+    if (addOnMenuItemId === menuItemId) {
+      throw new BadRequestException(
+        'addOnMenuItemId must not be the menu item itself',
+      );
+    }
+  }
+
   async createMenuItemAddOn(
     menuItemId: string,
     data: CreateMenuItemAddOnDto,
@@ -583,6 +594,8 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
+    this.validateAddOnMenuItem(menuItemId, data.addOnMenuItemId);
+
     const created = await this.db.transaction(async (tx) => {
       await tx
         .update(menuItemAddOn)
@@ -748,6 +761,9 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
+    const { menuItemId } = await this.findMenuItemAddOnById(id);
+    this.validateAddOnMenuItem(menuItemId, data.addOnMenuItemId);
+
     await this.db
       .update(menuItemAddOn)
       .set(data)

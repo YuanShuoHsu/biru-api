@@ -49,16 +49,18 @@ const isDiscontinued = ({
 }): boolean => offers[0]?.availability === 'Discontinued';
 
 const getActiveAddOnMenuItems = <
-  Item extends { offers: Pick<Offer, 'availability'>[] },
+  Item extends { id: string; offers: Pick<Offer, 'availability'>[] },
 >({
   addOnMenuItem,
   addOnMenuSection,
+  menuItemId,
 }: {
   addOnMenuItem: Item | null;
   addOnMenuSection: { menuItems: Item[] } | null;
+  menuItemId: string;
 }): Item[] =>
   (addOnMenuItem ? [addOnMenuItem] : addOnMenuSection?.menuItems || []).filter(
-    (entry) => !isDiscontinued(entry),
+    (entry) => entry.id !== menuItemId && !isDiscontinued(entry),
   );
 
 const modifierGroupsQuery = {
@@ -207,6 +209,7 @@ export class PublicMenusService {
                 menuItems: getActiveAddOnMenuItems({
                   addOnMenuItem,
                   addOnMenuSection,
+                  menuItemId: item.id,
                 }).map(({ id, name, image, availableModes, offers }) => ({
                   id,
                   name: localize(name, lang) || '',
