@@ -47,11 +47,10 @@ export interface ResolvedOrderItem {
 export class OrderPricingService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  // mode 省略時不檢查販售模式，供優惠券折扣試算使用
   async resolveOrderItems(
     organizationId: string,
     items: CreateOrderItemDto[],
-    mode?: OrderMode,
+    mode: OrderMode,
   ): Promise<ResolvedOrderItem[]> {
     const allMenuItemIds = [
       ...new Set([
@@ -114,7 +113,7 @@ export class OrderPricingService {
       const item = menuItemMap.get(menuItemId);
       if (!item)
         throw new BadRequestException(`MenuItem ${menuItemId} not found`);
-      if (mode && !item.availableModes.includes(mode))
+      if (!item.availableModes.includes(mode))
         throw new BadRequestException(
           `MenuItem ${menuItemId} is unavailable for mode ${mode}`,
         );
@@ -139,7 +138,7 @@ export class OrderPricingService {
           const mod = modifierMap.get(modId);
           if (!mod)
             throw new BadRequestException(`Modifier ${modId} not found`);
-          if (mode && !mod.availableModes.includes(mode))
+          if (!mod.availableModes.includes(mode))
             throw new BadRequestException(
               `Modifier ${modId} is unavailable for mode ${mode}`,
             );

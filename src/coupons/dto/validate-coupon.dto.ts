@@ -4,9 +4,11 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 import { CreateOrderItemDto } from '../../orders/dto/create-order.dto';
 
@@ -21,6 +23,10 @@ export class ValidateCouponDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @ApiProperty({ enum: orderModeEnum.enumValues })
+  @IsEnum(orderModeEnum.enumValues)
+  mode: OrderMode;
 }
 
 export class ValidateCouponResponseDto {

@@ -1028,6 +1028,7 @@ export class CouponsService {
     const items = await this.orderPricingService.resolveOrderItems(
       org.id,
       dto.items,
+      dto.mode,
     );
 
     const { coupon: found, discount } = await this.getApplicableCoupon(
