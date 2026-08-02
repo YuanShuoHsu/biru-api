@@ -1,0 +1,2 @@
+ALTER TABLE "menu_item" ADD COLUMN "available_modes" "order_mode"[] DEFAULT '{"counter","dineIn","driveThru","pickup"}' NOT NULL;--> statement-breakpoint
+ALTER TABLE "modifier" ADD COLUMN "available_modes" "order_mode"[] DEFAULT '{"counter","dineIn","driveThru","pickup"}' NOT NULL;

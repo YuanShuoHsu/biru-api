@@ -1,12 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsEnum, IsNumberString, IsObject, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumberString,
+  IsObject,
+  IsOptional,
+} from 'class-validator';
 
 import type { LocalizedText } from 'src/db/schema/enums';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
 } from 'src/db/schema/menus';
+import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 export class CreateModifierDto {
   @ApiProperty({
@@ -31,4 +38,15 @@ export class CreateModifierDto {
   @IsOptional()
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
+
+  @ApiPropertyOptional({
+    description: '可販售的點餐模式；省略代表四種全開',
+    enum: orderModeEnum.enumValues,
+    enumName: 'OrderMode',
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(orderModeEnum.enumValues, { each: true })
+  availableModes?: OrderMode[];
 }

@@ -207,10 +207,11 @@ export class PublicMenusService {
                 menuItems: getActiveAddOnMenuItems({
                   addOnMenuItem,
                   addOnMenuSection,
-                }).map(({ id, name, image, offers }) => ({
+                }).map(({ id, name, image, availableModes, offers }) => ({
                   id,
                   name: localize(name, lang) || '',
                   image,
+                  availableModes,
                   offers,
                   modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
                 })),

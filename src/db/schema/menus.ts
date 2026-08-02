@@ -19,6 +19,7 @@ import {
 
 import { timestamps } from './columns.helpers';
 import { type LocalizedText } from './enums';
+import { orderModeEnum } from './orders';
 import { organization } from './organizations';
 
 // https://schema.org/RestrictedDiet
@@ -120,6 +121,11 @@ export const menuItem = pgTable(
     description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
+    // 可販售的點餐模式；預設四種全開
+    availableModes: orderModeEnum('available_modes')
+      .array()
+      .notNull()
+      .default(orderModeEnum.enumValues),
     nutrition: jsonb('nutrition').$type<NutritionInformation>(),
     // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
@@ -231,6 +237,11 @@ export const modifier = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
+    // 可販售的點餐模式；預設四種全開
+    availableModes: orderModeEnum('available_modes')
+      .array()
+      .notNull()
+      .default(orderModeEnum.enumValues),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

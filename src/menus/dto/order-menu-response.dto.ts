@@ -6,6 +6,7 @@ import {
   type ItemAvailability,
   type RestrictedDiet,
 } from 'src/db/schema/menus';
+import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 import {
   PriceSpecificationDto,
@@ -70,6 +71,14 @@ export class OrderMenuModifierResponseDto {
   })
   availability: ItemAvailability | null;
 
+  @ApiProperty({
+    description: '可販售的點餐模式',
+    enum: orderModeEnum.enumValues,
+    enumName: 'OrderMode',
+    isArray: true,
+  })
+  availableModes: OrderMode[];
+
   @ApiProperty()
   sortOrder: number;
 
@@ -115,6 +124,14 @@ export class OrderMenuAddOnItemResponseDto {
 
   @ApiPropertyOptional()
   image: string | null;
+
+  @ApiProperty({
+    description: '可販售的點餐模式',
+    enum: orderModeEnum.enumValues,
+    enumName: 'OrderMode',
+    isArray: true,
+  })
+  availableModes: OrderMode[];
 
   @ApiProperty({ type: [OrderMenuOfferResponseDto] })
   offers: OrderMenuOfferResponseDto[];
@@ -173,6 +190,14 @@ export class OrderMenuItemResponseDto {
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
+
+  @ApiProperty({
+    description: '可販售的點餐模式',
+    enum: orderModeEnum.enumValues,
+    enumName: 'OrderMode',
+    isArray: true,
+  })
+  availableModes: OrderMode[];
 
   @ApiPropertyOptional({ type: NutritionInformationDto })
   nutrition: NutritionInformationDto | null;

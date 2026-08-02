@@ -519,6 +519,13 @@
       "when": 1785423401381,
       "tag": "0073_colorful_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1785593716909,
+      "tag": "0074_shiny_marvel_boy",
+      "breakpoints": true
     }
   ]
 }

@@ -115,6 +115,7 @@ export class OrdersService {
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
       org.id,
       dto.items,
+      dto.mode,
     );
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));

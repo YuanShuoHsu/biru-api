@@ -5,6 +5,7 @@ import {
   itemAvailabilityEnum,
   type ItemAvailability,
 } from 'src/db/schema/menus';
+import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 export class ModifierResponseDto {
   @ApiProperty()
@@ -24,6 +25,14 @@ export class ModifierResponseDto {
     enumName: 'ItemAvailability',
   })
   availability: ItemAvailability | null;
+
+  @ApiProperty({
+    description: '可販售的點餐模式',
+    enum: orderModeEnum.enumValues,
+    enumName: 'OrderMode',
+    isArray: true,
+  })
+  availableModes: OrderMode[];
 
   @ApiProperty()
   sortOrder: number;

@@ -13,6 +13,7 @@ import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
 import type {
   OrderItemAddOnSnapshot,
   OrderItemModifierSnapshot,
+  OrderMode,
 } from 'src/db/schema/orders';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -46,9 +47,11 @@ export interface ResolvedOrderItem {
 export class OrderPricingService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
+  // mode 省略時不檢查販售模式，供優惠券折扣試算使用
   async resolveOrderItems(
     organizationId: string,
     items: CreateOrderItemDto[],
+    mode?: OrderMode,
   ): Promise<ResolvedOrderItem[]> {
     const allMenuItemIds = [
       ...new Set([
@@ -111,6 +114,10 @@ export class OrderPricingService {
       const item = menuItemMap.get(menuItemId);
       if (!item)
         throw new BadRequestException(`MenuItem ${menuItemId} not found`);
+      if (mode && !item.availableModes.includes(mode))
+        throw new BadRequestException(
+          `MenuItem ${menuItemId} is unavailable for mode ${mode}`,
+        );
       return item;
     };
 
@@ -132,6 +139,10 @@ export class OrderPricingService {
           const mod = modifierMap.get(modId);
           if (!mod)
             throw new BadRequestException(`Modifier ${modId} not found`);
+          if (mode && !mod.availableModes.includes(mode))
+            throw new BadRequestException(
+              `Modifier ${modId} is unavailable for mode ${mode}`,
+            );
           return {
             modifierGroupId: mod.modifierGroupId,
             modifierGroupName: getName(mod.modifierGroup?.displayName),
