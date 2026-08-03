@@ -26,7 +26,6 @@ import {
 import {
   BANNER_DATE_FILTER_FIELDS,
   BANNER_ENUM_FILTER_FIELDS,
-  BANNER_NUMBER_FILTER_FIELDS,
   type BannerPaginationQueryDto,
 } from './dto/banner-pagination-query.dto';
 import type { BannerResponseDto } from './dto/banner-response.dto';
@@ -59,7 +58,6 @@ export class BannersService {
     } = query;
 
     const bannerFieldMap: Record<string, Column | SQL> = {
-      sortOrder: banner.sortOrder,
       isActive: sql`${banner.isActive}::text`,
       createdAt: banner.createdAt,
       updatedAt: banner.updatedAt,
@@ -80,7 +78,6 @@ export class BannersService {
             [],
             BANNER_DATE_FILTER_FIELDS,
             BANNER_ENUM_FILTER_FIELDS,
-            BANNER_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       quickFilterValue

@@ -12,17 +12,14 @@ import {
 
 export const BANNER_ENUM_FILTER_FIELDS = ['isActive'] as const;
 export const BANNER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
-export const BANNER_NUMBER_FILTER_FIELDS = ['sortOrder'] as const;
 export const BANNER_ALL_FILTER_FIELDS = [
   ...BANNER_ENUM_FILTER_FIELDS,
   ...BANNER_DATE_FILTER_FIELDS,
-  ...BANNER_NUMBER_FILTER_FIELDS,
 ] as const;
 
 export type BannerFilterField = (typeof BANNER_ALL_FILTER_FIELDS)[number];
 
 export const BANNER_SORT_FIELDS = [
-  'sortOrder',
   'isActive',
   'createdAt',
   'updatedAt',
