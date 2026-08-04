@@ -33,7 +33,7 @@ export const member = ac.newRole({
   ...memberAc.statements,
   coupon: ['read'],
   menu: ['read'],
-  order: ['read'],
+  order: ['read', 'update'],
 });
 
 export const isAuthorized = (
