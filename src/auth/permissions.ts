@@ -8,7 +8,7 @@ import {
 
 const statement = {
   ...defaultStatements,
-  coupon: ['create', 'update', 'delete', 'read'],
+  coupon: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 } as const;
@@ -17,14 +17,14 @@ export const ac = createAccessControl(statement);
 
 export const owner = ac.newRole({
   ...ownerAc.statements,
-  coupon: ['create', 'update', 'delete', 'read'],
+  coupon: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 });
 
 export const admin = ac.newRole({
   ...adminAc.statements,
-  coupon: ['create', 'update', 'delete', 'read'],
+  coupon: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 });

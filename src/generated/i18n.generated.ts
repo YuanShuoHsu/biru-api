@@ -14,6 +14,7 @@ export type I18nTranslations = {
             "notApplicable": string;
             "notApplicableHere": string;
             "notFound": string;
+            "notGrantable": string;
             "notYetValid": string;
             "perUserLimitReached": string;
             "pointsOnly": string;

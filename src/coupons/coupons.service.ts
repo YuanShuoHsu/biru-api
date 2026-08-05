@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -115,6 +116,7 @@ export class CouponsService {
       | 'notApplicable'
       | 'notApplicableHere'
       | 'notFound'
+      | 'notGrantable'
       | 'notYetValid'
       | 'perUserLimitReached'
       | 'pointsOnly'
@@ -135,7 +137,6 @@ export class CouponsService {
     return org;
   }
 
-  // 空陣列視為 null（全部店家通用）；有值時驗證店家存在
   private async normalizeApplicableOrganizationIds(
     ids: string[] | null | undefined,
   ): Promise<string[] | null | undefined> {
@@ -152,7 +153,6 @@ export class CouponsService {
     return unique;
   }
 
-  // 限定店家的店名／slug 清單；null = 全部店家通用
   private async getApplicableOrganizations(
     coupons: Pick<Coupon, 'applicableOrganizationIds'>[],
   ): Promise<Map<string, { name: string; slug: string }>> {
@@ -175,7 +175,6 @@ export class CouponsService {
     );
   }
 
-  // 依店家建立時間排序 applicableOrganizationIds，與後台選單順序一致
   private orderApplicableOrgIds(
     ids: string[] | null | undefined,
     orgs: Map<string, { name: string; slug: string }>,
@@ -215,7 +214,6 @@ export class CouponsService {
       throw new BadRequestException(
         'menuItemIds or menuSectionIds is required for item scope',
       );
-    // 品項 ID 只存在於單一店家的菜單：品項券必須限定恰好一家店
     if (applicableOrganizationIds?.length !== 1)
       throw new BadRequestException(
         'Item scope requires exactly one applicable organization',
@@ -223,7 +221,6 @@ export class CouponsService {
   }
 
   async create(dto: CreateCouponDto): Promise<CouponResponseDto> {
-    // 點數兌換券僅能以點數兌換取得：寫入時強制關閉其他取得管道
     const pointsRedeem = dto.pointsCost != null;
     const issueTrigger = pointsRedeem ? null : (dto.issueTrigger ?? null);
     const issueMinSpend = pointsRedeem ? null : (dto.issueMinSpend ?? null);
@@ -278,6 +275,7 @@ export class CouponsService {
 
   async findAll(
     query: CouponPaginationQueryDto = {},
+    organizationId?: string,
   ): Promise<{ data: CouponResponseDto[]; total: number }> {
     const {
       lang = DEFAULT_LANGUAGE,
@@ -305,15 +303,13 @@ export class CouponsService {
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
-    // 適用店家依顯示用的店家名稱排序(依陣列順序串接);null(全部店家)以空字串排最前
+
     const applicableOrganizationNames = sql`COALESCE((SELECT string_agg(o.name, ', ' ORDER BY array_position(${coupon.applicableOrganizationIds}, o.id)) FROM organization o WHERE o.id = ANY(${coupon.applicableOrganizationIds})), '')`;
-    // 分類/品項名稱為多語系 jsonb,依 lang 解析(缺譯回退預設語言)後串接排序
     const menuSectionNames = sql`COALESCE((SELECT string_agg(COALESCE(ms.name->>${lang}, ms.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuSectionIds}, ms.id)) FROM menu_section ms WHERE ms.id = ANY(${coupon.menuSectionIds})), '')`;
     const menuItemNames = sql`COALESCE((SELECT string_agg(COALESCE(mi.name->>${lang}, mi.name->>${DEFAULT_LANGUAGE}), ', ' ORDER BY array_position(${coupon.menuItemIds}, mi.id)) FROM menu_item mi WHERE mi.id = ANY(${coupon.menuItemIds})), '')`;
     const orderBy: SQL[] =
       sortBy === 'distribution'
-        ? // 取得管道為三旗標合成欄:公開 → 可領取 → 自動發放條件的複合排序
-          [
+        ? [
             dir(coupon.isPublic),
             dir(coupon.isClaimable),
             dir(coupon.issueTrigger),
@@ -355,6 +351,7 @@ export class CouponsService {
             ilike(localTimeText(coupon.createdAt), `%${quickFilterValue}%`),
           )
         : undefined,
+      organizationId ? applicableToOrganization(organizationId) : undefined,
     );
 
     const [rows, [{ total }]] = await Promise.all([
@@ -367,7 +364,6 @@ export class CouponsService {
       this.db.select({ total: count() }).from(coupon).where(where),
     ]);
 
-    // 指定品項券的分類/品項名稱:一次撈齊本頁所有 ID 對應名稱供列表顯示
     const sectionIds = [
       ...new Set(rows.flatMap((r) => r.menuSectionIds || [])),
     ];
@@ -404,8 +400,25 @@ export class CouponsService {
     return { data, total };
   }
 
-  // 適用店家篩選採「該店家可用」語意:null(全部店家通用)視為適用於任何店家
-  // 哨兵值 'all' 表示只找全部店家通用券(applicableOrganizationIds IS NULL)
+  async findAllForOrganization(
+    organizationSlug: string,
+    query: CouponPaginationQueryDto = {},
+  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const scopedQuery =
+      query.filterField === 'applicableOrganizationIds'
+        ? {
+            ...query,
+            filterField: undefined,
+            filterOperator: undefined,
+            filterValue: undefined,
+          }
+        : query;
+
+    return this.findAll(scopedQuery, org.id);
+  }
+
   private buildApplicableOrganizationCondition(
     operator: string,
     value: string | undefined,
@@ -443,7 +456,6 @@ export class CouponsService {
     }
   }
 
-  // 取得管道篩選:公開/可領取為布林旗標,自動發放依 issueTrigger 比對
   private buildDistributionCondition(
     operator: string,
     value: string | undefined,
@@ -492,7 +504,6 @@ export class CouponsService {
     });
     if (!found) throw new NotFoundException('Coupon not found');
 
-    // 點數兌換券僅能以點數兌換取得：寫入時強制關閉其他取得管道
     const pointsRedeem =
       (dto.pointsCost === undefined ? found.pointsCost : dto.pointsCost) !=
       null;
@@ -661,12 +672,10 @@ export class CouponsService {
               .innerJoin(orderItem, eq(orderItem.orderId, order.id))
               .where(
                 and(
-                  // 全店通用券計全品牌消費；限定店家券只計適用店家
                   ...(c.applicableOrganizationIds
                     ? [inArray(order.sellerId, c.applicableOrganizationIds)]
                     : []),
                   eq(order.userId, userId),
-                  // 與入點、每人限量一致：僅計已付款且未取消／未出問題的訂單
                   isNotNull(order.paymentDate),
                   notInArray(order.orderStatus, [
                     'OrderCancelled',
@@ -816,7 +825,6 @@ export class CouponsService {
     let created: UserCoupon;
     try {
       created = await this.db.transaction(async (tx) => {
-        // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
         if (found.totalLimit !== null) {
           const [locked] = await tx
             .select({ usedCount: coupon.usedCount })
@@ -846,7 +854,6 @@ export class CouponsService {
         return row;
       });
     } catch (error) {
-      // drizzle 會把 pg 錯誤包成 DrizzleQueryError，原始錯誤碼在 cause
       if ((error as { cause?: { code?: string } }).cause?.code === '23505')
         throw new BadRequestException(this.t('alreadyClaimed'));
       throw error;
@@ -861,11 +868,22 @@ export class CouponsService {
     };
   }
 
-  async grant(couponId: string, email: string): Promise<UserCouponResponseDto> {
+  async grant(
+    couponId: string,
+    email: string,
+    organizationId?: string,
+  ): Promise<UserCouponResponseDto> {
     const found = await this.db.query.coupon.findFirst({
       where: eq(coupon.id, couponId),
     });
     if (!found) throw new NotFoundException('Coupon not found');
+
+    if (
+      organizationId &&
+      (found.applicableOrganizationIds?.length !== 1 ||
+        found.applicableOrganizationIds[0] !== organizationId)
+    )
+      throw new ForbiddenException(this.t('notGrantable'));
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
@@ -873,7 +891,6 @@ export class CouponsService {
     if (!target) throw new NotFoundException('User not found');
 
     const created = await this.db.transaction(async (tx) => {
-      // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
       if (found.totalLimit !== null) {
         const [locked] = await tx
           .select({ usedCount: coupon.usedCount })
@@ -910,6 +927,16 @@ export class CouponsService {
       usedAt: created.usedAt,
       createdAt: created.createdAt,
     };
+  }
+
+  async grantForOrganization(
+    organizationSlug: string,
+    couponId: string,
+    email: string,
+  ): Promise<UserCouponResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    return this.grant(couponId, email, org.id);
   }
 
   async getMine(
@@ -1058,7 +1085,6 @@ export class CouponsService {
     discount: number;
     userCouponId: string | null;
   }> {
-    // code 全域唯一：查碼後檢查是否適用本店
     const matches = await this.db.query.coupon.findMany({
       where: sql`lower(${coupon.code}) = lower(${code.trim()})`,
     });
@@ -1089,11 +1115,9 @@ export class CouponsService {
         })
       : undefined;
 
-    // 點數兌換券：須先以點數兌換取得，不可直接輸入代碼使用
     if (!voucher && found.pointsCost !== null)
       throw new BadRequestException(this.t('pointsOnly'));
 
-    // 持券者於發券時已保留額度；輸入代碼者需扣除保留額度後仍有餘量
     if (!voucher && found.totalLimit !== null) {
       const [{ value: reserved }] = await this.db
         .select({ value: count() })
@@ -1113,13 +1137,11 @@ export class CouponsService {
         .from(order)
         .where(
           and(
-            // 全店通用券計全品牌使用次數；限定店家券只計適用店家
             ...(found.applicableOrganizationIds
               ? [inArray(order.sellerId, found.applicableOrganizationIds)]
               : []),
             eq(order.userId, userId),
             sql`lower(${order.discountCode}) = lower(${found.code})`,
-            // 取消與付款失敗（已回補）的訂單不占用次數
             notInArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
           ),
         );
@@ -1170,7 +1192,6 @@ export class CouponsService {
       .where(
         and(
           eq(coupon.id, applied.couponId),
-          // 持券者於發券時已保留額度，不再受 totalLimit 限制
           ...(applied.userCouponId
             ? []
             : [
@@ -1204,12 +1225,10 @@ export class CouponsService {
     }
   }
 
-  // 付款失敗時回補：usedCount -1、錢包券恢復未使用
   async restore(
     db: Pick<DrizzleDB, 'select' | 'update'>,
     applied: { code: string; orderId: string },
   ): Promise<void> {
-    // code 全域唯一
     const [found] = await db
       .select({ id: coupon.id })
       .from(coupon)

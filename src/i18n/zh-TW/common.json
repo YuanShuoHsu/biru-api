@@ -7,6 +7,7 @@
     "notApplicable": "此優惠碼不適用於購物車內的品項",
     "notApplicableHere": "此店家不適用此優惠碼",
     "notFound": "優惠碼無效",
+    "notGrantable": "此優惠券非貴店專屬，無法發放",
     "notYetValid": "優惠碼尚未生效",
     "perUserLimitReached": "您已使用過此優惠碼",
     "pointsOnly": "此優惠碼需以點數兌換後才能使用",
