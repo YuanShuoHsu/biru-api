@@ -86,6 +86,9 @@ export const userCoupon = pgTable(
     couponId: text('coupon_id')
       .notNull()
       .references(() => coupon.id, { onDelete: 'cascade' }),
+    grantedBy: text('granted_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
     }),

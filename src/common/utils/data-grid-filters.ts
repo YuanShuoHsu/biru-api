@@ -155,6 +155,23 @@ export const buildEnumFilterCondition = (
   }
 };
 
+export const parseQuickFilterEnums = (
+  entries: string[] | undefined,
+): { field: string; value: string }[] =>
+  (entries ?? []).flatMap((entry) => {
+    const separatorIndex = entry.indexOf(':');
+    if (separatorIndex < 1) return [];
+
+    const field = entry.slice(0, separatorIndex);
+    const value = entry
+      .slice(separatorIndex + 1)
+      .split(',')
+      .filter(Boolean)
+      .join(',');
+
+    return value ? [{ field, value }] : [];
+  });
+
 export const buildFilterCondition = (
   filterField: string,
   filterOperator: string,

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
@@ -33,11 +34,13 @@ export class OrganizationCouponsController {
     @Param('organizationSlug') organizationSlug: string,
     @Param('couponId') couponId: string,
     @Body() dto: GrantCouponDto,
+    @Session() session: UserSession,
   ): Promise<UserCouponResponseDto> {
     return this.couponsService.grantForOrganization(
       organizationSlug,
       couponId,
       dto.email,
+      session.user.id,
     );
   }
 }

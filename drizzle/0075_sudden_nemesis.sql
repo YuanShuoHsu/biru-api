@@ -1,0 +1,2 @@
+ALTER TABLE "user_coupon" ADD COLUMN "granted_by" text;--> statement-breakpoint
+ALTER TABLE "user_coupon" ADD CONSTRAINT "user_coupon_granted_by_user_id_fk" FOREIGN KEY ("granted_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;

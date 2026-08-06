@@ -17,7 +17,10 @@ export class CouponResponseDto {
   applicableOrganizationIds?: string[] | null;
   @ApiProperty() code: string;
   @ApiProperty() discountCurrency: string;
-  @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
+  @ApiProperty({
+    enum: couponDiscountTypeEnum.enumValues,
+    enumName: 'CouponDiscountType',
+  })
   discountType: CouponDiscountType;
   @ApiProperty() discountValue: string;
   @ApiProperty() isActive: boolean;
@@ -26,6 +29,7 @@ export class CouponResponseDto {
   @ApiPropertyOptional() issueMinSpend?: string | null;
   @ApiPropertyOptional({
     enum: couponIssueTriggerEnum.enumValues,
+    enumName: 'CouponIssueTrigger',
     nullable: true,
   })
   issueTrigger?: CouponIssueTrigger | null;
@@ -46,7 +50,8 @@ export class CouponResponseDto {
   @ApiPropertyOptional() minSubtotal?: string | null;
   @ApiPropertyOptional() perUserLimit?: number | null;
   @ApiPropertyOptional() pointsCost?: number | null;
-  @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
+  @ApiProperty({ enum: couponScopeEnum.enumValues, enumName: 'CouponScope' })
+  scope: CouponScope;
   @ApiPropertyOptional() totalLimit?: number | null;
   @ApiProperty() usedCount: number;
   @ApiPropertyOptional() validFrom?: Date | null;
@@ -59,11 +64,15 @@ export class CustomerCouponDto {
   @ApiProperty() id: string;
   @ApiProperty() code: string;
   @ApiProperty() discountCurrency: string;
-  @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
+  @ApiProperty({
+    enum: couponDiscountTypeEnum.enumValues,
+    enumName: 'CouponDiscountType',
+  })
   discountType: CouponDiscountType;
   @ApiProperty() discountValue: string;
   @ApiPropertyOptional() minSubtotal?: string | null;
-  @ApiProperty({ enum: couponScopeEnum.enumValues }) scope: CouponScope;
+  @ApiProperty({ enum: couponScopeEnum.enumValues, enumName: 'CouponScope' })
+  scope: CouponScope;
   @ApiPropertyOptional() validFrom?: Date | null;
   @ApiPropertyOptional() validThrough?: Date | null;
   @ApiProperty() isActive: boolean;
@@ -80,7 +89,10 @@ export class ClaimableCouponDto extends CustomerCouponDto {
 export class UserCouponResponseDto {
   @ApiProperty() id: string;
   @ApiProperty({ type: CustomerCouponDto }) coupon: CustomerCouponDto;
-  @ApiProperty({ enum: userCouponSourceEnum.enumValues })
+  @ApiProperty({
+    enum: userCouponSourceEnum.enumValues,
+    enumName: 'UserCouponSource',
+  })
   source: UserCouponSource;
   @ApiPropertyOptional() usedAt?: Date | null;
   @ApiProperty() createdAt: Date;
@@ -114,4 +126,23 @@ export class MyClaimableCouponDto extends CustomerCouponDto {
     type: [String],
   })
   applicableOrganizationSlugs?: string[] | null;
+}
+
+export class CouponRecipientResponseDto {
+  @ApiProperty() id: string;
+  @ApiPropertyOptional({ nullable: true }) grantedByEmail?: string | null;
+  @ApiProperty({
+    enum: userCouponSourceEnum.enumValues,
+    enumName: 'UserCouponSource',
+  })
+  source: UserCouponSource;
+  @ApiProperty() userEmail: string;
+  @ApiPropertyOptional({ nullable: true }) usedAt?: Date | null;
+  @ApiProperty() createdAt: Date;
+}
+
+export class CouponRecipientListResponseDto {
+  @ApiProperty({ type: [CouponRecipientResponseDto] })
+  data: CouponRecipientResponseDto[];
+  @ApiProperty() total: number;
 }

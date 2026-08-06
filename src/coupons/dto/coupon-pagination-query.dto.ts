@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import {
@@ -92,7 +92,18 @@ export class CouponPaginationQueryDto {
   @IsString()
   quickFilterValue?: string;
 
-  // 分類/品項名稱為多語系 jsonb,依此語言解析顯示與排序
+  @ApiPropertyOptional({
+    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
+  @IsString({ each: true })
+  quickFilterEnums?: string[];
+
   @ApiPropertyOptional({ enum: languagesEnum.enumValues })
   @IsOptional()
   @IsIn(languagesEnum.enumValues)

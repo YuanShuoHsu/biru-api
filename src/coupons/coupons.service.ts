@@ -27,6 +27,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   coupon,
@@ -57,6 +58,7 @@ import {
 import {
   buildFilterCondition,
   localTimeText,
+  parseQuickFilterEnums,
 } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { localize } from 'src/menus/menus-public.service';
@@ -71,9 +73,16 @@ import {
   COUPON_STRING_FILTER_FIELDS,
   type CouponPaginationQueryDto,
 } from './dto/coupon-pagination-query.dto';
+import {
+  COUPON_RECIPIENT_DATE_FILTER_FIELDS,
+  COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
+  COUPON_RECIPIENT_STRING_FILTER_FIELDS,
+  type CouponRecipientQueryDto,
+} from './dto/coupon-recipient-query.dto';
 import type {
   AvailableCouponDto,
   ClaimableCouponDto,
+  CouponRecipientListResponseDto,
   CouponResponseDto,
   CustomerCouponDto,
   MyClaimableCouponDto,
@@ -284,6 +293,7 @@ export class CouponsService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterEnums,
       quickFilterValue,
       sortBy,
       sortDirection = 'desc',
@@ -325,6 +335,34 @@ export class CouponsService {
                 ? [dir(couponFieldMap[sortBy]), desc(coupon.createdAt)]
                 : [desc(coupon.createdAt)];
 
+    const quickFilterConditions: SQL[] = [];
+    if (quickFilterValue) {
+      const condition = or(
+        ilike(coupon.code, `%${quickFilterValue}%`),
+        ilike(localTimeText(coupon.createdAt), `%${quickFilterValue}%`),
+        ilike(sql`${menuSectionNames}`, `%${quickFilterValue}%`),
+        ilike(sql`${menuItemNames}`, `%${quickFilterValue}%`),
+      );
+      if (condition) quickFilterConditions.push(condition);
+    }
+    for (const { field, value } of parseQuickFilterEnums(quickFilterEnums)) {
+      const condition =
+        field === 'applicableOrganizationIds'
+          ? this.buildApplicableOrganizationCondition('isAnyOf', value)
+          : field === 'distribution'
+            ? this.buildDistributionCondition('isAnyOf', value)
+            : buildFilterCondition(
+                field,
+                'isAnyOf',
+                value,
+                couponFieldMap,
+                [],
+                [],
+                COUPON_ENUM_FILTER_FIELDS,
+              );
+      if (condition) quickFilterConditions.push(condition);
+    }
+
     const where = and(
       filterField && filterOperator
         ? filterField === 'applicableOrganizationIds'
@@ -345,12 +383,7 @@ export class CouponsService {
                 COUPON_NUMBER_FILTER_FIELDS,
               )
         : undefined,
-      quickFilterValue
-        ? or(
-            ilike(coupon.code, `%${quickFilterValue}%`),
-            ilike(localTimeText(coupon.createdAt), `%${quickFilterValue}%`),
-          )
-        : undefined,
+      quickFilterConditions.length ? or(...quickFilterConditions) : undefined,
       organizationId ? applicableToOrganization(organizationId) : undefined,
     );
 
@@ -417,6 +450,15 @@ export class CouponsService {
         : query;
 
     return this.findAll(scopedQuery, org.id);
+  }
+
+  async findOne(couponId: string): Promise<CouponResponseDto> {
+    const found = await this.db.query.coupon.findFirst({
+      where: eq(coupon.id, couponId),
+    });
+    if (!found) throw new NotFoundException('Coupon not found');
+
+    return found;
   }
 
   private buildApplicableOrganizationCondition(
@@ -493,6 +535,129 @@ export class CouponsService {
         return conditions.length ? or(...conditions) : undefined;
       }
     }
+  }
+
+  private buildRecipientUsedAtCondition(
+    operator: string,
+    value?: string,
+  ): SQL | undefined {
+    const values =
+      operator === 'isAnyOf'
+        ? (value?.split(',').filter(Boolean) ?? [])
+        : value
+          ? [value]
+          : [];
+
+    const hasUsed = values.includes('used');
+    const hasUnused = values.includes('unused');
+    if (!hasUsed && !hasUnused) return undefined;
+    if (hasUsed && hasUnused) return sql`TRUE`;
+
+    const wantsUsed = operator === 'not' ? hasUnused : hasUsed;
+
+    return wantsUsed ? isNotNull(userCoupon.usedAt) : isNull(userCoupon.usedAt);
+  }
+
+  async findRecipients(
+    couponId: string,
+    query: CouponRecipientQueryDto = {},
+  ): Promise<CouponRecipientListResponseDto> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
+
+    const granter = alias(user, 'granter');
+
+    const recipientFieldMap: Record<string, Column | SQL> = {
+      userEmail: user.email,
+      grantedByEmail: granter.email,
+      source: sql`${userCoupon.source}::text`,
+      createdAt: userCoupon.createdAt,
+      usedAt: userCoupon.usedAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] = sortBy
+      ? [dir(recipientFieldMap[sortBy]), desc(userCoupon.createdAt)]
+      : [desc(userCoupon.createdAt)];
+
+    const quickFilterConditions: SQL[] = [];
+    if (quickFilterValue) {
+      const condition = or(
+        ilike(user.email, `%${quickFilterValue}%`),
+        ilike(granter.email, `%${quickFilterValue}%`),
+        ilike(localTimeText(userCoupon.createdAt), `%${quickFilterValue}%`),
+      );
+      if (condition) quickFilterConditions.push(condition);
+    }
+    for (const { field, value } of parseQuickFilterEnums(quickFilterEnums)) {
+      const condition =
+        field === 'usedAt'
+          ? this.buildRecipientUsedAtCondition('isAnyOf', value)
+          : buildFilterCondition(
+              field,
+              'isAnyOf',
+              value,
+              recipientFieldMap,
+              [],
+              [],
+              COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
+            );
+      if (condition) quickFilterConditions.push(condition);
+    }
+
+    const where = and(
+      eq(userCoupon.couponId, couponId),
+      filterField && filterOperator
+        ? filterField === 'usedAt'
+          ? this.buildRecipientUsedAtCondition(filterOperator, filterValue)
+          : buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              recipientFieldMap,
+              COUPON_RECIPIENT_STRING_FILTER_FIELDS,
+              COUPON_RECIPIENT_DATE_FILTER_FIELDS,
+              COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
+            )
+        : undefined,
+      quickFilterConditions.length ? or(...quickFilterConditions) : undefined,
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: userCoupon.id,
+          grantedByEmail: granter.email,
+          source: userCoupon.source,
+          userEmail: user.email,
+          usedAt: userCoupon.usedAt,
+          createdAt: userCoupon.createdAt,
+        })
+        .from(userCoupon)
+        .innerJoin(user, eq(user.id, userCoupon.userId))
+        .leftJoin(granter, eq(granter.id, userCoupon.grantedBy))
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(userCoupon)
+        .innerJoin(user, eq(user.id, userCoupon.userId))
+        .leftJoin(granter, eq(granter.id, userCoupon.grantedBy))
+        .where(where),
+    ]);
+
+    return { data, total };
   }
 
   async update(
@@ -871,6 +1036,7 @@ export class CouponsService {
   async grant(
     couponId: string,
     email: string,
+    grantedBy: string,
     organizationId?: string,
   ): Promise<UserCouponResponseDto> {
     const found = await this.db.query.coupon.findFirst({
@@ -913,6 +1079,7 @@ export class CouponsService {
         .values({
           id: randomUUID(),
           couponId: found.id,
+          grantedBy,
           source: 'granted',
           userId: target.id,
         })
@@ -933,10 +1100,11 @@ export class CouponsService {
     organizationSlug: string,
     couponId: string,
     email: string,
+    grantedBy: string,
   ): Promise<UserCouponResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    return this.grant(couponId, email, org.id);
+    return this.grant(couponId, email, grantedBy, org.id);
   }
 
   async getMine(

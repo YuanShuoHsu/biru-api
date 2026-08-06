@@ -46,7 +46,10 @@ export class CreateCouponDto {
   @Length(3, 3)
   discountCurrency?: string;
 
-  @ApiProperty({ enum: couponDiscountTypeEnum.enumValues })
+  @ApiProperty({
+    enum: couponDiscountTypeEnum.enumValues,
+    enumName: 'CouponDiscountType',
+  })
   @IsEnum(couponDiscountTypeEnum.enumValues)
   discountType: CouponDiscountType;
 
@@ -79,8 +82,14 @@ export class CreateCouponDto {
   issueMinSpend?: number;
 
   @ApiPropertyOptional({
-    description: '自動發放觸發：signup 註冊禮／birthday 生日月／spend 單筆滿額',
     enum: couponIssueTriggerEnum.enumValues,
+    enumName: 'CouponIssueTrigger',
+    // description 放在具名 schema 上；留在屬性層會讓 openapi-typescript
+    // 把 $ref 展開成 inline union,前端就拿不到共用的 enum 常數
+    enumSchema: {
+      description:
+        '自動發放觸發：signup 註冊禮／birthday 生日月／spend 單筆滿額',
+    },
     nullable: true,
   })
   @IsOptional()
@@ -120,7 +129,10 @@ export class CreateCouponDto {
   @Min(1)
   pointsCost?: number | null;
 
-  @ApiPropertyOptional({ enum: couponScopeEnum.enumValues })
+  @ApiPropertyOptional({
+    enum: couponScopeEnum.enumValues,
+    enumName: 'CouponScope',
+  })
   @IsOptional()
   @IsEnum(couponScopeEnum.enumValues)
   scope?: CouponScope;

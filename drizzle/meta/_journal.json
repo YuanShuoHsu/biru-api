@@ -526,6 +526,13 @@
       "when": 1785593716909,
       "tag": "0074_shiny_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1785943927187,
+      "tag": "0075_sudden_nemesis",
+      "breakpoints": true
     }
   ]
 }

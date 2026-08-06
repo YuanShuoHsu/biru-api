@@ -9,13 +9,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { CouponsService } from './coupons.service';
 import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto';
+import { CouponRecipientQueryDto } from './dto/coupon-recipient-query.dto';
 import {
+  CouponRecipientListResponseDto,
   CouponResponseDto,
   UserCouponResponseDto,
 } from './dto/coupon-response.dto';
@@ -42,6 +45,12 @@ export class AdminCouponsController {
     return this.couponsService.findAll(query);
   }
 
+  @Get(':couponId')
+  @ApiOperation({ summary: '查詢優惠券' })
+  findOne(@Param('couponId') couponId: string): Promise<CouponResponseDto> {
+    return this.couponsService.findOne(couponId);
+  }
+
   @Patch(':couponId')
   @ApiOperation({ summary: '更新優惠券' })
   update(
@@ -57,12 +66,23 @@ export class AdminCouponsController {
     return this.couponsService.remove(couponId);
   }
 
+  @Get(':couponId/recipients')
+  @ApiOperation({ summary: '查詢優惠券持券紀錄' })
+  @ApiOkResponse({ type: CouponRecipientListResponseDto })
+  findRecipients(
+    @Param('couponId') couponId: string,
+    @Query() query: CouponRecipientQueryDto,
+  ): Promise<CouponRecipientListResponseDto> {
+    return this.couponsService.findRecipients(couponId, query);
+  }
+
   @Post(':couponId/grant')
   @ApiOperation({ summary: '發放優惠券給指定會員' })
   grant(
     @Param('couponId') couponId: string,
     @Body() dto: GrantCouponDto,
+    @Session() session: UserSession,
   ): Promise<UserCouponResponseDto> {
-    return this.couponsService.grant(couponId, dto.email);
+    return this.couponsService.grant(couponId, dto.email, session.user.id);
   }
 }
