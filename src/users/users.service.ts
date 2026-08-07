@@ -15,12 +15,13 @@ import {
 } from 'drizzle-orm';
 import {
   buildDateFilterCondition,
+  buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import * as schema from 'src/db/schema';
-import type { CreateUser, User } from 'src/db/schema/users';
-import { user } from 'src/db/schema/users';
+import type { CreateUser, User, UserRole } from 'src/db/schema/users';
+import { user, userRoles } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -44,41 +45,18 @@ import {
 } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-type QuickFilterField = EnumFilterField | BooleanFilterField;
-
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
-
-const parseQuickFilterValue = (
-  value: string,
-):
-  | {
-      field: QuickFilterField;
-      value: string;
-    }
-  | undefined => {
-  const [field, ...rest] = value.split(':');
-  const filterValue = rest.join(':');
-
-  if (!filterValue) return undefined;
-
-  if (field === 'role' && (filterValue === 'admin' || filterValue === 'user')) {
-    return { field, value: filterValue };
-  }
-
-  if (
-    (field === 'banned' || field === 'emailSubscribed') &&
-    (filterValue === 'true' || filterValue === 'false')
-  ) {
-    return { field, value: filterValue };
-  }
-};
 
 const buildEnumFilterCondition = (
   field: typeof user.role,
   operator: EnumFilterOperator,
   value: string,
 ): SQL | undefined => {
-  const values = value.split(',').filter(Boolean);
+  const values = value
+    .split(',')
+    .filter((entry): entry is UserRole =>
+      userRoles.includes(entry as UserRole),
+    );
   if (values.length === 0) return undefined;
 
   switch (operator) {
@@ -130,25 +108,14 @@ const buildSearchCondition = (
   }
 };
 
-const buildQuickFilterCondition = (value: string): SQL | undefined => {
-  const parsedValue = parseQuickFilterValue(value);
+// 快速搜尋的布林欄位可同時命中兩個標籤(已停權+使用中),兩者都要納入 OR
+const buildBooleanQuickFilterCondition = (
+  column: typeof user.banned | typeof user.emailSubscribed,
+  value: string,
+): SQL | undefined => {
+  const values = value.split(',').filter(Boolean);
 
-  if (!parsedValue) {
-    return or(
-      ilike(user.name, `%${value}%`),
-      ilike(user.email, `%${value}%`),
-      ilike(localTimeText(user.createdAt), `%${value}%`),
-    );
-  }
-
-  switch (parsedValue.field) {
-    case 'role':
-      return eq(user.role, parsedValue.value);
-    case 'banned':
-      return eq(user.banned, parsedValue.value === 'true');
-    case 'emailSubscribed':
-      return eq(user.emailSubscribed, parsedValue.value === 'true');
-  }
+  return or(...values.map((entry) => eq(column, entry === 'true')));
 };
 
 const buildColumnFilterCondition = (
@@ -240,6 +207,7 @@ export class UsersService {
       offset = 0,
       sortBy = 'createdAt',
       sortDirection = 'desc',
+      quickFilterEnums,
       quickFilterValue,
       filterField,
       filterOperator,
@@ -249,9 +217,22 @@ export class UsersService {
       searchValue,
     } = query;
 
-    const quickFilterCondition = quickFilterValue
-      ? buildQuickFilterCondition(quickFilterValue)
-      : undefined;
+    const quickFilterCondition = buildQuickFilterCondition({
+      customConditions: {
+        banned: (value) => buildBooleanQuickFilterCondition(user.banned, value),
+        emailSubscribed: (value) =>
+          buildBooleanQuickFilterCondition(user.emailSubscribed, value),
+        role: (value) => buildEnumFilterCondition(user.role, 'isAnyOf', value),
+      },
+      fieldMap: {},
+      quickFilterEnums,
+      quickFilterValue,
+      textConditions: (value) => [
+        ilike(user.name, `%${value}%`),
+        ilike(user.email, `%${value}%`),
+        ilike(localTimeText(user.createdAt), `%${value}%`),
+      ],
+    });
 
     const columnFilterCondition =
       filterField && filterOperator

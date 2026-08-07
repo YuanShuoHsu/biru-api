@@ -212,3 +212,56 @@ export const buildFilterCondition = (
     );
   }
 };
+
+export const buildArrayOverlapCondition = (
+  column: Column | SQL,
+  value: string,
+): SQL | undefined => {
+  const values = value.split(',').filter(Boolean);
+  if (!values.length) return undefined;
+
+  return sql`${column}::text[] && ARRAY[${sql.join(
+    values.map((entry) => sql`${entry}`),
+    sql`, `,
+  )}]::text[]`;
+};
+
+export const buildQuickFilterCondition = ({
+  customConditions = {},
+  enumFields = [],
+  fieldMap,
+  quickFilterEnums,
+  quickFilterValue,
+  textConditions,
+}: {
+  customConditions?: Record<string, (value: string) => SQL | undefined>;
+  enumFields?: readonly string[];
+  fieldMap: Record<string, Column | SQL>;
+  quickFilterEnums: string[] | undefined;
+  quickFilterValue: string | undefined;
+  textConditions: (value: string) => (SQL | undefined)[];
+}): SQL | undefined => {
+  const conditions: SQL[] = [];
+
+  if (quickFilterValue) {
+    const condition = or(...textConditions(quickFilterValue));
+    if (condition) conditions.push(condition);
+  }
+
+  for (const { field, value } of parseQuickFilterEnums(quickFilterEnums)) {
+    const condition = customConditions[field]
+      ? customConditions[field](value)
+      : buildFilterCondition(
+          field,
+          'isAnyOf',
+          value,
+          fieldMap,
+          [],
+          [],
+          enumFields,
+        );
+    if (condition) conditions.push(condition);
+  }
+
+  return conditions.length ? or(...conditions) : undefined;
+};

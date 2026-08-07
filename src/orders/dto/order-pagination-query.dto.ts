@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import {
@@ -80,6 +80,18 @@ export class OrderPaginationQueryDto {
   @IsOptional()
   @IsString()
   quickFilterValue?: string;
+
+  @ApiPropertyOptional({
+    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
+  @IsString({ each: true })
+  quickFilterEnums?: string[];
 
   @ApiPropertyOptional({ enum: ORDER_SORT_FIELDS, enumName: 'OrderSortField' })
   @IsOptional()

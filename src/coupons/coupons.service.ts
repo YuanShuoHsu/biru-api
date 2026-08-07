@@ -57,8 +57,8 @@ import {
 } from 'src/common/utils/coupons';
 import {
   buildFilterCondition,
+  buildQuickFilterCondition,
   localTimeText,
-  parseQuickFilterEnums,
 } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { localize } from 'src/menus/menus-public.service';
@@ -335,33 +335,24 @@ export class CouponsService {
                 ? [dir(couponFieldMap[sortBy]), desc(coupon.createdAt)]
                 : [desc(coupon.createdAt)];
 
-    const quickFilterConditions: SQL[] = [];
-    if (quickFilterValue) {
-      const condition = or(
-        ilike(coupon.code, `%${quickFilterValue}%`),
-        ilike(localTimeText(coupon.createdAt), `%${quickFilterValue}%`),
-        ilike(sql`${menuSectionNames}`, `%${quickFilterValue}%`),
-        ilike(sql`${menuItemNames}`, `%${quickFilterValue}%`),
-      );
-      if (condition) quickFilterConditions.push(condition);
-    }
-    for (const { field, value } of parseQuickFilterEnums(quickFilterEnums)) {
-      const condition =
-        field === 'applicableOrganizationIds'
-          ? this.buildApplicableOrganizationCondition('isAnyOf', value)
-          : field === 'distribution'
-            ? this.buildDistributionCondition('isAnyOf', value)
-            : buildFilterCondition(
-                field,
-                'isAnyOf',
-                value,
-                couponFieldMap,
-                [],
-                [],
-                COUPON_ENUM_FILTER_FIELDS,
-              );
-      if (condition) quickFilterConditions.push(condition);
-    }
+    const quickFilterCondition = buildQuickFilterCondition({
+      customConditions: {
+        applicableOrganizationIds: (value) =>
+          this.buildApplicableOrganizationCondition('isAnyOf', value),
+        distribution: (value) =>
+          this.buildDistributionCondition('isAnyOf', value),
+      },
+      enumFields: COUPON_ENUM_FILTER_FIELDS,
+      fieldMap: couponFieldMap,
+      quickFilterEnums,
+      quickFilterValue,
+      textConditions: (value) => [
+        ilike(coupon.code, `%${value}%`),
+        ilike(localTimeText(coupon.createdAt), `%${value}%`),
+        ilike(sql`${menuSectionNames}`, `%${value}%`),
+        ilike(sql`${menuItemNames}`, `%${value}%`),
+      ],
+    });
 
     const where = and(
       filterField && filterOperator
@@ -383,7 +374,7 @@ export class CouponsService {
                 COUPON_NUMBER_FILTER_FIELDS,
               )
         : undefined,
-      quickFilterConditions.length ? or(...quickFilterConditions) : undefined,
+      quickFilterCondition,
       organizationId ? applicableToOrganization(organizationId) : undefined,
     );
 
@@ -589,30 +580,20 @@ export class CouponsService {
       ? [dir(recipientFieldMap[sortBy]), desc(userCoupon.createdAt)]
       : [desc(userCoupon.createdAt)];
 
-    const quickFilterConditions: SQL[] = [];
-    if (quickFilterValue) {
-      const condition = or(
-        ilike(user.email, `%${quickFilterValue}%`),
-        ilike(granter.email, `%${quickFilterValue}%`),
-        ilike(localTimeText(userCoupon.createdAt), `%${quickFilterValue}%`),
-      );
-      if (condition) quickFilterConditions.push(condition);
-    }
-    for (const { field, value } of parseQuickFilterEnums(quickFilterEnums)) {
-      const condition =
-        field === 'usedAt'
-          ? this.buildRecipientUsedAtCondition('isAnyOf', value)
-          : buildFilterCondition(
-              field,
-              'isAnyOf',
-              value,
-              recipientFieldMap,
-              [],
-              [],
-              COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
-            );
-      if (condition) quickFilterConditions.push(condition);
-    }
+    const quickFilterCondition = buildQuickFilterCondition({
+      customConditions: {
+        usedAt: (value) => this.buildRecipientUsedAtCondition('isAnyOf', value),
+      },
+      enumFields: COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
+      fieldMap: recipientFieldMap,
+      quickFilterEnums,
+      quickFilterValue,
+      textConditions: (value) => [
+        ilike(user.email, `%${value}%`),
+        ilike(granter.email, `%${value}%`),
+        ilike(localTimeText(userCoupon.createdAt), `%${value}%`),
+      ],
+    });
 
     const where = and(
       eq(userCoupon.couponId, couponId),
@@ -629,7 +610,7 @@ export class CouponsService {
               COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
             )
         : undefined,
-      quickFilterConditions.length ? or(...quickFilterConditions) : undefined,
+      quickFilterCondition,
     );
 
     const [data, [{ total }]] = await Promise.all([

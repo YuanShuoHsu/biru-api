@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import {
@@ -126,13 +126,22 @@ export class ListUsersQueryDto {
   @Min(0)
   offset?: number = 0;
 
-  @ApiPropertyOptional({
-    description:
-      'Quick Filter 搜尋值。可傳一般文字，或 role:admin、banned:true、emailSubscribed:false 等欄位 token',
-  })
+  @ApiPropertyOptional({ description: 'Quick Filter 搜尋值' })
   @IsOptional()
   @IsString()
   quickFilterValue?: string;
+
+  @ApiPropertyOptional({
+    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
+  @IsString({ each: true })
+  quickFilterEnums?: string[];
 
   @ApiPropertyOptional({
     description: 'Search 欄位',

@@ -42,7 +42,9 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
+  buildArrayOverlapCondition,
   buildFilterCondition,
+  buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
@@ -61,11 +63,13 @@ import type { CreateModifierDto } from './dto/create-modifier.dto';
 import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
   MODIFIER_DATE_FILTER_FIELDS,
+  MODIFIER_QUICK_FILTER_ENUM_FIELDS,
   MODIFIER_STRING_FILTER_FIELDS,
   type ModifierPaginationQueryDto,
 } from './dto/modifier-pagination-query.dto';
 import {
   DATE_FILTER_FIELDS,
+  ITEM_QUICK_FILTER_ENUM_FIELDS,
   PaginationQueryDto,
   STRING_FILTER_FIELDS,
 } from './dto/pagination-query.dto';
@@ -328,6 +332,7 @@ export class MenusService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterEnums,
       quickFilterValue,
       searchField,
       searchOperator,
@@ -346,6 +351,8 @@ export class MenusService {
       description: sql`${menuItem.description}::text`,
       createdAt: menuItem.createdAt,
       updatedAt: menuItem.updatedAt,
+      // 快速搜尋用；availability 存在 offer 表，只能以子查詢取回
+      availability: sql`(select ${offer.availability}::text from ${offer} where ${offer.menuItemId} = ${menuItem.id} limit 1)`,
     };
 
     const where = and(
@@ -360,14 +367,22 @@ export class MenusService {
             DATE_FILTER_FIELDS,
           )
         : undefined,
-      quickFilterValue
-        ? or(
-            ilike(sql`${menuItem.name}::text`, `%${quickFilterValue}%`),
-            ilike(sql`${menuItem.description}::text`, `%${quickFilterValue}%`),
-            ilike(localTimeText(menuItem.createdAt), `%${quickFilterValue}%`),
-            ilike(localTimeText(menuItem.updatedAt), `%${quickFilterValue}%`),
-          )
-        : undefined,
+      buildQuickFilterCondition({
+        customConditions: {
+          availableModes: (value) =>
+            buildArrayOverlapCondition(menuItem.availableModes, value),
+        },
+        enumFields: ITEM_QUICK_FILTER_ENUM_FIELDS,
+        fieldMap: itemFieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(sql`${menuItem.name}::text`, `%${value}%`),
+          ilike(sql`${menuItem.description}::text`, `%${value}%`),
+          ilike(localTimeText(menuItem.createdAt), `%${value}%`),
+          ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
+        ],
+      }),
       searchField && searchOperator && searchValue
         ? buildStringFilterCondition(
             itemFieldMap[searchField],
@@ -990,6 +1005,7 @@ export class MenusService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterEnums,
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
@@ -999,6 +1015,7 @@ export class MenusService {
       displayName: sql`${modifier.displayName}::text`,
       createdAt: modifier.createdAt,
       updatedAt: modifier.updatedAt,
+      availability: sql`${modifier.availability}::text`,
     };
 
     const filterCondition =
@@ -1022,13 +1039,21 @@ export class MenusService {
     const where = and(
       eq(modifier.modifierGroupId, modifierGroupId),
       filterCondition,
-      quickFilterValue
-        ? or(
-            ilike(sql`${modifier.displayName}::text`, `%${quickFilterValue}%`),
-            ilike(localTimeText(modifier.createdAt), `%${quickFilterValue}%`),
-            ilike(localTimeText(modifier.updatedAt), `%${quickFilterValue}%`),
-          )
-        : undefined,
+      buildQuickFilterCondition({
+        customConditions: {
+          availableModes: (value) =>
+            buildArrayOverlapCondition(modifier.availableModes, value),
+        },
+        enumFields: MODIFIER_QUICK_FILTER_ENUM_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(sql`${modifier.displayName}::text`, `%${value}%`),
+          ilike(localTimeText(modifier.createdAt), `%${value}%`),
+          ilike(localTimeText(modifier.updatedAt), `%${value}%`),
+        ],
+      }),
     );
 
     const [data, [{ total }]] = await Promise.all([

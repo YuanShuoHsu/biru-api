@@ -9,6 +9,9 @@ import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { DEFAULT_LANGUAGE, languagesEnum } from './enums';
 import { invitation, member, teamMember } from './organizations';
 
+export const userRoles = ['admin', 'user'] as const;
+export type UserRole = (typeof userRoles)[number];
+
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -20,7 +23,7 @@ export const user = pgTable('user', {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-  role: text('role'),
+  role: text('role', { enum: userRoles }),
   banned: boolean('banned').default(false),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires'),

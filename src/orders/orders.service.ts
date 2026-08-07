@@ -23,7 +23,6 @@ import {
   ilike,
   lt,
   ne,
-  or,
   sql,
 } from 'drizzle-orm';
 import type { OrderStatus } from 'src/db/schema/orders';
@@ -40,6 +39,7 @@ import {
 import { isAuthorized } from 'src/auth/permissions';
 import {
   buildFilterCondition,
+  buildQuickFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
@@ -223,6 +223,7 @@ export class OrdersService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterEnums,
       quickFilterValue,
       sortBy,
       sortDirection = 'desc',
@@ -260,14 +261,18 @@ export class OrdersService {
             ORDER_NUMBER_FILTER_FIELDS,
           )
         : undefined,
-      quickFilterValue
-        ? or(
-            ilike(order.orderNumber, `%${quickFilterValue}%`),
-            ilike(sql`${order.confirmationNumber}`, `%${quickFilterValue}%`),
-            ilike(sql`${order.customer}->>'name'`, `%${quickFilterValue}%`),
-            ilike(localTimeText(order.createdAt), `%${quickFilterValue}%`),
-          )
-        : undefined,
+      buildQuickFilterCondition({
+        enumFields: ORDER_ENUM_FILTER_FIELDS,
+        fieldMap: orderFieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(order.orderNumber, `%${value}%`),
+          ilike(sql`${order.confirmationNumber}`, `%${value}%`),
+          ilike(sql`${order.customer}->>'name'`, `%${value}%`),
+          ilike(localTimeText(order.createdAt), `%${value}%`),
+        ],
+      }),
     );
 
     const [data, [{ total }]] = await Promise.all([

@@ -5,6 +5,7 @@ import {
   languagesEnum,
   type Language,
 } from 'src/db/schema/enums';
+import { userRoles, type UserRole } from 'src/db/schema/users';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -12,6 +13,29 @@ export class UserResponseDto {
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id: string;
+
+  @ApiProperty({
+    description: '角色',
+    enum: userRoles,
+    enumName: 'UserRole',
+    example: 'user',
+  })
+  role: UserRole | null;
+
+  @ApiProperty({ description: '是否已封鎖', example: false })
+  banned: boolean | null;
+
+  @ApiProperty({ description: '封鎖原因', example: '違反使用條款' })
+  banReason?: string | null;
+
+  @ApiProperty({
+    description: '封鎖到期時間；null 為永久',
+    example: '2025-12-31T23:59:59.000Z',
+  })
+  banExpires?: Date | null;
+
+  @ApiProperty({ description: '個人簡介', example: '喜歡精釀啤酒' })
+  bio?: string | null;
 
   @ApiProperty({ description: '姓名', example: 'Coffee' })
   name: string;

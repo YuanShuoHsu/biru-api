@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import {
@@ -11,6 +11,7 @@ import {
 } from 'src/common/constants/pagination';
 
 export const MODIFIER_STRING_FILTER_FIELDS = ['displayName'] as const;
+export const MODIFIER_QUICK_FILTER_ENUM_FIELDS = ['availability'] as const;
 export const MODIFIER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
 export const MODIFIER_ALL_FILTER_FIELDS = [
   ...MODIFIER_STRING_FILTER_FIELDS,
@@ -62,6 +63,18 @@ export class ModifierPaginationQueryDto {
   @IsOptional()
   @IsString()
   quickFilterValue?: string;
+
+  @ApiPropertyOptional({
+    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
+  @IsString({ each: true })
+  quickFilterEnums?: string[];
 
   @ApiPropertyOptional({
     enum: MODIFIER_SORT_FIELDS,

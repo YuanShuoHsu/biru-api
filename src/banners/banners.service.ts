@@ -20,6 +20,7 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
   buildFilterCondition,
+  buildQuickFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 
@@ -52,6 +53,7 @@ export class BannersService {
       filterField,
       filterOperator,
       filterValue,
+      quickFilterEnums,
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
@@ -80,9 +82,15 @@ export class BannersService {
             BANNER_ENUM_FILTER_FIELDS,
           )
         : undefined,
-      quickFilterValue
-        ? ilike(localTimeText(banner.createdAt), `%${quickFilterValue}%`)
-        : undefined,
+      buildQuickFilterCondition({
+        enumFields: BANNER_ENUM_FILTER_FIELDS,
+        fieldMap: bannerFieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(localTimeText(banner.createdAt), `%${value}%`),
+        ],
+      }),
     );
 
     const [data, [{ total }]] = await Promise.all([
