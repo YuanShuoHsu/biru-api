@@ -155,6 +155,59 @@ export const buildEnumFilterCondition = (
   }
 };
 
+export const buildPlainDateFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  const colSql = sql`${column}`;
+
+  if (operator === 'isEmpty') return isNull(colSql);
+  if (operator === 'isNotEmpty') return isNotNull(colSql);
+  if (!value) return undefined;
+
+  const targetDate = sql`${value}::date`;
+
+  switch (operator) {
+    case 'is':
+      return sql`${colSql} = ${targetDate}`;
+    case 'not':
+      return sql`${colSql} != ${targetDate}`;
+    case 'after':
+      return sql`${colSql} > ${targetDate}`;
+    case 'onOrAfter':
+      return sql`${colSql} >= ${targetDate}`;
+    case 'before':
+      return sql`${colSql} < ${targetDate}`;
+    case 'onOrBefore':
+      return sql`${colSql} <= ${targetDate}`;
+  }
+};
+
+export const buildArrayOverlapCondition = (
+  column: Column | SQL,
+  value: string,
+): SQL | undefined => {
+  const values = value.split(',').filter(Boolean);
+  if (!values.length) return undefined;
+
+  return sql`${column}::text[] && ARRAY[${sql.join(
+    values.map((entry) => sql`${entry}`),
+    sql`, `,
+  )}]::text[]`;
+};
+
+export const buildArrayEnumFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  const overlap = buildArrayOverlapCondition(column, value);
+  if (!overlap) return undefined;
+
+  return operator === 'not' ? sql`NOT (${overlap})` : overlap;
+};
+
 export const parseQuickFilterEnums = (
   entries: string[] | undefined,
 ): { field: string; value: string }[] =>
@@ -181,6 +234,8 @@ export const buildFilterCondition = (
   dateFields: readonly string[],
   enumFields: readonly string[] = [],
   numberFields: readonly string[] = [],
+  plainDateFields: readonly string[] = [],
+  arrayEnumFields: readonly string[] = [],
 ): SQL | undefined => {
   const column = fieldMap[filterField];
   if (!column) return undefined;
@@ -211,19 +266,22 @@ export const buildFilterCondition = (
       filterValue || '',
     );
   }
-};
 
-export const buildArrayOverlapCondition = (
-  column: Column | SQL,
-  value: string,
-): SQL | undefined => {
-  const values = value.split(',').filter(Boolean);
-  if (!values.length) return undefined;
+  if (plainDateFields.includes(filterField)) {
+    return buildPlainDateFilterCondition(
+      column,
+      filterOperator,
+      filterValue || '',
+    );
+  }
 
-  return sql`${column}::text[] && ARRAY[${sql.join(
-    values.map((entry) => sql`${entry}`),
-    sql`, `,
-  )}]::text[]`;
+  if (arrayEnumFields.includes(filterField)) {
+    return buildArrayEnumFilterCondition(
+      column,
+      filterOperator,
+      filterValue || '',
+    );
+  }
 };
 
 export const buildQuickFilterCondition = ({

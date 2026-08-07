@@ -30,7 +30,9 @@ import { ModifierGroupResponseDto } from './dto/modifier-group-response.dto';
 import { ModifierPaginationQueryDto } from './dto/modifier-pagination-query.dto';
 import { ModifierResponseDto } from './dto/modifier-response.dto';
 import { OfferResponseDto } from './dto/offer-response.dto';
-import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { MenuItemPaginationQueryDto } from './dto/menu-item-pagination-query.dto';
+import { MenuSectionPaginationQueryDto } from './dto/menu-section-pagination-query.dto';
+import { ModifierGroupPaginationQueryDto } from './dto/modifier-group-pagination-query.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -100,7 +102,7 @@ export class MenusController {
   @ApiOperation({ summary: '取得菜單所有分類' })
   findAllMenuSections(
     @Param('menuId') menuId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: MenuSectionPaginationQueryDto,
   ): Promise<{ data: MenuSectionResponseDto[]; total: number }> {
     return this.menusService.menuSections(menuId, query);
   }
@@ -166,7 +168,7 @@ export class MenusController {
   @ApiOperation({ summary: '取得分類所有品項' })
   findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: MenuItemPaginationQueryDto,
   ): Promise<{ data: MenuItemResponseDto[]; total: number }> {
     return this.menusService.menuSectionItems(sectionId, query);
   }
@@ -333,7 +335,7 @@ export class MenusController {
   @ApiOperation({ summary: '取得菜單所有選項群組' })
   findAllModifierGroups(
     @Param('menuId') menuId: string,
-    @Query() query: ModifierPaginationQueryDto,
+    @Query() query: ModifierGroupPaginationQueryDto,
   ): Promise<{ data: ModifierGroupResponseDto[]; total: number }> {
     return this.menusService.modifierGroups(menuId, query);
   }
@@ -456,7 +458,7 @@ export class MenusController {
   @ApiOperation({ summary: '取得品項已掛上的選項群組' })
   findAllMenuItemModifierGroups(
     @Param('menuItemId') menuItemId: string,
-    @Query() query: ModifierPaginationQueryDto,
+    @Query() query: ModifierGroupPaginationQueryDto,
   ): Promise<{ data: MenuItemModifierGroupResponseDto[]; total: number }> {
     return this.menusService.menuItemModifierGroups(menuItemId, query);
   }

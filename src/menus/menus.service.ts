@@ -62,17 +62,35 @@ import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
 import type { CreateModifierDto } from './dto/create-modifier.dto';
 import type { CreateOfferDto } from './dto/create-offer.dto';
 import {
+  MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
+  MENU_ITEM_DATE_FILTER_FIELDS,
+  MENU_ITEM_ENUM_FILTER_FIELDS,
+  MENU_ITEM_NUMBER_FILTER_FIELDS,
+  MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
+  MENU_ITEM_QUICK_FILTER_ENUM_FIELDS,
+  MENU_ITEM_STRING_FILTER_FIELDS,
+  MenuItemPaginationQueryDto,
+} from './dto/menu-item-pagination-query.dto';
+import {
+  MENU_SECTION_DATE_FILTER_FIELDS,
+  MENU_SECTION_STRING_FILTER_FIELDS,
+  MenuSectionPaginationQueryDto,
+} from './dto/menu-section-pagination-query.dto';
+import {
+  MODIFIER_GROUP_DATE_FILTER_FIELDS,
+  MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+  MODIFIER_GROUP_STRING_FILTER_FIELDS,
+  type ModifierGroupPaginationQueryDto,
+} from './dto/modifier-group-pagination-query.dto';
+import {
+  MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
   MODIFIER_DATE_FILTER_FIELDS,
+  MODIFIER_ENUM_FILTER_FIELDS,
+  MODIFIER_NUMBER_FILTER_FIELDS,
   MODIFIER_QUICK_FILTER_ENUM_FIELDS,
   MODIFIER_STRING_FILTER_FIELDS,
   type ModifierPaginationQueryDto,
 } from './dto/modifier-pagination-query.dto';
-import {
-  DATE_FILTER_FIELDS,
-  ITEM_QUICK_FILTER_ENUM_FIELDS,
-  PaginationQueryDto,
-  STRING_FILTER_FIELDS,
-} from './dto/pagination-query.dto';
 import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
@@ -137,7 +155,7 @@ export class MenusService {
 
   async menuSections(
     menuId: string,
-    query: PaginationQueryDto = {},
+    query: MenuSectionPaginationQueryDto = {},
   ): Promise<{ data: MenuSection[]; total: number }> {
     const {
       limit = 10,
@@ -173,8 +191,8 @@ export class MenusService {
             filterOperator,
             filterValue,
             sectionFieldMap,
-            STRING_FILTER_FIELDS,
-            DATE_FILTER_FIELDS,
+            MENU_SECTION_STRING_FILTER_FIELDS,
+            MENU_SECTION_DATE_FILTER_FIELDS,
           )
         : undefined,
       quickFilterValue
@@ -324,7 +342,7 @@ export class MenusService {
 
   async menuSectionItems(
     sectionId: string,
-    query: PaginationQueryDto = {},
+    query: MenuItemPaginationQueryDto = {},
   ): Promise<{ data: (MenuItem & { offer: Offer | null })[]; total: number }> {
     const {
       limit = 10,
@@ -341,19 +359,41 @@ export class MenusService {
       sortDirection = 'desc',
     } = query;
 
-    const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] = sortBy
-      ? [dir(menuItem[sortBy])]
-      : [asc(menuItem.sortOrder), asc(menuItem.id)];
+    // 品項的價格相關欄位都存在 offer 表，取用與回傳資料一致的第一筆
+    const offerValue = (column: Column | SQL): SQL =>
+      sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc limit 1)`;
 
     const itemFieldMap: Record<string, Column | SQL> = {
       name: sql`${menuItem.name}::text`,
       description: sql`${menuItem.description}::text`,
+      priceCurrency: offerValue(offer.priceCurrency),
+      price: offerValue(sql`${offer.price}::numeric`),
+      availability: offerValue(sql`${offer.availability}::text`),
+      availableModes: menuItem.availableModes,
+      inventoryLevel: offerValue(
+        sql`NULLIF(${offer.inventoryLevel}->>'value', '')::numeric`,
+      ),
+      deliveryLeadTime: offerValue(
+        sql`NULLIF(${offer.deliveryLeadTime}->>'value', '')::numeric`,
+      ),
+      priceSpecification: offerValue(
+        sql`NULLIF(${offer.priceSpecification}->>'price', '')::numeric`,
+      ),
+      priceSpecificationValidFrom: offerValue(
+        sql`NULLIF(${offer.priceSpecification}->>'validFrom', '')::date`,
+      ),
+      priceSpecificationValidThrough: offerValue(
+        sql`NULLIF(${offer.priceSpecification}->>'validThrough', '')::date`,
+      ),
       createdAt: menuItem.createdAt,
       updatedAt: menuItem.updatedAt,
-      // 快速搜尋用；availability 存在 offer 表，只能以子查詢取回
-      availability: sql`(select ${offer.availability}::text from ${offer} where ${offer.menuItemId} = ${menuItem.id} limit 1)`,
     };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy: SQL[] =
+      sortBy && itemFieldMap[sortBy]
+        ? [dir(itemFieldMap[sortBy])]
+        : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
       eq(menuItem.menuSectionId, sectionId),
@@ -363,8 +403,12 @@ export class MenusService {
             filterOperator,
             filterValue,
             itemFieldMap,
-            STRING_FILTER_FIELDS,
-            DATE_FILTER_FIELDS,
+            MENU_ITEM_STRING_FILTER_FIELDS,
+            MENU_ITEM_DATE_FILTER_FIELDS,
+            MENU_ITEM_ENUM_FILTER_FIELDS,
+            MENU_ITEM_NUMBER_FILTER_FIELDS,
+            MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
+            MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
@@ -372,13 +416,19 @@ export class MenusService {
           availableModes: (value) =>
             buildArrayOverlapCondition(menuItem.availableModes, value),
         },
-        enumFields: ITEM_QUICK_FILTER_ENUM_FIELDS,
+        enumFields: MENU_ITEM_QUICK_FILTER_ENUM_FIELDS,
         fieldMap: itemFieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
           ilike(sql`${menuItem.name}::text`, `%${value}%`),
           ilike(sql`${menuItem.description}::text`, `%${value}%`),
+          ilike(
+            offerValue(
+              sql`concat_ws(' ', ${offer.priceCurrency}, ${offer.price}::text, ${offer.inventoryLevel}->>'value', ${offer.inventoryLevel}->>'unitText', ${offer.deliveryLeadTime}->>'value', ${offer.deliveryLeadTime}->>'unitText', ${offer.priceSpecification}->>'price', ${offer.priceSpecification}->>'validFrom', ${offer.priceSpecification}->>'validThrough')`,
+            ),
+            `%${value}%`,
+          ),
           ilike(localTimeText(menuItem.createdAt), `%${value}%`),
           ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
         ],
@@ -842,7 +892,7 @@ export class MenusService {
 
   async modifierGroups(
     menuId: string,
-    query: ModifierPaginationQueryDto = {},
+    query: ModifierGroupPaginationQueryDto = {},
   ): Promise<{ data: ModifierGroup[]; total: number }> {
     const {
       limit = 10,
@@ -857,6 +907,8 @@ export class MenusService {
 
     const fieldMap: Record<string, Column | SQL> = {
       displayName: sql`${modifierGroup.displayName}::text`,
+      minSelectionCount: modifierGroup.minSelectionCount,
+      maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: modifierGroup.createdAt,
       updatedAt: modifierGroup.updatedAt,
     };
@@ -868,8 +920,10 @@ export class MenusService {
             filterOperator,
             filterValue,
             fieldMap,
-            MODIFIER_STRING_FILTER_FIELDS,
-            MODIFIER_DATE_FILTER_FIELDS,
+            MODIFIER_GROUP_STRING_FILTER_FIELDS,
+            MODIFIER_GROUP_DATE_FILTER_FIELDS,
+            [],
+            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
         : undefined;
 
@@ -886,6 +940,14 @@ export class MenusService {
         ? or(
             ilike(
               sql`${modifierGroup.displayName}::text`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`${modifierGroup.minSelectionCount}::text`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`${modifierGroup.maxSelectionCount}::text`,
               `%${quickFilterValue}%`,
             ),
             ilike(
@@ -1013,9 +1075,11 @@ export class MenusService {
 
     const fieldMap: Record<string, Column | SQL> = {
       displayName: sql`${modifier.displayName}::text`,
+      priceAdjustment: modifier.priceAdjustment,
+      availability: sql`${modifier.availability}::text`,
+      availableModes: modifier.availableModes,
       createdAt: modifier.createdAt,
       updatedAt: modifier.updatedAt,
-      availability: sql`${modifier.availability}::text`,
     };
 
     const filterCondition =
@@ -1027,6 +1091,10 @@ export class MenusService {
             fieldMap,
             MODIFIER_STRING_FILTER_FIELDS,
             MODIFIER_DATE_FILTER_FIELDS,
+            MODIFIER_ENUM_FILTER_FIELDS,
+            MODIFIER_NUMBER_FILTER_FIELDS,
+            [],
+            MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
           )
         : undefined;
 
@@ -1050,6 +1118,7 @@ export class MenusService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(sql`${modifier.displayName}::text`, `%${value}%`),
+          ilike(sql`${modifier.priceAdjustment}::text`, `%${value}%`),
           ilike(localTimeText(modifier.createdAt), `%${value}%`),
           ilike(localTimeText(modifier.updatedAt), `%${value}%`),
         ],
@@ -1135,7 +1204,7 @@ export class MenusService {
 
   async menuItemModifierGroups(
     menuItemId: string,
-    query: ModifierPaginationQueryDto = {},
+    query: ModifierGroupPaginationQueryDto = {},
   ): Promise<{
     data: (MenuItemModifierGroup & { modifierGroup: ModifierGroup })[];
     total: number;
@@ -1153,6 +1222,8 @@ export class MenusService {
 
     const fieldMap: Record<string, Column | SQL> = {
       displayName: sql`${modifierGroup.displayName}::text`,
+      minSelectionCount: modifierGroup.minSelectionCount,
+      maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: menuItemModifierGroup.createdAt,
       updatedAt: menuItemModifierGroup.updatedAt,
     };
@@ -1164,8 +1235,10 @@ export class MenusService {
             filterOperator,
             filterValue,
             fieldMap,
-            MODIFIER_STRING_FILTER_FIELDS,
-            MODIFIER_DATE_FILTER_FIELDS,
+            MODIFIER_GROUP_STRING_FILTER_FIELDS,
+            MODIFIER_GROUP_DATE_FILTER_FIELDS,
+            [],
+            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
         : undefined;
 
@@ -1182,6 +1255,14 @@ export class MenusService {
         ? or(
             ilike(
               sql`${modifierGroup.displayName}::text`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`${modifierGroup.minSelectionCount}::text`,
+              `%${quickFilterValue}%`,
+            ),
+            ilike(
+              sql`${modifierGroup.maxSelectionCount}::text`,
               `%${quickFilterValue}%`,
             ),
             ilike(
