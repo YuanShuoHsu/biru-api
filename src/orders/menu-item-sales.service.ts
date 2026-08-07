@@ -29,11 +29,8 @@ export class MenuItemSalesService {
         SELECT o.id
         FROM "order" o
         WHERE o.seller_id = ${organizationId}
-          AND o.order_status NOT IN ('OrderCancelled', 'OrderProblem')
-          AND (
-            o.payment_method = 'Cash'
-            OR o.order_status IN ('OrderProcessing', 'OrderPickupAvailable', 'OrderDelivered')
-          )
+          AND o.order_status IN ('OrderProcessing', 'OrderPickupAvailable', 'OrderDelivered')
+          -- 綠界回調未帶 PaymentDate 時 payment_date 會是 null，退回下單時間
           AND COALESCE(o.payment_date, o.order_date) >= ${since}
       ),
       sales AS (

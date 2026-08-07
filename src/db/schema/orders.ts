@@ -38,11 +38,11 @@ export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number];
 
 // https://schema.org/OrderStatus
 export const orderStatusEnum = pgEnum('order_status', [
-  'OrderCancelled',
-  'OrderDelivered',
   'OrderPaymentDue',
-  'OrderPickupAvailable',
   'OrderProcessing',
+  'OrderPickupAvailable',
+  'OrderDelivered',
+  'OrderCancelled',
   'OrderProblem',
 ]);
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];

@@ -21,10 +21,11 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   lt,
-  ne,
   sql,
 } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { OrderStatus } from 'src/db/schema/orders';
 import { order, orderItem } from 'src/db/schema/orders';
 import { member, organization } from 'src/db/schema/organizations';
@@ -46,7 +47,15 @@ import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 
-import type { CreateOrderDto } from './dto/create-order.dto';
+import type {
+  CreateOrderCustomerDto,
+  CreateOrderDto,
+} from './dto/create-order.dto';
+import {
+  ORDER_BOARD_STATUSES,
+  type OrderBoardItemDto,
+  type OrderBoardStatus,
+} from './dto/order-board-response.dto';
 import {
   ORDER_DATE_FILTER_FIELDS,
   ORDER_ENUM_FILTER_FIELDS,
@@ -201,12 +210,11 @@ export class OrdersService {
       return { ...created, items };
     });
 
-    if (result.orderStatus === 'OrderProcessing')
-      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-        orderId: result.id,
-        orderStatus: result.orderStatus,
-        organizationId: org.id,
-      });
+    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+      orderId: result.id,
+      orderStatus: result.orderStatus,
+      organizationId: org.id,
+    });
 
     return result;
   }
@@ -356,6 +364,33 @@ export class OrdersService {
     return found;
   }
 
+  async listPublicBoard(
+    organizationSlug: string,
+  ): Promise<OrderBoardItemDto[]> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    return this.listPublicBoardByOrganizationId(org.id);
+  }
+
+  listPublicBoardByOrganizationId(
+    organizationId: string,
+  ): Promise<OrderBoardItemDto[]> {
+    return this.db
+      .select({
+        orderNumber: order.orderNumber,
+        orderStatus: sql<OrderBoardStatus>`${order.orderStatus}`,
+      })
+      .from(order)
+      .where(
+        and(
+          eq(order.sellerId, organizationId),
+          gte(order.createdAt, startOfToday()),
+          inArray(order.orderStatus, [...ORDER_BOARD_STATUSES]),
+        ),
+      )
+      .orderBy(asc(order.createdAt));
+  }
+
   async getOrderStatus(orderId: string): Promise<{ orderStatus: OrderStatus }> {
     const found = await this.db.query.order.findFirst({
       where: eq(order.id, orderId),
@@ -372,6 +407,10 @@ export class OrdersService {
     fromStatuses: OrderStatus[],
     getNextStatus: (found: OrderResponseDto) => OrderStatus,
     errorMessage: string,
+    options: {
+      canTransition?: (found: OrderResponseDto) => boolean;
+      extraSet?: PgUpdateSetSource<typeof order>;
+    } = {},
   ): Promise<OrderResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -380,14 +419,17 @@ export class OrdersService {
       with: { items: true },
     });
     if (!found) throw new NotFoundException('Order not found');
-    if (!fromStatuses.includes(found.orderStatus))
+    if (
+      !fromStatuses.includes(found.orderStatus) ||
+      options.canTransition?.(found) === false
+    )
       throw new BadRequestException(errorMessage);
 
     const orderStatus = getNextStatus(found);
 
     const [updated] = await this.db
       .update(order)
-      .set({ orderStatus })
+      .set({ orderStatus, ...options.extraSet })
       .where(
         and(eq(order.id, orderId), eq(order.orderStatus, found.orderStatus)),
       )
@@ -426,6 +468,113 @@ export class OrdersService {
       ['OrderPickupAvailable'],
       () => 'OrderDelivered',
       'Order is not available for pickup',
+    );
+  }
+
+  async updateOrderCustomer(
+    organizationSlug: string,
+    orderId: string,
+    customer: CreateOrderCustomerDto,
+  ): Promise<OrderResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { items: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+
+    const [updated] = await this.db
+      .update(order)
+      .set({ customer })
+      .where(eq(order.id, orderId))
+      .returning();
+
+    return { ...found, ...updated };
+  }
+
+  async cancelUnpaidOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { items: true },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+    if (found.orderStatus !== 'OrderPaymentDue')
+      throw new BadRequestException('Only unpaid orders can be cancelled');
+
+    const updated = await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(order)
+        .set({ orderStatus: 'OrderCancelled' })
+        .where(
+          and(eq(order.id, orderId), eq(order.orderStatus, 'OrderPaymentDue')),
+        )
+        .returning();
+      if (!updated)
+        throw new BadRequestException('Only unpaid orders can be cancelled');
+
+      if (updated.discountCode)
+        await this.couponsService.restore(tx, {
+          code: updated.discountCode,
+          orderId,
+        });
+
+      return updated;
+    });
+
+    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+      orderId,
+      orderStatus: 'OrderCancelled' satisfies OrderStatus,
+      organizationId: org.id,
+    });
+
+    return { ...found, ...updated };
+  }
+
+  markCashPaid(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.transitionOrderStatus(
+      organizationSlug,
+      orderId,
+      ['OrderPaymentDue'],
+      () => 'OrderProcessing',
+      'Order is not awaiting cash payment',
+      {
+        canTransition: (found) => found.paymentMethod === 'Cash',
+        extraSet: {
+          amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
+          paymentDate: new Date(),
+          pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
+        },
+      },
+    );
+  }
+
+  revertCashPaid(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.transitionOrderStatus(
+      organizationSlug,
+      orderId,
+      ['OrderProcessing'],
+      () => 'OrderPaymentDue',
+      'Order is not a paid cash order',
+      {
+        canTransition: (found) => found.paymentMethod === 'Cash',
+        extraSet: {
+          amountPerPoint: null,
+          paymentDate: null,
+          pointsValidityYears: null,
+        },
+      },
     );
   }
 
@@ -530,7 +679,6 @@ export class OrdersService {
           and(
             eq(order.orderStatus, 'OrderPaymentDue'),
             lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
-            ne(order.paymentMethod, 'Cash'),
           ),
         )
         .returning({

@@ -27,6 +27,8 @@ const organizationRoom = (organizationId: string) => `org:${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
 const ordersBoardRoom = (organizationId: string) =>
   `orders-board:${organizationId}`;
+const publicOrdersBoardRoom = (organizationId: string) =>
+  `public-orders-board:${organizationId}`;
 
 @AllowAnonymous()
 @WebSocketGateway({
@@ -80,6 +82,19 @@ export class EventsGateway {
       orderStatus,
     });
     this.server.to(ordersBoardRoom(organizationId)).emit('orderUpdated');
+    this.server
+      .to(publicOrdersBoardRoom(organizationId))
+      .emit('orderBoardUpdated');
+  }
+
+  @SubscribeMessage('joinPublicOrdersBoard')
+  async joinPublicOrdersBoard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.join(publicOrdersBoardRoom(organizationId));
+
+    return this.ordersService.listPublicBoardByOrganizationId(organizationId);
   }
 
   @SubscribeMessage('joinOrdersBoard')

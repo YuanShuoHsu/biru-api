@@ -139,8 +139,6 @@ export class PointsService {
         .values(earns)
         .onConflictDoNothing();
 
-    // 訂單事後取消／付款失敗：未動用的 earn 直接移除，已部分動用的清空餘點
-    // 取捨：已用這筆點數兌換出的券不追回（目前沒有已付款訂單的取消流程）
     const revocable = await this.db
       .select({
         id: pointTransaction.id,
@@ -154,7 +152,10 @@ export class PointsService {
           eq(pointTransaction.userId, userId),
           eq(pointTransaction.type, 'earn'),
           gt(pointTransaction.remainingPoints, 0),
-          inArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
+          or(
+            inArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
+            isNull(order.paymentDate),
+          ),
         ),
       );
     if (revocable.length === 0) return;

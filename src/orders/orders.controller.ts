@@ -16,7 +16,8 @@ import {
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
+import { OrderBoardItemDto } from './dto/order-board-response.dto';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { OrdersService } from './orders.service';
@@ -51,6 +52,14 @@ export class OrdersController {
     return this.ordersService.listOrders(organizationSlug, query);
   }
 
+  @Get('board')
+  @ApiOperation({ summary: '查詢顧客端取餐號碼牌（公開）' })
+  findBoard(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<OrderBoardItemDto[]> {
+    return this.ordersService.listPublicBoard(organizationSlug);
+  }
+
   @Get(':orderId')
   @ApiOperation({ summary: '查詢訂單' })
   findOne(
@@ -63,6 +72,51 @@ export class OrdersController {
       orderId,
       session?.user.id || null,
     );
+  }
+
+  @Patch(':orderId/customer')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '修改顧客資訊' })
+  updateCustomer(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: CreateOrderCustomerDto,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.updateOrderCustomer(
+      organizationSlug,
+      orderId,
+      dto,
+    );
+  }
+
+  @Patch(':orderId/cancel')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '取消訂單（限未付款）' })
+  cancel(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.cancelUnpaidOrder(organizationSlug, orderId);
+  }
+
+  @Patch(':orderId/paid')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '確認現金已收款' })
+  markCashPaid(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.markCashPaid(organizationSlug, orderId);
+  }
+
+  @Patch(':orderId/unpaid')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '撤銷現金收款（退回待付款）' })
+  revertCashPaid(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.revertCashPaid(organizationSlug, orderId);
   }
 
   @Patch(':orderId/ready')

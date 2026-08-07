@@ -533,6 +533,13 @@
       "when": 1785943927187,
       "tag": "0075_sudden_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1786124618041,
+      "tag": "0076_majestic_bulldozer",
+      "breakpoints": true
     }
   ]
 }
