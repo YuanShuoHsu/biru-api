@@ -31,8 +31,10 @@ import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   coupon,
+  couponIssueTriggerEnum,
   userCoupon,
   type Coupon,
+  type CouponIssueTrigger,
   type UserCoupon,
 } from 'src/db/schema/coupons';
 import { DEFAULT_LANGUAGE } from 'src/db/schema/enums';
@@ -495,12 +497,15 @@ export class CouponsService {
   ): SQL | undefined {
     if (!value) return undefined;
 
+    const isIssueTrigger = (v: string): v is CouponIssueTrigger =>
+      couponIssueTriggerEnum.enumValues.some((trigger) => trigger === v);
+
     const match = (v: string): SQL | undefined =>
       v === 'isPublic'
         ? eq(coupon.isPublic, true)
         : v === 'isClaimable'
           ? eq(coupon.isClaimable, true)
-          : v === 'signup' || v === 'birthday' || v === 'spend'
+          : isIssueTrigger(v)
             ? eq(coupon.issueTrigger, v)
             : undefined;
 
@@ -510,12 +515,8 @@ export class CouponsService {
       case 'not': {
         if (value === 'isPublic') return eq(coupon.isPublic, false);
         if (value === 'isClaimable') return eq(coupon.isClaimable, false);
-        const condition = match(value);
-        return condition
-          ? or(
-              isNull(coupon.issueTrigger),
-              ne(coupon.issueTrigger, value as 'signup' | 'birthday' | 'spend'),
-            )
+        return isIssueTrigger(value)
+          ? or(isNull(coupon.issueTrigger), ne(coupon.issueTrigger, value))
           : undefined;
       }
       case 'isAnyOf': {
