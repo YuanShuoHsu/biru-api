@@ -89,6 +89,7 @@ export class BannersService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(localTimeText(banner.createdAt), `%${value}%`),
+          ilike(localTimeText(banner.updatedAt), `%${value}%`),
         ],
       }),
     );

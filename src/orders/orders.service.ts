@@ -270,7 +270,10 @@ export class OrdersService {
           ilike(order.orderNumber, `%${value}%`),
           ilike(sql`${order.confirmationNumber}`, `%${value}%`),
           ilike(sql`${order.customer}->>'name'`, `%${value}%`),
+          ilike(sql`${order.tableNumber}::text`, `%${value}%`),
+          ilike(localTimeText(order.paymentDate), `%${value}%`),
           ilike(localTimeText(order.createdAt), `%${value}%`),
+          ilike(sql`(${orderFieldMap.total})::text`, `%${value}%`),
         ],
       }),
     );

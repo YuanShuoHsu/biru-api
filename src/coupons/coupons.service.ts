@@ -350,9 +350,16 @@ export class CouponsService {
       quickFilterValue,
       textConditions: (value) => [
         ilike(coupon.code, `%${value}%`),
-        ilike(localTimeText(coupon.createdAt), `%${value}%`),
         ilike(sql`${menuSectionNames}`, `%${value}%`),
         ilike(sql`${menuItemNames}`, `%${value}%`),
+        ilike(sql`${coupon.discountValue}::text`, `%${value}%`),
+        ilike(sql`${coupon.minSubtotal}::text`, `%${value}%`),
+        ilike(sql`${coupon.usedCount}::text`, `%${value}%`),
+        ilike(sql`${coupon.perUserLimit}::text`, `%${value}%`),
+        ilike(sql`${coupon.pointsCost}::text`, `%${value}%`),
+        ilike(localTimeText(coupon.validFrom), `%${value}%`),
+        ilike(localTimeText(coupon.validThrough), `%${value}%`),
+        ilike(localTimeText(coupon.createdAt), `%${value}%`),
       ],
     });
 
@@ -593,6 +600,7 @@ export class CouponsService {
         ilike(user.email, `%${value}%`),
         ilike(granter.email, `%${value}%`),
         ilike(localTimeText(userCoupon.createdAt), `%${value}%`),
+        ilike(localTimeText(userCoupon.usedAt), `%${value}%`),
       ],
     });
 

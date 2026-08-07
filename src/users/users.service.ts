@@ -229,6 +229,7 @@ export class UsersService {
       quickFilterValue,
       textConditions: (value) => [
         ilike(user.name, `%${value}%`),
+        ilike(user.bio, `%${value}%`),
         ilike(user.email, `%${value}%`),
         ilike(localTimeText(user.createdAt), `%${value}%`),
       ],
