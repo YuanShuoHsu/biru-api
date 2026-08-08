@@ -30,7 +30,10 @@ export const user = pgTable('user', {
     .default('zh-TW')
     .notNull(),
   lastName: text('last_name'),
-  phoneNumber: text('phone_number'),
+  phoneNumber: text('phone_number').unique(),
+  phoneNumberVerified: boolean('phone_number_verified')
+    .default(false)
+    .notNull(),
 });
 
 export const session = pgTable(

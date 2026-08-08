@@ -103,8 +103,8 @@ export class UserResponseDto {
   @ApiProperty({ description: '電話（E.164 格式）', example: '+886912345678' })
   phoneNumber?: string | null;
 
-  // @ApiProperty({ description: '是否已驗證電話', example: false })
-  // phoneNumberVerified: boolean;
+  @ApiProperty({ description: '是否已驗證電話', example: false })
+  phoneNumberVerified: boolean;
 
   @ApiProperty({
     description: '最後更新時間',

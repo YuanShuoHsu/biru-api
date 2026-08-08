@@ -8,6 +8,7 @@
 // https://better-auth.com/docs/plugins/organization
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
 import {
   admin as adminPlugin,
@@ -59,6 +60,39 @@ export const createAuth = (mailsService: MailsService) =>
               data: {
                 ...session,
                 activeOrganizationId: organization?.id,
+              },
+            };
+          },
+        },
+      },
+      user: {
+        update: {
+          before: async (user, context) => {
+            if (!('phoneNumber' in user)) return;
+
+            const phoneNumber =
+              typeof user.phoneNumber === 'string' && user.phoneNumber
+                ? user.phoneNumber
+                : null;
+            if (phoneNumber) {
+              const owner = await db.query.user.findFirst({
+                where: eq(schema.user.phoneNumber, phoneNumber),
+              });
+
+              if (owner && owner.id !== context?.context.session?.user.id)
+                throw new APIError('BAD_REQUEST', {
+                  code: 'PHONE_NUMBER_ALREADY_EXISTS',
+                  message: 'Phone number already exists',
+                });
+            }
+
+            return {
+              data: {
+                ...user,
+                phoneNumber,
+                ...(!('phoneNumberVerified' in user) && {
+                  phoneNumberVerified: false,
+                }),
               },
             };
           },
@@ -280,12 +314,13 @@ export const createAuth = (mailsService: MailsService) =>
           type: 'string',
           required: false,
         },
-        // phoneNumberVerified: {
-        //   type: 'boolean',
-        //   required: true,
-        //   defaultValue: false,
-        //   input: false,
-        // },
+        // input: false 讓前端無法自行寫入；只有 phone-number plugin 的驗證流程能設為 true
+        phoneNumberVerified: {
+          type: 'boolean',
+          required: true,
+          defaultValue: false,
+          input: false,
+        },
       },
       changeEmail: {
         enabled: true,

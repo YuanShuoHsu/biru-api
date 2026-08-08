@@ -101,12 +101,12 @@ export const auth = betterAuth({
         type: 'string',
         required: false,
       },
-      // phoneNumberVerified: {
-      //   type: 'boolean',
-      //   required: true,
-      //   defaultValue: false,
-      //   input: false,
-      // },
+      phoneNumberVerified: {
+        type: 'boolean',
+        required: true,
+        defaultValue: false,
+        input: false,
+      },
     },
   },
 });

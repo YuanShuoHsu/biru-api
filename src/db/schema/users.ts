@@ -35,11 +35,10 @@ export const user = pgTable('user', {
   // gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
   lang: languagesEnum().default(DEFAULT_LANGUAGE).notNull(),
   lastName: text('last_name'),
-  // 之後若導入 phone-number plugin 驗證，補上 unique 與 phoneNumberVerified
-  phoneNumber: text('phone_number'),
-  // phoneNumberVerified: boolean('phone_number_verified')
-  //   .default(false)
-  //   .notNull(),
+  phoneNumber: text('phone_number').unique(),
+  phoneNumberVerified: boolean('phone_number_verified')
+    .default(false)
+    .notNull(),
 });
 
 export type User = typeof user.$inferSelect;

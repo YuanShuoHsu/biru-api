@@ -280,7 +280,15 @@ export class UsersService {
     const { where, data } = params;
     const [user] = await this.db
       .update(schema.user)
-      .set(data)
+      .set(
+        data.phoneNumber === undefined
+          ? data
+          : {
+              ...data,
+              phoneNumber: data.phoneNumber || null,
+              phoneNumberVerified: false,
+            },
+      )
       .where(eq(schema.user.id, where.id))
       .returning();
 
