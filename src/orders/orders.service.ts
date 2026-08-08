@@ -96,6 +96,8 @@ const generateConfirmationNumber = (): string =>
 
 const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
+const BOARD_WINDOW_MS = 12 * 60 * 60 * 1000;
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -417,7 +419,7 @@ export class OrdersService {
       .where(
         and(
           eq(order.sellerId, organizationId),
-          gte(order.createdAt, startOfToday()),
+          gte(order.createdAt, new Date(Date.now() - BOARD_WINDOW_MS)),
           inArray(order.orderStatus, [...ORDER_BOARD_STATUSES]),
         ),
       )
