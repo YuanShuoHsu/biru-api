@@ -71,6 +71,8 @@ export class OrderResponseDto {
   @ApiPropertyOptional() discount?: string | null;
   @ApiPropertyOptional() discountCode?: string | null;
   @ApiPropertyOptional() discountCurrency?: string | null;
+  @ApiProperty() subtotal: string;
+  @ApiProperty() total: string;
   @ApiPropertyOptional() invoice?: Invoice | null;
   @ApiProperty({ type: [OrderItemResponseDto] }) items: OrderItemResponseDto[];
   @ApiProperty() createdAt: Date;

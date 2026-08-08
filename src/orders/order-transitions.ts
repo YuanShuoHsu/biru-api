@@ -1,14 +1,15 @@
-import { sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type {
+  order,
   OrderFlowStatus,
   OrderStatus,
   PaymentMethod,
 } from 'src/db/schema/orders';
-import { order } from 'src/db/schema/orders';
 
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import type { OrderResponseDto } from './dto/order-response.dto';
+
+import { POINTS_SNAPSHOT_SET } from './points-snapshot';
 
 export const ORDER_TRANSITION_DIRECTIONS = [
   'advance',
@@ -27,23 +28,11 @@ export interface OrderTransitionRule {
   toStatus: OrderStatus;
 }
 
-const cashPaidSet = (): PgUpdateSetSource<typeof order> => ({
-  amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
-  paymentDate: new Date(),
-  pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
-});
-
-const cashUnpaidSet = (): PgUpdateSetSource<typeof order> => ({
-  amountPerPoint: null,
-  paymentDate: null,
-  pointsValidityYears: null,
-});
-
 export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   {
     cashOnly: true,
     direction: 'advance',
-    extraSet: cashPaidSet,
+    extraSet: () => ({ ...POINTS_SNAPSHOT_SET, paymentDate: new Date() }),
     fromStatus: 'OrderPaymentDue',
     toStatus: 'OrderProcessing',
   },
@@ -60,7 +49,11 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   {
     cashOnly: true,
     direction: 'revert',
-    extraSet: cashUnpaidSet,
+    extraSet: () => ({
+      amountPerPoint: null,
+      paymentDate: null,
+      pointsValidityYears: null,
+    }),
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPaymentDue',
   },

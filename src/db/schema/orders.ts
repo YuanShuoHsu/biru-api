@@ -103,6 +103,10 @@ export const order = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
     // additional fields
+    subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
+    total: numeric('total', { precision: 10, scale: 2 })
+      .notNull()
+      .generatedAlwaysAs(sql`"subtotal" - coalesce("discount", 0)`),
     // 付款當下的組織點數設定快照；null = 付款當時未啟用（早於此欄位的歷史訂單以組織現值計）
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsValidityYears: integer('points_validity_years'),
@@ -120,6 +124,7 @@ export const order = pgTable(
   (table) => [
     index('order_sellerId_idx').on(table.sellerId),
     index('order_sellerId_createdAt_idx').on(table.sellerId, table.createdAt),
+    index('order_sellerId_total_idx').on(table.sellerId, table.total),
     index('order_orderNumber_idx').on(table.orderNumber),
     index('order_confirmationNumber_idx').on(table.confirmationNumber),
     index('order_userId_createdAt_idx').on(table.userId, table.createdAt),

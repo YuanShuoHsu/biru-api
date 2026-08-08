@@ -75,6 +75,7 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 
 import { OrderPricingService } from './order-pricing.service';
 import { getAvailableTransitions, toAdminOrder } from './order-transitions';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot';
 
 const dateStamp = (): string =>
   new Date(Date.now() + STORE_UTC_OFFSET_MS)
@@ -171,6 +172,7 @@ export class OrdersService {
           paymentMethod: dto.payment,
           orderStatus: 'OrderPaymentDue',
           confirmationNumber,
+          subtotal: subtotal.toFixed(2),
           userId,
           partySize: isDineIn ? dto.partySize : null,
           tableNumber: isDineIn ? dto.tableNumber : null,
@@ -252,7 +254,7 @@ export class OrdersService {
       paymentDate: order.paymentDate,
       createdAt: order.createdAt,
       tableNumber: order.tableNumber,
-      total: sql`(select coalesce(sum("oi"."unit_price" * "oi"."order_quantity"), 0) from "order_item" "oi" where "oi"."order_id" = ${order.id}) - coalesce(${order.discount}, 0)`,
+      total: order.total,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -286,7 +288,7 @@ export class OrdersService {
           ilike(sql`${order.tableNumber}::text`, `%${value}%`),
           ilike(localTimeText(order.paymentDate), `%${value}%`),
           ilike(localTimeText(order.createdAt), `%${value}%`),
-          ilike(sql`(${orderFieldMap.total})::text`, `%${value}%`),
+          ilike(sql`${order.total}::text`, `%${value}%`),
         ],
       }),
     );
@@ -542,10 +544,7 @@ export class OrdersService {
             : undefined,
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
-          ...(succeeded && {
-            amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
-            pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
-          }),
+          ...(succeeded && POINTS_SNAPSHOT_SET),
         })
         .where(
           and(
