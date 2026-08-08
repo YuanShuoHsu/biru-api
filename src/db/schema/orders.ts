@@ -37,15 +37,23 @@ export const paymentMethodEnum = pgEnum('order_payment_method', [
 export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number];
 
 // https://schema.org/OrderStatus
-export const orderStatusEnum = pgEnum('order_status', [
+// 順序即出餐流程，前後相鄰者才能互相轉換，重排會改變狀態機
+export const ORDER_FLOW_STATUSES = [
   'OrderPaymentDue',
   'OrderProcessing',
   'OrderPickupAvailable',
   'OrderDelivered',
+] as const;
+export const ORDER_TERMINAL_STATUSES = [
   'OrderCancelled',
   'OrderProblem',
+] as const;
+export const orderStatusEnum = pgEnum('order_status', [
+  ...ORDER_FLOW_STATUSES,
+  ...ORDER_TERMINAL_STATUSES,
 ]);
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];
+export type OrderFlowStatus = (typeof ORDER_FLOW_STATUSES)[number];
 
 // https://schema.org/customer
 export interface OrderCustomerSnapshot {

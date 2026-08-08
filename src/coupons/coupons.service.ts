@@ -39,7 +39,11 @@ import {
 } from 'src/db/schema/coupons';
 import { DEFAULT_LANGUAGE } from 'src/db/schema/enums';
 import { menuItem, menuSection } from 'src/db/schema/menus';
-import { order, orderItem } from 'src/db/schema/orders';
+import {
+  ORDER_TERMINAL_STATUSES,
+  order,
+  orderItem,
+} from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -832,10 +836,7 @@ export class CouponsService {
                     : []),
                   eq(order.userId, userId),
                   isNotNull(order.paymentDate),
-                  notInArray(order.orderStatus, [
-                    'OrderCancelled',
-                    'OrderProblem',
-                  ]),
+                  notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
                 ),
               )
               .groupBy(order.id, order.discount)
@@ -1300,7 +1301,7 @@ export class CouponsService {
               : []),
             eq(order.userId, userId),
             sql`lower(${order.discountCode}) = lower(${found.code})`,
-            notInArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
+            notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
           ),
         );
       if (used >= found.perUserLimit)

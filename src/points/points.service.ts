@@ -19,7 +19,11 @@ import {
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { coupon, userCoupon, type Coupon } from 'src/db/schema/coupons';
-import { order, orderItem } from 'src/db/schema/orders';
+import {
+  ORDER_TERMINAL_STATUSES,
+  order,
+  orderItem,
+} from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import { pointTransaction } from 'src/db/schema/points';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -97,7 +101,7 @@ export class PointsService {
         and(
           eq(order.userId, userId),
           isNotNull(order.paymentDate),
-          notInArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
+          notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
           sql`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint}) > 0`,
           // 僅累計啟用點數之後付款的訂單，避免回溯補發整段歷史
           gte(order.paymentDate, organization.pointsEnabledAt),
@@ -153,7 +157,7 @@ export class PointsService {
           eq(pointTransaction.type, 'earn'),
           gt(pointTransaction.remainingPoints, 0),
           or(
-            inArray(order.orderStatus, ['OrderCancelled', 'OrderProblem']),
+            inArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
             isNull(order.paymentDate),
           ),
         ),
