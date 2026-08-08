@@ -25,7 +25,6 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
-import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { OrderStatus } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
 import { member, organization } from 'src/db/schema/organizations';
@@ -51,6 +50,7 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   type AdminOrderBoardColumnDto,
 } from './dto/admin-order-board-response.dto';
+import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import type {
   CreateOrderCustomerDto,
   CreateOrderDto,
@@ -74,6 +74,7 @@ import type {
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
 import { OrderPricingService } from './order-pricing.service';
+import { getAvailableTransitions, toAdminOrder } from './order-transitions';
 
 const dateStamp = (): string =>
   new Date(Date.now() + STORE_UTC_OFFSET_MS)
@@ -226,7 +227,7 @@ export class OrdersService {
   async listOrders(
     organizationSlug: string,
     query: OrderPaginationQueryDto = {},
-  ): Promise<{ data: OrderResponseDto[]; total: number }> {
+  ): Promise<{ data: AdminOrderResponseDto[]; total: number }> {
     const org = await this.getOrgBySlug(organizationSlug);
 
     const {
@@ -301,7 +302,7 @@ export class OrdersService {
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data, total };
+    return { data: data.map(toAdminOrder), total };
   }
 
   async listUserOrders(
@@ -376,18 +377,20 @@ export class OrdersService {
     return Promise.all(
       ORDER_FLOW_STATUSES.map(async (orderStatus) => ({
         orderStatus,
-        orders: await this.db.query.order.findMany({
-          where: and(
-            eq(order.sellerId, org.id),
-            eq(order.orderStatus, orderStatus),
-            orderStatus === 'OrderPaymentDue'
-              ? eq(order.paymentMethod, 'Cash')
-              : undefined,
-          ),
-          orderBy: [desc(order.createdAt)],
-          limit: ADMIN_BOARD_COLUMN_LIMIT,
-          with: { items: true },
-        }),
+        orders: (
+          await this.db.query.order.findMany({
+            where: and(
+              eq(order.sellerId, org.id),
+              eq(order.orderStatus, orderStatus),
+              orderStatus === 'OrderPaymentDue'
+                ? eq(order.paymentMethod, 'Cash')
+                : undefined,
+            ),
+            orderBy: [desc(order.createdAt)],
+            limit: ADMIN_BOARD_COLUMN_LIMIT,
+            with: { items: true },
+          })
+        ).map(toAdminOrder),
       })),
     );
   }
@@ -429,17 +432,11 @@ export class OrdersService {
     return found;
   }
 
-  private async transitionOrderStatus(
+  async applyTransition(
     organizationSlug: string,
     orderId: string,
-    fromStatuses: OrderStatus[],
-    getNextStatus: (found: OrderResponseDto) => OrderStatus,
-    errorMessage: string,
-    options: {
-      canTransition?: (found: OrderResponseDto) => boolean;
-      extraSet?: PgUpdateSetSource<typeof order>;
-    } = {},
-  ): Promise<OrderResponseDto> {
+    toStatus: OrderStatus,
+  ): Promise<AdminOrderResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
     const found = await this.db.query.order.findFirst({
@@ -447,56 +444,39 @@ export class OrdersService {
       with: { items: true },
     });
     if (!found) throw new NotFoundException('Order not found');
-    if (
-      !fromStatuses.includes(found.orderStatus) ||
-      options.canTransition?.(found) === false
-    )
-      throw new BadRequestException(errorMessage);
 
-    const orderStatus = getNextStatus(found);
+    const rule = getAvailableTransitions(found).find(
+      (available) => available.toStatus === toStatus,
+    );
+    const error = `Order in ${found.orderStatus} cannot be set to ${toStatus}`;
+    if (!rule) throw new BadRequestException(error);
 
-    const [updated] = await this.db
-      .update(order)
-      .set({ orderStatus, ...options.extraSet })
-      .where(
-        and(eq(order.id, orderId), eq(order.orderStatus, found.orderStatus)),
-      )
-      .returning();
-    if (!updated) throw new BadRequestException(errorMessage);
+    const updated = await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(order)
+        .set({ orderStatus: toStatus, ...rule.extraSet?.() })
+        .where(
+          and(eq(order.id, orderId), eq(order.orderStatus, rule.fromStatus)),
+        )
+        .returning();
+      if (!updated) throw new BadRequestException(error);
+
+      if (rule.restoresCoupon && updated.discountCode)
+        await this.couponsService.restore(tx, {
+          code: updated.discountCode,
+          orderId,
+        });
+
+      return updated;
+    });
 
     this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
       orderId,
-      orderStatus,
+      orderStatus: toStatus,
       organizationId: org.id,
     });
 
-    return { ...found, ...updated };
-  }
-
-  markOrderReady(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.transitionOrderStatus(
-      organizationSlug,
-      orderId,
-      ['OrderProcessing'],
-      () => 'OrderPickupAvailable',
-      'Order is not being processed',
-    );
-  }
-
-  confirmPickup(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.transitionOrderStatus(
-      organizationSlug,
-      orderId,
-      ['OrderPickupAvailable'],
-      () => 'OrderDelivered',
-      'Order is not available for pickup',
-    );
+    return toAdminOrder({ ...found, ...updated });
   }
 
   async updateOrderCustomer(
@@ -519,107 +499,6 @@ export class OrdersService {
       .returning();
 
     return { ...found, ...updated };
-  }
-
-  async cancelUnpaidOrder(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    const org = await this.getOrgBySlug(organizationSlug);
-
-    const found = await this.db.query.order.findFirst({
-      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
-      with: { items: true },
-    });
-    if (!found) throw new NotFoundException('Order not found');
-    if (found.orderStatus !== 'OrderPaymentDue')
-      throw new BadRequestException('Only unpaid orders can be cancelled');
-
-    const updated = await this.db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(order)
-        .set({ orderStatus: 'OrderCancelled' })
-        .where(
-          and(eq(order.id, orderId), eq(order.orderStatus, 'OrderPaymentDue')),
-        )
-        .returning();
-      if (!updated)
-        throw new BadRequestException('Only unpaid orders can be cancelled');
-
-      if (updated.discountCode)
-        await this.couponsService.restore(tx, {
-          code: updated.discountCode,
-          orderId,
-        });
-
-      return updated;
-    });
-
-    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-      orderId,
-      orderStatus: 'OrderCancelled' satisfies OrderStatus,
-      organizationId: org.id,
-    });
-
-    return { ...found, ...updated };
-  }
-
-  markCashPaid(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.transitionOrderStatus(
-      organizationSlug,
-      orderId,
-      ['OrderPaymentDue'],
-      () => 'OrderProcessing',
-      'Order is not awaiting cash payment',
-      {
-        canTransition: (found) => found.paymentMethod === 'Cash',
-        extraSet: {
-          amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
-          paymentDate: new Date(),
-          pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
-        },
-      },
-    );
-  }
-
-  revertCashPaid(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.transitionOrderStatus(
-      organizationSlug,
-      orderId,
-      ['OrderProcessing'],
-      () => 'OrderPaymentDue',
-      'Order is not a paid cash order',
-      {
-        canTransition: (found) => found.paymentMethod === 'Cash',
-        extraSet: {
-          amountPerPoint: null,
-          paymentDate: null,
-          pointsValidityYears: null,
-        },
-      },
-    );
-  }
-
-  revertOrderReady(
-    organizationSlug: string,
-    orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.transitionOrderStatus(
-      organizationSlug,
-      orderId,
-      ['OrderDelivered', 'OrderPickupAvailable'],
-      (found) =>
-        found.orderStatus === 'OrderPickupAvailable'
-          ? 'OrderProcessing'
-          : 'OrderPickupAvailable',
-      'Order is not marked as ready',
-    );
   }
 
   async getPayableOrder(

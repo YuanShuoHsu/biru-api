@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseEnumPipe,
   Patch,
   Post,
   Query,
@@ -14,9 +15,12 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
+import { orderStatusEnum, type OrderStatus } from 'src/db/schema/orders';
+
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
+import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
 import { OrderBoardItemDto } from './dto/order-board-response.dto';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
@@ -49,7 +53,7 @@ export class OrdersController {
   findAll(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: OrderPaginationQueryDto,
-  ): Promise<{ data: OrderResponseDto[]; total: number }> {
+  ): Promise<{ data: AdminOrderResponseDto[]; total: number }> {
     return this.ordersService.listOrders(organizationSlug, query);
   }
 
@@ -99,65 +103,21 @@ export class OrdersController {
     );
   }
 
-  @Patch(':orderId/cancel')
-  @Roles({ order: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '取消訂單（限未付款）' })
-  cancel(
-    @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.cancelUnpaidOrder(organizationSlug, orderId);
-  }
-
-  @Patch(':orderId/paid')
-  @Roles({ order: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '確認現金已收款' })
-  markCashPaid(
-    @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.markCashPaid(organizationSlug, orderId);
-  }
-
-  @Patch(':orderId/unpaid')
-  @Roles({ order: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '撤銷現金收款（退回待付款）' })
-  revertCashPaid(
-    @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.revertCashPaid(organizationSlug, orderId);
-  }
-
-  @Patch(':orderId/ready')
-  @Roles({ order: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '標記訂單可取餐' })
-  markReady(
-    @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.markOrderReady(organizationSlug, orderId);
-  }
-
-  @Patch(':orderId/picked-up')
-  @Roles({ order: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '確認已取餐' })
-  confirmPickup(
-    @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.confirmPickup(organizationSlug, orderId);
-  }
-
-  @Patch(':orderId/processing')
+  @Patch(':orderId/transitions/:toStatus')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiOperation({
-    summary: '取消標記完成（退回上一個狀態：已送達→可取餐、可取餐→準備中）',
+    summary: '變更訂單狀態（可用的目標見該訂單的 availableTransitions）',
   })
-  revertReady(
+  applyTransition(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.revertOrderReady(organizationSlug, orderId);
+    @Param('toStatus', new ParseEnumPipe(orderStatusEnum.enumValues))
+    toStatus: OrderStatus,
+  ): Promise<AdminOrderResponseDto> {
+    return this.ordersService.applyTransition(
+      organizationSlug,
+      orderId,
+      toStatus,
+    );
   }
 }
