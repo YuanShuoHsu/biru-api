@@ -27,7 +27,7 @@ import {
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { OrderStatus } from 'src/db/schema/orders';
-import { order, orderItem } from 'src/db/schema/orders';
+import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
 import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -47,6 +47,10 @@ import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 
+import {
+  ADMIN_BOARD_COLUMN_LIMIT,
+  type AdminOrderBoardColumnDto,
+} from './dto/admin-order-board-response.dto';
 import type {
   CreateOrderCustomerDto,
   CreateOrderDto,
@@ -362,6 +366,30 @@ export class OrdersService {
     }
 
     return found;
+  }
+
+  async listAdminBoard(
+    organizationSlug: string,
+  ): Promise<AdminOrderBoardColumnDto[]> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    return Promise.all(
+      ORDER_FLOW_STATUSES.map(async (orderStatus) => ({
+        orderStatus,
+        orders: await this.db.query.order.findMany({
+          where: and(
+            eq(order.sellerId, org.id),
+            eq(order.orderStatus, orderStatus),
+            orderStatus === 'OrderPaymentDue'
+              ? eq(order.paymentMethod, 'Cash')
+              : undefined,
+          ),
+          orderBy: [desc(order.createdAt)],
+          limit: ADMIN_BOARD_COLUMN_LIMIT,
+          with: { items: true },
+        }),
+      })),
+    );
   }
 
   async listPublicBoard(

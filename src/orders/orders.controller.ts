@@ -16,6 +16,7 @@ import {
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
+import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
 import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
 import { OrderBoardItemDto } from './dto/order-board-response.dto';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
@@ -58,6 +59,15 @@ export class OrdersController {
     @Param('organizationSlug') organizationSlug: string,
   ): Promise<OrderBoardItemDto[]> {
     return this.ordersService.listPublicBoard(organizationSlug);
+  }
+
+  @Get('board/admin')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '查詢後台訂單看板' })
+  findAdminBoard(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<AdminOrderBoardColumnDto[]> {
+    return this.ordersService.listAdminBoard(organizationSlug);
   }
 
   @Get(':orderId')
