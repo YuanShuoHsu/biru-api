@@ -11,6 +11,7 @@ export const ORDER_BOARD_STATUSES = [
 export type OrderBoardStatus = (typeof ORDER_BOARD_STATUSES)[number];
 
 export class OrderBoardItemDto {
+  @ApiProperty() orderId: string;
   @ApiProperty() orderNumber: string;
   @ApiProperty({ enum: ORDER_BOARD_STATUSES, enumName: 'OrderBoardStatus' })
   orderStatus: OrderBoardStatus;
