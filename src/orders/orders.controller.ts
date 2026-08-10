@@ -21,6 +21,7 @@ import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
 import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
+import { ApplyTransitionsDto } from './dto/apply-transitions.dto';
 import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
 import { OrderBoardItemDto } from './dto/order-board-response.dto';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
@@ -103,20 +104,21 @@ export class OrdersController {
     );
   }
 
-  @Patch(':orderId/transitions/:toStatus')
+  @Patch('transitions/:toStatus')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiOperation({
-    summary: '變更訂單狀態（可用的目標見該訂單的 availableTransitions）',
+    summary:
+      '變更訂單狀態，任一筆不可轉換則整批失敗（可用的目標見各訂單的 availableTransitions）',
   })
-  applyTransition(
+  applyTransitions(
     @Param('organizationSlug') organizationSlug: string,
-    @Param('orderId') orderId: string,
     @Param('toStatus', new ParseEnumPipe(orderStatusEnum.enumValues))
     toStatus: OrderStatus,
-  ): Promise<AdminOrderResponseDto> {
-    return this.ordersService.applyTransition(
+    @Body() dto: ApplyTransitionsDto,
+  ): Promise<AdminOrderResponseDto[]> {
+    return this.ordersService.applyTransitions(
       organizationSlug,
-      orderId,
+      dto.orderIds,
       toStatus,
     );
   }

@@ -437,51 +437,71 @@ export class OrdersService {
     return found;
   }
 
-  async applyTransition(
+  async applyTransitions(
     organizationSlug: string,
-    orderId: string,
+    orderIds: string[],
     toStatus: OrderStatus,
-  ): Promise<AdminOrderResponseDto> {
+  ): Promise<AdminOrderResponseDto[]> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const found = await this.db.query.order.findFirst({
-      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+    const found = await this.db.query.order.findMany({
+      where: and(inArray(order.id, orderIds), eq(order.sellerId, org.id)),
       with: { items: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (found.length !== orderIds.length)
+      throw new NotFoundException('Order not found');
 
-    const rule = getAvailableTransitions(found).find(
-      (available) => available.toStatus === toStatus,
-    );
-    const error = `Order in ${found.orderStatus} cannot be set to ${toStatus}`;
-    if (!rule) throw new BadRequestException(error);
+    const planned = found.map((current) => {
+      const rule = getAvailableTransitions(current).find(
+        (available) => available.toStatus === toStatus,
+      );
+      if (!rule)
+        throw new BadRequestException(
+          `Order in ${current.orderStatus} cannot be set to ${toStatus}`,
+        );
+
+      return { current, rule };
+    });
 
     const updated = await this.db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(order)
-        .set({ orderStatus: toStatus, ...rule.extraSet?.() })
-        .where(
-          and(eq(order.id, orderId), eq(order.orderStatus, rule.fromStatus)),
-        )
-        .returning();
-      if (!updated) throw new BadRequestException(error);
+      const results: AdminOrderResponseDto[] = [];
 
-      if (rule.restoresCoupon && updated.discountCode)
-        await this.couponsService.restore(tx, {
-          code: updated.discountCode,
-          orderId,
-        });
+      for (const { current, rule } of planned) {
+        const [updated] = await tx
+          .update(order)
+          .set({ orderStatus: toStatus, ...rule.extraSet?.() })
+          .where(
+            and(
+              eq(order.id, current.id),
+              eq(order.orderStatus, rule.fromStatus),
+            ),
+          )
+          .returning();
+        if (!updated)
+          throw new BadRequestException(
+            `Order in ${current.orderStatus} cannot be set to ${toStatus}`,
+          );
 
-      return updated;
+        if (rule.restoresCoupon && updated.discountCode)
+          await this.couponsService.restore(tx, {
+            code: updated.discountCode,
+            orderId: current.id,
+          });
+
+        results.push(toAdminOrder({ ...current, ...updated }));
+      }
+
+      return results;
     });
 
-    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-      orderId,
-      orderStatus: toStatus,
-      organizationId: org.id,
-    });
+    for (const { id: orderId } of updated)
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId,
+        orderStatus: toStatus,
+        organizationId: org.id,
+      });
 
-    return toAdminOrder({ ...found, ...updated });
+    return updated;
   }
 
   async updateOrderCustomer(
