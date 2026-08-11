@@ -8,10 +8,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
-import { WsException } from '@nestjs/websockets';
 
 import { I18nContext } from 'nestjs-i18n';
-import type { Socket } from 'socket.io';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 @Catch()
@@ -40,35 +38,20 @@ export class AllExceptionsFilter
           })
         : exception instanceof HttpException
           ? exception.getResponse()
-          : exception instanceof WsException
-            ? exception.getError()
-            : isProduction
-              ? i18n?.t('common.exceptions.internalServerError', {
-                  lang: i18n?.lang,
-                })
-              : {
-                  message:
-                    exception instanceof Error
-                      ? exception.message
-                      : String(exception),
-                  stack:
-                    exception instanceof Error
-                      ? exception.stack
-                      : String(exception),
-                };
-
-    if (host.getType() !== 'http') {
-      host
-        .switchToWs()
-        .getClient<Socket>()
-        .emit('exception', {
-          ...(typeof message === 'string' ? { message } : message),
-          success: false,
-          timestamp: new Date().toISOString(),
-        });
-
-      return;
-    }
+          : isProduction
+            ? i18n?.t('common.exceptions.internalServerError', {
+                lang: i18n?.lang,
+              })
+            : {
+                message:
+                  exception instanceof Error
+                    ? exception.message
+                    : String(exception),
+                stack:
+                  exception instanceof Error
+                    ? exception.stack
+                    : String(exception),
+              };
 
     const { httpAdapter } = this.adapterHost;
 

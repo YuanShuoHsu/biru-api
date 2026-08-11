@@ -1,6 +1,7 @@
 import { UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
+  Ack,
   ConnectedSocket,
   MessageBody,
   SubscribeMessage,
@@ -19,6 +20,7 @@ import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event';
 
 import { Server, Socket } from 'socket.io';
 import { Roles } from 'src/menus/decorators/roles.decorator';
+import type { OrderMenuResponseDto } from 'src/menus/dto/order-menu-response.dto';
 import { WsRolesGuard } from 'src/menus/guards/ws-roles.guard';
 import { PublicMenusService } from 'src/menus/menus-public.service';
 import { OrdersService } from 'src/orders/orders.service';
@@ -51,10 +53,11 @@ export class EventsGateway {
   async findOrderMenu(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId, lang }: FindOrderMenuDto,
+    @Ack() ack?: (menu: OrderMenuResponseDto | null) => void,
   ) {
     await client.join(organizationRoom(organizationId));
 
-    return this.publicMenusService.findOrderMenu(organizationId, lang);
+    ack?.(await this.publicMenusService.findOrderMenu(organizationId, lang));
   }
 
   @OnEvent(MENU_UPDATED_EVENT)
@@ -69,7 +72,7 @@ export class EventsGateway {
   ) {
     await client.join(orderRoom(orderId));
 
-    return this.ordersService.getOrderStatus(orderId);
+    return true;
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
@@ -105,5 +108,7 @@ export class EventsGateway {
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
     await client.join(ordersBoardRoom(organizationId));
+
+    return true;
   }
 }
