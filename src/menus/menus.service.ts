@@ -125,7 +125,7 @@ export class MenusService {
   }): Promise<Menu> {
     const [updated] = await this.db
       .update(menu)
-      .set(params.data)
+      .set({ ...params.data, updatedAt: new Date() })
       .where(eq(menu.id, params.where.id))
       .returning();
 
@@ -264,7 +264,7 @@ export class MenusService {
   }): Promise<MenuSection> {
     const [updated] = await this.db
       .update(menuSection)
-      .set(params.data)
+      .set({ ...params.data, updatedAt: new Date() })
       .where(eq(menuSection.id, params.where.id))
       .returning();
 
@@ -504,7 +504,7 @@ export class MenusService {
       const [[updated], existingOffers] = await Promise.all([
         tx
           .update(menuItem)
-          .set(itemData)
+          .set({ ...itemData, updatedAt: new Date() })
           .where(eq(menuItem.id, params.where.id))
           .returning(),
         tx
@@ -523,7 +523,7 @@ export class MenusService {
       if (existingOffer) {
         const [updatedOffer] = await tx
           .update(offer)
-          .set(offerData)
+          .set({ ...offerData, updatedAt: new Date() })
           .where(eq(offer.id, existingOffer.id))
           .returning();
         resultOffer = updatedOffer;
@@ -575,7 +575,7 @@ export class MenusService {
   }): Promise<Offer> {
     const [updated] = await this.db
       .update(offer)
-      .set(params.data)
+      .set({ ...params.data, updatedAt: new Date() })
       .where(eq(offer.id, params.where.id))
       .returning();
 
@@ -831,7 +831,7 @@ export class MenusService {
 
     await this.db
       .update(menuItemAddOn)
-      .set(data)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(menuItemAddOn.id, id));
 
     return this.findMenuItemAddOnById(id);
@@ -1020,7 +1020,7 @@ export class MenusService {
 
     const [updated] = await this.db
       .update(modifierGroup)
-      .set(params.data)
+      .set({ ...params.data, updatedAt: new Date() })
       .where(eq(modifierGroup.id, params.where.id))
       .returning();
 
@@ -1160,7 +1160,7 @@ export class MenusService {
   }): Promise<Modifier> {
     const [updated] = await this.db
       .update(modifier)
-      .set(params.data)
+      .set({ ...params.data, updatedAt: new Date() })
       .where(eq(modifier.id, params.where.id))
       .returning();
 
