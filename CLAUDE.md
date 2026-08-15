@@ -170,7 +170,18 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 and `POSTMAN_API_KEY` are present in `.env` but referenced nowhere in `src/` — leftovers from
 before better-auth.
 
+## Code Comments
+
+**Write a comment only when its absence would cause a mistake** — it states a consequence or precondition that lives outside the code:
+
+- `// 店家角色不該取得全平台組織清單` (security reason the conditional can't show)
+- `// drizzle 會把 pg 錯誤包成 DrizzleQueryError，原始錯誤碼在 cause` (framework trap)
+
+Not: restating the next line, conclusions from the chat, or defending your own tradeoffs. Don't hardcode identifiers into comments — they rot into misinformation after a rename.
+
 ## Behavioral Guidelines
+
+Vendored from <https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md> (headings demoted one level). Don't add rules here — put project rules in the sections above, so this stays diffable against upstream.
 
 Behavioral guidelines to reduce common LLM coding mistakes.
 
