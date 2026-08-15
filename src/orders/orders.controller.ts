@@ -15,8 +15,8 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { orderStatusEnum, type OrderStatus } from 'src/db/schema/orders';
-
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
@@ -91,6 +91,7 @@ export class OrdersController {
 
   @Patch(':orderId/customer')
   @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit('order', { param: 'orderId' })
   @ApiOperation({ summary: '修改顧客資訊' })
   updateCustomer(
     @Param('organizationSlug') organizationSlug: string,
@@ -106,6 +107,7 @@ export class OrdersController {
 
   @Patch('transitions/:toStatus')
   @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit('order', { body: 'orderIds' })
   @ApiOperation({
     summary:
       '變更訂單狀態，任一筆不可轉換則整批失敗（可用的目標見各訂單的 availableTransitions）',

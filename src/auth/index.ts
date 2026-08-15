@@ -147,16 +147,26 @@ export const createAuth = (mailsService: MailsService) =>
         cancelPendingInvitationsOnReInvite: true,
         organizationHooks: {
           afterCreateOrganization: async ({ organization }) => {
-            await db
-              .insert(schema.menu)
-              .values({
-                id: uuidv4(),
-                organizationId: organization.id,
-                name: { 'zh-TW': organization.name },
-              })
-              .onConflictDoNothing();
+            try {
+              await db
+                .insert(schema.menu)
+                .values({
+                  id: uuidv4(),
+                  organizationId: organization.id,
+                  name: { 'zh-TW': organization.name },
+                })
+                .onConflictDoNothing();
+            } catch (error) {
+              await db
+                .delete(schema.organization)
+                .where(eq(schema.organization.id, organization.id));
+
+              throw new APIError('INTERNAL_SERVER_ERROR', {
+                message: 'Failed to create the default menu',
+                cause: error,
+              });
+            }
           },
-          // pointsEnabledAt 由 server 推導，不信任 client 傳入值
           beforeUpdateOrganization: async ({ organization: data, member }) => {
             const touchesPoints =
               Object.hasOwn(data, 'amountPerPoint') ||

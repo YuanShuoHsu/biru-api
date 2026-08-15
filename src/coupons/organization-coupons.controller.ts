@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
+
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { CouponsService } from './coupons.service';
@@ -29,6 +31,7 @@ export class OrganizationCouponsController {
 
   @Post(':couponId/grant')
   @Roles({ coupon: ['create'] }, 'organizationSlug')
+  @Audit('userCoupon', { response: true })
   @ApiOperation({ summary: '發放本店專屬優惠券給指定會員' })
   grant(
     @Param('organizationSlug') organizationSlug: string,

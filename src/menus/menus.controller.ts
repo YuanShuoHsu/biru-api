@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
+
 import { Roles } from './decorators/roles.decorator';
 import { AddOnPaginationQueryDto } from './dto/add-on-pagination-query.dto';
 import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
@@ -23,16 +25,16 @@ import { CreateModifierDto } from './dto/create-modifier.dto';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { MenuItemAddOnResponseDto } from './dto/menu-item-add-on-response.dto';
 import { MenuItemModifierGroupResponseDto } from './dto/menu-item-modifier-group-response.dto';
+import { MenuItemPaginationQueryDto } from './dto/menu-item-pagination-query.dto';
 import { MenuItemResponseDto } from './dto/menu-item-response.dto';
 import { MenuResponseDto } from './dto/menu-response.dto';
+import { MenuSectionPaginationQueryDto } from './dto/menu-section-pagination-query.dto';
 import { MenuSectionResponseDto } from './dto/menu-section-response.dto';
+import { ModifierGroupPaginationQueryDto } from './dto/modifier-group-pagination-query.dto';
 import { ModifierGroupResponseDto } from './dto/modifier-group-response.dto';
 import { ModifierPaginationQueryDto } from './dto/modifier-pagination-query.dto';
 import { ModifierResponseDto } from './dto/modifier-response.dto';
 import { OfferResponseDto } from './dto/offer-response.dto';
-import { MenuItemPaginationQueryDto } from './dto/menu-item-pagination-query.dto';
-import { MenuSectionPaginationQueryDto } from './dto/menu-section-pagination-query.dto';
-import { ModifierGroupPaginationQueryDto } from './dto/modifier-group-pagination-query.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -74,6 +76,7 @@ export class MenusController {
 
   @Patch('menus/:menuId')
   @Roles({ menu: ['update'] }, 'menuId')
+  @Audit('menu', { param: 'menuId' })
   @ApiOperation({ summary: '更新菜單' })
   updateMenu(
     @Body() updateMenuDto: UpdateMenuDto,
@@ -89,6 +92,7 @@ export class MenusController {
 
   @Post('menus/:menuId/menu-sections')
   @Roles({ menu: ['create'] }, 'menuId')
+  @Audit('menuSection', { response: true })
   @ApiOperation({ summary: '建立菜單分類' })
   createMenuSection(
     @Body() createMenuSectionDto: CreateMenuSectionDto,
@@ -109,6 +113,7 @@ export class MenusController {
 
   @Patch('menus/:menuId/menu-sections/reorder')
   @Roles({ menu: ['update'] }, 'menuId')
+  @Audit('menuSection', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單分類' })
   reorderMenuSections(
     @Body() { ids, offset }: ReorderDto,
@@ -131,6 +136,7 @@ export class MenusController {
 
   @Patch('menu-sections/:sectionId')
   @Roles({ menu: ['update'] }, 'sectionId')
+  @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '更新菜單分類' })
   updateMenuSection(
     @Body() updateMenuSectionDto: UpdateMenuSectionDto,
@@ -144,6 +150,7 @@ export class MenusController {
 
   @Delete('menu-sections/:sectionId')
   @Roles({ menu: ['delete'] }, 'sectionId')
+  @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '刪除菜單分類' })
   deleteMenuSection(
     @Param('sectionId') sectionId: string,
@@ -155,6 +162,15 @@ export class MenusController {
 
   @Post('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['create'] }, 'sectionId')
+  // 同一支端點會一併寫入 offer（價格與供應狀態）
+  @Audit(
+    { resource: 'menuItem', idSource: { response: true } },
+    {
+      resource: 'menuItem',
+      idSource: { column: 'menuItemId', response: true },
+      via: { table: 'offer', ownerColumn: 'menuItemId' },
+    },
+  )
   @ApiOperation({ summary: '建立菜單品項' })
   createMenuItem(
     @Body() createMenuItemDto: CreateMenuItemDto,
@@ -175,6 +191,7 @@ export class MenusController {
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
   @Roles({ menu: ['update'] }, 'sectionId')
+  @Audit('menuItem', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單品項' })
   reorderMenuItems(
     @Body() { ids, offset }: ReorderDto,
@@ -197,6 +214,15 @@ export class MenusController {
 
   @Patch('menu-items/:menuItemId')
   @Roles({ menu: ['update'] }, 'menuItemId')
+  // 同一支端點會一併寫入 offer（價格與供應狀態）
+  @Audit(
+    { resource: 'menuItem', idSource: { param: 'menuItemId' } },
+    {
+      resource: 'menuItem',
+      idSource: { column: 'menuItemId', param: 'menuItemId' },
+      via: { table: 'offer', ownerColumn: 'menuItemId' },
+    },
+  )
   @ApiOperation({ summary: '更新菜單品項' })
   updateMenuItem(
     @Body() updateMenuItemDto: UpdateMenuItemDto,
@@ -210,6 +236,7 @@ export class MenusController {
 
   @Delete('menu-items/:menuItemId')
   @Roles({ menu: ['delete'] }, 'menuItemId')
+  @Audit('menuItem', { param: 'menuItemId' })
   @ApiOperation({ summary: '刪除菜單品項' })
   deleteMenuItem(
     @Param('menuItemId') menuItemId: string,
@@ -221,6 +248,11 @@ export class MenusController {
 
   @Post('menu-items/:menuItemId/offers')
   @Roles({ menu: ['create'] }, 'menuItemId')
+  @Audit({
+    resource: 'menuItem',
+    idSource: { column: 'menuItemId', param: 'menuItemId' },
+    via: { table: 'offer', ownerColumn: 'menuItemId' },
+  })
   @ApiOperation({ summary: '建立品項定價' })
   createOffer(
     @Body() createOfferDto: CreateOfferDto,
@@ -240,6 +272,11 @@ export class MenusController {
 
   @Patch('offers/:offerId')
   @Roles({ menu: ['update'] }, 'offerId')
+  @Audit({
+    resource: 'menuItem',
+    idSource: { param: 'offerId' },
+    via: { table: 'offer', ownerColumn: 'menuItemId' },
+  })
   @ApiOperation({ summary: '更新品項定價' })
   updateOffer(
     @Body() updateOfferDto: UpdateOfferDto,
@@ -253,6 +290,11 @@ export class MenusController {
 
   @Delete('offers/:offerId')
   @Roles({ menu: ['delete'] }, 'offerId')
+  @Audit({
+    resource: 'menuItem',
+    idSource: { param: 'offerId' },
+    via: { table: 'offer', ownerColumn: 'menuItemId' },
+  })
   @ApiOperation({ summary: '刪除品項定價' })
   deleteOffer(@Param('offerId') offerId: string): Promise<OfferResponseDto> {
     return this.menusService.deleteOffer({ id: offerId });
@@ -262,6 +304,7 @@ export class MenusController {
 
   @Post('menu-items/:menuItemId/add-ons')
   @Roles({ menu: ['create'] }, 'menuItemId')
+  @Audit('menuItemAddOn', { response: true })
   @ApiOperation({ summary: '新增品項加購' })
   createMenuItemAddOn(
     @Body() createMenuItemAddOnDto: CreateMenuItemAddOnDto,
@@ -285,6 +328,7 @@ export class MenusController {
 
   @Patch('menu-items/:menuItemId/add-ons/reorder')
   @Roles({ menu: ['update'] }, 'menuItemId')
+  @Audit('menuItemAddOn', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項加購' })
   reorderMenuItemAddOns(
     @Body() { ids, offset }: ReorderDto,
@@ -295,6 +339,7 @@ export class MenusController {
 
   @Patch('menu-items/:menuItemId/add-ons/:addOnId')
   @Roles({ menu: ['update'] }, 'menuItemId')
+  @Audit('menuItemAddOn', { param: 'addOnId' })
   @ApiOperation({ summary: '更新品項加購' })
   updateMenuItemAddOn(
     @Body() updateMenuItemAddOnDto: UpdateMenuItemAddOnDto,
@@ -308,6 +353,7 @@ export class MenusController {
 
   @Delete('menu-items/:menuItemId/add-ons/:addOnId')
   @Roles({ menu: ['delete'] }, 'menuItemId')
+  @Audit('menuItemAddOn', { param: 'addOnId' })
   @ApiOperation({ summary: '刪除品項加購' })
   deleteMenuItemAddOn(
     @Param('addOnId') addOnId: string,
@@ -319,6 +365,7 @@ export class MenusController {
 
   @Post('menus/:menuId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuId')
+  @Audit('modifierGroup', { response: true })
   @ApiOperation({ summary: '建立選項群組' })
   createModifierGroup(
     @Body() createModifierGroupDto: CreateModifierGroupDto,
@@ -342,6 +389,7 @@ export class MenusController {
 
   @Patch('menus/:menuId/modifier-groups/reorder')
   @Roles({ menu: ['update'] }, 'menuId')
+  @Audit('modifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項群組' })
   reorderModifierGroups(
     @Body() { ids, offset }: ReorderDto,
@@ -364,6 +412,7 @@ export class MenusController {
 
   @Patch('modifier-groups/:groupId')
   @Roles({ menu: ['update'] }, 'groupId')
+  @Audit('modifierGroup', { param: 'groupId' })
   @ApiOperation({ summary: '更新選項群組' })
   updateModifierGroup(
     @Body() updateModifierGroupDto: UpdateModifierGroupDto,
@@ -377,6 +426,7 @@ export class MenusController {
 
   @Delete('modifier-groups/:groupId')
   @Roles({ menu: ['delete'] }, 'groupId')
+  @Audit('modifierGroup', { param: 'groupId' })
   @ApiOperation({ summary: '刪除選項群組' })
   deleteModifierGroup(
     @Param('groupId') groupId: string,
@@ -388,6 +438,7 @@ export class MenusController {
 
   @Post('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['create'] }, 'groupId')
+  @Audit('modifier', { response: true })
   @ApiOperation({ summary: '建立選項' })
   createModifier(
     @Body() createModifierDto: CreateModifierDto,
@@ -408,6 +459,7 @@ export class MenusController {
 
   @Patch('modifier-groups/:groupId/modifiers/reorder')
   @Roles({ menu: ['update'] }, 'groupId')
+  @Audit('modifier', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項' })
   reorderModifiers(
     @Body() { ids, offset }: ReorderDto,
@@ -418,6 +470,7 @@ export class MenusController {
 
   @Patch('modifiers/:modifierId')
   @Roles({ menu: ['update'] }, 'modifierId')
+  @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '更新選項' })
   updateModifier(
     @Body() updateModifierDto: UpdateModifierDto,
@@ -431,6 +484,7 @@ export class MenusController {
 
   @Delete('modifiers/:modifierId')
   @Roles({ menu: ['delete'] }, 'modifierId')
+  @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '刪除選項' })
   deleteModifier(
     @Param('modifierId') modifierId: string,
@@ -442,6 +496,7 @@ export class MenusController {
 
   @Post('menu-items/:menuItemId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuItemId')
+  @Audit('menuItemModifierGroup', { response: true })
   @ApiOperation({ summary: '為品項掛上選項群組' })
   createMenuItemModifierGroup(
     @Body() createMenuItemModifierGroupDto: CreateMenuItemModifierGroupDto,
@@ -465,6 +520,7 @@ export class MenusController {
 
   @Patch('menu-items/:menuItemId/modifier-groups/reorder')
   @Roles({ menu: ['update'] }, 'menuItemId')
+  @Audit('menuItemModifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項的選項群組' })
   reorderMenuItemModifierGroups(
     @Body() { ids, offset }: ReorderDto,
@@ -479,6 +535,7 @@ export class MenusController {
 
   @Delete('menu-items/:menuItemId/modifier-groups/:linkId')
   @Roles({ menu: ['delete'] }, 'menuItemId')
+  @Audit('menuItemModifierGroup', { param: 'linkId' })
   @ApiOperation({ summary: '解除品項的選項群組掛載' })
   deleteMenuItemModifierGroup(
     @Param('linkId') linkId: string,

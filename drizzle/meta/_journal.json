@@ -554,6 +554,20 @@
       "when": 1786198136520,
       "tag": "0078_reflective_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1786717795355,
+      "tag": "0079_bitter_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1786780247322,
+      "tag": "0080_overrated_quasar",
+      "breakpoints": true
     }
   ]
 }

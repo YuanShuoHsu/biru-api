@@ -6,6 +6,8 @@ import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
+const AUDIT_LOG_RETENTION_MONTHS = 12;
+
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
@@ -33,5 +35,19 @@ export class TasksService {
         this.logger.log(`清除 ${deleted.length} 筆過期 ${label}`);
       }),
     );
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleAuditLogRetentionCron() {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - AUDIT_LOG_RETENTION_MONTHS);
+
+    const { rowCount } = await this.db
+      .delete(schema.auditLog)
+      .where(lt(schema.auditLog.createdAt, cutoff));
+
+    if (!rowCount) return;
+
+    this.logger.log(`清除 ${rowCount} 筆超過保留期限的異動紀錄`);
   }
 }

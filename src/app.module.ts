@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -19,8 +19,10 @@ import { join } from 'node:path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createAuth } from './auth';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { BannersModule } from './banners/banners.module';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { CouponsModule } from './coupons/coupons.module';
 import { DonateCodesModule } from './donate-codes/donate-codes.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
@@ -39,6 +41,7 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    AuditModule,
     AuthModule,
     BannersModule,
     BetterAuthModule.forRootAsync({
@@ -109,6 +112,10 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })
