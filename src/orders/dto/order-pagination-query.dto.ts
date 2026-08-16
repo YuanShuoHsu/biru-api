@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 import {
   FILTER_OPERATORS,
@@ -49,6 +49,8 @@ export class OrderPaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  // 上限高於其他列表：後台儀表板的趨勢圖要一次取回整段期間的訂單
+  @Max(1000)
   limit?: number = 10;
 
   @IsOptional()
