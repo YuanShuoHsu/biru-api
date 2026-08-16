@@ -178,8 +178,8 @@ export class AuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<AuditRequest>();
     const action = ACTION_BY_METHOD[request.method];
     const actor = request.user;
-    const { organizationId } = request;
-    if (!action || !actor || !organizationId) return next.handle();
+    const organizationId = request.organizationId ?? null;
+    if (!action || !actor) return next.handle();
 
     const loadBefore = Promise.all(
       targets.map((target) =>
@@ -268,7 +268,7 @@ export class AuditInterceptor implements NestInterceptor {
     action: AuditAction;
     actor: { id: string; name: string; email: string };
     befores: Map<string, SnapshotRow>[];
-    organizationId: string;
+    organizationId: string | null;
     request: AuditRequest;
     response: unknown;
     targets: AuditTarget[];

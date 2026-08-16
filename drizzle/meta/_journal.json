@@ -575,6 +575,13 @@
       "when": 1786861716982,
       "tag": "0081_common_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1786874379392,
+      "tag": "0082_petite_vampiro",
+      "breakpoints": true
     }
   ]
 }

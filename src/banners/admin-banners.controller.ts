@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { BannersService } from './banners.service';
@@ -26,6 +27,7 @@ export class AdminBannersController {
   constructor(private readonly bannersService: BannersService) {}
 
   @Post()
+  @Audit('banner', { response: true })
   @ApiOperation({ summary: '建立輪播圖' })
   create(@Body() dto: CreateBannerDto): Promise<BannerResponseDto> {
     return this.bannersService.create(dto);
@@ -40,12 +42,14 @@ export class AdminBannersController {
   }
 
   @Patch('reorder')
+  @Audit('banner', { body: 'ids' })
   @ApiOperation({ summary: '重新排序輪播圖' })
   reorder(@Body() { ids, offset }: ReorderBannersDto): Promise<void> {
     return this.bannersService.reorder(ids, offset);
   }
 
   @Patch(':bannerId')
+  @Audit('banner', { param: 'bannerId' })
   @ApiOperation({ summary: '更新輪播圖' })
   update(
     @Param('bannerId') bannerId: string,
@@ -55,6 +59,7 @@ export class AdminBannersController {
   }
 
   @Delete(':bannerId')
+  @Audit('banner', { param: 'bannerId' })
   @ApiOperation({ summary: '刪除輪播圖' })
   remove(@Param('bannerId') bannerId: string): Promise<void> {
     return this.bannersService.remove(bannerId);

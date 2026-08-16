@@ -8,6 +8,7 @@ import {
   desc,
   eq,
   ilike,
+  isNull,
   sql,
   type Column,
   type SQL,
@@ -44,6 +45,19 @@ export class AuditService {
     });
     if (!org) throw new NotFoundException('Organization not found');
 
+    return this.list(eq(auditLog.organizationId, org.id), query);
+  }
+
+  listForPlatform(
+    query: AuditLogPaginationQueryDto = {},
+  ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
+    return this.list(isNull(auditLog.organizationId), query);
+  }
+
+  private async list(
+    scope: SQL,
+    query: AuditLogPaginationQueryDto,
+  ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -74,7 +88,7 @@ export class AuditService {
       : [desc(auditLog.createdAt)];
 
     const where = and(
-      eq(auditLog.organizationId, org.id),
+      scope,
       resource ? eq(auditLog.resource, resource) : undefined,
       resourceId ? eq(auditLog.resourceId, resourceId) : undefined,
       ancestorId

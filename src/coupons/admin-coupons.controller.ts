@@ -12,6 +12,7 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { CouponsService } from './coupons.service';
@@ -32,6 +33,7 @@ export class AdminCouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
   @Post()
+  @Audit('coupon', { response: true })
   @ApiOperation({ summary: '建立優惠券' })
   create(@Body() dto: CreateCouponDto): Promise<CouponResponseDto> {
     return this.couponsService.create(dto);
@@ -52,6 +54,7 @@ export class AdminCouponsController {
   }
 
   @Patch(':couponId')
+  @Audit('coupon', { param: 'couponId' })
   @ApiOperation({ summary: '更新優惠券' })
   update(
     @Param('couponId') couponId: string,
@@ -61,6 +64,7 @@ export class AdminCouponsController {
   }
 
   @Delete(':couponId')
+  @Audit('coupon', { param: 'couponId' })
   @ApiOperation({ summary: '刪除優惠券' })
   remove(@Param('couponId') couponId: string): Promise<void> {
     return this.couponsService.remove(couponId);
@@ -77,6 +81,7 @@ export class AdminCouponsController {
   }
 
   @Post(':couponId/grant')
+  @Audit('userCoupon', { response: true })
   @ApiOperation({ summary: '發放優惠券給指定會員' })
   grant(
     @Param('couponId') couponId: string,

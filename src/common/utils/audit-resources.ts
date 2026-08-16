@@ -2,6 +2,7 @@ import { inArray } from 'drizzle-orm';
 import type { AnyPgTable, PgColumn } from 'drizzle-orm/pg-core';
 
 import type { AuditResource, AuditResourceLabel } from 'src/db/schema/audit';
+import { banner } from 'src/db/schema/banners';
 import { coupon, userCoupon } from 'src/db/schema/coupons';
 import {
   menu,
@@ -41,6 +42,8 @@ export const AUDIT_TABLES: Record<
   menuItemModifierGroup,
   order,
   userCoupon,
+  coupon,
+  banner,
 };
 
 const asId = (value: unknown): string | null =>
@@ -203,6 +206,13 @@ export const resolveAuditLabels = async (
               ancestorIds: [],
             },
           ];
+        case 'coupon':
+          return [
+            resourceId,
+            { resourceLabel: asLabel(row.code), ancestorIds: [] },
+          ];
+        case 'banner':
+          return [resourceId, { resourceLabel: null, ancestorIds: [] }];
         default:
           return [
             resourceId,

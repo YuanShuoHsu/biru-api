@@ -22,6 +22,8 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'menuItemModifierGroup',
   'order',
   'userCoupon',
+  'coupon',
+  'banner',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 
@@ -46,16 +48,12 @@ export const auditLog = pgTable(
     }),
     actorName: text('actor_name').notNull(),
     actorEmail: text('actor_email').notNull(),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'cascade',
+    }),
     resource: auditResourceEnum('resource').notNull(),
     resourceId: text('resource_id').notNull(),
-    // 寫入當下的名稱快照。不能改成查詢時 join 回原表：刪除紀錄的對象已經不存在，
-    // 而那正是最需要看名字的一列
     resourceLabel: jsonb('resource_label').$type<AuditResourceLabel>(),
-    // 由根到父的 id，讓前端拼得出巢狀路由（品項加購要 sectionId + menuItemId）。
-    // 存的是當下的歸屬，之後品項被搬到別的分類也不會改寫這筆
     ancestorIds: text('ancestor_ids').array(),
     action: auditActionEnum('action').notNull(),
     changes: jsonb('changes').$type<AuditChanges>().notNull(),
