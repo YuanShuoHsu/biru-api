@@ -21,6 +21,12 @@ export class AuditLogResponseDto {
   @ApiProperty() actorName: string;
   @ApiProperty() actorEmail: string;
 
+  @ApiPropertyOptional({
+    description: '異動所屬店家；平台層異動（優惠券定義、輪播圖）為 null',
+    nullable: true,
+  })
+  organizationId?: string | null;
+
   @ApiProperty({
     enum: auditResourceEnum.enumValues,
     enumName: 'AuditResource',

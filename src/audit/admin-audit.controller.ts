@@ -21,10 +21,10 @@ export class AdminAuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
-  @ApiOperation({ summary: '查詢平台層異動紀錄（不含任何店家的紀錄）' })
+  @ApiOperation({ summary: '查詢全平台異動紀錄（含所有店家與平台層的紀錄）' })
   findAll(
     @Query() query: AuditLogPaginationQueryDto,
   ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
-    return this.auditService.listForPlatform(query);
+    return this.auditService.listAll(query);
   }
 }

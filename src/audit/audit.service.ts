@@ -8,7 +8,6 @@ import {
   desc,
   eq,
   ilike,
-  isNull,
   sql,
   type Column,
   type SQL,
@@ -27,6 +26,7 @@ import {
   AUDIT_LOG_DATE_FILTER_FIELDS,
   AUDIT_LOG_ENUM_FILTER_FIELDS,
   AUDIT_LOG_STRING_FILTER_FIELDS,
+  PLATFORM_ORGANIZATION_ID,
   type AuditLogPaginationQueryDto,
 } from './dto/audit-log-pagination-query.dto';
 import { AuditLogResponseDto } from './dto/audit-log-response.dto';
@@ -48,14 +48,14 @@ export class AuditService {
     return this.list(eq(auditLog.organizationId, org.id), query);
   }
 
-  listForPlatform(
+  listAll(
     query: AuditLogPaginationQueryDto = {},
   ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
-    return this.list(isNull(auditLog.organizationId), query);
+    return this.list(undefined, query);
   }
 
   private async list(
-    scope: SQL,
+    scope: SQL | undefined,
     query: AuditLogPaginationQueryDto,
   ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
     const {
@@ -77,6 +77,7 @@ export class AuditService {
       actorName: auditLog.actorName,
       actorEmail: auditLog.actorEmail,
       resourceId: auditLog.resourceId,
+      organizationId: sql`COALESCE(${auditLog.organizationId}, ${PLATFORM_ORGANIZATION_ID})`,
       resource: sql`${auditLog.resource}::text`,
       action: sql`${auditLog.action}::text`,
       createdAt: auditLog.createdAt,

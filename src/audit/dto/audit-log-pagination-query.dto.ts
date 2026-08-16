@@ -16,7 +16,13 @@ export const AUDIT_LOG_STRING_FILTER_FIELDS = [
   'actorEmail',
   'resourceId',
 ] as const;
-export const AUDIT_LOG_ENUM_FILTER_FIELDS = ['resource', 'action'] as const;
+export const PLATFORM_ORGANIZATION_ID = 'platform';
+
+export const AUDIT_LOG_ENUM_FILTER_FIELDS = [
+  'organizationId',
+  'resource',
+  'action',
+] as const;
 export const AUDIT_LOG_DATE_FILTER_FIELDS = ['createdAt'] as const;
 export const AUDIT_LOG_ALL_FILTER_FIELDS = [
   ...AUDIT_LOG_STRING_FILTER_FIELDS,
