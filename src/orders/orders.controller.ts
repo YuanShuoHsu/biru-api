@@ -107,7 +107,13 @@ export class OrdersController {
 
   @Patch('transitions/:toStatus')
   @Roles({ order: ['update'] }, 'organizationSlug')
-  @Audit('order', { body: 'orderIds' })
+  @Audit(
+    { resource: 'order', idSource: { body: 'orderIds' } },
+    {
+      resource: 'userCoupon',
+      idSource: { column: 'orderId', body: 'orderIds' },
+    },
+  )
   @ApiOperation({
     summary:
       '變更訂單狀態，任一筆不可轉換則整批失敗（可用的目標見各訂單的 availableTransitions）',

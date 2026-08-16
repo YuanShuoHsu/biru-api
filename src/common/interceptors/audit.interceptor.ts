@@ -10,8 +10,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { getTableColumns, inArray } from 'drizzle-orm';
-import type { AnyPgTable, PgColumn } from 'drizzle-orm/pg-core';
+import { getTableColumns, inArray, or } from 'drizzle-orm';
 import { Request } from 'express';
 import { Observable, from, switchMap, tap } from 'rxjs';
 
@@ -21,33 +20,24 @@ import {
   type AuditChanges,
   type AuditResource,
 } from 'src/db/schema/audit';
-import { userCoupon } from 'src/db/schema/coupons';
-import {
-  menu,
-  menuItem,
-  menuItemAddOn,
-  menuItemModifierGroup,
-  menuSection,
-  modifier,
-  modifierGroup,
-  offer,
-} from 'src/db/schema/menus';
-import { order } from 'src/db/schema/orders';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import {
   AUDIT_KEY,
   type AuditIdSource,
   type AuditMetadata,
-  type AuditSubTable,
   type AuditTarget,
 } from '../decorators/audit.decorator';
+import {
+  AUDIT_TABLES,
+  resolveAuditLabels,
+  type AuditableTable,
+} from '../utils/audit-resources';
 
 type Row = Record<string, unknown>;
 
 type SnapshotRow = { resourceId: string; row: Row };
 
-type AuditableTable = AnyPgTable & { id: PgColumn };
 type Locator =
   | { kind: 'ids'; ids: string[] }
   | { kind: 'column'; column: string; values: string[] };
@@ -56,19 +46,6 @@ type AuditRequest = Request & {
   params: Record<string, string>;
   organizationId?: string;
   user?: { id: string; name: string; email: string } | null;
-};
-
-const AUDIT_TABLES: Record<AuditResource | AuditSubTable, AuditableTable> = {
-  menu,
-  menuSection,
-  menuItem,
-  offer,
-  menuItemAddOn,
-  modifierGroup,
-  modifier,
-  menuItemModifierGroup,
-  order,
-  userCoupon,
 };
 
 const ACTION_BY_METHOD: Record<string, AuditAction> = {
@@ -235,14 +212,19 @@ export class AuditInterceptor implements NestInterceptor {
   private async snapshot(
     target: AuditTarget,
     locator: Locator | null,
+    // 只有 after 會傳：欄位定位查不到「連結欄位被清空」的列（退券把 userCoupon.orderId
+    // 設回 null），漏掉它會把一次更新記成整列消失
+    knownIds: string[] = [],
   ): Promise<Map<string, SnapshotRow>> {
-    if (!locator) return new Map();
-
     const table = tableOf(target);
-    const where =
-      locator.kind === 'ids'
+    const located = !locator
+      ? undefined
+      : locator.kind === 'ids'
         ? inArray(table.id, locator.ids)
         : this.columnCondition(table, locator);
+    const where = or(
+      ...[located, knownIds.length ? inArray(table.id, knownIds) : undefined],
+    );
     if (!where) return new Map();
 
     const rows = await this.db.select().from(table).where(where);
@@ -292,6 +274,9 @@ export class AuditInterceptor implements NestInterceptor {
     targets: AuditTarget[];
   }): Promise<void> {
     const values = [];
+    // 每個資源要拿來取名稱與祖先 id 的快照列。刪除後查不到，所以優先用 before；
+    // via 目標手上是附屬表的列（offer 沒有品項名），塞 undefined 讓 resolver 補查
+    const snapshots = new Map<AuditResource, Map<string, Row | undefined>>();
 
     for (const [index, target] of targets.entries()) {
       const before = befores[index];
@@ -301,6 +286,7 @@ export class AuditInterceptor implements NestInterceptor {
           : await this.snapshot(
               target,
               locateAfter(target.idSource, request, response),
+              [...before.keys()],
             );
 
       for (const key of new Set([...before.keys(), ...after.keys()])) {
@@ -311,6 +297,14 @@ export class AuditInterceptor implements NestInterceptor {
 
         const changes = diff(previous?.row, next?.row);
         if (!Object.keys(changes).length) continue;
+
+        const snapshot =
+          snapshots.get(target.resource) ?? new Map<string, Row | undefined>();
+        const row = target.via ? undefined : (next?.row ?? previous?.row);
+        // 同一個 resource 可以掛多個 target（品項本身 + via offer 的改價），
+        // via 那筆手上是附屬表的列，不能讓它的 undefined 蓋掉另一筆已備好的列
+        if (row || !snapshot.has(resourceId)) snapshot.set(resourceId, row);
+        snapshots.set(target.resource, snapshot);
 
         values.push({
           id: randomUUID(),
@@ -326,6 +320,25 @@ export class AuditInterceptor implements NestInterceptor {
       }
     }
 
-    if (values.length) await this.db.insert(auditLog).values(values);
+    if (!values.length) return;
+
+    const labels = new Map(
+      await Promise.all(
+        [...snapshots].map(
+          async ([resource, rows]) =>
+            [
+              resource,
+              await resolveAuditLabels(this.db, resource, rows),
+            ] as const,
+        ),
+      ),
+    );
+
+    await this.db.insert(auditLog).values(
+      values.map((value) => ({
+        ...value,
+        ...labels.get(value.resource)?.get(value.resourceId),
+      })),
+    );
   }
 }

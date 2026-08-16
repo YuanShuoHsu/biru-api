@@ -6,6 +6,7 @@ import {
   type AuditAction,
   type AuditChanges,
   type AuditResource,
+  type AuditResourceLabel,
 } from 'src/db/schema/audit';
 
 export class AuditLogResponseDto {
@@ -27,6 +28,25 @@ export class AuditLogResponseDto {
   resource: AuditResource;
 
   @ApiProperty() resourceId: string;
+
+  @ApiPropertyOptional({
+    description:
+      '寫入當下的名稱快照；多語名稱為 locale → 名稱的物件，訂單編號等單語識別為字串',
+    nullable: true,
+    oneOf: [
+      { type: 'string' },
+      { additionalProperties: { type: 'string' }, type: 'object' },
+    ],
+  })
+  resourceLabel?: AuditResourceLabel | null;
+
+  @ApiPropertyOptional({
+    description: '由根到父的 id，供前端拼出巢狀路由；頂層資源為空陣列',
+    isArray: true,
+    nullable: true,
+    type: String,
+  })
+  ancestorIds?: string[] | null;
 
   @ApiProperty({ enum: auditActionEnum.enumValues, enumName: 'AuditAction' })
   action: AuditAction;

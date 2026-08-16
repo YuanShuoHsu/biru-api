@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   and,
+  arrayContains,
   asc,
   count,
   desc,
@@ -46,6 +47,7 @@ export class AuditService {
     const {
       limit = 10,
       offset = 0,
+      ancestorId,
       resource,
       resourceId,
       filterField,
@@ -75,6 +77,9 @@ export class AuditService {
       eq(auditLog.organizationId, org.id),
       resource ? eq(auditLog.resource, resource) : undefined,
       resourceId ? eq(auditLog.resourceId, resourceId) : undefined,
+      ancestorId
+        ? arrayContains(auditLog.ancestorIds, [ancestorId])
+        : undefined,
       filterField && filterOperator
         ? buildFilterCondition(
             filterField,

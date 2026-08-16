@@ -9,6 +9,7 @@ export type AuditIdSource =
   | { body: string }
   | { response: true }
   | { column: string; param: string }
+  | { column: string; body: string }
   | { column: string; response: true };
 
 export type AuditSubTable = 'offer';
