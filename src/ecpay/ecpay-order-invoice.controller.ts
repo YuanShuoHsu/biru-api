@@ -1,27 +1,13 @@
 import { OrderInvoiceDto } from '../orders/dto/order-response.dto';
 
+import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto';
+
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
 
 import { Controller, Param, Post } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiOperation,
-  ApiProperty,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { IsDefined, IsString } from 'class-validator';
-
-export class OrderInvoicePrintDto {
-  @ApiProperty({
-    description: '發票列印網址（熱感應紙格式），自取得起 1 小時內有效',
-    example: 'https://vendor.ecpay.com.tw/Einvoice/...',
-  })
-  @IsDefined()
-  @IsString()
-  printUrl: string;
-}
-
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 @ApiTags('orders')
@@ -33,6 +19,7 @@ export class EcpayOrderInvoiceController {
 
   @Post()
   @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit('invoice', { column: 'orderId', param: 'orderId' })
   @ApiCreatedResponse({ type: OrderInvoiceDto })
   @ApiOperation({ summary: '補開發票（開立失敗後由後台重試）' })
   issue(

@@ -14,11 +14,15 @@ export const ORDER_STRING_FILTER_FIELDS = [
   'orderNumber',
   'confirmationNumber',
   'customerName',
+  'customerTelephone',
+  'customerEmail',
 ] as const;
 export const ORDER_ENUM_FILTER_FIELDS = [
   'mode',
   'paymentMethod',
   'orderStatus',
+  'invoiceType',
+  'invoiceStatus',
 ] as const;
 export const ORDER_DATE_FILTER_FIELDS = ['paymentDate', 'createdAt'] as const;
 export const ORDER_NUMBER_FILTER_FIELDS = ['tableNumber', 'total'] as const;
@@ -40,6 +44,11 @@ export const ORDER_SORT_FIELDS = [
   'createdAt',
   'tableNumber',
   'total',
+  'customerName',
+  'customerTelephone',
+  'customerEmail',
+  'invoiceType',
+  'invoiceStatus',
 ] as const;
 
 export type OrderSortField = (typeof ORDER_SORT_FIELDS)[number];

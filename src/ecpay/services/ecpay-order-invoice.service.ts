@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, lt } from 'drizzle-orm';
+import { and, eq, isNotNull, lt } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto';
@@ -101,8 +101,15 @@ export class EcpayOrderInvoiceService {
   async retryPendingInvoices(): Promise<void> {
     const staleBefore = new Date(Date.now() - RETRY_DELAY_MS);
 
+    await this.db
+      .update(invoice)
+      .set({ status: 'pending' })
+      .where(
+        and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
+      );
+
     const candidates = await this.db
-      .select({ id: invoice.id, orderId: invoice.orderId })
+      .select({ orderId: invoice.orderId })
       .from(invoice)
       .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
@@ -114,23 +121,8 @@ export class EcpayOrderInvoiceService {
       )
       .limit(RETRY_BATCH_SIZE);
 
-    if (!candidates.length) return;
-
-    const claimed = await this.db
-      .update(invoice)
-      .set({ updatedAt: new Date() })
-      .where(
-        and(
-          inArray(
-            invoice.id,
-            candidates.map(({ id }) => id),
-          ),
-          lt(invoice.updatedAt, staleBefore),
-        ),
-      )
-      .returning({ orderId: invoice.orderId });
-
-    for (const { orderId } of claimed) await this.issueQuietly(orderId);
+    // 併發由 issue() 內的狀態認領擋掉，這裡不必再搶一次
+    for (const { orderId } of candidates) await this.issueQuietly(orderId);
   }
 
   async issueForOrder(
@@ -150,6 +142,9 @@ export class EcpayOrderInvoiceService {
     try {
       await this.issue(orderId);
     } catch (error) {
+      // 已開立、未付款、別人正在開，在重試路徑上都是正常結果，記成錯誤只會蓋掉真的問題
+      if (error instanceof ConflictException) return;
+
       this.logger.error(
         `Failed to issue invoice for order ${orderId}`,
         error instanceof Error ? error.stack : String(error),
@@ -174,12 +169,16 @@ export class EcpayOrderInvoiceService {
     if (data.status !== 'pending')
       throw new ConflictException(`Invoice is already ${data.status}`);
 
-    const result = await this.ecpayIssueInvoiceService.issueInvoice(
-      this.buildPayload({ ...found, invoice: data }),
-    );
+    const [claimed] = await this.db
+      .update(invoice)
+      .set({ status: 'issuing' })
+      .where(and(eq(invoice.id, data.id), eq(invoice.status, 'pending')))
+      .returning();
 
-    if (result.RtnCode !== 1)
-      throw new BadGatewayException(`${result.RtnCode} ${result.RtnMsg}`);
+    if (!claimed)
+      throw new ConflictException('Invoice is already being issued');
+
+    const result = await this.issueOrRelease(claimed, found);
 
     const [updated] = await this.db
       .update(invoice)
@@ -199,6 +198,29 @@ export class EcpayOrderInvoiceService {
       await this.pushPrintUrl(updated, found.sellerId, orderId);
 
     return updated;
+  }
+
+  private async issueOrRelease(
+    claimed: Invoice,
+    found: Parameters<typeof this.buildPayload>[0],
+  ) {
+    try {
+      const result = await this.ecpayIssueInvoiceService.issueInvoice(
+        this.buildPayload({ ...found, invoice: claimed }),
+      );
+
+      if (result.RtnCode !== 1)
+        throw new BadGatewayException(`${result.RtnCode} ${result.RtnMsg}`);
+
+      return result;
+    } catch (error) {
+      await this.db
+        .update(invoice)
+        .set({ status: 'pending' })
+        .where(eq(invoice.id, claimed.id));
+
+      throw error;
+    }
   }
 
   /** 取列印網址失敗不能影響開票結果，發票已經開立，之後仍可由後台補印 */

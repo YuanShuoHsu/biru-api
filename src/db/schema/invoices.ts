@@ -21,6 +21,7 @@ export type InvoiceCarrierType =
 
 export const invoiceStatusEnum = pgEnum('invoice_status', [
   'pending',
+  'issuing',
   'issued',
   'voided',
 ]);

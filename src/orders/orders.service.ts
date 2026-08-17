@@ -271,6 +271,8 @@ export class OrdersService {
       orderNumber: order.orderNumber,
       confirmationNumber: order.confirmationNumber,
       customerName: sql`${order.customer}->>'name'`,
+      customerTelephone: sql`${order.customer}->>'telephone'`,
+      customerEmail: sql`${order.customer}->>'email'`,
       mode: sql`${order.mode}::text`,
       paymentMethod: sql`${order.paymentMethod}::text`,
       orderStatus: sql`${order.orderStatus}::text`,
@@ -278,6 +280,10 @@ export class OrdersService {
       createdAt: order.createdAt,
       tableNumber: order.tableNumber,
       total: order.total,
+      // 發票是另一張表，而 db.query 的 where 會把 sql`` 裡的跨表欄位改寫成主表別名；
+      // 寫成相關子查詢就只引用得到 order 自己的欄位（invoice.order_id 是 unique，至多一列）
+      invoiceType: sql`(select i.type::text from ${invoice} i where i.order_id = ${order.id})`,
+      invoiceStatus: sql`(select i.status::text from ${invoice} i where i.order_id = ${order.id})`,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -308,6 +314,8 @@ export class OrdersService {
           ilike(order.orderNumber, `%${value}%`),
           ilike(sql`${order.confirmationNumber}`, `%${value}%`),
           ilike(sql`${order.customer}->>'name'`, `%${value}%`),
+          ilike(sql`${order.customer}->>'telephone'`, `%${value}%`),
+          ilike(sql`${order.customer}->>'email'`, `%${value}%`),
           ilike(sql`${order.tableNumber}::text`, `%${value}%`),
           ilike(localTimeText(order.paymentDate), `%${value}%`),
           ilike(localTimeText(order.createdAt), `%${value}%`),
