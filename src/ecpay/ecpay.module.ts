@@ -5,6 +5,7 @@ import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-
 import { EcpayBaseService } from './services/ecpay-base.service';
 import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
 import { EcpayGetGovInvoiceWordSettingService } from './services/ecpay-get-gov-invoice-word-setting.service';
+import { EcpayInvoicePrintService } from './services/ecpay-invoice-print.service';
 import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-word-setting.service';
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
@@ -26,6 +27,7 @@ import { Module } from '@nestjs/common';
     EcpayGetInvoiceWordSettingService,
     EcpayAddInvoiceWordSettingService,
     EcpayUpdateInvoiceWordStatusService,
+    EcpayInvoicePrintService,
     EcpayIssueInvoiceService,
     EcpayOrderInvoiceService,
     EcpaySyncInvoiceWordSettingsService,

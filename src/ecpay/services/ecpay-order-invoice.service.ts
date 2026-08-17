@@ -11,6 +11,7 @@ import {
   IssueInvoiceEcpayVatType,
 } from '../dto/issue-invoice-ecpay.dto';
 
+import { EcpayInvoicePrintService } from './ecpay-invoice-print.service';
 import { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service';
 
 import {
@@ -21,7 +22,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import type { Invoice } from 'src/db/schema/invoices';
@@ -32,6 +33,8 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
+import type { InvoicePrintReadyEvent } from 'src/events/invoice-print-ready.event';
+import { INVOICE_PRINT_READY_EVENT } from 'src/events/invoice-print-ready.event';
 import type { OrderPaidEvent } from 'src/events/order-paid.event';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 
@@ -65,6 +68,19 @@ const RETRY_DELAY_MS = 10 * 60 * 1000;
 
 const RETRY_BATCH_SIZE = 20;
 
+type PrintableInvoice = Invoice & {
+  invoiceDate: Date;
+  invoiceNumber: string;
+};
+
+// 存進載具或捐出去的發票沒有紙本，綠界也只讓 Print=1 的發票取得列印網址
+const isPrintable = (data: Invoice): data is PrintableInvoice =>
+  data.status === 'issued' &&
+  !!data.invoiceNumber &&
+  !!data.invoiceDate &&
+  !data.carrierType &&
+  data.type !== 'donate';
+
 @Injectable()
 export class EcpayOrderInvoiceService {
   private readonly logger = new Logger(EcpayOrderInvoiceService.name);
@@ -72,6 +88,8 @@ export class EcpayOrderInvoiceService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly ecpayIssueInvoiceService: EcpayIssueInvoiceService,
+    private readonly ecpayInvoicePrintService: EcpayInvoicePrintService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   @OnEvent(ORDER_PAID_EVENT, { async: true })
@@ -177,7 +195,60 @@ export class EcpayOrderInvoiceService {
       .where(eq(invoice.id, data.id))
       .returning();
 
+    if (isPrintable(updated))
+      await this.pushPrintUrl(updated, found.sellerId, orderId);
+
     return updated;
+  }
+
+  /** 取列印網址失敗不能影響開票結果，發票已經開立，之後仍可由後台補印 */
+  private async pushPrintUrl(
+    data: PrintableInvoice,
+    organizationId: string,
+    orderId: string,
+  ): Promise<void> {
+    try {
+      this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
+        invoiceNumber: data.invoiceNumber,
+        orderId,
+        organizationId,
+        printUrl: await this.getPrintUrl(data),
+      } satisfies InvoicePrintReadyEvent);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get print url for invoice ${data.invoiceNumber}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  async getPrintUrlForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<string> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { invoice: true },
+    });
+
+    if (!found?.invoice) throw new NotFoundException('Invoice not found');
+    if (!isPrintable(found.invoice))
+      throw new ConflictException('Invoice is not printable');
+
+    return this.getPrintUrl(found.invoice);
+  }
+
+  private getPrintUrl(data: PrintableInvoice): Promise<string> {
+    return this.ecpayInvoicePrintService.getPrintUrl(
+      data.invoiceNumber,
+      data.invoiceDate,
+    );
   }
 
   private buildPayload(found: {
@@ -270,11 +341,13 @@ export class EcpayOrderInvoiceService {
           Print: IssueInvoiceEcpayPrint.No,
         };
       case 'personal':
+        // 不索取載具就是要紙本；Print=1 才拿得到列印網址，而綠界要求同時帶姓名與地址
         if (!data.carrierType)
           return {
             CarrierType: IssueInvoiceEcpayCarrierType.None,
+            CustomerAddr: data.customerAddr ?? undefined,
             Donation: IssueInvoiceEcpayDonation.No,
-            Print: IssueInvoiceEcpayPrint.No,
+            Print: IssueInvoiceEcpayPrint.Yes,
           };
 
         return {

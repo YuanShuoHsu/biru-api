@@ -13,6 +13,8 @@ import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { FindOrderMenuDto } from './dto/find-order-menu.dto';
 import { JoinOrderDto } from './dto/join-order.dto';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto';
+import type { InvoicePrintReadyEvent } from './invoice-print-ready.event';
+import { INVOICE_PRINT_READY_EVENT } from './invoice-print-ready.event';
 import type { MenuUpdatedEvent } from './menu-updated.event';
 import { MENU_UPDATED_EVENT } from './menu-updated.event';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event';
@@ -73,6 +75,18 @@ export class EventsGateway {
     await client.join(orderRoom(orderId));
 
     return true;
+  }
+
+  @OnEvent(INVOICE_PRINT_READY_EVENT)
+  handleInvoicePrintReady({
+    invoiceNumber,
+    orderId,
+    organizationId,
+    printUrl,
+  }: InvoicePrintReadyEvent) {
+    this.server
+      .to(ordersBoardRoom(organizationId))
+      .emit('invoicePrintReady', { invoiceNumber, orderId, printUrl });
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
