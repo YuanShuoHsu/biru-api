@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
-import { IsObject, IsOptional, IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
 import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 
@@ -24,5 +25,6 @@ export class CreateMenuSectionDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
   image?: string;
 }

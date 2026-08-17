@@ -6,8 +6,8 @@ import {
 } from '../dto/checkout-ecpay.dto';
 import { EcpayMode } from '../types/ecpay.types';
 
-import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 import { sumOrderItems } from '../../common/utils/order-items';
+import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -26,6 +26,12 @@ const ECPAY_CHOOSE_PAYMENT: Record<string, string> = {
   TWQR: 'TWQR',
   WeiXin: 'WeiXin',
 };
+
+const ITEM_NAME_MAX_LENGTH = 400;
+const TRADE_DESC_MAX_LENGTH = 200;
+
+const truncate = (value: string, maxLength: number): string =>
+  [...value].slice(0, maxLength).join('');
 
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
   Object.fromEntries(
@@ -94,6 +100,8 @@ export class EcpayBaseService {
 
     const raw = {
       ...base,
+      ItemName: truncate(base.ItemName, ITEM_NAME_MAX_LENGTH),
+      TradeDesc: truncate(base.TradeDesc, TRADE_DESC_MAX_LENGTH),
       ChoosePayment: choosePayment,
       ...(choosePayment === 'DigitalPayment' && {
         ChooseSubPayment: order.paymentMethod,

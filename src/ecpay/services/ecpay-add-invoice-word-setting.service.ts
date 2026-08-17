@@ -8,7 +8,7 @@ import { GetGovInvoiceWordSettingEcpayDecryptedResponseDto } from '../dto/get-go
 
 import { EcpayMode } from '../types/ecpay.types';
 
-import { decryptData, encryptData } from '../utils/ecpay';
+import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
@@ -87,7 +87,7 @@ export class EcpayAddInvoiceWordSettingService {
     );
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
-    const decoded = decodeURIComponent(decrypted);
+    const decoded = decodeUrlEncoded(decrypted);
     const parsed = JSON.parse(
       decoded,
     ) as AddInvoiceWordSettingEcpayDecryptedResponseDto;

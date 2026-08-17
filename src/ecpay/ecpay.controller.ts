@@ -1,20 +1,19 @@
 import {
+  CheckBarcodeEcpayDto,
+  CheckBarcodeEcpayResponseDto,
+} from './dto/check-barcode-ecpay.dto';
+import {
   CheckoutEcpayDto,
   CheckoutEcpayResponseDto,
 } from './dto/checkout-ecpay.dto';
-import { IssueInvoiceEcpayDecryptedRequestDto } from './dto/issue-invoice-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
-
-import { toPlatformTime } from 'src/common/constants/timezone';
 
 import { OrdersService } from '../orders/orders.service';
 
-import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service';
 import { EcpayBaseService } from './services/ecpay-base.service';
-import { EcpayGetGovInvoiceWordSettingService } from './services/ecpay-get-gov-invoice-word-setting.service';
-import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-word-setting.service';
-import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
-import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
+import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
+import type { SyncInvoiceWordSettingResultDto } from './services/ecpay-sync-invoice-word-settings.service';
+import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service';
 
 import {
   Body,
@@ -34,11 +33,8 @@ import { AdminGuard } from 'src/common/guards/admin.guard';
 export class EcpayController {
   constructor(
     private readonly ecpayBaseService: EcpayBaseService,
-    private readonly ecpayGetGovInvoiceWordSettingService: EcpayGetGovInvoiceWordSettingService,
-    private readonly ecpayGetInvoiceWordSettingService: EcpayGetInvoiceWordSettingService,
-    private readonly ecpayAddInvoiceWordSettingService: EcpayAddInvoiceWordSettingService,
-    private readonly ecpayUpdateInvoiceWordStatusService: EcpayUpdateInvoiceWordStatusService,
-    private readonly ecpayIssueInvoiceService: EcpayIssueInvoiceService,
+    private readonly ecpayCheckBarcodeService: EcpayCheckBarcodeService,
+    private readonly ecpaySyncInvoiceWordSettingsService: EcpaySyncInvoiceWordSettingsService,
     private readonly ordersService: OrdersService,
     private readonly configService: ConfigService,
   ) {}
@@ -69,6 +65,17 @@ export class EcpayController {
     return this.ecpayBaseService.aioCheckOutAll(order, base);
   }
 
+  @Post('check-barcode')
+  @AllowAnonymous()
+  @ApiCreatedResponse({ type: CheckBarcodeEcpayResponseDto })
+  async checkBarcode(
+    @Body() { barCode }: CheckBarcodeEcpayDto,
+  ): Promise<CheckBarcodeEcpayResponseDto> {
+    return {
+      isExist: await this.ecpayCheckBarcodeService.checkBarcode(barCode),
+    };
+  }
+
   @Post('return')
   @AllowAnonymous()
   @ApiBody({ type: ReturnEcpayDto })
@@ -95,133 +102,9 @@ export class EcpayController {
     return { statusCode: 303, url: this.getSafeRedirectUrl(redirect) };
   }
 
-  @Post('get-gov-invoice-word-setting')
+  @Post('sync-invoice-word-settings')
   @UseGuards(AdminGuard)
-  async getGovInvoiceWordSetting() {
-    const now = new Date();
-    const timestamp = Math.floor(now.getTime() / 1000);
-    const taiwanNow = toPlatformTime(now);
-    const invoiceTerm = Math.floor(taiwanNow.getUTCMonth() / 2) + 1;
-    const rocYear = (taiwanNow.getUTCFullYear() - 1911).toString();
-
-    const { InvoiceInfo: govInvoiceInfo } =
-      await this.ecpayGetGovInvoiceWordSettingService.getGovInvoiceWordSetting({
-        rocYear,
-        timestamp,
-      });
-
-    const { InvoiceInfo: existingInvoiceInfo } =
-      await this.ecpayGetInvoiceWordSettingService.getInvoiceWordSetting({
-        invoiceTerm,
-        rocYear,
-        timestamp,
-      });
-
-    // const existingKeySet = new Set(
-    //   existingInvoiceInfo.map(
-    //     ({ InvoiceTerm, InvType, InvoiceHeader, InvoiceStart, InvoiceEnd }) =>
-    //       JSON.stringify({
-    //         InvoiceTerm,
-    //         InvType,
-    //         InvoiceHeader,
-    //         InvoiceStart,
-    //         InvoiceEnd,
-    //       }),
-    //   ),
-    // );
-
-    // console.log(existingKeySet);
-
-    // const toBeAdded = govInvoiceInfo
-    //   .filter(({ InvoiceTerm }) => Number(InvoiceTerm) === invoiceTerm)
-    //   .filter(
-    //     ({ InvoiceTerm, InvType, InvoiceHeader, InvoiceStart, InvoiceEnd }) =>
-    //       !existingKeySet.has(
-    //         JSON.stringify({
-    //           InvoiceTerm,
-    //           InvType,
-    //           InvoiceHeader,
-    //           InvoiceStart,
-    //           InvoiceEnd,
-    //         }),
-    //       ),
-    //   );
-
-    const makeKey = (item: {
-      InvoiceTerm: string | number;
-      InvType: string;
-      InvoiceHeader: string;
-      InvoiceStart: string;
-      InvoiceEnd: string;
-    }) =>
-      JSON.stringify({
-        InvoiceTerm: String(item.InvoiceTerm),
-        InvType: String(item.InvType),
-        InvoiceHeader: String(item.InvoiceHeader),
-        InvoiceStart: String(item.InvoiceStart),
-        InvoiceEnd: String(item.InvoiceEnd),
-      });
-
-    const existingMap = new Map(
-      existingInvoiceInfo.map((item) => [
-        makeKey({
-          InvoiceTerm: item.InvoiceTerm,
-          InvType: item.InvType,
-          InvoiceHeader: item.InvoiceHeader,
-          InvoiceStart: item.InvoiceStart,
-          InvoiceEnd: item.InvoiceEnd,
-        }),
-        item.TrackID,
-      ]),
-    );
-
-    const toBeAdded = govInvoiceInfo
-      .filter(({ InvoiceTerm }) => Number(InvoiceTerm) === invoiceTerm)
-      .map((item) => {
-        const key = makeKey(item);
-        console.log(item, key);
-        const trackID = existingMap.get(key);
-        return {
-          ...item,
-          TrackID: trackID,
-        };
-      });
-
-    // console.log(existingInvoiceInfo);
-
-    if (toBeAdded.length === 0) return;
-
-    // const addResults = [];
-
-    // for (const info of toBeAdded) {
-    //   const result =
-    //     await this.ecpayAddInvoiceWordSettingService.addInvoiceWordSetting({
-    //       invoiceInfo: info,
-    //       rocYear,
-    //       timestamp,
-    //     });
-    //   console.log(result);
-
-    // const updateResult =
-    //   await this.ecpayUpdateInvoiceWordStatusService.updateInvoiceWordStatus(
-    //     result.TrackID,
-    //   );
-
-    // console.log(updateResult);
-
-    // addResults.push({
-    //   InvoiceHeader: info.InvoiceHeader,
-    //   AddResult: result,
-    //   UpdateResult: updateResult,
-    // });
-    // }
-
-    // return addResults;
-  }
-
-  @Post('issue-invoice')
-  @UseGuards(AdminGuard)
-  issueInvoice(@Body() dto: IssueInvoiceEcpayDecryptedRequestDto) {
-    return this.ecpayIssueInvoiceService.issueInvoice(dto);
+  syncInvoiceWordSettings(): Promise<SyncInvoiceWordSettingResultDto[]> {
+    return this.ecpaySyncInvoiceWordSettingsService.sync();
   }
 }

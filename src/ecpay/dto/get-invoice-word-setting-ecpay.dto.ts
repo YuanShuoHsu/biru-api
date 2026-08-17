@@ -81,7 +81,7 @@ export class GetInvoiceWordSettingEcpayEncryptedRequestDto {
   Data: string;
 }
 
-enum GetInvoiceWordSettingEcpayInvoiceTerm {
+export enum GetInvoiceWordSettingEcpayInvoiceTerm {
   All = 0,
   JanFeb = 1,
   MarApr = 2,
@@ -91,7 +91,7 @@ enum GetInvoiceWordSettingEcpayInvoiceTerm {
   NovDec = 6,
 }
 
-enum GetInvoiceWordSettingEcpayUseStatus {
+export enum GetInvoiceWordSettingEcpayUseStatus {
   All = 0,
   NotEnabled = 1,
   InUse = 2,

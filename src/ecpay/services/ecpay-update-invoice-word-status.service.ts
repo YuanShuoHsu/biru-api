@@ -7,7 +7,7 @@ import {
 
 import { EcpayMode } from '../types/ecpay.types';
 
-import { decryptData, encryptData } from '../utils/ecpay';
+import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
@@ -15,8 +15,8 @@ import { ConfigService } from '@nestjs/config';
 
 const getEcpayUpdateInvoiceWordStatusApiUrl = (mode: EcpayMode): string => {
   return mode === 'Test'
-    ? 'https://einvoice-stage.ecpay.com.tw/B2CInvoice/UpdateInvoiceWordSetting'
-    : 'https://einvoice.ecpay.com.tw/B2CInvoice/UpdateInvoiceWordSetting';
+    ? 'https://einvoice-stage.ecpay.com.tw/B2CInvoice/UpdateInvoiceWordStatus'
+    : 'https://einvoice.ecpay.com.tw/B2CInvoice/UpdateInvoiceWordStatus';
 };
 
 @Injectable()
@@ -78,7 +78,7 @@ export class EcpayUpdateInvoiceWordStatusService {
     );
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
-    const decoded = decodeURIComponent(decrypted);
+    const decoded = decodeUrlEncoded(decrypted);
     const parsed = JSON.parse(
       decoded,
     ) as UpdateInvoiceWordStatusEcpayDecryptedResponseDto;

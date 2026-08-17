@@ -24,6 +24,7 @@ export interface OrderTransitionRule {
   direction: OrderTransitionDirection;
   extraSet?: () => PgUpdateSetSource<typeof order>;
   fromStatus: OrderFlowStatus;
+  recordsPayment?: boolean;
   restoresCoupon?: boolean;
   toStatus: OrderStatus;
 }
@@ -34,6 +35,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     direction: 'advance',
     extraSet: () => ({ ...POINTS_SNAPSHOT_SET, paymentDate: new Date() }),
     fromStatus: 'OrderPaymentDue',
+    recordsPayment: true,
     toStatus: 'OrderProcessing',
   },
   {

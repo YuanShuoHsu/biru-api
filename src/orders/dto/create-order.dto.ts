@@ -46,15 +46,15 @@ export class CreateOrderInvoiceDto {
   @IsEnum(['personal', 'company', 'donate'])
   type: 'personal' | 'company' | 'donate';
 
-  @ApiPropertyOptional({ enum: ['individual', 'mobile', 'certificate'] })
+  @ApiPropertyOptional({ enum: ['mobile', 'certificate'] })
   @IsOptional()
-  @IsEnum(['individual', 'mobile', 'certificate'])
-  carrierType?: 'individual' | 'mobile' | 'certificate';
+  @IsEnum(['mobile', 'certificate'])
+  carrierType?: 'mobile' | 'certificate';
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  carruerNum?: string;
+  carrierNum?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -17,6 +17,9 @@ export const encryptData = (
   return encrypted;
 };
 
+export const decodeUrlEncoded = (value: string): string =>
+  decodeURIComponent(value.replace(/\+/g, '%20'));
+
 export const decryptData = (
   base64Data: string,
   hashKey: string,

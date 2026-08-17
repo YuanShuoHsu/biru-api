@@ -101,17 +101,17 @@ enum IssueInvoiceEcpayClearanceMark {
   ZeroTaxRate = '2',
 }
 
-enum IssueInvoiceEcpayPrint {
+export enum IssueInvoiceEcpayPrint {
   No = '0',
   Yes = '1',
 }
 
-enum IssueInvoiceEcpayDonation {
+export enum IssueInvoiceEcpayDonation {
   No = '0',
   Yes = '1',
 }
 
-enum IssueInvoiceEcpayCarrierType {
+export enum IssueInvoiceEcpayCarrierType {
   None = '',
   EcpayCarrier = '1',
   Citizen = '2',
@@ -120,7 +120,7 @@ enum IssueInvoiceEcpayCarrierType {
   iPass = '5',
 }
 
-enum IssueInvoiceEcpayTaxType {
+export enum IssueInvoiceEcpayTaxType {
   Taxable = '1',
   ZeroRated = '2',
   Exempted = '3',
@@ -157,12 +157,12 @@ enum IssueInvoiceEcpayItemTaxType {
   Exempt = '3',
 }
 
-enum IssueInvoiceEcpayInvType {
+export enum IssueInvoiceEcpayInvType {
   CommonTax = '07',
   SpecialTax = '08',
 }
 
-enum IssueInvoiceEcpayVatType {
+export enum IssueInvoiceEcpayVatType {
   TaxIncluded = '1',
   TaxExcluded = '0',
 }

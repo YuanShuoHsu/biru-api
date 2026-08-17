@@ -25,6 +25,7 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
+import { invoice } from 'src/db/schema/invoices';
 import type { OrderStatus } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
 import { member, organization } from 'src/db/schema/organizations';
@@ -44,6 +45,7 @@ import {
 } from 'src/common/utils/data-grid-filters';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
+import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 
 import {
@@ -216,7 +218,26 @@ export class OrdersService {
         )
         .returning();
 
-      return { ...created, items };
+      const [createdInvoice] =
+        dto.invoice && total > 0
+          ? await tx
+              .insert(invoice)
+              .values({
+                id: randomUUID(),
+                orderId,
+                type: dto.invoice.type,
+                carrierType: dto.invoice.carrierType,
+                carrierNum: dto.invoice.carrierNum,
+                email: dto.invoice.email,
+                customerIdentifier: dto.invoice.customerIdentifier,
+                customerName: dto.invoice.customerName,
+                customerAddr: dto.invoice.customerAddr,
+                donateCode: dto.invoice.donateCode,
+              })
+              .returning()
+          : [null];
+
+      return { ...created, invoice: createdInvoice, items };
     });
 
     this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
@@ -301,7 +322,7 @@ export class OrdersService {
         orderBy,
         limit,
         offset,
-        with: { items: true },
+        with: { invoice: true, items: true },
       }),
       this.db.select({ total: count() }).from(order).where(where),
     ]);
@@ -501,6 +522,10 @@ export class OrdersService {
         organizationId: org.id,
       });
 
+    for (const { current, rule } of planned)
+      if (rule.recordsPayment)
+        this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: current.id });
+
     return updated;
   }
 
@@ -590,12 +615,16 @@ export class OrdersService {
       return updated;
     });
 
-    if (updated)
-      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-        orderId: updated.id,
-        orderStatus,
-        organizationId: updated.sellerId,
-      });
+    if (!updated) return;
+
+    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+      orderId: updated.id,
+      orderStatus,
+      organizationId: updated.sellerId,
+    });
+
+    if (succeeded)
+      this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: updated.id });
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)

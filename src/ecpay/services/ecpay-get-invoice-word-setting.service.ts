@@ -1,14 +1,15 @@
 import { firstValueFrom } from 'rxjs';
 
-import { GetGovInvoiceWordSettingEcpayInvoiceTerm } from '../dto/get-gov-invoice-word-setting-ecpay.dto';
 import {
   GetInvoiceWordSettingEcpayDecryptedResponseDto,
   GetInvoiceWordSettingEcpayEncryptedResponseDto,
+  GetInvoiceWordSettingEcpayInvoiceTerm,
+  GetInvoiceWordSettingEcpayUseStatus,
 } from '../dto/get-invoice-word-setting-ecpay.dto';
 
 import { EcpayMode } from '../types/ecpay.types';
 
-import { decryptData, encryptData } from '../utils/ecpay';
+import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
@@ -20,7 +21,7 @@ const getEcpayGetInvoiceWordSettingApiUrl = (mode: EcpayMode): string =>
     : 'https://einvoice.ecpay.com.tw/B2CInvoice/GetInvoiceWordSetting';
 
 interface GetInvoiceWordSettingParams {
-  invoiceTerm: GetGovInvoiceWordSettingEcpayInvoiceTerm;
+  invoiceTerm: GetInvoiceWordSettingEcpayInvoiceTerm;
   timestamp: number;
   rocYear: string;
 }
@@ -55,12 +56,9 @@ export class EcpayGetInvoiceWordSettingService {
       MerchantID: this.merchantId,
       InvoiceYear: rocYear,
       InvoiceTerm: invoiceTerm,
-      UseStatus: 3,
+      UseStatus: GetInvoiceWordSettingEcpayUseStatus.All,
       InvoiceCategory: 1,
       InvType: '07',
-      InvoiceHeader: 'AA',
-      //   ProductServiceId: '',
-      //   InvoiceHeader: '',
     };
 
     const json = JSON.stringify(payload);
@@ -87,7 +85,7 @@ export class EcpayGetInvoiceWordSettingService {
     );
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
-    const decoded = decodeURIComponent(decrypted);
+    const decoded = decodeUrlEncoded(decrypted);
     const parsed = JSON.parse(
       decoded,
     ) as GetInvoiceWordSettingEcpayDecryptedResponseDto;

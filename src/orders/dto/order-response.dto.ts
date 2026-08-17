@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { Invoice } from 'src/db/schema/invoices';
+import {
+  invoiceCarrierTypeEnum,
+  invoiceStatusEnum,
+  invoiceTypeEnum,
+  paymentStatusEnum,
+  type InvoiceCarrierType,
+  type InvoiceStatus,
+  type InvoiceType,
+  type PaymentStatus,
+} from 'src/db/schema/invoices';
 import {
   orderModeEnum,
   orderStatusEnum,
@@ -50,6 +59,40 @@ export class OrderCustomerDto {
   @ApiPropertyOptional() telephone?: string | null;
 }
 
+// https://schema.org/Invoice
+export class OrderInvoiceDto {
+  @ApiProperty() id: string;
+  @ApiProperty() orderId: string;
+  @ApiProperty({ enum: invoiceTypeEnum.enumValues, enumName: 'InvoiceType' })
+  type: InvoiceType;
+  @ApiPropertyOptional({
+    enum: invoiceCarrierTypeEnum.enumValues,
+    enumName: 'InvoiceCarrierType',
+  })
+  carrierType?: InvoiceCarrierType | null;
+  @ApiPropertyOptional() carrierNum?: string | null;
+  @ApiPropertyOptional() email?: string | null;
+  @ApiPropertyOptional() customerIdentifier?: string | null;
+  @ApiPropertyOptional() customerName?: string | null;
+  @ApiPropertyOptional() customerAddr?: string | null;
+  @ApiPropertyOptional() donateCode?: string | null;
+  @ApiProperty({
+    enum: paymentStatusEnum.enumValues,
+    enumName: 'InvoicePaymentStatus',
+  })
+  paymentStatus: PaymentStatus;
+  @ApiProperty({
+    enum: invoiceStatusEnum.enumValues,
+    enumName: 'InvoiceStatus',
+  })
+  status: InvoiceStatus;
+  @ApiPropertyOptional() invoiceNumber?: string | null;
+  @ApiPropertyOptional() invoiceDate?: Date | null;
+  @ApiPropertyOptional() randomNumber?: string | null;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
+}
+
 export class OrderResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() sellerId: string;
@@ -73,7 +116,8 @@ export class OrderResponseDto {
   @ApiPropertyOptional() discountCurrency?: string | null;
   @ApiProperty() subtotal: string;
   @ApiProperty() total: string;
-  @ApiPropertyOptional() invoice?: Invoice | null;
+  @ApiPropertyOptional({ type: OrderInvoiceDto })
+  invoice?: OrderInvoiceDto | null;
   @ApiProperty({ type: [OrderItemResponseDto] }) items: OrderItemResponseDto[];
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;

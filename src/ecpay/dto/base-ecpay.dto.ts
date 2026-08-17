@@ -127,7 +127,6 @@ export class BaseEcpayDto {
   @IsDefined()
   @IsNotEmpty()
   @IsString()
-  @Length(1, 200)
   TradeDesc: string;
 
   @ApiProperty({
@@ -138,10 +137,11 @@ export class BaseEcpayDto {
     maxLength: 400,
     minLength: 1,
   })
+  // 長度不在這裡擋：品項名稱長度由購物車內容決定，擋下來等於車子放太多就付不了款，
+  // 改由 aioCheckOutAll 在算 CheckMacValue 前截斷
   @IsDefined()
   @IsNotEmpty()
   @IsString()
-  @Length(1, 400)
   ItemName: string;
 
   @ApiProperty({

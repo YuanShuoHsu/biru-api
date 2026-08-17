@@ -44,6 +44,7 @@
     "drizzle-orm": "^0.45.2",
     "hbs": "^4.2.0",
     "helmet": "^8.1.0",
+    "libphonenumber-js": "^1.13.11",
     "nestjs-cls": "^6.2.0",
     "nestjs-i18n": "^10.6.0",
     "nodemailer": "^7.0.12",
