@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
@@ -9,6 +9,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 import {
   restrictedDietEnum,
@@ -25,10 +26,11 @@ export class CreateMenuItemDto {
   @IsObject()
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsObject()
-  description?: LocalizedText;
+  @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
+  description?: LocalizedText | null;
 
   @ApiPropertyOptional()
   @IsOptional()

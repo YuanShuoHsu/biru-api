@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { Transform } from 'class-transformer';
 import { IsObject, IsOptional, IsString } from 'class-validator';
+import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 
 export class CreateMenuSectionDto {
@@ -13,10 +15,11 @@ export class CreateMenuSectionDto {
   @IsObject()
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsObject()
-  description?: LocalizedText;
+  @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
+  description?: LocalizedText | null;
 
   @ApiPropertyOptional()
   @IsOptional()
