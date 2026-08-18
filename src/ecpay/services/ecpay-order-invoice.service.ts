@@ -292,7 +292,6 @@ export class EcpayOrderInvoiceService {
 
       return {
         printHtml: await this.ecpayInvoicePrintService.getPrintHtml(printUrl),
-        printUrl,
       };
     } catch (error) {
       if (claimed)
