@@ -1,12 +1,14 @@
 import {
   IsDefined,
+  IsIn,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Length,
 } from 'class-validator';
 
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum InvoicePrintEcpayPrintStyle {
   SinglePage = 1,
@@ -14,6 +16,11 @@ export enum InvoicePrintEcpayPrintStyle {
   ThermalPaper = 3,
   B2BA4 = 4,
   B2BA5 = 5,
+}
+
+export enum InvoicePrintEcpayShowingDetail {
+  Show = 1,
+  Hide = 2,
 }
 
 export class InvoicePrintEcpayDecryptedRequestDto {
@@ -68,6 +75,30 @@ export class InvoicePrintEcpayDecryptedRequestDto {
   @IsDefined()
   @IsInt()
   PrintStyle: InvoicePrintEcpayPrintStyle;
+
+  @ApiPropertyOptional({
+    description: `是否顯示補印字樣
+帶 Y 時抬頭印「電子發票證明聯補印」，僅 PrintStyle 為 1、2、3 時有效。
+未帶時印為「電子發票證明聯」。`,
+    enum: ['Y'],
+    example: 'Y',
+  })
+  @IsOptional()
+  @IsIn(['Y'])
+  IsReprintInvoice?: 'Y';
+
+  @ApiPropertyOptional({
+    description: `是否顯示明細
+1：顯示明細
+2：隱藏明細
+帶統編的發票一律顯示，此參數無效。
+未帶時：帶統編顯示、不帶統編不顯示。`,
+    enum: InvoicePrintEcpayShowingDetail,
+    example: InvoicePrintEcpayShowingDetail.Show,
+  })
+  @IsOptional()
+  @IsInt()
+  IsShowingDetail?: InvoicePrintEcpayShowingDetail;
 }
 
 export class InvoicePrintEcpayEncryptedResponseDto {

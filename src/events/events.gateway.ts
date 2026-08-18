@@ -82,11 +82,10 @@ export class EventsGateway {
     invoiceNumber,
     orderId,
     organizationId,
-    printUrl,
   }: InvoicePrintReadyEvent) {
     this.server
       .to(ordersBoardRoom(organizationId))
-      .emit('invoicePrintReady', { invoiceNumber, orderId, printUrl });
+      .emit('invoicePrintReady', { invoiceNumber, orderId });
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)

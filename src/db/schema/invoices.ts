@@ -60,6 +60,8 @@ export const invoice = pgTable(
     invoiceNumber: text('invoice_number'),
     invoiceDate: timestamp('invoice_date'),
     randomNumber: text('random_number'),
+    // 財政部規定證明聯只能列印一次，之後只能開補印聯；沒有這個時間戳就分不出正本與補印
+    printedAt: timestamp('printed_at'),
     ...timestamps,
   },
   (table) => [index('invoice_orderId_idx').on(table.orderId)],

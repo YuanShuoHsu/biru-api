@@ -89,6 +89,7 @@ export class OrderInvoiceDto {
   @ApiPropertyOptional() invoiceNumber?: string | null;
   @ApiPropertyOptional() invoiceDate?: Date | null;
   @ApiPropertyOptional() randomNumber?: string | null;
+  @ApiPropertyOptional() printedAt?: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

@@ -4,6 +4,7 @@ import {
   InvoicePrintEcpayDecryptedResponseDto,
   InvoicePrintEcpayEncryptedResponseDto,
   InvoicePrintEcpayPrintStyle,
+  InvoicePrintEcpayShowingDetail,
 } from '../dto/invoice-print-ecpay.dto';
 
 import { EcpayMode } from '../types/ecpay.types';
@@ -42,12 +43,20 @@ export class EcpayInvoicePrintService {
   }
 
   /** 回傳的列印網址自呼叫起僅 1 小時內有效，不可存起來重用 */
-  async getPrintUrl(invoiceNumber: string, invoiceDate: Date): Promise<string> {
+  async getPrintUrl(
+    invoiceNumber: string,
+    invoiceDate: Date,
+    isReprint: boolean,
+  ): Promise<string> {
     const timestamp = Math.floor(Date.now() / 1000);
 
     const json = JSON.stringify({
       InvoiceDate: formatInvoiceDate(invoiceDate),
       InvoiceNo: invoiceNumber,
+      // 只有無「補印」字樣的證明聯能對獎，重複印出正本要由營業人賠付重複中獎金額
+      IsReprintInvoice: isReprint ? 'Y' : undefined,
+      // 熱感應紙是顧客唯一拿得到的紙本，不顯示明細就無從核對品項；帶統編時綠界一律顯示，此值不生效
+      IsShowingDetail: InvoicePrintEcpayShowingDetail.Show,
       MerchantID: this.merchantId,
       PrintStyle: InvoicePrintEcpayPrintStyle.ThermalPaper,
     });
@@ -83,9 +92,21 @@ export class EcpayInvoicePrintService {
 
     return InvoiceHtml;
   }
+
+  async getPrintHtml(printUrl: string): Promise<string> {
+    const { data } = await firstValueFrom(
+      this.httpService.get<string>(printUrl, { responseType: 'text' }),
+    );
+
+    const { origin } = new URL(printUrl);
+
+    return data.replace(
+      /<head[^>]*>/i,
+      (head) => `${head}<base href="${origin}/" />`,
+    );
+  }
 }
 
-// 綠界比對的是台灣時間的日期，用 UTC 取會在午夜前後差一天而查無資料
 const formatInvoiceDate = (invoiceDate: Date): string =>
   new Intl.DateTimeFormat('en-CA', {
     day: '2-digit',

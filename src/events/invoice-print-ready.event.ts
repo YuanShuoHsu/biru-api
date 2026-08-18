@@ -4,5 +4,4 @@ export interface InvoicePrintReadyEvent {
   invoiceNumber: string;
   orderId: string;
   organizationId: string;
-  printUrl: string;
 }

@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto';
@@ -10,6 +10,7 @@ import {
   IssueInvoiceEcpayTaxType,
   IssueInvoiceEcpayVatType,
 } from '../dto/issue-invoice-ecpay.dto';
+import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto';
 
 import { EcpayInvoicePrintService } from './ecpay-invoice-print.service';
 import { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service';
@@ -195,7 +196,11 @@ export class EcpayOrderInvoiceService {
       .returning();
 
     if (isPrintable(updated))
-      await this.pushPrintUrl(updated, found.sellerId, orderId);
+      this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
+        invoiceNumber: updated.invoiceNumber,
+        orderId,
+        organizationId: found.sellerId,
+      } satisfies InvoicePrintReadyEvent);
 
     return updated;
   }
@@ -223,31 +228,34 @@ export class EcpayOrderInvoiceService {
     }
   }
 
-  /** 取列印網址失敗不能影響開票結果，發票已經開立，之後仍可由後台補印 */
-  private async pushPrintUrl(
-    data: PrintableInvoice,
-    organizationId: string,
-    orderId: string,
-  ): Promise<void> {
-    try {
-      this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
-        invoiceNumber: data.invoiceNumber,
-        orderId,
-        organizationId,
-        printUrl: await this.getPrintUrl(data),
-      } satisfies InvoicePrintReadyEvent);
-    } catch (error) {
-      this.logger.error(
-        `Failed to get print url for invoice ${data.invoiceNumber}`,
-        error instanceof Error ? error.stack : String(error),
-      );
-    }
-  }
-
-  async getPrintUrlForOrder(
+  async getPrintForOrder(
     organizationSlug: string,
     orderId: string,
-  ): Promise<string> {
+  ): Promise<OrderInvoicePrintDto> {
+    return this.getPrint(
+      await this.findPrintableInvoice(organizationSlug, orderId),
+    );
+  }
+
+  async resetPrintForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<Invoice> {
+    const data = await this.findPrintableInvoice(organizationSlug, orderId);
+
+    const [updated] = await this.db
+      .update(invoice)
+      .set({ printedAt: null })
+      .where(eq(invoice.id, data.id))
+      .returning();
+
+    return updated;
+  }
+
+  private async findPrintableInvoice(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<PrintableInvoice> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
@@ -263,14 +271,38 @@ export class EcpayOrderInvoiceService {
     if (!isPrintable(found.invoice))
       throw new ConflictException('Invoice is not printable');
 
-    return this.getPrintUrl(found.invoice);
+    return found.invoice;
   }
 
-  private getPrintUrl(data: PrintableInvoice): Promise<string> {
-    return this.ecpayInvoicePrintService.getPrintUrl(
-      data.invoiceNumber,
-      data.invoiceDate,
-    );
+  private async getPrint(
+    data: PrintableInvoice,
+  ): Promise<OrderInvoicePrintDto> {
+    const [claimed] = await this.db
+      .update(invoice)
+      .set({ printedAt: new Date() })
+      .where(and(eq(invoice.id, data.id), isNull(invoice.printedAt)))
+      .returning();
+
+    try {
+      const printUrl = await this.ecpayInvoicePrintService.getPrintUrl(
+        data.invoiceNumber,
+        data.invoiceDate,
+        !claimed,
+      );
+
+      return {
+        printHtml: await this.ecpayInvoicePrintService.getPrintHtml(printUrl),
+        printUrl,
+      };
+    } catch (error) {
+      if (claimed)
+        await this.db
+          .update(invoice)
+          .set({ printedAt: null })
+          .where(eq(invoice.id, data.id));
+
+      throw error;
+    }
   }
 
   private buildPayload(found: {
