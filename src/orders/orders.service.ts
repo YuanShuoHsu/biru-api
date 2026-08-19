@@ -9,7 +9,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 import {
   Column,
@@ -26,7 +25,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { invoice } from 'src/db/schema/invoices';
-import type { OrderStatus } from 'src/db/schema/orders';
+import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
 import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -580,8 +579,8 @@ export class OrdersService {
     return { ...found, confirmationNumber };
   }
 
-  async recordPaymentResult(body: Record<string, string>): Promise<void> {
-    if (body.SimulatePaid === '1') return;
+  async recordPaymentResult(body: Record<string, string>): Promise<boolean> {
+    if (body.SimulatePaid === '1') return false;
 
     const succeeded = body.RtnCode === '1';
     const orderStatus: OrderStatus = succeeded
@@ -623,7 +622,13 @@ export class OrdersService {
       return updated;
     });
 
-    if (!updated) return;
+    if (!updated) {
+      this.logger.warn(
+        `綠界付款通知未對應到待付款訂單：${body.MerchantTradeNo}`,
+      );
+
+      return false;
+    }
 
     this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
       orderId: updated.id,
@@ -633,18 +638,43 @@ export class OrdersService {
 
     if (succeeded)
       this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: updated.id });
+
+    return true;
   }
 
-  @Cron(CronExpression.EVERY_5_MINUTES)
-  async cancelUnpaidOrders(): Promise<void> {
+  async findExpiredUnpaidOrders(): Promise<
+    {
+      confirmationNumber: string | null;
+      id: string;
+      paymentMethod: PaymentMethod;
+    }[]
+  > {
+    return this.db
+      .select({
+        confirmationNumber: order.confirmationNumber,
+        id: order.id,
+        paymentMethod: order.paymentMethod,
+      })
+      .from(order)
+      .where(
+        and(
+          eq(order.orderStatus, 'OrderPaymentDue'),
+          lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
+        ),
+      );
+  }
+
+  async cancelOrders(orderIds: string[]): Promise<void> {
+    if (!orderIds.length) return;
+
     const cancelled = await this.db.transaction(async (tx) => {
       const cancelled = await tx
         .update(order)
         .set({ orderStatus: 'OrderCancelled' })
         .where(
           and(
+            inArray(order.id, orderIds),
             eq(order.orderStatus, 'OrderPaymentDue'),
-            lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
           ),
         )
         .returning({

@@ -75,7 +75,7 @@ export class EcpayGetInvoiceWordSettingService {
     };
 
     const {
-      data: { Data },
+      data: { Data, TransCode, TransMsg },
     } = await firstValueFrom(
       this.httpService.post<GetInvoiceWordSettingEcpayEncryptedResponseDto>(
         this.apiUrl,
@@ -83,6 +83,8 @@ export class EcpayGetInvoiceWordSettingService {
         { headers: { 'Content-Type': 'application/json' } },
       ),
     );
+
+    if (TransCode !== 1) throw new Error(TransMsg);
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
     const decoded = decodeUrlEncoded(decrypted);

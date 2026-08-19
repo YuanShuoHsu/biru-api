@@ -603,6 +603,20 @@
       "when": 1787018274779,
       "tag": "0085_lame_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1787102846482,
+      "tag": "0086_wealthy_night_thrasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1787103642530,
+      "tag": "0087_true_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }

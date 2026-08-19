@@ -172,18 +172,134 @@ export class PointsService {
       .map((r) => r.id);
 
     if (removableIds.length > 0)
-      await this.db.delete(pointTransaction).where(
-        and(
-          inArray(pointTransaction.id, removableIds),
-          // 重驗仍未動用：與併發兌換有 race；落空者下次 sync 走清空餘點路徑
-          eq(pointTransaction.remainingPoints, pointTransaction.points),
-        ),
-      );
-    if (drainableIds.length > 0)
+      await this.db
+        .delete(pointTransaction)
+        .where(
+          and(
+            inArray(pointTransaction.id, removableIds),
+            eq(pointTransaction.remainingPoints, pointTransaction.points),
+          ),
+        );
+    for (const id of drainableIds) {
+      const target = revocable.find((r) => r.id === id)!;
+
       await this.db
         .update(pointTransaction)
-        .set({ remainingPoints: 0, updatedAt: new Date() })
-        .where(inArray(pointTransaction.id, drainableIds));
+        .set({
+          remainingPoints: target.remainingPoints - target.points,
+          updatedAt: new Date(),
+        })
+        .where(eq(pointTransaction.id, id));
+    }
+  }
+
+  async revokeForOrder(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    {
+      orderBecomesTerminal,
+      orderId,
+      ratio,
+    }: { orderBecomesTerminal: boolean; orderId: string; ratio: number },
+  ): Promise<void> {
+    const [earned] = await tx
+      .select({
+        id: pointTransaction.id,
+        points: pointTransaction.points,
+        remainingPoints: pointTransaction.remainingPoints,
+        userId: pointTransaction.userId,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.orderId, orderId),
+          eq(pointTransaction.type, 'earn'),
+        ),
+      )
+      .for('update');
+
+    if (!earned) {
+      if (orderBecomesTerminal) return;
+
+      const pending = await this.calculatePendingEarn(tx, orderId);
+      if (!pending || pending.points <= 0) return;
+
+      const revoking = Math.round(pending.points * ratio);
+      if (revoking <= 0) return;
+
+      await tx.insert(pointTransaction).values({
+        id: randomUUID(),
+        orderId,
+        organizationId: pending.organizationId,
+        points: -revoking,
+        remainingPoints: -revoking,
+        type: 'revoke',
+        userId: pending.userId,
+      });
+
+      return;
+    }
+
+    const revoking = Math.round(earned.points * ratio);
+    if (revoking <= 0) return;
+
+    const deductible = Math.max(earned.remainingPoints, 0);
+    const deducted = Math.min(deductible, revoking);
+
+    if (deducted > 0)
+      await tx
+        .update(pointTransaction)
+        .set({
+          remainingPoints: earned.remainingPoints - deducted,
+          updatedAt: new Date(),
+        })
+        .where(eq(pointTransaction.id, earned.id));
+
+    await tx.insert(pointTransaction).values({
+      id: randomUUID(),
+      orderId,
+      points: -revoking,
+      // 已被兌換掉而收不回來的部分掛在這裡，餘額因此可能為負
+      remainingPoints: -(revoking - deducted),
+      type: 'revoke',
+      userId: earned.userId,
+    });
+  }
+
+  /** 尚未 lazy 入點的訂單，依付款當下的快照算出它應得多少點 */
+  private async calculatePendingEarn(
+    tx: Pick<DrizzleDB, 'select'>,
+    orderId: string,
+  ): Promise<{
+    organizationId: string;
+    points: number;
+    userId: string;
+  } | null> {
+    const [found] = await tx
+      .select({
+        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
+        discount: order.discount,
+        organizationId: order.sellerId,
+        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        userId: order.userId,
+      })
+      .from(order)
+      .innerJoin(organization, eq(order.sellerId, organization.id))
+      .leftJoin(orderItem, eq(orderItem.orderId, order.id))
+      .where(eq(order.id, orderId))
+      .groupBy(order.id, organization.id);
+
+    if (!found?.userId) return null;
+
+    const amountPerPoint = Number(found.amountPerPoint);
+    if (!amountPerPoint) return null;
+
+    const total = Number(found.subtotal) - Number(found.discount || 0);
+
+    return {
+      organizationId: found.organizationId,
+      points: Math.floor(total / amountPerPoint),
+      userId: found.userId,
+    };
   }
 
   private notExpired() {
@@ -340,7 +456,6 @@ export class PointsService {
           throw new BadRequestException(this.t('perUserLimitReached'));
       }
 
-      // FIFO 扣點：全店家合併餘額、先到期者先扣；鎖定餘點避免併發重複扣
       const earns = await tx
         .select({
           id: pointTransaction.id,
@@ -350,8 +465,7 @@ export class PointsService {
         .where(
           and(
             eq(pointTransaction.userId, userId),
-            eq(pointTransaction.type, 'earn'),
-            gt(pointTransaction.remainingPoints, 0),
+            inArray(pointTransaction.type, ['earn', 'revoke']),
             this.notExpired(),
           ),
         )
@@ -368,6 +482,7 @@ export class PointsService {
       let deficit = pointsCost;
       for (const earn of earns) {
         if (deficit === 0) break;
+        if (earn.remainingPoints <= 0) continue;
         const consumed = Math.min(earn.remainingPoints, deficit);
         await tx
           .update(pointTransaction)

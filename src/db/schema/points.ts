@@ -18,6 +18,7 @@ import { user } from './users';
 export const pointTransactionTypeEnum = pgEnum('point_transaction_type', [
   'earn',
   'redeem',
+  'revoke',
 ]);
 export type PointTransactionType =
   (typeof pointTransactionTypeEnum.enumValues)[number];
@@ -26,18 +27,14 @@ export const pointTransaction = pgTable(
   'point_transaction',
   {
     id: text('id').primaryKey(),
-    // earn 的到期日；null = 永久有效
     expiresAt: timestamp('expires_at'),
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
     }),
-    // earn 的入點店家；redeem 屬品牌層，為 null
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade',
     }),
-    // earn 為正、redeem 為負
     points: integer('points').notNull(),
-    // earn 尚未被兌換消耗的點數（FIFO 扣點用）；redeem 恆為 0
     remainingPoints: integer('remaining_points').notNull().default(0),
     type: pointTransactionTypeEnum('type').notNull(),
     userCouponId: text('user_coupon_id').references(() => userCoupon.id, {
@@ -53,7 +50,6 @@ export const pointTransaction = pgTable(
       table.userId,
       table.organizationId,
     ),
-    // 每張訂單只入點一次（lazy 補入的冪等鍵）
     uniqueIndex('pointTransaction_orderId_earn_unique')
       .on(table.orderId)
       .where(sql`"type" = 'earn'`),

@@ -1,5 +1,4 @@
 import { firstValueFrom } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   IssueInvoiceEcpayDecryptedRequestDto,
@@ -43,18 +42,13 @@ export class EcpayIssueInvoiceService {
   }
 
   async issueInvoice(
-    dto: Omit<
-      IssueInvoiceEcpayDecryptedRequestDto,
-      'MerchantID' | 'RelateNumber'
-    >,
+    dto: Omit<IssueInvoiceEcpayDecryptedRequestDto, 'MerchantID'>,
   ): Promise<IssueInvoiceEcpayDecryptedResponseDto> {
     const timestamp = Math.floor(Date.now() / 1000);
-    const relateNumber = uuidv4().replace(/-/g, '');
 
     const payload = {
       ...dto,
       MerchantID: this.merchantId,
-      RelateNumber: relateNumber,
     };
 
     const json = JSON.stringify(payload);

@@ -7,32 +7,38 @@ import {
   CheckoutEcpayResponseDto,
 } from './dto/checkout-ecpay.dto';
 import { ReturnEcpayDto } from './dto/return-ecpay.dto';
+import { SyncInvoiceWordSettingResultDto } from './dto/sync-invoice-word-setting-result.dto';
 
 import { OrdersService } from '../orders/orders.service';
 
 import { EcpayBaseService } from './services/ecpay-base.service';
+import { EcpayCallbackLogService } from './services/ecpay-callback-log.service';
 import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
-import type { SyncInvoiceWordSettingResultDto } from './services/ecpay-sync-invoice-word-settings.service';
 import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service';
 
 import {
   Body,
   Controller,
+  Logger,
   Post,
   Query,
   Redirect,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiBody, ApiCreatedResponse } from '@nestjs/swagger';
+import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 @Controller('ecpay')
 export class EcpayController {
+  private readonly logger = new Logger(EcpayController.name);
+
   constructor(
     private readonly ecpayBaseService: EcpayBaseService,
+    private readonly ecpayCallbackLogService: EcpayCallbackLogService,
     private readonly ecpayCheckBarcodeService: EcpayCheckBarcodeService,
     private readonly ecpaySyncInvoiceWordSettingsService: EcpaySyncInvoiceWordSettingsService,
     private readonly ordersService: OrdersService,
@@ -53,6 +59,31 @@ export class EcpayController {
     }
 
     return fallbackUrl;
+  }
+
+  private async handleCallback(
+    endpoint: 'return' | 'result',
+    body: Record<string, string>,
+    macResult: '1|OK' | '0|FAIL',
+  ): Promise<void> {
+    const macValid = macResult === '1|OK';
+    const logId = await this.ecpayCallbackLogService.record({
+      endpoint,
+      macValid,
+      merchantTradeNo: body.MerchantTradeNo,
+      rawBody: body,
+    });
+
+    if (!macValid) {
+      this.logger.warn(
+        `綠界 ${endpoint} 通知驗簽失敗：${body.MerchantTradeNo ?? '(無交易編號)'}`,
+      );
+
+      return;
+    }
+
+    if (await this.ordersService.recordPaymentResult(body))
+      await this.ecpayCallbackLogService.markHandled(logId);
   }
 
   @Post()
@@ -78,17 +109,19 @@ export class EcpayController {
 
   @Post('return')
   @AllowAnonymous()
+  @SkipThrottle()
   @ApiBody({ type: ReturnEcpayDto })
   async return(@Body() body: Record<string, string>) {
     const result = this.ecpayBaseService.isCheckMacValueValid(body);
 
-    if (result === '1|OK') await this.ordersService.recordPaymentResult(body);
+    await this.handleCallback('return', body, result);
 
     return result;
   }
 
   @Post('result')
   @AllowAnonymous()
+  @SkipThrottle()
   @ApiBody({ type: ReturnEcpayDto })
   @Redirect()
   async result(
@@ -97,13 +130,15 @@ export class EcpayController {
   ) {
     const result = this.ecpayBaseService.isCheckMacValueValid(body);
 
-    if (result === '1|OK') await this.ordersService.recordPaymentResult(body);
+    await this.handleCallback('result', body, result);
 
     return { statusCode: 303, url: this.getSafeRedirectUrl(redirect) };
   }
 
   @Post('sync-invoice-word-settings')
   @UseGuards(AdminGuard)
+  @ApiCreatedResponse({ type: [SyncInvoiceWordSettingResultDto] })
+  @ApiOperation({ summary: '以財政部配號同步綠界字軌（新增缺少的並啟用）' })
   syncInvoiceWordSettings(): Promise<SyncInvoiceWordSettingResultDto[]> {
     return this.ecpaySyncInvoiceWordSettingsService.sync();
   }

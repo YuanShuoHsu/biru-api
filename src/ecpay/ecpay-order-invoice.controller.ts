@@ -1,10 +1,11 @@
 import { OrderInvoiceDto } from '../orders/dto/order-response.dto';
 
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto';
+import { OrderInvoiceVerificationDto } from './dto/order-invoice-verification.dto';
 
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
 
-import { Controller, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -51,7 +52,20 @@ export class EcpayOrderInvoiceController {
     );
   }
 
-  // 稽核把 DELETE 一律記成整列被刪，用 PATCH 才會記成 printedAt 被清空
+  @Get('verification')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOkResponse({ type: OrderInvoiceVerificationDto })
+  @ApiOperation({ summary: '向綠界查證發票狀態' })
+  verify(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderInvoiceVerificationDto> {
+    return this.ecpayOrderInvoiceService.verifyForOrder(
+      organizationSlug,
+      orderId,
+    );
+  }
+
   @Patch('print')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })

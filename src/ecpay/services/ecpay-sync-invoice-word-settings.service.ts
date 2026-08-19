@@ -1,11 +1,13 @@
-import {
-  GetGovInvoiceWordSettingEcpayInvoiceInfoDto,
-  GetGovInvoiceWordSettingEcpayInvoiceTerm,
-} from '../dto/get-gov-invoice-word-setting-ecpay.dto';
+import { GetGovInvoiceWordSettingEcpayInvoiceInfoDto } from '../dto/get-gov-invoice-word-setting-ecpay.dto';
 import {
   GetInvoiceWordSettingEcpayInvoiceInfoDto,
   GetInvoiceWordSettingEcpayUseStatus,
 } from '../dto/get-invoice-word-setting-ecpay.dto';
+
+import {
+  SyncInvoiceWordSettingResultDto,
+  toInvoiceTerm,
+} from '../dto/sync-invoice-word-setting-result.dto';
 
 import { EcpayAddInvoiceWordSettingService } from './ecpay-add-invoice-word-setting.service';
 import { EcpayGetGovInvoiceWordSettingService } from './ecpay-get-gov-invoice-word-setting.service';
@@ -13,25 +15,12 @@ import { EcpayGetInvoiceWordSettingService } from './ecpay-get-invoice-word-sett
 import { EcpayUpdateInvoiceWordStatusService } from './ecpay-update-invoice-word-status.service';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 
-import { toPlatformTime } from 'src/common/constants/timezone';
-
-export type SyncInvoiceWordSettingOutcome =
-  | 'added'
-  | 'enabled'
-  | 'failed'
-  | 'inUse'
-  | 'skipped';
-
-export interface SyncInvoiceWordSettingResultDto {
-  invoiceEnd: string;
-  invoiceHeader: string;
-  invoiceStart: string;
-  invoiceTerm: GetGovInvoiceWordSettingEcpayInvoiceTerm;
-  message?: string;
-  outcome: SyncInvoiceWordSettingOutcome;
-  trackId?: string;
-}
+import {
+  PLATFORM_TIMEZONE,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
 
 type WordKey = string;
 
@@ -64,6 +53,23 @@ export class EcpaySyncInvoiceWordSettingsService {
     private readonly ecpayAddInvoiceWordSettingService: EcpayAddInvoiceWordSettingService,
     private readonly ecpayUpdateInvoiceWordStatusService: EcpayUpdateInvoiceWordStatusService,
   ) {}
+
+  // 字軌沒登錄啟用就開不出發票，而配號每兩個月換一期；靠人記得按按鈕遲早會漏掉。
+  // 同步本身是冪等的（使用中的跳過、人工停用的不翻回），每天重跑沒有副作用
+  @Cron('0 4 * * *', { timeZone: PLATFORM_TIMEZONE })
+  async syncScheduled(): Promise<void> {
+    try {
+      const results = await this.sync();
+      const changed = results.filter(({ outcome }) =>
+        ['added', 'enabled'].includes(outcome),
+      );
+
+      if (changed.length)
+        this.logger.log(`字軌同步：新增或啟用 ${changed.length} 段`);
+    } catch (error) {
+      this.logger.error('字軌同步失敗', error);
+    }
+  }
 
   async sync(): Promise<SyncInvoiceWordSettingResultDto[]> {
     const now = toPlatformTime(new Date());
@@ -131,7 +137,7 @@ export class EcpaySyncInvoiceWordSettingsService {
       invoiceEnd: info.InvoiceEnd,
       invoiceHeader: info.InvoiceHeader,
       invoiceStart: info.InvoiceStart,
-      invoiceTerm: info.InvoiceTerm,
+      invoiceTerm: toInvoiceTerm(Number(info.InvoiceTerm)),
     };
 
     try {

@@ -5,6 +5,7 @@ import type {
   OrderStatus,
   PaymentMethod,
 } from 'src/db/schema/orders';
+import { ORDER_FLOW_STATUSES } from 'src/db/schema/orders';
 
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import type { OrderResponseDto } from './dto/order-response.dto';
@@ -77,6 +78,14 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   },
 ];
 
+export const isRefundable = (found: {
+  orderStatus: OrderStatus;
+  paymentDate?: Date | null;
+}): boolean =>
+  !!found.paymentDate &&
+  (ORDER_FLOW_STATUSES as readonly string[]).includes(found.orderStatus) &&
+  found.orderStatus !== 'OrderPaymentDue';
+
 export const getAvailableTransitions = (found: {
   orderStatus: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -91,6 +100,7 @@ export const toAdminOrder = (
   found: OrderResponseDto,
 ): AdminOrderResponseDto => ({
   ...found,
+  refundable: isRefundable(found),
   availableTransitions: getAvailableTransitions(found).map(
     ({ cashOnly, direction, toStatus }) => ({
       ...(cashOnly && { cashOnly }),

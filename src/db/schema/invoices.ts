@@ -1,5 +1,12 @@
 import { relations } from 'drizzle-orm';
-import { index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  index,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
 import { order } from './orders';
@@ -60,7 +67,8 @@ export const invoice = pgTable(
     invoiceNumber: text('invoice_number'),
     invoiceDate: timestamp('invoice_date'),
     randomNumber: text('random_number'),
-    // 財政部規定證明聯只能列印一次，之後只能開補印聯；沒有這個時間戳就分不出正本與補印
+    relateNumber: text('relate_number'),
+    voidedAt: timestamp('voided_at'),
     printedAt: timestamp('printed_at'),
     ...timestamps,
   },
@@ -69,9 +77,41 @@ export const invoice = pgTable(
 
 export type Invoice = typeof invoice.$inferSelect;
 
-export const invoiceRelations = relations(invoice, ({ one }) => ({
+export const invoiceAllowance = pgTable(
+  'invoice_allowance',
+  {
+    id: text('id').primaryKey(),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    allowanceNo: text('allowance_no').notNull(),
+    amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+    remainingAmount: numeric('remaining_amount', {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+    issuedAt: timestamp('issued_at').notNull(),
+    ...timestamps,
+  },
+  (table) => [index('invoiceAllowance_invoiceId_idx').on(table.invoiceId)],
+);
+
+export type InvoiceAllowance = typeof invoiceAllowance.$inferSelect;
+
+export const invoiceRelations = relations(invoice, ({ many, one }) => ({
+  allowances: many(invoiceAllowance),
   order: one(order, {
     fields: [invoice.orderId],
     references: [order.id],
   }),
 }));
+
+export const invoiceAllowanceRelations = relations(
+  invoiceAllowance,
+  ({ one }) => ({
+    invoice: one(invoice, {
+      fields: [invoiceAllowance.invoiceId],
+      references: [invoice.id],
+    }),
+  }),
+);

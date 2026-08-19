@@ -69,12 +69,16 @@ export class EcpayBaseService {
       .replace(/-/g, '/');
   }
 
-  private generateCheckMacValue(params: Record<string, string>): string {
+  generateCheckMacValue(params: Record<string, string>): string {
     const sorted = Object.keys(params).sort((a, b) =>
       a.toLowerCase() < b.toLowerCase() ? -1 : 1,
     );
     const raw = `HashKey=${this.hashKey}&${sorted.map((k) => `${k}=${params[k]}`).join('&')}&HashIV=${this.hashIV}`;
     const urlEncoded = encodeURIComponent(raw)
+      .replace(
+        /[!'()*~]/g,
+        (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+      )
       .toLowerCase()
       .replace(/%20/g, '+')
       .replace(/%2d/g, '-')

@@ -25,14 +25,18 @@ export class TasksService {
 
     await Promise.all(
       cleanupTargets.map(async ({ label, table }) => {
-        const deleted = await this.db
-          .delete(table)
-          .where(lt(table.expiresAt, now))
-          .returning();
+        try {
+          const deleted = await this.db
+            .delete(table)
+            .where(lt(table.expiresAt, now))
+            .returning();
 
-        if (!deleted.length) return;
+          if (!deleted.length) return;
 
-        this.logger.log(`清除 ${deleted.length} 筆過期 ${label}`);
+          this.logger.log(`清除 ${deleted.length} 筆過期 ${label}`);
+        } catch (error) {
+          this.logger.error(`清除過期 ${label} 失敗`, error);
+        }
       }),
     );
   }
@@ -42,12 +46,16 @@ export class TasksService {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - AUDIT_LOG_RETENTION_MONTHS);
 
-    const { rowCount } = await this.db
-      .delete(schema.auditLog)
-      .where(lt(schema.auditLog.createdAt, cutoff));
+    try {
+      const { rowCount } = await this.db
+        .delete(schema.auditLog)
+        .where(lt(schema.auditLog.createdAt, cutoff));
 
-    if (!rowCount) return;
+      if (!rowCount) return;
 
-    this.logger.log(`清除 ${rowCount} 筆超過保留期限的異動紀錄`);
+      this.logger.log(`清除 ${rowCount} 筆超過保留期限的異動紀錄`);
+    } catch (err) {
+      this.logger.error('清除過期異動紀錄失敗', err);
+    }
   }
 }

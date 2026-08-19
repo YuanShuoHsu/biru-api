@@ -66,7 +66,7 @@ export class EcpayUpdateInvoiceWordStatusService {
     };
 
     const {
-      data: { Data },
+      data: { Data, TransCode, TransMsg },
     } = await firstValueFrom(
       this.httpService.post<UpdateInvoiceWordStatusEcpayEncryptedResponseDto>(
         this.apiUrl,
@@ -76,6 +76,8 @@ export class EcpayUpdateInvoiceWordStatusService {
         },
       ),
     );
+
+    if (TransCode !== 1) throw new Error(TransMsg);
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
     const decoded = decodeUrlEncoded(decrypted);

@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
@@ -11,7 +13,9 @@ import {
   IssueInvoiceEcpayVatType,
 } from '../dto/issue-invoice-ecpay.dto';
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto';
+import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto';
 
+import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
 import { EcpayInvoicePrintService } from './ecpay-invoice-print.service';
 import { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service';
 
@@ -90,6 +94,7 @@ export class EcpayOrderInvoiceService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly ecpayIssueInvoiceService: EcpayIssueInvoiceService,
     private readonly ecpayInvoicePrintService: EcpayInvoicePrintService,
+    private readonly ecpayGetIssueInvoiceService: EcpayGetIssueInvoiceService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -179,7 +184,9 @@ export class EcpayOrderInvoiceService {
     if (!claimed)
       throw new ConflictException('Invoice is already being issued');
 
-    const result = await this.issueOrRelease(claimed, found);
+    const relateNumber = randomUUID().replace(/-/g, '');
+
+    const result = await this.issueOrRelease(claimed, found, relateNumber);
 
     const [updated] = await this.db
       .update(invoice)
@@ -190,6 +197,7 @@ export class EcpayOrderInvoiceService {
         invoiceNumber: result.InvoiceNo,
         paymentStatus: 'PaymentComplete',
         randomNumber: result.RandomNumber,
+        relateNumber,
         status: 'issued',
       })
       .where(eq(invoice.id, data.id))
@@ -208,11 +216,13 @@ export class EcpayOrderInvoiceService {
   private async issueOrRelease(
     claimed: Invoice,
     found: Parameters<typeof this.buildPayload>[0],
+    relateNumber: string,
   ) {
     try {
-      const result = await this.ecpayIssueInvoiceService.issueInvoice(
-        this.buildPayload({ ...found, invoice: claimed }),
-      );
+      const result = await this.ecpayIssueInvoiceService.issueInvoice({
+        ...this.buildPayload({ ...found, invoice: claimed }),
+        RelateNumber: relateNumber,
+      });
 
       if (result.RtnCode !== 1)
         throw new BadGatewayException(`${result.RtnCode} ${result.RtnMsg}`);
@@ -250,6 +260,48 @@ export class EcpayOrderInvoiceService {
       .returning();
 
     return updated;
+  }
+
+  async verifyForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<OrderInvoiceVerificationDto> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      with: { invoice: true },
+    });
+
+    const data = found?.invoice;
+    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data.invoiceNumber || !data.invoiceDate)
+      throw new ConflictException('Invoice has not been issued yet');
+
+    const result = await this.ecpayGetIssueInvoiceService.getIssue(
+      // 早於 relateNumber 落庫的發票只能靠號碼加日期查
+      data.relateNumber
+        ? { RelateNumber: data.relateNumber }
+        : {
+            InvoiceDate: data.invoiceDate.toISOString().slice(0, 10),
+            InvoiceNo: data.invoiceNumber,
+          },
+    );
+
+    const invalidated = result.IIS_Invalid_Status === '1';
+
+    return {
+      invalidated,
+      invoiceDate: result.IIS_Create_Date,
+      invoiceNumber: result.IIS_Number,
+      matchesLocal: invalidated === (data.status === 'voided'),
+      salesAmount: String(result.IIS_Sales_Amount),
+      uploaded: result.IIS_Upload_Status === '1',
+    };
   }
 
   private async findPrintableInvoice(
