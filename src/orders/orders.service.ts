@@ -477,6 +477,8 @@ export class OrdersService {
         orderId: order.id,
         orderNumber: order.orderNumber,
         orderStatus: sql<OrderBoardStatus>`${order.orderStatus}`,
+        mode: order.mode,
+        tableNumber: order.tableNumber,
       })
       .from(order)
       .where(

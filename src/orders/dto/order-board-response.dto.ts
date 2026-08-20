@@ -1,6 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { OrderStatus } from 'src/db/schema/orders';
+import {
+  orderModeEnum,
+  type OrderMode,
+  type OrderStatus,
+} from 'src/db/schema/orders';
 
 export const ORDER_BOARD_STATUSES = [
   'OrderPaymentDue',
@@ -15,4 +19,6 @@ export class OrderBoardItemDto {
   @ApiProperty() orderNumber: string;
   @ApiProperty({ enum: ORDER_BOARD_STATUSES, enumName: 'OrderBoardStatus' })
   orderStatus: OrderBoardStatus;
+  @ApiProperty({ enum: orderModeEnum.enumValues }) mode: OrderMode;
+  @ApiPropertyOptional() tableNumber?: number | null;
 }
