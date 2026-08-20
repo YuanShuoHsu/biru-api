@@ -39,6 +39,7 @@ export type I18nTranslations = {
             "notRefundable": string;
             "nothingToRefund": string;
             "quantityExceeded": string;
+            "resultUnknown": string;
         };
     };
     "mail": {

@@ -13,11 +13,12 @@ import {
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type {
-  RefundChannel,
-  RefundInvoiceAction,
-  RefundScope,
-  RefundStatus,
+import {
+  refundStatusEnum,
+  type RefundChannel,
+  type RefundInvoiceAction,
+  type RefundScope,
+  type RefundStatus,
 } from 'src/db/schema/refunds';
 
 export class RefundItemInputDto {
@@ -99,8 +100,8 @@ export class OrderRefundDto {
 
   @ApiProperty({
     description:
-      'pending：錢動了沒尚未確認；refunded：款項已退，後續處理未完成；settled：發票、點數、優惠券與訂單狀態都已處理完',
-    enum: ['pending', 'refunded', 'settled'],
+      'pending：錢動了沒尚未確認，等待與綠界對帳；refunded：款項已退，後續處理未完成；settling：後續處理進行中；settled：發票、點數、優惠券與訂單狀態都已處理完',
+    enum: refundStatusEnum.enumValues,
     enumName: 'RefundStatus',
   })
   status: RefundStatus;
@@ -125,4 +126,15 @@ export class OrderRefundDto {
 
   @ApiProperty({ description: '建立時間' })
   createdAt: Date;
+}
+
+export class OrderRefundPreviewDto {
+  @ApiProperty({ description: '此次會退給顧客的金額' })
+  amount: number;
+
+  @ApiProperty({ description: '此次退款分攤掉的折扣金額' })
+  allocatedDiscount: number;
+
+  @ApiProperty({ description: '這次退完後整張訂單是否已全額退款' })
+  isFull: boolean;
 }

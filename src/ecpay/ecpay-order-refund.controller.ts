@@ -1,4 +1,8 @@
-import { CreateOrderRefundDto, OrderRefundDto } from './dto/order-refund.dto';
+import {
+  CreateOrderRefundDto,
+  OrderRefundDto,
+  OrderRefundPreviewDto,
+} from './dto/order-refund.dto';
 
 import { EcpayOrderRefundService } from './services/ecpay-order-refund.service';
 
@@ -30,6 +34,22 @@ export class EcpayOrderRefundController {
     @Param('orderId') orderId: string,
   ): Promise<OrderRefundDto[]> {
     return this.ecpayOrderRefundService.findByOrder(organizationSlug, orderId);
+  }
+
+  @Post('preview')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOkResponse({ type: OrderRefundPreviewDto })
+  @ApiOperation({ summary: '試算這批品項會退多少，不會真的退款' })
+  preview(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: CreateOrderRefundDto,
+  ): Promise<OrderRefundPreviewDto> {
+    return this.ecpayOrderRefundService.previewRefund(
+      organizationSlug,
+      orderId,
+      dto,
+    );
   }
 
   @Post()

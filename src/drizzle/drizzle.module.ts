@@ -2,7 +2,6 @@ import { Global, Module } from '@nestjs/common';
 
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { DrizzleController } from './drizzle.controller';
 import { DrizzleService } from './drizzle.service';
 
 import { db } from '../db';
@@ -13,7 +12,6 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
 
 @Global()
 @Module({
-  controllers: [DrizzleController],
   providers: [
     DrizzleService,
     {

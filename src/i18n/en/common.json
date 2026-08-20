@@ -31,6 +31,7 @@
     "notPaid": "This order has not been paid and cannot be refunded",
     "notRefundable": "This order cannot be refunded in its current status",
     "nothingToRefund": "There is nothing left to refund",
-    "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded"
+    "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded",
+    "resultUnknown": "The refund was submitted but ECPay has not confirmed the result. Do not retry — the system will reconcile it automatically and update this refund once confirmed."
   }
 }

@@ -627,6 +627,7 @@ export class OrdersService {
       const [updated] = await tx
         .update(order)
         .set({
+          authorizationNo: body.gwsr || undefined,
           orderStatus,
           paymentDate: toPaymentDate(body.PaymentDate),
           paymentMethodId: body.card4no || undefined,
@@ -637,6 +638,10 @@ export class OrdersService {
           and(
             eq(order.confirmationNumber, body.MerchantTradeNo),
             eq(order.orderStatus, 'OrderPaymentDue'),
+            // 綠界建議核對金額；對不上就不能認列為已付款
+            ...(succeeded
+              ? [sql`${order.total} = ${Number(body.TradeAmt)}`]
+              : []),
           ),
         )
         .returning({
@@ -656,7 +661,7 @@ export class OrdersService {
 
     if (!updated) {
       this.logger.warn(
-        `綠界付款通知未對應到待付款訂單：${body.MerchantTradeNo}`,
+        `綠界付款通知未對應到待付款訂單：${body.MerchantTradeNo}（通知金額 ${body.TradeAmt}）`,
       );
 
       return false;

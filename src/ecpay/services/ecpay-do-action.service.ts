@@ -14,6 +14,18 @@ import { ConfigService } from '@nestjs/config';
 const ECPAY_DO_ACTION_API_URL =
   'https://payment.ecpay.com.tw/CreditDetail/DoAction';
 
+/**
+ * 請求送出後失去回應，綠界可能已經受理。
+ * 呼叫端必須保留退款紀錄等待對帳，刪掉的話這筆錢就查無此事了。
+ */
+export class EcpayResultUnknownError extends Error {
+  constructor(cause: unknown) {
+    super(
+      `ECPay DoAction result unknown: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
 @Injectable()
 export class EcpayDoActionService {
   private readonly merchantId: string;
@@ -59,14 +71,20 @@ export class EcpayDoActionService {
         new URLSearchParams(payload).toString(),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
       ),
-    );
+    ).catch((error) => {
+      throw new EcpayResultUnknownError(error);
+    });
 
     const parsed = Object.fromEntries(
       new URLSearchParams(data),
     ) as unknown as DoActionEcpayResponseDto;
 
-    if (parsed.RtnCode !== '1')
-      throw new Error(parsed.RtnMsg || `Unexpected DoAction response: ${data}`);
+    if (!parsed.RtnCode)
+      throw new EcpayResultUnknownError(
+        new Error(`Unexpected DoAction response: ${data}`),
+      );
+
+    if (parsed.RtnCode !== '1') throw new Error(parsed.RtnMsg);
 
     return parsed;
   }

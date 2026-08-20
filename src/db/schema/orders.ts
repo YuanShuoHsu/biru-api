@@ -38,7 +38,6 @@ export const paymentMethodEnum = pgEnum('order_payment_method', [
 export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number];
 
 // https://schema.org/OrderStatus
-// 順序即出餐流程，前後相鄰者才能互相轉換，重排會改變狀態機
 export const ORDER_FLOW_STATUSES = [
   'OrderPaymentDue',
   'OrderProcessing',
@@ -115,6 +114,7 @@ export const order = pgTable(
     partySize: integer('party_size'),
     tableNumber: integer('table_number'),
     tradeNo: text('trade_no'),
+    authorizationNo: text('authorization_no'),
     // https://schema.org/customer
     userId: text('user_id').references(() => user.id, {
       onDelete: 'set null',

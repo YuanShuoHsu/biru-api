@@ -21,6 +21,7 @@ export type RefundChannel = (typeof refundChannelEnum.enumValues)[number];
 export const refundStatusEnum = pgEnum('refund_status', [
   'pending',
   'refunded',
+  'settling',
   'settled',
 ]);
 export type RefundStatus = (typeof refundStatusEnum.enumValues)[number];
@@ -52,7 +53,6 @@ export const refund = pgTable(
     amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
     scope: refundScopeEnum('scope').notNull(),
     channel: refundChannelEnum('channel').notNull(),
-    // 整單退也要記，否則在訂單狀態改成 OrderReturned 之前擋不住第二筆退款
     items: jsonb('items').$type<RefundItemSnapshot[]>(),
     status: refundStatusEnum('status').notNull().default('pending'),
     ecpayRtnCode: text('ecpay_rtn_code'),

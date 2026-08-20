@@ -17,6 +17,7 @@ import { EcpayInvoicePrintService } from './services/ecpay-invoice-print.service
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
 import { EcpayOrderRefundService } from './services/ecpay-order-refund.service';
+import { EcpayQueryCreditDetailService } from './services/ecpay-query-credit-detail.service';
 import { EcpayQueryTradeInfoService } from './services/ecpay-query-trade-info.service';
 import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service';
 import { EcpayUnpaidOrderReconcileService } from './services/ecpay-unpaid-order-reconcile.service';
@@ -52,6 +53,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayDoActionService,
     EcpayInvalidInvoiceService,
     EcpayOrderRefundService,
+    EcpayQueryCreditDetailService,
     EcpayQueryTradeInfoService,
     EcpayUnpaidOrderReconcileService,
     EcpayGetGovInvoiceWordSettingService,

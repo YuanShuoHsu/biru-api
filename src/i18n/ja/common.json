@@ -31,6 +31,7 @@
     "notPaid": "この注文は未払いのため返金できません",
     "notRefundable": "現在のステータスでは返金できません",
     "nothingToRefund": "返金できる商品がありません",
-    "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます"
+    "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます",
+    "resultUnknown": "返金を送信しましたが、ECPay からの結果がまだ届いていません。再操作はしないでください。システムが自動的に照合し、確認後にこの返金の状態を更新します。"
   }
 }

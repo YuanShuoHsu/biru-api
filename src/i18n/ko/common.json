@@ -31,6 +31,7 @@
     "notPaid": "결제되지 않은 주문은 환불할 수 없습니다",
     "notRefundable": "현재 상태에서는 환불할 수 없습니다",
     "nothingToRefund": "환불할 품목이 없습니다",
-    "quantityExceeded": "'{name}'은(는) {remaining}개만 환불할 수 있습니다"
+    "quantityExceeded": "'{name}'은(는) {remaining}개만 환불할 수 있습니다",
+    "resultUnknown": "환불을 전송했지만 ECPay의 결과가 아직 도착하지 않았습니다. 다시 시도하지 마세요. 시스템이 자동으로 대조한 뒤 확인되면 이 환불의 상태를 갱신합니다."
   }
 }

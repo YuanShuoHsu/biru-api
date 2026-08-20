@@ -31,6 +31,7 @@
     "notPaid": "订单尚未付款，无法退款",
     "notRefundable": "此订单当前的状态不可退款",
     "nothingToRefund": "没有可退款的品项",
-    "quantityExceeded": "“{name}”只剩 {remaining} 份可退"
+    "quantityExceeded": "“{name}”只剩 {remaining} 份可退",
+    "resultUnknown": "退款已送出但绿界尚未回复结果，请勿重复操作。系统会自动核对，确认后这笔退款会更新状态。"
   }
 }
