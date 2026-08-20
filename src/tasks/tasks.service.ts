@@ -7,6 +7,14 @@ import * as schema from 'src/db/schema';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 const AUDIT_LOG_RETENTION_MONTHS = 12;
+const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
+
+const monthsAgo = (months: number): Date => {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+
+  return cutoff;
+};
 
 @Injectable()
 export class TasksService {
@@ -43,19 +51,37 @@ export class TasksService {
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
   async handleAuditLogRetentionCron() {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - AUDIT_LOG_RETENTION_MONTHS);
+    await this.purge(
+      '異動紀錄',
+      schema.auditLog,
+      monthsAgo(AUDIT_LOG_RETENTION_MONTHS),
+    );
+  }
 
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleEcpayCallbackLogRetentionCron() {
+    await this.purge(
+      '綠界回調紀錄',
+      schema.ecpayCallbackLog,
+      monthsAgo(ECPAY_CALLBACK_LOG_RETENTION_MONTHS),
+    );
+  }
+
+  private async purge(
+    label: string,
+    table: typeof schema.auditLog | typeof schema.ecpayCallbackLog,
+    cutoff: Date,
+  ): Promise<void> {
     try {
       const { rowCount } = await this.db
-        .delete(schema.auditLog)
-        .where(lt(schema.auditLog.createdAt, cutoff));
+        .delete(table)
+        .where(lt(table.createdAt, cutoff));
 
       if (!rowCount) return;
 
-      this.logger.log(`清除 ${rowCount} 筆超過保留期限的異動紀錄`);
+      this.logger.log(`清除 ${rowCount} 筆超過保留期限的${label}`);
     } catch (err) {
-      this.logger.error('清除過期異動紀錄失敗', err);
+      this.logger.error(`清除過期${label}失敗`, err);
     }
   }
 }

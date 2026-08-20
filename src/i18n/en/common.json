@@ -21,5 +21,16 @@
     "insufficient": "Not enough points",
     "notRedeemable": "This coupon cannot be redeemed with points",
     "perUserLimitReached": "You have already redeemed this coupon"
+  },
+  "refunds": {
+    "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",
+    "alreadyRefunded": "This order has already been fully refunded",
+    "invalidAmount": "The refund amount could not be calculated; please check the order total",
+    "itemNotInOrder": "The item to refund does not belong to this order",
+    "noEcpayTransaction": "This order has no ECPay transaction to refund against",
+    "notPaid": "This order has not been paid and cannot be refunded",
+    "notRefundable": "This order cannot be refunded in its current status",
+    "nothingToRefund": "There is nothing left to refund",
+    "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded"
   }
 }

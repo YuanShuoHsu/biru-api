@@ -25,11 +25,13 @@ export const ecpayCallbackLog = pgTable(
     merchantTradeNo: text('merchant_trade_no'),
     rawBody: jsonb('raw_body').$type<Record<string, string>>().notNull(),
     macValid: boolean('mac_valid').notNull(),
+    error: text('error'),
     handled: boolean('handled').notNull().default(false),
     ...timestamps,
   },
   (table) => [
     index('ecpayCallbackLog_merchantTradeNo_idx').on(table.merchantTradeNo),
+    index('ecpayCallbackLog_createdAt_idx').on(table.createdAt),
   ],
 );
 

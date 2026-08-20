@@ -1,0 +1,1 @@
+CREATE INDEX "ecpayCallbackLog_createdAt_idx" ON "ecpay_callback_log" USING btree ("created_at");

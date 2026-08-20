@@ -1,0 +1,1 @@
+ALTER TABLE "ecpay_callback_log" ALTER COLUMN "mac_valid" SET NOT NULL;

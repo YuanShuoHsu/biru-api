@@ -18,6 +18,13 @@ export type RefundScope = (typeof refundScopeEnum.enumValues)[number];
 export const refundChannelEnum = pgEnum('refund_channel', ['ecpay', 'manual']);
 export type RefundChannel = (typeof refundChannelEnum.enumValues)[number];
 
+export const refundStatusEnum = pgEnum('refund_status', [
+  'pending',
+  'refunded',
+  'settled',
+]);
+export type RefundStatus = (typeof refundStatusEnum.enumValues)[number];
+
 export const refundInvoiceActionEnum = pgEnum('refund_invoice_action', [
   'none',
   'voided',
@@ -45,15 +52,15 @@ export const refund = pgTable(
     amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
     scope: refundScopeEnum('scope').notNull(),
     channel: refundChannelEnum('channel').notNull(),
-    // 部分退款退了哪些品項與數量；全額退款為 null
+    // 整單退也要記，否則在訂單狀態改成 OrderReturned 之前擋不住第二筆退款
     items: jsonb('items').$type<RefundItemSnapshot[]>(),
+    status: refundStatusEnum('status').notNull().default('pending'),
     ecpayRtnCode: text('ecpay_rtn_code'),
     ecpayRtnMsg: text('ecpay_rtn_msg'),
-    // 錢已退但發票處理失敗時仍要留下紀錄，故與退款結果分欄
-    invoiceAction: refundInvoiceActionEnum('invoice_action')
-      .notNull()
-      .default('none'),
+    // 不能給 default：null（還沒處理）與 'none'（確認過沒發票）要分得開，否則補正會重複作廢
+    invoiceAction: refundInvoiceActionEnum('invoice_action'),
     invoiceError: text('invoice_error'),
+    allowanceNo: text('allowance_no'),
     operatorId: text('operator_id').references(() => user.id, {
       onDelete: 'set null',
     }),

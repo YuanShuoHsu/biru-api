@@ -21,5 +21,16 @@
     "insufficient": "點數不足",
     "notRedeemable": "此優惠券無法用點數兌換",
     "perUserLimitReached": "您已兌換過此優惠券"
+  },
+  "refunds": {
+    "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
+    "alreadyRefunded": "此訂單已全額退款",
+    "invalidAmount": "退款金額計算異常，請確認訂單金額",
+    "itemNotInOrder": "退款品項不屬於此訂單",
+    "noEcpayTransaction": "此訂單沒有可退刷的綠界交易",
+    "notPaid": "訂單尚未付款，無法退款",
+    "notRefundable": "此訂單目前的狀態不可退款",
+    "nothingToRefund": "沒有可退款的品項",
+    "quantityExceeded": "「{name}」只剩 {remaining} 份可退"
   }
 }

@@ -21,5 +21,16 @@
     "insufficient": "点数不足",
     "notRedeemable": "此优惠券无法用点数兑换",
     "perUserLimitReached": "您已兑换过此优惠券"
+  },
+  "refunds": {
+    "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
+    "alreadyRefunded": "此订单已全额退款",
+    "invalidAmount": "退款金额计算异常，请确认订单金额",
+    "itemNotInOrder": "退款品项不属于此订单",
+    "noEcpayTransaction": "此订单没有可退刷的绿界交易",
+    "notPaid": "订单尚未付款，无法退款",
+    "notRefundable": "此订单当前的状态不可退款",
+    "nothingToRefund": "没有可退款的品项",
+    "quantityExceeded": "“{name}”只剩 {remaining} 份可退"
   }
 }

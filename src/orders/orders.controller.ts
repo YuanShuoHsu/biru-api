@@ -2,13 +2,14 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseEnumPipe,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AllowAnonymous,
   Session,
@@ -35,16 +36,23 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
+  @ApiHeader({
+    description: '同一次結帳重試請帶同一把鍵，重送會回傳既有訂單',
+    name: 'Idempotency-Key',
+    required: false,
+  })
   @ApiOperation({ summary: '建立訂單' })
   create(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateOrderDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Session() session: UserSession | null,
   ): Promise<OrderResponseDto> {
     return this.ordersService.createOrder(
       organizationSlug,
       dto,
       session?.user.id || null,
+      idempotencyKey || null,
     );
   }
 

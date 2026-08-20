@@ -5,6 +5,7 @@ import {
 } from '../dto/get-invoice-word-setting-ecpay.dto';
 
 import {
+  INVOICE_TERMS,
   SyncInvoiceWordSettingResultDto,
   toInvoiceTerm,
 } from '../dto/sync-invoice-word-setting-result.dto';
@@ -41,6 +42,9 @@ const wordKey = (info: {
 
 const timestamp = (): number => Math.floor(Date.now() / 1000);
 
+// 11–12 月時財政部已配下次年 1–2 月的號；只同步當年度會讓跨年那天開不出發票
+const NEXT_YEAR_LOOKAHEAD_FROM_MONTH = 11;
+
 @Injectable()
 export class EcpaySyncInvoiceWordSettingsService {
   private readonly logger = new Logger(
@@ -54,10 +58,13 @@ export class EcpaySyncInvoiceWordSettingsService {
     private readonly ecpayUpdateInvoiceWordStatusService: EcpayUpdateInvoiceWordStatusService,
   ) {}
 
-  // 字軌沒登錄啟用就開不出發票，而配號每兩個月換一期；靠人記得按按鈕遲早會漏掉。
-  // 同步本身是冪等的（使用中的跳過、人工停用的不翻回），每天重跑沒有副作用
+  private running = false;
+
   @Cron('0 4 * * *', { timeZone: PLATFORM_TIMEZONE })
   async syncScheduled(): Promise<void> {
+    if (this.running) return;
+
+    this.running = true;
     try {
       const results = await this.sync();
       const changed = results.filter(({ outcome }) =>
@@ -68,32 +75,68 @@ export class EcpaySyncInvoiceWordSettingsService {
         this.logger.log(`字軌同步：新增或啟用 ${changed.length} 段`);
     } catch (error) {
       this.logger.error('字軌同步失敗', error);
+    } finally {
+      this.running = false;
     }
   }
 
   async sync(): Promise<SyncInvoiceWordSettingResultDto[]> {
     const now = toPlatformTime(new Date());
-    const rocYear = (now.getUTCFullYear() - 1911).toString();
+    const rocYear = now.getUTCFullYear() - 1911;
     const currentTerm = Math.floor(now.getUTCMonth() / 2) + 1;
 
+    const results = await this.syncYear(String(rocYear), currentTerm);
+
+    if (now.getUTCMonth() + 1 >= NEXT_YEAR_LOOKAHEAD_FROM_MONTH)
+      try {
+        results.push(...(await this.syncYear(String(rocYear + 1), 1)));
+      } catch (error) {
+        this.logger.warn(
+          `次年度字軌尚無法同步：${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+    const failed = results.filter(({ outcome }) => outcome === 'failed');
+    if (failed.length)
+      this.logger.error(
+        `字軌同步有 ${failed.length} 筆失敗：${failed
+          .map(
+            ({ invoiceHeader, invoiceStart, message }) =>
+              `${invoiceHeader}${invoiceStart} ${message}`,
+          )
+          .join('；')}`,
+      );
+
+    return results;
+  }
+
+  private async syncYear(
+    rocYear: string,
+    minimumTerm: number,
+  ): Promise<SyncInvoiceWordSettingResultDto[]> {
     const { InvoiceInfo: govInvoiceInfo } =
       await this.ecpayGetGovInvoiceWordSettingService.getGovInvoiceWordSetting({
         rocYear,
         timestamp: timestamp(),
       });
 
-    // 綠界不接受小於當期的期別，已過期的配號送出去只會拿到錯誤
-    const targets = govInvoiceInfo.filter(
-      ({ InvoiceTerm }) => Number(InvoiceTerm) >= currentTerm,
-    );
+    const targets = govInvoiceInfo.filter(({ InvoiceTerm }) => {
+      const term = Number(InvoiceTerm);
+      if (!(INVOICE_TERMS as readonly number[]).includes(term)) {
+        this.logger.warn(`綠界回傳未預期的期別 ${InvoiceTerm}，略過`);
+
+        return false;
+      }
+
+      return term >= minimumTerm;
+    });
+    if (!targets.length) return [];
 
     const existingByKey = new Map<
       WordKey,
       GetInvoiceWordSettingEcpayInvoiceInfoDto
     >();
 
-    // 查詢字軌帶 InvoiceTerm=0（全部）時綠界只回前 100 筆，既有字軌會被截掉而誤判成要新增，
-    // 送出去只會拿到「字軌編號重複」，所以一定要逐期查
     for (const invoiceTerm of new Set(
       targets.map(({ InvoiceTerm }) => Number(InvoiceTerm)),
     )) {
@@ -112,17 +155,6 @@ export class EcpaySyncInvoiceWordSettingsService {
     for (const info of targets)
       results.push(
         await this.syncOne(info, existingByKey.get(wordKey(info)), rocYear),
-      );
-
-    const failed = results.filter(({ outcome }) => outcome === 'failed');
-    if (failed.length)
-      this.logger.error(
-        `字軌同步有 ${failed.length} 筆失敗：${failed
-          .map(
-            ({ invoiceHeader, invoiceStart, message }) =>
-              `${invoiceHeader}${invoiceStart} ${message}`,
-          )
-          .join('；')}`,
       );
 
     return results;
@@ -163,7 +195,6 @@ export class EcpaySyncInvoiceWordSettingsService {
       if (existing.UseStatus === GetInvoiceWordSettingEcpayUseStatus.InUse)
         return { ...base, outcome: 'inUse', trackId: existing.TrackID };
 
-      // 已停用是人工決定的結果，自動同步不該把它翻回啟用
       if (existing.UseStatus !== GetInvoiceWordSettingEcpayUseStatus.NotEnabled)
         return { ...base, outcome: 'skipped', trackId: existing.TrackID };
 

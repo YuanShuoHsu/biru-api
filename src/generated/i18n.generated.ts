@@ -29,6 +29,17 @@ export type I18nTranslations = {
             "notRedeemable": string;
             "perUserLimitReached": string;
         };
+        "refunds": {
+            "allowanceExceeded": string;
+            "alreadyRefunded": string;
+            "invalidAmount": string;
+            "itemNotInOrder": string;
+            "noEcpayTransaction": string;
+            "notPaid": string;
+            "notRefundable": string;
+            "nothingToRefund": string;
+            "quantityExceeded": string;
+        };
     };
     "mail": {
         "after_email_verification": {

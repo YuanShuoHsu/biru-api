@@ -95,7 +95,17 @@ const startOfToday = (): Date => {
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
 
-const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+
+const toPaymentDate = (value?: string): Date | undefined => {
+  if (!value) return undefined;
+
+  const parsed = new Date(
+    `${value.replace(/\//g, '-').replace(' ', 'T')}${STORE_UTC_OFFSET}`,
+  );
+
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
 
 const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -118,10 +128,25 @@ export class OrdersService {
     return org;
   }
 
+  private findOrderByIdempotencyKey(
+    db: Pick<DrizzleDB, 'query'>,
+    sellerId: string,
+    idempotencyKey: string,
+  ) {
+    return db.query.order.findFirst({
+      where: and(
+        eq(order.sellerId, sellerId),
+        eq(order.idempotencyKey, idempotencyKey),
+      ),
+      with: { invoice: true, items: true },
+    });
+  }
+
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
     userId: string | null,
+    idempotencyKey: string | null,
   ): Promise<OrderResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
       throw new BadRequestException('Cash is unavailable for this order mode');
@@ -129,6 +154,11 @@ export class OrdersService {
     const isDineIn = dto.mode === 'dineIn';
 
     const org = await this.getOrgBySlug(organizationSlug);
+
+    const replayed = idempotencyKey
+      ? await this.findOrderByIdempotencyKey(this.db, org.id, idempotencyKey)
+      : null;
+    if (replayed) return replayed;
 
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
       org.id,
@@ -157,6 +187,11 @@ export class OrdersService {
         .where(eq(organization.id, org.id))
         .for('update');
 
+      const duplicate = idempotencyKey
+        ? await this.findOrderByIdempotencyKey(tx, org.id, idempotencyKey)
+        : null;
+      if (duplicate) return duplicate;
+
       const [{ value: todayCount }] = await tx
         .select({ value: count() })
         .from(order)
@@ -169,6 +204,7 @@ export class OrdersService {
         .values({
           id: orderId,
           sellerId: org.id,
+          idempotencyKey,
           mode: dto.mode,
           orderNumber: String(todayCount + 1),
           customer: dto.customer,
@@ -186,7 +222,6 @@ export class OrdersService {
           ...(total <= 0 && {
             orderStatus: 'OrderProcessing' as const,
             paymentDate: new Date(),
-            // 付款當下的點數設定快照
             amountPerPoint: org.amountPerPoint,
             pointsValidityYears: org.pointsValidityYears,
           }),
@@ -239,11 +274,12 @@ export class OrdersService {
       return { ...created, invoice: createdInvoice, items };
     });
 
-    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-      orderId: result.id,
-      orderStatus: result.orderStatus,
-      organizationId: org.id,
-    });
+    if (result.id === orderId)
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId: result.id,
+        orderStatus: result.orderStatus,
+        organizationId: org.id,
+      });
 
     return result;
   }
@@ -279,8 +315,6 @@ export class OrdersService {
       createdAt: order.createdAt,
       tableNumber: order.tableNumber,
       total: order.total,
-      // 發票是另一張表，而 db.query 的 where 會把 sql`` 裡的跨表欄位改寫成主表別名；
-      // 寫成相關子查詢就只引用得到 order 自己的欄位（invoice.order_id 是 unique，至多一列）
       invoiceType: sql`(select i.type::text from ${invoice} i where i.order_id = ${order.id})`,
       invoiceStatus: sql`(select i.status::text from ${invoice} i where i.order_id = ${order.id})`,
     };
@@ -592,11 +626,7 @@ export class OrdersService {
         .update(order)
         .set({
           orderStatus,
-          paymentDate: body.PaymentDate
-            ? new Date(
-                `${body.PaymentDate.replace(/\//g, '-').replace(' ', 'T')}+08:00`,
-              )
-            : undefined,
+          paymentDate: toPaymentDate(body.PaymentDate),
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
           ...(succeeded && POINTS_SNAPSHOT_SET),
@@ -642,9 +672,10 @@ export class OrdersService {
     return true;
   }
 
-  async findExpiredUnpaidOrders(): Promise<
+  async findExpiredUnpaidOrders(limit: number): Promise<
     {
       confirmationNumber: string | null;
+      createdAt: Date;
       id: string;
       paymentMethod: PaymentMethod;
     }[]
@@ -652,6 +683,7 @@ export class OrdersService {
     return this.db
       .select({
         confirmationNumber: order.confirmationNumber,
+        createdAt: order.createdAt,
         id: order.id,
         paymentMethod: order.paymentMethod,
       })
@@ -661,7 +693,9 @@ export class OrdersService {
           eq(order.orderStatus, 'OrderPaymentDue'),
           lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
         ),
-      );
+      )
+      .orderBy(asc(order.createdAt))
+      .limit(limit);
   }
 
   async cancelOrders(orderIds: string[]): Promise<void> {

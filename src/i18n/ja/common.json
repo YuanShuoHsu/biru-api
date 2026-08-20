@@ -21,5 +21,16 @@
     "insufficient": "ポイントが不足しています",
     "notRedeemable": "このクーポンはポイントと交換できません",
     "perUserLimitReached": "このクーポンは既に交換済みです"
+  },
+  "refunds": {
+    "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",
+    "alreadyRefunded": "この注文はすでに全額返金済みです",
+    "invalidAmount": "返金額を算出できません。注文金額をご確認ください",
+    "itemNotInOrder": "返金対象の商品はこの注文に含まれていません",
+    "noEcpayTransaction": "この注文には返金できる ECPay 取引がありません",
+    "notPaid": "この注文は未払いのため返金できません",
+    "notRefundable": "現在のステータスでは返金できません",
+    "nothingToRefund": "返金できる商品がありません",
+    "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます"
   }
 }

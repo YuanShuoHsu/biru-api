@@ -1,5 +1,7 @@
 import * as crypto from 'crypto';
 
+import { toPlatformTime } from 'src/common/constants/timezone';
+
 export const encryptData = (
   plaintext: string,
   hashKey: string,
@@ -36,3 +38,8 @@ export const decryptData = (
 
   return decrypted;
 };
+
+export const ITEM_WORD = '份';
+
+export const toInvoiceDateText = (value: Date): string =>
+  toPlatformTime(value).toISOString().slice(0, 10);

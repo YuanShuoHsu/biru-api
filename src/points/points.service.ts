@@ -17,6 +17,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { coupon, userCoupon, type Coupon } from 'src/db/schema/coupons';
 import {
@@ -36,6 +37,18 @@ import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
 
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
 import type { MyPointsDto, PointsCouponDto } from './dto/points-response.dto';
+
+const toExpiresAt = (
+  paymentDate: Date,
+  validityYears: number | null,
+): Date | null =>
+  validityYears
+    ? new Date(
+        new Date(paymentDate).setFullYear(
+          paymentDate.getFullYear() + validityYears,
+        ),
+      )
+    : null;
 
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   id: found.id,
@@ -115,19 +128,10 @@ export class PointsService {
       const points = Math.floor(total / Number(row.amountPerPoint));
       if (points <= 0) return [];
 
-      const paymentDate = row.paymentDate!;
-      const expiresAt = row.pointsValidityYears
-        ? new Date(
-            new Date(paymentDate).setFullYear(
-              paymentDate.getFullYear() + row.pointsValidityYears,
-            ),
-          )
-        : null;
-
       return [
         {
           id: randomUUID(),
-          expiresAt,
+          expiresAt: toExpiresAt(row.paymentDate!, row.pointsValidityYears),
           orderId: row.orderId,
           organizationId: row.organizationId,
           points,
@@ -143,6 +147,8 @@ export class PointsService {
         .values(earns)
         .onConflictDoNothing();
 
+    const revoked = alias(pointTransaction, 'revoked');
+
     const revocable = await this.db
       .select({
         id: pointTransaction.id,
@@ -151,11 +157,16 @@ export class PointsService {
       })
       .from(pointTransaction)
       .innerJoin(order, eq(pointTransaction.orderId, order.id))
+      .leftJoin(
+        revoked,
+        and(eq(revoked.orderId, order.id), eq(revoked.type, 'revoke')),
+      )
       .where(
         and(
           eq(pointTransaction.userId, userId),
           eq(pointTransaction.type, 'earn'),
           gt(pointTransaction.remainingPoints, 0),
+          isNull(revoked.id),
           or(
             inArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
             isNull(order.paymentDate),
@@ -194,7 +205,7 @@ export class PointsService {
   }
 
   async revokeForOrder(
-    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    tx: Pick<DrizzleDB, 'delete' | 'insert' | 'select' | 'update'>,
     {
       orderBecomesTerminal,
       orderId,
@@ -204,6 +215,8 @@ export class PointsService {
     const [earned] = await tx
       .select({
         id: pointTransaction.id,
+        expiresAt: pointTransaction.expiresAt,
+        organizationId: pointTransaction.organizationId,
         points: pointTransaction.points,
         remainingPoints: pointTransaction.remainingPoints,
         userId: pointTransaction.userId,
@@ -218,7 +231,18 @@ export class PointsService {
       .for('update');
 
     if (!earned) {
-      if (orderBecomesTerminal) return;
+      if (orderBecomesTerminal) {
+        await tx
+          .delete(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.orderId, orderId),
+              eq(pointTransaction.type, 'revoke'),
+            ),
+          );
+
+        return;
+      }
 
       const pending = await this.calculatePendingEarn(tx, orderId);
       if (!pending || pending.points <= 0) return;
@@ -228,6 +252,7 @@ export class PointsService {
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),
+        expiresAt: pending.expiresAt,
         orderId,
         organizationId: pending.organizationId,
         points: -revoking,
@@ -256,7 +281,9 @@ export class PointsService {
 
     await tx.insert(pointTransaction).values({
       id: randomUUID(),
+      expiresAt: earned.expiresAt,
       orderId,
+      organizationId: earned.organizationId,
       points: -revoking,
       // 已被兌換掉而收不回來的部分掛在這裡，餘額因此可能為負
       remainingPoints: -(revoking - deducted),
@@ -270,6 +297,7 @@ export class PointsService {
     tx: Pick<DrizzleDB, 'select'>,
     orderId: string,
   ): Promise<{
+    expiresAt: Date | null;
     organizationId: string;
     points: number;
     userId: string;
@@ -279,6 +307,10 @@ export class PointsService {
         amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
         discount: order.discount,
         organizationId: order.sellerId,
+        paymentDate: order.paymentDate,
+        pointsValidityYears: sql<
+          number | null
+        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
         subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
         userId: order.userId,
       })
@@ -296,6 +328,9 @@ export class PointsService {
     const total = Number(found.subtotal) - Number(found.discount || 0);
 
     return {
+      expiresAt: found.paymentDate
+        ? toExpiresAt(found.paymentDate, found.pointsValidityYears)
+        : null,
       organizationId: found.organizationId,
       points: Math.floor(total / amountPerPoint),
       userId: found.userId,
@@ -346,7 +381,6 @@ export class PointsService {
       orderBy: [asc(coupon.pointsCost)],
     });
 
-    // 限定店家的店名清單；null = 全部店家通用
     const applicableIds = [
       ...new Set(redeemables.flatMap((c) => c.applicableOrganizationIds || [])),
     ];
@@ -422,7 +456,6 @@ export class PointsService {
     const pointsCost = found.pointsCost;
 
     const created = await this.db.transaction(async (tx) => {
-      // 限量：totalLimit 扣除已使用與已發出未使用的券；鎖券避免併發超發
       if (found.totalLimit !== null) {
         const [locked] = await tx
           .select({ usedCount: coupon.usedCount })
@@ -440,7 +473,6 @@ export class PointsService {
           throw new BadRequestException(this.tCoupons('usedUp'));
       }
 
-      // 每人限量：perUserLimit 同時作為兌換上限，避免囤券
       if (found.perUserLimit !== null) {
         const [{ value: redeemed }] = await tx
           .select({ value: count() })

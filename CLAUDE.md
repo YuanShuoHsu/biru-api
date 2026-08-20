@@ -172,12 +172,23 @@ before better-auth.
 
 ## Code Comments
 
-**Write a comment only when its absence would cause a mistake** — it states a consequence or precondition that lives outside the code:
+**Default: no comment.** Write one only when its absence would cause a mistake — it states a consequence or precondition that lives outside the code:
 
 - `// 店家角色不該取得全平台組織清單` (security reason the conditional can't show)
 - `// drizzle 會把 pg 錯誤包成 DrizzleQueryError，原始錯誤碼在 cause` (framework trap)
 
-Not: restating the next line, conclusions from the chat, or defending your own tradeoffs. Don't hardcode identifiers into comments — they rot into misinformation after a rename.
+The test: delete it. Would a competent editor now make a wrong change? If the honest answer is only "會比較難懂", leave it deleted.
+
+Never write:
+
+- a restatement of the next line, or of a field/constant name (`// 綠界折讓單號` on `allowanceNo`)
+- the reasoning from our conversation, or a defence of your own tradeoff
+- JSDoc on a private helper
+- a description of what the code currently does — it becomes a lie after the next change
+
+**Adding more than one or two comments to a change is itself the signal** that the code isn't saying enough. Fix the naming or the structure instead; do not narrate.
+
+When a change makes an existing comment false, fix or delete it in the same change — a stale comment is worse than none. Don't hardcode identifiers into comments; they rot into misinformation after a rename.
 
 ## Behavioral Guidelines
 

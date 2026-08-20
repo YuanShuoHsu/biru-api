@@ -19,6 +19,7 @@ export interface AllowanceInvoiceEcpayDecryptedRequestDto {
   MerchantID: string;
   NotifyMail?: string;
   NotifyPhone?: string;
+  Reason?: string;
 }
 
 export interface AllowanceInvoiceEcpayEncryptedResponseDto {
@@ -28,12 +29,9 @@ export interface AllowanceInvoiceEcpayEncryptedResponseDto {
 }
 
 export interface AllowanceInvoiceEcpayDecryptedResponseDto {
-  /** 折讓時間，yyyy-MM-dd HH:mm:ss */
   IA_Date: string;
-  /** 折讓單號 */
   IA_Allow_No: string;
   IA_Invoice_No: string;
-  /** 剩餘可折讓金額；下次折讓的上限以此為準 */
   IA_Remain_Allowance_Amt: number;
   RtnCode: number;
   RtnMsg: string;

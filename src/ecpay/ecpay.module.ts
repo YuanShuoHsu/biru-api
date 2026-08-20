@@ -1,4 +1,5 @@
 import { EcpayOrderInvoiceController } from './ecpay-order-invoice.controller';
+import { EcpayOrderPaymentNotificationController } from './ecpay-order-payment-notification.controller';
 import { EcpayOrderRefundController } from './ecpay-order-refund.controller';
 import { EcpayController } from './ecpay.controller';
 
@@ -9,10 +10,10 @@ import { EcpayCallbackLogService } from './services/ecpay-callback-log.service';
 import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
 import { EcpayDoActionService } from './services/ecpay-do-action.service';
 import { EcpayGetGovInvoiceWordSettingService } from './services/ecpay-get-gov-invoice-word-setting.service';
+import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-word-setting.service';
 import { EcpayGetIssueInvoiceService } from './services/ecpay-get-issue-invoice.service';
 import { EcpayInvalidInvoiceService } from './services/ecpay-invalid-invoice.service';
 import { EcpayInvoicePrintService } from './services/ecpay-invoice-print.service';
-import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-word-setting.service';
 import { EcpayIssueInvoiceService } from './services/ecpay-issue-invoice.service';
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
 import { EcpayOrderRefundService } from './services/ecpay-order-refund.service';
@@ -28,11 +29,19 @@ import { PointsModule } from '../points/points.module';
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 
+const ECPAY_HTTP_TIMEOUT_MS = 15_000;
+
 @Module({
-  imports: [CouponsModule, HttpModule, OrdersModule, PointsModule],
+  imports: [
+    CouponsModule,
+    HttpModule.register({ timeout: ECPAY_HTTP_TIMEOUT_MS }),
+    OrdersModule,
+    PointsModule,
+  ],
   controllers: [
     EcpayController,
     EcpayOrderInvoiceController,
+    EcpayOrderPaymentNotificationController,
     EcpayOrderRefundController,
   ],
   providers: [

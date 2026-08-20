@@ -16,8 +16,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
   RefundChannel,
   RefundInvoiceAction,
-  RefundItemSnapshot,
   RefundScope,
+  RefundStatus,
 } from 'src/db/schema/refunds';
 
 export class RefundItemInputDto {
@@ -31,6 +31,23 @@ export class RefundItemInputDto {
   @IsInt()
   @Min(1)
   quantity: number;
+}
+
+export class RefundItemSnapshotDto {
+  @ApiProperty({ description: '訂單品項 ID' })
+  orderItemId: string;
+
+  @ApiProperty({ description: '品項名稱' })
+  menuItemName: string;
+
+  @ApiProperty({ description: '退款數量' })
+  quantity: number;
+
+  @ApiProperty({ description: '單價' })
+  unitPrice: string;
+
+  @ApiProperty({ description: '此品項的退款金額' })
+  amount: string;
 }
 
 export class CreateOrderRefundDto {
@@ -73,18 +90,35 @@ export class OrderRefundDto {
   })
   channel: RefundChannel;
 
-  @ApiProperty({ description: '退款品項；整單退款為 null', nullable: true })
-  items: RefundItemSnapshot[] | null;
+  @ApiProperty({
+    description: '此次退款的品項與數量',
+    nullable: true,
+    type: [RefundItemSnapshotDto],
+  })
+  items: RefundItemSnapshotDto[] | null;
 
   @ApiProperty({
     description:
-      'none：無發票需處理；voided：發票已作廢；allowance：已開立折讓；failed：錢已退但發票處理失敗',
-    enum: ['none', 'voided', 'allowance', 'failed'],
+      'pending：錢動了沒尚未確認；refunded：款項已退，後續處理未完成；settled：發票、點數、優惠券與訂單狀態都已處理完',
+    enum: ['pending', 'refunded', 'settled'],
+    enumName: 'RefundStatus',
   })
-  invoiceAction: RefundInvoiceAction;
+  status: RefundStatus;
+
+  @ApiProperty({
+    description:
+      'null：發票尚未處理；none：無發票需處理；voided：發票已作廢；allowance：已開立折讓；failed：錢已退但發票處理失敗',
+    enum: ['none', 'voided', 'allowance', 'failed'],
+    enumName: 'RefundInvoiceAction',
+    nullable: true,
+  })
+  invoiceAction: RefundInvoiceAction | null;
 
   @ApiProperty({ description: '發票處理失敗的原因', nullable: true })
   invoiceError: string | null;
+
+  @ApiProperty({ description: '綠界折讓單號', nullable: true })
+  allowanceNo: string | null;
 
   @ApiProperty({ description: '退款原因', nullable: true })
   reason: string | null;

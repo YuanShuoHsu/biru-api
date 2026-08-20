@@ -65,25 +65,53 @@ export class EcpayController {
     endpoint: 'return' | 'result',
     body: Record<string, string>,
     macResult: '1|OK' | '0|FAIL',
-  ): Promise<void> {
+  ): Promise<boolean> {
     const macValid = macResult === '1|OK';
-    const logId = await this.ecpayCallbackLogService.record({
-      endpoint,
-      macValid,
-      merchantTradeNo: body.MerchantTradeNo,
-      rawBody: body,
-    });
 
-    if (!macValid) {
-      this.logger.warn(
-        `綠界 ${endpoint} 通知驗簽失敗：${body.MerchantTradeNo ?? '(無交易編號)'}`,
+    let logId: string | undefined;
+
+    try {
+      logId = await this.ecpayCallbackLogService.record({
+        endpoint,
+        macValid,
+        merchantTradeNo: body.MerchantTradeNo,
+        rawBody: body,
+      });
+
+      if (!macValid) {
+        this.logger.warn(
+          `綠界 ${endpoint} 通知驗簽失敗：${body.MerchantTradeNo ?? '(無交易編號)'}`,
+        );
+
+        return true;
+      }
+
+      if (await this.ordersService.recordPaymentResult(body))
+        await this.ecpayCallbackLogService.markHandled(logId);
+
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.logger.error(
+        `綠界 ${endpoint} 通知處理失敗：${body.MerchantTradeNo ?? '(無交易編號)'}`,
+        error,
       );
 
-      return;
-    }
+      await (
+        logId
+          ? this.ecpayCallbackLogService.markFailed(logId, message)
+          : this.ecpayCallbackLogService.record({
+              endpoint,
+              error: message,
+              macValid,
+              merchantTradeNo: body.MerchantTradeNo,
+              rawBody: body,
+            })
+      ).catch(() => undefined);
 
-    if (await this.ordersService.recordPaymentResult(body))
-      await this.ecpayCallbackLogService.markHandled(logId);
+      return false;
+    }
   }
 
   @Post()
@@ -114,9 +142,9 @@ export class EcpayController {
   async return(@Body() body: Record<string, string>) {
     const result = this.ecpayBaseService.isCheckMacValueValid(body);
 
-    await this.handleCallback('return', body, result);
-
-    return result;
+    return (await this.handleCallback('return', body, result))
+      ? result
+      : '0|FAIL';
   }
 
   @Post('result')

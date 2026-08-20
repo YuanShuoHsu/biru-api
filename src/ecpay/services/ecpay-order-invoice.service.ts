@@ -15,6 +15,8 @@ import {
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto';
 
+import { ITEM_WORD, toInvoiceDateText } from '../utils/ecpay';
+
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
 import { EcpayInvoicePrintService } from './ecpay-invoice-print.service';
 import { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service';
@@ -57,8 +59,6 @@ const CARRIER_TYPE: Record<
   mobile: IssueInvoiceEcpayCarrierType.MobileBarcode,
 };
 
-const ITEM_WORD = '份';
-
 const toLocalPhoneNumber = (telephone?: string | null): string | undefined => {
   if (!telephone) return undefined;
 
@@ -68,6 +68,25 @@ const toLocalPhoneNumber = (telephone?: string | null): string | undefined => {
     (parsed?.formatNational() ?? telephone).replace(/\D/g, '') || undefined
   );
 };
+
+type SellerAddress = {
+  addressLocality: string | null;
+  addressRegion: string | null;
+  extendedAddress: string | null;
+  postalCode: string | null;
+  streetAddress: string | null;
+};
+
+const toAddressText = (seller: SellerAddress): string | undefined =>
+  [
+    seller.postalCode,
+    seller.addressRegion,
+    seller.addressLocality,
+    seller.streetAddress,
+    seller.extendedAddress,
+  ]
+    .filter(Boolean)
+    .join('') || undefined;
 
 const RETRY_DELAY_MS = 10 * 60 * 1000;
 
@@ -164,7 +183,19 @@ export class EcpayOrderInvoiceService {
         eq(order.id, orderId),
         ...(sellerId ? [eq(order.sellerId, sellerId)] : []),
       ),
-      with: { invoice: true, items: true },
+      with: {
+        invoice: true,
+        items: true,
+        seller: {
+          columns: {
+            addressLocality: true,
+            addressRegion: true,
+            extendedAddress: true,
+            postalCode: true,
+            streetAddress: true,
+          },
+        },
+      },
     });
 
     if (!found) throw new NotFoundException('Order not found');
@@ -283,11 +314,10 @@ export class EcpayOrderInvoiceService {
       throw new ConflictException('Invoice has not been issued yet');
 
     const result = await this.ecpayGetIssueInvoiceService.getIssue(
-      // 早於 relateNumber 落庫的發票只能靠號碼加日期查
       data.relateNumber
         ? { RelateNumber: data.relateNumber }
         : {
-            InvoiceDate: data.invoiceDate.toISOString().slice(0, 10),
+            InvoiceDate: toInvoiceDateText(data.invoiceDate),
             InvoiceNo: data.invoiceNumber,
           },
     );
@@ -364,9 +394,10 @@ export class EcpayOrderInvoiceService {
     };
     invoice: Invoice;
     items: { menuItemName: string; orderQuantity: number; unitPrice: string }[];
+    seller: SellerAddress;
     total: string;
   }): IssuePayload {
-    const { customer, invoice: data, items } = found;
+    const { customer, invoice: data, items, seller } = found;
 
     const itemAmounts = items.map(
       (item) =>
@@ -413,12 +444,13 @@ export class EcpayOrderInvoiceService {
       SalesAmount: salesAmount,
       TaxType: IssueInvoiceEcpayTaxType.Taxable,
       vat: IssueInvoiceEcpayVatType.TaxIncluded,
-      ...this.buildRecipient(data),
+      ...this.buildRecipient(data, seller),
     };
   }
 
   private buildRecipient(
     data: Invoice,
+    seller: SellerAddress,
   ): Pick<
     IssuePayload,
     | 'CarrierNum'
@@ -446,11 +478,12 @@ export class EcpayOrderInvoiceService {
           Print: IssueInvoiceEcpayPrint.No,
         };
       case 'personal':
-        // 不索取載具就是要紙本；Print=1 才拿得到列印網址，而綠界要求同時帶姓名與地址
+        // 不索取載具就是要紙本；Print=1 才拿得到列印網址，而綠界要求一併帶買受人地址。
+        // 證明聯不印買受人地址，現場也沒有地址可問，帶開立店家的地址過檢核即可
         if (!data.carrierType)
           return {
             CarrierType: IssueInvoiceEcpayCarrierType.None,
-            CustomerAddr: data.customerAddr ?? undefined,
+            CustomerAddr: toAddressText(seller),
             Donation: IssueInvoiceEcpayDonation.No,
             Print: IssueInvoiceEcpayPrint.Yes,
           };

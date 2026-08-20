@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
@@ -108,13 +109,11 @@ export const order = pgTable(
     total: numeric('total', { precision: 10, scale: 2 })
       .notNull()
       .generatedAlwaysAs(sql`"subtotal" - coalesce("discount", 0)`),
-    // 付款當下的組織點數設定快照；null = 付款當時未啟用（早於此欄位的歷史訂單以組織現值計）
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsValidityYears: integer('points_validity_years'),
-    // 內用桌號與用餐人數；其他點餐模式為 null
+    idempotencyKey: text('idempotency_key'),
     partySize: integer('party_size'),
     tableNumber: integer('table_number'),
-    // 綠界交易編號 TradeNo
     tradeNo: text('trade_no'),
     // https://schema.org/customer
     userId: text('user_id').references(() => user.id, {
@@ -136,6 +135,10 @@ export const order = pgTable(
     index('order_paymentDue_createdAt_idx')
       .on(table.orderStatus, table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
+    uniqueIndex('order_sellerId_idempotencyKey_unique').on(
+      table.sellerId,
+      table.idempotencyKey,
+    ),
   ],
 );
 
