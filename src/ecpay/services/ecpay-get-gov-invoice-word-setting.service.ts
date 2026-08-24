@@ -5,6 +5,8 @@ import {
   GetGovInvoiceWordSettingEcpayEncryptedResponseDto,
 } from '../dto/get-gov-invoice-word-setting-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -38,10 +40,9 @@ export class EcpayGetGovInvoiceWordSettingService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
+    this.apiUrl = getEcpayGetGovInvoiceWordSettingApiUrl(
+      getEcpayMode(configService),
     );
-    this.apiUrl = getEcpayGetGovInvoiceWordSettingApiUrl(mode);
   }
 
   async getGovInvoiceWordSetting({

@@ -24,6 +24,24 @@ export type I18nTranslations = {
             "internalServerError": string;
             "tooManyRequests": string;
         };
+        "invoices": {
+            "allowanceIssued": string;
+            "alreadyIssuing": string;
+            "notIssued": string;
+            "notPaid": string;
+            "notPending": string;
+            "notPrintable": string;
+            "notVoidable": string;
+            "orderRefunded": string;
+            "pastVoidablePeriod": string;
+            "status": {
+                "issued": string;
+                "issuing": string;
+                "pending": string;
+                "voided": string;
+            };
+            "voidWriteFailed": string;
+        };
         "points": {
             "insufficient": string;
             "notRedeemable": string;

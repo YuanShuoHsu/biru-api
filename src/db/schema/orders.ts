@@ -115,6 +115,7 @@ export const order = pgTable(
     tableNumber: integer('table_number'),
     tradeNo: text('trade_no'),
     authorizationNo: text('authorization_no'),
+    reconciledAt: timestamp('reconciled_at'),
     // https://schema.org/customer
     userId: text('user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -176,10 +177,7 @@ export const orderRelations = relations(order, ({ one, many }) => ({
     fields: [order.userId],
     references: [user.id],
   }),
-  invoice: one(invoice, {
-    fields: [order.id],
-    references: [invoice.orderId],
-  }),
+  invoices: many(invoice),
   items: many(orderItem),
 }));
 

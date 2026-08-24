@@ -4,6 +4,8 @@ import {
   CheckoutEcpayDto,
   CheckoutEcpayResponseDto,
 } from '../dto/checkout-ecpay.dto';
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { sumOrderItems } from '../../common/utils/order-items';
@@ -29,9 +31,39 @@ const ECPAY_CHOOSE_PAYMENT: Record<string, string> = {
 
 const ITEM_NAME_MAX_LENGTH = 400;
 const TRADE_DESC_MAX_LENGTH = 200;
+const REMARK_MAX_LENGTH = 100;
 
 const truncate = (value: string, maxLength: number): string =>
   [...value].slice(0, maxLength).join('');
+
+const sanitize = (value: string): string =>
+  // eslint-disable-next-line no-control-regex
+  value.replace(/[#\u0000-\u001F]/g, ' ').trim();
+
+const truncateItemName = (value: string): string => {
+  const truncated = truncate(value, ITEM_NAME_MAX_LENGTH);
+  if (truncated === value) return truncated;
+
+  const lastSeparator = truncated.lastIndexOf('#');
+
+  return lastSeparator > 0 ? truncated.slice(0, lastSeparator) : truncated;
+};
+
+const buildItemName = (items: OrderResponseDto['items']): string =>
+  items
+    .map(({ addOns, menuItemName, modifiers, orderQuantity }) => {
+      const choices = [
+        ...(modifiers ?? []).map(({ modifierName }) => modifierName),
+        ...(addOns ?? []).map(({ menuItemName: name }) => name),
+      ]
+        .map(sanitize)
+        .filter(Boolean);
+
+      const suffix = choices.length ? `(${choices.join('/')})` : '';
+
+      return `${sanitize(menuItemName)}${suffix} x${orderQuantity}`;
+    })
+    .join('#');
 
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
   Object.fromEntries(
@@ -45,18 +77,17 @@ export class EcpayBaseService {
   private readonly hashIV: string;
   private readonly apiUrl: string;
   private readonly returnUrl: string;
+  private readonly resultUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.merchantId = configService.getOrThrow('ECPAY_BASE_MERCHANT_ID');
     this.hashKey = configService.getOrThrow('ECPAY_BASE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_BASE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayBaseApiUrl(mode);
+    this.apiUrl = getEcpayBaseApiUrl(getEcpayMode(configService));
 
     this.returnUrl = configService.getOrThrow('ECPAY_BASE_RETURN_URL');
+    this.resultUrl = new URL('./result', this.returnUrl).toString();
   }
 
   private getEcpayDateString(): string {
@@ -104,8 +135,8 @@ export class EcpayBaseService {
 
     const raw = {
       ...base,
-      ItemName: truncate(base.ItemName, ITEM_NAME_MAX_LENGTH),
-      TradeDesc: truncate(base.TradeDesc, TRADE_DESC_MAX_LENGTH),
+      ItemName: truncateItemName(buildItemName(order.items)),
+      TradeDesc: truncate(sanitize(base.TradeDesc), TRADE_DESC_MAX_LENGTH),
       ChoosePayment: choosePayment,
       ...(choosePayment === 'DigitalPayment' && {
         ChooseSubPayment: order.paymentMethod,
@@ -115,8 +146,13 @@ export class EcpayBaseService {
       MerchantTradeDate: this.getEcpayDateString(),
       MerchantTradeNo: order.confirmationNumber,
       NeedExtraPaidInfo: 'Y',
+      OrderResultURL: base.ClientBackURL
+        ? `${this.resultUrl}?redirect=${encodeURIComponent(base.ClientBackURL)}`
+        : this.resultUrl,
       PaymentType: 'aio',
-      ...(order.customer.remark && { Remark: order.customer.remark }),
+      ...(order.customer.remark && {
+        Remark: truncate(order.customer.remark, REMARK_MAX_LENGTH),
+      }),
       ReturnURL: this.returnUrl,
       TotalAmount:
         Math.round(sumOrderItems(order.items)) -
@@ -134,8 +170,11 @@ export class EcpayBaseService {
     ...rest
   }: Record<string, string>): '1|OK' | '0|FAIL' {
     const payload = toStringRecord(rest);
-    const checkValue = this.generateCheckMacValue(payload);
+    const expected = Buffer.from(this.generateCheckMacValue(payload));
+    const actual = Buffer.from(String(CheckMacValue ?? ''));
 
-    return checkValue === CheckMacValue ? '1|OK' : '0|FAIL';
+    if (expected.length !== actual.length) return '0|FAIL';
+
+    return crypto.timingSafeEqual(expected, actual) ? '1|OK' : '0|FAIL';
   }
 }

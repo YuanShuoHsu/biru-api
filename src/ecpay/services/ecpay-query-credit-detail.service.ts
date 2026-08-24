@@ -2,6 +2,8 @@ import { firstValueFrom } from 'rxjs';
 
 import type { QueryCreditDetailEcpayResponseDto } from '../dto/query-credit-detail-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { EcpayBaseService } from './ecpay-base.service';
@@ -28,7 +30,7 @@ export class EcpayQueryCreditDetailService {
   ) {
     this.merchantId = configService.getOrThrow('ECPAY_BASE_MERCHANT_ID');
     this.checkCode = configService.get('ECPAY_CREDIT_CHECK_CODE');
-    this.mode = configService.getOrThrow<EcpayMode>('ECPAY_OPERATION_MODE');
+    this.mode = getEcpayMode(configService);
   }
 
   /** 與 DoAction 一樣沒有測試環境，且商家檢查碼要另外從綠界後台取得 */

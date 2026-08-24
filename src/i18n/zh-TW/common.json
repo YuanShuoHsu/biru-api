@@ -17,6 +17,24 @@
     "internalServerError": "內部伺服器錯誤",
     "tooManyRequests": "請求過多"
   },
+  "invoices": {
+    "allowanceIssued": "此發票已開立折讓，無法作廢",
+    "alreadyIssuing": "這張發票正在開立中，請稍候再試",
+    "notIssued": "此發票尚未開立",
+    "notPaid": "訂單尚未付款，無法開立發票",
+    "notPending": "此發票目前為{status}，無法開立",
+    "notPrintable": "此發票目前無法列印",
+    "notVoidable": "此發票目前為{status}，無法作廢",
+    "orderRefunded": "此訂單已全額退款，不再開立發票",
+    "pastVoidablePeriod": "此發票已跨稅期，只能開立折讓，無法作廢",
+    "status": {
+      "issued": "已開立",
+      "issuing": "開立中",
+      "pending": "待開立",
+      "voided": "已作廢"
+    },
+    "voidWriteFailed": "發票 {invoiceNumber} 已於綠界作廢，但本機未寫入，請以查證功能確認後人工補正"
+  },
   "points": {
     "insufficient": "點數不足",
     "notRedeemable": "此優惠券無法用點數兌換",

@@ -21,7 +21,9 @@ import {
   gte,
   ilike,
   inArray,
+  isNull,
   lt,
+  or,
   sql,
 } from 'drizzle-orm';
 import { invoice } from 'src/db/schema/invoices';
@@ -42,8 +44,10 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
+import { toActiveInvoice } from 'src/common/utils/invoices';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
+import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 
@@ -97,6 +101,11 @@ const generateConfirmationNumber = (): string =>
 
 export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
+export type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
+
+// 逾期未補正的異常訂單不再輪詢，否則會永久佔用每輪有限的綠界查詢配額
+const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 const toPaymentDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
 
@@ -128,18 +137,20 @@ export class OrdersService {
     return org;
   }
 
-  private findOrderByIdempotencyKey(
+  private async findOrderByIdempotencyKey(
     db: Pick<DrizzleDB, 'query'>,
     sellerId: string,
     idempotencyKey: string,
   ) {
-    return db.query.order.findFirst({
+    const found = await db.query.order.findFirst({
       where: and(
         eq(order.sellerId, sellerId),
         eq(order.idempotencyKey, idempotencyKey),
       ),
-      with: { invoice: true, items: true },
+      with: { invoices: true, items: true },
     });
+
+    return found && toActiveInvoice(found);
   }
 
   async createOrder(
@@ -253,7 +264,7 @@ export class OrdersService {
         .returning();
 
       const [createdInvoice] =
-        dto.invoice && total > 0
+        total > 0
           ? await tx
               .insert(invoice)
               .values({
@@ -315,8 +326,8 @@ export class OrdersService {
       createdAt: order.createdAt,
       tableNumber: order.tableNumber,
       total: order.total,
-      invoiceType: sql`(select i.type::text from ${invoice} i where i.order_id = ${order.id})`,
-      invoiceStatus: sql`(select i.status::text from ${invoice} i where i.order_id = ${order.id})`,
+      invoiceType: sql`(select i.type::text from ${invoice} i where i.order_id = ${order.id} and i.status <> 'voided')`,
+      invoiceStatus: sql`(select i.status::text from ${invoice} i where i.order_id = ${order.id} and i.status <> 'voided')`,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
@@ -363,12 +374,15 @@ export class OrdersService {
         orderBy,
         limit,
         offset,
-        with: { invoice: true, items: true },
+        with: { invoices: true, items: true },
       }),
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data: data.map(toAdminOrder), total };
+    return {
+      data: data.map((found) => toAdminOrder(toActiveInvoice(found))),
+      total,
+    };
   }
 
   async listUserOrders(
@@ -615,10 +629,21 @@ export class OrdersService {
     return { ...found, confirmationNumber };
   }
 
-  async recordPaymentResult(body: Record<string, string>): Promise<boolean> {
-    if (body.SimulatePaid === '1') return false;
+  async recordPaymentResult(
+    body: Record<string, string>,
+  ): Promise<PaymentResultOutcome> {
+    if (body.SimulatePaid === '1') return 'ignored';
 
     const succeeded = body.RtnCode === '1';
+
+    if (!succeeded && ECPAY_PENDING_RTN_CODES.has(body.RtnCode)) {
+      this.logger.warn(
+        `綠界回報付款結果待確認：${body.MerchantTradeNo}（${body.RtnCode} ${body.RtnMsg}），維持待付款交給對帳`,
+      );
+
+      return 'ignored';
+    }
+
     const orderStatus: OrderStatus = succeeded
       ? 'OrderProcessing'
       : 'OrderProblem';
@@ -637,7 +662,17 @@ export class OrdersService {
         .where(
           and(
             eq(order.confirmationNumber, body.MerchantTradeNo),
-            eq(order.orderStatus, 'OrderPaymentDue'),
+            // 失敗通知已還原優惠券，而 redeem 需要訂單沒存的 couponId／userCouponId，
+            // 且券可能已被別人用完，所以帶券的 OrderProblem 只能人工處理
+            succeeded
+              ? or(
+                  eq(order.orderStatus, 'OrderPaymentDue'),
+                  and(
+                    eq(order.orderStatus, 'OrderProblem'),
+                    isNull(order.discountCode),
+                  ),
+                )
+              : eq(order.orderStatus, 'OrderPaymentDue'),
             // 綠界建議核對金額；對不上就不能認列為已付款
             ...(succeeded
               ? [sql`${order.total} = ${Number(body.TradeAmt)}`]
@@ -659,13 +694,7 @@ export class OrdersService {
       return updated;
     });
 
-    if (!updated) {
-      this.logger.warn(
-        `綠界付款通知未對應到待付款訂單：${body.MerchantTradeNo}（通知金額 ${body.TradeAmt}）`,
-      );
-
-      return false;
-    }
+    if (!updated) return this.classifyUnmatchedPayment(body, succeeded);
 
     this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
       orderId: updated.id,
@@ -676,33 +705,107 @@ export class OrdersService {
     if (succeeded)
       this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: updated.id });
 
-    return true;
+    return 'handled';
   }
 
-  async findExpiredUnpaidOrders(limit: number): Promise<
+  private async classifyUnmatchedPayment(
+    body: Record<string, string>,
+    succeeded: boolean,
+  ): Promise<PaymentResultOutcome> {
+    const found = await this.db.query.order.findFirst({
+      where: eq(order.confirmationNumber, body.MerchantTradeNo),
+      columns: {
+        discountCode: true,
+        orderStatus: true,
+        paymentDate: true,
+        total: true,
+      },
+    });
+
+    if (!found) {
+      this.logger.error(
+        `綠界付款通知找不到對應訂單：${body.MerchantTradeNo}（通知金額 ${body.TradeAmt}）`,
+      );
+
+      return 'unmatched';
+    }
+
+    if (found.paymentDate) {
+      this.logger.log(
+        `綠界付款通知重複送達，訂單已認列：${body.MerchantTradeNo}`,
+      );
+
+      return 'handled';
+    }
+
+    if (!succeeded && found.orderStatus === 'OrderProblem') {
+      this.logger.log(
+        `綠界付款失敗通知重複送達，訂單已標記異常：${body.MerchantTradeNo}`,
+      );
+
+      return 'handled';
+    }
+
+    if (Number(found.total) !== Number(body.TradeAmt))
+      this.logger.error(
+        `綠界付款通知金額與訂單不符：${body.MerchantTradeNo}（訂單 ${found.total}，通知 ${body.TradeAmt}）`,
+      );
+    else if (succeeded && found.orderStatus === 'OrderProblem')
+      this.logger.error(
+        `綠界回報已付款但訂單為異常，用了優惠券 ${found.discountCode} 所以不自動補正，需人工確認券的使用狀態：${body.MerchantTradeNo}`,
+      );
+    else
+      this.logger.error(
+        `綠界付款通知對應的訂單不在待付款狀態：${body.MerchantTradeNo}（目前 ${found.orderStatus}，通知金額 ${body.TradeAmt}）`,
+      );
+
+    return 'unmatched';
+  }
+
+  async findOrdersToReconcile(limit: number): Promise<
     {
       confirmationNumber: string | null;
       createdAt: Date;
       id: string;
+      orderStatus: OrderStatus;
       paymentMethod: PaymentMethod;
     }[]
   > {
+    const now = Date.now();
+
     return this.db
       .select({
         confirmationNumber: order.confirmationNumber,
         createdAt: order.createdAt,
         id: order.id,
+        orderStatus: order.orderStatus,
         paymentMethod: order.paymentMethod,
       })
       .from(order)
       .where(
-        and(
-          eq(order.orderStatus, 'OrderPaymentDue'),
-          lt(order.createdAt, new Date(Date.now() - PAYMENT_WINDOW_MS)),
+        or(
+          and(
+            eq(order.orderStatus, 'OrderPaymentDue'),
+            lt(order.createdAt, new Date(now - PAYMENT_WINDOW_MS)),
+          ),
+          and(
+            eq(order.orderStatus, 'OrderProblem'),
+            isNull(order.reconciledAt),
+            gte(order.createdAt, new Date(now - PROBLEM_RECHECK_WINDOW_MS)),
+          ),
         ),
       )
       .orderBy(asc(order.createdAt))
       .limit(limit);
+  }
+
+  async markReconciled(orderIds: string[]): Promise<void> {
+    if (!orderIds.length) return;
+
+    await this.db
+      .update(order)
+      .set({ reconciledAt: new Date() })
+      .where(inArray(order.id, orderIds));
   }
 
   async cancelOrders(orderIds: string[]): Promise<void> {

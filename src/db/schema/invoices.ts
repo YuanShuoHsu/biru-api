@@ -1,11 +1,13 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   index,
+  integer,
   numeric,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
@@ -50,7 +52,6 @@ export const invoice = pgTable(
     id: text('id').primaryKey(),
     orderId: text('order_id')
       .notNull()
-      .unique()
       .references(() => order.id, { onDelete: 'cascade' }),
     type: invoiceTypeEnum('type').notNull(),
     carrierType: invoiceCarrierTypeEnum('carrier_type'),
@@ -70,9 +71,16 @@ export const invoice = pgTable(
     relateNumber: text('relate_number'),
     voidedAt: timestamp('voided_at'),
     printedAt: timestamp('printed_at'),
+    printResetCount: integer('print_reset_count').notNull().default(0),
+    printResetReason: text('print_reset_reason'),
     ...timestamps,
   },
-  (table) => [index('invoice_orderId_idx').on(table.orderId)],
+  (table) => [
+    index('invoice_orderId_idx').on(table.orderId),
+    uniqueIndex('invoice_activeOrderId_idx')
+      .on(table.orderId)
+      .where(sql`${table.status} <> 'voided'`),
+  ],
 );
 
 export type Invoice = typeof invoice.$inferSelect;

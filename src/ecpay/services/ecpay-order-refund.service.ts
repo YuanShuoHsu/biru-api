@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 
-import { and, desc, eq, lt, ne, or } from 'drizzle-orm';
+import { isAxiosError } from 'axios';
+import { and, desc, eq, gte, lt, ne, or } from 'drizzle-orm';
 
 import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto';
 import type {
@@ -39,10 +40,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { Invoice } from 'src/db/schema/invoices';
 import { invoice, invoiceAllowance } from 'src/db/schema/invoices';
-import type {
-  OrderCustomerSnapshot,
-  PaymentMethod,
-} from 'src/db/schema/orders';
+import type { OrderCustomerSnapshot } from 'src/db/schema/orders';
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import type {
@@ -58,10 +56,9 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
-import { isRefundable } from 'src/orders/order-transitions';
+import { toActiveInvoice } from 'src/common/utils/invoices';
+import { getRefundChannel, isRefundable } from 'src/orders/order-transitions';
 import { PointsService } from 'src/points/points.service';
-
-const ECPAY_REFUNDABLE_METHODS: PaymentMethod[] = ['ApplePay', 'Credit'];
 
 const SETTLE_GRACE_MS = 10 * 60 * 1000;
 // 認領後多久視為該行程已死、可被接手；綠界折讓實測是秒級，抓寬一點
@@ -81,6 +78,8 @@ const sleep = (ms: number): Promise<void> =>
 
 const DEFAULT_INVOICE_REASON = '訂單退款';
 const INVALID_REASON_MAX_LENGTH = 20;
+// 發票處理失敗的重試窗；超過就不再自動打綠界，改由人工處理
+const INVOICE_RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 interface InvoiceSettlement {
   action: RefundInvoiceAction;
@@ -172,11 +171,11 @@ export class EcpayOrderRefundService {
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
-      with: { invoice: true, items: true },
+      with: { invoices: true, items: true },
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    return found;
+    return toActiveInvoice(found);
   }
 
   async refundOrder(
@@ -218,10 +217,7 @@ export class EcpayOrderRefundService {
           id: randomUUID(),
           amount: String(plan.amount),
           channel:
-            plan.amount > 0 &&
-            ECPAY_REFUNDABLE_METHODS.includes(found.paymentMethod)
-              ? 'ecpay'
-              : 'manual',
+            plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual',
           items: plan.items,
           operatorId,
           orderId,
@@ -400,10 +396,78 @@ export class EcpayOrderRefundService {
     this.repairing = true;
     try {
       await this.repair();
+      await this.retryFailedInvoiceSettlements();
     } catch (error) {
       this.logger.error('退款補正失敗', error);
     } finally {
       this.repairing = false;
+    }
+  }
+
+  private async retryFailedInvoiceSettlements(): Promise<void> {
+    const staleBefore = new Date(Date.now() - SETTLE_GRACE_MS);
+
+    const failed = await this.db
+      .select()
+      .from(refund)
+      .where(
+        and(
+          eq(refund.invoiceAction, 'failed'),
+          gte(refund.createdAt, new Date(Date.now() - INVOICE_RETRY_WINDOW_MS)),
+          lt(refund.updatedAt, staleBefore),
+        ),
+      );
+
+    for (const created of failed) {
+      // 只有把 updatedAt 推到現在的那個行程能往下走，否則同一張發票會被開出兩張折讓
+      const [claimed] = await this.db
+        .update(refund)
+        .set({ updatedAt: new Date() })
+        .where(
+          and(
+            eq(refund.id, created.id),
+            eq(refund.invoiceAction, 'failed'),
+            lt(refund.updatedAt, staleBefore),
+          ),
+        )
+        .returning();
+      if (!claimed) continue;
+
+      const row = await this.db.query.order.findFirst({
+        where: eq(order.id, claimed.orderId),
+        with: { invoices: true },
+      });
+      if (!row) continue;
+
+      const found = toActiveInvoice(row);
+
+      try {
+        const result = await this.settleInvoice(
+          found.invoice,
+          this.toSettlement(claimed, found),
+          {
+            notifyEmail:
+              found.invoice?.email || found.customer.email || undefined,
+            reason: claimed.reason ?? undefined,
+          },
+        );
+
+        await this.db
+          .update(refund)
+          .set({
+            allowanceNo: result.allowanceNo,
+            invoiceAction: result.action,
+            invoiceError: result.error,
+          })
+          .where(eq(refund.id, claimed.id));
+
+        if (result.action !== 'failed')
+          this.logger.warn(
+            `退款 ${claimed.id} 的發票處理先前失敗，已補正為 ${result.action}`,
+          );
+      } catch (error) {
+        this.logger.error(`退款 ${claimed.id} 的發票補正失敗`, error);
+      }
     }
   }
 
@@ -425,11 +489,13 @@ export class EcpayOrderRefundService {
       );
 
     for (const created of interrupted) {
-      const found = await this.db.query.order.findFirst({
+      const row = await this.db.query.order.findFirst({
         where: eq(order.id, created.orderId),
-        with: { invoice: true },
+        with: { invoices: true },
       });
-      if (!found) continue;
+      if (!row) continue;
+
+      const found = toActiveInvoice(row);
 
       try {
         await this.settle(created, found, this.toSettlement(created, found));
@@ -509,11 +575,14 @@ export class EcpayOrderRefundService {
     id: string;
     orderId: string;
   }): Promise<boolean> {
-    const found = await this.db.query.order.findFirst({
+    const data = await this.db.query.order.findFirst({
       where: eq(order.id, row.orderId),
-      with: { invoice: true },
+      with: { invoices: true },
     });
-    if (!found?.authorizationNo) return false;
+    if (!data) return false;
+
+    const found = toActiveInvoice(data);
+    if (!found.authorizationNo) return false;
 
     const result = await this.ecpayQueryCreditDetailService.queryCreditDetail({
       amount: Math.round(Number(found.total)),
@@ -628,12 +697,17 @@ export class EcpayOrderRefundService {
     },
     { notifyEmail, reason }: { notifyEmail?: string; reason?: string },
   ): Promise<InvoiceSettlement> {
-    if (
-      !data ||
-      data.status !== 'issued' ||
-      !data.invoiceNumber ||
-      !data.invoiceDate
-    )
+    if (!data) return { action: 'none', allowanceNo: null, error: null };
+
+    // 開立中／待開立的發票稍後仍會被開出來，記成「無發票需處理」就再也沒人會去折讓它
+    if (data.status === 'pending' || data.status === 'issuing')
+      return {
+        action: 'failed',
+        allowanceNo: null,
+        error: `退款時發票尚未開立（${data.status}），待開立後補處理`,
+      };
+
+    if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
       return { action: 'none', allowanceNo: null, error: null };
 
     const allowances = await this.db
@@ -664,13 +738,30 @@ export class EcpayOrderRefundService {
             ),
           });
 
-          await this.db
-            .update(invoice)
-            .set({ status: 'voided', voidedAt: new Date() })
-            .where(eq(invoice.id, data.id));
+          try {
+            await this.db
+              .update(invoice)
+              .set({ status: 'voided', voidedAt: new Date() })
+              .where(eq(invoice.id, data.id));
+          } catch (writeError) {
+            // 發票已經作廢了，記成 failed 會讓補正再跑一次，最後在已作廢的發票上開折讓
+            this.logger.error(
+              `發票 ${data.invoiceNumber} 已於綠界作廢但寫入失敗，需人工補狀態：${writeError instanceof Error ? writeError.message : String(writeError)}`,
+            );
+
+            return {
+              action: 'voided',
+              allowanceNo: null,
+              error: `發票已作廢但本機未寫入，需人工補狀態（${data.invoiceNumber}）`,
+            };
+          }
 
           return { action: 'voided', allowanceNo: null, error: null };
         } catch (error) {
+          // 連線層失敗時綠界可能已經作廢，這時再開折讓等於折兩次；
+          // 只有綠界明確退件才確定沒作廢，才可以降級
+          if (isAxiosError(error)) throw error;
+
           this.logger.warn(
             `發票 ${data.invoiceNumber} 作廢失敗，改開折讓：${error instanceof Error ? error.message : String(error)}`,
           );
@@ -692,16 +783,29 @@ export class EcpayOrderRefundService {
         Reason: reason || DEFAULT_INVOICE_REASON,
       });
 
-      await this.db.insert(invoiceAllowance).values({
-        id: randomUUID(),
-        allowanceNo: result.IA_Allow_No,
-        amount: String(plan.amount),
-        invoiceId: data.id,
-        issuedAt: new Date(
-          `${result.IA_Date.replace(' ', 'T')}${STORE_UTC_OFFSET}`,
-        ),
-        remainingAmount: String(result.IA_Remain_Allowance_Amt),
-      });
+      try {
+        await this.db.insert(invoiceAllowance).values({
+          id: randomUUID(),
+          allowanceNo: result.IA_Allow_No,
+          amount: String(plan.amount),
+          invoiceId: data.id,
+          issuedAt: new Date(
+            `${result.IA_Date.replace(' ', 'T')}${STORE_UTC_OFFSET}`,
+          ),
+          remainingAmount: String(result.IA_Remain_Allowance_Amt),
+        });
+      } catch (writeError) {
+        // 折讓已經開出去了，記成 failed 會讓補正再開第二張
+        this.logger.error(
+          `折讓 ${result.IA_Allow_No} 已開立但寫入失敗，需人工補紀錄：${writeError instanceof Error ? writeError.message : String(writeError)}`,
+        );
+
+        return {
+          action: 'allowance',
+          allowanceNo: result.IA_Allow_No,
+          error: `折讓已開立但本機未寫入，需人工補紀錄（${result.IA_Allow_No}）`,
+        };
+      }
 
       return {
         action: 'allowance',

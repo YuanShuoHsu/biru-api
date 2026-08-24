@@ -17,8 +17,10 @@ import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service
 import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service';
 
 import {
+  BadRequestException,
   Body,
   Controller,
+  HttpCode,
   Logger,
   Post,
   Query,
@@ -35,6 +37,8 @@ import { AdminGuard } from 'src/common/guards/admin.guard';
 @Controller('ecpay')
 export class EcpayController {
   private readonly logger = new Logger(EcpayController.name);
+  private readonly allowedOrigins: string[];
+  private readonly fallbackUrl: string;
 
   constructor(
     private readonly ecpayBaseService: EcpayBaseService,
@@ -42,23 +46,25 @@ export class EcpayController {
     private readonly ecpayCheckBarcodeService: EcpayCheckBarcodeService,
     private readonly ecpaySyncInvoiceWordSettingsService: EcpaySyncInvoiceWordSettingsService,
     private readonly ordersService: OrdersService,
-    private readonly configService: ConfigService,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.fallbackUrl = configService.getOrThrow<string>('NEXT_URL');
+    this.allowedOrigins = [
+      this.fallbackUrl,
+      configService.getOrThrow<string>('NEXT_ADMIN_URL'),
+    ].map((url) => new URL(url).origin);
+  }
+
+  private isAllowedUrl(value: string): boolean {
+    try {
+      return this.allowedOrigins.includes(new URL(value).origin);
+    } catch {
+      return false;
+    }
+  }
 
   private getSafeRedirectUrl(redirect: string): string {
-    const fallbackUrl = this.configService.getOrThrow<string>('NEXT_URL');
-    const allowedOrigins = [
-      fallbackUrl,
-      this.configService.getOrThrow<string>('NEXT_ADMIN_URL'),
-    ].map((url) => new URL(url).origin);
-
-    try {
-      if (allowedOrigins.includes(new URL(redirect).origin)) return redirect;
-    } catch {
-      // redirect 不是合法 URL，落入 fallback
-    }
-
-    return fallbackUrl;
+    return this.isAllowedUrl(redirect) ? redirect : this.fallbackUrl;
   }
 
   private async handleCallback(
@@ -86,7 +92,18 @@ export class EcpayController {
         return true;
       }
 
-      if (await this.ordersService.recordPaymentResult(body))
+      const outcome = await this.ordersService.recordPaymentResult(body);
+
+      if (outcome === 'unmatched') {
+        await this.ecpayCallbackLogService.markFailed(
+          logId,
+          '通知未對應到可認列的訂單',
+        );
+
+        return false;
+      }
+
+      if (outcome === 'handled')
         await this.ecpayCallbackLogService.markHandled(logId);
 
       return true;
@@ -119,6 +136,10 @@ export class EcpayController {
   @ApiCreatedResponse({ type: CheckoutEcpayResponseDto })
   async checkout(@Body() dto: CheckoutEcpayDto) {
     const { orderId, ...base } = dto;
+
+    if (base.ClientBackURL && !this.isAllowedUrl(base.ClientBackURL))
+      throw new BadRequestException('ClientBackURL is not allowed');
+
     const order = await this.ordersService.getPayableOrder(orderId);
 
     return this.ecpayBaseService.aioCheckOutAll(order, base);
@@ -137,6 +158,7 @@ export class EcpayController {
 
   @Post('return')
   @AllowAnonymous()
+  @HttpCode(200)
   @SkipThrottle()
   @ApiBody({ type: ReturnEcpayDto })
   async return(@Body() body: Record<string, string>) {

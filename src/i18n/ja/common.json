@@ -17,6 +17,24 @@
     "internalServerError": "内部サーバーエラー",
     "tooManyRequests": "リクエストが多すぎます"
   },
+  "invoices": {
+    "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
+    "alreadyIssuing": "このインボイスは発行処理中です。しばらくしてからお試しください",
+    "notIssued": "このインボイスはまだ発行されていません",
+    "notPaid": "注文が未払いのため、インボイスを発行できません",
+    "notPending": "このインボイスは{status}のため、発行できません",
+    "notPrintable": "このインボイスは現在印刷できません",
+    "notVoidable": "このインボイスは{status}のため、無効化できません",
+    "orderRefunded": "この注文は全額返金済みのため、インボイスは発行されません",
+    "pastVoidablePeriod": "このインボイスは期をまたいでいるため無効化できません。値引伝票のみ発行できます",
+    "status": {
+      "issued": "発行済み",
+      "issuing": "発行中",
+      "pending": "発行待ち",
+      "voided": "無効化済み"
+    },
+    "voidWriteFailed": "インボイス {invoiceNumber} は ECPay で無効化されましたが、システムに記録できませんでした。照会機能で確認のうえ手動で修正してください"
+  },
   "points": {
     "insufficient": "ポイントが不足しています",
     "notRedeemable": "このクーポンはポイントと交換できません",

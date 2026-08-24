@@ -5,6 +5,8 @@ import {
   UpdateInvoiceWordStatusEcpayEncryptedResponseDto,
 } from '../dto/update-invoice-word-status-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -36,10 +38,9 @@ export class EcpayUpdateInvoiceWordStatusService {
     this.hashKey = this.configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = this.configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
+    this.apiUrl = getEcpayUpdateInvoiceWordStatusApiUrl(
+      getEcpayMode(configService),
     );
-    this.apiUrl = getEcpayUpdateInvoiceWordStatusApiUrl(mode);
   }
 
   async updateInvoiceWordStatus(

@@ -6,6 +6,7 @@ import type {
   PaymentMethod,
 } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES } from 'src/db/schema/orders';
+import type { RefundChannel } from 'src/db/schema/refunds';
 
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import type { OrderResponseDto } from './dto/order-response.dto';
@@ -86,6 +87,13 @@ export const isRefundable = (found: {
   (ORDER_FLOW_STATUSES as readonly string[]).includes(found.orderStatus) &&
   found.orderStatus !== 'OrderPaymentDue';
 
+const ECPAY_REFUNDABLE_METHODS: PaymentMethod[] = ['ApplePay', 'Credit'];
+
+export const getRefundChannel = (
+  paymentMethod: PaymentMethod,
+): RefundChannel =>
+  ECPAY_REFUNDABLE_METHODS.includes(paymentMethod) ? 'ecpay' : 'manual';
+
 export const getAvailableTransitions = (found: {
   orderStatus: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -101,6 +109,7 @@ export const toAdminOrder = (
 ): AdminOrderResponseDto => ({
   ...found,
   refundable: isRefundable(found),
+  refundChannel: getRefundChannel(found.paymentMethod),
   availableTransitions: getAvailableTransitions(found).map(
     ({ cashOnly, direction, toStatus }) => ({
       ...(cashOnly && { cashOnly }),

@@ -14,6 +14,10 @@ import {
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export const ECPAY_PENDING_RTN_CODES: ReadonlySet<string> = new Set([
+  '10300066',
+]);
+
 export class ReturnEcpayDto {
   @ApiProperty({
     description: '特店編號',

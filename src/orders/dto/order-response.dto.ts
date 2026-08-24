@@ -90,6 +90,8 @@ export class OrderInvoiceDto {
   @ApiPropertyOptional() invoiceDate?: Date | null;
   @ApiPropertyOptional() randomNumber?: string | null;
   @ApiPropertyOptional() printedAt?: Date | null;
+  @ApiProperty({ description: '已重設列印的次數' })
+  printResetCount: number;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

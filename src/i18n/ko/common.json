@@ -17,6 +17,24 @@
     "internalServerError": "내부 서버 오류",
     "tooManyRequests": "요청이 너무 많습니다"
   },
+  "invoices": {
+    "allowanceIssued": "이 세금계산서는 에누리가 발행되어 취소할 수 없습니다",
+    "alreadyIssuing": "이 세금계산서는 발행 처리 중입니다. 잠시 후 다시 시도하세요",
+    "notIssued": "이 세금계산서는 아직 발행되지 않았습니다",
+    "notPaid": "주문이 결제되지 않아 세금계산서를 발행할 수 없습니다",
+    "notPending": "이 세금계산서는 {status} 상태여서 발행할 수 없습니다",
+    "notPrintable": "이 세금계산서는 현재 인쇄할 수 없습니다",
+    "notVoidable": "이 세금계산서는 {status} 상태여서 취소할 수 없습니다",
+    "orderRefunded": "이 주문은 전액 환불되어 세금계산서를 발행하지 않습니다",
+    "pastVoidablePeriod": "이 세금계산서는 신고 기간이 지나 취소할 수 없으며 에누리만 발행할 수 있습니다",
+    "status": {
+      "issued": "발행됨",
+      "issuing": "발행 중",
+      "pending": "발행 대기",
+      "voided": "취소됨"
+    },
+    "voidWriteFailed": "세금계산서 {invoiceNumber}는 ECPay에서 취소되었으나 시스템에 기록되지 않았습니다. 조회 기능으로 확인 후 수동으로 정정하세요"
+  },
   "points": {
     "insufficient": "포인트가 부족합니다",
     "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다",

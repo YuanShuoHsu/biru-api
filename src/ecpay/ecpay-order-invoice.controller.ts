@@ -1,11 +1,13 @@
 import { OrderInvoiceDto } from '../orders/dto/order-response.dto';
 
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto';
+import { ResetInvoicePrintDto } from './dto/reset-invoice-print.dto';
+import { VoidInvoiceDto } from './dto/void-invoice.dto';
 import { OrderInvoiceVerificationDto } from './dto/order-invoice-verification.dto';
 
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service';
 
-import { Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -66,6 +68,25 @@ export class EcpayOrderInvoiceController {
     );
   }
 
+  @Post('void')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit('invoice', { column: 'orderId', param: 'orderId' })
+  @ApiCreatedResponse({ type: OrderInvoiceDto })
+  @ApiOperation({
+    summary: '作廢發票並重新開立（統編或抬頭開錯但不需退款時），回傳新的發票',
+  })
+  void(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: VoidInvoiceDto,
+  ): Promise<OrderInvoiceDto> {
+    return this.ecpayOrderInvoiceService.voidForOrder(
+      organizationSlug,
+      orderId,
+      dto,
+    );
+  }
+
   @Patch('print')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })
@@ -74,10 +95,12 @@ export class EcpayOrderInvoiceController {
   resetPrint(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
+    @Body() { reason }: ResetInvoicePrintDto,
   ): Promise<OrderInvoiceDto> {
     return this.ecpayOrderInvoiceService.resetPrintForOrder(
       organizationSlug,
       orderId,
+      reason,
     );
   }
 }

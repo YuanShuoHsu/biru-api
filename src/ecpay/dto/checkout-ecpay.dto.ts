@@ -6,9 +6,7 @@ import { BaseEcpayDto } from './base-ecpay.dto';
 
 export class CheckoutEcpayDto extends PickType(BaseEcpayDto, [
   'ClientBackURL',
-  'ItemName',
   'Language',
-  'OrderResultURL',
   'TradeDesc',
 ] as const) {
   @ApiProperty({ description: '訂單 ID' })

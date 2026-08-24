@@ -2,6 +2,8 @@ import { firstValueFrom } from 'rxjs';
 
 import type { QueryTradeInfoEcpayResponseDto } from '../dto/query-trade-info-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { EcpayBaseService } from './ecpay-base.service';
@@ -35,10 +37,7 @@ export class EcpayQueryTradeInfoService {
   ) {
     this.merchantId = configService.getOrThrow('ECPAY_BASE_MERCHANT_ID');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayQueryTradeInfoApiUrl(mode);
+    this.apiUrl = getEcpayQueryTradeInfoApiUrl(getEcpayMode(configService));
   }
 
   async queryTradeInfo(

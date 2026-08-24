@@ -659,6 +659,27 @@
       "when": 1787234574148,
       "tag": "0093_lying_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1787378219926,
+      "tag": "0094_condemned_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1787568769889,
+      "tag": "0095_whole_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1787568959514,
+      "tag": "0096_wide_johnny_storm",
+      "breakpoints": true
     }
   ]
 }

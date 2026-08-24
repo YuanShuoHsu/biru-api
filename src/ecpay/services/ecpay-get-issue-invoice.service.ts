@@ -5,6 +5,8 @@ import type {
   GetIssueInvoiceEcpayEncryptedResponseDto,
 } from '../dto/get-issue-invoice-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -34,10 +36,7 @@ export class EcpayGetIssueInvoiceService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayGetIssueInvoiceApiUrl(mode);
+    this.apiUrl = getEcpayGetIssueInvoiceApiUrl(getEcpayMode(configService));
   }
 
   /** 以發票號碼或開立時的自訂編號擇一查詢 */

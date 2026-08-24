@@ -88,6 +88,7 @@ export class OrderRefundDto {
     description:
       'ecpay：已透過綠界退刷；manual：綠界不支援此付款方式的退款 API，需店家自行退款，系統僅登錄',
     enum: ['ecpay', 'manual'],
+    enumName: 'RefundChannel',
   })
   channel: RefundChannel;
 

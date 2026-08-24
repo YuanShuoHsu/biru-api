@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDefined,
   IsEmail,
   IsEnum,
   IsInt,
@@ -140,11 +141,11 @@ export class CreateOrderDto {
   @IsString()
   discountCode?: string;
 
-  @ApiPropertyOptional({ type: CreateOrderInvoiceDto })
-  @IsOptional()
+  @ApiProperty({ type: CreateOrderInvoiceDto })
+  @IsDefined()
   @ValidateNested()
   @Type(() => CreateOrderInvoiceDto)
-  invoice?: CreateOrderInvoiceDto;
+  invoice: CreateOrderInvoiceDto;
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

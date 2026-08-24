@@ -42,8 +42,9 @@ const wordKey = (info: {
 
 const timestamp = (): number => Math.floor(Date.now() / 1000);
 
-// 11–12 月時財政部已配下次年 1–2 月的號；只同步當年度會讓跨年那天開不出發票
 const NEXT_YEAR_LOOKAHEAD_FROM_MONTH = 11;
+
+const LOW_REMAINING_NUMBERS = 200;
 
 @Injectable()
 export class EcpaySyncInvoiceWordSettingsService {
@@ -147,17 +148,40 @@ export class EcpaySyncInvoiceWordSettingsService {
           timestamp: timestamp(),
         });
 
-      for (const info of InvoiceInfo) existingByKey.set(wordKey(info), info);
+      for (const info of InvoiceInfo) {
+        existingByKey.set(wordKey(info), info);
+        this.warnWhenRunningOut(info);
+      }
     }
 
     const results: SyncInvoiceWordSettingResultDto[] = [];
 
-    for (const info of targets)
-      results.push(
-        await this.syncOne(info, existingByKey.get(wordKey(info)), rocYear),
-      );
+    for (const info of targets) {
+      const existing = existingByKey.get(wordKey(info));
+      let result = await this.syncOne(info, existing, rocYear);
+
+      // 下一次排程是 24 小時後，跨年／跨期那天失敗就是整天開不出發票
+      if (result.outcome === 'failed')
+        result = await this.syncOne(info, existing, rocYear);
+
+      results.push(result);
+    }
 
     return results;
+  }
+
+  private warnWhenRunningOut(
+    info: GetInvoiceWordSettingEcpayInvoiceInfoDto,
+  ): void {
+    if (info.UseStatus !== GetInvoiceWordSettingEcpayUseStatus.InUse) return;
+
+    const remaining = Number(info.InvoiceEnd) - Number(info.InvoiceNo);
+    if (!Number.isFinite(remaining) || remaining > LOW_REMAINING_NUMBERS)
+      return;
+
+    this.logger.warn(
+      `字軌 ${info.InvoiceHeader}${info.InvoiceStart}-${info.InvoiceEnd} 只剩 ${remaining} 個號碼，用完會全面開不出發票`,
+    );
   }
 
   private async syncOne(

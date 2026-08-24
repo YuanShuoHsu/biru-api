@@ -52,22 +52,37 @@ export class EcpayUnpaidOrderReconcileService {
   }
 
   private async reconcile(): Promise<void> {
-    const expired = await this.ordersService.findExpiredUnpaidOrders(
+    const candidates = await this.ordersService.findOrdersToReconcile(
       CANDIDATE_LIMIT_PER_RUN,
     );
-    if (!expired.length) return;
+    if (!candidates.length) return;
 
     const orderIdsToCancel: string[] = [];
+    const orderIdsReconciled: string[] = [];
     const pendingQuery: {
       confirmationNumber: string;
       createdAt: Date;
+      cancellable: boolean;
       id: string;
     }[] = [];
 
-    for (const { confirmationNumber, createdAt, id, paymentMethod } of expired)
-      if (paymentMethod === 'Cash' || !confirmationNumber)
-        orderIdsToCancel.push(id);
-      else pendingQuery.push({ confirmationNumber, createdAt, id });
+    for (const {
+      confirmationNumber,
+      createdAt,
+      id,
+      orderStatus,
+      paymentMethod,
+    } of candidates) {
+      const cancellable = orderStatus === 'OrderPaymentDue';
+
+      if (paymentMethod === 'Cash' || !confirmationNumber) {
+        if (cancellable) orderIdsToCancel.push(id);
+
+        continue;
+      }
+
+      pendingQuery.push({ cancellable, confirmationNumber, createdAt, id });
+    }
 
     pendingQuery.sort(
       (a, b) =>
@@ -75,9 +90,10 @@ export class EcpayUnpaidOrderReconcileService {
         (this.failureCounts.get(b.id) ?? 0),
     );
 
-    for (const [index, { confirmationNumber, createdAt, id }] of pendingQuery
-      .slice(0, QUERY_LIMIT_PER_RUN)
-      .entries()) {
+    for (const [
+      index,
+      { cancellable, confirmationNumber, createdAt, id },
+    ] of pendingQuery.slice(0, QUERY_LIMIT_PER_RUN).entries()) {
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
@@ -103,7 +119,10 @@ export class EcpayUnpaidOrderReconcileService {
         }
 
         if (this.shouldCancel(result.TradeStatus, createdAt)) {
-          orderIdsToCancel.push(id);
+          // 付款異常的訂單不取消（狀態要留著讓店家看到），但確認過就別再查了
+          if (cancellable) orderIdsToCancel.push(id);
+          else orderIdsReconciled.push(id);
+
           await this.ecpayCallbackLogService.markHandled(logId);
           this.failureCounts.delete(id);
 
@@ -138,10 +157,15 @@ export class EcpayUnpaidOrderReconcileService {
     }
 
     await this.ordersService.cancelOrders(orderIdsToCancel);
+    await this.ordersService.markReconciled(orderIdsReconciled);
   }
 
   private shouldCancel(tradeStatus: string, createdAt: Date): boolean {
-    if (tradeStatus === ECPAY_TRADE_STATUS.NotFound) return true;
+    if (
+      tradeStatus === ECPAY_TRADE_STATUS.NotFound ||
+      tradeStatus === ECPAY_TRADE_STATUS.Failed
+    )
+      return true;
 
     if (tradeStatus !== ECPAY_TRADE_STATUS.Unpaid) return false;
 
@@ -153,14 +177,18 @@ export class EcpayUnpaidOrderReconcileService {
   private async recoverPaidOrder(result: {
     MerchantTradeNo: string;
     PaymentDate: string;
+    TradeAmt: string;
     TradeNo: string;
   }): Promise<boolean> {
-    const recovered = await this.ordersService.recordPaymentResult({
+    const outcome = await this.ordersService.recordPaymentResult({
       MerchantTradeNo: result.MerchantTradeNo,
       PaymentDate: result.PaymentDate,
       RtnCode: '1',
+      TradeAmt: result.TradeAmt,
       TradeNo: result.TradeNo,
     });
+
+    const recovered = outcome === 'handled';
 
     if (recovered)
       this.logger.warn(

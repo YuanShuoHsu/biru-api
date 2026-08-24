@@ -6,6 +6,8 @@ import type {
   InvalidInvoiceEcpayEncryptedResponseDto,
 } from '../dto/invalid-invoice-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -35,10 +37,7 @@ export class EcpayInvalidInvoiceService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayInvalidInvoiceApiUrl(mode);
+    this.apiUrl = getEcpayInvalidInvoiceApiUrl(getEcpayMode(configService));
   }
 
   async invalidInvoice(

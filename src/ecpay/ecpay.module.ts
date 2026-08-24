@@ -1,10 +1,12 @@
 import { EcpayOrderInvoiceController } from './ecpay-order-invoice.controller';
 import { EcpayOrderPaymentNotificationController } from './ecpay-order-payment-notification.controller';
 import { EcpayOrderRefundController } from './ecpay-order-refund.controller';
+import { EcpayAttentionController } from './ecpay-attention.controller';
 import { EcpayController } from './ecpay.controller';
 
 import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service';
 import { EcpayAllowanceInvoiceService } from './services/ecpay-allowance-invoice.service';
+import { EcpayAttentionService } from './services/ecpay-attention.service';
 import { EcpayBaseService } from './services/ecpay-base.service';
 import { EcpayCallbackLogService } from './services/ecpay-callback-log.service';
 import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
@@ -40,6 +42,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     PointsModule,
   ],
   controllers: [
+    EcpayAttentionController,
     EcpayController,
     EcpayOrderInvoiceController,
     EcpayOrderPaymentNotificationController,
@@ -47,6 +50,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
   ],
   providers: [
     EcpayAllowanceInvoiceService,
+    EcpayAttentionService,
     EcpayBaseService,
     EcpayCallbackLogService,
     EcpayCheckBarcodeService,

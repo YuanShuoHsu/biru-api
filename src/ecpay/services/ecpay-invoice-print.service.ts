@@ -7,6 +7,8 @@ import {
   InvoicePrintEcpayShowingDetail,
 } from '../dto/invoice-print-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -36,10 +38,7 @@ export class EcpayInvoicePrintService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayInvoicePrintApiUrl(mode);
+    this.apiUrl = getEcpayInvoicePrintApiUrl(getEcpayMode(configService));
   }
 
   /** 回傳的列印網址自呼叫起僅 1 小時內有效，不可存起來重用 */

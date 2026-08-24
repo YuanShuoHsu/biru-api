@@ -17,6 +17,24 @@
     "internalServerError": "Internal server error",
     "tooManyRequests": "Too many requests"
   },
+  "invoices": {
+    "allowanceIssued": "This invoice already has a credit note and cannot be voided",
+    "alreadyIssuing": "This invoice is currently being issued. Please try again shortly",
+    "notIssued": "This invoice has not been issued yet",
+    "notPaid": "The order has not been paid, so no invoice can be issued",
+    "notPending": "This invoice is {status} and cannot be issued",
+    "notPrintable": "This invoice cannot be printed right now",
+    "notVoidable": "This invoice is {status} and cannot be voided",
+    "orderRefunded": "The order has been fully refunded, so no invoice will be issued",
+    "pastVoidablePeriod": "This invoice is outside the filing period, so it can only be credited, not voided",
+    "status": {
+      "issued": "issued",
+      "issuing": "being issued",
+      "pending": "pending",
+      "voided": "voided"
+    },
+    "voidWriteFailed": "Invoice {invoiceNumber} was voided at ECPay but could not be recorded locally. Verify it and fix the record manually"
+  },
   "points": {
     "insufficient": "Not enough points",
     "notRedeemable": "This coupon cannot be redeemed with points",

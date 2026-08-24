@@ -6,6 +6,8 @@ import {
   IssueInvoiceEcpayEncryptedResponseDto,
 } from '../dto/issue-invoice-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -13,6 +15,8 @@ import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
+export class EcpayInvoiceNotIssuedError extends Error {}
 
 const getEcpayIssueInvoiceApiUrl = (mode: EcpayMode): string => {
   return mode === 'Test'
@@ -35,10 +39,7 @@ export class EcpayIssueInvoiceService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayIssueInvoiceApiUrl(mode);
+    this.apiUrl = getEcpayIssueInvoiceApiUrl(getEcpayMode(configService));
   }
 
   async issueInvoice(
@@ -76,7 +77,7 @@ export class EcpayIssueInvoiceService {
       ),
     );
 
-    if (TransCode !== 1) throw new Error(TransMsg);
+    if (TransCode !== 1) throw new EcpayInvoiceNotIssuedError(TransMsg);
 
     const decrypted = decryptData(Data, this.hashKey, this.hashIV);
     const decoded = decodeUrlEncoded(decrypted);

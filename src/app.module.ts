@@ -18,8 +18,8 @@ import { join } from 'node:path';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { createAuth } from './auth';
 import { AuditModule } from './audit/audit.module';
+import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { BannersModule } from './banners/banners.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';

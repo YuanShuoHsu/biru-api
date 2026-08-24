@@ -6,6 +6,8 @@ import type {
   AllowanceInvoiceEcpayEncryptedResponseDto,
 } from '../dto/allowance-invoice-ecpay.dto';
 
+import { getEcpayMode } from '../ecpay.config';
+
 import { EcpayMode } from '../types/ecpay.types';
 
 import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
@@ -35,10 +37,7 @@ export class EcpayAllowanceInvoiceService {
     this.hashKey = configService.getOrThrow('ECPAY_INVOICE_HASH_KEY');
     this.hashIV = configService.getOrThrow('ECPAY_INVOICE_HASH_IV');
 
-    const mode = this.configService.getOrThrow<EcpayMode>(
-      'ECPAY_OPERATION_MODE',
-    );
-    this.apiUrl = getEcpayAllowanceInvoiceApiUrl(mode);
+    this.apiUrl = getEcpayAllowanceInvoiceApiUrl(getEcpayMode(configService));
   }
 
   async allowanceInvoice(

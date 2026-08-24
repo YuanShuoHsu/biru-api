@@ -1,7 +1,10 @@
+import { isAxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
 import type { DoActionEcpayResponseDto } from '../dto/do-action-ecpay.dto';
 import { ECPAY_DO_ACTION } from '../dto/do-action-ecpay.dto';
+
+import { getEcpayMode } from '../ecpay.config';
 
 import { EcpayMode } from '../types/ecpay.types';
 
@@ -14,10 +17,6 @@ import { ConfigService } from '@nestjs/config';
 const ECPAY_DO_ACTION_API_URL =
   'https://payment.ecpay.com.tw/CreditDetail/DoAction';
 
-/**
- * 請求送出後失去回應，綠界可能已經受理。
- * 呼叫端必須保留退款紀錄等待對帳，刪掉的話這筆錢就查無此事了。
- */
 export class EcpayResultUnknownError extends Error {
   constructor(cause: unknown) {
     super(
@@ -37,7 +36,7 @@ export class EcpayDoActionService {
     private readonly ecpayBaseService: EcpayBaseService,
   ) {
     this.merchantId = configService.getOrThrow('ECPAY_BASE_MERCHANT_ID');
-    this.mode = configService.getOrThrow<EcpayMode>('ECPAY_OPERATION_MODE');
+    this.mode = getEcpayMode(configService);
   }
 
   get isAvailable(): boolean {
@@ -71,7 +70,10 @@ export class EcpayDoActionService {
         new URLSearchParams(payload).toString(),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
       ),
-    ).catch((error) => {
+    ).catch((error: unknown) => {
+      if (isAxiosError(error) && error.response && error.response.status < 500)
+        throw new Error(error.message, { cause: error });
+
       throw new EcpayResultUnknownError(error);
     });
 
