@@ -13,6 +13,7 @@ export interface GetIssueInvoiceEcpayDecryptedResponseDto {
   IIS_Number: string;
   IIS_Random_Number: string;
   IIS_Relate_Number: string;
+  IIS_Remain_Allowance_Amt: number;
   IIS_Sales_Amount: number;
   IIS_Upload_Status: string;
   RtnCode: number;

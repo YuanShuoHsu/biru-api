@@ -9,7 +9,12 @@ import { getEcpayMode } from '../ecpay.config';
 
 import { EcpayMode } from '../types/ecpay.types';
 
-import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
+import {
+  decodeUrlEncoded,
+  decryptData,
+  EcpayRejectedError,
+  encryptData,
+} from '../utils/ecpay';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
@@ -66,13 +71,13 @@ export class EcpayGetIssueInvoiceService {
       ),
     );
 
-    if (TransCode !== 1) throw new Error(TransMsg);
+    if (TransCode !== 1) throw new EcpayRejectedError(TransMsg);
 
     const parsed = JSON.parse(
       decodeUrlEncoded(decryptData(Data, this.hashKey, this.hashIV)),
     ) as GetIssueInvoiceEcpayDecryptedResponseDto;
 
-    if (parsed.RtnCode !== 1) throw new Error(parsed.RtnMsg);
+    if (parsed.RtnCode !== 1) throw new EcpayRejectedError(parsed.RtnMsg);
 
     return parsed;
   }

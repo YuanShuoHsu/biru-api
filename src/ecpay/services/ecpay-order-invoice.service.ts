@@ -22,7 +22,13 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { toActiveInvoice } from 'src/common/utils/invoices';
 
-import { ITEM_WORD, toInvoiceDateText } from '../utils/ecpay';
+import {
+  ITEM_WORD,
+  QUERY_INTERVAL_MS,
+  sleep,
+  toGetIssueQuery,
+  toInvoiceDateText,
+} from '../utils/ecpay';
 import { earliestVoidableInvoiceDate } from '../utils/refund-plan';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
@@ -181,7 +187,11 @@ export class EcpayOrderInvoiceService {
       )
       .limit(RETRY_BATCH_SIZE);
 
-    for (const { orderId } of candidates) await this.issueQuietly(orderId);
+    for (const [index, { orderId }] of candidates.entries()) {
+      if (index > 0) await sleep(QUERY_INTERVAL_MS);
+
+      await this.issueQuietly(orderId);
+    }
   }
 
   private async reconcileIssuingInvoices(staleBefore: Date): Promise<void> {
@@ -193,7 +203,7 @@ export class EcpayOrderInvoiceService {
       )
       .limit(RETRY_BATCH_SIZE);
 
-    for (const { id, relateNumber } of stuck) {
+    for (const [index, { id, relateNumber }] of stuck.entries()) {
       if (!relateNumber) {
         this.logger.error(
           `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
@@ -201,6 +211,8 @@ export class EcpayOrderInvoiceService {
 
         continue;
       }
+
+      if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         const result = await this.ecpayGetIssueInvoiceService.getIssue({
@@ -224,8 +236,6 @@ export class EcpayOrderInvoiceService {
           `發票 ${id} 在綠界已開立但本機未記錄，已補上 ${result.IIS_Number}`,
         );
       } catch (error) {
-        // 綠界沒有記載「查無此筆」的代碼，查證失敗時不能推定沒開；
-        // 放回 pending 會讓下一輪用同一筆訂單再開一張
         this.logger.error(
           `發票 ${id} 查證失敗，維持開立中待人工確認`,
           error instanceof Error ? error.stack : String(error),
@@ -506,14 +516,10 @@ export class EcpayOrderInvoiceService {
     if (!data.invoiceNumber || !data.invoiceDate)
       throw new ConflictException(this.tInvoice('notIssued'));
 
-    const result = await this.ecpayGetIssueInvoiceService.getIssue(
-      data.relateNumber
-        ? { RelateNumber: data.relateNumber }
-        : {
-            InvoiceDate: toInvoiceDateText(data.invoiceDate),
-            InvoiceNo: data.invoiceNumber,
-          },
-    );
+    const query = toGetIssueQuery(data);
+    if (!query) throw new ConflictException(this.tInvoice('notIssued'));
+
+    const result = await this.ecpayGetIssueInvoiceService.getIssue(query);
 
     const invalidated = result.IIS_Invalid_Status === '1';
 

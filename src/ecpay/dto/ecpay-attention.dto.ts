@@ -13,7 +13,7 @@ export type EcpayAttentionType = (typeof ECPAY_ATTENTION_TYPES)[number];
 export class EcpayAttentionItemDto {
   @ApiProperty({
     description: `需要人工處理的類型
-- invoiceSettlementFailed：退款完成但發票沒作廢也沒折讓
+- invoiceSettlementFailed：退款完成但發票需人工處理（沒作廢也沒折讓，或已在綠界完成但本機沒記到）
 - refundUnconfirmed：退刷送出後沒收到綠界結果，可退數量被佔住
 - invoiceStuck：發票卡在開立中，查證失敗需人工到綠界後台確認
 - invoiceOverdue：訂單已付款但發票遲遲沒開出來

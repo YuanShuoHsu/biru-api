@@ -1,11 +1,13 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   index,
+  integer,
   jsonb,
   numeric,
   pgEnum,
   pgTable,
   text,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
@@ -57,9 +59,10 @@ export const refund = pgTable(
     status: refundStatusEnum('status').notNull().default('pending'),
     ecpayRtnCode: text('ecpay_rtn_code'),
     ecpayRtnMsg: text('ecpay_rtn_msg'),
-    // 不能給 default：null（還沒處理）與 'none'（確認過沒發票）要分得開，否則補正會重複作廢
     invoiceAction: refundInvoiceActionEnum('invoice_action'),
     invoiceError: text('invoice_error'),
+    invoiceRetryAt: timestamp('invoice_retry_at'),
+    invoiceAttempts: integer('invoice_attempts').notNull().default(0),
     allowanceNo: text('allowance_no'),
     operatorId: text('operator_id').references(() => user.id, {
       onDelete: 'set null',
@@ -67,7 +70,18 @@ export const refund = pgTable(
     reason: text('reason'),
     ...timestamps,
   },
-  (table) => [index('refund_orderId_idx').on(table.orderId)],
+  (table) => [
+    index('refund_orderId_idx').on(table.orderId),
+    index('refund_invoiceRetryAt_idx')
+      .on(table.invoiceRetryAt)
+      .where(sql`${table.invoiceAction} = 'failed'`),
+    index('refund_pending_createdAt_idx')
+      .on(table.createdAt)
+      .where(sql`${table.status} = 'pending'`),
+    index('refund_unsettled_updatedAt_idx')
+      .on(table.updatedAt)
+      .where(sql`${table.status} in ('refunded', 'settling')`),
+  ],
 );
 
 export type Refund = typeof refund.$inferSelect;

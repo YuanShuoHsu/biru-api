@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { isAxiosError } from 'axios';
-import { and, desc, eq, gte, lt, ne, or } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, lte, ne, or } from 'drizzle-orm';
 
 import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto';
 import type {
@@ -10,7 +9,14 @@ import type {
   OrderRefundPreviewDto,
 } from '../dto/order-refund.dto';
 
-import { ITEM_WORD, toInvoiceDateText } from '../utils/ecpay';
+import {
+  EcpayRejectedError,
+  ITEM_WORD,
+  QUERY_INTERVAL_MS,
+  sleep,
+  toGetIssueQuery,
+  toInvoiceDateText,
+} from '../utils/ecpay';
 import type { RefundPlanTranslate } from '../utils/refund-plan';
 import {
   buildRefundPlan,
@@ -22,6 +28,7 @@ import {
   EcpayDoActionService,
   EcpayResultUnknownError,
 } from './ecpay-do-action.service';
+import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
 import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service';
 import { EcpayQueryCreditDetailService } from './ecpay-query-credit-detail.service';
 import { EcpayRateLimitedError } from './ecpay-query-trade-info.service';
@@ -54,37 +61,57 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
+import { toActiveInvoice } from 'src/common/utils/invoices';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
-import { toActiveInvoice } from 'src/common/utils/invoices';
 import { getRefundChannel, isRefundable } from 'src/orders/order-transitions';
 import { PointsService } from 'src/points/points.service';
 
 const SETTLE_GRACE_MS = 10 * 60 * 1000;
-// 認領後多久視為該行程已死、可被接手；綠界折讓實測是秒級，抓寬一點
 const SETTLE_LEASE_MS = 15 * 60 * 1000;
 const AMBIGUOUS_GRACE_MS = 30 * 60 * 1000;
 
-// 綠界對這支查詢限速，被擋就是整整 30 分鐘，所以查得比對帳需要的還慢
-const QUERY_INTERVAL_MS = 300;
 const QUERY_LIMIT_PER_RUN = 20;
 const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 
-// 只有這兩種狀態下 amount - clsamt 才等於已退金額
 const CLOSED_TRADE_STATUSES = ['已關帳', '已取消'];
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 const DEFAULT_INVOICE_REASON = '訂單退款';
 const INVALID_REASON_MAX_LENGTH = 20;
-// 發票處理失敗的重試窗；超過就不再自動打綠界，改由人工處理
-const INVOICE_RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const INVOICE_RETRY_BATCH_SIZE = 20;
+const SETTLE_BATCH_SIZE = 20;
+
+const INVOICE_RETRY_BASE_MS = 10 * 60 * 1000;
+const INVOICE_RETRY_MAX_MS = 24 * 60 * 60 * 1000;
+const INVOICE_RETRY_MAX_ATTEMPTS = 8;
+
+const nextInvoiceRetryAt = (attempts: number): Date | null =>
+  attempts >= INVOICE_RETRY_MAX_ATTEMPTS
+    ? null
+    : new Date(
+        Date.now() +
+          Math.min(
+            INVOICE_RETRY_BASE_MS * 2 ** (attempts - 1),
+            INVOICE_RETRY_MAX_MS,
+          ),
+      );
 
 interface InvoiceSettlement {
   action: RefundInvoiceAction;
   allowanceNo: string | null;
   error: string | null;
+  retryable?: boolean;
+}
+
+interface AllowanceState {
+  issued: boolean;
+  remaining: number;
+}
+
+interface ReconciledInvoice {
+  allowance: AllowanceState | undefined;
+  data: Invoice | null;
+  settled: InvoiceSettlement | null;
 }
 
 interface SettlementOrder {
@@ -115,6 +142,7 @@ export class EcpayOrderRefundService {
     private readonly ecpayInvalidInvoiceService: EcpayInvalidInvoiceService,
     private readonly ecpayAllowanceInvoiceService: EcpayAllowanceInvoiceService,
     private readonly ecpayQueryCreditDetailService: EcpayQueryCreditDetailService,
+    private readonly ecpayGetIssueInvoiceService: EcpayGetIssueInvoiceService,
     private readonly couponsService: CouponsService,
     private readonly pointsService: PointsService,
     private readonly eventEmitter: EventEmitter2,
@@ -297,18 +325,15 @@ export class EcpayOrderRefundService {
     if (!claimed) return;
 
     if (claimed.invoiceAction === null) {
-      const invoiceResult = await this.settleInvoice(found.invoice, plan, {
-        notifyEmail: found.invoice?.email || found.customer.email || undefined,
+      const invoiceResult = await this.settleInvoiceReconciled(found, plan, {
         reason: claimed.reason ?? undefined,
+        reconcile: created.status === 'settling',
+        refundId: claimed.id,
       });
 
       await this.db
         .update(refund)
-        .set({
-          allowanceNo: invoiceResult.allowanceNo,
-          invoiceAction: invoiceResult.action,
-          invoiceError: invoiceResult.error,
-        })
+        .set(this.toInvoiceFields(invoiceResult, claimed.invoiceAttempts + 1))
         .where(eq(refund.id, claimed.id));
     }
 
@@ -405,7 +430,7 @@ export class EcpayOrderRefundService {
   }
 
   private async retryFailedInvoiceSettlements(): Promise<void> {
-    const staleBefore = new Date(Date.now() - SETTLE_GRACE_MS);
+    const now = new Date();
 
     const failed = await this.db
       .select()
@@ -413,62 +438,234 @@ export class EcpayOrderRefundService {
       .where(
         and(
           eq(refund.invoiceAction, 'failed'),
-          gte(refund.createdAt, new Date(Date.now() - INVOICE_RETRY_WINDOW_MS)),
-          lt(refund.updatedAt, staleBefore),
+          lte(refund.invoiceRetryAt, now),
         ),
-      );
+      )
+      .orderBy(asc(refund.invoiceRetryAt))
+      .limit(INVOICE_RETRY_BATCH_SIZE);
 
-    for (const created of failed) {
-      // 只有把 updatedAt 推到現在的那個行程能往下走，否則同一張發票會被開出兩張折讓
+    for (const [index, created] of failed.entries()) {
+      const attempts = created.invoiceAttempts + 1;
+
       const [claimed] = await this.db
         .update(refund)
-        .set({ updatedAt: new Date() })
+        .set({
+          invoiceAttempts: attempts,
+          invoiceRetryAt: nextInvoiceRetryAt(attempts),
+        })
         .where(
           and(
             eq(refund.id, created.id),
             eq(refund.invoiceAction, 'failed'),
-            lt(refund.updatedAt, staleBefore),
+            lte(refund.invoiceRetryAt, now),
           ),
         )
         .returning();
       if (!claimed) continue;
 
-      const row = await this.db.query.order.findFirst({
-        where: eq(order.id, claimed.orderId),
-        with: { invoices: true },
-      });
-      if (!row) continue;
-
-      const found = toActiveInvoice(row);
+      if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
-        const result = await this.settleInvoice(
-          found.invoice,
-          this.toSettlement(claimed, found),
-          {
-            notifyEmail:
-              found.invoice?.email || found.customer.email || undefined,
-            reason: claimed.reason ?? undefined,
-          },
-        );
+        const action = await this.settleInvoiceForRefund(claimed);
 
-        await this.db
-          .update(refund)
-          .set({
-            allowanceNo: result.allowanceNo,
-            invoiceAction: result.action,
-            invoiceError: result.error,
-          })
-          .where(eq(refund.id, claimed.id));
-
-        if (result.action !== 'failed')
+        if (action && action !== 'failed')
           this.logger.warn(
-            `退款 ${claimed.id} 的發票處理先前失敗，已補正為 ${result.action}`,
+            `退款 ${claimed.id} 的發票處理先前失敗，已補正為 ${action}`,
           );
       } catch (error) {
         this.logger.error(`退款 ${claimed.id} 的發票補正失敗`, error);
       }
     }
+  }
+
+  private async reconcileInvoice(
+    data: Invoice | null,
+    latest: { remainingAmount: string } | undefined,
+    amount: number,
+  ): Promise<ReconciledInvoice> {
+    const query = data?.status === 'issued' ? toGetIssueQuery(data) : null;
+    if (!data || !query) return { allowance: undefined, data, settled: null };
+
+    const result = await this.ecpayGetIssueInvoiceService.getIssue(query);
+
+    if (result.IIS_Invalid_Status === '1') {
+      const [voided] = await this.db
+        .update(invoice)
+        .set({ status: 'voided', voidedAt: new Date() })
+        .where(eq(invoice.id, data.id))
+        .returning();
+
+      this.logger.warn(
+        `發票 ${data.invoiceNumber} 已於綠界作廢但本機未記錄，重試時已對齊`,
+      );
+
+      return {
+        allowance: undefined,
+        data: voided,
+        settled: { action: 'voided', allowanceNo: null, error: null },
+      };
+    }
+
+    const salesAmount = Number(result.IIS_Sales_Amount);
+    const remaining = Number(result.IIS_Remain_Allowance_Amt);
+
+    if (!Number.isFinite(salesAmount) || !Number.isFinite(remaining)) {
+      this.logger.warn(
+        `發票 ${data.invoiceNumber} 查不到綠界折讓額度，改以本機紀錄判斷`,
+      );
+
+      return { allowance: undefined, data, settled: null };
+    }
+
+    const missing =
+      (latest ? Number(latest.remainingAmount) : salesAmount) - remaining;
+
+    if (missing > 0 && missing === amount) {
+      this.logger.error(
+        `折讓已於綠界開立但本機未記錄（發票 ${data.invoiceNumber}，${amount} 元），需人工補折讓單號`,
+      );
+
+      return {
+        allowance: undefined,
+        data,
+        settled: {
+          action: 'allowance',
+          allowanceNo: null,
+          error: `折讓已開立但本機未寫入，需人工補紀錄（發票 ${data.invoiceNumber}）`,
+        },
+      };
+    }
+
+    if (missing > 0) {
+      this.logger.error(
+        `發票 ${data.invoiceNumber} 在綠界少了 ${missing} 元折讓額度但本機無對應紀錄，需人工核對`,
+      );
+
+      return {
+        allowance: undefined,
+        data,
+        settled: {
+          action: 'failed',
+          allowanceNo: null,
+          error: `綠界折讓額度短少 ${missing} 元但本機無對應紀錄，需人工核對（發票 ${data.invoiceNumber}）`,
+          retryable: false,
+        },
+      };
+    }
+
+    return {
+      allowance: { issued: remaining < salesAmount, remaining },
+      data,
+      settled: null,
+    };
+  }
+
+  private async settleInvoiceForRefund(
+    claimed: Refund,
+  ): Promise<RefundInvoiceAction | null> {
+    const row = await this.db.query.order.findFirst({
+      where: eq(order.id, claimed.orderId),
+      with: { invoices: true },
+    });
+    if (!row) return null;
+
+    const found = toActiveInvoice(row);
+
+    const result = await this.settleInvoiceReconciled(
+      found,
+      this.toSettlement(claimed, found),
+      {
+        reason: claimed.reason ?? undefined,
+        reconcile: true,
+        refundId: claimed.id,
+      },
+    );
+
+    await this.db
+      .update(refund)
+      .set(this.toInvoiceFields(result, claimed.invoiceAttempts))
+      .where(eq(refund.id, claimed.id));
+
+    return result.action;
+  }
+
+  private async settleInvoiceReconciled(
+    found: SettlementOrder,
+    plan: RefundSettlement,
+    {
+      reason,
+      reconcile,
+      refundId,
+    }: { reason?: string; reconcile: boolean; refundId: string },
+  ): Promise<InvoiceSettlement> {
+    const issued = await this.allowanceForRefund(refundId);
+    if (issued)
+      return {
+        action: 'allowance',
+        allowanceNo: issued.allowanceNo,
+        error: null,
+      };
+
+    const latest = found.invoice
+      ? await this.latestAllowance(found.invoice.id)
+      : undefined;
+
+    let reconciled: ReconciledInvoice;
+
+    try {
+      reconciled = reconcile
+        ? await this.reconcileInvoice(found.invoice, latest, plan.amount)
+        : { allowance: undefined, data: found.invoice, settled: null };
+    } catch (error) {
+      return {
+        action: 'failed',
+        allowanceNo: null,
+        error: `發票現況查證失敗：${error instanceof Error ? error.message : String(error)}`,
+        retryable: true,
+      };
+    }
+
+    if (reconciled.settled) return reconciled.settled;
+
+    try {
+      return await this.settleInvoice(reconciled.data, plan, {
+        allowance: reconciled.allowance,
+        latest,
+        notifyEmail:
+          reconciled.data?.email || found.customer.email || undefined,
+        reason,
+        refundId,
+      });
+    } catch (error) {
+      return {
+        action: 'failed',
+        allowanceNo: null,
+        error: error instanceof Error ? error.message : String(error),
+        retryable: !(error instanceof EcpayRejectedError),
+      };
+    }
+  }
+
+  private toInvoiceFields(
+    result: InvoiceSettlement,
+    attempts: number,
+  ): {
+    allowanceNo: string | null;
+    invoiceAction: RefundInvoiceAction;
+    invoiceAttempts: number;
+    invoiceError: string | null;
+    invoiceRetryAt: Date | null;
+  } {
+    return {
+      allowanceNo: result.allowanceNo,
+      invoiceAction: result.action,
+      invoiceAttempts: attempts,
+      invoiceError: result.error,
+      invoiceRetryAt:
+        result.action === 'failed' && result.retryable
+          ? nextInvoiceRetryAt(attempts)
+          : null,
+    };
   }
 
   private async repair(): Promise<void> {
@@ -486,9 +683,11 @@ export class EcpayOrderRefundService {
             lt(refund.updatedAt, new Date(Date.now() - SETTLE_LEASE_MS)),
           ),
         ),
-      );
+      )
+      .orderBy(asc(refund.updatedAt))
+      .limit(SETTLE_BATCH_SIZE);
 
-    for (const created of interrupted) {
+    for (const [index, created] of interrupted.entries()) {
       const row = await this.db.query.order.findFirst({
         where: eq(order.id, created.orderId),
         with: { invoices: true },
@@ -496,6 +695,8 @@ export class EcpayOrderRefundService {
       if (!row) continue;
 
       const found = toActiveInvoice(row);
+
+      if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         await this.settle(created, found, this.toSettlement(created, found));
@@ -515,7 +716,9 @@ export class EcpayOrderRefundService {
           eq(refund.channel, 'ecpay'),
           lt(refund.createdAt, new Date(Date.now() - AMBIGUOUS_GRACE_MS)),
         ),
-      );
+      )
+      .orderBy(asc(refund.createdAt))
+      .limit(QUERY_LIMIT_PER_RUN);
     if (!ambiguous.length) return;
 
     const unresolved = await this.reconcilePending(ambiguous);
@@ -528,10 +731,6 @@ export class EcpayOrderRefundService {
       );
   }
 
-  /**
-   * 送出退刷後失聯的那些退款，向綠界問出真實結果。
-   * 回傳仍然問不出結果的，交給呼叫端告警。
-   */
   private async reconcilePending(
     pending: { amount: string; id: string; orderId: string }[],
   ): Promise<{ id: string; orderId: string }[]> {
@@ -540,9 +739,7 @@ export class EcpayOrderRefundService {
 
     const unresolved: { id: string; orderId: string }[] = [];
 
-    for (const [index, row] of pending
-      .slice(0, QUERY_LIMIT_PER_RUN)
-      .entries()) {
+    for (const [index, row] of pending.entries()) {
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
@@ -567,7 +764,7 @@ export class EcpayOrderRefundService {
       }
     }
 
-    return [...unresolved, ...pending.slice(QUERY_LIMIT_PER_RUN)];
+    return unresolved;
   }
 
   private async resolvePending(row: {
@@ -617,7 +814,6 @@ export class EcpayOrderRefundService {
     }
 
     if (refundedAtEcpay <= confirmed) {
-      // 沒退成，紀錄留著會一直佔住這些品項的可退數量
       await this.db
         .delete(refund)
         .where(and(eq(refund.id, row.id), eq(refund.status, 'pending')));
@@ -695,35 +891,39 @@ export class EcpayOrderRefundService {
       items: RefundItemSnapshot[];
       isFull: boolean;
     },
-    { notifyEmail, reason }: { notifyEmail?: string; reason?: string },
+    {
+      allowance,
+      latest,
+      notifyEmail,
+      reason,
+      refundId,
+    }: {
+      allowance?: AllowanceState;
+      latest: { remainingAmount: string } | undefined;
+      notifyEmail?: string;
+      reason?: string;
+      refundId: string;
+    },
   ): Promise<InvoiceSettlement> {
     if (!data) return { action: 'none', allowanceNo: null, error: null };
 
-    // 開立中／待開立的發票稍後仍會被開出來，記成「無發票需處理」就再也沒人會去折讓它
     if (data.status === 'pending' || data.status === 'issuing')
       return {
         action: 'failed',
         allowanceNo: null,
         error: `退款時發票尚未開立（${data.status}），待開立後補處理`,
+        retryable: true,
       };
 
     if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
       return { action: 'none', allowanceNo: null, error: null };
 
-    const allowances = await this.db
-      .select({
-        id: invoiceAllowance.id,
-        remainingAmount: invoiceAllowance.remainingAmount,
-      })
-      .from(invoiceAllowance)
-      .where(eq(invoiceAllowance.invoiceId, data.id))
-      .orderBy(desc(invoiceAllowance.createdAt));
-
     const invoiceDateText = toInvoiceDateText(data.invoiceDate);
 
     const voidable =
       plan.isFull &&
-      !allowances.length &&
+      !latest &&
+      !allowance?.issued &&
       data.invoiceDate >= earliestVoidableInvoiceDate(new Date());
 
     try {
@@ -744,7 +944,6 @@ export class EcpayOrderRefundService {
               .set({ status: 'voided', voidedAt: new Date() })
               .where(eq(invoice.id, data.id));
           } catch (writeError) {
-            // 發票已經作廢了，記成 failed 會讓補正再跑一次，最後在已作廢的發票上開折讓
             this.logger.error(
               `發票 ${data.invoiceNumber} 已於綠界作廢但寫入失敗，需人工補狀態：${writeError instanceof Error ? writeError.message : String(writeError)}`,
             );
@@ -758,9 +957,7 @@ export class EcpayOrderRefundService {
 
           return { action: 'voided', allowanceNo: null, error: null };
         } catch (error) {
-          // 連線層失敗時綠界可能已經作廢，這時再開折讓等於折兩次；
-          // 只有綠界明確退件才確定沒作廢，才可以降級
-          if (isAxiosError(error)) throw error;
+          if (!(error instanceof EcpayRejectedError)) throw error;
 
           this.logger.warn(
             `發票 ${data.invoiceNumber} 作廢失敗，改開折讓：${error instanceof Error ? error.message : String(error)}`,
@@ -771,7 +968,7 @@ export class EcpayOrderRefundService {
       if (plan.amount <= 0)
         return { action: 'none', allowanceNo: null, error: null };
 
-      this.assertAllowanceHeadroom(allowances[0], plan.amount);
+      this.assertAllowanceHeadroom(allowance, latest, plan.amount);
 
       const result = await this.ecpayAllowanceInvoiceService.allowanceInvoice({
         AllowanceAmount: plan.amount,
@@ -789,13 +986,13 @@ export class EcpayOrderRefundService {
           allowanceNo: result.IA_Allow_No,
           amount: String(plan.amount),
           invoiceId: data.id,
+          refundId,
           issuedAt: new Date(
             `${result.IA_Date.replace(' ', 'T')}${STORE_UTC_OFFSET}`,
           ),
           remainingAmount: String(result.IA_Remain_Allowance_Amt),
         });
       } catch (writeError) {
-        // 折讓已經開出去了，記成 failed 會讓補正再開第二張
         this.logger.error(
           `折讓 ${result.IA_Allow_No} 已開立但寫入失敗，需人工補紀錄：${writeError instanceof Error ? writeError.message : String(writeError)}`,
         );
@@ -819,25 +1016,59 @@ export class EcpayOrderRefundService {
         `退款已完成但發票處理失敗（發票 ${data.invoiceNumber}）：${message}`,
       );
 
-      return { action: 'failed', allowanceNo: null, error: message };
+      return {
+        action: 'failed',
+        allowanceNo: null,
+        error: message,
+        retryable: !(error instanceof EcpayRejectedError),
+      };
     }
   }
 
+  private async allowanceForRefund(
+    refundId: string,
+  ): Promise<{ allowanceNo: string } | undefined> {
+    const [issued] = await this.db
+      .select({ allowanceNo: invoiceAllowance.allowanceNo })
+      .from(invoiceAllowance)
+      .where(eq(invoiceAllowance.refundId, refundId))
+      .limit(1);
+
+    return issued;
+  }
+
+  private async latestAllowance(
+    invoiceId: string,
+  ): Promise<{ remainingAmount: string } | undefined> {
+    const [latest] = await this.db
+      .select({ remainingAmount: invoiceAllowance.remainingAmount })
+      .from(invoiceAllowance)
+      .where(eq(invoiceAllowance.invoiceId, invoiceId))
+      .orderBy(desc(invoiceAllowance.createdAt))
+      .limit(1);
+
+    return latest;
+  }
+
   private assertAllowanceHeadroom(
+    allowance: AllowanceState | undefined,
     latest: { remainingAmount: string } | undefined,
     amount: number,
   ): void {
-    if (!latest) return;
+    const remaining = allowance
+      ? allowance.remaining
+      : latest && Number(latest.remainingAmount);
 
-    const remaining = Number(latest.remainingAmount);
+    if (remaining === undefined) return;
     if (!Number.isFinite(remaining) || amount <= remaining) return;
 
-    throw new Error(
-      this.i18n.t('common.refunds.allowanceExceeded', {
-        args: { amount, remaining },
-        lang: I18nContext.current()?.lang,
-      }),
-    );
+    const message = this.i18n.t('common.refunds.allowanceExceeded', {
+      args: { amount, remaining },
+      lang: I18nContext.current()?.lang,
+    });
+
+    // 本機額度可能落後綠界，只有綠界給的數字才算定論，其餘留給下一輪 reconcile 重判
+    throw allowance ? new EcpayRejectedError(message) : new Error(message);
   }
 
   private buildAllowanceItems(plan: {

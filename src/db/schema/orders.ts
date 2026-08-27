@@ -134,8 +134,13 @@ export const order = pgTable(
       sql`COALESCE(${table.paymentDate}, ${table.orderDate})`,
     ),
     index('order_paymentDue_createdAt_idx')
-      .on(table.orderStatus, table.createdAt)
+      .on(table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
+    index('order_problem_createdAt_idx')
+      .on(table.createdAt)
+      .where(
+        sql`${table.orderStatus} = 'OrderProblem' and ${table.reconciledAt} is null`,
+      ),
     uniqueIndex('order_sellerId_idempotencyKey_unique').on(
       table.sellerId,
       table.idempotencyKey,

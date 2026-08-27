@@ -1,5 +1,7 @@
 import { ECPAY_TRADE_STATUS } from '../dto/query-trade-info-ecpay.dto';
 
+import { QUERY_INTERVAL_MS, sleep } from '../utils/ecpay';
+
 import { OrdersService, PAYMENT_WINDOW_MS } from '../../orders/orders.service';
 
 import { EcpayCallbackLogService } from './ecpay-callback-log.service';
@@ -13,16 +15,12 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 const CANDIDATE_LIMIT_PER_RUN = 100;
 const QUERY_LIMIT_PER_RUN = 20;
-const QUERY_INTERVAL_MS = 300;
 
 const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 
 const UNPAID_GRACE_MS = 15 * 60 * 1000;
 
 const ESCALATE_AFTER_FAILURES = 3;
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 @Injectable()
 export class EcpayUnpaidOrderReconcileService {
@@ -55,6 +53,11 @@ export class EcpayUnpaidOrderReconcileService {
     const candidates = await this.ordersService.findOrdersToReconcile(
       CANDIDATE_LIMIT_PER_RUN,
     );
+
+    const candidateIds = new Set(candidates.map(({ id }) => id));
+    for (const id of this.failureCounts.keys())
+      if (!candidateIds.has(id)) this.failureCounts.delete(id);
+
     if (!candidates.length) return;
 
     const orderIdsToCancel: string[] = [];

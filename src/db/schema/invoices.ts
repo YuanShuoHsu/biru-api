@@ -12,6 +12,7 @@ import {
 
 import { timestamps } from './columns.helpers';
 import { order } from './orders';
+import { refund } from './refunds';
 
 export const invoiceTypeEnum = pgEnum('invoice_type', [
   'personal',
@@ -77,6 +78,9 @@ export const invoice = pgTable(
   },
   (table) => [
     index('invoice_orderId_idx').on(table.orderId),
+    index('invoice_unissued_updatedAt_idx')
+      .on(table.updatedAt)
+      .where(sql`${table.status} in ('pending', 'issuing')`),
     uniqueIndex('invoice_activeOrderId_idx')
       .on(table.orderId)
       .where(sql`${table.status} <> 'voided'`),
@@ -92,6 +96,9 @@ export const invoiceAllowance = pgTable(
     invoiceId: text('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
+    refundId: text('refund_id').references(() => refund.id, {
+      onDelete: 'set null',
+    }),
     allowanceNo: text('allowance_no').notNull(),
     amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
     remainingAmount: numeric('remaining_amount', {
@@ -101,7 +108,10 @@ export const invoiceAllowance = pgTable(
     issuedAt: timestamp('issued_at').notNull(),
     ...timestamps,
   },
-  (table) => [index('invoiceAllowance_invoiceId_idx').on(table.invoiceId)],
+  (table) => [
+    index('invoiceAllowance_invoiceId_idx').on(table.invoiceId),
+    uniqueIndex('invoiceAllowance_refundId_unique').on(table.refundId),
+  ],
 );
 
 export type InvoiceAllowance = typeof invoiceAllowance.$inferSelect;

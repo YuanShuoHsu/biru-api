@@ -1,6 +1,19 @@
 import type { EcpayAttentionItemDto } from '../dto/ecpay-attention.dto';
 
-import { and, desc, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  isNotNull,
+  isNull,
+  lt,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
@@ -17,6 +30,8 @@ const ISSUE_GRACE_MS = 60 * 60 * 1000;
 const CALLBACK_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const PROBLEM_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const LIMIT_PER_TYPE = 50;
+
+const resolved = alias(ecpayCallbackLog, 'resolved');
 
 @Injectable()
 export class EcpayAttentionService {
@@ -39,9 +54,8 @@ export class EcpayAttentionService {
       this.db
         .select({
           confirmationNumber: order.confirmationNumber,
-          invoiceAction: refund.invoiceAction,
           invoiceError: refund.invoiceError,
-          occurredAt: refund.updatedAt,
+          occurredAt: refund.createdAt,
           orderId: order.id,
           orderNumber: order.orderNumber,
         })
@@ -50,20 +64,23 @@ export class EcpayAttentionService {
         .where(
           and(
             eq(order.sellerId, org.id),
-            lt(refund.updatedAt, settleStale),
+            lt(refund.createdAt, settleStale),
             or(
-              eq(refund.invoiceAction, 'failed'),
+              and(
+                isNotNull(refund.invoiceError),
+                isNull(refund.invoiceRetryAt),
+              ),
               eq(refund.status, 'pending'),
             ),
           ),
         )
-        .orderBy(desc(refund.updatedAt))
+        .orderBy(desc(refund.createdAt))
         .limit(LIMIT_PER_TYPE),
 
       this.db
         .select({
           confirmationNumber: order.confirmationNumber,
-          occurredAt: invoice.updatedAt,
+          occurredAt: invoice.createdAt,
           orderId: order.id,
           orderNumber: order.orderNumber,
           status: invoice.status,
@@ -74,11 +91,11 @@ export class EcpayAttentionService {
           and(
             eq(order.sellerId, org.id),
             isNotNull(order.paymentDate),
-            lt(invoice.updatedAt, issueStale),
+            lt(invoice.createdAt, issueStale),
             or(eq(invoice.status, 'issuing'), eq(invoice.status, 'pending')),
           ),
         )
-        .orderBy(desc(invoice.updatedAt))
+        .orderBy(desc(invoice.createdAt))
         .limit(LIMIT_PER_TYPE),
 
       this.db
@@ -121,6 +138,22 @@ export class EcpayAttentionService {
               ecpayCallbackLog.createdAt,
               new Date(now - CALLBACK_LOOKBACK_MS),
             ),
+            // 綠界重送成功會是新的一列，失敗那列自己永遠不會被標記 handled
+            notExists(
+              this.db
+                .select({ one: sql`1` })
+                .from(resolved)
+                .where(
+                  and(
+                    eq(
+                      resolved.merchantTradeNo,
+                      ecpayCallbackLog.merchantTradeNo,
+                    ),
+                    eq(resolved.handled, true),
+                    gt(resolved.createdAt, ecpayCallbackLog.createdAt),
+                  ),
+                ),
+            ),
             or(
               eq(ecpayCallbackLog.macValid, false),
               isNotNull(ecpayCallbackLog.error),
@@ -132,17 +165,13 @@ export class EcpayAttentionService {
     ]);
 
     return [
-      ...refunds.map(({ invoiceAction, invoiceError, ...rest }) => {
-        const settlementFailed = invoiceAction === 'failed';
-
-        return {
-          ...rest,
-          detail: settlementFailed ? invoiceError : null,
-          type: settlementFailed
-            ? ('invoiceSettlementFailed' as const)
-            : ('refundUnconfirmed' as const),
-        };
-      }),
+      ...refunds.map(({ invoiceError, ...rest }) => ({
+        ...rest,
+        detail: invoiceError,
+        type: invoiceError
+          ? ('invoiceSettlementFailed' as const)
+          : ('refundUnconfirmed' as const),
+      })),
       ...invoices.map(({ status, ...rest }) => ({
         ...rest,
         detail: null,
