@@ -77,6 +77,17 @@ describe('opening hours', () => {
     expect(isValidOpeningHours('Fr-Mo 09:00-18:00')).toBe(false);
   });
 
+  it('days without a time range mean open all day', () => {
+    const weekdays = 'Mo-Fr';
+    expect(isValidOpeningHours(weekdays)).toBe(true);
+    expect(isWithinOpeningHours(weekdays, at('2026-08-31T00:00'))).toBe(true);
+    expect(isWithinOpeningHours(weekdays, at('2026-09-04T23:59'))).toBe(true);
+    expect(isWithinOpeningHours(weekdays, at('2026-09-05T00:00'))).toBe(false);
+    expect(
+      getCloseTimeOn(weekdays, at('2026-08-31T10:00'))?.toISOString(),
+    ).toBe(at('2026-09-01T00:00').toISOString());
+  });
+
   it('overnight range runs into the next day', () => {
     const overnight = 'Mo-Su 22:00-02:00';
     expect(isWithinOpeningHours(overnight, at('2026-08-31T23:30'))).toBe(true);

@@ -80,12 +80,16 @@ const parseOpeningHours = (value: string): Schedule[] | null => {
     if (!trimmed) continue;
 
     const spaceIdx = trimmed.indexOf(' ');
-    if (spaceIdx === -1) return null;
 
-    const days = parseDays(trimmed.slice(0, spaceIdx));
+    const days = parseDays(
+      spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx),
+    );
     if (!days) return null;
 
-    const ranges = parseRanges(trimmed.slice(spaceIdx + 1));
+    const ranges =
+      spaceIdx === -1
+        ? [{ startMinutes: 0, endMinutes: 0 }]
+        : parseRanges(trimmed.slice(spaceIdx + 1));
     if (!ranges) return null;
 
     for (const range of ranges) schedules.push({ days, ...range });
