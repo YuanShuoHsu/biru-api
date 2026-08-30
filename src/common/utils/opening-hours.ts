@@ -6,6 +6,8 @@ type Day = (typeof DAYS)[number];
 
 const DAYS_SET = new Set<string>(DAYS);
 
+const MINUTES_PER_DAY = 24 * 60;
+
 const isDayCode = (code: string): code is Day => DAYS_SET.has(code);
 
 const parseDays = (daysPart: string): Day[] | null => {
@@ -60,9 +62,6 @@ const parseRanges = (timePart: string): Range[] | null => {
     const endMinutes = toMinutes(segment.slice(dashIdx + 1).trim());
     if (startMinutes === null || endMinutes === null) return null;
 
-    // 後台以 minTime/maxTime 互鎖，跨午夜營業要拆成兩段輸入，這裡不另作解讀
-    if (endMinutes <= startMinutes) return null;
-
     ranges.push({ startMinutes, endMinutes });
   }
 
@@ -110,13 +109,33 @@ const platformParts = (at: Date) => {
   };
 };
 
-const scheduleAt = (value: string | null, at: Date): Schedule | undefined => {
+const isOvernight = ({ startMinutes, endMinutes }: Range): boolean =>
+  endMinutes <= startMinutes;
+
+const daySchedulesOf = (value: string | null, day: Day): Schedule[] =>
+  schedulesOf(value).filter((schedule) => schedule.days.includes(day));
+
+const minutesUntilClose = (value: string | null, at: Date): number | null => {
   const { day, minutes } = platformParts(at);
 
-  return schedulesOf(value).find(
-    ({ days, startMinutes, endMinutes }) =>
-      days.includes(day) && minutes >= startMinutes && minutes < endMinutes,
+  const current = daySchedulesOf(value, day).find((schedule) =>
+    isOvernight(schedule)
+      ? minutes >= schedule.startMinutes
+      : minutes >= schedule.startMinutes && minutes < schedule.endMinutes,
   );
+  if (current)
+    return (
+      current.endMinutes +
+      (isOvernight(current) ? MINUTES_PER_DAY : 0) -
+      minutes
+    );
+
+  const previous = daySchedulesOf(
+    value,
+    DAYS[(DAYS.indexOf(day) + 6) % 7],
+  ).find((schedule) => isOvernight(schedule) && minutes < schedule.endMinutes);
+
+  return previous ? previous.endMinutes - minutes : null;
 };
 
 export const isWithinOpeningHours = (
@@ -126,14 +145,11 @@ export const isWithinOpeningHours = (
   const schedules = schedulesOf(value);
   if (schedules.length === 0) return true;
 
-  return scheduleAt(value, at) !== undefined;
+  return minutesUntilClose(value, at) !== null;
 };
 
 export const getCloseTimeOn = (value: string | null, at: Date): Date | null => {
-  const schedule = scheduleAt(value, at);
-  if (!schedule) return null;
+  const minutes = minutesUntilClose(value, at);
 
-  const { minutes } = platformParts(at);
-
-  return new Date(at.getTime() + (schedule.endMinutes - minutes) * 60_000);
+  return minutes === null ? null : new Date(at.getTime() + minutes * 60_000);
 };

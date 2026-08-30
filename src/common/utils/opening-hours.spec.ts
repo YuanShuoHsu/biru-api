@@ -73,7 +73,45 @@ describe('opening hours', () => {
     expect(isValidOpeningHours('Mo-Fr,Su 09:00-12:00,13:00-18:00')).toBe(true);
     expect(isValidOpeningHours('')).toBe(true);
     expect(isValidOpeningHours('07:00-11:00')).toBe(false);
-    expect(isValidOpeningHours('Mo-Su 18:00-02:00')).toBe(false);
+    expect(isValidOpeningHours('Mo-Su 18:00-02:00')).toBe(true);
     expect(isValidOpeningHours('Fr-Mo 09:00-18:00')).toBe(false);
+  });
+
+  it('overnight range runs into the next day', () => {
+    const overnight = 'Mo-Su 22:00-02:00';
+    expect(isWithinOpeningHours(overnight, at('2026-08-31T23:30'))).toBe(true);
+    expect(isWithinOpeningHours(overnight, at('2026-08-31T01:00'))).toBe(true);
+    expect(isWithinOpeningHours(overnight, at('2026-08-31T02:00'))).toBe(false);
+    expect(isWithinOpeningHours(overnight, at('2026-08-31T12:00'))).toBe(false);
+    expect(
+      getCloseTimeOn(overnight, at('2026-08-31T23:30'))?.toISOString(),
+    ).toBe(at('2026-09-01T02:00').toISOString());
+    expect(
+      getCloseTimeOn(overnight, at('2026-08-31T01:00'))?.toISOString(),
+    ).toBe(at('2026-08-31T02:00').toISOString());
+  });
+
+  it('overnight tail only reaches days that follow a listed day', () => {
+    const monday = 'Mo 22:00-02:00';
+    expect(isWithinOpeningHours(monday, at('2026-09-01T01:00'))).toBe(true);
+    expect(isWithinOpeningHours(monday, at('2026-09-02T01:00'))).toBe(false);
+  });
+
+  it('00:00-00:00 means open all day', () => {
+    const allDay = 'Mo-Su 00:00-00:00';
+    expect(isValidOpeningHours(allDay)).toBe(true);
+    expect(isWithinOpeningHours(allDay, at('2026-08-31T00:00'))).toBe(true);
+    expect(isWithinOpeningHours(allDay, at('2026-08-31T23:59'))).toBe(true);
+    expect(getCloseTimeOn(allDay, at('2026-08-31T23:59'))?.toISOString()).toBe(
+      at('2026-09-01T00:00').toISOString(),
+    );
+
+    const weekdaysOnly = 'Mo-Fr 00:00-00:00';
+    expect(isWithinOpeningHours(weekdaysOnly, at('2026-09-04T23:59'))).toBe(
+      true,
+    );
+    expect(isWithinOpeningHours(weekdaysOnly, at('2026-09-05T00:00'))).toBe(
+      false,
+    );
   });
 });
