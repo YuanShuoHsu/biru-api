@@ -17,9 +17,11 @@ import {
 } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 import { ac, admin, member, owner } from './permissions';
 
+import { isValidOpeningHours } from '../common/utils/opening-hours';
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
@@ -230,24 +232,46 @@ export const createAuth = (mailsService: MailsService) =>
               openingHours: {
                 type: 'string',
                 required: false,
+                validator: {
+                  input: z
+                    .string()
+                    .refine(
+                      isValidOpeningHours,
+                      '營業時間格式須為 "Mo-Fr 09:00-12:00,13:00-18:00"',
+                    ),
+                },
               },
               telephone: {
                 type: 'string',
                 required: false,
               },
 
-              // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
               amountPerPoint: {
                 type: 'number',
                 required: false,
               },
-              // 點數啟用時間；僅累計此時間之後付款的訂單
               pointsEnabledAt: {
                 type: 'date',
                 required: false,
               },
-              // 點數效期（年）；null = 永久有效
               pointsValidityYears: {
+                type: 'number',
+                required: false,
+              },
+
+              pickupSchedulingEnabled: {
+                type: 'boolean',
+                required: false,
+              },
+              pickupLeadMinutes: {
+                type: 'number',
+                required: false,
+              },
+              pickupMaxAdvanceDays: {
+                type: 'number',
+                required: false,
+              },
+              pickupCutoffMinutes: {
                 type: 'number',
                 required: false,
               },

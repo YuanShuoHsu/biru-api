@@ -29,6 +29,7 @@ import {
 import { invoice } from 'src/db/schema/invoices';
 import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
+import type { Organization } from 'src/db/schema/organizations';
 import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -45,6 +46,10 @@ import {
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import { toActiveInvoice } from 'src/common/utils/invoices';
+import {
+  getCloseTimeOn,
+  isWithinOpeningHours,
+} from 'src/common/utils/opening-hours';
 import { sumOrderItems } from 'src/common/utils/order-items';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
@@ -82,28 +87,62 @@ import { OrderPricingService } from './order-pricing.service';
 import { getAvailableTransitions, toAdminOrder } from './order-transitions';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot';
 
-const dateStamp = (): string =>
-  new Date(Date.now() + STORE_UTC_OFFSET_MS)
+const dateStamp = (at: Date = new Date()): string =>
+  new Date(at.getTime() + STORE_UTC_OFFSET_MS)
     .toISOString()
     .slice(0, 10)
     .replace(/-/g, '');
 
-const startOfToday = (): Date => {
-  const stamp = dateStamp();
+const startOfDay = (at: Date = new Date()): Date => {
+  const stamp = dateStamp(at);
 
   return new Date(
     `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T00:00:00${STORE_UTC_OFFSET}`,
   );
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
 
+const PICKUP_MINUTES_STEP = 15;
+
+const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
+
 export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+
+const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
+
+const timestampParam = (at: Date): SQL =>
+  sql`${order.createdAt.mapToDriverValue(at)}`;
+
+const PAYMENT_DEADLINE = sql`GREATEST(
+  ${order.createdAt} + make_interval(secs => ${MIN_PAYMENT_WINDOW_MS / 1000}),
+  LEAST(
+    ${order.createdAt} + make_interval(secs => ${PAYMENT_WINDOW_MS / 1000}),
+    ${order.pickupTime} - make_interval(mins => ${organization.pickupLeadMinutes})
+  )
+)`.mapWith(order.createdAt);
+
+const paymentDeadlineOf = (
+  createdAt: Date,
+  pickupTime: Date | null,
+  leadMinutes: number,
+): Date => {
+  const latest = createdAt.getTime() + PAYMENT_WINDOW_MS;
+  if (!pickupTime) return new Date(latest);
+
+  return new Date(
+    Math.max(
+      createdAt.getTime() + MIN_PAYMENT_WINDOW_MS,
+      Math.min(latest, pickupTime.getTime() - leadMinutes * 60 * 1000),
+    ),
+  );
+};
 
 export type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
-// 逾期未補正的異常訂單不再輪詢，否則會永久佔用每輪有限的綠界查詢配額
 const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const toPaymentDate = (value?: string): Date | undefined => {
@@ -116,7 +155,13 @@ const toPaymentDate = (value?: string): Date | undefined => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
+// 看板的時間軸：預約單看取餐時間，即時單看下單時間；截斷與排序都必須用同一個鍵，否則快到取餐時間的預約單會被每欄的筆數上限切掉
+const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
+
 const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const PUBLIC_BOARD_LEAD_MS = 30 * 60 * 1000;
+const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class OrdersService {
@@ -153,6 +198,44 @@ export class OrdersService {
     return found && toActiveInvoice(found);
   }
 
+  private resolvePickupTime(org: Organization, value?: string): Date | null {
+    if (!org.pickupSchedulingEnabled) {
+      if (value)
+        throw new BadRequestException('Pickup scheduling is not enabled');
+
+      return null;
+    }
+
+    if (!value) throw new BadRequestException('pickupTime is required');
+
+    const now = Date.now();
+    const leadMs = Math.max(org.pickupLeadMinutes, 0) * 60 * 1000;
+
+    const pickupTime = new Date(value);
+
+    if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
+      throw new BadRequestException('pickupTime is not on the pickup interval');
+
+    if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
+      throw new BadRequestException('pickupTime is too soon');
+
+    // 以店家當地日曆日為界，設 0 天代表只接今天，而非一律不接
+    const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
+    const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
+    if (pickupTime.getTime() >= advanceLimit)
+      throw new BadRequestException('pickupTime is too far ahead');
+
+    if (!isWithinOpeningHours(org.openingHours, pickupTime))
+      throw new BadRequestException('pickupTime is outside opening hours');
+
+    const closeTime = getCloseTimeOn(org.openingHours, pickupTime);
+    const cutoffMs = Math.max(org.pickupCutoffMinutes, 0) * 60 * 1000;
+    if (closeTime && closeTime.getTime() - pickupTime.getTime() < cutoffMs)
+      throw new BadRequestException('pickupTime is too close to closing time');
+
+    return pickupTime;
+  }
+
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
@@ -163,6 +246,12 @@ export class OrdersService {
       throw new BadRequestException('Cash is unavailable for this order mode');
 
     const isDineIn = dto.mode === 'dineIn';
+    const isPickup = dto.mode === 'pickup';
+
+    if (!isPickup && dto.pickupTime)
+      throw new BadRequestException(
+        'pickupTime is unavailable for this order mode',
+      );
 
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -171,10 +260,16 @@ export class OrdersService {
       : null;
     if (replayed) return replayed;
 
+    // 必須晚於重放檢查：重試已成立的訂單不該再被「時間太早」擋下
+    const pickupTime = isPickup
+      ? this.resolvePickupTime(org, dto.pickupTime)
+      : null;
+
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
       org.id,
       dto.items,
       dto.mode,
+      pickupTime ?? new Date(),
     );
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
@@ -203,11 +298,19 @@ export class OrdersService {
         : null;
       if (duplicate) return duplicate;
 
-      const [{ value: todayCount }] = await tx
+      const pickupDayStart = startOfDay(pickupTime ?? undefined);
+      const [{ value: pickupDayCount }] = await tx
         .select({ value: count() })
         .from(order)
         .where(
-          and(eq(order.sellerId, org.id), gte(order.createdAt, startOfToday())),
+          and(
+            eq(order.sellerId, org.id),
+            gte(BOARD_AT, timestampParam(pickupDayStart)),
+            lt(
+              BOARD_AT,
+              timestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+            ),
+          ),
         );
 
       const [created] = await tx
@@ -217,7 +320,7 @@ export class OrdersService {
           sellerId: org.id,
           idempotencyKey,
           mode: dto.mode,
-          orderNumber: String(todayCount + 1),
+          orderNumber: String(pickupDayCount + 1),
           customer: dto.customer,
           paymentMethod: dto.payment,
           orderStatus: 'OrderPaymentDue',
@@ -225,6 +328,7 @@ export class OrdersService {
           subtotal: subtotal.toFixed(2),
           userId,
           partySize: isDineIn ? dto.partySize : null,
+          pickupTime,
           tableNumber: isDineIn ? dto.tableNumber : null,
           ...(applied && {
             discount: applied.discount.toFixed(2),
@@ -323,6 +427,7 @@ export class OrdersService {
       paymentMethod: sql`${order.paymentMethod}::text`,
       orderStatus: sql`${order.orderStatus}::text`,
       paymentDate: order.paymentDate,
+      pickupTime: order.pickupTime,
       createdAt: order.createdAt,
       tableNumber: order.tableNumber,
       total: order.total,
@@ -362,6 +467,7 @@ export class OrdersService {
           ilike(sql`${order.customer}->>'email'`, `%${value}%`),
           ilike(sql`${order.tableNumber}::text`, `%${value}%`),
           ilike(localTimeText(order.paymentDate), `%${value}%`),
+          ilike(localTimeText(order.pickupTime), `%${value}%`),
           ilike(localTimeText(order.createdAt), `%${value}%`),
           ilike(sql`${order.total}::text`, `%${value}%`),
         ],
@@ -453,6 +559,7 @@ export class OrdersService {
     organizationSlug: string,
   ): Promise<AdminOrderBoardColumnDto[]> {
     const org = await this.getOrgBySlug(organizationSlug);
+    const now = Date.now();
 
     return Promise.all(
       ORDER_FLOW_STATUSES.map(async (orderStatus) => ({
@@ -465,8 +572,13 @@ export class OrdersService {
               orderStatus === 'OrderPaymentDue'
                 ? eq(order.paymentMethod, 'Cash')
                 : undefined,
+              gte(BOARD_AT, timestampParam(new Date(now - BOARD_WINDOW_MS))),
+              or(
+                isNull(order.pickupTime),
+                lt(order.pickupTime, new Date(now + ADMIN_BOARD_LEAD_MS)),
+              ),
             ),
-            orderBy: [desc(order.createdAt)],
+            orderBy: [asc(BOARD_AT)],
             limit: ADMIN_BOARD_COLUMN_LIMIT,
             with: { items: true },
           })
@@ -486,23 +598,31 @@ export class OrdersService {
   listPublicBoardByOrganizationId(
     organizationId: string,
   ): Promise<OrderBoardItemDto[]> {
+    const now = Date.now();
+
     return this.db
       .select({
         orderId: order.id,
         orderNumber: order.orderNumber,
         orderStatus: sql<OrderBoardStatus>`${order.orderStatus}`,
         mode: order.mode,
+        pickupTime: order.pickupTime,
         tableNumber: order.tableNumber,
       })
       .from(order)
       .where(
         and(
           eq(order.sellerId, organizationId),
-          gte(order.createdAt, new Date(Date.now() - BOARD_WINDOW_MS)),
+          gte(BOARD_AT, timestampParam(new Date(now - BOARD_WINDOW_MS))),
+          // 預約單接近取餐時間才上號碼牌，否則會提前佔著顧客看的畫面
+          or(
+            isNull(order.pickupTime),
+            lt(order.pickupTime, new Date(now + PUBLIC_BOARD_LEAD_MS)),
+          ),
           inArray(order.orderStatus, [...ORDER_BOARD_STATUSES]),
         ),
       )
-      .orderBy(asc(order.createdAt));
+      .orderBy(asc(BOARD_AT));
   }
 
   async getOrderStatus(orderId: string): Promise<{ orderStatus: OrderStatus }> {
@@ -613,16 +733,22 @@ export class OrdersService {
   ): Promise<OrderResponseDto & { confirmationNumber: string }> {
     const found = await this.db.query.order.findFirst({
       where: eq(order.id, orderId),
-      with: { items: true },
+      with: { items: true, seller: true },
     });
     if (!found) throw new NotFoundException('Order not found');
 
     const { confirmationNumber } = found;
     if (found.paymentMethod === 'Cash' || !confirmationNumber)
       throw new BadRequestException('Order does not require online payment');
+
+    const deadline = paymentDeadlineOf(
+      found.createdAt,
+      found.pickupTime,
+      found.seller.pickupLeadMinutes,
+    );
     if (
       found.orderStatus !== 'OrderPaymentDue' ||
-      Date.now() - found.createdAt.getTime() > PAYMENT_WINDOW_MS
+      Date.now() > deadline.getTime()
     )
       throw new BadRequestException('Order is not awaiting payment');
 
@@ -765,9 +891,9 @@ export class OrdersService {
   async findOrdersToReconcile(limit: number): Promise<
     {
       confirmationNumber: string | null;
-      createdAt: Date;
       id: string;
       orderStatus: OrderStatus;
+      paymentDeadline: Date;
       paymentMethod: PaymentMethod;
     }[]
   > {
@@ -776,17 +902,18 @@ export class OrdersService {
     return this.db
       .select({
         confirmationNumber: order.confirmationNumber,
-        createdAt: order.createdAt,
         id: order.id,
         orderStatus: order.orderStatus,
+        paymentDeadline: PAYMENT_DEADLINE,
         paymentMethod: order.paymentMethod,
       })
       .from(order)
+      .innerJoin(organization, eq(order.sellerId, organization.id))
       .where(
         or(
           and(
             eq(order.orderStatus, 'OrderPaymentDue'),
-            lt(order.createdAt, new Date(now - PAYMENT_WINDOW_MS)),
+            lt(PAYMENT_DEADLINE, timestampParam(new Date(now))),
           ),
           and(
             eq(order.orderStatus, 'OrderProblem'),

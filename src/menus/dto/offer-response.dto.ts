@@ -32,6 +32,9 @@ export class OfferResponseDto {
   })
   availability: ItemAvailability | null;
 
+  @ApiPropertyOptional({ description: '可供應時段；null 代表全時段供應' })
+  availableHours: string | null;
+
   @ApiPropertyOptional({ type: QuantitativeValueDto })
   deliveryLeadTime: QuantitativeValueDto | null;
 

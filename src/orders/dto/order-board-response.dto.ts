@@ -20,5 +20,6 @@ export class OrderBoardItemDto {
   @ApiProperty({ enum: ORDER_BOARD_STATUSES, enumName: 'OrderBoardStatus' })
   orderStatus: OrderBoardStatus;
   @ApiProperty({ enum: orderModeEnum.enumValues }) mode: OrderMode;
+  @ApiPropertyOptional() pickupTime?: Date | null;
   @ApiPropertyOptional() tableNumber?: number | null;
 }

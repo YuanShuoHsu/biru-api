@@ -14,6 +14,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { isValidOpeningHours } from 'src/common/utils/opening-hours';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
@@ -30,6 +31,17 @@ class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
 
   defaultMessage(): string {
     return 'validFrom 必須早於 validThrough';
+  }
+}
+
+@ValidatorConstraint({ name: 'isOpeningHours' })
+class IsOpeningHours implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return typeof value === 'string' && isValidOpeningHours(value);
+  }
+
+  defaultMessage(): string {
+    return '時段格式須為 "Mo-Fr 09:00-12:00,13:00-18:00"';
   }
 }
 
@@ -88,6 +100,15 @@ export class CreateOfferDto {
   @IsOptional()
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
+
+  @ApiPropertyOptional({
+    description:
+      '可供應時段，格式同組織營業時間（如 "Mo-Fr 07:00-11:00"）；null 代表全時段供應',
+  })
+  @IsOptional()
+  @IsString()
+  @Validate(IsOpeningHours)
+  availableHours?: string;
 
   @ApiPropertyOptional({
     type: QuantitativeValueDto,

@@ -24,7 +24,11 @@ export const ORDER_ENUM_FILTER_FIELDS = [
   'invoiceType',
   'invoiceStatus',
 ] as const;
-export const ORDER_DATE_FILTER_FIELDS = ['paymentDate', 'createdAt'] as const;
+export const ORDER_DATE_FILTER_FIELDS = [
+  'paymentDate',
+  'pickupTime',
+  'createdAt',
+] as const;
 export const ORDER_NUMBER_FILTER_FIELDS = ['tableNumber', 'total'] as const;
 export const ORDER_ALL_FILTER_FIELDS = [
   ...ORDER_STRING_FILTER_FIELDS,
@@ -41,6 +45,7 @@ export const ORDER_SORT_FIELDS = [
   'paymentMethod',
   'orderStatus',
   'paymentDate',
+  'pickupTime',
   'createdAt',
   'tableNumber',
   'total',

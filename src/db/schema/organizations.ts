@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   numeric,
@@ -42,12 +43,17 @@ export const organization = pgTable(
     openingHours: text('opening_hours'),
     telephone: text('telephone'),
 
-    // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    // 點數啟用時間；僅累計此時間之後付款的訂單
     pointsEnabledAt: timestamp('points_enabled_at'),
-    // 點數效期（年）；null = 永久有效
     pointsValidityYears: integer('points_validity_years'),
+    pickupSchedulingEnabled: boolean('pickup_scheduling_enabled')
+      .notNull()
+      .default(true),
+    pickupLeadMinutes: integer('pickup_lead_minutes').notNull().default(15),
+    pickupMaxAdvanceDays: integer('pickup_max_advance_days')
+      .notNull()
+      .default(7),
+    pickupCutoffMinutes: integer('pickup_cutoff_minutes').notNull().default(15),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );

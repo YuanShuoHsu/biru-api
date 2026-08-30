@@ -8,9 +8,11 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -159,6 +161,14 @@ export class CreateOrderDto {
   @IsInt()
   @Min(1)
   partySize?: number;
+
+  @ApiPropertyOptional({ example: '2026-08-31T09:15:00+08:00' })
+  @IsOptional()
+  @IsISO8601()
+  @Matches(/(?:Z|[+-]\d{2}:?\d{2})$/, {
+    message: 'pickupTime must carry a UTC offset',
+  })
+  pickupTime?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

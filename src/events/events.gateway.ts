@@ -1,5 +1,6 @@
 import { UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Interval } from '@nestjs/schedule';
 import {
   Ack,
   ConnectedSocket,
@@ -20,7 +21,7 @@ import { MENU_UPDATED_EVENT } from './menu-updated.event';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event';
 import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event';
 
-import { Server, Socket } from 'socket.io';
+import { Namespace, Socket } from 'socket.io';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import type { OrderMenuResponseDto } from 'src/menus/dto/order-menu-response.dto';
 import { WsRolesGuard } from 'src/menus/guards/ws-roles.guard';
@@ -31,8 +32,11 @@ const organizationRoom = (organizationId: string) => `org:${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
 const ordersBoardRoom = (organizationId: string) =>
   `orders-board:${organizationId}`;
+const PUBLIC_ORDERS_BOARD_ROOM_PREFIX = 'public-orders-board:';
 const publicOrdersBoardRoom = (organizationId: string) =>
-  `public-orders-board:${organizationId}`;
+  `${PUBLIC_ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
+
+const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
 @AllowAnonymous()
 @WebSocketGateway({
@@ -44,7 +48,7 @@ const publicOrdersBoardRoom = (organizationId: string) =>
 })
 export class EventsGateway {
   @WebSocketServer()
-  server: Server;
+  server: Namespace;
 
   constructor(
     private readonly publicMenusService: PublicMenusService,
@@ -111,6 +115,13 @@ export class EventsGateway {
     await client.join(publicOrdersBoardRoom(organizationId));
 
     return this.ordersService.listPublicBoardByOrganizationId(organizationId);
+  }
+
+  @Interval(PUBLIC_BOARD_REFRESH_MS)
+  refreshPublicOrdersBoards() {
+    for (const room of this.server.adapter.rooms.keys())
+      if (room.startsWith(PUBLIC_ORDERS_BOARD_ROOM_PREFIX))
+        this.server.to(room).emit('orderBoardUpdated');
   }
 
   @SubscribeMessage('joinOrdersBoard')

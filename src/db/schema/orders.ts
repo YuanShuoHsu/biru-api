@@ -112,6 +112,7 @@ export const order = pgTable(
     pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
     partySize: integer('party_size'),
+    pickupTime: timestamp('pickup_time'),
     tableNumber: integer('table_number'),
     tradeNo: text('trade_no'),
     authorizationNo: text('authorization_no'),
@@ -132,6 +133,10 @@ export const order = pgTable(
     index('order_sellerId_salesAt_idx').on(
       table.sellerId,
       sql`COALESCE(${table.paymentDate}, ${table.orderDate})`,
+    ),
+    index('order_sellerId_pickupAt_idx').on(
+      table.sellerId,
+      sql`COALESCE(${table.pickupTime}, ${table.createdAt})`,
     ),
     index('order_paymentDue_createdAt_idx')
       .on(table.createdAt)

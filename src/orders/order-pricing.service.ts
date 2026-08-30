@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
+
 import { eq, inArray } from 'drizzle-orm';
 import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
 import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
@@ -51,6 +53,7 @@ export class OrderPricingService {
     organizationId: string,
     items: CreateOrderItemDto[],
     mode: OrderMode,
+    availableAt: Date | null = null,
   ): Promise<ResolvedOrderItem[]> {
     const allMenuItemIds = [
       ...new Set([
@@ -116,6 +119,16 @@ export class OrderPricingService {
       if (!item.availableModes.includes(mode))
         throw new BadRequestException(
           `MenuItem ${menuItemId} is unavailable for mode ${mode}`,
+        );
+      if (
+        availableAt &&
+        !isWithinOpeningHours(
+          offerMap.get(menuItemId)?.availableHours ?? null,
+          availableAt,
+        )
+      )
+        throw new BadRequestException(
+          `MenuItem ${menuItemId} is unavailable at the requested time`,
         );
       return item;
     };

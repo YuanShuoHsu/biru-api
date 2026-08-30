@@ -48,11 +48,21 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   telephone: string | null;
 
-  // 點數設定：每累積 1 點所需消費金額；null = 未啟用點數
   @ApiPropertyOptional()
   amountPerPoint: string | null;
 
-  // 點數效期（年）；null = 永久有效
   @ApiPropertyOptional()
   pointsValidityYears: number | null;
+
+  @ApiProperty()
+  pickupSchedulingEnabled: boolean;
+
+  @ApiProperty()
+  pickupLeadMinutes: number;
+
+  @ApiProperty()
+  pickupMaxAdvanceDays: number;
+
+  @ApiProperty()
+  pickupCutoffMinutes: number;
 }

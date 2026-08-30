@@ -2,7 +2,7 @@ import { ECPAY_TRADE_STATUS } from '../dto/query-trade-info-ecpay.dto';
 
 import { QUERY_INTERVAL_MS, sleep } from '../utils/ecpay';
 
-import { OrdersService, PAYMENT_WINDOW_MS } from '../../orders/orders.service';
+import { OrdersService } from '../../orders/orders.service';
 
 import { EcpayCallbackLogService } from './ecpay-callback-log.service';
 import {
@@ -64,16 +64,16 @@ export class EcpayUnpaidOrderReconcileService {
     const orderIdsReconciled: string[] = [];
     const pendingQuery: {
       confirmationNumber: string;
-      createdAt: Date;
       cancellable: boolean;
       id: string;
+      paymentDeadline: Date;
     }[] = [];
 
     for (const {
       confirmationNumber,
-      createdAt,
       id,
       orderStatus,
+      paymentDeadline,
       paymentMethod,
     } of candidates) {
       const cancellable = orderStatus === 'OrderPaymentDue';
@@ -84,7 +84,12 @@ export class EcpayUnpaidOrderReconcileService {
         continue;
       }
 
-      pendingQuery.push({ cancellable, confirmationNumber, createdAt, id });
+      pendingQuery.push({
+        cancellable,
+        confirmationNumber,
+        id,
+        paymentDeadline,
+      });
     }
 
     pendingQuery.sort(
@@ -95,7 +100,7 @@ export class EcpayUnpaidOrderReconcileService {
 
     for (const [
       index,
-      { cancellable, confirmationNumber, createdAt, id },
+      { cancellable, confirmationNumber, id, paymentDeadline },
     ] of pendingQuery.slice(0, QUERY_LIMIT_PER_RUN).entries()) {
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
@@ -121,8 +126,7 @@ export class EcpayUnpaidOrderReconcileService {
           continue;
         }
 
-        if (this.shouldCancel(result.TradeStatus, createdAt)) {
-          // 付款異常的訂單不取消（狀態要留著讓店家看到），但確認過就別再查了
+        if (this.shouldCancel(result.TradeStatus, paymentDeadline)) {
           if (cancellable) orderIdsToCancel.push(id);
           else orderIdsReconciled.push(id);
 
@@ -163,7 +167,7 @@ export class EcpayUnpaidOrderReconcileService {
     await this.ordersService.markReconciled(orderIdsReconciled);
   }
 
-  private shouldCancel(tradeStatus: string, createdAt: Date): boolean {
+  private shouldCancel(tradeStatus: string, paymentDeadline: Date): boolean {
     if (
       tradeStatus === ECPAY_TRADE_STATUS.NotFound ||
       tradeStatus === ECPAY_TRADE_STATUS.Failed
@@ -172,9 +176,7 @@ export class EcpayUnpaidOrderReconcileService {
 
     if (tradeStatus !== ECPAY_TRADE_STATUS.Unpaid) return false;
 
-    return (
-      createdAt.getTime() < Date.now() - PAYMENT_WINDOW_MS - UNPAID_GRACE_MS
-    );
+    return paymentDeadline.getTime() < Date.now() - UNPAID_GRACE_MS;
   }
 
   private async recoverPaidOrder(result: {
