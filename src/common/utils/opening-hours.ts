@@ -8,6 +8,8 @@ const DAYS_SET = new Set<string>(DAYS);
 
 const MINUTES_PER_DAY = 24 * 60;
 
+const MAX_SCHEDULES = 100;
+
 const isDayCode = (code: string): code is Day => DAYS_SET.has(code);
 
 const parseDays = (daysPart: string): Day[] | null => {
@@ -93,6 +95,8 @@ const parseOpeningHours = (value: string): Schedule[] | null => {
     if (!ranges) return null;
 
     for (const range of ranges) schedules.push({ days, ...range });
+
+    if (schedules.length > MAX_SCHEDULES) return null;
   }
 
   return schedules;
@@ -116,13 +120,26 @@ const platformParts = (at: Date) => {
 const isOvernight = ({ startMinutes, endMinutes }: Range): boolean =>
   endMinutes <= startMinutes;
 
-const daySchedulesOf = (value: string | null, day: Day): Schedule[] =>
-  schedulesOf(value).filter((schedule) => schedule.days.includes(day));
+type SchedulesByDay = Record<Day, Schedule[]>;
 
-const minutesUntilClose = (value: string | null, at: Date): number | null => {
+const indexByDay = (schedules: Schedule[]): SchedulesByDay => {
+  const byDay = Object.fromEntries(
+    DAYS.map((day) => [day, [] as Schedule[]]),
+  ) as SchedulesByDay;
+
+  for (const schedule of schedules)
+    for (const day of schedule.days) byDay[day].push(schedule);
+
+  return byDay;
+};
+
+const minutesUntilSegmentEnd = (
+  byDay: SchedulesByDay,
+  at: Date,
+): number | null => {
   const { day, minutes } = platformParts(at);
 
-  const current = daySchedulesOf(value, day).find((schedule) =>
+  const current = byDay[day].find((schedule) =>
     isOvernight(schedule)
       ? minutes >= schedule.startMinutes
       : minutes >= schedule.startMinutes && minutes < schedule.endMinutes,
@@ -134,10 +151,9 @@ const minutesUntilClose = (value: string | null, at: Date): number | null => {
       minutes
     );
 
-  const previous = daySchedulesOf(
-    value,
-    DAYS[(DAYS.indexOf(day) + 6) % 7],
-  ).find((schedule) => isOvernight(schedule) && minutes < schedule.endMinutes);
+  const previous = byDay[DAYS[(DAYS.indexOf(day) + 6) % 7]].find(
+    (schedule) => isOvernight(schedule) && minutes < schedule.endMinutes,
+  );
 
   return previous ? previous.endMinutes - minutes : null;
 };
@@ -149,11 +165,32 @@ export const isWithinOpeningHours = (
   const schedules = schedulesOf(value);
   if (schedules.length === 0) return true;
 
-  return minutesUntilClose(value, at) !== null;
+  return minutesUntilSegmentEnd(indexByDay(schedules), at) !== null;
 };
 
-export const getCloseTimeOn = (value: string | null, at: Date): Date | null => {
-  const minutes = minutesUntilClose(value, at);
+export const getMinutesUntilClose = (
+  value: string | null,
+  at: Date,
+): number => {
+  const schedules = schedulesOf(value);
+  if (schedules.length === 0) return Infinity;
 
-  return minutes === null ? null : new Date(at.getTime() + minutes * 60_000);
+  const byDay = indexByDay(schedules);
+  const maxHops = schedules.reduce(
+    (total, schedule) => total + schedule.days.length,
+    0,
+  );
+
+  let cursor = at;
+  let elapsed = 0;
+
+  for (let hops = 0; hops <= maxHops; hops++) {
+    const minutes = minutesUntilSegmentEnd(byDay, cursor);
+    if (minutes === null) return elapsed;
+
+    elapsed += minutes;
+    cursor = new Date(cursor.getTime() + minutes * 60_000);
+  }
+
+  return Infinity;
 };

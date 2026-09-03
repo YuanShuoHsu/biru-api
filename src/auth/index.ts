@@ -17,10 +17,13 @@ import {
 } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-import { z } from 'zod';
 
 import { ac, admin, member, owner } from './permissions';
 
+import {
+  PICKUP_MAX_ADVANCE_DAYS,
+  PICKUP_MAX_MINUTES,
+} from '../common/constants/pickup';
 import { isValidOpeningHours } from '../common/utils/opening-hours';
 import { db } from '../db';
 import * as schema from '../db/schema';
@@ -33,6 +36,37 @@ const getInitialOrganization = async (userId: string) => {
   });
 
   return membership?.organization;
+};
+
+const PICKUP_FIELD_MAXIMUMS = {
+  pickupLeadMinutes: PICKUP_MAX_MINUTES,
+  pickupMaxAdvanceDays: PICKUP_MAX_ADVANCE_DAYS,
+  pickupCutoffMinutes: PICKUP_MAX_MINUTES,
+};
+
+const assertValidOrganizationInput = (data: Record<string, unknown>) => {
+  if (
+    typeof data.openingHours === 'string' &&
+    !isValidOpeningHours(data.openingHours)
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: '營業時間格式須為 "Mo-Fr 09:00-12:00,13:00-18:00"',
+    });
+
+  for (const [field, max] of Object.entries(PICKUP_FIELD_MAXIMUMS)) {
+    const value = data[field];
+    if (value === undefined) continue;
+
+    if (
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < 0 ||
+      value > max
+    )
+      throw new APIError('BAD_REQUEST', {
+        message: `${field} 須為 0 到 ${max} 的整數`,
+      });
+  }
 };
 
 export const createAuth = (mailsService: MailsService) =>
@@ -169,7 +203,14 @@ export const createAuth = (mailsService: MailsService) =>
               });
             }
           },
+          beforeCreateOrganization: ({ organization: data }) => {
+            assertValidOrganizationInput(data);
+
+            return Promise.resolve();
+          },
           beforeUpdateOrganization: async ({ organization: data, member }) => {
+            assertValidOrganizationInput(data);
+
             const touchesPoints =
               Object.hasOwn(data, 'amountPerPoint') ||
               Object.hasOwn(data, 'pointsEnabledAt');
@@ -232,14 +273,6 @@ export const createAuth = (mailsService: MailsService) =>
               openingHours: {
                 type: 'string',
                 required: false,
-                validator: {
-                  input: z
-                    .string()
-                    .refine(
-                      isValidOpeningHours,
-                      '營業時間格式須為 "Mo-Fr 09:00-12:00,13:00-18:00"',
-                    ),
-                },
               },
               telephone: {
                 type: 'string',
@@ -259,10 +292,6 @@ export const createAuth = (mailsService: MailsService) =>
                 required: false,
               },
 
-              pickupSchedulingEnabled: {
-                type: 'boolean',
-                required: false,
-              },
               pickupLeadMinutes: {
                 type: 'number',
                 required: false,

@@ -47,7 +47,7 @@ import {
 } from 'src/common/utils/data-grid-filters';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 import {
-  getCloseTimeOn,
+  getMinutesUntilClose,
   isWithinOpeningHours,
 } from 'src/common/utils/opening-hours';
 import { sumOrderItems } from 'src/common/utils/order-items';
@@ -155,7 +155,6 @@ const toPaymentDate = (value?: string): Date | undefined => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
-// 看板的時間軸：預約單看取餐時間，即時單看下單時間；截斷與排序都必須用同一個鍵，否則快到取餐時間的預約單會被每欄的筆數上限切掉
 const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
 
 const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -198,14 +197,7 @@ export class OrdersService {
     return found && toActiveInvoice(found);
   }
 
-  private resolvePickupTime(org: Organization, value?: string): Date | null {
-    if (!org.pickupSchedulingEnabled) {
-      if (value)
-        throw new BadRequestException('Pickup scheduling is not enabled');
-
-      return null;
-    }
-
+  private resolvePickupTime(org: Organization, value?: string): Date {
     if (!value) throw new BadRequestException('pickupTime is required');
 
     const now = Date.now();
@@ -219,7 +211,6 @@ export class OrdersService {
     if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
       throw new BadRequestException('pickupTime is too soon');
 
-    // 以店家當地日曆日為界，設 0 天代表只接今天，而非一律不接
     const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
     const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
     if (pickupTime.getTime() >= advanceLimit)
@@ -228,9 +219,10 @@ export class OrdersService {
     if (!isWithinOpeningHours(org.openingHours, pickupTime))
       throw new BadRequestException('pickupTime is outside opening hours');
 
-    const closeTime = getCloseTimeOn(org.openingHours, pickupTime);
-    const cutoffMs = Math.max(org.pickupCutoffMinutes, 0) * 60 * 1000;
-    if (closeTime && closeTime.getTime() - pickupTime.getTime() < cutoffMs)
+    if (
+      getMinutesUntilClose(org.openingHours, pickupTime) <
+      Math.max(org.pickupCutoffMinutes, 0)
+    )
       throw new BadRequestException('pickupTime is too close to closing time');
 
     return pickupTime;
@@ -260,7 +252,6 @@ export class OrdersService {
       : null;
     if (replayed) return replayed;
 
-    // 必須晚於重放檢查：重試已成立的訂單不該再被「時間太早」擋下
     const pickupTime = isPickup
       ? this.resolvePickupTime(org, dto.pickupTime)
       : null;
@@ -614,7 +605,6 @@ export class OrdersService {
         and(
           eq(order.sellerId, organizationId),
           gte(BOARD_AT, timestampParam(new Date(now - BOARD_WINDOW_MS))),
-          // 預約單接近取餐時間才上號碼牌，否則會提前佔著顧客看的畫面
           or(
             isNull(order.pickupTime),
             lt(order.pickupTime, new Date(now + PUBLIC_BOARD_LEAD_MS)),
@@ -788,8 +778,6 @@ export class OrdersService {
         .where(
           and(
             eq(order.confirmationNumber, body.MerchantTradeNo),
-            // 失敗通知已還原優惠券，而 redeem 需要訂單沒存的 couponId／userCouponId，
-            // 且券可能已被別人用完，所以帶券的 OrderProblem 只能人工處理
             succeeded
               ? or(
                   eq(order.orderStatus, 'OrderPaymentDue'),
@@ -799,7 +787,6 @@ export class OrdersService {
                   ),
                 )
               : eq(order.orderStatus, 'OrderPaymentDue'),
-            // 綠界建議核對金額；對不上就不能認列為已付款
             ...(succeeded
               ? [sql`${order.total} = ${Number(body.TradeAmt)}`]
               : []),

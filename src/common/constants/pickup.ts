@@ -1,0 +1,3 @@
+export const PICKUP_MAX_ADVANCE_DAYS = 30;
+
+export const PICKUP_MAX_MINUTES = PICKUP_MAX_ADVANCE_DAYS * 24 * 60;

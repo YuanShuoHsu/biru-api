@@ -106,9 +106,13 @@ export class OrderPricingService {
       if (m.modifierGroup?.menuId === orgMenu.id) modifierMap.set(m.id, m);
     }
     const offerMap = new Map<string, (typeof offers)[number]>();
+    const outsideAvailableHours = new Set<string>();
     for (const o of offers) {
       if (o.menuItemId && !offerMap.has(o.menuItemId)) {
         offerMap.set(o.menuItemId, o);
+
+        if (availableAt && !isWithinOpeningHours(o.availableHours, availableAt))
+          outsideAvailableHours.add(o.menuItemId);
       }
     }
 
@@ -120,13 +124,7 @@ export class OrderPricingService {
         throw new BadRequestException(
           `MenuItem ${menuItemId} is unavailable for mode ${mode}`,
         );
-      if (
-        availableAt &&
-        !isWithinOpeningHours(
-          offerMap.get(menuItemId)?.availableHours ?? null,
-          availableAt,
-        )
-      )
+      if (outsideAvailableHours.has(menuItemId))
         throw new BadRequestException(
           `MenuItem ${menuItemId} is unavailable at the requested time`,
         );

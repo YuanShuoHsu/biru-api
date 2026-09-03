@@ -55,9 +55,6 @@ export class OrganizationResponseDto {
   pointsValidityYears: number | null;
 
   @ApiProperty()
-  pickupSchedulingEnabled: boolean;
-
-  @ApiProperty()
   pickupLeadMinutes: number;
 
   @ApiProperty()

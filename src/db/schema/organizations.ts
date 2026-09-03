@@ -1,6 +1,5 @@
 import { relations } from 'drizzle-orm';
 import {
-  boolean,
   index,
   integer,
   numeric,
@@ -46,9 +45,6 @@ export const organization = pgTable(
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsEnabledAt: timestamp('points_enabled_at'),
     pointsValidityYears: integer('points_validity_years'),
-    pickupSchedulingEnabled: boolean('pickup_scheduling_enabled')
-      .notNull()
-      .default(true),
     pickupLeadMinutes: integer('pickup_lead_minutes').notNull().default(15),
     pickupMaxAdvanceDays: integer('pickup_max_advance_days')
       .notNull()
