@@ -10,6 +10,8 @@ const statement = {
   ...defaultStatements,
   auditLog: ['read'],
   coupon: ['create', 'read'],
+  inventory: ['create', 'update', 'delete', 'read'],
+  inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 } as const;
@@ -20,6 +22,8 @@ export const owner = ac.newRole({
   ...ownerAc.statements,
   auditLog: ['read'],
   coupon: ['create', 'read'],
+  inventory: ['create', 'update', 'delete', 'read'],
+  inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 });
@@ -28,6 +32,8 @@ export const admin = ac.newRole({
   ...adminAc.statements,
   auditLog: ['read'],
   coupon: ['create', 'read'],
+  inventory: ['create', 'update', 'delete', 'read'],
+  inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
 });
@@ -35,6 +41,8 @@ export const admin = ac.newRole({
 export const member = ac.newRole({
   ...memberAc.statements,
   coupon: ['read'],
+  inventory: ['read'],
+  inventoryTransaction: ['create', 'read'],
   menu: ['read'],
   order: ['read', 'update'],
 });

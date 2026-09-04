@@ -55,6 +55,7 @@ import { CouponsService } from 'src/coupons/coupons.service';
 import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
 
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
@@ -169,6 +170,7 @@ export class OrdersService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly couponsService: CouponsService,
+    private readonly inventoryTransactionsService: InventoryTransactionsService,
     private readonly orderPricingService: OrderPricingService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
@@ -357,6 +359,8 @@ export class OrdersService {
           })),
         )
         .returning();
+
+      await this.inventoryTransactionsService.consume(orderId, tx);
 
       const [createdInvoice] =
         total > 0
@@ -676,6 +680,9 @@ export class OrdersService {
             orderId: current.id,
           });
 
+        if (rule.direction === 'cancel')
+          await this.inventoryTransactionsService.restore(current.id, tx);
+
         results.push(toAdminOrder({ ...current, ...updated }));
       }
 
@@ -941,12 +948,15 @@ export class OrdersService {
           sellerId: order.sellerId,
         });
 
-      for (const { discountCode, id } of cancelled)
+      for (const { discountCode, id } of cancelled) {
         if (discountCode)
           await this.couponsService.restore(tx, {
             code: discountCode,
             orderId: id,
           });
+
+        await this.inventoryTransactionsService.restore(id, tx);
+      }
 
       return cancelled;
     });

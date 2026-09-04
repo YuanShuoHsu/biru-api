@@ -4,6 +4,13 @@ import type { AnyPgTable, PgColumn } from 'drizzle-orm/pg-core';
 import type { AuditResource, AuditResourceLabel } from 'src/db/schema/audit';
 import { banner } from 'src/db/schema/banners';
 import { coupon, userCoupon } from 'src/db/schema/coupons';
+import {
+  ingredient,
+  ingredientOffer,
+  recipe,
+  recipeIngredient,
+  supplier,
+} from 'src/db/schema/inventory';
 import { invoice } from 'src/db/schema/invoices';
 import {
   menu,
@@ -46,6 +53,11 @@ export const AUDIT_TABLES: Record<
   coupon,
   banner,
   invoice,
+  supplier,
+  ingredient,
+  ingredientOffer,
+  recipe,
+  recipeIngredient,
 };
 
 const asId = (value: unknown): string | null =>

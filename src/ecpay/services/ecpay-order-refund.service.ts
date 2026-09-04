@@ -64,6 +64,7 @@ import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
 import { getRefundChannel, isRefundable } from 'src/orders/order-transitions';
 import { PointsService } from 'src/points/points.service';
 
@@ -144,6 +145,7 @@ export class EcpayOrderRefundService {
     private readonly ecpayQueryCreditDetailService: EcpayQueryCreditDetailService,
     private readonly ecpayGetIssueInvoiceService: EcpayGetIssueInvoiceService,
     private readonly couponsService: CouponsService,
+    private readonly inventoryTransactionsService: InventoryTransactionsService,
     private readonly pointsService: PointsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -350,11 +352,14 @@ export class EcpayOrderRefundService {
           orderId: claimed.orderId,
         });
 
-      if (plan.isFull)
+      if (plan.isFull) {
+        await this.inventoryTransactionsService.restore(claimed.orderId, tx);
+
         await tx
           .update(order)
           .set({ orderStatus: 'OrderReturned' })
           .where(eq(order.id, claimed.orderId));
+      }
 
       await tx
         .update(refund)

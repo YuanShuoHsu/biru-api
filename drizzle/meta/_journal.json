@@ -715,6 +715,20 @@
       "when": 1788141713564,
       "tag": "0101_smart_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1788455378449,
+      "tag": "0102_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1788457921995,
+      "tag": "0103_inventory_restoration",
+      "breakpoints": true
     }
   ]
 }

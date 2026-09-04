@@ -12,6 +12,7 @@ import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
 import { isAuthorized } from 'src/auth/permissions';
+import { ingredient, recipe, supplier } from 'src/db/schema/inventory';
 import {
   menu,
   menuItem,
@@ -177,6 +178,33 @@ export class RolesGuard implements CanActivate {
         });
 
         return row?.modifierGroup?.menu?.organizationId;
+      }
+
+      case 'ingredientId': {
+        const row = await this.db.query.ingredient.findFirst({
+          where: eq(ingredient.id, params.ingredientId),
+          columns: { organizationId: true },
+        });
+
+        return row?.organizationId;
+      }
+
+      case 'supplierId': {
+        const row = await this.db.query.supplier.findFirst({
+          where: eq(supplier.id, params.supplierId),
+          columns: { organizationId: true },
+        });
+
+        return row?.organizationId;
+      }
+
+      case 'recipeId': {
+        const row = await this.db.query.recipe.findFirst({
+          where: eq(recipe.id, params.recipeId),
+          columns: { organizationId: true },
+        });
+
+        return row?.organizationId;
       }
     }
   }

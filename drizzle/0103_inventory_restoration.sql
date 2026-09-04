@@ -1,0 +1,1 @@
+ALTER TYPE "public"."inventory_transaction_type" ADD VALUE 'restoration';

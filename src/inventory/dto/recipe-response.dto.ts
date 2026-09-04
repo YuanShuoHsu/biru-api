@@ -1,0 +1,37 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+import { UNIT_FACTORS } from 'src/common/constants/units';
+import type { LocalizedText } from 'src/db/schema/enums';
+import type { UnitCode } from 'src/db/schema/inventory';
+
+export class RecipeIngredientResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() recipeId: string;
+  @ApiProperty() ingredientId: string;
+  @ApiProperty() ingredientName: LocalizedText;
+  @ApiProperty({ enum: Object.keys(UNIT_FACTORS), enumName: 'UnitCode' })
+  unitCode: UnitCode;
+  @ApiProperty() requiredQuantity: string;
+  @ApiPropertyOptional() unitPrice: number | null;
+  @ApiPropertyOptional({ description: '用量 × 單價' }) cost: number | null;
+  @ApiProperty() sortOrder: number;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
+}
+
+export class RecipeResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() organizationId: string;
+  @ApiPropertyOptional() menuItemId: string | null;
+  @ApiPropertyOptional() menuItemName: LocalizedText | null;
+  @ApiProperty() name: LocalizedText;
+  @ApiProperty() recipeYield: number;
+  @ApiPropertyOptional({ isArray: true, type: Object })
+  recipeInstructions: LocalizedText[] | null;
+  @ApiProperty({ description: '全部材料成本合計' }) cost: number;
+  @ApiPropertyOptional({ description: '對應品項售價' }) price: number | null;
+  @ApiPropertyOptional({ isArray: true, type: RecipeIngredientResponseDto })
+  recipeIngredients?: RecipeIngredientResponseDto[];
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
+}

@@ -29,6 +29,7 @@ import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { GcisModule } from './gcis/gcis.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
 import { RolesGuard } from './menus/guards/roles.guard';
@@ -85,6 +86,7 @@ import { UsersModule } from './users/users.module';
       ],
       inject: [ConfigService],
     }),
+    InventoryModule,
     MailsModule,
     MenusModule,
     OrdersModule,

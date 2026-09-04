@@ -11,7 +11,10 @@ export type OrganizationParam =
   | 'offerId'
   | 'addOnId'
   | 'groupId'
-  | 'modifierId';
+  | 'modifierId'
+  | 'ingredientId'
+  | 'supplierId'
+  | 'recipeId';
 
 export const Roles = (
   action: Record<string, string[]>,

@@ -26,6 +26,7 @@ import { EcpayUnpaidOrderReconcileService } from './services/ecpay-unpaid-order-
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service';
 
 import { CouponsModule } from '../coupons/coupons.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { OrdersModule } from '../orders/orders.module';
 import { PointsModule } from '../points/points.module';
 
@@ -37,6 +38,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
 @Module({
   imports: [
     CouponsModule,
+    InventoryModule,
     HttpModule.register({ timeout: ECPAY_HTTP_TIMEOUT_MS }),
     OrdersModule,
     PointsModule,

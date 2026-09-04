@@ -25,6 +25,9 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'coupon',
   'banner',
   'invoice',
+  'supplier',
+  'ingredient',
+  'recipe',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 
