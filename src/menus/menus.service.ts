@@ -22,6 +22,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
+import { isSameLocalizedText } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 import { recipe } from 'src/db/schema/inventory';
 import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
@@ -550,6 +551,13 @@ export class MenusService {
     const { offer: offerData, ...itemData } = params.data;
 
     return this.db.transaction(async (tx) => {
+      const [previous] = itemData.name
+        ? await tx
+            .select({ name: menuItem.name })
+            .from(menuItem)
+            .where(eq(menuItem.id, params.where.id))
+        : [];
+
       const [[updated], existingOffers] = await Promise.all([
         tx
           .update(menuItem)
@@ -565,7 +573,10 @@ export class MenusService {
       ]);
       if (!updated) throw new NotFoundException('Menu item not found');
 
-      if (itemData.name && updated.menuId) {
+      const renamed =
+        !!previous && !isSameLocalizedText(previous.name, updated.name);
+
+      if (renamed && updated.menuId) {
         const [row] = await tx
           .select({ organizationId: menu.organizationId })
           .from(menu)

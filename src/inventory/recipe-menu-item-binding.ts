@@ -11,14 +11,25 @@ type Tx = Pick<DrizzleDB, 'select' | 'transaction' | 'update'>;
 
 export type BoundRecipe = { id: string; name: LocalizedText };
 
-const sameName = (column: PgColumn, name: LocalizedText): SQL =>
-  sql`exists (
-    select 1
-    from jsonb_each_text(${column}) as entry
-    where btrim(entry.value) <> ''
-      and lower(btrim(entry.value))
-        = lower(btrim(${JSON.stringify(name)}::jsonb ->> entry.key))
+const sameName = (column: PgColumn, name: LocalizedText): SQL => {
+  const other = sql`${JSON.stringify(name)}::jsonb`;
+
+  return sql`(
+    exists (
+      select 1
+      from jsonb_each_text(${column}) as entry
+      where btrim(entry.value) <> ''
+        and lower(btrim(entry.value)) = lower(btrim(${other} ->> entry.key))
+    )
+    and not exists (
+      select 1
+      from jsonb_each_text(${column}) as entry
+      where btrim(entry.value) <> ''
+        and btrim(coalesce(${other} ->> entry.key, '')) <> ''
+        and lower(btrim(entry.value)) <> lower(btrim(${other} ->> entry.key))
+    )
   )`;
+};
 
 const claim = async (
   tx: Tx,

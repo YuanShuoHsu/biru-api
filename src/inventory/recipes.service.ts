@@ -153,7 +153,7 @@ export class RecipesService {
         .values({ ...dto, id: randomUUID(), organizationId })
         .returning();
 
-      if ('menuItemId' in dto) return row;
+      if (dto.menuItemId !== undefined) return row;
 
       const menuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
@@ -181,7 +181,7 @@ export class RecipesService {
         .returning();
       if (!row) throw new NotFoundException('Recipe not found');
 
-      if ('menuItemId' in dto || row.menuItemId) return row;
+      if (dto.menuItemId !== undefined || row.menuItemId) return row;
 
       const menuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,

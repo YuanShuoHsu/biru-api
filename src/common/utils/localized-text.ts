@@ -1,5 +1,5 @@
-// 「沒有描述」在資料庫只能有一種樣子：前端沒填會送 {}、清空會送 { "zh-TW": "" }，
-// 照原樣寫入會把 null 變成空物件，稽核就會多出一筆使用者根本沒改到的欄位
+import type { LocalizedText } from 'src/db/schema/enums';
+
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   typeof value === 'object' &&
   value !== null &&
@@ -7,3 +7,23 @@ export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   Object.values(value).every((text) => !String(text ?? '').trim())
     ? null
     : value;
+
+const filledEntries = (value: LocalizedText): Map<string, string> =>
+  new Map(
+    Object.entries(value)
+      .map(([language, text]) => [language, (text ?? '').trim()] as const)
+      .filter(([, text]) => text !== ''),
+  );
+
+export const isSameLocalizedText = (
+  a: LocalizedText,
+  b: LocalizedText,
+): boolean => {
+  const left = filledEntries(a);
+  const right = filledEntries(b);
+
+  return (
+    left.size === right.size &&
+    [...left].every(([language, text]) => right.get(language) === text)
+  );
+};
