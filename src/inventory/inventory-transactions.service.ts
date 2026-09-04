@@ -230,7 +230,7 @@ export class InventoryTransactionsService {
     );
   }
 
-  async restore(orderId: string, tx: Tx): Promise<void> {
+  async restoreAll(orderId: string, tx: Tx): Promise<void> {
     const rows = await tx
       .select({
         ingredientId: inventoryTransaction.ingredientId,

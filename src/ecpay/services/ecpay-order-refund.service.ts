@@ -353,7 +353,7 @@ export class EcpayOrderRefundService {
         });
 
       if (plan.isFull) {
-        await this.inventoryTransactionsService.restore(claimed.orderId, tx);
+        await this.inventoryTransactionsService.restoreAll(claimed.orderId, tx);
 
         await tx
           .update(order)

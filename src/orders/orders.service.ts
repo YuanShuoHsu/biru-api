@@ -681,7 +681,7 @@ export class OrdersService {
           });
 
         if (rule.direction === 'cancel')
-          await this.inventoryTransactionsService.restore(current.id, tx);
+          await this.inventoryTransactionsService.restoreAll(current.id, tx);
 
         results.push(toAdminOrder({ ...current, ...updated }));
       }
@@ -955,7 +955,7 @@ export class OrdersService {
             orderId: id,
           });
 
-        await this.inventoryTransactionsService.restore(id, tx);
+        await this.inventoryTransactionsService.restoreAll(id, tx);
       }
 
       return cancelled;
