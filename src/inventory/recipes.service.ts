@@ -48,6 +48,7 @@ import {
   RecipeResponseDto,
 } from './dto/recipe-response.dto';
 import { unitPriceOf } from './ingredients.service';
+import { bindMenuItemByRecipeName } from './recipe-menu-item-binding';
 
 @Injectable()
 export class RecipesService {
@@ -146,10 +147,22 @@ export class RecipesService {
       organizationSlug,
     );
 
-    const [created] = await this.db
-      .insert(recipe)
-      .values({ ...dto, id: randomUUID(), organizationId })
-      .returning();
+    const created = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(recipe)
+        .values({ ...dto, id: randomUUID(), organizationId })
+        .returning();
+
+      if ('menuItemId' in dto) return row;
+
+      const menuItemId = await bindMenuItemByRecipeName(tx, {
+        name: row.name,
+        organizationId,
+        recipeId: row.id,
+      });
+
+      return { ...row, menuItemId };
+    });
 
     const [response] = await this.toResponse([created]);
 
@@ -160,12 +173,24 @@ export class RecipesService {
     recipeId: string,
     dto: UpdateRecipeDto,
   ): Promise<RecipeResponseDto> {
-    const [updated] = await this.db
-      .update(recipe)
-      .set(dto)
-      .where(eq(recipe.id, recipeId))
-      .returning();
-    if (!updated) throw new NotFoundException('Recipe not found');
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(recipe)
+        .set(dto)
+        .where(eq(recipe.id, recipeId))
+        .returning();
+      if (!row) throw new NotFoundException('Recipe not found');
+
+      if ('menuItemId' in dto || row.menuItemId) return row;
+
+      const menuItemId = await bindMenuItemByRecipeName(tx, {
+        name: row.name,
+        organizationId: row.organizationId,
+        recipeId: row.id,
+      });
+
+      return { ...row, menuItemId };
+    });
 
     const [response] = await this.toResponse([updated]);
 

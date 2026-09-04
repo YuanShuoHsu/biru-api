@@ -14,6 +14,7 @@ export const MENU_ITEM_STRING_FILTER_FIELDS = [
   'name',
   'description',
   'priceCurrency',
+  'recipe',
 ] as const;
 export const MENU_ITEM_NUMBER_FILTER_FIELDS = [
   'price',

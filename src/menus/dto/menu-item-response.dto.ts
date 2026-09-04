@@ -4,6 +4,7 @@ import type { LocalizedText } from 'src/db/schema/enums';
 import { restrictedDietEnum, type RestrictedDiet } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
+import { MenuItemRecipeResponseDto } from './menu-item-recipe-response.dto';
 import { NutritionInformationDto } from './nutrition-information.dto';
 import { OfferResponseDto } from './offer-response.dto';
 
@@ -42,6 +43,9 @@ export class MenuItemResponseDto {
 
   @ApiPropertyOptional({ type: OfferResponseDto })
   offer: OfferResponseDto | null;
+
+  @ApiPropertyOptional({ type: MenuItemRecipeResponseDto })
+  recipe?: MenuItemRecipeResponseDto | null;
 
   @ApiProperty()
   createdAt: Date;

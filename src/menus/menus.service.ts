@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   Column,
@@ -18,6 +23,8 @@ import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { LocalizedText } from 'src/db/schema/enums';
+import { recipe } from 'src/db/schema/inventory';
+import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
 import type {
   Menu,
   MenuItem,
@@ -98,6 +105,11 @@ import type { UpdateMenuDto } from './dto/update-menu.dto';
 import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import type { UpdateModifierDto } from './dto/update-modifier.dto';
 import type { UpdateOfferDto } from './dto/update-offer.dto';
+
+type MenuItemWithRecipe = MenuItem & {
+  offer: Offer | null;
+  recipe: { id: string; name: LocalizedText } | null;
+};
 
 @Injectable()
 export class MenusService {
@@ -285,12 +297,13 @@ export class MenusService {
   async createMenuItem(
     sectionId: string,
     data: CreateMenuItemDto,
-  ): Promise<MenuItem & { offer: Offer | null }> {
+  ): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = data;
 
     const section = await this.db.query.menuSection.findFirst({
       where: eq(menuSection.id, sectionId),
       columns: { menuId: true },
+      with: { menu: { columns: { organizationId: true } } },
     });
 
     return this.db.transaction(async (tx) => {
@@ -310,21 +323,27 @@ export class MenusService {
         })
         .returning();
 
-      if (!offerData) return { ...created, offer: null };
+      const boundRecipe = section?.menu
+        ? await bindRecipeByMenuItemName(tx, {
+            menuItemId: created.id,
+            name: created.name,
+            organizationId: section.menu.organizationId,
+          })
+        : null;
+
+      if (!offerData) return { ...created, offer: null, recipe: boundRecipe };
 
       const [createdOffer] = await tx
         .insert(offer)
         .values({ id: uuidv4(), menuItemId: created.id, ...offerData })
         .returning();
 
-      return { ...created, offer: createdOffer };
+      return { ...created, offer: createdOffer, recipe: boundRecipe };
     });
   }
 
-  async menuItem(where: {
-    id: string;
-  }): Promise<(MenuItem & { offer: Offer | null }) | null> {
-    const [result, existingOffers] = await Promise.all([
+  async menuItem(where: { id: string }): Promise<MenuItemWithRecipe | null> {
+    const [result, existingOffers, recipes] = await Promise.all([
       this.db.query.menuItem.findFirst({
         where: eq(menuItem.id, where.id),
       }),
@@ -334,16 +353,25 @@ export class MenusService {
         .where(eq(offer.menuItemId, where.id))
         .orderBy(asc(offer.createdAt))
         .limit(1),
+      this.db
+        .select({ id: recipe.id, name: recipe.name })
+        .from(recipe)
+        .where(eq(recipe.menuItemId, where.id))
+        .limit(1),
     ]);
     if (!result) return null;
 
-    return { ...result, offer: existingOffers[0] || null };
+    return {
+      ...result,
+      offer: existingOffers[0] || null,
+      recipe: recipes[0] || null,
+    };
   }
 
   async menuSectionItems(
     sectionId: string,
     query: MenuItemPaginationQueryDto = {},
-  ): Promise<{ data: (MenuItem & { offer: Offer | null })[]; total: number }> {
+  ): Promise<{ data: MenuItemWithRecipe[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -363,8 +391,11 @@ export class MenusService {
     const offerValue = (column: Column | SQL): SQL =>
       sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc limit 1)`;
 
+    const recipeName = sql`(select ${recipe.name}::text from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`;
+
     const itemFieldMap: Record<string, Column | SQL> = {
       name: sql`${menuItem.name}::text`,
+      recipe: recipeName,
       description: sql`${menuItem.description}::text`,
       priceCurrency: offerValue(offer.priceCurrency),
       price: offerValue(sql`${offer.price}::numeric`),
@@ -429,6 +460,7 @@ export class MenusService {
             ),
             `%${value}%`,
           ),
+          ilike(recipeName, `%${value}%`),
           ilike(localTimeText(menuItem.createdAt), `%${value}%`),
           ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
         ],
@@ -454,14 +486,24 @@ export class MenusService {
     ]);
 
     const itemIds = data.map((item) => item.id);
-    const offers =
+    const [offers, recipes] =
       itemIds.length > 0
-        ? await this.db
-            .select()
-            .from(offer)
-            .where(inArray(offer.menuItemId, itemIds))
-            .orderBy(asc(offer.createdAt))
-        : [];
+        ? await Promise.all([
+            this.db
+              .select()
+              .from(offer)
+              .where(inArray(offer.menuItemId, itemIds))
+              .orderBy(asc(offer.createdAt)),
+            this.db
+              .select({
+                id: recipe.id,
+                menuItemId: recipe.menuItemId,
+                name: recipe.name,
+              })
+              .from(recipe)
+              .where(inArray(recipe.menuItemId, itemIds)),
+          ])
+        : [[], []];
 
     const offerByItemId = new Map<string, Offer>();
     for (const o of offers) {
@@ -470,10 +512,17 @@ export class MenusService {
       }
     }
 
+    const recipeByItemId = new Map<string, { id: string; name: LocalizedText }>(
+      recipes.flatMap(({ id, menuItemId, name }) =>
+        menuItemId ? [[menuItemId, { id, name }] as const] : [],
+      ),
+    );
+
     return {
       data: data.map((item) => ({
         ...item,
         offer: offerByItemId.get(item.id) ?? null,
+        recipe: recipeByItemId.get(item.id) ?? null,
       })),
       total,
     };
@@ -497,7 +546,7 @@ export class MenusService {
   async updateMenuItem(params: {
     where: { id: string };
     data: UpdateMenuItemDto;
-  }): Promise<MenuItem & { offer: Offer | null }> {
+  }): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = params.data;
 
     return this.db.transaction(async (tx) => {
@@ -514,8 +563,34 @@ export class MenusService {
           .orderBy(asc(offer.createdAt))
           .limit(1),
       ]);
+      if (!updated) throw new NotFoundException('Menu item not found');
 
-      if (!offerData) return { ...updated, offer: existingOffers[0] ?? null };
+      if (itemData.name && updated.menuId) {
+        const [row] = await tx
+          .select({ organizationId: menu.organizationId })
+          .from(menu)
+          .where(eq(menu.id, updated.menuId));
+
+        if (row)
+          await bindRecipeByMenuItemName(tx, {
+            menuItemId: updated.id,
+            name: updated.name,
+            organizationId: row.organizationId,
+          });
+      }
+
+      const [boundRecipe] = await tx
+        .select({ id: recipe.id, name: recipe.name })
+        .from(recipe)
+        .where(eq(recipe.menuItemId, updated.id))
+        .limit(1);
+
+      if (!offerData)
+        return {
+          ...updated,
+          offer: existingOffers[0] ?? null,
+          recipe: boundRecipe ?? null,
+        };
 
       const existingOffer = existingOffers[0];
       let resultOffer: Offer;
@@ -535,7 +610,7 @@ export class MenusService {
         resultOffer = createdOffer;
       }
 
-      return { ...updated, offer: resultOffer };
+      return { ...updated, offer: resultOffer, recipe: boundRecipe ?? null };
     });
   }
 
