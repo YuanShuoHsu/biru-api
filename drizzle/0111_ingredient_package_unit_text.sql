@@ -1,0 +1,1 @@
+ALTER TABLE "ingredient" ADD COLUMN "package_unit_text" text;

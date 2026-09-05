@@ -26,6 +26,7 @@ import { isSameLocalizedText } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 import { recipe } from 'src/db/schema/inventory';
 import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
+import { RecipesService } from 'src/inventory/recipes.service';
 import type {
   Menu,
   MenuItem,
@@ -107,14 +108,33 @@ import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import type { UpdateModifierDto } from './dto/update-modifier.dto';
 import type { UpdateOfferDto } from './dto/update-offer.dto';
 
+type RecipeSummary = {
+  id: string;
+  name: LocalizedText;
+  recipeYield: number;
+};
+
 type MenuItemWithRecipe = MenuItem & {
   offer: Offer | null;
-  recipe: { id: string; name: LocalizedText } | null;
+  recipe: (RecipeSummary & { cost: number }) | null;
 };
 
 @Injectable()
 export class MenusService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly recipesService: RecipesService,
+  ) {}
+
+  private async recipeWithCost(
+    found: RecipeSummary | null | undefined,
+  ): Promise<(RecipeSummary & { cost: number }) | null> {
+    if (!found) return null;
+
+    const costs = await this.recipesService.costsOf([found.id]);
+
+    return { ...found, cost: costs.get(found.id) ?? 0 };
+  }
 
   // ── Menu ──────────────────────────────────────────────────────────
 
@@ -307,7 +327,7 @@ export class MenusService {
       with: { menu: { columns: { organizationId: true } } },
     });
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await tx
         .update(menuItem)
         .set({ sortOrder: sql`${menuItem.sortOrder} + 1` })
@@ -341,6 +361,8 @@ export class MenusService {
 
       return { ...created, offer: createdOffer, recipe: boundRecipe };
     });
+
+    return { ...result, recipe: await this.recipeWithCost(result.recipe) };
   }
 
   async menuItem(where: { id: string }): Promise<MenuItemWithRecipe | null> {
@@ -355,7 +377,11 @@ export class MenusService {
         .orderBy(asc(offer.createdAt))
         .limit(1),
       this.db
-        .select({ id: recipe.id, name: recipe.name })
+        .select({
+          id: recipe.id,
+          name: recipe.name,
+          recipeYield: recipe.recipeYield,
+        })
         .from(recipe)
         .where(eq(recipe.menuItemId, where.id))
         .limit(1),
@@ -365,7 +391,7 @@ export class MenusService {
     return {
       ...result,
       offer: existingOffers[0] || null,
-      recipe: recipes[0] || null,
+      recipe: await this.recipeWithCost(recipes[0]),
     };
   }
 
@@ -500,6 +526,7 @@ export class MenusService {
                 id: recipe.id,
                 menuItemId: recipe.menuItemId,
                 name: recipe.name,
+                recipeYield: recipe.recipeYield,
               })
               .from(recipe)
               .where(inArray(recipe.menuItemId, itemIds)),
@@ -513,9 +540,14 @@ export class MenusService {
       }
     }
 
-    const recipeByItemId = new Map<string, { id: string; name: LocalizedText }>(
-      recipes.flatMap(({ id, menuItemId, name }) =>
-        menuItemId ? [[menuItemId, { id, name }] as const] : [],
+    const costs = await this.recipesService.costsOf(
+      recipes.map(({ id }) => id),
+    );
+    const recipeByItemId = new Map<string, RecipeSummary & { cost: number }>(
+      recipes.flatMap(({ menuItemId, ...row }) =>
+        menuItemId
+          ? [[menuItemId, { ...row, cost: costs.get(row.id) ?? 0 }] as const]
+          : [],
       ),
     );
 
@@ -550,7 +582,7 @@ export class MenusService {
   }): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = params.data;
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [previous] = itemData.name
         ? await tx
             .select({ name: menuItem.name })
@@ -591,7 +623,11 @@ export class MenusService {
       }
 
       const [boundRecipe] = await tx
-        .select({ id: recipe.id, name: recipe.name })
+        .select({
+          id: recipe.id,
+          name: recipe.name,
+          recipeYield: recipe.recipeYield,
+        })
         .from(recipe)
         .where(eq(recipe.menuItemId, updated.id))
         .limit(1);
@@ -623,6 +659,8 @@ export class MenusService {
 
       return { ...updated, offer: resultOffer, recipe: boundRecipe ?? null };
     });
+
+    return { ...result, recipe: await this.recipeWithCost(result.recipe) };
   }
 
   async deleteMenuItem(where: {

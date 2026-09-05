@@ -5,7 +5,6 @@ import { IsIn, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const INVENTORY_TRANSACTION_STRING_FILTER_FIELDS = ['note'] as const;
-export const INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS = ['type'] as const;
 export const INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS = [
   'quantity',
   'unitCost',
@@ -13,7 +12,6 @@ export const INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS = [
 export const INVENTORY_TRANSACTION_DATE_FILTER_FIELDS = ['createdAt'] as const;
 export const INVENTORY_TRANSACTION_ALL_FILTER_FIELDS = [
   ...INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
-  ...INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
   ...INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   ...INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
 ] as const;

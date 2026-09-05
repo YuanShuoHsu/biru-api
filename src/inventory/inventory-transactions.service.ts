@@ -30,7 +30,6 @@ import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
-  INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
   INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
   InventoryTransactionPaginationQueryDto,
@@ -60,7 +59,6 @@ export class InventoryTransactionsService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      type: sql`${inventoryTransaction.type}::text`,
       quantity: inventoryTransaction.quantity,
       unitCost: inventoryTransaction.unitCost,
       note: inventoryTransaction.note,
@@ -82,18 +80,17 @@ export class InventoryTransactionsService {
             fieldMap,
             INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
             INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
-            INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
+            undefined,
             INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
-        enumFields: INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(inventoryTransaction.quantity, `%${value}%`),
-          ilike(inventoryTransaction.unitCost, `%${value}%`),
+          ilike(sql`${inventoryTransaction.quantity}::text`, `%${value}%`),
+          ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`),
           ilike(inventoryTransaction.note, `%${value}%`),
           ilike(localTimeText(inventoryTransaction.createdAt), `%${value}%`),
         ],
@@ -119,46 +116,53 @@ export class InventoryTransactionsService {
   async create(
     ingredientId: string,
     dto: CreateInventoryTransactionDto,
+    tx?: Tx,
   ): Promise<InventoryTransactionResponseDto> {
-    return this.db.transaction(async (tx) => {
-      const [found] = await tx
-        .select({
-          organizationId: ingredient.organizationId,
-          inventoryLevel: ingredient.inventoryLevel,
-        })
-        .from(ingredient)
-        .where(eq(ingredient.id, ingredientId))
-        .for('update');
-      if (!found) throw new NotFoundException('Ingredient not found');
+    return tx
+      ? this.write(ingredientId, dto, tx)
+      : this.db.transaction((created) =>
+          this.write(ingredientId, dto, created),
+        );
+  }
 
-      // 盤點送的是清點後的實數，其餘型別送的是異動量
-      const quantity =
-        dto.type === 'adjustment'
-          ? Number(dto.quantity) - Number(found.inventoryLevel)
-          : Number(dto.quantity) * (dto.type === 'purchase' ? 1 : -1);
+  private async write(
+    ingredientId: string,
+    dto: CreateInventoryTransactionDto,
+    tx: Tx,
+  ): Promise<InventoryTransactionResponseDto> {
+    const [found] = await tx
+      .select({
+        organizationId: ingredient.organizationId,
+        inventoryLevel: ingredient.inventoryLevel,
+      })
+      .from(ingredient)
+      .where(eq(ingredient.id, ingredientId))
+      .for('update');
+    if (!found) throw new NotFoundException('Ingredient not found');
 
-      const [created] = await tx
-        .insert(inventoryTransaction)
-        .values({
-          id: randomUUID(),
-          ingredientId,
-          note: dto.note,
-          organizationId: found.organizationId,
-          quantity: String(quantity),
-          type: dto.type,
-          unitCost: dto.unitCost,
-        })
-        .returning();
+    // 員工登記的是清點後的現有數量，帳本記的是與帳上數量的差額
+    const inventoryLevel = Number(dto.inventoryLevel);
+    const quantity = inventoryLevel - Number(found.inventoryLevel);
 
-      await tx
-        .update(ingredient)
-        .set({
-          inventoryLevel: sql`${ingredient.inventoryLevel} + ${quantity}`,
-        })
-        .where(eq(ingredient.id, ingredientId));
+    const [created] = await tx
+      .insert(inventoryTransaction)
+      .values({
+        id: randomUUID(),
+        ingredientId,
+        note: dto.note,
+        organizationId: found.organizationId,
+        quantity: String(quantity),
+        // 數量變少時沒有買價可記
+        unitCost: quantity > 0 ? dto.unitCost : null,
+      })
+      .returning();
 
-      return created;
-    });
+    await tx
+      .update(ingredient)
+      .set({ inventoryLevel: String(inventoryLevel) })
+      .where(eq(ingredient.id, ingredientId));
+
+    return created;
   }
 
   async consume(orderId: string, tx: Tx): Promise<void> {
@@ -225,7 +229,7 @@ export class InventoryTransactionsService {
         ingredientId,
         quantity: -used,
       })),
-      { orderId, organizationId: placed.sellerId, type: 'consumption' },
+      { orderId, organizationId: placed.sellerId },
       tx,
     );
   }
@@ -236,26 +240,26 @@ export class InventoryTransactionsService {
         ingredientId: inventoryTransaction.ingredientId,
         organizationId: inventoryTransaction.organizationId,
         quantity: inventoryTransaction.quantity,
-        type: inventoryTransaction.type,
       })
       .from(inventoryTransaction)
       .where(eq(inventoryTransaction.orderId, orderId));
 
-    if (rows.some(({ type }) => type === 'restoration')) return;
+    const net = new Map<string, number>();
+    for (const { ingredientId, quantity } of rows) {
+      net.set(ingredientId, (net.get(ingredientId) ?? 0) + Number(quantity));
+    }
 
-    const consumptions = rows.filter(({ type }) => type === 'consumption');
-    if (!consumptions.length) return;
+    const entries = [...net]
+      .filter(([, quantity]) => quantity < 0)
+      .map(([ingredientId, quantity]) => ({
+        ingredientId,
+        quantity: -quantity,
+      }));
+    if (!entries.length) return;
 
     await this.record(
-      consumptions.map(({ ingredientId, quantity }) => ({
-        ingredientId,
-        quantity: -Number(quantity),
-      })),
-      {
-        orderId,
-        organizationId: consumptions[0].organizationId,
-        type: 'restoration',
-      },
+      entries,
+      { orderId, organizationId: rows[0].organizationId },
       tx,
     );
   }
@@ -265,11 +269,9 @@ export class InventoryTransactionsService {
     {
       orderId,
       organizationId,
-      type,
     }: {
       orderId: string;
       organizationId: string;
-      type: 'consumption' | 'restoration';
     },
     tx: Tx,
   ): Promise<void> {
@@ -282,7 +284,6 @@ export class InventoryTransactionsService {
         orderId,
         organizationId,
         quantity: String(quantity),
-        type,
       })),
     );
 

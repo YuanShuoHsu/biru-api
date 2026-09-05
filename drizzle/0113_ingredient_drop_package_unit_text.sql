@@ -1,0 +1,1 @@
+ALTER TABLE "ingredient" DROP COLUMN "package_unit_text";

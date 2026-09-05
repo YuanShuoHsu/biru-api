@@ -22,6 +22,6 @@ import { SuppliersService } from './suppliers.service';
     RecipesService,
     SuppliersService,
   ],
-  exports: [InventoryTransactionsService],
+  exports: [InventoryTransactionsService, RecipesService],
 })
 export class InventoryModule {}

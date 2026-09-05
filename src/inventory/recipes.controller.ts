@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -18,6 +19,7 @@ import {
   UpdateRecipeDto,
   UpdateRecipeIngredientDto,
 } from './dto/create-recipe.dto';
+import { RecipeIngredientPaginationQueryDto } from './dto/recipe-ingredient-pagination-query.dto';
 import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
@@ -60,8 +62,9 @@ export class RecipesController {
   @ApiOperation({ summary: '查詢食譜材料' })
   findAllIngredients(
     @Param('recipeId') recipeId: string,
-  ): Promise<RecipeIngredientResponseDto[]> {
-    return this.recipesService.findAllIngredients(recipeId);
+    @Query() query: RecipeIngredientPaginationQueryDto,
+  ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
+    return this.recipesService.findAllIngredients(recipeId, query);
   }
 
   @Post('recipe-ingredients')

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class CreateSupplierDto {
   @ApiProperty({ example: '全國食材廣場' })
@@ -14,7 +14,7 @@ export class CreateSupplierDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   url?: string | null;
 
   @ApiPropertyOptional()

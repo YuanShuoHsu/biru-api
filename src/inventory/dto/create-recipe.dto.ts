@@ -7,6 +7,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Min,
 } from 'class-validator';
 
@@ -48,6 +49,7 @@ export class CreateRecipeIngredientDto {
   ingredientId: string;
 
   @ApiProperty({ example: '4.000', description: '基準單位用量' })
+  @Matches(/^\d+(\.\d+)?$/)
   @IsNumberString()
   requiredQuantity: string;
 

@@ -1,38 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsIn, IsNumberString, IsOptional, IsString } from 'class-validator';
-
-export const MANUAL_INVENTORY_TRANSACTION_TYPES = [
-  'purchase',
-  'consumption',
-  'adjustment',
-  'waste',
-] as const;
-
-export type ManualInventoryTransactionType =
-  (typeof MANUAL_INVENTORY_TRANSACTION_TYPES)[number];
+import { IsNumberString, IsOptional, IsString } from 'class-validator';
 
 export class CreateInventoryTransactionDto {
   @ApiProperty({
-    enum: MANUAL_INVENTORY_TRANSACTION_TYPES,
-    enumName: 'ManualInventoryTransactionType',
-  })
-  @IsIn(MANUAL_INVENTORY_TRANSACTION_TYPES)
-  type: ManualInventoryTransactionType;
-
-  @ApiProperty({
     example: '500.000',
-    description: 'adjustment 帶盤點後實數，其餘帶異動量（一律為正）',
+    description: '清點後的現有數量；異動量由系統與帳上數量相減求得',
   })
   @IsNumberString()
-  quantity: string;
+  inventoryLevel: string;
 
-  @ApiPropertyOptional({ example: '9.5000', description: '進貨單價' })
+  @ApiPropertyOptional({ example: '9.500000', description: '每基準單位進價' })
   @IsOptional()
   @IsNumberString()
   unitCost?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: '異動原因，自由填寫' })
   @IsOptional()
   @IsString()
   note?: string | null;

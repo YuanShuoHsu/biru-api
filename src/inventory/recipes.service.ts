@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -23,10 +28,11 @@ import { getOrganizationIdBySlug } from 'src/common/utils/organizations';
 import type { LocalizedText } from 'src/db/schema/enums';
 import {
   ingredient,
-  ingredientOffer,
   recipe,
   recipeIngredient,
+  type Ingredient,
   type Recipe,
+  type RecipeIngredient,
 } from 'src/db/schema/inventory';
 import { menuItem, offer } from 'src/db/schema/menus';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -37,6 +43,12 @@ import {
   UpdateRecipeDto,
   UpdateRecipeIngredientDto,
 } from './dto/create-recipe.dto';
+import {
+  RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
+  RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
+  RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
+  RecipeIngredientPaginationQueryDto,
+} from './dto/recipe-ingredient-pagination-query.dto';
 import {
   RECIPE_DATE_FILTER_FIELDS,
   RECIPE_NUMBER_FILTER_FIELDS,
@@ -207,30 +219,133 @@ export class RecipesService {
 
   async findAllIngredients(
     recipeId: string,
-  ): Promise<RecipeIngredientResponseDto[]> {
-    const materials = await this.materialsOf([recipeId]);
+    query: RecipeIngredientPaginationQueryDto = {},
+  ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+    } = query;
 
-    return materials.get(recipeId) ?? [];
+    const fieldMap: Record<string, Column | SQL> = {
+      ingredientName: sql`${ingredient.name}::text`,
+      requiredQuantity: recipeIngredient.requiredQuantity,
+      createdAt: recipeIngredient.createdAt,
+      updatedAt: recipeIngredient.updatedAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy = sortBy
+      ? [dir(fieldMap[sortBy])]
+      : [asc(recipeIngredient.sortOrder), asc(recipeIngredient.createdAt)];
+
+    const where = and(
+      eq(recipeIngredient.recipeId, recipeId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
+            RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
+            undefined,
+            RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(sql`${ingredient.name}::text`, `%${value}%`),
+          ilike(sql`${recipeIngredient.requiredQuantity}::text`, `%${value}%`),
+          ilike(localTimeText(recipeIngredient.createdAt), `%${value}%`),
+          ilike(localTimeText(recipeIngredient.updatedAt), `%${value}%`),
+        ],
+      }),
+    );
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({ material: recipeIngredient, ingredient })
+        .from(recipeIngredient)
+        .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(recipeIngredient)
+        .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
+        .where(where),
+    ]);
+
+    return { data: this.priced(rows), total };
+  }
+
+  // 同一食材重複成兩列時，consume() 會依每一列各扣一次庫存
+  private async assertIngredientNotUsed(
+    recipeId: string,
+    ingredientId: string | undefined,
+    exceptId?: string,
+  ): Promise<void> {
+    if (!ingredientId) return;
+
+    const duplicates = await this.db
+      .select({ id: recipeIngredient.id })
+      .from(recipeIngredient)
+      .where(
+        and(
+          eq(recipeIngredient.recipeId, recipeId),
+          eq(recipeIngredient.ingredientId, ingredientId),
+        ),
+      );
+
+    if (duplicates.some(({ id }) => id !== exceptId)) {
+      throw new ConflictException('Ingredient is already in this recipe');
+    }
+  }
+
+  private async guardDuplicate<T>(write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+        throw new ConflictException('Ingredient is already in this recipe');
+      throw error;
+    }
   }
 
   async createIngredient(
     recipeId: string,
     dto: CreateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
+    await this.assertIngredientNotUsed(recipeId, dto.ingredientId);
+
     const [{ maxSortOrder }] = await this.db
       .select({ maxSortOrder: max(recipeIngredient.sortOrder) })
       .from(recipeIngredient)
       .where(eq(recipeIngredient.recipeId, recipeId));
 
-    const [created] = await this.db
-      .insert(recipeIngredient)
-      .values({
-        ...dto,
-        id: randomUUID(),
-        recipeId,
-        sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
-      })
-      .returning();
+    const [created] = await this.guardDuplicate(() =>
+      this.db
+        .insert(recipeIngredient)
+        .values({
+          ...dto,
+          id: randomUUID(),
+          recipeId,
+          sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
+        })
+        .returning(),
+    );
 
     return this.toMaterial(created.id);
   }
@@ -239,11 +354,25 @@ export class RecipesService {
     recipeIngredientId: string,
     dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
-    const [updated] = await this.db
-      .update(recipeIngredient)
-      .set(dto)
-      .where(eq(recipeIngredient.id, recipeIngredientId))
-      .returning();
+    const [existing] = await this.db
+      .select({ recipeId: recipeIngredient.recipeId })
+      .from(recipeIngredient)
+      .where(eq(recipeIngredient.id, recipeIngredientId));
+    if (!existing) throw new NotFoundException('Recipe ingredient not found');
+
+    await this.assertIngredientNotUsed(
+      existing.recipeId,
+      dto.ingredientId,
+      recipeIngredientId,
+    );
+
+    const [updated] = await this.guardDuplicate(() =>
+      this.db
+        .update(recipeIngredient)
+        .set(dto)
+        .where(eq(recipeIngredient.id, recipeIngredientId))
+        .returning(),
+    );
     if (!updated) throw new NotFoundException('Recipe ingredient not found');
 
     return this.toMaterial(updated.id);
@@ -301,6 +430,20 @@ export class RecipesService {
     }));
   }
 
+  async costsOf(recipeIds: string[]): Promise<Map<string, number>> {
+    const materials = await this.materialsOf(recipeIds);
+
+    return new Map(
+      recipeIds.map((recipeId) => [
+        recipeId,
+        (materials.get(recipeId) ?? []).reduce(
+          (sum, { cost }) => sum + (cost ?? 0),
+          0,
+        ),
+      ]),
+    );
+  }
+
   private async materialsOf(
     recipeIds: string[],
   ): Promise<Map<string, RecipeIngredientResponseDto[]>> {
@@ -316,34 +459,26 @@ export class RecipesService {
         asc(recipeIngredient.createdAt),
       );
 
-    const offers = rows.length
-      ? await this.db
-          .select()
-          .from(ingredientOffer)
-          .where(
-            inArray(
-              ingredientOffer.ingredientId,
-              rows.map(({ ingredient: { id } }) => id),
-            ),
-          )
-          .orderBy(
-            asc(ingredientOffer.sortOrder),
-            asc(ingredientOffer.createdAt),
-          )
-      : [];
-
-    const unitPrices = new Map<string, number>();
-    for (const row of offers) {
-      if (!unitPrices.has(row.ingredientId))
-        unitPrices.set(row.ingredientId, unitPriceOf(row));
-    }
+    const priced = this.priced(rows);
 
     const materials = new Map<string, RecipeIngredientResponseDto[]>();
-    for (const { material, ingredient: source } of rows) {
-      const unitPrice = unitPrices.get(source.id) ?? null;
+    for (const material of priced) {
       const list = materials.get(material.recipeId) ?? [];
 
-      list.push({
+      list.push(material);
+      materials.set(material.recipeId, list);
+    }
+
+    return materials;
+  }
+
+  private priced(
+    rows: { material: RecipeIngredient; ingredient: Ingredient }[],
+  ): RecipeIngredientResponseDto[] {
+    return rows.map(({ material, ingredient: source }) => {
+      const unitPrice = unitPriceOf(source);
+
+      return {
         ...material,
         cost:
           unitPrice === null
@@ -352,11 +487,8 @@ export class RecipesService {
         ingredientName: source.name,
         unitCode: source.unitCode,
         unitPrice,
-      });
-      materials.set(material.recipeId, list);
-    }
-
-    return materials;
+      };
+    });
   }
 
   private async pricesOf(menuItemIds: string[]): Promise<Map<string, number>> {

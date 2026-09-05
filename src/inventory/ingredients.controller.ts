@@ -14,16 +14,9 @@ import { Audit } from 'src/common/decorators/audit.decorator';
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
-import {
-  CreateIngredientOfferDto,
-  UpdateIngredientOfferDto,
-} from './dto/create-ingredient-offer.dto';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
 import { UpdateIngredientDto } from './dto/create-ingredient.dto';
-import {
-  IngredientOfferResponseDto,
-  IngredientResponseDto,
-} from './dto/ingredient-response.dto';
+import { IngredientResponseDto } from './dto/ingredient-response.dto';
 import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transaction-pagination-query.dto';
 import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
 import { IngredientsService } from './ingredients.service';
@@ -63,59 +56,6 @@ export class IngredientsController {
   @ApiOperation({ summary: '刪除食材' })
   remove(@Param('ingredientId') ingredientId: string): Promise<void> {
     return this.ingredientsService.remove(ingredientId);
-  }
-
-  @Get('offers')
-  @Roles({ inventory: ['read'] }, 'ingredientId')
-  @ApiOperation({ summary: '查詢食材採購規格' })
-  findAllOffers(
-    @Param('ingredientId') ingredientId: string,
-  ): Promise<IngredientOfferResponseDto[]> {
-    return this.ingredientsService.findAllOffers(ingredientId);
-  }
-
-  @Post('offers')
-  @Roles({ inventory: ['create'] }, 'ingredientId')
-  @Audit({
-    resource: 'ingredient',
-    idSource: { column: 'ingredientId', param: 'ingredientId' },
-    via: { table: 'ingredientOffer', ownerColumn: 'ingredientId' },
-  })
-  @ApiOperation({ summary: '建立食材採購規格' })
-  createOffer(
-    @Param('ingredientId') ingredientId: string,
-    @Body() dto: CreateIngredientOfferDto,
-  ): Promise<IngredientOfferResponseDto> {
-    return this.ingredientsService.createOffer(ingredientId, dto);
-  }
-
-  @Patch('offers/:ingredientOfferId')
-  @Roles({ inventory: ['update'] }, 'ingredientId')
-  @Audit({
-    resource: 'ingredient',
-    idSource: { param: 'ingredientOfferId' },
-    via: { table: 'ingredientOffer', ownerColumn: 'ingredientId' },
-  })
-  @ApiOperation({ summary: '更新食材採購規格' })
-  updateOffer(
-    @Param('ingredientOfferId') ingredientOfferId: string,
-    @Body() dto: UpdateIngredientOfferDto,
-  ): Promise<IngredientOfferResponseDto> {
-    return this.ingredientsService.updateOffer(ingredientOfferId, dto);
-  }
-
-  @Delete('offers/:ingredientOfferId')
-  @Roles({ inventory: ['delete'] }, 'ingredientId')
-  @Audit({
-    resource: 'ingredient',
-    idSource: { param: 'ingredientOfferId' },
-    via: { table: 'ingredientOffer', ownerColumn: 'ingredientId' },
-  })
-  @ApiOperation({ summary: '刪除食材採購規格' })
-  removeOffer(
-    @Param('ingredientOfferId') ingredientOfferId: string,
-  ): Promise<void> {
-    return this.ingredientsService.removeOffer(ingredientOfferId);
   }
 
   @Get('inventory-transactions')

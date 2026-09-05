@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_transaction" ALTER COLUMN "unit_cost" SET DATA TYPE numeric(16, 6);

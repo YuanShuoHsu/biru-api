@@ -1,9 +1,18 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
+import { ReorderDto } from 'src/menus/dto/reorder.dto';
 
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -46,6 +55,17 @@ export class OrganizationInventoryController {
     @Body() dto: CreateIngredientDto,
   ): Promise<IngredientResponseDto> {
     return this.ingredientsService.create(organizationSlug, dto);
+  }
+
+  @Patch('ingredients/reorder')
+  @Roles({ inventory: ['update'] }, 'organizationSlug')
+  @Audit('ingredient', { body: 'ids' })
+  @ApiOperation({ summary: '重新排序食材' })
+  reorderIngredients(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() { ids, offset }: ReorderDto,
+  ): Promise<void> {
+    return this.ingredientsService.reorder(organizationSlug, ids, offset);
   }
 
   @Get('suppliers')

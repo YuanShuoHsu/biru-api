@@ -9,7 +9,11 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 type Tx = Pick<DrizzleDB, 'select' | 'transaction' | 'update'>;
 
-export type BoundRecipe = { id: string; name: LocalizedText };
+export type BoundRecipe = {
+  id: string;
+  name: LocalizedText;
+  recipeYield: number;
+};
 
 const sameName = (column: PgColumn, name: LocalizedText): SQL => {
   const other = sql`${JSON.stringify(name)}::jsonb`;
@@ -62,7 +66,11 @@ export const bindRecipeByMenuItemName = async (
 ): Promise<BoundRecipe | null> => {
   const [candidates, bound] = await Promise.all([
     tx
-      .select({ id: recipe.id, name: recipe.name })
+      .select({
+        id: recipe.id,
+        name: recipe.name,
+        recipeYield: recipe.recipeYield,
+      })
       .from(recipe)
       .where(
         and(

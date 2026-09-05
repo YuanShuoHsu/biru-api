@@ -6,7 +6,6 @@ import { banner } from 'src/db/schema/banners';
 import { coupon, userCoupon } from 'src/db/schema/coupons';
 import {
   ingredient,
-  ingredientOffer,
   recipe,
   recipeIngredient,
   supplier,
@@ -55,7 +54,6 @@ export const AUDIT_TABLES: Record<
   invoice,
   supplier,
   ingredient,
-  ingredientOffer,
   recipe,
   recipeIngredient,
 };

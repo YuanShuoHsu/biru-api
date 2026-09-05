@@ -7,6 +7,8 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
+  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
@@ -17,7 +19,8 @@ import {
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import { getOrganizationIdBySlug } from 'src/common/utils/organizations';
-import { supplier } from 'src/db/schema/inventory';
+import type { LocalizedText } from 'src/db/schema/enums';
+import { ingredient, supplier } from 'src/db/schema/inventory';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import {
@@ -99,7 +102,39 @@ export class SuppliersService {
       this.db.select({ total: count() }).from(supplier).where(where),
     ]);
 
-    return { data, total };
+    const names = await this.ingredientNamesOf(data.map(({ id }) => id));
+
+    return {
+      data: data.map((row) => ({
+        ...row,
+        ingredientNames: names.get(row.id) ?? [],
+      })),
+      total,
+    };
+  }
+
+  private async ingredientNamesOf(
+    supplierIds: string[],
+  ): Promise<Map<string, LocalizedText[]>> {
+    if (!supplierIds.length) return new Map();
+
+    const rows = await this.db
+      .select({
+        ingredientName: ingredient.name,
+        supplierId: ingredient.supplierId,
+      })
+      .from(ingredient)
+      .where(inArray(ingredient.supplierId, supplierIds))
+      .orderBy(asc(sql`${ingredient.name}::text`));
+
+    const names = new Map<string, LocalizedText[]>();
+    for (const { ingredientName, supplierId } of rows) {
+      if (!supplierId) continue;
+
+      names.set(supplierId, [...(names.get(supplierId) ?? []), ingredientName]);
+    }
+
+    return names;
   }
 
   async create(
@@ -116,7 +151,7 @@ export class SuppliersService {
       .values({ ...dto, id: randomUUID(), organizationId })
       .returning();
 
-    return created;
+    return { ...created, ingredientNames: [] };
   }
 
   async update(
@@ -130,7 +165,9 @@ export class SuppliersService {
       .returning();
     if (!updated) throw new NotFoundException('Supplier not found');
 
-    return updated;
+    const names = await this.ingredientNamesOf([supplierId]);
+
+    return { ...updated, ingredientNames: names.get(supplierId) ?? [] };
   }
 
   async remove(supplierId: string): Promise<void> {

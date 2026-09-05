@@ -8,4 +8,10 @@ export class MenuItemRecipeResponseDto {
 
   @ApiProperty()
   name: LocalizedText;
+
+  @ApiProperty()
+  recipeYield: number;
+
+  @ApiProperty()
+  cost: number;
 }

@@ -12,7 +12,7 @@ export type AuditIdSource =
   | { column: string; body: string }
   | { column: string; response: true };
 
-export type AuditSubTable = 'offer' | 'ingredientOffer' | 'recipeIngredient';
+export type AuditSubTable = 'offer' | 'recipeIngredient';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };
 

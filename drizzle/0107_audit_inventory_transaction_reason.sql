@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_resource" ADD VALUE 'inventoryTransactionReason';

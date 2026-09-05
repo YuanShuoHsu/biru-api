@@ -4,7 +4,11 @@ import { IsIn, IsOptional } from 'class-validator';
 
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
-export const INGREDIENT_STRING_FILTER_FIELDS = ['name', 'brand'] as const;
+export const INGREDIENT_STRING_FILTER_FIELDS = [
+  'name',
+  'brand',
+  'supplierName',
+] as const;
 export const INGREDIENT_ENUM_FILTER_FIELDS = ['unitCode'] as const;
 export const INGREDIENT_NUMBER_FILTER_FIELDS = [
   'inventoryLevel',
@@ -24,7 +28,16 @@ export const INGREDIENT_ALL_FILTER_FIELDS = [
 export type IngredientFilterField =
   (typeof INGREDIENT_ALL_FILTER_FIELDS)[number];
 
-export const INGREDIENT_SORT_FIELDS = INGREDIENT_ALL_FILTER_FIELDS;
+export const INGREDIENT_SORT_ONLY_FIELDS = [
+  'price',
+  'eligibleQuantity',
+  'unitPrice',
+] as const;
+
+export const INGREDIENT_SORT_FIELDS = [
+  ...INGREDIENT_ALL_FILTER_FIELDS,
+  ...INGREDIENT_SORT_ONLY_FIELDS,
+] as const;
 
 export type IngredientSortField = (typeof INGREDIENT_SORT_FIELDS)[number];
 

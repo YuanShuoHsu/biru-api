@@ -32,13 +32,6 @@ export const unitCodeEnum = pgEnum('unit_code', [
 ]);
 export type UnitCode = (typeof unitCodeEnum.enumValues)[number];
 
-export const inventoryTransactionTypeEnum = pgEnum(
-  'inventory_transaction_type',
-  ['purchase', 'consumption', 'adjustment', 'waste', 'restoration'],
-);
-export type InventoryTransactionType =
-  (typeof inventoryTransactionTypeEnum.enumValues)[number];
-
 // https://schema.org/Organization
 export const supplier = pgTable(
   'supplier',
@@ -64,6 +57,12 @@ export const ingredient = pgTable(
   {
     id: text('id').primaryKey(),
     brand: text('brand'),
+    // https://schema.org/Offer 的採購規格；一個食材一組包裝與報價
+    eligibleQuantity: numeric('eligible_quantity', {
+      precision: 12,
+      scale: 3,
+    }),
+    eligibleQuantityUnitCode: unitCodeEnum('eligible_quantity_unit_code'),
     image: text('image'),
     // https://schema.org/SomeProducts inventoryLevel
     inventoryLevel: numeric('inventory_level', { precision: 12, scale: 3 })
@@ -77,45 +76,23 @@ export const ingredient = pgTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
-    unitCode: unitCodeEnum('unit_code').notNull(),
-    ...timestamps,
-  },
-  (table) => [index('ingredient_organizationId_idx').on(table.organizationId)],
-);
-
-export type Ingredient = typeof ingredient.$inferSelect;
-
-// https://schema.org/Offer
-export const ingredientOffer = pgTable(
-  'ingredient_offer',
-  {
-    id: text('id').primaryKey(),
-    eligibleQuantity: numeric('eligible_quantity', {
-      precision: 12,
-      scale: 3,
-    }).notNull(),
-    eligibleQuantityUnitCode: unitCodeEnum(
-      'eligible_quantity_unit_code',
-    ).notNull(),
-    ingredientId: text('ingredient_id')
-      .notNull()
-      .references(() => ingredient.id, { onDelete: 'cascade' }),
-    price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+    price: numeric('price', { precision: 10, scale: 2 }),
     priceCurrency: text('price_currency').notNull().default('TWD'),
     sortOrder: integer('sort_order').notNull().default(0),
     supplierId: text('supplier_id').references(() => supplier.id, {
       onDelete: 'set null',
     }),
+    unitCode: unitCodeEnum('unit_code').notNull(),
     url: text('url'),
     ...timestamps,
   },
   (table) => [
-    index('ingredientOffer_ingredientId_idx').on(table.ingredientId),
-    index('ingredientOffer_supplierId_idx').on(table.supplierId),
+    index('ingredient_organizationId_idx').on(table.organizationId),
+    index('ingredient_supplierId_idx').on(table.supplierId),
   ],
 );
 
-export type IngredientOffer = typeof ingredientOffer.$inferSelect;
+export type Ingredient = typeof ingredient.$inferSelect;
 
 export const inventoryTransaction = pgTable(
   'inventory_transaction',
@@ -132,8 +109,7 @@ export const inventoryTransaction = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     quantity: numeric('quantity', { precision: 12, scale: 3 }).notNull(),
-    type: inventoryTransactionTypeEnum('type').notNull(),
-    unitCost: numeric('unit_cost', { precision: 10, scale: 4 }),
+    unitCost: numeric('unit_cost', { precision: 16, scale: 6 }),
     ...timestamps,
   },
   (table) => [
@@ -190,6 +166,10 @@ export const recipeIngredient = pgTable(
   (table) => [
     index('recipeIngredient_ingredientId_idx').on(table.ingredientId),
     index('recipeIngredient_recipeId_idx').on(table.recipeId),
+    uniqueIndex('recipeIngredient_recipeId_ingredientId_uidx').on(
+      table.recipeId,
+      table.ingredientId,
+    ),
   ],
 );
 
@@ -200,7 +180,7 @@ export const supplierRelations = relations(supplier, ({ one, many }) => ({
     fields: [supplier.organizationId],
     references: [organization.id],
   }),
-  ingredientOffers: many(ingredientOffer),
+  ingredients: many(ingredient),
 }));
 
 export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
@@ -208,24 +188,13 @@ export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
     fields: [ingredient.organizationId],
     references: [organization.id],
   }),
-  offers: many(ingredientOffer),
   inventoryTransactions: many(inventoryTransaction),
+  supplier: one(supplier, {
+    fields: [ingredient.supplierId],
+    references: [supplier.id],
+  }),
   recipeIngredients: many(recipeIngredient),
 }));
-
-export const ingredientOfferRelations = relations(
-  ingredientOffer,
-  ({ one }) => ({
-    ingredient: one(ingredient, {
-      fields: [ingredientOffer.ingredientId],
-      references: [ingredient.id],
-    }),
-    supplier: one(supplier, {
-      fields: [ingredientOffer.supplierId],
-      references: [supplier.id],
-    }),
-  }),
-);
 
 export const inventoryTransactionRelations = relations(
   inventoryTransaction,

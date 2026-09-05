@@ -729,6 +729,83 @@
       "when": 1788457921995,
       "tag": "0103_inventory_restoration",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1788534380469,
+      "tag": "0104_recipe_ingredient_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1788535147959,
+      "tag": "0105_inventory_transaction_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1788535198795,
+      "tag": "0106_drop_inventory_transaction_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1788535390403,
+      "tag": "0107_audit_inventory_transaction_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1788539315320,
+      "tag": "0108_drop_inventory_transaction_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1788541301538,
+      "tag": "0109_ingredient_supplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1788541950098,
+      "tag": "0110_ingredient_offer_merge",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1788545776031,
+      "tag": "0111_ingredient_package_unit_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1788610087897,
+      "tag": "0112_ingredient_sort_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1788612080194,
+      "tag": "0113_ingredient_drop_package_unit_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1788614587632,
+      "tag": "0114_inventory_transaction_unit_cost_precision",
+      "breakpoints": true
     }
   ]
 }
