@@ -11,6 +11,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
 
+import { HasPermission } from 'src/menus/decorators/permission.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import { ReorderDto } from 'src/menus/dto/reorder.dto';
 
@@ -42,8 +43,13 @@ export class OrganizationInventoryController {
   findAllIngredients(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: IngredientPaginationQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<{ data: IngredientResponseDto[]; total: number }> {
-    return this.ingredientsService.findAll(organizationSlug, query);
+    return this.ingredientsService.findAll(
+      organizationSlug,
+      query,
+      canReadPurchasing,
+    );
   }
 
   @Post('ingredients')
@@ -69,7 +75,7 @@ export class OrganizationInventoryController {
   }
 
   @Get('suppliers')
-  @Roles({ inventory: ['read'] }, 'organizationSlug')
+  @Roles({ purchasing: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢供應商列表' })
   findAllSuppliers(
     @Param('organizationSlug') organizationSlug: string,
@@ -79,7 +85,7 @@ export class OrganizationInventoryController {
   }
 
   @Post('suppliers')
-  @Roles({ inventory: ['create'] }, 'organizationSlug')
+  @Roles({ purchasing: ['create'] }, 'organizationSlug')
   @Audit('supplier', { response: true })
   @ApiOperation({ summary: '建立供應商' })
   createSupplier(
@@ -95,8 +101,13 @@ export class OrganizationInventoryController {
   findAllRecipes(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: RecipePaginationQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<{ data: RecipeResponseDto[]; total: number }> {
-    return this.recipesService.findAll(organizationSlug, query);
+    return this.recipesService.findAll(
+      organizationSlug,
+      query,
+      canReadPurchasing,
+    );
   }
 
   @Post('recipes')

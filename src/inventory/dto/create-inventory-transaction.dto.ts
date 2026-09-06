@@ -10,11 +10,6 @@ export class CreateInventoryTransactionDto {
   @IsNumberString()
   inventoryLevel: string;
 
-  @ApiPropertyOptional({ example: '9.500000', description: '每基準單位進價' })
-  @IsOptional()
-  @IsNumberString()
-  unitCost?: string;
-
   @ApiPropertyOptional({ description: '異動原因，自由填寫' })
   @IsOptional()
   @IsString()

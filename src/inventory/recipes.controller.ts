@@ -12,6 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
 
+import { HasPermission } from 'src/menus/decorators/permission.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import {
@@ -34,8 +35,11 @@ export class RecipesController {
   @Get()
   @Roles({ inventory: ['read'] }, 'recipeId')
   @ApiOperation({ summary: '取得食譜' })
-  findOne(@Param('recipeId') recipeId: string): Promise<RecipeResponseDto> {
-    return this.recipesService.findOne(recipeId);
+  findOne(
+    @Param('recipeId') recipeId: string,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+  ): Promise<RecipeResponseDto> {
+    return this.recipesService.findOne(recipeId, canReadPurchasing);
   }
 
   @Patch()
@@ -63,8 +67,13 @@ export class RecipesController {
   findAllIngredients(
     @Param('recipeId') recipeId: string,
     @Query() query: RecipeIngredientPaginationQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
-    return this.recipesService.findAllIngredients(recipeId, query);
+    return this.recipesService.findAllIngredients(
+      recipeId,
+      query,
+      canReadPurchasing,
+    );
   }
 
   @Post('recipe-ingredients')

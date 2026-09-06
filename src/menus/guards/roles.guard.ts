@@ -33,6 +33,7 @@ import {
 
 export type AuthRequest = Request & {
   params: Record<string, string>;
+  memberRole?: string;
   organizationId?: string;
 };
 
@@ -75,6 +76,8 @@ export class RolesGuard implements CanActivate {
       columns: { role: true },
     });
     if (!membership) throw new ForbiddenException();
+
+    request.memberRole = membership.role;
 
     if (!isAuthorized(membership.role, requiredRoles.action))
       throw new ForbiddenException();

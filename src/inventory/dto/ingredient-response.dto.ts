@@ -10,13 +10,18 @@ export class IngredientResponseDto {
   @ApiProperty() name: LocalizedText;
   @ApiPropertyOptional() brand: string | null;
   @ApiPropertyOptional() image: string | null;
-  @ApiPropertyOptional() supplierId: string | null;
-  @ApiPropertyOptional() supplierName: string | null;
+  @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
+  supplierId?: string | null;
+  @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
+  supplierName?: string | null;
   @ApiProperty({ enum: Object.keys(UNIT_FACTORS), enumName: 'UnitCode' })
   unitCode: UnitCode;
   @ApiProperty() inventoryLevel: string;
   @ApiPropertyOptional() lowStockThreshold: string | null;
-  @ApiPropertyOptional({ description: '一個包裝的價錢' }) price: string | null;
+  @ApiPropertyOptional({
+    description: '一個包裝的價錢；無 purchasing 權限時不回傳',
+  })
+  price?: string | null;
   @ApiProperty() priceCurrency: string;
   @ApiPropertyOptional() eligibleQuantity: string | null;
   @ApiPropertyOptional({
@@ -25,9 +30,10 @@ export class IngredientResponseDto {
     description: 'eligibleQuantity 的單位',
   })
   eligibleQuantityUnitCode: UnitCode | null;
-  @ApiPropertyOptional() url: string | null;
+  @ApiPropertyOptional({ description: '採購連結；無 purchasing 權限時不回傳' })
+  url?: string | null;
   @ApiPropertyOptional({ description: '每基準單位價格' })
-  unitPrice: number | null;
+  unitPrice?: number | null;
   @ApiPropertyOptional({ description: '包裝量，與 eligibleQuantity 相同' })
   packageQuantity: string | null;
   @ApiPropertyOptional({

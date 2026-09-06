@@ -59,13 +59,13 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto';
-import { unitPriceOf } from './ingredients.service';
+import { unitPriceOf } from './pricing';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding';
 
 const totalCostOf = (
   materials: RecipeIngredientResponseDto[],
 ): number | null =>
-  materials.some(({ cost }) => cost === null)
+  materials.some(({ cost }) => cost == null)
     ? null
     : materials.reduce((sum, { cost }) => sum + (cost ?? 0), 0);
 
@@ -76,6 +76,7 @@ export class RecipesService {
   async findAll(
     organizationSlug: string,
     query: RecipePaginationQueryDto = {},
+    canReadPurchasing = true,
   ): Promise<{ data: RecipeResponseDto[]; total: number }> {
     const {
       limit = 10,
@@ -142,17 +143,24 @@ export class RecipesService {
       this.db.select({ total: count() }).from(recipe).where(where),
     ]);
 
-    return { data: await this.toResponse(data), total };
+    return { data: await this.toResponse(data, canReadPurchasing), total };
   }
 
-  async findOne(recipeId: string): Promise<RecipeResponseDto> {
+  async findOne(
+    recipeId: string,
+    canReadPurchasing = true,
+  ): Promise<RecipeResponseDto> {
     const found = await this.db.query.recipe.findFirst({
       where: eq(recipe.id, recipeId),
     });
     if (!found) throw new NotFoundException('Recipe not found');
 
-    const materials = await this.materialsOf([recipeId]);
-    const [response] = await this.toResponse([found], materials);
+    const materials = await this.materialsOf([recipeId], canReadPurchasing);
+    const [response] = await this.toResponse(
+      [found],
+      canReadPurchasing,
+      materials,
+    );
 
     return { ...response, recipeIngredients: materials.get(recipeId) ?? [] };
   }
@@ -183,7 +191,7 @@ export class RecipesService {
       return { ...row, menuItemId };
     });
 
-    const [response] = await this.toResponse([created]);
+    const [response] = await this.toResponse([created], true);
 
     return response;
   }
@@ -211,7 +219,7 @@ export class RecipesService {
       return { ...row, menuItemId };
     });
 
-    const [response] = await this.toResponse([updated]);
+    const [response] = await this.toResponse([updated], true);
 
     return response;
   }
@@ -227,6 +235,7 @@ export class RecipesService {
   async findAllIngredients(
     recipeId: string,
     query: RecipeIngredientPaginationQueryDto = {},
+    canReadPurchasing = true,
   ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
     const {
       limit = 10,
@@ -295,7 +304,7 @@ export class RecipesService {
         .where(where),
     ]);
 
-    return { data: this.priced(rows), total };
+    return { data: this.priced(rows, canReadPurchasing), total };
   }
 
   // 同一食材重複成兩列時，consume() 會依每一列各扣一次庫存
@@ -402,7 +411,7 @@ export class RecipesService {
       .from(recipeIngredient)
       .where(eq(recipeIngredient.id, recipeIngredientId));
 
-    const materials = await this.materialsOf([row.recipeId]);
+    const materials = await this.materialsOf([row.recipeId], true);
     const material = materials
       .get(row.recipeId)
       ?.find(({ id }) => id === recipeIngredientId);
@@ -413,10 +422,15 @@ export class RecipesService {
 
   private async toResponse(
     recipes: Recipe[],
+    canReadPurchasing: boolean,
     loaded?: Map<string, RecipeIngredientResponseDto[]>,
   ): Promise<RecipeResponseDto[]> {
     const materials =
-      loaded ?? (await this.materialsOf(recipes.map(({ id }) => id)));
+      loaded ??
+      (await this.materialsOf(
+        recipes.map(({ id }) => id),
+        canReadPurchasing,
+      ));
     const prices = await this.pricesOf(
       recipes.flatMap(({ menuItemId }) => menuItemId ?? []),
     );
@@ -426,7 +440,9 @@ export class RecipesService {
 
     return recipes.map((row) => ({
       ...row,
-      cost: totalCostOf(materials.get(row.id) ?? []),
+      ...(canReadPurchasing && {
+        cost: totalCostOf(materials.get(row.id) ?? []),
+      }),
       menuItemName: row.menuItemId
         ? (menuItemNames.get(row.menuItemId) ?? null)
         : null,
@@ -434,8 +450,13 @@ export class RecipesService {
     }));
   }
 
-  async costsOf(recipeIds: string[]): Promise<Map<string, number | null>> {
-    const materials = await this.materialsOf(recipeIds);
+  async costsOf(
+    recipeIds: string[],
+    canReadPurchasing = true,
+  ): Promise<Map<string, number | null>> {
+    if (!canReadPurchasing) return new Map();
+
+    const materials = await this.materialsOf(recipeIds, canReadPurchasing);
 
     return new Map(
       recipeIds.map((recipeId) => [
@@ -447,6 +468,7 @@ export class RecipesService {
 
   private async materialsOf(
     recipeIds: string[],
+    canReadPurchasing: boolean,
   ): Promise<Map<string, RecipeIngredientResponseDto[]>> {
     if (!recipeIds.length) return new Map();
 
@@ -460,7 +482,7 @@ export class RecipesService {
         asc(recipeIngredient.createdAt),
       );
 
-    const priced = this.priced(rows);
+    const priced = this.priced(rows, canReadPurchasing);
 
     const materials = new Map<string, RecipeIngredientResponseDto[]>();
     for (const material of priced) {
@@ -475,19 +497,22 @@ export class RecipesService {
 
   private priced(
     rows: { material: RecipeIngredient; ingredient: Ingredient }[],
+    canReadPurchasing: boolean,
   ): RecipeIngredientResponseDto[] {
     return rows.map(({ material, ingredient: source }) => {
       const unitPrice = unitPriceOf(source);
 
       return {
         ...material,
-        cost:
-          unitPrice === null
-            ? null
-            : Number(material.requiredQuantity) * unitPrice,
+        ...(canReadPurchasing && {
+          cost:
+            unitPrice === null
+              ? null
+              : Number(material.requiredQuantity) * unitPrice,
+          unitPrice,
+        }),
         ingredientName: source.name,
         unitCode: source.unitCode,
-        unitPrice,
       };
     });
   }

@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
 
+import { HasPermission } from './decorators/permission.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { AddOnPaginationQueryDto } from './dto/add-on-pagination-query.dto';
 import { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
@@ -185,8 +186,13 @@ export class MenusController {
   findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
     @Query() query: MenuItemPaginationQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<{ data: MenuItemResponseDto[]; total: number }> {
-    return this.menusService.menuSectionItems(sectionId, query);
+    return this.menusService.menuSectionItems(
+      sectionId,
+      query,
+      canReadPurchasing,
+    );
   }
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
@@ -205,8 +211,12 @@ export class MenusController {
   @ApiOperation({ summary: '取得菜單品項詳情' })
   async findMenuItem(
     @Param('menuItemId') menuItemId: string,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<MenuItemResponseDto> {
-    const result = await this.menusService.menuItem({ id: menuItemId });
+    const result = await this.menusService.menuItem(
+      { id: menuItemId },
+      canReadPurchasing,
+    );
     if (!result) throw new NotFoundException();
 
     return result;

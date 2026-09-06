@@ -1,9 +1,4 @@
-import {
-  ApiProperty,
-  ApiPropertyOptional,
-  OmitType,
-  PartialType,
-} from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
   IsIn,
@@ -90,7 +85,11 @@ export class CreateIngredientDto {
   inventoryLevel?: string | null;
 }
 
-// 建立後的庫存異動一律走盤點帳本，不能靠改食材欄位偷改
-export class UpdateIngredientDto extends PartialType(
-  OmitType(CreateIngredientDto, ['inventoryLevel'] as const),
-) {}
+export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {
+  @ApiPropertyOptional({
+    description: 'inventoryLevel 寫入帳本時的異動原因；不會存到 ingredient',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string | null;
+}

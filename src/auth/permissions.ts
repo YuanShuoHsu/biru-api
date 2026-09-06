@@ -14,6 +14,7 @@ const statement = {
   inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
+  purchasing: ['create', 'update', 'delete', 'read'],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -26,6 +27,7 @@ export const owner = ac.newRole({
   inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
+  purchasing: ['create', 'update', 'delete', 'read'],
 });
 
 export const admin = ac.newRole({
@@ -36,6 +38,7 @@ export const admin = ac.newRole({
   inventoryTransaction: ['create', 'read'],
   menu: ['create', 'update', 'delete', 'read'],
   order: ['read', 'update'],
+  purchasing: ['create', 'update', 'delete', 'read'],
 });
 
 export const member = ac.newRole({

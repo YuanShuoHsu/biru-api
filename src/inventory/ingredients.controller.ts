@@ -12,6 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
 
+import { HasPermission } from 'src/menus/decorators/permission.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
@@ -35,8 +36,9 @@ export class IngredientsController {
   @ApiOperation({ summary: '取得食材' })
   findOne(
     @Param('ingredientId') ingredientId: string,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<IngredientResponseDto> {
-    return this.ingredientsService.findOne(ingredientId);
+    return this.ingredientsService.findOne(ingredientId, canReadPurchasing);
   }
 
   @Patch()
@@ -64,8 +66,13 @@ export class IngredientsController {
   findAllTransactions(
     @Param('ingredientId') ingredientId: string,
     @Query() query: InventoryTransactionPaginationQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<{ data: InventoryTransactionResponseDto[]; total: number }> {
-    return this.inventoryTransactionsService.findAll(ingredientId, query);
+    return this.inventoryTransactionsService.findAll(
+      ingredientId,
+      query,
+      canReadPurchasing,
+    );
   }
 
   @Post('inventory-transactions')
@@ -74,7 +81,10 @@ export class IngredientsController {
   createTransaction(
     @Param('ingredientId') ingredientId: string,
     @Body() dto: CreateInventoryTransactionDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<InventoryTransactionResponseDto> {
-    return this.inventoryTransactionsService.create(ingredientId, dto);
+    return this.inventoryTransactionsService.create(ingredientId, dto, {
+      canReadPurchasing,
+    });
   }
 }

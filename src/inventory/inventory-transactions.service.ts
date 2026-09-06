@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -39,6 +44,7 @@ import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto';
+import { unitPriceOf } from './pricing';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
@@ -49,6 +55,7 @@ export class InventoryTransactionsService {
   async findAll(
     ingredientId: string,
     query: InventoryTransactionPaginationQueryDto = {},
+    canReadPurchasing = true,
   ): Promise<{ data: InventoryTransactionResponseDto[]; total: number }> {
     const {
       limit = 10,
@@ -61,6 +68,10 @@ export class InventoryTransactionsService {
       sortBy,
       sortDirection = 'desc',
     } = query;
+
+    // 成本欄位剝掉後仍能被排序、篩選與快速搜尋反推，三條路要一起封
+    if (!canReadPurchasing && [sortBy, filterField].includes('unitCost'))
+      throw new ForbiddenException();
 
     const reason = sql<InventoryTransactionReason>`case
       when ${inventoryTransaction.orderId} is null then 'count'
@@ -102,7 +113,9 @@ export class InventoryTransactionsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(sql`${inventoryTransaction.quantity}::text`, `%${value}%`),
-          ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`),
+          ...(canReadPurchasing
+            ? [ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`)]
+            : []),
           ilike(inventoryTransaction.note, `%${value}%`),
           ilike(order.orderNumber, `%${value}%`),
           ilike(localTimeText(inventoryTransaction.createdAt), `%${value}%`),
@@ -131,11 +144,18 @@ export class InventoryTransactionsService {
     ]);
 
     return {
-      data: rows.map(({ inventoryTransaction: row, orderNumber, reason }) => ({
-        ...row,
-        orderNumber,
-        reason,
-      })),
+      data: rows.map(
+        ({
+          inventoryTransaction: { unitCost, ...row },
+          orderNumber,
+          reason,
+        }) => ({
+          ...row,
+          ...(canReadPurchasing && { unitCost }),
+          orderNumber,
+          reason,
+        }),
+      ),
       total,
     };
   }
@@ -143,13 +163,18 @@ export class InventoryTransactionsService {
   async create(
     ingredientId: string,
     dto: CreateInventoryTransactionDto,
-    tx?: Tx,
+    {
+      canReadPurchasing = true,
+      tx,
+    }: { canReadPurchasing?: boolean; tx?: Tx } = {},
   ): Promise<InventoryTransactionResponseDto> {
-    return tx
-      ? this.write(ingredientId, dto, tx)
-      : this.db.transaction((created) =>
-          this.write(ingredientId, dto, created),
+    const created = tx
+      ? await this.write(ingredientId, dto, tx)
+      : await this.db.transaction((opened) =>
+          this.write(ingredientId, dto, opened),
         );
+
+    return canReadPurchasing ? created : { ...created, unitCost: undefined };
   }
 
   private async write(
@@ -161,15 +186,18 @@ export class InventoryTransactionsService {
       .select({
         organizationId: ingredient.organizationId,
         inventoryLevel: ingredient.inventoryLevel,
+        eligibleQuantity: ingredient.eligibleQuantity,
+        eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
+        price: ingredient.price,
       })
       .from(ingredient)
       .where(eq(ingredient.id, ingredientId))
       .for('update');
     if (!found) throw new NotFoundException('Ingredient not found');
 
-    // 員工登記的是清點後的現有數量，帳本記的是與帳上數量的差額
     const inventoryLevel = Number(dto.inventoryLevel);
     const quantity = inventoryLevel - Number(found.inventoryLevel);
+    const unitPrice = unitPriceOf(found)?.toString() ?? null;
 
     const [created] = await tx
       .insert(inventoryTransaction)
@@ -179,8 +207,8 @@ export class InventoryTransactionsService {
         note: dto.note,
         organizationId: found.organizationId,
         quantity: String(quantity),
-        // 數量變少時沒有買價可記
-        unitCost: quantity > 0 ? dto.unitCost : null,
+        // 數量變少時沒有買價可記；進價一律由食材規格推算，不採信呼叫端傳來的值
+        unitCost: quantity > 0 ? unitPrice : null,
       })
       .returning();
 

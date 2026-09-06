@@ -13,5 +13,5 @@ export class MenuItemRecipeResponseDto {
   recipeYield: number;
 
   @ApiPropertyOptional({ description: '任一材料缺單價時為 null' })
-  cost: number | null;
+  cost?: number | null;
 }

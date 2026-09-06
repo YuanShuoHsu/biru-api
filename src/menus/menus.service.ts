@@ -116,7 +116,7 @@ type RecipeSummary = {
 
 type MenuItemWithRecipe = MenuItem & {
   offer: Offer | null;
-  recipe: (RecipeSummary & { cost: number | null }) | null;
+  recipe: (RecipeSummary & { cost?: number | null }) | null;
 };
 
 @Injectable()
@@ -128,8 +128,10 @@ export class MenusService {
 
   private async recipeWithCost(
     found: RecipeSummary | null | undefined,
-  ): Promise<(RecipeSummary & { cost: number | null }) | null> {
+    canReadPurchasing = true,
+  ): Promise<(RecipeSummary & { cost?: number | null }) | null> {
     if (!found) return null;
+    if (!canReadPurchasing) return found;
 
     const costs = await this.recipesService.costsOf([found.id]);
 
@@ -365,7 +367,10 @@ export class MenusService {
     return { ...result, recipe: await this.recipeWithCost(result.recipe) };
   }
 
-  async menuItem(where: { id: string }): Promise<MenuItemWithRecipe | null> {
+  async menuItem(
+    where: { id: string },
+    canReadPurchasing = true,
+  ): Promise<MenuItemWithRecipe | null> {
     const [result, existingOffers, recipes] = await Promise.all([
       this.db.query.menuItem.findFirst({
         where: eq(menuItem.id, where.id),
@@ -391,13 +396,14 @@ export class MenusService {
     return {
       ...result,
       offer: existingOffers[0] || null,
-      recipe: await this.recipeWithCost(recipes[0]),
+      recipe: await this.recipeWithCost(recipes[0], canReadPurchasing),
     };
   }
 
   async menuSectionItems(
     sectionId: string,
     query: MenuItemPaginationQueryDto = {},
+    canReadPurchasing = true,
   ): Promise<{ data: MenuItemWithRecipe[]; total: number }> {
     const {
       limit = 10,
@@ -542,14 +548,22 @@ export class MenusService {
 
     const costs = await this.recipesService.costsOf(
       recipes.map(({ id }) => id),
+      canReadPurchasing,
     );
     const recipeByItemId = new Map<
       string,
-      RecipeSummary & { cost: number | null }
+      RecipeSummary & { cost?: number | null }
     >(
       recipes.flatMap(({ menuItemId, ...row }) =>
         menuItemId
-          ? [[menuItemId, { ...row, cost: costs.get(row.id) ?? null }] as const]
+          ? [
+              [
+                menuItemId,
+                canReadPurchasing
+                  ? { ...row, cost: costs.get(row.id) ?? null }
+                  : row,
+              ] as const,
+            ]
           : [],
       ),
     );

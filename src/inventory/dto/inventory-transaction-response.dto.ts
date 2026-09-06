@@ -19,7 +19,8 @@ export class InventoryTransactionResponseDto {
     enumName: 'InventoryTransactionReason',
   })
   reason: InventoryTransactionReason;
-  @ApiPropertyOptional() unitCost: string | null;
+  @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
+  unitCost?: string | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;

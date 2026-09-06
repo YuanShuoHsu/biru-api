@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -43,32 +44,23 @@ import {
 } from './dto/ingredient-pagination-query.dto';
 import { IngredientResponseDto } from './dto/ingredient-response.dto';
 import { InventoryTransactionsService } from './inventory-transactions.service';
+import { pricingOf } from './pricing';
 
-type Package = Pick<
-  Ingredient,
-  'eligibleQuantity' | 'eligibleQuantityUnitCode' | 'price' | 'priceCurrency'
->;
+const PURCHASING_FIELDS = [
+  'price',
+  'unitPrice',
+  'supplierId',
+  'supplierName',
+  'url',
+];
 
-export const baseQuantityOf = ({
-  eligibleQuantity,
-  eligibleQuantityUnitCode,
-}: Package): number | null =>
-  eligibleQuantity && eligibleQuantityUnitCode
-    ? Number(eligibleQuantity) * UNIT_FACTORS[eligibleQuantityUnitCode]
-    : null;
-
-export const unitPriceOf = (row: Package): number | null => {
-  const baseQuantity = baseQuantityOf(row);
-
-  return row.price && baseQuantity ? Number(row.price) / baseQuantity : null;
-};
-
-// 沒填採購規格的食材算不出成本，欄位一律給 null 而不是 0
-export const pricingOf = (row: Package) => ({
-  packageBaseQuantity: baseQuantityOf(row),
-  packageQuantity: row.eligibleQuantity,
-  packageUnitCode: row.eligibleQuantityUnitCode,
-  unitPrice: unitPriceOf(row),
+const omitPurchasing = (dto: IngredientResponseDto): IngredientResponseDto => ({
+  ...dto,
+  price: undefined,
+  supplierId: undefined,
+  supplierName: undefined,
+  unitPrice: undefined,
+  url: undefined,
 });
 
 @Injectable()
@@ -81,6 +73,7 @@ export class IngredientsService {
   async findAll(
     organizationSlug: string,
     query: IngredientPaginationQueryDto = {},
+    canReadPurchasing = true,
   ): Promise<{ data: IngredientResponseDto[]; total: number }> {
     const {
       limit = 10,
@@ -93,6 +86,15 @@ export class IngredientsService {
       sortBy,
       sortDirection = 'asc',
     } = query;
+    // 成本欄位剝掉後仍能被排序與篩選反推，兩條路要一起封
+    if (
+      !canReadPurchasing &&
+      [sortBy, filterField].some(
+        (field) => field && PURCHASING_FIELDS.includes(field),
+      )
+    )
+      throw new ForbiddenException();
+
     const organizationId = await getOrganizationIdBySlug(
       this.db,
       organizationSlug,
@@ -149,10 +151,14 @@ export class IngredientsService {
         textConditions: (value) => [
           ilike(sql`${ingredient.name}::text`, `%${value}%`),
           ilike(ingredient.brand, `%${value}%`),
-          ilike(supplierName, `%${value}%`),
+          ...(canReadPurchasing
+            ? [
+                ilike(supplierName, `%${value}%`),
+                ilike(ingredient.url, `%${value}%`),
+              ]
+            : []),
           ilike(sql`${ingredient.inventoryLevel}::text`, `%${value}%`),
           ilike(sql`${ingredient.lowStockThreshold}::text`, `%${value}%`),
-          ilike(ingredient.url, `%${value}%`),
           ilike(localTimeText(ingredient.createdAt), `%${value}%`),
           ilike(localTimeText(ingredient.updatedAt), `%${value}%`),
         ],
@@ -172,11 +178,11 @@ export class IngredientsService {
     ]);
 
     return {
-      data: rows.map(({ ingredient: row, supplierName: name }) => ({
-        ...row,
-        supplierName: name,
-        ...pricingOf(row),
-      })),
+      data: rows.map(({ ingredient: row, supplierName: name }) => {
+        const dto = { ...row, supplierName: name, ...pricingOf(row) };
+
+        return canReadPurchasing ? dto : omitPurchasing(dto);
+      }),
       total,
     };
   }
@@ -219,17 +225,22 @@ export class IngredientsService {
     return found?.name ?? null;
   }
 
-  async findOne(ingredientId: string): Promise<IngredientResponseDto> {
+  async findOne(
+    ingredientId: string,
+    canReadPurchasing = true,
+  ): Promise<IngredientResponseDto> {
     const found = await this.db.query.ingredient.findFirst({
       where: eq(ingredient.id, ingredientId),
     });
     if (!found) throw new NotFoundException('Ingredient not found');
 
-    return {
+    const dto = {
       ...found,
       supplierName: await this.supplierNameOf(found.supplierId),
       ...pricingOf(found),
     };
+
+    return canReadPurchasing ? dto : omitPurchasing(dto);
   }
 
   async create(
@@ -257,14 +268,10 @@ export class IngredientsService {
 
       if (!inventoryLevel || !Number(inventoryLevel)) return row;
 
-      const unitPrice = unitPriceOf(row);
       await this.inventoryTransactionsService.create(
         row.id,
-        {
-          inventoryLevel,
-          ...(unitPrice && { unitCost: String(unitPrice) }),
-        },
-        tx,
+        { inventoryLevel },
+        { tx },
       );
 
       return { ...row, inventoryLevel };
@@ -279,7 +286,7 @@ export class IngredientsService {
 
   async update(
     ingredientId: string,
-    dto: UpdateIngredientDto,
+    { inventoryLevel, note, ...dto }: UpdateIngredientDto,
   ): Promise<IngredientResponseDto> {
     const [existing] = await this.db
       .select({
@@ -298,12 +305,35 @@ export class IngredientsService {
       existing.organizationId,
     );
 
-    const [updated] = await this.db
-      .update(ingredient)
-      .set(dto)
-      .where(eq(ingredient.id, ingredientId))
-      .returning();
-    if (!updated) throw new NotFoundException('Ingredient not found');
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = Object.keys(dto).length
+        ? await tx
+            .update(ingredient)
+            .set(dto)
+            .where(eq(ingredient.id, ingredientId))
+            .returning()
+        : await tx
+            .select()
+            .from(ingredient)
+            .where(eq(ingredient.id, ingredientId))
+            .for('update');
+      if (!row) throw new NotFoundException('Ingredient not found');
+
+      // 帳上數量要拿交易內鎖定的值比，交易外讀到的可能已被出餐扣庫存蓋過
+      if (
+        inventoryLevel == null ||
+        Number(inventoryLevel) === Number(row.inventoryLevel)
+      )
+        return row;
+
+      await this.inventoryTransactionsService.create(
+        row.id,
+        { inventoryLevel, note },
+        { tx },
+      );
+
+      return { ...row, inventoryLevel };
+    });
 
     return {
       ...updated,

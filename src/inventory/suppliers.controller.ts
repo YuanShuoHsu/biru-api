@@ -15,7 +15,7 @@ export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
   @Patch()
-  @Roles({ inventory: ['update'] }, 'supplierId')
+  @Roles({ purchasing: ['update'] }, 'supplierId')
   @Audit('supplier', { param: 'supplierId' })
   @ApiOperation({ summary: '更新供應商' })
   update(
@@ -26,7 +26,7 @@ export class SuppliersController {
   }
 
   @Delete()
-  @Roles({ inventory: ['delete'] }, 'supplierId')
+  @Roles({ purchasing: ['delete'] }, 'supplierId')
   @Audit('supplier', { param: 'supplierId' })
   @ApiOperation({ summary: '刪除供應商' })
   remove(@Param('supplierId') supplierId: string): Promise<void> {
