@@ -76,6 +76,11 @@ export class CreateIngredientDto {
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   url?: string | null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string | null;
+
   @ApiPropertyOptional({
     example: '500.000',
     description: '開帳數量；系統會一併寫入盤點帳本',
@@ -83,13 +88,13 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsNumberString()
   inventoryLevel?: string | null;
-}
 
-export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {
   @ApiPropertyOptional({
     description: 'inventoryLevel 寫入帳本時的異動原因；不會存到 ingredient',
   })
   @IsOptional()
   @IsString()
-  note?: string | null;
+  transactionNote?: string | null;
 }
+
+export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {}

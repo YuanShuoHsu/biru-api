@@ -73,6 +73,7 @@ export const ingredient = pgTable(
       scale: 3,
     }),
     name: jsonb('name').notNull().$type<LocalizedText>(),
+    note: text('note'),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),

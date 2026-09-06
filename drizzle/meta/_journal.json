@@ -806,6 +806,13 @@
       "when": 1788614587632,
       "tag": "0114_inventory_transaction_unit_cost_precision",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1788699944051,
+      "tag": "0115_ingredient_note",
+      "breakpoints": true
     }
   ]
 }

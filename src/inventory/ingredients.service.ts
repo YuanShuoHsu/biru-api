@@ -114,6 +114,7 @@ export class IngredientsService {
       name: sql`${ingredient.name}::text`,
       brand: ingredient.brand,
       supplierName,
+      note: ingredient.note,
       unitCode: sql`${ingredient.unitCode}::text`,
       inventoryLevel: ingredient.inventoryLevel,
       lowStockThreshold: ingredient.lowStockThreshold,
@@ -157,6 +158,7 @@ export class IngredientsService {
                 ilike(ingredient.url, `%${value}%`),
               ]
             : []),
+          ilike(ingredient.note, `%${value}%`),
           ilike(sql`${ingredient.inventoryLevel}::text`, `%${value}%`),
           ilike(sql`${ingredient.lowStockThreshold}::text`, `%${value}%`),
           ilike(localTimeText(ingredient.createdAt), `%${value}%`),
@@ -245,7 +247,7 @@ export class IngredientsService {
 
   async create(
     organizationSlug: string,
-    { inventoryLevel, ...dto }: CreateIngredientDto,
+    { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
   ): Promise<IngredientResponseDto> {
     const organizationId = await getOrganizationIdBySlug(
       this.db,
@@ -270,7 +272,7 @@ export class IngredientsService {
 
       await this.inventoryTransactionsService.create(
         row.id,
-        { inventoryLevel },
+        { inventoryLevel, note: transactionNote },
         { tx },
       );
 
@@ -286,7 +288,7 @@ export class IngredientsService {
 
   async update(
     ingredientId: string,
-    { inventoryLevel, note, ...dto }: UpdateIngredientDto,
+    { inventoryLevel, transactionNote, ...dto }: UpdateIngredientDto,
   ): Promise<IngredientResponseDto> {
     const [existing] = await this.db
       .select({
@@ -328,7 +330,7 @@ export class IngredientsService {
 
       await this.inventoryTransactionsService.create(
         row.id,
-        { inventoryLevel, note },
+        { inventoryLevel, note: transactionNote },
         { tx },
       );
 

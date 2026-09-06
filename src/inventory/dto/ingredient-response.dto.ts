@@ -32,6 +32,7 @@ export class IngredientResponseDto {
   eligibleQuantityUnitCode: UnitCode | null;
   @ApiPropertyOptional({ description: '採購連結；無 purchasing 權限時不回傳' })
   url?: string | null;
+  @ApiPropertyOptional() note: string | null;
   @ApiPropertyOptional({ description: '每基準單位價格' })
   unitPrice?: number | null;
   @ApiPropertyOptional({ description: '包裝量，與 eligibleQuantity 相同' })

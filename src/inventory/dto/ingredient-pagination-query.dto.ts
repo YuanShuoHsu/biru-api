@@ -8,6 +8,7 @@ export const INGREDIENT_STRING_FILTER_FIELDS = [
   'name',
   'brand',
   'supplierName',
+  'note',
 ] as const;
 export const INGREDIENT_ENUM_FILTER_FIELDS = ['unitCode'] as const;
 export const INGREDIENT_NUMBER_FILTER_FIELDS = [
