@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { getTableColumns, getTableName, inArray } from 'drizzle-orm';
 import type { AnyPgTable, PgColumn } from 'drizzle-orm/pg-core';
 
 import type {
@@ -36,15 +36,14 @@ type Row = Record<string, unknown>;
 
 export type AuditableTable = AnyPgTable & { id: PgColumn };
 
+export type AuditLabelScope = AuditResource | AuditSubTable;
+
 export type AuditLabel = {
   resourceLabel: AuditResourceLabel | null;
   ancestorIds: string[];
 };
 
-export const AUDIT_TABLES: Record<
-  AuditResource | AuditSubTable,
-  AuditableTable
-> = {
+export const AUDIT_TABLES: Record<AuditLabelScope, AuditableTable> = {
   menu,
   menuSection,
   menuItem,
@@ -64,23 +63,59 @@ export const AUDIT_TABLES: Record<
   recipeIngredient,
 };
 
-const FK_LABEL_SOURCES: Record<
-  string,
-  { table: AuditableTable; column: string }
+type LabelSource = { table: AuditableTable; column: string };
+
+const FK_LABEL_SOURCES: Partial<
+  Record<AuditLabelScope, Record<string, LabelSource>>
 > = {
-  addOnMenuItemId: { table: menuItem, column: 'name' },
-  addOnMenuSectionId: { table: menuSection, column: 'name' },
-  couponId: { table: coupon, column: 'code' },
-  grantedBy: { table: user, column: 'name' },
-  ingredientId: { table: ingredient, column: 'name' },
-  menuId: { table: menu, column: 'name' },
-  menuItemId: { table: menuItem, column: 'name' },
-  menuSectionId: { table: menuSection, column: 'name' },
-  modifierGroupId: { table: modifierGroup, column: 'displayName' },
-  orderId: { table: order, column: 'confirmationNumber' },
-  parentSectionId: { table: menuSection, column: 'name' },
-  supplierId: { table: supplier, column: 'name' },
-  userId: { table: user, column: 'name' },
+  menuSection: {
+    menuId: { table: menu, column: 'name' },
+    parentSectionId: { table: menuSection, column: 'name' },
+  },
+  menuItem: {
+    menuId: { table: menu, column: 'name' },
+    menuSectionId: { table: menuSection, column: 'name' },
+  },
+  offer: {
+    menuItemId: { table: menuItem, column: 'name' },
+    menuSectionId: { table: menuSection, column: 'name' },
+  },
+  menuItemAddOn: {
+    addOnMenuItemId: { table: menuItem, column: 'name' },
+    addOnMenuSectionId: { table: menuSection, column: 'name' },
+    menuItemId: { table: menuItem, column: 'name' },
+  },
+  modifierGroup: {
+    menuId: { table: menu, column: 'name' },
+  },
+  modifier: {
+    modifierGroupId: { table: modifierGroup, column: 'displayName' },
+  },
+  menuItemModifierGroup: {
+    menuItemId: { table: menuItem, column: 'name' },
+    modifierGroupId: { table: modifierGroup, column: 'displayName' },
+  },
+  order: {
+    userId: { table: user, column: 'name' },
+  },
+  userCoupon: {
+    couponId: { table: coupon, column: 'code' },
+    grantedBy: { table: user, column: 'name' },
+    orderId: { table: order, column: 'confirmationNumber' },
+    userId: { table: user, column: 'name' },
+  },
+  invoice: {
+    orderId: { table: order, column: 'confirmationNumber' },
+  },
+  ingredient: {
+    supplierId: { table: supplier, column: 'name' },
+  },
+  recipe: {
+    menuItemId: { table: menuItem, column: 'name' },
+  },
+  recipeIngredient: {
+    ingredientId: { table: ingredient, column: 'name' },
+  },
 };
 
 const asId = (value: unknown): string | null =>
@@ -111,6 +146,27 @@ const selectByIds = async (
   );
 };
 
+const selectLabelsByIds = async (
+  db: DrizzleDB,
+  { table, column }: LabelSource,
+  ids: string[],
+): Promise<Map<string, AuditResourceLabel>> => {
+  const rows = await db
+    .select({ id: table.id, label: getTableColumns(table)[column] })
+    .from(table)
+    .where(inArray(table.id, ids));
+
+  return new Map(
+    rows.flatMap(({ id, label }) => {
+      const value = asLabel(label);
+
+      return typeof id === 'string' && value ? [[id, value] as const] : [];
+    }),
+  );
+};
+
+// 連結表與 userCoupon 自己沒有名稱，標籤在一跳之外；巢狀路由還要品項所屬的分類。
+// 一個 resource 最多兩次批次查詢，不會隨列數增加
 const resolveLinked = async (
   db: DrizzleDB,
   resource: 'menuItemAddOn' | 'menuItemModifierGroup' | 'userCoupon',
@@ -268,50 +324,47 @@ export const resolveAuditLabels = async (
 
 export const resolveChangeLabels = async (
   db: DrizzleDB,
-  changesList: AuditChanges[],
+  entries: { scope: AuditLabelScope; changes: AuditChanges }[],
 ): Promise<(AuditChangeLabels | null)[]> => {
-  const idsByField = new Map<string, Set<string>>();
+  const sourceOf = (scope: AuditLabelScope, field: string) =>
+    FK_LABEL_SOURCES[scope]?.[field];
+  const keyOf = ({ table, column }: LabelSource) =>
+    `${getTableName(table)}.${column}`;
 
-  for (const changes of changesList)
+  // 同一張表會被多個欄位參照（addOn 的兩個品項欄位），依表分組才維持每張表一次查詢
+  const grouped = new Map<string, { source: LabelSource; ids: Set<string> }>();
+
+  for (const { scope, changes } of entries)
     for (const [field, { before, after }] of Object.entries(changes)) {
-      if (!(field in FK_LABEL_SOURCES)) continue;
+      const source = sourceOf(scope, field);
+      if (!source) continue;
 
-      const ids = idsByField.get(field) ?? new Set<string>();
-      for (const id of compact(asId(before), asId(after))) ids.add(id);
-      if (ids.size) idsByField.set(field, ids);
+      const group = grouped.get(keyOf(source)) ?? { source, ids: new Set() };
+      for (const id of compact(asId(before), asId(after))) group.ids.add(id);
+      if (group.ids.size) grouped.set(keyOf(source), group);
     }
 
-  if (!idsByField.size) return changesList.map(() => null);
+  if (!grouped.size) return entries.map(() => null);
 
-  const namesByField = new Map(
+  const labelsByKey = new Map(
     await Promise.all(
-      [...idsByField].map(async ([field, ids]) => {
-        const { table, column } = FK_LABEL_SOURCES[field];
-        const rows = await selectByIds(db, table, [...ids]);
-
-        return [
-          field,
-          new Map(
-            [...rows].flatMap(([id, row]) => {
-              const label = asLabel(row[column]);
-
-              return label ? [[id, label] as const] : [];
-            }),
-          ),
-        ] as const;
-      }),
+      [...grouped].map(
+        async ([key, { source, ids }]) =>
+          [key, await selectLabelsByIds(db, source, [...ids])] as const,
+      ),
     ),
   );
 
-  return changesList.map((changes) => {
+  return entries.map(({ scope, changes }) => {
     const labels: AuditChangeLabels = {};
 
     for (const [field, { before, after }] of Object.entries(changes)) {
-      const names = namesByField.get(field);
-      if (!names) continue;
+      const source = sourceOf(scope, field);
+      if (!source) continue;
 
+      const names = labelsByKey.get(keyOf(source));
       for (const id of compact(asId(before), asId(after))) {
-        const label = names.get(id);
+        const label = names?.get(id);
         if (label) labels[field] = { ...labels[field], [id]: label };
       }
     }

@@ -12,7 +12,7 @@ import { Reflector } from '@nestjs/core';
 
 import { getTableColumns, inArray, or } from 'drizzle-orm';
 import { Request } from 'express';
-import { Observable, from, switchMap, tap } from 'rxjs';
+import { from, Observable, switchMap, tap } from 'rxjs';
 
 import {
   auditLog,
@@ -33,6 +33,7 @@ import {
   resolveAuditLabels,
   resolveChangeLabels,
   type AuditableTable,
+  type AuditLabelScope,
 } from '../utils/audit-resources';
 
 type Row = Record<string, unknown>;
@@ -56,6 +57,8 @@ const ACTION_BY_METHOD: Record<string, AuditAction> = {
   DELETE: 'delete',
 };
 
+// id 不會變（建立時列出來也沒有意義），時間戳每次寫入都會變，記錄下來只會淹沒真正的異動。
+// organizationId 由稽核列本身記錄，前提是路由掛了 @Roles 讓 RolesGuard 解析出組織
 const IGNORED_COLUMNS = new Set([
   'id',
   'organizationId',
@@ -63,8 +66,10 @@ const IGNORED_COLUMNS = new Set([
   'updatedAt',
 ]);
 
-const tableOf = (target: AuditTarget) =>
-  AUDIT_TABLES[target.via?.table ?? target.resource];
+const scopeOf = (target: AuditTarget): AuditLabelScope =>
+  target.via?.table ?? target.resource;
+
+const tableOf = (target: AuditTarget) => AUDIT_TABLES[scopeOf(target)];
 
 const resourceColumnOf = (target: AuditTarget) =>
   target.via?.ownerColumn ?? 'id';
@@ -309,15 +314,18 @@ export class AuditInterceptor implements NestInterceptor {
         snapshots.set(target.resource, snapshot);
 
         values.push({
-          id: randomUUID(),
-          actorId: actor.id,
-          actorName: actor.name,
-          actorEmail: actor.email,
-          organizationId,
-          resource: target.resource,
-          resourceId,
-          action: actionOf(target, action),
-          changes,
+          scope: scopeOf(target),
+          log: {
+            id: randomUUID(),
+            actorId: actor.id,
+            actorName: actor.name,
+            actorEmail: actor.email,
+            organizationId,
+            resource: target.resource,
+            resourceId,
+            action: actionOf(target, action),
+            changes,
+          },
         });
       }
     }
@@ -336,14 +344,14 @@ export class AuditInterceptor implements NestInterceptor {
       ).then((entries) => new Map(entries)),
       resolveChangeLabels(
         this.db,
-        values.map(({ changes }) => changes),
+        values.map(({ log, scope }) => ({ changes: log.changes, scope })),
       ),
     ]);
 
     await this.db.insert(auditLog).values(
-      values.map((value, index) => ({
-        ...value,
-        ...labels.get(value.resource)?.get(value.resourceId),
+      values.map(({ log }, index) => ({
+        ...log,
+        ...labels.get(log.resource)?.get(log.resourceId),
         changeLabels: changeLabels[index],
       })),
     );
