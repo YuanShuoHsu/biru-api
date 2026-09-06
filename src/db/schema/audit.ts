@@ -40,8 +40,12 @@ export type AuditAction = (typeof auditActionEnum.enumValues)[number];
 
 export type AuditChanges = Record<string, { before: unknown; after: unknown }>;
 
-// 多語名稱存物件、單語識別（訂單編號）存字串
 export type AuditResourceLabel = LocalizedText | string;
+
+export type AuditChangeLabels = Record<
+  string,
+  Record<string, AuditResourceLabel>
+>;
 
 export const auditLog = pgTable(
   'audit_log',
@@ -61,6 +65,7 @@ export const auditLog = pgTable(
     ancestorIds: text('ancestor_ids').array(),
     action: auditActionEnum('action').notNull(),
     changes: jsonb('changes').$type<AuditChanges>().notNull(),
+    changeLabels: jsonb('change_labels').$type<AuditChangeLabels>(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [

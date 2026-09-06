@@ -31,6 +31,7 @@ import {
 import {
   AUDIT_TABLES,
   resolveAuditLabels,
+  resolveChangeLabels,
   type AuditableTable,
 } from '../utils/audit-resources';
 
@@ -55,18 +56,19 @@ const ACTION_BY_METHOD: Record<string, AuditAction> = {
   DELETE: 'delete',
 };
 
-// id 不會變（建立時列出來也沒有意義），時間戳每次寫入都會變，記錄下來只會淹沒真正的異動
-const IGNORED_COLUMNS = new Set(['id', 'createdAt', 'updatedAt']);
+const IGNORED_COLUMNS = new Set([
+  'id',
+  'organizationId',
+  'createdAt',
+  'updatedAt',
+]);
 
-// 附屬表比對的是自己的列，但異動要掛在所屬資源的 id 上
 const tableOf = (target: AuditTarget) =>
   AUDIT_TABLES[target.via?.table ?? target.resource];
 
 const resourceColumnOf = (target: AuditTarget) =>
   target.via?.ownerColumn ?? 'id';
 
-// via 目標比對的是附屬表，但異動掛在所屬資源上：加一筆定價不是「建立品項」、
-// 刪一筆定價也不是「刪除品項」，對品項而言兩者都是 update
 const actionOf = (target: AuditTarget, action: AuditAction): AuditAction =>
   target.via ? 'update' : action;
 
@@ -322,8 +324,8 @@ export class AuditInterceptor implements NestInterceptor {
 
     if (!values.length) return;
 
-    const labels = new Map(
-      await Promise.all(
+    const [labels, changeLabels] = await Promise.all([
+      Promise.all(
         [...snapshots].map(
           async ([resource, rows]) =>
             [
@@ -331,13 +333,18 @@ export class AuditInterceptor implements NestInterceptor {
               await resolveAuditLabels(this.db, resource, rows),
             ] as const,
         ),
+      ).then((entries) => new Map(entries)),
+      resolveChangeLabels(
+        this.db,
+        values.map(({ changes }) => changes),
       ),
-    );
+    ]);
 
     await this.db.insert(auditLog).values(
-      values.map((value) => ({
+      values.map((value, index) => ({
         ...value,
         ...labels.get(value.resource)?.get(value.resourceId),
+        changeLabels: changeLabels[index],
       })),
     );
   }

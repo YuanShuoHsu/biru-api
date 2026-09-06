@@ -4,6 +4,7 @@ import {
   auditActionEnum,
   auditResourceEnum,
   type AuditAction,
+  type AuditChangeLabels,
   type AuditChanges,
   type AuditResource,
   type AuditResourceLabel,
@@ -66,6 +67,22 @@ export class AuditLogResponseDto {
     type: 'object',
   })
   changes: AuditChanges;
+
+  @ApiPropertyOptional({
+    additionalProperties: {
+      additionalProperties: {
+        oneOf: [
+          { type: 'string' },
+          { additionalProperties: { type: 'string' }, type: 'object' },
+        ],
+      },
+      type: 'object',
+    },
+    description: '外鍵欄位名 → id → 寫入當下的名稱快照；沒有外鍵異動時為 null',
+    nullable: true,
+    type: 'object',
+  })
+  changeLabels?: AuditChangeLabels | null;
 
   @ApiProperty() createdAt: Date;
 }
