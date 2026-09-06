@@ -116,7 +116,7 @@ type RecipeSummary = {
 
 type MenuItemWithRecipe = MenuItem & {
   offer: Offer | null;
-  recipe: (RecipeSummary & { cost: number }) | null;
+  recipe: (RecipeSummary & { cost: number | null }) | null;
 };
 
 @Injectable()
@@ -128,12 +128,12 @@ export class MenusService {
 
   private async recipeWithCost(
     found: RecipeSummary | null | undefined,
-  ): Promise<(RecipeSummary & { cost: number }) | null> {
+  ): Promise<(RecipeSummary & { cost: number | null }) | null> {
     if (!found) return null;
 
     const costs = await this.recipesService.costsOf([found.id]);
 
-    return { ...found, cost: costs.get(found.id) ?? 0 };
+    return { ...found, cost: costs.get(found.id) ?? null };
   }
 
   // ── Menu ──────────────────────────────────────────────────────────
@@ -543,10 +543,13 @@ export class MenusService {
     const costs = await this.recipesService.costsOf(
       recipes.map(({ id }) => id),
     );
-    const recipeByItemId = new Map<string, RecipeSummary & { cost: number }>(
+    const recipeByItemId = new Map<
+      string,
+      RecipeSummary & { cost: number | null }
+    >(
       recipes.flatMap(({ menuItemId, ...row }) =>
         menuItemId
-          ? [[menuItemId, { ...row, cost: costs.get(row.id) ?? 0 }] as const]
+          ? [[menuItemId, { ...row, cost: costs.get(row.id) ?? null }] as const]
           : [],
       ),
     );

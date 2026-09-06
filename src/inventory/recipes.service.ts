@@ -62,6 +62,13 @@ import {
 import { unitPriceOf } from './ingredients.service';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding';
 
+const totalCostOf = (
+  materials: RecipeIngredientResponseDto[],
+): number | null =>
+  materials.some(({ cost }) => cost === null)
+    ? null
+    : materials.reduce((sum, { cost }) => sum + (cost ?? 0), 0);
+
 @Injectable()
 export class RecipesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -419,10 +426,7 @@ export class RecipesService {
 
     return recipes.map((row) => ({
       ...row,
-      cost: (materials.get(row.id) ?? []).reduce(
-        (sum, { cost }) => sum + (cost ?? 0),
-        0,
-      ),
+      cost: totalCostOf(materials.get(row.id) ?? []),
       menuItemName: row.menuItemId
         ? (menuItemNames.get(row.menuItemId) ?? null)
         : null,
@@ -430,16 +434,13 @@ export class RecipesService {
     }));
   }
 
-  async costsOf(recipeIds: string[]): Promise<Map<string, number>> {
+  async costsOf(recipeIds: string[]): Promise<Map<string, number | null>> {
     const materials = await this.materialsOf(recipeIds);
 
     return new Map(
       recipeIds.map((recipeId) => [
         recipeId,
-        (materials.get(recipeId) ?? []).reduce(
-          (sum, { cost }) => sum + (cost ?? 0),
-          0,
-        ),
+        totalCostOf(materials.get(recipeId) ?? []),
       ]),
     );
   }

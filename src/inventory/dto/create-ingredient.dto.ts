@@ -7,6 +7,7 @@ import {
 
 import {
   IsIn,
+  IsNotEmpty,
   IsNumberString,
   IsObject,
   IsOptional,
@@ -54,29 +55,26 @@ export class CreateIngredientDto {
   @IsNumberString()
   lowStockThreshold?: string | null;
 
-  @ApiPropertyOptional({ example: '950.00', description: '一個包裝的價錢' })
-  @IsOptional()
+  @ApiProperty({ example: '950.00', description: '一個包裝的價錢' })
   @IsNumberString()
-  price?: string | null;
+  price: string;
 
-  @ApiPropertyOptional({ example: 'TWD' })
-  @IsOptional()
+  @ApiProperty({ example: 'TWD' })
   @IsString()
-  priceCurrency?: string;
+  @IsNotEmpty()
+  priceCurrency: string;
 
-  @ApiPropertyOptional({ example: '100.000', description: '一個包裝的量' })
-  @IsOptional()
+  @ApiProperty({ example: '100.000', description: '一個包裝的量' })
   @IsNumberString()
-  eligibleQuantity?: string | null;
+  eligibleQuantity: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     enum: Object.keys(UNIT_FACTORS),
     enumName: 'UnitCode',
     description: 'eligibleQuantity 的單位，需與 unitCode 同維度',
   })
-  @IsOptional()
   @IsIn(Object.keys(UNIT_FACTORS))
-  eligibleQuantityUnitCode?: UnitCode | null;
+  eligibleQuantityUnitCode: UnitCode;
 
   @ApiPropertyOptional({ description: '採購連結' })
   @IsOptional()

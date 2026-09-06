@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { LocalizedText } from 'src/db/schema/enums';
 
@@ -12,6 +12,6 @@ export class MenuItemRecipeResponseDto {
   @ApiProperty()
   recipeYield: number;
 
-  @ApiProperty()
-  cost: number;
+  @ApiPropertyOptional({ description: '任一材料缺單價時為 null' })
+  cost: number | null;
 }

@@ -30,11 +30,15 @@ import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
+  INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
   INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
   InventoryTransactionPaginationQueryDto,
 } from './dto/inventory-transaction-pagination-query.dto';
-import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
+import {
+  InventoryTransactionResponseDto,
+  type InventoryTransactionReason,
+} from './dto/inventory-transaction-response.dto';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
@@ -58,10 +62,17 @@ export class InventoryTransactionsService {
       sortDirection = 'desc',
     } = query;
 
+    const reason = sql<InventoryTransactionReason>`case
+      when ${inventoryTransaction.orderId} is null then 'count'
+      when ${inventoryTransaction.quantity} <= 0 then 'consume'
+      else 'restore'
+    end`;
+
     const fieldMap: Record<string, Column | SQL> = {
       quantity: inventoryTransaction.quantity,
       unitCost: inventoryTransaction.unitCost,
       note: inventoryTransaction.note,
+      reason,
       createdAt: inventoryTransaction.createdAt,
     };
 
@@ -80,11 +91,12 @@ export class InventoryTransactionsService {
             fieldMap,
             INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
             INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
-            undefined,
+            INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
             INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
+        enumFields: INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
@@ -92,25 +104,40 @@ export class InventoryTransactionsService {
           ilike(sql`${inventoryTransaction.quantity}::text`, `%${value}%`),
           ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`),
           ilike(inventoryTransaction.note, `%${value}%`),
+          ilike(order.orderNumber, `%${value}%`),
           ilike(localTimeText(inventoryTransaction.createdAt), `%${value}%`),
         ],
       }),
     );
 
-    const [data, [{ total }]] = await Promise.all([
-      this.db.query.inventoryTransaction.findMany({
-        where,
-        orderBy,
-        limit,
-        offset,
-      }),
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          inventoryTransaction,
+          orderNumber: order.orderNumber,
+          reason,
+        })
+        .from(inventoryTransaction)
+        .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
       this.db
         .select({ total: count() })
         .from(inventoryTransaction)
+        .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
         .where(where),
     ]);
 
-    return { data, total };
+    return {
+      data: rows.map(({ inventoryTransaction: row, orderNumber, reason }) => ({
+        ...row,
+        orderNumber,
+        reason,
+      })),
+      total,
+    };
   }
 
   async create(
@@ -162,7 +189,7 @@ export class InventoryTransactionsService {
       .set({ inventoryLevel: String(inventoryLevel) })
       .where(eq(ingredient.id, ingredientId));
 
-    return created;
+    return { ...created, orderNumber: null, reason: 'count' };
   }
 
   async consume(orderId: string, tx: Tx): Promise<void> {

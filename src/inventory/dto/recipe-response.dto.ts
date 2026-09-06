@@ -28,7 +28,10 @@ export class RecipeResponseDto {
   @ApiProperty() recipeYield: number;
   @ApiPropertyOptional({ isArray: true, type: Object })
   recipeInstructions: LocalizedText[] | null;
-  @ApiProperty({ description: '全部材料成本合計' }) cost: number;
+  @ApiPropertyOptional({
+    description: '全部材料成本合計；任一材料缺單價時為 null',
+  })
+  cost: number | null;
   @ApiPropertyOptional({ description: '對應品項售價' }) price: number | null;
   @ApiPropertyOptional({ isArray: true, type: RecipeIngredientResponseDto })
   recipeIngredients?: RecipeIngredientResponseDto[];
