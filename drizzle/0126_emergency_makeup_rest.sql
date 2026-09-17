@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_request" ADD COLUMN "emergency" jsonb;

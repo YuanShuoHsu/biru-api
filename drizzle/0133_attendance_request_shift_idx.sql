@@ -1,0 +1,1 @@
+CREATE INDEX "attendance_request_shift_idx" ON "attendance_request" USING btree ("shift_id","reviewed_at");

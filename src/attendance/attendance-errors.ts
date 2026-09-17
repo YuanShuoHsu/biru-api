@@ -1,0 +1,88 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
+
+export const attendanceErrorCodes = [
+  'activeShiftExists',
+  'calendarLeaveInterval',
+  'calendarLeavePayRequired',
+  'cannotReviewOwnDraft',
+  'cannotReviewSelf',
+  'correctionSourceChanged',
+  'emergencyDetailsRequired',
+  'employeeNotEnabled',
+  'employmentWindowConflict',
+  'futureCorrection',
+  'idempotencyConflict',
+  'implausibleMinimumWage',
+  'insufficientLeaveBalance',
+  'invalidBreak',
+  'invalidEmergencyDetails',
+  'invalidEventSequence',
+  'invalidInsuranceBasis',
+  'invalidInterval',
+  'invalidIp',
+  'invalidLeaveCase',
+  'invalidParentalInterval',
+  'invalidPayrollState',
+  'ipNotAllowed',
+  'leaveCaseExists',
+  'leaveCaseRequired',
+  'leaveOutsideShift',
+  'leavePolicyRequired',
+  'locationNotAllowed',
+  'medicalCertificateRequired',
+  'medicalLeaveInterval',
+  'memberNotFound',
+  'menstrualDayLimit',
+  'noTemplateDates',
+  'outsideShiftWindow',
+  'overlappingAttendance',
+  'overlappingLeave',
+  'overlappingShift',
+  'parentalChildExists',
+  'parentalChildMismatch',
+  'parentalChildRequired',
+  'parentalChildUnassigned',
+  'parentalDailyLimit',
+  'parentalLeaveActive',
+  'parentalReturnInvalid',
+  'parentalReturnPending',
+  'parentalReturnStale',
+  'parentalShortLimit',
+  'parentalTotalLimit',
+  'partTimeLadderRequiresPartTime',
+  'payrollBlocked',
+  'payrollLocked',
+  'payrollRuleSetMissing',
+  'payrollSourceChanged',
+  'payrollTermsRequired',
+  'pendingRequestExists',
+  'reasonRequired',
+  'requestAlreadyReviewed',
+  'reservedMakeupRest',
+  'settingsRequired',
+  'shiftHasCorrection',
+  'shiftHasRecords',
+  'shiftRequired',
+  'shiftTooLong',
+  'sourceRequired',
+  'splitLeaveByYear',
+  'statutoryBalanceAutomatic',
+  'statutoryKindImmutable',
+  'statutoryPolicyExists',
+  'weeklyMinutesFromRequired',
+] as const;
+
+export type AttendanceErrorCode = (typeof attendanceErrorCodes)[number];
+
+export const badRequestError = (code: AttendanceErrorCode) =>
+  new BadRequestException(code);
+
+export const conflictError = (code: AttendanceErrorCode) =>
+  new ConflictException(code);
+
+export const forbiddenError = (code: AttendanceErrorCode) =>
+  new ForbiddenException(code);

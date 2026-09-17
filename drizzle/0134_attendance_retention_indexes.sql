@@ -1,0 +1,2 @@
+CREATE INDEX "attendance_audit_created_idx" ON "attendance_audit" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "attendance_request_leave_case_idx" ON "attendance_request" USING btree ("leave_case_id");

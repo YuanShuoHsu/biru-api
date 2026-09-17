@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_leave_case" ADD COLUMN "daily_pay_cents" text;

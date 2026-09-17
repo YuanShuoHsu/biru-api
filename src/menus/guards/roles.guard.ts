@@ -47,7 +47,7 @@ export class RolesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<{
-      action: Record<string, string[]>;
+      action?: Record<string, string[]>;
       organizationParam: OrganizationParam;
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles || context.getType() !== 'http') return true;
@@ -79,7 +79,10 @@ export class RolesGuard implements CanActivate {
 
     request.memberRole = membership.role;
 
-    if (!isAuthorized(membership.role, requiredRoles.action))
+    if (
+      requiredRoles.action &&
+      !isAuthorized(membership.role, requiredRoles.action)
+    )
       throw new ForbiddenException();
 
     return true;

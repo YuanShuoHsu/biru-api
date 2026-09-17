@@ -155,6 +155,23 @@ export const buildEnumFilterCondition = (
   }
 };
 
+export const buildBooleanFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  const colSql = sql`${column}`;
+
+  if (operator === 'isEmpty') return isNull(colSql);
+  if (operator === 'isNotEmpty') return isNotNull(colSql);
+
+  if (value !== 'true' && value !== 'false') return undefined;
+
+  const parsed = value === 'true';
+
+  return operator === 'not' ? ne(colSql, parsed) : eq(colSql, parsed);
+};
+
 export const buildPlainDateFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -236,6 +253,7 @@ export const buildFilterCondition = (
   numberFields: readonly string[] = [],
   plainDateFields: readonly string[] = [],
   arrayEnumFields: readonly string[] = [],
+  booleanFields: readonly string[] = [],
 ): SQL | undefined => {
   const column = fieldMap[filterField];
   if (!column) return undefined;
@@ -277,6 +295,14 @@ export const buildFilterCondition = (
 
   if (arrayEnumFields.includes(filterField)) {
     return buildArrayEnumFilterCondition(
+      column,
+      filterOperator,
+      filterValue || '',
+    );
+  }
+
+  if (booleanFields.includes(filterField)) {
+    return buildBooleanFilterCondition(
       column,
       filterOperator,
       filterValue || '',

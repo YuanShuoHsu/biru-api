@@ -20,3 +20,6 @@ export const Roles = (
   action: Record<string, string[]>,
   organizationParam: OrganizationParam,
 ) => SetMetadata(ROLES_KEY, { action, organizationParam });
+
+export const OrganizationMember = (organizationParam: OrganizationParam) =>
+  SetMetadata(ROLES_KEY, { organizationParam });

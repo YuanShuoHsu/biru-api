@@ -95,6 +95,9 @@ importers:
       pg:
         specifier: ^8.17.2
         version: 8.17.2
+      proxy-addr:
+        specifier: ^2.0.7
+        version: 2.0.7
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -159,6 +162,9 @@ importers:
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
+      '@types/proxy-addr':
+        specifier: ^2.0.3
+        version: 2.0.3
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -2377,6 +2383,9 @@ packages:
 
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
+
+  '@types/proxy-addr@2.0.3':
+    resolution: {integrity: sha512-TgAHHO4tNG3HgLTUhB+hM4iwW6JUNeQHCLnF1DjaDA9c69PN+IasoFu2MYDhubFc+ZIw5c5t9DMtjvrD6R3Egg==}
 
   '@types/pug@2.0.10':
     resolution: {integrity: sha512-Sk/uYFOBAB7mb74XcpizmH0KOR2Pv3D2Hmrh1Dmy5BmK3MpdSa5kqZcg6EKBdklU0bFXX9gCfzvpnyUehrPIuA==}
@@ -8711,6 +8720,10 @@ snapshots:
       '@types/node': 22.19.7
       pg-protocol: 1.11.0
       pg-types: 2.2.0
+
+  '@types/proxy-addr@2.0.3':
+    dependencies:
+      '@types/node': 22.19.7
 
   '@types/pug@2.0.10':
     optional: true

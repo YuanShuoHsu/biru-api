@@ -1,0 +1,120 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+
+import {
+  OrganizationMember,
+  Roles,
+} from 'src/menus/decorators/roles.decorator';
+import type { AuthRequest } from 'src/menus/guards/roles.guard';
+
+import { actor } from './attendance-actor';
+import { AttendanceShiftsService } from './attendance-shifts.service';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
+import { AttendanceShiftPaginationQueryDto } from './dto/attendance-shift-pagination-query.dto';
+import {
+  AttendancePunchResponseDto,
+  AttendanceShiftRecordResponseDto,
+  AttendanceShiftResponseDto,
+  AttendanceShiftsResponseDto,
+} from './dto/attendance-shift-response.dto';
+import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
+import { CreateAttendanceShiftsDto } from './dto/create-attendance-shifts.dto';
+
+@ApiTags('attendance')
+@Controller('organizations/:organizationSlug/attendance')
+export class AttendanceShiftsController {
+  constructor(
+    private readonly attendanceShiftsService: AttendanceShiftsService,
+  ) {}
+
+  @Get('me/shifts')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({ summary: '我的班表' })
+  myShifts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceShiftPaginationQueryDto,
+  ): Promise<AttendanceShiftsResponseDto> {
+    return this.attendanceShiftsService.shifts(
+      actor(req, session),
+      query,
+      true,
+    );
+  }
+
+  @Get('me/shifts/punchable')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({ summary: '我目前可打卡的班次' })
+  myPunchableShifts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+  ): Promise<AttendanceShiftResponseDto[]> {
+    return this.attendanceShiftsService.punchableShifts(actor(req, session));
+  }
+
+  @Get('shifts')
+  @Roles({ shift: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '全店班表' })
+  shifts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceShiftPaginationQueryDto,
+  ): Promise<AttendanceShiftsResponseDto> {
+    return this.attendanceShiftsService.shifts(
+      actor(req, session),
+      query,
+      false,
+    );
+  }
+
+  @Post('shifts')
+  @Roles({ shift: ['create'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次建立班表' })
+  createShifts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: CreateAttendanceShiftsDto,
+  ): Promise<AttendanceShiftRecordResponseDto[]> {
+    return this.attendanceShiftsService.createShifts(
+      actor(req, session),
+      dto.shifts,
+    );
+  }
+
+  @Patch('shifts/:id/cancel')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '取消班別' })
+  cancelShift(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceShiftsService.cancelShift(actor(req, session), id);
+  }
+
+  @Post('punch')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({ summary: '打卡（上下班、休息起迄）' })
+  punch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: CreateAttendancePunchDto,
+  ): Promise<AttendancePunchResponseDto> {
+    return this.attendanceShiftsService.punch(
+      actor(req, session),
+      dto,
+      req.ip ?? req.socket.remoteAddress ?? '',
+    );
+  }
+}

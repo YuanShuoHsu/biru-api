@@ -31,7 +31,7 @@ export class WsRolesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<{
-      action: Record<string, string[]>;
+      action?: Record<string, string[]>;
       organizationParam: OrganizationParam;
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles) return true;
@@ -58,7 +58,11 @@ export class WsRolesGuard implements CanActivate {
       ),
       columns: { role: true },
     });
-    if (!membership || !isAuthorized(membership.role, requiredRoles.action))
+    if (
+      !membership ||
+      (requiredRoles.action &&
+        !isAuthorized(membership.role, requiredRoles.action))
+    )
       throw new WsException('Forbidden');
 
     return true;

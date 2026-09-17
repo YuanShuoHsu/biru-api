@@ -5,9 +5,11 @@ import { lt } from 'drizzle-orm';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { PayrollRulesService } from 'src/payroll/payroll-rules.service';
 
 const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
+const ATTENDANCE_AUDIT_RETENTION_MONTHS = 60;
 
 const monthsAgo = (months: number): Date => {
   const cutoff = new Date();
@@ -20,7 +22,22 @@ const monthsAgo = (months: number): Date => {
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly payrollRulesService: PayrollRulesService,
+  ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
+  async handlePayrollRuleIngestCron() {
+    try {
+      const { written } = await this.payrollRulesService.ingest();
+
+      if (written.length)
+        this.logger.log(`更新 ${written.join(', ')} 薪資規則集`);
+    } catch (error) {
+      this.logger.error('匯入官方投保分級表失敗', error);
+    }
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
   async handleCleanupCron() {
@@ -67,9 +84,21 @@ export class TasksService {
     );
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleAttendanceAuditRetentionCron() {
+    await this.purge(
+      '出勤稽核紀錄',
+      schema.attendanceAudit,
+      monthsAgo(ATTENDANCE_AUDIT_RETENTION_MONTHS),
+    );
+  }
+
   private async purge(
     label: string,
-    table: typeof schema.auditLog | typeof schema.ecpayCallbackLog,
+    table:
+      | typeof schema.auditLog
+      | typeof schema.ecpayCallbackLog
+      | typeof schema.attendanceAudit,
     cutoff: Date,
   ): Promise<void> {
     try {

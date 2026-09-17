@@ -18,6 +18,7 @@ import { join } from 'node:path';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
@@ -36,12 +37,14 @@ import { RolesGuard } from './menus/guards/roles.guard';
 import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { PayrollModule } from './payroll/payroll.module';
 import { PointsModule } from './points/points.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    AttendanceModule,
     AuditModule,
     AuthModule,
     BannersModule,
@@ -91,6 +94,7 @@ import { UsersModule } from './users/users.module';
     MenusModule,
     OrdersModule,
     OrganizationsModule,
+    PayrollModule,
     PointsModule,
     ScheduleModule.forRoot(),
     TasksModule,

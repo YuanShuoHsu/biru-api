@@ -1,3 +1,4 @@
+export * from './attendance';
 export * from './audit';
 export * from './banners';
 export * from './coupons';
@@ -8,6 +9,7 @@ export * from './invoices';
 export * from './menus';
 export * from './orders';
 export * from './organizations';
+export * from './payroll';
 export * from './points';
 export * from './refunds';
 export * from './users';

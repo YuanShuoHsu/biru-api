@@ -855,6 +855,139 @@
       "when": 1788847615416,
       "tag": "0121_audit_resource_organization",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1789015824143,
+      "tag": "0122_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1789050035379,
+      "tag": "0123_payroll_and_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1789052853829,
+      "tag": "0124_payroll_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1789116790433,
+      "tag": "0125_statutory_leave",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1789117235653,
+      "tag": "0126_emergency_makeup_rest",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1789140760957,
+      "tag": "0127_event_leave_cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1789141067518,
+      "tag": "0128_calendar_leave_pay",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1789276813942,
+      "tag": "0129_payroll_rule_sets",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1789295580257,
+      "tag": "0130_parental_leave",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1789365436577,
+      "tag": "0131_parental_children_and_returns",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1789365871028,
+      "tag": "0132_attendance_indexes_and_parental",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1789542232372,
+      "tag": "0133_attendance_request_shift_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1789560700765,
+      "tag": "0134_attendance_retention_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1789562077437,
+      "tag": "0135_shift_breaks_and_part_time_grades",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1789562983352,
+      "tag": "0136_payroll_rule_set_freshness",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1789626015960,
+      "tag": "0137_payroll_reopen",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1789626931032,
+      "tag": "0138_employee_weekly_minutes_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1789627961925,
+      "tag": "0139_attendance_organization_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1789642531709,
+      "tag": "0140_attendance_retention_restrict",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "attendance_employee" ADD COLUMN "weekly_minutes" integer DEFAULT 2400 NOT NULL;--> statement-breakpoint
+ALTER TABLE "attendance_leave_type" ADD COLUMN "statutory_kind" text DEFAULT 'custom' NOT NULL;

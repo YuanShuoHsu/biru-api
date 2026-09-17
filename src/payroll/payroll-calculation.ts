@@ -1,0 +1,259 @@
+import type { TimeInterval } from 'src/attendance/attendance-rules';
+import { platformMonthStart } from 'src/common/constants/timezone';
+import type {
+  PayrollBlocker,
+  PayrollLine,
+  PayrollTerms,
+  TaiwanRuleSet,
+} from 'src/db/schema/payroll';
+
+import { taiwanDeductions } from './taiwan-rules';
+
+export interface PayrollWorkDay {
+  seconds: number;
+  dayKind: string;
+  scheduledSeconds?: number;
+  scheduledOffsetSeconds?: number;
+  paidLeaveSeconds?: number;
+  parentalScheduledSeconds?: number;
+  offsetSeconds?: number;
+  totalSeconds?: number;
+}
+
+export const roundRatio = (numerator: bigint, denominator: bigint) =>
+  (numerator + denominator / 2n) / denominator;
+
+export function hourlyRate(terms: PayrollTerms) {
+  const salary = BigInt(terms.salaryCents);
+  const allowance = BigInt(terms.allowanceCents);
+  const hours = BigInt(terms.allowanceHours ?? 1);
+  return terms.salaryType === 'monthly'
+    ? { numerator: salary + allowance, denominator: 240n }
+    : { numerator: salary * hours + allowance, denominator: hours };
+}
+
+export function calculatePayroll(
+  rules: TaiwanRuleSet,
+  terms: PayrollTerms,
+  days: PayrollWorkDay[],
+  leaveDeductionSeconds: number,
+  fraction: {
+    numerator: number;
+    denominator: number;
+    coverageDays?: number;
+    healthCharged?: boolean;
+    annualLeavePayoutCents?: string;
+    calendarLeaveDeductionCents?: string;
+    calendarLeavePayCents?: string;
+  } = { numerator: 1, denominator: 1 },
+) {
+  const salary = BigInt(terms.salaryCents);
+  const allowance = BigInt(terms.allowanceCents);
+  const { numerator: hourlyNumerator, denominator: hourlyDenominator } =
+    hourlyRate(terms);
+  const lines: PayrollLine[] = [];
+  const blockers: PayrollBlocker[] = [];
+  if (
+    (terms.salaryType === 'monthly' ? salary + allowance : salary) <
+    BigInt(
+      terms.salaryType === 'monthly'
+        ? rules.minimumMonthlyWageCents
+        : rules.minimumHourlyWageCents,
+    )
+  )
+    blockers.push('belowMinimumWage');
+  if (terms.salaryType === 'hourly' && allowance > 0n && !terms.allowanceHours)
+    blockers.push('hourlyAllowanceBasisRequired');
+  let regularSeconds = 0,
+    overtimeFirst = 0,
+    overtimeSecond = 0,
+    overtimeThird = 0,
+    holidaySeconds = 0,
+    emergencySeconds = 0,
+    restOvertime = 0,
+    ordinaryOvertime = 0,
+    paidLeaveSeconds = 0;
+  for (const day of days) {
+    if (
+      day.dayKind !== 'regularLeave' &&
+      (day.totalSeconds ?? day.seconds) > 12 * 3600
+    )
+      blockers.push('dailyHoursExceeded');
+    paidLeaveSeconds += day.paidLeaveSeconds ?? 0;
+    const offset = day.offsetSeconds ?? 0;
+    const band = (from: number, to: number) =>
+      Math.max(0, Math.min(offset + day.seconds, to) - Math.max(offset, from));
+    if (day.dayKind === 'restDay') {
+      overtimeFirst += band(0, 2 * 3600);
+      overtimeSecond += band(2 * 3600, 8 * 3600);
+      overtimeThird += band(8 * 3600, 12 * 3600);
+      restOvertime += day.seconds;
+      continue;
+    }
+    if (day.dayKind === 'holiday' || day.dayKind === 'regularLeave') {
+      if (terms.salaryType === 'monthly') {
+        if (day.seconds > 0) {
+          const total = day.totalSeconds ?? day.seconds;
+          holidaySeconds +=
+            Math.round((8 * 3600 * (offset + day.seconds)) / total) -
+            Math.round((8 * 3600 * offset) / total);
+        }
+      } else {
+        const scheduledOffset = day.scheduledOffsetSeconds ?? 0;
+        const scheduledTo = Math.min(
+          scheduledOffset + (day.scheduledSeconds ?? 0),
+          8 * 3600,
+        );
+        const scheduledFrom = Math.min(scheduledOffset, 8 * 3600);
+        regularSeconds += Math.max(
+          0,
+          scheduledTo - scheduledFrom - (day.parentalScheduledSeconds ?? 0),
+        );
+        if ((day.totalSeconds ?? day.seconds) > 0)
+          holidaySeconds +=
+            Math.max(scheduledTo, Math.min(offset + day.seconds, 8 * 3600)) -
+            Math.max(scheduledFrom, Math.min(offset, 8 * 3600));
+      }
+    } else if (day.dayKind === 'workday') {
+      regularSeconds += band(0, 8 * 3600);
+      ordinaryOvertime += band(8 * 3600, Infinity);
+    } else blockers.push('unsupportedDayKind');
+    if (day.dayKind === 'regularLeave') {
+      emergencySeconds += band(8 * 3600, Infinity);
+      continue;
+    }
+    overtimeFirst += band(8 * 3600, 10 * 3600);
+    overtimeSecond += band(10 * 3600, 12 * 3600);
+  }
+  if (ordinaryOvertime + restOvertime > 46 * 3600)
+    blockers.push('monthlyOvertimeExceeded');
+  const regular =
+    terms.salaryType === 'monthly'
+      ? roundRatio(
+          salary * BigInt(fraction.numerator),
+          BigInt(fraction.denominator),
+        )
+      : roundRatio(salary * BigInt(regularSeconds + paidLeaveSeconds), 3600n);
+  const overtime = roundRatio(
+    hourlyNumerator *
+      (BigInt(overtimeFirst) * 4n +
+        BigInt(overtimeSecond) * 5n +
+        BigInt(overtimeThird) * 8n +
+        BigInt(emergencySeconds) * 6n),
+    hourlyDenominator * 3600n * 3n,
+  );
+  const holidayPay = roundRatio(
+    hourlyNumerator * BigInt(holidaySeconds),
+    hourlyDenominator * 3600n,
+  );
+  const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
+  const leaveDeduction =
+    BigInt(fraction.calendarLeaveDeductionCents ?? '0') +
+    (terms.salaryType === 'monthly'
+      ? roundRatio(
+          hourlyNumerator * BigInt(leaveDeductionSeconds),
+          hourlyDenominator * 3600n,
+        )
+      : 0n);
+  const annualLeavePay = BigInt(fraction.annualLeavePayoutCents ?? '0');
+  const paidAllowance = roundRatio(
+    allowance * BigInt(fraction.numerator),
+    BigInt(fraction.denominator),
+  );
+  lines.push(
+    {
+      code: 'basePay',
+      amountCents: regular.toString(),
+      seconds: regularSeconds,
+    },
+    {
+      code: 'overtimePay',
+      amountCents: overtime.toString(),
+      seconds:
+        overtimeFirst + overtimeSecond + overtimeThird + emergencySeconds,
+    },
+    {
+      code: 'holidayPay',
+      amountCents: holidayPay.toString(),
+      seconds: holidaySeconds,
+    },
+    { code: 'allowance', amountCents: paidAllowance.toString() },
+    { code: 'calendarLeavePay', amountCents: calendarLeavePay.toString() },
+    { code: 'annualLeavePay', amountCents: annualLeavePay.toString() },
+    { code: 'leaveDeduction', amountCents: leaveDeduction.toString() },
+  );
+  const resolved = taiwanDeductions(
+    rules,
+    terms,
+    regular +
+      paidAllowance +
+      annualLeavePay +
+      calendarLeavePay -
+      leaveDeduction,
+    fraction.coverageDays,
+    fraction.healthCharged,
+  );
+  for (const code of [
+    'laborInsurance',
+    'healthInsurance',
+    'voluntaryPension',
+    'withholding',
+    'otherDeduction',
+  ] as const)
+    lines.push({ code, amountCents: resolved[`${code}Cents`] });
+  const gross =
+    regular +
+    overtime +
+    holidayPay +
+    paidAllowance +
+    annualLeavePay +
+    calendarLeavePay;
+  const deduction =
+    leaveDeduction +
+    BigInt(resolved.laborInsuranceCents) +
+    BigInt(resolved.healthInsuranceCents) +
+    BigInt(resolved.voluntaryPensionCents) +
+    BigInt(resolved.withholdingCents) +
+    BigInt(resolved.otherDeductionCents);
+  if (gross < deduction) blockers.push('negativeNetPay');
+  return {
+    lines,
+    grossCents: gross.toString(),
+    deductionCents: deduction.toString(),
+    netCents: (gross - deduction).toString(),
+    employerPensionCents: resolved.employerPensionCents,
+    workedSeconds: days.reduce((sum, day) => sum + day.seconds, 0),
+    blockers: [...new Set(blockers)],
+  };
+}
+
+export function uncoveredOvertime(
+  intervals: TimeInterval[],
+  approved: TimeInterval[],
+  dayKind: string,
+) {
+  let regularRemaining = dayKind === 'workday' ? 8 * 3600000 : 0;
+  let missing = 0;
+  for (const interval of [...intervals].sort((a, b) => a.start - b.start)) {
+    const regular = Math.min(regularRemaining, interval.end - interval.start);
+    regularRemaining -= regular;
+    let cursor = interval.start + regular;
+    for (const approval of [...approved].sort((a, b) => a.start - b.start)) {
+      if (approval.end <= cursor || approval.start >= interval.end) continue;
+      if (approval.start > cursor)
+        missing += Math.min(approval.start, interval.end) - cursor;
+      cursor = Math.max(cursor, Math.min(interval.end, approval.end));
+      if (cursor >= interval.end) break;
+    }
+    missing += Math.max(0, interval.end - cursor);
+  }
+  return missing;
+}
+
+export function payrollPeriod(month: string) {
+  const [year, number] = month.split('-').map(Number);
+  return {
+    start: platformMonthStart(year, number - 1),
+    end: platformMonthStart(year, number),
+  };
+}

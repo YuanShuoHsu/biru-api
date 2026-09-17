@@ -7,5 +7,7 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnPaste": true,
   "editor.formatOnSave": true,
-  "editor.formatOnType": true
+  "editor.formatOnType": true,
+  "i18n-ally.localesPaths": ["./src/i18n"],
+  "i18n-ally.keystyle": "nested"
 }
