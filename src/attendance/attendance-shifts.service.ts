@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gte,
   ilike,
   inArray,
   lt,
@@ -55,6 +56,7 @@ import {
   SHIFT_STATE_RANK,
   summarizeEvents,
 } from './attendance-rules';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import {
   ATTENDANCE_SHIFT_DATE_FILTER_FIELDS,
   ATTENDANCE_SHIFT_ENUM_FILTER_FIELDS,
@@ -75,6 +77,8 @@ const shiftStateCase = sql.join(
 );
 
 const CLOCK_IN_LEAD_MS = 12 * 3600000;
+
+const CALENDAR_SHIFT_LIMIT = 500;
 
 const punchableShift = sql`${unfinishedShift}
   AND (EXISTS (SELECT 1 FROM ${attendanceEvent} started WHERE started.shift_id = ${attendanceShift.id})
@@ -250,6 +254,26 @@ export class AttendanceShiftsService {
       { limit: 10, sortBy: 'startsAt', sortDirection: 'asc' },
       true,
       punchableShift,
+    );
+    return data;
+  }
+
+  async calendarShifts(
+    actor: AttendanceActor,
+    { from, to }: AttendanceShiftRangeQueryDto,
+  ) {
+    const { data } = await this.shifts(
+      actor,
+      {
+        limit: CALENDAR_SHIFT_LIMIT,
+        sortBy: 'startsAt',
+        sortDirection: 'asc',
+      },
+      false,
+      and(
+        gte(attendanceShift.startsAt, new Date(from)),
+        lt(attendanceShift.startsAt, new Date(to)),
+      ),
     );
     return data;
   }

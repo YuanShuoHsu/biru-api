@@ -22,6 +22,7 @@ import { actor } from './attendance-actor';
 import { AttendanceShiftsService } from './attendance-shifts.service';
 import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { AttendanceShiftPaginationQueryDto } from './dto/attendance-shift-pagination-query.dto';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import {
   AttendancePunchResponseDto,
   AttendanceShiftRecordResponseDto,
@@ -75,6 +76,20 @@ export class AttendanceShiftsController {
       actor(req, session),
       query,
       false,
+    );
+  }
+
+  @Get('shifts/calendar')
+  @Roles({ shift: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '指定期間的全店班表' })
+  calendarShifts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceShiftRangeQueryDto,
+  ): Promise<AttendanceShiftResponseDto[]> {
+    return this.attendanceShiftsService.calendarShifts(
+      actor(req, session),
+      query,
     );
   }
 
