@@ -47,6 +47,7 @@ export class AttendanceRequestResponseDto {
   @ApiProperty() reason: string;
   @ApiPropertyOptional() reviewReason: string | null;
   @ApiPropertyOptional() leaveTypeId: string | null;
+  @ApiPropertyOptional() leaveTypeName: string | null;
   @ApiPropertyOptional() leaveCaseId: string | null;
   @ApiPropertyOptional() leaveMinutes: number | null;
   @ApiPropertyOptional() paidPercent: number | null;
@@ -69,7 +70,7 @@ export class AttendanceRequestResponseDto {
 
 export class AttendanceRequestRecordResponseDto extends OmitType(
   AttendanceRequestResponseDto,
-  ['employeeName', 'returnPending'] as const,
+  ['employeeName', 'leaveTypeName', 'returnPending'] as const,
 ) {}
 
 export class AttendanceRequestsResponseDto {

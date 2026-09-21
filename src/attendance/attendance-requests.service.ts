@@ -17,7 +17,12 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { DAY_MS, platformDateString } from 'src/common/constants/timezone';
+import {
+  DAY_MS,
+  platformDateString,
+  platformMonthStart,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -50,7 +55,11 @@ import {
 import {
   blockingRequestStatuses,
   countedRequestStatuses,
+  CORRECTION_LEAD_MS,
+  MAX_DAILY_WORK_SECONDS,
+  MAX_MONTHLY_OVERTIME_SECONDS,
   MAX_SHIFT_MS,
+  scheduledWorkSeconds,
   summarizeEvents,
 } from './attendance-rules';
 import {
@@ -91,6 +100,14 @@ import { unfinishedShift } from './shift-queries';
 
 type AttendanceRequestRow = typeof attendanceRequest.$inferSelect;
 
+type AttendanceShiftRow = typeof attendanceShift.$inferSelect;
+
+const startedBetween = (from: Date, to: Date) =>
+  and(
+    sql`${attendanceRequest.startsAt} >= ${from}`,
+    lt(attendanceRequest.startsAt, to),
+  )!;
+
 @Injectable()
 export class AttendanceRequestsService {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
@@ -116,6 +133,7 @@ export class AttendanceRequestsService {
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: attendanceEmployee.name,
+      leaveTypeName: attendanceLeaveType.name,
       reason: attendanceRequest.reason,
       reviewReason: attendanceRequest.reviewReason,
       startsAt: attendanceRequest.startsAt,
@@ -144,6 +162,7 @@ export class AttendanceRequestsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(attendanceLeaveType.name, `%${value}%`),
           ilike(attendanceRequest.reason, `%${value}%`),
           ilike(attendanceRequest.reviewReason, `%${value}%`),
           ilike(localTimeText(attendanceRequest.startsAt), `%${value}%`),
@@ -157,6 +176,7 @@ export class AttendanceRequestsService {
         .select({
           request: attendanceRequest,
           employeeName: attendanceEmployee.name,
+          leaveTypeName: attendanceLeaveType.name,
           returnPending: sql<boolean>`EXISTS (SELECT 1 FROM ${attendanceParentalReturn} pending
             WHERE pending.request_id = ${attendanceRequest.id} AND pending.status = 'pending')`,
         })
@@ -164,6 +184,10 @@ export class AttendanceRequestsService {
         .innerJoin(
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceRequest.employeeId),
+        )
+        .leftJoin(
+          attendanceLeaveType,
+          eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
         )
         .where(where)
         .orderBy(
@@ -179,14 +203,21 @@ export class AttendanceRequestsService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceRequest.employeeId),
         )
+        .leftJoin(
+          attendanceLeaveType,
+          eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
+        )
         .where(where),
     ]);
     return {
-      data: data.map(({ request, employeeName, returnPending }) => ({
-        ...request,
-        employeeName,
-        returnPending,
-      })),
+      data: data.map(
+        ({ request, employeeName, leaveTypeName, returnPending }) => ({
+          ...request,
+          employeeName,
+          leaveTypeName,
+          returnPending,
+        }),
+      ),
       total,
     };
   }
@@ -286,6 +317,8 @@ export class AttendanceRequestsService {
           ),
         );
       if (!shift) throw new NotFoundException();
+      if (dto.kind === 'overtime')
+        await this.assertOvertimeFits(tx, shift, interval);
       if (dto.kind === 'correction') {
         if (
           !dto.correctedEvents ||
@@ -297,7 +330,7 @@ export class AttendanceRequestsService {
           interval.endsAt.getTime() - interval.startsAt.getTime() >
             MAX_SHIFT_MS ||
           interval.startsAt.getTime() <
-            shift.startsAt.getTime() - 12 * 3600000 ||
+            shift.startsAt.getTime() - CORRECTION_LEAD_MS ||
           interval.endsAt.getTime() > shift.endsAt.getTime() + DAY_MS
         )
           throw badRequestError('invalidInterval');
@@ -486,6 +519,66 @@ export class AttendanceRequestsService {
       new Date(Math.min(request.startsAt.getTime(), shift.startsAt.getTime())),
       new Date(Math.max(request.endsAt.getTime(), shift.endsAt.getTime())),
     );
+  }
+
+  private async overtimeSeconds(
+    tx: Transaction,
+    employeeId: string,
+    scope: SQL,
+  ) {
+    const [{ seconds }] = await tx
+      .select({
+        seconds: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${attendanceRequest.endsAt} - ${attendanceRequest.startsAt}))), 0)::int`,
+      })
+      .from(attendanceRequest)
+      .where(
+        and(
+          eq(attendanceRequest.employeeId, employeeId),
+          eq(attendanceRequest.kind, 'overtime'),
+          inArray(attendanceRequest.status, blockingRequestStatuses),
+          scope,
+        ),
+      );
+    return seconds;
+  }
+
+  private async assertOvertimeFits(
+    tx: Transaction,
+    shift: AttendanceShiftRow,
+    interval: { endsAt: Date; startsAt: Date },
+  ) {
+    const workday = shift.dayKind === 'workday';
+    if (
+      workday
+        ? interval.startsAt.getTime() !== shift.endsAt.getTime()
+        : interval.startsAt < shift.startsAt || interval.endsAt > shift.endsAt
+    )
+      throw badRequestError('invalidInterval');
+    const seconds =
+      (interval.endsAt.getTime() - interval.startsAt.getTime()) / 1000;
+    if (shift.dayKind !== 'regularLeave') {
+      const sameShift = await this.overtimeSeconds(
+        tx,
+        shift.employeeId,
+        eq(attendanceRequest.shiftId, shift.id),
+      );
+      if (
+        (workday ? scheduledWorkSeconds(shift) : 0) + sameShift + seconds >
+        MAX_DAILY_WORK_SECONDS
+      )
+        throw badRequestError('dailyHoursExceeded');
+    }
+    const platform = toPlatformTime(interval.startsAt);
+    const year = platform.getUTCFullYear(),
+      month = platform.getUTCMonth();
+    const monthEnd = platformMonthStart(year, month + 1);
+    const monthly = await this.overtimeSeconds(
+      tx,
+      shift.employeeId,
+      startedBetween(platformMonthStart(year, month), monthEnd),
+    );
+    if (monthly + seconds > MAX_MONTHLY_OVERTIME_SECONDS)
+      throw badRequestError('monthlyOvertimeExceeded');
   }
 
   private async approveOvertime(
