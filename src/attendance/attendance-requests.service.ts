@@ -83,6 +83,7 @@ import {
 } from './leave-ledger';
 import {
   calendarLeaveMinutes,
+  effectivePaidPercent,
   isCalendarLeave,
   isEventLeave,
   requiresMedicalCertificate,
@@ -781,7 +782,7 @@ export class AttendanceRequestsService {
     );
     const paidPercent = isEventLeave(policy.statutoryKind)
       ? await this.approveEventLeave(tx, actor, policy, request, minutes)
-      : policy.paidPercent;
+      : effectivePaidPercent(policy.statutoryKind, policy.paidPercent);
     await tx
       .update(attendanceRequest)
       .set({ leaveMinutes: minutes, paidPercent })

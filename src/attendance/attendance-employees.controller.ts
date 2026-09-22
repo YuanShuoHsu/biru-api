@@ -16,7 +16,7 @@ import {
   AttendanceContextResponseDto,
   AttendanceEmployeeResponseDto,
   AttendanceEmployeesResponseDto,
-  AttendanceMemberResponseDto,
+  AttendanceMembersResponseDto,
 } from './dto/attendance-employee-response.dto';
 import { AttendanceErrorResponseDto } from './dto/attendance-error-response.dto';
 import { AttendanceSettingsResponseDto } from './dto/attendance-settings-response.dto';
@@ -43,12 +43,13 @@ export class AttendanceEmployeesController {
 
   @Get('members')
   @Roles({ employee: ['read'] }, 'organizationSlug')
-  @ApiOperation({ summary: '可建立為員工的組織成員清單' })
+  @ApiOperation({ summary: '組織成員與其出勤設定清單' })
   members(
     @Req() req: AuthRequest,
     @Session() session: UserSession,
-  ): Promise<AttendanceMemberResponseDto[]> {
-    return this.attendanceEmployeesService.members(actor(req, session));
+    @Query() query: AttendanceEmployeePaginationQueryDto,
+  ): Promise<AttendanceMembersResponseDto> {
+    return this.attendanceEmployeesService.members(actor(req, session), query);
   }
 
   @Get('employees')

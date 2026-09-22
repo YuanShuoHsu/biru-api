@@ -46,7 +46,10 @@ import {
   weeklyMinutesAt,
   weeklyMinutesOf,
 } from 'src/attendance/employee-hours';
-import { isCalendarLeave } from 'src/attendance/leave-rules';
+import {
+  effectivePaidPercent,
+  isCalendarLeave,
+} from 'src/attendance/leave-rules';
 import {
   isMedicalLeave,
   loadMedicalLedger,
@@ -642,7 +645,11 @@ export class PayrollService {
           );
           leaveSeconds += fullSeconds;
           if (!policy || !isCalendarLeave(policy.statutoryKind)) {
-            const paidPercent = leave.paidPercent ?? policy?.paidPercent ?? 0;
+            const paidPercent =
+              leave.paidPercent ??
+              (policy
+                ? effectivePaidPercent(policy.statutoryKind, policy.paidPercent)
+                : 0);
             const paid =
               policy && isMedicalLeave(policy.statutoryKind) && medical
                 ? medicalPaidSeconds(

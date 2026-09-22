@@ -102,6 +102,11 @@ export const statutoryPaidPercent = (kind: StatutoryLeaveKind) =>
       ? 50
       : 0;
 
+export const effectivePaidPercent = (
+  kind: StatutoryLeaveKind,
+  override: number | null,
+) => Math.max(override ?? 0, statutoryPaidPercent(kind));
+
 export const eventLeaveDays = {
   parental: 731,
   marriage: 8,

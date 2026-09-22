@@ -278,20 +278,32 @@ export const attendanceAudit = pgTable(
   ],
 );
 
-export const attendanceLeaveType = pgTable('attendance_leave_type', {
-  id: text('id').primaryKey(),
-  statutoryKind: text('statutory_kind')
-    .$type<StatutoryLeaveKind>()
-    .notNull()
-    .default('custom'),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  paidPercent: integer('paid_percent').notNull(),
-  requiresBalance: boolean('requires_balance').notNull().default(true),
-  enabled: boolean('enabled').notNull().default(true),
-});
+export const attendanceLeaveType = pgTable(
+  'attendance_leave_type',
+  {
+    id: text('id').primaryKey(),
+    statutoryKind: text('statutory_kind')
+      .$type<StatutoryLeaveKind>()
+      .notNull()
+      .default('custom'),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    paidPercent: integer('paid_percent'),
+    requiresBalance: boolean('requires_balance'),
+    enabled: boolean('enabled').notNull().default(true),
+  },
+  (t) => [
+    uniqueIndex('attendance_leave_type_statutory_uidx')
+      .on(t.organizationId, t.statutoryKind)
+      .where(sql`${t.statutoryKind} <> 'custom'`),
+    check(
+      'attendance_leave_type_custom_rules',
+      sql`(${t.statutoryKind} = 'custom') = (${t.paidPercent} IS NOT NULL AND ${t.requiresBalance} IS NOT NULL)`,
+    ),
+  ],
+);
 
 export const attendanceLeaveBalance = pgTable(
   'attendance_leave_balance',

@@ -24,6 +24,7 @@ import {
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import {
+  STATUTORY_LEAVE_KINDS,
   attendanceEmployee,
   attendanceLeaveBalance,
   attendanceLeaveCase,
@@ -33,7 +34,12 @@ import {
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
-import { lockOrganization, writeAudit } from './attendance-audit';
+import {
+  assertPayrollUnlocked,
+  lockOrganization,
+  writeAudit,
+  type Transaction,
+} from './attendance-audit';
 import {
   badRequestError,
   conflictError,
@@ -76,6 +82,7 @@ import {
   statutoryPaidPercent,
 } from './leave-rules';
 import { isMedicalLeave, loadMedicalLedgers } from './medical-leave';
+import { parentalLeaveErrors } from './parental-leave';
 import { matchParentalChild } from './parental-ledger';
 import { parseInterval } from './shift-intervals';
 
@@ -268,7 +275,20 @@ const leaveTypeWithFlags = (row: typeof attendanceLeaveType.$inferSelect) => ({
   eventLeave: isEventLeave(row.statutoryKind),
   calendarLeave: isCalendarLeave(row.statutoryKind),
   medicalCertificateRequired: requiresMedicalCertificate(row.statutoryKind),
+  statutoryPaidPercent:
+    row.statutoryKind === 'custom'
+      ? null
+      : statutoryPaidPercent(row.statutoryKind),
 });
+
+// 給薪比例必須以 SQL 字面值寫入，綁定參數會讓 Postgres 把 case 推斷成 text 而與 coalesce 的 integer 衝突
+const effectivePaidPercentSql = sql`coalesce(${attendanceLeaveType.paidPercent}, case ${attendanceLeaveType.statutoryKind} ${sql.join(
+  STATUTORY_LEAVE_KINDS.map(
+    (kind) =>
+      sql`when ${kind} then ${sql.raw(String(statutoryPaidPercent(kind)))}`,
+  ),
+  sql` `,
+)} end)`;
 
 @Injectable()
 export class AttendanceLeavesService {
@@ -407,129 +427,156 @@ export class AttendanceLeavesService {
     };
   }
 
+  private async resolveLeaveCase(
+    tx: Transaction,
+    actor: AttendanceActor,
+    dto: CreateAttendanceLeaveCaseDto,
+    currentId?: string,
+  ) {
+    const [employee] = await tx
+      .select()
+      .from(attendanceEmployee)
+      .where(
+        and(
+          eq(attendanceEmployee.id, dto.employeeId),
+          eq(attendanceEmployee.organizationId, actor.organizationId),
+        ),
+      );
+    const [policy] = await tx
+      .select()
+      .from(attendanceLeaveType)
+      .where(
+        and(
+          eq(attendanceLeaveType.id, dto.leaveTypeId),
+          eq(attendanceLeaveType.organizationId, actor.organizationId),
+          eq(attendanceLeaveType.enabled, true),
+        ),
+      );
+    if (!employee || !policy || !isEventLeave(policy.statutoryKind))
+      throw badRequestError('invalidLeaveCase');
+    if (employee.userId === actor.userId)
+      throw forbiddenError('cannotReviewSelf');
+    const { startsAt, endsAt } = parseInterval(dto.startsAt, dto.endsAt);
+    const eventDate = new Date(dto.eventDate);
+    if (
+      !dto.reference.trim() ||
+      !dto.reason.trim() ||
+      startsAt < employee.hiredAt ||
+      endsAt.getTime() - startsAt.getTime() >
+        (policy.statutoryKind === 'parental' ? 3 : 2) * 366 * DAY_MS ||
+      !Number.isFinite(eventDate.getTime())
+    )
+      throw badRequestError('invalidLeaveCase');
+    if (
+      policy.statutoryKind !== 'parental' &&
+      isCalendarLeave(policy.statutoryKind) &&
+      (!isAuthorized(actor.role, { payrollTerm: ['update'] }) ||
+        !dto.dailyPayCents ||
+        !/^\d{1,12}$/.test(dto.dailyPayCents))
+    )
+      throw badRequestError('calendarLeavePayRequired');
+    if (
+      policy.statutoryKind === 'parental' &&
+      (eventDate > new Date() ||
+        startsAt < eventDate ||
+        endsAt > anniversary(eventDate, 36) ||
+        (!dto.earlyParentalAgreed &&
+          startsAt < anniversary(employee.hiredAt, 6)))
+    )
+      throw badRequestError('invalidParentalInterval');
+    if (policy.statutoryKind === 'parental')
+      await matchParentalChild(
+        tx,
+        actor.organizationId,
+        employee.id,
+        dto.childId,
+        eventDate,
+      );
+    else if (dto.childId) throw badRequestError('parentalChildMismatch');
+    const statutory = eventLeaveEntitlement(
+      policy.statutoryKind,
+      employee.hiredAt,
+      startsAt,
+      weeklyMinutesAt(employee, startsAt),
+    );
+    const entitlement = {
+      ...statutory,
+      paidPercent: Math.max(statutory.paidPercent, policy.paidPercent ?? 0),
+    };
+    if (
+      policy.statutoryKind !== 'parental' &&
+      isCalendarLeave(policy.statutoryKind) &&
+      entitlement.paidPercent > 0 &&
+      BigInt(dto.dailyPayCents!) <= 0n
+    )
+      throw badRequestError('calendarLeavePayRequired');
+    if (
+      policy.statutoryKind !== 'parental' &&
+      isCalendarLeave(policy.statutoryKind) &&
+      calendarLeaveMinutes(startsAt, endsAt) !== entitlement.grantedMinutes
+    )
+      throw badRequestError('calendarLeaveInterval');
+    if (
+      policy.statutoryKind === 'marriage' &&
+      (startsAt.getTime() < eventDate.getTime() - 10 * DAY_MS ||
+        endsAt > anniversary(eventDate, dto.extensionAgreed ? 6 : 3))
+    )
+      throw badRequestError('invalidLeaveCase');
+    const [existing] = await tx
+      .select({ id: attendanceLeaveCase.id })
+      .from(attendanceLeaveCase)
+      .where(
+        and(
+          eq(attendanceLeaveCase.employeeId, employee.id),
+          eq(attendanceLeaveCase.leaveTypeId, policy.id),
+          eq(attendanceLeaveCase.reference, dto.reference.trim()),
+          currentId ? ne(attendanceLeaveCase.id, currentId) : undefined,
+        ),
+      );
+    if (existing) throw conflictError('leaveCaseExists');
+
+    return {
+      employee,
+      policy,
+      entitlement,
+      values: {
+        employeeId: employee.id,
+        leaveTypeId: policy.id,
+        reference: dto.reference.trim(),
+        childId: dto.childId ?? null,
+        eventDate,
+        startsAt,
+        endsAt,
+        ...entitlement,
+        dailyPayCents:
+          policy.statutoryKind === 'parental'
+            ? '0'
+            : isCalendarLeave(policy.statutoryKind)
+              ? dto.dailyPayCents
+              : null,
+        reason: dto.reason.trim(),
+      },
+    };
+  }
+
   async createLeaveCase(
     actor: AttendanceActor,
     dto: CreateAttendanceLeaveCaseDto,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const [employee] = await tx
-        .select()
-        .from(attendanceEmployee)
-        .where(
-          and(
-            eq(attendanceEmployee.id, dto.employeeId),
-            eq(attendanceEmployee.organizationId, actor.organizationId),
-          ),
-        );
-      const [policy] = await tx
-        .select()
-        .from(attendanceLeaveType)
-        .where(
-          and(
-            eq(attendanceLeaveType.id, dto.leaveTypeId),
-            eq(attendanceLeaveType.organizationId, actor.organizationId),
-            eq(attendanceLeaveType.enabled, true),
-          ),
-        );
-      if (!employee || !policy || !isEventLeave(policy.statutoryKind))
-        throw badRequestError('invalidLeaveCase');
-      if (employee.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
-      const { startsAt, endsAt } = parseInterval(dto.startsAt, dto.endsAt);
-      const eventDate = new Date(dto.eventDate);
-      if (
-        !dto.reference.trim() ||
-        !dto.reason.trim() ||
-        startsAt < employee.hiredAt ||
-        endsAt.getTime() - startsAt.getTime() >
-          (policy.statutoryKind === 'parental' ? 3 : 2) * 366 * DAY_MS ||
-        !Number.isFinite(eventDate.getTime())
-      )
-        throw badRequestError('invalidLeaveCase');
-      if (
-        policy.statutoryKind !== 'parental' &&
-        isCalendarLeave(policy.statutoryKind) &&
-        (!isAuthorized(actor.role, { payrollTerm: ['update'] }) ||
-          !dto.dailyPayCents ||
-          !/^\d{1,12}$/.test(dto.dailyPayCents))
-      )
-        throw badRequestError('calendarLeavePayRequired');
-      if (
-        policy.statutoryKind === 'parental' &&
-        (eventDate > new Date() ||
-          startsAt < eventDate ||
-          endsAt > anniversary(eventDate, 36) ||
-          (!dto.earlyParentalAgreed &&
-            startsAt < anniversary(employee.hiredAt, 6)))
-      )
-        throw badRequestError('invalidParentalInterval');
-      if (policy.statutoryKind === 'parental')
-        await matchParentalChild(
-          tx,
-          actor.organizationId,
-          employee.id,
-          dto.childId,
-          eventDate,
-        );
-      else if (dto.childId) throw badRequestError('parentalChildMismatch');
-      const entitlement = eventLeaveEntitlement(
-        policy.statutoryKind,
-        employee.hiredAt,
-        startsAt,
-        weeklyMinutesAt(employee, startsAt),
+      const { entitlement, values } = await this.resolveLeaveCase(
+        tx,
+        actor,
+        dto,
       );
-      if (
-        policy.statutoryKind !== 'parental' &&
-        isCalendarLeave(policy.statutoryKind) &&
-        entitlement.paidPercent > 0 &&
-        BigInt(dto.dailyPayCents!) <= 0n
-      )
-        throw badRequestError('calendarLeavePayRequired');
-      if (
-        policy.statutoryKind !== 'parental' &&
-        isCalendarLeave(policy.statutoryKind) &&
-        calendarLeaveMinutes(startsAt, endsAt) !== entitlement.grantedMinutes
-      )
-        throw badRequestError('calendarLeaveInterval');
-      if (
-        policy.statutoryKind === 'marriage' &&
-        (startsAt.getTime() < eventDate.getTime() - 10 * DAY_MS ||
-          endsAt > anniversary(eventDate, dto.extensionAgreed ? 6 : 3))
-      )
-        throw badRequestError('invalidLeaveCase');
-      const [existing] = await tx
-        .select({ id: attendanceLeaveCase.id })
-        .from(attendanceLeaveCase)
-        .where(
-          and(
-            eq(attendanceLeaveCase.employeeId, employee.id),
-            eq(attendanceLeaveCase.leaveTypeId, policy.id),
-            eq(attendanceLeaveCase.reference, dto.reference.trim()),
-          ),
-        );
-      if (existing) throw conflictError('leaveCaseExists');
       const [row] = await tx
         .insert(attendanceLeaveCase)
         .values({
           id: randomUUID(),
           organizationId: actor.organizationId,
-          employeeId: employee.id,
-          leaveTypeId: policy.id,
-          reference: dto.reference.trim(),
-          childId: dto.childId ?? null,
-          eventDate,
-          startsAt,
-          endsAt,
-          ...entitlement,
-          dailyPayCents:
-            policy.statutoryKind === 'parental'
-              ? '0'
-              : isCalendarLeave(policy.statutoryKind)
-                ? dto.dailyPayCents
-                : null,
-          reason: dto.reason.trim(),
           createdBy: actor.userId,
+          ...values,
         })
         .returning();
       await writeAudit(tx, actor, 'leaveCase.create', row.id, {
@@ -537,6 +584,159 @@ export class AttendanceLeavesService {
         ...entitlement,
       });
       return row;
+    });
+  }
+
+  async updateLeaveCase(
+    actor: AttendanceActor,
+    id: string,
+    dto: CreateAttendanceLeaveCaseDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [current] = await tx
+        .select()
+        .from(attendanceLeaveCase)
+        .where(
+          and(
+            eq(attendanceLeaveCase.id, id),
+            eq(attendanceLeaveCase.organizationId, actor.organizationId),
+          ),
+        );
+      if (!current) throw new NotFoundException();
+      const { policy, values } = await this.resolveLeaveCase(
+        tx,
+        actor,
+        dto,
+        id,
+      );
+      // 換人或換假別等於另一筆案件，既有請假單會跟著錯人錯假別
+      if (
+        current.employeeId !== values.employeeId ||
+        current.leaveTypeId !== values.leaveTypeId
+      )
+        throw badRequestError('invalidLeaveCase');
+      const requests = await tx
+        .select()
+        .from(attendanceRequest)
+        .where(
+          and(
+            eq(attendanceRequest.leaveCaseId, id),
+            inArray(attendanceRequest.status, countedRequestStatuses),
+          ),
+        );
+      const usedMinutes = requests.reduce(
+        (total, request) => total + (request.leaveMinutes ?? 0),
+        0,
+      );
+      if (usedMinutes > values.grantedMinutes)
+        throw conflictError('insufficientLeaveBalance');
+      if (
+        requests.some(
+          ({ endsAt, startsAt }) =>
+            startsAt < values.startsAt || endsAt > values.endsAt,
+        )
+      )
+        throw conflictError('leaveCaseIntervalConflict');
+      for (const [from, to] of [
+        [current.startsAt, current.endsAt],
+        [values.startsAt, values.endsAt],
+      ])
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
+          current.employeeId,
+          from,
+          to,
+        );
+      const [row] = await tx
+        .update(attendanceLeaveCase)
+        .set(values)
+        .where(eq(attendanceLeaveCase.id, id))
+        .returning();
+      if (policy.statutoryKind === 'parental') {
+        const cases = await tx
+          .select()
+          .from(attendanceLeaveCase)
+          .where(
+            and(
+              eq(attendanceLeaveCase.organizationId, actor.organizationId),
+              eq(attendanceLeaveCase.employeeId, current.employeeId),
+              eq(attendanceLeaveCase.leaveTypeId, current.leaveTypeId),
+            ),
+          );
+        const records = await tx
+          .select()
+          .from(attendanceRequest)
+          .where(
+            and(
+              eq(attendanceRequest.organizationId, actor.organizationId),
+              eq(attendanceRequest.employeeId, current.employeeId),
+              eq(attendanceRequest.leaveTypeId, current.leaveTypeId),
+              inArray(attendanceRequest.status, countedRequestStatuses),
+            ),
+          );
+        const errors = parentalLeaveErrors(
+          records.map((item) => ({ ...item, leaveCaseId: item.leaveCaseId! })),
+          cases,
+        );
+        if (errors.length) throw conflictError(errors[0]);
+      }
+      await writeAudit(tx, actor, 'leaveCase.update', id, {
+        ...dto,
+        grantedMinutes: values.grantedMinutes,
+        paidPercent: values.paidPercent,
+      });
+      return row;
+    });
+  }
+
+  async deleteLeaveCase(actor: AttendanceActor, id: string) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [row] = await tx
+        .select({
+          leaveCase: attendanceLeaveCase,
+          employee: attendanceEmployee,
+        })
+        .from(attendanceLeaveCase)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, attendanceLeaveCase.employeeId),
+        )
+        .where(
+          and(
+            eq(attendanceLeaveCase.id, id),
+            eq(attendanceLeaveCase.organizationId, actor.organizationId),
+          ),
+        );
+      if (!row) throw new NotFoundException();
+      if (row.employee.userId === actor.userId)
+        throw forbiddenError('cannotReviewSelf');
+      // 任何狀態的請假單都以外鍵指向案件，撤回與駁回的也會讓刪除失敗
+      const [referenced] = await tx
+        .select({ id: attendanceRequest.id })
+        .from(attendanceRequest)
+        .where(eq(attendanceRequest.leaveCaseId, id))
+        .limit(1);
+      if (referenced) throw conflictError('leaveCaseInUse');
+      await assertPayrollUnlocked(
+        tx,
+        actor.organizationId,
+        row.leaveCase.employeeId,
+        row.leaveCase.startsAt,
+        row.leaveCase.endsAt,
+      );
+      await tx
+        .delete(attendanceLeaveCase)
+        .where(eq(attendanceLeaveCase.id, id));
+      await writeAudit(tx, actor, 'leaveCase.delete', id, {
+        reference: row.leaveCase.reference,
+        startsAt: row.leaveCase.startsAt,
+        endsAt: row.leaveCase.endsAt,
+        grantedMinutes: row.leaveCase.grantedMinutes,
+      });
+      return { id };
     });
   }
 
@@ -558,7 +758,7 @@ export class AttendanceLeavesService {
     const fieldMap: Record<string, Column | SQL> = {
       name: attendanceLeaveType.name,
       statutoryKind: attendanceLeaveType.statutoryKind,
-      paidPercent: attendanceLeaveType.paidPercent,
+      paidPercent: effectivePaidPercentSql,
       requiresBalance: attendanceLeaveType.requiresBalance,
       enabled: attendanceLeaveType.enabled,
     };
@@ -625,33 +825,28 @@ export class AttendanceLeavesService {
             )
         : [];
       if (id && !current) throw new NotFoundException();
-      const statutoryKind =
-        dto.statutoryKind ?? current?.statutoryKind ?? 'custom';
-      if (current && statutoryKind !== current.statutoryKind)
-        throw conflictError('statutoryKindImmutable');
-      if (statutoryKind !== 'custom') {
-        const [existing] = await tx
-          .select()
-          .from(attendanceLeaveType)
-          .where(
-            and(
-              eq(attendanceLeaveType.organizationId, actor.organizationId),
-              eq(attendanceLeaveType.statutoryKind, statutoryKind),
-              id ? ne(attendanceLeaveType.id, id) : undefined,
-            ),
-          );
-        if (existing) throw conflictError('statutoryPolicyExists');
-      }
-      const values = {
-        ...dto,
-        statutoryKind,
-        ...(statutoryKind !== 'custom'
+      const statutoryKind = current?.statutoryKind ?? 'custom';
+      if (statutoryKind === 'custom' && dto.paidPercent == null)
+        throw badRequestError('leavePolicyRulesRequired');
+      const values =
+        statutoryKind === 'custom'
           ? {
-              paidPercent: statutoryPaidPercent(statutoryKind),
-              requiresBalance: false,
+              name: dto.name,
+              paidPercent: dto.paidPercent ?? null,
+              requiresBalance: dto.requiresBalance ?? true,
+              enabled: dto.enabled,
             }
-          : {}),
-      };
+          : {
+              name: dto.name,
+              paidPercent: dto.paidPercent ?? null,
+              requiresBalance: null,
+              enabled: true,
+            };
+      if (
+        values.paidPercent !== null &&
+        values.paidPercent < statutoryPaidPercent(statutoryKind)
+      )
+        throw badRequestError('belowStatutoryPaidPercent');
       const [row] = id
         ? await tx
             .update(attendanceLeaveType)

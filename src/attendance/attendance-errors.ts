@@ -6,6 +6,7 @@ import {
 
 export const attendanceErrorCodes = [
   'activeShiftExists',
+  'belowStatutoryPaidPercent',
   'calendarLeaveInterval',
   'calendarLeavePayRequired',
   'cannotReviewOwnDraft',
@@ -30,9 +31,12 @@ export const attendanceErrorCodes = [
   'invalidPayrollState',
   'ipNotAllowed',
   'leaveCaseExists',
+  'leaveCaseInUse',
+  'leaveCaseIntervalConflict',
   'leaveCaseRequired',
   'leaveOutsideShift',
   'leavePolicyRequired',
+  'leavePolicyRulesRequired',
   'locationNotAllowed',
   'medicalCertificateRequired',
   'medicalLeaveInterval',
@@ -73,8 +77,6 @@ export const attendanceErrorCodes = [
   'sourceRequired',
   'splitLeaveByYear',
   'statutoryBalanceAutomatic',
-  'statutoryKindImmutable',
-  'statutoryPolicyExists',
   'weeklyMinutesFromRequired',
 ] as const;
 

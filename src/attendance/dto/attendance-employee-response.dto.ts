@@ -31,6 +31,16 @@ export class AttendanceEmployeesResponseDto {
 export class AttendanceMemberResponseDto {
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
+  @ApiProperty() email: string;
+  @ApiProperty() joinedAt: Date;
+  @ApiPropertyOptional({ nullable: true, type: AttendanceEmployeeResponseDto })
+  employee: AttendanceEmployeeResponseDto | null;
+}
+
+export class AttendanceMembersResponseDto {
+  @ApiProperty({ isArray: true, type: AttendanceMemberResponseDto })
+  data: AttendanceMemberResponseDto[];
+  @ApiProperty() total: number;
 }
 
 export class AttendanceContextResponseDto {

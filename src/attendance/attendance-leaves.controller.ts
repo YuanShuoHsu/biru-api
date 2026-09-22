@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -36,6 +37,7 @@ import {
   AttendanceLeaveTypeResponseDto,
   AttendanceLeaveTypesResponseDto,
 } from './dto/attendance-leave-type-response.dto';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
 import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
@@ -88,6 +90,36 @@ export class AttendanceLeavesController {
     return this.attendanceLeavesService.createLeaveCase(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Patch('leave-cases/:id')
+  @Roles({ leaveCase: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '修改請假案件' })
+  updateLeaveCase(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+    @Body() dto: CreateAttendanceLeaveCaseDto,
+  ): Promise<AttendanceLeaveCaseRecordResponseDto> {
+    return this.attendanceLeavesService.updateLeaveCase(
+      actor(req, session),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('leave-cases/:id')
+  @Roles({ leaveCase: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '刪除尚未被使用的請假案件' })
+  deleteLeaveCase(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.deleteLeaveCase(
+      actor(req, session),
+      id,
     );
   }
 

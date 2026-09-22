@@ -22,6 +22,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { ac, admin, member, owner } from './permissions';
 
+import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
+
 import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_MINUTES,
@@ -197,21 +199,27 @@ export const createAuth = (mailsService: MailsService) =>
         organizationHooks: {
           afterCreateOrganization: async ({ organization }) => {
             try {
-              await db
-                .insert(schema.menu)
-                .values({
-                  id: uuidv4(),
-                  organizationId: organization.id,
-                  name: { 'zh-TW': organization.name },
-                })
-                .onConflictDoNothing();
+              await db.transaction(async (tx) => {
+                await tx
+                  .insert(schema.menu)
+                  .values({
+                    id: uuidv4(),
+                    organizationId: organization.id,
+                    name: { 'zh-TW': organization.name },
+                  })
+                  .onConflictDoNothing();
+                await tx
+                  .insert(schema.attendanceLeaveType)
+                  .values(statutoryLeaveTypeSeeds(organization.id))
+                  .onConflictDoNothing();
+              });
             } catch (error) {
               await db
                 .delete(schema.organization)
                 .where(eq(schema.organization.id, organization.id));
 
               throw new APIError('INTERNAL_SERVER_ERROR', {
-                message: 'Failed to create the default menu',
+                message: 'Failed to seed the organization defaults',
                 cause: error,
               });
             }

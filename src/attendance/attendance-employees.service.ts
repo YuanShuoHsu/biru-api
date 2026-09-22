@@ -18,6 +18,7 @@ import {
 import { randomUUID } from 'node:crypto';
 
 import { isAuthorized } from 'src/auth/permissions';
+import { platformMidnight } from 'src/common/constants/timezone';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -55,6 +56,10 @@ import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
 import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
 import { weeklyMinutesAt, type EmployeeHours } from './employee-hours';
 import { findEmployee } from './employee-lookup';
+
+// 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
+const platformDayStart = (value: string) =>
+  new Date(platformMidnight(new Date(value).getTime()));
 
 const currentWeeklyMinutes = sql<number>`COALESCE(
   (SELECT (change ->> 'minutes')::int
@@ -97,14 +102,6 @@ export class AttendanceEmployeesService {
         payslip: ['create', 'update', 'read'],
       }),
     };
-  }
-
-  async members(actor: AttendanceActor) {
-    return this.db
-      .select({ userId: member.userId, name: user.name })
-      .from(member)
-      .innerJoin(user, eq(user.id, member.userId))
-      .where(eq(member.organizationId, actor.organizationId));
   }
 
   async employees(
@@ -164,7 +161,7 @@ export class AttendanceEmployeesService {
         .from(attendanceEmployee)
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceEmployee.name),
+          sort(fieldMap[sortBy ?? ''] ?? attendanceEmployee.name),
           asc(attendanceEmployee.id),
         )
         .limit(limit)
@@ -172,6 +169,131 @@ export class AttendanceEmployeesService {
       this.db.select({ total: count() }).from(attendanceEmployee).where(where),
     ]);
     return { data: data.map(withCurrentWeeklyMinutes), total };
+  }
+
+  async members(
+    actor: AttendanceActor,
+    query: AttendanceEmployeePaginationQueryDto,
+  ) {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+    } = query;
+    const fieldMap: Record<string, Column | SQL> = {
+      name: user.name,
+      email: user.email,
+      hiredAt: attendanceEmployee.hiredAt,
+      terminatedAt: attendanceEmployee.terminatedAt,
+      weeklyMinutes: currentWeeklyMinutes,
+      enabled: attendanceEmployee.enabled,
+    };
+    const where = and(
+      eq(member.organizationId, actor.organizationId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
+            ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
+            [],
+            ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
+            [],
+            [],
+            ATTENDANCE_EMPLOYEE_BOOLEAN_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
+          ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
+          ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
+        ],
+      }),
+    );
+    const sort = sortDirection === 'desc' ? desc : asc;
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: attendanceEmployee.id,
+          organizationId: member.organizationId,
+          userId: member.userId,
+          name: user.name,
+          email: user.email,
+          joinedAt: member.createdAt,
+          weeklyMinutes: attendanceEmployee.weeklyMinutes,
+          weeklyMinutesHistory: attendanceEmployee.weeklyMinutesHistory,
+          enabled: attendanceEmployee.enabled,
+          hiredAt: attendanceEmployee.hiredAt,
+          terminatedAt: attendanceEmployee.terminatedAt,
+          createdAt: attendanceEmployee.createdAt,
+        })
+        .from(member)
+        .innerJoin(user, eq(user.id, member.userId))
+        .leftJoin(
+          attendanceEmployee,
+          and(
+            eq(attendanceEmployee.organizationId, member.organizationId),
+            eq(attendanceEmployee.userId, member.userId),
+          ),
+        )
+        .where(where)
+        .orderBy(sort(sortBy ? fieldMap[sortBy] : user.name), asc(member.id))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(member)
+        .innerJoin(user, eq(user.id, member.userId))
+        .leftJoin(
+          attendanceEmployee,
+          and(
+            eq(attendanceEmployee.organizationId, member.organizationId),
+            eq(attendanceEmployee.userId, member.userId),
+          ),
+        )
+        .where(where),
+    ]);
+    return {
+      data: data.map(({ email, joinedAt, name, userId, ...employee }) => ({
+        email,
+        joinedAt,
+        name,
+        userId,
+        employee:
+          employee.id === null ||
+          employee.hiredAt === null ||
+          employee.enabled === null ||
+          employee.weeklyMinutes === null ||
+          employee.weeklyMinutesHistory === null ||
+          employee.createdAt === null
+            ? null
+            : withCurrentWeeklyMinutes({
+                ...employee,
+                id: employee.id,
+                hiredAt: employee.hiredAt,
+                enabled: employee.enabled,
+                weeklyMinutes: employee.weeklyMinutes,
+                weeklyMinutesHistory: employee.weeklyMinutesHistory,
+                createdAt: employee.createdAt,
+                userId,
+                name,
+              }),
+      })),
+      total,
+    };
   }
 
   async saveEmployee(actor: AttendanceActor, dto: SaveAttendanceEmployeeDto) {
@@ -188,7 +310,7 @@ export class AttendanceEmployeesService {
           ),
         );
       if (!membership) throw badRequestError('memberNotFound');
-      const hiredAt = new Date(dto.hiredAt);
+      const hiredAt = platformDayStart(dto.hiredAt);
       const terminatedAt = dto.terminatedAt ? new Date(dto.terminatedAt) : null;
       if (terminatedAt && terminatedAt <= hiredAt)
         throw badRequestError('invalidInterval');
@@ -337,7 +459,7 @@ export class AttendanceEmployeesService {
         ? current.weeklyMinutesHistory
         : [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
     if (!from) throw badRequestError('weeklyMinutesFromRequired');
-    const effectiveFrom = new Date(from);
+    const effectiveFrom = platformDayStart(from);
     if (effectiveFrom < hiredAt)
       throw badRequestError('weeklyMinutesFromRequired');
     await assertPayrollUnlocked(
@@ -347,10 +469,18 @@ export class AttendanceEmployeesService {
       effectiveFrom,
     );
 
+    // 已生效的區段不能動，否則過去期間的法定額度會被回溯改寫；尚未生效的只留最後一次填寫
+    const now = new Date();
+
     return [
-      ...current.weeklyMinutesHistory.filter(
-        (change) => new Date(change.from).getTime() !== effectiveFrom.getTime(),
-      ),
+      ...current.weeklyMinutesHistory.filter(({ from }) => {
+        const at = new Date(from);
+
+        return (
+          at.getTime() !== effectiveFrom.getTime() &&
+          (at.getTime() === hiredAt.getTime() || at <= now)
+        );
+      }),
       { from: effectiveFrom.toISOString(), minutes: weeklyMinutes },
     ].sort((a, b) => a.from.localeCompare(b.from));
   }

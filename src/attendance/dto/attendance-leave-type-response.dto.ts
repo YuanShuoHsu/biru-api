@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   STATUTORY_LEAVE_KINDS,
@@ -14,8 +14,9 @@ export class AttendanceLeaveTypeResponseDto {
   @ApiProperty() eventLeave: boolean;
   @ApiProperty() calendarLeave: boolean;
   @ApiProperty() medicalCertificateRequired: boolean;
-  @ApiProperty() paidPercent: number;
-  @ApiProperty() requiresBalance: boolean;
+  @ApiPropertyOptional({ nullable: true }) paidPercent: number | null;
+  @ApiPropertyOptional({ nullable: true }) statutoryPaidPercent: number | null;
+  @ApiPropertyOptional({ nullable: true }) requiresBalance: boolean | null;
   @ApiProperty() enabled: boolean;
 }
 
