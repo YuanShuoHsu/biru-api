@@ -76,6 +76,12 @@ const currentWeeklyMinutes = sql<number>`COALESCE(
   (${attendanceEmployee.weeklyMinutesHistory} -> 0 ->> 'minutes')::int,
   ${attendanceEmployee.weeklyMinutes})`;
 
+const employmentTypeSql = sql<string | null>`CASE
+  WHEN ${attendanceEmployee.id} IS NULL THEN NULL
+  WHEN ${currentWeeklyMinutes} < 2400 THEN 'partTime'
+  ELSE 'fullTime'
+END`;
+
 const withCurrentWeeklyMinutes = <T extends EmployeeHours>(employee: T): T => ({
   ...employee,
   weeklyMinutes: weeklyMinutesAt(employee, new Date()),
@@ -137,6 +143,7 @@ export class AttendanceEmployeesService {
       terminatedAt: attendanceEmployee.terminatedAt,
       weeklyMinutes: currentWeeklyMinutes,
       status: employeeStatusSql,
+      employmentType: employmentTypeSql,
     };
     const where = and(
       eq(attendanceEmployee.organizationId, actor.organizationId),
@@ -222,6 +229,7 @@ export class AttendanceEmployeesService {
       terminatedAt: attendanceEmployee.terminatedAt,
       weeklyMinutes: currentWeeklyMinutes,
       status: employeeStatusSql,
+      employmentType: employmentTypeSql,
     };
     const where = and(
       eq(member.organizationId, actor.organizationId),

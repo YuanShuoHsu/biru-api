@@ -1032,14 +1032,15 @@ export class AttendanceLeavesService {
       const periodStarts = employees.flatMap((employee) =>
         statutoryPolicies
           .filter((policy) => !ledgerPolicy(policy))
-          .flatMap(
-            (policy) =>
-              statutoryLeavePeriod(
-                policy.statutoryKind,
-                employee.hiredAt,
-                at,
-                weeklyMinutesOf(employee),
-              )?.start.getTime() ?? [],
+          .flatMap((policy) =>
+            policy.statutoryKind === 'annual'
+              ? anniversary(employee.hiredAt, 6).getTime()
+              : (statutoryLeavePeriod(
+                  policy.statutoryKind,
+                  employee.hiredAt,
+                  at,
+                  weeklyMinutesOf(employee),
+                )?.start.getTime() ?? []),
           ),
       );
       const leaveRecords = periodStarts.length

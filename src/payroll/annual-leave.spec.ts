@@ -25,9 +25,14 @@ const input = {
   leaves: [{ startsAt: new Date('2026-01-10'), leaveMinutes: 480 }],
 };
 describe('Unused annual leave settlement', () => {
-  it('pays only the expired entitlement less approved leave', () => {
+  it('pays the carried-over entitlement that expired unused', () => {
     const result = annualLeaveSettlement(input);
     expect(result.settlements).toHaveLength(1);
+    expect(result.settlements[0].unusedMinutes).toBe(14 * 480 - 480);
+    expect(result.amountCents).toBe('2080000');
+  });
+  it('carries the current entitlement instead of paying it', () => {
+    const result = annualLeaveSettlement({ ...input, leaves: [] });
     expect(result.settlements[0].unusedMinutes).toBe(14 * 480);
     expect(result.amountCents).toBe('2240000');
   });
@@ -40,7 +45,7 @@ describe('Unused annual leave settlement', () => {
       }).amountCents,
     ).toBe('0');
   });
-  it('settles the current entitlement when employment ends mid-year', () => {
+  it('settles the carried-over and current entitlement when employment ends mid-year', () => {
     expect(
       annualLeaveSettlement({
         ...input,
@@ -48,7 +53,7 @@ describe('Unused annual leave settlement', () => {
         start: new Date('2026-03-01T00:00:00+08:00'),
         end: new Date('2026-04-01T00:00:00+08:00'),
       }).amountCents,
-    ).toBe('2240000');
+    ).toBe('4480000');
   });
   it('keeps the entitlement granted at the period start when hours change later', () => {
     const raised = new Date('2026-01-01T00:00:00+08:00');
@@ -57,6 +62,6 @@ describe('Unused annual leave settlement', () => {
       leaves: [],
       weeklyMinutesAt: (at: Date) => (at < raised ? 1200 : 2400),
     });
-    expect(result.settlements[0].unusedMinutes).toBe(15 * 480 * 0.5);
+    expect(result.settlements[0].unusedMinutes).toBe(14 * 480 * 0.5);
   });
 });

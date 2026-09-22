@@ -18,7 +18,10 @@ export const ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS = [
   'weeklyMinutes',
 ] as const;
 
-export const ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS = ['status'] as const;
+export const ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS = [
+  'employmentType',
+  'status',
+] as const;
 
 export const ATTENDANCE_EMPLOYEE_FILTER_FIELDS = [
   ...ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,

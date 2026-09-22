@@ -83,6 +83,7 @@ import {
   statutoryBalance,
 } from './leave-ledger';
 import {
+  anniversary,
   calendarLeaveMinutes,
   effectivePaidPercent,
   isCalendarLeave,
@@ -952,9 +953,12 @@ export class AttendanceRequestsService {
           records: await countedLeaves(
             tx,
             employee.id,
-            new Date(
-              Math.min(...periods.map((period) => period!.start.getTime())),
-            ),
+            // 特休遞延要從到職逐期結轉，只抓當期會少算上期結轉進來的時數
+            policy.statutoryKind === 'annual'
+              ? anniversary(employee.hiredAt, 6)
+              : new Date(
+                  Math.min(...periods.map((period) => period!.start.getTime())),
+                ),
             new Date(
               Math.max(...periods.map((period) => period!.end.getTime())),
             ),

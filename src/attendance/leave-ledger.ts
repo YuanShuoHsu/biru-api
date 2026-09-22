@@ -22,7 +22,11 @@ import {
   scheduledWorkSeconds,
 } from './attendance-rules';
 import { weeklyMinutesAt, weeklyMinutesOf } from './employee-hours';
-import { statutoryLeavePeriod } from './leave-rules';
+import {
+  anniversary,
+  annualLeaveLedger,
+  statutoryLeavePeriod,
+} from './leave-rules';
 import { isMedicalLeave, loadMedicalLedger } from './medical-leave';
 
 export async function leaveBalanceRow(
@@ -187,6 +191,42 @@ export async function statutoryBalance(
       .select()
       .from(attendanceLeaveType)
       .where(eq(attendanceLeaveType.organizationId, employee.organizationId)));
+  if (policy.statutoryKind === 'annual') {
+    const annualIds = new Set(
+      policies
+        .filter((item) => item.statutoryKind === 'annual')
+        .map((item) => item.id),
+    );
+    // 遞延要從到職逐期結轉，只抓當期紀錄會算不出上期結轉進來的時數
+    const from = anniversary(employee.hiredAt, 6);
+    const records = (
+      preloaded?.records ??
+      (await countedLeaves(tx, employee.id, from, period.end))
+    ).filter(
+      (record) => record.leaveTypeId && annualIds.has(record.leaveTypeId),
+    );
+    const ledger = annualLeaveLedger(
+      employee.hiredAt,
+      at,
+      weeklyMinutesOf(employee),
+      records,
+    );
+    const current = ledger[ledger.length - 1];
+    if (!current) return null;
+
+    return {
+      id: `statutory:${employee.id}:${policy.id}:${current.start.toISOString()}`,
+      organizationId: employee.organizationId,
+      employeeId: employee.id,
+      leaveTypeId: policy.id,
+      year: leaveYear(current.start),
+      grantedMinutes: current.minutes + current.carriedInMinutes,
+      usedMinutes: current.usedMinutes,
+      startsAt: current.start,
+      endsAt: current.end,
+      statutory: true,
+    };
+  }
   const records = (
     preloaded?.records ??
     (await countedLeaves(tx, employee.id, period.start, period.end))

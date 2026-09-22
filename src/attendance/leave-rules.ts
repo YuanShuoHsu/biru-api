@@ -52,6 +52,55 @@ export function annualLeavePeriod(
   };
 }
 
+export interface AnnualLeaveLedgerEntry {
+  start: Date;
+  end: Date;
+  minutes: number;
+  carriedInMinutes: number;
+  usedMinutes: number;
+  expiredMinutes: number;
+  carryOutMinutes: number;
+}
+
+export function annualLeaveLedger(
+  hiredAt: Date,
+  at: Date,
+  weeklyMinutesAt: (at: Date) => number = () => 2400,
+  leaves: { startsAt: Date; leaveMinutes: number | null }[] = [],
+) {
+  const entries: AnnualLeaveLedgerEntry[] = [];
+  let carriedInMinutes = 0;
+  let period = annualLeavePeriod(
+    hiredAt,
+    anniversary(hiredAt, 6),
+    weeklyMinutesAt,
+  );
+
+  while (period && period.start <= at) {
+    const { start, end, minutes } = period;
+    const usedMinutes = leaves
+      .filter((leave) => leave.startsAt >= start && leave.startsAt < end)
+      .reduce((sum, leave) => sum + (leave.leaveMinutes ?? 0), 0);
+    // 遞延時數先扣，否則它會在期末失效而當期額度還留著
+    const fromCarry = Math.min(usedMinutes, carriedInMinutes);
+    const carryOutMinutes = Math.max(0, minutes - (usedMinutes - fromCarry));
+
+    entries.push({
+      start,
+      end,
+      minutes,
+      carriedInMinutes,
+      usedMinutes,
+      expiredMinutes: carriedInMinutes - fromCarry,
+      carryOutMinutes,
+    });
+    carriedInMinutes = carryOutMinutes;
+    period = annualLeavePeriod(hiredAt, end, weeklyMinutesAt);
+  }
+
+  return entries;
+}
+
 export function statutoryLeavePeriod(
   kind: StatutoryLeaveKind,
   hiredAt: Date,
