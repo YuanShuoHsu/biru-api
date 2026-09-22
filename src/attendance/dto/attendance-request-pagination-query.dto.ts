@@ -6,7 +6,6 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_REQUEST_STRING_FILTER_FIELDS = [
   'employeeName',
-  'leaveTypeName',
   'reason',
   'reviewReason',
 ] as const;
@@ -18,6 +17,8 @@ export const ATTENDANCE_REQUEST_DATE_FILTER_FIELDS = [
 
 export const ATTENDANCE_REQUEST_ENUM_FILTER_FIELDS = [
   'kind',
+  'leaveTypeName',
+  'leaveTypeStatutoryKind',
   'status',
 ] as const;
 

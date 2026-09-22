@@ -26,6 +26,7 @@ import {
   attendanceParentalReturn,
   attendanceRequest,
 } from 'src/db/schema/attendance';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -80,7 +81,7 @@ export class AttendanceParentalService {
     } = query;
     const employee = mine ? await requireEmployee(actor, this.db) : null;
     const fieldMap: Record<string, Column | SQL> = {
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       reference: attendanceParentalChild.reference,
       label: attendanceParentalChild.label,
       birthDate: attendanceParentalChild.birthDate,
@@ -105,7 +106,7 @@ export class AttendanceParentalService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(attendanceParentalChild.reference, `%${value}%`),
           ilike(attendanceParentalChild.label, `%${value}%`),
           ilike(localTimeText(attendanceParentalChild.birthDate), `%${value}%`),
@@ -117,13 +118,14 @@ export class AttendanceParentalService {
       this.db
         .select({
           child: attendanceParentalChild,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
         })
         .from(attendanceParentalChild)
         .innerJoin(
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceParentalChild.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
           sort(sortBy ? fieldMap[sortBy] : attendanceParentalChild.createdAt),
@@ -138,6 +140,7 @@ export class AttendanceParentalService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceParentalChild.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
     return {
@@ -278,7 +281,7 @@ export class AttendanceParentalService {
     } = query;
     const employee = mine ? await requireEmployee(actor, this.db) : null;
     const fieldMap: Record<string, Column | SQL> = {
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       reason: attendanceParentalReturn.reason,
       reviewReason: attendanceParentalReturn.reviewReason,
       returnsAt: attendanceParentalReturn.returnsAt,
@@ -308,7 +311,7 @@ export class AttendanceParentalService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(attendanceParentalReturn.reason, `%${value}%`),
           ilike(attendanceParentalReturn.reviewReason, `%${value}%`),
           ilike(
@@ -323,13 +326,14 @@ export class AttendanceParentalService {
       this.db
         .select({
           item: attendanceParentalReturn,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
         })
         .from(attendanceParentalReturn)
         .innerJoin(
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
           sort(sortBy ? fieldMap[sortBy] : attendanceParentalReturn.createdAt),
@@ -344,6 +348,7 @@ export class AttendanceParentalService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
     return {

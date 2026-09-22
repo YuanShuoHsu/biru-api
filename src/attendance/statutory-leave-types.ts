@@ -5,8 +5,7 @@ import {
   type StatutoryLeaveKind,
 } from 'src/db/schema/attendance';
 
-// 只有名稱入庫，額度與給薪比例的唯一來源是 leave-rules.ts
-const STATUTORY_LEAVE_NAMES: Record<
+export const STATUTORY_LEAVE_NAMES: Record<
   Exclude<StatutoryLeaveKind, 'custom'>,
   string
 > = {

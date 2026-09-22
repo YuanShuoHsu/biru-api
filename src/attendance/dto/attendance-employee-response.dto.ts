@@ -1,11 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import {
+  ATTENDANCE_EMPLOYEE_STATUSES,
+  type AttendanceEmployeeStatus,
+} from 'src/db/schema/attendance';
+
 export class AttendanceWeeklyMinutesChangeResponseDto {
   @ApiProperty() from: string;
   @ApiProperty() minutes: number;
 }
 
-export class AttendanceEmployeeResponseDto {
+export class AttendanceEmploymentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
   @ApiProperty() userId: string;
@@ -22,6 +27,14 @@ export class AttendanceEmployeeResponseDto {
   @ApiProperty() createdAt: Date;
 }
 
+export class AttendanceEmployeeResponseDto extends AttendanceEmploymentResponseDto {
+  @ApiProperty({
+    enum: ATTENDANCE_EMPLOYEE_STATUSES,
+    enumName: 'AttendanceEmployeeStatus',
+  })
+  status: AttendanceEmployeeStatus;
+}
+
 export class AttendanceEmployeesResponseDto {
   @ApiProperty({ isArray: true, type: AttendanceEmployeeResponseDto })
   data: AttendanceEmployeeResponseDto[];
@@ -33,8 +46,16 @@ export class AttendanceMemberResponseDto {
   @ApiProperty() name: string;
   @ApiProperty() email: string;
   @ApiProperty() joinedAt: Date;
-  @ApiPropertyOptional({ nullable: true, type: AttendanceEmployeeResponseDto })
-  employee: AttendanceEmployeeResponseDto | null;
+  @ApiProperty({
+    enum: ATTENDANCE_EMPLOYEE_STATUSES,
+    enumName: 'AttendanceEmployeeStatus',
+  })
+  status: AttendanceEmployeeStatus;
+  @ApiPropertyOptional({
+    nullable: true,
+    type: AttendanceEmploymentResponseDto,
+  })
+  employee: AttendanceEmploymentResponseDto | null;
 }
 
 export class AttendanceMembersResponseDto {

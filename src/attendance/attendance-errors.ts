@@ -14,6 +14,7 @@ export const attendanceErrorCodes = [
   'correctionSourceChanged',
   'dailyHoursExceeded',
   'emergencyDetailsRequired',
+  'employeeDisableConflict',
   'employeeNotEnabled',
   'employmentWindowConflict',
   'futureCorrection',

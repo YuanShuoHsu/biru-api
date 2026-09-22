@@ -29,7 +29,7 @@ function setup(results: unknown[][], current = row.snapshot) {
   const select = jest.fn(() => {
     const promise = Promise.resolve(results.shift() ?? []);
     const query: Record<string, unknown> = { then: promise.then.bind(promise) };
-    for (const method of ['from', 'where', 'orderBy', 'limit'])
+    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit'])
       query[method] = () => query;
     return query;
   });

@@ -1,0 +1,2 @@
+ALTER TABLE "attendance_employee" ADD CONSTRAINT "attendance_employee_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendance_employee" DROP COLUMN "name";

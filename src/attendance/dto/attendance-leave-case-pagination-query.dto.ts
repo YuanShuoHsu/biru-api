@@ -6,9 +6,13 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS = [
   'employeeName',
-  'leaveTypeName',
   'reference',
   'reason',
+] as const;
+
+export const ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS = [
+  'leaveTypeName',
+  'leaveTypeStatutoryKind',
 ] as const;
 
 export const ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS = [
@@ -24,6 +28,7 @@ export const ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS = [
 
 export const ATTENDANCE_LEAVE_CASE_FILTER_FIELDS = [
   ...ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS,
+  ...ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS,
 ] as const;

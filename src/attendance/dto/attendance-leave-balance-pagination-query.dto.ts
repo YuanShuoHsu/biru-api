@@ -6,7 +6,11 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS = [
   'employeeName',
+] as const;
+
+export const ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS = [
   'leaveTypeName',
+  'leaveTypeStatutoryKind',
 ] as const;
 
 export const ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS = [
@@ -22,6 +26,7 @@ export const ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS = [
 
 export const ATTENDANCE_LEAVE_BALANCE_FILTER_FIELDS = [
   ...ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS,
+  ...ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
 ] as const;

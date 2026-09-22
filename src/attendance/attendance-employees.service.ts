@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
   inArray,
   lt,
@@ -46,8 +47,8 @@ import {
 import { badRequestError, conflictError } from './attendance-errors';
 import { normalizeIpRange } from './attendance-rules';
 import {
-  ATTENDANCE_EMPLOYEE_BOOLEAN_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
+  ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
   AttendanceEmployeePaginationQueryDto,
@@ -56,6 +57,11 @@ import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
 import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
 import { weeklyMinutesAt, type EmployeeHours } from './employee-hours';
 import { findEmployee } from './employee-lookup';
+import {
+  employeeStatus,
+  employeeStatusOrderSql,
+  employeeStatusSql,
+} from './employee-status';
 
 // 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
 const platformDayStart = (value: string) =>
@@ -82,7 +88,12 @@ export class AttendanceEmployeesService {
   async context(actor: AttendanceActor) {
     const employee = await findEmployee(actor, this.db);
     return {
-      employee: employee ? withCurrentWeeklyMinutes(employee) : null,
+      employee: employee
+        ? {
+            ...withCurrentWeeklyMinutes(employee),
+            status: employeeStatus(employee),
+          }
+        : null,
       canManage: isAuthorized(actor.role, {
         attendanceRequest: ['read', 'update'],
         employee: ['create', 'read', 'update'],
@@ -120,11 +131,12 @@ export class AttendanceEmployeesService {
       sortDirection = 'asc',
     } = query;
     const fieldMap: Record<string, Column | SQL> = {
-      name: attendanceEmployee.name,
+      name: user.name,
+      email: user.email,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       weeklyMinutes: currentWeeklyMinutes,
-      enabled: attendanceEmployee.enabled,
+      status: employeeStatusSql,
     };
     const where = and(
       eq(attendanceEmployee.organizationId, actor.organizationId),
@@ -136,37 +148,54 @@ export class AttendanceEmployeesService {
             fieldMap,
             ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
-            [],
+            ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
-            [],
-            [],
-            ATTENDANCE_EMPLOYEE_BOOLEAN_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
+        enumFields: ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
           ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
         ],
       }),
     );
     const sort = sortDirection === 'desc' ? desc : asc;
+    const sortColumn =
+      sortBy === 'status'
+        ? employeeStatusOrderSql
+        : (fieldMap[sortBy ?? ''] ?? user.name);
     const [data, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select({
+          id: attendanceEmployee.id,
+          organizationId: attendanceEmployee.organizationId,
+          userId: attendanceEmployee.userId,
+          name: user.name,
+          weeklyMinutes: attendanceEmployee.weeklyMinutes,
+          weeklyMinutesHistory: attendanceEmployee.weeklyMinutesHistory,
+          enabled: attendanceEmployee.enabled,
+          hiredAt: attendanceEmployee.hiredAt,
+          terminatedAt: attendanceEmployee.terminatedAt,
+          status: employeeStatusSql,
+          createdAt: attendanceEmployee.createdAt,
+        })
         .from(attendanceEmployee)
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
-        .orderBy(
-          sort(fieldMap[sortBy ?? ''] ?? attendanceEmployee.name),
-          asc(attendanceEmployee.id),
-        )
+        .orderBy(sort(sortColumn), asc(attendanceEmployee.id))
         .limit(limit)
         .offset(offset),
-      this.db.select({ total: count() }).from(attendanceEmployee).where(where),
+      this.db
+        .select({ total: count() })
+        .from(attendanceEmployee)
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .where(where),
     ]);
     return { data: data.map(withCurrentWeeklyMinutes), total };
   }
@@ -192,7 +221,7 @@ export class AttendanceEmployeesService {
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       weeklyMinutes: currentWeeklyMinutes,
-      enabled: attendanceEmployee.enabled,
+      status: employeeStatusSql,
     };
     const where = and(
       eq(member.organizationId, actor.organizationId),
@@ -204,14 +233,12 @@ export class AttendanceEmployeesService {
             fieldMap,
             ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
-            [],
+            ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
-            [],
-            [],
-            ATTENDANCE_EMPLOYEE_BOOLEAN_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
+        enumFields: ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
@@ -224,6 +251,10 @@ export class AttendanceEmployeesService {
       }),
     );
     const sort = sortDirection === 'desc' ? desc : asc;
+    const sortColumn =
+      sortBy === 'status'
+        ? employeeStatusOrderSql
+        : (fieldMap[sortBy ?? ''] ?? user.name);
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -238,6 +269,7 @@ export class AttendanceEmployeesService {
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
+          status: employeeStatusSql,
           createdAt: attendanceEmployee.createdAt,
         })
         .from(member)
@@ -250,7 +282,7 @@ export class AttendanceEmployeesService {
           ),
         )
         .where(where)
-        .orderBy(sort(sortBy ? fieldMap[sortBy] : user.name), asc(member.id))
+        .orderBy(sort(sortColumn), asc(member.id))
         .limit(limit)
         .offset(offset),
       this.db
@@ -267,31 +299,34 @@ export class AttendanceEmployeesService {
         .where(where),
     ]);
     return {
-      data: data.map(({ email, joinedAt, name, userId, ...employee }) => ({
-        email,
-        joinedAt,
-        name,
-        userId,
-        employee:
-          employee.id === null ||
-          employee.hiredAt === null ||
-          employee.enabled === null ||
-          employee.weeklyMinutes === null ||
-          employee.weeklyMinutesHistory === null ||
-          employee.createdAt === null
-            ? null
-            : withCurrentWeeklyMinutes({
-                ...employee,
-                id: employee.id,
-                hiredAt: employee.hiredAt,
-                enabled: employee.enabled,
-                weeklyMinutes: employee.weeklyMinutes,
-                weeklyMinutesHistory: employee.weeklyMinutesHistory,
-                createdAt: employee.createdAt,
-                userId,
-                name,
-              }),
-      })),
+      data: data.map(
+        ({ email, joinedAt, name, status, userId, ...employee }) => ({
+          email,
+          joinedAt,
+          name,
+          status,
+          userId,
+          employee:
+            employee.id === null ||
+            employee.hiredAt === null ||
+            employee.enabled === null ||
+            employee.weeklyMinutes === null ||
+            employee.weeklyMinutesHistory === null ||
+            employee.createdAt === null
+              ? null
+              : withCurrentWeeklyMinutes({
+                  ...employee,
+                  id: employee.id,
+                  hiredAt: employee.hiredAt,
+                  enabled: employee.enabled,
+                  weeklyMinutes: employee.weeklyMinutes,
+                  weeklyMinutesHistory: employee.weeklyMinutesHistory,
+                  createdAt: employee.createdAt,
+                  userId,
+                  name,
+                }),
+        }),
+      ),
       total,
     };
   }
@@ -319,6 +354,7 @@ export class AttendanceEmployeesService {
       const [current] = await tx
         .select({
           id: attendanceEmployee.id,
+          enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
           weeklyMinutes: attendanceEmployee.weeklyMinutes,
@@ -381,6 +417,34 @@ export class AttendanceEmployeesService {
           .limit(1);
         if (outsideShift || outsideRequest || outsideCase)
           throw conflictError('employmentWindowConflict');
+        if (current.enabled && !dto.enabled) {
+          const [scheduledShift] = await tx
+            .select({ id: attendanceShift.id })
+            .from(attendanceShift)
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                ne(attendanceShift.status, 'cancelled'),
+                gt(attendanceShift.endsAt, new Date()),
+              ),
+            )
+            .limit(1);
+          const [pendingRequest] = await tx
+            .select({ id: attendanceRequest.id })
+            .from(attendanceRequest)
+            .where(
+              and(
+                eq(attendanceRequest.employeeId, current.id),
+                inArray(attendanceRequest.status, [
+                  'pending',
+                  'cancellationPending',
+                ]),
+              ),
+            )
+            .limit(1);
+          if (scheduledShift || pendingRequest)
+            throw conflictError('employeeDisableConflict');
+        }
         for (const [before, after] of [
           [current.hiredAt, hiredAt],
           [current.terminatedAt, terminatedAt],
@@ -414,7 +478,6 @@ export class AttendanceEmployeesService {
       const values = {
         organizationId: actor.organizationId,
         userId: dto.userId,
-        name: membership.name,
         enabled: dto.enabled,
         weeklyMinutes,
         weeklyMinutesHistory,
@@ -439,7 +502,7 @@ export class AttendanceEmployeesService {
         row.id,
         values,
       );
-      return row;
+      return { ...row, name: membership.name, status: employeeStatus(row) };
     });
   }
 

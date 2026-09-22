@@ -1,3 +1,8 @@
+import {
+  STATUTORY_LEAVE_KINDS,
+  type StatutoryLeaveKind,
+} from 'src/db/schema/attendance';
+
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { AttendanceEventResponseDto } from './attendance-shift-response.dto';
@@ -48,6 +53,12 @@ export class AttendanceRequestResponseDto {
   @ApiPropertyOptional() reviewReason: string | null;
   @ApiPropertyOptional() leaveTypeId: string | null;
   @ApiPropertyOptional() leaveTypeName: string | null;
+  @ApiPropertyOptional({
+    enum: STATUTORY_LEAVE_KINDS,
+    enumName: 'StatutoryLeaveKind',
+    nullable: true,
+  })
+  leaveTypeStatutoryKind: StatutoryLeaveKind | null;
   @ApiPropertyOptional() leaveCaseId: string | null;
   @ApiPropertyOptional() leaveMinutes: number | null;
   @ApiPropertyOptional() paidPercent: number | null;
@@ -70,7 +81,12 @@ export class AttendanceRequestResponseDto {
 
 export class AttendanceRequestRecordResponseDto extends OmitType(
   AttendanceRequestResponseDto,
-  ['employeeName', 'leaveTypeName', 'returnPending'] as const,
+  [
+    'employeeName',
+    'leaveTypeName',
+    'leaveTypeStatutoryKind',
+    'returnPending',
+  ] as const,
 ) {}
 
 export class AttendanceRequestsResponseDto {

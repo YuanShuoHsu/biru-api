@@ -1,3 +1,8 @@
+import {
+  STATUTORY_LEAVE_KINDS,
+  type StatutoryLeaveKind,
+} from 'src/db/schema/attendance';
+
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
 export class AttendanceLeaveBalanceResponseDto {
@@ -7,6 +12,11 @@ export class AttendanceLeaveBalanceResponseDto {
   @ApiProperty() employeeName: string;
   @ApiProperty() leaveTypeId: string;
   @ApiProperty() leaveTypeName: string;
+  @ApiProperty({
+    enum: STATUTORY_LEAVE_KINDS,
+    enumName: 'StatutoryLeaveKind',
+  })
+  leaveTypeStatutoryKind: StatutoryLeaveKind;
   @ApiProperty() year: number;
   @ApiProperty() grantedMinutes: number;
   @ApiProperty() usedMinutes: number;

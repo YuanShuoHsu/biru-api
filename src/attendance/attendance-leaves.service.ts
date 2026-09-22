@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   ilike,
   inArray,
@@ -23,6 +24,7 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
+  parseQuickFilterEnums,
 } from 'src/common/utils/data-grid-filters';
 import {
   STATUTORY_LEAVE_KINDS,
@@ -32,6 +34,7 @@ import {
   attendanceLeaveType,
   attendanceRequest,
 } from 'src/db/schema/attendance';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -49,12 +52,14 @@ import {
 import { countedRequestStatuses } from './attendance-rules';
 import {
   ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
+  ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS,
   AttendanceLeaveBalancePaginationQueryDto,
 } from './dto/attendance-leave-balance-pagination-query.dto';
 import {
   ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS,
+  ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
   ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS,
   AttendanceLeaveCasePaginationQueryDto,
@@ -86,11 +91,13 @@ import { isMedicalLeave, loadMedicalLedgers } from './medical-leave';
 import { parentalLeaveErrors } from './parental-leave';
 import { matchParentalChild } from './parental-ledger';
 import { parseInterval } from './shift-intervals';
+import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types';
 
 interface MemoryPageOptions<Row> {
   defaultSort: (first: Row, second: Row) => number;
   stringFields: readonly string[];
   dateFields: readonly string[];
+  enumFields: readonly string[];
   numberFields: readonly string[];
   textFields: readonly string[];
 }
@@ -203,6 +210,26 @@ const memoryNumberMatch = (
   }
 };
 
+const memoryEnumMatch = (
+  raw: unknown,
+  operator: string,
+  value: string,
+): boolean => {
+  const current = scalarText(raw);
+  if (!value) return true;
+
+  switch (operator) {
+    case 'is':
+      return current === value;
+    case 'not':
+      return current !== value;
+    case 'isAnyOf':
+      return value.split(',').filter(Boolean).includes(current);
+    default:
+      return true;
+  }
+};
+
 const compareValues = (first: unknown, second: unknown): number => {
   if (first == null && second == null) return 0;
   if (first == null) return -1;
@@ -222,6 +249,7 @@ const pageInMemory = <Row extends Record<string, unknown>>(
     defaultSort,
     stringFields,
     dateFields,
+    enumFields,
     numberFields,
     textFields,
   }: MemoryPageOptions<Row>,
@@ -232,6 +260,7 @@ const pageInMemory = <Row extends Record<string, unknown>>(
     filterField,
     filterOperator,
     filterValue = '',
+    quickFilterEnums,
     quickFilterValue,
     sortBy,
     sortDirection = 'asc',
@@ -243,9 +272,11 @@ const pageInMemory = <Row extends Record<string, unknown>>(
       ? memoryStringMatch
       : dateFields.includes(filterField)
         ? memoryDateMatch
-        : numberFields.includes(filterField)
-          ? memoryNumberMatch
-          : undefined;
+        : enumFields.includes(filterField)
+          ? memoryEnumMatch
+          : numberFields.includes(filterField)
+            ? memoryNumberMatch
+            : undefined;
     if (match)
       filtered = filtered.filter((row) =>
         match(row[filterField], filterOperator, filterValue),
@@ -253,11 +284,19 @@ const pageInMemory = <Row extends Record<string, unknown>>(
   }
 
   const keyword = quickFilterValue?.trim().toLocaleLowerCase();
-  if (keyword)
-    filtered = filtered.filter((row) =>
-      textFields.some((field) =>
-        scalarText(row[field]).toLocaleLowerCase().includes(keyword),
-      ),
+  const enumMatches = parseQuickFilterEnums(quickFilterEnums).filter(
+    ({ field }) => enumFields.includes(field),
+  );
+  if (keyword || enumMatches.length)
+    filtered = filtered.filter(
+      (row) =>
+        (!!keyword &&
+          textFields.some((field) =>
+            scalarText(row[field]).toLocaleLowerCase().includes(keyword),
+          )) ||
+        enumMatches.some(({ field, value }) =>
+          memoryEnumMatch(row[field], 'isAnyOf', value),
+        ),
     );
 
   const sorted = [...filtered].sort(
@@ -324,8 +363,9 @@ export class AttendanceLeavesService {
       ? (await requireEmployee(actor, this.db)).id
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       leaveTypeName: attendanceLeaveType.name,
+      leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
       reference: attendanceLeaveCase.reference,
       reason: attendanceLeaveCase.reason,
       eventDate: attendanceLeaveCase.eventDate,
@@ -345,16 +385,17 @@ export class AttendanceLeavesService {
             fieldMap,
             ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS,
             ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS,
-            [],
+            ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
             ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
+        enumFields: ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(attendanceLeaveType.name, `%${value}%`),
           ilike(attendanceLeaveCase.reference, `%${value}%`),
           ilike(attendanceLeaveCase.reason, `%${value}%`),
@@ -369,9 +410,10 @@ export class AttendanceLeavesService {
         .select({
           id: attendanceLeaveCase.id,
           employeeId: attendanceLeaveCase.employeeId,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
           leaveTypeId: attendanceLeaveCase.leaveTypeId,
           leaveTypeName: attendanceLeaveType.name,
+          leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
           reference: attendanceLeaveCase.reference,
           childId: attendanceLeaveCase.childId,
           eventDate: attendanceLeaveCase.eventDate,
@@ -386,6 +428,7 @@ export class AttendanceLeavesService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceLeaveCase.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .innerJoin(
           attendanceLeaveType,
           eq(attendanceLeaveType.id, attendanceLeaveCase.leaveTypeId),
@@ -404,6 +447,7 @@ export class AttendanceLeavesService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceLeaveCase.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .innerJoin(
           attendanceLeaveType,
           eq(attendanceLeaveType.id, attendanceLeaveCase.leaveTypeId),
@@ -852,8 +896,13 @@ export class AttendanceLeavesService {
               enabled: dto.enabled,
             }
           : {
-              name: dto.name,
-              paidPercent: dto.paidPercent ?? null,
+              // 法定假別的名稱來自法規，不能被表單改掉
+              name: STATUTORY_LEAVE_NAMES[statutoryKind],
+              // 與法定比例相同不算優於法令，存 null 才不會被標成優於法規
+              paidPercent:
+                dto.paidPercent === statutoryPaidPercent(statutoryKind)
+                  ? null
+                  : (dto.paidPercent ?? null),
               requiresBalance: null,
               enabled: true,
             };
@@ -960,8 +1009,9 @@ export class AttendanceLeavesService {
           ),
         );
       const employees = await tx
-        .select()
+        .select({ ...getTableColumns(attendanceEmployee), name: user.name })
         .from(attendanceEmployee)
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(
           and(
             eq(attendanceEmployee.organizationId, actor.organizationId),
@@ -1044,6 +1094,9 @@ export class AttendanceLeavesService {
         leaveTypeName:
           policies.find((policy) => policy.id === balance.leaveTypeId)?.name ??
           '',
+        leaveTypeStatutoryKind:
+          policies.find((policy) => policy.id === balance.leaveTypeId)
+            ?.statutoryKind ?? 'custom',
       });
       return [
         ...balances.map((balance) => ({
@@ -1062,6 +1115,7 @@ export class AttendanceLeavesService {
         first.leaveTypeName.localeCompare(second.leaveTypeName),
       stringFields: ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS,
       dateFields: ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
+      enumFields: ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
       numberFields: ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
       textFields: ['employeeName', 'leaveTypeName'],
     });

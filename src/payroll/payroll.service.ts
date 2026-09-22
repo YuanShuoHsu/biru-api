@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   ilike,
@@ -79,6 +80,7 @@ import {
   type PayrollBlocker,
   type PayrollSnapshot,
 } from 'src/db/schema/payroll';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { annualLeaveSettlement } from './annual-leave';
@@ -311,8 +313,9 @@ export class PayrollService {
     employeeId: string,
   ) {
     const [employee] = await tx
-      .select()
+      .select({ ...getTableColumns(attendanceEmployee), name: user.name })
       .from(attendanceEmployee)
+      .innerJoin(user, eq(user.id, attendanceEmployee.userId))
       .where(
         and(
           eq(attendanceEmployee.id, employeeId),

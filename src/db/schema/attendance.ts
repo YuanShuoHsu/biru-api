@@ -25,6 +25,17 @@ export const ATTENDANCE_DAY_KINDS = [
 
 export type AttendanceDayKind = (typeof ATTENDANCE_DAY_KINDS)[number];
 
+export const ATTENDANCE_EMPLOYEE_STATUSES = [
+  'unconfigured',
+  'upcoming',
+  'active',
+  'disabled',
+  'terminated',
+] as const;
+
+export type AttendanceEmployeeStatus =
+  (typeof ATTENDANCE_EMPLOYEE_STATUSES)[number];
+
 export const ATTENDANCE_EVENT_ACTIONS = [
   'clockIn',
   'breakStart',
@@ -88,8 +99,9 @@ export const attendanceEmployee = pgTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
-    userId: text('user_id').notNull(),
-    name: text('name').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
     weeklyMinutes: integer('weekly_minutes').notNull().default(2400),
     weeklyMinutesHistory: jsonb('weekly_minutes_history')
       .$type<WeeklyMinutesChange[]>()

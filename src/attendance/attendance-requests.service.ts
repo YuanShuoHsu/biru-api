@@ -38,6 +38,7 @@ import {
   attendanceRequest,
   attendanceShift,
 } from 'src/db/schema/attendance';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -133,8 +134,9 @@ export class AttendanceRequestsService {
       ? (await requireEmployee(actor, this.db)).id
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       leaveTypeName: attendanceLeaveType.name,
+      leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
       reason: attendanceRequest.reason,
       reviewReason: attendanceRequest.reviewReason,
       startsAt: attendanceRequest.startsAt,
@@ -162,7 +164,7 @@ export class AttendanceRequestsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(attendanceLeaveType.name, `%${value}%`),
           ilike(attendanceRequest.reason, `%${value}%`),
           ilike(attendanceRequest.reviewReason, `%${value}%`),
@@ -176,8 +178,9 @@ export class AttendanceRequestsService {
       this.db
         .select({
           request: attendanceRequest,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
           leaveTypeName: attendanceLeaveType.name,
+          leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
           returnPending: sql<boolean>`EXISTS (SELECT 1 FROM ${attendanceParentalReturn} pending
             WHERE pending.request_id = ${attendanceRequest.id} AND pending.status = 'pending')`,
         })
@@ -186,6 +189,7 @@ export class AttendanceRequestsService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceRequest.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .leftJoin(
           attendanceLeaveType,
           eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
@@ -204,6 +208,7 @@ export class AttendanceRequestsService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceRequest.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .leftJoin(
           attendanceLeaveType,
           eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
@@ -212,10 +217,17 @@ export class AttendanceRequestsService {
     ]);
     return {
       data: data.map(
-        ({ request, employeeName, leaveTypeName, returnPending }) => ({
+        ({
+          request,
+          employeeName,
+          leaveTypeName,
+          leaveTypeStatutoryKind,
+          returnPending,
+        }) => ({
           ...request,
           employeeName,
           leaveTypeName,
+          leaveTypeStatutoryKind,
           returnPending,
         }),
       ),

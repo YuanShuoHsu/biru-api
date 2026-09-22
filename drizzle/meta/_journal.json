@@ -1002,6 +1002,13 @@
       "when": 1790068678600,
       "tag": "0142_attendance_leave_type_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1790089484230,
+      "tag": "0143_attendance_employee_user_fk",
+      "breakpoints": true
     }
   ]
 }

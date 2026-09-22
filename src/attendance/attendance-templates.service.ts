@@ -21,6 +21,7 @@ import {
   attendanceEmployee,
   attendanceTemplate,
 } from 'src/db/schema/attendance';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -68,7 +69,7 @@ export class AttendanceTemplatesService {
     } = query;
     const fieldMap: Record<string, Column | SQL> = {
       name: attendanceTemplate.name,
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       startTime: attendanceTemplate.startTime,
       endTime: attendanceTemplate.endTime,
       dayKind: attendanceTemplate.dayKind,
@@ -100,7 +101,7 @@ export class AttendanceTemplatesService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(attendanceTemplate.name, `%${value}%`),
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(attendanceTemplate.startTime, `%${value}%`),
           ilike(attendanceTemplate.endTime, `%${value}%`),
         ],
@@ -111,13 +112,14 @@ export class AttendanceTemplatesService {
       this.db
         .select({
           template: attendanceTemplate,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
         })
         .from(attendanceTemplate)
         .innerJoin(
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceTemplate.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
           sort(sortBy ? fieldMap[sortBy] : attendanceTemplate.name),
@@ -132,6 +134,7 @@ export class AttendanceTemplatesService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceTemplate.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
     return {

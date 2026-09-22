@@ -30,6 +30,7 @@ import {
   attendanceSettings,
   attendanceShift,
 } from 'src/db/schema/attendance';
+import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -109,7 +110,7 @@ export class AttendanceShiftsService {
       ? (await requireEmployee(actor, this.db)).id
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
-      employeeName: attendanceEmployee.name,
+      employeeName: user.name,
       startsAt: attendanceShift.startsAt,
       endsAt: attendanceShift.endsAt,
       dayKind: attendanceShift.dayKind,
@@ -150,7 +151,7 @@ export class AttendanceShiftsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceEmployee.name, `%${value}%`),
+          ilike(user.name, `%${value}%`),
           ilike(localTimeText(attendanceShift.startsAt), `%${value}%`),
           ilike(localTimeText(attendanceShift.endsAt), `%${value}%`),
         ],
@@ -161,13 +162,14 @@ export class AttendanceShiftsService {
       this.db
         .select({
           shift: attendanceShift,
-          employeeName: attendanceEmployee.name,
+          employeeName: user.name,
         })
         .from(attendanceShift)
         .innerJoin(
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceShift.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
           sort(sortBy ? fieldMap[sortBy] : attendanceShift.startsAt),
@@ -182,6 +184,7 @@ export class AttendanceShiftsService {
           attendanceEmployee,
           eq(attendanceEmployee.id, attendanceShift.employeeId),
         )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
     if (!rows.length) return { data: [], total };
