@@ -293,6 +293,9 @@ export const attendanceLeaveType = pgTable(
     paidPercent: integer('paid_percent'),
     requiresBalance: boolean('requires_balance'),
     enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     uniqueIndex('attendance_leave_type_statutory_uidx')

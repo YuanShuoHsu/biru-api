@@ -37,6 +37,7 @@ export const attendanceErrorCodes = [
   'leaveOutsideShift',
   'leavePolicyRequired',
   'leavePolicyRulesRequired',
+  'leaveTypeInUse',
   'locationNotAllowed',
   'medicalCertificateRequired',
   'medicalLeaveInterval',
@@ -77,6 +78,7 @@ export const attendanceErrorCodes = [
   'sourceRequired',
   'splitLeaveByYear',
   'statutoryBalanceAutomatic',
+  'statutoryLeaveTypeLocked',
   'weeklyMinutesFromOutsideEmployment',
   'weeklyMinutesFromRequired',
 ] as const;

@@ -995,6 +995,13 @@
       "when": 1789999402838,
       "tag": "0141_attendance_statutory_leave_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1790068678600,
+      "tag": "0142_attendance_leave_type_created_at",
+      "breakpoints": true
     }
   ]
 }

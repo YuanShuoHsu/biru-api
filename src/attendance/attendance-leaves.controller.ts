@@ -161,6 +161,20 @@ export class AttendanceLeavesController {
     );
   }
 
+  @Delete('leave-types/:id')
+  @Roles({ leaveType: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '刪除尚未被使用的自訂假別' })
+  deleteLeaveType(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.deleteLeaveType(
+      actor(req, session),
+      id,
+    );
+  }
+
   @Get('me/leave-balances')
   @OrganizationMember('organizationSlug')
   @ApiOperation({ summary: '我的假別餘額' })

@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
   inArray,
   ne,
@@ -281,7 +282,6 @@ const leaveTypeWithFlags = (row: typeof attendanceLeaveType.$inferSelect) => ({
       : statutoryPaidPercent(row.statutoryKind),
 });
 
-// 給薪比例必須以 SQL 字面值寫入，綁定參數會讓 Postgres 把 case 推斷成 text 而與 coalesce 的 integer 衝突
 const effectivePaidPercentSql = sql`coalesce(${attendanceLeaveType.paidPercent}, case ${attendanceLeaveType.statutoryKind} ${sql.join(
   STATUTORY_LEAVE_KINDS.map(
     (kind) =>
@@ -289,6 +289,16 @@ const effectivePaidPercentSql = sql`coalesce(${attendanceLeaveType.paidPercent},
   ),
   sql` `,
 )} end)`;
+
+const statutoryLeaveKindOrderSql = sql<number>`case ${attendanceLeaveType.statutoryKind} ${sql.join(
+  STATUTORY_LEAVE_KINDS.map(
+    (kind, index) =>
+      sql`when ${kind} then ${sql.raw(
+        String(kind === 'custom' ? STATUTORY_LEAVE_KINDS.length : index),
+      )}`,
+  ),
+  sql` `,
+)} end`;
 
 @Injectable()
 export class AttendanceLeavesService {
@@ -753,7 +763,7 @@ export class AttendanceLeavesService {
       quickFilterEnums,
       quickFilterValue,
       sortBy,
-      sortDirection = 'asc',
+      sortDirection = 'desc',
     } = query;
     const fieldMap: Record<string, Column | SQL> = {
       name: attendanceLeaveType.name,
@@ -761,6 +771,10 @@ export class AttendanceLeavesService {
       paidPercent: effectivePaidPercentSql,
       requiresBalance: attendanceLeaveType.requiresBalance,
       enabled: attendanceLeaveType.enabled,
+    };
+    const sortFieldMap: Record<string, Column | SQL> = {
+      ...fieldMap,
+      statutoryKind: statutoryLeaveKindOrderSql,
     };
     const where = and(
       eq(attendanceLeaveType.organizationId, actor.organizationId),
@@ -796,7 +810,8 @@ export class AttendanceLeavesService {
         .from(attendanceLeaveType)
         .where(where)
         .orderBy(
-          sort(sortBy ? fieldMap[sortBy] : attendanceLeaveType.name),
+          sort(sortBy ? sortFieldMap[sortBy] : statutoryLeaveKindOrderSql),
+          sort(attendanceLeaveType.createdAt),
           asc(attendanceLeaveType.id),
         )
         .limit(limit)
@@ -869,6 +884,58 @@ export class AttendanceLeavesService {
         { ...dto },
       );
       return leaveTypeWithFlags(row);
+    });
+  }
+
+  async deleteLeaveType(actor: AttendanceActor, id: string) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [row] = await tx
+        .select()
+        .from(attendanceLeaveType)
+        .where(
+          and(
+            eq(attendanceLeaveType.id, id),
+            eq(attendanceLeaveType.organizationId, actor.organizationId),
+          ),
+        );
+      if (!row) throw new NotFoundException();
+      if (row.statutoryKind !== 'custom')
+        throw conflictError('statutoryLeaveTypeLocked');
+      const [request] = await tx
+        .select({ id: attendanceRequest.id })
+        .from(attendanceRequest)
+        .where(eq(attendanceRequest.leaveTypeId, id))
+        .limit(1);
+      const [leaveCase] = await tx
+        .select({ id: attendanceLeaveCase.id })
+        .from(attendanceLeaveCase)
+        .where(eq(attendanceLeaveCase.leaveTypeId, id))
+        .limit(1);
+      const [used] = await tx
+        .select({ id: attendanceLeaveBalance.id })
+        .from(attendanceLeaveBalance)
+        .where(
+          and(
+            eq(attendanceLeaveBalance.leaveTypeId, id),
+            gt(attendanceLeaveBalance.usedMinutes, 0),
+          ),
+        )
+        .limit(1);
+      if (request || leaveCase || used) throw conflictError('leaveTypeInUse');
+      await tx
+        .delete(attendanceLeaveBalance)
+        .where(eq(attendanceLeaveBalance.leaveTypeId, id));
+      await tx
+        .delete(attendanceLeaveType)
+        .where(eq(attendanceLeaveType.id, id));
+      await writeAudit(tx, actor, 'leaveType.delete', id, {
+        name: row.name,
+        paidPercent: row.paidPercent,
+        requiresBalance: row.requiresBalance,
+        enabled: row.enabled,
+      });
+      return { id };
     });
   }
 
