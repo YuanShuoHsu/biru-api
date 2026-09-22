@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   and,
@@ -311,7 +311,9 @@ export class AttendanceEmployeesService {
         );
       if (!membership) throw badRequestError('memberNotFound');
       const hiredAt = platformDayStart(dto.hiredAt);
-      const terminatedAt = dto.terminatedAt ? new Date(dto.terminatedAt) : null;
+      const terminatedAt = dto.terminatedAt
+        ? platformDayStart(dto.terminatedAt)
+        : null;
       if (terminatedAt && terminatedAt <= hiredAt)
         throw badRequestError('invalidInterval');
       const [current] = await tx
@@ -393,13 +395,16 @@ export class AttendanceEmployeesService {
           );
         }
       }
-      const requested = dto.weeklyMinutes ?? current?.weeklyMinutes ?? 2400;
+      const requested =
+        dto.weeklyMinutes ??
+        (current ? weeklyMinutesAt(current, new Date()) : 2400);
       const weeklyMinutesHistory = await this.recordWeeklyMinutes(
         tx,
         actor,
         current,
         requested,
         hiredAt,
+        terminatedAt,
         dto.weeklyMinutesFrom,
       );
       const weeklyMinutes = weeklyMinutesAt(
@@ -450,18 +455,35 @@ export class AttendanceEmployeesService {
       | undefined,
     weeklyMinutes: number,
     hiredAt: Date,
+    terminatedAt: Date | null,
     from?: string,
   ): Promise<WeeklyMinutesChange[]> {
     if (!current)
       return [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
-    if (weeklyMinutes === current.weeklyMinutes)
-      return current.weeklyMinutesHistory.length
-        ? current.weeklyMinutesHistory
-        : [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
-    if (!from) throw badRequestError('weeklyMinutesFromRequired');
+    const now = new Date();
+    // 已生效的區段不能動，否則過去期間的法定額度會被回溯改寫；未生效的區段由這次請求完整描述
+    const settled = current.weeklyMinutesHistory.filter(({ from }) => {
+      const at = new Date(from);
+
+      return (
+        (!terminatedAt || at < terminatedAt) &&
+        (at.getTime() === hiredAt.getTime() || at <= now)
+      );
+    });
+    const anchored = settled.length
+      ? settled
+      : [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
+    if (!from) {
+      if (weeklyMinutes !== weeklyMinutesAt(current, now))
+        throw badRequestError('weeklyMinutesFromRequired');
+
+      return anchored;
+    }
     const effectiveFrom = platformDayStart(from);
     if (effectiveFrom < hiredAt)
       throw badRequestError('weeklyMinutesFromRequired');
+    if (terminatedAt && effectiveFrom >= terminatedAt)
+      throw badRequestError('weeklyMinutesFromOutsideEmployment');
     await assertPayrollUnlocked(
       tx,
       actor.organizationId,
@@ -469,18 +491,10 @@ export class AttendanceEmployeesService {
       effectiveFrom,
     );
 
-    // 已生效的區段不能動，否則過去期間的法定額度會被回溯改寫；尚未生效的只留最後一次填寫
-    const now = new Date();
-
     return [
-      ...current.weeklyMinutesHistory.filter(({ from }) => {
-        const at = new Date(from);
-
-        return (
-          at.getTime() !== effectiveFrom.getTime() &&
-          (at.getTime() === hiredAt.getTime() || at <= now)
-        );
-      }),
+      ...settled.filter(
+        ({ from }) => new Date(from).getTime() !== effectiveFrom.getTime(),
+      ),
       { from: effectiveFrom.toISOString(), minutes: weeklyMinutes },
     ].sort((a, b) => a.from.localeCompare(b.from));
   }
@@ -490,7 +504,8 @@ export class AttendanceEmployeesService {
       .select()
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, actor.organizationId));
-    return row ?? null;
+    if (!row) throw new NotFoundException();
+    return row;
   }
 
   async saveSettings(actor: AttendanceActor, dto: SaveAttendanceSettingsDto) {

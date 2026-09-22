@@ -77,6 +77,7 @@ export const attendanceErrorCodes = [
   'sourceRequired',
   'splitLeaveByYear',
   'statutoryBalanceAutomatic',
+  'weeklyMinutesFromOutsideEmployment',
   'weeklyMinutesFromRequired',
 ] as const;
 

@@ -3,7 +3,7 @@ ALTER TABLE "attendance_leave_type" ALTER COLUMN "requires_balance" DROP DEFAULT
 ALTER TABLE "attendance_leave_type" ALTER COLUMN "requires_balance" DROP NOT NULL;--> statement-breakpoint
 UPDATE "attendance_leave_type" SET "paid_percent" = NULL, "requires_balance" = NULL, "enabled" = true WHERE "statutory_kind" <> 'custom';--> statement-breakpoint
 INSERT INTO "attendance_leave_type" ("id", "organization_id", "statutory_kind", "name", "paid_percent", "requires_balance", "enabled")
-SELECT gen_random_uuid(), "organization"."id", "kind", "name", NULL, NULL, true
+SELECT gen_random_uuid(), "organization"."id", "statutory"."kind", "statutory"."name", NULL, NULL, true
 FROM "organization"
 CROSS JOIN (VALUES
   ('annual', '特別休假'),
