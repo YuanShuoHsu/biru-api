@@ -31,6 +31,7 @@ import {
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
+  type AttendanceEmploymentType,
   type WeeklyMinutesChange,
 } from 'src/db/schema/attendance';
 import { member } from 'src/db/schema/organizations';
@@ -49,13 +50,17 @@ import { normalizeIpRange } from './attendance-rules';
 import {
   ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
-  ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
   AttendanceEmployeePaginationQueryDto,
 } from './dto/attendance-employee-pagination-query.dto';
 import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
 import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
-import { weeklyMinutesAt, type EmployeeHours } from './employee-hours';
+import {
+  employmentType,
+  FULL_TIME_WEEKLY_MINUTES,
+  weeklyMinutesAt,
+  type EmployeeHours,
+} from './employee-hours';
 import { findEmployee } from './employee-lookup';
 import {
   employeeStatus,
@@ -76,16 +81,21 @@ const currentWeeklyMinutes = sql<number>`COALESCE(
   (${attendanceEmployee.weeklyMinutesHistory} -> 0 ->> 'minutes')::int,
   ${attendanceEmployee.weeklyMinutes})`;
 
-const employmentTypeSql = sql<string | null>`CASE
+const employmentTypeSql = sql<AttendanceEmploymentType | null>`CASE
   WHEN ${attendanceEmployee.id} IS NULL THEN NULL
-  WHEN ${currentWeeklyMinutes} < 2400 THEN 'partTime'
+  WHEN ${currentWeeklyMinutes} < ${sql.raw(String(FULL_TIME_WEEKLY_MINUTES))} THEN 'partTime'
   ELSE 'fullTime'
 END`;
 
-const withCurrentWeeklyMinutes = <T extends EmployeeHours>(employee: T): T => ({
-  ...employee,
-  weeklyMinutes: weeklyMinutesAt(employee, new Date()),
-});
+const withCurrentHours = <T extends EmployeeHours>(employee: T) => {
+  const weeklyMinutes = weeklyMinutesAt(employee, new Date());
+
+  return {
+    ...employee,
+    weeklyMinutes,
+    employmentType: employmentType(weeklyMinutes),
+  };
+};
 
 @Injectable()
 export class AttendanceEmployeesService {
@@ -96,7 +106,7 @@ export class AttendanceEmployeesService {
     return {
       employee: employee
         ? {
-            ...withCurrentWeeklyMinutes(employee),
+            ...withCurrentHours(employee),
             status: employeeStatus(employee),
           }
         : null,
@@ -141,7 +151,6 @@ export class AttendanceEmployeesService {
       email: user.email,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
-      weeklyMinutes: currentWeeklyMinutes,
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
     };
@@ -156,7 +165,6 @@ export class AttendanceEmployeesService {
             ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
-            ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
@@ -204,7 +212,7 @@ export class AttendanceEmployeesService {
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
-    return { data: data.map(withCurrentWeeklyMinutes), total };
+    return { data: data.map(withCurrentHours), total };
   }
 
   async members(
@@ -227,7 +235,6 @@ export class AttendanceEmployeesService {
       email: user.email,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
-      weeklyMinutes: currentWeeklyMinutes,
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
     };
@@ -242,7 +249,6 @@ export class AttendanceEmployeesService {
             ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
             ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
-            ATTENDANCE_EMPLOYEE_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
@@ -322,7 +328,7 @@ export class AttendanceEmployeesService {
             employee.weeklyMinutesHistory === null ||
             employee.createdAt === null
               ? null
-              : withCurrentWeeklyMinutes({
+              : withCurrentHours({
                   ...employee,
                   id: employee.id,
                   hiredAt: employee.hiredAt,
@@ -510,7 +516,11 @@ export class AttendanceEmployeesService {
         row.id,
         values,
       );
-      return { ...row, name: membership.name, status: employeeStatus(row) };
+      return withCurrentHours({
+        ...row,
+        name: membership.name,
+        status: employeeStatus(row),
+      });
     });
   }
 

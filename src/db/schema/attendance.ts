@@ -36,6 +36,11 @@ export const ATTENDANCE_EMPLOYEE_STATUSES = [
 export type AttendanceEmployeeStatus =
   (typeof ATTENDANCE_EMPLOYEE_STATUSES)[number];
 
+export const ATTENDANCE_EMPLOYMENT_TYPES = ['fullTime', 'partTime'] as const;
+
+export type AttendanceEmploymentType =
+  (typeof ATTENDANCE_EMPLOYMENT_TYPES)[number];
+
 export const ATTENDANCE_EVENT_ACTIONS = [
   'clockIn',
   'breakStart',

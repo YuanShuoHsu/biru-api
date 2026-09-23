@@ -2,7 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   ATTENDANCE_EMPLOYEE_STATUSES,
+  ATTENDANCE_EMPLOYMENT_TYPES,
   type AttendanceEmployeeStatus,
+  type AttendanceEmploymentType,
 } from 'src/db/schema/attendance';
 
 export class AttendanceWeeklyMinutesChangeResponseDto {
@@ -21,6 +23,11 @@ export class AttendanceEmploymentResponseDto {
     type: AttendanceWeeklyMinutesChangeResponseDto,
   })
   weeklyMinutesHistory: AttendanceWeeklyMinutesChangeResponseDto[];
+  @ApiProperty({
+    enum: ATTENDANCE_EMPLOYMENT_TYPES,
+    enumName: 'AttendanceEmploymentType',
+  })
+  employmentType: AttendanceEmploymentType;
   @ApiProperty() enabled: boolean;
   @ApiProperty() hiredAt: Date;
   @ApiPropertyOptional() terminatedAt: Date | null;

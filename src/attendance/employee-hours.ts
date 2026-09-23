@@ -1,4 +1,9 @@
-import type { WeeklyMinutesChange } from 'src/db/schema/attendance';
+import type {
+  AttendanceEmploymentType,
+  WeeklyMinutesChange,
+} from 'src/db/schema/attendance';
+
+export const FULL_TIME_WEEKLY_MINUTES = 2400;
 
 export interface EmployeeHours {
   weeklyMinutes: number;
@@ -19,3 +24,8 @@ export const weeklyMinutesOf =
   (employee: EmployeeHours) =>
   (at: Date): number =>
     weeklyMinutesAt(employee, at);
+
+export const employmentType = (
+  weeklyMinutes: number,
+): AttendanceEmploymentType =>
+  weeklyMinutes < FULL_TIME_WEEKLY_MINUTES ? 'partTime' : 'fullTime';
