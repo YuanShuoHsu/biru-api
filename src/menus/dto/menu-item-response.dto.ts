@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { LocalizedText } from 'src/db/schema/enums';
-import { restrictedDietEnum, type RestrictedDiet } from 'src/db/schema/menus';
+import {
+  restrictedDietEnum,
+  servingTemperatureEnum,
+  type RestrictedDiet,
+  type ServingTemperature,
+} from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 import { MenuItemRecipeResponseDto } from './menu-item-recipe-response.dto';
@@ -29,6 +34,14 @@ export class MenuItemResponseDto {
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
+
+  @ApiProperty({
+    description: '可供應的飲品溫度；空陣列代表不適用',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+    isArray: true,
+  })
+  servingTemperatures: ServingTemperature[];
 
   @ApiProperty({
     description: '可販售的點餐模式',

@@ -22,7 +22,10 @@ export const MENU_ITEM_NUMBER_FILTER_FIELDS = [
   'priceSpecification',
 ] as const;
 export const MENU_ITEM_ENUM_FILTER_FIELDS = ['availability'] as const;
-export const MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS = ['availableModes'] as const;
+export const MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS = [
+  'availableModes',
+  'servingTemperatures',
+] as const;
 export const MENU_ITEM_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
 export const MENU_ITEM_PLAIN_DATE_FILTER_FIELDS = [
   'priceSpecificationValidFrom',
@@ -50,6 +53,7 @@ export const MENU_ITEM_SORT_FIELDS = [
   ...MENU_ITEM_STRING_FILTER_FIELDS,
   ...MENU_ITEM_NUMBER_FILTER_FIELDS,
   ...MENU_ITEM_ENUM_FILTER_FIELDS,
+  'servingTemperatures',
   ...MENU_ITEM_DATE_FILTER_FIELDS,
   ...MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
 ] as const;

@@ -87,13 +87,6 @@ export class OrderMenuModifierResponseDto {
   })
   availableModes: OrderMode[];
 
-  @ApiPropertyOptional({
-    description: '選項代表的飲品溫度；null 代表與溫度無關',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
-  })
-  servingTemperature: ServingTemperature | null;
-
   @ApiProperty()
   sortOrder: number;
 
@@ -205,6 +198,14 @@ export class OrderMenuItemResponseDto {
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
+
+  @ApiProperty({
+    description: '可供應的飲品溫度；空陣列代表不適用',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+    isArray: true,
+  })
+  servingTemperatures: ServingTemperature[];
 
   @ApiProperty({
     description: '可販售的點餐模式',

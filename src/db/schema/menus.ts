@@ -46,7 +46,7 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 
-// 選項代表的飲品溫度；null 代表與溫度無關（如甜度、加料）
+// 品項可供應的飲品溫度
 export const servingTemperatureEnum = pgEnum('serving_temperature', [
   'Hot',
   'Iced',
@@ -129,6 +129,11 @@ export const menuItem = pgTable(
     description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
+    // 可供應的溫度；空陣列代表不適用（如餐點）
+    servingTemperatures: servingTemperatureEnum('serving_temperatures')
+      .array()
+      .notNull()
+      .default([]),
     // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
@@ -249,7 +254,6 @@ export const modifier = pgTable(
       .array()
       .notNull()
       .default(orderModeEnum.enumValues),
-    servingTemperature: servingTemperatureEnum('serving_temperature'),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

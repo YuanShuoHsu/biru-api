@@ -10,9 +10,7 @@ import {
 import type { LocalizedText } from 'src/db/schema/enums';
 import {
   itemAvailabilityEnum,
-  servingTemperatureEnum,
   type ItemAvailability,
-  type ServingTemperature,
 } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
@@ -45,14 +43,4 @@ export class UpdateModifierDto {
   @IsArray()
   @IsEnum(orderModeEnum.enumValues, { each: true })
   availableModes?: OrderMode[];
-
-  @ApiPropertyOptional({
-    description: '選項代表的飲品溫度；null 代表與溫度無關',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsEnum(servingTemperatureEnum.enumValues)
-  servingTemperature?: ServingTemperature | null;
 }

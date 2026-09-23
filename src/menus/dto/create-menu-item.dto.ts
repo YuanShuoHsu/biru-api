@@ -15,8 +15,10 @@ import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import type { LocalizedText } from 'src/db/schema/enums';
 import {
   restrictedDietEnum,
+  servingTemperatureEnum,
   type NutritionInformation,
   type RestrictedDiet,
+  type ServingTemperature,
 } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
@@ -45,6 +47,17 @@ export class CreateMenuItemDto {
   @IsArray()
   @IsEnum(restrictedDietEnum.enumValues, { each: true })
   suitableForDiet?: RestrictedDiet[];
+
+  @ApiPropertyOptional({
+    description: '可供應的飲品溫度；省略代表不適用',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(servingTemperatureEnum.enumValues, { each: true })
+  servingTemperatures?: ServingTemperature[];
 
   @ApiPropertyOptional({
     description: '可販售的點餐模式；省略代表四種全開',

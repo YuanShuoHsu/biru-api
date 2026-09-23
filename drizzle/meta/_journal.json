@@ -1023,6 +1023,13 @@
       "when": 1790139210771,
       "tag": "0145_modifier_serving_temperature",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1790140892708,
+      "tag": "0146_menu_item_serving_temperatures",
+      "breakpoints": true
     }
   ]
 }
