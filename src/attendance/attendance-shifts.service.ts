@@ -6,7 +6,6 @@ import {
   count,
   desc,
   eq,
-  gte,
   ilike,
   inArray,
   lt,
@@ -265,20 +264,28 @@ export class AttendanceShiftsService {
     actor: AttendanceActor,
     { from, to }: AttendanceShiftRangeQueryDto,
   ) {
-    const { data } = await this.shifts(
-      actor,
-      {
-        limit: CALENDAR_SHIFT_LIMIT,
-        sortBy: 'startsAt',
-        sortDirection: 'asc',
-      },
-      false,
-      and(
-        gte(attendanceShift.startsAt, new Date(from)),
-        lt(attendanceShift.startsAt, new Date(to)),
-      ),
-    );
-    return data;
+    const shifts: Awaited<ReturnType<typeof this.shifts>>['data'] = [];
+    let total: number;
+    do {
+      const page = await this.shifts(
+        actor,
+        {
+          limit: CALENDAR_SHIFT_LIMIT,
+          offset: shifts.length,
+          sortBy: 'startsAt',
+          sortDirection: 'asc',
+        },
+        false,
+        and(
+          sql`${attendanceShift.endsAt} > ${new Date(from)}`,
+          lt(attendanceShift.startsAt, new Date(to)),
+        ),
+      );
+      shifts.push(...page.data);
+      total = page.total;
+      if (!page.data.length) break;
+    } while (shifts.length < total);
+    return shifts;
   }
 
   async createShifts(actor: AttendanceActor, dtos: CreateAttendanceShiftDto[]) {
