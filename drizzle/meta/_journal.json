@@ -1030,6 +1030,13 @@
       "when": 1790140892708,
       "tag": "0146_menu_item_serving_temperatures",
       "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1790142157982,
+      "tag": "0147_normalize_menu_item_serving_temperatures",
+      "breakpoints": true
     }
   ]
 }

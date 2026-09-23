@@ -457,8 +457,8 @@ export class MenusService {
       price: offerValue(sql`${offer.price}::numeric`),
       availability: offerValue(sql`${offer.availability}::text`),
       availableModes: menuItem.availableModes,
-      // 陣列依勾選順序儲存，排序前先依 enum 順序正規化；空陣列排最前
-      servingTemperatures: sql`coalesce((select array_agg(t order by t) from unnest(${menuItem.servingTemperatures}) as t), '{}')`,
+      // 寫入時已依 enum 順序排序，可直接比較；空陣列排最前
+      servingTemperatures: menuItem.servingTemperatures,
       inventoryLevel: offerValue(
         sql`NULLIF(${offer.inventoryLevel}->>'value', '')::numeric`,
       ),

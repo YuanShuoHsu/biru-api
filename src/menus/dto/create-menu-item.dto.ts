@@ -25,6 +25,12 @@ import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 import { CreateOfferDto } from './create-offer.dto';
 import { NutritionInformationDto } from './nutrition-information.dto';
 
+const servingTemperatureOrder = (value: ServingTemperature) => {
+  const index = servingTemperatureEnum.enumValues.indexOf(value);
+
+  return index === -1 ? Infinity : index;
+};
+
 export class CreateMenuItemDto {
   @ApiProperty({ example: { 'zh-TW': '拿鐵', en: 'Latte' } })
   @IsObject()
@@ -57,6 +63,16 @@ export class CreateMenuItemDto {
   @IsOptional()
   @IsArray()
   @IsEnum(servingTemperatureEnum.enumValues, { each: true })
+  // 去重並依 enum 順序排序，同一組溫度在 DB 只有一種寫法；非法值保留給 @IsEnum 擋
+  @Transform(({ value }: { value: unknown }) =>
+    Array.isArray(value)
+      ? [...new Set(value)].sort(
+          (a, b) =>
+            servingTemperatureOrder(a as ServingTemperature) -
+            servingTemperatureOrder(b as ServingTemperature),
+        )
+      : value,
+  )
   servingTemperatures?: ServingTemperature[];
 
   @ApiPropertyOptional({
