@@ -1,0 +1,3 @@
+ALTER TABLE "menu_item" ADD COLUMN "recommended_serving_temperature_level" "serving_temperature_level";--> statement-breakpoint
+ALTER TABLE "menu_item" ADD COLUMN "recommended_sweetness_level" "sweetness_level";--> statement-breakpoint
+ALTER TABLE "menu_item" ADD CONSTRAINT "menuItem_recommended_sweetness_level" CHECK ("menu_item"."recommended_sweetness_level" IS NULL OR "menu_item"."sweetness" = 'Adjustable');

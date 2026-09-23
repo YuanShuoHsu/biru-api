@@ -21,6 +21,7 @@ import {
 import { timestamps } from './columns.helpers';
 import {
   servingTemperatureEnum,
+  servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type LocalizedText,
@@ -132,10 +133,18 @@ export const menuItem = pgTable(
       .array()
       .notNull()
       .default([]),
+    // 推薦的溫度細項，須屬於可供應的冷熱；只在點餐時標示，不自動帶入
+    recommendedServingTemperatureLevel: servingTemperatureLevelEnum(
+      'recommended_serving_temperature_level',
+    ),
     // 甜度：不適用（如餐點）、固定（如預調飲）、可調
     sweetness: sweetnessEnum('sweetness').notNull().default('NotApplicable'),
     // 甜度固定時的等級；其他情況為 null
     fixedSweetnessLevel: sweetnessLevelEnum('fixed_sweetness_level'),
+    // 推薦的甜度，僅甜度可調時可設；只在點餐時標示，不自動帶入
+    recommendedSweetnessLevel: sweetnessLevelEnum(
+      'recommended_sweetness_level',
+    ),
     // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
@@ -152,6 +161,10 @@ export const menuItem = pgTable(
     check(
       'menuItem_fixed_sweetness_level',
       sql`(${table.sweetness} = 'Fixed') = (${table.fixedSweetnessLevel} IS NOT NULL)`,
+    ),
+    check(
+      'menuItem_recommended_sweetness_level',
+      sql`${table.recommendedSweetnessLevel} IS NULL OR ${table.sweetness} = 'Adjustable'`,
     ),
   ],
 );

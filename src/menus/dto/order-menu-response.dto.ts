@@ -8,9 +8,11 @@ import {
 } from 'src/db/schema/menus';
 import {
   servingTemperatureEnum,
+  servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type ServingTemperature,
+  type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
 } from 'src/db/schema/enums';
@@ -155,6 +157,14 @@ export class OrderMenuAddOnItemResponseDto {
   })
   servingTemperatures: ServingTemperature[];
 
+  @ApiPropertyOptional({
+    description: '推薦的溫度細項；未設定為 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
+    nullable: true,
+  })
+  recommendedServingTemperatureLevel: ServingTemperatureLevel | null;
+
   @ApiProperty({
     description: '甜度：不適用、固定、可調',
     enum: sweetnessEnum.enumValues,
@@ -169,6 +179,14 @@ export class OrderMenuAddOnItemResponseDto {
     nullable: true,
   })
   fixedSweetnessLevel: SweetnessLevel | null;
+
+  @ApiPropertyOptional({
+    description: '推薦的甜度；僅甜度可調時可能有值',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  recommendedSweetnessLevel: SweetnessLevel | null;
 
   @ApiProperty({ type: [OrderMenuOfferResponseDto] })
   offers: OrderMenuOfferResponseDto[];
@@ -236,6 +254,14 @@ export class OrderMenuItemResponseDto {
   })
   servingTemperatures: ServingTemperature[];
 
+  @ApiPropertyOptional({
+    description: '推薦的溫度細項；未設定為 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
+    nullable: true,
+  })
+  recommendedServingTemperatureLevel: ServingTemperatureLevel | null;
+
   @ApiProperty({
     description: '甜度：不適用、固定、可調',
     enum: sweetnessEnum.enumValues,
@@ -250,6 +276,14 @@ export class OrderMenuItemResponseDto {
     nullable: true,
   })
   fixedSweetnessLevel: SweetnessLevel | null;
+
+  @ApiPropertyOptional({
+    description: '推薦的甜度；僅甜度可調時可能有值',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  recommendedSweetnessLevel: SweetnessLevel | null;
 
   @ApiProperty({
     description: '可販售的點餐模式',

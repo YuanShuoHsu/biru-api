@@ -2,10 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   servingTemperatureEnum,
+  servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type LocalizedText,
   type ServingTemperature,
+  type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
 } from 'src/db/schema/enums';
@@ -46,6 +48,14 @@ export class MenuItemResponseDto {
   })
   servingTemperatures: ServingTemperature[];
 
+  @ApiPropertyOptional({
+    description: '推薦的溫度細項；未設定為 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
+    nullable: true,
+  })
+  recommendedServingTemperatureLevel: ServingTemperatureLevel | null;
+
   @ApiProperty({
     description: '甜度：不適用、固定、可調',
     enum: sweetnessEnum.enumValues,
@@ -60,6 +70,14 @@ export class MenuItemResponseDto {
     nullable: true,
   })
   fixedSweetnessLevel: SweetnessLevel | null;
+
+  @ApiPropertyOptional({
+    description: '推薦的甜度；僅甜度可調時可能有值',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  recommendedSweetnessLevel: SweetnessLevel | null;
 
   @ApiProperty({
     description: '可販售的點餐模式',

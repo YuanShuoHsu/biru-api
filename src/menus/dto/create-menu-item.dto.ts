@@ -12,13 +12,16 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
+import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
 import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import {
   servingTemperatureEnum,
+  servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type LocalizedText,
   type ServingTemperature,
+  type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
 } from 'src/db/schema/enums';
@@ -83,6 +86,26 @@ export class CreateMenuItemDto {
   servingTemperatures?: ServingTemperature[];
 
   @ApiPropertyOptional({
+    description: '推薦的溫度細項；須屬於可供應的冷熱，否則存 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(servingTemperatureLevelEnum.enumValues)
+  // 取消勾選對應的冷熱時一併清掉，避免推薦不存在的細項
+  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
+    Array.isArray(obj.servingTemperatures) &&
+    typeof value === 'string' &&
+    !obj.servingTemperatures.includes(
+      SERVING_TEMPERATURE_OF_LEVEL[value as ServingTemperatureLevel],
+    )
+      ? null
+      : value,
+  )
+  recommendedServingTemperatureLevel?: ServingTemperatureLevel | null;
+
+  @ApiPropertyOptional({
     description: '甜度：不適用、固定、可調；省略代表不適用',
     enum: sweetnessEnum.enumValues,
     enumName: 'Sweetness',
@@ -105,6 +128,21 @@ export class CreateMenuItemDto {
     obj.sweetness && obj.sweetness !== 'Fixed' ? null : value,
   )
   fixedSweetnessLevel?: SweetnessLevel | null;
+
+  @ApiPropertyOptional({
+    description:
+      '推薦的甜度；僅 sweetness 為 Adjustable 時可設，其他情況一律存 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(sweetnessLevelEnum.enumValues)
+  // 改成非可調時一併清掉
+  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
+    obj.sweetness && obj.sweetness !== 'Adjustable' ? null : value,
+  )
+  recommendedSweetnessLevel?: SweetnessLevel | null;
 
   @ApiPropertyOptional({
     description: '可販售的點餐模式；省略代表四種全開',
