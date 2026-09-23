@@ -163,8 +163,6 @@ describe('attendance services', () => {
       id: 'employee',
       hiredAt: new Date('2025-01-01T00:00:00+08:00'),
       terminatedAt: null,
-      weeklyMinutes: 2400,
-      weeklyMinutesHistory: [],
     };
     const save = (terminatedAt: string | undefined, rows: unknown[][]) => {
       const { db, insert } = database([
@@ -190,110 +188,6 @@ describe('attendance services', () => {
     expect(locked.insert).not.toHaveBeenCalled();
     const unchanged = save(undefined, []);
     await expect(unchanged.result).resolves.toBeDefined();
-  });
-  it('dates every change of weekly hours and keeps closed months out of it', async () => {
-    const current = {
-      id: 'employee',
-      hiredAt: new Date('2025-01-01T00:00:00+08:00'),
-      terminatedAt: null,
-      weeklyMinutes: 1200,
-      weeklyMinutesHistory: [
-        { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-      ],
-    };
-    const save = ({
-      history = current.weeklyMinutesHistory,
-      rows = [],
-      terminatedAt,
-      weeklyMinutes = 2400,
-      weeklyMinutesFrom,
-    }: {
-      history?: { from: string; minutes: number }[];
-      rows?: unknown[][];
-      terminatedAt?: string;
-      weeklyMinutes?: number;
-      weeklyMinutesFrom?: string;
-    }) => {
-      const { db, insert, values } = database([
-        [{ name: 'Member' }],
-        [{ ...current, weeklyMinutesHistory: history }],
-        [],
-        [],
-        [],
-        ...rows,
-      ]);
-      return {
-        insert,
-        values,
-        result: new AttendanceEmployeesService(db).saveEmployee(actor, {
-          userId: 'user',
-          enabled: true,
-          hiredAt: '2025-01-01T00:00:00+08:00',
-          weeklyMinutes,
-          weeklyMinutesFrom,
-          terminatedAt,
-        }),
-      };
-    };
-    const savedHistory = (values: { mock: { calls: unknown[][] } }) => {
-      const [[saved]] = values.mock.calls as unknown as [
-        [{ weeklyMinutesHistory: unknown[] }],
-      ];
-
-      return saved.weeklyMinutesHistory;
-    };
-    await expect(save({}).result).rejects.toThrow('weeklyMinutesFromRequired');
-    await expect(
-      save({ weeklyMinutesFrom: '2024-01-01T00:00:00+08:00' }).result,
-    ).rejects.toThrow('weeklyMinutesFromRequired');
-    const closed = save({
-      weeklyMinutesFrom: '2026-01-01T00:00:00+08:00',
-      rows: [[{ id: 'statement' }]],
-    });
-    await expect(closed.result).rejects.toThrow('payrollLocked');
-    expect(closed.insert).not.toHaveBeenCalled();
-    await expect(
-      save({
-        weeklyMinutesFrom: '2026-07-01T00:00:00+08:00',
-        rows: [[]],
-        terminatedAt: '2026-07-01T00:00:00+08:00',
-      }).result,
-    ).rejects.toThrow('weeklyMinutesFromOutsideEmployment');
-    const accepted = save({
-      weeklyMinutesFrom: '2026-07-01T00:00:00+08:00',
-      rows: [[]],
-    });
-    await expect(accepted.result).resolves.toBeDefined();
-    expect(savedHistory(accepted.values)).toEqual([
-      { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-      {
-        from: new Date('2026-07-01T00:00:00+08:00').toISOString(),
-        minutes: 2400,
-      },
-    ]);
-    const cancelled = save({
-      history: [
-        { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-        { from: '2027-07-01T00:00:00+08:00', minutes: 2400 },
-      ],
-      weeklyMinutes: 1200,
-    });
-    await expect(cancelled.result).resolves.toBeDefined();
-    expect(savedHistory(cancelled.values)).toEqual([
-      { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-    ]);
-    const shortened = save({
-      history: [
-        { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-        { from: '2027-07-01T00:00:00+08:00', minutes: 2400 },
-      ],
-      terminatedAt: '2026-12-01T00:00:00+08:00',
-      weeklyMinutes: 1200,
-    });
-    await expect(shortened.result).resolves.toBeDefined();
-    expect(savedHistory(shortened.values)).toEqual([
-      { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-    ]);
   });
   it('prevents a manager from reviewing their own request', async () => {
     const { db } = database([

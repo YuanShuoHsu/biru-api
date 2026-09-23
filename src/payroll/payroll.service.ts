@@ -44,8 +44,11 @@ import {
   type TimeInterval,
 } from 'src/attendance/attendance-rules';
 import {
-  weeklyMinutesAt,
+  averageWeeklyMinutes,
+  employmentType,
+  loadOneEmployeeHours,
   weeklyMinutesOf,
+  type EmployeeHours,
 } from 'src/attendance/employee-hours';
 import {
   effectivePaidPercent,
@@ -109,6 +112,12 @@ import {
 import { PayrollRulesService } from './payroll-rules.service';
 import { currentGrade, laborGradesFor } from './taiwan-rules';
 
+const knownFullTime = (hours: EmployeeHours, at: Date) => {
+  const weeklyMinutes = averageWeeklyMinutes(hours, at);
+
+  return weeklyMinutes !== null && employmentType(weeklyMinutes) === 'fullTime';
+};
+
 @Injectable()
 export class PayrollService {
   constructor(
@@ -158,7 +167,7 @@ export class PayrollService {
         if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
         if (
           terms.insurance.laborLadder === 'partTime' &&
-          weeklyMinutesAt(employee, date) >= 2400
+          knownFullTime(await loadOneEmployeeHours(tx, employee), date)
         )
           throw badRequestError('partTimeLadderRequiresPartTime');
         if (
@@ -336,6 +345,7 @@ export class PayrollService {
     const employee =
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
     const { start, end } = payrollPeriod(month);
+    const hours = await loadOneEmployeeHours(tx, employee);
     const [profile] = await tx
       .select()
       .from(payrollTerms)
@@ -415,10 +425,7 @@ export class PayrollService {
         !currentGrade(insurance.healthBasis, ruleSet.rules.healthGrades))
     )
       blockers.push('insuranceBasisOutdated');
-    if (
-      insurance?.laborLadder === 'partTime' &&
-      weeklyMinutesAt(employee, start) >= 2400
-    )
+    if (insurance?.laborLadder === 'partTime' && knownFullTime(hours, start))
       blockers.push('partTimeLadderRequiresPartTime');
     if (ruleSet.stale) blockers.push('payrollRuleSetStale');
     if (
@@ -809,7 +816,7 @@ export class PayrollService {
       ? annualLeaveSettlement({
           hiredAt: employee.hiredAt,
           terminatedAt: employee.terminatedAt,
-          weeklyMinutesAt: weeklyMinutesOf(employee),
+          weeklyMinutesAt: weeklyMinutesOf(hours),
           start,
           end,
           terms: profile.terms,

@@ -5,6 +5,22 @@ import { PayrollService } from './payroll.service';
 import { taiwan2026 } from './taiwan-rules.fixture';
 
 const actor = { organizationId: 'org', userId: 'owner', role: 'owner' };
+const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
+  Array.from({ length: 52 * 5 }, (_, index) => {
+    const startsAt = new Date(
+      before.getTime() -
+        (Math.floor(index / 5) + 1) * 7 * 86400000 +
+        (index % 5) * 86400000,
+    );
+    return {
+      employeeId: 'employee',
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + (weeklyMinutes / 5) * 60000),
+      paidBreak: false,
+      breakStartsAt: null,
+      breakEndsAt: null,
+    };
+  });
 const employee = {
   id: 'employee',
   organizationId: 'org',
@@ -185,7 +201,8 @@ describe('Payroll terms validation', () => {
   };
   const save = (weeklyMinutes: number, overrides: object) => {
     const { service } = setup([
-      [{ ...employee, weeklyMinutes, weeklyMinutesHistory: [] }],
+      [{ ...employee, hiredAt: new Date('2020-01-01T00:00:00+08:00') }],
+      scheduledWeeks(weeklyMinutes, new Date('2026-03-01T00:00:00+08:00')),
     ]);
     Object.defineProperty(service, 'ruleSets', {
       value: {

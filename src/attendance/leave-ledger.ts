@@ -21,7 +21,12 @@ import {
   countedRequestStatuses,
   scheduledWorkSeconds,
 } from './attendance-rules';
-import { weeklyMinutesAt, weeklyMinutesOf } from './employee-hours';
+import {
+  loadOneEmployeeHours,
+  weeklyMinutesAt,
+  weeklyMinutesOf,
+  type EmployeeHours,
+} from './employee-hours';
 import {
   anniversary,
   annualLeaveLedger,
@@ -150,8 +155,10 @@ export async function statutoryBalance(
     policies?: (typeof attendanceLeaveType.$inferSelect)[];
     ledger?: Awaited<ReturnType<typeof loadMedicalLedger>>;
     records?: (typeof attendanceRequest.$inferSelect)[];
+    hours?: EmployeeHours;
   },
 ) {
+  const hours = preloaded?.hours ?? (await loadOneEmployeeHours(tx, employee));
   if (
     isMedicalLeave(policy.statutoryKind) &&
     policy.statutoryKind !== 'menstrual'
@@ -160,7 +167,7 @@ export async function statutoryBalance(
     const year = Number(platformDateString(at).slice(0, 4));
     const hospital = policy.statutoryKind !== 'sick';
     const yearStart = platformMonthStart(hospital ? year - 1 : year, 0);
-    const yearMinutes = weeklyMinutesAt(employee, yearStart);
+    const yearMinutes = weeklyMinutesAt(hours, yearStart);
     const days = hospital
       ? (ledger.years.get(year)?.shared ?? 0) +
         (ledger.years.get(year - 1)?.shared ?? 0)
@@ -182,7 +189,7 @@ export async function statutoryBalance(
     policy.statutoryKind,
     employee.hiredAt,
     at,
-    weeklyMinutesOf(employee),
+    weeklyMinutesOf(hours),
   );
   if (!period) return null;
   const policies =
@@ -208,7 +215,7 @@ export async function statutoryBalance(
     const ledger = annualLeaveLedger(
       employee.hiredAt,
       at,
-      weeklyMinutesOf(employee),
+      weeklyMinutesOf(hours),
       records,
     );
     const current = ledger[ledger.length - 1];

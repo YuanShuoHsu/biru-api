@@ -72,6 +72,7 @@ async function snapshot(
   const monthStart = platformMonthStart(year, monthNumber - 1);
   const monthEnd = platformMonthStart(year, monthNumber);
   const results: unknown[][] = [
+    [],
     [
       {
         terms: {

@@ -92,11 +92,6 @@ export const attendanceRequestStatus = pgEnum('attendance_request_status', [
   'cancelled',
 ]);
 
-export interface WeeklyMinutesChange {
-  from: string;
-  minutes: number;
-}
-
 export const attendanceEmployee = pgTable(
   'attendance_employee',
   {
@@ -107,11 +102,6 @@ export const attendanceEmployee = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
-    weeklyMinutes: integer('weekly_minutes').notNull().default(2400),
-    weeklyMinutesHistory: jsonb('weekly_minutes_history')
-      .$type<WeeklyMinutesChange[]>()
-      .notNull()
-      .default([]),
     enabled: boolean('enabled').notNull().default(true),
     hiredAt: timestamp('hired_at', { withTimezone: true }).notNull(),
     terminatedAt: timestamp('terminated_at', { withTimezone: true }),

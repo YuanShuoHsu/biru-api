@@ -32,7 +32,6 @@ import {
   attendanceSettings,
   attendanceShift,
   type AttendanceEmploymentType,
-  type WeeklyMinutesChange,
 } from 'src/db/schema/attendance';
 import { member } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
@@ -57,9 +56,9 @@ import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
 import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
 import {
   employmentType,
-  FULL_TIME_WEEKLY_MINUTES,
+  employmentTypeSql,
+  loadOneEmployeeHours,
   weeklyMinutesAt,
-  type EmployeeHours,
 } from './employee-hours';
 import { findEmployee } from './employee-lookup';
 import {
@@ -72,30 +71,13 @@ import {
 const platformDayStart = (value: string) =>
   new Date(platformMidnight(new Date(value).getTime()));
 
-const currentWeeklyMinutes = sql<number>`COALESCE(
-  (SELECT (change ->> 'minutes')::int
-     FROM jsonb_array_elements(${attendanceEmployee.weeklyMinutesHistory}) change
-    WHERE (change ->> 'from')::timestamptz <= now()
-    ORDER BY (change ->> 'from')::timestamptz DESC
-    LIMIT 1),
-  (${attendanceEmployee.weeklyMinutesHistory} -> 0 ->> 'minutes')::int,
-  ${attendanceEmployee.weeklyMinutes})`;
-
-const employmentTypeSql = sql<AttendanceEmploymentType | null>`CASE
-  WHEN ${attendanceEmployee.id} IS NULL THEN NULL
-  WHEN ${currentWeeklyMinutes} < ${sql.raw(String(FULL_TIME_WEEKLY_MINUTES))} THEN 'partTime'
-  ELSE 'fullTime'
-END`;
-
-const withCurrentHours = <T extends EmployeeHours>(employee: T) => {
-  const weeklyMinutes = weeklyMinutesAt(employee, new Date());
-
-  return {
-    ...employee,
-    weeklyMinutes,
-    employmentType: employmentType(weeklyMinutes),
-  };
-};
+const currentEmploymentType = async (
+  db: DrizzleDB | Transaction,
+  employee: { id: string; hiredAt: Date },
+) =>
+  employmentType(
+    weeklyMinutesAt(await loadOneEmployeeHours(db, employee), new Date()),
+  );
 
 @Injectable()
 export class AttendanceEmployeesService {
@@ -106,7 +88,8 @@ export class AttendanceEmployeesService {
     return {
       employee: employee
         ? {
-            ...withCurrentHours(employee),
+            ...employee,
+            employmentType: await currentEmploymentType(this.db, employee),
             status: employeeStatus(employee),
           }
         : null,
@@ -192,8 +175,7 @@ export class AttendanceEmployeesService {
           organizationId: attendanceEmployee.organizationId,
           userId: attendanceEmployee.userId,
           name: user.name,
-          weeklyMinutes: attendanceEmployee.weeklyMinutes,
-          weeklyMinutesHistory: attendanceEmployee.weeklyMinutesHistory,
+          employmentType: sql<AttendanceEmploymentType>`${employmentTypeSql}`,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -212,7 +194,7 @@ export class AttendanceEmployeesService {
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
-    return { data: data.map(withCurrentHours), total };
+    return { data, total };
   }
 
   async members(
@@ -278,8 +260,7 @@ export class AttendanceEmployeesService {
           name: user.name,
           email: user.email,
           joinedAt: member.createdAt,
-          weeklyMinutes: attendanceEmployee.weeklyMinutes,
-          weeklyMinutesHistory: attendanceEmployee.weeklyMinutesHistory,
+          employmentType: employmentTypeSql,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -324,21 +305,19 @@ export class AttendanceEmployeesService {
             employee.id === null ||
             employee.hiredAt === null ||
             employee.enabled === null ||
-            employee.weeklyMinutes === null ||
-            employee.weeklyMinutesHistory === null ||
+            employee.employmentType === null ||
             employee.createdAt === null
               ? null
-              : withCurrentHours({
+              : {
                   ...employee,
                   id: employee.id,
                   hiredAt: employee.hiredAt,
                   enabled: employee.enabled,
-                  weeklyMinutes: employee.weeklyMinutes,
-                  weeklyMinutesHistory: employee.weeklyMinutesHistory,
+                  employmentType: employee.employmentType,
                   createdAt: employee.createdAt,
                   userId,
                   name,
-                }),
+                },
         }),
       ),
       total,
@@ -371,8 +350,6 @@ export class AttendanceEmployeesService {
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
-          weeklyMinutes: attendanceEmployee.weeklyMinutes,
-          weeklyMinutesHistory: attendanceEmployee.weeklyMinutesHistory,
         })
         .from(attendanceEmployee)
         .where(
@@ -473,28 +450,10 @@ export class AttendanceEmployeesService {
           );
         }
       }
-      const requested =
-        dto.weeklyMinutes ??
-        (current ? weeklyMinutesAt(current, new Date()) : 2400);
-      const weeklyMinutesHistory = await this.recordWeeklyMinutes(
-        tx,
-        actor,
-        current,
-        requested,
-        hiredAt,
-        terminatedAt,
-        dto.weeklyMinutesFrom,
-      );
-      const weeklyMinutes = weeklyMinutesAt(
-        { weeklyMinutes: requested, weeklyMinutesHistory },
-        new Date(),
-      );
       const values = {
         organizationId: actor.organizationId,
         userId: dto.userId,
         enabled: dto.enabled,
-        weeklyMinutes,
-        weeklyMinutesHistory,
         hiredAt,
         terminatedAt,
       };
@@ -516,68 +475,13 @@ export class AttendanceEmployeesService {
         row.id,
         values,
       );
-      return withCurrentHours({
+      return {
         ...row,
         name: membership.name,
+        employmentType: await currentEmploymentType(tx, row),
         status: employeeStatus(row),
-      });
+      };
     });
-  }
-
-  private async recordWeeklyMinutes(
-    tx: Transaction,
-    actor: AttendanceActor,
-    current:
-      | {
-          id: string;
-          weeklyMinutes: number;
-          weeklyMinutesHistory: WeeklyMinutesChange[];
-        }
-      | undefined,
-    weeklyMinutes: number,
-    hiredAt: Date,
-    terminatedAt: Date | null,
-    from?: string,
-  ): Promise<WeeklyMinutesChange[]> {
-    if (!current)
-      return [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
-    const now = new Date();
-    // 已生效的區段不能動，否則過去期間的法定額度會被回溯改寫；未生效的區段由這次請求完整描述
-    const settled = current.weeklyMinutesHistory.filter(({ from }) => {
-      const at = new Date(from);
-
-      return (
-        (!terminatedAt || at < terminatedAt) &&
-        (at.getTime() === hiredAt.getTime() || at <= now)
-      );
-    });
-    const anchored = settled.length
-      ? settled
-      : [{ from: hiredAt.toISOString(), minutes: weeklyMinutes }];
-    if (!from) {
-      if (weeklyMinutes !== weeklyMinutesAt(current, now))
-        throw badRequestError('weeklyMinutesFromRequired');
-
-      return anchored;
-    }
-    const effectiveFrom = platformDayStart(from);
-    if (effectiveFrom < hiredAt)
-      throw badRequestError('weeklyMinutesFromRequired');
-    if (terminatedAt && effectiveFrom >= terminatedAt)
-      throw badRequestError('weeklyMinutesFromOutsideEmployment');
-    await assertPayrollUnlocked(
-      tx,
-      actor.organizationId,
-      current.id,
-      effectiveFrom,
-    );
-
-    return [
-      ...settled.filter(
-        ({ from }) => new Date(from).getTime() !== effectiveFrom.getTime(),
-      ),
-      { from: effectiveFrom.toISOString(), minutes: weeklyMinutes },
-    ].sort((a, b) => a.from.localeCompare(b.from));
   }
 
   async settings(actor: AttendanceActor) {

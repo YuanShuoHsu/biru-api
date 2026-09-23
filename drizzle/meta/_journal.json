@@ -1009,6 +1009,13 @@
       "when": 1790089484230,
       "tag": "0143_attendance_employee_user_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1790134661112,
+      "tag": "0144_attendance_employee_derived_weekly_minutes",
+      "breakpoints": true
     }
   ]
 }

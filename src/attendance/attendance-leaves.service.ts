@@ -74,7 +74,12 @@ import {
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
 import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
-import { weeklyMinutesAt, weeklyMinutesOf } from './employee-hours';
+import {
+  loadEmployeeHours,
+  loadOneEmployeeHours,
+  weeklyMinutesAt,
+  weeklyMinutesOf,
+} from './employee-hours';
 import { requireEmployee } from './employee-lookup';
 import { statutoryBalance } from './leave-ledger';
 import {
@@ -551,7 +556,7 @@ export class AttendanceLeavesService {
       policy.statutoryKind,
       employee.hiredAt,
       startsAt,
-      weeklyMinutesAt(employee, startsAt),
+      weeklyMinutesAt(await loadOneEmployeeHours(tx, employee), startsAt),
     );
     const entitlement = {
       ...statutory,
@@ -1029,6 +1034,7 @@ export class AttendanceLeavesService {
         isMedicalLeave(policy.statutoryKind) &&
         policy.statutoryKind !== 'menstrual';
       const at = new Date();
+      const hoursOf = await loadEmployeeHours(tx, employees);
       const periodStarts = employees.flatMap((employee) =>
         statutoryPolicies
           .filter((policy) => !ledgerPolicy(policy))
@@ -1039,7 +1045,7 @@ export class AttendanceLeavesService {
                   policy.statutoryKind,
                   employee.hiredAt,
                   at,
-                  weeklyMinutesOf(employee),
+                  weeklyMinutesOf(hoursOf.get(employee.id)!),
                 )?.start.getTime() ?? []),
           ),
       );
@@ -1076,6 +1082,7 @@ export class AttendanceLeavesService {
           policies,
           ledger: ledgers?.get(employee.id),
           records: recordsOf.get(employee.id) ?? [],
+          hours: hoursOf.get(employee.id),
         };
         for (const policy of statutoryPolicies) {
           const balance = await statutoryBalance(

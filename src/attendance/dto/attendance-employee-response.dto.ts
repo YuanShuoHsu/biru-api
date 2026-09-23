@@ -7,22 +7,11 @@ import {
   type AttendanceEmploymentType,
 } from 'src/db/schema/attendance';
 
-export class AttendanceWeeklyMinutesChangeResponseDto {
-  @ApiProperty() from: string;
-  @ApiProperty() minutes: number;
-}
-
 export class AttendanceEmploymentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
-  @ApiProperty() weeklyMinutes: number;
-  @ApiProperty({
-    isArray: true,
-    type: AttendanceWeeklyMinutesChangeResponseDto,
-  })
-  weeklyMinutesHistory: AttendanceWeeklyMinutesChangeResponseDto[];
   @ApiProperty({
     enum: ATTENDANCE_EMPLOYMENT_TYPES,
     enumName: 'AttendanceEmploymentType',

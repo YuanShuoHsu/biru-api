@@ -71,7 +71,11 @@ import {
 } from './dto/attendance-request-pagination-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
-import { weeklyMinutesAt, weeklyMinutesOf } from './employee-hours';
+import {
+  loadOneEmployeeHours,
+  weeklyMinutesAt,
+  weeklyMinutesOf,
+} from './employee-hours';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup';
 import {
   countedLeaves,
@@ -751,6 +755,7 @@ export class AttendanceRequestsService {
           kind: policy.statutoryKind,
         })
       : null;
+    const hours = medical ? await loadOneEmployeeHours(tx, employee) : null;
     const minutes = medical
       ? Math.ceil(
           medical.segments
@@ -759,7 +764,10 @@ export class AttendanceRequestsService {
               (sum, segment) =>
                 sum +
                 (segment.units *
-                  weeklyMinutesAt(employee, new Date(segment.start))) /
+                  weeklyMinutesAt(
+                    hours!,
+                    platformMonthStart(segment.year, 0),
+                  )) /
                   5,
               0,
             ),
@@ -934,12 +942,13 @@ export class AttendanceRequestsService {
       policy.statutoryKind === 'familyCare'
         ? [policy, { ...policy, statutoryKind: 'personal' as const }]
         : [policy];
+    const hours = await loadOneEmployeeHours(tx, employee);
     const periods = checked.map((item) =>
       statutoryLeavePeriod(
         item.statutoryKind,
         employee.hiredAt,
         request.startsAt,
-        weeklyMinutesOf(employee),
+        weeklyMinutesOf(hours),
       ),
     );
     const preloaded = periods.every((period) => period)
@@ -970,7 +979,7 @@ export class AttendanceRequestsService {
       employee,
       policy,
       request.startsAt,
-      preloaded,
+      { ...preloaded, hours },
     );
     if (
       !balance ||
@@ -984,7 +993,7 @@ export class AttendanceRequestsService {
         employee,
         checked[1],
         request.startsAt,
-        preloaded,
+        { ...preloaded, hours },
       );
       if (!shared || shared.usedMinutes + minutes > shared.grantedMinutes)
         throw conflictError('insufficientLeaveBalance');

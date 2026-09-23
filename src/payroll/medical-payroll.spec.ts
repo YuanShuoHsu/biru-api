@@ -45,6 +45,7 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
   };
   const shifts = withShift ? [shift] : [];
   const results: unknown[][] = [
+    [],
     [
       {
         terms: {

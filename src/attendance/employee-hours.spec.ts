@@ -1,33 +1,60 @@
-import { weeklyMinutesAt } from './employee-hours';
+import { averageWeeklyMinutes, weeklyMinutesAt } from './employee-hours';
 
-const employee = {
-  weeklyMinutes: 2400,
-  weeklyMinutesHistory: [
-    { from: '2025-01-01T00:00:00+08:00', minutes: 1200 },
-    { from: '2026-07-01T00:00:00+08:00', minutes: 2400 },
-  ],
-};
+const at = (value: string) => new Date(`${value}+08:00`);
+const shift = (day: string, from: string, to: string) => ({
+  startsAt: at(`${day}T${from}:00`),
+  endsAt: at(`${day}T${to}:00`),
+  paidBreak: false,
+  breakStartsAt: null,
+  breakEndsAt: null,
+});
+
+describe('averageWeeklyMinutes', () => {
+  it('averages scheduled normal minutes over the year before the date', () => {
+    const normalShifts = Array.from({ length: 52 }, (_, week) => {
+      const day = new Date(Date.UTC(2025, 0, 1 + week * 7))
+        .toISOString()
+        .slice(0, 10);
+      return shift(day, '09:00', '19:00');
+    });
+    expect(
+      averageWeeklyMinutes(
+        { hiredAt: at('2024-01-01T00:00:00'), normalShifts },
+        at('2025-12-31T09:00:00'),
+      ),
+    ).toBe(480);
+  });
+  it('starts the window at the first scheduled shift', () => {
+    expect(
+      averageWeeklyMinutes(
+        {
+          hiredAt: at('2020-01-01T00:00:00'),
+          normalShifts: [shift('2025-12-24', '09:00', '13:00')],
+        },
+        at('2025-12-31T09:00:00'),
+      ),
+    ).toBe(240);
+  });
+  it('does not count a shift still running at the date', () => {
+    expect(
+      averageWeeklyMinutes(
+        {
+          hiredAt: at('2025-01-01T00:00:00'),
+          normalShifts: [shift('2025-12-31', '09:00', '13:00')],
+        },
+        at('2025-12-31T10:00:00'),
+      ),
+    ).toBeNull();
+  });
+});
 
 describe('weeklyMinutesAt', () => {
-  it('reads the hours in force on the given date', () => {
-    expect(
-      weeklyMinutesAt(employee, new Date('2026-06-30T23:59:59+08:00')),
-    ).toBe(1200);
-    expect(
-      weeklyMinutesAt(employee, new Date('2026-07-01T00:00:00+08:00')),
-    ).toBe(2400);
-  });
-  it('reads the earliest recorded hours for a date before the first change', () => {
-    expect(
-      weeklyMinutesAt(employee, new Date('2024-01-01T00:00:00+08:00')),
-    ).toBe(1200);
-  });
-  it('falls back to the stored hours when nothing was recorded', () => {
+  it('treats an employee without any schedule as full time', () => {
     expect(
       weeklyMinutesAt(
-        { weeklyMinutes: 900, weeklyMinutesHistory: [] },
-        new Date(),
+        { hiredAt: at('2025-01-01T00:00:00'), normalShifts: [] },
+        at('2026-01-01T00:00:00'),
       ),
-    ).toBe(900);
+    ).toBe(2400);
   });
 });

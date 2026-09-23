@@ -80,8 +80,6 @@ export const attendanceErrorCodes = [
   'splitLeaveByYear',
   'statutoryBalanceAutomatic',
   'statutoryLeaveTypeLocked',
-  'weeklyMinutesFromOutsideEmployment',
-  'weeklyMinutesFromRequired',
 ] as const;
 
 export type AttendanceErrorCode = (typeof attendanceErrorCodes)[number];

@@ -12,6 +12,22 @@ jest.mock('./payroll-calculation', () => ({
   calculatePayroll: jest.fn(() => ({ blockers: [] })),
 }));
 const at = (hour: string) => new Date(`2026-01-15T${hour}:00+08:00`);
+const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
+  Array.from({ length: 52 * 5 }, (_, index) => {
+    const startsAt = new Date(
+      before.getTime() -
+        (Math.floor(index / 5) + 1) * 7 * 86400000 +
+        (index % 5) * 86400000,
+    );
+    return {
+      employeeId: 'employee',
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + (weeklyMinutes / 5) * 60000),
+      paidBreak: false,
+      breakStartsAt: null,
+      breakEndsAt: null,
+    };
+  });
 
 async function snapshot(
   leave: [string, string],
@@ -30,8 +46,6 @@ async function snapshot(
     organizationId: 'org',
     hiredAt: new Date('2020-01-01'),
     terminatedAt: null,
-    weeklyMinutes: options.weeklyMinutes ?? 2400,
-    weeklyMinutesHistory: [],
   };
   const shift = {
     id: 'shift',
@@ -53,6 +67,12 @@ async function snapshot(
     shiftId: null,
   };
   const results: unknown[][] = [
+    options.weeklyMinutes
+      ? scheduledWeeks(
+          options.weeklyMinutes,
+          new Date('2026-01-01T00:00:00+08:00'),
+        )
+      : [],
     [
       {
         terms: {

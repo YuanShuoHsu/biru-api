@@ -3,6 +3,7 @@ import { and, eq, gt, inArray, lt, ne } from 'drizzle-orm';
 import {
   DAY_MS,
   platformMidnight,
+  platformMonthStart,
   toPlatformTime,
 } from 'src/common/constants/timezone';
 import {
@@ -21,7 +22,7 @@ import {
   type ScheduledShift,
   type TimeInterval,
 } from './attendance-rules';
-import { weeklyMinutesOf } from './employee-hours';
+import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours';
 import { requiresMedicalCertificate } from './leave-rules';
 
 export const medicalKinds = [
@@ -137,7 +138,7 @@ export function medicalLedger(
         }))
         .filter((interval) => interval.end > interval.start);
       const dayMilliseconds = Math.max(
-        (weeklyMinutesAt(new Date(day)) / 5) * 60000,
+        (weeklyMinutesAt(platformMonthStart(yearOf(day), 0)) / 5) * 60000,
         dailyWork.reduce(
           (sum, interval) => sum + interval.end - interval.start,
           0,
@@ -318,6 +319,7 @@ async function medicalLedgers(
     (a, b) =>
       a.startsAt.getTime() - b.startsAt.getTime() || a.id.localeCompare(b.id),
   );
+  const hoursOf = await loadEmployeeHours(db, employees);
   return new Map(
     employees.map((employee) => {
       const records = recordsOf.get(employee.id) ?? [];
@@ -333,7 +335,11 @@ async function medicalLedgers(
       return [
         employee.id,
         {
-          ...medicalLedger(records, own, weeklyMinutesOf(employee)),
+          ...medicalLedger(
+            records,
+            own,
+            weeklyMinutesOf(hoursOf.get(employee.id)!),
+          ),
           records,
           shifts: own,
         },
