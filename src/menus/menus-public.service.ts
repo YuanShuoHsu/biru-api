@@ -88,7 +88,6 @@ const mapModifierGroups = (
       displayName: localize(group.displayName, lang) || '',
       minSelectionCount: group.minSelectionCount,
       maxSelectionCount: group.maxSelectionCount,
-      servingTemperature: group.servingTemperature,
       sortOrder,
       modifiers: group.modifiers
         .filter((mod) => mod.availability !== 'Discontinued')

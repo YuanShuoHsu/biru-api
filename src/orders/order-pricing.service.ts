@@ -7,16 +7,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
 import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
 
 import { eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type LocalizedText,
-  type ServingTemperature,
+  type ServingTemperatureLevel,
 } from 'src/db/schema/enums';
 import type { PriceSpecification } from 'src/db/schema/menus';
-import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
+import {
+  menu,
+  menuItem,
+  menuItemModifierGroup,
+  modifier,
+  offer,
+} from 'src/db/schema/menus';
 import type {
   OrderItemAddOnSnapshot,
   OrderItemModifierSnapshot,
@@ -61,7 +68,7 @@ export interface ResolvedOrderItem {
   modifiers: OrderItemModifierSnapshot[];
   orderQuantity: number;
   priceCurrency: string;
-  servingTemperature: ServingTemperature | null;
+  servingTemperatureLevel: ServingTemperatureLevel | null;
   unitPrice: string;
 }
 
@@ -91,25 +98,30 @@ export class OrderPricingService {
       ]),
     ];
 
-    const [orgMenu, menuItems, modifiers, offers] = await Promise.all([
-      this.db.query.menu.findFirst({
-        where: eq(menu.organizationId, organizationId),
-        with: { organization: { columns: { currency: true } } },
-      }),
-      this.db.query.menuItem.findMany({
-        where: inArray(menuItem.id, allMenuItemIds),
-        with: { menuSection: { with: { parentSection: true } } },
-      }),
-      allModifierIds.length > 0
-        ? this.db.query.modifier.findMany({
-            where: inArray(modifier.id, allModifierIds),
-            with: { modifierGroup: true },
-          })
-        : Promise.resolve([]),
-      this.db.query.offer.findMany({
-        where: inArray(offer.menuItemId, allMenuItemIds),
-      }),
-    ]);
+    const [orgMenu, menuItems, modifiers, offers, itemModifierGroups] =
+      await Promise.all([
+        this.db.query.menu.findFirst({
+          where: eq(menu.organizationId, organizationId),
+          with: { organization: { columns: { currency: true } } },
+        }),
+        this.db.query.menuItem.findMany({
+          where: inArray(menuItem.id, allMenuItemIds),
+          with: { menuSection: { with: { parentSection: true } } },
+        }),
+        allModifierIds.length > 0
+          ? this.db.query.modifier.findMany({
+              where: inArray(modifier.id, allModifierIds),
+              with: { modifierGroup: true },
+            })
+          : Promise.resolve([]),
+        this.db.query.offer.findMany({
+          where: inArray(offer.menuItemId, allMenuItemIds),
+        }),
+        this.db.query.menuItemModifierGroup.findMany({
+          where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),
+          with: { modifierGroup: true },
+        }),
+      ]);
     if (!orgMenu) throw new NotFoundException('Menu not found');
 
     const priceCurrency = orgMenu.organization.currency;
@@ -127,6 +139,16 @@ export class OrderPricingService {
     const modifierMap = new Map<string, (typeof modifiers)[number]>();
     for (const m of modifiers) {
       if (m.modifierGroup?.menuId === orgMenu.id) modifierMap.set(m.id, m);
+    }
+    const groupsByMenuItemId = new Map<
+      string,
+      (typeof itemModifierGroups)[number]['modifierGroup'][]
+    >();
+    for (const { menuItemId, modifierGroup: group } of itemModifierGroups) {
+      groupsByMenuItemId.set(menuItemId, [
+        ...(groupsByMenuItemId.get(menuItemId) ?? []),
+        group,
+      ]);
     }
     const offerMap = new Map<string, (typeof offers)[number]>();
     const outsideAvailableHours = new Set<string>();
@@ -168,48 +190,75 @@ export class OrderPricingService {
       return price;
     };
 
-    // 有冷熱供應的品項必選其一；不分冷熱的品項不接受溫度
-    const resolveServingTemperature = (
+    const resolveServingTemperatureLevel = (
       item: ReturnType<typeof getMenuItem>,
-      input: ServingTemperature | null | undefined,
-    ): ServingTemperature | null => {
+      level: ServingTemperatureLevel | null | undefined,
+    ): ServingTemperatureLevel | null => {
       if (item.servingTemperatures.length === 0) {
-        if (input)
+        if (level)
           throw new BadRequestException(
             `MenuItem ${item.id} has no serving temperatures`,
           );
         return null;
       }
-      if (!input)
+      if (!level)
         throw new BadRequestException(
-          `MenuItem ${item.id} requires a serving temperature`,
+          `MenuItem ${item.id} requires a serving temperature level`,
         );
-      if (!item.servingTemperatures.includes(input))
+      if (
+        !item.servingTemperatures.includes(SERVING_TEMPERATURE_OF_LEVEL[level])
+      )
         throw new BadRequestException(
-          `MenuItem ${item.id} does not offer ${input}`,
+          `MenuItem ${item.id} does not offer ${level}`,
         );
-      return input;
+      return level;
     };
 
     const resolveModifierSnapshots = (
+      item: ReturnType<typeof getMenuItem>,
       modifiersInput: Record<string, string[]>,
-      servingTemperature: ServingTemperature | null,
-    ) =>
-      Object.values(modifiersInput)
-        .flat()
-        .map((modId) => {
+    ): OrderItemModifierSnapshot[] => {
+      const groups = groupsByMenuItemId.get(item.id) ?? [];
+
+      for (const [groupId, modIds] of Object.entries(modifiersInput)) {
+        if (modIds.length === 0) continue;
+        if (!groups.some(({ id }) => id === groupId))
+          throw new BadRequestException(
+            `ModifierGroup ${groupId} is unavailable for MenuItem ${item.id}`,
+          );
+        if (new Set(modIds).size !== modIds.length)
+          throw new BadRequestException(
+            `ModifierGroup ${groupId} has duplicate modifiers`,
+          );
+      }
+
+      for (const { id, maxSelectionCount, minSelectionCount } of groups) {
+        const count = modifiersInput[id]?.length ?? 0;
+        if (
+          count < minSelectionCount ||
+          (maxSelectionCount != null && count > maxSelectionCount)
+        )
+          throw new BadRequestException(
+            `ModifierGroup ${id} selection count ${count} is out of range`,
+          );
+      }
+
+      return Object.entries(modifiersInput).flatMap(([groupId, modIds]) =>
+        modIds.map((modId) => {
           const mod = modifierMap.get(modId);
-          if (!mod)
-            throw new BadRequestException(`Modifier ${modId} not found`);
+          if (!mod || mod.modifierGroupId !== groupId)
+            throw new BadRequestException(
+              `Modifier ${modId} not found in ModifierGroup ${groupId}`,
+            );
           if (!mod.availableModes.includes(mode))
             throw new BadRequestException(
               `Modifier ${modId} is unavailable for mode ${mode}`,
             );
-          const groupTemperature = mod.modifierGroup?.servingTemperature;
-          if (groupTemperature && groupTemperature !== servingTemperature)
-            throw new BadRequestException(
-              `Modifier ${modId} is only available for ${groupTemperature}`,
-            );
+          if (
+            mod.availability === 'SoldOut' ||
+            mod.availability === 'Discontinued'
+          )
+            throw new BadRequestException(`Modifier ${modId} is unavailable`);
           return {
             modifierGroupId: mod.modifierGroupId,
             modifierGroupName: getName(mod.modifierGroup?.displayName),
@@ -217,38 +266,34 @@ export class OrderPricingService {
             modifierName: getName(mod.displayName),
             priceAdjustment: mod.priceAdjustment,
           };
-        });
+        }),
+      );
+    };
 
     const resolveAddOnSnapshot = (
       addOn: CreateOrderItemAddOnDto,
     ): OrderItemAddOnSnapshot => {
       const item = getMenuItem(addOn.menuItemId);
-      const servingTemperature = resolveServingTemperature(
+      const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
-        addOn.servingTemperature,
+        addOn.servingTemperatureLevel,
       );
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         unitPrice: getOfferPrice(addOn.menuItemId),
-        modifiers: resolveModifierSnapshots(
-          addOn.modifiers,
-          servingTemperature,
-        ),
-        servingTemperature,
+        modifiers: resolveModifierSnapshots(item, addOn.modifiers),
+        servingTemperatureLevel,
       };
     };
 
     return items.map((cartItem) => {
       const item = getMenuItem(cartItem.menuItemId);
-      const servingTemperature = resolveServingTemperature(
+      const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
-        cartItem.servingTemperature,
+        cartItem.servingTemperatureLevel,
       );
-      const itemModifiers = resolveModifierSnapshots(
-        cartItem.modifiers,
-        servingTemperature,
-      );
+      const itemModifiers = resolveModifierSnapshots(item, cartItem.modifiers);
       const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
 
       const unitPrice =
@@ -276,7 +321,7 @@ export class OrderPricingService {
         orderQuantity: cartItem.quantity,
         modifiers: itemModifiers,
         addOns,
-        servingTemperature,
+        servingTemperatureLevel,
       };
     });
   }

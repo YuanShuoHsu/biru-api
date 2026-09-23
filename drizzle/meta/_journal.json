@@ -1051,6 +1051,20 @@
       "when": 1790144001913,
       "tag": "0149_ecpay_payment_attempt",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1790151544618,
+      "tag": "0150_serving_temperature_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1790152054538,
+      "tag": "0151_drop_serving_temperature_columns",
+      "breakpoints": true
     }
   ]
 }

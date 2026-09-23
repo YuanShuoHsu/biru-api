@@ -11,8 +11,8 @@ import {
   type PaymentStatus,
 } from 'src/db/schema/invoices';
 import {
-  servingTemperatureEnum,
-  type ServingTemperature,
+  servingTemperatureLevelEnum,
+  type ServingTemperatureLevel,
 } from 'src/db/schema/enums';
 import {
   orderModeEnum,
@@ -38,11 +38,11 @@ export class OrderItemAddOnSnapshotDto {
   @ApiProperty({ type: [OrderItemModifierSnapshotDto] })
   modifiers: OrderItemModifierSnapshotDto[];
   @ApiPropertyOptional({
-    description: '選擇的溫度；品項不分冷熱時為 null',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
+    description: '選擇的溫度細項；品項不分冷熱時為 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
   })
-  servingTemperature?: ServingTemperature | null;
+  servingTemperatureLevel?: ServingTemperatureLevel | null;
 }
 
 export class OrderItemResponseDto {
@@ -54,11 +54,11 @@ export class OrderItemResponseDto {
   @ApiPropertyOptional() priceCurrency?: string | null;
   @ApiProperty() orderQuantity: number;
   @ApiPropertyOptional({
-    description: '選擇的溫度；品項不分冷熱時為 null',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
+    description: '選擇的溫度細項；品項不分冷熱時為 null',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
   })
-  servingTemperature?: ServingTemperature | null;
+  servingTemperatureLevel?: ServingTemperatureLevel | null;
   @ApiPropertyOptional({ type: [OrderItemModifierSnapshotDto] })
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })

@@ -222,8 +222,6 @@ export const modifierGroup = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     minSelectionCount: integer('min_selection_count').notNull().default(0),
     maxSelectionCount: integer('max_selection_count'),
-    // 僅在客人選擇此溫度時提供（如冰量只給冰飲）；null 代表不限
-    servingTemperature: servingTemperatureEnum('serving_temperature'),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

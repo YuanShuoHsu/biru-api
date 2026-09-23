@@ -1,0 +1,2 @@
+CREATE TYPE "public"."serving_temperature_level" AS ENUM('Warm', 'Hot', 'RegularIce', 'LessIce', 'LightIce', 'NoIce');--> statement-breakpoint
+ALTER TABLE "order_item" ADD COLUMN "serving_temperature_level" "serving_temperature_level";

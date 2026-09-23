@@ -17,8 +17,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
-  servingTemperatureEnum,
-  type ServingTemperature,
+  servingTemperatureLevelEnum,
+  type ServingTemperatureLevel,
 } from 'src/db/schema/enums';
 import {
   orderModeEnum,
@@ -103,14 +103,14 @@ export class CreateOrderItemAddOnDto {
   modifiers: Record<string, string[]>;
 
   @ApiPropertyOptional({
-    description: '選擇的溫度；品項有冷熱供應時必填，否則省略',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
+    description: '選擇的溫度細項；品項有冷熱供應時必填，否則省略',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
     nullable: true,
   })
   @IsOptional()
-  @IsEnum(servingTemperatureEnum.enumValues)
-  servingTemperature?: ServingTemperature | null;
+  @IsEnum(servingTemperatureLevelEnum.enumValues)
+  servingTemperatureLevel?: ServingTemperatureLevel | null;
 }
 
 export class CreateOrderItemDto {
@@ -138,14 +138,14 @@ export class CreateOrderItemDto {
   addOns: CreateOrderItemAddOnDto[];
 
   @ApiPropertyOptional({
-    description: '選擇的溫度；品項有冷熱供應時必填，否則省略',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
+    description: '選擇的溫度細項；品項有冷熱供應時必填，否則省略',
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
     nullable: true,
   })
   @IsOptional()
-  @IsEnum(servingTemperatureEnum.enumValues)
-  servingTemperature?: ServingTemperature | null;
+  @IsEnum(servingTemperatureLevelEnum.enumValues)
+  servingTemperatureLevel?: ServingTemperatureLevel | null;
 }
 
 export class CreateOrderDto {

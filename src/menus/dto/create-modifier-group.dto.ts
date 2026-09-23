@@ -1,11 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsEnum, IsInt, IsObject, IsOptional, Min } from 'class-validator';
-import {
-  servingTemperatureEnum,
-  type LocalizedText,
-  type ServingTemperature,
-} from 'src/db/schema/enums';
+import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import type { LocalizedText } from 'src/db/schema/enums';
 
 export class CreateModifierGroupDto {
   @ApiProperty({
@@ -32,15 +28,4 @@ export class CreateModifierGroupDto {
   @IsInt()
   @Min(1)
   maxSelectionCount?: number | null;
-
-  @ApiPropertyOptional({
-    description:
-      '僅在客人選擇此溫度時提供，如冰量只給冰飲；省略或 null 代表不限',
-    enum: servingTemperatureEnum.enumValues,
-    enumName: 'ServingTemperature',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsEnum(servingTemperatureEnum.enumValues)
-  servingTemperature?: ServingTemperature | null;
 }

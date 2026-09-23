@@ -164,7 +164,7 @@ const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
 
 const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-const PUBLIC_BOARD_LEAD_MS = 30 * 60 * 1000;
+const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -360,7 +360,7 @@ export class OrdersService {
             orderId,
             orderQuantity: i.orderQuantity,
             priceCurrency: i.priceCurrency,
-            servingTemperature: i.servingTemperature,
+            servingTemperatureLevel: i.servingTemperatureLevel,
             unitPrice: i.unitPrice,
           })),
         )
@@ -733,14 +733,17 @@ export class OrdersService {
 
   async createPaymentAttempt(
     orderId: string,
-  ): Promise<OrderResponseDto & { merchantTradeNo: string }> {
+  ): Promise<
+    OrderResponseDto & { confirmationNumber: string; merchantTradeNo: string }
+  > {
     const found = await this.db.query.order.findFirst({
       where: eq(order.id, orderId),
       with: { items: true, seller: true },
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    if (found.paymentMethod === 'Cash' || !found.confirmationNumber)
+    const { confirmationNumber } = found;
+    if (found.paymentMethod === 'Cash' || !confirmationNumber)
       throw new BadRequestException('Order does not require online payment');
 
     const deadline = paymentDeadlineOf(
@@ -760,7 +763,7 @@ export class OrdersService {
       .insert(ecpayPaymentAttempt)
       .values({ merchantTradeNo, orderId });
 
-    return { ...found, merchantTradeNo };
+    return { ...found, confirmationNumber, merchantTradeNo };
   }
 
   async recordPaymentResult(

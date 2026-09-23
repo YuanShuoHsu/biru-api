@@ -8,7 +8,7 @@ import { getEcpayMode } from '../ecpay.config';
 
 import { EcpayMode } from '../types/ecpay.types';
 
-import { SERVING_TEMPERATURE_NAMES } from '../../common/constants/serving-temperature';
+import { SERVING_TEMPERATURE_LEVEL_NAMES } from '../../common/constants/serving-temperature';
 import { sumOrderItems } from '../../common/utils/order-items';
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 
@@ -58,11 +58,11 @@ const buildItemName = (items: OrderResponseDto['items']): string =>
         menuItemName,
         modifiers,
         orderQuantity,
-        servingTemperature,
+        servingTemperatureLevel,
       }) => {
         const choices = [
-          ...(servingTemperature
-            ? [SERVING_TEMPERATURE_NAMES[servingTemperature]]
+          ...(servingTemperatureLevel
+            ? [SERVING_TEMPERATURE_LEVEL_NAMES[servingTemperatureLevel]]
             : []),
           ...(modifiers ?? []).map(({ modifierName }) => modifierName),
           ...(addOns ?? []).map(({ menuItemName: name }) => name),
@@ -140,7 +140,10 @@ export class EcpayBaseService {
   }
 
   aioCheckOutAll(
-    order: OrderResponseDto & { merchantTradeNo: string },
+    order: OrderResponseDto & {
+      confirmationNumber: string;
+      merchantTradeNo: string;
+    },
     base: Omit<CheckoutEcpayDto, 'orderId'>,
   ): CheckoutEcpayResponseDto {
     const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
@@ -150,6 +153,8 @@ export class EcpayBaseService {
       ItemName: truncateItemName(buildItemName(order.items)),
       TradeDesc: truncate(sanitize(base.TradeDesc), TRADE_DESC_MAX_LENGTH),
       ChoosePayment: choosePayment,
+      // 每次付款的 MerchantTradeNo 都不同，帶訂單編號讓綠界後台對得回訂單
+      CustomField1: order.confirmationNumber,
       ...(choosePayment === 'DigitalPayment' && {
         ChooseSubPayment: order.paymentMethod,
       }),

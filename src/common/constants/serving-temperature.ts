@@ -1,7 +1,28 @@
-import type { ServingTemperature } from 'src/db/schema/enums';
+import type {
+  ServingTemperature,
+  ServingTemperatureLevel,
+} from 'src/db/schema/enums';
 
-// 綠界品名等對外文字用預設語系（zh-TW），與訂單快照的品名一致
-export const SERVING_TEMPERATURE_NAMES: Record<ServingTemperature, string> = {
+export const SERVING_TEMPERATURE_OF_LEVEL: Record<
+  ServingTemperatureLevel,
+  ServingTemperature
+> = {
+  Warm: 'Hot',
+  Hot: 'Hot',
+  RegularIce: 'Iced',
+  LessIce: 'Iced',
+  LightIce: 'Iced',
+  NoIce: 'Iced',
+};
+
+export const SERVING_TEMPERATURE_LEVEL_NAMES: Record<
+  ServingTemperatureLevel,
+  string
+> = {
+  Warm: '溫',
   Hot: '熱',
-  Iced: '冰',
+  RegularIce: '正常冰',
+  LessIce: '少冰',
+  LightIce: '微冰',
+  NoIce: '去冰',
 };
