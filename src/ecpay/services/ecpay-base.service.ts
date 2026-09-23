@@ -9,6 +9,7 @@ import { getEcpayMode } from '../ecpay.config';
 import { EcpayMode } from '../types/ecpay.types';
 
 import { SERVING_TEMPERATURE_LEVEL_NAMES } from '../../common/constants/serving-temperature';
+import { SWEETNESS_LEVEL_NAMES } from '../../common/constants/sweetness';
 import { sumOrderItems } from '../../common/utils/order-items';
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 
@@ -59,11 +60,13 @@ const buildItemName = (items: OrderResponseDto['items']): string =>
         modifiers,
         orderQuantity,
         servingTemperatureLevel,
+        sweetnessLevel,
       }) => {
         const choices = [
           ...(servingTemperatureLevel
             ? [SERVING_TEMPERATURE_LEVEL_NAMES[servingTemperatureLevel]]
             : []),
+          ...(sweetnessLevel ? [SWEETNESS_LEVEL_NAMES[sweetnessLevel]] : []),
           ...(modifiers ?? []).map(({ modifierName }) => modifierName),
           ...(addOns ?? []).map(({ menuItemName: name }) => name),
         ]

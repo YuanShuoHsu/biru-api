@@ -8,14 +8,19 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
 import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import {
   servingTemperatureEnum,
+  sweetnessEnum,
+  sweetnessLevelEnum,
   type LocalizedText,
   type ServingTemperature,
+  type Sweetness,
+  type SweetnessLevel,
 } from 'src/db/schema/enums';
 import {
   restrictedDietEnum,
@@ -76,6 +81,30 @@ export class CreateMenuItemDto {
       : value,
   )
   servingTemperatures?: ServingTemperature[];
+
+  @ApiPropertyOptional({
+    description: '甜度：不適用、固定、可調；省略代表不適用',
+    enum: sweetnessEnum.enumValues,
+    enumName: 'Sweetness',
+  })
+  @IsOptional()
+  @IsEnum(sweetnessEnum.enumValues)
+  sweetness?: Sweetness;
+
+  @ApiPropertyOptional({
+    description:
+      '甜度固定時的等級；sweetness 為 Fixed 時必填，其他情況一律存 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  @ValidateIf(({ sweetness }: CreateMenuItemDto) => sweetness === 'Fixed')
+  @IsEnum(sweetnessLevelEnum.enumValues)
+  // 改成非固定時一併清掉，避免殘留舊的固定等級
+  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
+    obj.sweetness && obj.sweetness !== 'Fixed' ? null : value,
+  )
+  fixedSweetnessLevel?: SweetnessLevel | null;
 
   @ApiPropertyOptional({
     description: '可販售的點餐模式；省略代表四種全開',

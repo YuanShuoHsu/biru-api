@@ -15,6 +15,7 @@ import {
   DEFAULT_LANGUAGE,
   type LocalizedText,
   type ServingTemperatureLevel,
+  type SweetnessLevel,
 } from 'src/db/schema/enums';
 import type { PriceSpecification } from 'src/db/schema/menus';
 import {
@@ -69,6 +70,7 @@ export interface ResolvedOrderItem {
   orderQuantity: number;
   priceCurrency: string;
   servingTemperatureLevel: ServingTemperatureLevel | null;
+  sweetnessLevel: SweetnessLevel | null;
   unitPrice: string;
 }
 
@@ -214,6 +216,19 @@ export class OrderPricingService {
       return level;
     };
 
+    // 不可調時忽略客人帶的值，一律以品項設定為準；再訂一次會帶回舊訂單的固定甜度
+    const resolveSweetnessLevel = (
+      item: ReturnType<typeof getMenuItem>,
+      level: SweetnessLevel | null | undefined,
+    ): SweetnessLevel | null => {
+      if (item.sweetness !== 'Adjustable') return item.fixedSweetnessLevel;
+      if (!level)
+        throw new BadRequestException(
+          `MenuItem ${item.id} requires a sweetness level`,
+        );
+      return level;
+    };
+
     const resolveModifierSnapshots = (
       item: ReturnType<typeof getMenuItem>,
       modifiersInput: Record<string, string[]>,
@@ -278,12 +293,14 @@ export class OrderPricingService {
         item,
         addOn.servingTemperatureLevel,
       );
+      const sweetnessLevel = resolveSweetnessLevel(item, addOn.sweetnessLevel);
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         unitPrice: getOfferPrice(addOn.menuItemId),
         modifiers: resolveModifierSnapshots(item, addOn.modifiers),
         servingTemperatureLevel,
+        sweetnessLevel,
       };
     };
 
@@ -292,6 +309,10 @@ export class OrderPricingService {
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
         cartItem.servingTemperatureLevel,
+      );
+      const sweetnessLevel = resolveSweetnessLevel(
+        item,
+        cartItem.sweetnessLevel,
       );
       const itemModifiers = resolveModifierSnapshots(item, cartItem.modifiers);
       const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
@@ -322,6 +343,7 @@ export class OrderPricingService {
         modifiers: itemModifiers,
         addOns,
         servingTemperatureLevel,
+        sweetnessLevel,
       };
     });
   }

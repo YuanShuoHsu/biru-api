@@ -18,7 +18,9 @@ import {
 } from 'class-validator';
 import {
   servingTemperatureLevelEnum,
+  sweetnessLevelEnum,
   type ServingTemperatureLevel,
+  type SweetnessLevel,
 } from 'src/db/schema/enums';
 import {
   orderModeEnum,
@@ -111,6 +113,16 @@ export class CreateOrderItemAddOnDto {
   @IsOptional()
   @IsEnum(servingTemperatureLevelEnum.enumValues)
   servingTemperatureLevel?: ServingTemperatureLevel | null;
+
+  @ApiPropertyOptional({
+    description: '選擇的甜度；品項甜度可調時必填，其他情況忽略',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(sweetnessLevelEnum.enumValues)
+  sweetnessLevel?: SweetnessLevel | null;
 }
 
 export class CreateOrderItemDto {
@@ -146,6 +158,16 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsEnum(servingTemperatureLevelEnum.enumValues)
   servingTemperatureLevel?: ServingTemperatureLevel | null;
+
+  @ApiPropertyOptional({
+    description: '選擇的甜度；品項甜度可調時必填，其他情況忽略',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(sweetnessLevelEnum.enumValues)
+  sweetnessLevel?: SweetnessLevel | null;
 }
 
 export class CreateOrderDto {

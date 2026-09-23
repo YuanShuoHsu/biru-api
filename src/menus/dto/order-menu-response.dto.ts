@@ -8,7 +8,11 @@ import {
 } from 'src/db/schema/menus';
 import {
   servingTemperatureEnum,
+  sweetnessEnum,
+  sweetnessLevelEnum,
   type ServingTemperature,
+  type Sweetness,
+  type SweetnessLevel,
 } from 'src/db/schema/enums';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
@@ -151,6 +155,21 @@ export class OrderMenuAddOnItemResponseDto {
   })
   servingTemperatures: ServingTemperature[];
 
+  @ApiProperty({
+    description: '甜度：不適用、固定、可調',
+    enum: sweetnessEnum.enumValues,
+    enumName: 'Sweetness',
+  })
+  sweetness: Sweetness;
+
+  @ApiPropertyOptional({
+    description: '甜度固定時的等級；其他情況為 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  fixedSweetnessLevel: SweetnessLevel | null;
+
   @ApiProperty({ type: [OrderMenuOfferResponseDto] })
   offers: OrderMenuOfferResponseDto[];
 
@@ -216,6 +235,21 @@ export class OrderMenuItemResponseDto {
     isArray: true,
   })
   servingTemperatures: ServingTemperature[];
+
+  @ApiProperty({
+    description: '甜度：不適用、固定、可調',
+    enum: sweetnessEnum.enumValues,
+    enumName: 'Sweetness',
+  })
+  sweetness: Sweetness;
+
+  @ApiPropertyOptional({
+    description: '甜度固定時的等級；其他情況為 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+    nullable: true,
+  })
+  fixedSweetnessLevel: SweetnessLevel | null;
 
   @ApiProperty({
     description: '可販售的點餐模式',

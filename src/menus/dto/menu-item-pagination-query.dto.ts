@@ -21,7 +21,10 @@ export const MENU_ITEM_NUMBER_FILTER_FIELDS = [
   'deliveryLeadTimeMinutes',
   'priceSpecification',
 ] as const;
-export const MENU_ITEM_ENUM_FILTER_FIELDS = ['availability'] as const;
+export const MENU_ITEM_ENUM_FILTER_FIELDS = [
+  'availability',
+  'sweetness',
+] as const;
 export const MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS = [
   'availableModes',
   'servingTemperatures',
@@ -40,7 +43,10 @@ export const MENU_ITEM_ALL_FILTER_FIELDS = [
   ...MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
 ] as const;
 
-export const MENU_ITEM_QUICK_FILTER_ENUM_FIELDS = ['availability'] as const;
+export const MENU_ITEM_QUICK_FILTER_ENUM_FIELDS = [
+  'availability',
+  'sweetness',
+] as const;
 
 export const MENU_ITEM_SEARCH_FIELDS = ['name', 'description'] as const;
 export const MENU_ITEM_SEARCH_OPERATORS = [

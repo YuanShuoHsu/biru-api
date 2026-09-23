@@ -219,17 +219,21 @@ export class PublicMenusService {
                 }).map(
                   ({
                     availableModes,
+                    fixedSweetnessLevel,
                     id,
                     image,
                     name,
                     offers,
                     servingTemperatures,
+                    sweetness,
                   }) => ({
                     id,
                     name: localize(name, lang) || '',
                     image,
                     availableModes,
                     servingTemperatures,
+                    sweetness,
+                    fixedSweetnessLevel,
                     offers: offers.map((row) => ({ ...row, priceCurrency })),
                     modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
                   }),

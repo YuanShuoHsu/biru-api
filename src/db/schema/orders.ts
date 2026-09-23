@@ -14,7 +14,9 @@ import {
 import { timestamps } from './columns.helpers';
 import {
   servingTemperatureLevelEnum,
+  sweetnessLevelEnum,
   type ServingTemperatureLevel,
+  type SweetnessLevel,
 } from './enums';
 import { invoice } from './invoices';
 import { organization } from './organizations';
@@ -83,6 +85,7 @@ export interface OrderItemAddOnSnapshot {
   modifiers: OrderItemModifierSnapshot[];
   // 舊快照沒有此欄
   servingTemperatureLevel?: ServingTemperatureLevel | null;
+  sweetnessLevel?: SweetnessLevel | null;
 }
 
 // https://schema.org/Order
@@ -178,6 +181,8 @@ export const orderItem = pgTable(
     servingTemperatureLevel: servingTemperatureLevelEnum(
       'serving_temperature_level',
     ),
+    // 可調時為客人所選、固定時為品項設定的等級；不適用為 null
+    sweetnessLevel: sweetnessLevelEnum('sweetness_level'),
     // https://schema.org/priceCurrency
     priceCurrency: text('price_currency').default('TWD'),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),

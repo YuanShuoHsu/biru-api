@@ -4,9 +4,10 @@
 // https://schema.org/Offer
 // https://schema.org/NutritionInformation
 
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   AnyPgColumn,
+  check,
   index,
   integer,
   jsonb,
@@ -18,7 +19,12 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
-import { servingTemperatureEnum, type LocalizedText } from './enums';
+import {
+  servingTemperatureEnum,
+  sweetnessEnum,
+  sweetnessLevelEnum,
+  type LocalizedText,
+} from './enums';
 import { orderModeEnum } from './orders';
 import { organization } from './organizations';
 
@@ -126,6 +132,10 @@ export const menuItem = pgTable(
       .array()
       .notNull()
       .default([]),
+    // 甜度：不適用（如餐點）、固定（如預調飲）、可調
+    sweetness: sweetnessEnum('sweetness').notNull().default('NotApplicable'),
+    // 甜度固定時的等級；其他情況為 null
+    fixedSweetnessLevel: sweetnessLevelEnum('fixed_sweetness_level'),
     // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
@@ -139,6 +149,10 @@ export const menuItem = pgTable(
   (table) => [
     index('menuItem_menuId_idx').on(table.menuId),
     index('menuItem_menuSectionId_idx').on(table.menuSectionId),
+    check(
+      'menuItem_fixed_sweetness_level',
+      sql`(${table.sweetness} = 'Fixed') = (${table.fixedSweetnessLevel} IS NOT NULL)`,
+    ),
   ],
 );
 

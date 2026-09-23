@@ -361,6 +361,7 @@ export class OrdersService {
             orderQuantity: i.orderQuantity,
             priceCurrency: i.priceCurrency,
             servingTemperatureLevel: i.servingTemperatureLevel,
+            sweetnessLevel: i.sweetnessLevel,
             unitPrice: i.unitPrice,
           })),
         )

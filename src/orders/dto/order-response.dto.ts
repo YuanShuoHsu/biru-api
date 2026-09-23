@@ -12,7 +12,9 @@ import {
 } from 'src/db/schema/invoices';
 import {
   servingTemperatureLevelEnum,
+  sweetnessLevelEnum,
   type ServingTemperatureLevel,
+  type SweetnessLevel,
 } from 'src/db/schema/enums';
 import {
   orderModeEnum,
@@ -43,6 +45,12 @@ export class OrderItemAddOnSnapshotDto {
     enumName: 'ServingTemperatureLevel',
   })
   servingTemperatureLevel?: ServingTemperatureLevel | null;
+  @ApiPropertyOptional({
+    description: '甜度；可調為客人所選、固定為品項設定，不適用時為 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+  })
+  sweetnessLevel?: SweetnessLevel | null;
 }
 
 export class OrderItemResponseDto {
@@ -59,6 +67,12 @@ export class OrderItemResponseDto {
     enumName: 'ServingTemperatureLevel',
   })
   servingTemperatureLevel?: ServingTemperatureLevel | null;
+  @ApiPropertyOptional({
+    description: '甜度；可調為客人所選、固定為品項設定，不適用時為 null',
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+  })
+  sweetnessLevel?: SweetnessLevel | null;
   @ApiPropertyOptional({ type: [OrderItemModifierSnapshotDto] })
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })
