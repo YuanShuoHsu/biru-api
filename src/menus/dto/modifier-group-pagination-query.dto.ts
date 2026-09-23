@@ -15,6 +15,9 @@ export const MODIFIER_GROUP_NUMBER_FILTER_FIELDS = [
   'minSelectionCount',
   'maxSelectionCount',
 ] as const;
+export const MODIFIER_GROUP_ENUM_FILTER_FIELDS = [
+  'servingTemperature',
+] as const;
 export const MODIFIER_GROUP_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
@@ -22,6 +25,7 @@ export const MODIFIER_GROUP_DATE_FILTER_FIELDS = [
 export const MODIFIER_GROUP_ALL_FILTER_FIELDS = [
   ...MODIFIER_GROUP_STRING_FILTER_FIELDS,
   ...MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+  ...MODIFIER_GROUP_ENUM_FILTER_FIELDS,
   ...MODIFIER_GROUP_DATE_FILTER_FIELDS,
 ] as const;
 

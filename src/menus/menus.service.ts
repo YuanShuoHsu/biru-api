@@ -89,6 +89,7 @@ import {
 } from './dto/menu-section-pagination-query.dto';
 import {
   MODIFIER_GROUP_DATE_FILTER_FIELDS,
+  MODIFIER_GROUP_ENUM_FILTER_FIELDS,
   MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
   MODIFIER_GROUP_STRING_FILTER_FIELDS,
   type ModifierGroupPaginationQueryDto,
@@ -1175,6 +1176,7 @@ export class MenusService {
       displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
+      servingTemperature: sql`${modifierGroup.servingTemperature}::text`,
       createdAt: modifierGroup.createdAt,
       updatedAt: modifierGroup.updatedAt,
     };
@@ -1188,7 +1190,7 @@ export class MenusService {
             fieldMap,
             MODIFIER_GROUP_STRING_FILTER_FIELDS,
             MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
+            MODIFIER_GROUP_ENUM_FILTER_FIELDS,
             MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
         : undefined;
@@ -1519,6 +1521,7 @@ export class MenusService {
       displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
+      servingTemperature: sql`${modifierGroup.servingTemperature}::text`,
       createdAt: menuItemModifierGroup.createdAt,
       updatedAt: menuItemModifierGroup.updatedAt,
     };
@@ -1532,7 +1535,7 @@ export class MenusService {
             fieldMap,
             MODIFIER_GROUP_STRING_FILTER_FIELDS,
             MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
+            MODIFIER_GROUP_ENUM_FILTER_FIELDS,
             MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
         : undefined;
@@ -1587,6 +1590,7 @@ export class MenusService {
             displayName: modifierGroup.displayName,
             minSelectionCount: modifierGroup.minSelectionCount,
             maxSelectionCount: modifierGroup.maxSelectionCount,
+            servingTemperature: modifierGroup.servingTemperature,
             sortOrder: modifierGroup.sortOrder,
             createdAt: modifierGroup.createdAt,
             updatedAt: modifierGroup.updatedAt,

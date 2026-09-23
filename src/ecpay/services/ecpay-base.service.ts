@@ -8,6 +8,7 @@ import { getEcpayMode } from '../ecpay.config';
 
 import { EcpayMode } from '../types/ecpay.types';
 
+import { SERVING_TEMPERATURE_NAMES } from '../../common/constants/serving-temperature';
 import { sumOrderItems } from '../../common/utils/order-items';
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
 
@@ -51,18 +52,29 @@ const truncateItemName = (value: string): string => {
 
 const buildItemName = (items: OrderResponseDto['items']): string =>
   items
-    .map(({ addOns, menuItemName, modifiers, orderQuantity }) => {
-      const choices = [
-        ...(modifiers ?? []).map(({ modifierName }) => modifierName),
-        ...(addOns ?? []).map(({ menuItemName: name }) => name),
-      ]
-        .map(sanitize)
-        .filter(Boolean);
+    .map(
+      ({
+        addOns,
+        menuItemName,
+        modifiers,
+        orderQuantity,
+        servingTemperature,
+      }) => {
+        const choices = [
+          ...(servingTemperature
+            ? [SERVING_TEMPERATURE_NAMES[servingTemperature]]
+            : []),
+          ...(modifiers ?? []).map(({ modifierName }) => modifierName),
+          ...(addOns ?? []).map(({ menuItemName: name }) => name),
+        ]
+          .map(sanitize)
+          .filter(Boolean);
 
-      const suffix = choices.length ? `(${choices.join('/')})` : '';
+        const suffix = choices.length ? `(${choices.join('/')})` : '';
 
-      return `${sanitize(menuItemName)}${suffix} x${orderQuantity}`;
-    })
+        return `${sanitize(menuItemName)}${suffix} x${orderQuantity}`;
+      },
+    )
     .join('#');
 
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
@@ -128,7 +140,7 @@ export class EcpayBaseService {
   }
 
   aioCheckOutAll(
-    order: OrderResponseDto & { confirmationNumber: string },
+    order: OrderResponseDto & { merchantTradeNo: string },
     base: Omit<CheckoutEcpayDto, 'orderId'>,
   ): CheckoutEcpayResponseDto {
     const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
@@ -144,7 +156,7 @@ export class EcpayBaseService {
       EncryptType: '1',
       MerchantID: this.merchantId,
       MerchantTradeDate: this.getEcpayDateString(),
-      MerchantTradeNo: order.confirmationNumber,
+      MerchantTradeNo: order.merchantTradeNo,
       NeedExtraPaidInfo: 'Y',
       OrderResultURL: base.ClientBackURL
         ? `${this.resultUrl}?redirect=${encodeURIComponent(base.ClientBackURL)}`

@@ -3,6 +3,7 @@ export * from './audit';
 export * from './banners';
 export * from './coupons';
 export * from './ecpay-callback-logs';
+export * from './ecpay-payment-attempts';
 export * from './enums';
 export * from './inventory';
 export * from './invoices';

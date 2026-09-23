@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import {
+  servingTemperatureEnum,
+  type LocalizedText,
+  type ServingTemperature,
+} from 'src/db/schema/enums';
 
 import { ModifierResponseDto } from './modifier-response.dto';
 
@@ -19,6 +23,13 @@ export class ModifierGroupResponseDto {
 
   @ApiPropertyOptional({ description: '最多選擇數量；null 為不限' })
   maxSelectionCount: number | null;
+
+  @ApiPropertyOptional({
+    description: '僅在客人選擇此溫度時提供；null 代表不限',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+  })
+  servingTemperature: ServingTemperature | null;
 
   @ApiProperty()
   sortOrder: number;

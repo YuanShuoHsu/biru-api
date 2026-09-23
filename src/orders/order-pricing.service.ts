@@ -10,7 +10,11 @@ import {
 import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
 
 import { eq, inArray } from 'drizzle-orm';
-import { DEFAULT_LANGUAGE, type LocalizedText } from 'src/db/schema/enums';
+import {
+  DEFAULT_LANGUAGE,
+  type LocalizedText,
+  type ServingTemperature,
+} from 'src/db/schema/enums';
 import type { PriceSpecification } from 'src/db/schema/menus';
 import { menu, menuItem, modifier, offer } from 'src/db/schema/menus';
 import type {
@@ -57,6 +61,7 @@ export interface ResolvedOrderItem {
   modifiers: OrderItemModifierSnapshot[];
   orderQuantity: number;
   priceCurrency: string;
+  servingTemperature: ServingTemperature | null;
   unitPrice: string;
 }
 
@@ -163,8 +168,32 @@ export class OrderPricingService {
       return price;
     };
 
+    // 有冷熱供應的品項必選其一；不分冷熱的品項不接受溫度
+    const resolveServingTemperature = (
+      item: ReturnType<typeof getMenuItem>,
+      input: ServingTemperature | null | undefined,
+    ): ServingTemperature | null => {
+      if (item.servingTemperatures.length === 0) {
+        if (input)
+          throw new BadRequestException(
+            `MenuItem ${item.id} has no serving temperatures`,
+          );
+        return null;
+      }
+      if (!input)
+        throw new BadRequestException(
+          `MenuItem ${item.id} requires a serving temperature`,
+        );
+      if (!item.servingTemperatures.includes(input))
+        throw new BadRequestException(
+          `MenuItem ${item.id} does not offer ${input}`,
+        );
+      return input;
+    };
+
     const resolveModifierSnapshots = (
       modifiersInput: Record<string, string[]>,
+      servingTemperature: ServingTemperature | null,
     ) =>
       Object.values(modifiersInput)
         .flat()
@@ -176,6 +205,11 @@ export class OrderPricingService {
             throw new BadRequestException(
               `Modifier ${modId} is unavailable for mode ${mode}`,
             );
+          const groupTemperature = mod.modifierGroup?.servingTemperature;
+          if (groupTemperature && groupTemperature !== servingTemperature)
+            throw new BadRequestException(
+              `Modifier ${modId} is only available for ${groupTemperature}`,
+            );
           return {
             modifierGroupId: mod.modifierGroupId,
             modifierGroupName: getName(mod.modifierGroup?.displayName),
@@ -185,19 +219,36 @@ export class OrderPricingService {
           };
         });
 
-    const resolveAddOnSnapshot = (addOn: CreateOrderItemAddOnDto) => {
+    const resolveAddOnSnapshot = (
+      addOn: CreateOrderItemAddOnDto,
+    ): OrderItemAddOnSnapshot => {
       const item = getMenuItem(addOn.menuItemId);
+      const servingTemperature = resolveServingTemperature(
+        item,
+        addOn.servingTemperature,
+      );
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
         unitPrice: getOfferPrice(addOn.menuItemId),
-        modifiers: resolveModifierSnapshots(addOn.modifiers),
+        modifiers: resolveModifierSnapshots(
+          addOn.modifiers,
+          servingTemperature,
+        ),
+        servingTemperature,
       };
     };
 
     return items.map((cartItem) => {
       const item = getMenuItem(cartItem.menuItemId);
-      const itemModifiers = resolveModifierSnapshots(cartItem.modifiers);
+      const servingTemperature = resolveServingTemperature(
+        item,
+        cartItem.servingTemperature,
+      );
+      const itemModifiers = resolveModifierSnapshots(
+        cartItem.modifiers,
+        servingTemperature,
+      );
       const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
 
       const unitPrice =
@@ -225,6 +276,7 @@ export class OrderPricingService {
         orderQuantity: cartItem.quantity,
         modifiers: itemModifiers,
         addOns,
+        servingTemperature,
       };
     });
   }

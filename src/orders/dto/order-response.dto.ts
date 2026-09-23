@@ -11,6 +11,10 @@ import {
   type PaymentStatus,
 } from 'src/db/schema/invoices';
 import {
+  servingTemperatureEnum,
+  type ServingTemperature,
+} from 'src/db/schema/enums';
+import {
   orderModeEnum,
   orderStatusEnum,
   paymentMethodEnum,
@@ -33,6 +37,12 @@ export class OrderItemAddOnSnapshotDto {
   @ApiProperty() unitPrice: string;
   @ApiProperty({ type: [OrderItemModifierSnapshotDto] })
   modifiers: OrderItemModifierSnapshotDto[];
+  @ApiPropertyOptional({
+    description: '選擇的溫度；品項不分冷熱時為 null',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+  })
+  servingTemperature?: ServingTemperature | null;
 }
 
 export class OrderItemResponseDto {
@@ -43,6 +53,12 @@ export class OrderItemResponseDto {
   @ApiProperty() unitPrice: string;
   @ApiPropertyOptional() priceCurrency?: string | null;
   @ApiProperty() orderQuantity: number;
+  @ApiPropertyOptional({
+    description: '選擇的溫度；品項不分冷熱時為 null',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+  })
+  servingTemperature?: ServingTemperature | null;
   @ApiPropertyOptional({ type: [OrderItemModifierSnapshotDto] })
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })

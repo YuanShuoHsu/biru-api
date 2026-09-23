@@ -18,7 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
-import { type LocalizedText } from './enums';
+import { servingTemperatureEnum, type LocalizedText } from './enums';
 import { orderModeEnum } from './orders';
 import { organization } from './organizations';
 
@@ -45,14 +45,6 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
   'Discontinued',
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
-
-// 品項可供應的飲品溫度
-export const servingTemperatureEnum = pgEnum('serving_temperature', [
-  'Hot',
-  'Iced',
-]);
-export type ServingTemperature =
-  (typeof servingTemperatureEnum.enumValues)[number];
 
 // https://schema.org/Menu
 export const menu = pgTable(
@@ -230,6 +222,8 @@ export const modifierGroup = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     minSelectionCount: integer('min_selection_count').notNull().default(0),
     maxSelectionCount: integer('max_selection_count'),
+    // 僅在客人選擇此溫度時提供（如冰量只給冰飲）；null 代表不限
+    servingTemperature: servingTemperatureEnum('serving_temperature'),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

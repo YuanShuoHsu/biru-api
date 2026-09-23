@@ -140,7 +140,7 @@ export class EcpayController {
     if (base.ClientBackURL && !this.isAllowedUrl(base.ClientBackURL))
       throw new BadRequestException('ClientBackURL is not allowed');
 
-    const order = await this.ordersService.getPayableOrder(orderId);
+    const order = await this.ordersService.createPaymentAttempt(orderId);
 
     return this.ecpayBaseService.aioCheckOutAll(order, base);
   }

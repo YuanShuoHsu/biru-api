@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { EcpayCallbackEndpoint } from 'src/db/schema/ecpay-callback-logs';
 import { ecpayCallbackLog } from 'src/db/schema/ecpay-callback-logs';
+import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -88,7 +89,7 @@ export class EcpayCallbackLogService {
     orderId: string,
   ): Promise<OrderPaymentNotificationDto[]> {
     const [found] = await this.db
-      .select({ confirmationNumber: order.confirmationNumber })
+      .select({ id: order.id })
       .from(order)
       .innerJoin(organization, eq(order.sellerId, organization.id))
       .where(
@@ -96,7 +97,6 @@ export class EcpayCallbackLogService {
       );
 
     if (!found) throw new NotFoundException('Order not found');
-    if (!found.confirmationNumber) return [];
 
     return (
       this.db
@@ -111,7 +111,15 @@ export class EcpayCallbackLogService {
         .from(ecpayCallbackLog)
         // 驗簽失敗的通知不能濾掉：「通知有進來但驗簽沒過」正是金鑰設錯時唯一的線索，
         // 而 merchantTradeNo 是每張訂單獨有的隨機碼，亂打的請求對不上任何訂單
-        .where(eq(ecpayCallbackLog.merchantTradeNo, found.confirmationNumber))
+        .where(
+          inArray(
+            ecpayCallbackLog.merchantTradeNo,
+            this.db
+              .select({ merchantTradeNo: ecpayPaymentAttempt.merchantTradeNo })
+              .from(ecpayPaymentAttempt)
+              .where(eq(ecpayPaymentAttempt.orderId, found.id)),
+          ),
+        )
         .orderBy(desc(ecpayCallbackLog.createdAt))
     );
   }

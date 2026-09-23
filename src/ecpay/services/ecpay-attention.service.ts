@@ -18,6 +18,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { ecpayCallbackLog } from 'src/db/schema/ecpay-callback-logs';
+import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
 import { invoice } from 'src/db/schema/invoices';
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
@@ -128,9 +129,13 @@ export class EcpayAttentionService {
         })
         .from(ecpayCallbackLog)
         .innerJoin(
-          order,
-          eq(order.confirmationNumber, ecpayCallbackLog.merchantTradeNo),
+          ecpayPaymentAttempt,
+          eq(
+            ecpayPaymentAttempt.merchantTradeNo,
+            ecpayCallbackLog.merchantTradeNo,
+          ),
         )
+        .innerJoin(order, eq(order.id, ecpayPaymentAttempt.orderId))
         .where(
           and(
             eq(order.sellerId, org.id),

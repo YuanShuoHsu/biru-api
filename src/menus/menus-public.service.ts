@@ -88,6 +88,7 @@ const mapModifierGroups = (
       displayName: localize(group.displayName, lang) || '',
       minSelectionCount: group.minSelectionCount,
       maxSelectionCount: group.maxSelectionCount,
+      servingTemperature: group.servingTemperature,
       sortOrder,
       modifiers: group.modifiers
         .filter((mod) => mod.availability !== 'Discontinued')
@@ -216,14 +217,24 @@ export class PublicMenusService {
                   addOnMenuItem,
                   addOnMenuSection,
                   menuItemId: item.id,
-                }).map(({ id, name, image, availableModes, offers }) => ({
-                  id,
-                  name: localize(name, lang) || '',
-                  image,
-                  availableModes,
-                  offers: offers.map((row) => ({ ...row, priceCurrency })),
-                  modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
-                })),
+                }).map(
+                  ({
+                    availableModes,
+                    id,
+                    image,
+                    name,
+                    offers,
+                    servingTemperatures,
+                  }) => ({
+                    id,
+                    name: localize(name, lang) || '',
+                    image,
+                    availableModes,
+                    servingTemperatures,
+                    offers: offers.map((row) => ({ ...row, priceCurrency })),
+                    modifierGroups: addOnModifierGroupsByItemId.get(id) || [],
+                  }),
+                ),
               }),
             ),
             modifierGroups: mapModifierGroups(

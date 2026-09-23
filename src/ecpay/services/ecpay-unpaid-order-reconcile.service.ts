@@ -63,22 +63,29 @@ export class EcpayUnpaidOrderReconcileService {
     const orderIdsToCancel: string[] = [];
     const orderIdsReconciled: string[] = [];
     const pendingQuery: {
-      confirmationNumber: string;
       cancellable: boolean;
+      confirmationNumber: string;
       id: string;
+      merchantTradeNos: string[];
       paymentDeadline: Date;
     }[] = [];
 
     for (const {
       confirmationNumber,
       id,
+      merchantTradeNos,
       orderStatus,
       paymentDeadline,
       paymentMethod,
     } of candidates) {
       const cancellable = orderStatus === 'OrderPaymentDue';
 
-      if (paymentMethod === 'Cash' || !confirmationNumber) {
+      // 從沒送出過付款的訂單，綠界那邊不會有交易
+      if (
+        paymentMethod === 'Cash' ||
+        !confirmationNumber ||
+        !merchantTradeNos.length
+      ) {
         if (cancellable) orderIdsToCancel.push(id);
 
         continue;
@@ -88,6 +95,7 @@ export class EcpayUnpaidOrderReconcileService {
         cancellable,
         confirmationNumber,
         id,
+        merchantTradeNos,
         paymentDeadline,
       });
     }
@@ -98,46 +106,70 @@ export class EcpayUnpaidOrderReconcileService {
         (this.failureCounts.get(b.id) ?? 0),
     );
 
-    for (const [
-      index,
-      { cancellable, confirmationNumber, id, paymentDeadline },
-    ] of pendingQuery.slice(0, QUERY_LIMIT_PER_RUN).entries()) {
-      if (index > 0) await sleep(QUERY_INTERVAL_MS);
+    let queried = 0;
 
+    for (const {
+      cancellable,
+      confirmationNumber,
+      id,
+      merchantTradeNos,
+      paymentDeadline,
+    } of pendingQuery.slice(0, QUERY_LIMIT_PER_RUN)) {
       try {
-        const result =
-          await this.ecpayQueryTradeInfoService.queryTradeInfo(
-            confirmationNumber,
-          );
+        const logIds: string[] = [];
+        const tradeStatuses: string[] = [];
+        let recovered = false;
+
+        // 新到舊逐筆查，任一次嘗試付了款就以那筆認列
+        for (const merchantTradeNo of merchantTradeNos) {
+          if (queried > 0) await sleep(QUERY_INTERVAL_MS);
+          queried += 1;
+
+          const result =
+            await this.ecpayQueryTradeInfoService.queryTradeInfo(
+              merchantTradeNo,
+            );
+
+          const logId = await this.ecpayCallbackLogService.record({
+            endpoint: 'query',
+            macValid: true,
+            merchantTradeNo,
+            rawBody: result,
+          });
+
+          if (result.TradeStatus === ECPAY_TRADE_STATUS.Paid) {
+            if (await this.recoverPaidOrder(result))
+              await this.ecpayCallbackLogService.markHandled(logId);
+
+            recovered = true;
+
+            break;
+          }
+
+          logIds.push(logId);
+          tradeStatuses.push(result.TradeStatus);
+        }
 
         this.failureCounts.delete(id);
 
-        const logId = await this.ecpayCallbackLogService.record({
-          endpoint: 'query',
-          macValid: true,
-          merchantTradeNo: confirmationNumber,
-          rawBody: result,
-        });
+        if (recovered) continue;
 
-        if (result.TradeStatus === ECPAY_TRADE_STATUS.Paid) {
-          if (await this.recoverPaidOrder(result))
+        if (
+          tradeStatuses.every((tradeStatus) =>
+            this.shouldCancel(tradeStatus, paymentDeadline),
+          )
+        ) {
+          if (cancellable) orderIdsToCancel.push(id);
+          else orderIdsReconciled.push(id);
+
+          for (const logId of logIds)
             await this.ecpayCallbackLogService.markHandled(logId);
 
           continue;
         }
 
-        if (this.shouldCancel(result.TradeStatus, paymentDeadline)) {
-          if (cancellable) orderIdsToCancel.push(id);
-          else orderIdsReconciled.push(id);
-
-          await this.ecpayCallbackLogService.markHandled(logId);
-          this.failureCounts.delete(id);
-
-          continue;
-        }
-
         this.logger.warn(
-          `訂單 ${confirmationNumber} 回傳交易狀態 ${result.TradeStatus}，本輪不取消`,
+          `訂單 ${confirmationNumber} 回傳交易狀態 ${tradeStatuses.join('、')}，本輪不取消`,
         );
       } catch (error) {
         if (error instanceof EcpayRateLimitedError) {

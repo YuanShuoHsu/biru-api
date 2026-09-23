@@ -12,13 +12,15 @@ import {
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
 import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
-import type { LocalizedText } from 'src/db/schema/enums';
+import {
+  servingTemperatureEnum,
+  type LocalizedText,
+  type ServingTemperature,
+} from 'src/db/schema/enums';
 import {
   restrictedDietEnum,
-  servingTemperatureEnum,
   type NutritionInformation,
   type RestrictedDiet,
-  type ServingTemperature,
 } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 

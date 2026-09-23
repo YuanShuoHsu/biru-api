@@ -26,6 +26,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
 import { invoice } from 'src/db/schema/invoices';
 import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
 import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
@@ -106,6 +107,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const generateConfirmationNumber = (): string =>
   `ORD${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
+
+const generateMerchantTradeNo = (): string =>
+  `PAY${dateStamp()}${randomBytes(4).toString('hex').toUpperCase()}`;
 
 const PICKUP_MINUTES_STEP = 15;
 
@@ -356,6 +360,7 @@ export class OrdersService {
             orderId,
             orderQuantity: i.orderQuantity,
             priceCurrency: i.priceCurrency,
+            servingTemperature: i.servingTemperature,
             unitPrice: i.unitPrice,
           })),
         )
@@ -726,17 +731,16 @@ export class OrdersService {
     return { ...found, ...updated };
   }
 
-  async getPayableOrder(
+  async createPaymentAttempt(
     orderId: string,
-  ): Promise<OrderResponseDto & { confirmationNumber: string }> {
+  ): Promise<OrderResponseDto & { merchantTradeNo: string }> {
     const found = await this.db.query.order.findFirst({
       where: eq(order.id, orderId),
       with: { items: true, seller: true },
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    const { confirmationNumber } = found;
-    if (found.paymentMethod === 'Cash' || !confirmationNumber)
+    if (found.paymentMethod === 'Cash' || !found.confirmationNumber)
       throw new BadRequestException('Order does not require online payment');
 
     const deadline = paymentDeadlineOf(
@@ -750,7 +754,13 @@ export class OrdersService {
     )
       throw new BadRequestException('Order is not awaiting payment');
 
-    return { ...found, confirmationNumber };
+    const merchantTradeNo = generateMerchantTradeNo();
+
+    await this.db
+      .insert(ecpayPaymentAttempt)
+      .values({ merchantTradeNo, orderId });
+
+    return { ...found, merchantTradeNo };
   }
 
   async recordPaymentResult(
@@ -779,13 +789,14 @@ export class OrdersService {
           authorizationNo: body.gwsr || undefined,
           orderStatus,
           paymentDate: toPaymentDate(body.PaymentDate),
+          merchantTradeNo: body.MerchantTradeNo,
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
           ...(succeeded && POINTS_SNAPSHOT_SET),
         })
         .where(
           and(
-            eq(order.confirmationNumber, body.MerchantTradeNo),
+            eq(order.id, this.attemptOrderId(tx, body.MerchantTradeNo)),
             succeeded
               ? or(
                   eq(order.orderStatus, 'OrderPaymentDue'),
@@ -829,23 +840,43 @@ export class OrdersService {
     return 'handled';
   }
 
+  private attemptOrderId(
+    db: Pick<DrizzleDB, 'select'>,
+    merchantTradeNo: string,
+  ) {
+    return db
+      .select({ orderId: ecpayPaymentAttempt.orderId })
+      .from(ecpayPaymentAttempt)
+      .where(eq(ecpayPaymentAttempt.merchantTradeNo, merchantTradeNo));
+  }
+
   private async classifyUnmatchedPayment(
     body: Record<string, string>,
     succeeded: boolean,
   ): Promise<PaymentResultOutcome> {
     const found = await this.db.query.order.findFirst({
-      where: eq(order.confirmationNumber, body.MerchantTradeNo),
+      where: eq(order.id, this.attemptOrderId(this.db, body.MerchantTradeNo)),
       columns: {
         discountCode: true,
+        merchantTradeNo: true,
         orderStatus: true,
         paymentDate: true,
         total: true,
+        tradeNo: true,
       },
     });
 
     if (!found) {
       this.logger.error(
         `綠界付款通知找不到對應訂單：${body.MerchantTradeNo}（通知金額 ${body.TradeAmt}）`,
+      );
+
+      return 'unmatched';
+    }
+
+    if (found.paymentDate && succeeded && found.tradeNo !== body.TradeNo) {
+      this.logger.error(
+        `綠界回報同一張訂單第二筆付款，需人工退款：${body.MerchantTradeNo}（綠界交易 ${body.TradeNo}，金額 ${body.TradeAmt}；訂單已由 ${found.merchantTradeNo} 認列）`,
       );
 
       return 'unmatched';
@@ -887,6 +918,7 @@ export class OrdersService {
     {
       confirmationNumber: string | null;
       id: string;
+      merchantTradeNos: string[];
       orderStatus: OrderStatus;
       paymentDeadline: Date;
       paymentMethod: PaymentMethod;
@@ -894,7 +926,7 @@ export class OrdersService {
   > {
     const now = Date.now();
 
-    return this.db
+    const candidates = await this.db
       .select({
         confirmationNumber: order.confirmationNumber,
         id: order.id,
@@ -919,6 +951,29 @@ export class OrdersService {
       )
       .orderBy(asc(order.createdAt))
       .limit(limit);
+
+    const attempts = candidates.length
+      ? await this.db
+          .select({
+            merchantTradeNo: ecpayPaymentAttempt.merchantTradeNo,
+            orderId: ecpayPaymentAttempt.orderId,
+          })
+          .from(ecpayPaymentAttempt)
+          .where(
+            inArray(
+              ecpayPaymentAttempt.orderId,
+              candidates.map(({ id }) => id),
+            ),
+          )
+          .orderBy(desc(ecpayPaymentAttempt.createdAt))
+      : [];
+
+    return candidates.map((candidate) => ({
+      ...candidate,
+      merchantTradeNos: attempts
+        .filter(({ orderId }) => orderId === candidate.id)
+        .map(({ merchantTradeNo }) => merchantTradeNo),
+    }));
   }
 
   async markReconciled(orderIds: string[]): Promise<void> {

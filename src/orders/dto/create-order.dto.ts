@@ -17,6 +17,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  servingTemperatureEnum,
+  type ServingTemperature,
+} from 'src/db/schema/enums';
+import {
   orderModeEnum,
   paymentMethodEnum,
   type OrderMode,
@@ -97,6 +101,16 @@ export class CreateOrderItemAddOnDto {
   })
   @IsObject()
   modifiers: Record<string, string[]>;
+
+  @ApiPropertyOptional({
+    description: '選擇的溫度；品項有冷熱供應時必填，否則省略',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(servingTemperatureEnum.enumValues)
+  servingTemperature?: ServingTemperature | null;
 }
 
 export class CreateOrderItemDto {
@@ -122,6 +136,16 @@ export class CreateOrderItemDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemAddOnDto)
   addOns: CreateOrderItemAddOnDto[];
+
+  @ApiPropertyOptional({
+    description: '選擇的溫度；品項有冷熱供應時必填，否則省略',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(servingTemperatureEnum.enumValues)
+  servingTemperature?: ServingTemperature | null;
 }
 
 export class CreateOrderDto {

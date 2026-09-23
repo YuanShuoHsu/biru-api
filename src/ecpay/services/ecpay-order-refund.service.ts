@@ -262,7 +262,7 @@ export class EcpayOrderRefundService {
     let refunded = created;
 
     if (created.channel === 'ecpay') {
-      if (!found.confirmationNumber || !found.tradeNo) {
+      if (!found.merchantTradeNo || !found.tradeNo) {
         await this.db.delete(refund).where(eq(refund.id, created.id));
 
         throw new ConflictException(this.tRefunds('noEcpayTransaction'));
@@ -271,7 +271,7 @@ export class EcpayOrderRefundService {
       try {
         const result = await this.ecpayDoActionService.refund({
           amount: plan.amount,
-          merchantTradeNo: found.confirmationNumber,
+          merchantTradeNo: found.merchantTradeNo,
           tradeNo: found.tradeNo,
         });
 

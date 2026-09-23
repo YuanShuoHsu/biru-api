@@ -1,12 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { LocalizedText } from 'src/db/schema/enums';
 import {
-  restrictedDietEnum,
   servingTemperatureEnum,
-  type RestrictedDiet,
+  type LocalizedText,
   type ServingTemperature,
-} from 'src/db/schema/menus';
+} from 'src/db/schema/enums';
+import { restrictedDietEnum, type RestrictedDiet } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
 import { MenuItemRecipeResponseDto } from './menu-item-recipe-response.dto';

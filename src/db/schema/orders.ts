@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
+import { servingTemperatureEnum, type ServingTemperature } from './enums';
 import { invoice } from './invoices';
 import { organization } from './organizations';
 import { user } from './users';
@@ -77,6 +78,8 @@ export interface OrderItemAddOnSnapshot {
   menuItemName: string;
   unitPrice: string;
   modifiers: OrderItemModifierSnapshot[];
+  // 舊快照沒有此欄
+  servingTemperature?: ServingTemperature | null;
 }
 
 // https://schema.org/Order
@@ -114,6 +117,7 @@ export const order = pgTable(
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
     tableNumber: integer('table_number'),
+    merchantTradeNo: text('merchant_trade_no'),
     tradeNo: text('trade_no'),
     authorizationNo: text('authorization_no'),
     reconciledAt: timestamp('reconciled_at'),
@@ -168,6 +172,8 @@ export const orderItem = pgTable(
       .notNull()
       .references(() => order.id, { onDelete: 'cascade' }),
     orderQuantity: integer('order_quantity').notNull(),
+    // 客人選擇的溫度；品項不分冷熱時為 null
+    servingTemperature: servingTemperatureEnum('serving_temperature'),
     // https://schema.org/priceCurrency
     priceCurrency: text('price_currency').default('TWD'),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
