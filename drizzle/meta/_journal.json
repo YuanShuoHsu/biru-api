@@ -1065,6 +1065,13 @@
       "when": 1790152054538,
       "tag": "0151_drop_serving_temperature_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1790153182668,
+      "tag": "0152_reorder_serving_temperatures",
+      "breakpoints": true
     }
   ]
 }

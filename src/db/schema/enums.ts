@@ -13,19 +13,19 @@ export const languagesEnum = pgEnum('languages', [
 export type Language = (typeof languagesEnum.enumValues)[number];
 
 export const servingTemperatureEnum = pgEnum('serving_temperature', [
-  'Hot',
   'Iced',
+  'Hot',
 ]);
 export type ServingTemperature =
   (typeof servingTemperatureEnum.enumValues)[number];
 
 export const servingTemperatureLevelEnum = pgEnum('serving_temperature_level', [
-  'Warm',
-  'Hot',
   'RegularIce',
   'LessIce',
   'LightIce',
   'NoIce',
+  'Warm',
+  'Hot',
 ]);
 export type ServingTemperatureLevel =
   (typeof servingTemperatureLevelEnum.enumValues)[number];
