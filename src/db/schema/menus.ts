@@ -46,6 +46,14 @@ export const itemAvailabilityEnum = pgEnum('item_availability', [
 ]);
 export type ItemAvailability = (typeof itemAvailabilityEnum.enumValues)[number];
 
+// 選項代表的飲品溫度；null 代表與溫度無關（如甜度、加料）
+export const servingTemperatureEnum = pgEnum('serving_temperature', [
+  'Hot',
+  'Iced',
+]);
+export type ServingTemperature =
+  (typeof servingTemperatureEnum.enumValues)[number];
+
 // https://schema.org/Menu
 export const menu = pgTable(
   'menu',
@@ -241,6 +249,7 @@ export const modifier = pgTable(
       .array()
       .notNull()
       .default(orderModeEnum.enumValues),
+    servingTemperature: servingTemperatureEnum('serving_temperature'),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },

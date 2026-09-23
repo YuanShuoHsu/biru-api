@@ -3,8 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   itemAvailabilityEnum,
   restrictedDietEnum,
+  servingTemperatureEnum,
   type ItemAvailability,
   type RestrictedDiet,
+  type ServingTemperature,
 } from 'src/db/schema/menus';
 import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
 
@@ -84,6 +86,13 @@ export class OrderMenuModifierResponseDto {
     isArray: true,
   })
   availableModes: OrderMode[];
+
+  @ApiPropertyOptional({
+    description: '選項代表的飲品溫度；null 代表與溫度無關',
+    enum: servingTemperatureEnum.enumValues,
+    enumName: 'ServingTemperature',
+  })
+  servingTemperature: ServingTemperature | null;
 
   @ApiProperty()
   sortOrder: number;
