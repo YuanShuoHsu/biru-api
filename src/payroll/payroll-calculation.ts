@@ -26,6 +26,38 @@ export interface PayrollWorkDay {
 export const roundRatio = (numerator: bigint, denominator: bigint) =>
   (numerator + denominator / 2n) / denominator;
 
+interface Ratio {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+const ratio = (numerator: bigint, denominator = 1n): Ratio => ({
+  numerator,
+  denominator,
+});
+
+const addRatios = (...ratios: Ratio[]) =>
+  ratios.reduce(
+    (sum, item) =>
+      ratio(
+        sum.numerator * item.denominator + item.numerator * sum.denominator,
+        sum.denominator * item.denominator,
+      ),
+    ratio(0n),
+  );
+
+const negateRatio = ({ numerator, denominator }: Ratio) =>
+  ratio(-numerator, denominator);
+
+const roundCents = ({ numerator, denominator }: Ratio) =>
+  roundRatio(numerator, denominator);
+
+const ceilDollars = ({ numerator, denominator }: Ratio) => {
+  const scaled = denominator * 100n;
+  const quotient = numerator / scaled;
+  return (quotient * scaled < numerator ? quotient + 1n : quotient) * 100n;
+};
+
 export function hourlyRate(terms: PayrollTerms) {
   const salary = BigInt(terms.salaryCents);
   const allowance = BigInt(terms.allowanceCents);
@@ -135,14 +167,15 @@ export function calculatePayroll(
     (fraction.monthlyOvertimeLimitSeconds ?? MAX_MONTHLY_OVERTIME_SECONDS)
   )
     blockers.push('monthlyOvertimeExceeded');
-  const regular =
+  const exactRegular =
     terms.salaryType === 'monthly'
-      ? roundRatio(
-          salary * BigInt(fraction.numerator),
-          BigInt(fraction.denominator),
-        )
-      : roundRatio(salary * BigInt(regularSeconds + paidLeaveSeconds), 3600n);
-  const overtime = roundRatio(
+      ? ratio(salary * BigInt(fraction.numerator), BigInt(fraction.denominator))
+      : ratio(salary * BigInt(regularSeconds + paidLeaveSeconds), 3600n);
+  const exactAllowance = ratio(
+    allowance * BigInt(fraction.numerator),
+    BigInt(fraction.denominator),
+  );
+  const exactOvertime = ratio(
     hourlyNumerator *
       (BigInt(overtimeFirst) * 4n +
         BigInt(overtimeSecond) * 5n +
@@ -150,30 +183,33 @@ export function calculatePayroll(
         BigInt(emergencySeconds) * 6n),
     hourlyDenominator * 3600n * 3n,
   );
-  const holidayPay = roundRatio(
+  const exactHolidayPay = ratio(
     hourlyNumerator * BigInt(holidaySeconds),
     hourlyDenominator * 3600n,
   );
-  const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
-  const leaveDeduction =
-    BigInt(fraction.calendarLeaveDeductionCents ?? '0') +
-    (terms.salaryType === 'monthly'
-      ? roundRatio(
-          hourlyNumerator * BigInt(leaveDeductionSeconds),
-          hourlyDenominator * 3600n,
-        )
-      : 0n);
+  const exactLeaveDeduction = addRatios(
+    ratio(BigInt(fraction.calendarLeaveDeductionCents ?? '0')),
+    ratio(
+      terms.salaryType === 'monthly'
+        ? hourlyNumerator * BigInt(leaveDeductionSeconds)
+        : 0n,
+      hourlyDenominator * 3600n,
+    ),
+  );
   const absenceSeconds =
     terms.salaryType === 'monthly' ? (fraction.absenceSeconds ?? 0) : 0;
-  const absenceDeduction = roundRatio(
+  const exactAbsenceDeduction = ratio(
     hourlyNumerator * BigInt(absenceSeconds),
     hourlyDenominator * 3600n,
   );
+  const regular = roundCents(exactRegular);
+  const paidAllowance = roundCents(exactAllowance);
+  const overtime = roundCents(exactOvertime);
+  const holidayPay = roundCents(exactHolidayPay);
+  const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
   const annualLeavePay = BigInt(fraction.annualLeavePayoutCents ?? '0');
-  const paidAllowance = roundRatio(
-    allowance * BigInt(fraction.numerator),
-    BigInt(fraction.denominator),
-  );
+  const leaveDeduction = roundCents(exactLeaveDeduction);
+  const absenceDeduction = roundCents(exactAbsenceDeduction);
   lines.push(
     {
       code: 'basePay',
@@ -225,9 +261,29 @@ export function calculatePayroll(
     lines
       .filter((line) => codes.includes(line.code))
       .reduce((sum, line) => sum + BigInt(line.amountCents), 0n);
-  const gross = sumLines(PAYROLL_EARNING_LINE_CODES);
   const deduction = sumLines(PAYROLL_DEDUCTION_LINE_CODES);
-  if (gross < deduction) blockers.push('negativeNetPay');
+  const exactNet = addRatios(
+    exactRegular,
+    exactAllowance,
+    exactOvertime,
+    exactHolidayPay,
+    negateRatio(exactLeaveDeduction),
+    negateRatio(exactAbsenceDeduction),
+    ratio(
+      calendarLeavePay +
+        annualLeavePay -
+        (deduction - leaveDeduction - absenceDeduction),
+    ),
+  );
+  if (exactNet.numerator < 0n) blockers.push('negativeNetPay');
+  lines.push({
+    code: 'roundingAdjustment',
+    amountCents: (
+      ceilDollars(exactNet) -
+      (sumLines(PAYROLL_EARNING_LINE_CODES) - deduction)
+    ).toString(),
+  });
+  const gross = sumLines(PAYROLL_EARNING_LINE_CODES);
   return {
     lines,
     grossCents: gross.toString(),

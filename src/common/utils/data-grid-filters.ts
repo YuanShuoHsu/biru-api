@@ -201,6 +201,31 @@ export const buildPlainDateFilterCondition = (
   }
 };
 
+export const buildMonthFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string,
+): SQL | undefined => {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return undefined;
+
+  const colSql = sql`${column}`;
+
+  switch (operator) {
+    case 'is':
+      return eq(colSql, value);
+    case 'not':
+      return ne(colSql, value);
+    case 'after':
+      return gt(colSql, value);
+    case 'onOrAfter':
+      return gte(colSql, value);
+    case 'before':
+      return lt(colSql, value);
+    case 'onOrBefore':
+      return lte(colSql, value);
+  }
+};
+
 export const buildArrayOverlapCondition = (
   column: Column | SQL,
   value: string,
@@ -254,6 +279,7 @@ export const buildFilterCondition = (
   plainDateFields: readonly string[] = [],
   arrayEnumFields: readonly string[] = [],
   booleanFields: readonly string[] = [],
+  monthFields: readonly string[] = [],
 ): SQL | undefined => {
   const column = fieldMap[filterField];
   if (!column) return undefined;
@@ -307,6 +333,10 @@ export const buildFilterCondition = (
       filterOperator,
       filterValue || '',
     );
+  }
+
+  if (monthFields.includes(filterField)) {
+    return buildMonthFilterCondition(column, filterOperator, filterValue || '');
   }
 };
 

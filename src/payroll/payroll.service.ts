@@ -96,6 +96,7 @@ import { annualLeaveSettlement } from './annual-leave';
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
 import {
   PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
+  PAYROLL_STATEMENT_MONTH_FILTER_FIELDS,
   PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
   PayrollStatementPaginationQueryDto,
 } from './dto/payroll-statement-pagination-query.dto';
@@ -286,6 +287,11 @@ export class PayrollService {
             PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
             [],
             PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
+            [],
+            [],
+            [],
+            [],
+            PAYROLL_STATEMENT_MONTH_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({

@@ -17,6 +17,7 @@ export const PAYROLL_EARNING_LINE_CODES = [
   'holidayPay',
   'calendarLeavePay',
   'annualLeavePay',
+  'roundingAdjustment',
 ] as const;
 
 export const PAYROLL_DEDUCTION_LINE_CODES = [
