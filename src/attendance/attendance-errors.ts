@@ -7,10 +7,12 @@ import {
 export const attendanceErrorCodes = [
   'activeShiftExists',
   'belowStatutoryPaidPercent',
+  'breakTooShort',
   'calendarLeaveInterval',
   'calendarLeavePayRequired',
   'cannotReviewOwnDraft',
   'cannotReviewSelf',
+  'continuousWorkTooLong',
   'correctionSourceChanged',
   'dailyHoursExceeded',
   'emergencyDetailsRequired',

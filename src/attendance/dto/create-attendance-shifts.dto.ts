@@ -8,7 +8,6 @@ import {
   IsBoolean,
   IsDateString,
   IsIn,
-  IsOptional,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
@@ -18,13 +17,22 @@ import {
   type AttendanceDayKind,
 } from 'src/db/schema/attendance';
 
+export class ShiftBreakDto {
+  @IsDateString() startsAt: string;
+  @IsDateString() endsAt: string;
+}
+
 export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;
   @IsDateString() startsAt: string;
   @IsDateString() endsAt: string;
   @IsBoolean() paidBreak: boolean;
-  @IsOptional() @IsDateString() breakStartsAt?: string;
-  @IsOptional() @IsDateString() breakEndsAt?: string;
+  @ApiProperty({ isArray: true, type: ShiftBreakDto })
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => ShiftBreakDto)
+  breaks: ShiftBreakDto[];
   @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
   @IsIn(ATTENDANCE_DAY_KINDS)
   dayKind: AttendanceDayKind;

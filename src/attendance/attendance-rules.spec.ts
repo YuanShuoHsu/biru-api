@@ -17,14 +17,16 @@ describe('attendance rules', () => {
       { action: 'breakEnd' as const, occurredAt: '2026-09-01T18:15:00Z' },
       { action: 'clockOut' as const, occurredAt: '2026-09-01T22:00:00Z' },
     ];
-    expect(summarizeEvents(events, false)).toEqual({
+    expect(summarizeEvents(events, { paidBreak: false })).toEqual({
       state: 'completed',
       workedSeconds: 26100,
       breakSeconds: 2700,
       unpaidBreakSeconds: 2700,
       availableActions: [],
     });
-    expect(summarizeEvents(events, true).workedSeconds).toBe(28800);
+    expect(summarizeEvents(events, { paidBreak: true }).workedSeconds).toBe(
+      28800,
+    );
   });
   it('preserves paid and unpaid breaks in one corrected shift', () => {
     const result = summarizeEvents(
@@ -44,7 +46,7 @@ describe('attendance rules', () => {
         { action: 'breakEnd', occurredAt: '2026-09-01T02:30:00Z' },
         { action: 'clockOut', occurredAt: '2026-09-01T04:00:00Z' },
       ],
-      false,
+      { paidBreak: false },
     );
     expect(result).toEqual({
       state: 'completed',
@@ -59,7 +61,9 @@ describe('attendance rules', () => {
       action: 'clockIn' as const,
       occurredAt: '2026-09-01T00:00:00Z',
     };
-    expect(() => summarizeEvents([clockIn, clockIn], false)).toThrow();
+    expect(() =>
+      summarizeEvents([clockIn, clockIn], { paidBreak: false }),
+    ).toThrow();
     expect(() =>
       summarizeEvents(
         [
@@ -67,7 +71,7 @@ describe('attendance rules', () => {
           { action: 'breakStart', occurredAt: '2026-09-01T01:00:00Z' },
           { action: 'clockOut', occurredAt: '2026-09-01T02:00:00Z' },
         ],
-        false,
+        { paidBreak: false },
       ),
     ).toThrow();
   });
@@ -75,14 +79,14 @@ describe('attendance rules', () => {
     expect(
       summarizeEvents(
         [{ action: 'clockIn', occurredAt: '2026-09-01T00:00:00Z' }],
-        false,
+        { paidBreak: false },
       ),
     ).toEqual({
       state: 'working',
       workedSeconds: 0,
       breakSeconds: 0,
       unpaidBreakSeconds: 0,
-      availableActions: ['breakStart', 'clockOut'],
+      availableActions: ['clockOut'],
     });
   });
   it('normalizes mapped IPv4 and IPv6 addresses', () => {
@@ -108,8 +112,12 @@ describe('attendance rules', () => {
     const shift = {
       startsAt: new Date('2026-09-01T01:00:00Z'),
       endsAt: new Date('2026-09-01T10:00:00Z'),
-      breakStartsAt: new Date('2026-09-01T04:00:00Z'),
-      breakEndsAt: new Date('2026-09-01T05:00:00Z'),
+      breaks: [
+        {
+          startsAt: '2026-09-01T04:00:00.000Z',
+          endsAt: '2026-09-01T05:00:00.000Z',
+        },
+      ],
     };
     const hour = 3600000;
     const start = shift.startsAt.getTime();
@@ -123,8 +131,12 @@ describe('attendance rules', () => {
     expect(
       scheduledWorkIntervals({
         ...shift,
-        breakStartsAt: shift.startsAt,
-        breakEndsAt: shift.breakEndsAt,
+        breaks: [
+          {
+            startsAt: '2026-09-01T01:00:00.000Z',
+            endsAt: '2026-09-01T05:00:00.000Z',
+          },
+        ],
       }),
     ).toEqual([{ start: start + 4 * hour, end: start + 9 * hour }]);
   });

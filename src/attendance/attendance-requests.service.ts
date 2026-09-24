@@ -340,8 +340,7 @@ export class AttendanceRequestsService {
       if (dto.kind === 'correction') {
         if (
           !dto.correctedEvents ||
-          summarizeEvents(dto.correctedEvents, shift.paidBreak).state !==
-            'completed'
+          summarizeEvents(dto.correctedEvents, shift).state !== 'completed'
         )
           throw badRequestError('invalidEventSequence');
         if (

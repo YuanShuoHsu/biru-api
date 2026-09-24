@@ -1,4 +1,5 @@
 import { DAY_MS, STORE_UTC_OFFSET } from 'src/common/constants/timezone';
+import type { ShiftBreak, TemplateBreak } from 'src/db/schema/attendance';
 
 import { badRequestError } from './attendance-errors';
 
@@ -9,23 +10,40 @@ export function parseInterval(start: string, end: string) {
   return { startsAt, endsAt };
 }
 
-export function parseBreakWindow(
+const MIN_BREAK_MS = 30 * 60000;
+
+const MAX_CONTINUOUS_WORK_MS = 4 * 3600000;
+
+export function parseBreaks(
   shift: { startsAt: Date; endsAt: Date },
-  start: string | undefined,
-  end: string | undefined,
-) {
-  if (!start && !end) return { breakStartsAt: null, breakEndsAt: null };
-  const breakStartsAt = start ? new Date(start) : null,
-    breakEndsAt = end ? new Date(end) : null;
-  if (
-    !breakStartsAt ||
-    !breakEndsAt ||
-    breakStartsAt < shift.startsAt ||
-    breakEndsAt <= breakStartsAt ||
-    breakEndsAt > shift.endsAt
-  )
-    throw badRequestError('invalidBreak');
-  return { breakStartsAt, breakEndsAt };
+  breaks: ShiftBreak[],
+): ShiftBreak[] {
+  const parsed = breaks
+    .map((item) => ({
+      startsAt: new Date(item.startsAt),
+      endsAt: new Date(item.endsAt),
+    }))
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  let workFrom = shift.startsAt.getTime();
+  for (const { startsAt, endsAt } of parsed) {
+    if (
+      startsAt.getTime() < workFrom ||
+      endsAt <= startsAt ||
+      endsAt > shift.endsAt
+    )
+      throw badRequestError('invalidBreak');
+    if (endsAt.getTime() - startsAt.getTime() < MIN_BREAK_MS)
+      throw badRequestError('breakTooShort');
+    if (startsAt.getTime() - workFrom > MAX_CONTINUOUS_WORK_MS)
+      throw badRequestError('continuousWorkTooLong');
+    workFrom = endsAt.getTime();
+  }
+  if (shift.endsAt.getTime() - workFrom > MAX_CONTINUOUS_WORK_MS)
+    throw badRequestError('continuousWorkTooLong');
+  return parsed.map(({ startsAt, endsAt }) => ({
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+  }));
 }
 
 export function templateShift(
@@ -34,8 +52,7 @@ export function templateShift(
     startTime: string;
     endTime: string;
     nextDay: boolean;
-    breakStartTime?: string | null;
-    breakEndTime?: string | null;
+    breaks: TemplateBreak[];
   },
 ) {
   const at = (time: string, dayOffset: number) =>
@@ -43,15 +60,16 @@ export function templateShift(
       new Date(`${startDay}T${time}:00${STORE_UTC_OFFSET}`).getTime() +
         dayOffset * DAY_MS,
     ).toISOString();
-  const { startTime, breakStartTime, breakEndTime } = template;
-  const breakDay = breakStartTime && breakStartTime < startTime ? 1 : 0;
-  const breakEndDay =
-    breakDay +
-    (breakStartTime && breakEndTime && breakEndTime <= breakStartTime ? 1 : 0);
+  const { startTime } = template;
   return {
     startsAt: at(startTime, 0),
     endsAt: at(template.endTime, template.nextDay ? 1 : 0),
-    breakStartsAt: breakStartTime ? at(breakStartTime, breakDay) : undefined,
-    breakEndsAt: breakEndTime ? at(breakEndTime, breakEndDay) : undefined,
+    breaks: template.breaks.map(({ startTime: breakStart, endTime }) => {
+      const breakDay = breakStart < startTime ? 1 : 0;
+      return {
+        startsAt: at(breakStart, breakDay),
+        endsAt: at(endTime, breakDay + (endTime <= breakStart ? 1 : 0)),
+      };
+    }),
   };
 }

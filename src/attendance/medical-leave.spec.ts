@@ -23,8 +23,12 @@ describe('Medical leave quota and wage allocation', () => {
     const shift = {
       startsAt: at('2026-03-02'),
       endsAt: at('2026-03-02', '18'),
-      breakStartsAt: at('2026-03-02', '12'),
-      breakEndsAt: at('2026-03-02', '13'),
+      breaks: [
+        {
+          startsAt: at('2026-03-02', '12').toISOString(),
+          endsAt: at('2026-03-02', '13').toISOString(),
+        },
+      ],
       paidBreak: false,
       dayKind: 'workday',
     };
@@ -34,7 +38,7 @@ describe('Medical leave quota and wage allocation', () => {
     );
     expect(
       ledger.segments.every(
-        (item) => item.end <= shift.breakStartsAt.getTime(),
+        (item) => item.end <= at('2026-03-02', '12').getTime(),
       ),
     ).toBe(true);
   });

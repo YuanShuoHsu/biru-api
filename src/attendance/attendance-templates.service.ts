@@ -39,11 +39,7 @@ import {
 import { CreateAttendanceShiftDto } from './dto/create-attendance-shifts.dto';
 import { GenerateAttendanceTemplateDto } from './dto/generate-attendance-template.dto';
 import { SaveAttendanceTemplateDto } from './dto/save-attendance-template.dto';
-import {
-  parseBreakWindow,
-  parseInterval,
-  templateShift,
-} from './shift-intervals';
+import { parseBreaks, parseInterval, templateShift } from './shift-intervals';
 
 @Injectable()
 export class AttendanceTemplatesService {
@@ -155,7 +151,7 @@ export class AttendanceTemplatesService {
     const interval = parseInterval(shift.startsAt, shift.endsAt);
     if (interval.endsAt.getTime() - interval.startsAt.getTime() > MAX_SHIFT_MS)
       throw badRequestError('invalidInterval');
-    parseBreakWindow(interval, shift.breakStartsAt, shift.breakEndsAt);
+    parseBreaks(interval, shift.breaks);
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [employee] = await tx
@@ -168,12 +164,10 @@ export class AttendanceTemplatesService {
           ),
         );
       if (!employee) throw new NotFoundException();
-      const { breakStartTime = null, breakEndTime = null, ...rest } = dto;
-      const values = { ...rest, breakStartTime, breakEndTime };
       const [row] = id
         ? await tx
             .update(attendanceTemplate)
-            .set(values)
+            .set(dto)
             .where(
               and(
                 eq(attendanceTemplate.id, id),
@@ -186,7 +180,7 @@ export class AttendanceTemplatesService {
             .values({
               id: randomUUID(),
               organizationId: actor.organizationId,
-              ...values,
+              ...dto,
             })
             .returning();
       if (!row) throw new NotFoundException();

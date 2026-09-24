@@ -615,7 +615,7 @@ export class PayrollService {
             occurredAt: occurredAt.toISOString(),
             paidBreak,
           }));
-      const summary = summarizeEvents(effective, shift.paidBreak);
+      const summary = summarizeEvents(effective, shift);
       if (
         shift.dayKind === 'regularLeave' &&
         summary.workedSeconds > 0 &&
@@ -704,7 +704,7 @@ export class PayrollService {
         leaveSeconds < workSeconds
       )
         blockers.push('incompleteAttendance');
-      const counted = countedIntervals(effective, shift.paidBreak);
+      const counted = countedIntervals(effective, shift);
       if (
         leaves.some((leave) =>
           counted.some(

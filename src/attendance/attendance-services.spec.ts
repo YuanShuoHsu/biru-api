@@ -304,12 +304,14 @@ describe('attendance services', () => {
     await expect(
       service.saveTemplate(actor, {
         ...template,
-        breakStartTime: '17:30',
-        breakEndTime: '18:30',
+        breaks: [{ startTime: '17:30', endTime: '18:30' }],
       }),
     ).rejects.toThrow('invalidBreak');
     await expect(
-      service.saveTemplate(actor, { ...template, breakStartTime: '12:00' }),
-    ).rejects.toThrow('invalidBreak');
+      service.saveTemplate(actor, {
+        ...template,
+        breaks: [{ startTime: '12:00', endTime: '13:00' }],
+      }),
+    ).rejects.toThrow('continuousWorkTooLong');
   });
 });

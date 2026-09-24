@@ -56,7 +56,7 @@ export class CreateAttendanceRequestDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(2)
-  @ArrayMaxSize(100)
+  @ArrayMaxSize(2)
   @ValidateNested({ each: true })
   @Type(() => CorrectedEventDto)
   correctedEvents?: CorrectedEventDto[];

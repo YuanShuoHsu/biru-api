@@ -7,6 +7,8 @@ import {
   type AttendanceEventAction,
 } from 'src/db/schema/attendance';
 
+import { ShiftBreakDto } from './create-attendance-shifts.dto';
+
 export class AttendanceEventResponseDto {
   @ApiPropertyOptional() paidBreak?: boolean;
   @ApiProperty({
@@ -25,8 +27,8 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() startsAt: Date;
   @ApiProperty() endsAt: Date;
   @ApiProperty() paidBreak: boolean;
-  @ApiPropertyOptional() breakStartsAt: Date | null;
-  @ApiPropertyOptional() breakEndsAt: Date | null;
+  @ApiProperty({ isArray: true, type: ShiftBreakDto })
+  breaks: ShiftBreakDto[];
   @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
   dayKind: AttendanceDayKind;
   @ApiProperty() status: string;
@@ -59,8 +61,7 @@ export class AttendanceShiftRecordResponseDto extends PickType(
     'startsAt',
     'endsAt',
     'paidBreak',
-    'breakStartsAt',
-    'breakEndsAt',
+    'breaks',
     'dayKind',
     'status',
     'createdAt',

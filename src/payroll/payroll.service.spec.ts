@@ -17,8 +17,7 @@ const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
       startsAt,
       endsAt: new Date(startsAt.getTime() + (weeklyMinutes / 5) * 60000),
       paidBreak: false,
-      breakStartsAt: null,
-      breakEndsAt: null,
+      breaks: [],
     };
   });
 const employee = {

@@ -5,8 +5,7 @@ const shift = (day: string, from: string, to: string) => ({
   startsAt: at(`${day}T${from}:00`),
   endsAt: at(`${day}T${to}:00`),
   paidBreak: false,
-  breakStartsAt: null,
-  breakEndsAt: null,
+  breaks: [],
 });
 
 describe('averageWeeklyMinutes', () => {

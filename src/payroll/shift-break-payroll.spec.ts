@@ -24,8 +24,7 @@ const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
       startsAt,
       endsAt: new Date(startsAt.getTime() + (weeklyMinutes / 5) * 60000),
       paidBreak: false,
-      breakStartsAt: null,
-      breakEndsAt: null,
+      breaks: [],
     };
   });
 
@@ -51,8 +50,14 @@ async function snapshot(
     id: 'shift',
     startsAt: at('09:00'),
     endsAt: at('18:00'),
-    breakStartsAt: breakWindow ? at(breakWindow[0]) : null,
-    breakEndsAt: breakWindow ? at(breakWindow[1]) : null,
+    breaks: breakWindow
+      ? [
+          {
+            startsAt: at(breakWindow[0]).toISOString(),
+            endsAt: at(breakWindow[1]).toISOString(),
+          },
+        ]
+      : [],
     dayKind: 'workday',
     paidBreak,
   };
@@ -204,8 +209,7 @@ describe('Payroll eligibility blockers', () => {
         id: `${monday}-${index}`,
         startsAt,
         endsAt: new Date(startsAt.getTime() + 9 * 3600000),
-        breakStartsAt: null,
-        breakEndsAt: null,
+        breaks: [],
         dayKind: 'workday',
         paidBreak: false,
       };

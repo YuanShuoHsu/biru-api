@@ -5,6 +5,7 @@ import {
   attendanceRequestStatus,
   type AttendanceEventAction,
   type CorrectedEvent,
+  type ShiftBreak,
 } from 'src/db/schema/attendance';
 
 import { badRequestError } from './attendance-errors';
@@ -93,70 +94,90 @@ export const SHIFT_STATE_BY_LAST_ACTION = {
   clockOut: 'completed',
 } as const satisfies Record<AttendanceEventAction, ShiftState>;
 
-export const AVAILABLE_PUNCH_ACTIONS = {
+// 舊資料含休息打卡，讀取時仍要接受 breakStart/breakEnd，新打卡則不再提供
+const EVENT_TRANSITIONS = {
   scheduled: ['clockIn'],
   working: ['breakStart', 'clockOut'],
   resting: ['breakEnd'],
   completed: [],
 } as const satisfies Record<ShiftState, readonly AttendanceEventAction[]>;
 
-export function summarizeEvents(events: CorrectedEvent[], paidBreak: boolean) {
+export const AVAILABLE_PUNCH_ACTIONS = {
+  scheduled: ['clockIn'],
+  working: ['clockOut'],
+  resting: ['breakEnd'],
+  completed: [],
+} as const satisfies Record<ShiftState, readonly AttendanceEventAction[]>;
+
+export interface BreakPolicy {
+  paidBreak: boolean;
+  breaks?: ShiftBreak[];
+}
+
+function punchedTimeline(events: CorrectedEvent[], paidBreak: boolean) {
   let state: ShiftState = 'scheduled';
-  let workedMs = 0;
-  let breakMs = 0;
-  let paidBreakMs = 0;
   let currentBreakPaid = paidBreak;
   let previous = 0;
+  const worked: TimeInterval[] = [];
+  const breaks: (TimeInterval & { paid: boolean })[] = [];
   for (const event of events) {
     const time = new Date(event.occurredAt).getTime();
     if (!Number.isFinite(time) || (previous && time <= previous))
       throw badRequestError('invalidEventSequence');
-    const allowed: readonly AttendanceEventAction[] =
-      AVAILABLE_PUNCH_ACTIONS[state];
+    const allowed: readonly AttendanceEventAction[] = EVENT_TRANSITIONS[state];
     if (!allowed.includes(event.action))
       throw badRequestError('invalidEventSequence');
-    if (state === 'working') workedMs += time - previous;
-    if (state === 'resting') {
-      breakMs += time - previous;
-      if (currentBreakPaid) paidBreakMs += time - previous;
-    }
+    if (state === 'working') worked.push({ start: previous, end: time });
+    if (state === 'resting')
+      breaks.push({ start: previous, end: time, paid: currentBreakPaid });
     if (event.action === 'breakStart')
       currentBreakPaid = event.paidBreak ?? paidBreak;
     state = SHIFT_STATE_BY_LAST_ACTION[event.action];
     previous = time;
   }
+  return { state, worked, breaks };
+}
+
+const totalMs = (intervals: TimeInterval[]) =>
+  intervals.reduce((sum, interval) => sum + interval.end - interval.start, 0);
+
+function countedFrom(
+  { worked, breaks }: ReturnType<typeof punchedTimeline>,
+  shift: BreakPolicy,
+) {
+  if (breaks.length)
+    return [...worked, ...breaks.filter((interval) => interval.paid)].sort(
+      (a, b) => a.start - b.start,
+    );
+  return subtractIntervals(worked, unpaidBreakIntervals(shift));
+}
+
+export const countedIntervals = (
+  events: CorrectedEvent[],
+  shift: BreakPolicy,
+) => countedFrom(punchedTimeline(events, shift.paidBreak), shift);
+
+export function summarizeEvents(events: CorrectedEvent[], shift: BreakPolicy) {
+  const timeline = punchedTimeline(events, shift.paidBreak);
+  const { state, worked, breaks } = timeline;
+  const scheduled = breaks.length
+    ? []
+    : breakIntervals(shift).flatMap((interval) =>
+        overlapIntervals(worked, interval.start, interval.end),
+      );
+  const unpaidBreakMs =
+    totalMs(breaks.filter((interval) => !interval.paid)) +
+    (shift.paidBreak ? 0 : totalMs(scheduled));
+  const availableActions: AttendanceEventAction[] = [
+    ...AVAILABLE_PUNCH_ACTIONS[state],
+  ];
   return {
     state,
-    availableActions: [...AVAILABLE_PUNCH_ACTIONS[state]],
-    workedSeconds: Math.floor((workedMs + paidBreakMs) / 1000),
-    breakSeconds: Math.floor(breakMs / 1000),
-    unpaidBreakSeconds: Math.floor((breakMs - paidBreakMs) / 1000),
+    availableActions,
+    workedSeconds: Math.floor(totalMs(countedFrom(timeline, shift)) / 1000),
+    breakSeconds: Math.floor((totalMs(breaks) + totalMs(scheduled)) / 1000),
+    unpaidBreakSeconds: Math.floor(unpaidBreakMs / 1000),
   };
-}
-
-export function assertEventSequence(
-  events: CorrectedEvent[],
-  paidBreak: boolean,
-): void {
-  summarizeEvents(events, paidBreak);
-}
-
-export function countedIntervals(events: CorrectedEvent[], paidBreak: boolean) {
-  assertEventSequence(events, paidBreak);
-  return events.slice(0, -1).flatMap((event, index) => {
-    const counted =
-      event.action === 'clockIn' ||
-      event.action === 'breakEnd' ||
-      (event.action === 'breakStart' && (event.paidBreak ?? paidBreak));
-    return counted
-      ? [
-          {
-            start: new Date(event.occurredAt).getTime(),
-            end: new Date(events[index + 1].occurredAt).getTime(),
-          },
-        ]
-      : [];
-  });
 }
 
 export const blockingRequestStatuses = [
@@ -183,26 +204,44 @@ export interface TimeInterval {
   end: number;
 }
 
-export interface ScheduledShift {
+export interface ScheduledShift extends Partial<BreakPolicy> {
   startsAt: Date;
   endsAt: Date;
-  paidBreak?: boolean;
-  breakStartsAt?: Date | null;
-  breakEndsAt?: Date | null;
 }
+
+const breakIntervals = (shift: Partial<BreakPolicy>): TimeInterval[] =>
+  (shift.breaks ?? []).map((item) => ({
+    start: new Date(item.startsAt).getTime(),
+    end: new Date(item.endsAt).getTime(),
+  }));
+
+const unpaidBreakIntervals = (shift: Partial<BreakPolicy>) =>
+  shift.paidBreak ? [] : breakIntervals(shift);
 
 export const hasScheduledUnpaidBreak = (shift: ScheduledShift) =>
-  !shift.paidBreak && !!shift.breakStartsAt && !!shift.breakEndsAt;
+  unpaidBreakIntervals(shift).length > 0;
 
-export function scheduledWorkIntervals(shift: ScheduledShift): TimeInterval[] {
-  const start = shift.startsAt.getTime(),
-    end = shift.endsAt.getTime();
-  if (!hasScheduledUnpaidBreak(shift)) return [{ start, end }];
-  return [
-    { start, end: shift.breakStartsAt!.getTime() },
-    { start: shift.breakEndsAt!.getTime(), end },
-  ].filter((interval) => interval.end > interval.start);
+function subtractIntervals(
+  intervals: TimeInterval[],
+  cuts: TimeInterval[],
+): TimeInterval[] {
+  return cuts.reduce(
+    (remaining, cut) =>
+      remaining.flatMap((interval) =>
+        [
+          { start: interval.start, end: Math.min(interval.end, cut.start) },
+          { start: Math.max(interval.start, cut.end), end: interval.end },
+        ].filter((part) => part.end > part.start),
+      ),
+    intervals,
+  );
 }
+
+export const scheduledWorkIntervals = (shift: ScheduledShift) =>
+  subtractIntervals(
+    [{ start: shift.startsAt.getTime(), end: shift.endsAt.getTime() }],
+    unpaidBreakIntervals(shift),
+  );
 
 export const overlapMs = (interval: TimeInterval, from: number, to: number) =>
   Math.max(0, Math.min(interval.end, to) - Math.max(interval.start, from));

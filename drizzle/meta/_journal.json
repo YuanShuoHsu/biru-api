@@ -1086,6 +1086,13 @@
       "when": 1790156024546,
       "tag": "0154_recommended_levels",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1790223882882,
+      "tag": "0155_shift_break_list",
+      "breakpoints": true
     }
   ]
 }

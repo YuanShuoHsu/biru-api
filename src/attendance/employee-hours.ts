@@ -33,8 +33,7 @@ export async function loadEmployeeHours(
           startsAt: attendanceShift.startsAt,
           endsAt: attendanceShift.endsAt,
           paidBreak: attendanceShift.paidBreak,
-          breakStartsAt: attendanceShift.breakStartsAt,
-          breakEndsAt: attendanceShift.breakEndsAt,
+          breaks: attendanceShift.breaks,
         })
         .from(attendanceShift)
         .where(
@@ -124,9 +123,9 @@ export const averageWeeklyMinutesSql = sql<number | null>`(
     SELECT count(*) AS shifts, sum(least(
       ${sql.raw(String(NORMAL_DAILY_MINUTES))},
       extract(epoch FROM s.ends_at - s.starts_at - CASE
-        WHEN NOT s.paid_break AND s.break_starts_at IS NOT NULL
-          THEN s.break_ends_at - s.break_starts_at
-        ELSE interval '0'
+        WHEN s.paid_break THEN interval '0'
+        ELSE (SELECT coalesce(sum((b->>'endsAt')::timestamptz - (b->>'startsAt')::timestamptz), interval '0')
+          FROM jsonb_array_elements(s.breaks) b)
       END) / 60
     )) AS minutes
     FROM attendance_shift s

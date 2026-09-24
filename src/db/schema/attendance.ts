@@ -50,6 +50,16 @@ export const ATTENDANCE_EVENT_ACTIONS = [
 
 export type AttendanceEventAction = (typeof ATTENDANCE_EVENT_ACTIONS)[number];
 
+export interface ShiftBreak {
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface TemplateBreak {
+  startTime: string;
+  endTime: string;
+}
+
 export const STATUTORY_LEAVE_KINDS = [
   'custom',
   'annual',
@@ -148,8 +158,7 @@ export const attendanceShift = pgTable(
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     paidBreak: boolean('paid_break').notNull().default(false),
-    breakStartsAt: timestamp('break_starts_at', { withTimezone: true }),
-    breakEndsAt: timestamp('break_ends_at', { withTimezone: true }),
+    breaks: jsonb('breaks').notNull().$type<ShiftBreak[]>().default([]),
     dayKind: text('day_kind')
       .$type<AttendanceDayKind>()
       .notNull()
@@ -166,10 +175,6 @@ export const attendanceShift = pgTable(
     index('attendance_shift_org_start_idx').on(t.organizationId, t.startsAt),
     index('attendance_shift_employee_start_idx').on(t.employeeId, t.startsAt),
     check('attendance_shift_interval', sql`${t.endsAt} > ${t.startsAt}`),
-    check(
-      'attendance_shift_break',
-      sql`(${t.breakStartsAt} IS NULL AND ${t.breakEndsAt} IS NULL) OR (${t.breakStartsAt} >= ${t.startsAt} AND ${t.breakEndsAt} > ${t.breakStartsAt} AND ${t.breakEndsAt} <= ${t.endsAt})`,
-    ),
   ],
 );
 
@@ -359,8 +364,7 @@ export const attendanceTemplate = pgTable('attendance_template', {
   endTime: text('end_time').notNull(),
   nextDay: boolean('next_day').notNull(),
   paidBreak: boolean('paid_break').notNull(),
-  breakStartTime: text('break_start_time'),
-  breakEndTime: text('break_end_time'),
+  breaks: jsonb('breaks').notNull().$type<TemplateBreak[]>().default([]),
   dayKind: text('day_kind').$type<AttendanceDayKind>().notNull(),
 });
 

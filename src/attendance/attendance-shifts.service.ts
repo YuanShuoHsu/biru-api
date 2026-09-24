@@ -46,7 +46,6 @@ import {
   forbiddenError,
 } from './attendance-errors';
 import {
-  assertEventSequence,
   blockingRequestStatuses,
   distanceMeters,
   ipInRange,
@@ -66,7 +65,7 @@ import {
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import { CreateAttendanceShiftDto } from './dto/create-attendance-shifts.dto';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup';
-import { parseBreakWindow, parseInterval } from './shift-intervals';
+import { parseBreaks, parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
 const shiftStateCase = sql.join(
@@ -227,7 +226,7 @@ export class AttendanceShiftsService {
       const effectiveEvents =
         corrections.find((request) => request.shiftId === shift.id)
           ?.correctedEvents ?? rawEvents;
-      const summary = summarizeEvents(effectiveEvents, shift.paidBreak);
+      const summary = summarizeEvents(effectiveEvents, shift);
       const first = effectiveEvents[0],
         last = effectiveEvents.at(-1);
       const grace = (settings?.graceMinutes ?? 0) * 60000;
@@ -377,11 +376,7 @@ export class AttendanceShiftsService {
           MAX_SHIFT_MS
         )
           throw badRequestError('shiftTooLong');
-        const breakWindow = parseBreakWindow(
-          interval,
-          dto.breakStartsAt,
-          dto.breakEndsAt,
-        );
+        const breaks = parseBreaks(interval, dto.breaks);
         const employee = employees.find(({ id }) => id === dto.employeeId);
         if (
           !employee ||
@@ -423,7 +418,7 @@ export class AttendanceShiftsService {
         values.push({
           ...dto,
           ...interval,
-          ...breakWindow,
+          breaks,
           id: randomUUID(),
           organizationId: actor.organizationId,
         });
@@ -621,10 +616,13 @@ export class AttendanceShiftsService {
         occurredAt: occurredAt.toISOString(),
         paidBreak,
       }));
-      assertEventSequence(
-        [...ownEvents, { action: dto.action, occurredAt: now.toISOString() }],
-        shift.paidBreak,
-      );
+      const { availableActions } = summarizeEvents(ownEvents, shift);
+      const last = events.at(-1);
+      if (
+        !availableActions.includes(dto.action) ||
+        (last && last.occurredAt >= now)
+      )
+        throw badRequestError('invalidEventSequence');
       const [row] = await tx
         .insert(attendanceEvent)
         .values({

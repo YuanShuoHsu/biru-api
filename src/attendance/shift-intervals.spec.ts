@@ -10,24 +10,24 @@ describe('templateShift', () => {
     expect(
       templateShift('2026-03-02', {
         ...overnight,
-        breakStartTime: '23:30',
-        breakEndTime: '00:30',
+        breaks: [
+          { startTime: '23:30', endTime: '00:30' },
+          { startTime: '02:00', endTime: '03:00' },
+        ],
       }),
     ).toEqual({
       startsAt: '2026-03-02T14:00:00.000Z',
       endsAt: '2026-03-02T22:00:00.000Z',
-      breakStartsAt: '2026-03-02T15:30:00.000Z',
-      breakEndsAt: '2026-03-02T16:30:00.000Z',
-    });
-    expect(
-      templateShift('2026-03-02', {
-        ...overnight,
-        breakStartTime: '02:00',
-        breakEndTime: '03:00',
-      }),
-    ).toMatchObject({
-      breakStartsAt: '2026-03-02T18:00:00.000Z',
-      breakEndsAt: '2026-03-02T19:00:00.000Z',
+      breaks: [
+        {
+          startsAt: '2026-03-02T15:30:00.000Z',
+          endsAt: '2026-03-02T16:30:00.000Z',
+        },
+        {
+          startsAt: '2026-03-02T18:00:00.000Z',
+          endsAt: '2026-03-02T19:00:00.000Z',
+        },
+      ],
     });
   });
 });
