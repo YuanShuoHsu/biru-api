@@ -301,7 +301,10 @@ export class PayrollService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(payrollStatement.employeeName, `%${value}%`),
-          ilike(payrollStatement.month, `%${value}%`),
+          ilike(
+            sql`replace(${payrollStatement.month}, '-', '/')`,
+            `%${value}%`,
+          ),
         ],
       }),
     );
