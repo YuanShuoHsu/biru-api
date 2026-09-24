@@ -1,9 +1,4 @@
-import {
-  leadingIntervals,
-  overlapIntervals,
-  subtractIntervals,
-  type TimeInterval,
-} from 'src/attendance/attendance-rules';
+import { MAX_MONTHLY_OVERTIME_SECONDS } from 'src/attendance/attendance-rules';
 import { platformMonthStart } from 'src/common/constants/timezone';
 import type {
   PayrollBlocker,
@@ -50,6 +45,8 @@ export function calculatePayroll(
     annualLeavePayoutCents?: string;
     calendarLeaveDeductionCents?: string;
     calendarLeavePayCents?: string;
+    monthlyOvertimeLimitSeconds?: number;
+    absenceSeconds?: number;
   } = { numerator: 1, denominator: 1 },
 ) {
   const salary = BigInt(terms.salaryCents);
@@ -130,7 +127,10 @@ export function calculatePayroll(
     overtimeFirst += band(8 * 3600, 10 * 3600);
     overtimeSecond += band(10 * 3600, 12 * 3600);
   }
-  if (ordinaryOvertime + restOvertime > 46 * 3600)
+  if (
+    ordinaryOvertime + restOvertime >
+    (fraction.monthlyOvertimeLimitSeconds ?? MAX_MONTHLY_OVERTIME_SECONDS)
+  )
     blockers.push('monthlyOvertimeExceeded');
   const regular =
     terms.salaryType === 'monthly'
@@ -160,6 +160,12 @@ export function calculatePayroll(
           hourlyDenominator * 3600n,
         )
       : 0n);
+  const absenceSeconds =
+    terms.salaryType === 'monthly' ? (fraction.absenceSeconds ?? 0) : 0;
+  const absenceDeduction = roundRatio(
+    hourlyNumerator * BigInt(absenceSeconds),
+    hourlyDenominator * 3600n,
+  );
   const annualLeavePay = BigInt(fraction.annualLeavePayoutCents ?? '0');
   const paidAllowance = roundRatio(
     allowance * BigInt(fraction.numerator),
@@ -186,6 +192,11 @@ export function calculatePayroll(
     { code: 'calendarLeavePay', amountCents: calendarLeavePay.toString() },
     { code: 'annualLeavePay', amountCents: annualLeavePay.toString() },
     { code: 'leaveDeduction', amountCents: leaveDeduction.toString() },
+    {
+      code: 'absenceDeduction',
+      amountCents: absenceDeduction.toString(),
+      seconds: absenceSeconds,
+    },
   );
   const resolved = taiwanDeductions(
     rules,
@@ -194,7 +205,8 @@ export function calculatePayroll(
       paidAllowance +
       annualLeavePay +
       calendarLeavePay -
-      leaveDeduction,
+      leaveDeduction -
+      absenceDeduction,
     fraction.coverageDays,
     fraction.healthCharged,
   );
@@ -215,6 +227,7 @@ export function calculatePayroll(
     calendarLeavePay;
   const deduction =
     leaveDeduction +
+    absenceDeduction +
     BigInt(resolved.laborInsuranceCents) +
     BigInt(resolved.healthInsuranceCents) +
     BigInt(resolved.voluntaryPensionCents) +
@@ -230,27 +243,6 @@ export function calculatePayroll(
     workedSeconds: days.reduce((sum, day) => sum + day.seconds, 0),
     blockers: [...new Set(blockers)],
   };
-}
-
-export function uncoveredOvertime(
-  worked: TimeInterval[],
-  approved: TimeInterval[],
-  dayKind: string,
-  scheduled: TimeInterval[],
-) {
-  const byStart = (a: TimeInterval, b: TimeInterval) => a.start - b.start;
-  const inSchedule = scheduled
-    .flatMap(({ start, end }) => overlapIntervals(worked, start, end))
-    .sort(byStart);
-  const offSchedule = subtractIntervals(worked, scheduled).sort(byStart);
-  const regular = leadingIntervals(
-    [...inSchedule, ...offSchedule],
-    dayKind === 'workday' ? 8 * 3600000 : 0,
-  );
-  return subtractIntervals(subtractIntervals(worked, regular), approved).reduce(
-    (sum, interval) => sum + interval.end - interval.start,
-    0,
-  );
 }
 
 export function payrollPeriod(month: string) {

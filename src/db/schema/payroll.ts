@@ -18,6 +18,7 @@ export const PAYROLL_LINE_CODES = [
   'calendarLeavePay',
   'annualLeavePay',
   'leaveDeduction',
+  'absenceDeduction',
   'laborInsurance',
   'healthInsurance',
   'voluntaryPension',
@@ -28,7 +29,6 @@ export const PAYROLL_LINE_CODES = [
 export type PayrollLineCode = (typeof PAYROLL_LINE_CODES)[number];
 
 export const PAYROLL_BLOCKERS = [
-  'attendanceShortfall',
   'belowMinimumWage',
   'calendarLeavePayRequired',
   'dailyHoursExceeded',
@@ -50,7 +50,6 @@ export const PAYROLL_BLOCKERS = [
   'payrollRuleSetStale',
   'pendingRequests',
   'prorationRequired',
-  'unresolvedOvertime',
   'unsupportedDayKind',
   'weeklyScheduleRequiresReview',
 ] as const;

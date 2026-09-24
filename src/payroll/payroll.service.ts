@@ -35,9 +35,14 @@ import {
 import {
   countedIntervals,
   countedRequestStatuses,
-  hasScheduledUnpaidBreak,
+  EXTENDED_MONTHLY_OVERTIME_SECONDS,
+  intersectIntervals,
+  punchedUnpaidBreaks,
+  subtractIntervals,
   leadingIntervals,
+  MAX_MONTHLY_OVERTIME_SECONDS,
   overlapIntervals,
+  overtimeExtensionPeriodOf,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
   summarizeEvents,
@@ -75,6 +80,7 @@ import {
   attendanceLeaveType,
   attendanceParentalReturn,
   attendanceRequest,
+  attendanceSettings,
   attendanceShift,
 } from 'src/db/schema/attendance';
 import {
@@ -99,7 +105,6 @@ import {
   calculatePayroll,
   payrollPeriod,
   roundRatio,
-  uncoveredOvertime,
 } from './payroll-calculation';
 import {
   calendarLeavePay,
@@ -335,12 +340,24 @@ export class PayrollService {
     return employee;
   }
 
+  private async overtimeExtensionPeriods(
+    tx: Transaction,
+    organizationId: string,
+  ) {
+    const [settings] = await tx
+      .select({ periods: attendanceSettings.overtimeExtensionPeriods })
+      .from(attendanceSettings)
+      .where(eq(attendanceSettings.organizationId, organizationId));
+    return settings?.periods ?? [];
+  }
+
   private async snapshot(
     tx: Transaction,
     actor: AttendanceActor,
     employeeId: string,
     month: string,
     knownEmployee?: typeof attendanceEmployee.$inferSelect,
+    overtimeExtensionPeriods: string[] = [],
   ): Promise<PayrollSnapshot> {
     const employee =
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
@@ -577,8 +594,8 @@ export class PayrollService {
       }
     >();
     const intervalsByDay = new Map<string, TimeInterval[]>();
-    const scheduledByDay = new Map<string, TimeInterval[]>();
     let leaveDeductionSeconds = 0;
+    let absenceSeconds = 0;
     const relevantDays = new Set(
       shifts
         .filter((shift) => shift.startsAt < end && shift.endsAt > start)
@@ -718,11 +735,35 @@ export class PayrollService {
         blockers.push('overlappingLeaveAttendance');
       const key = platformDateString(shift.startsAt);
       const previous = days.get(key);
-      intervalsByDay.set(key, [...(intervalsByDay.get(key) ?? []), ...counted]);
-      scheduledByDay.set(key, [
-        ...(scheduledByDay.get(key) ?? []),
+      const approvedOvertime = requests
+        .filter(
+          (request) =>
+            request.shiftId === shift.id &&
+            request.kind === 'overtime' &&
+            request.status === 'approved',
+        )
+        .map((request) => ({
+          start: request.startsAt.getTime(),
+          end: request.endsAt.getTime(),
+        }));
+      const payable = intersectIntervals(counted, [
         ...workIntervals,
+        ...approvedOvertime,
       ]);
+      intervalsByDay.set(key, [...(intervalsByDay.get(key) ?? []), ...payable]);
+      if (shift.dayKind === 'workday' && summary.state === 'completed')
+        absenceSeconds += subtractIntervals(workIntervals, [
+          ...payable,
+          ...punchedUnpaidBreaks(effective, shift),
+          ...leaves.map((leave) => ({
+            start: leave.startsAt.getTime(),
+            end: leave.endsAt.getTime(),
+          })),
+        ]).reduce(
+          (sum, interval) =>
+            sum + intervalSeconds(interval, start.getTime(), end.getTime()),
+          0,
+        );
       if (previous && previous.dayKind !== shift.dayKind)
         blockers.push('inconsistentDayKind');
       const scheduledBefore =
@@ -758,49 +799,9 @@ export class PayrollService {
         parentalScheduledSeconds:
           (previous?.parentalScheduledSeconds ?? 0) + parentalScheduledSeconds,
       });
-      const overtimeSeconds = Math.max(0, summary.workedSeconds - workSeconds);
-      if (
-        overtimeSeconds > 0 &&
-        !requests.some(
-          (request) =>
-            request.shiftId === shift.id &&
-            request.kind === 'overtime' &&
-            request.status === 'approved' &&
-            (request.endsAt.getTime() - request.startsAt.getTime()) / 1000 >=
-              overtimeSeconds,
-        )
-      )
-        blockers.push('unresolvedOvertime');
-      if (
-        summary.state === 'completed' &&
-        summary.workedSeconds + leaveSeconds <
-          workSeconds -
-            (hasScheduledUnpaidBreak(shift) ? 0 : summary.unpaidBreakSeconds)
-      )
-        blockers.push('attendanceShortfall');
     }
-    const approvals = requests
-      .filter(
-        (request) =>
-          request.kind === 'overtime' && request.status === 'approved',
-      )
-      .map((request) => ({
-        start: request.startsAt.getTime(),
-        end: request.endsAt.getTime(),
-      }));
-    for (const [key, intervals] of intervalsByDay) {
+    for (const [key, intervals] of intervalsByDay)
       Object.assign(days.get(key)!, periodWork(intervals, start, end));
-      if (
-        days.get(key)!.seconds > 0 &&
-        uncoveredOvertime(
-          intervals,
-          approvals,
-          days.get(key)!.dayKind,
-          scheduledByDay.get(key)!,
-        ) > 0
-      )
-        blockers.push('unresolvedOvertime');
-    }
     if (exceedsWeeklySchedule(adjacentShifts, start, end))
       blockers.push('weeklyScheduleRequiresReview');
     const annualPolicies = leaveTypes.filter(
@@ -865,10 +866,18 @@ export class PayrollService {
       ),
       leaveDeductionSeconds,
       {
+        absenceSeconds,
         ...employment,
         annualLeavePayoutCents: annual.amountCents,
         calendarLeaveDeductionCents: calendarDeduction.toString(),
         calendarLeavePayCents: calendarPay.toString(),
+        monthlyOvertimeLimitSeconds: overtimeExtensionPeriodOf(
+          overtimeExtensionPeriods,
+          Number(month.slice(0, 4)),
+          Number(month.slice(5, 7)) - 1,
+        )
+          ? EXTENDED_MONTHLY_OVERTIME_SECONDS
+          : MAX_MONTHLY_OVERTIME_SECONDS,
       },
     );
     return {
@@ -880,7 +889,8 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'medical-parental-5',
+            calculationVersion: 'overtime-application-6',
+            overtimeExtensionPeriods,
             medical: medical
               ? { records: medical.records, shifts: medical.shifts }
               : null,
@@ -946,6 +956,7 @@ export class PayrollService {
         dto.employeeId,
         dto.month,
         employee,
+        await this.overtimeExtensionPeriods(tx, actor.organizationId),
       );
       const [previous] = await tx
         .select()
@@ -1027,6 +1038,7 @@ export class PayrollService {
         row.employeeId,
         row.month,
         subject,
+        await this.overtimeExtensionPeriods(tx, actor.organizationId),
       );
       if (
         current.ruleVersion !== row.snapshot.ruleVersion ||

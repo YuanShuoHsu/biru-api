@@ -1,10 +1,6 @@
 import type { PayrollTerms } from 'src/db/schema/payroll';
 
-import {
-  calculatePayroll,
-  payrollPeriod,
-  uncoveredOvertime,
-} from './payroll-calculation';
+import { calculatePayroll, payrollPeriod } from './payroll-calculation';
 import { taiwan2026 } from './taiwan-rules.fixture';
 
 const terms: PayrollTerms = {
@@ -20,41 +16,6 @@ const terms: PayrollTerms = {
   sourceNote: 'Verified test fixture',
 };
 describe('Taiwan general payroll arithmetic', () => {
-  it('requires approval for the actual overtime interval across split shifts', () => {
-    const hour = 3600000;
-    const intervals = [
-      { start: 0, end: 6 * hour },
-      { start: 7 * hour, end: 13 * hour },
-    ];
-    const scheduled = [{ start: 0, end: 9 * hour }];
-    expect(
-      uncoveredOvertime(
-        intervals,
-        [{ start: 0, end: 4 * hour }],
-        'workday',
-        scheduled,
-      ),
-    ).toBe(4 * hour);
-    expect(
-      uncoveredOvertime(
-        intervals,
-        [{ start: 9 * hour, end: 13 * hour }],
-        'workday',
-        scheduled,
-      ),
-    ).toBe(0);
-    expect(
-      uncoveredOvertime(
-        intervals,
-        [
-          { start: 9 * hour, end: 12 * hour },
-          { start: 10 * hour, end: 13 * hour },
-        ],
-        'workday',
-        scheduled,
-      ),
-    ).toBe(0);
-  });
   it('computes ordinary overtime using exact rational arithmetic', () => {
     const result = calculatePayroll(
       taiwan2026,

@@ -152,6 +152,14 @@ function countedFrom(
   return subtractIntervals(worked, unpaidBreakIntervals(shift));
 }
 
+export const punchedUnpaidBreaks = (
+  events: CorrectedEvent[],
+  shift: BreakPolicy,
+): TimeInterval[] =>
+  punchedTimeline(events, shift.paidBreak).breaks.filter(
+    (interval) => !interval.paid,
+  );
+
 export const countedIntervals = (
   events: CorrectedEvent[],
   shift: BreakPolicy,
@@ -254,9 +262,6 @@ const breakIntervals = (shift: Partial<BreakPolicy>): TimeInterval[] =>
 const unpaidBreakIntervals = (shift: Partial<BreakPolicy>) =>
   shift.paidBreak ? [] : breakIntervals(shift);
 
-export const hasScheduledUnpaidBreak = (shift: ScheduledShift) =>
-  unpaidBreakIntervals(shift).length > 0;
-
 export function subtractIntervals(
   intervals: TimeInterval[],
   cuts: TimeInterval[],
@@ -272,6 +277,11 @@ export function subtractIntervals(
     intervals,
   );
 }
+
+export const intersectIntervals = (
+  intervals: TimeInterval[],
+  within: TimeInterval[],
+) => subtractIntervals(intervals, subtractIntervals(intervals, within));
 
 export const scheduledWorkIntervals = (shift: ScheduledShift) =>
   subtractIntervals(
