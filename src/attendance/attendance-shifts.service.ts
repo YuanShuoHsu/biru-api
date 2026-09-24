@@ -49,8 +49,10 @@ import {
   blockingRequestStatuses,
   distanceMeters,
   ipInRange,
+  MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
+  punchLeewayMs,
   SHIFT_STATE_BY_LAST_ACTION,
   SHIFT_STATE_RANK,
   summarizeEvents,
@@ -74,8 +76,6 @@ const shiftStateCase = sql.join(
   ),
   sql` `,
 );
-
-const CLOCK_IN_LEAD_MS = 12 * 3600000;
 
 const approvedCorrectedEvents = sql`(SELECT correction.corrected_events
   FROM ${attendanceRequest} correction
@@ -101,9 +101,17 @@ const clockOutAt = sql<Date | null>`CASE
 
 const CALENDAR_SHIFT_LIMIT = 500;
 
+const punchLeewaySql = sql`greatest(interval '0',
+  make_interval(secs => ${sql.raw(String(MAX_DAILY_WORK_SECONDS))})
+    - (${attendanceShift.endsAt} - ${attendanceShift.startsAt} - CASE
+      WHEN ${attendanceShift.paidBreak} THEN interval '0'
+      ELSE (SELECT coalesce(sum((b->>'endsAt')::timestamptz - (b->>'startsAt')::timestamptz), interval '0')
+        FROM jsonb_array_elements(${attendanceShift.breaks}) b)
+    END))`;
+
 const punchableShift = sql`${unfinishedShift}
   AND (EXISTS (SELECT 1 FROM ${attendanceEvent} started WHERE started.shift_id = ${attendanceShift.id})
-    OR now() BETWEEN ${attendanceShift.startsAt} - make_interval(secs => ${CLOCK_IN_LEAD_MS / 1000}) AND ${attendanceShift.endsAt})`;
+    OR now() BETWEEN ${attendanceShift.startsAt} - ${punchLeewaySql} AND ${attendanceShift.endsAt})`;
 
 @Injectable()
 export class AttendanceShiftsService {
@@ -615,7 +623,7 @@ export class AttendanceShiftsService {
       if (dto.action === 'clockIn') {
         if (
           now > shift.endsAt ||
-          now.getTime() < shift.startsAt.getTime() - CLOCK_IN_LEAD_MS
+          now.getTime() < shift.startsAt.getTime() - punchLeewayMs(shift)
         )
           throw badRequestError('outsideShiftWindow');
         const [active] = await tx

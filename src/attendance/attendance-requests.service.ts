@@ -57,14 +57,13 @@ import {
 import {
   blockingRequestStatuses,
   countedRequestStatuses,
-  CORRECTION_LEAD_MS,
   MAX_DAILY_WORK_SECONDS,
   MAX_MONTHLY_OVERTIME_SECONDS,
   EXTENDED_MONTHLY_OVERTIME_SECONDS,
   EXTENDED_PERIOD_OVERTIME_SECONDS,
   OVERTIME_EXTENSION_MONTHS,
   overtimeExtensionPeriodOf,
-  MAX_SHIFT_MS,
+  punchLeewayMs,
   scheduledWorkSeconds,
   summarizeEvents,
 } from './attendance-rules';
@@ -193,6 +192,8 @@ export class AttendanceRequestsService {
           leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
           returnPending: sql<boolean>`EXISTS (SELECT 1 FROM ${attendanceParentalReturn} pending
             WHERE pending.request_id = ${attendanceRequest.id} AND pending.status = 'pending')`,
+          shiftStartsAt: attendanceShift.startsAt,
+          shiftEndsAt: attendanceShift.endsAt,
         })
         .from(attendanceRequest)
         .innerJoin(
@@ -203,6 +204,10 @@ export class AttendanceRequestsService {
         .leftJoin(
           attendanceLeaveType,
           eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
+        )
+        .leftJoin(
+          attendanceShift,
+          eq(attendanceShift.id, attendanceRequest.shiftId),
         )
         .where(where)
         .orderBy(
@@ -225,6 +230,21 @@ export class AttendanceRequestsService {
         )
         .where(where),
     ]);
+    const correctionShiftIds = data.flatMap(({ request }) =>
+      request.kind === 'correction' && request.shiftId ? [request.shiftId] : [],
+    );
+    const events = correctionShiftIds.length
+      ? await this.db
+          .select()
+          .from(attendanceEvent)
+          .where(
+            and(
+              eq(attendanceEvent.organizationId, actor.organizationId),
+              inArray(attendanceEvent.shiftId, correctionShiftIds),
+            ),
+          )
+          .orderBy(asc(attendanceEvent.occurredAt))
+      : [];
     return {
       data: data.map(
         ({
@@ -233,12 +253,26 @@ export class AttendanceRequestsService {
           leaveTypeName,
           leaveTypeStatutoryKind,
           returnPending,
+          shiftStartsAt,
+          shiftEndsAt,
         }) => ({
           ...request,
           employeeName,
           leaveTypeName,
           leaveTypeStatutoryKind,
           returnPending,
+          shiftStartsAt,
+          shiftEndsAt,
+          originalEvents:
+            request.kind === 'correction'
+              ? events
+                  .filter((event) => event.shiftId === request.shiftId)
+                  .map(({ action, occurredAt, paidBreak }) => ({
+                    action,
+                    occurredAt: occurredAt.toISOString(),
+                    paidBreak,
+                  }))
+              : null,
         }),
       ),
       total,
@@ -348,12 +382,12 @@ export class AttendanceRequestsService {
           summarizeEvents(dto.correctedEvents, shift).state !== 'completed'
         )
           throw badRequestError('invalidEventSequence');
+        const leewayMs = punchLeewayMs(shift);
         if (
-          interval.endsAt.getTime() - interval.startsAt.getTime() >
-            MAX_SHIFT_MS ||
-          interval.startsAt.getTime() <
-            shift.startsAt.getTime() - CORRECTION_LEAD_MS ||
-          interval.endsAt.getTime() > shift.endsAt.getTime() + DAY_MS
+          interval.startsAt.getTime() < shift.startsAt.getTime() - leewayMs ||
+          interval.startsAt > shift.endsAt ||
+          interval.endsAt < shift.startsAt ||
+          interval.endsAt.getTime() > shift.endsAt.getTime() + leewayMs
         )
           throw badRequestError('invalidInterval');
         if (

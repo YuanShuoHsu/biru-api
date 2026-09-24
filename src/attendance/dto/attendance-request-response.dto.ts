@@ -75,6 +75,10 @@ export class AttendanceRequestResponseDto {
   @ApiPropertyOptional() originalEndsAt: Date | null;
   @ApiPropertyOptional({ isArray: true, type: AttendanceEventResponseDto })
   correctedEvents: AttendanceEventResponseDto[] | null;
+  @ApiPropertyOptional() shiftStartsAt: Date | null;
+  @ApiPropertyOptional() shiftEndsAt: Date | null;
+  @ApiPropertyOptional({ isArray: true, type: AttendanceEventResponseDto })
+  originalEvents: AttendanceEventResponseDto[] | null;
   @ApiPropertyOptional() reviewedAt: Date | null;
   @ApiProperty() createdAt: Date;
 }
@@ -86,6 +90,9 @@ export class AttendanceRequestRecordResponseDto extends OmitType(
     'leaveTypeName',
     'leaveTypeStatutoryKind',
     'returnPending',
+    'shiftStartsAt',
+    'shiftEndsAt',
+    'originalEvents',
   ] as const,
 ) {}
 

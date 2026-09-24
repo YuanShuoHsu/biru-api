@@ -201,8 +201,6 @@ export const countedRequestStatuses = [
 
 export const MAX_SHIFT_MS = DAY_MS;
 
-export const CORRECTION_LEAD_MS = 12 * 3600000;
-
 export const MAX_DAILY_WORK_SECONDS = 12 * 3600;
 
 export const MAX_MONTHLY_OVERTIME_SECONDS = 46 * 3600;
@@ -316,6 +314,9 @@ export const scheduledWorkSeconds = (
       0,
     ) / 1000,
   );
+
+export const punchLeewayMs = (shift: ScheduledShift) =>
+  Math.max(0, MAX_DAILY_WORK_SECONDS - scheduledWorkSeconds(shift)) * 1000;
 
 export function leadingIntervals(intervals: TimeInterval[], budgetMs: number) {
   let remaining = Math.max(0, budgetMs);
