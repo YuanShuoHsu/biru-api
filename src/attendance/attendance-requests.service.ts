@@ -286,6 +286,13 @@ export class AttendanceRequestsService {
       const interval = parseInterval(dto.startsAt, dto.endsAt);
       if (!dto.reason.trim()) throw badRequestError('reasonRequired');
       if (dto.kind === 'leave') {
+        await this.assertRequestPayrollUnlocked(tx, {
+          kind: dto.kind,
+          organizationId: actor.organizationId,
+          employeeId: employee.id,
+          shiftId: null,
+          ...interval,
+        });
         if (!dto.leaveTypeId) throw badRequestError('leavePolicyRequired');
         const [policy] = await tx
           .select()
@@ -374,6 +381,13 @@ export class AttendanceRequestsService {
           ),
         );
       if (!shift) throw new NotFoundException();
+      await this.assertRequestPayrollUnlocked(tx, {
+        kind: dto.kind,
+        organizationId: actor.organizationId,
+        employeeId: employee.id,
+        shiftId: shift.id,
+        ...interval,
+      });
       if (dto.kind === 'overtime')
         await this.assertOvertimeFits(tx, shift, interval);
       if (dto.kind === 'correction') {
@@ -552,7 +566,15 @@ export class AttendanceRequestsService {
 
   private async assertRequestPayrollUnlocked(
     tx: Transaction,
-    request: AttendanceRequestRow,
+    request: Pick<
+      AttendanceRequestRow,
+      | 'employeeId'
+      | 'endsAt'
+      | 'kind'
+      | 'organizationId'
+      | 'shiftId'
+      | 'startsAt'
+    >,
   ) {
     if (request.kind === 'leave')
       return assertPayrollUnlocked(
