@@ -138,6 +138,10 @@ export const attendanceSettings = pgTable(
     radiusMeters: integer('radius_meters').notNull(),
     allowedIps: text('allowed_ips').array().notNull(),
     graceMinutes: integer('grace_minutes').notNull().default(0),
+    overtimeExtensionPeriods: text('overtime_extension_periods')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

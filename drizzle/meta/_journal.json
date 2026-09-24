@@ -1093,6 +1093,13 @@
       "when": 1790223882882,
       "tag": "0155_shift_break_list",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1790228242579,
+      "tag": "0156_overtime_extension_periods",
+      "breakpoints": true
     }
   ]
 }

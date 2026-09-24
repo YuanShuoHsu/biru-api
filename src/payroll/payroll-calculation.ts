@@ -1,4 +1,9 @@
-import type { TimeInterval } from 'src/attendance/attendance-rules';
+import {
+  leadingIntervals,
+  overlapIntervals,
+  subtractIntervals,
+  type TimeInterval,
+} from 'src/attendance/attendance-rules';
 import { platformMonthStart } from 'src/common/constants/timezone';
 import type {
   PayrollBlocker,
@@ -228,26 +233,24 @@ export function calculatePayroll(
 }
 
 export function uncoveredOvertime(
-  intervals: TimeInterval[],
+  worked: TimeInterval[],
   approved: TimeInterval[],
   dayKind: string,
+  scheduled: TimeInterval[],
 ) {
-  let regularRemaining = dayKind === 'workday' ? 8 * 3600000 : 0;
-  let missing = 0;
-  for (const interval of [...intervals].sort((a, b) => a.start - b.start)) {
-    const regular = Math.min(regularRemaining, interval.end - interval.start);
-    regularRemaining -= regular;
-    let cursor = interval.start + regular;
-    for (const approval of [...approved].sort((a, b) => a.start - b.start)) {
-      if (approval.end <= cursor || approval.start >= interval.end) continue;
-      if (approval.start > cursor)
-        missing += Math.min(approval.start, interval.end) - cursor;
-      cursor = Math.max(cursor, Math.min(interval.end, approval.end));
-      if (cursor >= interval.end) break;
-    }
-    missing += Math.max(0, interval.end - cursor);
-  }
-  return missing;
+  const byStart = (a: TimeInterval, b: TimeInterval) => a.start - b.start;
+  const inSchedule = scheduled
+    .flatMap(({ start, end }) => overlapIntervals(worked, start, end))
+    .sort(byStart);
+  const offSchedule = subtractIntervals(worked, scheduled).sort(byStart);
+  const regular = leadingIntervals(
+    [...inSchedule, ...offSchedule],
+    dayKind === 'workday' ? 8 * 3600000 : 0,
+  );
+  return subtractIntervals(subtractIntervals(worked, regular), approved).reduce(
+    (sum, interval) => sum + interval.end - interval.start,
+    0,
+  );
 }
 
 export function payrollPeriod(month: string) {

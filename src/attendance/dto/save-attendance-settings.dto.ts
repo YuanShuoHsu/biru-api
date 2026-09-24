@@ -22,4 +22,13 @@ export class SaveAttendanceSettingsDto {
   @Matches(/^[\d.:a-fA-F]{2,45}(\/\d{1,3})?$/, { each: true })
   allowedIps: string[];
   @IsInt() @Min(0) @Max(60) graceMinutes: number;
+  @ApiProperty({
+    description:
+      '經工會或勞資會議同意延長工時的各期起始月（每期連續 3 個曆月）',
+    example: ['2026-01', '2026-04'],
+  })
+  @IsArray()
+  @ArrayMaxSize(40)
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { each: true })
+  overtimeExtensionPeriods: string[];
 }

@@ -26,14 +26,21 @@ describe('Taiwan general payroll arithmetic', () => {
       { start: 0, end: 6 * hour },
       { start: 7 * hour, end: 13 * hour },
     ];
+    const scheduled = [{ start: 0, end: 9 * hour }];
     expect(
-      uncoveredOvertime(intervals, [{ start: 0, end: 4 * hour }], 'workday'),
+      uncoveredOvertime(
+        intervals,
+        [{ start: 0, end: 4 * hour }],
+        'workday',
+        scheduled,
+      ),
     ).toBe(4 * hour);
     expect(
       uncoveredOvertime(
         intervals,
         [{ start: 9 * hour, end: 13 * hour }],
         'workday',
+        scheduled,
       ),
     ).toBe(0);
     expect(
@@ -44,6 +51,7 @@ describe('Taiwan general payroll arithmetic', () => {
           { start: 10 * hour, end: 13 * hour },
         ],
         'workday',
+        scheduled,
       ),
     ).toBe(0);
   });

@@ -45,7 +45,10 @@ import {
   type Transaction,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
-import { normalizeIpRange } from './attendance-rules';
+import {
+  hasOverlappingOvertimeExtensions,
+  normalizeIpRange,
+} from './attendance-rules';
 import {
   ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
@@ -496,9 +499,14 @@ export class AttendanceEmployeesService {
   async saveSettings(actor: AttendanceActor, dto: SaveAttendanceSettingsDto) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
+      if (hasOverlappingOvertimeExtensions(dto.overtimeExtensionPeriods))
+        throw badRequestError('overlappingOvertimeExtensions');
       const values = {
         ...dto,
         allowedIps: dto.allowedIps.map(normalizeIpRange),
+        overtimeExtensionPeriods: [
+          ...new Set(dto.overtimeExtensionPeriods),
+        ].sort(),
         updatedAt: new Date(),
       };
       const [row] = await tx

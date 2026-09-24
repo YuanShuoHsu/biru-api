@@ -36,6 +36,7 @@ import {
   attendanceLeaveType,
   attendanceParentalReturn,
   attendanceRequest,
+  attendanceSettings,
   attendanceShift,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
@@ -59,6 +60,10 @@ import {
   CORRECTION_LEAD_MS,
   MAX_DAILY_WORK_SECONDS,
   MAX_MONTHLY_OVERTIME_SECONDS,
+  EXTENDED_MONTHLY_OVERTIME_SECONDS,
+  EXTENDED_PERIOD_OVERTIME_SECONDS,
+  OVERTIME_EXTENSION_MONTHS,
+  overtimeExtensionPeriodOf,
   MAX_SHIFT_MS,
   scheduledWorkSeconds,
   summarizeEvents,
@@ -567,7 +572,8 @@ export class AttendanceRequestsService {
     const workday = shift.dayKind === 'workday';
     if (
       workday
-        ? interval.startsAt.getTime() !== shift.endsAt.getTime()
+        ? interval.startsAt.getTime() !== shift.endsAt.getTime() &&
+          interval.endsAt.getTime() !== shift.startsAt.getTime()
         : interval.startsAt < shift.startsAt || interval.endsAt > shift.endsAt
     )
       throw badRequestError('invalidInterval');
@@ -594,8 +600,36 @@ export class AttendanceRequestsService {
       shift.employeeId,
       startedBetween(platformMonthStart(year, month), monthEnd),
     );
-    if (monthly + seconds > MAX_MONTHLY_OVERTIME_SECONDS)
+    const [settings] = await tx
+      .select({ periods: attendanceSettings.overtimeExtensionPeriods })
+      .from(attendanceSettings)
+      .where(eq(attendanceSettings.organizationId, shift.organizationId));
+    const period = overtimeExtensionPeriodOf(
+      settings?.periods ?? [],
+      year,
+      month,
+    );
+    if (
+      monthly + seconds >
+      (period
+        ? EXTENDED_MONTHLY_OVERTIME_SECONDS
+        : MAX_MONTHLY_OVERTIME_SECONDS)
+    )
       throw badRequestError('monthlyOvertimeExceeded');
+    if (!period) return;
+    const periodTotal = await this.overtimeSeconds(
+      tx,
+      shift.employeeId,
+      startedBetween(
+        platformMonthStart(period.year, period.monthIndex),
+        platformMonthStart(
+          period.year,
+          period.monthIndex + OVERTIME_EXTENSION_MONTHS,
+        ),
+      ),
+    );
+    if (periodTotal + seconds > EXTENDED_PERIOD_OVERTIME_SECONDS)
+      throw badRequestError('periodOvertimeExceeded');
   }
 
   private async approveOvertime(

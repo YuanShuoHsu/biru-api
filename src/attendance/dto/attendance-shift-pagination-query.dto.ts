@@ -9,6 +9,8 @@ export const ATTENDANCE_SHIFT_STRING_FILTER_FIELDS = ['employeeName'] as const;
 export const ATTENDANCE_SHIFT_DATE_FILTER_FIELDS = [
   'startsAt',
   'endsAt',
+  'clockInAt',
+  'clockOutAt',
 ] as const;
 
 export const ATTENDANCE_SHIFT_ENUM_FILTER_FIELDS = ['dayKind'] as const;

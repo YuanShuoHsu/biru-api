@@ -199,6 +199,42 @@ export const MAX_DAILY_WORK_SECONDS = 12 * 3600;
 
 export const MAX_MONTHLY_OVERTIME_SECONDS = 46 * 3600;
 
+export const EXTENDED_MONTHLY_OVERTIME_SECONDS = 54 * 3600;
+
+export const EXTENDED_PERIOD_OVERTIME_SECONDS = 138 * 3600;
+
+export const OVERTIME_EXTENSION_MONTHS = 3;
+
+const monthNumber = (month: string) => {
+  const [year, index] = month.split('-').map(Number);
+  return year * 12 + index - 1;
+};
+
+export const overtimeExtensionPeriodOf = (
+  periods: string[],
+  year: number,
+  monthIndex: number,
+) => {
+  const target = year * 12 + monthIndex;
+  const start = periods
+    .map(monthNumber)
+    .find(
+      (first) => target >= first && target < first + OVERTIME_EXTENSION_MONTHS,
+    );
+  return start === undefined
+    ? null
+    : { year: Math.floor(start / 12), monthIndex: start % 12 };
+};
+
+export const hasOverlappingOvertimeExtensions = (periods: string[]) =>
+  periods
+    .map(monthNumber)
+    .sort((a, b) => a - b)
+    .some(
+      (start, index, sorted) =>
+        index > 0 && start - sorted[index - 1] < OVERTIME_EXTENSION_MONTHS,
+    );
+
 export interface TimeInterval {
   start: number;
   end: number;
@@ -221,7 +257,7 @@ const unpaidBreakIntervals = (shift: Partial<BreakPolicy>) =>
 export const hasScheduledUnpaidBreak = (shift: ScheduledShift) =>
   unpaidBreakIntervals(shift).length > 0;
 
-function subtractIntervals(
+export function subtractIntervals(
   intervals: TimeInterval[],
   cuts: TimeInterval[],
 ): TimeInterval[] {

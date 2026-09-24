@@ -29,6 +29,8 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() paidBreak: boolean;
   @ApiProperty({ isArray: true, type: ShiftBreakDto })
   breaks: ShiftBreakDto[];
+  @ApiPropertyOptional() clockInAt: Date | null;
+  @ApiPropertyOptional() clockOutAt: Date | null;
   @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
   dayKind: AttendanceDayKind;
   @ApiProperty() status: string;

@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_settings" ADD COLUMN "overtime_extension_periods" text[] DEFAULT '{}' NOT NULL;

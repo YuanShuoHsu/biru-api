@@ -577,6 +577,7 @@ export class PayrollService {
       }
     >();
     const intervalsByDay = new Map<string, TimeInterval[]>();
+    const scheduledByDay = new Map<string, TimeInterval[]>();
     let leaveDeductionSeconds = 0;
     const relevantDays = new Set(
       shifts
@@ -718,6 +719,10 @@ export class PayrollService {
       const key = platformDateString(shift.startsAt);
       const previous = days.get(key);
       intervalsByDay.set(key, [...(intervalsByDay.get(key) ?? []), ...counted]);
+      scheduledByDay.set(key, [
+        ...(scheduledByDay.get(key) ?? []),
+        ...workIntervals,
+      ]);
       if (previous && previous.dayKind !== shift.dayKind)
         blockers.push('inconsistentDayKind');
       const scheduledBefore =
@@ -787,7 +792,12 @@ export class PayrollService {
       Object.assign(days.get(key)!, periodWork(intervals, start, end));
       if (
         days.get(key)!.seconds > 0 &&
-        uncoveredOvertime(intervals, approvals, days.get(key)!.dayKind) > 0
+        uncoveredOvertime(
+          intervals,
+          approvals,
+          days.get(key)!.dayKind,
+          scheduledByDay.get(key)!,
+        ) > 0
       )
         blockers.push('unresolvedOvertime');
     }

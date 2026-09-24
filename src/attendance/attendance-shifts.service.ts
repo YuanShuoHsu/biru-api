@@ -77,6 +77,28 @@ const shiftStateCase = sql.join(
 
 const CLOCK_IN_LEAD_MS = 12 * 3600000;
 
+const approvedCorrectedEvents = sql`(SELECT correction.corrected_events
+  FROM ${attendanceRequest} correction
+  WHERE correction.shift_id = ${attendanceShift.id}
+    AND correction.kind = 'correction'
+    AND correction.status = 'approved'
+  ORDER BY correction.reviewed_at DESC
+  LIMIT 1)`;
+
+const clockInAt = sql<Date | null>`CASE
+  WHEN ${approvedCorrectedEvents} IS NOT NULL
+    THEN (${approvedCorrectedEvents} -> 0 ->> 'occurredAt')::timestamptz
+  ELSE (SELECT min(event.occurred_at) FROM ${attendanceEvent} event
+    WHERE event.shift_id = ${attendanceShift.id} AND event.action = 'clockIn')
+  END`.mapWith(attendanceShift.startsAt);
+
+const clockOutAt = sql<Date | null>`CASE
+  WHEN ${approvedCorrectedEvents} IS NOT NULL
+    THEN (${approvedCorrectedEvents} -> -1 ->> 'occurredAt')::timestamptz
+  ELSE (SELECT max(event.occurred_at) FROM ${attendanceEvent} event
+    WHERE event.shift_id = ${attendanceShift.id} AND event.action = 'clockOut')
+  END`.mapWith(attendanceShift.startsAt);
+
 const CALENDAR_SHIFT_LIMIT = 500;
 
 const punchableShift = sql`${unfinishedShift}
@@ -111,15 +133,11 @@ export class AttendanceShiftsService {
       employeeName: user.name,
       startsAt: attendanceShift.startsAt,
       endsAt: attendanceShift.endsAt,
+      clockInAt,
+      clockOutAt,
       dayKind: attendanceShift.dayKind,
       state: sql`CASE COALESCE(
-        (SELECT correction.corrected_events -> -1 ->> 'action'
-           FROM ${attendanceRequest} correction
-          WHERE correction.shift_id = ${attendanceShift.id}
-            AND correction.kind = 'correction'
-            AND correction.status = 'approved'
-          ORDER BY correction.reviewed_at DESC
-          LIMIT 1),
+        ${approvedCorrectedEvents} -> -1 ->> 'action',
         (SELECT event.action::text
            FROM ${attendanceEvent} event
           WHERE event.shift_id = ${attendanceShift.id}
@@ -161,6 +179,8 @@ export class AttendanceShiftsService {
         .select({
           shift: attendanceShift,
           employeeName: user.name,
+          clockInAt,
+          clockOutAt,
         })
         .from(attendanceShift)
         .innerJoin(
@@ -215,7 +235,7 @@ export class AttendanceShiftsService {
         .from(attendanceSettings)
         .where(eq(attendanceSettings.organizationId, actor.organizationId)),
     ]);
-    const data = rows.map(({ shift, employeeName }) => {
+    const data = rows.map(({ shift, employeeName, clockInAt, clockOutAt }) => {
       const rawEvents = events
         .filter((event) => event.shiftId === shift.id)
         .map(({ action, occurredAt, paidBreak }) => ({
@@ -233,6 +253,8 @@ export class AttendanceShiftsService {
       return {
         ...shift,
         employeeName,
+        clockInAt,
+        clockOutAt,
         events: effectiveEvents,
         originalEvents: rawEvents,
         ...summary,
