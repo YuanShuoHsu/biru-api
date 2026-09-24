@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import { platformDateString } from 'src/common/constants/timezone';
@@ -77,7 +77,6 @@ export const assertPayrollUnlocked = async (
         eq(payrollStatement.organizationId, organizationId),
         eq(payrollStatement.employeeId, employeeId),
         eq(payrollStatement.status, 'published'),
-        isNull(payrollStatement.reopenedAt),
         gte(payrollStatement.month, platformDateString(startsAt).slice(0, 7)),
         endsAt
           ? lte(

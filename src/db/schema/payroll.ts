@@ -193,7 +193,6 @@ export const payrollStatement = pgTable(
     employeeName: text('employee_name').notNull(),
     month: text('month').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
-    version: integer('version').notNull(),
     status: text('status')
       .$type<'draft' | 'reviewed' | 'published'>()
       .notNull()
@@ -204,9 +203,6 @@ export const payrollStatement = pgTable(
     reviewedBy: text('reviewed_by'),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     publishedAt: timestamp('published_at', { withTimezone: true }),
-    reopenedBy: text('reopened_by'),
-    reopenedAt: timestamp('reopened_at', { withTimezone: true }),
-    reopenReason: text('reopen_reason'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -216,10 +212,6 @@ export const payrollStatement = pgTable(
       t.organizationId,
       t.idempotencyKey,
     ),
-    uniqueIndex('payroll_statement_version_uidx').on(
-      t.employeeId,
-      t.month,
-      t.version,
-    ),
+    uniqueIndex('payroll_statement_month_uidx').on(t.employeeId, t.month),
   ],
 );

@@ -15,13 +15,12 @@ async function lockedMonths(startsAt: Date, endsAt?: Date) {
   };
   const tx = { select: () => query } as unknown as Transaction;
   await assertPayrollUnlocked(tx, 'org', 'employee', startsAt, endsAt);
-  const { sql, params } = new PgDialect().sqlToQuery(where!);
-  expect(sql).toContain('"reopened_at" is null');
+  const { params } = new PgDialect().sqlToQuery(where!);
   return params.filter((param) => /^\d{4}-\d{2}$/.test(String(param)));
 }
 
 describe('assertPayrollUnlocked', () => {
-  it('locks the store-local months an interval touches, ignoring reopened payslips', async () => {
+  it('locks the store-local months an interval touches', async () => {
     expect(
       await lockedMonths(
         new Date('2026-01-31T16:00:00Z'),

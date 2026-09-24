@@ -73,14 +73,14 @@ function setup(results: unknown[][], current = row.snapshot) {
 
 describe('Payroll review and publication', () => {
   it('does not publish a draft without review', async () => {
-    const { service, update } = setup([[row], [employee], [{ id: row.id }]]);
+    const { service, update } = setup([[row], [employee]]);
     await expect(
       service.transition(actor, row.id, 'published', 'review'),
     ).rejects.toThrow('invalidPayrollState');
     expect(update).not.toHaveBeenCalled();
   });
   it('rejects changed source data after a draft was created', async () => {
-    const { service, update } = setup([[row], [employee], [{ id: row.id }]], {
+    const { service, update } = setup([[row], [employee]], {
       ...row.snapshot,
       sourceFingerprint: 'changed',
     });
@@ -98,15 +98,7 @@ describe('Payroll review and publication', () => {
         },
       ],
       [employee],
-      [{ id: row.id }],
     ]);
-    await expect(
-      service.transition(actor, row.id, 'reviewed', 'review'),
-    ).rejects.toThrow('payrollSourceChanged');
-    expect(update).not.toHaveBeenCalled();
-  });
-  it('rejects an older draft version', async () => {
-    const { service, update } = setup([[row], [employee], [{ id: 'newer' }]]);
     await expect(
       service.transition(actor, row.id, 'reviewed', 'review'),
     ).rejects.toThrow('payrollSourceChanged');
@@ -154,18 +146,14 @@ describe('Payroll review and publication', () => {
   });
   it('lets the drafter publish a payslip someone else reviewed', async () => {
     const reviewed = { ...row, status: 'reviewed', createdBy: 'owner' };
-    const { service, update } = setup([
-      [reviewed],
-      [employee],
-      [{ id: row.id }],
-    ]);
+    const { service, update } = setup([[reviewed], [employee]]);
     await expect(
       service.transition(actor, row.id, 'published', 'review'),
     ).resolves.toHaveProperty('status', 'reviewed');
     expect(update).toHaveBeenCalledTimes(1);
   });
   it('reviews a current draft with no blockers', async () => {
-    const { service, update } = setup([[row], [employee], [{ id: row.id }]]);
+    const { service, update } = setup([[row], [employee]]);
     await expect(
       service.transition(actor, row.id, 'reviewed', 'review'),
     ).resolves.toHaveProperty('status', 'reviewed');
@@ -246,37 +234,8 @@ describe('Payroll terms validation', () => {
   });
 });
 
-describe('Reopening a published payslip', () => {
-  const published = { ...row, status: 'published', reopenedAt: null };
-  it('reopens a published payslip so its month can change again', async () => {
-    const { service, update } = setup([[published], [employee]]);
-    await service.reopen(actor, row.id, 'late overtime approval');
-    expect(update).toHaveBeenCalledTimes(1);
-  });
-  it('only reopens published payslips', async () => {
-    const { service, update } = setup([[{ ...published, status: 'reviewed' }]]);
-    await expect(service.reopen(actor, row.id, 'fix')).rejects.toThrow(
-      'invalidPayrollState',
-    );
-    expect(update).not.toHaveBeenCalled();
-  });
-  it('refuses to reopen the actor own payslip', async () => {
-    const { service, update } = setup([
-      [published],
-      [{ ...employee, userId: 'owner' }],
-    ]);
-    await expect(service.reopen(actor, row.id, 'fix')).rejects.toThrow(
-      'cannotReviewSelf',
-    );
-    expect(update).not.toHaveBeenCalled();
-  });
-  it('does not reopen twice', async () => {
-    const reopened = { ...published, reopenedAt: new Date() };
-    const { service, update } = setup([[reopened]]);
-    await expect(service.reopen(actor, row.id, 'fix')).resolves.toBe(reopened);
-    expect(update).not.toHaveBeenCalled();
-  });
-  it('does not draft a new version while the month is still closed', async () => {
+describe('Drafting a payslip', () => {
+  it('does not recalculate a month that was already published', async () => {
     const { service, snapshot } = setup([[], [employee], [{ id: row.id }]]);
     await expect(
       service.draft(actor, {

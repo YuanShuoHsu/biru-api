@@ -10,11 +10,9 @@ export const PAYROLL_STATEMENT_STRING_FILTER_FIELDS = [
 ] as const;
 
 export const PAYROLL_STATEMENT_ENUM_FILTER_FIELDS = ['status'] as const;
-export const PAYROLL_STATEMENT_NUMBER_FILTER_FIELDS = ['version'] as const;
 export const PAYROLL_STATEMENT_FILTER_FIELDS = [
   ...PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
   ...PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
-  ...PAYROLL_STATEMENT_NUMBER_FILTER_FIELDS,
 ] as const;
 
 export type PayrollStatementFilterField =

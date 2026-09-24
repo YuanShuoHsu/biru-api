@@ -41,7 +41,6 @@ export class PayrollStatementResponseDto {
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
   @ApiProperty() month: string;
-  @ApiProperty() version: number;
   @ApiProperty({
     enum: ['draft', 'reviewed', 'published'],
     enumName: 'PayrollStatementStatus',
@@ -55,9 +54,6 @@ export class PayrollStatementResponseDto {
   @ApiPropertyOptional() reviewedBy: string | null;
   @ApiPropertyOptional() reviewedAt: Date | null;
   @ApiPropertyOptional() publishedAt: Date | null;
-  @ApiPropertyOptional() reopenedBy: string | null;
-  @ApiPropertyOptional() reopenedAt: Date | null;
-  @ApiPropertyOptional() reopenReason: string | null;
   @ApiProperty() createdAt: Date;
 }
 

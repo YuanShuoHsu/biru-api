@@ -96,7 +96,6 @@ import { annualLeaveSettlement } from './annual-leave';
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
 import {
   PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
-  PAYROLL_STATEMENT_NUMBER_FILTER_FIELDS,
   PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
   PayrollStatementPaginationQueryDto,
 } from './dto/payroll-statement-pagination-query.dto';
@@ -275,7 +274,6 @@ export class PayrollService {
       employeeName: payrollStatement.employeeName,
       month: payrollStatement.month,
       status: payrollStatement.status,
-      version: payrollStatement.version,
     };
     const where = and(
       ...conditions,
@@ -288,7 +286,6 @@ export class PayrollService {
             PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
             [],
             PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
-            PAYROLL_STATEMENT_NUMBER_FILTER_FIELDS,
           )
         : undefined,
       buildQuickFilterCondition({
@@ -311,7 +308,7 @@ export class PayrollService {
         .orderBy(
           ...(sortBy
             ? [sort(fieldMap[sortBy])]
-            : [desc(payrollStatement.month), desc(payrollStatement.version)]),
+            : [desc(payrollStatement.month)]),
           asc(payrollStatement.id),
         )
         .limit(limit)
@@ -958,37 +955,34 @@ export class PayrollService {
         employee,
         await this.overtimeExtensionPeriods(tx, actor.organizationId),
       );
-      const [previous] = await tx
-        .select()
-        .from(payrollStatement)
-        .where(
-          and(
-            eq(payrollStatement.employeeId, dto.employeeId),
-            eq(payrollStatement.month, dto.month),
-          ),
-        )
-        .orderBy(desc(payrollStatement.version))
-        .limit(1);
+      const calculation = {
+        employeeName: employee.name,
+        idempotencyKey: dto.idempotencyKey,
+        status: 'draft' as const,
+        snapshot,
+        reason: dto.reason,
+        createdBy: actor.userId,
+        reviewedBy: null,
+        reviewedAt: null,
+      };
       const [row] = await tx
         .insert(payrollStatement)
         .values({
           id: randomUUID(),
           organizationId: actor.organizationId,
           employeeId: dto.employeeId,
-          employeeName: employee.name,
           month: dto.month,
-          idempotencyKey: dto.idempotencyKey,
-          version: (previous?.version ?? 0) + 1,
-          snapshot,
-          reason: dto.reason,
-          createdBy: actor.userId,
+          ...calculation,
+        })
+        .onConflictDoUpdate({
+          target: [payrollStatement.employeeId, payrollStatement.month],
+          set: calculation,
         })
         .returning();
       await writeAudit(tx, actor, 'payroll.draft', row.id, {
         employeeId: dto.employeeId,
         month: dto.month,
         idempotencyKey: dto.idempotencyKey,
-        version: row.version,
       });
       return row;
     });
@@ -1018,18 +1012,6 @@ export class PayrollService {
         throw forbiddenError('cannotReviewSelf');
       if (status === 'reviewed' && row.createdBy === actor.userId)
         throw forbiddenError('cannotReviewOwnDraft');
-      const [latest] = await tx
-        .select({ id: payrollStatement.id })
-        .from(payrollStatement)
-        .where(
-          and(
-            eq(payrollStatement.employeeId, row.employeeId),
-            eq(payrollStatement.month, row.month),
-          ),
-        )
-        .orderBy(desc(payrollStatement.version))
-        .limit(1);
-      if (latest.id !== row.id) throw conflictError('payrollSourceChanged');
       if (row.status !== (status === 'reviewed' ? 'draft' : 'reviewed'))
         throw conflictError('invalidPayrollState');
       const current = await this.snapshot(
@@ -1056,39 +1038,6 @@ export class PayrollService {
         .where(eq(payrollStatement.id, id))
         .returning();
       await writeAudit(tx, actor, `payroll.${status}`, id, { reason });
-      return result;
-    });
-  }
-
-  async reopen(actor: AttendanceActor, id: string, reason: string) {
-    return this.db.transaction(async (tx) => {
-      await lockOrganization(tx, actor.organizationId);
-      const [row] = await tx
-        .select()
-        .from(payrollStatement)
-        .where(
-          and(
-            eq(payrollStatement.id, id),
-            eq(payrollStatement.organizationId, actor.organizationId),
-          ),
-        );
-      if (!row) throw new NotFoundException();
-      if (row.reopenedAt) return row;
-      if (row.status !== 'published')
-        throw conflictError('invalidPayrollState');
-      const subject = await this.payrollEmployee(tx, actor, row.employeeId);
-      if (subject.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
-      const [result] = await tx
-        .update(payrollStatement)
-        .set({
-          reopenedBy: actor.userId,
-          reopenedAt: new Date(),
-          reopenReason: reason,
-        })
-        .where(eq(payrollStatement.id, id))
-        .returning();
-      await writeAudit(tx, actor, 'payroll.reopened', id, { reason });
       return result;
     });
   }

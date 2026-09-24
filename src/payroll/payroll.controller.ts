@@ -134,16 +134,4 @@ export class PayrollController {
       dto.reason,
     );
   }
-
-  @Patch('statements/:id/reopen')
-  @Roles({ payslip: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '重新開帳已發布薪資單' })
-  reopen(
-    @Req() req: AuthRequest,
-    @Session() session: UserSession,
-    @Param('id') id: string,
-    @Body() dto: PayrollReviewDto,
-  ): Promise<PayrollStatementResponseDto> {
-    return this.payrollService.reopen(actor(req, session), id, dto.reason);
-  }
 }
