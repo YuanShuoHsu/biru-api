@@ -1,10 +1,13 @@
 import { MAX_MONTHLY_OVERTIME_SECONDS } from 'src/attendance/attendance-rules';
 import { platformMonthStart } from 'src/common/constants/timezone';
-import type {
-  PayrollBlocker,
-  PayrollLine,
-  PayrollTerms,
-  TaiwanRuleSet,
+import {
+  PAYROLL_DEDUCTION_LINE_CODES,
+  PAYROLL_EARNING_LINE_CODES,
+  type PayrollBlocker,
+  type PayrollLine,
+  type PayrollLineCode,
+  type PayrollTerms,
+  type TaiwanRuleSet,
 } from 'src/db/schema/payroll';
 
 import { taiwanDeductions } from './taiwan-rules';
@@ -218,21 +221,12 @@ export function calculatePayroll(
     'otherDeduction',
   ] as const)
     lines.push({ code, amountCents: resolved[`${code}Cents`] });
-  const gross =
-    regular +
-    overtime +
-    holidayPay +
-    paidAllowance +
-    annualLeavePay +
-    calendarLeavePay;
-  const deduction =
-    leaveDeduction +
-    absenceDeduction +
-    BigInt(resolved.laborInsuranceCents) +
-    BigInt(resolved.healthInsuranceCents) +
-    BigInt(resolved.voluntaryPensionCents) +
-    BigInt(resolved.withholdingCents) +
-    BigInt(resolved.otherDeductionCents);
+  const sumLines = (codes: readonly PayrollLineCode[]) =>
+    lines
+      .filter((line) => codes.includes(line.code))
+      .reduce((sum, line) => sum + BigInt(line.amountCents), 0n);
+  const gross = sumLines(PAYROLL_EARNING_LINE_CODES);
+  const deduction = sumLines(PAYROLL_DEDUCTION_LINE_CODES);
   if (gross < deduction) blockers.push('negativeNetPay');
   return {
     lines,

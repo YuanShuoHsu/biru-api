@@ -28,6 +28,7 @@ import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagi
 import {
   PayrollStatementResponseDto,
   PayrollStatementsResponseDto,
+  toPayrollStatementResponse,
 } from './dto/payroll-statement-response.dto';
 import { PayrollTermsResponseDto } from './dto/payroll-terms-response.dto';
 import { PayrollTermsDto } from './dto/payroll-terms.dto';
@@ -76,7 +77,12 @@ export class PayrollController {
     @Session() session: UserSession,
     @Query() query: PayrollStatementPaginationQueryDto,
   ): Promise<PayrollStatementsResponseDto> {
-    return this.payrollService.list(actor(req, session), false, query);
+    return this.payrollService
+      .list(actor(req, session), false, query)
+      .then(({ data, total }) => ({
+        data: data.map(toPayrollStatementResponse),
+        total,
+      }));
   }
 
   @Get('me/statements')
@@ -87,7 +93,12 @@ export class PayrollController {
     @Session() session: UserSession,
     @Query() query: PayrollStatementPaginationQueryDto,
   ): Promise<PayrollStatementsResponseDto> {
-    return this.payrollService.list(actor(req, session), true, query);
+    return this.payrollService
+      .list(actor(req, session), true, query)
+      .then(({ data, total }) => ({
+        data: data.map(toPayrollStatementResponse),
+        total,
+      }));
   }
 
   @Post('statements')
@@ -98,7 +109,9 @@ export class PayrollController {
     @Session() session: UserSession,
     @Body() dto: PayrollDraftDto,
   ): Promise<PayrollStatementResponseDto> {
-    return this.payrollService.draft(actor(req, session), dto);
+    return this.payrollService
+      .draft(actor(req, session), dto)
+      .then(toPayrollStatementResponse);
   }
 
   @Patch('statements/:id/review')
@@ -110,12 +123,9 @@ export class PayrollController {
     @Param('id') id: string,
     @Body() dto: PayrollReviewDto,
   ): Promise<PayrollStatementResponseDto> {
-    return this.payrollService.transition(
-      actor(req, session),
-      id,
-      'reviewed',
-      dto.reason,
-    );
+    return this.payrollService
+      .transition(actor(req, session), id, 'reviewed', dto.reason)
+      .then(toPayrollStatementResponse);
   }
 
   @Patch('statements/:id/publish')
@@ -127,11 +137,8 @@ export class PayrollController {
     @Param('id') id: string,
     @Body() dto: PayrollReviewDto,
   ): Promise<PayrollStatementResponseDto> {
-    return this.payrollService.transition(
-      actor(req, session),
-      id,
-      'published',
-      dto.reason,
-    );
+    return this.payrollService
+      .transition(actor(req, session), id, 'published', dto.reason)
+      .then(toPayrollStatementResponse);
   }
 }

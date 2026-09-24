@@ -10,13 +10,16 @@ import {
 import { attendanceEmployee } from './attendance';
 import { organization } from './organizations';
 
-export const PAYROLL_LINE_CODES = [
+export const PAYROLL_EARNING_LINE_CODES = [
   'basePay',
+  'allowance',
   'overtimePay',
   'holidayPay',
-  'allowance',
   'calendarLeavePay',
   'annualLeavePay',
+] as const;
+
+export const PAYROLL_DEDUCTION_LINE_CODES = [
   'leaveDeduction',
   'absenceDeduction',
   'laborInsurance',
@@ -26,7 +29,11 @@ export const PAYROLL_LINE_CODES = [
   'otherDeduction',
 ] as const;
 
-export type PayrollLineCode = (typeof PAYROLL_LINE_CODES)[number];
+export type PayrollEarningLineCode =
+  (typeof PAYROLL_EARNING_LINE_CODES)[number];
+export type PayrollDeductionLineCode =
+  (typeof PAYROLL_DEDUCTION_LINE_CODES)[number];
+export type PayrollLineCode = PayrollEarningLineCode | PayrollDeductionLineCode;
 
 export const PAYROLL_BLOCKERS = [
   'belowMinimumWage',

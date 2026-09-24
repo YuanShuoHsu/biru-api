@@ -2,16 +2,34 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   PAYROLL_BLOCKERS,
-  PAYROLL_LINE_CODES,
+  PAYROLL_DEDUCTION_LINE_CODES,
+  PAYROLL_EARNING_LINE_CODES,
   type PayrollBlocker,
+  type PayrollDeductionLineCode,
+  type PayrollEarningLineCode,
+  type PayrollLine,
   type PayrollLineCode,
+  type payrollStatement,
 } from 'src/db/schema/payroll';
 
 import { PayrollTermsValuesDto } from './payroll-terms-response.dto';
 
-export class PayrollLineResponseDto {
-  @ApiProperty({ enum: PAYROLL_LINE_CODES, enumName: 'PayrollLineCode' })
-  code: PayrollLineCode;
+export class PayrollEarningLineResponseDto {
+  @ApiProperty({
+    enum: PAYROLL_EARNING_LINE_CODES,
+    enumName: 'PayrollEarningLineCode',
+  })
+  code: PayrollEarningLineCode;
+  @ApiProperty() amountCents: string;
+  @ApiPropertyOptional() seconds?: number;
+}
+
+export class PayrollDeductionLineResponseDto {
+  @ApiProperty({
+    enum: PAYROLL_DEDUCTION_LINE_CODES,
+    enumName: 'PayrollDeductionLineCode',
+  })
+  code: PayrollDeductionLineCode;
   @ApiProperty() amountCents: string;
   @ApiPropertyOptional() seconds?: number;
 }
@@ -19,8 +37,10 @@ export class PayrollLineResponseDto {
 export class PayrollSnapshotResponseDto {
   @ApiProperty({ type: PayrollTermsValuesDto }) terms: PayrollTermsValuesDto;
   @ApiProperty() ruleVersion: string;
-  @ApiProperty({ isArray: true, type: PayrollLineResponseDto })
-  lines: PayrollLineResponseDto[];
+  @ApiProperty({ isArray: true, type: PayrollEarningLineResponseDto })
+  earnings: PayrollEarningLineResponseDto[];
+  @ApiProperty({ isArray: true, type: PayrollDeductionLineResponseDto })
+  deductions: PayrollDeductionLineResponseDto[];
   @ApiProperty() grossCents: string;
   @ApiProperty() deductionCents: string;
   @ApiProperty() netCents: string;
@@ -62,3 +82,29 @@ export class PayrollStatementsResponseDto {
   data: PayrollStatementResponseDto[];
   @ApiProperty() total: number;
 }
+
+const isEarningLine = (
+  line: PayrollLine,
+): line is PayrollLine & { code: PayrollEarningLineCode } =>
+  (PAYROLL_EARNING_LINE_CODES as readonly PayrollLineCode[]).includes(
+    line.code,
+  );
+
+const isDeductionLine = (
+  line: PayrollLine,
+): line is PayrollLine & { code: PayrollDeductionLineCode } =>
+  (PAYROLL_DEDUCTION_LINE_CODES as readonly PayrollLineCode[]).includes(
+    line.code,
+  );
+
+export const toPayrollStatementResponse = ({
+  snapshot: { lines, ...snapshot },
+  ...statement
+}: typeof payrollStatement.$inferSelect): PayrollStatementResponseDto => ({
+  ...statement,
+  snapshot: {
+    ...snapshot,
+    earnings: lines.filter(isEarningLine),
+    deductions: lines.filter(isDeductionLine),
+  },
+});
