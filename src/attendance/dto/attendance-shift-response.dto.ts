@@ -50,8 +50,12 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty({ isArray: true, type: AttendanceEventResponseDto })
   events: AttendanceEventResponseDto[];
-  @ApiProperty({ isArray: true, type: AttendanceEventResponseDto })
-  originalEvents: AttendanceEventResponseDto[];
+  @ApiProperty({
+    isArray: true,
+    nullable: true,
+    type: AttendanceEventResponseDto,
+  })
+  originalEvents: AttendanceEventResponseDto[] | null;
 }
 
 export class AttendanceShiftRecordResponseDto extends PickType(

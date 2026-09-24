@@ -243,9 +243,10 @@ export class AttendanceShiftsService {
           occurredAt: occurredAt.toISOString(),
           paidBreak,
         }));
-      const effectiveEvents =
-        corrections.find((request) => request.shiftId === shift.id)
-          ?.correctedEvents ?? rawEvents;
+      const correctedEvents = corrections.find(
+        (request) => request.shiftId === shift.id,
+      )?.correctedEvents;
+      const effectiveEvents = correctedEvents ?? rawEvents;
       const summary = summarizeEvents(effectiveEvents, shift);
       const first = effectiveEvents[0],
         last = effectiveEvents.at(-1);
@@ -256,7 +257,7 @@ export class AttendanceShiftsService {
         clockInAt,
         clockOutAt,
         events: effectiveEvents,
-        originalEvents: rawEvents,
+        originalEvents: correctedEvents ? rawEvents : null,
         ...summary,
         late:
           !!first &&
