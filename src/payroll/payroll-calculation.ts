@@ -94,6 +94,7 @@ export function calculatePayroll(
     };
     calendarLeaveDeductionCents?: string;
     calendarLeavePayCents?: string;
+    injuryCompensationCents?: string;
     monthlyOvertimeLimitSeconds?: number;
     absenceSeconds?: number;
   } = { numerator: 1, denominator: 1 },
@@ -222,17 +223,18 @@ export function calculatePayroll(
   const overtime = roundCents(exactOvertime);
   const holidayPay = roundCents(exactHolidayPay);
   const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
-  const annualLeavePay = (fraction.annualLeavePayouts ?? []).reduce(
-    (sum, payout) => {
+  const injuryCompensation = BigInt(fraction.injuryCompensationCents ?? '0');
+  const annualLeavePayouts = (fraction.annualLeavePayouts ?? []).map(
+    (payout) => {
       const rate = hourlyRate(payout.terms, normalSeconds);
-      return (
-        sum +
-        roundRatio(
-          rate.numerator * BigInt(payout.minutes),
-          rate.denominator * 60n,
-        )
+      return roundRatio(
+        rate.numerator * BigInt(payout.minutes),
+        rate.denominator * 60n,
       );
     },
+  );
+  const annualLeavePay = annualLeavePayouts.reduce(
+    (sum, amount) => sum + amount,
     0n,
   );
   const leaveDeduction = roundCents(exactLeaveDeduction);
@@ -256,6 +258,10 @@ export function calculatePayroll(
     },
     { code: 'allowance', amountCents: paidAllowance.toString() },
     { code: 'calendarLeavePay', amountCents: calendarLeavePay.toString() },
+    {
+      code: 'injuryCompensation',
+      amountCents: injuryCompensation.toString(),
+    },
     { code: 'annualLeavePay', amountCents: annualLeavePay.toString() },
     { code: 'leaveDeduction', amountCents: leaveDeduction.toString() },
     {
@@ -319,6 +325,7 @@ export function calculatePayroll(
     negateRatio(exactAbsenceDeduction),
     ratio(
       calendarLeavePay +
+        injuryCompensation +
         annualLeavePay +
         severancePay +
         noticePay -
@@ -352,6 +359,7 @@ export function calculatePayroll(
           })
         : undefined,
     workedSeconds: days.reduce((sum, day) => sum + day.seconds, 0),
+    annualLeavePayoutCents: annualLeavePayouts.map(String),
     blockers: [...new Set(blockers)],
   };
 }

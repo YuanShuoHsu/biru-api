@@ -166,6 +166,8 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .$type<DatePeriod[]>()
       .default([]),
+    regularLeaveWeekday: integer('regular_leave_weekday'),
+    restDayWeekday: integer('rest_day_weekday'),
     hiredAt: timestamp('hired_at', { withTimezone: true }).notNull(),
     terminatedAt: timestamp('terminated_at', { withTimezone: true }),
     terminationReason:
@@ -181,6 +183,10 @@ export const attendanceEmployee = pgTable(
     uniqueIndex('attendance_employee_org_user_uidx').on(
       t.organizationId,
       t.userId,
+    ),
+    check(
+      'attendance_employee_rest_weekdays',
+      sql`(${t.regularLeaveWeekday} IS NULL) = (${t.restDayWeekday} IS NULL) AND (${t.regularLeaveWeekday} IS NULL OR ${t.regularLeaveWeekday} BETWEEN 0 AND 6 AND ${t.restDayWeekday} BETWEEN 0 AND 6 AND ${t.regularLeaveWeekday} <> ${t.restDayWeekday})`,
     ),
     check(
       'attendance_employee_termination',
@@ -449,6 +455,34 @@ export const attendanceAnnualLeaveDeferral = pgTable(
     uniqueIndex('attendance_annual_leave_deferral_period_uidx').on(
       t.employeeId,
       t.periodStart,
+    ),
+  ],
+);
+
+export const attendanceHolidaySubstitute = pgTable(
+  'attendance_holiday_substitute',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => attendanceEmployee.id),
+    holidayDate: text('holiday_date').notNull(),
+    shiftId: text('shift_id')
+      .notNull()
+      .references(() => attendanceShift.id),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('attendance_holiday_substitute_shift_uidx').on(t.shiftId),
+    uniqueIndex('attendance_holiday_substitute_holiday_uidx').on(
+      t.employeeId,
+      t.holidayDate,
     ),
   ],
 );

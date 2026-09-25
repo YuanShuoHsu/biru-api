@@ -219,6 +219,7 @@ export async function averageDailyWage(
       request.endsAt.getTime(),
     );
     for (const date of dates) excludedDates.add(date);
+    if (kind === 'occupationalInjury') continue;
     if (isCalendarLeave(kind))
       for (const date of dates)
         addPay(
@@ -243,7 +244,7 @@ export async function averageDailyWage(
       );
     return (
       BigInt(snapshot.grossCents) -
-      line('annualLeavePay') -
+      line('injuryCompensation') -
       line('severancePay') -
       line('noticePay')
     );

@@ -58,6 +58,7 @@ import {
   MINIMUM_WORKING_AGE,
   normalizeIpRange,
   NOTICE_TERMINATION_REASONS,
+  restDayDesignationConflict,
   scheduledWorkIntervals,
   workPermitRequired,
 } from './attendance-rules';
@@ -207,6 +208,8 @@ export class AttendanceEmployeesService {
           workPermits: attendanceEmployee.workPermits,
           maternalProtectionPeriods:
             attendanceEmployee.maternalProtectionPeriods,
+          regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
+          restDayWeekday: attendanceEmployee.restDayWeekday,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -308,6 +311,8 @@ export class AttendanceEmployeesService {
           workPermits: attendanceEmployee.workPermits,
           maternalProtectionPeriods:
             attendanceEmployee.maternalProtectionPeriods,
+          regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
+          restDayWeekday: attendanceEmployee.restDayWeekday,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -414,6 +419,17 @@ export class AttendanceEmployeesService {
         ].some(({ from, to }) => from > to)
       )
         throw badRequestError('invalidInterval');
+      const restWeekdays = {
+        regularLeaveWeekday: dto.regularLeaveWeekday ?? null,
+        restDayWeekday: dto.restDayWeekday ?? null,
+      };
+      if (
+        (restWeekdays.regularLeaveWeekday === null) !==
+          (restWeekdays.restDayWeekday === null) ||
+        (restWeekdays.regularLeaveWeekday !== null &&
+          restWeekdays.regularLeaveWeekday === restWeekdays.restDayWeekday)
+      )
+        throw badRequestError('restDayDesignationConflict');
       if (!!terminatedAt !== !!dto.terminationReason)
         throw badRequestError('terminationReasonRequired');
       const terminationNoticedAt = dto.terminationNoticedAt
@@ -518,6 +534,33 @@ export class AttendanceEmployeesService {
             .limit(1);
           if (protectedCase) throw conflictError('terminationProtected');
         }
+        if (restWeekdays.regularLeaveWeekday !== null) {
+          const upcoming = await tx
+            .select({
+              startsAt: attendanceShift.startsAt,
+              dayKind: attendanceShift.dayKind,
+            })
+            .from(attendanceShift)
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                ne(attendanceShift.status, 'cancelled'),
+                gt(attendanceShift.endsAt, new Date()),
+              ),
+            );
+          if (
+            upcoming.some(
+              (shift) =>
+                shift.dayKind !== 'holiday' &&
+                restDayDesignationConflict(
+                  restWeekdays,
+                  platformDateString(shift.startsAt),
+                  shift.dayKind,
+                ),
+            )
+          )
+            throw conflictError('restDayDesignationConflict');
+        }
         if (dto.maternalProtectionPeriods.length) {
           const nightShifts = await tx
             .select()
@@ -593,6 +636,7 @@ export class AttendanceEmployeesService {
           dto.legalStatus === 'foreignStudent' ? dto.studentVacations : [],
         workPermits: workPermitRequired(dto.legalStatus) ? dto.workPermits : [],
         maternalProtectionPeriods: dto.maternalProtectionPeriods,
+        ...restWeekdays,
         hiredAt,
         terminatedAt,
         terminationReason: dto.terminationReason ?? null,

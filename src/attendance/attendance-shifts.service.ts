@@ -71,6 +71,7 @@ import {
   punchLeewayMs,
   countedIntervals,
   maternalNightWork,
+  restDayDesignationConflict,
   type ScheduledShift,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
@@ -516,6 +517,8 @@ export class AttendanceShiftsService {
           )
         )
           throw badRequestError('maternalNightWork');
+        if (restDayDesignationConflict(employee, dates[index], dto.dayKind))
+          throw badRequestError('restDayDesignationConflict');
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,

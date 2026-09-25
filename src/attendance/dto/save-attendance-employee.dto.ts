@@ -7,9 +7,12 @@ import {
   IsBoolean,
   IsDateString,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -57,6 +60,8 @@ export class SaveAttendanceEmployeeDto {
   @ValidateNested({ each: true })
   @Type(() => DatePeriodDto)
   maternalProtectionPeriods: DatePeriodDto[];
+  @IsOptional() @IsInt() @Min(0) @Max(6) regularLeaveWeekday?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(6) restDayWeekday?: number;
   @IsDateString() hiredAt: string;
   @IsOptional() @IsDateString() terminatedAt?: string;
   @ApiPropertyOptional({

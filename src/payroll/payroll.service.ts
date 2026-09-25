@@ -70,6 +70,7 @@ import {
   weeklyMinutesOf,
   type EmployeeHours,
 } from 'src/attendance/employee-hours';
+import { loadHolidaySubstitutes } from 'src/attendance/holiday-substitutes';
 import { annualLeaveDeferrals } from 'src/attendance/leave-ledger';
 import {
   effectivePaidPercent,
@@ -735,6 +736,18 @@ export class PayrollService {
       coveredEnd,
     );
     if (missingPay) blockers.push('calendarLeavePayRequired');
+    const injuryCompensation = calendarLeavePay(
+      calendarLeaves.filter((request) =>
+        leaveTypes.some(
+          (type) =>
+            type.id === request.leaveTypeId &&
+            type.statutoryKind === 'occupationalInjury',
+        ),
+      ),
+      calendarCases,
+      coveredStart,
+      coveredEnd,
+    ).payCents;
     const medicalCalendarSeconds = (medical?.segments ?? [])
       .filter((segment) => segment.calendar)
       .reduce(
@@ -1045,6 +1058,22 @@ export class PayrollService {
       )
     )
       blockers.push('shiftRestTooShort');
+    const substitutes = holidays?.length
+      ? await loadHolidaySubstitutes(
+          tx,
+          [employee],
+          platformDateString(start),
+          platformDateString(new Date(end.getTime() - 1)),
+        )
+      : null;
+    if (
+      substitutes?.owed
+        .get(employee.id)
+        ?.some(
+          (date) => !substitutes.rows.some((row) => row.holidayDate === date),
+        )
+    )
+      blockers.push('holidaySubstituteRequired');
     if (holidays === null) blockers.push('holidayCalendarMissing');
     else if (
       shifts.some(
@@ -1187,8 +1216,8 @@ export class PayrollService {
       employee.legalStatus !== 'national' &&
       (!employee.taiwanStaySince ||
         taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS);
-    const payroll = (severance?: ReturnType<typeof terminationPay>) =>
-      calculatePayroll(
+    const payroll = (severance?: ReturnType<typeof terminationPay>) => {
+      const { annualLeavePayoutCents, ...statement } = calculatePayroll(
         ruleSet.rules,
         profile.terms,
         [...days.values()].filter(
@@ -1213,7 +1242,8 @@ export class PayrollService {
             terms: termsAt(new Date(settlement.wageDate)),
           })),
           calendarLeaveDeductionCents: calendarDeduction.toString(),
-          calendarLeavePayCents: calendarPay.toString(),
+          calendarLeavePayCents: (calendarPay - injuryCompensation).toString(),
+          injuryCompensationCents: injuryCompensation.toString(),
           monthlyOvertimeLimitSeconds: overtimeExtensionPeriodOf(
             overtimeExtensionPeriods,
             Number(month.slice(0, 4)),
@@ -1223,7 +1253,9 @@ export class PayrollService {
             : MAX_MONTHLY_OVERTIME_SECONDS,
         },
       );
-    const wages = payroll();
+      return { annualLeavePayoutCents, statement };
+    };
+    const { annualLeavePayoutCents, statement: wages } = payroll();
     const terminatedAt =
       employee.terminatedAt &&
       employee.terminatedAt >= start &&
@@ -1241,9 +1273,13 @@ export class PayrollService {
       const pensionScheme = pensionApplicable(employee.legalStatus);
       const legacySeniority =
         pensionScheme && employee.hiredAt < NEW_PENSION_SYSTEM_START;
-      const annualPay = BigInt(
-        wages.lines.find((line) => line.code === 'annualLeavePay')
-          ?.amountCents ?? '0',
+      // 契約終止時才發的特休未休工資屬終止後所得，不計入平均工資；年度終結發的要計入
+      const terminationAnnualPay = annual.reduce(
+        (sum, settlement, index) =>
+          settlement.endsAt === terminatedAt.toISOString()
+            ? sum + BigInt(annualLeavePayoutCents[index])
+            : sum,
+        0n,
       );
       const dailyWageCents = legacySeniority
         ? null
@@ -1251,7 +1287,10 @@ export class PayrollService {
             employee,
             terminatedAt,
             currentMonth: month,
-            currentWageCents: BigInt(wages.grossCents) - annualPay,
+            currentWageCents:
+              BigInt(wages.grossCents) -
+              terminationAnnualPay -
+              injuryCompensation,
             termsAt,
             hourly: profile.terms.salaryType === 'hourly',
           });
@@ -1277,7 +1316,7 @@ export class PayrollService {
         });
       }
     }
-    const calculated = severance ? payroll(severance) : wages;
+    const calculated = severance ? payroll(severance).statement : wages;
     return {
       ...calculated,
       terms: profile.terms,
@@ -1318,10 +1357,102 @@ export class PayrollService {
             annualDeferrals,
             annual,
             termsHistory,
+            substitutes,
             severance,
           }),
         )
         .digest('hex'),
+    };
+  }
+
+  async employerHealthSupplement(actor: AttendanceActor, month: string) {
+    const { start, end } = payrollPeriod(month);
+    const ruleSet = await this.ruleSets.resolve(this.db, month);
+    if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
+    const [paid, insuredStatements, employees] = await Promise.all([
+      this.db
+        .select({ snapshot: payrollStatement.snapshot })
+        .from(payrollStatement)
+        .where(
+          and(
+            eq(payrollStatement.organizationId, actor.organizationId),
+            eq(payrollStatement.status, 'published'),
+            gte(payrollStatement.publishedAt, start),
+            lt(payrollStatement.publishedAt, end),
+          ),
+        ),
+      this.db
+        .select({
+          employeeId: payrollStatement.employeeId,
+          snapshot: payrollStatement.snapshot,
+        })
+        .from(payrollStatement)
+        .where(
+          and(
+            eq(payrollStatement.organizationId, actor.organizationId),
+            eq(payrollStatement.status, 'published'),
+            eq(payrollStatement.month, month),
+          ),
+        ),
+      this.db
+        .select({
+          id: attendanceEmployee.id,
+          terminatedAt: attendanceEmployee.terminatedAt,
+        })
+        .from(attendanceEmployee)
+        .where(
+          and(
+            eq(attendanceEmployee.organizationId, actor.organizationId),
+            lt(attendanceEmployee.hiredAt, end),
+            or(
+              isNull(attendanceEmployee.terminatedAt),
+              gt(attendanceEmployee.terminatedAt, start),
+            ),
+          ),
+        ),
+    ]);
+    const salaryCents = paid.reduce((sum, { snapshot }) => {
+      const line = (code: string) =>
+        BigInt(
+          snapshot.lines.find((item) => item.code === code)?.amountCents ?? '0',
+        );
+      return (
+        sum +
+        BigInt(snapshot.grossCents) -
+        line('overtimePay') -
+        line('holidayPay') -
+        line('injuryCompensation') -
+        line('severancePay') -
+        line('noticePay') -
+        line('voluntaryPension')
+      );
+    }, 0n);
+    const insuredCents = insuredStatements.reduce(
+      (sum, { employeeId, snapshot }) => {
+        const employee = employees.find(({ id }) => id === employeeId);
+        const insuredAtMonthEnd =
+          !!employee &&
+          (!employee.terminatedAt || employee.terminatedAt >= end);
+        return insuredAtMonthEnd && snapshot.terms.insurance
+          ? sum + BigInt(snapshot.terms.insurance.healthBasis) * 100n
+          : sum;
+      },
+      0n,
+    );
+    const base = salaryCents > insuredCents ? salaryCents - insuredCents : 0n;
+    return {
+      month,
+      salaryCents: salaryCents.toString(),
+      insuredCents: insuredCents.toString(),
+      premiumCents: (
+        ((base * BigInt(ruleSet.rules.healthSupplementRateBp) + 500000n) /
+          1000000n) *
+        100n
+      ).toString(),
+      unpublishedEmployees: employees.filter(
+        ({ id }) =>
+          !insuredStatements.some(({ employeeId }) => employeeId === id),
+      ).length,
     };
   }
 

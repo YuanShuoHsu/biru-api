@@ -333,6 +333,91 @@ export const scheduledWorkIntervals = (shift: ScheduledShift) =>
     unpaidBreakIntervals(shift),
   );
 
+const WEEKLY_REST_DAYS = 2;
+
+export const restDayDesignationConflict = (
+  employee: {
+    regularLeaveWeekday: number | null;
+    restDayWeekday: number | null;
+  },
+  date: string,
+  dayKind: AttendanceDayKind,
+) => {
+  if (employee.regularLeaveWeekday === null) return false;
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const designated =
+    weekday === employee.regularLeaveWeekday
+      ? 'regularLeave'
+      : weekday === employee.restDayWeekday
+        ? 'restDay'
+        : null;
+  return designated
+    ? dayKind !== designated
+    : dayKind === 'restDay' || dayKind === 'regularLeave';
+};
+
+const weekdayOfDate = (date: string) =>
+  new Date(`${date}T00:00:00Z`).getUTCDay();
+
+// 施行細則 §23-1 但書：中央主管機關指定應放假之日（選舉、公投投票日）不補假
+const substitutable = ({ name }: { name: string }) => !name.includes('投票');
+
+export function owedHolidaySubstitutes({
+  employedFrom,
+  employedUntil,
+  holidays,
+  restWeekdays,
+  shifts,
+  substituteShiftIds,
+}: {
+  employedFrom: string;
+  employedUntil: string | null;
+  holidays: { date: string; name: string }[];
+  restWeekdays: number[] | null;
+  shifts: { id: string; startsAt: Date; dayKind: AttendanceDayKind }[];
+  substituteShiftIds: Set<string>;
+}) {
+  const employed = (date: string) =>
+    date >= employedFrom && (!employedUntil || date < employedUntil);
+  const eligible = holidays.filter(
+    (holiday) => substitutable(holiday) && employed(holiday.date),
+  );
+  if (restWeekdays)
+    return eligible
+      .filter(({ date }) => restWeekdays.includes(weekdayOfDate(date)))
+      .map(({ date }) => date);
+  const owed: string[] = [];
+  const weeks = [...new Set(eligible.map(({ date }) => weekStartOfDate(date)))];
+  for (const week of weeks) {
+    const dates = Array.from({ length: 7 }, (_, day) =>
+      new Date(week + day * DAY_MS).toISOString().slice(0, 10),
+    );
+    if (!dates.every(employed)) continue;
+    const holidayDates = new Set(
+      holidays
+        .filter(({ date }) => dates.includes(date))
+        .map(({ date }) => date),
+    );
+    const workdays = new Set(
+      shifts
+        .filter(
+          (shift) =>
+            shift.dayKind === 'workday' || substituteShiftIds.has(shift.id),
+        )
+        .map((shift) => platformDateString(shift.startsAt))
+        .filter((date) => dates.includes(date) && !holidayDates.has(date)),
+    );
+    const shortfall = Math.max(
+      0,
+      WEEKLY_REST_DAYS - (7 - holidayDates.size - workdays.size),
+    );
+    const weekEligible = eligible.filter(({ date }) => dates.includes(date));
+    if (shortfall)
+      owed.push(...weekEligible.slice(-shortfall).map(({ date }) => date));
+  }
+  return owed;
+}
+
 const OVERTIME_REVIEW_MIN_MS = 60 * 1000;
 
 // 勞動事件法 §38：出勤紀錄內的時間推定經雇主同意執行職務，排班外的打卡時數要有人審過才能結算

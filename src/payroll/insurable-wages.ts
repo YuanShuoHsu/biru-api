@@ -34,7 +34,12 @@ export const insurableWages = async (
       )
   ).map(({ month, snapshot }) => ({
     month,
-    cents: ['annualLeavePay', 'severancePay', 'noticePay'].reduce(
+    cents: [
+      'annualLeavePay',
+      'injuryCompensation',
+      'severancePay',
+      'noticePay',
+    ].reduce(
       (cents, excluded) =>
         cents -
         BigInt(

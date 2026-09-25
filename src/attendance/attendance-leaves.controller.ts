@@ -38,6 +38,11 @@ import {
   AttendanceLeaveTypesResponseDto,
 } from './dto/attendance-leave-type-response.dto';
 import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
+import {
+  AttendanceHolidaySubstitutePaginationQueryDto,
+  AttendanceHolidaySubstitutesResponseDto,
+  CreateAttendanceHolidaySubstituteDto,
+} from './dto/attendance-holiday-substitute.dto';
 import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
@@ -243,6 +248,48 @@ export class AttendanceLeavesController {
     @Param('id') id: string,
   ): Promise<AttendanceIdResponseDto> {
     return this.attendanceLeavesService.deleteAnnualLeaveDeferral(
+      actor(req, session),
+      id,
+    );
+  }
+
+  @Get('holiday-substitutes')
+  @Roles({ shift: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '國定假日遇例休應補假' })
+  holidaySubstitutes(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceHolidaySubstitutePaginationQueryDto,
+  ): Promise<AttendanceHolidaySubstitutesResponseDto> {
+    return this.attendanceLeavesService.holidaySubstitutes(
+      actor(req, session),
+      query,
+    );
+  }
+
+  @Post('holiday-substitutes')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '指定補假日' })
+  createHolidaySubstitute(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: CreateAttendanceHolidaySubstituteDto,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.createHolidaySubstitute(
+      actor(req, session),
+      dto,
+    );
+  }
+
+  @Delete('holiday-substitutes/:id')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '撤銷補假日' })
+  deleteHolidaySubstitute(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.deleteHolidaySubstitute(
       actor(req, session),
       id,
     );

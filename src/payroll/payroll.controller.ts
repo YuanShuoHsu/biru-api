@@ -20,6 +20,10 @@ import {
 } from 'src/menus/decorators/roles.decorator';
 import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
+import {
+  EmployerHealthSupplementQueryDto,
+  EmployerHealthSupplementResponseDto,
+} from './dto/employer-health-supplement.dto';
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
 import { PayrollReviewDto } from './dto/payroll-review.dto';
 import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagination-query.dto';
@@ -72,6 +76,20 @@ export class PayrollController {
         data: data.map(toPayrollStatementResponse),
         total,
       }));
+  }
+
+  @Get('employer-health-supplement')
+  @Roles({ payslip: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '投保單位當月補充保費' })
+  employerHealthSupplement(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: EmployerHealthSupplementQueryDto,
+  ): Promise<EmployerHealthSupplementResponseDto> {
+    return this.payrollService.employerHealthSupplement(
+      actor(req, session),
+      query.month,
+    );
   }
 
   @Get('me/statements')

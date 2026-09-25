@@ -34,6 +34,10 @@ export class AttendanceEmploymentResponseDto {
   workPermits: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: DatePeriodDto })
   maternalProtectionPeriods: DatePeriodDto[];
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  regularLeaveWeekday: number | null;
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  restDayWeekday: number | null;
   @ApiProperty() employmentInsuranceEligible: boolean;
   @ApiProperty() workPermitRequired: boolean;
   @ApiProperty() pensionApplicable: boolean;

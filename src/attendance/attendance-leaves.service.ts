@@ -29,6 +29,8 @@ import {
   STATUTORY_LEAVE_KINDS,
   attendanceAnnualLeaveDeferral,
   attendanceEmployee,
+  attendanceHolidaySubstitute,
+  attendanceShift,
   attendanceLeaveBalance,
   attendanceLeaveCase,
   attendanceLeaveType,
@@ -72,6 +74,12 @@ import {
   ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   AttendanceLeaveTypePaginationQueryDto,
 } from './dto/attendance-leave-type-pagination-query.dto';
+import {
+  ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
+  ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
+  AttendanceHolidaySubstitutePaginationQueryDto,
+  CreateAttendanceHolidaySubstituteDto,
+} from './dto/attendance-holiday-substitute.dto';
 import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
@@ -83,6 +91,7 @@ import {
   weeklyMinutesOf,
 } from './employee-hours';
 import { requireEmployee } from './employee-lookup';
+import { loadHolidaySubstitutes } from './holiday-substitutes';
 import {
   annualLeaveDeferrals,
   countedLeaves,
@@ -1352,6 +1361,200 @@ export class AttendanceLeavesService {
         reason: deferral.reason,
       });
       return { id: deferral.id };
+    });
+  }
+
+  async holidaySubstitutes(
+    actor: AttendanceActor,
+    query: AttendanceHolidaySubstitutePaginationQueryDto,
+  ) {
+    const employees = await this.db
+      .select({ ...getTableColumns(attendanceEmployee), name: user.name })
+      .from(attendanceEmployee)
+      .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+      .where(eq(attendanceEmployee.organizationId, actor.organizationId));
+    const { holidays, owed, rows } = await loadHolidaySubstitutes(
+      this.db,
+      employees,
+      `${query.year}-01-01`,
+      `${query.year}-12-31`,
+    );
+    const shifts = rows.length
+      ? await this.db
+          .select({
+            id: attendanceShift.id,
+            startsAt: attendanceShift.startsAt,
+          })
+          .from(attendanceShift)
+          .where(
+            inArray(
+              attendanceShift.id,
+              rows.map(({ shiftId }) => shiftId),
+            ),
+          )
+      : [];
+    const keys = new Set([
+      ...[...owed].flatMap(([employeeId, dates]) =>
+        dates.map((date) => `${employeeId}:${date}`),
+      ),
+      ...rows.map((row) => `${row.employeeId}:${row.holidayDate}`),
+    ]);
+    const data = [...keys].map((key) => {
+      const [employeeId, holidayDate] = key.split(':');
+      const substitute = rows.find(
+        (row) =>
+          row.employeeId === employeeId && row.holidayDate === holidayDate,
+      );
+      return {
+        id: key,
+        employeeId,
+        employeeName:
+          employees.find((employee) => employee.id === employeeId)?.name ?? '',
+        holidayDate,
+        holidayName:
+          holidays.find((holiday) => holiday.date === holidayDate)?.name ?? '',
+        owed: !!owed.get(employeeId)?.includes(holidayDate),
+        substituteId: substitute?.id ?? null,
+        substituteShiftId: substitute?.shiftId ?? null,
+        substituteStartsAt:
+          shifts.find((shift) => shift.id === substitute?.shiftId)?.startsAt ??
+          null,
+      };
+    });
+    return pageInMemory(data, query, {
+      defaultSort: (first, second) =>
+        first.holidayDate.localeCompare(second.holidayDate) ||
+        first.employeeName.localeCompare(second.employeeName),
+      stringFields: ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
+      dateFields: ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
+      enumFields: [],
+      numberFields: [],
+      textFields: ['employeeName', 'holidayName', 'holidayDate'],
+    });
+  }
+
+  async createHolidaySubstitute(
+    actor: AttendanceActor,
+    dto: CreateAttendanceHolidaySubstituteDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [employee] = await tx
+        .select()
+        .from(attendanceEmployee)
+        .where(
+          and(
+            eq(attendanceEmployee.id, dto.employeeId),
+            eq(attendanceEmployee.organizationId, actor.organizationId),
+          ),
+        );
+      const [shift] = await tx
+        .select()
+        .from(attendanceShift)
+        .where(
+          and(
+            eq(attendanceShift.id, dto.shiftId),
+            eq(attendanceShift.employeeId, dto.employeeId),
+            ne(attendanceShift.status, 'cancelled'),
+          ),
+        );
+      if (!employee || !shift) throw new NotFoundException();
+      const { owed } = await loadHolidaySubstitutes(
+        tx,
+        [employee],
+        dto.holidayDate,
+        dto.holidayDate,
+      );
+      if (
+        !owed.get(employee.id)?.includes(dto.holidayDate) ||
+        shift.dayKind !== 'workday'
+      )
+        throw badRequestError('holidaySubstituteInvalid');
+      for (const at of [
+        shift.startsAt,
+        new Date(`${dto.holidayDate}T00:00:00+08:00`),
+      ])
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
+          employee.id,
+          at,
+          new Date(at.getTime() + 1),
+        );
+      const [row] = await tx
+        .insert(attendanceHolidaySubstitute)
+        .values({
+          id: randomUUID(),
+          organizationId: actor.organizationId,
+          employeeId: employee.id,
+          holidayDate: dto.holidayDate,
+          shiftId: shift.id,
+          createdBy: actor.userId,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) throw conflictError('holidaySubstituteInvalid');
+      await tx
+        .update(attendanceShift)
+        .set({ dayKind: 'holiday' })
+        .where(eq(attendanceShift.id, shift.id));
+      await writeAudit(tx, actor, 'holidaySubstitute.create', row.id, {
+        employeeId: employee.id,
+        holidayDate: dto.holidayDate,
+        shiftId: shift.id,
+      });
+      return { id: row.id };
+    });
+  }
+
+  async deleteHolidaySubstitute(actor: AttendanceActor, id: string) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [row] = await tx
+        .select({
+          substitute: attendanceHolidaySubstitute,
+          shiftStartsAt: attendanceShift.startsAt,
+        })
+        .from(attendanceHolidaySubstitute)
+        .innerJoin(
+          attendanceShift,
+          eq(attendanceShift.id, attendanceHolidaySubstitute.shiftId),
+        )
+        .where(
+          and(
+            eq(attendanceHolidaySubstitute.id, id),
+            eq(
+              attendanceHolidaySubstitute.organizationId,
+              actor.organizationId,
+            ),
+          ),
+        );
+      if (!row) throw new NotFoundException();
+      const { substitute, shiftStartsAt } = row;
+      for (const at of [
+        shiftStartsAt,
+        new Date(`${substitute.holidayDate}T00:00:00+08:00`),
+      ])
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
+          substitute.employeeId,
+          at,
+          new Date(at.getTime() + 1),
+        );
+      await tx
+        .delete(attendanceHolidaySubstitute)
+        .where(eq(attendanceHolidaySubstitute.id, id));
+      await tx
+        .update(attendanceShift)
+        .set({ dayKind: 'workday' })
+        .where(eq(attendanceShift.id, substitute.shiftId));
+      await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
+        employeeId: substitute.employeeId,
+        holidayDate: substitute.holidayDate,
+        shiftId: substitute.shiftId,
+      });
+      return { id };
     });
   }
 }
