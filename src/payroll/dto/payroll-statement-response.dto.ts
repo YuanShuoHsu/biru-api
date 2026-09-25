@@ -4,9 +4,11 @@ import {
   PAYROLL_BLOCKERS,
   PAYROLL_DEDUCTION_LINE_CODES,
   PAYROLL_EARNING_LINE_CODES,
+  PAYROLL_EMPLOYER_COST_CODES,
   type PayrollBlocker,
   type PayrollDeductionLineCode,
   type PayrollEarningLineCode,
+  type PayrollEmployerCostCode,
   type PayrollLine,
   type PayrollLineCode,
   type payrollStatement,
@@ -34,6 +36,15 @@ export class PayrollDeductionLineResponseDto {
   @ApiPropertyOptional() seconds?: number;
 }
 
+export class PayrollEmployerCostResponseDto {
+  @ApiProperty({
+    enum: PAYROLL_EMPLOYER_COST_CODES,
+    enumName: 'PayrollEmployerCostCode',
+  })
+  code: PayrollEmployerCostCode;
+  @ApiProperty() amountCents: string;
+}
+
 export class PayrollSnapshotResponseDto {
   @ApiProperty({ type: PayrollTermsValuesDto }) terms: PayrollTermsValuesDto;
   @ApiProperty() ruleVersion: string;
@@ -45,6 +56,8 @@ export class PayrollSnapshotResponseDto {
   @ApiProperty() deductionCents: string;
   @ApiProperty() netCents: string;
   @ApiProperty() employerPensionCents: string;
+  @ApiPropertyOptional({ isArray: true, type: PayrollEmployerCostResponseDto })
+  employerCosts?: PayrollEmployerCostResponseDto[];
   @ApiProperty() workedSeconds: number;
   @ApiProperty({
     enum: PAYROLL_BLOCKERS,

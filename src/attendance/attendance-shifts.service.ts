@@ -6,9 +6,11 @@ import {
   count,
   desc,
   eq,
+  gte,
   ilike,
   inArray,
   lt,
+  lte,
   ne,
   sql,
   type Column,
@@ -28,9 +30,17 @@ import {
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
+  type AttendanceDayKind,
+  statutoryHoliday,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import {
+  DAY_MS,
+  platformDateString,
+  platformMidnight,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
 
 import type { AttendanceActor } from './attendance-actor';
 import {
@@ -46,16 +56,26 @@ import {
   forbiddenError,
 } from './attendance-errors';
 import {
+  ADULT_WORKING_AGE,
+  ageOn,
   blockingRequestStatuses,
+  childLaborViolation,
   distanceMeters,
+  exceedsStudentWeeklyLimit,
+  hasShortRestBetweenShifts,
+  lacksWeeklyRest,
   ipInRange,
   MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
   punchLeewayMs,
+  type ScheduledShift,
+  scheduledWorkSeconds,
   SHIFT_STATE_BY_LAST_ACTION,
   SHIFT_STATE_RANK,
   summarizeEvents,
+  withinPeriods,
+  workPermitRequired,
 } from './attendance-rules';
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import {
@@ -321,7 +341,9 @@ export class AttendanceShiftsService {
   async createShifts(actor: AttendanceActor, dtos: CreateAttendanceShiftDto[]) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const values: (typeof attendanceShift.$inferInsert)[] = [];
+      const values: (typeof attendanceShift.$inferInsert & {
+        dayKind: AttendanceDayKind;
+      })[] = [];
       const employeeIds = [...new Set(dtos.map((dto) => dto.employeeId))];
       const employees = await tx
         .select()
@@ -336,6 +358,26 @@ export class AttendanceShiftsService {
       const intervals = dtos.map((dto) =>
         parseInterval(dto.startsAt, dto.endsAt),
       );
+      const dates = intervals.map(({ startsAt }) =>
+        platformDateString(startsAt),
+      );
+      const years = [...new Set(dates.map((date) => date.slice(0, 4)))];
+      const holidays = await tx
+        .select({ date: statutoryHoliday.date })
+        .from(statutoryHoliday)
+        .where(
+          and(
+            gte(statutoryHoliday.date, `${years[0]}-01-01`),
+            lte(statutoryHoliday.date, `${years.at(-1)}-12-31`),
+          ),
+        );
+      if (
+        years.some(
+          (year) => !holidays.some(({ date }) => date.startsWith(year)),
+        )
+      )
+        throw badRequestError('holidayCalendarMissing');
+      const holidayDates = new Set(holidays.map(({ date }) => date));
       const from = new Date(
         Math.min(...intervals.map((interval) => interval.startsAt.getTime())),
       );
@@ -415,6 +457,14 @@ export class AttendanceShiftsService {
           (employee.terminatedAt && interval.endsAt > employee.terminatedAt)
         )
           throw badRequestError('employeeNotEnabled');
+        if (
+          workPermitRequired(employee.legalStatus) &&
+          !withinPeriods(
+            employee.workPermits,
+            platformDateString(interval.startsAt),
+          )
+        )
+          throw badRequestError('workPermitRequired');
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,
@@ -449,10 +499,92 @@ export class AttendanceShiftsService {
         values.push({
           ...dto,
           ...interval,
+          dayKind:
+            dto.dayKind === 'workday' && holidayDates.has(dates[index])
+              ? 'holiday'
+              : dto.dayKind,
           breaks,
           id: randomUUID(),
           organizationId: actor.organizationId,
         });
+      }
+      const weekStart = (date: Date) =>
+        platformMidnight(date.getTime()) -
+        ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
+      const scheduledStarts = values.map(({ startsAt }) => startsAt);
+      const existingShifts = await tx
+        .select({
+          employeeId: attendanceShift.employeeId,
+          startsAt: attendanceShift.startsAt,
+          endsAt: attendanceShift.endsAt,
+          breaks: attendanceShift.breaks,
+          paidBreak: attendanceShift.paidBreak,
+          dayKind: attendanceShift.dayKind,
+        })
+        .from(attendanceShift)
+        .where(
+          and(
+            inArray(attendanceShift.employeeId, employeeIds),
+            ne(attendanceShift.status, 'cancelled'),
+            gte(
+              attendanceShift.startsAt,
+              new Date(Math.min(...scheduledStarts.map(weekStart)) - DAY_MS),
+            ),
+            lt(
+              attendanceShift.startsAt,
+              new Date(
+                Math.max(...scheduledStarts.map(weekStart)) + 8 * DAY_MS,
+              ),
+            ),
+          ),
+        );
+      for (const employee of employees) {
+        const scheduled = values.filter(
+          ({ employeeId }) => employeeId === employee.id,
+        );
+        if (!scheduled.length) continue;
+        const scheduledSet = new Set<ScheduledShift>(scheduled);
+        const scheduledWeeks = new Set(
+          scheduled.map(({ startsAt }) => weekStart(startsAt)),
+        );
+        const nearby = [
+          ...existingShifts.filter(
+            ({ employeeId }) => employeeId === employee.id,
+          ),
+          ...scheduled,
+        ];
+        const sameWeeks = nearby.filter(({ startsAt }) =>
+          scheduledWeeks.has(weekStart(startsAt)),
+        );
+        if (lacksWeeklyRest(sameWeeks))
+          throw badRequestError('weeklyRestRequired');
+        if (
+          hasShortRestBetweenShifts(nearby, (shift) => scheduledSet.has(shift))
+        )
+          throw badRequestError('shiftRestTooShort');
+        const { birthDate } = employee;
+        if (
+          birthDate &&
+          scheduled.some(
+            ({ startsAt }) =>
+              ageOn(birthDate, platformDateString(startsAt)) <
+              ADULT_WORKING_AGE,
+          )
+        ) {
+          const violation = childLaborViolation(sameWeeks);
+          if (violation) throw badRequestError(violation);
+        }
+        if (
+          employee.legalStatus === 'foreignStudent' &&
+          exceedsStudentWeeklyLimit(
+            sameWeeks.map((shift) => ({
+              date: platformDateString(shift.startsAt),
+              seconds: scheduledWorkSeconds(shift),
+            })),
+            employee.studentVacations,
+          )
+        )
+          throw badRequestError('studentWeeklyHoursExceeded');
       }
       const rows = await tx.insert(attendanceShift).values(values).returning();
       await writeAudits(

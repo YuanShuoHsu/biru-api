@@ -5,11 +5,18 @@ export class TaiwanRuleSetResponseDto {
   @ApiProperty() employmentPercentBp: number;
   @ApiProperty() healthPercentBp: number;
   @ApiProperty() laborEmployeeShareBp: number;
+  @ApiProperty() laborEmployerShareBp: number;
   @ApiProperty() healthEmployeeShareBp: number;
+  @ApiProperty() healthEmployerShareBp: number;
+  @ApiProperty() healthAverageDependentsBp: number;
+  @ApiProperty() commutingAccidentRateMicros: number;
+  @ApiProperty() wageGuaranteeRateMicros: number;
   @ApiProperty() withholdingRateBp: number;
   @ApiProperty() withholdingExemptTaxCents: string;
   @ApiProperty({ type: [Number] }) laborGrades: number[];
   @ApiProperty({ type: [Number] }) partTimeLaborGrades: number[];
+  @ApiProperty({ type: [Number] }) occupationalGrades: number[];
+  @ApiProperty({ type: [Number] }) pensionGrades: number[];
   @ApiProperty({ type: [Number] }) healthGrades: number[];
   @ApiProperty() minimumMonthlyWageCents: string;
   @ApiProperty() minimumHourlyWageCents: string;

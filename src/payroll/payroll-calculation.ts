@@ -10,7 +10,7 @@ import {
   type TaiwanRuleSet,
 } from 'src/db/schema/payroll';
 
-import { taiwanDeductions } from './taiwan-rules';
+import { employerCosts, taiwanDeductions } from './taiwan-rules';
 
 export interface PayrollWorkDay {
   seconds: number;
@@ -77,6 +77,10 @@ export function calculatePayroll(
     denominator: number;
     coverageDays?: number;
     healthCharged?: boolean;
+    contributionDays?: number;
+    employerHealthCharged?: boolean;
+    nonResident?: boolean;
+    occupationalAccidentRateMicros?: number | null;
     annualLeavePayoutCents?: string;
     calendarLeaveDeductionCents?: string;
     calendarLeavePayCents?: string;
@@ -246,8 +250,12 @@ export function calculatePayroll(
       calendarLeavePay -
       leaveDeduction -
       absenceDeduction,
-    fraction.coverageDays,
-    fraction.healthCharged,
+    {
+      coverageDays: fraction.coverageDays,
+      healthCharged: fraction.healthCharged,
+      contributionDays: fraction.contributionDays,
+      nonResident: fraction.nonResident,
+    },
   );
   for (const code of [
     'laborInsurance',
@@ -290,6 +298,17 @@ export function calculatePayroll(
     deductionCents: deduction.toString(),
     netCents: (gross - deduction).toString(),
     employerPensionCents: resolved.employerPensionCents,
+    employerCosts:
+      terms.insurance && fraction.occupationalAccidentRateMicros != null
+        ? employerCosts(rules, terms.insurance, {
+            contributionDays:
+              fraction.contributionDays ?? fraction.coverageDays ?? 30,
+            healthCharged:
+              fraction.employerHealthCharged ?? fraction.healthCharged ?? true,
+            occupationalAccidentRateMicros:
+              fraction.occupationalAccidentRateMicros,
+          })
+        : undefined,
     workedSeconds: days.reduce((sum, day) => sum + day.seconds, 0),
     blockers: [...new Set(blockers)],
   };

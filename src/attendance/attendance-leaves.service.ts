@@ -17,7 +17,6 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { isAuthorized } from 'src/auth/permissions';
 import { DAY_MS, platformDateString } from 'src/common/constants/timezone';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import {
@@ -36,6 +35,7 @@ import {
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { statutoryDailyPayCents } from 'src/payroll/leave-pay';
 
 import type { AttendanceActor } from './attendance-actor';
 import {
@@ -526,14 +526,17 @@ export class AttendanceLeavesService {
       !Number.isFinite(eventDate.getTime())
     )
       throw badRequestError('invalidLeaveCase');
+    const dailyPayCents =
+      policy.statutoryKind !== 'parental' &&
+      isCalendarLeave(policy.statutoryKind)
+        ? await statutoryDailyPayCents(tx, employee.id, startsAt)
+        : null;
     if (
       policy.statutoryKind !== 'parental' &&
       isCalendarLeave(policy.statutoryKind) &&
-      (!isAuthorized(actor.role, { payrollTerm: ['update'] }) ||
-        !dto.dailyPayCents ||
-        !/^\d{1,12}$/.test(dto.dailyPayCents))
+      dailyPayCents === null
     )
-      throw badRequestError('calendarLeavePayRequired');
+      throw badRequestError('payrollTermsRequired');
     if (
       policy.statutoryKind === 'parental' &&
       (eventDate > new Date() ||
@@ -566,7 +569,7 @@ export class AttendanceLeavesService {
       policy.statutoryKind !== 'parental' &&
       isCalendarLeave(policy.statutoryKind) &&
       entitlement.paidPercent > 0 &&
-      BigInt(dto.dailyPayCents!) <= 0n
+      BigInt(dailyPayCents ?? '0') <= 0n
     )
       throw badRequestError('calendarLeavePayRequired');
     if (
@@ -608,11 +611,7 @@ export class AttendanceLeavesService {
         endsAt,
         ...entitlement,
         dailyPayCents:
-          policy.statutoryKind === 'parental'
-            ? '0'
-            : isCalendarLeave(policy.statutoryKind)
-              ? dto.dailyPayCents
-              : null,
+          policy.statutoryKind === 'parental' ? '0' : dailyPayCents,
         reason: dto.reason.trim(),
       },
     };

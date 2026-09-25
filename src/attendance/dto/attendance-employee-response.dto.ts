@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { DatePeriodDto } from './save-attendance-employee.dto';
+
 import {
   ATTENDANCE_EMPLOYEE_STATUSES,
   ATTENDANCE_EMPLOYMENT_TYPES,
@@ -24,7 +26,18 @@ export class AttendanceEmploymentResponseDto {
     enumName: 'AttendanceLegalStatus',
   })
   legalStatus: AttendanceLegalStatus;
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  studentVacations: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  workPermits: DatePeriodDto[];
+  @ApiProperty() employmentInsuranceEligible: boolean;
+  @ApiProperty() workPermitRequired: boolean;
+  @ApiProperty() pensionApplicable: boolean;
   @ApiProperty() enabled: boolean;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  birthDate: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  taiwanStaySince: string | null;
   @ApiProperty() hiredAt: Date;
   @ApiPropertyOptional() terminatedAt: Date | null;
   @ApiProperty() createdAt: Date;
@@ -73,4 +86,15 @@ export class AttendanceContextResponseDto {
   @ApiProperty() canManage: boolean;
   @ApiProperty() canManageSettings: boolean;
   @ApiProperty() canManagePayroll: boolean;
+}
+
+export class AttendanceLegalStatusObligationResponseDto {
+  @ApiProperty({
+    enum: ATTENDANCE_LEGAL_STATUSES,
+    enumName: 'AttendanceLegalStatus',
+  })
+  legalStatus: AttendanceLegalStatus;
+  @ApiProperty() employmentInsuranceEligible: boolean;
+  @ApiProperty() pensionApplicable: boolean;
+  @ApiProperty() workPermitRequired: boolean;
 }

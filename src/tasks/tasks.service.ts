@@ -37,6 +37,14 @@ export class TasksService {
     } catch (error) {
       this.logger.error('匯入官方投保分級表失敗', error);
     }
+    try {
+      const { written } = await this.payrollRulesService.ingestHolidays();
+
+      if (written.length)
+        this.logger.log(`更新 ${written.join(', ')} 年國定假日`);
+    } catch (error) {
+      this.logger.error('匯入政府行政機關辦公日曆表失敗', error);
+    }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })

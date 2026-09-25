@@ -22,6 +22,7 @@ const terms: PayrollTerms = {
   insurance: {
     laborCoverage: 'both',
     laborBasis: 29500,
+    occupationalBasis: 29500,
     healthBasis: 29500,
     healthDependents: 0,
     pensionBasis: 29500,

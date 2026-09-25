@@ -1,6 +1,9 @@
 export const DATA_GOV_DATASET_API = 'https://data.gov.tw/api/v2/rest/dataset';
 export const LABOR_GRADE_DATASET = '6258';
 export const HEALTH_GRADE_DATASET = '20251';
+export const OCCUPATIONAL_GRADE_DATASET = '170557';
+export const HOLIDAY_CALENDAR_DATASET = '14718';
+export const PENSION_GRADE_DATASET = '6274';
 
 export interface DataGovResource {
   description: string;
@@ -68,15 +71,44 @@ export const LABOR_CATEGORIES = {
   partTime: '部分工時勞工',
 } as const;
 
-export const parseLaborGrades = (
+const parseWageGrades = (
   payload: unknown,
-  category: (typeof LABOR_CATEGORIES)[keyof typeof LABOR_CATEGORIES],
+  category?: (typeof LABOR_CATEGORIES)[keyof typeof LABOR_CATEGORIES],
 ) => {
   const byPeriod = new Map<string, number[]>();
   for (const record of asRecords(payload)) {
-    if (record['身分別'] !== category) continue;
+    if (category && record['身分別'] !== category) continue;
     const effectiveFrom = rocPeriod(text(record['適用起日']));
     const wage = Number(text(record['月投保薪資']).replace(/[^\d]/g, ''));
+    if (!effectiveFrom || !wage) continue;
+    const grades = byPeriod.get(effectiveFrom) ?? [];
+    grades.push(wage);
+    byPeriod.set(effectiveFrom, grades);
+  }
+
+  return new Map(
+    [...byPeriod].map(([key, values]) => [key, ascendingGrades(values)]),
+  );
+};
+
+export const parseLaborGrades = (
+  payload: unknown,
+  category: (typeof LABOR_CATEGORIES)[keyof typeof LABOR_CATEGORIES],
+) => parseWageGrades(payload, category);
+
+export const parseOccupationalGrades = (payload: unknown) =>
+  parseWageGrades(payload);
+
+export const parsePensionGrades = (payload: unknown) => {
+  const byPeriod = new Map<string, number[]>();
+  for (const record of asRecords(payload)) {
+    const effectiveFrom = rocPeriod(text(record['生效日']));
+    const wage = Number(
+      text(record['月提繳工資金額/月提繳執行業務所得金額']).replace(
+        /[^\d]/g,
+        '',
+      ),
+    );
     if (!effectiveFrom || !wage) continue;
     const grades = byPeriod.get(effectiveFrom) ?? [];
     grades.push(wage);
@@ -104,3 +136,34 @@ export const parseHealthGrades = (csv: string) => {
 
   return ascendingGrades(grades);
 };
+
+const NON_STATUTORY_DAY_OFF = new Set(['補假', '調整放假']);
+
+export const holidayCalendarYear = (description: string) => {
+  const match =
+    /^(\d{3})年中華民國政府行政機關辦公日曆表(?:\((\d+)更新\))?$/.exec(
+      description.trim(),
+    );
+
+  return match
+    ? { year: Number(match[1]) + 1911, revision: Number(match[2] ?? 0) }
+    : null;
+};
+
+export const parseHolidayCalendar = (csv: string) =>
+  csv
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .slice(1)
+    .map((row) => row.split(','))
+    .filter(
+      ([date, , dayOff, name]) =>
+        /^\d{8}$/.test(date ?? '') &&
+        dayOff?.trim() === '2' &&
+        !!name?.trim() &&
+        !NON_STATUTORY_DAY_OFF.has(name.trim()),
+    )
+    .map(([date, , , name]) => ({
+      date: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
+      name: name.trim(),
+    }));

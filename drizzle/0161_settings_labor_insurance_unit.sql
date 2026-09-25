@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_settings" ADD COLUMN "labor_insurance_unit_code" text;

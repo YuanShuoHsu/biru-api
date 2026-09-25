@@ -61,6 +61,11 @@ export const ATTENDANCE_EVENT_ACTIONS = [
 
 export type AttendanceEventAction = (typeof ATTENDANCE_EVENT_ACTIONS)[number];
 
+export interface DatePeriod {
+  from: string;
+  to: string;
+}
+
 export interface ShiftBreak {
   startsAt: string;
   endsAt: string;
@@ -124,10 +129,20 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
     enabled: boolean('enabled').notNull().default(true),
+    birthDate: text('birth_date'),
+    taiwanStaySince: text('taiwan_stay_since'),
     legalStatus: text('legal_status')
       .$type<AttendanceLegalStatus>()
       .notNull()
       .default('national'),
+    studentVacations: jsonb('student_vacations')
+      .notNull()
+      .$type<DatePeriod[]>()
+      .default([]),
+    workPermits: jsonb('work_permits')
+      .notNull()
+      .$type<DatePeriod[]>()
+      .default([]),
     hiredAt: timestamp('hired_at', { withTimezone: true }).notNull(),
     terminatedAt: timestamp('terminated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -142,6 +157,14 @@ export const attendanceEmployee = pgTable(
   ],
 );
 
+export const statutoryHoliday = pgTable('statutory_holiday', {
+  date: text('date').primaryKey(),
+  name: text('name').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const attendanceSettings = pgTable(
   'attendance_settings',
   {
@@ -153,6 +176,10 @@ export const attendanceSettings = pgTable(
     radiusMeters: integer('radius_meters').notNull(),
     allowedIps: text('allowed_ips').array().notNull(),
     graceMinutes: integer('grace_minutes').notNull().default(0),
+    laborInsuranceUnitCode: text('labor_insurance_unit_code'),
+    occupationalAccidentRateMicros: integer(
+      'occupational_accident_rate_micros',
+    ),
     overtimeExtensionPeriods: text('overtime_extension_periods')
       .array()
       .notNull()

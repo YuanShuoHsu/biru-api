@@ -33,6 +33,39 @@ export function periodWork(intervals: TimeInterval[], start: Date, end: Date) {
   };
 }
 
+const insuranceDayRange = (end: Date, from: number, to: number) => {
+  const localNumber = (time: number) =>
+    toPlatformTime(new Date(time)).getUTCDate();
+  return [
+    Math.min(localNumber(from), 30),
+    platformDayNumber(to - 1) === platformDayNumber(end.getTime() - 1)
+      ? 30
+      : Math.min(localNumber(to - 1), 30),
+  ] as const;
+};
+
+export function contributionCoverageDays(
+  start: Date,
+  end: Date,
+  hiredAt: Date,
+  terminatedAt: Date | null,
+  suspensions: { startsAt: Date; endsAt: Date }[],
+) {
+  const first = Math.max(start.getTime(), hiredAt.getTime());
+  const last = Math.min(end.getTime(), terminatedAt?.getTime() ?? Infinity);
+  if (first >= last) return 0;
+  const [firstDay, lastDay] = insuranceDayRange(end, first, last);
+  const suspended = new Set<number>();
+  for (const suspension of suspensions) {
+    const from = Math.max(first, suspension.startsAt.getTime());
+    const to = Math.min(last, suspension.endsAt.getTime());
+    if (from >= to) continue;
+    const [fromDay, toDay] = insuranceDayRange(end, from, to);
+    for (let day = fromDay; day <= toDay; day++) suspended.add(day);
+  }
+  return Math.max(0, lastDay - firstDay + 1 - suspended.size);
+}
+
 export function employmentPeriod(
   start: Date,
   end: Date,
@@ -52,13 +85,11 @@ export function employmentPeriod(
       ? monthDays
       : 30;
   const numerator = complete ? 1 : Math.min(days, denominator);
-  const localNumber = (time: number) =>
-    toPlatformTime(new Date(time)).getUTCDate();
-  const firstInsuranceDay = Math.min(localNumber(first), 30);
-  const lastInsuranceDay =
-    day(last - 1) === day(end.getTime() - 1)
-      ? 30
-      : Math.min(localNumber(last - 1), 30);
+  const [firstInsuranceDay, lastInsuranceDay] = insuranceDayRange(
+    end,
+    first,
+    last,
+  );
   return {
     numerator,
     denominator,

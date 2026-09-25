@@ -1,11 +1,18 @@
 import { isIP } from 'node:net';
 
-import { DAY_MS } from 'src/common/constants/timezone';
+import {
+  DAY_MS,
+  platformDateString,
+  platformMidnight,
+} from 'src/common/constants/timezone';
 import {
   attendanceRequestStatus,
+  type AttendanceDayKind,
   type AttendanceEventAction,
+  type AttendanceLegalStatus,
   type CorrectedEvent,
   type ShiftBreak,
+  type DatePeriod,
 } from 'src/db/schema/attendance';
 
 import { badRequestError } from './attendance-errors';
@@ -203,6 +210,36 @@ export const MAX_SHIFT_MS = DAY_MS;
 
 export const MAX_DAILY_WORK_SECONDS = 12 * 3600;
 
+export const STUDENT_WEEKLY_WORK_SECONDS = 20 * 3600;
+
+export const weekStartOfDate = (date: string) => {
+  const day = new Date(`${date}T00:00:00Z`);
+  return day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS;
+};
+
+export const withinPeriods = (periods: DatePeriod[], date: string) =>
+  periods.some(({ from, to }) => from <= date && date <= to);
+
+export const workPermitRequired = (legalStatus: AttendanceLegalStatus) =>
+  legalStatus === 'permanentResident' ||
+  legalStatus === 'foreignStudent' ||
+  legalStatus === 'otherForeigner';
+
+export const exceedsStudentWeeklyLimit = (
+  days: { date: string; seconds: number }[],
+  vacations: DatePeriod[],
+) => {
+  const weeks = new Map<number, number>();
+  for (const { date, seconds } of days) {
+    if (withinPeriods(vacations, date)) continue;
+    const monday = weekStartOfDate(date);
+    weeks.set(monday, (weeks.get(monday) ?? 0) + seconds);
+  }
+  return [...weeks.values()].some(
+    (seconds) => seconds > STUDENT_WEEKLY_WORK_SECONDS,
+  );
+};
+
 export const MAX_MONTHLY_OVERTIME_SECONDS = 46 * 3600;
 
 export const EXTENDED_MONTHLY_OVERTIME_SECONDS = 54 * 3600;
@@ -326,3 +363,92 @@ export function leadingIntervals(intervals: TimeInterval[], budgetMs: number) {
     return end > interval.start ? [{ start: interval.start, end }] : [];
   });
 }
+
+export const ageOn = (birthDate: string, date: string) => {
+  const [birthYear, birthMonthDay] = [
+    Number(birthDate.slice(0, 4)),
+    birthDate.slice(5),
+  ];
+
+  return (
+    Number(date.slice(0, 4)) -
+    birthYear -
+    (date.slice(5) < birthMonthDay ? 1 : 0)
+  );
+};
+
+export const MINIMUM_WORKING_AGE = 15;
+
+export const ADULT_WORKING_AGE = 16;
+
+export const MIN_SHIFT_REST_MS = 11 * 3600 * 1000;
+
+const CHILD_DAILY_WORK_SECONDS = 8 * 3600;
+
+const CHILD_WEEKLY_WORK_SECONDS = 40 * 3600;
+
+interface PlannedShift extends ScheduledShift {
+  dayKind: AttendanceDayKind;
+}
+
+export const lacksWeeklyRest = (shifts: PlannedShift[]) => {
+  const weeks = new Map<number, { worked: Set<string>; busy: Set<string> }>();
+  for (const shift of shifts) {
+    const date = platformDateString(shift.startsAt);
+    const week = weekStartOfDate(date);
+    const days = weeks.get(week) ?? { worked: new Set(), busy: new Set() };
+    if (shift.dayKind === 'workday' || shift.dayKind === 'holiday')
+      days.worked.add(date);
+    if (shift.dayKind !== 'regularLeave') days.busy.add(date);
+    weeks.set(week, days);
+  }
+
+  return [...weeks.values()].some(
+    ({ busy, worked }) => worked.size > 5 || busy.size > 6,
+  );
+};
+
+export const hasShortRestBetweenShifts = (
+  shifts: ScheduledShift[],
+  isChecked: (shift: ScheduledShift) => boolean,
+) =>
+  [...shifts]
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
+    .some(
+      (shift, index, sorted) =>
+        index > 0 &&
+        (isChecked(shift) || isChecked(sorted[index - 1])) &&
+        platformDateString(shift.startsAt) !==
+          platformDateString(sorted[index - 1].startsAt) &&
+        shift.startsAt.getTime() - sorted[index - 1].endsAt.getTime() <
+          MIN_SHIFT_REST_MS,
+    );
+
+export const childLaborViolation = (shifts: PlannedShift[]) => {
+  const days = new Map<string, number>();
+  const weeks = new Map<number, number>();
+  for (const shift of shifts) {
+    if (shift.dayKind === 'regularLeave') return 'childLaborRestDay' as const;
+    const midnight = platformMidnight(shift.startsAt.getTime());
+    if (
+      [midnight - DAY_MS, midnight].some(
+        (day) =>
+          shift.startsAt.getTime() < day + 30 * 3600 * 1000 &&
+          shift.endsAt.getTime() > day + 20 * 3600 * 1000,
+      )
+    )
+      return 'childLaborNightWork' as const;
+    const date = platformDateString(shift.startsAt);
+    const seconds = scheduledWorkSeconds(shift);
+    days.set(date, (days.get(date) ?? 0) + seconds);
+    const week = weekStartOfDate(date);
+    weeks.set(week, (weeks.get(week) ?? 0) + seconds);
+  }
+  if (
+    [...days.values()].some((seconds) => seconds > CHILD_DAILY_WORK_SECONDS) ||
+    [...weeks.values()].some((seconds) => seconds > CHILD_WEEKLY_WORK_SECONDS)
+  )
+    return 'childLaborHoursExceeded' as const;
+
+  return null;
+};

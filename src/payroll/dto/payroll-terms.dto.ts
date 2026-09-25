@@ -1,7 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
+  IsDefined,
   IsIn,
   IsInt,
   IsOptional,
@@ -11,9 +13,17 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
+
+import {
+  EMPLOYMENT_INSURANCE_EXEMPTIONS,
+  type EmploymentInsuranceExemption,
+  HEALTH_INSURANCE_EXEMPTIONS,
+  type HealthInsuranceExemption,
+  LABOR_INSURANCE_EXEMPTIONS,
+  type LaborInsuranceExemption,
+} from 'src/db/schema/payroll';
 
 export class TaiwanInsuranceDto {
   @ApiProperty({
@@ -23,6 +33,31 @@ export class TaiwanInsuranceDto {
   @IsIn(['both', 'labor', 'employment', 'none'])
   laborCoverage: 'both' | 'labor' | 'employment' | 'none';
   @ApiProperty({
+    enum: LABOR_INSURANCE_EXEMPTIONS,
+    enumName: 'PayrollLaborInsuranceExemption',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(LABOR_INSURANCE_EXEMPTIONS)
+  laborInsuranceExemption?: LaborInsuranceExemption;
+  @ApiProperty({
+    enum: HEALTH_INSURANCE_EXEMPTIONS,
+    enumName: 'PayrollHealthInsuranceExemption',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(HEALTH_INSURANCE_EXEMPTIONS)
+  healthInsuranceExemption?: HealthInsuranceExemption;
+  @ApiProperty({
+    enum: EMPLOYMENT_INSURANCE_EXEMPTIONS,
+    enumName: 'PayrollEmploymentInsuranceExemption',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(EMPLOYMENT_INSURANCE_EXEMPTIONS)
+  employmentInsuranceExemption?: EmploymentInsuranceExemption;
+  @IsOptional() @IsBoolean() manualPremiums?: boolean;
+  @ApiProperty({
     enum: ['general', 'partTime'],
     enumName: 'PayrollLaborLadder',
     required: false,
@@ -31,17 +66,32 @@ export class TaiwanInsuranceDto {
   @IsIn(['general', 'partTime'])
   laborLadder?: 'general' | 'partTime';
   @IsInt() @Min(0) laborBasis: number;
+  @IsInt() @Min(1) occupationalBasis: number;
   @IsInt() @Min(0) healthBasis: number;
   @IsInt() @Min(0) @Max(20) healthDependents: number;
   @IsInt() @Min(0) @Max(150000) pensionBasis: number;
   @IsInt() @Min(0) @Max(6) voluntaryPercent: number;
-  @IsInt() @Min(6) @Max(100) employerPercent: number;
+  @IsInt() @Min(0) @Max(100) employerPercent: number;
   @ApiProperty({
     enum: ['resident5', 'verified'],
     enumName: 'PayrollTaxMethod',
   })
   @IsIn(['resident5', 'verified'])
   taxMethod: 'resident5' | 'verified';
+}
+
+export class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
+  'laborInsuranceExemption',
+  'healthInsuranceExemption',
+  'employmentInsuranceExemption',
+  'manualPremiums',
+  'healthDependents',
+  'voluntaryPercent',
+  'employerPercent',
+  'taxMethod',
+] as const) {
+  @IsBoolean() healthInsured: boolean;
+  @IsBoolean() voluntaryLaborInsurance: boolean;
 }
 
 export class PayrollTermsDto {
@@ -54,10 +104,10 @@ export class PayrollTermsDto {
   @IsIn(['thirtyDays', 'calendarDays'])
   monthlyProration?: 'thirtyDays' | 'calendarDays';
   @IsOptional() @IsInt() @Min(1) @Max(744) allowanceHours?: number;
-  @IsOptional()
+  @IsDefined()
   @ValidateNested()
-  @Type(() => TaiwanInsuranceDto)
-  insurance?: TaiwanInsuranceDto;
+  @Type(() => TaiwanInsuranceInputDto)
+  insurance: TaiwanInsuranceInputDto;
   @IsUUID() employeeId: string;
   @Matches(/^20\d{2}-(0[1-9]|1[0-2])-01$/) effectiveFrom: string;
   @ApiProperty({ enum: ['monthly', 'hourly'], enumName: 'PayrollSalaryType' })
@@ -66,10 +116,8 @@ export class PayrollTermsDto {
   @Matches(/^\d{1,12}$/) salaryCents: string;
   @Matches(/^\d{1,12}$/) laborInsuranceCents: string;
   @Matches(/^\d{1,12}$/) healthInsuranceCents: string;
-  @Matches(/^\d{1,12}$/) voluntaryPensionCents: string;
-  @Matches(/^\d{1,12}$/) employerPensionCents: string;
   @Matches(/^\d{1,12}$/) withholdingCents: string;
   @Matches(/^\d{1,12}$/) allowanceCents: string;
   @Matches(/^\d{1,12}$/) otherDeductionCents: string;
-  @IsString() @MinLength(1) @MaxLength(2000) sourceNote: string;
+  @IsOptional() @IsString() @MaxLength(2000) sourceNote?: string;
 }

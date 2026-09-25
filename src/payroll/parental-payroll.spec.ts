@@ -36,6 +36,8 @@ async function snapshot(
     hiredAt: at('2020-01-01T00:00:00'),
     terminatedAt: null,
     weeklyMinutes: 2400,
+    legalStatus: 'national',
+    birthDate: '1990-01-01',
   };
   const request = {
     id: 'leave',
@@ -76,6 +78,18 @@ async function snapshot(
     [
       {
         terms: {
+          insurance: {
+            laborCoverage: 'both',
+            manualPremiums: true,
+            laborBasis: 29500,
+            occupationalBasis: 29500,
+            healthBasis: 29500,
+            healthDependents: 0,
+            pensionBasis: 29500,
+            voluntaryPercent: 0,
+            employerPercent: 6,
+            taxMethod: 'verified',
+          },
           salaryType: 'hourly',
           salaryCents: '24000',
           allowanceCents: '0',
@@ -99,6 +113,8 @@ async function snapshot(
       : []),
     [request],
     [{ id: 'parental', statutoryKind: 'parental' }],
+    [{ total: 1 }],
+    [],
     options.pendingReturns ?? [],
     [{ id: 'child', dailyPayCents: '0' }],
   ];
@@ -106,7 +122,7 @@ async function snapshot(
     select: () => {
       const result = Promise.resolve(results.shift());
       const query: Record<string, unknown> = { then: result.then.bind(result) };
-      for (const key of ['from', 'where', 'orderBy', 'limit'])
+      for (const key of ['from', 'leftJoin', 'where', 'orderBy', 'limit'])
         query[key] = () => query;
       return query;
     },
@@ -137,6 +153,11 @@ async function snapshot(
     employee.id,
     month,
     employee,
+    {
+      overtimeExtensionPeriods: [],
+      occupationalAccidentRateMicros: 1200,
+      holidays: [],
+    },
   );
 }
 

@@ -45,6 +45,8 @@ async function snapshot(
     organizationId: 'org',
     hiredAt: new Date('2020-01-01'),
     terminatedAt: null,
+    legalStatus: 'national',
+    birthDate: '1990-01-01',
   };
   const shift = {
     id: 'shift',
@@ -92,12 +94,13 @@ async function snapshot(
     [],
     [request],
     [{ id: 'personal', statutoryKind: 'personal', paidPercent: 0 }],
+    ...(options.insurance ? [[{ total: 1 }], []] : []),
   ];
   const db = {
     select: () => {
       const result = Promise.resolve(results.shift());
       const query: Record<string, unknown> = { then: result.then.bind(result) };
-      for (const key of ['from', 'where', 'orderBy', 'limit'])
+      for (const key of ['from', 'leftJoin', 'where', 'orderBy', 'limit'])
         query[key] = () => query;
       return query;
     },
@@ -185,6 +188,7 @@ describe('Payroll eligibility blockers', () => {
     laborCoverage: 'both',
     laborLadder: 'partTime',
     laborBasis: 11100,
+    occupationalBasis: 29500,
     healthBasis: 29500,
   };
   const blockersFor = (weeklyMinutes: number) =>

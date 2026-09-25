@@ -1,11 +1,15 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { and, asc, desc, eq, gt, lt, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, like, lt, lte } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import type { Transaction } from 'src/attendance/attendance-audit';
 import { badRequestError } from 'src/attendance/attendance-errors';
-import { platformMonthStart } from 'src/common/constants/timezone';
+import {
+  platformDateString,
+  platformMonthStart,
+} from 'src/common/constants/timezone';
+import { statutoryHoliday } from 'src/db/schema/attendance';
 import {
   payrollRuleSet,
   type PayrollRuleSource,
@@ -18,11 +22,18 @@ import {
   DATA_GOV_DATASET_API,
   describedPeriod,
   HEALTH_GRADE_DATASET,
+  HOLIDAY_CALENDAR_DATASET,
+  holidayCalendarYear,
   LABOR_CATEGORIES,
   LABOR_GRADE_DATASET,
+  OCCUPATIONAL_GRADE_DATASET,
+  PENSION_GRADE_DATASET,
   parseDataGovResources,
   parseHealthGrades,
+  parseHolidayCalendar,
   parseLaborGrades,
+  parseOccupationalGrades,
+  parsePensionGrades,
 } from './rule-source';
 
 const JURISDICTION = 'TW';
@@ -157,8 +168,10 @@ export class PayrollRulesService {
       .where(eq(payrollRuleSet.jurisdiction, JURISDICTION))
       .orderBy(asc(payrollRuleSet.effectiveFrom))
       .limit(1);
-    const [labor, health] = await Promise.all([
+    const [labor, occupational, pension, health] = await Promise.all([
       this.laborFeed(),
+      this.occupationalFeed(),
+      this.pensionFeed(),
       this.healthFeed(earliest?.effectiveFrom),
     ]);
 
@@ -167,9 +180,15 @@ export class PayrollRulesService {
         tx,
         labor.general,
         labor.partTime,
+        occupational,
+        pension,
         health,
       );
-      const fetched = labor.general.grades.size > 0 && health.grades.size > 0;
+      const fetched =
+        labor.general.grades.size > 0 &&
+        occupational.grades.size > 0 &&
+        pension.grades.size > 0 &&
+        health.grades.size > 0;
       const checked = fetched && !result.rejected.length;
       if (!fetched)
         this.logger.warn('官方分級表未能完整取得，規則集未標記為已確認');
@@ -194,6 +213,8 @@ export class PayrollRulesService {
     tx: Transaction,
     labor: GradeFeed,
     partTimeLabor: GradeFeed,
+    occupational: GradeFeed,
+    pension: GradeFeed,
     health: GradeFeed,
   ) {
     const existing = await tx
@@ -209,6 +230,8 @@ export class PayrollRulesService {
       ...new Set([
         ...labor.grades.keys(),
         ...partTimeLabor.grades.keys(),
+        ...occupational.grades.keys(),
+        ...pension.grades.keys(),
         ...health.grades.keys(),
       ]),
     ].sort();
@@ -241,6 +264,12 @@ export class PayrollRulesService {
           base.rules.partTimeLaborGrades,
         ],
       ]);
+      const occupationalLadders = refreshed([
+        [occupational.grades.get(effectiveFrom), base.rules.occupationalGrades],
+      ]);
+      const pensionLadders = refreshed([
+        [pension.grades.get(effectiveFrom), base.rules.pensionGrades],
+      ]);
       const healthLadders = refreshed([
         [health.grades.get(effectiveFrom), base.rules.healthGrades],
       ]);
@@ -248,6 +277,10 @@ export class PayrollRulesService {
         base.rules.laborGrades,
         base.rules.partTimeLaborGrades,
       ];
+      const [occupationalGrades] = occupationalLadders ?? [
+        base.rules.occupationalGrades,
+      ];
+      const [pensionGrades] = pensionLadders ?? [base.rules.pensionGrades];
       const [healthGrades] = healthLadders ?? [base.rules.healthGrades];
       const minimumMonthlyWageCents = String(laborGrades[0] * 100);
       const minimumWageMoved =
@@ -257,6 +290,8 @@ export class PayrollRulesService {
         minimumMonthlyWageCents,
         laborGrades,
         partTimeLaborGrades,
+        occupationalGrades,
+        pensionGrades,
         healthGrades,
       };
       const carried =
@@ -267,6 +302,8 @@ export class PayrollRulesService {
         laborLadders &&
           (labor.sources.get(effectiveFrom) ??
             partTimeLabor.sources.get(effectiveFrom)),
+        occupationalLadders && occupational.sources.get(effectiveFrom),
+        pensionLadders && pension.sources.get(effectiveFrom),
         healthLadders && health.sources.get(effectiveFrom),
       ].filter((source): source is PayrollRuleSource => !!source);
       const current = known.find((row) => row.effectiveFrom === effectiveFrom);
@@ -366,6 +403,74 @@ export class PayrollRulesService {
     return {
       general: feed(LABOR_CATEGORIES.general),
       partTime: feed(LABOR_CATEGORIES.partTime),
+    };
+  }
+
+  async ingestHolidays() {
+    const currentYear = Number(platformDateString(new Date()).slice(0, 4));
+    const latest = new Map<number, { revision: number; url: string }>();
+    for (const resource of await this.resources(HOLIDAY_CALENDAR_DATASET)) {
+      const calendar = holidayCalendarYear(resource.description);
+      if (!calendar || calendar.year < currentYear) continue;
+      const known = latest.get(calendar.year);
+      if (!known || calendar.revision > known.revision)
+        latest.set(calendar.year, {
+          revision: calendar.revision,
+          url: resource.url,
+        });
+    }
+    const written: number[] = [];
+    for (const [year, { url }] of latest) {
+      const csv = await this.fetchText(url);
+      const holidays = csv ? parseHolidayCalendar(csv) : [];
+      if (!holidays.length) continue;
+      await this.db.transaction(async (tx) => {
+        await tx
+          .delete(statutoryHoliday)
+          .where(like(statutoryHoliday.date, `${year}-%`));
+        await tx.insert(statutoryHoliday).values(holidays);
+      });
+      written.push(year);
+    }
+
+    return { written };
+  }
+
+  private async occupationalFeed(): Promise<GradeFeed> {
+    const resources = await this.resources(OCCUPATIONAL_GRADE_DATASET);
+    const resource =
+      resources.find((item) => item.format === 'JSON') ?? resources[0];
+    if (!resource) return emptyFeed();
+    const payload = await this.fetchJson(resource.url);
+    if (!payload) return emptyFeed();
+    const grades = parseOccupationalGrades(payload);
+    const source = {
+      label: `勞工職業災害保險投保薪資分級表 (data.gov.tw/dataset/${OCCUPATIONAL_GRADE_DATASET})`,
+      url: resource.url,
+    };
+
+    return {
+      grades,
+      sources: new Map([...grades.keys()].map((key) => [key, source])),
+    };
+  }
+
+  private async pensionFeed(): Promise<GradeFeed> {
+    const resources = await this.resources(PENSION_GRADE_DATASET);
+    const resource =
+      resources.find((item) => item.format === 'JSON') ?? resources[0];
+    if (!resource) return emptyFeed();
+    const payload = await this.fetchJson(resource.url);
+    if (!payload) return emptyFeed();
+    const grades = parsePensionGrades(payload);
+    const source = {
+      label: `勞工退休金月提繳分級表 (data.gov.tw/dataset/${PENSION_GRADE_DATASET})`,
+      url: resource.url,
+    };
+
+    return {
+      grades,
+      sources: new Map([...grades.keys()].map((key) => [key, source])),
     };
   }
 

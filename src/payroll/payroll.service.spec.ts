@@ -25,6 +25,8 @@ const employee = {
   organizationId: 'org',
   userId: 'staff',
   name: 'Staff',
+  legalStatus: 'national',
+  birthDate: '1990-01-01',
 };
 
 const row = {
@@ -44,7 +46,14 @@ function setup(results: unknown[][], current = row.snapshot) {
   const select = jest.fn(() => {
     const promise = Promise.resolve(results.shift() ?? []);
     const query: Record<string, unknown> = { then: promise.then.bind(promise) };
-    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit'])
+    for (const method of [
+      'from',
+      'innerJoin',
+      'leftJoin',
+      'where',
+      'orderBy',
+      'limit',
+    ])
       query[method] = () => query;
     return query;
   });
@@ -163,11 +172,9 @@ describe('Payroll review and publication', () => {
 
 describe('Payroll terms validation', () => {
   const insurance = {
-    laborCoverage: 'both' as const,
-    laborBasis: 29500,
-    healthBasis: 29500,
+    healthInsured: true,
+    voluntaryLaborInsurance: false,
     healthDependents: 0,
-    pensionBasis: 29500,
     voluntaryPercent: 0,
     employerPercent: 6,
     taxMethod: 'resident5' as const,
@@ -179,17 +186,16 @@ describe('Payroll terms validation', () => {
     salaryCents: '20000',
     laborInsuranceCents: '0',
     healthInsuranceCents: '0',
-    voluntaryPensionCents: '0',
-    employerPensionCents: '0',
     withholdingCents: '0',
     allowanceCents: '0',
     otherDeductionCents: '0',
-    sourceNote: 'contract',
   };
   const save = (weeklyMinutes: number, overrides: object) => {
     const { service } = setup([
       [{ ...employee, hiredAt: new Date('2020-01-01T00:00:00+08:00') }],
       scheduledWeeks(weeklyMinutes, new Date('2026-03-01T00:00:00+08:00')),
+      [{ total: 1 }],
+      [],
     ]);
     Object.defineProperty(service, 'ruleSets', {
       value: {
@@ -201,35 +207,32 @@ describe('Payroll terms validation', () => {
       insurance: { ...insurance, ...overrides },
     });
   };
-  it('rejects a basis that is not an exact grade of the ladder', async () => {
-    await expect(save(2400, { laborBasis: 30000 })).rejects.toThrow(
-      'invalidInsuranceBasis',
-    );
-    await expect(save(2400, { healthBasis: 50000 })).rejects.toThrow(
-      'invalidInsuranceBasis',
-    );
-  });
-  it('allows the part-time labor ladder only for part-time staff', async () => {
-    await expect(
-      save(2400, { laborLadder: 'partTime', laborBasis: 11100 }),
-    ).rejects.toThrow('partTimeLadderRequiresPartTime');
-    await expect(save(1200, { laborBasis: 11100 })).rejects.toThrow(
-      'invalidInsuranceBasis',
+  it('requires health insurance for staff averaging 12 hours a week', async () => {
+    await expect(save(2400, { healthInsured: false })).rejects.toThrow(
+      'healthInsuranceRequired',
     );
   });
   it('does not change terms a published payslip was calculated from', async () => {
     const { service } = setup([
       [employee],
+      [],
+      [{ total: 1 }],
+      [],
       [{ effectiveFrom: new Date('2026-06-01T00:00:00+08:00') }],
       [{ id: 'statement' }],
     ]);
+    Object.defineProperty(service, 'ruleSets', {
+      value: {
+        resolve: () => Promise.resolve({ rules: taiwan2026, unconfirmed: [] }),
+      },
+    });
     const insert = jest.spyOn(
       Reflect.get(service, 'db') as { insert: () => unknown },
       'insert',
     );
-    await expect(service.saveTerms(actor, dto)).rejects.toThrow(
-      'payrollLocked',
-    );
+    await expect(
+      service.saveTerms(actor, { ...dto, insurance }),
+    ).rejects.toThrow('payrollLocked');
     expect(insert).not.toHaveBeenCalled();
   });
 });

@@ -108,6 +108,13 @@ export const isValidOpeningHours = (value: string): boolean =>
 const schedulesOf = (value: string | null): Schedule[] =>
   parseOpeningHours(value || '') ?? [];
 
+export const openingWeekdays = (value: string | null) =>
+  new Set(
+    schedulesOf(value).flatMap(({ days }) =>
+      days.map((day) => DAYS.indexOf(day)),
+    ),
+  );
+
 const platformParts = (at: Date) => {
   const shifted = new Date(at.getTime() + PLATFORM_UTC_OFFSET_MS);
 

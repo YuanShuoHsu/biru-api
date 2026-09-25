@@ -21,8 +21,6 @@ import {
 import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
-import { PayrollInsuranceGradesResponseDto } from './dto/payroll-insurance-grades-response.dto';
-import { PayrollMonthQueryDto } from './dto/payroll-month-query.dto';
 import { PayrollReviewDto } from './dto/payroll-review.dto';
 import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagination-query.dto';
 import {
@@ -47,15 +45,6 @@ export class PayrollController {
     @Session() session: UserSession,
   ): Promise<PayrollTermsResponseDto[]> {
     return this.payrollService.terms(actor(req, session));
-  }
-
-  @Get('insurance-grades')
-  @Roles({ payrollTerm: ['read'] }, 'organizationSlug')
-  @ApiOperation({ summary: '指定月份適用的勞健保投保級距' })
-  insuranceGrades(
-    @Query() { month }: PayrollMonthQueryDto,
-  ): Promise<PayrollInsuranceGradesResponseDto> {
-    return this.payrollService.insuranceGrades(month);
   }
 
   @Put('terms')

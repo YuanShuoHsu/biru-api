@@ -108,6 +108,29 @@ describe('Official grade ingestion', () => {
       ],
     },
   });
+  const occupationalDataset = JSON.stringify({
+    result: {
+      distribution: [
+        {
+          resourceDescription:
+            '勞工職業災害保險投保薪資分級表(116年1月1日起適用)',
+          resourceFormat: 'JSON',
+          resourceDownloadUrl: 'https://example.test/occupational.json',
+        },
+      ],
+    },
+  });
+  const pensionDataset = JSON.stringify({
+    result: {
+      distribution: [
+        {
+          resourceDescription: '勞工退休金月提繳分級表',
+          resourceFormat: 'JSON',
+          resourceDownloadUrl: 'https://example.test/pension.json',
+        },
+      ],
+    },
+  });
   const healthDataset = JSON.stringify({
     result: {
       distribution: [
@@ -125,6 +148,14 @@ describe('Official grade ingestion', () => {
     { 適用起日: '1160101', 身分別: '部分工時勞工', 月投保薪資: '11700' },
     { 適用起日: '1160101', 身分別: '部分工時勞工', 月投保薪資: '47000' },
   ]);
+  const occupationalGrades = JSON.stringify([
+    { 適用起日: '1160101', 月投保薪資: '31000' },
+    { 適用起日: '1160101', 月投保薪資: '76000' },
+  ]);
+  const pensionGrades = JSON.stringify([
+    { 生效日: '1160101', '月提繳工資金額/月提繳執行業務所得金額': '1500' },
+    { 生效日: '1160101', '月提繳工資金額/月提繳執行業務所得金額': '160000' },
+  ]);
   const healthGrades =
     '組別級距,投保等級,月投保金額（元）,實際薪資月額（元）\n' +
     '第一組,1,31000,31000以下\n' +
@@ -133,6 +164,10 @@ describe('Official grade ingestion', () => {
   const route = (url: string) => {
     if (url.endsWith('/6258')) return fetchOk(laborDataset);
     if (url.endsWith('/20251')) return fetchOk(healthDataset);
+    if (url.endsWith('/170557')) return fetchOk(occupationalDataset);
+    if (url.endsWith('/6274')) return fetchOk(pensionDataset);
+    if (url.endsWith('pension.json')) return fetchOk(pensionGrades);
+    if (url.endsWith('occupational.json')) return fetchOk(occupationalGrades);
     if (url.endsWith('labor.json')) return fetchOk(laborGrades);
     if (url.endsWith('health.csv')) return fetchOk(healthGrades);
 
@@ -174,6 +209,8 @@ describe('Official grade ingestion', () => {
     expect(set.rules.laborGrades).toEqual([31000, 47000]);
     expect(set.rules.partTimeLaborGrades).toEqual([11700, 47000]);
     expect(set.rules.healthGrades).toEqual([31000, 320000]);
+    expect(set.rules.occupationalGrades).toEqual([31000, 76000]);
+    expect(set.rules.pensionGrades).toEqual([1500, 160000]);
     expect(set.rules.laborPercentBp).toBe(taiwan2026.laborPercentBp);
     expect(set.rules.withholdingExemptTaxCents).toBe('200000');
     expect(set.ratesCarriedFrom).toBe('2026-01');

@@ -1114,6 +1114,69 @@
       "when": 1790303954864,
       "tag": "0158_employee_legal_status",
       "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1790324249377,
+      "tag": "0159_employee_student_vacations",
+      "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1790326459650,
+      "tag": "0160_employee_work_permits",
+      "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1790326597463,
+      "tag": "0161_settings_labor_insurance_unit",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1790327108504,
+      "tag": "0162_occupational_accident_rate",
+      "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1790327119369,
+      "tag": "0163_payroll_employer_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1790329006677,
+      "tag": "0164_statutory_holidays",
+      "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1790329325591,
+      "tag": "0165_employee_birth_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1790329400479,
+      "tag": "0166_payroll_pension_grades",
+      "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1790329689405,
+      "tag": "0167_employee_taiwan_stay",
+      "breakpoints": true
     }
   ]
 }

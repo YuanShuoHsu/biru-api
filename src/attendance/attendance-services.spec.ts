@@ -151,7 +151,10 @@ describe('attendance services', () => {
         new AttendanceEmployeesService(db).saveEmployee(actor, {
           userId: 'user',
           enabled: true,
+          birthDate: '1990-01-01',
           legalStatus: 'national',
+          studentVacations: [],
+          workPermits: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt: '2026-02-01T00:00:00+08:00',
         }),
@@ -179,7 +182,10 @@ describe('attendance services', () => {
         result: new AttendanceEmployeesService(db).saveEmployee(actor, {
           userId: 'user',
           enabled: true,
+          birthDate: '1990-01-01',
           legalStatus: 'national',
+          studentVacations: [],
+          workPermits: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt,
         }),

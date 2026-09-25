@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_employee" ADD COLUMN "work_permits" jsonb DEFAULT '[]'::jsonb NOT NULL;

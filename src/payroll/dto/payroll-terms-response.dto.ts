@@ -1,11 +1,15 @@
-import { ApiProperty, OmitType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { PayrollTermsDto } from './payroll-terms.dto';
+import { PayrollTermsDto, TaiwanInsuranceDto } from './payroll-terms.dto';
 
 export class PayrollTermsValuesDto extends OmitType(PayrollTermsDto, [
   'employeeId',
   'effectiveFrom',
-] as const) {}
+  'insurance',
+] as const) {
+  @ApiPropertyOptional({ type: TaiwanInsuranceDto })
+  insurance?: TaiwanInsuranceDto;
+}
 
 export class PayrollTermsResponseDto {
   @ApiProperty() id: string;

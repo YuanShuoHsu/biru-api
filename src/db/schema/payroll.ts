@@ -30,6 +30,17 @@ export const PAYROLL_DEDUCTION_LINE_CODES = [
   'otherDeduction',
 ] as const;
 
+export const PAYROLL_EMPLOYER_COST_CODES = [
+  'laborInsurance',
+  'employmentInsurance',
+  'healthInsurance',
+  'occupationalAccident',
+  'wageGuarantee',
+] as const;
+
+export type PayrollEmployerCostCode =
+  (typeof PAYROLL_EMPLOYER_COST_CODES)[number];
+
 export type PayrollEarningLineCode =
   (typeof PAYROLL_EARNING_LINE_CODES)[number];
 export type PayrollDeductionLineCode =
@@ -38,18 +49,35 @@ export type PayrollLineCode = PayrollEarningLineCode | PayrollDeductionLineCode;
 
 export const PAYROLL_BLOCKERS = [
   'belowMinimumWage',
+  'birthDateRequired',
   'calendarLeavePayRequired',
+  'childLaborHoursExceeded',
+  'childLaborNightWork',
+  'childLaborRestDay',
   'dailyHoursExceeded',
   'emergencyDetailsRequired',
+  'employmentInsuranceExemptionInvalid',
+  'employmentInsuranceIneligible',
+  'employmentInsuranceRequired',
+  'healthInsuranceExemptionInvalid',
+  'healthInsuranceRequired',
+  'holidayCalendarMissing',
+  'holidayDayKindRequired',
   'hourlyAllowanceBasisRequired',
   'incompleteAttendance',
   'inconsistentDayKind',
   'insuranceBasisOutdated',
+  'insuranceBasisUnderDeclared',
+  'insuranceTermsRequired',
+  'laborInsuranceExemptionInvalid',
+  'laborInsuranceRequired',
   'leavePolicyRequired',
   'minimumWageUnconfirmed',
   'monthlyOvertimeExceeded',
   'negativeNetPay',
   'noShifts',
+  'occupationalAccidentRateRequired',
+  'openingHoursRequired',
   'overlappingLeaveAttendance',
   'parentalInsuranceRequired',
   'parentalReturnPending',
@@ -57,17 +85,52 @@ export const PAYROLL_BLOCKERS = [
   'payrollPeriodOpen',
   'payrollRuleSetStale',
   'pendingRequests',
+  'pensionIneligible',
+  'pensionRequired',
   'prorationRequired',
+  'shiftRestTooShort',
+  'studentWeeklyHoursExceeded',
+  'taiwanStaySinceRequired',
   'unsupportedDayKind',
+  'weeklyRestRequired',
   'weeklyScheduleRequiresReview',
+  'workPermitRequired',
 ] as const;
 
 export type PayrollBlocker = (typeof PAYROLL_BLOCKERS)[number];
 
+export const EMPLOYMENT_INSURANCE_EXEMPTIONS = [
+  'publicInsurance',
+  'oldAgeBenefit',
+  'unregisteredEmployer',
+  'otherEmployer',
+] as const;
+
+export type EmploymentInsuranceExemption =
+  (typeof EMPLOYMENT_INSURANCE_EXEMPTIONS)[number];
+
+export const LABOR_INSURANCE_EXEMPTIONS = ['oldAgeBenefit'] as const;
+
+export type LaborInsuranceExemption =
+  (typeof LABOR_INSURANCE_EXEMPTIONS)[number];
+
+export const HEALTH_INSURANCE_EXEMPTIONS = [
+  'shortTermOriginalCoverage',
+  'otherEmployer',
+] as const;
+
+export type HealthInsuranceExemption =
+  (typeof HEALTH_INSURANCE_EXEMPTIONS)[number];
+
 export interface TaiwanInsurance {
   laborCoverage: 'both' | 'labor' | 'employment' | 'none';
+  laborInsuranceExemption?: LaborInsuranceExemption;
+  employmentInsuranceExemption?: EmploymentInsuranceExemption;
+  healthInsuranceExemption?: HealthInsuranceExemption;
+  manualPremiums?: boolean;
   laborLadder?: 'general' | 'partTime';
   laborBasis: number;
+  occupationalBasis: number;
   healthBasis: number;
   healthDependents: number;
   pensionBasis: number;
@@ -81,11 +144,18 @@ export interface TaiwanRuleSet {
   employmentPercentBp: number;
   healthPercentBp: number;
   laborEmployeeShareBp: number;
+  laborEmployerShareBp: number;
   healthEmployeeShareBp: number;
+  healthEmployerShareBp: number;
+  healthAverageDependentsBp: number;
+  commutingAccidentRateMicros: number;
+  wageGuaranteeRateMicros: number;
   withholdingRateBp: number;
   withholdingExemptTaxCents: string;
   laborGrades: number[];
   partTimeLaborGrades: number[];
+  occupationalGrades: number[];
+  pensionGrades: number[];
   healthGrades: number[];
   minimumMonthlyWageCents: string;
   minimumHourlyWageCents: string;
@@ -121,6 +191,7 @@ export interface PayrollSnapshot {
   deductionCents: string;
   netCents: string;
   employerPensionCents: string;
+  employerCosts?: { code: PayrollEmployerCostCode; amountCents: string }[];
   workedSeconds: number;
   blockers: PayrollBlocker[];
   sourceFingerprint: string;

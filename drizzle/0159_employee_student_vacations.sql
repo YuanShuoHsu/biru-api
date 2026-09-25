@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_employee" ADD COLUMN "student_vacations" jsonb DEFAULT '[]'::jsonb NOT NULL;

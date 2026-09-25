@@ -16,6 +16,7 @@ import {
   AttendanceContextResponseDto,
   AttendanceEmployeeResponseDto,
   AttendanceEmployeesResponseDto,
+  AttendanceLegalStatusObligationResponseDto,
   AttendanceMembersResponseDto,
 } from './dto/attendance-employee-response.dto';
 import { AttendanceErrorResponseDto } from './dto/attendance-error-response.dto';
@@ -50,6 +51,13 @@ export class AttendanceEmployeesController {
     @Query() query: AttendanceEmployeePaginationQueryDto,
   ): Promise<AttendanceMembersResponseDto> {
     return this.attendanceEmployeesService.members(actor(req, session), query);
+  }
+
+  @Get('legal-status-obligations')
+  @Roles({ employee: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '各法定身分的就保、勞退與工作許可義務' })
+  legalStatusObligations(): AttendanceLegalStatusObligationResponseDto[] {
+    return this.attendanceEmployeesService.legalStatusObligations();
   }
 
   @Get('employees')

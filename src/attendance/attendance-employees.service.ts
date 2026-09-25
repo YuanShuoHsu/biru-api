@@ -19,13 +19,17 @@ import {
 import { randomUUID } from 'node:crypto';
 
 import { isAuthorized } from 'src/auth/permissions';
-import { platformMidnight } from 'src/common/constants/timezone';
+import {
+  platformDateString,
+  platformMidnight,
+} from 'src/common/constants/timezone';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import {
+  ATTENDANCE_LEGAL_STATUSES,
   attendanceEmployee,
   attendanceLeaveCase,
   attendanceRequest,
@@ -36,6 +40,7 @@ import {
 import { member } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { legalStatusObligations } from 'src/payroll/taiwan-rules';
 
 import type { AttendanceActor } from './attendance-actor';
 import {
@@ -46,8 +51,11 @@ import {
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
 import {
+  ageOn,
   hasOverlappingOvertimeExtensions,
+  MINIMUM_WORKING_AGE,
   normalizeIpRange,
+  workPermitRequired,
 } from './attendance-rules';
 import {
   ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
@@ -92,6 +100,7 @@ export class AttendanceEmployeesService {
       employee: employee
         ? {
             ...employee,
+            ...legalStatusObligations(employee.legalStatus),
             employmentType: await currentEmploymentType(this.db, employee),
             status: employeeStatus(employee),
           }
@@ -115,6 +124,13 @@ export class AttendanceEmployeesService {
         payslip: ['create', 'update', 'read'],
       }),
     };
+  }
+
+  legalStatusObligations() {
+    return ATTENDANCE_LEGAL_STATUSES.map((legalStatus) => ({
+      legalStatus,
+      ...legalStatusObligations(legalStatus),
+    }));
   }
 
   async employees(
@@ -180,7 +196,11 @@ export class AttendanceEmployeesService {
           userId: attendanceEmployee.userId,
           name: user.name,
           employmentType: sql<AttendanceEmploymentType>`${employmentTypeSql}`,
+          birthDate: attendanceEmployee.birthDate,
+          taiwanStaySince: attendanceEmployee.taiwanStaySince,
           legalStatus: attendanceEmployee.legalStatus,
+          studentVacations: attendanceEmployee.studentVacations,
+          workPermits: attendanceEmployee.workPermits,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -199,7 +219,13 @@ export class AttendanceEmployeesService {
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where),
     ]);
-    return { data, total };
+    return {
+      data: data.map((row) => ({
+        ...row,
+        ...legalStatusObligations(row.legalStatus),
+      })),
+      total,
+    };
   }
 
   async members(
@@ -267,7 +293,11 @@ export class AttendanceEmployeesService {
           email: user.email,
           joinedAt: member.createdAt,
           employmentType: employmentTypeSql,
+          birthDate: attendanceEmployee.birthDate,
+          taiwanStaySince: attendanceEmployee.taiwanStaySince,
           legalStatus: attendanceEmployee.legalStatus,
+          studentVacations: attendanceEmployee.studentVacations,
+          workPermits: attendanceEmployee.workPermits,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -314,6 +344,8 @@ export class AttendanceEmployeesService {
             employee.enabled === null ||
             employee.employmentType === null ||
             employee.legalStatus === null ||
+            employee.studentVacations === null ||
+            employee.workPermits === null ||
             employee.createdAt === null
               ? null
               : {
@@ -323,6 +355,9 @@ export class AttendanceEmployeesService {
                   enabled: employee.enabled,
                   employmentType: employee.employmentType,
                   legalStatus: employee.legalStatus,
+                  studentVacations: employee.studentVacations,
+                  workPermits: employee.workPermits,
+                  ...legalStatusObligations(employee.legalStatus),
                   createdAt: employee.createdAt,
                   userId,
                   name,
@@ -352,6 +387,16 @@ export class AttendanceEmployeesService {
         ? platformDayStart(dto.terminatedAt)
         : null;
       if (terminatedAt && terminatedAt <= hiredAt)
+        throw badRequestError('invalidInterval');
+      if (
+        ageOn(dto.birthDate, platformDateString(hiredAt)) < MINIMUM_WORKING_AGE
+      )
+        throw badRequestError('belowMinimumWorkingAge');
+      if (
+        [...dto.studentVacations, ...dto.workPermits].some(
+          ({ from, to }) => from > to,
+        )
+      )
         throw badRequestError('invalidInterval');
       const [current] = await tx
         .select({
@@ -463,7 +508,13 @@ export class AttendanceEmployeesService {
         organizationId: actor.organizationId,
         userId: dto.userId,
         enabled: dto.enabled,
+        birthDate: dto.birthDate,
+        taiwanStaySince:
+          dto.legalStatus === 'national' ? null : (dto.taiwanStaySince ?? null),
         legalStatus: dto.legalStatus,
+        studentVacations:
+          dto.legalStatus === 'foreignStudent' ? dto.studentVacations : [],
+        workPermits: workPermitRequired(dto.legalStatus) ? dto.workPermits : [],
         hiredAt,
         terminatedAt,
       };
@@ -487,6 +538,7 @@ export class AttendanceEmployeesService {
       );
       return {
         ...row,
+        ...legalStatusObligations(row.legalStatus),
         name: membership.name,
         employmentType: await currentEmploymentType(tx, row),
         status: employeeStatus(row),
@@ -511,6 +563,9 @@ export class AttendanceEmployeesService {
       const values = {
         ...dto,
         allowedIps: dto.allowedIps.map(normalizeIpRange),
+        laborInsuranceUnitCode: dto.laborInsuranceUnitCode ?? null,
+        occupationalAccidentRateMicros:
+          dto.occupationalAccidentRateMicros ?? null,
         overtimeExtensionPeriods: [
           ...new Set(dto.overtimeExtensionPeriods),
         ].sort(),

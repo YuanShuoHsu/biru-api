@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   ArrayMaxSize,
@@ -6,6 +6,7 @@ import {
   IsArray,
   IsInt,
   IsNumber,
+  IsOptional,
   Matches,
   Max,
   Min,
@@ -22,6 +23,21 @@ export class SaveAttendanceSettingsDto {
   @Matches(/^[\d.:a-fA-F]{2,45}(\/\d{1,3})?$/, { each: true })
   allowedIps: string[];
   @IsInt() @Min(0) @Max(60) graceMinutes: number;
+  @ApiPropertyOptional({ example: '01234567A', nullable: true, type: String })
+  @IsOptional()
+  @Matches(/^\d{8}[A-Z]$/)
+  laborInsuranceUnitCode?: string | null;
+  @ApiPropertyOptional({
+    description: '勞保局核定的行業別職災費率（百萬分率，不含上下班費率）',
+    example: 1200,
+    nullable: true,
+    type: Number,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100000)
+  occupationalAccidentRateMicros?: number | null;
   @ApiProperty({
     description:
       '經工會或勞資會議同意延長工時的各期起始月（每期連續 3 個曆月）',

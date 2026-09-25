@@ -11,9 +11,12 @@ import {
   gte,
   ilike,
   inArray,
+  isNull,
+  like,
   lt,
   lte,
   ne,
+  or,
   sql,
   type Column,
   type SQL,
@@ -35,6 +38,12 @@ import {
 import {
   countedIntervals,
   countedRequestStatuses,
+  ADULT_WORKING_AGE,
+  ageOn,
+  childLaborViolation,
+  exceedsStudentWeeklyLimit,
+  hasShortRestBetweenShifts,
+  lacksWeeklyRest,
   EXTENDED_MONTHLY_OVERTIME_SECONDS,
   intersectIntervals,
   punchedUnpaidBreaks,
@@ -47,11 +56,15 @@ import {
   scheduledWorkSeconds,
   summarizeEvents,
   type TimeInterval,
+  weekStartOfDate,
+  withinPeriods,
+  workPermitRequired,
 } from 'src/attendance/attendance-rules';
 import {
   averageWeeklyMinutes,
   employmentType,
   loadOneEmployeeHours,
+  weeklyMinutesAt,
   weeklyMinutesOf,
   type EmployeeHours,
 } from 'src/attendance/employee-hours';
@@ -81,6 +94,7 @@ import {
   attendanceParentalReturn,
   attendanceRequest,
   attendanceSettings,
+  statutoryHoliday,
   attendanceShift,
 } from 'src/db/schema/attendance';
 import {
@@ -88,9 +102,12 @@ import {
   payrollTerms,
   type PayrollBlocker,
   type PayrollSnapshot,
+  type PayrollTerms,
 } from 'src/db/schema/payroll';
 import { user } from 'src/db/schema/users';
+import { member, organization } from 'src/db/schema/organizations';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { openingWeekdays } from 'src/common/utils/opening-hours';
 
 import { annualLeaveSettlement } from './annual-leave';
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
@@ -112,15 +129,110 @@ import {
   employmentPeriod,
   exceedsWeeklySchedule,
   intervalSeconds,
+  contributionCoverageDays,
   periodWork,
 } from './payroll-period';
+import {
+  averageMonthlyWage,
+  insurableWages,
+  precedingMonths,
+} from './insurable-wages';
 import { PayrollRulesService } from './payroll-rules.service';
-import { currentGrade, laborGradesFor } from './taiwan-rules';
+import {
+  currentGrade,
+  deriveInsurance,
+  insuranceGrade,
+  insuranceViolations,
+  laborGradesFor,
+} from './taiwan-rules';
 
 const knownFullTime = (hours: EmployeeHours, at: Date) => {
   const weeklyMinutes = averageWeeklyMinutes(hours, at);
 
   return weeklyMinutes !== null && employmentType(weeklyMinutes) === 'fullTime';
+};
+
+interface PayrollSettings {
+  overtimeExtensionPeriods: string[];
+  occupationalAccidentRateMicros: number | null;
+  holidays: string[] | null;
+}
+
+const NO_PAYROLL_SETTINGS: PayrollSettings = {
+  overtimeExtensionPeriods: [],
+  occupationalAccidentRateMicros: null,
+  holidays: [],
+};
+
+const employeeHeadcount = async (
+  tx: Transaction,
+  organizationId: string,
+  start: Date,
+  end: Date,
+) => {
+  const [{ total }] = await tx
+    .select({ total: count() })
+    .from(attendanceEmployee)
+    .leftJoin(
+      attendanceSettings,
+      eq(attendanceSettings.organizationId, attendanceEmployee.organizationId),
+    )
+    .leftJoin(
+      member,
+      and(
+        eq(member.organizationId, attendanceEmployee.organizationId),
+        eq(member.userId, attendanceEmployee.userId),
+      ),
+    )
+    .where(
+      and(
+        or(
+          eq(attendanceEmployee.organizationId, organizationId),
+          sql`${attendanceSettings.laborInsuranceUnitCode} = (SELECT s.labor_insurance_unit_code FROM attendance_settings s WHERE s.organization_id = ${organizationId})`,
+        ),
+        or(isNull(member.role), ne(member.role, 'owner')),
+        lt(attendanceEmployee.hiredAt, end),
+        or(
+          isNull(attendanceEmployee.terminatedAt),
+          gt(attendanceEmployee.terminatedAt, start),
+        ),
+      ),
+    );
+  return total;
+};
+
+const WEEKS_PER_MONTH = 52 / 12;
+
+const TAX_RESIDENCY_DAYS = 183;
+
+const taiwanStayDays = (staySince: string, periodEnd: Date) => {
+  const lastDay = platformDateString(new Date(periodEnd.getTime() - 1));
+  const from = [staySince, `${lastDay.slice(0, 4)}-01-01`].sort()[1];
+
+  return from > lastDay
+    ? 0
+    : (Date.parse(lastDay) - Date.parse(from)) / DAY_MS + 1;
+};
+
+const agreedMonthlyWage = (
+  terms: Pick<PayrollTerms, 'allowanceCents' | 'salaryCents' | 'salaryType'>,
+  weeklyMinutes: number,
+) =>
+  (Number(terms.salaryCents) *
+    (terms.salaryType === 'hourly'
+      ? (weeklyMinutes / 60) * WEEKS_PER_MONTH
+      : 1) +
+    Number(terms.allowanceCents)) /
+  100;
+
+const adjustmentReferenceMonths = (month: string) => {
+  const [year, number] = month.split('-').map(Number);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  if (number >= 3 && number <= 8)
+    return [`${year - 1}-11`, `${year - 1}-12`, `${year}-01`];
+  const summerYear = number >= 9 ? year : year - 1;
+
+  return [5, 6, 7].map((value) => `${summerYear}-${pad(value)}`);
 };
 
 @Injectable()
@@ -135,18 +247,6 @@ export class PayrollService {
       .from(payrollTerms)
       .where(eq(payrollTerms.organizationId, actor.organizationId))
       .orderBy(desc(payrollTerms.effectiveFrom), desc(payrollTerms.version));
-  }
-
-  async insuranceGrades(month: string) {
-    const ruleSet = await this.ruleSets.resolve(this.db, month);
-    if (!ruleSet) throw new NotFoundException('payrollRuleSetMissing');
-    const { healthGrades, laborGrades, partTimeLaborGrades } = ruleSet.rules;
-    return {
-      effectiveFrom: ruleSet.effectiveFrom,
-      healthGrades,
-      laborGrades,
-      partTimeLaborGrades,
-    };
   }
 
   async saveTerms(actor: AttendanceActor, dto: PayrollTermsDto) {
@@ -164,30 +264,41 @@ export class PayrollService {
       if (!employee) throw new NotFoundException();
       const { employeeId, effectiveFrom, ...terms } = dto;
       const date = new Date(`${effectiveFrom}T00:00:00${STORE_UTC_OFFSET}`);
-      if (terms.insurance) {
-        const ruleSet = await this.ruleSets.resolve(
+      const ruleSet = await this.ruleSets.resolve(
+        tx,
+        effectiveFrom.slice(0, 7),
+      );
+      if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
+      const hours = await loadOneEmployeeHours(tx, employee);
+      const month = effectiveFrom.slice(0, 7);
+      const period = payrollPeriod(month);
+      const context = {
+        age: employee.birthDate
+          ? ageOn(employee.birthDate, effectiveFrom)
+          : null,
+        headcount: await employeeHeadcount(
           tx,
-          effectiveFrom.slice(0, 7),
-        );
-        if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
-        if (
-          terms.insurance.laborLadder === 'partTime' &&
-          knownFullTime(await loadOneEmployeeHours(tx, employee), date)
-        )
-          throw badRequestError('partTimeLadderRequiresPartTime');
-        if (
-          (terms.insurance.laborCoverage !== 'none' &&
-            terms.insurance.laborBasis <= 0) ||
-          terms.insurance.pensionBasis <= 0 ||
-          !currentGrade(
-            terms.insurance.laborBasis,
-            laborGradesFor(ruleSet.rules, terms.insurance),
-          ) ||
-          !currentGrade(terms.insurance.healthBasis, ruleSet.rules.healthGrades)
-        )
-          throw badRequestError('invalidInsuranceBasis');
-      }
-      if (!terms.sourceNote.trim()) throw badRequestError('sourceRequired');
+          actor.organizationId,
+          period.start,
+          period.end,
+        ),
+        legalStatus: employee.legalStatus,
+        weeklyMinutes: weeklyMinutesAt(hours, date),
+      };
+      const recentWages =
+        terms.salaryType === 'hourly'
+          ? await insurableWages(tx, employeeId, precedingMonths(month, 3))
+          : [];
+      const insurance = deriveInsurance(ruleSet.rules, terms.insurance, {
+        ...context,
+        fullTime: knownFullTime(hours, date),
+        referenceWage:
+          recentWages.length === 3
+            ? averageMonthlyWage(recentWages)
+            : agreedMonthlyWage(terms, context.weeklyMinutes),
+      });
+      const [violation] = insuranceViolations(insurance, context);
+      if (violation) throw badRequestError(violation);
       const [successor] = await tx
         .select({ effectiveFrom: payrollTerms.effectiveFrom })
         .from(payrollTerms)
@@ -225,7 +336,13 @@ export class PayrollService {
           employeeId,
           effectiveFrom: date,
           version: (previous?.version ?? 0) + 1,
-          terms,
+          terms: {
+            ...terms,
+            insurance,
+            voluntaryPensionCents: '0',
+            employerPensionCents: '0',
+            sourceNote: terms.sourceNote?.trim() ?? '',
+          },
         })
         .returning();
       await writeAudit(tx, actor, 'payroll.terms', row.id, {
@@ -346,15 +463,31 @@ export class PayrollService {
     return employee;
   }
 
-  private async overtimeExtensionPeriods(
+  private async payrollSettings(
     tx: Transaction,
     organizationId: string,
-  ) {
+    month: string,
+  ): Promise<PayrollSettings> {
     const [settings] = await tx
-      .select({ periods: attendanceSettings.overtimeExtensionPeriods })
+      .select({
+        overtimeExtensionPeriods: attendanceSettings.overtimeExtensionPeriods,
+        occupationalAccidentRateMicros:
+          attendanceSettings.occupationalAccidentRateMicros,
+      })
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, organizationId));
-    return settings?.periods ?? [];
+    const holidays = await tx
+      .select({ date: statutoryHoliday.date })
+      .from(statutoryHoliday)
+      .where(like(statutoryHoliday.date, `${month.slice(0, 4)}-%`));
+    return {
+      ...(settings ?? NO_PAYROLL_SETTINGS),
+      holidays: holidays.length
+        ? holidays
+            .map(({ date }) => date)
+            .filter((date) => date.startsWith(month))
+        : null,
+    };
   }
 
   private async snapshot(
@@ -363,7 +496,11 @@ export class PayrollService {
     employeeId: string,
     month: string,
     knownEmployee?: typeof attendanceEmployee.$inferSelect,
-    overtimeExtensionPeriods: string[] = [],
+    {
+      holidays,
+      occupationalAccidentRateMicros,
+      overtimeExtensionPeriods,
+    } = NO_PAYROLL_SETTINGS,
   ): Promise<PayrollSnapshot> {
     const employee =
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
@@ -445,11 +582,50 @@ export class PayrollService {
         insurance.laborBasis,
         laborGradesFor(ruleSet.rules, insurance),
       ) ||
-        !currentGrade(insurance.healthBasis, ruleSet.rules.healthGrades))
+        !currentGrade(insurance.healthBasis, ruleSet.rules.healthGrades) ||
+        !ruleSet.rules.occupationalGrades.includes(insurance.occupationalBasis))
     )
       blockers.push('insuranceBasisOutdated');
     if (insurance?.laborLadder === 'partTime' && knownFullTime(hours, start))
       blockers.push('partTimeLadderRequiresPartTime');
+    const headcount = insurance
+      ? await employeeHeadcount(tx, actor.organizationId, start, end)
+      : 0;
+    const declaredWages = insurance
+      ? await insurableWages(tx, employeeId, adjustmentReferenceMonths(month))
+      : [];
+    if (insurance && declaredWages.length === 3) {
+      const wage = averageMonthlyWage(declaredWages);
+      if (
+        (insurance.laborCoverage !== 'none' &&
+          insurance.laborBasis <
+            insuranceGrade(wage, laborGradesFor(ruleSet.rules, insurance))) ||
+        insurance.occupationalBasis <
+          insuranceGrade(wage, ruleSet.rules.occupationalGrades) ||
+        (insurance.healthBasis > 0 &&
+          insurance.healthBasis <
+            insuranceGrade(wage, ruleSet.rules.healthGrades)) ||
+        (insurance.pensionBasis > 0 &&
+          insurance.pensionBasis <
+            insuranceGrade(wage, ruleSet.rules.pensionGrades))
+      )
+        blockers.push('insuranceBasisUnderDeclared');
+    }
+    const businessDays =
+      insurance?.healthBasis === 0
+        ? openingWeekdays(
+            (
+              await tx
+                .select({ openingHours: organization.openingHours })
+                .from(organization)
+                .where(eq(organization.id, actor.organizationId))
+            )[0]?.openingHours ?? null,
+          )
+        : null;
+    if (!insurance) blockers.push('insuranceTermsRequired');
+    else if (occupationalAccidentRateMicros === null)
+      blockers.push('occupationalAccidentRateRequired');
+    if (businessDays?.size === 0) blockers.push('openingHoursRequired');
     if (ruleSet.stale) blockers.push('payrollRuleSetStale');
     if (
       profile.terms.salaryType === 'hourly' &&
@@ -515,7 +691,7 @@ export class PayrollService {
         )
       : [];
     if (pendingParentalReturns.length) blockers.push('parentalReturnPending');
-    if (parentalLeaves.length && profile.terms.insurance)
+    if (parentalLeaves.length && insurance && !insurance.manualPremiums)
       blockers.push('parentalInsuranceRequired');
     const calendarCases = calendarLeaves.length
       ? await tx
@@ -810,6 +986,101 @@ export class PayrollService {
       Object.assign(days.get(key)!, periodWork(intervals, start, end));
     if (exceedsWeeklySchedule(adjacentShifts, start, end))
       blockers.push('weeklyScheduleRequiresReview');
+    const monthWeeks = [
+      weekStartOfDate(platformDateString(start)),
+      weekStartOfDate(platformDateString(new Date(end.getTime() - 1))),
+    ];
+    const monthWeekShifts = adjacentShifts.filter((shift) => {
+      const week = weekStartOfDate(platformDateString(shift.startsAt));
+      return week >= monthWeeks[0] && week <= monthWeeks[1];
+    });
+    if (employee.legalStatus !== 'national' && !employee.taiwanStaySince)
+      blockers.push('taiwanStaySinceRequired');
+    if (!employee.birthDate) blockers.push('birthDateRequired');
+    else if (
+      ageOn(employee.birthDate, platformDateString(start)) < ADULT_WORKING_AGE
+    ) {
+      const violation = childLaborViolation(monthWeekShifts);
+      if (violation) blockers.push(violation);
+    }
+    if (lacksWeeklyRest(monthWeekShifts)) blockers.push('weeklyRestRequired');
+    if (
+      hasShortRestBetweenShifts(
+        adjacentShifts,
+        (shift) => shift.startsAt >= start && shift.startsAt < end,
+      )
+    )
+      blockers.push('shiftRestTooShort');
+    if (holidays === null) blockers.push('holidayCalendarMissing');
+    else if (
+      shifts.some(
+        (shift) =>
+          shift.dayKind === 'workday' &&
+          shift.startsAt >= start &&
+          shift.startsAt < end &&
+          holidays.includes(platformDateString(shift.startsAt)),
+      )
+    )
+      blockers.push('holidayDayKindRequired');
+    if (
+      workPermitRequired(employee.legalStatus) &&
+      [...days.keys()].some(
+        (date) =>
+          date >= platformDateString(start) &&
+          date < platformDateString(end) &&
+          !withinPeriods(employee.workPermits, date),
+      )
+    )
+      blockers.push('workPermitRequired');
+    if (insurance) {
+      const employedDates: string[] = [];
+      for (
+        let time = Math.max(start.getTime(), employee.hiredAt.getTime());
+        time <
+        Math.min(end.getTime(), employee.terminatedAt?.getTime() ?? Infinity);
+        time += DAY_MS
+      )
+        employedDates.push(platformDateString(new Date(time)));
+      const openDates = employedDates.filter((date) =>
+        businessDays?.has((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7),
+      );
+      blockers.push(
+        ...insuranceViolations(insurance, {
+          age: employee.birthDate
+            ? ageOn(employee.birthDate, platformDateString(start))
+            : null,
+          headcount,
+          legalStatus: employee.legalStatus,
+          weeklyMinutes: weeklyMinutesAt(hours, end),
+          worksEveryBusinessDay:
+            openDates.length > 0 &&
+            openDates.every((date) => {
+              const day = days.get(date);
+              return !!day && (day.seconds > 0 || day.scheduledSeconds > 0);
+            }),
+        }),
+      );
+    }
+    if (employee.legalStatus === 'foreignStudent') {
+      const firstWeek = weekStartOfDate(platformDateString(start));
+      const lastWeek = weekStartOfDate(
+        platformDateString(new Date(end.getTime() - 1)),
+      );
+      const studentDays = [
+        ...[...days].map(([date, { seconds }]) => ({ date, seconds })),
+        ...adjacentShifts
+          .map((shift) => ({
+            date: platformDateString(shift.startsAt),
+            seconds: scheduledWorkSeconds(shift),
+          }))
+          .filter(({ date }) => !days.has(date)),
+      ].filter(({ date }) => {
+        const week = weekStartOfDate(date);
+        return week >= firstWeek && week <= lastWeek;
+      });
+      if (exceedsStudentWeeklyLimit(studentDays, employee.studentVacations))
+        blockers.push('studentWeeklyHoursExceeded');
+    }
     const annualPolicies = leaveTypes.filter(
       (policy) => policy.statutoryKind === 'annual',
     );
@@ -874,6 +1145,23 @@ export class PayrollService {
       {
         absenceSeconds,
         ...employment,
+        contributionDays: contributionCoverageDays(
+          start,
+          end,
+          employee.hiredAt,
+          employee.terminatedAt,
+          parentalLeaves,
+        ),
+        nonResident:
+          employee.legalStatus !== 'national' &&
+          (!employee.taiwanStaySince ||
+            taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS),
+        employerHealthCharged:
+          employment.healthCharged &&
+          !parentalLeaves.some(
+            (leave) => leave.startsAt < end && leave.endsAt >= end,
+          ),
+        occupationalAccidentRateMicros,
         annualLeavePayoutCents: annual.amountCents,
         calendarLeaveDeductionCents: calendarDeduction.toString(),
         calendarLeavePayCents: calendarPay.toString(),
@@ -895,8 +1183,12 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'overtime-application-6',
+            calculationVersion: 'social-insurance-1',
             overtimeExtensionPeriods,
+            occupationalAccidentRateMicros,
+            holidays,
+            headcount,
+            businessDays: businessDays && [...businessDays],
             medical: medical
               ? { records: medical.records, shifts: medical.shifts }
               : null,
@@ -962,7 +1254,7 @@ export class PayrollService {
         dto.employeeId,
         dto.month,
         employee,
-        await this.overtimeExtensionPeriods(tx, actor.organizationId),
+        await this.payrollSettings(tx, actor.organizationId, dto.month),
       );
       const calculation = {
         employeeName: employee.name,
@@ -1029,7 +1321,7 @@ export class PayrollService {
         row.employeeId,
         row.month,
         subject,
-        await this.overtimeExtensionPeriods(tx, actor.organizationId),
+        await this.payrollSettings(tx, actor.organizationId, row.month),
       );
       if (
         current.ruleVersion !== row.snapshot.ruleVersion ||
