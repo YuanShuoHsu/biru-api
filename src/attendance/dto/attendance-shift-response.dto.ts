@@ -91,3 +91,24 @@ export class AttendanceShiftsResponseDto {
   data: AttendanceShiftResponseDto[];
   @ApiProperty() total: number;
 }
+
+export class AttendanceCalendarDayKindResponseDto {
+  @ApiProperty() employeeId: string;
+  @ApiProperty() employeeName: string;
+  @ApiProperty() date: string;
+  @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
+  dayKind: AttendanceDayKind;
+  @ApiPropertyOptional() holidayName?: string;
+}
+
+export class AttendanceCalendarHolidayResponseDto {
+  @ApiProperty() date: string;
+  @ApiProperty() name: string;
+}
+
+export class AttendanceCalendarDayKindsResponseDto {
+  @ApiProperty({ isArray: true, type: AttendanceCalendarHolidayResponseDto })
+  holidays: AttendanceCalendarHolidayResponseDto[];
+  @ApiProperty({ isArray: true, type: AttendanceCalendarDayKindResponseDto })
+  dayKinds: AttendanceCalendarDayKindResponseDto[];
+}

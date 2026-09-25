@@ -24,6 +24,7 @@ import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { AttendanceShiftPaginationQueryDto } from './dto/attendance-shift-pagination-query.dto';
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import {
+  AttendanceCalendarDayKindsResponseDto,
   AttendancePunchResponseDto,
   AttendanceShiftRecordResponseDto,
   AttendanceShiftResponseDto,
@@ -88,6 +89,20 @@ export class AttendanceShiftsController {
     @Query() query: AttendanceShiftRangeQueryDto,
   ): Promise<AttendanceShiftResponseDto[]> {
     return this.attendanceShiftsService.calendarShifts(
+      actor(req, session),
+      query,
+    );
+  }
+
+  @Get('day-kinds/calendar')
+  @Roles({ shift: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '指定期間各員工的假日、例假與休息日' })
+  calendarDayKinds(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceShiftRangeQueryDto,
+  ): Promise<AttendanceCalendarDayKindsResponseDto> {
+    return this.attendanceShiftsService.calendarDayKinds(
       actor(req, session),
       query,
     );

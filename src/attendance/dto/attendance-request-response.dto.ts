@@ -59,6 +59,7 @@ export class AttendanceRequestResponseDto {
     nullable: true,
   })
   leaveTypeStatutoryKind: StatutoryLeaveKind | null;
+  @ApiProperty() calendarLeave: boolean;
   @ApiPropertyOptional() leaveCaseId: string | null;
   @ApiPropertyOptional() leaveMinutes: number | null;
   @ApiPropertyOptional() paidPercent: number | null;
@@ -89,6 +90,7 @@ export class AttendanceRequestRecordResponseDto extends OmitType(
     'employeeName',
     'leaveTypeName',
     'leaveTypeStatutoryKind',
+    'calendarLeave',
     'parentalMode',
     'returnPending',
     'shiftStartsAt',

@@ -24,8 +24,10 @@ import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { AttendanceRequestPaginationQueryDto } from './dto/attendance-request-pagination-query.dto';
 import {
   AttendanceRequestRecordResponseDto,
+  AttendanceRequestResponseDto,
   AttendanceRequestsResponseDto,
 } from './dto/attendance-request-response.dto';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
 import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
@@ -64,6 +66,20 @@ export class AttendanceRequestsController {
       actor(req, session),
       query,
       false,
+    );
+  }
+
+  @Get('leaves/calendar')
+  @Roles({ attendanceRequest: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '指定期間已核准的全店請假' })
+  calendarLeaves(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceShiftRangeQueryDto,
+  ): Promise<AttendanceRequestResponseDto[]> {
+    return this.attendanceRequestsService.calendarLeaves(
+      actor(req, session),
+      query,
     );
   }
 

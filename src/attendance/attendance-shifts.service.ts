@@ -76,6 +76,7 @@ import {
   maternalNightWork,
   maternalProtectionPeriods,
   designatedDayKind,
+  employeeHolidays,
   weekdayOfDate,
   type ScheduledShift,
   scheduledWorkIntervals,
@@ -383,6 +384,83 @@ export class AttendanceShiftsService {
       if (!page.data.length) break;
     } while (shifts.length < total);
     return shifts;
+  }
+
+  async calendarDayKinds(
+    actor: AttendanceActor,
+    { from, to }: AttendanceShiftRangeQueryDto,
+  ) {
+    const fromDate = platformDateString(new Date(from));
+    const toDate = platformDateString(new Date(to));
+    const [employees, statutory] = await Promise.all([
+      this.db
+        .select({ employee: attendanceEmployee, employeeName: user.name })
+        .from(attendanceEmployee)
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .where(
+          and(
+            eq(attendanceEmployee.organizationId, actor.organizationId),
+            eq(attendanceEmployee.enabled, true),
+          ),
+        ),
+      this.db
+        .select({ date: statutoryHoliday.date, name: statutoryHoliday.name })
+        .from(statutoryHoliday)
+        .where(
+          and(
+            gte(statutoryHoliday.date, fromDate),
+            lt(statutoryHoliday.date, toDate),
+          ),
+        ),
+    ]);
+    const dates: string[] = [];
+    for (
+      let time = platformMidnight(new Date(from).getTime());
+      platformDateString(new Date(time)) < toDate;
+      time += DAY_MS
+    )
+      dates.push(platformDateString(new Date(time)));
+    const dayKinds = employees.flatMap(({ employee, employeeName }) => {
+      const employedFrom = platformDateString(employee.hiredAt);
+      const employedUntil =
+        employee.terminatedAt && platformDateString(employee.terminatedAt);
+      const ownHolidays = employeeHolidays(statutory, employee).filter(
+        ({ date }) => !statutory.some((holiday) => holiday.date === date),
+      );
+      return dates
+        .filter(
+          (date) =>
+            date >= employedFrom && (!employedUntil || date < employedUntil),
+        )
+        .flatMap((date) => {
+          const holiday = ownHolidays.find((holiday) => holiday.date === date);
+          const designated = designatedDayKind(employee, weekdayOfDate(date));
+          return [
+            ...(holiday
+              ? [
+                  {
+                    employeeId: employee.id,
+                    employeeName,
+                    date,
+                    dayKind: 'holiday' as const,
+                    holidayName: holiday.name,
+                  },
+                ]
+              : []),
+            ...(designated && designated !== 'workday'
+              ? [
+                  {
+                    employeeId: employee.id,
+                    employeeName,
+                    date,
+                    dayKind: designated,
+                  },
+                ]
+              : []),
+          ];
+        });
+    });
+    return { holidays: statutory, dayKinds };
   }
 
   async createShifts(actor: AttendanceActor, dtos: CreateAttendanceShiftDto[]) {

@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
   inArray,
   lt,
@@ -81,6 +82,7 @@ import {
   ATTENDANCE_REQUEST_STRING_FILTER_FIELDS,
   AttendanceRequestPaginationQueryDto,
 } from './dto/attendance-request-pagination-query.dto';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
 import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
@@ -119,6 +121,8 @@ import { assertNoParentalReturn } from './parental-ledger';
 import { parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
+const CALENDAR_LEAVE_LIMIT = 500;
+
 type AttendanceRequestRow = typeof attendanceRequest.$inferSelect;
 
 type AttendanceShiftRow = typeof attendanceShift.$inferSelect;
@@ -137,6 +141,7 @@ export class AttendanceRequestsService {
     actor: AttendanceActor,
     query: AttendanceRequestPaginationQueryDto,
     mine: boolean,
+    scope?: SQL,
   ) {
     const {
       limit = 10,
@@ -166,6 +171,7 @@ export class AttendanceRequestsService {
     const where = and(
       eq(attendanceRequest.organizationId, actor.organizationId),
       employeeId ? eq(attendanceRequest.employeeId, employeeId) : undefined,
+      scope,
       filterField && filterOperator
         ? buildFilterCondition(
             filterField,
@@ -270,6 +276,8 @@ export class AttendanceRequestsService {
           employeeName,
           leaveTypeName,
           leaveTypeStatutoryKind,
+          calendarLeave:
+            !!leaveTypeStatutoryKind && isCalendarLeave(leaveTypeStatutoryKind),
           parentalMode:
             leaveTypeStatutoryKind === 'parental'
               ? parentalMode(request)
@@ -291,6 +299,36 @@ export class AttendanceRequestsService {
       ),
       total,
     };
+  }
+
+  async calendarLeaves(
+    actor: AttendanceActor,
+    { from, to }: AttendanceShiftRangeQueryDto,
+  ) {
+    const leaves: Awaited<ReturnType<typeof this.requests>>['data'] = [];
+    let total: number;
+    do {
+      const page = await this.requests(
+        actor,
+        {
+          limit: CALENDAR_LEAVE_LIMIT,
+          offset: leaves.length,
+          sortBy: 'startsAt',
+          sortDirection: 'asc',
+        },
+        false,
+        and(
+          eq(attendanceRequest.kind, 'leave'),
+          eq(attendanceRequest.status, 'approved'),
+          gt(attendanceRequest.endsAt, new Date(from)),
+          lt(attendanceRequest.startsAt, new Date(to)),
+        ),
+      );
+      leaves.push(...page.data);
+      total = page.total;
+      if (!page.data.length) break;
+    } while (leaves.length < total);
+    return leaves;
   }
 
   async createRequest(actor: AttendanceActor, dto: CreateAttendanceRequestDto) {
