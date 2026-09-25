@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_employee" ADD COLUMN "legal_status" text DEFAULT 'national' NOT NULL;

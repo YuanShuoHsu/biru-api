@@ -41,6 +41,17 @@ export const ATTENDANCE_EMPLOYMENT_TYPES = ['fullTime', 'partTime'] as const;
 export type AttendanceEmploymentType =
   (typeof ATTENDANCE_EMPLOYMENT_TYPES)[number];
 
+export const ATTENDANCE_LEGAL_STATUSES = [
+  'national',
+  'spouse',
+  'formerSpouse',
+  'permanentResident',
+  'foreignStudent',
+  'otherForeigner',
+] as const;
+
+export type AttendanceLegalStatus = (typeof ATTENDANCE_LEGAL_STATUSES)[number];
+
 export const ATTENDANCE_EVENT_ACTIONS = [
   'clockIn',
   'breakStart',
@@ -113,6 +124,10 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
     enabled: boolean('enabled').notNull().default(true),
+    legalStatus: text('legal_status')
+      .$type<AttendanceLegalStatus>()
+      .notNull()
+      .default('national'),
     hiredAt: timestamp('hired_at', { withTimezone: true }).notNull(),
     terminatedAt: timestamp('terminated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })

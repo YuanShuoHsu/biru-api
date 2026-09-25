@@ -139,6 +139,7 @@ export class AttendanceEmployeesService {
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
+      legalStatus: attendanceEmployee.legalStatus,
     };
     const where = and(
       eq(attendanceEmployee.organizationId, actor.organizationId),
@@ -179,6 +180,7 @@ export class AttendanceEmployeesService {
           userId: attendanceEmployee.userId,
           name: user.name,
           employmentType: sql<AttendanceEmploymentType>`${employmentTypeSql}`,
+          legalStatus: attendanceEmployee.legalStatus,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -222,6 +224,7 @@ export class AttendanceEmployeesService {
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
+      legalStatus: attendanceEmployee.legalStatus,
     };
     const where = and(
       eq(member.organizationId, actor.organizationId),
@@ -264,6 +267,7 @@ export class AttendanceEmployeesService {
           email: user.email,
           joinedAt: member.createdAt,
           employmentType: employmentTypeSql,
+          legalStatus: attendanceEmployee.legalStatus,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
@@ -309,6 +313,7 @@ export class AttendanceEmployeesService {
             employee.hiredAt === null ||
             employee.enabled === null ||
             employee.employmentType === null ||
+            employee.legalStatus === null ||
             employee.createdAt === null
               ? null
               : {
@@ -317,6 +322,7 @@ export class AttendanceEmployeesService {
                   hiredAt: employee.hiredAt,
                   enabled: employee.enabled,
                   employmentType: employee.employmentType,
+                  legalStatus: employee.legalStatus,
                   createdAt: employee.createdAt,
                   userId,
                   name,
@@ -457,6 +463,7 @@ export class AttendanceEmployeesService {
         organizationId: actor.organizationId,
         userId: dto.userId,
         enabled: dto.enabled,
+        legalStatus: dto.legalStatus,
         hiredAt,
         terminatedAt,
       };

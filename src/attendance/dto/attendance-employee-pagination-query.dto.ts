@@ -16,6 +16,7 @@ export const ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS = [
 
 export const ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS = [
   'employmentType',
+  'legalStatus',
   'status',
 ] as const;
 
