@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import {
   attendanceEvent,
   attendanceRequest,
@@ -11,3 +12,5 @@ export const unfinishedShift = sql`NOT EXISTS (SELECT 1 FROM ${attendanceEvent} 
   AND NOT EXISTS (SELECT 1 FROM ${attendanceRequest} corrected
     WHERE corrected.shift_id = ${attendanceShift.id}
       AND corrected.kind = 'correction' AND corrected.status = 'approved')`;
+
+export const shiftStartDate = sql<string>`to_char(${attendanceShift.startsAt} AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM-DD')`;

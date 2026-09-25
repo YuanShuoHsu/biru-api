@@ -155,7 +155,9 @@ describe('attendance services', () => {
           legalStatus: 'national',
           studentVacations: [],
           workPermits: [],
-          maternalProtectionPeriods: [],
+          pregnancyPeriods: [],
+          nursingPeriods: [],
+          indigenousHolidays: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt: '2026-02-01T00:00:00+08:00',
           terminationReason: 'resignation',
@@ -169,6 +171,7 @@ describe('attendance services', () => {
       id: 'employee',
       hiredAt: new Date('2025-01-01T00:00:00+08:00'),
       terminatedAt: null,
+      indigenousHolidays: [],
     };
     const save = (terminatedAt: string | undefined, rows: unknown[][]) => {
       const { db, insert } = database([
@@ -188,7 +191,9 @@ describe('attendance services', () => {
           legalStatus: 'national',
           studentVacations: [],
           workPermits: [],
-          maternalProtectionPeriods: [],
+          pregnancyPeriods: [],
+          nursingPeriods: [],
+          indigenousHolidays: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt,
           terminationReason: terminatedAt ? 'resignation' : undefined,

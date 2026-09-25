@@ -2,6 +2,7 @@ import type { TaiwanInsurance } from 'src/db/schema/payroll';
 
 import {
   currentGrade,
+  deriveInsurance,
   insuranceGrade,
   laborGradesFor,
   tableWithholding,
@@ -120,5 +121,58 @@ describe('Insurance grade ladders', () => {
     expect(currentGrade(28590, partTime)).toBe(true);
     expect(currentGrade(12000, partTime)).toBe(false);
     expect(partTime[partTime.length - 1]).toBe(45800);
+  });
+});
+
+describe('Deriving insurance terms', () => {
+  const input = {
+    healthDependents: 0,
+    voluntaryPercent: 0,
+    employerPercent: 6,
+    taxMethod: 'resident5' as const,
+    withholdingDependents: 0,
+    voluntaryHealthInsurance: false,
+  };
+  const context = {
+    age: 30,
+    fullTime: false,
+    laborInsuranceMandatory: false,
+    legalStatus: 'national' as const,
+    referenceWage: 20000,
+    weeklyMinutes: 600,
+  };
+  it('insures health at this store once weekly hours reach 12', () => {
+    expect(
+      deriveInsurance(taiwan2026, input, { ...context, weeklyMinutes: 720 })
+        .healthBasis,
+    ).toBeGreaterThan(0);
+    expect(deriveInsurance(taiwan2026, input, context).healthBasis).toBe(0);
+    expect(
+      deriveInsurance(
+        taiwan2026,
+        { ...input, voluntaryHealthInsurance: true },
+        context,
+      ).healthBasis,
+    ).toBeGreaterThan(0);
+  });
+  it('drops the supplement exemption once health is insured here', () => {
+    expect(
+      deriveInsurance(
+        taiwan2026,
+        { ...input, healthSupplementExemption: 'secondCategory' },
+        { ...context, weeklyMinutes: 720 },
+      ).healthSupplementExemption,
+    ).toBeUndefined();
+  });
+  it('insures labor only when the unit is bound to', () => {
+    expect(deriveInsurance(taiwan2026, input, context).laborCoverage).toBe(
+      'employment',
+    );
+    expect(
+      deriveInsurance(taiwan2026, input, {
+        ...context,
+        laborInsuranceMandatory: true,
+      }).laborCoverage,
+    ).toBe('both');
   });
 });

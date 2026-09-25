@@ -5,21 +5,6 @@ import { PayrollService } from './payroll.service';
 import { taiwan2026 } from './taiwan-rules.fixture';
 
 const actor = { organizationId: 'org', userId: 'owner', role: 'owner' };
-const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
-  Array.from({ length: 52 * 5 }, (_, index) => {
-    const startsAt = new Date(
-      before.getTime() -
-        (Math.floor(index / 5) + 1) * 7 * 86400000 +
-        (index % 5) * 86400000,
-    );
-    return {
-      employeeId: 'employee',
-      startsAt,
-      endsAt: new Date(startsAt.getTime() + (weeklyMinutes / 5) * 60000),
-      paidBreak: false,
-      breaks: [],
-    };
-  });
 const employee = {
   id: 'employee',
   organizationId: 'org',
@@ -27,6 +12,9 @@ const employee = {
   name: 'Staff',
   legalStatus: 'national',
   birthDate: '1990-01-01',
+  pregnancyPeriods: [],
+  nursingPeriods: [],
+  indigenousHolidays: [],
 };
 
 const row = {
@@ -172,8 +160,7 @@ describe('Payroll review and publication', () => {
 
 describe('Payroll terms validation', () => {
   const insurance = {
-    healthInsured: true,
-    voluntaryLaborInsurance: false,
+    voluntaryHealthInsurance: false,
     healthDependents: 0,
     voluntaryPercent: 0,
     employerPercent: 6,
@@ -188,33 +175,12 @@ describe('Payroll terms validation', () => {
     allowanceCents: '0',
     otherDeductionCents: '0',
   };
-  const save = (weeklyMinutes: number, overrides: object) => {
-    const { service } = setup([
-      [{ ...employee, hiredAt: new Date('2020-01-01T00:00:00+08:00') }],
-      scheduledWeeks(weeklyMinutes, new Date('2026-03-01T00:00:00+08:00')),
-      [{ total: 1 }],
-      [],
-    ]);
-    Object.defineProperty(service, 'ruleSets', {
-      value: {
-        resolve: () => Promise.resolve({ rules: taiwan2026, unconfirmed: [] }),
-      },
-    });
-    return service.saveTerms(actor, {
-      ...dto,
-      insurance: { ...insurance, ...overrides },
-    });
-  };
-  it('requires health insurance for staff averaging 12 hours a week', async () => {
-    await expect(save(2400, { healthInsured: false })).rejects.toThrow(
-      'healthInsuranceRequired',
-    );
-  });
   it('does not change terms a published payslip was calculated from', async () => {
     const { service } = setup([
       [employee],
       [],
-      [{ total: 1 }],
+      [],
+      [{ hiredAt: new Date('2020-01-01T00:00:00+08:00'), terminatedAt: null }],
       [],
       [{ effectiveFrom: new Date('2026-06-01T00:00:00+08:00') }],
       [{ id: 'statement' }],

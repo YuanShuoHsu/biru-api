@@ -59,7 +59,18 @@ export class SaveAttendanceEmployeeDto {
   @ArrayMaxSize(40)
   @ValidateNested({ each: true })
   @Type(() => DatePeriodDto)
-  maternalProtectionPeriods: DatePeriodDto[];
+  pregnancyPeriods: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  @IsArray()
+  @ArrayMaxSize(40)
+  @ValidateNested({ each: true })
+  @Type(() => DatePeriodDto)
+  nursingPeriods: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: String })
+  @IsArray()
+  @ArrayMaxSize(60)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true })
+  indigenousHolidays: string[];
   @IsOptional() @IsInt() @Min(0) @Max(6) regularLeaveWeekday?: number;
   @IsOptional() @IsInt() @Min(0) @Max(6) restDayWeekday?: number;
   @IsDateString() hiredAt: string;

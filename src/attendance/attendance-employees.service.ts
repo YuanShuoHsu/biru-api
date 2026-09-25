@@ -7,6 +7,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   ilike,
   inArray,
   lt,
@@ -20,8 +21,10 @@ import { randomUUID } from 'node:crypto';
 
 import { isAuthorized } from 'src/auth/permissions';
 import {
+  DAY_MS,
   platformDateString,
   platformMidnight,
+  STORE_UTC_OFFSET,
 } from 'src/common/constants/timezone';
 import {
   buildFilterCondition,
@@ -31,14 +34,18 @@ import {
 import {
   ATTENDANCE_LEGAL_STATUSES,
   attendanceEmployee,
+  attendanceHolidaySubstitute,
   attendanceLeaveCase,
   attendanceLeaveType,
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
+  attendanceTemplate,
+  statutoryHoliday,
   type AttendanceEmploymentType,
 } from 'src/db/schema/attendance';
 import { member } from 'src/db/schema/organizations';
+import { payrollStatement } from 'src/db/schema/payroll';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { legalStatusObligations } from 'src/payroll/taiwan-rules';
@@ -53,8 +60,11 @@ import {
 import { badRequestError, conflictError } from './attendance-errors';
 import {
   ageOn,
+  designatedDayKind,
   hasOverlappingOvertimeExtensions,
+  INDIGENOUS_HOLIDAYS_PER_YEAR,
   maternalNightWork,
+  maternalProtectionPeriods,
   MINIMUM_WORKING_AGE,
   normalizeIpRange,
   NOTICE_TERMINATION_REASONS,
@@ -77,6 +87,7 @@ import {
   weeklyMinutesAt,
 } from './employee-hours';
 import { findEmployee } from './employee-lookup';
+import { shiftStartDate } from './shift-queries';
 import {
   employeeStatus,
   employeeStatusOrderSql,
@@ -206,8 +217,9 @@ export class AttendanceEmployeesService {
           legalStatus: attendanceEmployee.legalStatus,
           studentVacations: attendanceEmployee.studentVacations,
           workPermits: attendanceEmployee.workPermits,
-          maternalProtectionPeriods:
-            attendanceEmployee.maternalProtectionPeriods,
+          pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
+          nursingPeriods: attendanceEmployee.nursingPeriods,
+          indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
           enabled: attendanceEmployee.enabled,
@@ -309,8 +321,9 @@ export class AttendanceEmployeesService {
           legalStatus: attendanceEmployee.legalStatus,
           studentVacations: attendanceEmployee.studentVacations,
           workPermits: attendanceEmployee.workPermits,
-          maternalProtectionPeriods:
-            attendanceEmployee.maternalProtectionPeriods,
+          pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
+          nursingPeriods: attendanceEmployee.nursingPeriods,
+          indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
           enabled: attendanceEmployee.enabled,
@@ -363,7 +376,9 @@ export class AttendanceEmployeesService {
             employee.legalStatus === null ||
             employee.studentVacations === null ||
             employee.workPermits === null ||
-            employee.maternalProtectionPeriods === null ||
+            employee.pregnancyPeriods === null ||
+            employee.nursingPeriods === null ||
+            employee.indigenousHolidays === null ||
             employee.createdAt === null
               ? null
               : {
@@ -375,7 +390,9 @@ export class AttendanceEmployeesService {
                   legalStatus: employee.legalStatus,
                   studentVacations: employee.studentVacations,
                   workPermits: employee.workPermits,
-                  maternalProtectionPeriods: employee.maternalProtectionPeriods,
+                  pregnancyPeriods: employee.pregnancyPeriods,
+                  nursingPeriods: employee.nursingPeriods,
+                  indigenousHolidays: employee.indigenousHolidays,
                   ...legalStatusObligations(employee.legalStatus),
                   createdAt: employee.createdAt,
                   userId,
@@ -415,10 +432,32 @@ export class AttendanceEmployeesService {
         [
           ...dto.studentVacations,
           ...dto.workPermits,
-          ...dto.maternalProtectionPeriods,
+          ...dto.pregnancyPeriods,
+          ...dto.nursingPeriods,
         ].some(({ from, to }) => from > to)
       )
         throw badRequestError('invalidInterval');
+      const indigenousHolidays = [...new Set(dto.indigenousHolidays)].sort();
+      const statutoryConflict = indigenousHolidays.length
+        ? await tx
+            .select({ date: statutoryHoliday.date })
+            .from(statutoryHoliday)
+            .where(inArray(statutoryHoliday.date, indigenousHolidays))
+            .limit(1)
+        : [];
+      if (
+        indigenousHolidays.length !== dto.indigenousHolidays.length ||
+        statutoryConflict.length ||
+        indigenousHolidays.some(
+          (date) =>
+            date < platformDateString(hiredAt) ||
+            (terminatedAt && date >= platformDateString(terminatedAt)) ||
+            indigenousHolidays.filter((other) =>
+              other.startsWith(date.slice(0, 4)),
+            ).length > INDIGENOUS_HOLIDAYS_PER_YEAR,
+        )
+      )
+        throw badRequestError('indigenousHolidayInvalid');
       const restWeekdays = {
         regularLeaveWeekday: dto.regularLeaveWeekday ?? null,
         restDayWeekday: dto.restDayWeekday ?? null,
@@ -449,6 +488,7 @@ export class AttendanceEmployeesService {
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
+          indigenousHolidays: attendanceEmployee.indigenousHolidays,
         })
         .from(attendanceEmployee)
         .where(
@@ -561,7 +601,8 @@ export class AttendanceEmployeesService {
           )
             throw conflictError('restDayDesignationConflict');
         }
-        if (dto.maternalProtectionPeriods.length) {
+        const protectedPeriods = maternalProtectionPeriods(dto);
+        if (protectedPeriods.length) {
           const nightShifts = await tx
             .select()
             .from(attendanceShift)
@@ -576,12 +617,77 @@ export class AttendanceEmployeesService {
             nightShifts.some((shift) =>
               maternalNightWork(
                 scheduledWorkIntervals(shift),
-                dto.maternalProtectionPeriods,
+                protectedPeriods,
               ),
             )
           )
             throw conflictError('maternalNightWork');
         }
+        const addedHolidays = indigenousHolidays.filter(
+          (date) => !current.indigenousHolidays.includes(date),
+        );
+        const removedHolidays = current.indigenousHolidays.filter(
+          (date) => !indigenousHolidays.includes(date),
+        );
+        for (const date of [...addedHolidays, ...removedHolidays]) {
+          const dayStart = new Date(`${date}T00:00:00${STORE_UTC_OFFSET}`);
+          await assertPayrollUnlocked(
+            tx,
+            actor.organizationId,
+            current.id,
+            dayStart,
+            new Date(dayStart.getTime() + DAY_MS),
+          );
+        }
+        if (removedHolidays.length) {
+          const [substituted] = await tx
+            .select({ id: attendanceHolidaySubstitute.id })
+            .from(attendanceHolidaySubstitute)
+            .where(
+              and(
+                eq(attendanceHolidaySubstitute.employeeId, current.id),
+                inArray(
+                  attendanceHolidaySubstitute.holidayDate,
+                  removedHolidays,
+                ),
+              ),
+            )
+            .limit(1);
+          if (substituted) throw conflictError('indigenousHolidayInUse');
+        }
+        if (addedHolidays.length)
+          await tx
+            .update(attendanceShift)
+            .set({ dayKind: 'holiday' })
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                eq(attendanceShift.dayKind, 'workday'),
+                inArray(shiftStartDate, addedHolidays),
+              ),
+            );
+        if (removedHolidays.length)
+          await tx
+            .update(attendanceShift)
+            .set({ dayKind: 'workday' })
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                eq(attendanceShift.dayKind, 'holiday'),
+                inArray(shiftStartDate, removedHolidays),
+              ),
+            );
+        if (restWeekdays.regularLeaveWeekday !== null)
+          for (const weekday of [0, 1, 2, 3, 4, 5, 6])
+            await tx
+              .update(attendanceTemplate)
+              .set({ dayKind: designatedDayKind(restWeekdays, weekday)! })
+              .where(
+                and(
+                  eq(attendanceTemplate.employeeId, current.id),
+                  eq(attendanceTemplate.weekday, weekday),
+                ),
+              );
         if (current.enabled && !dto.enabled) {
           const [scheduledShift] = await tx
             .select({ id: attendanceShift.id })
@@ -635,7 +741,9 @@ export class AttendanceEmployeesService {
         studentVacations:
           dto.legalStatus === 'foreignStudent' ? dto.studentVacations : [],
         workPermits: workPermitRequired(dto.legalStatus) ? dto.workPermits : [],
-        maternalProtectionPeriods: dto.maternalProtectionPeriods,
+        pregnancyPeriods: dto.pregnancyPeriods,
+        nursingPeriods: dto.nursingPeriods,
+        indigenousHolidays,
         ...restWeekdays,
         hiredAt,
         terminatedAt,
@@ -684,12 +792,42 @@ export class AttendanceEmployeesService {
       await lockOrganization(tx, actor.organizationId);
       if (hasOverlappingOvertimeExtensions(dto.overtimeExtensionPeriods))
         throw badRequestError('overlappingOvertimeExtensions');
+      const [current] = await tx
+        .select({
+          voluntaryLaborInsuranceFrom:
+            attendanceSettings.voluntaryLaborInsuranceFrom,
+        })
+        .from(attendanceSettings)
+        .where(eq(attendanceSettings.organizationId, actor.organizationId));
+      const voluntaryLaborInsuranceFrom =
+        dto.voluntaryLaborInsuranceFrom ?? null;
+      const previousFrom = current?.voluntaryLaborInsuranceFrom ?? null;
+      if (previousFrom !== voluntaryLaborInsuranceFrom) {
+        const [published] = await tx
+          .select({ id: payrollStatement.id })
+          .from(payrollStatement)
+          .where(
+            and(
+              eq(payrollStatement.organizationId, actor.organizationId),
+              eq(payrollStatement.status, 'published'),
+              gte(
+                payrollStatement.month,
+                [previousFrom, voluntaryLaborInsuranceFrom]
+                  .filter((month) => month !== null)
+                  .sort()[0],
+              ),
+            ),
+          )
+          .limit(1);
+        if (published) throw conflictError('payrollLocked');
+      }
       const values = {
         ...dto,
         allowedIps: dto.allowedIps.map(normalizeIpRange),
         laborInsuranceUnitCode: dto.laborInsuranceUnitCode ?? null,
         occupationalAccidentRateMicros:
           dto.occupationalAccidentRateMicros ?? null,
+        voluntaryLaborInsuranceFrom,
         overtimeExtensionPeriods: [
           ...new Set(dto.overtimeExtensionPeriods),
         ].sort(),

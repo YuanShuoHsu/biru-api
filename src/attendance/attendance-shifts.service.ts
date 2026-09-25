@@ -71,7 +71,9 @@ import {
   punchLeewayMs,
   countedIntervals,
   maternalNightWork,
-  restDayDesignationConflict,
+  maternalProtectionPeriods,
+  designatedDayKind,
+  weekdayOfDate,
   type ScheduledShift,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
@@ -418,7 +420,42 @@ export class AttendanceShiftsService {
         )
       )
         throw badRequestError('holidayCalendarMissing');
-      const holidayDates = new Set(holidays.map(({ date }) => date));
+      const isHoliday = (
+        employee: typeof attendanceEmployee.$inferSelect,
+        date: string,
+      ) =>
+        holidays.some((holiday) => holiday.date === date) ||
+        employee.indigenousHolidays.includes(date);
+      const weekStart = (date: Date) =>
+        platformMidnight(date.getTime()) -
+        ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
+      const scheduledStarts = intervals.map(({ startsAt }) => startsAt);
+      const existingShifts = await tx
+        .select({
+          employeeId: attendanceShift.employeeId,
+          startsAt: attendanceShift.startsAt,
+          endsAt: attendanceShift.endsAt,
+          breaks: attendanceShift.breaks,
+          paidBreak: attendanceShift.paidBreak,
+          dayKind: attendanceShift.dayKind,
+        })
+        .from(attendanceShift)
+        .where(
+          and(
+            inArray(attendanceShift.employeeId, employeeIds),
+            ne(attendanceShift.status, 'cancelled'),
+            gte(
+              attendanceShift.startsAt,
+              new Date(Math.min(...scheduledStarts.map(weekStart)) - DAY_MS),
+            ),
+            lt(
+              attendanceShift.startsAt,
+              new Date(
+                Math.max(...scheduledStarts.map(weekStart)) + 8 * DAY_MS,
+              ),
+            ),
+          ),
+        );
       const from = new Date(
         Math.min(...intervals.map((interval) => interval.startsAt.getTime())),
       );
@@ -513,12 +550,32 @@ export class AttendanceShiftsService {
               breaks,
               paidBreak: dto.paidBreak,
             }),
-            employee.maternalProtectionPeriods,
+            maternalProtectionPeriods(employee),
           )
         )
           throw badRequestError('maternalNightWork');
-        if (restDayDesignationConflict(employee, dates[index], dto.dayKind))
+        const scheduledKind =
+          designatedDayKind(employee, weekdayOfDate(dates[index])) ??
+          dto.dayKind;
+        if (!scheduledKind) throw badRequestError('dayKindRequired');
+        if (dto.dayKind && dto.dayKind !== scheduledKind)
           throw badRequestError('restDayDesignationConflict');
+        const sameDayKinds = new Set(
+          [...existingShifts, ...values]
+            .filter(
+              (shift) =>
+                shift.employeeId === dto.employeeId &&
+                platformDateString(shift.startsAt) === dates[index],
+            )
+            .map((shift) => shift.dayKind),
+        );
+        const dayKind =
+          scheduledKind === 'workday' &&
+          (isHoliday(employee, dates[index]) || sameDayKinds.has('holiday'))
+            ? 'holiday'
+            : scheduledKind;
+        if ([...sameDayKinds].some((kind) => kind !== dayKind))
+          throw conflictError('inconsistentDayKind');
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,
@@ -553,45 +610,12 @@ export class AttendanceShiftsService {
         values.push({
           ...dto,
           ...interval,
-          dayKind:
-            dto.dayKind === 'workday' && holidayDates.has(dates[index])
-              ? 'holiday'
-              : dto.dayKind,
+          dayKind,
           breaks,
           id: randomUUID(),
           organizationId: actor.organizationId,
         });
       }
-      const weekStart = (date: Date) =>
-        platformMidnight(date.getTime()) -
-        ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
-      const scheduledStarts = values.map(({ startsAt }) => startsAt);
-      const existingShifts = await tx
-        .select({
-          employeeId: attendanceShift.employeeId,
-          startsAt: attendanceShift.startsAt,
-          endsAt: attendanceShift.endsAt,
-          breaks: attendanceShift.breaks,
-          paidBreak: attendanceShift.paidBreak,
-          dayKind: attendanceShift.dayKind,
-        })
-        .from(attendanceShift)
-        .where(
-          and(
-            inArray(attendanceShift.employeeId, employeeIds),
-            ne(attendanceShift.status, 'cancelled'),
-            gte(
-              attendanceShift.startsAt,
-              new Date(Math.min(...scheduledStarts.map(weekStart)) - DAY_MS),
-            ),
-            lt(
-              attendanceShift.startsAt,
-              new Date(
-                Math.max(...scheduledStarts.map(weekStart)) + 8 * DAY_MS,
-              ),
-            ),
-          ),
-        );
       for (const employee of employees) {
         const scheduled = values.filter(
           ({ employeeId }) => employeeId === employee.id,

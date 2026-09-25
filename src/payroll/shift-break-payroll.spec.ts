@@ -47,6 +47,9 @@ async function snapshot(
     terminatedAt: null,
     legalStatus: 'national',
     birthDate: '1990-01-01',
+    pregnancyPeriods: [],
+    nursingPeriods: [],
+    indigenousHolidays: [],
   };
   const shift = {
     id: 'shift',
@@ -94,7 +97,9 @@ async function snapshot(
     [],
     [request],
     [{ id: 'personal', statutoryKind: 'personal', paidPercent: 0 }],
-    ...(options.insurance ? [[{ total: 1 }], []] : []),
+    ...(options.insurance
+      ? [[], [{ hiredAt: employee.hiredAt, terminatedAt: null }], []]
+      : []),
   ];
   const db = {
     select: () => {

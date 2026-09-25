@@ -26,6 +26,9 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
     hiredAt: new Date('2020-01-01'),
     terminatedAt: null,
     weeklyMinutes: 2400,
+    pregnancyPeriods: [],
+    nursingPeriods: [],
+    indigenousHolidays: [],
   };
   const shift = {
     id: 'shift',

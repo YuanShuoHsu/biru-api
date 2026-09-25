@@ -1,8 +1,8 @@
 import { ApiProperty, OmitType } from '@nestjs/swagger';
 
 import {
-  ATTENDANCE_DAY_KINDS,
-  type AttendanceDayKind,
+  ATTENDANCE_SCHEDULED_DAY_KINDS,
+  type AttendanceScheduledDayKind,
 } from 'src/db/schema/attendance';
 
 import { TemplateBreakDto } from './save-attendance-template.dto';
@@ -16,12 +16,14 @@ export class AttendanceTemplateResponseDto {
   @ApiProperty() weekday: number;
   @ApiProperty() startTime: string;
   @ApiProperty() endTime: string;
-  @ApiProperty() nextDay: boolean;
   @ApiProperty() paidBreak: boolean;
   @ApiProperty({ isArray: true, type: TemplateBreakDto })
   breaks: TemplateBreakDto[];
-  @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
-  dayKind: AttendanceDayKind;
+  @ApiProperty({
+    enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
+    enumName: 'AttendanceScheduledDayKind',
+  })
+  dayKind: AttendanceScheduledDayKind;
 }
 
 export class AttendanceTemplateRecordResponseDto extends OmitType(

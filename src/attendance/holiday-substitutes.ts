@@ -19,7 +19,11 @@ import {
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { Transaction } from './attendance-audit';
-import { owedHolidaySubstitutes, weekStartOfDate } from './attendance-rules';
+import {
+  employeeHolidays,
+  owedHolidaySubstitutes,
+  weekStartOfDate,
+} from './attendance-rules';
 
 const shiftDate = (date: string, days: number) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
@@ -34,7 +38,7 @@ export async function loadHolidaySubstitutes(
 ) {
   if (!employees.length)
     return {
-      holidays: [] as { date: string; name: string }[],
+      holidays: new Map<string, { date: string; name: string }[]>(),
       owed: new Map<string, string[]>(),
       rows: [] as (typeof attendanceHolidaySubstitute.$inferSelect)[],
     };
@@ -44,7 +48,7 @@ export async function loadHolidaySubstitutes(
     7,
   );
   const employeeIds = employees.map(({ id }) => id);
-  const [holidays, shifts, rows] = await Promise.all([
+  const [statutory, shifts, rows] = await Promise.all([
     tx
       .select({ date: statutoryHoliday.date, name: statutoryHoliday.name })
       .from(statutoryHoliday)
@@ -95,7 +99,12 @@ export async function loadHolidaySubstitutes(
     ).map(({ shiftId }) => shiftId),
   );
   const owed = new Map<string, string[]>();
-  for (const employee of employees)
+  const holidays = new Map<string, { date: string; name: string }[]>();
+  for (const employee of employees) {
+    const own = employeeHolidays(statutory, employee).filter(
+      ({ date }) => date >= weekFrom && date < weekTo,
+    );
+    holidays.set(employee.id, own);
     owed.set(
       employee.id,
       owedHolidaySubstitutes({
@@ -103,7 +112,7 @@ export async function loadHolidaySubstitutes(
         employedUntil: employee.terminatedAt
           ? platformDateString(employee.terminatedAt)
           : null,
-        holidays,
+        holidays: own,
         restWeekdays:
           employee.regularLeaveWeekday === null ||
           employee.restDayWeekday === null
@@ -113,5 +122,6 @@ export async function loadHolidaySubstitutes(
         substituteShiftIds,
       }).filter((date) => date >= from && date <= to),
     );
+  }
   return { holidays, owed, rows };
 }

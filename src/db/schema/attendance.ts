@@ -25,6 +25,15 @@ export const ATTENDANCE_DAY_KINDS = [
 
 export type AttendanceDayKind = (typeof ATTENDANCE_DAY_KINDS)[number];
 
+export const ATTENDANCE_SCHEDULED_DAY_KINDS = [
+  'workday',
+  'restDay',
+  'regularLeave',
+] as const;
+
+export type AttendanceScheduledDayKind =
+  (typeof ATTENDANCE_SCHEDULED_DAY_KINDS)[number];
+
 export const ATTENDANCE_EMPLOYEE_STATUSES = [
   'unconfigured',
   'upcoming',
@@ -162,9 +171,17 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .$type<DatePeriod[]>()
       .default([]),
-    maternalProtectionPeriods: jsonb('maternal_protection_periods')
+    pregnancyPeriods: jsonb('pregnancy_periods')
       .notNull()
       .$type<DatePeriod[]>()
+      .default([]),
+    nursingPeriods: jsonb('nursing_periods')
+      .notNull()
+      .$type<DatePeriod[]>()
+      .default([]),
+    indigenousHolidays: jsonb('indigenous_holidays')
+      .notNull()
+      .$type<string[]>()
       .default([]),
     regularLeaveWeekday: integer('regular_leave_weekday'),
     restDayWeekday: integer('rest_day_weekday'),
@@ -222,6 +239,7 @@ export const attendanceSettings = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
+    voluntaryLaborInsuranceFrom: text('voluntary_labor_insurance_from'),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -499,10 +517,9 @@ export const attendanceTemplate = pgTable('attendance_template', {
   weekday: integer('weekday').notNull(),
   startTime: text('start_time').notNull(),
   endTime: text('end_time').notNull(),
-  nextDay: boolean('next_day').notNull(),
   paidBreak: boolean('paid_break').notNull(),
   breaks: jsonb('breaks').notNull().$type<TemplateBreak[]>().default([]),
-  dayKind: text('day_kind').$type<AttendanceDayKind>().notNull(),
+  dayKind: text('day_kind').$type<AttendanceScheduledDayKind>().notNull(),
 });
 
 export const attendanceLeaveCase = pgTable(

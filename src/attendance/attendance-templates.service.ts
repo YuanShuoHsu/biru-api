@@ -27,7 +27,7 @@ import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import type { AttendanceActor } from './attendance-actor';
 import { lockOrganization, writeAudit } from './attendance-audit';
 import { badRequestError } from './attendance-errors';
-import { MAX_SHIFT_MS } from './attendance-rules';
+import { designatedDayKind } from './attendance-rules';
 import { AttendanceShiftsService } from './attendance-shifts.service';
 import {
   ATTENDANCE_TEMPLATE_BOOLEAN_FILTER_FIELDS,
@@ -70,7 +70,6 @@ export class AttendanceTemplatesService {
       endTime: attendanceTemplate.endTime,
       dayKind: attendanceTemplate.dayKind,
       weekday: attendanceTemplate.weekday,
-      nextDay: attendanceTemplate.nextDay,
       paidBreak: attendanceTemplate.paidBreak,
     };
     const where = and(
@@ -148,10 +147,7 @@ export class AttendanceTemplatesService {
     id?: string,
   ) {
     const shift = templateShift('2026-01-01', dto);
-    const interval = parseInterval(shift.startsAt, shift.endsAt);
-    if (interval.endsAt.getTime() - interval.startsAt.getTime() > MAX_SHIFT_MS)
-      throw badRequestError('invalidInterval');
-    parseBreaks(interval, shift.breaks);
+    parseBreaks(parseInterval(shift.startsAt, shift.endsAt), shift.breaks);
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [employee] = await tx
@@ -164,10 +160,15 @@ export class AttendanceTemplatesService {
           ),
         );
       if (!employee) throw new NotFoundException();
+      const dayKind = designatedDayKind(employee, dto.weekday) ?? dto.dayKind;
+      if (!dayKind) throw badRequestError('dayKindRequired');
+      if (dto.dayKind && dto.dayKind !== dayKind)
+        throw badRequestError('restDayDesignationConflict');
+      const values = { ...dto, dayKind };
       const [row] = id
         ? await tx
             .update(attendanceTemplate)
-            .set(dto)
+            .set(values)
             .where(
               and(
                 eq(attendanceTemplate.id, id),
@@ -180,7 +181,7 @@ export class AttendanceTemplatesService {
             .values({
               id: randomUUID(),
               organizationId: actor.organizationId,
-              ...dto,
+              ...values,
             })
             .returning();
       if (!row) throw new NotFoundException();
@@ -189,7 +190,7 @@ export class AttendanceTemplatesService {
         actor,
         id ? 'template.update' : 'template.create',
         row.id,
-        { ...dto },
+        { ...values },
       );
       return row;
     });

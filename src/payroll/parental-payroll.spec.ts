@@ -38,6 +38,9 @@ async function snapshot(
     weeklyMinutes: 2400,
     legalStatus: 'national',
     birthDate: '1990-01-01',
+    pregnancyPeriods: [],
+    nursingPeriods: [],
+    indigenousHolidays: [],
   };
   const request = {
     id: 'leave',
@@ -108,7 +111,8 @@ async function snapshot(
       : []),
     [request],
     [{ id: 'parental', statutoryKind: 'parental' }],
-    [{ total: 1 }],
+    [],
+    [{ hiredAt: employee.hiredAt, terminatedAt: null }],
     [],
     options.pendingReturns ?? [],
     [{ id: 'child', dailyPayCents: '0' }],

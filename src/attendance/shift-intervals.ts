@@ -51,7 +51,6 @@ export function templateShift(
   template: {
     startTime: string;
     endTime: string;
-    nextDay: boolean;
     breaks: TemplateBreak[];
   },
 ) {
@@ -63,7 +62,7 @@ export function templateShift(
   const { startTime } = template;
   return {
     startsAt: at(startTime, 0),
-    endsAt: at(template.endTime, template.nextDay ? 1 : 0),
+    endsAt: at(template.endTime, template.endTime <= startTime ? 1 : 0),
     breaks: template.breaks.map(({ startTime: breakStart, endTime }) => {
       const breakDay = breakStart < startTime ? 1 : 0;
       return {

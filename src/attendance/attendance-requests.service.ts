@@ -61,6 +61,7 @@ import {
   countedRequestStatuses,
   JOB_SEARCH_DAYS_PER_WEEK,
   maternalNightWork,
+  maternalProtectionPeriods,
   MAX_DAILY_WORK_SECONDS,
   NOTICE_TERMINATION_REASONS,
   MAX_MONTHLY_OVERTIME_SECONDS,
@@ -766,9 +767,10 @@ export class AttendanceRequestsService {
       interval.startsAt >= shift.startsAt && interval.endsAt <= shift.endsAt;
     if (workday ? !adjacent : !adjacent && !inside)
       throw badRequestError('invalidInterval');
-    const [{ maternalProtectionPeriods }] = await tx
+    const [protection] = await tx
       .select({
-        maternalProtectionPeriods: attendanceEmployee.maternalProtectionPeriods,
+        pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
+        nursingPeriods: attendanceEmployee.nursingPeriods,
       })
       .from(attendanceEmployee)
       .where(eq(attendanceEmployee.id, shift.employeeId));
@@ -780,7 +782,7 @@ export class AttendanceRequestsService {
             end: interval.endsAt.getTime(),
           },
         ],
-        maternalProtectionPeriods,
+        maternalProtectionPeriods(protection),
       )
     )
       throw badRequestError('maternalNightWork');

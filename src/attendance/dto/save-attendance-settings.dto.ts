@@ -47,4 +47,14 @@ export class SaveAttendanceSettingsDto {
   @ArrayMaxSize(40)
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { each: true })
   overtimeExtensionPeriods: string[];
+  @ApiPropertyOptional({
+    description:
+      '僱用未滿 5 人時自願為全體員工投保勞保的起始月；曾達 5 人者依法強制，不需設定',
+    example: '2026-01',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+  voluntaryLaborInsuranceFrom?: string | null;
 }

@@ -5,7 +5,6 @@ describe('templateShift', () => {
     const overnight = {
       startTime: '22:00',
       endTime: '06:00',
-      nextDay: true,
     };
     expect(
       templateShift('2026-03-02', {

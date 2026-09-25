@@ -1,4 +1,4 @@
-import { ApiProperty, PickType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -87,6 +87,7 @@ export class TaiwanInsuranceDto {
   @IsIn(PAYROLL_TAX_METHODS)
   taxMethod: PayrollTaxMethod;
   @IsInt() @Min(0) @Max(99) withholdingDependents: number;
+  @ApiPropertyOptional() voluntaryHealthInsurance?: boolean;
 }
 
 export class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
@@ -100,8 +101,11 @@ export class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
   'taxMethod',
   'withholdingDependents',
 ] as const) {
-  @IsBoolean() healthInsured: boolean;
-  @IsBoolean() voluntaryLaborInsurance: boolean;
+  @ApiProperty({
+    description: '每週工時未達法定投保門檻時仍在本店投保健保；達門檻者一律投保',
+  })
+  @IsBoolean()
+  voluntaryHealthInsurance: boolean;
 }
 
 export class PayrollTermsDto {

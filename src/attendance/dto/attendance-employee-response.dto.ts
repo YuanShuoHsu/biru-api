@@ -33,7 +33,11 @@ export class AttendanceEmploymentResponseDto {
   @ApiProperty({ isArray: true, type: DatePeriodDto })
   workPermits: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: DatePeriodDto })
-  maternalProtectionPeriods: DatePeriodDto[];
+  pregnancyPeriods: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  nursingPeriods: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: String })
+  indigenousHolidays: string[];
   @ApiPropertyOptional({ nullable: true, type: Number })
   regularLeaveWeekday: number | null;
   @ApiPropertyOptional({ nullable: true, type: Number })

@@ -92,6 +92,7 @@ import {
 } from './employee-hours';
 import { requireEmployee } from './employee-lookup';
 import { loadHolidaySubstitutes } from './holiday-substitutes';
+import { shiftStartDate } from './shift-queries';
 import {
   annualLeaveDeferrals,
   countedLeaves,
@@ -1412,7 +1413,9 @@ export class AttendanceLeavesService {
           employees.find((employee) => employee.id === employeeId)?.name ?? '',
         holidayDate,
         holidayName:
-          holidays.find((holiday) => holiday.date === holidayDate)?.name ?? '',
+          holidays
+            .get(employeeId)
+            ?.find((holiday) => holiday.date === holidayDate)?.name ?? '',
         owed: !!owed.get(employeeId)?.includes(holidayDate),
         substituteId: substitute?.id ?? null,
         substituteShiftId: substitute?.shiftId ?? null,
@@ -1497,7 +1500,13 @@ export class AttendanceLeavesService {
       await tx
         .update(attendanceShift)
         .set({ dayKind: 'holiday' })
-        .where(eq(attendanceShift.id, shift.id));
+        .where(
+          and(
+            eq(attendanceShift.employeeId, employee.id),
+            eq(attendanceShift.dayKind, 'workday'),
+            eq(shiftStartDate, platformDateString(shift.startsAt)),
+          ),
+        );
       await writeAudit(tx, actor, 'holidaySubstitute.create', row.id, {
         employeeId: employee.id,
         holidayDate: dto.holidayDate,
@@ -1548,7 +1557,13 @@ export class AttendanceLeavesService {
       await tx
         .update(attendanceShift)
         .set({ dayKind: 'workday' })
-        .where(eq(attendanceShift.id, substitute.shiftId));
+        .where(
+          and(
+            eq(attendanceShift.employeeId, substitute.employeeId),
+            eq(attendanceShift.dayKind, 'holiday'),
+            eq(shiftStartDate, platformDateString(shiftStartsAt)),
+          ),
+        );
       await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
         employeeId: substitute.employeeId,
         holidayDate: substitute.holidayDate,

@@ -1198,6 +1198,20 @@
       "when": 1790336394917,
       "tag": "0170_holiday_substitutes",
       "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "7",
+      "when": 1790344665312,
+      "tag": "0171_employee_protection_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1790344693517,
+      "tag": "0172_drop_derivable_columns",
+      "breakpoints": true
     }
   ]
 }

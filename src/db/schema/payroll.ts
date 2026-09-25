@@ -162,6 +162,7 @@ export interface TaiwanInsurance {
   employerPercent: number;
   taxMethod: PayrollTaxMethod;
   withholdingDependents: number;
+  voluntaryHealthInsurance?: boolean;
 }
 
 export interface WithholdingTable {

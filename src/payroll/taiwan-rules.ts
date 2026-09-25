@@ -33,13 +33,13 @@ export const insuranceViolations = (
   insurance: TaiwanInsurance,
   {
     age,
-    headcount,
+    laborInsuranceMandatory,
     legalStatus,
     weeklyMinutes,
     worksEveryBusinessDay = false,
   }: {
     age: number | null;
-    headcount: number;
+    laborInsuranceMandatory: boolean;
     legalStatus: AttendanceLegalStatus;
     weeklyMinutes: number;
     worksEveryBusinessDay?: boolean;
@@ -64,7 +64,7 @@ export const insuranceViolations = (
   if (insurance.laborInsuranceExemption && laborCovered)
     violations.push('laborInsuranceExemptionInvalid');
   if (
-    headcount >= LABOR_INSURANCE_MANDATORY_HEADCOUNT &&
+    laborInsuranceMandatory &&
     insurableAge &&
     !laborCovered &&
     !insurance.laborInsuranceExemption
@@ -132,35 +132,37 @@ export interface TaiwanInsuranceInput extends Pick<
   | 'taxMethod'
   | 'withholdingDependents'
 > {
-  healthInsured: boolean;
-  voluntaryLaborInsurance: boolean;
+  voluntaryHealthInsurance: boolean;
 }
 
 export const deriveInsurance = (
   rules: TaiwanRuleSet,
-  { healthInsured, voluntaryLaborInsurance, ...input }: TaiwanInsuranceInput,
+  input: TaiwanInsuranceInput,
   {
     age,
     fullTime,
-    headcount,
+    laborInsuranceMandatory,
     legalStatus,
     referenceWage,
+    weeklyMinutes,
   }: {
     age: number | null;
     fullTime: boolean;
-    headcount: number;
+    laborInsuranceMandatory: boolean;
     legalStatus: AttendanceLegalStatus;
     referenceWage: number;
+    weeklyMinutes: number;
   },
 ): TaiwanInsurance => {
   const insurableAge =
     age === null ||
     (age >= MINIMUM_INSURABLE_AGE && age <= MAXIMUM_INSURABLE_AGE);
   const labor =
-    insurableAge &&
-    !input.laborInsuranceExemption &&
-    (headcount >= LABOR_INSURANCE_MANDATORY_HEADCOUNT ||
-      voluntaryLaborInsurance);
+    insurableAge && !input.laborInsuranceExemption && laborInsuranceMandatory;
+  const health =
+    !input.healthInsuranceExemption &&
+    (weeklyMinutes >= HEALTH_INSURANCE_WEEKLY_MINUTES ||
+      input.voluntaryHealthInsurance);
   const employment =
     insurableAge &&
     employmentInsuranceEligible(legalStatus) &&
@@ -170,6 +172,9 @@ export const deriveInsurance = (
 
   return {
     ...input,
+    healthSupplementExemption: health
+      ? undefined
+      : input.healthSupplementExemption,
     laborCoverage:
       labor && employment
         ? 'both'
@@ -184,9 +189,7 @@ export const deriveInsurance = (
         ? insuranceGrade(referenceWage, laborGradesFor(rules, { laborLadder }))
         : 0,
     occupationalBasis: insuranceGrade(referenceWage, rules.occupationalGrades),
-    healthBasis: healthInsured
-      ? insuranceGrade(referenceWage, rules.healthGrades)
-      : 0,
+    healthBasis: health ? insuranceGrade(referenceWage, rules.healthGrades) : 0,
     pensionBasis: pension
       ? insuranceGrade(referenceWage, rules.pensionGrades)
       : 0,

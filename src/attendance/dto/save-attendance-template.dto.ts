@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
   IsUUID,
   Matches,
@@ -18,8 +19,8 @@ import {
 } from 'class-validator';
 
 import {
-  ATTENDANCE_DAY_KINDS,
-  type AttendanceDayKind,
+  ATTENDANCE_SCHEDULED_DAY_KINDS,
+  type AttendanceScheduledDayKind,
 } from 'src/db/schema/attendance';
 
 export class TemplateBreakDto {
@@ -33,7 +34,6 @@ export class SaveAttendanceTemplateDto {
   @IsInt() @Min(0) @Max(6) weekday: number;
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) startTime: string;
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) endTime: string;
-  @IsBoolean() nextDay: boolean;
   @IsBoolean() paidBreak: boolean;
   @ApiProperty({ isArray: true, type: TemplateBreakDto })
   @IsArray()
@@ -41,7 +41,12 @@ export class SaveAttendanceTemplateDto {
   @ValidateNested({ each: true })
   @Type(() => TemplateBreakDto)
   breaks: TemplateBreakDto[];
-  @ApiProperty({ enum: ATTENDANCE_DAY_KINDS, enumName: 'AttendanceDayKind' })
-  @IsIn(ATTENDANCE_DAY_KINDS)
-  dayKind: AttendanceDayKind;
+  @ApiPropertyOptional({
+    description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
+    enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
+    enumName: 'AttendanceScheduledDayKind',
+  })
+  @IsOptional()
+  @IsIn(ATTENDANCE_SCHEDULED_DAY_KINDS)
+  dayKind?: AttendanceScheduledDayKind;
 }

@@ -10,6 +10,7 @@ import {
   type AttendanceDayKind,
   type AttendanceEventAction,
   type AttendanceLegalStatus,
+  type AttendanceScheduledDayKind,
   type AttendanceTerminationReason,
   type CorrectedEvent,
   type ShiftBreak,
@@ -335,29 +336,49 @@ export const scheduledWorkIntervals = (shift: ScheduledShift) =>
 
 const WEEKLY_REST_DAYS = 2;
 
+export const weekdayOfDate = (date: string) =>
+  new Date(`${date}T00:00:00Z`).getUTCDay();
+
+interface RestWeekdays {
+  regularLeaveWeekday: number | null;
+  restDayWeekday: number | null;
+}
+
+export const designatedDayKind = (
+  employee: RestWeekdays,
+  weekday: number,
+): AttendanceScheduledDayKind | null => {
+  if (employee.regularLeaveWeekday === null) return null;
+  return weekday === employee.regularLeaveWeekday
+    ? 'regularLeave'
+    : weekday === employee.restDayWeekday
+      ? 'restDay'
+      : 'workday';
+};
+
 export const restDayDesignationConflict = (
-  employee: {
-    regularLeaveWeekday: number | null;
-    restDayWeekday: number | null;
-  },
+  employee: RestWeekdays,
   date: string,
   dayKind: AttendanceDayKind,
 ) => {
-  if (employee.regularLeaveWeekday === null) return false;
-  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
-  const designated =
-    weekday === employee.regularLeaveWeekday
-      ? 'regularLeave'
-      : weekday === employee.restDayWeekday
-        ? 'restDay'
-        : null;
-  return designated
-    ? dayKind !== designated
-    : dayKind === 'restDay' || dayKind === 'regularLeave';
+  const designated = designatedDayKind(employee, weekdayOfDate(date));
+  return designated !== null && dayKind !== designated;
 };
 
-const weekdayOfDate = (date: string) =>
-  new Date(`${date}T00:00:00Z`).getUTCDay();
+export const INDIGENOUS_HOLIDAY_NAME = '原住民族歲時祭儀';
+
+export const INDIGENOUS_HOLIDAYS_PER_YEAR = 3;
+
+export const employeeHolidays = (
+  statutory: { date: string; name: string }[],
+  employee: { indigenousHolidays: string[] },
+) =>
+  [
+    ...statutory,
+    ...employee.indigenousHolidays
+      .filter((date) => !statutory.some((holiday) => holiday.date === date))
+      .map((date) => ({ date, name: INDIGENOUS_HOLIDAY_NAME })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
 
 // 施行細則 §23-1 但書：中央主管機關指定應放假之日（選舉、公投投票日）不補假
 const substitutable = ({ name }: { name: string }) => !name.includes('投票');
@@ -534,6 +555,24 @@ export const hasShortRestBetweenShifts = (
 const MATERNAL_NIGHT_START_MS = 22 * 3600 * 1000;
 
 const MATERNAL_NIGHT_END_MS = 30 * 3600 * 1000;
+
+export const maternalProtectionPeriods = (employee: {
+  pregnancyPeriods: DatePeriod[];
+  nursingPeriods: DatePeriod[];
+}) => [...employee.pregnancyPeriods, ...employee.nursingPeriods];
+
+const NURSING_SECONDS = 3600;
+
+const OVERTIME_NURSING_SECONDS = 1800;
+
+export const nursingAllowanceSeconds = (
+  nursingPeriods: DatePeriod[],
+  date: string,
+  overtimeSeconds: number,
+) =>
+  withinPeriods(nursingPeriods, date)
+    ? NURSING_SECONDS + (overtimeSeconds >= 3600 ? OVERTIME_NURSING_SECONDS : 0)
+    : 0;
 
 export const maternalNightWork = (
   intervals: TimeInterval[],

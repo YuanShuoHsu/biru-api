@@ -15,10 +15,7 @@ export const ATTENDANCE_TEMPLATE_ENUM_FILTER_FIELDS = ['dayKind'] as const;
 
 export const ATTENDANCE_TEMPLATE_NUMBER_FILTER_FIELDS = ['weekday'] as const;
 
-export const ATTENDANCE_TEMPLATE_BOOLEAN_FILTER_FIELDS = [
-  'nextDay',
-  'paidBreak',
-] as const;
+export const ATTENDANCE_TEMPLATE_BOOLEAN_FILTER_FIELDS = ['paidBreak'] as const;
 
 export const ATTENDANCE_TEMPLATE_FILTER_FIELDS = [
   ...ATTENDANCE_TEMPLATE_STRING_FILTER_FIELDS,

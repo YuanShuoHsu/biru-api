@@ -52,6 +52,8 @@ import {
   MAX_MONTHLY_OVERTIME_SECONDS,
   overlapIntervals,
   maternalNightWork,
+  maternalProtectionPeriods,
+  nursingAllowanceSeconds,
   overtimeExtensionPeriodOf,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
@@ -152,6 +154,7 @@ import { PayrollRulesService } from './payroll-rules.service';
 import {
   currentGrade,
   deriveInsurance,
+  LABOR_INSURANCE_MANDATORY_HEADCOUNT,
   insuranceGrade,
   insuranceViolations,
   laborGradesFor,
@@ -176,14 +179,25 @@ const NO_PAYROLL_SETTINGS: PayrollSettings = {
   holidays: [],
 };
 
-const employeeHeadcount = async (
+// 勞保條例 §7：曾達 5 人投保後人數減少仍應續保；§8 II：自願投保後不得中途退保
+const laborInsuranceMandatory = async (
   tx: Transaction,
   organizationId: string,
-  start: Date,
-  end: Date,
+  month: string,
 ) => {
-  const [{ total }] = await tx
-    .select({ total: count() })
+  const [settings] = await tx
+    .select({
+      voluntaryFrom: attendanceSettings.voluntaryLaborInsuranceFrom,
+    })
+    .from(attendanceSettings)
+    .where(eq(attendanceSettings.organizationId, organizationId));
+  if (settings?.voluntaryFrom && settings.voluntaryFrom <= month) return true;
+  const { end } = payrollPeriod(month);
+  const employments = await tx
+    .select({
+      hiredAt: attendanceEmployee.hiredAt,
+      terminatedAt: attendanceEmployee.terminatedAt,
+    })
     .from(attendanceEmployee)
     .leftJoin(
       attendanceSettings,
@@ -204,13 +218,28 @@ const employeeHeadcount = async (
         ),
         or(isNull(member.role), ne(member.role, 'owner')),
         lt(attendanceEmployee.hiredAt, end),
-        or(
-          isNull(attendanceEmployee.terminatedAt),
-          gt(attendanceEmployee.terminatedAt, start),
-        ),
       ),
     );
-  return total;
+  if (employments.length < LABOR_INSURANCE_MANDATORY_HEADCOUNT) return false;
+  const first = platformDateString(
+    new Date(Math.min(...employments.map(({ hiredAt }) => hiredAt.getTime()))),
+  ).slice(0, 7);
+  for (
+    let cursor = month;
+    cursor >= first;
+    cursor = precedingMonths(cursor, 1)[0]
+  ) {
+    const period = payrollPeriod(cursor);
+    if (
+      employments.filter(
+        ({ hiredAt, terminatedAt }) =>
+          hiredAt < period.end &&
+          (!terminatedAt || terminatedAt > period.start),
+      ).length >= LABOR_INSURANCE_MANDATORY_HEADCOUNT
+    )
+      return true;
+  }
+  return false;
 };
 
 const WEEKS_PER_MONTH = 52 / 12;
@@ -283,16 +312,14 @@ export class PayrollService {
       if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
       const hours = await loadOneEmployeeHours(tx, employee);
       const month = effectiveFrom.slice(0, 7);
-      const period = payrollPeriod(month);
       const context = {
         age: employee.birthDate
           ? ageOn(employee.birthDate, effectiveFrom)
           : null,
-        headcount: await employeeHeadcount(
+        laborInsuranceMandatory: await laborInsuranceMandatory(
           tx,
           actor.organizationId,
-          period.start,
-          period.end,
+          month,
         ),
         legalStatus: employee.legalStatus,
         weeklyMinutes: weeklyMinutesAt(hours, date),
@@ -507,13 +534,23 @@ export class PayrollService {
     month: string,
     knownEmployee?: typeof attendanceEmployee.$inferSelect,
     {
-      holidays,
+      holidays: statutoryHolidays,
       occupationalAccidentRateMicros,
       overtimeExtensionPeriods,
     } = NO_PAYROLL_SETTINGS,
   ): Promise<PayrollSnapshot> {
     const employee =
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
+    const holidays =
+      statutoryHolidays &&
+      [
+        ...new Set([
+          ...statutoryHolidays,
+          ...employee.indigenousHolidays.filter((date) =>
+            date.startsWith(month),
+          ),
+        ]),
+      ].sort();
     const { start, end } = payrollPeriod(month);
     const hours = await loadOneEmployeeHours(tx, employee);
     const termsHistory = await tx
@@ -600,9 +637,9 @@ export class PayrollService {
       blockers.push('insuranceBasisOutdated');
     if (insurance?.laborLadder === 'partTime' && knownFullTime(hours, start))
       blockers.push('partTimeLadderRequiresPartTime');
-    const headcount = insurance
-      ? await employeeHeadcount(tx, actor.organizationId, start, end)
-      : 0;
+    const laborMandatory =
+      !!insurance &&
+      (await laborInsuranceMandatory(tx, actor.organizationId, month));
     const declaredWages = insurance
       ? await insurableWages(tx, employeeId, adjustmentReferenceMonths(month))
       : [];
@@ -804,7 +841,8 @@ export class PayrollService {
     >();
     const intervalsByDay = new Map<string, TimeInterval[]>();
     let leaveDeductionSeconds = 0;
-    let absenceSeconds = 0;
+    const absenceByDay = new Map<string, number>();
+    const overtimeByDay = new Map<string, number>();
     const relevantDays = new Set(
       shifts
         .filter((shift) => shift.startsAt < end && shift.endsAt > start)
@@ -932,7 +970,7 @@ export class PayrollService {
       )
         blockers.push('incompleteAttendance');
       const counted = countedIntervals(effective, shift);
-      if (maternalNightWork(counted, employee.maternalProtectionPeriods))
+      if (maternalNightWork(counted, maternalProtectionPeriods(employee)))
         blockers.push('maternalNightWork');
       if (
         leaves.some((leave) =>
@@ -980,18 +1018,30 @@ export class PayrollService {
       )
         blockers.push('unreviewedOvertime');
       intervalsByDay.set(key, [...(intervalsByDay.get(key) ?? []), ...payable]);
+      overtimeByDay.set(
+        key,
+        (overtimeByDay.get(key) ?? 0) +
+          intersectIntervals(counted, approvedOvertime).reduce(
+            (sum, interval) => sum + intervalSeconds(interval),
+            0,
+          ),
+      );
       if (shift.dayKind === 'workday' && summary.state === 'completed')
-        absenceSeconds += subtractIntervals(workIntervals, [
-          ...payable,
-          ...punchedUnpaidBreaks(effective, shift),
-          ...leaves.map((leave) => ({
-            start: leave.startsAt.getTime(),
-            end: leave.endsAt.getTime(),
-          })),
-        ]).reduce(
-          (sum, interval) =>
-            sum + intervalSeconds(interval, start.getTime(), end.getTime()),
-          0,
+        absenceByDay.set(
+          key,
+          (absenceByDay.get(key) ?? 0) +
+            subtractIntervals(workIntervals, [
+              ...payable,
+              ...punchedUnpaidBreaks(effective, shift),
+              ...leaves.map((leave) => ({
+                start: leave.startsAt.getTime(),
+                end: leave.endsAt.getTime(),
+              })),
+            ]).reduce(
+              (sum, interval) =>
+                sum + intervalSeconds(interval, start.getTime(), end.getTime()),
+              0,
+            ),
         );
       if (previous && previous.dayKind !== shift.dayKind)
         blockers.push('inconsistentDayKind');
@@ -1031,6 +1081,19 @@ export class PayrollService {
     }
     for (const [key, intervals] of intervalsByDay)
       Object.assign(days.get(key)!, periodWork(intervals, start, end));
+    let absenceSeconds = 0;
+    for (const [key, absence] of absenceByDay) {
+      const nursing = Math.min(
+        absence,
+        nursingAllowanceSeconds(
+          employee.nursingPeriods,
+          key,
+          overtimeByDay.get(key) ?? 0,
+        ),
+      );
+      absenceSeconds += absence - nursing;
+      days.get(key)!.paidLeaveSeconds += nursing;
+    }
     if (exceedsWeeklySchedule(adjacentShifts, start, end))
       blockers.push('weeklyScheduleRequiresReview');
     const monthWeeks = [
@@ -1112,7 +1175,7 @@ export class PayrollService {
           age: employee.birthDate
             ? ageOn(employee.birthDate, platformDateString(start))
             : null,
-          headcount,
+          laborInsuranceMandatory: laborMandatory,
           legalStatus: employee.legalStatus,
           weeklyMinutes: weeklyMinutesAt(hours, end),
           worksEveryBusinessDay:
@@ -1326,11 +1389,11 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'statutory-automation-1',
+            calculationVersion: 'statutory-automation-2',
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,
             holidays,
-            headcount,
+            laborMandatory,
             businessDays: businessDays && [...businessDays],
             medical: medical
               ? { records: medical.records, shifts: medical.shifts }
