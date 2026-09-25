@@ -58,13 +58,16 @@ import {
 import {
   ADULT_WORKING_AGE,
   ageOn,
+  agreedWorkdates,
   blockingRequestStatuses,
   childLaborViolation,
   distanceMeters,
+  exceedsConsecutiveWorkdays,
   exceedsStudentWeeklyLimit,
   hasShortRestBetweenShifts,
   lacksWeeklyRest,
   ipInRange,
+  MAX_CONSECUTIVE_WORKDAYS,
   MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
@@ -94,6 +97,7 @@ import {
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import { CreateAttendanceShiftDto } from './dto/create-attendance-shifts.dto';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup';
+import { loadAgreedHolidays } from './holiday-substitutes';
 import { parseBreaks, parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
@@ -430,6 +434,30 @@ export class AttendanceShiftsService {
         platformMidnight(date.getTime()) -
         ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
       const scheduledStarts = intervals.map(({ startsAt }) => startsAt);
+      const nearbyFrom = Math.min(
+        ...scheduledStarts.map((startsAt) =>
+          Math.min(
+            weekStart(startsAt) - DAY_MS,
+            platformMidnight(startsAt.getTime()) -
+              MAX_CONSECUTIVE_WORKDAYS * DAY_MS,
+          ),
+        ),
+      );
+      const nearbyTo = Math.max(
+        ...scheduledStarts.map((startsAt) =>
+          Math.max(
+            weekStart(startsAt) + 8 * DAY_MS,
+            platformMidnight(startsAt.getTime()) +
+              (MAX_CONSECUTIVE_WORKDAYS + 1) * DAY_MS,
+          ),
+        ),
+      );
+      const agreedHolidays = await loadAgreedHolidays(
+        tx,
+        employees,
+        platformDateString(new Date(nearbyFrom)),
+        platformDateString(new Date(nearbyTo)),
+      );
       const existingShifts = await tx
         .select({
           employeeId: attendanceShift.employeeId,
@@ -444,16 +472,8 @@ export class AttendanceShiftsService {
           and(
             inArray(attendanceShift.employeeId, employeeIds),
             ne(attendanceShift.status, 'cancelled'),
-            gte(
-              attendanceShift.startsAt,
-              new Date(Math.min(...scheduledStarts.map(weekStart)) - DAY_MS),
-            ),
-            lt(
-              attendanceShift.startsAt,
-              new Date(
-                Math.max(...scheduledStarts.map(weekStart)) + 8 * DAY_MS,
-              ),
-            ),
+            gte(attendanceShift.startsAt, new Date(nearbyFrom)),
+            lt(attendanceShift.startsAt, new Date(nearbyTo)),
           ),
         );
       const from = new Date(
@@ -636,6 +656,16 @@ export class AttendanceShiftsService {
         );
         if (lacksWeeklyRest(sameWeeks))
           throw badRequestError('weeklyRestRequired');
+        const scheduledDates = new Set(
+          scheduled.map(({ startsAt }) => platformDateString(startsAt)),
+        );
+        if (
+          exceedsConsecutiveWorkdays(
+            agreedWorkdates(nearby, agreedHolidays.get(employee.id) ?? []),
+            (date) => scheduledDates.has(date),
+          )
+        )
+          throw badRequestError('consecutiveWorkdaysExceeded');
         if (
           hasShortRestBetweenShifts(nearby, (shift) => scheduledSet.has(shift))
         )

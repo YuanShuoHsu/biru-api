@@ -161,7 +161,51 @@ describe('Official grade ingestion', () => {
     '第一組,1,31000,31000以下\n' +
     '第二組,2,320000,313001以上\n';
 
+  const minimumWageDataset = JSON.stringify({
+    result: {
+      distribution: [
+        {
+          resourceDescription: '最低(基本)工資之制定與調整經過',
+          resourceFormat: 'JSON',
+          resourceDownloadUrl: 'https://example.test/minimum-wage.json',
+        },
+      ],
+    },
+  });
+  const occupationalRateDataset = JSON.stringify({
+    result: {
+      distribution: [
+        {
+          resourceDescription:
+            '勞工職業災害保險適用行業別及費率表(114年1月1日起適用)',
+          resourceFormat: 'JSON',
+          resourceDownloadUrl: 'https://example.test/occupational-rates.json',
+        },
+      ],
+    },
+  });
+  const minimumWages = JSON.stringify([
+    {
+      '內容/調整金額（新台幣）': '月薪29,500、時薪196',
+      '實施日期（民國）': '20260101',
+    },
+  ]);
+  const occupationalRates = JSON.stringify([
+    {
+      大分類: '住宿及餐飲業',
+      費率編號: '42',
+      行業類別: '餐飲業',
+      '行業別費率%': '0.13',
+      '上下班費率%': '0.07',
+    },
+  ]);
+
   const route = (url: string) => {
+    if (url.endsWith('/6281')) return fetchOk(minimumWageDataset);
+    if (url.endsWith('/6262')) return fetchOk(occupationalRateDataset);
+    if (url.endsWith('minimum-wage.json')) return fetchOk(minimumWages);
+    if (url.endsWith('occupational-rates.json'))
+      return fetchOk(occupationalRates);
     if (url.endsWith('/6258')) return fetchOk(laborDataset);
     if (url.endsWith('/20251')) return fetchOk(healthDataset);
     if (url.endsWith('/170557')) return fetchOk(occupationalDataset);

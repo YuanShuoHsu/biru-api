@@ -535,7 +535,17 @@ export class AttendanceLeavesService {
     if (employee.userId === actor.userId)
       throw forbiddenError('cannotReviewSelf');
     const { startsAt, endsAt } = parseInterval(dto.startsAt, dto.endsAt);
-    const eventDate = new Date(dto.eventDate);
+    const child =
+      policy.statutoryKind === 'parental'
+        ? await matchParentalChild(
+            tx,
+            actor.organizationId,
+            employee.id,
+            dto.childId,
+          )
+        : null;
+    if (!child && dto.childId) throw badRequestError('parentalChildMismatch');
+    const eventDate = child?.birthDate ?? new Date(dto.eventDate ?? NaN);
     if (
       !dto.reference.trim() ||
       !dto.reason.trim() ||
@@ -565,15 +575,6 @@ export class AttendanceLeavesService {
           startsAt < anniversary(employee.hiredAt, 6)))
     )
       throw badRequestError('invalidParentalInterval');
-    if (policy.statutoryKind === 'parental')
-      await matchParentalChild(
-        tx,
-        actor.organizationId,
-        employee.id,
-        dto.childId,
-        eventDate,
-      );
-    else if (dto.childId) throw badRequestError('parentalChildMismatch');
     const statutory = eventLeaveEntitlement(
       policy.statutoryKind,
       employee.hiredAt,

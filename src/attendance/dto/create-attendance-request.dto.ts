@@ -31,14 +31,6 @@ export class CorrectedEventDto {
 }
 
 export class CreateAttendanceRequestDto {
-  @ApiProperty({
-    enum: ['daily', 'continuous'],
-    enumName: 'AttendanceParentalMode',
-    required: false,
-  })
-  @IsOptional()
-  @IsIn(['daily', 'continuous'])
-  parentalMode?: 'daily' | 'continuous';
   @IsOptional() @IsUUID() leaveCaseId?: string;
   @ApiProperty({
     enum: ['correction', 'leave', 'overtime'],

@@ -60,6 +60,7 @@ export const PAYROLL_BLOCKERS = [
   'childLaborHoursExceeded',
   'childLaborNightWork',
   'childLaborRestDay',
+  'consecutiveWorkdaysExceeded',
   'dailyHoursExceeded',
   'emergencyDetailsRequired',
   'employmentInsuranceExemptionInvalid',
@@ -175,6 +176,13 @@ export interface WithholdingTable {
   retirementHalfTaxablePerYear: number;
 }
 
+export interface OccupationalIndustryRate {
+  code: string;
+  category: string;
+  industry: string;
+  rateMicros: number;
+}
+
 export interface TaiwanRuleSet {
   laborPercentBp: number;
   employmentPercentBp: number;
@@ -197,6 +205,7 @@ export interface TaiwanRuleSet {
   healthGrades: number[];
   minimumMonthlyWageCents: string;
   minimumHourlyWageCents: string;
+  occupationalIndustryRates?: OccupationalIndustryRate[];
 }
 
 export interface PayrollTerms {

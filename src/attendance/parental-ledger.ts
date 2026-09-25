@@ -13,7 +13,7 @@ export async function matchParentalChild(
   organizationId: string,
   employeeId: string,
   childId: string | undefined,
-  eventDate: Date,
+  eventDate?: Date,
 ) {
   if (!childId) throw badRequestError('parentalChildRequired');
   const [child] = await tx
@@ -26,7 +26,10 @@ export async function matchParentalChild(
         eq(attendanceParentalChild.employeeId, employeeId),
       ),
     );
-  if (!child || child.birthDate.getTime() !== eventDate.getTime())
+  if (
+    !child ||
+    (eventDate && child.birthDate.getTime() !== eventDate.getTime())
+  )
     throw badRequestError('parentalChildMismatch');
   return child;
 }

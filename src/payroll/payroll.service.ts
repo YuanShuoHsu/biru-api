@@ -40,7 +40,9 @@ import {
   countedRequestStatuses,
   ADULT_WORKING_AGE,
   ageOn,
+  agreedWorkdates,
   childLaborViolation,
+  exceedsConsecutiveWorkdays,
   exceedsStudentWeeklyLimit,
   hasShortRestBetweenShifts,
   lacksWeeklyRest,
@@ -49,6 +51,7 @@ import {
   punchedUnpaidBreaks,
   subtractIntervals,
   leadingIntervals,
+  MAX_CONSECUTIVE_WORKDAYS,
   MAX_MONTHLY_OVERTIME_SECONDS,
   overlapIntervals,
   maternalNightWork,
@@ -72,7 +75,10 @@ import {
   weeklyMinutesOf,
   type EmployeeHours,
 } from 'src/attendance/employee-hours';
-import { loadHolidaySubstitutes } from 'src/attendance/holiday-substitutes';
+import {
+  loadAgreedHolidays,
+  loadHolidaySubstitutes,
+} from 'src/attendance/holiday-substitutes';
 import { annualLeaveDeferrals } from 'src/attendance/leave-ledger';
 import {
   effectivePaidPercent,
@@ -169,13 +175,15 @@ const knownFullTime = (hours: EmployeeHours, at: Date) => {
 
 interface PayrollSettings {
   overtimeExtensionPeriods: string[];
-  occupationalAccidentRateMicros: number | null;
+  occupationalIndustryCode: string | null;
+  occupationalExperienceRateMicros: number | null;
   holidays: string[] | null;
 }
 
 const NO_PAYROLL_SETTINGS: PayrollSettings = {
   overtimeExtensionPeriods: [],
-  occupationalAccidentRateMicros: null,
+  occupationalIndustryCode: null,
+  occupationalExperienceRateMicros: null,
   holidays: [],
 };
 
@@ -508,8 +516,9 @@ export class PayrollService {
     const [settings] = await tx
       .select({
         overtimeExtensionPeriods: attendanceSettings.overtimeExtensionPeriods,
-        occupationalAccidentRateMicros:
-          attendanceSettings.occupationalAccidentRateMicros,
+        occupationalIndustryCode: attendanceSettings.occupationalIndustryCode,
+        occupationalExperienceRateMicros:
+          attendanceSettings.occupationalExperienceRateMicros,
       })
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, organizationId));
@@ -535,7 +544,8 @@ export class PayrollService {
     knownEmployee?: typeof attendanceEmployee.$inferSelect,
     {
       holidays: statutoryHolidays,
-      occupationalAccidentRateMicros,
+      occupationalExperienceRateMicros,
+      occupationalIndustryCode,
       overtimeExtensionPeriods,
     } = NO_PAYROLL_SETTINGS,
   ): Promise<PayrollSnapshot> {
@@ -624,6 +634,12 @@ export class PayrollService {
     const blockers: PayrollBlocker[] = [];
     const ruleSet = await this.ruleSets.resolve(tx, month);
     if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
+    const occupationalAccidentRateMicros =
+      occupationalExperienceRateMicros ??
+      ruleSet.rules.occupationalIndustryRates?.find(
+        ({ code }) => code === occupationalIndustryCode,
+      )?.rateMicros ??
+      null;
     const insurance = profile.terms.insurance;
     if (
       insurance &&
@@ -1114,6 +1130,24 @@ export class PayrollService {
       if (violation) blockers.push(violation);
     }
     if (lacksWeeklyRest(monthWeekShifts)) blockers.push('weeklyRestRequired');
+    const agreedHolidays = await loadAgreedHolidays(
+      tx,
+      [employee],
+      platformDateString(
+        new Date(start.getTime() - MAX_CONSECUTIVE_WORKDAYS * DAY_MS),
+      ),
+      platformDateString(
+        new Date(end.getTime() + MAX_CONSECUTIVE_WORKDAYS * DAY_MS),
+      ),
+    );
+    if (
+      exceedsConsecutiveWorkdays(
+        agreedWorkdates(adjacentShifts, agreedHolidays.get(employee.id) ?? []),
+        (date) =>
+          date >= platformDateString(start) && date < platformDateString(end),
+      )
+    )
+      blockers.push('consecutiveWorkdaysExceeded');
     if (
       hasShortRestBetweenShifts(
         adjacentShifts,

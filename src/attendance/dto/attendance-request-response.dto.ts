@@ -89,6 +89,7 @@ export class AttendanceRequestRecordResponseDto extends OmitType(
     'employeeName',
     'leaveTypeName',
     'leaveTypeStatutoryKind',
+    'parentalMode',
     'returnPending',
     'shiftStartsAt',
     'shiftEndsAt',

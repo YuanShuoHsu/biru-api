@@ -16,6 +16,14 @@ export class WithholdingTableResponseDto {
   @ApiProperty() retirementHalfTaxablePerYear: number;
 }
 
+export class OccupationalIndustryRateResponseDto {
+  @ApiProperty({ description: '費率編號' }) code: string;
+  @ApiProperty() category: string;
+  @ApiProperty() industry: string;
+  @ApiProperty({ description: '行業別災害費率（百萬分率，不含上下班費率）' })
+  rateMicros: number;
+}
+
 export class TaiwanRuleSetResponseDto {
   @ApiProperty() laborPercentBp: number;
   @ApiProperty() employmentPercentBp: number;
@@ -39,6 +47,11 @@ export class TaiwanRuleSetResponseDto {
   @ApiProperty({ type: [Number] }) healthGrades: number[];
   @ApiProperty() minimumMonthlyWageCents: string;
   @ApiProperty() minimumHourlyWageCents: string;
+  @ApiPropertyOptional({
+    isArray: true,
+    type: OccupationalIndustryRateResponseDto,
+  })
+  occupationalIndustryRates?: OccupationalIndustryRateResponseDto[];
 }
 
 export class PayrollRuleSourceResponseDto {

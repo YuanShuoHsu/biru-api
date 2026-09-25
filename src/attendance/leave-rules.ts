@@ -199,15 +199,17 @@ export const hasStatutoryQuota = (kind: StatutoryLeaveKind) =>
 export const isOpenEndedCalendarLeave = (kind: StatutoryLeaveKind) =>
   kind === 'occupationalInjury';
 
+export const CALENDAR_LEAVE_KINDS = [
+  'parental',
+  'occupationalInjury',
+  'maternity',
+  'miscarriage28',
+  'miscarriage7',
+  'miscarriage5',
+] as const satisfies readonly StatutoryLeaveKind[];
+
 export function isCalendarLeave(kind: StatutoryLeaveKind) {
-  return [
-    'parental',
-    'occupationalInjury',
-    'maternity',
-    'miscarriage28',
-    'miscarriage7',
-    'miscarriage5',
-  ].includes(kind);
+  return (CALENDAR_LEAVE_KINDS as readonly StatutoryLeaveKind[]).includes(kind);
 }
 
 export function eventLeaveEntitlement(

@@ -114,7 +114,7 @@ import {
   loadMedicalLedger,
   MAX_MEDICAL_LEAVE_MS,
 } from './medical-leave';
-import { parentalLeaveErrors } from './parental-leave';
+import { parentalLeaveErrors, parentalMode } from './parental-leave';
 import { assertNoParentalReturn } from './parental-ledger';
 import { parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
@@ -270,6 +270,10 @@ export class AttendanceRequestsService {
           employeeName,
           leaveTypeName,
           leaveTypeStatutoryKind,
+          parentalMode:
+            leaveTypeStatutoryKind === 'parental'
+              ? parentalMode(request)
+              : null,
           returnPending,
           shiftStartsAt,
           shiftEndsAt,
@@ -315,12 +319,6 @@ export class AttendanceRequestsService {
             ),
           );
         if (!policy) throw badRequestError('leavePolicyRequired');
-        if (
-          policy.statutoryKind === 'parental'
-            ? !dto.parentalMode
-            : !!dto.parentalMode
-        )
-          throw badRequestError('invalidParentalInterval');
         if (
           !isEventLeave(policy.statutoryKind) &&
           !isMedicalLeave(policy.statutoryKind) &&
@@ -368,7 +366,6 @@ export class AttendanceRequestsService {
             ...interval,
             leaveTypeId: policy.id,
             leaveCaseId: dto.leaveCaseId,
-            parentalMode: dto.parentalMode,
             reason: dto.reason.trim(),
           })
           .returning();

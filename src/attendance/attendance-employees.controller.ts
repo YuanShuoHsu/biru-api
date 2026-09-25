@@ -8,6 +8,7 @@ import {
   Roles,
 } from 'src/menus/decorators/roles.decorator';
 import type { AuthRequest } from 'src/menus/guards/roles.guard';
+import { OccupationalIndustryRateResponseDto } from 'src/payroll/dto/payroll-rule-set-response.dto';
 
 import { actor } from './attendance-actor';
 import { AttendanceEmployeesService } from './attendance-employees.service';
@@ -58,6 +59,13 @@ export class AttendanceEmployeesController {
   @ApiOperation({ summary: '各法定身分的就保、勞退與工作許可義務' })
   legalStatusObligations(): AttendanceLegalStatusObligationResponseDto[] {
     return this.attendanceEmployeesService.legalStatusObligations();
+  }
+
+  @Get('occupational-industries')
+  @Roles({ attendanceSetting: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '現行職災保險適用行業別及費率' })
+  occupationalIndustries(): Promise<OccupationalIndustryRateResponseDto[]> {
+    return this.attendanceEmployeesService.occupationalIndustries();
   }
 
   @Get('employees')

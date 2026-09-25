@@ -2,6 +2,7 @@ import {
   and,
   eq,
   getTableColumns,
+  gt,
   gte,
   inArray,
   lt,
@@ -12,6 +13,8 @@ import {
 import { DAY_MS, platformDateString } from 'src/common/constants/timezone';
 import {
   attendanceHolidaySubstitute,
+  attendanceLeaveType,
+  attendanceRequest,
   attendanceShift,
   statutoryHoliday,
   type attendanceEmployee,
@@ -22,8 +25,10 @@ import type { Transaction } from './attendance-audit';
 import {
   employeeHolidays,
   owedHolidaySubstitutes,
+  weekdayOfDate,
   weekStartOfDate,
 } from './attendance-rules';
+import { CALENDAR_LEAVE_KINDS } from './leave-rules';
 
 const shiftDate = (date: string, days: number) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
@@ -124,4 +129,81 @@ export async function loadHolidaySubstitutes(
     );
   }
   return { holidays, owed, rows };
+}
+
+const platformDayStart = (date: string) =>
+  new Date(`${date}T00:00:00+08:00`).getTime();
+
+export async function loadAgreedHolidays(
+  tx: Transaction | DrizzleDB,
+  employees: (typeof attendanceEmployee.$inferSelect)[],
+  from: string,
+  to: string,
+) {
+  if (!employees.length) return new Map<string, string[]>();
+  const [statutory, calendarLeaves] = await Promise.all([
+    tx
+      .select({ date: statutoryHoliday.date, name: statutoryHoliday.name })
+      .from(statutoryHoliday)
+      .where(
+        and(gte(statutoryHoliday.date, from), lt(statutoryHoliday.date, to)),
+      ),
+    tx
+      .select({
+        employeeId: attendanceRequest.employeeId,
+        startsAt: attendanceRequest.startsAt,
+        endsAt: attendanceRequest.endsAt,
+      })
+      .from(attendanceRequest)
+      .innerJoin(
+        attendanceLeaveType,
+        eq(attendanceLeaveType.id, attendanceRequest.leaveTypeId),
+      )
+      .where(
+        and(
+          inArray(
+            attendanceRequest.employeeId,
+            employees.map(({ id }) => id),
+          ),
+          eq(attendanceRequest.kind, 'leave'),
+          eq(attendanceRequest.status, 'approved'),
+          inArray(attendanceLeaveType.statutoryKind, CALENDAR_LEAVE_KINDS),
+          lt(attendanceRequest.startsAt, new Date(platformDayStart(to))),
+          gt(attendanceRequest.endsAt, new Date(platformDayStart(from))),
+        ),
+      ),
+  ]);
+
+  return new Map(
+    employees.map((employee) => {
+      const employedFrom = platformDateString(employee.hiredAt);
+      const employedUntil =
+        employee.terminatedAt && platformDateString(employee.terminatedAt);
+      const restWeekdays = [
+        employee.regularLeaveWeekday,
+        employee.restDayWeekday,
+      ];
+      const onCalendarLeave = (date: string) =>
+        calendarLeaves.some(
+          (leave) =>
+            leave.employeeId === employee.id &&
+            leave.startsAt.getTime() < platformDayStart(date) + DAY_MS &&
+            leave.endsAt.getTime() > platformDayStart(date),
+        );
+      return [
+        employee.id,
+        employeeHolidays(statutory, employee)
+          .map(({ date }) => date)
+          .filter(
+            (date) =>
+              date >= from &&
+              date < to &&
+              date >= employedFrom &&
+              (!employedUntil || date < employedUntil) &&
+              !restWeekdays.includes(weekdayOfDate(date)) &&
+              !onCalendarLeave(date),
+          ),
+      ];
+    }),
+  );
 }

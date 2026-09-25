@@ -4,6 +4,8 @@ export const HEALTH_GRADE_DATASET = '20251';
 export const OCCUPATIONAL_GRADE_DATASET = '170557';
 export const HOLIDAY_CALENDAR_DATASET = '14718';
 export const PENSION_GRADE_DATASET = '6274';
+export const MINIMUM_WAGE_DATASET = '6281';
+export const OCCUPATIONAL_RATE_DATASET = '6262';
 
 export interface DataGovResource {
   description: string;
@@ -167,3 +169,58 @@ export const parseHolidayCalendar = (csv: string) =>
       date: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
       name: name.trim(),
     }));
+
+const adDate = (value: string) => /^(\d{4})(\d{2})\d{2}$/.exec(value.trim());
+
+const amount = (value: string) => Number(value.replace(/,/g, ''));
+
+export const parseMinimumWages = (payload: unknown) =>
+  asRecords(payload)
+    .flatMap((record) => {
+      const wage = /月薪\s*([\d,]+)[^\d]*時薪\s*([\d,]+)/.exec(
+        text(record['內容/調整金額（新台幣）']),
+      );
+      const date = adDate(text(record['實施日期（民國）']));
+      if (!wage || !date || !amount(wage[1]) || !amount(wage[2])) return [];
+
+      return [
+        {
+          effectiveFrom: `${date[1]}-${date[2]}`,
+          minimumMonthlyWageCents: String(amount(wage[1]) * 100),
+          minimumHourlyWageCents: String(amount(wage[2]) * 100),
+        },
+      ];
+    })
+    .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+
+const percentMicros = (value: unknown) =>
+  Math.round(Number(text(value).trim()) * 10000);
+
+export const parseOccupationalRates = (payload: unknown) => {
+  const records = asRecords(payload);
+  const industries = records.flatMap((record) => {
+    const code = text(record['費率編號']).trim();
+    const rateMicros = percentMicros(record['行業別費率%']);
+
+    return /^\d+$/.test(code) && rateMicros > 0
+      ? [
+          {
+            code,
+            category: text(record['大分類']).trim(),
+            industry: text(record['行業類別']).trim(),
+            rateMicros,
+          },
+        ]
+      : [];
+  });
+  const commuting = [
+    ...new Set(records.map((record) => percentMicros(record['上下班費率%']))),
+  ];
+
+  return industries.length === records.length &&
+    new Set(industries.map(({ code }) => code)).size === industries.length &&
+    commuting.length === 1 &&
+    commuting[0] > 0
+    ? { industries, commutingAccidentRateMicros: commuting[0] }
+    : null;
+};

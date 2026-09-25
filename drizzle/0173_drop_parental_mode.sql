@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_request" DROP COLUMN "parental_mode";

@@ -7,9 +7,20 @@ export interface ParentalRecord {
   leaveCaseId: string;
   startsAt: Date;
   endsAt: Date;
-  parentalMode: 'daily' | 'continuous' | null;
   originalEndsAt?: Date | null;
 }
+
+const PARENTAL_DAILY_LIMIT_MINUTES = 30 * 1440;
+
+export const parentalMode = (
+  record: Pick<ParentalRecord, 'startsAt' | 'endsAt' | 'originalEndsAt'>,
+) =>
+  calendarLeaveMinutes(
+    record.startsAt,
+    record.originalEndsAt ?? record.endsAt,
+  ) < PARENTAL_DAILY_LIMIT_MINUTES
+    ? ('daily' as const)
+    : ('continuous' as const);
 
 export interface ParentalCase {
   id: string;
@@ -30,19 +41,6 @@ export function parentalLeaveErrors(
       record.startsAt < child.eventDate ||
       record.endsAt > anniversary(child.eventDate, 36) ||
       !minutes
-    ) {
-      errors.add('invalidParentalInterval');
-      continue;
-    }
-    if (
-      !record.parentalMode ||
-      (record.parentalMode === 'daily'
-        ? minutes > 30 * 1440
-        : calendarLeaveMinutes(
-            record.startsAt,
-            record.originalEndsAt ?? record.endsAt,
-          ) <
-          30 * 1440)
     )
       errors.add('invalidParentalInterval');
   }
@@ -72,17 +70,17 @@ export function parentalLeaveErrors(
       60000;
     if (days > maximum) errors.add('parentalTotalLimit');
     const daily = leaves
-      .filter((record) => record.parentalMode === 'daily')
+      .filter((record) => parentalMode(record) === 'daily')
       .reduce(
         (sum, record) =>
           sum + calendarLeaveMinutes(record.startsAt, record.endsAt),
         0,
       );
-    if (daily > 30 * 1440) errors.add('parentalDailyLimit');
+    if (daily > PARENTAL_DAILY_LIMIT_MINUTES) errors.add('parentalDailyLimit');
     if (
       leaves.filter(
         (record) =>
-          record.parentalMode === 'continuous' &&
+          parentalMode(record) === 'continuous' &&
           (record.originalEndsAt ?? record.endsAt) <
             anniversary(record.startsAt, 6),
       ).length > 2

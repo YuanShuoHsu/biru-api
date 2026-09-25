@@ -28,8 +28,18 @@ export class SaveAttendanceSettingsDto {
   @Matches(/^\d{8}[A-Z]$/)
   laborInsuranceUnitCode?: string | null;
   @ApiPropertyOptional({
-    description: '勞保局核定的行業別職災費率（百萬分率，不含上下班費率）',
-    example: 1200,
+    description: '勞保局核定的職災保險行業別費率編號',
+    example: '42',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @Matches(/^\d{1,3}$/)
+  occupationalIndustryCode?: string | null;
+  @ApiPropertyOptional({
+    description:
+      '投保人數達 50 人、收到勞保局實績費率通知時填寫（百萬分率，不含上下班費率）；未填依行業別費率',
+    example: 1100,
     nullable: true,
     type: Number,
   })
@@ -37,7 +47,7 @@ export class SaveAttendanceSettingsDto {
   @IsInt()
   @Min(1)
   @Max(100000)
-  occupationalAccidentRateMicros?: number | null;
+  occupationalExperienceRateMicros?: number | null;
   @ApiProperty({
     description:
       '經工會或勞資會議同意延長工時的各期起始月（每期連續 3 個曆月）',

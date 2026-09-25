@@ -1212,6 +1212,27 @@
       "when": 1790344693517,
       "tag": "0172_drop_derivable_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1790347287417,
+      "tag": "0173_drop_parental_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1790347941910,
+      "tag": "0174_occupational_industry",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1790347942510,
+      "tag": "0175_drop_occupational_accident_rate",
+      "breakpoints": true
     }
   ]
 }

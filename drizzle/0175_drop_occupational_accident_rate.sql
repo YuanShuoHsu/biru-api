@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_settings" DROP COLUMN "occupational_accident_rate_micros";

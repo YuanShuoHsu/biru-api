@@ -1,68 +1,57 @@
-import { parentalLeaveErrors, type ParentalRecord } from './parental-leave';
+import {
+  parentalLeaveErrors,
+  parentalMode,
+  type ParentalRecord,
+} from './parental-leave';
 
 const at = (date: string) => new Date(`${date}T00:00:00+08:00`);
 const child = { id: 'child', eventDate: at('2024-01-01') };
-const leave = (
-  id: string,
-  start: string,
-  end: string,
-  parentalMode: ParentalRecord['parentalMode'] = 'continuous',
-): ParentalRecord => ({
+const leave = (id: string, start: string, end: string): ParentalRecord => ({
   id,
   leaveCaseId: child.id,
   startsAt: at(start),
   endsAt: at(end),
-  parentalMode,
 });
 
 describe('Parental leave periods and shared limits', () => {
   it('allows the exclusive end at age three and rejects leave on the third birthday', () => {
     expect(
-      parentalLeaveErrors(
-        [leave('a', '2026-12-31', '2027-01-01', 'daily')],
-        [child],
-      ),
+      parentalLeaveErrors([leave('a', '2026-12-31', '2027-01-01')], [child]),
     ).toEqual([]);
     expect(
-      parentalLeaveErrors(
-        [leave('b', '2027-01-01', '2027-01-02', 'daily')],
-        [child],
-      ),
+      parentalLeaveErrors([leave('b', '2027-01-01', '2027-01-02')], [child]),
     ).toContain('invalidParentalInterval');
   });
 
   it('shares the thirty-day daily allowance across calendar years', () => {
     const records = [
-      leave('a', '2025-12-17', '2026-01-01', 'daily'),
-      leave('b', '2026-02-01', '2026-02-16', 'daily'),
+      leave('a', '2025-12-17', '2026-01-01'),
+      leave('b', '2026-02-01', '2026-02-16'),
     ];
     expect(parentalLeaveErrors(records, [child])).toEqual([]);
     expect(
       parentalLeaveErrors(
-        [...records, leave('c', '2026-03-01', '2026-03-02', 'daily')],
+        [...records, leave('c', '2026-03-01', '2026-03-02')],
         [child],
       ),
     ).toContain('parentalDailyLimit');
   });
 
-  it('rejects a daily request longer than thirty days', () => {
+  it('uses daily units only below thirty calendar days', () => {
+    expect(parentalMode(leave('a', '2026-02-01', '2026-03-02'))).toBe('daily');
+    expect(parentalMode(leave('a', '2026-02-01', '2026-03-03'))).toBe(
+      'continuous',
+    );
     expect(
       parentalLeaveErrors(
-        [leave('a', '2026-01-01', '2026-02-01', 'daily')],
+        [
+          leave('a', '2026-01-01', '2026-01-31'),
+          leave('b', '2026-03-01', '2026-03-31'),
+          leave('c', '2026-05-01', '2026-05-31'),
+        ],
         [child],
       ),
-    ).toEqual(
-      expect.arrayContaining(['invalidParentalInterval', 'parentalDailyLimit']),
-    );
-  });
-
-  it('requires at least thirty calendar days for continuous leave', () => {
-    expect(
-      parentalLeaveErrors([leave('a', '2026-02-01', '2026-03-02')], [child]),
-    ).toContain('invalidParentalInterval');
-    expect(
-      parentalLeaveErrors([leave('a', '2026-02-01', '2026-03-03')], [child]),
-    ).toEqual([]);
+    ).toContain('parentalShortLimit');
   });
 
   it('allows two short continuous periods but rejects a third', () => {
@@ -93,7 +82,7 @@ describe('Parental leave periods and shared limits', () => {
     expect(parentalLeaveErrors(records, [child])).toEqual([]);
     expect(
       parentalLeaveErrors(
-        [...records, leave('b', '2026-02-01', '2026-02-02', 'daily')],
+        [...records, leave('b', '2026-02-01', '2026-02-02')],
         [child],
       ),
     ).toContain('parentalTotalLimit');
@@ -110,16 +99,13 @@ describe('Parental leave periods and shared limits', () => {
       parentalLeaveErrors([leave('a', '2025-01-01', '2025-02-01')], []),
     ).toContain('invalidParentalInterval');
     expect(
-      parentalLeaveErrors(
-        [leave('b', '2023-12-31', '2024-01-01', 'daily')],
-        [child],
-      ),
+      parentalLeaveErrors([leave('b', '2023-12-31', '2024-01-01')], [child]),
     ).toContain('invalidParentalInterval');
     expect(
       parentalLeaveErrors(
         [
           {
-            ...leave('c', '2026-01-01', '2026-01-02', 'daily'),
+            ...leave('c', '2026-01-01', '2026-01-02'),
             startsAt: new Date('2026-01-01T01:00:00+08:00'),
           },
         ],
@@ -135,9 +121,9 @@ describe('Parental leave periods and shared limits', () => {
     expect(
       parentalLeaveErrors(
         [
-          leave('a', '2026-01-01', '2026-01-31', 'daily'),
+          leave('a', '2026-01-01', '2026-01-30'),
           {
-            ...leave('b', '2026-02-01', '2026-02-02', 'daily'),
+            ...leave('b', '2026-02-01', '2026-02-03'),
             leaveCaseId: 'other-case',
           },
         ],
@@ -162,9 +148,9 @@ describe('Parental leave periods and shared limits', () => {
     expect(
       parentalLeaveErrors(
         [
-          leave('a', '2026-01-01', '2026-01-31', 'daily'),
+          leave('a', '2026-01-01', '2026-01-31'),
           {
-            ...leave('b', '2026-02-01', '2026-03-03', 'daily'),
+            ...leave('b', '2026-02-01', '2026-03-03'),
             leaveCaseId: 'twin',
           },
         ],

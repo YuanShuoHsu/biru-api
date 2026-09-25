@@ -103,9 +103,16 @@ async function snapshot(
   ];
   const db = {
     select: () => {
-      const result = Promise.resolve(results.shift());
+      const result = Promise.resolve(results.shift() ?? []);
       const query: Record<string, unknown> = { then: result.then.bind(result) };
-      for (const key of ['from', 'leftJoin', 'where', 'orderBy', 'limit'])
+      for (const key of [
+        'from',
+        'innerJoin',
+        'leftJoin',
+        'where',
+        'orderBy',
+        'limit',
+      ])
         query[key] = () => query;
       return query;
     },

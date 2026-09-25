@@ -48,6 +48,7 @@ import { member } from 'src/db/schema/organizations';
 import { payrollStatement } from 'src/db/schema/payroll';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { currentOccupationalIndustryRates } from 'src/payroll/payroll-rules.service';
 import { legalStatusObligations } from 'src/payroll/taiwan-rules';
 
 import type { AttendanceActor } from './attendance-actor';
@@ -147,6 +148,10 @@ export class AttendanceEmployeesService {
       legalStatus,
       ...legalStatusObligations(legalStatus),
     }));
+  }
+
+  occupationalIndustries() {
+    return currentOccupationalIndustryRates(this.db);
   }
 
   async employees(
@@ -821,12 +826,20 @@ export class AttendanceEmployeesService {
           .limit(1);
         if (published) throw conflictError('payrollLocked');
       }
+      if (
+        dto.occupationalIndustryCode &&
+        !(await currentOccupationalIndustryRates(tx)).some(
+          ({ code }) => code === dto.occupationalIndustryCode,
+        )
+      )
+        throw badRequestError('occupationalIndustryInvalid');
       const values = {
         ...dto,
         allowedIps: dto.allowedIps.map(normalizeIpRange),
         laborInsuranceUnitCode: dto.laborInsuranceUnitCode ?? null,
-        occupationalAccidentRateMicros:
-          dto.occupationalAccidentRateMicros ?? null,
+        occupationalIndustryCode: dto.occupationalIndustryCode ?? null,
+        occupationalExperienceRateMicros:
+          dto.occupationalExperienceRateMicros ?? null,
         voluntaryLaborInsuranceFrom,
         overtimeExtensionPeriods: [
           ...new Set(dto.overtimeExtensionPeriods),

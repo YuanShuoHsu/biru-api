@@ -13,8 +13,8 @@ import {
   type AttendanceScheduledDayKind,
   type AttendanceTerminationReason,
   type CorrectedEvent,
-  type ShiftBreak,
   type DatePeriod,
+  type ShiftBreak,
 } from 'src/db/schema/attendance';
 
 import { badRequestError } from './attendance-errors';
@@ -534,6 +534,37 @@ export const lacksWeeklyRest = (shifts: PlannedShift[]) => {
   return [...weeks.values()].some(
     ({ busy, worked }) => worked.size > 5 || busy.size > 6,
   );
+};
+
+export const MAX_CONSECUTIVE_WORKDAYS = 6;
+
+export const agreedWorkdates = (
+  shifts: { startsAt: Date; dayKind: AttendanceDayKind }[],
+  holidays: string[],
+) => [
+  ...new Set([
+    ...shifts
+      .filter((shift) => shift.dayKind !== 'regularLeave')
+      .map((shift) => platformDateString(shift.startsAt)),
+    ...holidays,
+  ]),
+];
+
+export const exceedsConsecutiveWorkdays = (
+  dates: string[],
+  isChecked: (date: string) => boolean,
+) => {
+  let run: string[] = [];
+  for (const date of [...dates].sort()) {
+    const previous = run.at(-1);
+    run =
+      previous && Date.parse(date) - Date.parse(previous) === DAY_MS
+        ? [...run, date]
+        : [date];
+    if (run.length > MAX_CONSECUTIVE_WORKDAYS && run.some(isChecked))
+      return true;
+  }
+  return false;
 };
 
 export const hasShortRestBetweenShifts = (

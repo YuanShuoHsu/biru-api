@@ -31,6 +31,14 @@ export const taiwan2026: TaiwanRuleSet = {
   healthSupplementRateBp: 211,
   minimumMonthlyWageCents: '2950000',
   minimumHourlyWageCents: '19600',
+  occupationalIndustryRates: [
+    {
+      code: '42',
+      category: '住宿及餐飲業',
+      industry: '餐飲業',
+      rateMicros: 1300,
+    },
+  ],
   laborGrades: [
     29500, 30300, 31800, 33300, 34800, 36300, 38200, 40100, 42000, 43900, 45800,
   ],

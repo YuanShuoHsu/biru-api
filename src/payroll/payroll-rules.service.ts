@@ -11,6 +11,7 @@ import {
 } from 'src/common/constants/timezone';
 import { statutoryHoliday } from 'src/db/schema/attendance';
 import {
+  type OccupationalIndustryRate,
   payrollRuleSet,
   type PayrollRuleSource,
   type TaiwanRuleSet,
@@ -26,13 +27,17 @@ import {
   holidayCalendarYear,
   LABOR_CATEGORIES,
   LABOR_GRADE_DATASET,
+  MINIMUM_WAGE_DATASET,
   OCCUPATIONAL_GRADE_DATASET,
+  OCCUPATIONAL_RATE_DATASET,
   PENSION_GRADE_DATASET,
   parseDataGovResources,
   parseHealthGrades,
   parseHolidayCalendar,
   parseLaborGrades,
+  parseMinimumWages,
   parseOccupationalGrades,
+  parseOccupationalRates,
   parsePensionGrades,
 } from './rule-source';
 
@@ -42,6 +47,27 @@ interface GradeFeed {
   grades: Map<string, number[]>;
   sources: Map<string, PayrollRuleSource>;
 }
+
+interface MinimumWageFeed {
+  wages: ReturnType<typeof parseMinimumWages>;
+  source?: PayrollRuleSource;
+}
+
+interface OccupationalRateFeed {
+  tables: Map<
+    string,
+    {
+      industries: OccupationalIndustryRate[];
+      commutingAccidentRateMicros: number;
+      source: PayrollRuleSource;
+    }
+  >;
+}
+
+const latestBy = <T extends { effectiveFrom: string }>(
+  items: T[],
+  effectiveFrom: string,
+) => items.filter((item) => item.effectiveFrom <= effectiveFrom).at(-1);
 
 const emptyFeed = (): GradeFeed => ({
   grades: new Map(),
@@ -60,6 +86,27 @@ const plausibleLadder = (next: number[], base: number[]) => {
     next[next.length - 1] <= ceiling * 2
   );
 };
+
+export async function currentOccupationalIndustryRates(
+  tx: DrizzleDB | Transaction,
+) {
+  const [row] = await tx
+    .select({ rules: payrollRuleSet.rules })
+    .from(payrollRuleSet)
+    .where(
+      and(
+        eq(payrollRuleSet.jurisdiction, JURISDICTION),
+        lte(
+          payrollRuleSet.effectiveFrom,
+          platformDateString(new Date()).slice(0, 7),
+        ),
+      ),
+    )
+    .orderBy(desc(payrollRuleSet.effectiveFrom))
+    .limit(1);
+
+  return row?.rules.occupationalIndustryRates ?? [];
+}
 
 @Injectable()
 export class PayrollRulesService {
@@ -168,11 +215,20 @@ export class PayrollRulesService {
       .where(eq(payrollRuleSet.jurisdiction, JURISDICTION))
       .orderBy(asc(payrollRuleSet.effectiveFrom))
       .limit(1);
-    const [labor, occupational, pension, health] = await Promise.all([
+    const [
+      labor,
+      occupational,
+      pension,
+      health,
+      minimumWage,
+      occupationalRate,
+    ] = await Promise.all([
       this.laborFeed(),
       this.occupationalFeed(),
       this.pensionFeed(),
       this.healthFeed(earliest?.effectiveFrom),
+      this.minimumWageFeed(),
+      this.occupationalRateFeed(),
     ]);
 
     return this.db.transaction(async (tx) => {
@@ -183,12 +239,16 @@ export class PayrollRulesService {
         occupational,
         pension,
         health,
+        minimumWage,
+        occupationalRate,
       );
       const fetched =
         labor.general.grades.size > 0 &&
         occupational.grades.size > 0 &&
         pension.grades.size > 0 &&
-        health.grades.size > 0;
+        health.grades.size > 0 &&
+        minimumWage.wages.length > 0 &&
+        occupationalRate.tables.size > 0;
       const checked = fetched && !result.rejected.length;
       if (!fetched)
         this.logger.warn('官方分級表未能完整取得，規則集未標記為已確認');
@@ -216,6 +276,8 @@ export class PayrollRulesService {
     occupational: GradeFeed,
     pension: GradeFeed,
     health: GradeFeed,
+    minimumWage: MinimumWageFeed,
+    occupationalRate: OccupationalRateFeed,
   ) {
     const existing = await tx
       .select()
@@ -233,8 +295,19 @@ export class PayrollRulesService {
         ...occupational.grades.keys(),
         ...pension.grades.keys(),
         ...health.grades.keys(),
+        ...existing.map((row) => row.effectiveFrom),
+        ...[
+          ...minimumWage.wages.map((wage) => wage.effectiveFrom),
+          ...occupationalRate.tables.keys(),
+        ].filter(
+          (effectiveFrom) =>
+            !!existing[0] && effectiveFrom >= existing[0].effectiveFrom,
+        ),
       ]),
     ].sort();
+    const occupationalTables = [...occupationalRate.tables]
+      .map(([effectiveFrom, table]) => ({ effectiveFrom, ...table }))
+      .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
 
     for (const effectiveFrom of periods) {
       const base = [...known]
@@ -282,12 +355,28 @@ export class PayrollRulesService {
       ];
       const [pensionGrades] = pensionLadders ?? [base.rules.pensionGrades];
       const [healthGrades] = healthLadders ?? [base.rules.healthGrades];
-      const minimumMonthlyWageCents = String(laborGrades[0] * 100);
+      const laborFloorCents = String(laborGrades[0] * 100);
+      const latestWage = latestBy(minimumWage.wages, effectiveFrom);
+      // 勞保級距第一級即最低月薪；級距已調高而最低工資資料未跟上時，那筆是前一期的值
+      const wage =
+        latestWage &&
+        BigInt(latestWage.minimumMonthlyWageCents) >= BigInt(laborFloorCents)
+          ? latestWage
+          : undefined;
+      const occupationalTable = latestBy(occupationalTables, effectiveFrom);
+      const minimumMonthlyWageCents =
+        wage?.minimumMonthlyWageCents ?? laborFloorCents;
       const minimumWageMoved =
-        minimumMonthlyWageCents !== base.rules.minimumMonthlyWageCents;
+        !wage && minimumMonthlyWageCents !== base.rules.minimumMonthlyWageCents;
       const rules: TaiwanRuleSet = {
         ...base.rules,
         minimumMonthlyWageCents,
+        ...(wage && { minimumHourlyWageCents: wage.minimumHourlyWageCents }),
+        ...(occupationalTable && {
+          occupationalIndustryRates: occupationalTable.industries,
+          commutingAccidentRateMicros:
+            occupationalTable.commutingAccidentRateMicros,
+        }),
         laborGrades,
         partTimeLaborGrades,
         occupationalGrades,
@@ -305,11 +394,15 @@ export class PayrollRulesService {
         occupationalLadders && occupational.sources.get(effectiveFrom),
         pensionLadders && pension.sources.get(effectiveFrom),
         healthLadders && health.sources.get(effectiveFrom),
+        wage && minimumWage.source,
+        occupationalTable?.source,
       ].filter((source): source is PayrollRuleSource => !!source);
       const current = known.find((row) => row.effectiveFrom === effectiveFrom);
       const unconfirmed = [
         ...new Set([
-          ...(current ?? base).unconfirmed,
+          ...(current ?? base).unconfirmed.filter(
+            (field) => !wage || field !== 'minimumHourlyWageCents',
+          ),
           ...(minimumWageMoved ? (['minimumHourlyWageCents'] as const) : []),
         ]),
       ];
@@ -453,6 +546,62 @@ export class PayrollRulesService {
       grades,
       sources: new Map([...grades.keys()].map((key) => [key, source])),
     };
+  }
+
+  private async minimumWageFeed(): Promise<MinimumWageFeed> {
+    const resources = await this.resources(MINIMUM_WAGE_DATASET);
+    const resource =
+      resources.find((item) => item.format === 'JSON') ?? resources[0];
+    const payload = resource ? await this.fetchJson(resource.url) : null;
+    if (!payload) return { wages: [] };
+    const wages = parseMinimumWages(payload);
+    if (
+      wages.some(
+        (wage, index) =>
+          index > 0 &&
+          (BigInt(wage.minimumMonthlyWageCents) <
+            BigInt(wages[index - 1].minimumMonthlyWageCents) ||
+            BigInt(wage.minimumHourlyWageCents) <
+              BigInt(wages[index - 1].minimumHourlyWageCents)),
+      )
+    ) {
+      this.logger.warn('最低工資資料出現調降，不採用');
+
+      return { wages: [] };
+    }
+
+    return {
+      wages,
+      source: {
+        label: `最低(基本)工資之制定與調整經過 (data.gov.tw/dataset/${MINIMUM_WAGE_DATASET})`,
+        url: resource.url,
+      },
+    };
+  }
+
+  private async occupationalRateFeed(): Promise<OccupationalRateFeed> {
+    const tables: OccupationalRateFeed['tables'] = new Map();
+    for (const resource of await this.resources(OCCUPATIONAL_RATE_DATASET)) {
+      const effectiveFrom = describedPeriod(resource.description);
+      if (
+        resource.format !== 'JSON' ||
+        !effectiveFrom ||
+        tables.has(effectiveFrom)
+      )
+        continue;
+      const payload = await this.fetchJson(resource.url);
+      const table = payload ? parseOccupationalRates(payload) : null;
+      if (!table) continue;
+      tables.set(effectiveFrom, {
+        ...table,
+        source: {
+          label: `勞工職業災害保險適用行業別及費率表 (data.gov.tw/dataset/${OCCUPATIONAL_RATE_DATASET})`,
+          url: resource.url,
+        },
+      });
+    }
+
+    return { tables };
   }
 
   private async pensionFeed(): Promise<GradeFeed> {

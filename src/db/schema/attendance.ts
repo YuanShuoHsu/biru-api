@@ -232,8 +232,9 @@ export const attendanceSettings = pgTable(
     allowedIps: text('allowed_ips').array().notNull(),
     graceMinutes: integer('grace_minutes').notNull().default(0),
     laborInsuranceUnitCode: text('labor_insurance_unit_code'),
-    occupationalAccidentRateMicros: integer(
-      'occupational_accident_rate_micros',
+    occupationalIndustryCode: text('occupational_industry_code'),
+    occupationalExperienceRateMicros: integer(
+      'occupational_experience_rate_micros',
     ),
     overtimeExtensionPeriods: text('overtime_extension_periods')
       .array()
@@ -348,7 +349,6 @@ export const attendanceRequest = pgTable(
     leaveMinutes: integer('leave_minutes'),
     paidPercent: integer('paid_percent'),
     leaveTypeId: text('leave_type_id').references(() => attendanceLeaveType.id),
-    parentalMode: text('parental_mode').$type<'daily' | 'continuous'>(),
     originalEndsAt: timestamp('original_ends_at', { withTimezone: true }),
     leaveCaseId: text('leave_case_id').references(() => attendanceLeaveCase.id),
     correctedEvents: jsonb('corrected_events').$type<CorrectedEvent[]>(),

@@ -66,9 +66,9 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
   ];
   const db = {
     select: () => {
-      const result = Promise.resolve(results.shift());
+      const result = Promise.resolve(results.shift() ?? []);
       const query: Record<string, unknown> = { then: result.then.bind(result) };
-      for (const key of ['from', 'where', 'orderBy', 'limit'])
+      for (const key of ['from', 'innerJoin', 'where', 'orderBy', 'limit'])
         query[key] = () => query;
       return query;
     },
