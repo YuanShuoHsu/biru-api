@@ -6,9 +6,11 @@ import {
   ATTENDANCE_EMPLOYEE_STATUSES,
   ATTENDANCE_EMPLOYMENT_TYPES,
   ATTENDANCE_LEGAL_STATUSES,
+  ATTENDANCE_TERMINATION_REASONS,
   type AttendanceEmployeeStatus,
   type AttendanceEmploymentType,
   type AttendanceLegalStatus,
+  type AttendanceTerminationReason,
 } from 'src/db/schema/attendance';
 
 export class AttendanceEmploymentResponseDto {
@@ -30,6 +32,8 @@ export class AttendanceEmploymentResponseDto {
   studentVacations: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: DatePeriodDto })
   workPermits: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  maternalProtectionPeriods: DatePeriodDto[];
   @ApiProperty() employmentInsuranceEligible: boolean;
   @ApiProperty() workPermitRequired: boolean;
   @ApiProperty() pensionApplicable: boolean;
@@ -40,6 +44,13 @@ export class AttendanceEmploymentResponseDto {
   taiwanStaySince: string | null;
   @ApiProperty() hiredAt: Date;
   @ApiPropertyOptional() terminatedAt: Date | null;
+  @ApiPropertyOptional({
+    enum: ATTENDANCE_TERMINATION_REASONS,
+    enumName: 'AttendanceTerminationReason',
+    nullable: true,
+  })
+  terminationReason: AttendanceTerminationReason | null;
+  @ApiPropertyOptional() terminationNoticedAt: Date | null;
   @ApiProperty() createdAt: Date;
 }
 

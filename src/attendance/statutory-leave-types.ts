@@ -27,6 +27,9 @@ export const STATUTORY_LEAVE_NAMES: Record<
   miscarriage28: '流產假（妊娠滿 3 個月）',
   miscarriage7: '流產假（妊娠 2–3 個月）',
   miscarriage5: '流產假（妊娠未滿 2 個月）',
+  official: '公假',
+  occupationalInjury: '公傷病假',
+  jobSearch: '謀職假',
 };
 
 export const statutoryLeaveTypeSeeds = (organizationId: string) =>

@@ -1,5 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class WithholdingBracketResponseDto {
+  @ApiPropertyOptional({ nullable: true, type: Number }) upTo: number | null;
+  @ApiProperty() rateBp: number;
+}
+
+export class WithholdingTableResponseDto {
+  @ApiProperty() year: number;
+  @ApiProperty() exemption: number;
+  @ApiProperty() standardDeduction: number;
+  @ApiProperty() salaryDeduction: number;
+  @ApiProperty({ isArray: true, type: WithholdingBracketResponseDto })
+  brackets: WithholdingBracketResponseDto[];
+  @ApiProperty() retirementExemptPerYear: number;
+  @ApiProperty() retirementHalfTaxablePerYear: number;
+}
+
 export class TaiwanRuleSetResponseDto {
   @ApiProperty() laborPercentBp: number;
   @ApiProperty() employmentPercentBp: number;
@@ -13,6 +29,9 @@ export class TaiwanRuleSetResponseDto {
   @ApiProperty() wageGuaranteeRateMicros: number;
   @ApiProperty() withholdingRateBp: number;
   @ApiProperty() withholdingExemptTaxCents: string;
+  @ApiProperty({ type: WithholdingTableResponseDto })
+  withholdingTable: WithholdingTableResponseDto;
+  @ApiProperty() healthSupplementRateBp: number;
   @ApiProperty({ type: [Number] }) laborGrades: number[];
   @ApiProperty({ type: [Number] }) partTimeLaborGrades: number[];
   @ApiProperty({ type: [Number] }) occupationalGrades: number[];

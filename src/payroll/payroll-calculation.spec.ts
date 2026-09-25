@@ -6,11 +6,6 @@ import { taiwan2026 } from './taiwan-rules.fixture';
 const terms: PayrollTerms = {
   salaryType: 'hourly',
   salaryCents: '24000',
-  laborInsuranceCents: '10000',
-  healthInsuranceCents: '20000',
-  voluntaryPensionCents: '0',
-  employerPensionCents: '200000',
-  withholdingCents: '0',
   allowanceCents: '0',
   otherDeductionCents: '0',
   sourceNote: 'Verified test fixture',
@@ -24,8 +19,7 @@ describe('Taiwan general payroll arithmetic', () => {
       0,
     );
     expect(result.grossCents).toBe('256000');
-    expect(result.netCents).toBe('226000');
-    expect(result.employerPensionCents).toBe('200000');
+    expect(result.netCents).toBe('256000');
   });
   it('calculates rest-day overtime and holiday work separately', () => {
     const rest = calculatePayroll(
@@ -48,7 +42,7 @@ describe('Taiwan general payroll arithmetic', () => {
   it('does not deduct employer contributions from employee pay', () => {
     const result = calculatePayroll(
       taiwan2026,
-      { ...terms, laborInsuranceCents: '0', healthInsuranceCents: '0' },
+      terms,
       [{ seconds: 8 * 3600, dayKind: 'workday' }],
       0,
     );
@@ -63,9 +57,14 @@ describe('Taiwan general payroll arithmetic', () => {
         0,
       ).blockers,
     ).toContain('unsupportedDayKind');
-    expect(calculatePayroll(taiwan2026, terms, [], 0).blockers).toContain(
-      'negativeNetPay',
-    );
+    expect(
+      calculatePayroll(
+        taiwan2026,
+        { ...terms, otherDeductionCents: '100' },
+        [],
+        0,
+      ).blockers,
+    ).toContain('negativeNetPay');
   });
   it('flags wages below the 2026 minimum and excessive hours', () => {
     const result = calculatePayroll(

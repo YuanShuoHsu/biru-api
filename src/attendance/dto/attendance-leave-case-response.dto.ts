@@ -17,6 +17,7 @@ export class AttendanceLeaveCaseResponseDto {
     enumName: 'StatutoryLeaveKind',
   })
   leaveTypeStatutoryKind: StatutoryLeaveKind;
+  @ApiProperty() calendarLeave: boolean;
   @ApiProperty() reference: string;
   @ApiProperty() eventDate: Date;
   @ApiProperty() startsAt: Date;
@@ -33,6 +34,7 @@ export class AttendanceLeaveCaseRecordResponseDto extends OmitType(
     'employeeName',
     'leaveTypeName',
     'leaveTypeStatutoryKind',
+    'calendarLeave',
     'usedMinutes',
   ] as const,
 ) {}

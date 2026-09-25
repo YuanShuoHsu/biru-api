@@ -58,13 +58,18 @@ const ceilDollars = ({ numerator, denominator }: Ratio) => {
   return (quotient * scaled < numerator ? quotient + 1n : quotient) * 100n;
 };
 
-export function hourlyRate(terms: PayrollTerms) {
+export function hourlyRate(terms: PayrollTerms, normalSeconds: number) {
   const salary = BigInt(terms.salaryCents);
   const allowance = BigInt(terms.allowanceCents);
-  const hours = BigInt(terms.allowanceHours ?? 1);
-  return terms.salaryType === 'monthly'
-    ? { numerator: salary + allowance, denominator: 240n }
-    : { numerator: salary * hours + allowance, denominator: hours };
+  if (terms.salaryType === 'monthly')
+    return { numerator: salary + allowance, denominator: 240n };
+  if (allowance === 0n || normalSeconds <= 0)
+    return { numerator: salary, denominator: 1n };
+  const seconds = BigInt(normalSeconds);
+  return {
+    numerator: salary * seconds + allowance * 3600n,
+    denominator: seconds,
+  };
 }
 
 export function calculatePayroll(
@@ -81,7 +86,12 @@ export function calculatePayroll(
     employerHealthCharged?: boolean;
     nonResident?: boolean;
     occupationalAccidentRateMicros?: number | null;
-    annualLeavePayoutCents?: string;
+    annualLeavePayouts?: { minutes: number; terms: PayrollTerms }[];
+    severance?: {
+      severancePayCents: string;
+      noticePayCents: string;
+      retirementWithholdingCents: string;
+    };
     calendarLeaveDeductionCents?: string;
     calendarLeavePayCents?: string;
     monthlyOvertimeLimitSeconds?: number;
@@ -90,8 +100,6 @@ export function calculatePayroll(
 ) {
   const salary = BigInt(terms.salaryCents);
   const allowance = BigInt(terms.allowanceCents);
-  const { numerator: hourlyNumerator, denominator: hourlyDenominator } =
-    hourlyRate(terms);
   const lines: PayrollLine[] = [];
   const blockers: PayrollBlocker[] = [];
   if (
@@ -103,8 +111,6 @@ export function calculatePayroll(
     )
   )
     blockers.push('belowMinimumWage');
-  if (terms.salaryType === 'hourly' && allowance > 0n && !terms.allowanceHours)
-    blockers.push('hourlyAllowanceBasisRequired');
   let regularSeconds = 0,
     overtimeFirst = 0,
     overtimeSecond = 0,
@@ -166,6 +172,11 @@ export function calculatePayroll(
     overtimeFirst += band(8 * 3600, 10 * 3600);
     overtimeSecond += band(10 * 3600, 12 * 3600);
   }
+  const normalSeconds =
+    regularSeconds + paidLeaveSeconds ||
+    days.reduce((sum, day) => sum + day.seconds, 0);
+  const { numerator: hourlyNumerator, denominator: hourlyDenominator } =
+    hourlyRate(terms, normalSeconds);
   if (
     ordinaryOvertime + restOvertime >
     (fraction.monthlyOvertimeLimitSeconds ?? MAX_MONTHLY_OVERTIME_SECONDS)
@@ -211,7 +222,19 @@ export function calculatePayroll(
   const overtime = roundCents(exactOvertime);
   const holidayPay = roundCents(exactHolidayPay);
   const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
-  const annualLeavePay = BigInt(fraction.annualLeavePayoutCents ?? '0');
+  const annualLeavePay = (fraction.annualLeavePayouts ?? []).reduce(
+    (sum, payout) => {
+      const rate = hourlyRate(payout.terms, normalSeconds);
+      return (
+        sum +
+        roundRatio(
+          rate.numerator * BigInt(payout.minutes),
+          rate.denominator * 60n,
+        )
+      );
+    },
+    0n,
+  );
   const leaveDeduction = roundCents(exactLeaveDeduction);
   const absenceDeduction = roundCents(exactAbsenceDeduction);
   lines.push(
@@ -243,7 +266,7 @@ export function calculatePayroll(
   );
   const resolved = taiwanDeductions(
     rules,
-    terms,
+    terms.insurance,
     regular +
       paidAllowance +
       annualLeavePay +
@@ -260,11 +283,28 @@ export function calculatePayroll(
   for (const code of [
     'laborInsurance',
     'healthInsurance',
+    'healthSupplement',
     'voluntaryPension',
     'withholding',
-    'otherDeduction',
   ] as const)
     lines.push({ code, amountCents: resolved[`${code}Cents`] });
+  lines.push(
+    {
+      code: 'severancePay',
+      amountCents: fraction.severance?.severancePayCents ?? '0',
+    },
+    {
+      code: 'noticePay',
+      amountCents: fraction.severance?.noticePayCents ?? '0',
+    },
+    {
+      code: 'retirementWithholding',
+      amountCents: fraction.severance?.retirementWithholdingCents ?? '0',
+    },
+    { code: 'otherDeduction', amountCents: terms.otherDeductionCents },
+  );
+  const severancePay = BigInt(fraction.severance?.severancePayCents ?? '0');
+  const noticePay = BigInt(fraction.severance?.noticePayCents ?? '0');
   const sumLines = (codes: readonly PayrollLineCode[]) =>
     lines
       .filter((line) => codes.includes(line.code))
@@ -279,7 +319,9 @@ export function calculatePayroll(
     negateRatio(exactAbsenceDeduction),
     ratio(
       calendarLeavePay +
-        annualLeavePay -
+        annualLeavePay +
+        severancePay +
+        noticePay -
         (deduction - leaveDeduction - absenceDeduction),
     ),
   );

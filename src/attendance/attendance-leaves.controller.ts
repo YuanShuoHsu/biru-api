@@ -38,6 +38,7 @@ import {
   AttendanceLeaveTypesResponseDto,
 } from './dto/attendance-leave-type-response.dto';
 import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
+import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
 import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
@@ -216,6 +217,34 @@ export class AttendanceLeavesController {
     return this.attendanceLeavesService.saveLeaveBalance(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Post('annual-leave-deferrals')
+  @Roles({ leaveBalance: ['create'] }, 'organizationSlug')
+  @ApiOperation({ summary: '記錄特休遞延協議' })
+  createAnnualLeaveDeferral(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: CreateAttendanceAnnualLeaveDeferralDto,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.createAnnualLeaveDeferral(
+      actor(req, session),
+      dto,
+    );
+  }
+
+  @Delete('annual-leave-deferrals/:id')
+  @Roles({ leaveBalance: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '撤銷特休遞延協議' })
+  deleteAnnualLeaveDeferral(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceLeavesService.deleteAnnualLeaveDeferral(
+      actor(req, session),
+      id,
     );
   }
 }

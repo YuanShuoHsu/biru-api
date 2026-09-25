@@ -59,6 +59,8 @@ export interface AnnualLeaveLedgerEntry {
   carriedInMinutes: number;
   usedMinutes: number;
   expiredMinutes: number;
+  unusedMinutes: number;
+  deferred: boolean;
   carryOutMinutes: number;
 }
 
@@ -67,7 +69,9 @@ export function annualLeaveLedger(
   at: Date,
   weeklyMinutesAt: (at: Date) => number = () => 2400,
   leaves: { startsAt: Date; leaveMinutes: number | null }[] = [],
+  deferredPeriodStarts: Date[] = [],
 ) {
+  const deferrals = new Set(deferredPeriodStarts.map((date) => date.getTime()));
   const entries: AnnualLeaveLedgerEntry[] = [];
   let carriedInMinutes = 0;
   let period = annualLeavePeriod(
@@ -83,7 +87,9 @@ export function annualLeaveLedger(
       .reduce((sum, leave) => sum + (leave.leaveMinutes ?? 0), 0);
     // 遞延時數先扣，否則它會在期末失效而當期額度還留著
     const fromCarry = Math.min(usedMinutes, carriedInMinutes);
-    const carryOutMinutes = Math.max(0, minutes - (usedMinutes - fromCarry));
+    const unusedMinutes = Math.max(0, minutes - (usedMinutes - fromCarry));
+    const deferred = deferrals.has(start.getTime());
+    const carryOutMinutes = deferred ? unusedMinutes : 0;
 
     entries.push({
       start,
@@ -92,6 +98,8 @@ export function annualLeaveLedger(
       carriedInMinutes,
       usedMinutes,
       expiredMinutes: carriedInMinutes - fromCarry,
+      unusedMinutes,
+      deferred,
       carryOutMinutes,
     });
     carriedInMinutes = carryOutMinutes;
@@ -107,7 +115,7 @@ export function statutoryLeavePeriod(
   at: Date,
   weeklyMinutesAt: (at: Date) => number = () => 2400,
 ) {
-  if (isEventLeave(kind)) return null;
+  if (!hasStatutoryQuota(kind)) return null;
   if (kind === 'annual') return annualLeavePeriod(hiredAt, at, weeklyMinutesAt);
   const date = toPlatformTime(at),
     year = date.getUTCFullYear(),
@@ -139,6 +147,8 @@ export function statutoryLeavePeriod(
 
 export const statutoryPaidPercent = (kind: StatutoryLeaveKind) =>
   kind === 'annual' ||
+  kind === 'official' ||
+  kind === 'jobSearch' ||
   (isEventLeave(kind) &&
     kind !== 'parental' &&
     kind !== 'miscarriage7' &&
@@ -168,6 +178,7 @@ export const eventLeaveDays = {
   miscarriage28: 28,
   miscarriage7: 7,
   miscarriage5: 5,
+  occupationalInjury: 731,
 } as const;
 export function isEventLeave(
   kind: StatutoryLeaveKind,
@@ -179,9 +190,19 @@ export function requiresMedicalCertificate(kind: StatutoryLeaveKind) {
   return kind === 'hospitalSick' || kind === 'pregnancyRest';
 }
 
+export const hasStatutoryQuota = (kind: StatutoryLeaveKind) =>
+  kind !== 'custom' &&
+  kind !== 'official' &&
+  kind !== 'jobSearch' &&
+  !isEventLeave(kind);
+
+export const isOpenEndedCalendarLeave = (kind: StatutoryLeaveKind) =>
+  kind === 'occupationalInjury';
+
 export function isCalendarLeave(kind: StatutoryLeaveKind) {
   return [
     'parental',
+    'occupationalInjury',
     'maternity',
     'miscarriage28',
     'miscarriage7',
@@ -203,7 +224,9 @@ export function eventLeaveEntitlement(
     paidPercent:
       kind === 'parental' || kind === 'miscarriage7' || kind === 'miscarriage5'
         ? 0
-        : calendar && startsAt < anniversary(hiredAt, 6)
+        : kind !== 'occupationalInjury' &&
+            calendar &&
+            startsAt < anniversary(hiredAt, 6)
           ? 50
           : 100,
   };

@@ -6,6 +6,8 @@ import {
 
 export const attendanceErrorCodes = [
   'activeShiftExists',
+  'annualLeaveDeferralInUse',
+  'annualLeaveDeferralInvalid',
   'belowMinimumWorkingAge',
   'belowStatutoryPaidPercent',
   'breakTooShort',
@@ -29,6 +31,7 @@ export const attendanceErrorCodes = [
   'futureCorrection',
   'healthInsuranceExemptionInvalid',
   'healthInsuranceRequired',
+  'healthSupplementExemptionInvalid',
   'holidayCalendarMissing',
   'idempotencyConflict',
   'implausibleMinimumWage',
@@ -42,6 +45,7 @@ export const attendanceErrorCodes = [
   'invalidParentalInterval',
   'invalidPayrollState',
   'ipNotAllowed',
+  'jobSearchLeaveInvalid',
   'laborInsuranceExemptionInvalid',
   'laborInsuranceRequired',
   'leaveCaseExists',
@@ -53,6 +57,7 @@ export const attendanceErrorCodes = [
   'leavePolicyRulesRequired',
   'leaveTypeInUse',
   'locationNotAllowed',
+  'maternalNightWork',
   'medicalCertificateRequired',
   'medicalLeaveInterval',
   'memberNotFound',
@@ -98,6 +103,8 @@ export const attendanceErrorCodes = [
   'statutoryBalanceAutomatic',
   'statutoryLeaveTypeLocked',
   'studentWeeklyHoursExceeded',
+  'terminationProtected',
+  'terminationReasonRequired',
   'weeklyRestRequired',
   'workPermitRequired',
 ] as const;

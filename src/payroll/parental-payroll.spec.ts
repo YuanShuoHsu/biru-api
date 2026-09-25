@@ -80,7 +80,6 @@ async function snapshot(
         terms: {
           insurance: {
             laborCoverage: 'both',
-            manualPremiums: true,
             laborBasis: 29500,
             occupationalBasis: 29500,
             healthBasis: 29500,
@@ -88,17 +87,13 @@ async function snapshot(
             pensionBasis: 29500,
             voluntaryPercent: 0,
             employerPercent: 6,
-            taxMethod: 'verified',
+            taxMethod: 'resident5',
+            withholdingDependents: 0,
           },
           salaryType: 'hourly',
           salaryCents: '24000',
           allowanceCents: '0',
           monthlyProration: 'calendarDays',
-          laborInsuranceCents: '0',
-          healthInsuranceCents: '0',
-          voluntaryPensionCents: '0',
-          employerPensionCents: '0',
-          withholdingCents: '0',
           otherDeductionCents: '0',
         },
       },
@@ -143,6 +138,8 @@ async function snapshot(
   ) => Promise<{
     sourceFingerprint: string;
     netCents: string;
+    grossCents: string;
+    deductionCents: string;
     blockers: string[];
     lines: { code: string; amountCents: string }[];
   }>;
@@ -171,6 +168,7 @@ describe('Parental leave holiday wages', () => {
         '2026-02-01T00:00:00',
       );
       expect(result.netCents).toBe('0');
+      expect(result.deductionCents).toBe('0');
       expect(result.blockers).toEqual([]);
     },
   );
@@ -183,7 +181,7 @@ describe('Parental leave holiday wages', () => {
       '2026-01-15T00:00:00',
       '2026-01-16T00:00:00',
     );
-    expect(result.netCents).toBe('192000');
+    expect(result.grossCents).toBe('192000');
   });
   it('deducts only the leave portion of a shift crossing the month boundary', async () => {
     const shifts = [shift('a', '2025-12-31T20:00:00', '2026-01-01T04:00:00')];
@@ -198,8 +196,8 @@ describe('Parental leave holiday wages', () => {
       '2026-01-01T00:00:00',
       '2026-01-02T00:00:00',
     );
-    expect(december.netCents).toBe('96000');
-    expect(january.netCents).toBe('0');
+    expect(december.grossCents).toBe('96000');
+    expect(january.grossCents).toBe('0');
   });
   it('preserves worked wages after returning from leave', async () => {
     const worked = shift(
@@ -215,7 +213,7 @@ describe('Parental leave holiday wages', () => {
       '2026-01',
       worked,
     );
-    expect(result.netCents).toBe('192000');
+    expect(result.grossCents).toBe('192000');
     expect(result.blockers).toEqual([]);
   });
   it('keeps the original eight-hour holiday basis when leave starts after it', async () => {
@@ -224,7 +222,7 @@ describe('Parental leave holiday wages', () => {
       '2026-01-16T00:00:00',
       '2026-01-17T00:00:00',
     );
-    expect(result.netCents).toBe('192000');
+    expect(result.grossCents).toBe('192000');
   });
 });
 
@@ -300,6 +298,6 @@ describe('Parental early-return payroll', () => {
     );
     expect(after.sourceFingerprint).not.toBe(before.sourceFingerprint);
     expect(before.netCents).toBe('0');
-    expect(after.netCents).toBe('192000');
+    expect(after.grossCents).toBe('192000');
   });
 });

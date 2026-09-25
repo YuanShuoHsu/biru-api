@@ -155,8 +155,10 @@ describe('attendance services', () => {
           legalStatus: 'national',
           studentVacations: [],
           workPermits: [],
+          maternalProtectionPeriods: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt: '2026-02-01T00:00:00+08:00',
+          terminationReason: 'resignation',
         }),
       ).rejects.toThrow('employmentWindowConflict');
       expect(insert).not.toHaveBeenCalled();
@@ -186,8 +188,10 @@ describe('attendance services', () => {
           legalStatus: 'national',
           studentVacations: [],
           workPermits: [],
+          maternalProtectionPeriods: [],
           hiredAt: '2025-01-01T00:00:00+08:00',
           terminatedAt,
+          terminationReason: terminatedAt ? 'resignation' : undefined,
         }),
       };
     };

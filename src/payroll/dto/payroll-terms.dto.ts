@@ -20,9 +20,13 @@ import {
   EMPLOYMENT_INSURANCE_EXEMPTIONS,
   type EmploymentInsuranceExemption,
   HEALTH_INSURANCE_EXEMPTIONS,
+  HEALTH_SUPPLEMENT_EXEMPTIONS,
   type HealthInsuranceExemption,
+  type HealthSupplementExemption,
   LABOR_INSURANCE_EXEMPTIONS,
   type LaborInsuranceExemption,
+  PAYROLL_TAX_METHODS,
+  type PayrollTaxMethod,
 } from 'src/db/schema/payroll';
 
 export class TaiwanInsuranceDto {
@@ -56,7 +60,14 @@ export class TaiwanInsuranceDto {
   @IsOptional()
   @IsIn(EMPLOYMENT_INSURANCE_EXEMPTIONS)
   employmentInsuranceExemption?: EmploymentInsuranceExemption;
-  @IsOptional() @IsBoolean() manualPremiums?: boolean;
+  @ApiProperty({
+    enum: HEALTH_SUPPLEMENT_EXEMPTIONS,
+    enumName: 'PayrollHealthSupplementExemption',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(HEALTH_SUPPLEMENT_EXEMPTIONS)
+  healthSupplementExemption?: HealthSupplementExemption;
   @ApiProperty({
     enum: ['general', 'partTime'],
     enumName: 'PayrollLaborLadder',
@@ -72,23 +83,22 @@ export class TaiwanInsuranceDto {
   @IsInt() @Min(0) @Max(150000) pensionBasis: number;
   @IsInt() @Min(0) @Max(6) voluntaryPercent: number;
   @IsInt() @Min(0) @Max(100) employerPercent: number;
-  @ApiProperty({
-    enum: ['resident5', 'verified'],
-    enumName: 'PayrollTaxMethod',
-  })
-  @IsIn(['resident5', 'verified'])
-  taxMethod: 'resident5' | 'verified';
+  @ApiProperty({ enum: PAYROLL_TAX_METHODS, enumName: 'PayrollTaxMethod' })
+  @IsIn(PAYROLL_TAX_METHODS)
+  taxMethod: PayrollTaxMethod;
+  @IsInt() @Min(0) @Max(99) withholdingDependents: number;
 }
 
 export class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
   'laborInsuranceExemption',
   'healthInsuranceExemption',
   'employmentInsuranceExemption',
-  'manualPremiums',
+  'healthSupplementExemption',
   'healthDependents',
   'voluntaryPercent',
   'employerPercent',
   'taxMethod',
+  'withholdingDependents',
 ] as const) {
   @IsBoolean() healthInsured: boolean;
   @IsBoolean() voluntaryLaborInsurance: boolean;
@@ -103,7 +113,6 @@ export class PayrollTermsDto {
   @IsOptional()
   @IsIn(['thirtyDays', 'calendarDays'])
   monthlyProration?: 'thirtyDays' | 'calendarDays';
-  @IsOptional() @IsInt() @Min(1) @Max(744) allowanceHours?: number;
   @IsDefined()
   @ValidateNested()
   @Type(() => TaiwanInsuranceInputDto)
@@ -114,9 +123,6 @@ export class PayrollTermsDto {
   @IsIn(['monthly', 'hourly'])
   salaryType: 'monthly' | 'hourly';
   @Matches(/^\d{1,12}$/) salaryCents: string;
-  @Matches(/^\d{1,12}$/) laborInsuranceCents: string;
-  @Matches(/^\d{1,12}$/) healthInsuranceCents: string;
-  @Matches(/^\d{1,12}$/) withholdingCents: string;
   @Matches(/^\d{1,12}$/) allowanceCents: string;
   @Matches(/^\d{1,12}$/) otherDeductionCents: string;
   @IsOptional() @IsString() @MaxLength(2000) sourceNote?: string;

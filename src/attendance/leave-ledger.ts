@@ -6,6 +6,7 @@ import {
   toPlatformTime,
 } from 'src/common/constants/timezone';
 import {
+  attendanceAnnualLeaveDeferral,
   attendanceEmployee,
   attendanceLeaveBalance,
   attendanceLeaveCase,
@@ -125,6 +126,17 @@ export async function leaveCaseUsage(tx: Transaction | DrizzleDB, id: string) {
   return row.minutes;
 }
 
+export function annualLeaveDeferrals(
+  tx: Transaction | DrizzleDB,
+  employeeIds: string[],
+) {
+  return tx
+    .select()
+    .from(attendanceAnnualLeaveDeferral)
+    .where(inArray(attendanceAnnualLeaveDeferral.employeeId, employeeIds))
+    .orderBy(asc(attendanceAnnualLeaveDeferral.periodStart));
+}
+
 export function countedLeaves(
   tx: Transaction | DrizzleDB,
   employeeId: string,
@@ -156,6 +168,7 @@ export async function statutoryBalance(
     ledger?: Awaited<ReturnType<typeof loadMedicalLedger>>;
     records?: (typeof attendanceRequest.$inferSelect)[];
     hours?: EmployeeHours;
+    deferrals?: (typeof attendanceAnnualLeaveDeferral.$inferSelect)[];
   },
 ) {
   const hours = preloaded?.hours ?? (await loadOneEmployeeHours(tx, employee));
@@ -183,6 +196,7 @@ export async function statutoryBalance(
       startsAt: yearStart,
       endsAt: platformMonthStart(year + 1, 0),
       statutory: true,
+      annualLeaveDeferralId: null,
     };
   }
   const period = statutoryLeavePeriod(
@@ -212,14 +226,24 @@ export async function statutoryBalance(
     ).filter(
       (record) => record.leaveTypeId && annualIds.has(record.leaveTypeId),
     );
+    const deferrals =
+      preloaded?.deferrals ?? (await annualLeaveDeferrals(tx, [employee.id]));
     const ledger = annualLeaveLedger(
       employee.hiredAt,
       at,
       weeklyMinutesOf(hours),
       records,
+      deferrals
+        .filter((deferral) => deferral.employeeId === employee.id)
+        .map((deferral) => deferral.periodStart),
     );
     const current = ledger[ledger.length - 1];
     if (!current) return null;
+    const deferral = deferrals.find(
+      (item) =>
+        item.employeeId === employee.id &&
+        item.periodStart.getTime() === current.start.getTime(),
+    );
 
     return {
       id: `statutory:${employee.id}:${policy.id}:${current.start.toISOString()}`,
@@ -232,6 +256,7 @@ export async function statutoryBalance(
       startsAt: current.start,
       endsAt: current.end,
       statutory: true,
+      annualLeaveDeferralId: deferral?.id ?? null,
     };
   }
   const records = (
@@ -262,5 +287,6 @@ export async function statutoryBalance(
     startsAt: period.start,
     endsAt: period.end,
     statutory: true,
+    annualLeaveDeferralId: null,
   };
 }

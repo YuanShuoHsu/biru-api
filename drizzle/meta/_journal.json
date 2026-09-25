@@ -1177,6 +1177,20 @@
       "when": 1790329689405,
       "tag": "0167_employee_taiwan_stay",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1790334042497,
+      "tag": "0168_statutory_automation",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1790334276762,
+      "tag": "0169_statutory_automation_data",
+      "breakpoints": true
     }
   ]
 }

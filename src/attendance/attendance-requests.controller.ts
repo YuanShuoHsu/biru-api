@@ -27,6 +27,7 @@ import {
   AttendanceRequestsResponseDto,
 } from './dto/attendance-request-response.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
+import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
 
 @ApiTags('attendance')
@@ -90,6 +91,22 @@ export class AttendanceRequestsController {
     @Body() dto: ReviewAttendanceRequestDto,
   ): Promise<AttendanceRequestRecordResponseDto> {
     return this.attendanceRequestsService.review(actor(req, session), id, dto);
+  }
+
+  @Post('shifts/:id/extra-work-reviews')
+  @Roles({ attendanceRequest: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '審核排班外的打卡時數' })
+  reviewExtraWork(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+    @Body() dto: ReviewAttendanceExtraWorkDto,
+  ): Promise<AttendanceRequestRecordResponseDto> {
+    return this.attendanceRequestsService.reviewExtraWork(
+      actor(req, session),
+      id,
+      dto,
+    );
   }
 
   @Patch('requests/:id/withdraw')

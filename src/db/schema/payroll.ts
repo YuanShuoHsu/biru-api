@@ -17,6 +17,8 @@ export const PAYROLL_EARNING_LINE_CODES = [
   'holidayPay',
   'calendarLeavePay',
   'annualLeavePay',
+  'severancePay',
+  'noticePay',
   'roundingAdjustment',
 ] as const;
 
@@ -25,8 +27,10 @@ export const PAYROLL_DEDUCTION_LINE_CODES = [
   'absenceDeduction',
   'laborInsurance',
   'healthInsurance',
+  'healthSupplement',
   'voluntaryPension',
   'withholding',
+  'retirementWithholding',
   'otherDeduction',
 ] as const;
 
@@ -48,6 +52,7 @@ export type PayrollDeductionLineCode =
 export type PayrollLineCode = PayrollEarningLineCode | PayrollDeductionLineCode;
 
 export const PAYROLL_BLOCKERS = [
+  'averageWageStatementsRequired',
   'belowMinimumWage',
   'birthDateRequired',
   'calendarLeavePayRequired',
@@ -61,9 +66,9 @@ export const PAYROLL_BLOCKERS = [
   'employmentInsuranceRequired',
   'healthInsuranceExemptionInvalid',
   'healthInsuranceRequired',
+  'healthSupplementExemptionInvalid',
   'holidayCalendarMissing',
   'holidayDayKindRequired',
-  'hourlyAllowanceBasisRequired',
   'incompleteAttendance',
   'inconsistentDayKind',
   'insuranceBasisOutdated',
@@ -72,6 +77,8 @@ export const PAYROLL_BLOCKERS = [
   'laborInsuranceExemptionInvalid',
   'laborInsuranceRequired',
   'leavePolicyRequired',
+  'legacySeniorityUnsupported',
+  'maternalNightWork',
   'minimumWageUnconfirmed',
   'monthlyOvertimeExceeded',
   'negativeNetPay',
@@ -79,7 +86,6 @@ export const PAYROLL_BLOCKERS = [
   'occupationalAccidentRateRequired',
   'openingHoursRequired',
   'overlappingLeaveAttendance',
-  'parentalInsuranceRequired',
   'parentalReturnPending',
   'partTimeLadderRequiresPartTime',
   'payrollPeriodOpen',
@@ -91,9 +97,12 @@ export const PAYROLL_BLOCKERS = [
   'shiftRestTooShort',
   'studentWeeklyHoursExceeded',
   'taiwanStaySinceRequired',
+  'terminationReasonRequired',
+  'unreviewedOvertime',
   'unsupportedDayKind',
   'weeklyRestRequired',
   'weeklyScheduleRequiresReview',
+  'withholdingTableOutdated',
   'workPermitRequired',
 ] as const;
 
@@ -122,12 +131,25 @@ export const HEALTH_INSURANCE_EXEMPTIONS = [
 export type HealthInsuranceExemption =
   (typeof HEALTH_INSURANCE_EXEMPTIONS)[number];
 
+export const HEALTH_SUPPLEMENT_EXEMPTIONS = [
+  'secondCategory',
+  'fifthCategory',
+  'ineligible',
+] as const;
+
+export type HealthSupplementExemption =
+  (typeof HEALTH_SUPPLEMENT_EXEMPTIONS)[number];
+
+export const PAYROLL_TAX_METHODS = ['resident5', 'table'] as const;
+
+export type PayrollTaxMethod = (typeof PAYROLL_TAX_METHODS)[number];
+
 export interface TaiwanInsurance {
   laborCoverage: 'both' | 'labor' | 'employment' | 'none';
   laborInsuranceExemption?: LaborInsuranceExemption;
   employmentInsuranceExemption?: EmploymentInsuranceExemption;
   healthInsuranceExemption?: HealthInsuranceExemption;
-  manualPremiums?: boolean;
+  healthSupplementExemption?: HealthSupplementExemption;
   laborLadder?: 'general' | 'partTime';
   laborBasis: number;
   occupationalBasis: number;
@@ -136,7 +158,18 @@ export interface TaiwanInsurance {
   pensionBasis: number;
   voluntaryPercent: number;
   employerPercent: number;
-  taxMethod: 'resident5' | 'verified';
+  taxMethod: PayrollTaxMethod;
+  withholdingDependents: number;
+}
+
+export interface WithholdingTable {
+  year: number;
+  exemption: number;
+  standardDeduction: number;
+  salaryDeduction: number;
+  brackets: { upTo: number | null; rateBp: number }[];
+  retirementExemptPerYear: number;
+  retirementHalfTaxablePerYear: number;
 }
 
 export interface TaiwanRuleSet {
@@ -152,6 +185,8 @@ export interface TaiwanRuleSet {
   wageGuaranteeRateMicros: number;
   withholdingRateBp: number;
   withholdingExemptTaxCents: string;
+  withholdingTable: WithholdingTable;
+  healthSupplementRateBp: number;
   laborGrades: number[];
   partTimeLaborGrades: number[];
   occupationalGrades: number[];
@@ -164,14 +199,8 @@ export interface TaiwanRuleSet {
 export interface PayrollTerms {
   insurance?: TaiwanInsurance;
   monthlyProration?: 'thirtyDays' | 'calendarDays';
-  allowanceHours?: number;
   salaryType: 'monthly' | 'hourly';
   salaryCents: string;
-  laborInsuranceCents: string;
-  healthInsuranceCents: string;
-  voluntaryPensionCents: string;
-  employerPensionCents: string;
-  withholdingCents: string;
   allowanceCents: string;
   otherDeductionCents: string;
   sourceNote: string;

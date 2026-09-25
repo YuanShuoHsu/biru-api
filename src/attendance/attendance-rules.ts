@@ -10,6 +10,7 @@ import {
   type AttendanceDayKind,
   type AttendanceEventAction,
   type AttendanceLegalStatus,
+  type AttendanceTerminationReason,
   type CorrectedEvent,
   type ShiftBreak,
   type DatePeriod,
@@ -240,6 +241,14 @@ export const exceedsStudentWeeklyLimit = (
   );
 };
 
+export const NOTICE_TERMINATION_REASONS: readonly AttendanceTerminationReason[] =
+  ['layoff', 'forceMajeure', 'reorganization'];
+
+export const SEVERANCE_TERMINATION_REASONS: readonly AttendanceTerminationReason[] =
+  [...NOTICE_TERMINATION_REASONS, 'employerBreach'];
+
+export const JOB_SEARCH_DAYS_PER_WEEK = 2;
+
 export const MAX_MONTHLY_OVERTIME_SECONDS = 46 * 3600;
 
 export const EXTENDED_MONTHLY_OVERTIME_SECONDS = 54 * 3600;
@@ -323,6 +332,19 @@ export const scheduledWorkIntervals = (shift: ScheduledShift) =>
     [{ start: shift.startsAt.getTime(), end: shift.endsAt.getTime() }],
     unpaidBreakIntervals(shift),
   );
+
+const OVERTIME_REVIEW_MIN_MS = 60 * 1000;
+
+// 勞動事件法 §38：出勤紀錄內的時間推定經雇主同意執行職務，排班外的打卡時數要有人審過才能結算
+export const unreviewedOvertime = (
+  counted: TimeInterval[],
+  shift: ScheduledShift,
+  reviewed: TimeInterval[],
+) =>
+  subtractIntervals(counted, [
+    ...scheduledWorkIntervals(shift),
+    ...reviewed,
+  ]).filter(({ start, end }) => end - start >= OVERTIME_REVIEW_MIN_MS);
 
 export const overlapMs = (interval: TimeInterval, from: number, to: number) =>
   Math.max(0, Math.min(interval.end, to) - Math.max(interval.start, from));
@@ -423,6 +445,25 @@ export const hasShortRestBetweenShifts = (
         shift.startsAt.getTime() - sorted[index - 1].endsAt.getTime() <
           MIN_SHIFT_REST_MS,
     );
+
+const MATERNAL_NIGHT_START_MS = 22 * 3600 * 1000;
+
+const MATERNAL_NIGHT_END_MS = 30 * 3600 * 1000;
+
+export const maternalNightWork = (
+  intervals: TimeInterval[],
+  protectedPeriods: DatePeriod[],
+) =>
+  intervals.some(({ start, end }) =>
+    [platformMidnight(start) - DAY_MS, platformMidnight(start)].some(
+      (night) =>
+        start < night + MATERNAL_NIGHT_END_MS &&
+        end > night + MATERNAL_NIGHT_START_MS &&
+        [night, night + DAY_MS].some((day) =>
+          withinPeriods(protectedPeriods, platformDateString(new Date(day))),
+        ),
+    ),
+  );
 
 export const childLaborViolation = (shifts: PlannedShift[]) => {
   const days = new Map<string, number>();

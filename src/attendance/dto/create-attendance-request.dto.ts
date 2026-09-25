@@ -5,7 +5,6 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsDateString,
   IsIn,
   IsOptional,
@@ -22,7 +21,6 @@ import {
 } from 'src/db/schema/attendance';
 
 export class CorrectedEventDto {
-  @IsOptional() @IsBoolean() paidBreak?: boolean;
   @ApiProperty({
     enum: ATTENDANCE_EVENT_ACTIONS,
     enumName: 'AttendanceEventAction',

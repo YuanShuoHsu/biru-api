@@ -23,6 +23,8 @@ export class AttendanceLeaveBalanceResponseDto {
   @ApiProperty() statutory: boolean;
   @ApiPropertyOptional() startsAt: Date | null;
   @ApiPropertyOptional() endsAt: Date | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  annualLeaveDeferralId: string | null;
 }
 
 export class AttendanceLeaveBalanceRecordResponseDto extends PickType(

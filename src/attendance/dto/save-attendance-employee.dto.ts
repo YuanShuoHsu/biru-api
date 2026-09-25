@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -16,7 +16,9 @@ import {
 
 import {
   ATTENDANCE_LEGAL_STATUSES,
+  ATTENDANCE_TERMINATION_REASONS,
   type AttendanceLegalStatus,
+  type AttendanceTerminationReason,
 } from 'src/db/schema/attendance';
 
 export class DatePeriodDto {
@@ -49,6 +51,20 @@ export class SaveAttendanceEmployeeDto {
   @ValidateNested({ each: true })
   @Type(() => DatePeriodDto)
   workPermits: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  @IsArray()
+  @ArrayMaxSize(40)
+  @ValidateNested({ each: true })
+  @Type(() => DatePeriodDto)
+  maternalProtectionPeriods: DatePeriodDto[];
   @IsDateString() hiredAt: string;
   @IsOptional() @IsDateString() terminatedAt?: string;
+  @ApiPropertyOptional({
+    enum: ATTENDANCE_TERMINATION_REASONS,
+    enumName: 'AttendanceTerminationReason',
+  })
+  @IsOptional()
+  @IsIn(ATTENDANCE_TERMINATION_REASONS)
+  terminationReason?: AttendanceTerminationReason;
+  @IsOptional() @IsDateString() terminationNoticedAt?: string;
 }

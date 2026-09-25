@@ -1,9 +1,9 @@
 import { workPermitRequired } from 'src/attendance/attendance-rules';
 import type { AttendanceLegalStatus } from 'src/db/schema/attendance';
 import type {
-  PayrollTerms,
   TaiwanInsurance,
   TaiwanRuleSet,
+  WithholdingTable,
 } from 'src/db/schema/payroll';
 
 export const MINIMUM_EMPLOYER_PENSION_PERCENT = 6;
@@ -51,6 +51,7 @@ export const insuranceViolations = (
     | 'employmentInsuranceRequired'
     | 'healthInsuranceExemptionInvalid'
     | 'healthInsuranceRequired'
+    | 'healthSupplementExemptionInvalid'
     | 'laborInsuranceExemptionInvalid'
     | 'laborInsuranceRequired'
     | 'pensionIneligible'
@@ -72,6 +73,8 @@ export const insuranceViolations = (
   const healthCovered = insurance.healthBasis > 0;
   if (insurance.healthInsuranceExemption && healthCovered)
     violations.push('healthInsuranceExemptionInvalid');
+  if (insurance.healthSupplementExemption && healthCovered)
+    violations.push('healthSupplementExemptionInvalid');
   if (
     (weeklyMinutes >= HEALTH_INSURANCE_WEEKLY_MINUTES ||
       worksEveryBusinessDay) &&
@@ -122,11 +125,12 @@ export interface TaiwanInsuranceInput extends Pick<
   | 'laborInsuranceExemption'
   | 'healthInsuranceExemption'
   | 'employmentInsuranceExemption'
-  | 'manualPremiums'
+  | 'healthSupplementExemption'
   | 'healthDependents'
   | 'voluntaryPercent'
   | 'employerPercent'
   | 'taxMethod'
+  | 'withholdingDependents'
 > {
   healthInsured: boolean;
   voluntaryLaborInsurance: boolean;
@@ -277,9 +281,75 @@ const NON_RESIDENT_REDUCED_RATE_BP = 600n;
 
 const NON_RESIDENT_RATE_BP = 1800n;
 
+const HEALTH_SUPPLEMENT_CAP_CENTS = 1000000000n;
+
+const WITHHOLDING_TABLE_STEP_CENTS = 50000n;
+
+const WITHHOLDING_TABLE_MAX_CENTS = 50000000n;
+
+const WITHHOLDING_TABLE_MAX_DEPENDENTS = 11;
+
+const annualTax = (taxable: bigint, table: WithholdingTable) => {
+  let tax = 0n;
+  let floor = 0n;
+  for (const { upTo, rateBp } of table.brackets) {
+    const ceiling = upTo === null ? taxable : BigInt(upTo) * 100n;
+    if (taxable > floor)
+      tax += ((taxable < ceiling ? taxable : ceiling) - floor) * BigInt(rateBp);
+    floor = ceiling;
+  }
+  return tax / BP;
+};
+
+export function tableWithholding(
+  table: WithholdingTable,
+  monthlyCents: bigint,
+  dependents: number,
+) {
+  const tabulated =
+    monthlyCents <= WITHHOLDING_TABLE_MAX_CENTS &&
+    dependents <= WITHHOLDING_TABLE_MAX_DEPENDENTS;
+  // 表列區間一律以下限計算並捨去至十元，才會和財政部公告的扣繳稅額表逐格相同
+  const salary = tabulated
+    ? monthlyCents <= 0n
+      ? 0n
+      : ((monthlyCents - 1n) / WITHHOLDING_TABLE_STEP_CENTS) *
+          WITHHOLDING_TABLE_STEP_CENTS +
+        100n
+    : monthlyCents;
+  const deductions =
+    BigInt(table.exemption * (1 + dependents) + table.standardDeduction) *
+      100n +
+    (salary * 12n < BigInt(table.salaryDeduction) * 100n
+      ? salary * 12n
+      : BigInt(table.salaryDeduction) * 100n);
+  const taxable = salary * 12n - deductions;
+  if (taxable <= 0n) return 0n;
+  const monthly = annualTax(taxable, table) / 12n;
+  return tabulated ? (monthly / 1000n) * 1000n : (monthly / 100n) * 100n;
+}
+
+export interface TaiwanDeductions {
+  laborInsuranceCents: string;
+  healthInsuranceCents: string;
+  healthSupplementCents: string;
+  voluntaryPensionCents: string;
+  employerPensionCents: string;
+  withholdingCents: string;
+}
+
+const NO_DEDUCTIONS: TaiwanDeductions = {
+  laborInsuranceCents: '0',
+  healthInsuranceCents: '0',
+  healthSupplementCents: '0',
+  voluntaryPensionCents: '0',
+  employerPensionCents: '0',
+  withholdingCents: '0',
+};
+
 export function taiwanDeductions(
   rules: TaiwanRuleSet,
-  terms: PayrollTerms,
+  insurance: TaiwanInsurance | undefined,
   taxableCents: bigint,
   {
     coverageDays = 30,
@@ -292,9 +362,8 @@ export function taiwanDeductions(
     contributionDays?: number;
     nonResident?: boolean;
   } = {},
-) {
-  const insurance = terms.insurance;
-  if (!insurance) return terms;
+): TaiwanDeductions {
+  if (!insurance) return NO_DEDUCTIONS;
   const laborBasis = BigInt(insurance.laborBasis);
   const laborShare = BigInt(rules.laborEmployeeShareBp) * BigInt(coverageDays);
   const labor = ['both', 'labor'].includes(insurance.laborCoverage)
@@ -329,31 +398,47 @@ export function taiwanDeductions(
     100n * 30n,
   );
   const taxable = taxableCents > voluntary ? taxableCents - voluntary : 0n;
-  const rate = BigInt(rules.withholdingRateBp);
-  const tax =
-    taxable * rate <= BigInt(rules.withholdingExemptTaxCents) * BP
-      ? 0n
-      : wholeDollars(taxable * rate, BP * 100n);
+  const supplementBase =
+    taxable < HEALTH_SUPPLEMENT_CAP_CENTS
+      ? taxable
+      : HEALTH_SUPPLEMENT_CAP_CENTS;
+  const supplement =
+    insurance.healthBasis === 0 &&
+    !insurance.healthSupplementExemption &&
+    taxable >= BigInt(rules.minimumMonthlyWageCents)
+      ? wholeDollars(
+          supplementBase * BigInt(rules.healthSupplementRateBp),
+          BP * 100n,
+        )
+      : 0n;
+  const exemptTax = BigInt(rules.withholdingExemptTaxCents);
+  const tableTax = () => {
+    const tax = tableWithholding(
+      rules.withholdingTable,
+      taxable,
+      insurance.withholdingDependents,
+    );
+    return tax <= exemptTax ? 0n : tax;
+  };
+  const tax = nonResident
+    ? wholeDollars(
+        taxable *
+          (taxable * 2n <= BigInt(rules.minimumMonthlyWageCents) * 3n
+            ? NON_RESIDENT_REDUCED_RATE_BP
+            : NON_RESIDENT_RATE_BP),
+        BP * 100n,
+      )
+    : insurance.taxMethod === 'table'
+      ? tableTax()
+      : taxable * BigInt(rules.withholdingRateBp) <= exemptTax * BP
+        ? 0n
+        : wholeDollars(taxable * BigInt(rules.withholdingRateBp), BP * 100n);
   return {
-    ...terms,
-    laborInsuranceCents: insurance.manualPremiums
-      ? terms.laborInsuranceCents
-      : (labor + employment).toString(),
-    healthInsuranceCents: insurance.manualPremiums
-      ? terms.healthInsuranceCents
-      : health.toString(),
+    laborInsuranceCents: (labor + employment).toString(),
+    healthInsuranceCents: health.toString(),
+    healthSupplementCents: supplement.toString(),
     voluntaryPensionCents: voluntary.toString(),
     employerPensionCents: employer.toString(),
-    withholdingCents: nonResident
-      ? wholeDollars(
-          taxable *
-            (taxable * 2n <= BigInt(rules.minimumMonthlyWageCents) * 3n
-              ? NON_RESIDENT_REDUCED_RATE_BP
-              : NON_RESIDENT_RATE_BP),
-          BP * 100n,
-        ).toString()
-      : insurance.taxMethod === 'resident5'
-        ? tax.toString()
-        : terms.withholdingCents,
+    withholdingCents: tax.toString(),
   };
 }

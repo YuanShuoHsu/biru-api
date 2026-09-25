@@ -1,7 +1,11 @@
 import { annualLeaveLedger } from 'src/attendance/leave-rules';
-import type { PayrollTerms } from 'src/db/schema/payroll';
 
-import { hourlyRate, roundRatio } from './payroll-calculation';
+export interface AnnualLeaveSettlement {
+  startsAt: string;
+  endsAt: string;
+  unusedMinutes: number;
+  wageDate: string;
+}
 
 export function annualLeaveSettlement(input: {
   hiredAt: Date;
@@ -9,26 +13,36 @@ export function annualLeaveSettlement(input: {
   weeklyMinutesAt: (at: Date) => number;
   start: Date;
   end: Date;
-  terms: PayrollTerms;
   leaves: { startsAt: Date; leaveMinutes: number | null }[];
+  deferredPeriodStarts: Date[];
 }) {
-  const { hiredAt, terminatedAt, weeklyMinutesAt, start, end, terms, leaves } =
-    input;
+  const {
+    hiredAt,
+    terminatedAt,
+    weeklyMinutesAt,
+    start,
+    end,
+    leaves,
+    deferredPeriodStarts,
+  } = input;
   const terminated =
     terminatedAt && terminatedAt >= start && terminatedAt < end
       ? terminatedAt
       : null;
-  const settlements: {
-    startsAt: string;
-    endsAt: string;
-    unusedMinutes: number;
-  }[] = [];
-  const add = (startsAt: Date, endsAt: Date, unusedMinutes: number) => {
+  const settlements: AnnualLeaveSettlement[] = [];
+  // 施行細則 24-1：遞延時數按原特休年度終結時的工資計發，所以每筆各自記下計薪日
+  const add = (
+    startsAt: Date,
+    endsAt: Date,
+    unusedMinutes: number,
+    wageDate: Date,
+  ) => {
     if (unusedMinutes > 0)
       settlements.push({
         startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
         unusedMinutes,
+        wageDate: new Date(wageDate.getTime() - 1).toISOString(),
       });
   };
 
@@ -37,13 +51,17 @@ export function annualLeaveSettlement(input: {
     new Date(end.getTime() - 1),
     weeklyMinutesAt,
     leaves,
+    deferredPeriodStarts,
   )) {
     if (
       entry.end >= start &&
       entry.end < end &&
       (!terminated || entry.end <= terminated)
-    )
-      add(entry.start, entry.end, entry.expiredMinutes);
+    ) {
+      add(entry.start, entry.end, entry.expiredMinutes, entry.start);
+      if (!entry.deferred || entry.end.getTime() === terminated?.getTime())
+        add(entry.start, entry.end, entry.unusedMinutes, entry.end);
+    }
   }
 
   if (terminated) {
@@ -52,26 +70,13 @@ export function annualLeaveSettlement(input: {
       terminated,
       weeklyMinutesAt,
       leaves.filter((leave) => leave.startsAt < terminated),
+      deferredPeriodStarts,
     ).at(-1);
-    if (final)
-      add(
-        final.start,
-        terminated,
-        final.expiredMinutes + final.carryOutMinutes,
-      );
+    if (final && final.start < terminated && final.end > terminated) {
+      add(final.start, terminated, final.expiredMinutes, final.start);
+      add(final.start, terminated, final.unusedMinutes, terminated);
+    }
   }
 
-  const unusedMinutes = settlements.reduce(
-    (sum, settlement) => sum + settlement.unusedMinutes,
-    0,
-  );
-  const { numerator, denominator } = hourlyRate(terms);
-
-  return {
-    amountCents: roundRatio(
-      numerator * BigInt(unusedMinutes),
-      denominator * 60n,
-    ).toString(),
-    settlements,
-  };
+  return settlements;
 }

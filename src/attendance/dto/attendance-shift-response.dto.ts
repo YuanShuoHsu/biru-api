@@ -19,6 +19,11 @@ export class AttendanceEventResponseDto {
   @ApiProperty() occurredAt: string;
 }
 
+export class AttendanceIntervalResponseDto {
+  @ApiProperty() startsAt: string;
+  @ApiProperty() endsAt: string;
+}
+
 export class AttendanceShiftResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
@@ -45,6 +50,8 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() workedSeconds: number;
   @ApiProperty() breakSeconds: number;
   @ApiProperty() unpaidBreakSeconds: number;
+  @ApiProperty({ isArray: true, type: AttendanceIntervalResponseDto })
+  unreviewedOvertime: AttendanceIntervalResponseDto[];
   @ApiProperty() late: boolean;
   @ApiProperty() early: boolean;
   @ApiProperty() createdAt: Date;

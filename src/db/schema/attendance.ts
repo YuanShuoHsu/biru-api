@@ -52,6 +52,22 @@ export const ATTENDANCE_LEGAL_STATUSES = [
 
 export type AttendanceLegalStatus = (typeof ATTENDANCE_LEGAL_STATUSES)[number];
 
+export const ATTENDANCE_TERMINATION_REASONS = [
+  'resignation',
+  'dismissalForCause',
+  'layoff',
+  'forceMajeure',
+  'employerBreach',
+  'reorganization',
+  'fixedTermExpiry',
+  'mutualAgreement',
+  'retirement',
+  'death',
+] as const;
+
+export type AttendanceTerminationReason =
+  (typeof ATTENDANCE_TERMINATION_REASONS)[number];
+
 export const ATTENDANCE_EVENT_ACTIONS = [
   'clockIn',
   'breakStart',
@@ -96,6 +112,9 @@ export const STATUTORY_LEAVE_KINDS = [
   'miscarriage28',
   'miscarriage7',
   'miscarriage5',
+  'official',
+  'occupationalInjury',
+  'jobSearch',
 ] as const;
 
 export type StatutoryLeaveKind = (typeof STATUTORY_LEAVE_KINDS)[number];
@@ -143,8 +162,17 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .$type<DatePeriod[]>()
       .default([]),
+    maternalProtectionPeriods: jsonb('maternal_protection_periods')
+      .notNull()
+      .$type<DatePeriod[]>()
+      .default([]),
     hiredAt: timestamp('hired_at', { withTimezone: true }).notNull(),
     terminatedAt: timestamp('terminated_at', { withTimezone: true }),
+    terminationReason:
+      text('termination_reason').$type<AttendanceTerminationReason>(),
+    terminationNoticedAt: timestamp('termination_noticed_at', {
+      withTimezone: true,
+    }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -153,6 +181,10 @@ export const attendanceEmployee = pgTable(
     uniqueIndex('attendance_employee_org_user_uidx').on(
       t.organizationId,
       t.userId,
+    ),
+    check(
+      'attendance_employee_termination',
+      sql`(${t.terminationReason} IS NULL OR ${t.terminatedAt} IS NOT NULL) AND (${t.terminationNoticedAt} IS NULL OR ${t.terminatedAt} IS NOT NULL AND ${t.terminationNoticedAt} <= ${t.terminatedAt})`,
     ),
   ],
 );
@@ -392,6 +424,31 @@ export const attendanceLeaveBalance = pgTable(
     check(
       'attendance_leave_balance_nonnegative',
       sql`${t.usedMinutes} >= 0 AND ${t.grantedMinutes} >= ${t.usedMinutes}`,
+    ),
+  ],
+);
+
+export const attendanceAnnualLeaveDeferral = pgTable(
+  'attendance_annual_leave_deferral',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => attendanceEmployee.id),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    reason: text('reason').notNull(),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('attendance_annual_leave_deferral_period_uidx').on(
+      t.employeeId,
+      t.periodStart,
     ),
   ],
 );

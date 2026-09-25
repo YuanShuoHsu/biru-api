@@ -51,11 +51,13 @@ import {
   leadingIntervals,
   MAX_MONTHLY_OVERTIME_SECONDS,
   overlapIntervals,
+  maternalNightWork,
   overtimeExtensionPeriodOf,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
   summarizeEvents,
   type TimeInterval,
+  unreviewedOvertime,
   weekStartOfDate,
   withinPeriods,
   workPermitRequired,
@@ -68,6 +70,7 @@ import {
   weeklyMinutesOf,
   type EmployeeHours,
 } from 'src/attendance/employee-hours';
+import { annualLeaveDeferrals } from 'src/attendance/leave-ledger';
 import {
   effectivePaidPercent,
   isCalendarLeave,
@@ -110,6 +113,13 @@ import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { openingWeekdays } from 'src/common/utils/opening-hours';
 
 import { annualLeaveSettlement } from './annual-leave';
+import {
+  averageDailyWage,
+  NEW_PENSION_SYSTEM_START,
+  owesNotice,
+  owesSeverance,
+  terminationPay,
+} from './severance';
 import { PayrollDraftDto } from './dto/payroll-draft.dto';
 import {
   PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
@@ -144,6 +154,7 @@ import {
   insuranceGrade,
   insuranceViolations,
   laborGradesFor,
+  pensionApplicable,
 } from './taiwan-rules';
 
 const knownFullTime = (hours: EmployeeHours, at: Date) => {
@@ -339,8 +350,6 @@ export class PayrollService {
           terms: {
             ...terms,
             insurance,
-            voluntaryPensionCents: '0',
-            employerPensionCents: '0',
             sourceNote: terms.sourceNote?.trim() ?? '',
           },
         })
@@ -506,7 +515,7 @@ export class PayrollService {
       knownEmployee ?? (await this.payrollEmployee(tx, actor, employeeId));
     const { start, end } = payrollPeriod(month);
     const hours = await loadOneEmployeeHours(tx, employee);
-    const [profile] = await tx
+    const termsHistory = await tx
       .select()
       .from(payrollTerms)
       .where(
@@ -516,9 +525,11 @@ export class PayrollService {
           lte(payrollTerms.effectiveFrom, start),
         ),
       )
-      .orderBy(desc(payrollTerms.effectiveFrom), desc(payrollTerms.version))
-      .limit(1);
+      .orderBy(desc(payrollTerms.effectiveFrom), desc(payrollTerms.version));
+    const [profile] = termsHistory;
     if (!profile) throw badRequestError('payrollTermsRequired');
+    const termsAt = (date: Date) =>
+      (termsHistory.find((row) => row.effectiveFrom <= date) ?? profile).terms;
     const adjacentShifts = await tx
       .select()
       .from(attendanceShift)
@@ -632,6 +643,11 @@ export class PayrollService {
       ruleSet.unconfirmed.includes('minimumHourlyWageCents')
     )
       blockers.push('minimumWageUnconfirmed');
+    if (
+      insurance?.taxMethod === 'table' &&
+      ruleSet.rules.withholdingTable.year !== Number(month.slice(0, 4))
+    )
+      blockers.push('withholdingTableOutdated');
     const employment = employmentPeriod(
       start,
       end,
@@ -691,8 +707,6 @@ export class PayrollService {
         )
       : [];
     if (pendingParentalReturns.length) blockers.push('parentalReturnPending');
-    if (parentalLeaves.length && insurance && !insurance.manualPremiums)
-      blockers.push('parentalInsuranceRequired');
     const calendarCases = calendarLeaves.length
       ? await tx
           .select()
@@ -905,6 +919,8 @@ export class PayrollService {
       )
         blockers.push('incompleteAttendance');
       const counted = countedIntervals(effective, shift);
+      if (maternalNightWork(counted, employee.maternalProtectionPeriods))
+        blockers.push('maternalNightWork');
       if (
         leaves.some((leave) =>
           counted.some(
@@ -932,6 +948,24 @@ export class PayrollService {
         ...workIntervals,
         ...approvedOvertime,
       ]);
+      if (
+        summary.state === 'completed' &&
+        unreviewedOvertime(counted, shift, [
+          ...approvedOvertime,
+          ...requests
+            .filter(
+              (request) =>
+                request.shiftId === shift.id &&
+                request.kind === 'overtime' &&
+                request.status === 'rejected',
+            )
+            .map((request) => ({
+              start: request.startsAt.getTime(),
+              end: request.endsAt.getTime(),
+            })),
+        ]).length
+      )
+        blockers.push('unreviewedOvertime');
       intervalsByDay.set(key, [...(intervalsByDay.get(key) ?? []), ...payable]);
       if (shift.dayKind === 'workday' && summary.state === 'completed')
         absenceSeconds += subtractIntervals(workIntervals, [
@@ -1100,6 +1134,9 @@ export class PayrollService {
           )
           .orderBy(asc(attendanceRequest.id))
       : [];
+    const annualDeferrals = annualPolicies.length
+      ? await annualLeaveDeferrals(tx, [employeeId])
+      : [];
     const annual = annualPolicies.length
       ? annualLeaveSettlement({
           hiredAt: employee.hiredAt,
@@ -1107,10 +1144,12 @@ export class PayrollService {
           weeklyMinutesAt: weeklyMinutesOf(hours),
           start,
           end,
-          terms: profile.terms,
           leaves: annualRequests,
+          deferredPeriodStarts: annualDeferrals.map(
+            (deferral) => deferral.periodStart,
+          ),
         })
-      : { amountCents: '0', settlements: [] };
+      : [];
     if (medical && profile.terms.salaryType === 'monthly') {
       for (const segment of medical.segments.filter((item) => item.calendar)) {
         const seconds = intervalSeconds(segment, coveredStart, coveredEnd);
@@ -1132,48 +1171,113 @@ export class PayrollService {
           ),
         );
     }
-    const calculated = calculatePayroll(
-      ruleSet.rules,
-      profile.terms,
-      [...days.values()].filter(
-        (day) =>
-          day.seconds > 0 ||
-          day.scheduledSeconds > 0 ||
-          day.paidLeaveSeconds > 0,
-      ),
-      leaveDeductionSeconds,
-      {
-        absenceSeconds,
-        ...employment,
-        contributionDays: contributionCoverageDays(
-          start,
-          end,
-          employee.hiredAt,
-          employee.terminatedAt,
-          parentalLeaves,
-        ),
-        nonResident:
-          employee.legalStatus !== 'national' &&
-          (!employee.taiwanStaySince ||
-            taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS),
-        employerHealthCharged:
-          employment.healthCharged &&
-          !parentalLeaves.some(
-            (leave) => leave.startsAt < end && leave.endsAt >= end,
-          ),
-        occupationalAccidentRateMicros,
-        annualLeavePayoutCents: annual.amountCents,
-        calendarLeaveDeductionCents: calendarDeduction.toString(),
-        calendarLeavePayCents: calendarPay.toString(),
-        monthlyOvertimeLimitSeconds: overtimeExtensionPeriodOf(
-          overtimeExtensionPeriods,
-          Number(month.slice(0, 4)),
-          Number(month.slice(5, 7)) - 1,
-        )
-          ? EXTENDED_MONTHLY_OVERTIME_SECONDS
-          : MAX_MONTHLY_OVERTIME_SECONDS,
-      },
+    const contributionDays = contributionCoverageDays(
+      start,
+      end,
+      employee.hiredAt,
+      employee.terminatedAt,
+      parentalLeaves,
     );
+    const employmentHealthCharged =
+      employment.healthCharged &&
+      !parentalLeaves.some(
+        (leave) => leave.startsAt < end && leave.endsAt >= end,
+      );
+    const nonResident =
+      employee.legalStatus !== 'national' &&
+      (!employee.taiwanStaySince ||
+        taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS);
+    const payroll = (severance?: ReturnType<typeof terminationPay>) =>
+      calculatePayroll(
+        ruleSet.rules,
+        profile.terms,
+        [...days.values()].filter(
+          (day) =>
+            day.seconds > 0 ||
+            day.scheduledSeconds > 0 ||
+            day.paidLeaveSeconds > 0,
+        ),
+        leaveDeductionSeconds,
+        {
+          absenceSeconds,
+          ...employment,
+          // 育嬰留停期間雇主負擔免繳、勞工負擔遞延三年（性平法 §16），都不從薪資扣
+          coverageDays: contributionDays,
+          healthCharged: employmentHealthCharged,
+          contributionDays,
+          nonResident,
+          severance,
+          occupationalAccidentRateMicros,
+          annualLeavePayouts: annual.map((settlement) => ({
+            minutes: settlement.unusedMinutes,
+            terms: termsAt(new Date(settlement.wageDate)),
+          })),
+          calendarLeaveDeductionCents: calendarDeduction.toString(),
+          calendarLeavePayCents: calendarPay.toString(),
+          monthlyOvertimeLimitSeconds: overtimeExtensionPeriodOf(
+            overtimeExtensionPeriods,
+            Number(month.slice(0, 4)),
+            Number(month.slice(5, 7)) - 1,
+          )
+            ? EXTENDED_MONTHLY_OVERTIME_SECONDS
+            : MAX_MONTHLY_OVERTIME_SECONDS,
+        },
+      );
+    const wages = payroll();
+    const terminatedAt =
+      employee.terminatedAt &&
+      employee.terminatedAt >= start &&
+      employee.terminatedAt < end
+        ? employee.terminatedAt
+        : null;
+    let severance: ReturnType<typeof terminationPay> | undefined;
+    if (terminatedAt && !employee.terminationReason)
+      blockers.push('terminationReasonRequired');
+    else if (
+      terminatedAt &&
+      (owesSeverance(employee.terminationReason) ||
+        owesNotice(employee.terminationReason))
+    ) {
+      const pensionScheme = pensionApplicable(employee.legalStatus);
+      const legacySeniority =
+        pensionScheme && employee.hiredAt < NEW_PENSION_SYSTEM_START;
+      const annualPay = BigInt(
+        wages.lines.find((line) => line.code === 'annualLeavePay')
+          ?.amountCents ?? '0',
+      );
+      const dailyWageCents = legacySeniority
+        ? null
+        : await averageDailyWage(tx, {
+            employee,
+            terminatedAt,
+            currentMonth: month,
+            currentWageCents: BigInt(wages.grossCents) - annualPay,
+            termsAt,
+            hourly: profile.terms.salaryType === 'hourly',
+          });
+      if (legacySeniority) blockers.push('legacySeniorityUnsupported');
+      else if (dailyWageCents === null)
+        blockers.push('averageWageStatementsRequired');
+      else {
+        if (
+          ruleSet.rules.withholdingTable.year !==
+          Number(platformDateString(terminatedAt).slice(0, 4))
+        )
+          blockers.push('withholdingTableOutdated');
+        severance = terminationPay({
+          dailyWageCents,
+          employee,
+          pensionScheme,
+          terminatedAt,
+          terms: profile.terms,
+          weeklyMinutes: weeklyMinutesAt(hours, terminatedAt),
+          table: ruleSet.rules.withholdingTable,
+          nonResident,
+          exemptTaxCents: BigInt(ruleSet.rules.withholdingExemptTaxCents),
+        });
+      }
+    }
+    const calculated = severance ? payroll(severance) : wages;
     return {
       ...calculated,
       terms: profile.terms,
@@ -1183,7 +1287,7 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'social-insurance-1',
+            calculationVersion: 'statutory-automation-1',
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,
             holidays,
@@ -1211,7 +1315,10 @@ export class PayrollService {
             employee,
             calendarCases,
             annualRequests,
+            annualDeferrals,
             annual,
+            termsHistory,
+            severance,
           }),
         )
         .digest('hex'),

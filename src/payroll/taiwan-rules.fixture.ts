@@ -13,6 +13,22 @@ export const taiwan2026: TaiwanRuleSet = {
   wageGuaranteeRateMicros: 250,
   withholdingRateBp: 500,
   withholdingExemptTaxCents: '200000',
+  withholdingTable: {
+    year: 2026,
+    exemption: 101000,
+    standardDeduction: 272000,
+    salaryDeduction: 227000,
+    brackets: [
+      { upTo: 610000, rateBp: 500 },
+      { upTo: 1380000, rateBp: 1200 },
+      { upTo: 2770000, rateBp: 2000 },
+      { upTo: 5190000, rateBp: 3000 },
+      { upTo: null, rateBp: 4000 },
+    ],
+    retirementExemptPerYear: 206000,
+    retirementHalfTaxablePerYear: 414000,
+  },
+  healthSupplementRateBp: 211,
   minimumMonthlyWageCents: '2950000',
   minimumHourlyWageCents: '19600',
   laborGrades: [

@@ -27,6 +27,7 @@ import {
 } from 'src/common/utils/data-grid-filters';
 import {
   STATUTORY_LEAVE_KINDS,
+  attendanceAnnualLeaveDeferral,
   attendanceEmployee,
   attendanceLeaveBalance,
   attendanceLeaveCase,
@@ -71,6 +72,7 @@ import {
   ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   AttendanceLeaveTypePaginationQueryDto,
 } from './dto/attendance-leave-type-pagination-query.dto';
+import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
 import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
@@ -81,13 +83,19 @@ import {
   weeklyMinutesOf,
 } from './employee-hours';
 import { requireEmployee } from './employee-lookup';
-import { statutoryBalance } from './leave-ledger';
+import {
+  annualLeaveDeferrals,
+  countedLeaves,
+  statutoryBalance,
+} from './leave-ledger';
 import {
   anniversary,
+  annualLeaveLedger,
   calendarLeaveMinutes,
   eventLeaveEntitlement,
   isCalendarLeave,
   isEventLeave,
+  isOpenEndedCalendarLeave,
   requiresMedicalCertificate,
   statutoryLeavePeriod,
   statutoryPaidPercent,
@@ -479,6 +487,7 @@ export class AttendanceLeavesService {
     return {
       data: rows.map((row) => ({
         ...row,
+        calendarLeave: isCalendarLeave(row.leaveTypeStatutoryKind),
         usedMinutes:
           usage.find((item) => item.leaveCaseId === row.id)?.minutes ?? 0,
       })),
@@ -561,10 +570,20 @@ export class AttendanceLeavesService {
       startsAt,
       weeklyMinutesAt(await loadOneEmployeeHours(tx, employee), startsAt),
     );
+    const caseMinutes = calendarLeaveMinutes(startsAt, endsAt);
+    const openEnded = isOpenEndedCalendarLeave(policy.statutoryKind);
     const entitlement = {
       ...statutory,
+      grantedMinutes: openEnded ? caseMinutes : statutory.grantedMinutes,
       paidPercent: Math.max(statutory.paidPercent, policy.paidPercent ?? 0),
     };
+    if (
+      openEnded &&
+      (startsAt < eventDate ||
+        !caseMinutes ||
+        caseMinutes > statutory.grantedMinutes)
+    )
+      throw badRequestError('calendarLeaveInterval');
     if (
       policy.statutoryKind !== 'parental' &&
       isCalendarLeave(policy.statutoryKind) &&
@@ -575,7 +594,7 @@ export class AttendanceLeavesService {
     if (
       policy.statutoryKind !== 'parental' &&
       isCalendarLeave(policy.statutoryKind) &&
-      calendarLeaveMinutes(startsAt, endsAt) !== entitlement.grantedMinutes
+      caseMinutes !== entitlement.grantedMinutes
     )
       throw badRequestError('calendarLeaveInterval');
     if (
@@ -1075,6 +1094,12 @@ export class AttendanceLeavesService {
       const ledgers = statutoryPolicies.some(ledgerPolicy)
         ? await loadMedicalLedgers(tx, employees)
         : undefined;
+      const deferrals = employees.length
+        ? await annualLeaveDeferrals(
+            tx,
+            employees.map((employee) => employee.id),
+          )
+        : [];
       const statutory = [];
       for (const employee of employees) {
         const preloaded = {
@@ -1082,6 +1107,7 @@ export class AttendanceLeavesService {
           ledger: ledgers?.get(employee.id),
           records: recordsOf.get(employee.id) ?? [],
           hours: hoursOf.get(employee.id),
+          deferrals,
         };
         for (const policy of statutoryPolicies) {
           const balance = await statutoryBalance(
@@ -1112,6 +1138,7 @@ export class AttendanceLeavesService {
           statutory: false,
           startsAt: null as Date | null,
           endsAt: null as Date | null,
+          annualLeaveDeferralId: null as string | null,
         })),
         ...statutory.map((balance) => ({ ...balance, ...named(balance) })),
       ];
@@ -1188,6 +1215,143 @@ export class AttendanceLeavesService {
         previous: previous?.grantedMinutes,
       });
       return row;
+    });
+  }
+
+  async createAnnualLeaveDeferral(
+    actor: AttendanceActor,
+    dto: CreateAttendanceAnnualLeaveDeferralDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [employee] = await tx
+        .select()
+        .from(attendanceEmployee)
+        .where(
+          and(
+            eq(attendanceEmployee.id, dto.employeeId),
+            eq(attendanceEmployee.organizationId, actor.organizationId),
+          ),
+        );
+      if (!employee) throw new NotFoundException();
+      const periodStart = new Date(dto.periodStart);
+      const period = annualLeaveLedger(
+        employee.hiredAt,
+        periodStart,
+        weeklyMinutesOf(await loadOneEmployeeHours(tx, employee)),
+      ).find((entry) => entry.start.getTime() === periodStart.getTime());
+      if (
+        !period ||
+        (employee.terminatedAt && employee.terminatedAt <= period.end)
+      )
+        throw badRequestError('annualLeaveDeferralInvalid');
+      await assertPayrollUnlocked(
+        tx,
+        actor.organizationId,
+        employee.id,
+        period.end,
+        new Date(period.end.getTime() + 1),
+      );
+      const [row] = await tx
+        .insert(attendanceAnnualLeaveDeferral)
+        .values({
+          id: randomUUID(),
+          organizationId: actor.organizationId,
+          employeeId: employee.id,
+          periodStart,
+          reason: dto.reason.trim(),
+          createdBy: actor.userId,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) throw conflictError('annualLeaveDeferralInvalid');
+      await writeAudit(tx, actor, 'leaveBalance.defer', row.id, {
+        employeeId: employee.id,
+        periodStart: dto.periodStart,
+        reason: row.reason,
+      });
+      return row;
+    });
+  }
+
+  async deleteAnnualLeaveDeferral(actor: AttendanceActor, id: string) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [row] = await tx
+        .select({
+          deferral: attendanceAnnualLeaveDeferral,
+          employee: attendanceEmployee,
+        })
+        .from(attendanceAnnualLeaveDeferral)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, attendanceAnnualLeaveDeferral.employeeId),
+        )
+        .where(
+          and(
+            eq(attendanceAnnualLeaveDeferral.id, id),
+            eq(
+              attendanceAnnualLeaveDeferral.organizationId,
+              actor.organizationId,
+            ),
+          ),
+        );
+      if (!row) throw new NotFoundException();
+      const { deferral, employee } = row;
+      const annualIds = new Set(
+        (
+          await tx
+            .select({ id: attendanceLeaveType.id })
+            .from(attendanceLeaveType)
+            .where(
+              and(
+                eq(attendanceLeaveType.organizationId, actor.organizationId),
+                eq(attendanceLeaveType.statutoryKind, 'annual'),
+              ),
+            )
+        ).map(({ id }) => id),
+      );
+      const records = (
+        await countedLeaves(
+          tx,
+          employee.id,
+          anniversary(employee.hiredAt, 6),
+          new Date('9999-12-31T00:00:00Z'),
+        )
+      ).filter(
+        (record) => record.leaveTypeId && annualIds.has(record.leaveTypeId),
+      );
+      const ledger = annualLeaveLedger(
+        employee.hiredAt,
+        new Date(),
+        weeklyMinutesOf(await loadOneEmployeeHours(tx, employee)),
+        records,
+        (await annualLeaveDeferrals(tx, [employee.id]))
+          .filter((item) => item.id !== deferral.id)
+          .map((item) => item.periodStart),
+      );
+      const index = ledger.findIndex(
+        (entry) => entry.start.getTime() === deferral.periodStart.getTime(),
+      );
+      if (index >= 0)
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
+          employee.id,
+          ledger[index].end,
+        );
+      const next = index >= 0 ? ledger[index + 1] : undefined;
+      if (next && next.usedMinutes > next.minutes)
+        throw conflictError('annualLeaveDeferralInUse');
+      await tx
+        .delete(attendanceAnnualLeaveDeferral)
+        .where(eq(attendanceAnnualLeaveDeferral.id, deferral.id));
+      await writeAudit(tx, actor, 'leaveBalance.undefer', deferral.id, {
+        employeeId: employee.id,
+        periodStart: deferral.periodStart.toISOString(),
+        reason: deferral.reason,
+      });
+      return { id: deferral.id };
     });
   }
 }

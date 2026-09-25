@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   DAY_MS,
+  PLATFORM_UTC_OFFSET_MS,
   platformDateString,
   platformMonthStart,
   toPlatformTime,
@@ -56,8 +57,12 @@ import {
 } from './attendance-errors';
 import {
   blockingRequestStatuses,
+  countedIntervals,
   countedRequestStatuses,
+  JOB_SEARCH_DAYS_PER_WEEK,
+  maternalNightWork,
   MAX_DAILY_WORK_SECONDS,
+  NOTICE_TERMINATION_REASONS,
   MAX_MONTHLY_OVERTIME_SECONDS,
   EXTENDED_MONTHLY_OVERTIME_SECONDS,
   EXTENDED_PERIOD_OVERTIME_SECONDS,
@@ -66,6 +71,8 @@ import {
   punchLeewayMs,
   scheduledWorkSeconds,
   summarizeEvents,
+  unreviewedOvertime,
+  weekStartOfDate,
 } from './attendance-rules';
 import {
   ATTENDANCE_REQUEST_DATE_FILTER_FIELDS,
@@ -74,6 +81,7 @@ import {
   AttendanceRequestPaginationQueryDto,
 } from './dto/attendance-request-pagination-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
+import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
 import {
   loadOneEmployeeHours,
@@ -94,6 +102,7 @@ import {
   anniversary,
   calendarLeaveMinutes,
   effectivePaidPercent,
+  hasStatutoryQuota,
   isCalendarLeave,
   isEventLeave,
   requiresMedicalCertificate,
@@ -508,6 +517,130 @@ export class AttendanceRequestsService {
     });
   }
 
+  async reviewExtraWork(
+    actor: AttendanceActor,
+    shiftId: string,
+    dto: ReviewAttendanceExtraWorkDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [row] = await tx
+        .select({ shift: attendanceShift, userId: attendanceEmployee.userId })
+        .from(attendanceShift)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, attendanceShift.employeeId),
+        )
+        .where(
+          and(
+            eq(attendanceShift.id, shiftId),
+            eq(attendanceShift.organizationId, actor.organizationId),
+            ne(attendanceShift.status, 'cancelled'),
+          ),
+        );
+      if (!row) throw new NotFoundException();
+      if (row.userId === actor.userId) throw forbiddenError('cannotReviewSelf');
+      const { shift } = row;
+      const interval = parseInterval(dto.startsAt, dto.endsAt);
+      const [correction] = await tx
+        .select({ correctedEvents: attendanceRequest.correctedEvents })
+        .from(attendanceRequest)
+        .where(
+          and(
+            eq(attendanceRequest.shiftId, shift.id),
+            eq(attendanceRequest.kind, 'correction'),
+            eq(attendanceRequest.status, 'approved'),
+          ),
+        )
+        .orderBy(desc(attendanceRequest.reviewedAt))
+        .limit(1);
+      const events =
+        correction?.correctedEvents ??
+        (
+          await tx
+            .select()
+            .from(attendanceEvent)
+            .where(eq(attendanceEvent.shiftId, shift.id))
+            .orderBy(asc(attendanceEvent.occurredAt))
+        ).map(({ action, occurredAt, paidBreak }) => ({
+          action,
+          occurredAt: occurredAt.toISOString(),
+          paidBreak,
+        }));
+      const overtime = await tx
+        .select()
+        .from(attendanceRequest)
+        .where(
+          and(
+            eq(attendanceRequest.shiftId, shift.id),
+            eq(attendanceRequest.kind, 'overtime'),
+            inArray(attendanceRequest.status, [
+              'pending',
+              'approved',
+              'rejected',
+            ]),
+          ),
+        );
+      if (overtime.some((request) => request.status === 'pending'))
+        throw conflictError('pendingRequestExists');
+      const extraWork =
+        summarizeEvents(events, shift).state === 'completed'
+          ? unreviewedOvertime(
+              countedIntervals(events, shift),
+              shift,
+              overtime.map((request) => ({
+                start: request.startsAt.getTime(),
+                end: request.endsAt.getTime(),
+              })),
+            )
+          : [];
+      if (
+        !extraWork.some(
+          ({ start, end }) =>
+            start <= interval.startsAt.getTime() &&
+            interval.endsAt.getTime() <= end,
+        )
+      )
+        throw badRequestError('invalidInterval');
+      await this.assertRequestPayrollUnlocked(tx, {
+        kind: 'overtime',
+        organizationId: actor.organizationId,
+        employeeId: shift.employeeId,
+        shiftId: shift.id,
+        ...interval,
+      });
+      if (dto.status === 'approved')
+        await this.assertOvertimeFits(tx, shift, interval);
+      const reviewedAt = new Date();
+      const [request] = await tx
+        .insert(attendanceRequest)
+        .values({
+          id: randomUUID(),
+          organizationId: actor.organizationId,
+          employeeId: shift.employeeId,
+          shiftId: shift.id,
+          kind: 'overtime',
+          status: dto.status,
+          ...interval,
+          reason: dto.reason.trim(),
+          reviewedBy: actor.userId,
+          reviewReason: dto.reason.trim(),
+          reviewedAt,
+        })
+        .returning();
+      if (dto.status === 'approved')
+        await this.approveOvertime(tx, actor, request, dto);
+      await writeAudit(tx, actor, 'request.reviewExtraWork', request.id, {
+        shiftId: shift.id,
+        startsAt: dto.startsAt,
+        endsAt: dto.endsAt,
+        status: dto.status,
+        reason: dto.reason,
+      });
+      return request;
+    });
+  }
+
   private async reviewLeaveCancellation(
     tx: Transaction,
     actor: AttendanceActor,
@@ -626,13 +759,31 @@ export class AttendanceRequestsService {
     interval: { endsAt: Date; startsAt: Date },
   ) {
     const workday = shift.dayKind === 'workday';
-    if (
-      workday
-        ? interval.startsAt.getTime() !== shift.endsAt.getTime() &&
-          interval.endsAt.getTime() !== shift.startsAt.getTime()
-        : interval.startsAt < shift.startsAt || interval.endsAt > shift.endsAt
-    )
+    const adjacent =
+      interval.startsAt.getTime() === shift.endsAt.getTime() ||
+      interval.endsAt.getTime() === shift.startsAt.getTime();
+    const inside =
+      interval.startsAt >= shift.startsAt && interval.endsAt <= shift.endsAt;
+    if (workday ? !adjacent : !adjacent && !inside)
       throw badRequestError('invalidInterval');
+    const [{ maternalProtectionPeriods }] = await tx
+      .select({
+        maternalProtectionPeriods: attendanceEmployee.maternalProtectionPeriods,
+      })
+      .from(attendanceEmployee)
+      .where(eq(attendanceEmployee.id, shift.employeeId));
+    if (
+      maternalNightWork(
+        [
+          {
+            start: interval.startsAt.getTime(),
+            end: interval.endsAt.getTime(),
+          },
+        ],
+        maternalProtectionPeriods,
+      )
+    )
+      throw badRequestError('maternalNightWork');
     const seconds =
       (interval.endsAt.getTime() - interval.startsAt.getTime()) / 1000;
     if (shift.dayKind !== 'regularLeave') {
@@ -642,7 +793,7 @@ export class AttendanceRequestsService {
         eq(attendanceRequest.shiftId, shift.id),
       );
       if (
-        (workday ? scheduledWorkSeconds(shift) : 0) + sameShift + seconds >
+        (adjacent ? scheduledWorkSeconds(shift) : 0) + sameShift + seconds >
         MAX_DAILY_WORK_SECONDS
       )
         throw badRequestError('dailyHoursExceeded');
@@ -902,11 +1053,10 @@ export class AttendanceRequestsService {
       await writeAudit(tx, actor, 'leave.medicalReview', request.id, {
         medicalCertified: dto.medicalCertified ?? false,
       });
-    } else if (
-      policy.statutoryKind !== 'custom' &&
-      !isEventLeave(policy.statutoryKind)
-    )
+    } else if (hasStatutoryQuota(policy.statutoryKind))
       await this.assertStatutoryQuota(tx, employee, policy, request, minutes);
+    else if (policy.statutoryKind === 'jobSearch')
+      await this.assertJobSearchQuota(tx, employee, policy, request, minutes);
     if (policy.requiresBalance)
       await this.consumeLeaveBalance(tx, actor, policy, request, minutes);
   }
@@ -1018,6 +1168,54 @@ export class AttendanceRequestsService {
           throw conflictError('insufficientLeaveBalance');
       }
     }
+  }
+
+  private async assertJobSearchQuota(
+    tx: Transaction,
+    employee: typeof attendanceEmployee.$inferSelect,
+    policy: typeof attendanceLeaveType.$inferSelect,
+    request: AttendanceRequestRow,
+    minutes: number,
+  ) {
+    const weekStart = new Date(
+      weekStartOfDate(platformDateString(request.startsAt)) -
+        PLATFORM_UTC_OFFSET_MS,
+    );
+    const weekEnd = new Date(weekStart.getTime() + 7 * DAY_MS);
+    if (
+      !employee.terminationNoticedAt ||
+      !employee.terminatedAt ||
+      !employee.terminationReason ||
+      !NOTICE_TERMINATION_REASONS.includes(employee.terminationReason) ||
+      request.startsAt < employee.terminationNoticedAt ||
+      request.endsAt > employee.terminatedAt ||
+      request.endsAt > weekEnd
+    )
+      throw badRequestError('jobSearchLeaveInvalid');
+    const [{ used }] = await tx
+      .select({
+        used: sql<number>`coalesce(sum(${attendanceRequest.leaveMinutes}), 0)::integer`,
+      })
+      .from(attendanceRequest)
+      .where(
+        and(
+          eq(attendanceRequest.employeeId, employee.id),
+          eq(attendanceRequest.leaveTypeId, policy.id),
+          ne(attendanceRequest.id, request.id),
+          inArray(attendanceRequest.status, countedRequestStatuses),
+          sql`${attendanceRequest.startsAt} >= ${weekStart}`,
+          lt(attendanceRequest.startsAt, weekEnd),
+        ),
+      );
+    const hours = await loadOneEmployeeHours(tx, employee);
+    const weeklyLimit = Math.ceil(
+      (JOB_SEARCH_DAYS_PER_WEEK *
+        480 *
+        Math.min(weeklyMinutesAt(hours, request.startsAt), 2400)) /
+        2400,
+    );
+    if (used + minutes > weeklyLimit)
+      throw conflictError('insufficientLeaveBalance');
   }
 
   private async assertStatutoryQuota(

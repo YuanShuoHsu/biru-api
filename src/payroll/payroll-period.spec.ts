@@ -8,11 +8,6 @@ const terms: PayrollTerms = {
   salaryType: 'hourly',
   salaryCents: '24000',
   allowanceCents: '0',
-  laborInsuranceCents: '0',
-  healthInsuranceCents: '0',
-  voluntaryPensionCents: '0',
-  employerPensionCents: '0',
-  withholdingCents: '0',
   otherDeductionCents: '0',
   sourceNote: 'test',
 };
@@ -88,17 +83,16 @@ describe('Cross-month attendance', () => {
       BigInt(whole.grossCents),
     );
   });
-  it('includes monthly hourly-worker allowances in the overtime rate', () => {
+  it("spreads an hourly worker's monthly allowance over the month's normal hours", () => {
     const result = calculatePayroll(
       taiwan2026,
-      { ...terms, allowanceCents: '160000', allowanceHours: 160 },
+      { ...terms, allowanceCents: '160000' },
       [{ seconds: 10 * 3600, dayKind: 'workday' }],
       0,
     );
     expect(
       result.lines.find((line) => line.code === 'overtimePay')?.amountCents,
-    ).toBe('66667');
-    expect(result.blockers).not.toContain('hourlyAllowanceBasisRequired');
+    ).toBe('117333');
   });
 });
 

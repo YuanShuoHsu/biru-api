@@ -32,6 +32,7 @@ import {
   ATTENDANCE_LEGAL_STATUSES,
   attendanceEmployee,
   attendanceLeaveCase,
+  attendanceLeaveType,
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
@@ -53,8 +54,11 @@ import { badRequestError, conflictError } from './attendance-errors';
 import {
   ageOn,
   hasOverlappingOvertimeExtensions,
+  maternalNightWork,
   MINIMUM_WORKING_AGE,
   normalizeIpRange,
+  NOTICE_TERMINATION_REASONS,
+  scheduledWorkIntervals,
   workPermitRequired,
 } from './attendance-rules';
 import {
@@ -201,9 +205,13 @@ export class AttendanceEmployeesService {
           legalStatus: attendanceEmployee.legalStatus,
           studentVacations: attendanceEmployee.studentVacations,
           workPermits: attendanceEmployee.workPermits,
+          maternalProtectionPeriods:
+            attendanceEmployee.maternalProtectionPeriods,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
+          terminationReason: attendanceEmployee.terminationReason,
+          terminationNoticedAt: attendanceEmployee.terminationNoticedAt,
           status: employeeStatusSql,
           createdAt: attendanceEmployee.createdAt,
         })
@@ -298,9 +306,13 @@ export class AttendanceEmployeesService {
           legalStatus: attendanceEmployee.legalStatus,
           studentVacations: attendanceEmployee.studentVacations,
           workPermits: attendanceEmployee.workPermits,
+          maternalProtectionPeriods:
+            attendanceEmployee.maternalProtectionPeriods,
           enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
+          terminationReason: attendanceEmployee.terminationReason,
+          terminationNoticedAt: attendanceEmployee.terminationNoticedAt,
           status: employeeStatusSql,
           createdAt: attendanceEmployee.createdAt,
         })
@@ -346,6 +358,7 @@ export class AttendanceEmployeesService {
             employee.legalStatus === null ||
             employee.studentVacations === null ||
             employee.workPermits === null ||
+            employee.maternalProtectionPeriods === null ||
             employee.createdAt === null
               ? null
               : {
@@ -357,6 +370,7 @@ export class AttendanceEmployeesService {
                   legalStatus: employee.legalStatus,
                   studentVacations: employee.studentVacations,
                   workPermits: employee.workPermits,
+                  maternalProtectionPeriods: employee.maternalProtectionPeriods,
                   ...legalStatusObligations(employee.legalStatus),
                   createdAt: employee.createdAt,
                   userId,
@@ -393,9 +407,24 @@ export class AttendanceEmployeesService {
       )
         throw badRequestError('belowMinimumWorkingAge');
       if (
-        [...dto.studentVacations, ...dto.workPermits].some(
-          ({ from, to }) => from > to,
-        )
+        [
+          ...dto.studentVacations,
+          ...dto.workPermits,
+          ...dto.maternalProtectionPeriods,
+        ].some(({ from, to }) => from > to)
+      )
+        throw badRequestError('invalidInterval');
+      if (!!terminatedAt !== !!dto.terminationReason)
+        throw badRequestError('terminationReasonRequired');
+      const terminationNoticedAt = dto.terminationNoticedAt
+        ? platformDayStart(dto.terminationNoticedAt)
+        : null;
+      if (
+        terminationNoticedAt &&
+        (!terminatedAt ||
+          !NOTICE_TERMINATION_REASONS.includes(dto.terminationReason!) ||
+          terminationNoticedAt < hiredAt ||
+          terminationNoticedAt > terminatedAt)
       )
         throw badRequestError('invalidInterval');
       const [current] = await tx
@@ -462,6 +491,54 @@ export class AttendanceEmployeesService {
           .limit(1);
         if (outsideShift || outsideRequest || outsideCase)
           throw conflictError('employmentWindowConflict');
+        if (
+          terminatedAt &&
+          (dto.terminationReason === 'layoff' ||
+            dto.terminationReason === 'reorganization')
+        ) {
+          const [protectedCase] = await tx
+            .select({ id: attendanceLeaveCase.id })
+            .from(attendanceLeaveCase)
+            .innerJoin(
+              attendanceLeaveType,
+              eq(attendanceLeaveType.id, attendanceLeaveCase.leaveTypeId),
+            )
+            .where(
+              and(
+                eq(attendanceLeaveCase.employeeId, current.id),
+                inArray(attendanceLeaveType.statutoryKind, [
+                  'maternity',
+                  'miscarriage28',
+                  'occupationalInjury',
+                ]),
+                lt(attendanceLeaveCase.startsAt, terminatedAt),
+                gt(attendanceLeaveCase.endsAt, terminatedAt),
+              ),
+            )
+            .limit(1);
+          if (protectedCase) throw conflictError('terminationProtected');
+        }
+        if (dto.maternalProtectionPeriods.length) {
+          const nightShifts = await tx
+            .select()
+            .from(attendanceShift)
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                ne(attendanceShift.status, 'cancelled'),
+                gt(attendanceShift.endsAt, new Date()),
+              ),
+            );
+          if (
+            nightShifts.some((shift) =>
+              maternalNightWork(
+                scheduledWorkIntervals(shift),
+                dto.maternalProtectionPeriods,
+              ),
+            )
+          )
+            throw conflictError('maternalNightWork');
+        }
         if (current.enabled && !dto.enabled) {
           const [scheduledShift] = await tx
             .select({ id: attendanceShift.id })
@@ -515,8 +592,11 @@ export class AttendanceEmployeesService {
         studentVacations:
           dto.legalStatus === 'foreignStudent' ? dto.studentVacations : [],
         workPermits: workPermitRequired(dto.legalStatus) ? dto.workPermits : [],
+        maternalProtectionPeriods: dto.maternalProtectionPeriods,
         hiredAt,
         terminatedAt,
+        terminationReason: dto.terminationReason ?? null,
+        terminationNoticedAt,
       };
       const [row] = await tx
         .insert(attendanceEmployee)

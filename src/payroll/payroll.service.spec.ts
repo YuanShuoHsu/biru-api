@@ -178,15 +178,13 @@ describe('Payroll terms validation', () => {
     voluntaryPercent: 0,
     employerPercent: 6,
     taxMethod: 'resident5' as const,
+    withholdingDependents: 0,
   };
   const dto = {
     employeeId: 'employee',
     effectiveFrom: '2026-03-01',
     salaryType: 'hourly' as const,
     salaryCents: '20000',
-    laborInsuranceCents: '0',
-    healthInsuranceCents: '0',
-    withholdingCents: '0',
     allowanceCents: '0',
     otherDeductionCents: '0',
   };

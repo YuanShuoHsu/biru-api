@@ -69,11 +69,15 @@ import {
   MAX_SHIFT_MS,
   normalizeIp,
   punchLeewayMs,
+  countedIntervals,
+  maternalNightWork,
   type ScheduledShift,
+  scheduledWorkIntervals,
   scheduledWorkSeconds,
   SHIFT_STATE_BY_LAST_ACTION,
   SHIFT_STATE_RANK,
   summarizeEvents,
+  unreviewedOvertime,
   withinPeriods,
   workPermitRequired,
 } from './attendance-rules';
@@ -235,7 +239,7 @@ export class AttendanceShiftsService {
     ]);
     if (!rows.length) return { data: [], total };
     const ids = rows.map((row) => row.shift.id);
-    const [events, corrections, [settings]] = await Promise.all([
+    const [events, corrections, overtime, [settings]] = await Promise.all([
       this.db
         .select()
         .from(attendanceEvent)
@@ -259,6 +263,25 @@ export class AttendanceShiftsService {
         )
         .orderBy(desc(attendanceRequest.reviewedAt)),
       this.db
+        .select({
+          shiftId: attendanceRequest.shiftId,
+          startsAt: attendanceRequest.startsAt,
+          endsAt: attendanceRequest.endsAt,
+        })
+        .from(attendanceRequest)
+        .where(
+          and(
+            eq(attendanceRequest.organizationId, actor.organizationId),
+            inArray(attendanceRequest.shiftId, ids),
+            eq(attendanceRequest.kind, 'overtime'),
+            inArray(attendanceRequest.status, [
+              'pending',
+              'approved',
+              'rejected',
+            ]),
+          ),
+        ),
+      this.db
         .select({ graceMinutes: attendanceSettings.graceMinutes })
         .from(attendanceSettings)
         .where(eq(attendanceSettings.organizationId, actor.organizationId)),
@@ -276,6 +299,19 @@ export class AttendanceShiftsService {
       )?.correctedEvents;
       const effectiveEvents = correctedEvents ?? rawEvents;
       const summary = summarizeEvents(effectiveEvents, shift);
+      const extraWork =
+        summary.state === 'completed'
+          ? unreviewedOvertime(
+              countedIntervals(effectiveEvents, shift),
+              shift,
+              overtime
+                .filter((request) => request.shiftId === shift.id)
+                .map((request) => ({
+                  start: request.startsAt.getTime(),
+                  end: request.endsAt.getTime(),
+                })),
+            )
+          : [];
       const first = effectiveEvents[0],
         last = effectiveEvents.at(-1);
       const grace = (settings?.graceMinutes ?? 0) * 60000;
@@ -287,6 +323,10 @@ export class AttendanceShiftsService {
         events: effectiveEvents,
         originalEvents: correctedEvents ? rawEvents : null,
         ...summary,
+        unreviewedOvertime: extraWork.map(({ start, end }) => ({
+          startsAt: new Date(start).toISOString(),
+          endsAt: new Date(end).toISOString(),
+        })),
         late:
           !!first &&
           new Date(first.occurredAt).getTime() >
@@ -465,6 +505,17 @@ export class AttendanceShiftsService {
           )
         )
           throw badRequestError('workPermitRequired');
+        if (
+          maternalNightWork(
+            scheduledWorkIntervals({
+              ...interval,
+              breaks,
+              paidBreak: dto.paidBreak,
+            }),
+            employee.maternalProtectionPeriods,
+          )
+        )
+          throw badRequestError('maternalNightWork');
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,

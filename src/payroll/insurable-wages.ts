@@ -34,12 +34,15 @@ export const insurableWages = async (
       )
   ).map(({ month, snapshot }) => ({
     month,
-    cents:
-      BigInt(snapshot.grossCents) -
-      BigInt(
-        snapshot.lines.find(({ code }) => code === 'annualLeavePay')
-          ?.amountCents ?? '0',
-      ),
+    cents: ['annualLeavePay', 'severancePay', 'noticePay'].reduce(
+      (cents, excluded) =>
+        cents -
+        BigInt(
+          snapshot.lines.find(({ code }) => code === excluded)?.amountCents ??
+            '0',
+        ),
+      BigInt(snapshot.grossCents),
+    ),
   }));
 
 export const averageMonthlyWage = (wages: { cents: bigint }[]) =>
