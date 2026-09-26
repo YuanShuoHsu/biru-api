@@ -31,7 +31,10 @@ import {
   AttendanceShiftsResponseDto,
 } from './dto/attendance-shift-response.dto';
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
-import { CreateAttendanceShiftsDto } from './dto/create-attendance-shifts.dto';
+import {
+  CreateAttendanceShiftsDto,
+  UpdateAttendanceShiftDto,
+} from './dto/create-attendance-shifts.dto';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')
@@ -119,6 +122,22 @@ export class AttendanceShiftsController {
     return this.attendanceShiftsService.createShifts(
       actor(req, session),
       dto.shifts,
+    );
+  }
+
+  @Patch('shifts/:id')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '修改班別時段' })
+  updateShift(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+    @Body() dto: UpdateAttendanceShiftDto,
+  ): Promise<AttendanceShiftRecordResponseDto> {
+    return this.attendanceShiftsService.updateShift(
+      actor(req, session),
+      id,
+      dto,
     );
   }
 

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -36,6 +36,21 @@ export class CreateAttendanceShiftDto {
   breaks: ShiftBreakDto[];
   @ApiPropertyOptional({
     description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
+    enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
+    enumName: 'AttendanceScheduledDayKind',
+  })
+  @IsOptional()
+  @IsIn(ATTENDANCE_SCHEDULED_DAY_KINDS)
+  dayKind?: AttendanceScheduledDayKind;
+}
+
+export class UpdateAttendanceShiftDto extends OmitType(
+  CreateAttendanceShiftDto,
+  ['employeeId', 'dayKind'] as const,
+) {
+  @ApiPropertyOptional({
+    description:
+      '員工設有固定例假日與休息日時由星期推得；未設定者移到其他日期時必填，同日省略則沿用原日別',
     enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
     enumName: 'AttendanceScheduledDayKind',
   })
