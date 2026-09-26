@@ -78,6 +78,7 @@ import {
   MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
+  overlapMs,
   punchLeewayMs,
   countedIntervals,
   maternalNightWork,
@@ -114,7 +115,7 @@ import {
 } from './dto/create-attendance-shifts.dto';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup';
 import { loadAgreedHolidays } from './holiday-substitutes';
-import { parseBreaks, parseInterval } from './shift-intervals';
+import { parseInterval, scheduledBreaks } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
 const shiftStateCase = sql.join(
@@ -571,10 +572,6 @@ export class AttendanceShiftsService {
             startsAt: move(shift.startsAt),
             endsAt: move(shift.endsAt),
             paidBreak: shift.paidBreak,
-            breaks: shift.breaks.map((shiftBreak) => ({
-              startsAt: move(shiftBreak.startsAt),
-              endsAt: move(shiftBreak.endsAt),
-            })),
             dayKind: designatedDayKind(
               employee,
               weekdayOfDate(platformDateString(shift.startsAt)),
@@ -780,6 +777,7 @@ export class AttendanceShiftsService {
     );
     const existingShifts = await tx
       .select({
+        id: attendanceShift.id,
         employeeId: attendanceShift.employeeId,
         startsAt: attendanceShift.startsAt,
         endsAt: attendanceShift.endsAt,
@@ -796,6 +794,48 @@ export class AttendanceShiftsService {
           gte(attendanceShift.startsAt, new Date(nearbyFrom)),
           lt(attendanceShift.startsAt, new Date(nearbyTo)),
         ),
+      );
+    const existingShiftIds = existingShifts.map(({ id }) => id);
+    const existingOvertime = existingShiftIds.length
+      ? await tx
+          .select({
+            shiftId: attendanceRequest.shiftId,
+            startsAt: attendanceRequest.startsAt,
+            endsAt: attendanceRequest.endsAt,
+          })
+          .from(attendanceRequest)
+          .where(
+            and(
+              inArray(attendanceRequest.shiftId, existingShiftIds),
+              eq(attendanceRequest.kind, 'overtime'),
+              inArray(attendanceRequest.status, blockingRequestStatuses),
+            ),
+          )
+      : [];
+    const overtimeOutsideShift = (shift: {
+      id: string;
+      startsAt: Date;
+      endsAt: Date;
+    }) =>
+      Math.floor(
+        existingOvertime
+          .filter(({ shiftId }) => shiftId === shift.id)
+          .reduce((ms, overtime) => {
+            const interval = {
+              start: overtime.startsAt.getTime(),
+              end: overtime.endsAt.getTime(),
+            };
+            return (
+              ms +
+              interval.end -
+              interval.start -
+              overlapMs(
+                interval,
+                shift.startsAt.getTime(),
+                shift.endsAt.getTime(),
+              )
+            );
+          }, 0) / 1000,
       );
     const from = new Date(
       Math.min(...intervals.map((interval) => interval.startsAt.getTime())),
@@ -870,7 +910,7 @@ export class AttendanceShiftsService {
           MAX_SHIFT_MS
         )
           throw badRequestError('shiftTooLong');
-        const breaks = parseBreaks(interval, dto.breaks);
+        const breaks = scheduledBreaks(interval);
         const employee = employees.find(({ id }) => id === dto.employeeId);
         if (
           !employee ||
@@ -928,6 +968,27 @@ export class AttendanceShiftsService {
         }
         if ([...sameDayKinds].some((kind) => kind !== dayKind))
           throw conflictError('inconsistentDayKind');
+        if (
+          dayKind !== 'regularLeave' &&
+          [...existingShifts, ...values]
+            .filter(
+              (shift) =>
+                shift.employeeId === dto.employeeId &&
+                platformDateString(shift.startsAt) === dates[index],
+            )
+            .reduce(
+              (seconds, shift) =>
+                seconds +
+                scheduledWorkSeconds(shift) +
+                overtimeOutsideShift(shift),
+              scheduledWorkSeconds({
+                ...interval,
+                breaks,
+                paidBreak: dto.paidBreak,
+              }),
+            ) > MAX_DAILY_WORK_SECONDS
+        )
+          throw badRequestError('scheduledDailyHoursExceeded');
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,

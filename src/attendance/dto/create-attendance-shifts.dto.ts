@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -18,22 +18,11 @@ import {
   type AttendanceScheduledDayKind,
 } from 'src/db/schema/attendance';
 
-export class ShiftBreakDto {
-  @IsDateString() startsAt: string;
-  @IsDateString() endsAt: string;
-}
-
 export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;
   @IsDateString() startsAt: string;
   @IsDateString() endsAt: string;
   @IsBoolean() paidBreak: boolean;
-  @ApiProperty({ isArray: true, type: ShiftBreakDto })
-  @IsArray()
-  @ArrayMaxSize(12)
-  @ValidateNested({ each: true })
-  @Type(() => ShiftBreakDto)
-  breaks: ShiftBreakDto[];
   @ApiPropertyOptional({
     description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
     enum: ATTENDANCE_SCHEDULED_DAY_KINDS,

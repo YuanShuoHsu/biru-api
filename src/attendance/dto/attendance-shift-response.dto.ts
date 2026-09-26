@@ -7,8 +7,6 @@ import {
   type AttendanceEventAction,
 } from 'src/db/schema/attendance';
 
-import { ShiftBreakDto } from './create-attendance-shifts.dto';
-
 export class AttendanceEventResponseDto {
   @ApiPropertyOptional() paidBreak?: boolean;
   @ApiProperty({
@@ -20,6 +18,11 @@ export class AttendanceEventResponseDto {
 }
 
 export class AttendanceIntervalResponseDto {
+  @ApiProperty() startsAt: string;
+  @ApiProperty() endsAt: string;
+}
+
+export class ShiftBreakDto {
   @ApiProperty() startsAt: string;
   @ApiProperty() endsAt: string;
 }
