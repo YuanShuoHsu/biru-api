@@ -96,11 +96,6 @@ export interface ShiftBreak {
   endsAt: string;
 }
 
-export interface TemplateBreak {
-  startTime: string;
-  endTime: string;
-}
-
 export const STATUTORY_LEAVE_KINDS = [
   'custom',
   'annual',
@@ -504,23 +499,6 @@ export const attendanceHolidaySubstitute = pgTable(
     ),
   ],
 );
-
-export const attendanceTemplate = pgTable('attendance_template', {
-  id: text('id').primaryKey(),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  employeeId: text('employee_id')
-    .notNull()
-    .references(() => attendanceEmployee.id),
-  name: text('name').notNull(),
-  weekday: integer('weekday').notNull(),
-  startTime: text('start_time').notNull(),
-  endTime: text('end_time').notNull(),
-  paidBreak: boolean('paid_break').notNull(),
-  breaks: jsonb('breaks').notNull().$type<TemplateBreak[]>().default([]),
-  dayKind: text('day_kind').$type<AttendanceScheduledDayKind>().notNull(),
-});
 
 export const attendanceLeaveCase = pgTable(
   'attendance_leave_case',

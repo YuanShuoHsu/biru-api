@@ -10,14 +10,11 @@ import { AttendanceRequestsController } from './attendance-requests.controller';
 import { AttendanceRequestsService } from './attendance-requests.service';
 import { AttendanceShiftsController } from './attendance-shifts.controller';
 import { AttendanceShiftsService } from './attendance-shifts.service';
-import { AttendanceTemplatesController } from './attendance-templates.controller';
-import { AttendanceTemplatesService } from './attendance-templates.service';
 
 @Module({
   controllers: [
     AttendanceEmployeesController,
     AttendanceShiftsController,
-    AttendanceTemplatesController,
     AttendanceRequestsController,
     AttendanceLeavesController,
     AttendanceParentalController,
@@ -25,7 +22,6 @@ import { AttendanceTemplatesService } from './attendance-templates.service';
   providers: [
     AttendanceEmployeesService,
     AttendanceShiftsService,
-    AttendanceTemplatesService,
     AttendanceRequestsService,
     AttendanceLeavesService,
     AttendanceParentalService,

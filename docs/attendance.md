@@ -4,17 +4,17 @@
 
 ## 權限與操作
 
-| 角色   | 可用功能                                                      |
-| ------ | ------------------------------------------------------------- |
-| member | 自己的打卡、補卡、請假、加班申請、休假額度及已發布薪資單      |
-| admin  | member 功能，加上員工啟用、排班、每週範本、額度核給與申請審核 |
-| owner  | admin 功能，加上出勤／假別設定、薪資條件、試算、覆核及發布    |
+| 角色   | 可用功能                                                   |
+| ------ | ---------------------------------------------------------- |
+| member | 自己的打卡、補卡、請假、加班申請、休假額度及已發布薪資單   |
+| admin  | member 功能，加上員工啟用、排班、額度核給與申請審核        |
+| owner  | admin 功能，加上出勤／假別設定、薪資條件、試算、覆核及發布 |
 
-權限以資源加 CRUD 動詞授予：`employee`、`shift`、`shiftTemplate`、`attendanceRequest`、`leaveCase`、`leaveBalance`、`parentalChild`、`parentalReturn` 屬 admin 與 owner；`attendanceSetting`、`leaveType`、`payrollTerm`、`payslip` 只屬 owner。自助端點（`/me/*`、打卡、送出與撤回申請、假別清單）不需要上述任何權限，只要求組織成員身分，資料範圍由服務依登入者過濾；能否打卡取決於主管是否啟用該員工的出勤資格。
+權限以資源加 CRUD 動詞授予：`employee`、`shift`、`attendanceRequest`、`leaveCase`、`leaveBalance`、`parentalChild`、`parentalReturn` 屬 admin 與 owner；`attendanceSetting`、`leaveType`、`payrollTerm`、`payslip` 只屬 owner。自助端點（`/me/*`、打卡、送出與撤回申請、假別清單）不需要上述任何權限，只要求組織成員身分，資料範圍由服務依登入者過濾；能否打卡取決於主管是否啟用該員工的出勤資格。
 
 申請人不能審核自己的補卡、請假、加班或撤假，須由另一位主管處理。薪資 API 由 owner 權限保護，員工只能讀取自己的已發布版本。
 
-先在組織成員管理加入員工，再由主管啟用出勤資格並設定到職日期。班表不可重疊；每週範本產生班次時，整批驗證成功才寫入。班次可跨夜、同一天可有多班。班次與每週範本可指定休息時段（範本的休息可跨午夜），休息須落在班次內；未計薪的排定休息不算工作時間，請假分鐘數、請假扣薪、醫療假日數換算、時薪假日排定工時與缺勤／加班檢查都會扣除，未指定休息的班次則整段視為工作時間。已有打卡或相關申請的班次不能直接取消。
+先在組織成員管理加入員工，再由主管啟用出勤資格並設定到職日期。班表不可重疊。複製週排班時，逐班無法排入的（假日、休息日、例假、已有班、請假等）跳過並列出原因，只複製平日班；七休一、連續上班、班距等整週法規檢查不通過則整批不寫入。班次可跨夜、同一天可有多班。班次可指定休息時段，休息須落在班次內；未計薪的排定休息不算工作時間，請假分鐘數、請假扣薪、醫療假日數換算、時薪假日排定工時與缺勤／加班檢查都會扣除，未指定休息的班次則整段視為工作時間。已有打卡或相關申請的班次不能直接取消。
 
 上下班及休息事件使用伺服器時間。補卡須提供完整時序，核准後作為有效紀錄，原始事件仍保留。休息預設依班次是否計薪，補卡明細可指定每段休息是否計薪。核准請假會扣除額度；已核准假單必須經撤假審核才返還額度。
 
@@ -23,7 +23,7 @@
 ## 啟用
 
 1. 在 biru-api 依現有部署流程，對確認的目標資料庫依序套用 `0122_attendance.sql`、`0123_payroll_and_templates.sql`、`0124_payroll_versions.sql`、`0125_statutory_leave.sql`、`0126_emergency_makeup_rest.sql`、`0127_event_leave_cases.sql`、`0128_calendar_leave_pay.sql`、`0129_payroll_rule_sets.sql`、`0130_parental_leave.sql`、`0131_parental_children_and_returns.sql`、`0132_attendance_indexes_and_parental.sql`、`0133_attendance_request_shift_idx.sql`、`0134_attendance_retention_indexes.sql`、`0135_shift_breaks_and_part_time_grades.sql`、`0136_payroll_rule_set_freshness.sql`、`0137_payroll_reopen.sql`、`0138_employee_weekly_minutes_history.sql`、`0139_attendance_organization_fk.sql`、`0140_attendance_retention_restrict.sql` 及之前尚未套用的 migration。0122–0131 已在隔離 PostgreSQL 18 驗證，0122–0136 另以 PGlite（PostgreSQL 17）驗證；0137–0140 尚未重播，未查證或套用正式資料庫。
-2. 部署更新後的 biru-api 與 biru-admin；API 型別依更新模組的 Swagger 產生。班次／範本休息時段、勞保 `laborLadder`、兩個新阻擋原因與平台管理員確認每小時最低工資的畫面，須在 biru-admin 補上。
+2. 部署更新後的 biru-api 與 biru-admin；API 型別依更新模組的 Swagger 產生。班次休息時段、勞保 `laborLadder`、兩個新阻擋原因與平台管理員確認每小時最低工資的畫面，須在 biru-admin 補上。
 3. 部署後由平台管理員執行一次 `POST /api/payroll/rule-sets/ingest`。規則集尚未在薪資月份開始後成功同步前（兩份分級表都要取得，且沒有任何期間因數值不合理被退回），所有薪資草稿都會被 `payrollRuleSetStale` 阻擋。
 4. owner 設定店家經緯度、範圍及固定公網 IP，新增假別及薪資條件。主管啟用員工，設定到職日與每週約定工時並排班。自訂假別需人工核給額度；法定假別依以下規則計算。
 5. 在實際 HTTPS 網址驗證 GPS 與網路。定位需在 60 秒內，定位誤差加上距離須在店家範圍內，且來源 IP 必須同時通過白名單。

@@ -5,7 +5,6 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { AttendanceEmployeesService } from './attendance-employees.service';
 import { AttendanceRequestsService } from './attendance-requests.service';
 import { AttendanceShiftsService } from './attendance-shifts.service';
-import { AttendanceTemplatesService } from './attendance-templates.service';
 
 function database(results: unknown[][]) {
   const chain = () => {
@@ -301,34 +300,5 @@ describe('attendance services', () => {
       await expect(run(db)).rejects.toThrow('payrollLocked');
       expect(insert).not.toHaveBeenCalled();
     }
-  });
-  it('rejects template breaks outside the shift', async () => {
-    const db = database([]).db;
-    const service = new AttendanceTemplatesService(
-      db,
-      new AttendanceShiftsService(db),
-    );
-    const template = {
-      employeeId: 'employee',
-      name: 'day',
-      weekday: 1,
-      startTime: '09:00',
-      endTime: '18:00',
-      nextDay: false,
-      paidBreak: false,
-      dayKind: 'workday' as const,
-    };
-    await expect(
-      service.saveTemplate(actor, {
-        ...template,
-        breaks: [{ startTime: '17:30', endTime: '18:30' }],
-      }),
-    ).rejects.toThrow('invalidBreak');
-    await expect(
-      service.saveTemplate(actor, {
-        ...template,
-        breaks: [{ startTime: '12:00', endTime: '13:00' }],
-      }),
-    ).rejects.toThrow('continuousWorkTooLong');
   });
 });

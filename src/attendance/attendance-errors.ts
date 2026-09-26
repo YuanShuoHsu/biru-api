@@ -69,7 +69,6 @@ export const attendanceErrorCodes = [
   'memberNotFound',
   'menstrualDayLimit',
   'monthlyOvertimeExceeded',
-  'noTemplateDates',
   'outsideShiftWindow',
   'occupationalIndustryInvalid',
   'overlappingAttendance',

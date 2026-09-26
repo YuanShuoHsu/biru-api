@@ -40,7 +40,6 @@ import {
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
-  attendanceTemplate,
   statutoryHoliday,
   type AttendanceEmploymentType,
 } from 'src/db/schema/attendance';
@@ -61,7 +60,6 @@ import {
 import { badRequestError, conflictError } from './attendance-errors';
 import {
   ageOn,
-  designatedDayKind,
   hasOverlappingOvertimeExtensions,
   INDIGENOUS_HOLIDAYS_PER_YEAR,
   maternalNightWork,
@@ -130,7 +128,6 @@ export class AttendanceEmployeesService {
         parentalChild: ['create', 'read'],
         parentalReturn: ['read', 'update'],
         shift: ['create', 'update', 'read'],
-        shiftTemplate: ['create', 'update', 'delete', 'read'],
       }),
       canManageSettings: isAuthorized(actor.role, {
         attendanceSetting: ['read', 'update'],
@@ -682,17 +679,6 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, removedHolidays),
               ),
             );
-        if (restWeekdays.regularLeaveWeekday !== null)
-          for (const weekday of [0, 1, 2, 3, 4, 5, 6])
-            await tx
-              .update(attendanceTemplate)
-              .set({ dayKind: designatedDayKind(restWeekdays, weekday)! })
-              .where(
-                and(
-                  eq(attendanceTemplate.employeeId, current.id),
-                  eq(attendanceTemplate.weekday, weekday),
-                ),
-              );
         if (current.enabled && !dto.enabled) {
           const [scheduledShift] = await tx
             .select({ id: attendanceShift.id })

@@ -30,6 +30,10 @@ import {
   AttendanceShiftResponseDto,
   AttendanceShiftsResponseDto,
 } from './dto/attendance-shift-response.dto';
+import {
+  AttendanceCopyWeekResponseDto,
+  CopyAttendanceWeekDto,
+} from './dto/copy-attendance-week.dto';
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import {
   CreateAttendanceShiftsDto,
@@ -123,6 +127,21 @@ export class AttendanceShiftsController {
       actor(req, session),
       dto.shifts,
     );
+  }
+
+  @Post('shifts/copy-week')
+  @Roles({ shift: ['create'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '將指定週的平日班次複製到之後數週',
+    description:
+      '無法排入的班次（假日、休息日、例假、已有班、請假等）會跳過並附上原因；七休一等整週法規檢查不通過則整批不建立。dryRun 只回傳預計結果。',
+  })
+  copyWeek(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: CopyAttendanceWeekDto,
+  ): Promise<AttendanceCopyWeekResponseDto> {
+    return this.attendanceShiftsService.copyWeek(actor(req, session), dto);
   }
 
   @Patch('shifts/:id')

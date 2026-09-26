@@ -1233,6 +1233,13 @@
       "when": 1790347942510,
       "tag": "0175_drop_occupational_accident_rate",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1790420751053,
+      "tag": "0176_drop_attendance_template",
+      "breakpoints": true
     }
   ]
 }

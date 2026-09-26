@@ -1,5 +1,4 @@
-import { DAY_MS, STORE_UTC_OFFSET } from 'src/common/constants/timezone';
-import type { ShiftBreak, TemplateBreak } from 'src/db/schema/attendance';
+import type { ShiftBreak } from 'src/db/schema/attendance';
 
 import { badRequestError } from './attendance-errors';
 
@@ -44,31 +43,4 @@ export function parseBreaks(
     startsAt: startsAt.toISOString(),
     endsAt: endsAt.toISOString(),
   }));
-}
-
-export function templateShift(
-  startDay: string,
-  template: {
-    startTime: string;
-    endTime: string;
-    breaks: TemplateBreak[];
-  },
-) {
-  const at = (time: string, dayOffset: number) =>
-    new Date(
-      new Date(`${startDay}T${time}:00${STORE_UTC_OFFSET}`).getTime() +
-        dayOffset * DAY_MS,
-    ).toISOString();
-  const { startTime } = template;
-  return {
-    startsAt: at(startTime, 0),
-    endsAt: at(template.endTime, template.endTime <= startTime ? 1 : 0),
-    breaks: template.breaks.map(({ startTime: breakStart, endTime }) => {
-      const breakDay = breakStart < startTime ? 1 : 0;
-      return {
-        startsAt: at(breakStart, breakDay),
-        endsAt: at(endTime, breakDay + (endTime <= breakStart ? 1 : 0)),
-      };
-    }),
-  };
 }

@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   and,
@@ -39,6 +44,7 @@ import {
   DAY_MS,
   platformDateString,
   platformMidnight,
+  STORE_UTC_OFFSET,
   toPlatformTime,
 } from 'src/common/constants/timezone';
 
@@ -96,6 +102,11 @@ import {
   ATTENDANCE_SHIFT_STRING_FILTER_FIELDS,
   AttendanceShiftPaginationQueryDto,
 } from './dto/attendance-shift-pagination-query.dto';
+import {
+  ATTENDANCE_COPY_SKIP_REASONS,
+  type AttendanceCopySkipReason,
+  CopyAttendanceWeekDto,
+} from './dto/copy-attendance-week.dto';
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import {
   CreateAttendanceShiftDto,
@@ -506,19 +517,136 @@ export class AttendanceShiftsService {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const values = await this.prepareShifts(tx, actor, dtos);
-      const rows = await tx.insert(attendanceShift).values(values).returning();
-      await writeAudits(
+      return this.insertShifts(
         tx,
         actor,
-        'shift.create',
-        values.map((value, index) => ({
-          resourceId: value.id,
-          changes: dtos[index] as unknown as Record<string, unknown>,
-        })),
+        values,
+        dtos as unknown as Record<string, unknown>[],
       );
-      const byId = new Map(rows.map((row) => [row.id, row]));
-      return values.map((value) => byId.get(value.id)!);
     });
+  }
+
+  async copyWeek(
+    actor: AttendanceActor,
+    { from, weeks, dryRun = false }: CopyAttendanceWeekDto,
+  ) {
+    const sourceStart = new Date(`${from}T00:00:00${STORE_UTC_OFFSET}`);
+    if (!Number.isFinite(sourceStart.getTime()))
+      throw badRequestError('invalidInterval');
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const source = await tx
+        .select({
+          shift: attendanceShift,
+          employee: attendanceEmployee,
+          employeeName: user.name,
+        })
+        .from(attendanceShift)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, attendanceShift.employeeId),
+        )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .where(
+          and(
+            eq(attendanceShift.organizationId, actor.organizationId),
+            ne(attendanceShift.status, 'cancelled'),
+            gte(attendanceShift.startsAt, sourceStart),
+            lt(
+              attendanceShift.startsAt,
+              new Date(sourceStart.getTime() + 7 * DAY_MS),
+            ),
+          ),
+        )
+        .orderBy(asc(attendanceShift.startsAt), asc(attendanceShift.id));
+      const copies = Array.from({ length: weeks }, (_, week) =>
+        source.map((row) => ({ ...row, offset: (week + 1) * 7 * DAY_MS })),
+      ).flat();
+      const dtos = copies.map(
+        ({ shift, employee, offset }): CreateAttendanceShiftDto => {
+          const move = (date: Date | string) =>
+            new Date(new Date(date).getTime() + offset).toISOString();
+          return {
+            employeeId: shift.employeeId,
+            startsAt: move(shift.startsAt),
+            endsAt: move(shift.endsAt),
+            paidBreak: shift.paidBreak,
+            breaks: shift.breaks.map((shiftBreak) => ({
+              startsAt: move(shiftBreak.startsAt),
+              endsAt: move(shiftBreak.endsAt),
+            })),
+            dayKind: designatedDayKind(
+              employee,
+              weekdayOfDate(platformDateString(shift.startsAt)),
+            )
+              ? undefined
+              : shift.dayKind === 'holiday'
+                ? 'workday'
+                : shift.dayKind,
+          };
+        },
+      );
+      const skipped = new Map<number, AttendanceCopySkipReason>();
+      const values = dtos.length
+        ? await this.prepareShifts(
+            tx,
+            actor,
+            dtos,
+            undefined,
+            (index, reason) => skipped.set(index, reason),
+          )
+        : [];
+      const createdIndexes = [...dtos.keys()].filter(
+        (index) => !skipped.has(index),
+      );
+      if (!dryRun && values.length)
+        await this.insertShifts(
+          tx,
+          actor,
+          values,
+          createdIndexes.map((index) => ({
+            ...dtos[index],
+            sourceShiftId: copies[index].shift.id,
+          })),
+        );
+      const summary = (index: number) => ({
+        sourceShiftId: copies[index].shift.id,
+        employeeId: dtos[index].employeeId,
+        employeeName: copies[index].employeeName,
+        startsAt: dtos[index].startsAt,
+        endsAt: dtos[index].endsAt,
+      });
+      return {
+        created: createdIndexes.map((index, position) => ({
+          ...summary(index),
+          ...(!dryRun && { id: values[position].id }),
+        })),
+        skipped: [...skipped].map(([index, reason]) => ({
+          ...summary(index),
+          reason,
+        })),
+      };
+    });
+  }
+
+  private async insertShifts(
+    tx: Transaction,
+    actor: AttendanceActor,
+    values: Awaited<ReturnType<typeof this.prepareShifts>>,
+    changes: Record<string, unknown>[],
+  ) {
+    const rows = await tx.insert(attendanceShift).values(values).returning();
+    await writeAudits(
+      tx,
+      actor,
+      'shift.create',
+      values.map((value, index) => ({
+        resourceId: value.id,
+        changes: changes[index],
+      })),
+    );
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return values.map((value) => byId.get(value.id)!);
   }
 
   async updateShift(
@@ -578,6 +706,7 @@ export class AttendanceShiftsService {
     actor: AttendanceActor,
     dtos: CreateAttendanceShiftDto[],
     replacing?: typeof attendanceShift.$inferSelect,
+    skip?: (index: number, reason: AttendanceCopySkipReason) => void,
   ) {
     const values: (typeof attendanceShift.$inferInsert & {
       id: string;
@@ -734,103 +863,117 @@ export class AttendanceShiftsService {
           row.endsAt > startsAt,
       );
     for (const [index, dto] of dtos.entries()) {
-      const interval = intervals[index];
-      if (
-        interval.endsAt.getTime() - interval.startsAt.getTime() >
-        MAX_SHIFT_MS
-      )
-        throw badRequestError('shiftTooLong');
-      const breaks = parseBreaks(interval, dto.breaks);
-      const employee = employees.find(({ id }) => id === dto.employeeId);
-      if (
-        !employee ||
-        interval.startsAt < employee.hiredAt ||
-        (employee.terminatedAt && interval.endsAt > employee.terminatedAt)
-      )
-        throw badRequestError('employeeNotEnabled');
-      if (
-        workPermitRequired(employee.legalStatus) &&
-        !withinPeriods(
-          employee.workPermits,
-          platformDateString(interval.startsAt),
+      try {
+        const interval = intervals[index];
+        if (
+          interval.endsAt.getTime() - interval.startsAt.getTime() >
+          MAX_SHIFT_MS
         )
-      )
-        throw badRequestError('workPermitRequired');
-      if (
-        maternalNightWork(
-          scheduledWorkIntervals({
-            ...interval,
-            breaks,
-            paidBreak: dto.paidBreak,
-          }),
-          maternalProtectionPeriods(employee),
+          throw badRequestError('shiftTooLong');
+        const breaks = parseBreaks(interval, dto.breaks);
+        const employee = employees.find(({ id }) => id === dto.employeeId);
+        if (
+          !employee ||
+          interval.startsAt < employee.hiredAt ||
+          (employee.terminatedAt && interval.endsAt > employee.terminatedAt)
         )
-      )
-        throw badRequestError('maternalNightWork');
-      const scheduledKind =
-        designatedDayKind(employee, weekdayOfDate(dates[index])) ??
-        dto.dayKind ??
-        (replacing && platformDateString(replacing.startsAt) === dates[index]
-          ? replacing.dayKind === 'holiday'
-            ? 'workday'
-            : replacing.dayKind
-          : undefined);
-      if (!scheduledKind) throw badRequestError('dayKindRequired');
-      if (dto.dayKind && dto.dayKind !== scheduledKind)
-        throw badRequestError('restDayDesignationConflict');
-      const sameDayKinds = new Set(
-        [...existingShifts, ...values]
-          .filter(
-            (shift) =>
-              shift.employeeId === dto.employeeId &&
-              platformDateString(shift.startsAt) === dates[index],
+          throw badRequestError('employeeNotEnabled');
+        if (
+          workPermitRequired(employee.legalStatus) &&
+          !withinPeriods(
+            employee.workPermits,
+            platformDateString(interval.startsAt),
           )
-          .map((shift) => shift.dayKind),
-      );
-      const dayKind =
-        scheduledKind === 'workday' &&
-        (isHoliday(employee, dates[index]) || sameDayKinds.has('holiday'))
-          ? 'holiday'
-          : scheduledKind;
-      if ([...sameDayKinds].some((kind) => kind !== dayKind))
-        throw conflictError('inconsistentDayKind');
-      await assertPayrollUnlocked(
-        tx,
-        actor.organizationId,
-        dto.employeeId,
-        interval.startsAt,
-        interval.endsAt,
-      );
-      if (
-        reservedRest.some(
-          (request) =>
-            request.employeeId === dto.employeeId &&
-            request.emergency &&
-            interval.startsAt < new Date(request.emergency.makeupEndsAt) &&
-            interval.endsAt > new Date(request.emergency.makeupStartsAt),
         )
-      )
-        throw conflictError('reservedMakeupRest');
-      if (collides(booked, dto.employeeId, interval.startsAt, interval.endsAt))
-        throw conflictError('overlappingShift');
-      if (
-        collides(
-          bookedLeave,
+          throw badRequestError('workPermitRequired');
+        if (
+          maternalNightWork(
+            scheduledWorkIntervals({
+              ...interval,
+              breaks,
+              paidBreak: dto.paidBreak,
+            }),
+            maternalProtectionPeriods(employee),
+          )
+        )
+          throw badRequestError('maternalNightWork');
+        const scheduledKind =
+          designatedDayKind(employee, weekdayOfDate(dates[index])) ??
+          dto.dayKind ??
+          (replacing && platformDateString(replacing.startsAt) === dates[index]
+            ? replacing.dayKind === 'holiday'
+              ? 'workday'
+              : replacing.dayKind
+            : undefined);
+        if (!scheduledKind) throw badRequestError('dayKindRequired');
+        if (dto.dayKind && dto.dayKind !== scheduledKind)
+          throw badRequestError('restDayDesignationConflict');
+        const sameDayKinds = new Set(
+          [...existingShifts, ...values]
+            .filter(
+              (shift) =>
+                shift.employeeId === dto.employeeId &&
+                platformDateString(shift.startsAt) === dates[index],
+            )
+            .map((shift) => shift.dayKind),
+        );
+        const dayKind =
+          scheduledKind === 'workday' &&
+          (isHoliday(employee, dates[index]) || sameDayKinds.has('holiday'))
+            ? 'holiday'
+            : scheduledKind;
+        if (skip && dayKind !== 'workday') {
+          skip(index, dayKind);
+          continue;
+        }
+        if ([...sameDayKinds].some((kind) => kind !== dayKind))
+          throw conflictError('inconsistentDayKind');
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
           dto.employeeId,
           interval.startsAt,
           interval.endsAt,
+        );
+        if (
+          reservedRest.some(
+            (request) =>
+              request.employeeId === dto.employeeId &&
+              request.emergency &&
+              interval.startsAt < new Date(request.emergency.makeupEndsAt) &&
+              interval.endsAt > new Date(request.emergency.makeupStartsAt),
+          )
         )
-      )
-        throw conflictError('overlappingLeave');
-      booked.push({ employeeId: dto.employeeId, ...interval });
-      values.push({
-        ...dto,
-        ...interval,
-        dayKind,
-        breaks,
-        id: randomUUID(),
-        organizationId: actor.organizationId,
-      });
+          throw conflictError('reservedMakeupRest');
+        if (
+          collides(booked, dto.employeeId, interval.startsAt, interval.endsAt)
+        )
+          throw conflictError('overlappingShift');
+        if (
+          collides(
+            bookedLeave,
+            dto.employeeId,
+            interval.startsAt,
+            interval.endsAt,
+          )
+        )
+          throw conflictError('overlappingLeave');
+        booked.push({ employeeId: dto.employeeId, ...interval });
+        values.push({
+          ...dto,
+          ...interval,
+          dayKind,
+          breaks,
+          id: randomUUID(),
+          organizationId: actor.organizationId,
+        });
+      } catch (error) {
+        const reason = ATTENDANCE_COPY_SKIP_REASONS.find(
+          (code) => error instanceof HttpException && error.message === code,
+        );
+        if (!skip || !reason) throw error;
+        skip(index, reason);
+      }
     }
     for (const employee of employees) {
       const scheduled = values.filter(
