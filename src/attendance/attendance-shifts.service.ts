@@ -36,6 +36,7 @@ import {
   attendanceSettings,
   attendanceShift,
   type AttendanceDayKind,
+  type ShiftBreak,
   statutoryHoliday,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
@@ -114,7 +115,10 @@ import {
   UpdateAttendanceShiftDto,
 } from './dto/create-attendance-shifts.dto';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup';
-import { loadAgreedHolidays } from './holiday-substitutes';
+import {
+  loadAgreedHolidays,
+  loadHolidaySubstitutes,
+} from './holiday-substitutes';
 import { parseInterval, scheduledBreaks } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
@@ -511,13 +515,48 @@ export class AttendanceShiftsService {
           ];
         });
     });
-    return { holidays: statutory, dayKinds };
+    const substitutes = await loadHolidaySubstitutes(
+      this.db,
+      employees.map(({ employee }) => employee),
+      fromDate,
+      platformDateString(new Date(new Date(to).getTime() - 1)),
+    );
+    const pendingSubstitutes = employees.flatMap(({ employee, employeeName }) =>
+      (substitutes.owed.get(employee.id) ?? [])
+        .filter(
+          (date) =>
+            !substitutes.rows.some(
+              (row) =>
+                row.employeeId === employee.id && row.holidayDate === date,
+            ),
+        )
+        .map((date) => ({
+          employeeId: employee.id,
+          employeeName,
+          date,
+          holidayName:
+            substitutes.holidays
+              .get(employee.id)
+              ?.find((holiday) => holiday.date === date)?.name ?? '',
+        })),
+    );
+    return { holidays: statutory, dayKinds, pendingSubstitutes };
   }
 
-  async createShifts(actor: AttendanceActor, dtos: CreateAttendanceShiftDto[]) {
+  async createShifts(
+    actor: AttendanceActor,
+    dtos: CreateAttendanceShiftDto[],
+    dryRun = false,
+  ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const values = await this.prepareShifts(tx, actor, dtos);
+      if (dryRun)
+        return values.map((value) => ({
+          ...value,
+          status: 'scheduled' as const,
+          createdAt: new Date(),
+        }));
       return this.insertShifts(
         tx,
         actor,
@@ -672,27 +711,40 @@ export class AttendanceShiftsService {
         shift.startsAt,
         shift.endsAt,
       );
+      const { dryRun, ...change } = dto;
       const [value] = await this.prepareShifts(
         tx,
         actor,
-        [{ ...dto, employeeId: shift.employeeId }],
+        [{ ...change, employeeId: change.employeeId ?? shift.employeeId }],
         shift,
       );
-      const { startsAt, endsAt, breaks, paidBreak, dayKind } = value;
+      const { employeeId, startsAt, endsAt, breaks, paidBreak, dayKind } =
+        value;
+      if (dryRun)
+        return {
+          ...shift,
+          employeeId,
+          startsAt,
+          endsAt,
+          breaks,
+          paidBreak,
+          dayKind,
+        };
       const [row] = await tx
         .update(attendanceShift)
-        .set({ startsAt, endsAt, breaks, paidBreak, dayKind })
+        .set({ employeeId, startsAt, endsAt, breaks, paidBreak, dayKind })
         .where(eq(attendanceShift.id, id))
         .returning();
       await writeAudit(tx, actor, 'shift.update', id, {
         before: {
+          employeeId: shift.employeeId,
           startsAt: shift.startsAt,
           endsAt: shift.endsAt,
           breaks: shift.breaks,
           paidBreak: shift.paidBreak,
           dayKind: shift.dayKind,
         },
-        after: { startsAt, endsAt, breaks, paidBreak, dayKind },
+        after: { employeeId, startsAt, endsAt, breaks, paidBreak, dayKind },
       });
       return row;
     });
@@ -708,6 +760,8 @@ export class AttendanceShiftsService {
     const values: (typeof attendanceShift.$inferInsert & {
       id: string;
       dayKind: AttendanceDayKind;
+      paidBreak: boolean;
+      breaks: ShiftBreak[];
     })[] = [];
     const excludeReplaced = replacing
       ? ne(attendanceShift.id, replacing.id)
@@ -940,7 +994,9 @@ export class AttendanceShiftsService {
         const scheduledKind =
           designatedDayKind(employee, weekdayOfDate(dates[index])) ??
           dto.dayKind ??
-          (replacing && platformDateString(replacing.startsAt) === dates[index]
+          (replacing &&
+          replacing.employeeId === dto.employeeId &&
+          platformDateString(replacing.startsAt) === dates[index]
             ? replacing.dayKind === 'holiday'
               ? 'workday'
               : replacing.dayKind
@@ -1121,6 +1177,42 @@ export class AttendanceShiftsService {
         .set({ status: 'cancelled' })
         .where(eq(attendanceShift.id, id));
       await writeAudit(tx, actor, 'shift.cancel', id, {});
+      return { id };
+    });
+  }
+
+  async restoreShift(actor: AttendanceActor, id: string) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const [shift] = await tx
+        .select()
+        .from(attendanceShift)
+        .where(
+          and(
+            eq(attendanceShift.id, id),
+            eq(attendanceShift.organizationId, actor.organizationId),
+          ),
+        );
+      if (!shift) throw new NotFoundException();
+      if (shift.status !== 'cancelled') return { id };
+      const [{ breaks, dayKind }] = await this.prepareShifts(
+        tx,
+        actor,
+        [
+          {
+            employeeId: shift.employeeId,
+            startsAt: shift.startsAt.toISOString(),
+            endsAt: shift.endsAt.toISOString(),
+            paidBreak: shift.paidBreak,
+          },
+        ],
+        shift,
+      );
+      await tx
+        .update(attendanceShift)
+        .set({ status: 'scheduled', breaks, dayKind })
+        .where(eq(attendanceShift.id, id));
+      await writeAudit(tx, actor, 'shift.restore', id, {});
       return { id };
     });
   }

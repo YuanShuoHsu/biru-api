@@ -126,6 +126,7 @@ export class AttendanceShiftsController {
     return this.attendanceShiftsService.createShifts(
       actor(req, session),
       dto.shifts,
+      dto.dryRun,
     );
   }
 
@@ -146,7 +147,7 @@ export class AttendanceShiftsController {
 
   @Patch('shifts/:id')
   @Roles({ shift: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '修改班別時段' })
+  @ApiOperation({ summary: '修改班別時段或改排其他員工' })
   updateShift(
     @Req() req: AuthRequest,
     @Session() session: UserSession,
@@ -169,6 +170,20 @@ export class AttendanceShiftsController {
     @Param('id') id: string,
   ): Promise<AttendanceIdResponseDto> {
     return this.attendanceShiftsService.cancelShift(actor(req, session), id);
+  }
+
+  @Patch('shifts/:id/restore')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '復原已取消的班別',
+    description: '依目前資料重新檢查排班規則，不通過則不復原',
+  })
+  restoreShift(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceShiftsService.restoreShift(actor(req, session), id);
   }
 
   @Post('punch')

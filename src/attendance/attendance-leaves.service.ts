@@ -1474,17 +1474,13 @@ export class AttendanceLeavesService {
         shift.dayKind !== 'workday'
       )
         throw badRequestError('holidaySubstituteInvalid');
-      for (const at of [
+      await assertPayrollUnlocked(
+        tx,
+        actor.organizationId,
+        employee.id,
         shift.startsAt,
-        new Date(`${dto.holidayDate}T00:00:00+08:00`),
-      ])
-        await assertPayrollUnlocked(
-          tx,
-          actor.organizationId,
-          employee.id,
-          at,
-          new Date(at.getTime() + 1),
-        );
+        new Date(shift.startsAt.getTime() + 1),
+      );
       const [row] = await tx
         .insert(attendanceHolidaySubstitute)
         .values({
@@ -1524,11 +1520,16 @@ export class AttendanceLeavesService {
         .select({
           substitute: attendanceHolidaySubstitute,
           shiftStartsAt: attendanceShift.startsAt,
+          terminatedAt: attendanceEmployee.terminatedAt,
         })
         .from(attendanceHolidaySubstitute)
         .innerJoin(
           attendanceShift,
           eq(attendanceShift.id, attendanceHolidaySubstitute.shiftId),
+        )
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, attendanceHolidaySubstitute.employeeId),
         )
         .where(
           and(
@@ -1540,11 +1541,11 @@ export class AttendanceLeavesService {
           ),
         );
       if (!row) throw new NotFoundException();
-      const { substitute, shiftStartsAt } = row;
-      for (const at of [
-        shiftStartsAt,
-        new Date(`${substitute.holidayDate}T00:00:00+08:00`),
-      ])
+      const { substitute, shiftStartsAt, terminatedAt } = row;
+      // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
+      for (const at of terminatedAt
+        ? [shiftStartsAt, new Date(terminatedAt.getTime() - 1)]
+        : [shiftStartsAt])
         await assertPayrollUnlocked(
           tx,
           actor.organizationId,

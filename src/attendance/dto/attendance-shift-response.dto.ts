@@ -109,9 +109,21 @@ export class AttendanceCalendarHolidayResponseDto {
   @ApiProperty() name: string;
 }
 
+export class AttendanceCalendarPendingSubstituteResponseDto {
+  @ApiProperty() employeeId: string;
+  @ApiProperty() employeeName: string;
+  @ApiProperty() date: string;
+  @ApiProperty() holidayName: string;
+}
+
 export class AttendanceCalendarDayKindsResponseDto {
   @ApiProperty({ isArray: true, type: AttendanceCalendarHolidayResponseDto })
   holidays: AttendanceCalendarHolidayResponseDto[];
   @ApiProperty({ isArray: true, type: AttendanceCalendarDayKindResponseDto })
   dayKinds: AttendanceCalendarDayKindResponseDto[];
+  @ApiProperty({
+    isArray: true,
+    type: AttendanceCalendarPendingSubstituteResponseDto,
+  })
+  pendingSubstitutes: AttendanceCalendarPendingSubstituteResponseDto[];
 }

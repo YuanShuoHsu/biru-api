@@ -1155,14 +1155,18 @@ export class PayrollService {
       )
     )
       blockers.push('shiftRestTooShort');
-    const substitutes = holidays?.length
-      ? await loadHolidaySubstitutes(
-          tx,
-          [employee],
-          platformDateString(start),
-          platformDateString(new Date(end.getTime() - 1)),
-        )
-      : null;
+    // 補假期日由勞雇協商、法無期限（細則 §23-1 II），只有離職後才補不了；逐月擋會逼店家先排下個月的班
+    const substitutes =
+      employee.terminatedAt &&
+      employee.terminatedAt >= start &&
+      employee.terminatedAt < end
+        ? await loadHolidaySubstitutes(
+            tx,
+            [employee],
+            platformDateString(employee.hiredAt),
+            platformDateString(new Date(employee.terminatedAt.getTime() - 1)),
+          )
+        : null;
     if (
       substitutes?.owed
         .get(employee.id)
