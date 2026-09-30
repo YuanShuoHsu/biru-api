@@ -92,6 +92,7 @@ import {
   employeeStatusOrderSql,
   employeeStatusSql,
 } from './employee-status';
+import { selfReviewAllowance } from './review-separation';
 
 // 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
 const platformDayStart = (value: string) =>
@@ -137,6 +138,7 @@ export class AttendanceEmployeesService {
         payrollTerm: ['create', 'update', 'read'],
         payslip: ['create', 'update', 'read'],
       }),
+      selfReviewAllowed: await selfReviewAllowance(this.db, actor),
     };
   }
 

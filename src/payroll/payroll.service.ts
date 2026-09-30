@@ -33,7 +33,6 @@ import {
 import {
   badRequestError,
   conflictError,
-  forbiddenError,
 } from 'src/attendance/attendance-errors';
 import {
   countedIntervals,
@@ -172,6 +171,7 @@ import {
   laborGradesFor,
   pensionApplicable,
 } from './taiwan-rules';
+import { assertIndependentReview } from 'src/attendance/review-separation';
 
 // 勞工請假規則 §9：只有普通傷病假與非家庭照顧事假可按比例扣全勤；其他法定假別依法不得視為缺勤
 const ATTENDANCE_BONUS_DEDUCTIBLE_KINDS: readonly StatutoryLeaveKind[] = [
@@ -1498,6 +1498,7 @@ export class PayrollService {
       ...(severance && {
         retirementIncomeCents: severance.retirementIncomeCents,
       }),
+      nonResident,
       terms: profile.terms,
       ruleVersion: ruleSet.ruleVersion,
       blockers: [...new Set([...blockers, ...calculated.blockers])],
@@ -1724,10 +1725,15 @@ export class PayrollService {
       if (!row) throw new NotFoundException();
       if (row.status === status) return row;
       const subject = await this.payrollEmployee(tx, actor, row.employeeId);
-      if (subject.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
-      if (status === 'reviewed' && row.createdBy === actor.userId)
-        throw forbiddenError('cannotReviewOwnDraft');
+      await assertIndependentReview(tx, actor, 'payslip', [subject.userId]);
+      if (status === 'reviewed')
+        await assertIndependentReview(
+          tx,
+          actor,
+          'payslip',
+          [row.createdBy, subject.userId],
+          'cannotReviewOwnDraft',
+        );
       if (row.status !== (status === 'reviewed' ? 'draft' : 'reviewed'))
         throw conflictError('invalidPayrollState');
       const current = await this.snapshot(

@@ -1,3 +1,5 @@
+jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { PayrollEarningsService } from './payroll-earnings.service';
@@ -116,6 +118,10 @@ describe('Payroll review and publication', () => {
     const { service, update } = setup([
       [row],
       [{ ...employee, userId: 'owner' }],
+      [
+        { userId: 'owner', role: 'owner' },
+        { userId: 'second-reviewer', role: 'owner' },
+      ],
     ]);
     await expect(
       service.transition(actor, row.id, 'reviewed', 'review'),
@@ -127,6 +133,10 @@ describe('Payroll review and publication', () => {
     const { service, update } = setup([
       [reviewed],
       [{ ...employee, userId: 'owner' }],
+      [
+        { userId: 'owner', role: 'owner' },
+        { userId: 'second-reviewer', role: 'owner' },
+      ],
     ]);
     await expect(
       service.transition(actor, row.id, 'published', 'review'),
@@ -137,6 +147,10 @@ describe('Payroll review and publication', () => {
     const { service, update } = setup([
       [{ ...row, createdBy: 'owner' }],
       [employee],
+      [
+        { userId: 'owner', role: 'owner' },
+        { userId: 'second-reviewer', role: 'owner' },
+      ],
     ]);
     await expect(
       service.transition(actor, row.id, 'reviewed', 'review'),

@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  primaryKey,
   jsonb,
   pgTable,
   text,
@@ -250,6 +251,7 @@ export interface PayrollSnapshot {
   blockers: PayrollBlocker[];
   sourceFingerprint: string;
   retirementIncomeCents?: string;
+  nonResident?: boolean;
 }
 
 export interface PayrollRuleSource {
@@ -420,7 +422,26 @@ export const payrollTaxIdentity = pgTable('payroll_tax_identity', {
     .references(() => organization.id, { onDelete: 'restrict' }),
   encryptedTaxId: text('encrypted_tax_id').notNull(),
   encryptedAddress: text('encrypted_address').notNull(),
+  residenceCountryCode: text('residence_country_code'),
+  encryptedForeignTaxId: text('encrypted_foreign_tax_id'),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+export const payrollCertificateRequest = pgTable(
+  'payroll_certificate_request',
+  {
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => attendanceEmployee.id),
+    year: integer('year').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    requestedAt: timestamp('requested_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.employeeId, t.year] })],
+);

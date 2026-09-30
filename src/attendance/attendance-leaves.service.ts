@@ -47,11 +47,7 @@ import {
   writeAudit,
   type Transaction,
 } from './attendance-audit';
-import {
-  badRequestError,
-  conflictError,
-  forbiddenError,
-} from './attendance-errors';
+import { badRequestError, conflictError } from './attendance-errors';
 import { countedRequestStatuses } from './attendance-rules';
 import {
   ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
@@ -115,6 +111,7 @@ import { parentalLeaveErrors } from './parental-leave';
 import { matchParentalChild } from './parental-ledger';
 import { parseInterval } from './shift-intervals';
 import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types';
+import { assertIndependentReview } from './review-separation';
 
 interface MemoryPageOptions<Row> {
   defaultSort: (first: Row, second: Row) => number;
@@ -532,8 +529,7 @@ export class AttendanceLeavesService {
       );
     if (!employee || !policy || !isEventLeave(policy.statutoryKind))
       throw badRequestError('invalidLeaveCase');
-    if (employee.userId === actor.userId)
-      throw forbiddenError('cannotReviewSelf');
+    await assertIndependentReview(tx, actor, 'leaveCase', [employee.userId]);
     const { startsAt, endsAt } = parseInterval(dto.startsAt, dto.endsAt);
     const child =
       policy.statutoryKind === 'parental'
@@ -799,8 +795,9 @@ export class AttendanceLeavesService {
           ),
         );
       if (!row) throw new NotFoundException();
-      if (row.employee.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'leaveCase', [
+        row.employee.userId,
+      ]);
       // 任何狀態的請假單都以外鍵指向案件，撤回與駁回的也會讓刪除失敗
       const [referenced] = await tx
         .select({ id: attendanceRequest.id })

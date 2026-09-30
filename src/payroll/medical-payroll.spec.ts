@@ -1,3 +1,5 @@
+jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+
 import { loadMedicalLedger } from 'src/attendance/medical-leave';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 

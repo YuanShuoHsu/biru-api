@@ -1,14 +1,21 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  hkdfSync,
+  randomBytes,
+} from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
+const KEY_PURPOSE = 'biru-payroll-pii-v1';
 
 const encryptionKey = () => {
-  const key = Buffer.from(process.env.PII_ENCRYPTION_KEY ?? '', 'base64');
-  if (key.length !== KEY_BYTES)
-    throw new Error('PII_ENCRYPTION_KEY must be 32 bytes encoded in base64');
-  return key;
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('BETTER_AUTH_SECRET is required');
+  return Buffer.from(
+    hkdfSync('sha256', secret, KEY_PURPOSE, KEY_PURPOSE, KEY_BYTES),
+  );
 };
 
 export const encryptField = (plaintext: string) => {

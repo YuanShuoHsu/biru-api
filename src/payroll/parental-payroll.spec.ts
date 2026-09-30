@@ -1,3 +1,5 @@
+jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+
 import { DAY_MS, platformMonthStart } from 'src/common/constants/timezone';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 

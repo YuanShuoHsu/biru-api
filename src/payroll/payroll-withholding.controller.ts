@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Put, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -13,6 +23,7 @@ import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
 import {
   MyWithholdingCertificateResponseDto,
+  PayrollNonResidentFileQueryDto,
   PayrollTaxIdentityDto,
   PayrollWithholdingFileResponseDto,
   PayrollWithholdingSummaryResponseDto,
@@ -56,6 +67,22 @@ export class PayrollWithholdingController {
     return this.payrollWithholdingService.file(actor(req, session), query.year);
   }
 
+  @Get('withholding-file/non-resident')
+  @Roles({ payrollTerm: ['read'], payslip: ['read'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '產生非居住者給付日的扣繳憑單申報檔（給付後 10 日內申報）',
+  })
+  nonResidentFile(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: PayrollNonResidentFileQueryDto,
+  ): Promise<PayrollWithholdingFileResponseDto> {
+    return this.payrollWithholdingService.nonResidentFile(
+      actor(req, session),
+      query.paymentDate,
+    );
+  }
+
   @Put('withholding-unit')
   @Roles({ payrollTerm: ['update'] }, 'organizationSlug')
   @ApiOperation({ summary: '儲存扣繳單位申報資料' })
@@ -91,5 +118,19 @@ export class PayrollWithholdingController {
     @Session() session: UserSession,
   ): Promise<MyWithholdingCertificateResponseDto[]> {
     return this.payrollWithholdingService.mine(actor(req, session));
+  }
+
+  @Post('me/withholding-certificates/:year/request')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({ summary: '申請填發扣繳憑單（免填發年度改為填發）' })
+  requestCertificate(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('year', ParseIntPipe) year: number,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.payrollWithholdingService.requestCertificate(
+      actor(req, session),
+      year,
+    );
   }
 }

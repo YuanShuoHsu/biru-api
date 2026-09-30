@@ -205,9 +205,13 @@ describe('attendance services', () => {
     const unchanged = save(undefined, []);
     await expect(unchanged.result).resolves.toBeDefined();
   });
-  it('prevents a manager from reviewing their own request', async () => {
+  it('prevents a manager from reviewing their own request when another reviewer exists', async () => {
     const { db } = database([
       [{ request: { status: 'pending' }, userId: 'user' }],
+      [
+        { userId: 'user', role: 'owner' },
+        { userId: 'another-user', role: 'admin' },
+      ],
     ]);
     await expect(
       new AttendanceRequestsService(db).review(

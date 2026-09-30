@@ -15,6 +15,10 @@ export interface WithholdingFileUnit {
 
 export interface WithholdingFileRecord {
   format: '50' | '93';
+  idType: '0' | '3' | '7';
+  issuance: '1' | '2';
+  residenceCountryCode: string | null;
+  foreignTaxId: string | null;
   taxId: string;
   name: string;
   address: string;
@@ -25,10 +29,14 @@ export interface WithholdingFileRecord {
   periodTo: string;
 }
 
-const NATIONAL_INDIVIDUAL = '0';
 const SELF_WRITTEN_SOFTWARE = 'A';
-const ELECTRONIC_CERTIFICATE = '2';
 const DOMESTIC_SUMMARY_SERIAL = 'ZZ000001';
+const FOREIGN_SUMMARY_SERIAL = 'ZZ000002';
+const NO_FOREIGN_TAX_ID = 'NOTIN';
+
+export type WithholdingFileScope =
+  | { kind: 'annual'; year: number }
+  | { kind: 'nonResident'; paymentDate: string };
 
 const INCOME_CATEGORIES: Record<WithholdingFileRecord['format'], string> = {
   '50': '3',
@@ -56,12 +64,17 @@ const row = (fields: (string | bigint | number)[]) =>
 
 export function buildWithholdingFile(
   unit: WithholdingFileUnit,
-  year: number,
+  scope: WithholdingFileScope,
   records: WithholdingFileRecord[],
   createdAt: Date,
 ) {
+  const nonResident = scope.kind === 'nonResident';
+  const year = nonResident ? Number(scope.paymentDate.slice(0, 4)) : scope.year;
   const createdDate = platformDateString(createdAt).replaceAll('-', '');
   const rocCreatedDate = `${rocYear(Number(createdDate.slice(0, 4)))}${createdDate.slice(4)}`;
+  const reportedMonthDay = nonResident
+    ? scope.paymentDate.slice(5).replace('-', '')
+    : createdDate.slice(4);
   const ordered = [
     ...records.filter(({ format }) => format === '50'),
     ...records.filter(({ format }) => format === '93'),
@@ -75,7 +88,7 @@ export function buildWithholdingFile(
       '',
       record.format,
       record.taxId,
-      NATIONAL_INDIVIDUAL,
+      record.idType,
       record.totalDollars,
       record.taxDollars,
       record.totalDollars - record.taxDollars,
@@ -94,13 +107,13 @@ export function buildWithholdingFile(
       '',
       '',
       '',
-      ELECTRONIC_CERTIFICATE,
+      record.issuance,
+      record.idType === '7' ? 'N' : '',
+      record.idType === '0' ? '' : (record.residenceCountryCode ?? ''),
       '',
       '',
-      '',
-      '',
-      createdDate.slice(4),
-      '',
+      reportedMonthDay,
+      record.idType === '0' ? '' : (record.foreignTaxId ?? NO_FOREIGN_TAX_ID),
     ]),
   );
   const summaryRows = (['50', '93'] as const).flatMap((format) => {
@@ -114,10 +127,10 @@ export function buildWithholdingFile(
     return [
       row([
         unit.taxOfficeCode,
-        DOMESTIC_SUMMARY_SERIAL,
+        nonResident ? FOREIGN_SUMMARY_SERIAL : DOMESTIC_SUMMARY_SERIAL,
         unit.businessNumber,
         '9',
-        '1',
+        nonResident ? '2' : '1',
         '1',
         INCOME_CATEGORIES[format],
         '',
@@ -163,7 +176,11 @@ export function buildWithholdingFile(
     chineseField(unit.representativeName),
   ]);
   return {
-    fileName: `${unit.businessNumber}.${rocYear(year)}.U8`,
+    fileName: `${unit.businessNumber}.${
+      nonResident
+        ? `${rocYear(year)}${scope.paymentDate.slice(5).replace('-', '')}`
+        : rocYear(year)
+    }.U8`,
     content: [...incomeRows, ...summaryRows, unitRow].join('\r\n') + '\r\n',
   };
 }

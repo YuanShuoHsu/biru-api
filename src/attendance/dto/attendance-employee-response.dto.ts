@@ -99,12 +99,25 @@ export class AttendanceMembersResponseDto {
   @ApiProperty() total: number;
 }
 
+export class AttendanceSelfReviewAllowanceDto {
+  @ApiProperty() attendanceRequest: boolean;
+  @ApiProperty() leaveCase: boolean;
+  @ApiProperty() parentalChild: boolean;
+  @ApiProperty() parentalReturn: boolean;
+  @ApiProperty() payslip: boolean;
+}
+
 export class AttendanceContextResponseDto {
   @ApiPropertyOptional({ type: AttendanceEmployeeResponseDto })
   employee: AttendanceEmployeeResponseDto | null;
   @ApiProperty() canManage: boolean;
   @ApiProperty() canManageSettings: boolean;
   @ApiProperty() canManagePayroll: boolean;
+  @ApiProperty({
+    description: '店內沒有其他人具備同一審核權限時，本人可處理自己的案件',
+    type: AttendanceSelfReviewAllowanceDto,
+  })
+  selfReviewAllowed: AttendanceSelfReviewAllowanceDto;
 }
 
 export class AttendanceLegalStatusObligationResponseDto {

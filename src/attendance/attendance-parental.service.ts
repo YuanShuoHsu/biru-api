@@ -35,11 +35,7 @@ import {
   lockOrganization,
   writeAudit,
 } from './attendance-audit';
-import {
-  badRequestError,
-  conflictError,
-  forbiddenError,
-} from './attendance-errors';
+import { badRequestError, conflictError } from './attendance-errors';
 import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto';
 import {
   ATTENDANCE_PARENTAL_CHILD_DATE_FILTER_FIELDS,
@@ -58,6 +54,7 @@ import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto'
 import { requireEmployee } from './employee-lookup';
 import { calendarLeaveMinutes } from './leave-rules';
 import { assertNoParentalReturn, matchParentalChild } from './parental-ledger';
+import { assertIndependentReview } from './review-separation';
 
 @Injectable()
 export class AttendanceParentalService {
@@ -165,8 +162,9 @@ export class AttendanceParentalService {
           ),
         );
       if (!employee) throw new NotFoundException();
-      if (employee.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'parentalChild', [
+        employee.userId,
+      ]);
       const birthDate = new Date(dto.birthDate);
       if (
         !dto.reference.trim() ||
@@ -235,8 +233,9 @@ export class AttendanceParentalService {
           ),
         );
       if (!row) throw new NotFoundException();
-      if (row.employee.userId === actor.userId)
-        throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'leaveCase', [
+        row.employee.userId,
+      ]);
       if (
         !dto.reason.trim() ||
         row.policy.statutoryKind !== 'parental' ||
@@ -452,7 +451,7 @@ export class AttendanceParentalService {
           ),
         );
       if (!row) throw new NotFoundException();
-      if (row.userId === actor.userId) throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'parentalReturn', [row.userId]);
       if (row.change.status !== 'pending')
         throw conflictError('requestAlreadyReviewed');
       if (!dto.reason?.trim()) throw badRequestError('parentalReturnInvalid');

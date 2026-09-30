@@ -50,11 +50,7 @@ import {
   writeAudit,
   type Transaction,
 } from './attendance-audit';
-import {
-  badRequestError,
-  conflictError,
-  forbiddenError,
-} from './attendance-errors';
+import { badRequestError, conflictError } from './attendance-errors';
 import {
   blockingRequestStatuses,
   countedIntervals,
@@ -119,6 +115,10 @@ import {
 } from './overtime-limit';
 import { parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
+import {
+  assertIndependentReview,
+  selfReviewAllowance,
+} from './review-separation';
 
 const CALENDAR_LEAVE_LIMIT = 500;
 
@@ -131,6 +131,7 @@ export class AttendanceRequestsService {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
   async reviewCounts(actor: AttendanceActor) {
+    const selfReview = await selfReviewAllowance(this.db, actor);
     const [[requests], [parentalReturns]] = await Promise.all([
       isAuthorized(actor.role, { attendanceRequest: ['update'] })
         ? this.db
@@ -147,7 +148,9 @@ export class AttendanceRequestsService {
                   'pending',
                   'cancellationPending',
                 ]),
-                ne(attendanceEmployee.userId, actor.userId),
+                selfReview.attendanceRequest
+                  ? undefined
+                  : ne(attendanceEmployee.userId, actor.userId),
               ),
             )
         : [{ count: 0 }],
@@ -166,7 +169,9 @@ export class AttendanceRequestsService {
                   actor.organizationId,
                 ),
                 eq(attendanceParentalReturn.status, 'pending'),
-                ne(attendanceEmployee.userId, actor.userId),
+                selfReview.parentalReturn
+                  ? undefined
+                  : ne(attendanceEmployee.userId, actor.userId),
               ),
             )
         : [{ count: 0 }],
@@ -558,7 +563,9 @@ export class AttendanceRequestsService {
           ),
         );
       if (!row) throw new NotFoundException();
-      if (row.userId === actor.userId) throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'attendanceRequest', [
+        row.userId,
+      ]);
       const { request } = row;
       if (request.status === 'cancellationPending')
         await assertNoParentalReturn(tx, request.id);
@@ -615,7 +622,9 @@ export class AttendanceRequestsService {
           ),
         );
       if (!row) throw new NotFoundException();
-      if (row.userId === actor.userId) throw forbiddenError('cannotReviewSelf');
+      await assertIndependentReview(tx, actor, 'attendanceRequest', [
+        row.userId,
+      ]);
       const { shift } = row;
       const interval = parseInterval(dto.startsAt, dto.endsAt);
       const [correction] = await tx

@@ -1,3 +1,5 @@
+jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { calculatePayroll } from './payroll-calculation';
