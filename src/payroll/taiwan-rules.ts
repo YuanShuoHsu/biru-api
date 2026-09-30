@@ -286,6 +286,12 @@ const NON_RESIDENT_RATE_BP = 1800n;
 
 const HEALTH_SUPPLEMENT_CAP_CENTS = 1000000000n;
 
+// 健保法 §31 I 1：獎金全年累計超過當月投保金額 4 倍的部分才計收補充保費
+const BONUS_SUPPLEMENT_MULTIPLE = 4n;
+
+// 財政部 112 年起：按月定額發給的伙食費每人每月 3,000 元內免計入薪資所得
+export const MEAL_ALLOWANCE_EXEMPT_CENTS = 300000n;
+
 const WITHHOLDING_TABLE_STEP_CENTS = 50000n;
 
 const WITHHOLDING_TABLE_MAX_CENTS = 50000000n;
@@ -332,6 +338,20 @@ export function tableWithholding(
   return tabulated ? (monthly / 1000n) * 1000n : (monthly / 100n) * 100n;
 }
 
+// 薪資所得扣繳辦法 §7 II 1：非每月給付之薪資未達稅額表無配偶及受扶養親屬者之起扣點免扣
+export function withholdingThresholdCents(
+  table: WithholdingTable,
+  exemptTaxCents: bigint,
+) {
+  for (
+    let lower = 100n;
+    lower <= WITHHOLDING_TABLE_MAX_CENTS;
+    lower += WITHHOLDING_TABLE_STEP_CENTS
+  )
+    if (tableWithholding(table, lower, 0) > exemptTaxCents) return lower;
+  return WITHHOLDING_TABLE_MAX_CENTS;
+}
+
 export interface TaiwanDeductions {
   laborInsuranceCents: string;
   healthInsuranceCents: string;
@@ -359,11 +379,15 @@ export function taiwanDeductions(
     healthCharged = true,
     contributionDays = coverageDays,
     nonResident = false,
+    bonusCents = 0n,
+    bonusYearToDateCents = 0n,
   }: {
     coverageDays?: number;
     healthCharged?: boolean;
     contributionDays?: number;
     nonResident?: boolean;
+    bonusCents?: bigint;
+    bonusYearToDateCents?: bigint;
   } = {},
 ): TaiwanDeductions {
   if (!insurance) return NO_DEDUCTIONS;
@@ -401,19 +425,33 @@ export function taiwanDeductions(
     100n * 30n,
   );
   const taxable = taxableCents > voluntary ? taxableCents - voluntary : 0n;
+  const taxableWithBonus = taxable + bonusCents;
   const supplementBase =
-    taxable < HEALTH_SUPPLEMENT_CAP_CENTS
-      ? taxable
+    taxableWithBonus < HEALTH_SUPPLEMENT_CAP_CENTS
+      ? taxableWithBonus
       : HEALTH_SUPPLEMENT_CAP_CENTS;
+  const bonusThreshold =
+    BigInt(insurance.healthBasis) * 100n * BONUS_SUPPLEMENT_MULTIPLE;
+  const bonusOverThreshold = bonusYearToDateCents + bonusCents - bonusThreshold;
+  const bonusSupplementBase =
+    bonusOverThreshold <= 0n
+      ? 0n
+      : [bonusCents, bonusOverThreshold, HEALTH_SUPPLEMENT_CAP_CENTS].reduce(
+          (min, value) => (value < min ? value : min),
+        );
   const supplement =
-    insurance.healthBasis === 0 &&
-    !insurance.healthSupplementExemption &&
-    taxable >= BigInt(rules.minimumMonthlyWageCents)
-      ? wholeDollars(
-          supplementBase * BigInt(rules.healthSupplementRateBp),
+    insurance.healthBasis === 0
+      ? !insurance.healthSupplementExemption &&
+        taxableWithBonus >= BigInt(rules.minimumMonthlyWageCents)
+        ? wholeDollars(
+            supplementBase * BigInt(rules.healthSupplementRateBp),
+            BP * 100n,
+          )
+        : 0n
+      : wholeDollars(
+          bonusSupplementBase * BigInt(rules.healthSupplementRateBp),
           BP * 100n,
-        )
-      : 0n;
+        );
   const exemptTax = BigInt(rules.withholdingExemptTaxCents);
   const tableTax = () => {
     const tax = tableWithholding(
@@ -423,10 +461,14 @@ export function taiwanDeductions(
     );
     return tax <= exemptTax ? 0n : tax;
   };
+  const bonusTax =
+    bonusCents >= withholdingThresholdCents(rules.withholdingTable, exemptTax)
+      ? wholeDollars(bonusCents * BigInt(rules.withholdingRateBp), BP * 100n)
+      : 0n;
   const tax = nonResident
     ? wholeDollars(
-        taxable *
-          (taxable * 2n <= BigInt(rules.minimumMonthlyWageCents) * 3n
+        taxableWithBonus *
+          (taxableWithBonus * 2n <= BigInt(rules.minimumMonthlyWageCents) * 3n
             ? NON_RESIDENT_REDUCED_RATE_BP
             : NON_RESIDENT_RATE_BP),
         BP * 100n,
@@ -442,6 +484,6 @@ export function taiwanDeductions(
     healthSupplementCents: supplement.toString(),
     voluntaryPensionCents: voluntary.toString(),
     employerPensionCents: employer.toString(),
-    withholdingCents: tax.toString(),
+    withholdingCents: (nonResident ? tax : tax + bonusTax).toString(),
   };
 }

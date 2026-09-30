@@ -26,6 +26,7 @@ import {
   AttendanceRequestRecordResponseDto,
   AttendanceRequestResponseDto,
   AttendanceRequestsResponseDto,
+  AttendanceReviewCountsResponseDto,
 } from './dto/attendance-request-response.dto';
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
@@ -52,6 +53,16 @@ export class AttendanceRequestsController {
       query,
       true,
     );
+  }
+
+  @Get('review-counts')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({ summary: '目前使用者可審核的待審件數' })
+  reviewCounts(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+  ): Promise<AttendanceReviewCountsResponseDto> {
+    return this.attendanceRequestsService.reviewCounts(actor(req, session));
   }
 
   @Get('requests')

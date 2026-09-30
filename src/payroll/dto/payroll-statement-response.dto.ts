@@ -24,6 +24,7 @@ export class PayrollEarningLineResponseDto {
   code: PayrollEarningLineCode;
   @ApiProperty() amountCents: string;
   @ApiPropertyOptional() seconds?: number;
+  @ApiPropertyOptional() name?: string;
 }
 
 export class PayrollDeductionLineResponseDto {

@@ -4,13 +4,20 @@ import {
   PAYROLL_DEDUCTION_LINE_CODES,
   PAYROLL_EARNING_LINE_CODES,
   type PayrollBlocker,
+  type PayrollEarningCategory,
   type PayrollLine,
   type PayrollLineCode,
   type PayrollTerms,
   type TaiwanRuleSet,
 } from 'src/db/schema/payroll';
 
-import { employerCosts, taiwanDeductions } from './taiwan-rules';
+import {
+  employerCosts,
+  MEAL_ALLOWANCE_EXEMPT_CENTS,
+  taiwanDeductions,
+} from './taiwan-rules';
+
+const ATTENDANCE_BONUS_BASIS_SECONDS = 30 * 8 * 3600;
 
 export interface PayrollWorkDay {
   seconds: number;
@@ -58,9 +65,23 @@ const ceilDollars = ({ numerator, denominator }: Ratio) => {
   return (quotient * scaled < numerator ? quotient + 1n : quotient) * 100n;
 };
 
-export function hourlyRate(terms: PayrollTerms, normalSeconds: number) {
+export const recurringAllowanceCents = (
+  terms: Pick<
+    PayrollTerms,
+    'allowanceCents' | 'attendanceBonusCents' | 'mealAllowanceCents'
+  >,
+) =>
+  BigInt(terms.allowanceCents) +
+  BigInt(terms.attendanceBonusCents ?? '0') +
+  BigInt(terms.mealAllowanceCents ?? '0');
+
+export function hourlyRate(
+  terms: PayrollTerms,
+  normalSeconds: number,
+  extraMonthlyCents = 0n,
+) {
   const salary = BigInt(terms.salaryCents);
-  const allowance = BigInt(terms.allowanceCents);
+  const allowance = recurringAllowanceCents(terms) + extraMonthlyCents;
   if (terms.salaryType === 'monthly')
     return { numerator: salary + allowance, denominator: 240n };
   if (allowance === 0n || normalSeconds <= 0)
@@ -97,10 +118,24 @@ export function calculatePayroll(
     injuryCompensationCents?: string;
     monthlyOvertimeLimitSeconds?: number;
     absenceSeconds?: number;
+    attendanceDeductibleSeconds?: number;
+    earnings?: {
+      name: string;
+      category: PayrollEarningCategory;
+      amountCents: string;
+    }[];
+    bonusYearToDateCents?: string;
   } = { numerator: 1, denominator: 1 },
 ) {
   const salary = BigInt(terms.salaryCents);
   const allowance = BigInt(terms.allowanceCents);
+  const earnings = fraction.earnings ?? [];
+  const earningTotal = (category: PayrollEarningCategory) =>
+    earnings
+      .filter((earning) => earning.category === category)
+      .reduce((sum, earning) => sum + BigInt(earning.amountCents), 0n);
+  const otherWage = earningTotal('wage');
+  const bonus = earningTotal('bonus');
   const lines: PayrollLine[] = [];
   const blockers: PayrollBlocker[] = [];
   if (
@@ -175,7 +210,7 @@ export function calculatePayroll(
     regularSeconds + paidLeaveSeconds ||
     days.reduce((sum, day) => sum + day.seconds, 0);
   const { numerator: hourlyNumerator, denominator: hourlyDenominator } =
-    hourlyRate(terms, normalSeconds);
+    hourlyRate(terms, normalSeconds, otherWage);
   if (
     ordinaryOvertime + restOvertime >
     (fraction.monthlyOvertimeLimitSeconds ?? MAX_MONTHLY_OVERTIME_SECONDS)
@@ -187,6 +222,20 @@ export function calculatePayroll(
       : ratio(salary * BigInt(regularSeconds + paidLeaveSeconds), 3600n);
   const exactAllowance = ratio(
     allowance * BigInt(fraction.numerator),
+    BigInt(fraction.denominator),
+  );
+  const attendanceDeductibleSeconds = Math.min(
+    fraction.attendanceDeductibleSeconds ?? 0,
+    ATTENDANCE_BONUS_BASIS_SECONDS,
+  );
+  const exactAttendanceBonus = ratio(
+    BigInt(terms.attendanceBonusCents ?? '0') *
+      BigInt(fraction.numerator) *
+      BigInt(ATTENDANCE_BONUS_BASIS_SECONDS - attendanceDeductibleSeconds),
+    BigInt(fraction.denominator) * BigInt(ATTENDANCE_BONUS_BASIS_SECONDS),
+  );
+  const exactMealAllowance = ratio(
+    BigInt(terms.mealAllowanceCents ?? '0') * BigInt(fraction.numerator),
     BigInt(fraction.denominator),
   );
   const exactOvertime = ratio(
@@ -217,6 +266,8 @@ export function calculatePayroll(
   );
   const regular = roundCents(exactRegular);
   const paidAllowance = roundCents(exactAllowance);
+  const attendanceBonus = roundCents(exactAttendanceBonus);
+  const mealAllowance = roundCents(exactMealAllowance);
   const overtime = roundCents(exactOvertime);
   const holidayPay = roundCents(exactHolidayPay);
   const calendarLeavePay = BigInt(fraction.calendarLeavePayCents ?? '0');
@@ -253,6 +304,17 @@ export function calculatePayroll(
       seconds: holidaySeconds,
     },
     { code: 'allowance', amountCents: paidAllowance.toString() },
+    {
+      code: 'attendanceBonus',
+      amountCents: attendanceBonus.toString(),
+      seconds: attendanceDeductibleSeconds,
+    },
+    { code: 'mealAllowance', amountCents: mealAllowance.toString() },
+    ...earnings.map(({ amountCents, category, name }) => ({
+      code: category === 'wage' ? ('otherWage' as const) : ('bonus' as const),
+      amountCents,
+      name,
+    })),
     { code: 'calendarLeavePay', amountCents: calendarLeavePay.toString() },
     {
       code: 'injuryCompensation',
@@ -271,6 +333,12 @@ export function calculatePayroll(
     terms.insurance,
     regular +
       paidAllowance +
+      attendanceBonus +
+      mealAllowance -
+      (mealAllowance < MEAL_ALLOWANCE_EXEMPT_CENTS
+        ? mealAllowance
+        : MEAL_ALLOWANCE_EXEMPT_CENTS) +
+      otherWage +
       annualLeavePay +
       calendarLeavePay -
       leaveDeduction -
@@ -280,6 +348,8 @@ export function calculatePayroll(
       healthCharged: fraction.healthCharged,
       contributionDays: fraction.contributionDays,
       nonResident: fraction.nonResident,
+      bonusCents: bonus,
+      bonusYearToDateCents: BigInt(fraction.bonusYearToDateCents ?? '0'),
     },
   );
   for (const code of [
@@ -315,12 +385,16 @@ export function calculatePayroll(
   const exactNet = addRatios(
     exactRegular,
     exactAllowance,
+    exactAttendanceBonus,
+    exactMealAllowance,
     exactOvertime,
     exactHolidayPay,
     negateRatio(exactLeaveDeduction),
     negateRatio(exactAbsenceDeduction),
     ratio(
       calendarLeavePay +
+        otherWage +
+        bonus +
         injuryCompensation +
         annualLeavePay +
         severancePay +

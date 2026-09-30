@@ -1,5 +1,6 @@
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
+import type { PayrollEarningsService } from './payroll-earnings.service';
 import type { PayrollRulesService } from './payroll-rules.service';
 import { PayrollService } from './payroll.service';
 import { taiwan2026 } from './taiwan-rules.fixture';
@@ -62,6 +63,7 @@ function setup(results: unknown[][], current = row.snapshot) {
   const service = new PayrollService(
     db as unknown as DrizzleDB,
     {} as PayrollRulesService,
+    {} as PayrollEarningsService,
   );
   const snapshot = jest.fn(() => Promise.resolve(current));
   Object.defineProperty(service, 'snapshot', { value: snapshot });

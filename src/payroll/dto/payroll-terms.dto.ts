@@ -128,6 +128,8 @@ export class PayrollTermsDto {
   salaryType: 'monthly' | 'hourly';
   @Matches(/^\d{1,12}$/) salaryCents: string;
   @Matches(/^\d{1,12}$/) allowanceCents: string;
+  @IsOptional() @Matches(/^\d{1,12}$/) attendanceBonusCents?: string;
+  @IsOptional() @Matches(/^\d{1,12}$/) mealAllowanceCents?: string;
   @Matches(/^\d{1,12}$/) otherDeductionCents: string;
   @IsOptional() @IsString() @MaxLength(2000) sourceNote?: string;
 }

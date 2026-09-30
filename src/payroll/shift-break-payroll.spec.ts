@@ -1,6 +1,7 @@
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { calculatePayroll } from './payroll-calculation';
+import type { PayrollEarningsService } from './payroll-earnings.service';
 import type { PayrollRulesService } from './payroll-rules.service';
 import { PayrollService } from './payroll.service';
 import { taiwan2026 } from './taiwan-rules.fixture';
@@ -129,6 +130,7 @@ async function snapshot(
           ...options.ruleSet,
         }),
     } as unknown as PayrollRulesService,
+    {} as unknown as PayrollEarningsService,
   );
   const calculate = Reflect.get(service, 'snapshot') as (
     ...args: unknown[]

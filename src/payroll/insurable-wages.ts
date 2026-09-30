@@ -39,13 +39,12 @@ export const insurableWages = async (
       'injuryCompensation',
       'severancePay',
       'noticePay',
+      'bonus',
     ].reduce(
       (cents, excluded) =>
-        cents -
-        BigInt(
-          snapshot.lines.find(({ code }) => code === excluded)?.amountCents ??
-            '0',
-        ),
+        snapshot.lines
+          .filter(({ code }) => code === excluded)
+          .reduce((sum, { amountCents }) => sum - BigInt(amountCents), cents),
       BigInt(snapshot.grossCents),
     ),
   }));

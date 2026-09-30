@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { isAuthorized } from 'src/auth/permissions';
 import {
   DAY_MS,
   PLATFORM_UTC_OFFSET_MS,
@@ -128,6 +129,53 @@ type AttendanceShiftRow = typeof attendanceShift.$inferSelect;
 @Injectable()
 export class AttendanceRequestsService {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
+
+  async reviewCounts(actor: AttendanceActor) {
+    const [[requests], [parentalReturns]] = await Promise.all([
+      isAuthorized(actor.role, { attendanceRequest: ['update'] })
+        ? this.db
+            .select({ count: count() })
+            .from(attendanceRequest)
+            .innerJoin(
+              attendanceEmployee,
+              eq(attendanceEmployee.id, attendanceRequest.employeeId),
+            )
+            .where(
+              and(
+                eq(attendanceRequest.organizationId, actor.organizationId),
+                inArray(attendanceRequest.status, [
+                  'pending',
+                  'cancellationPending',
+                ]),
+                ne(attendanceEmployee.userId, actor.userId),
+              ),
+            )
+        : [{ count: 0 }],
+      isAuthorized(actor.role, { parentalReturn: ['update'] })
+        ? this.db
+            .select({ count: count() })
+            .from(attendanceParentalReturn)
+            .innerJoin(
+              attendanceEmployee,
+              eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
+            )
+            .where(
+              and(
+                eq(
+                  attendanceParentalReturn.organizationId,
+                  actor.organizationId,
+                ),
+                eq(attendanceParentalReturn.status, 'pending'),
+                ne(attendanceEmployee.userId, actor.userId),
+              ),
+            )
+        : [{ count: 0 }],
+    ]);
+    return {
+      requests: requests.count,
+      parentalReturns: parentalReturns.count,
+    };
+  }
 
   async requests(
     actor: AttendanceActor,

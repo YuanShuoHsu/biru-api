@@ -27,7 +27,7 @@ import {
   type WithholdingTable,
 } from 'src/db/schema/payroll';
 
-import { hourlyRate } from './payroll-calculation';
+import { hourlyRate, recurringAllowanceCents } from './payroll-calculation';
 
 export const NEW_PENSION_SYSTEM_START = new Date('2005-07-01T00:00:00+08:00');
 
@@ -94,12 +94,10 @@ export function severanceMonths(
   };
 }
 
-export function retirementWithholding(
+export function retirementIncome(
   table: WithholdingTable,
   amountCents: bigint,
   { years, months, days }: Seniority,
-  nonResident: boolean,
-  exemptTaxCents: bigint,
 ) {
   const halfYears =
     BigInt(years * 2) + (months || days ? (months < 6 ? 1n : 2n) : 0n);
@@ -107,12 +105,21 @@ export function retirementWithholding(
     (BigInt(table.retirementExemptPerYear) * 100n * halfYears) / 2n;
   const halfTaxable =
     (BigInt(table.retirementHalfTaxablePerYear) * 100n * halfYears) / 2n;
-  const income =
-    amountCents <= exempt
-      ? 0n
-      : amountCents <= halfTaxable
-        ? (amountCents - exempt) / 2n
-        : (halfTaxable - exempt) / 2n + (amountCents - halfTaxable);
+  return amountCents <= exempt
+    ? 0n
+    : amountCents <= halfTaxable
+      ? (amountCents - exempt) / 2n
+      : (halfTaxable - exempt) / 2n + (amountCents - halfTaxable);
+}
+
+export function retirementWithholding(
+  table: WithholdingTable,
+  amountCents: bigint,
+  seniority: Seniority,
+  nonResident: boolean,
+  exemptTaxCents: bigint,
+) {
+  const income = retirementIncome(table, amountCents, seniority);
   const tax =
     ((income *
       (nonResident
@@ -239,14 +246,15 @@ export async function averageDailyWage(
     if (month === currentMonth) return input.currentWageCents;
     const snapshot = statements.find((row) => row.month === month)!.snapshot;
     const line = (code: string) =>
-      BigInt(
-        snapshot.lines.find((item) => item.code === code)?.amountCents ?? '0',
-      );
+      snapshot.lines
+        .filter((item) => item.code === code)
+        .reduce((sum, item) => sum + BigInt(item.amountCents), 0n);
     return (
       BigInt(snapshot.grossCents) -
       line('injuryCompensation') -
       line('severancePay') -
-      line('noticePay')
+      line('noticePay') -
+      line('bonus')
     );
   };
   let totalCents = 0n;
@@ -337,19 +345,25 @@ export function terminationPay({
     : 0;
   const agreedDaily =
     terms.salaryType === 'monthly'
-      ? (BigInt(terms.salaryCents) + BigInt(terms.allowanceCents)) / 30n
+      ? (BigInt(terms.salaryCents) + recurringAllowanceCents(terms)) / 30n
       : (BigInt(terms.salaryCents) * BigInt(Math.min(weeklyMinutes, 2400))) /
         (5n * 60n);
   const noticePay =
     BigInt(shortfall) *
     (agreedDaily > dailyWageCents ? agreedDaily : dailyWageCents);
   const whole = (cents: bigint) => (cents / 100n) * 100n;
+  const retirementPay = whole(severancePay) + whole(noticePay);
   return {
     severancePayCents: whole(severancePay).toString(),
     noticePayCents: whole(noticePay).toString(),
+    retirementIncomeCents: retirementIncome(
+      table,
+      retirementPay,
+      length,
+    ).toString(),
     retirementWithholdingCents: retirementWithholding(
       table,
-      whole(severancePay) + whole(noticePay),
+      retirementPay,
       length,
       nonResident,
       exemptTaxCents,

@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   jsonb,
   pgTable,
@@ -13,6 +14,10 @@ import { organization } from './organizations';
 export const PAYROLL_EARNING_LINE_CODES = [
   'basePay',
   'allowance',
+  'attendanceBonus',
+  'mealAllowance',
+  'otherWage',
+  'bonus',
   'overtimePay',
   'holidayPay',
   'calendarLeavePay',
@@ -51,6 +56,11 @@ export type PayrollEarningLineCode =
 export type PayrollDeductionLineCode =
   (typeof PAYROLL_DEDUCTION_LINE_CODES)[number];
 export type PayrollLineCode = PayrollEarningLineCode | PayrollDeductionLineCode;
+
+export const PAYROLL_EARNING_CATEGORIES = ['wage', 'bonus'] as const;
+
+export type PayrollEarningCategory =
+  (typeof PAYROLL_EARNING_CATEGORIES)[number];
 
 export const PAYROLL_BLOCKERS = [
   'averageWageStatementsRequired',
@@ -214,6 +224,8 @@ export interface PayrollTerms {
   salaryType: 'monthly' | 'hourly';
   salaryCents: string;
   allowanceCents: string;
+  attendanceBonusCents?: string;
+  mealAllowanceCents?: string;
   otherDeductionCents: string;
   sourceNote: string;
 }
@@ -222,6 +234,7 @@ export interface PayrollLine {
   code: PayrollLineCode;
   amountCents: string;
   seconds?: number;
+  name?: string;
 }
 
 export interface PayrollSnapshot {
@@ -236,6 +249,7 @@ export interface PayrollSnapshot {
   workedSeconds: number;
   blockers: PayrollBlocker[];
   sourceFingerprint: string;
+  retirementIncomeCents?: string;
 }
 
 export interface PayrollRuleSource {
@@ -335,3 +349,78 @@ export const payrollStatement = pgTable(
     uniqueIndex('payroll_statement_month_uidx').on(t.employeeId, t.month),
   ],
 );
+
+export const payrollEarningType = pgTable(
+  'payroll_earning_type',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    category: text('category').$type<PayrollEarningCategory>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('payroll_earning_type_name_uidx').on(t.organizationId, t.name),
+  ],
+);
+
+export const payrollEarning = pgTable(
+  'payroll_earning',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => attendanceEmployee.id),
+    month: text('month').notNull(),
+    earningTypeId: text('earning_type_id')
+      .notNull()
+      .references(() => payrollEarningType.id, { onDelete: 'restrict' }),
+    amountCents: text('amount_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('payroll_earning_employee_month_idx').on(t.employeeId, t.month),
+  ],
+);
+
+export const payrollWithholdingUnit = pgTable('payroll_withholding_unit', {
+  organizationId: text('organization_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'restrict' }),
+  businessNumber: text('business_number').notNull(),
+  taxOfficeCode: text('tax_office_code').notNull(),
+  taxRegistrationNumber: text('tax_registration_number').notNull(),
+  name: text('name').notNull(),
+  address: text('address').notNull(),
+  agentName: text('agent_name').notNull(),
+  representativeName: text('representative_name').notNull(),
+  contactName: text('contact_name').notNull(),
+  contactPhone: text('contact_phone').notNull(),
+  contactEmail: text('contact_email').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const payrollTaxIdentity = pgTable('payroll_tax_identity', {
+  employeeId: text('employee_id')
+    .primaryKey()
+    .references(() => attendanceEmployee.id),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'restrict' }),
+  encryptedTaxId: text('encrypted_tax_id').notNull(),
+  encryptedAddress: text('encrypted_address').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

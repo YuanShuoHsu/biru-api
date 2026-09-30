@@ -1,6 +1,7 @@
 import { DAY_MS, platformMonthStart } from 'src/common/constants/timezone';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
+import type { PayrollEarningsService } from './payroll-earnings.service';
 import type { PayrollRulesService } from './payroll-rules.service';
 import { PayrollService } from './payroll.service';
 import { taiwan2026 } from './taiwan-rules.fixture';
@@ -143,6 +144,7 @@ async function snapshot(
           unconfirmed: [],
         }),
     } as unknown as PayrollRulesService,
+    {} as unknown as PayrollEarningsService,
   );
   const calculate = Reflect.get(service, 'snapshot') as (
     ...args: unknown[]

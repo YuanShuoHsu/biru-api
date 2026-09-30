@@ -108,8 +108,11 @@ import {
   attendanceSettings,
   statutoryHoliday,
   attendanceShift,
+  type StatutoryLeaveKind,
 } from 'src/db/schema/attendance';
 import {
+  payrollEarning,
+  payrollEarningType,
   payrollStatement,
   payrollTerms,
   type PayrollBlocker,
@@ -140,6 +143,7 @@ import { PayrollTermsDto } from './dto/payroll-terms.dto';
 import {
   calculatePayroll,
   payrollPeriod,
+  recurringAllowanceCents,
   roundRatio,
 } from './payroll-calculation';
 import {
@@ -156,7 +160,9 @@ import {
   insurableWages,
   precedingMonths,
 } from './insurable-wages';
+import { PayrollEarningsService } from './payroll-earnings.service';
 import { PayrollRulesService } from './payroll-rules.service';
+import { salaryIncomeCents } from './salary-income';
 import {
   currentGrade,
   deriveInsurance,
@@ -166,6 +172,13 @@ import {
   laborGradesFor,
   pensionApplicable,
 } from './taiwan-rules';
+
+// 勞工請假規則 §9：只有普通傷病假與非家庭照顧事假可按比例扣全勤；其他法定假別依法不得視為缺勤
+const ATTENDANCE_BONUS_DEDUCTIBLE_KINDS: readonly StatutoryLeaveKind[] = [
+  'sick',
+  'hospitalSick',
+  'personal',
+];
 
 const knownFullTime = (hours: EmployeeHours, at: Date) => {
   const weeklyMinutes = averageWeeklyMinutes(hours, at);
@@ -264,14 +277,21 @@ const taiwanStayDays = (staySince: string, periodEnd: Date) => {
 };
 
 const agreedMonthlyWage = (
-  terms: Pick<PayrollTerms, 'allowanceCents' | 'salaryCents' | 'salaryType'>,
+  terms: Pick<
+    PayrollTerms,
+    | 'allowanceCents'
+    | 'attendanceBonusCents'
+    | 'mealAllowanceCents'
+    | 'salaryCents'
+    | 'salaryType'
+  >,
   weeklyMinutes: number,
 ) =>
   (Number(terms.salaryCents) *
     (terms.salaryType === 'hourly'
       ? (weeklyMinutes / 60) * WEEKS_PER_MONTH
       : 1) +
-    Number(terms.allowanceCents)) /
+    Number(recurringAllowanceCents(terms))) /
   100;
 
 const adjustmentReferenceMonths = (month: string) => {
@@ -289,6 +309,7 @@ export class PayrollService {
   constructor(
     @Inject(DRIZZLE) private db: DrizzleDB,
     private readonly ruleSets: PayrollRulesService,
+    private readonly earnings: PayrollEarningsService,
   ) {}
   async terms(actor: AttendanceActor) {
     return this.db
@@ -697,11 +718,6 @@ export class PayrollService {
       ruleSet.unconfirmed.includes('minimumHourlyWageCents')
     )
       blockers.push('minimumWageUnconfirmed');
-    if (
-      insurance?.taxMethod === 'table' &&
-      ruleSet.rules.withholdingTable.year !== Number(month.slice(0, 4))
-    )
-      blockers.push('withholdingTableOutdated');
     const employment = employmentPeriod(
       start,
       end,
@@ -717,7 +733,7 @@ export class PayrollService {
     if (
       employment.partial &&
       (profile.terms.salaryType === 'monthly' ||
-        BigInt(profile.terms.allowanceCents) > 0n) &&
+        recurringAllowanceCents(profile.terms) > 0n) &&
       !profile.terms.monthlyProration
     )
       blockers.push('prorationRequired');
@@ -817,7 +833,7 @@ export class PayrollService {
     const fullMonthlyPay =
       (profile.terms.salaryType === 'monthly'
         ? BigInt(profile.terms.salaryCents)
-        : 0n) + BigInt(profile.terms.allowanceCents);
+        : 0n) + recurringAllowanceCents(profile.terms);
     const employedMonthlyPay = roundRatio(
       fullMonthlyPay * BigInt(employment.numerator),
       BigInt(employment.denominator),
@@ -857,6 +873,7 @@ export class PayrollService {
     >();
     const intervalsByDay = new Map<string, TimeInterval[]>();
     let leaveDeductionSeconds = 0;
+    let attendanceDeductibleLeaveSeconds = 0;
     const absenceByDay = new Map<string, number>();
     const overtimeByDay = new Map<string, number>();
     const relevantDays = new Set(
@@ -935,6 +952,11 @@ export class PayrollService {
             end.getTime(),
           );
           leaveSeconds += fullSeconds;
+          if (
+            policy &&
+            ATTENDANCE_BONUS_DEDUCTIBLE_KINDS.includes(policy.statutoryKind)
+          )
+            attendanceDeductibleLeaveSeconds += seconds;
           if (!policy || !isCalendarLeave(policy.statutoryKind)) {
             const paidPercent =
               leave.paidPercent ??
@@ -1317,6 +1339,49 @@ export class PayrollService {
       employee.legalStatus !== 'national' &&
       (!employee.taiwanStaySince ||
         taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS);
+    const earnings = await tx
+      .select({
+        name: payrollEarningType.name,
+        category: payrollEarningType.category,
+        amountCents: payrollEarning.amountCents,
+      })
+      .from(payrollEarning)
+      .innerJoin(
+        payrollEarningType,
+        eq(payrollEarningType.id, payrollEarning.earningTypeId),
+      )
+      .where(
+        and(
+          eq(payrollEarning.employeeId, employeeId),
+          eq(payrollEarning.month, month),
+        ),
+      )
+      .orderBy(asc(payrollEarningType.name), asc(payrollEarning.id));
+    const hasBonus = earnings.some(({ category }) => category === 'bonus');
+    const bonusYearToDateCents = hasBonus
+      ? (
+          await tx
+            .select({ snapshot: payrollStatement.snapshot })
+            .from(payrollStatement)
+            .where(
+              and(
+                eq(payrollStatement.employeeId, employeeId),
+                eq(payrollStatement.status, 'published'),
+                like(payrollStatement.month, `${month.slice(0, 4)}-%`),
+                lt(payrollStatement.month, month),
+              ),
+            )
+        )
+          .flatMap(({ snapshot }) => snapshot.lines)
+          .filter(({ code }) => code === 'bonus')
+          .reduce((sum, { amountCents }) => sum + BigInt(amountCents), 0n)
+          .toString()
+      : '0';
+    if (
+      (insurance?.taxMethod === 'table' || hasBonus) &&
+      ruleSet.rules.withholdingTable.year !== Number(month.slice(0, 4))
+    )
+      blockers.push('withholdingTableOutdated');
     const payroll = (severance?: ReturnType<typeof terminationPay>) => {
       const { annualLeavePayoutCents, ...statement } = calculatePayroll(
         ruleSet.rules,
@@ -1330,6 +1395,10 @@ export class PayrollService {
         leaveDeductionSeconds,
         {
           absenceSeconds,
+          attendanceDeductibleSeconds:
+            attendanceDeductibleLeaveSeconds + absenceSeconds,
+          earnings,
+          bonusYearToDateCents,
           ...employment,
           // 育嬰留停期間雇主負擔免繳、勞工負擔遞延三年（性平法 §16），都不從薪資扣
           coverageDays: contributionDays,
@@ -1391,7 +1460,13 @@ export class PayrollService {
             currentWageCents:
               BigInt(wages.grossCents) -
               terminationAnnualPay -
-              injuryCompensation,
+              injuryCompensation -
+              wages.lines
+                .filter(({ code }) => code === 'bonus')
+                .reduce(
+                  (sum, { amountCents }) => sum + BigInt(amountCents),
+                  0n,
+                ),
             termsAt,
             hourly: profile.terms.salaryType === 'hourly',
           });
@@ -1420,6 +1495,9 @@ export class PayrollService {
     const calculated = severance ? payroll(severance).statement : wages;
     return {
       ...calculated,
+      ...(severance && {
+        retirementIncomeCents: severance.retirementIncomeCents,
+      }),
       terms: profile.terms,
       ruleVersion: ruleSet.ruleVersion,
       blockers: [...new Set([...blockers, ...calculated.blockers])],
@@ -1427,7 +1505,7 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'statutory-automation-2',
+            calculationVersion: 'statutory-automation-3',
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,
             holidays,
@@ -1460,6 +1538,8 @@ export class PayrollService {
             termsHistory,
             substitutes,
             severance,
+            earnings,
+            bonusYearToDateCents,
           }),
         )
         .digest('hex'),
@@ -1512,22 +1592,10 @@ export class PayrollService {
           ),
         ),
     ]);
-    const salaryCents = paid.reduce((sum, { snapshot }) => {
-      const line = (code: string) =>
-        BigInt(
-          snapshot.lines.find((item) => item.code === code)?.amountCents ?? '0',
-        );
-      return (
-        sum +
-        BigInt(snapshot.grossCents) -
-        line('overtimePay') -
-        line('holidayPay') -
-        line('injuryCompensation') -
-        line('severancePay') -
-        line('noticePay') -
-        line('voluntaryPension')
-      );
-    }, 0n);
+    const salaryCents = paid.reduce(
+      (sum, { snapshot }) => sum + salaryIncomeCents(snapshot),
+      0n,
+    );
     const insuredCents = insuredStatements.reduce(
       (sum, { employeeId, snapshot }) => {
         const employee = employees.find(({ id }) => id === employeeId);
@@ -1587,6 +1655,14 @@ export class PayrollService {
         period.start,
         period.end,
       );
+      if (dto.earnings)
+        await this.earnings.replaceEarnings(
+          tx,
+          actor,
+          dto.employeeId,
+          dto.month,
+          dto.earnings,
+        );
       const snapshot = await this.snapshot(
         tx,
         actor,

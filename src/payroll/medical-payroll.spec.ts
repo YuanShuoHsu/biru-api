@@ -2,6 +2,7 @@ import { loadMedicalLedger } from 'src/attendance/medical-leave';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { calculatePayroll } from './payroll-calculation';
+import type { PayrollEarningsService } from './payroll-earnings.service';
 import type { PayrollRulesService } from './payroll-rules.service';
 import { PayrollService } from './payroll.service';
 
@@ -106,6 +107,7 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
       resolve: () =>
         Promise.resolve({ rules: {}, ruleVersion: 'test', unconfirmed: [] }),
     } as unknown as PayrollRulesService,
+    {} as unknown as PayrollEarningsService,
   );
   const snapshot = Reflect.get(service, 'snapshot') as (
     ...args: unknown[]

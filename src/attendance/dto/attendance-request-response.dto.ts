@@ -104,3 +104,8 @@ export class AttendanceRequestsResponseDto {
   data: AttendanceRequestResponseDto[];
   @ApiProperty() total: number;
 }
+
+export class AttendanceReviewCountsResponseDto {
+  @ApiProperty() requests: number;
+  @ApiProperty() parentalReturns: number;
+}

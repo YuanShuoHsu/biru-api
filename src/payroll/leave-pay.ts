@@ -7,6 +7,7 @@ import { attendanceShift } from 'src/db/schema/attendance';
 import { payrollTerms } from 'src/db/schema/payroll';
 
 import { insurableWages, precedingMonths } from './insurable-wages';
+import { recurringAllowanceCents } from './payroll-calculation';
 
 const NORMAL_DAILY_SECONDS = 8 * 3600;
 
@@ -35,10 +36,12 @@ export const statutoryDailyPayCents = async (
     .orderBy(desc(payrollTerms.effectiveFrom), desc(payrollTerms.version))
     .limit(1);
   if (!current) return null;
-  const { allowanceCents, salaryCents, salaryType } = current.terms;
+  const { salaryCents, salaryType } = current.terms;
   let agreed: bigint;
   if (salaryType === 'monthly')
-    agreed = (BigInt(salaryCents) + BigInt(allowanceCents) + 15n) / 30n;
+    agreed =
+      (BigInt(salaryCents) + recurringAllowanceCents(current.terms) + 15n) /
+      30n;
   else {
     const [lastWorkday] = await tx
       .select()
