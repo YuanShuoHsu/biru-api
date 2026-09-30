@@ -28,7 +28,7 @@ describe('Taiwan general payroll arithmetic', () => {
       [{ seconds: 10 * 3600, dayKind: 'restDay' }],
       0,
     );
-    expect(rest.grossCents).toBe('432000');
+    expect(rest.grossCents).toBe('384000');
     const holiday = calculatePayroll(
       taiwan2026,
       { ...terms, salaryType: 'monthly', salaryCents: '5760000' },

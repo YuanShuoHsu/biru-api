@@ -115,7 +115,6 @@ export function calculatePayroll(
   let regularSeconds = 0,
     overtimeFirst = 0,
     overtimeSecond = 0,
-    overtimeThird = 0,
     holidaySeconds = 0,
     emergencySeconds = 0,
     restOvertime = 0,
@@ -133,8 +132,7 @@ export function calculatePayroll(
       Math.max(0, Math.min(offset + day.seconds, to) - Math.max(offset, from));
     if (day.dayKind === 'restDay') {
       overtimeFirst += band(0, 2 * 3600);
-      overtimeSecond += band(2 * 3600, 8 * 3600);
-      overtimeThird += band(8 * 3600, 12 * 3600);
+      overtimeSecond += band(2 * 3600, 12 * 3600);
       restOvertime += day.seconds;
       continue;
     }
@@ -164,12 +162,12 @@ export function calculatePayroll(
       }
     } else if (day.dayKind === 'workday') {
       regularSeconds += band(0, 8 * 3600);
-      ordinaryOvertime += band(8 * 3600, Infinity);
     } else blockers.push('unsupportedDayKind');
     if (day.dayKind === 'regularLeave') {
       emergencySeconds += band(8 * 3600, Infinity);
       continue;
     }
+    ordinaryOvertime += band(8 * 3600, Infinity);
     overtimeFirst += band(8 * 3600, 10 * 3600);
     overtimeSecond += band(10 * 3600, 12 * 3600);
   }
@@ -195,7 +193,6 @@ export function calculatePayroll(
     hourlyNumerator *
       (BigInt(overtimeFirst) * 4n +
         BigInt(overtimeSecond) * 5n +
-        BigInt(overtimeThird) * 8n +
         BigInt(emergencySeconds) * 6n),
     hourlyDenominator * 3600n * 3n,
   );
@@ -248,8 +245,7 @@ export function calculatePayroll(
     {
       code: 'overtimePay',
       amountCents: overtime.toString(),
-      seconds:
-        overtimeFirst + overtimeSecond + overtimeThird + emergencySeconds,
+      seconds: overtimeFirst + overtimeSecond + emergencySeconds,
     },
     {
       code: 'holidayPay',

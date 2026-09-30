@@ -23,7 +23,6 @@ import {
   PLATFORM_UTC_OFFSET_MS,
   platformDateString,
   platformMonthStart,
-  toPlatformTime,
 } from 'src/common/constants/timezone';
 import {
   buildFilterCondition,
@@ -38,7 +37,6 @@ import {
   attendanceLeaveType,
   attendanceParentalReturn,
   attendanceRequest,
-  attendanceSettings,
   attendanceShift,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
@@ -65,11 +63,6 @@ import {
   maternalProtectionPeriods,
   MAX_DAILY_WORK_SECONDS,
   NOTICE_TERMINATION_REASONS,
-  MAX_MONTHLY_OVERTIME_SECONDS,
-  EXTENDED_MONTHLY_OVERTIME_SECONDS,
-  EXTENDED_PERIOD_OVERTIME_SECONDS,
-  OVERTIME_EXTENSION_MONTHS,
-  overtimeExtensionPeriodOf,
   punchLeewayMs,
   scheduledWorkSeconds,
   summarizeEvents,
@@ -118,6 +111,11 @@ import {
 } from './medical-leave';
 import { parentalLeaveErrors, parentalMode } from './parental-leave';
 import { assertNoParentalReturn } from './parental-ledger';
+import {
+  loadPlannedOvertimeInputs,
+  overtimeLimitViolation,
+  plannedWorkDays,
+} from './overtime-limit';
 import { parseInterval } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
@@ -126,12 +124,6 @@ const CALENDAR_LEAVE_LIMIT = 500;
 type AttendanceRequestRow = typeof attendanceRequest.$inferSelect;
 
 type AttendanceShiftRow = typeof attendanceShift.$inferSelect;
-
-const startedBetween = (from: Date, to: Date) =>
-  and(
-    sql`${attendanceRequest.startsAt} >= ${from}`,
-    lt(attendanceRequest.startsAt, to),
-  )!;
 
 @Injectable()
 export class AttendanceRequestsService {
@@ -835,45 +827,22 @@ export class AttendanceRequestsService {
       )
         throw badRequestError('dailyHoursExceeded');
     }
-    const platform = toPlatformTime(interval.startsAt);
-    const year = platform.getUTCFullYear(),
-      month = platform.getUTCMonth();
-    const monthEnd = platformMonthStart(year, month + 1);
-    const monthly = await this.overtimeSeconds(
+    const month = platformDateString(shift.startsAt).slice(0, 7);
+    const planned = await loadPlannedOvertimeInputs(
       tx,
+      shift.organizationId,
       shift.employeeId,
-      startedBetween(platformMonthStart(year, month), monthEnd),
+      [month],
     );
-    const [settings] = await tx
-      .select({ periods: attendanceSettings.overtimeExtensionPeriods })
-      .from(attendanceSettings)
-      .where(eq(attendanceSettings.organizationId, shift.organizationId));
-    const period = overtimeExtensionPeriodOf(
-      settings?.periods ?? [],
-      year,
-      month,
+    const violation = overtimeLimitViolation(
+      plannedWorkDays(planned.shifts, [
+        ...planned.overtime,
+        { shiftId: shift.id, ...interval },
+      ]),
+      planned.periods,
+      [month],
     );
-    if (
-      monthly + seconds >
-      (period
-        ? EXTENDED_MONTHLY_OVERTIME_SECONDS
-        : MAX_MONTHLY_OVERTIME_SECONDS)
-    )
-      throw badRequestError('monthlyOvertimeExceeded');
-    if (!period) return;
-    const periodTotal = await this.overtimeSeconds(
-      tx,
-      shift.employeeId,
-      startedBetween(
-        platformMonthStart(period.year, period.monthIndex),
-        platformMonthStart(
-          period.year,
-          period.monthIndex + OVERTIME_EXTENSION_MONTHS,
-        ),
-      ),
-    );
-    if (periodTotal + seconds > EXTENDED_PERIOD_OVERTIME_SECONDS)
-      throw badRequestError('periodOvertimeExceeded');
+    if (violation) throw badRequestError(violation);
   }
 
   private async approveOvertime(

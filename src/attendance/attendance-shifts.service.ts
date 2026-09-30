@@ -79,7 +79,6 @@ import {
   MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
-  overlapMs,
   punchLeewayMs,
   countedIntervals,
   maternalNightWork,
@@ -119,6 +118,12 @@ import {
   loadAgreedHolidays,
   loadHolidaySubstitutes,
 } from './holiday-substitutes';
+import {
+  loadPlannedOvertimeInputs,
+  overtimeLimitViolation,
+  overtimeOutsideShiftSeconds,
+  plannedWorkDays,
+} from './overtime-limit';
 import { parseInterval, scheduledBreaks } from './shift-intervals';
 import { unfinishedShift } from './shift-queries';
 
@@ -866,31 +871,6 @@ export class AttendanceShiftsService {
             ),
           )
       : [];
-    const overtimeOutsideShift = (shift: {
-      id: string;
-      startsAt: Date;
-      endsAt: Date;
-    }) =>
-      Math.floor(
-        existingOvertime
-          .filter(({ shiftId }) => shiftId === shift.id)
-          .reduce((ms, overtime) => {
-            const interval = {
-              start: overtime.startsAt.getTime(),
-              end: overtime.endsAt.getTime(),
-            };
-            return (
-              ms +
-              interval.end -
-              interval.start -
-              overlapMs(
-                interval,
-                shift.startsAt.getTime(),
-                shift.endsAt.getTime(),
-              )
-            );
-          }, 0) / 1000,
-      );
     const from = new Date(
       Math.min(...intervals.map((interval) => interval.startsAt.getTime())),
     );
@@ -1036,7 +1016,7 @@ export class AttendanceShiftsService {
               (seconds, shift) =>
                 seconds +
                 scheduledWorkSeconds(shift) +
-                overtimeOutsideShift(shift),
+                overtimeOutsideShiftSeconds(shift, existingOvertime),
               scheduledWorkSeconds({
                 ...interval,
                 breaks,
@@ -1124,6 +1104,24 @@ export class AttendanceShiftsService {
         throw badRequestError('consecutiveWorkdaysExceeded');
       if (hasShortRestBetweenShifts(nearby, (shift) => scheduledSet.has(shift)))
         throw badRequestError('shiftRestTooShort');
+      const scheduledMonths = new Set(
+        scheduled.map(({ startsAt }) =>
+          platformDateString(startsAt).slice(0, 7),
+        ),
+      );
+      const planned = await loadPlannedOvertimeInputs(
+        tx,
+        actor.organizationId,
+        employee.id,
+        scheduledMonths,
+        replacing?.id,
+      );
+      const overtimeViolation = overtimeLimitViolation(
+        plannedWorkDays([...planned.shifts, ...scheduled], planned.overtime),
+        planned.periods,
+        scheduledMonths,
+      );
+      if (overtimeViolation) throw badRequestError(overtimeViolation);
       const { birthDate } = employee;
       if (
         birthDate &&
