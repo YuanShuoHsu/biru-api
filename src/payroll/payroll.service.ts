@@ -107,6 +107,7 @@ import {
   attendanceSettings,
   statutoryHoliday,
   attendanceShift,
+  type AttendanceDayKind,
   type StatutoryLeaveKind,
 } from 'src/db/schema/attendance';
 import {
@@ -122,6 +123,7 @@ import { user } from 'src/db/schema/users';
 import { member, organization } from 'src/db/schema/organizations';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { openingWeekdays } from 'src/common/utils/opening-hours';
+import { overtimeBeforeAgreement } from 'src/attendance/overtime-limit';
 
 import { annualLeaveSettlement } from './annual-leave';
 import {
@@ -186,18 +188,65 @@ const knownFullTime = (hours: EmployeeHours, at: Date) => {
   return weeklyMinutes !== null && employmentType(weeklyMinutes) === 'fullTime';
 };
 
+const worksEveryBusinessDay = (
+  employment: { hiredAt: Date; terminatedAt: Date | null },
+  { start, end }: { start: Date; end: Date },
+  businessDays: Set<number> | null,
+  workedDates: Set<string>,
+) => {
+  const openDates: string[] = [];
+  for (
+    let time = Math.max(start.getTime(), employment.hiredAt.getTime());
+    time <
+    Math.min(end.getTime(), employment.terminatedAt?.getTime() ?? Infinity);
+    time += DAY_MS
+  ) {
+    const date = platformDateString(new Date(time));
+    if (businessDays?.has((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7))
+      openDates.push(date);
+  }
+  return (
+    openDates.length > 0 && openDates.every((date) => workedDates.has(date))
+  );
+};
+
 interface PayrollSettings {
+  overtimeAgreedFrom: string | null;
   overtimeExtensionPeriods: string[];
   occupationalIndustryCode: string | null;
   occupationalExperienceRateMicros: number | null;
+  payday: number | null;
+  paydayNextMonth: boolean;
   holidays: string[] | null;
 }
 
 const NO_PAYROLL_SETTINGS: PayrollSettings = {
+  overtimeAgreedFrom: null,
   overtimeExtensionPeriods: [],
   occupationalIndustryCode: null,
   occupationalExperienceRateMicros: null,
+  payday: null,
+  paydayNextMonth: false,
   holidays: [],
+};
+
+const paidOnOf = (
+  month: string,
+  {
+    payday,
+    paydayNextMonth,
+  }: Pick<PayrollSettings, 'payday' | 'paydayNextMonth'>,
+) => {
+  if (payday === null) return null;
+  const [year, number] = month.split('-').map(Number);
+  const target = new Date(
+    Date.UTC(year, number - 1 + (paydayNextMonth ? 1 : 0)),
+  );
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(payday, lastDay));
+  return target.toISOString().slice(0, 10);
 };
 
 // 勞保條例 §7：曾達 5 人投保後人數減少仍應續保；§8 II：自願投保後不得中途退保
@@ -341,6 +390,24 @@ export class PayrollService {
       if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
       const hours = await loadOneEmployeeHours(tx, employee);
       const month = effectiveFrom.slice(0, 7);
+      const period = payrollPeriod(month);
+      const [[store], monthShifts] = await Promise.all([
+        tx
+          .select({ openingHours: organization.openingHours })
+          .from(organization)
+          .where(eq(organization.id, actor.organizationId)),
+        tx
+          .select()
+          .from(attendanceShift)
+          .where(
+            and(
+              eq(attendanceShift.employeeId, employee.id),
+              ne(attendanceShift.status, 'cancelled'),
+              gte(attendanceShift.startsAt, period.start),
+              lt(attendanceShift.startsAt, period.end),
+            ),
+          ),
+      ]);
       const context = {
         age: employee.birthDate
           ? ageOn(employee.birthDate, effectiveFrom)
@@ -352,6 +419,16 @@ export class PayrollService {
         ),
         legalStatus: employee.legalStatus,
         weeklyMinutes: weeklyMinutesAt(hours, date),
+        worksEveryBusinessDay: worksEveryBusinessDay(
+          employee,
+          period,
+          openingWeekdays(store?.openingHours ?? null),
+          new Set(
+            monthShifts
+              .filter((shift) => scheduledWorkSeconds(shift) > 0)
+              .map((shift) => platformDateString(shift.startsAt)),
+          ),
+        ),
       };
       const recentWages =
         terms.salaryType === 'hourly'
@@ -536,10 +613,13 @@ export class PayrollService {
   ): Promise<PayrollSettings> {
     const [settings] = await tx
       .select({
+        overtimeAgreedFrom: attendanceSettings.overtimeAgreedFrom,
         overtimeExtensionPeriods: attendanceSettings.overtimeExtensionPeriods,
         occupationalIndustryCode: attendanceSettings.occupationalIndustryCode,
         occupationalExperienceRateMicros:
           attendanceSettings.occupationalExperienceRateMicros,
+        payday: attendanceSettings.payday,
+        paydayNextMonth: attendanceSettings.paydayNextMonth,
       })
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, organizationId));
@@ -567,7 +647,9 @@ export class PayrollService {
       holidays: statutoryHolidays,
       occupationalExperienceRateMicros,
       occupationalIndustryCode,
+      overtimeAgreedFrom,
       overtimeExtensionPeriods,
+      ...payday
     } = NO_PAYROLL_SETTINGS,
   ): Promise<PayrollSnapshot> {
     const employee =
@@ -864,7 +946,7 @@ export class PayrollService {
       string,
       {
         seconds: number;
-        dayKind: string;
+        dayKind: AttendanceDayKind;
         scheduledSeconds: number;
         scheduledOffsetSeconds: number;
         paidLeaveSeconds: number;
@@ -1218,18 +1300,7 @@ export class PayrollService {
       )
     )
       blockers.push('workPermitRequired');
-    if (insurance) {
-      const employedDates: string[] = [];
-      for (
-        let time = Math.max(start.getTime(), employee.hiredAt.getTime());
-        time <
-        Math.min(end.getTime(), employee.terminatedAt?.getTime() ?? Infinity);
-        time += DAY_MS
-      )
-        employedDates.push(platformDateString(new Date(time)));
-      const openDates = employedDates.filter((date) =>
-        businessDays?.has((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7),
-      );
+    if (insurance)
       blockers.push(
         ...insuranceViolations(insurance, {
           age: employee.birthDate
@@ -1238,15 +1309,20 @@ export class PayrollService {
           laborInsuranceMandatory: laborMandatory,
           legalStatus: employee.legalStatus,
           weeklyMinutes: weeklyMinutesAt(hours, end),
-          worksEveryBusinessDay:
-            openDates.length > 0 &&
-            openDates.every((date) => {
-              const day = days.get(date);
-              return !!day && (day.seconds > 0 || day.scheduledSeconds > 0);
-            }),
+          worksEveryBusinessDay: worksEveryBusinessDay(
+            employee,
+            { start, end },
+            businessDays,
+            new Set(
+              [...days]
+                .filter(
+                  ([, day]) => day.seconds > 0 || day.scheduledSeconds > 0,
+                )
+                .map(([date]) => date),
+            ),
+          ),
         }),
       );
-    }
     if (employee.legalStatus === 'foreignStudent') {
       const firstWeek = weekStartOfDate(platformDateString(start));
       const lastWeek = weekStartOfDate(
@@ -1335,10 +1411,42 @@ export class PayrollService {
       !parentalLeaves.some(
         (leave) => leave.startsAt < end && leave.endsAt >= end,
       );
+    const paidOn = paidOnOf(month, payday);
+    if (!paidOn) blockers.push('paydayRequired');
+    if (
+      overtimeBeforeAgreement(
+        [...days].map(([date, day]) => ({
+          date,
+          dayKind: day.dayKind,
+          seconds: day.seconds,
+        })),
+        overtimeAgreedFrom,
+      )
+    )
+      blockers.push('overtimeAgreementRequired');
+    // 扣繳、補充保費與居住者身分都以給付時點認定，不看薪資月份
+    const taxDate = paidOn ?? platformDateString(new Date(end.getTime() - 1));
+    const taxYear = Number(taxDate.slice(0, 4));
+    const taxRuleSet =
+      taxDate.slice(0, 7) === month
+        ? ruleSet
+        : ((await this.ruleSets.resolve(tx, taxDate.slice(0, 7))) ?? ruleSet);
+    const rules = {
+      ...ruleSet.rules,
+      withholdingRateBp: taxRuleSet.rules.withholdingRateBp,
+      withholdingExemptTaxCents: taxRuleSet.rules.withholdingExemptTaxCents,
+      withholdingTable: taxRuleSet.rules.withholdingTable,
+      healthSupplementRateBp: taxRuleSet.rules.healthSupplementRateBp,
+    };
     const nonResident =
       employee.legalStatus !== 'national' &&
       (!employee.taiwanStaySince ||
-        taiwanStayDays(employee.taiwanStaySince, end) < TAX_RESIDENCY_DAYS);
+        taiwanStayDays(
+          employee.taiwanStaySince,
+          new Date(
+            Date.parse(`${taxDate}T00:00:00${STORE_UTC_OFFSET}`) + DAY_MS,
+          ),
+        ) < TAX_RESIDENCY_DAYS);
     const earnings = await tx
       .select({
         name: payrollEarningType.name,
@@ -1367,8 +1475,8 @@ export class PayrollService {
               and(
                 eq(payrollStatement.employeeId, employeeId),
                 eq(payrollStatement.status, 'published'),
-                like(payrollStatement.month, `${month.slice(0, 4)}-%`),
-                lt(payrollStatement.month, month),
+                like(payrollStatement.paidOn, `${taxYear}-%`),
+                ne(payrollStatement.month, month),
               ),
             )
         )
@@ -1379,12 +1487,12 @@ export class PayrollService {
       : '0';
     if (
       (insurance?.taxMethod === 'table' || hasBonus) &&
-      ruleSet.rules.withholdingTable.year !== Number(month.slice(0, 4))
+      rules.withholdingTable.year !== taxYear
     )
       blockers.push('withholdingTableOutdated');
     const payroll = (severance?: ReturnType<typeof terminationPay>) => {
       const { annualLeavePayoutCents, ...statement } = calculatePayroll(
-        ruleSet.rules,
+        rules,
         profile.terms,
         [...days.values()].filter(
           (day) =>
@@ -1474,10 +1582,7 @@ export class PayrollService {
       else if (dailyWageCents === null)
         blockers.push('averageWageStatementsRequired');
       else {
-        if (
-          ruleSet.rules.withholdingTable.year !==
-          Number(platformDateString(terminatedAt).slice(0, 4))
-        )
+        if (rules.withholdingTable.year !== taxYear)
           blockers.push('withholdingTableOutdated');
         severance = terminationPay({
           dailyWageCents,
@@ -1486,9 +1591,9 @@ export class PayrollService {
           terminatedAt,
           terms: profile.terms,
           weeklyMinutes: weeklyMinutesAt(hours, terminatedAt),
-          table: ruleSet.rules.withholdingTable,
+          table: rules.withholdingTable,
           nonResident,
-          exemptTaxCents: BigInt(ruleSet.rules.withholdingExemptTaxCents),
+          exemptTaxCents: BigInt(rules.withholdingExemptTaxCents),
         });
       }
     }
@@ -1499,6 +1604,7 @@ export class PayrollService {
         retirementIncomeCents: severance.retirementIncomeCents,
       }),
       nonResident,
+      ...(paidOn && { paidOn }),
       terms: profile.terms,
       ruleVersion: ruleSet.ruleVersion,
       blockers: [...new Set([...blockers, ...calculated.blockers])],
@@ -1506,9 +1612,11 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'statutory-automation-3',
+            calculationVersion: 'statutory-automation-4',
+            overtimeAgreedFrom,
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,
+            paidOn,
             holidays,
             laborMandatory,
             businessDays: businessDays && [...businessDays],
@@ -1516,7 +1624,7 @@ export class PayrollService {
               ? { records: medical.records, shifts: medical.shifts }
               : null,
             profile,
-            ruleSet: ruleSet.rules,
+            ruleSet: rules,
             shifts,
             adjacentShifts,
             events,
@@ -1559,8 +1667,8 @@ export class PayrollService {
           and(
             eq(payrollStatement.organizationId, actor.organizationId),
             eq(payrollStatement.status, 'published'),
-            gte(payrollStatement.publishedAt, start),
-            lt(payrollStatement.publishedAt, end),
+            gte(payrollStatement.paidOn, `${month}-01`),
+            lt(payrollStatement.paidOn, platformDateString(end)),
           ),
         ),
       this.db
@@ -1677,6 +1785,7 @@ export class PayrollService {
         idempotencyKey: dto.idempotencyKey,
         status: 'draft' as const,
         snapshot,
+        paidOn: snapshot.paidOn ?? null,
         reason: dto.reason,
         createdBy: actor.userId,
         reviewedBy: null,

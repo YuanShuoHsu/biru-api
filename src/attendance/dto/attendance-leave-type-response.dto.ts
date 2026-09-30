@@ -13,6 +13,13 @@ export class AttendanceLeaveTypeResponseDto {
   statutoryKind: StatutoryLeaveKind;
   @ApiProperty() eventLeave: boolean;
   @ApiProperty() calendarLeave: boolean;
+  @ApiPropertyOptional({
+    description:
+      '產假、流產假等固定天數曆日假的法定天數，請假案件結束日由此推得',
+    nullable: true,
+    type: Number,
+  })
+  fixedCalendarDays: number | null;
   @ApiProperty() medicalCertificateRequired: boolean;
   @ApiPropertyOptional({ nullable: true }) paidPercent: number | null;
   @ApiPropertyOptional({ nullable: true }) statutoryPaidPercent: number | null;

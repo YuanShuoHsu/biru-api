@@ -38,7 +38,6 @@ export const ATTENDANCE_EMPLOYEE_STATUSES = [
   'unconfigured',
   'upcoming',
   'active',
-  'disabled',
   'terminated',
 ] as const;
 
@@ -151,7 +150,6 @@ export const attendanceEmployee = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
-    enabled: boolean('enabled').notNull().default(true),
     birthDate: text('birth_date'),
     taiwanStaySince: text('taiwan_stay_since'),
     legalStatus: text('legal_status')
@@ -236,11 +234,20 @@ export const attendanceSettings = pgTable(
       .notNull()
       .default(sql`'{}'`),
     voluntaryLaborInsuranceFrom: text('voluntary_labor_insurance_from'),
+    overtimeAgreedFrom: text('overtime_agreed_from'),
+    payday: integer('payday'),
+    paydayNextMonth: boolean('payday_next_month').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [check('attendance_radius_positive', sql`${t.radiusMeters} > 0`)],
+  (t) => [
+    check('attendance_radius_positive', sql`${t.radiusMeters} > 0`),
+    check(
+      'attendance_settings_payday',
+      sql`${t.payday} IS NULL OR ${t.payday} BETWEEN 1 AND 31`,
+    ),
+  ],
 );
 
 export const attendanceShift = pgTable(
@@ -513,7 +520,7 @@ export const attendanceLeaveCase = pgTable(
     leaveTypeId: text('leave_type_id')
       .notNull()
       .references(() => attendanceLeaveType.id),
-    reference: text('reference').notNull(),
+    reference: text('reference'),
     childId: text('child_id').references(() => attendanceParentalChild.id),
     dailyPayCents: text('daily_pay_cents'),
     eventDate: timestamp('event_date', { withTimezone: true }).notNull(),

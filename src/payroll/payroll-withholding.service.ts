@@ -285,8 +285,8 @@ export class PayrollWithholdingService {
 
   private async statements(
     organizationId: string,
-    from: Date,
-    to: Date,
+    fromDate: string,
+    toDate: string,
     employeeId?: string,
   ): Promise<Statement[]> {
     return (
@@ -295,7 +295,7 @@ export class PayrollWithholdingService {
           employeeId: payrollStatement.employeeId,
           month: payrollStatement.month,
           snapshot: payrollStatement.snapshot,
-          publishedAt: payrollStatement.publishedAt,
+          paidOn: payrollStatement.paidOn,
         })
         .from(payrollStatement)
         .where(
@@ -305,14 +305,14 @@ export class PayrollWithholdingService {
             employeeId
               ? eq(payrollStatement.employeeId, employeeId)
               : undefined,
-            gte(payrollStatement.publishedAt, from),
-            lt(payrollStatement.publishedAt, to),
+            gte(payrollStatement.paidOn, fromDate),
+            lt(payrollStatement.paidOn, toDate),
           ),
         )
         .orderBy(asc(payrollStatement.month))
-    ).map(({ publishedAt, ...statement }) => ({
+    ).map(({ paidOn, ...statement }) => ({
       ...statement,
-      paymentDate: platformDateString(publishedAt!),
+      paymentDate: paidOn!,
     }));
   }
 
@@ -359,11 +359,7 @@ export class PayrollWithholdingService {
   private async annualRows(organizationId: string, year: number) {
     const [statements, { employees, identityOf, requested }] =
       await Promise.all([
-        this.statements(
-          organizationId,
-          platformMonthStart(year, 0),
-          platformMonthStart(year + 1, 0),
-        ),
+        this.statements(organizationId, `${year}-01-01`, `${year + 1}-01-01`),
         this.people(organizationId),
       ]);
     const residentRows = employees
@@ -487,8 +483,8 @@ export class PayrollWithholdingService {
       this.unitOf(actor.organizationId),
       this.statements(
         actor.organizationId,
-        from,
-        new Date(from.getTime() + DAY_MS),
+        paymentDate,
+        platformDateString(new Date(from.getTime() + DAY_MS)),
       ),
       this.people(actor.organizationId),
     ]);
@@ -551,8 +547,8 @@ export class PayrollWithholdingService {
     const currentYear = toPlatformTime(new Date()).getUTCFullYear();
     const statements = await this.statements(
       actor.organizationId,
-      new Date(0),
-      new Date(),
+      '',
+      platformDateString(new Date(Date.now() + DAY_MS)),
       employee.id,
     );
     const { businessNumber, name, address, agentName } = unit;

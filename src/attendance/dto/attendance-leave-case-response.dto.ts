@@ -18,7 +18,8 @@ export class AttendanceLeaveCaseResponseDto {
   })
   leaveTypeStatutoryKind: StatutoryLeaveKind;
   @ApiProperty() calendarLeave: boolean;
-  @ApiProperty() reference: string;
+  @ApiPropertyOptional({ type: String, nullable: true })
+  reference: string | null;
   @ApiProperty() eventDate: Date;
   @ApiProperty() startsAt: Date;
   @ApiProperty() endsAt: Date;

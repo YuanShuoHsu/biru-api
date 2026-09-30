@@ -45,7 +45,6 @@ export class AttendanceEmploymentResponseDto {
   @ApiProperty() employmentInsuranceEligible: boolean;
   @ApiProperty() workPermitRequired: boolean;
   @ApiProperty() pensionApplicable: boolean;
-  @ApiProperty() enabled: boolean;
   @ApiPropertyOptional({ nullable: true, type: String })
   birthDate: string | null;
   @ApiPropertyOptional({ nullable: true, type: String })
@@ -81,6 +80,8 @@ export class AttendanceMemberResponseDto {
   @ApiProperty() name: string;
   @ApiProperty() email: string;
   @ApiProperty() joinedAt: Date;
+  @ApiProperty({ description: '已設定且沒有任何出勤或薪資紀錄' })
+  deletable: boolean;
   @ApiProperty({
     enum: ATTENDANCE_EMPLOYEE_STATUSES,
     enumName: 'AttendanceEmployeeStatus',

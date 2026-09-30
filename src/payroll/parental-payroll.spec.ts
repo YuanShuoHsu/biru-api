@@ -166,9 +166,12 @@ async function snapshot(
     month,
     employee,
     {
+      overtimeAgreedFrom: '2020-01-01',
       overtimeExtensionPeriods: [],
       occupationalIndustryCode: null,
       occupationalExperienceRateMicros: 1200,
+      payday: 5,
+      paydayNextMonth: true,
       holidays: [],
     },
   );

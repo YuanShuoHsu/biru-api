@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 export interface BusinessInfo {
   name: string;
   address: string;
+  representativeName: string;
 }
 
 interface GcisCompany {
@@ -10,6 +11,7 @@ interface GcisCompany {
   Company_Location: string;
   Company_Name: string;
   Company_Status_Desc: string;
+  Responsible_Name: string;
 }
 
 // https://data.gov.tw/dataset/108337
@@ -42,6 +44,7 @@ export class GcisService {
     return {
       address: company.Company_Location,
       name: company.Company_Name,
+      representativeName: company.Responsible_Name,
     };
   }
 }

@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
@@ -67,4 +68,28 @@ export class SaveAttendanceSettingsDto {
   @IsOptional()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
   voluntaryLaborInsuranceFrom?: string | null;
+  @ApiPropertyOptional({
+    description:
+      '工會或勞資會議同意延長工時（含休息日出勤）的決議日；未設定時不得延長工時',
+    example: '2026-01-15',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
+  overtimeAgreedFrom?: string | null;
+  @ApiPropertyOptional({
+    description: '每月發薪日，超過該月天數時為月底',
+    example: 5,
+    nullable: true,
+    type: Number,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  payday?: number | null;
+  @ApiProperty({ description: '發薪日在薪資月份的次月' })
+  @IsBoolean()
+  paydayNextMonth: boolean;
 }

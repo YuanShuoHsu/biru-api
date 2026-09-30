@@ -193,7 +193,15 @@ describe('Payroll terms validation', () => {
   };
   it('does not change terms a published payslip was calculated from', async () => {
     const { service } = setup([
-      [employee],
+      [
+        {
+          ...employee,
+          hiredAt: new Date('2020-01-01T00:00:00+08:00'),
+          terminatedAt: null,
+        },
+      ],
+      [],
+      [],
       [],
       [],
       [{ hiredAt: new Date('2020-01-01T00:00:00+08:00'), terminatedAt: null }],

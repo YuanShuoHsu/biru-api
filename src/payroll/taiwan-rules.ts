@@ -145,6 +145,7 @@ export const deriveInsurance = (
     legalStatus,
     referenceWage,
     weeklyMinutes,
+    worksEveryBusinessDay,
   }: {
     age: number | null;
     fullTime: boolean;
@@ -152,6 +153,7 @@ export const deriveInsurance = (
     legalStatus: AttendanceLegalStatus;
     referenceWage: number;
     weeklyMinutes: number;
+    worksEveryBusinessDay: boolean;
   },
 ): TaiwanInsurance => {
   const insurableAge =
@@ -162,16 +164,24 @@ export const deriveInsurance = (
   const health =
     !input.healthInsuranceExemption &&
     (weeklyMinutes >= HEALTH_INSURANCE_WEEKLY_MINUTES ||
+      worksEveryBusinessDay ||
       input.voluntaryHealthInsurance);
-  const employment =
-    insurableAge &&
-    employmentInsuranceEligible(legalStatus) &&
-    !input.employmentInsuranceExemption;
+  const employmentEligible =
+    insurableAge && employmentInsuranceEligible(legalStatus);
+  // 勞保條例 §58 VI 已領勞保老年給付不得再加勞保，就保法 §5 II 同樣排除
+  const employmentInsuranceExemption = employmentEligible
+    ? (input.employmentInsuranceExemption ??
+      (input.laborInsuranceExemption === 'oldAgeBenefit'
+        ? 'oldAgeBenefit'
+        : undefined))
+    : undefined;
+  const employment = employmentEligible && !employmentInsuranceExemption;
   const laborLadder = fullTime ? 'general' : 'partTime';
   const pension = pensionApplicable(legalStatus);
 
   return {
     ...input,
+    employmentInsuranceExemption,
     healthSupplementExemption: health
       ? undefined
       : input.healthSupplementExemption,

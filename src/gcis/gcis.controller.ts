@@ -18,7 +18,7 @@ export class GcisController {
   constructor(private readonly gcisService: GcisService) {}
 
   @Get(':businessNo')
-  @ApiOperation({ summary: '依統一編號查詢公司名稱與地址' })
+  @ApiOperation({ summary: '依統一編號查詢公司名稱、地址與負責人' })
   @ApiParam({ name: 'businessNo', description: '統一編號（8位數字）' })
   async findOne(
     @Param('businessNo') businessNo: string,

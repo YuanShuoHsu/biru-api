@@ -140,6 +140,7 @@ describe('Deriving insurance terms', () => {
     legalStatus: 'national' as const,
     referenceWage: 20000,
     weeklyMinutes: 600,
+    worksEveryBusinessDay: false,
   };
   it('insures health at this store once weekly hours reach 12', () => {
     expect(

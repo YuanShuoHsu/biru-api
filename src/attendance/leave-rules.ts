@@ -212,6 +212,14 @@ export function isCalendarLeave(kind: StatutoryLeaveKind) {
   return (CALENDAR_LEAVE_KINDS as readonly StatutoryLeaveKind[]).includes(kind);
 }
 
+export const fixedCalendarLeaveDays = (kind: StatutoryLeaveKind) =>
+  isEventLeave(kind) &&
+  isCalendarLeave(kind) &&
+  kind !== 'parental' &&
+  !isOpenEndedCalendarLeave(kind)
+    ? eventLeaveDays[kind]
+    : null;
+
 export function eventLeaveEntitlement(
   kind: keyof typeof eventLeaveDays,
   hiredAt: Date,

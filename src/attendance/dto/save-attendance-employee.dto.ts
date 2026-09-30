@@ -4,7 +4,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -31,7 +30,6 @@ export class DatePeriodDto {
 
 export class SaveAttendanceEmployeeDto {
   @IsString() @MinLength(1) userId: string;
-  @IsBoolean() enabled: boolean;
   @Matches(/^\d{4}-\d{2}-\d{2}$/) birthDate: string;
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Put, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Put,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -21,6 +30,7 @@ import {
   AttendanceMembersResponseDto,
 } from './dto/attendance-employee-response.dto';
 import { AttendanceErrorResponseDto } from './dto/attendance-error-response.dto';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { AttendanceSettingsResponseDto } from './dto/attendance-settings-response.dto';
 import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
 import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
@@ -93,6 +103,20 @@ export class AttendanceEmployeesController {
     return this.attendanceEmployeesService.saveEmployee(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Delete('employees/:id')
+  @Roles({ employee: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '刪除沒有任何出勤或薪資紀錄的員工設定' })
+  deleteEmployee(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceEmployeesService.deleteEmployee(
+      actor(req, session),
+      id,
     );
   }
 

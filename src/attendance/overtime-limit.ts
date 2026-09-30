@@ -106,17 +106,35 @@ const monthWindow = (month: string, periods: string[]) => {
   };
 };
 
+export const overtimeBeforeAgreement = (
+  days: { date: string; dayKind: AttendanceDayKind; seconds: number }[],
+  agreedFrom: string | null,
+) =>
+  days.some(
+    (day) =>
+      countedOvertimeSeconds(day) > 0 &&
+      (agreedFrom === null || day.date < agreedFrom),
+  );
+
 export function overtimeLimitViolation(
   days: { date: string; dayKind: AttendanceDayKind; seconds: number }[],
-  periods: string[],
+  { agreedFrom, periods }: { agreedFrom: string | null; periods: string[] },
   months: Iterable<string>,
 ) {
+  const checkedMonths = [...months];
+  if (
+    overtimeBeforeAgreement(
+      days.filter((day) => checkedMonths.includes(day.date.slice(0, 7))),
+      agreedFrom,
+    )
+  )
+    return 'overtimeAgreementRequired' as const;
   const byMonth = new Map<string, number>();
   for (const day of days) {
     const month = day.date.slice(0, 7);
     byMonth.set(month, (byMonth.get(month) ?? 0) + countedOvertimeSeconds(day));
   }
-  for (const month of months) {
+  for (const month of checkedMonths) {
     const window = monthWindow(month, periods);
     if (
       (byMonth.get(month) ?? 0) >
@@ -143,10 +161,14 @@ export async function loadPlannedOvertimeInputs(
   excludedShiftId?: string,
 ) {
   const [settings] = await tx
-    .select({ periods: attendanceSettings.overtimeExtensionPeriods })
+    .select({
+      agreedFrom: attendanceSettings.overtimeAgreedFrom,
+      periods: attendanceSettings.overtimeExtensionPeriods,
+    })
     .from(attendanceSettings)
     .where(eq(attendanceSettings.organizationId, organizationId));
   const periods = settings?.periods ?? [];
+  const agreedFrom = settings?.agreedFrom ?? null;
   const keys = [...months].flatMap(
     (month) => monthWindow(month, periods).months,
   );
@@ -200,5 +222,5 @@ export async function loadPlannedOvertimeInputs(
           ),
         )
     : [];
-  return { periods, shifts, overtime };
+  return { limits: { agreedFrom, periods }, shifts, overtime };
 }

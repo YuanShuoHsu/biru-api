@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   primaryKey,
@@ -101,8 +103,10 @@ export const PAYROLL_BLOCKERS = [
   'openingHoursRequired',
   'overlappingLeaveAttendance',
   'parentalReturnPending',
+  'overtimeAgreementRequired',
   'partTimeLadderRequiresPartTime',
   'payrollPeriodOpen',
+  'paydayRequired',
   'payrollRuleSetStale',
   'pendingRequests',
   'pensionIneligible',
@@ -252,6 +256,7 @@ export interface PayrollSnapshot {
   sourceFingerprint: string;
   retirementIncomeCents?: string;
   nonResident?: boolean;
+  paidOn?: string;
 }
 
 export interface PayrollRuleSource {
@@ -339,11 +344,17 @@ export const payrollStatement = pgTable(
     reviewedBy: text('reviewed_by'),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     publishedAt: timestamp('published_at', { withTimezone: true }),
+    paidOn: text('paid_on'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
+    check(
+      'payroll_statement_published_paid_on',
+      sql`${t.status} <> 'published' OR ${t.paidOn} IS NOT NULL`,
+    ),
+    index('payroll_statement_paid_on_idx').on(t.organizationId, t.paidOn),
     uniqueIndex('payroll_statement_retry_uidx').on(
       t.organizationId,
       t.idempotencyKey,

@@ -99,6 +99,7 @@ import {
   annualLeaveLedger,
   calendarLeaveMinutes,
   eventLeaveEntitlement,
+  fixedCalendarLeaveDays,
   isCalendarLeave,
   isEventLeave,
   isOpenEndedCalendarLeave,
@@ -334,6 +335,7 @@ const leaveTypeWithFlags = (row: typeof attendanceLeaveType.$inferSelect) => ({
   ...row,
   eventLeave: isEventLeave(row.statutoryKind),
   calendarLeave: isCalendarLeave(row.statutoryKind),
+  fixedCalendarDays: fixedCalendarLeaveDays(row.statutoryKind),
   medicalCertificateRequired: requiresMedicalCertificate(row.statutoryKind),
   statutoryPaidPercent:
     row.statutoryKind === 'custom'
@@ -530,7 +532,21 @@ export class AttendanceLeavesService {
     if (!employee || !policy || !isEventLeave(policy.statutoryKind))
       throw badRequestError('invalidLeaveCase');
     await assertIndependentReview(tx, actor, 'leaveCase', [employee.userId]);
-    const { startsAt, endsAt } = parseInterval(dto.startsAt, dto.endsAt);
+    const fixedDays = fixedCalendarLeaveDays(policy.statutoryKind);
+    const fixedEndsAt =
+      fixedDays &&
+      new Date(new Date(dto.startsAt).getTime() + fixedDays * DAY_MS);
+    if (
+      fixedEndsAt &&
+      dto.endsAt &&
+      new Date(dto.endsAt).getTime() !== fixedEndsAt.getTime()
+    )
+      throw badRequestError('calendarLeaveInterval');
+    const requestedEndsAt = fixedEndsAt
+      ? fixedEndsAt.toISOString()
+      : dto.endsAt;
+    if (!requestedEndsAt) throw badRequestError('invalidLeaveCase');
+    const { startsAt, endsAt } = parseInterval(dto.startsAt, requestedEndsAt);
     const child =
       policy.statutoryKind === 'parental'
         ? await matchParentalChild(
@@ -542,8 +558,12 @@ export class AttendanceLeavesService {
         : null;
     if (!child && dto.childId) throw badRequestError('parentalChildMismatch');
     const eventDate = child?.birthDate ?? new Date(dto.eventDate ?? NaN);
+    const reference =
+      policy.statutoryKind === 'parental'
+        ? null
+        : (dto.reference?.trim() ?? '');
     if (
-      !dto.reference.trim() ||
+      reference === '' ||
       !dto.reason.trim() ||
       startsAt < employee.hiredAt ||
       endsAt.getTime() - startsAt.getTime() >
@@ -610,17 +630,19 @@ export class AttendanceLeavesService {
         endsAt > anniversary(eventDate, dto.extensionAgreed ? 6 : 3))
     )
       throw badRequestError('invalidLeaveCase');
-    const [existing] = await tx
-      .select({ id: attendanceLeaveCase.id })
-      .from(attendanceLeaveCase)
-      .where(
-        and(
-          eq(attendanceLeaveCase.employeeId, employee.id),
-          eq(attendanceLeaveCase.leaveTypeId, policy.id),
-          eq(attendanceLeaveCase.reference, dto.reference.trim()),
-          currentId ? ne(attendanceLeaveCase.id, currentId) : undefined,
-        ),
-      );
+    const [existing] = reference
+      ? await tx
+          .select({ id: attendanceLeaveCase.id })
+          .from(attendanceLeaveCase)
+          .where(
+            and(
+              eq(attendanceLeaveCase.employeeId, employee.id),
+              eq(attendanceLeaveCase.leaveTypeId, policy.id),
+              eq(attendanceLeaveCase.reference, reference),
+              currentId ? ne(attendanceLeaveCase.id, currentId) : undefined,
+            ),
+          )
+      : [];
     if (existing) throw conflictError('leaveCaseExists');
 
     return {
@@ -630,7 +652,7 @@ export class AttendanceLeavesService {
       values: {
         employeeId: employee.id,
         leaveTypeId: policy.id,
-        reference: dto.reference.trim(),
+        reference,
         childId: dto.childId ?? null,
         eventDate,
         startsAt,

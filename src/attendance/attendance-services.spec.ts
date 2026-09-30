@@ -41,7 +41,6 @@ function database(results: unknown[][]) {
 const actor = { organizationId: 'org', userId: 'user', role: 'member' };
 const employee = {
   id: 'employee',
-  enabled: true,
   hiredAt: new Date('2020-01-01'),
   terminatedAt: null,
 };
@@ -64,8 +63,10 @@ const dto = () => ({
 });
 
 describe('attendance services', () => {
-  it('rejects disabled employees before writing an event', async () => {
-    const { db, insert } = database([[{ ...employee, enabled: false }]]);
+  it('rejects terminated employees before writing an event', async () => {
+    const { db, insert } = database([
+      [{ ...employee, terminatedAt: new Date('2021-01-01') }],
+    ]);
     await expect(
       new AttendanceShiftsService(db).punch(actor, dto(), '203.0.113.1'),
     ).rejects.toThrow('employeeNotEnabled');
@@ -149,7 +150,6 @@ describe('attendance services', () => {
       await expect(
         new AttendanceEmployeesService(db).saveEmployee(actor, {
           userId: 'user',
-          enabled: true,
           birthDate: '1990-01-01',
           legalStatus: 'national',
           studentVacations: [],
@@ -185,7 +185,6 @@ describe('attendance services', () => {
         insert,
         result: new AttendanceEmployeesService(db).saveEmployee(actor, {
           userId: 'user',
-          enabled: true,
           birthDate: '1990-01-01',
           legalStatus: 'national',
           studentVacations: [],

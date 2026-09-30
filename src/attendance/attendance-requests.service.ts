@@ -896,7 +896,7 @@ export class AttendanceRequestsService {
         ...planned.overtime,
         { shiftId: shift.id, ...interval },
       ]),
-      planned.periods,
+      planned.limits,
       [month],
     );
     if (violation) throw badRequestError(violation);

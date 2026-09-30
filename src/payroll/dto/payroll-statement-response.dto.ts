@@ -88,6 +88,12 @@ export class PayrollStatementResponseDto {
   @ApiPropertyOptional() reviewedBy: string | null;
   @ApiPropertyOptional() reviewedAt: Date | null;
   @ApiPropertyOptional() publishedAt: Date | null;
+  @ApiPropertyOptional({
+    description: '依店家發薪日推得的給付日，扣繳與補充保費以此認定',
+    nullable: true,
+    type: String,
+  })
+  paidOn: string | null;
   @ApiProperty() createdAt: Date;
 }
 

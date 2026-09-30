@@ -458,10 +458,7 @@ export class AttendanceShiftsService {
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(
-          and(
-            eq(attendanceEmployee.organizationId, actor.organizationId),
-            eq(attendanceEmployee.enabled, true),
-          ),
+          and(eq(attendanceEmployee.organizationId, actor.organizationId)),
         ),
       this.db
         .select({ date: statutoryHoliday.date, name: statutoryHoliday.name })
@@ -779,7 +776,6 @@ export class AttendanceShiftsService {
         and(
           inArray(attendanceEmployee.id, employeeIds),
           eq(attendanceEmployee.organizationId, actor.organizationId),
-          eq(attendanceEmployee.enabled, true),
         ),
       );
     const intervals = dtos.map((dto) =>
@@ -1118,7 +1114,7 @@ export class AttendanceShiftsService {
       );
       const overtimeViolation = overtimeLimitViolation(
         plannedWorkDays([...planned.shifts, ...scheduled], planned.overtime),
-        planned.periods,
+        planned.limits,
         scheduledMonths,
       );
       if (overtimeViolation) throw badRequestError(overtimeViolation);

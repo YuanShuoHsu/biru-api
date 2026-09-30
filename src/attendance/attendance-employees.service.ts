@@ -106,6 +106,26 @@ const currentEmploymentType = async (
     weeklyMinutesAt(await loadOneEmployeeHours(db, employee), new Date()),
   );
 
+// 刪除時仍以外鍵為準；這裡只決定是否顯示刪除按鈕
+const employeeDeletableSql = sql<boolean>`${attendanceEmployee.id} IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM attendance_shift WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_request WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_leave_balance WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_leave_case WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_annual_leave_deferral WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_parental_child WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM payroll_terms WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM payroll_earning WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM payroll_tax_identity WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM payroll_certificate_request WHERE employee_id = ${attendanceEmployee.id}
+)`;
+
+const isForeignKeyViolation = (error: unknown): boolean =>
+  (error as { code?: string } | null)?.code === '23503' ||
+  (error instanceof Error &&
+    !!error.cause &&
+    isForeignKeyViolation(error.cause));
+
 @Injectable()
 export class AttendanceEmployeesService {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
@@ -226,7 +246,6 @@ export class AttendanceEmployeesService {
           indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
-          enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
           terminationReason: attendanceEmployee.terminationReason,
@@ -319,6 +338,7 @@ export class AttendanceEmployeesService {
           name: user.name,
           email: user.email,
           joinedAt: member.createdAt,
+          deletable: employeeDeletableSql,
           employmentType: employmentTypeSql,
           birthDate: attendanceEmployee.birthDate,
           taiwanStaySince: attendanceEmployee.taiwanStaySince,
@@ -330,7 +350,6 @@ export class AttendanceEmployeesService {
           indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
-          enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
           terminationReason: attendanceEmployee.terminationReason,
@@ -366,7 +385,8 @@ export class AttendanceEmployeesService {
     ]);
     return {
       data: data.map(
-        ({ email, joinedAt, name, status, userId, ...employee }) => ({
+        ({ deletable, email, joinedAt, name, status, userId, ...employee }) => ({
+          deletable,
           email,
           joinedAt,
           name,
@@ -375,7 +395,6 @@ export class AttendanceEmployeesService {
           employee:
             employee.id === null ||
             employee.hiredAt === null ||
-            employee.enabled === null ||
             employee.employmentType === null ||
             employee.legalStatus === null ||
             employee.studentVacations === null ||
@@ -389,7 +408,6 @@ export class AttendanceEmployeesService {
                   ...employee,
                   id: employee.id,
                   hiredAt: employee.hiredAt,
-                  enabled: employee.enabled,
                   employmentType: employee.employmentType,
                   legalStatus: employee.legalStatus,
                   studentVacations: employee.studentVacations,
@@ -489,7 +507,6 @@ export class AttendanceEmployeesService {
       const [current] = await tx
         .select({
           id: attendanceEmployee.id,
-          enabled: attendanceEmployee.enabled,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
           indigenousHolidays: attendanceEmployee.indigenousHolidays,
@@ -681,34 +698,6 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, removedHolidays),
               ),
             );
-        if (current.enabled && !dto.enabled) {
-          const [scheduledShift] = await tx
-            .select({ id: attendanceShift.id })
-            .from(attendanceShift)
-            .where(
-              and(
-                eq(attendanceShift.employeeId, current.id),
-                ne(attendanceShift.status, 'cancelled'),
-                gt(attendanceShift.endsAt, new Date()),
-              ),
-            )
-            .limit(1);
-          const [pendingRequest] = await tx
-            .select({ id: attendanceRequest.id })
-            .from(attendanceRequest)
-            .where(
-              and(
-                eq(attendanceRequest.employeeId, current.id),
-                inArray(attendanceRequest.status, [
-                  'pending',
-                  'cancellationPending',
-                ]),
-              ),
-            )
-            .limit(1);
-          if (scheduledShift || pendingRequest)
-            throw conflictError('employeeDisableConflict');
-        }
         for (const [before, after] of [
           [current.hiredAt, hiredAt],
           [current.terminatedAt, terminatedAt],
@@ -726,7 +715,6 @@ export class AttendanceEmployeesService {
       const values = {
         organizationId: actor.organizationId,
         userId: dto.userId,
-        enabled: dto.enabled,
         birthDate: dto.birthDate,
         taiwanStaySince:
           dto.legalStatus === 'national' ? null : (dto.taiwanStaySince ?? null),
@@ -771,6 +759,38 @@ export class AttendanceEmployeesService {
     });
   }
 
+  async deleteEmployee(actor: AttendanceActor, id: string) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        await lockOrganization(tx, actor.organizationId);
+        const [row] = await tx
+          .select({
+            id: attendanceEmployee.id,
+            userId: attendanceEmployee.userId,
+          })
+          .from(attendanceEmployee)
+          .where(
+            and(
+              eq(attendanceEmployee.id, id),
+              eq(attendanceEmployee.organizationId, actor.organizationId),
+            ),
+          );
+        if (!row) throw new NotFoundException();
+        await writeAudit(tx, actor, 'employee.delete', id, {
+          userId: row.userId,
+        });
+        await tx
+          .delete(attendanceEmployee)
+          .where(eq(attendanceEmployee.id, id));
+        return { id };
+      });
+    } catch (error) {
+      // 有任何出勤或薪資紀錄就已是僱傭事實，只能以離職日結束，不可刪除
+      if (isForeignKeyViolation(error)) throw conflictError('employeeInUse');
+      throw error;
+    }
+  }
+
   async settings(actor: AttendanceActor) {
     const [row] = await this.db
       .select()
@@ -785,17 +805,40 @@ export class AttendanceEmployeesService {
       await lockOrganization(tx, actor.organizationId);
       if (hasOverlappingOvertimeExtensions(dto.overtimeExtensionPeriods))
         throw badRequestError('overlappingOvertimeExtensions');
+      const overtimeAgreedFrom = dto.overtimeAgreedFrom ?? null;
+      if (
+        dto.overtimeExtensionPeriods.some(
+          (period) =>
+            overtimeAgreedFrom === null ||
+            period < overtimeAgreedFrom.slice(0, 7),
+        )
+      )
+        throw badRequestError('overtimeAgreementRequired');
       const [current] = await tx
         .select({
           voluntaryLaborInsuranceFrom:
             attendanceSettings.voluntaryLaborInsuranceFrom,
+          overtimeAgreedFrom: attendanceSettings.overtimeAgreedFrom,
         })
         .from(attendanceSettings)
         .where(eq(attendanceSettings.organizationId, actor.organizationId));
       const voluntaryLaborInsuranceFrom =
         dto.voluntaryLaborInsuranceFrom ?? null;
-      const previousFrom = current?.voluntaryLaborInsuranceFrom ?? null;
-      if (previousFrom !== voluntaryLaborInsuranceFrom) {
+      const changedFrom = [
+        [
+          current?.voluntaryLaborInsuranceFrom ?? null,
+          voluntaryLaborInsuranceFrom,
+        ],
+        [
+          current?.overtimeAgreedFrom?.slice(0, 7) ?? null,
+          overtimeAgreedFrom?.slice(0, 7) ?? null,
+        ],
+      ]
+        .filter(([previous, next]) => previous !== next)
+        .flat()
+        .filter((month) => month !== null)
+        .sort()[0];
+      if (changedFrom) {
         const [published] = await tx
           .select({ id: payrollStatement.id })
           .from(payrollStatement)
@@ -803,12 +846,7 @@ export class AttendanceEmployeesService {
             and(
               eq(payrollStatement.organizationId, actor.organizationId),
               eq(payrollStatement.status, 'published'),
-              gte(
-                payrollStatement.month,
-                [previousFrom, voluntaryLaborInsuranceFrom]
-                  .filter((month) => month !== null)
-                  .sort()[0],
-              ),
+              gte(payrollStatement.month, changedFrom),
             ),
           )
           .limit(1);
@@ -829,6 +867,8 @@ export class AttendanceEmployeesService {
         occupationalExperienceRateMicros:
           dto.occupationalExperienceRateMicros ?? null,
         voluntaryLaborInsuranceFrom,
+        overtimeAgreedFrom,
+        payday: dto.payday ?? null,
         overtimeExtensionPeriods: [
           ...new Set(dto.overtimeExtensionPeriods),
         ].sort(),
