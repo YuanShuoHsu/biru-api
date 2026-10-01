@@ -50,4 +50,11 @@ export class AttendanceShiftPaginationQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(ATTENDANCE_SHIFT_SORT_FIELDS)
   sortBy?: AttendanceShiftSortField;
+  @ApiPropertyOptional({
+    description: '只列出有排班外打卡時數尚未審核的班次',
+    enum: ['true'],
+  })
+  @IsOptional()
+  @IsIn(['true'])
+  unreviewedOvertime?: 'true';
 }

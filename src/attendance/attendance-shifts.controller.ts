@@ -81,11 +81,12 @@ export class AttendanceShiftsController {
     @Session() session: UserSession,
     @Query() query: AttendanceShiftPaginationQueryDto,
   ): Promise<AttendanceShiftsResponseDto> {
-    return this.attendanceShiftsService.shifts(
-      actor(req, session),
-      query,
-      false,
-    );
+    return query.unreviewedOvertime
+      ? this.attendanceShiftsService.unreviewedOvertimeShifts(
+          actor(req, session),
+          query,
+        )
+      : this.attendanceShiftsService.shifts(actor(req, session), query, false);
   }
 
   @Get('shifts/calendar')

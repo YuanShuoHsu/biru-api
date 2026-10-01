@@ -33,6 +33,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  runBatch,
 } from 'src/attendance/attendance-errors';
 import {
   countedIntervals,
@@ -133,7 +134,8 @@ import {
   owesSeverance,
   terminationPay,
 } from './severance';
-import { PayrollDraftDto } from './dto/payroll-draft.dto';
+import { PayrollBatchDraftDto, PayrollDraftDto } from './dto/payroll-draft.dto';
+import { PayrollBatchReviewDto } from './dto/payroll-review.dto';
 import {
   PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
   PAYROLL_STATEMENT_MONTH_FILTER_FIELDS,
@@ -1735,6 +1737,7 @@ export class PayrollService {
   }
 
   async draft(actor: AttendanceActor, dto: PayrollDraftDto) {
+    const reason = dto.reason?.trim() ?? '';
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [existing] = await tx
@@ -1750,7 +1753,7 @@ export class PayrollService {
         if (
           existing.employeeId !== dto.employeeId ||
           existing.month !== dto.month ||
-          existing.reason !== dto.reason
+          existing.reason !== reason
         )
           throw conflictError('idempotencyConflict');
         return existing;
@@ -1786,7 +1789,7 @@ export class PayrollService {
         status: 'draft' as const,
         snapshot,
         paidOn: snapshot.paidOn ?? null,
-        reason: dto.reason,
+        reason,
         createdBy: actor.userId,
         reviewedBy: null,
         reviewedAt: null,
@@ -1814,11 +1817,54 @@ export class PayrollService {
     });
   }
 
+  async draftBatch(
+    actor: AttendanceActor,
+    { month, reason }: PayrollBatchDraftDto,
+  ) {
+    const period = payrollPeriod(month);
+    const employees = await this.db
+      .select({ id: attendanceEmployee.id })
+      .from(attendanceEmployee)
+      .where(
+        and(
+          eq(attendanceEmployee.organizationId, actor.organizationId),
+          lt(attendanceEmployee.hiredAt, period.end),
+          or(
+            isNull(attendanceEmployee.terminatedAt),
+            gt(attendanceEmployee.terminatedAt, period.start),
+          ),
+          sql`NOT EXISTS (SELECT 1 FROM ${payrollStatement}
+            WHERE ${payrollStatement.employeeId} = ${attendanceEmployee.id}
+              AND ${payrollStatement.month} = ${month}
+              AND ${payrollStatement.status} <> 'draft')`,
+        ),
+      )
+      .orderBy(asc(attendanceEmployee.id));
+    return runBatch(
+      employees.map(({ id }) => id),
+      (employeeId) =>
+        this.draft(actor, {
+          employeeId,
+          idempotencyKey: randomUUID(),
+          month,
+          reason,
+        }),
+    );
+  }
+
+  transitionBatch(
+    actor: AttendanceActor,
+    status: 'reviewed' | 'published',
+    { ids, reason }: PayrollBatchReviewDto,
+  ) {
+    return runBatch(ids, (id) => this.transition(actor, id, status, reason));
+  }
+
   async transition(
     actor: AttendanceActor,
     id: string,
     status: 'reviewed' | 'published',
-    reason: string,
+    reason = '',
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -1868,7 +1914,9 @@ export class PayrollService {
         )
         .where(eq(payrollStatement.id, id))
         .returning();
-      await writeAudit(tx, actor, `payroll.${status}`, id, { reason });
+      await writeAudit(tx, actor, `payroll.${status}`, id, {
+        reason: reason.trim(),
+      });
       return result;
     });
   }

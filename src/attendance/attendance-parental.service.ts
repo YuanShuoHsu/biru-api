@@ -50,7 +50,10 @@ import {
 } from './dto/attendance-parental-return-pagination-query.dto';
 import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto';
 import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto';
-import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
+import {
+  ReviewAttendanceRequestDto,
+  reviewReasonOf,
+} from './dto/review-attendance-request.dto';
 import { requireEmployee } from './employee-lookup';
 import { calendarLeaveMinutes } from './leave-rules';
 import { assertNoParentalReturn, matchParentalChild } from './parental-ledger';
@@ -454,7 +457,7 @@ export class AttendanceParentalService {
       await assertIndependentReview(tx, actor, 'parentalReturn', [row.userId]);
       if (row.change.status !== 'pending')
         throw conflictError('requestAlreadyReviewed');
-      if (!dto.reason?.trim()) throw badRequestError('parentalReturnInvalid');
+      const reason = reviewReasonOf(dto);
       if (dto.status === 'approved') {
         if (
           row.request.status !== 'approved' ||
@@ -486,13 +489,13 @@ export class AttendanceParentalService {
           status: dto.status,
           reviewedBy: actor.userId,
           reviewedAt: new Date(),
-          reviewReason: dto.reason.trim(),
+          reviewReason: reason || null,
         })
         .where(eq(attendanceParentalReturn.id, id))
         .returning();
       await writeAudit(tx, actor, 'parentalReturn.review', id, {
         status: dto.status,
-        reason: dto.reason.trim(),
+        reason,
         requestId: row.request.id,
         originalEndsAt: row.change.originalEndsAt.toISOString(),
         returnsAt: row.change.returnsAt.toISOString(),

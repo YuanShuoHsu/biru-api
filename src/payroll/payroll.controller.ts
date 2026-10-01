@@ -24,8 +24,13 @@ import {
   EmployerHealthSupplementQueryDto,
   EmployerHealthSupplementResponseDto,
 } from './dto/employer-health-supplement.dto';
-import { PayrollDraftDto } from './dto/payroll-draft.dto';
-import { PayrollReviewDto } from './dto/payroll-review.dto';
+import { AttendanceBatchResponseDto } from 'src/attendance/dto/review-attendance-request.dto';
+
+import { PayrollBatchDraftDto, PayrollDraftDto } from './dto/payroll-draft.dto';
+import {
+  PayrollBatchReviewDto,
+  PayrollReviewDto,
+} from './dto/payroll-review.dto';
 import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagination-query.dto';
 import {
   PayrollStatementResponseDto,
@@ -119,6 +124,51 @@ export class PayrollController {
     return this.payrollService
       .draft(actor(req, session), dto)
       .then(toPayrollStatementResponse);
+  }
+
+  @Post('statements/batch')
+  @Roles({ payslip: ['create'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '試算當月所有員工的薪資單草稿',
+    description:
+      '對象為當月在職且薪資單尚未覆核或發布的員工，既有草稿會重新試算；無法試算者跳過並附上原因。回傳的 id 為員工 id。',
+  })
+  draftBatch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: PayrollBatchDraftDto,
+  ): Promise<AttendanceBatchResponseDto> {
+    return this.payrollService.draftBatch(actor(req, session), dto);
+  }
+
+  @Patch('statements/review')
+  @Roles({ payslip: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次覆核薪資單' })
+  reviewBatch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: PayrollBatchReviewDto,
+  ): Promise<AttendanceBatchResponseDto> {
+    return this.payrollService.transitionBatch(
+      actor(req, session),
+      'reviewed',
+      dto,
+    );
+  }
+
+  @Patch('statements/publish')
+  @Roles({ payslip: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次發布薪資單' })
+  publishBatch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: PayrollBatchReviewDto,
+  ): Promise<AttendanceBatchResponseDto> {
+    return this.payrollService.transitionBatch(
+      actor(req, session),
+      'published',
+      dto,
+    );
   }
 
   @Patch('statements/:id/review')

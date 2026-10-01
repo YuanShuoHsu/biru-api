@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 
 export const attendanceErrorCodes = [
@@ -135,3 +136,28 @@ export const conflictError = (code: AttendanceErrorCode) =>
 
 export const forbiddenError = (code: AttendanceErrorCode) =>
   new ForbiddenException(code);
+
+const isAttendanceErrorCode = (value: string): value is AttendanceErrorCode =>
+  (attendanceErrorCodes as readonly string[]).includes(value);
+
+export const runBatch = async (
+  ids: string[],
+  run: (id: string) => Promise<unknown>,
+) => {
+  const succeeded: string[] = [];
+  const skipped: { id: string; reason: AttendanceErrorCode }[] = [];
+  for (const id of [...new Set(ids)]) {
+    try {
+      await run(id);
+      succeeded.push(id);
+    } catch (error) {
+      if (
+        !(error instanceof HttpException) ||
+        !isAttendanceErrorCode(error.message)
+      )
+        throw error;
+      skipped.push({ id, reason: error.message });
+    }
+  }
+  return { succeeded, skipped };
+};

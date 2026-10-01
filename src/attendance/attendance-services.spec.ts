@@ -3,6 +3,7 @@ jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { AttendanceEmployeesService } from './attendance-employees.service';
+import { AttendanceLeavesService } from './attendance-leaves.service';
 import { AttendanceRequestsService } from './attendance-requests.service';
 import { AttendanceShiftsService } from './attendance-shifts.service';
 
@@ -61,6 +62,13 @@ const dto = () => ({
   accuracy: 10,
   locatedAt: new Date().toISOString(),
 });
+
+const requestsService = (db: DrizzleDB) =>
+  new AttendanceRequestsService(
+    db,
+    new AttendanceShiftsService(db),
+    new AttendanceLeavesService(db),
+  );
 
 describe('attendance services', () => {
   it('rejects terminated employees before writing an event', async () => {
@@ -213,14 +221,10 @@ describe('attendance services', () => {
       ],
     ]);
     await expect(
-      new AttendanceRequestsService(db).review(
-        { ...actor, role: 'owner' },
-        'request',
-        {
-          status: 'approved',
-          reason: 'Checked',
-        },
-      ),
+      requestsService(db).review({ ...actor, role: 'owner' }, 'request', {
+        status: 'approved',
+        reason: 'Checked',
+      }),
     ).rejects.toThrow('cannotReviewSelf');
   });
   it('does not review a request twice', async () => {
@@ -228,14 +232,10 @@ describe('attendance services', () => {
       [{ request: { status: 'approved' }, userId: 'another-user' }],
     ]);
     await expect(
-      new AttendanceRequestsService(db).review(
-        { ...actor, role: 'admin' },
-        'request',
-        {
-          status: 'approved',
-          reason: 'Checked',
-        },
-      ),
+      requestsService(db).review({ ...actor, role: 'admin' }, 'request', {
+        status: 'approved',
+        reason: 'Checked',
+      }),
     ).rejects.toThrow('requestAlreadyReviewed');
   });
   it('does not change attendance behind a published payslip', async () => {
@@ -258,7 +258,7 @@ describe('attendance services', () => {
       endsAt: new Date('2026-01-31T23:00:00Z'),
     };
     const reviewing = (db: DrizzleDB) =>
-      new AttendanceRequestsService(db).review(reviewer, 'request', review);
+      requestsService(db).review(reviewer, 'request', review);
     const cases: [(db: DrizzleDB) => Promise<unknown>, unknown[][]][] = [
       [reviewing, [[{ request: leave, userId: 'user' }], published]],
       [

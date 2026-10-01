@@ -671,26 +671,30 @@ export class AttendanceLeavesService {
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const { entitlement, values } = await this.resolveLeaveCase(
-        tx,
-        actor,
-        dto,
-      );
-      const [row] = await tx
-        .insert(attendanceLeaveCase)
-        .values({
-          id: randomUUID(),
-          organizationId: actor.organizationId,
-          createdBy: actor.userId,
-          ...values,
-        })
-        .returning();
-      await writeAudit(tx, actor, 'leaveCase.create', row.id, {
-        ...dto,
-        ...entitlement,
-      });
-      return row;
+      return this.insertLeaveCase(tx, actor, dto);
     });
+  }
+
+  async insertLeaveCase(
+    tx: Transaction,
+    actor: AttendanceActor,
+    dto: CreateAttendanceLeaveCaseDto,
+  ) {
+    const { entitlement, values } = await this.resolveLeaveCase(tx, actor, dto);
+    const [row] = await tx
+      .insert(attendanceLeaveCase)
+      .values({
+        id: randomUUID(),
+        organizationId: actor.organizationId,
+        createdBy: actor.userId,
+        ...values,
+      })
+      .returning();
+    await writeAudit(tx, actor, 'leaveCase.create', row.id, {
+      ...dto,
+      ...entitlement,
+    });
+    return row;
   }
 
   async updateLeaveCase(

@@ -1,4 +1,6 @@
 import {
+  ATTENDANCE_DAY_KINDS,
+  type AttendanceDayKind,
   STATUTORY_LEAVE_KINDS,
   type StatutoryLeaveKind,
 } from 'src/db/schema/attendance';
@@ -78,6 +80,12 @@ export class AttendanceRequestResponseDto {
   correctedEvents: AttendanceEventResponseDto[] | null;
   @ApiPropertyOptional() shiftStartsAt: Date | null;
   @ApiPropertyOptional() shiftEndsAt: Date | null;
+  @ApiPropertyOptional({
+    enum: ATTENDANCE_DAY_KINDS,
+    enumName: 'AttendanceDayKind',
+    nullable: true,
+  })
+  shiftDayKind: AttendanceDayKind | null;
   @ApiPropertyOptional({ isArray: true, type: AttendanceEventResponseDto })
   originalEvents: AttendanceEventResponseDto[] | null;
   @ApiPropertyOptional() reviewedAt: Date | null;
@@ -95,6 +103,7 @@ export class AttendanceRequestRecordResponseDto extends OmitType(
     'returnPending',
     'shiftStartsAt',
     'shiftEndsAt',
+    'shiftDayKind',
     'originalEvents',
   ] as const,
 ) {}
@@ -108,4 +117,5 @@ export class AttendanceRequestsResponseDto {
 export class AttendanceReviewCountsResponseDto {
   @ApiProperty() requests: number;
   @ApiProperty() parentalReturns: number;
+  @ApiProperty() extraWork: number;
 }

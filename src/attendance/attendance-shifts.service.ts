@@ -46,6 +46,7 @@ import {
   DAY_MS,
   platformDateString,
   platformMidnight,
+  platformMonthStart,
   STORE_UTC_OFFSET,
   toPlatformTime,
 } from 'src/common/constants/timezone';
@@ -158,6 +159,9 @@ const clockOutAt = sql<Date | null>`CASE
   END`.mapWith(attendanceShift.startsAt);
 
 const CALENDAR_SHIFT_LIMIT = 500;
+
+// 當月與前兩個月：更早的月份薪資應已發布，發布前就會被未審時數擋下
+const UNREVIEWED_OVERTIME_MONTHS = 3;
 
 const punchLeewaySql = sql`greatest(interval '0',
   make_interval(secs => ${sql.raw(String(MAX_DAILY_WORK_SECONDS))})
@@ -424,6 +428,52 @@ export class AttendanceShiftsService {
       punchableShift,
     );
     return data;
+  }
+
+  async unreviewedOvertimeShiftIds(actor: AttendanceActor, scope?: SQL) {
+    const today = toPlatformTime(new Date());
+    const from = platformMonthStart(
+      today.getUTCFullYear(),
+      today.getUTCMonth() - (UNREVIEWED_OVERTIME_MONTHS - 1),
+    );
+    const ids: string[] = [];
+    let loaded = 0;
+    let total: number;
+    do {
+      const page = await this.shifts(
+        actor,
+        {
+          limit: CALENDAR_SHIFT_LIMIT,
+          offset: loaded,
+          sortBy: 'startsAt',
+          sortDirection: 'asc',
+        },
+        false,
+        and(
+          gte(attendanceShift.startsAt, from),
+          sql`NOT (${unfinishedShift})`,
+          scope,
+        ),
+      );
+      ids.push(
+        ...page.data
+          .filter((shift) => shift.unreviewedOvertime.length)
+          .map((shift) => shift.id),
+      );
+      loaded += page.data.length;
+      total = page.total;
+      if (!page.data.length) break;
+    } while (loaded < total);
+    return ids;
+  }
+
+  async unreviewedOvertimeShifts(
+    actor: AttendanceActor,
+    query: AttendanceShiftPaginationQueryDto,
+  ) {
+    const ids = await this.unreviewedOvertimeShiftIds(actor);
+    if (!ids.length) return { data: [], total: 0 };
+    return this.shifts(actor, query, false, inArray(attendanceShift.id, ids));
   }
 
   async calendarShifts(

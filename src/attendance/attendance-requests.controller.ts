@@ -31,7 +31,11 @@ import {
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
 import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
-import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
+import {
+  AttendanceBatchResponseDto,
+  ReviewAttendanceBatchDto,
+  ReviewAttendanceRequestDto,
+} from './dto/review-attendance-request.dto';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')
@@ -108,6 +112,21 @@ export class AttendanceRequestsController {
     );
   }
 
+  @Patch('requests/review')
+  @Roles({ attendanceRequest: ['update'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '批次審核申請單',
+    description:
+      '逐筆審核，無法審核的申請（需查驗證明、例假出勤、尚未核給額度等）會跳過並附上原因。',
+  })
+  reviewBatch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: ReviewAttendanceBatchDto,
+  ): Promise<AttendanceBatchResponseDto> {
+    return this.attendanceRequestsService.reviewBatch(actor(req, session), dto);
+  }
+
   @Patch('requests/:id/review')
   @Roles({ attendanceRequest: ['update'] }, 'organizationSlug')
   @ApiOperation({ summary: '審核申請單' })
@@ -118,6 +137,23 @@ export class AttendanceRequestsController {
     @Body() dto: ReviewAttendanceRequestDto,
   ): Promise<AttendanceRequestRecordResponseDto> {
     return this.attendanceRequestsService.review(actor(req, session), id, dto);
+  }
+
+  @Post('shifts/extra-work-reviews')
+  @Roles({ attendanceRequest: ['update'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '批次審核排班外的打卡時數',
+    description: 'ids 為班次 id，每個班次所有尚未審核的時段一併審核。',
+  })
+  reviewExtraWorkBatch(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() dto: ReviewAttendanceBatchDto,
+  ): Promise<AttendanceBatchResponseDto> {
+    return this.attendanceRequestsService.reviewExtraWorkBatch(
+      actor(req, session),
+      dto,
+    );
   }
 
   @Post('shifts/:id/extra-work-reviews')

@@ -50,7 +50,8 @@ import {
   writeAudit,
   type Transaction,
 } from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
+import { badRequestError, conflictError, runBatch } from './attendance-errors';
+import { AttendanceLeavesService } from './attendance-leaves.service';
 import {
   blockingRequestStatuses,
   countedIntervals,
@@ -75,7 +76,11 @@ import {
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
 import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
 import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
-import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
+import {
+  ReviewAttendanceBatchDto,
+  ReviewAttendanceRequestDto,
+  reviewReasonOf,
+} from './dto/review-attendance-request.dto';
 import {
   loadOneEmployeeHours,
   weeklyMinutesAt,
@@ -114,6 +119,7 @@ import {
   plannedWorkDays,
 } from './overtime-limit';
 import { parseInterval } from './shift-intervals';
+import { AttendanceShiftsService } from './attendance-shifts.service';
 import { unfinishedShift } from './shift-queries';
 import {
   assertIndependentReview,
@@ -128,11 +134,15 @@ type AttendanceShiftRow = typeof attendanceShift.$inferSelect;
 
 @Injectable()
 export class AttendanceRequestsService {
-  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private db: DrizzleDB,
+    private readonly shifts: AttendanceShiftsService,
+    private readonly leaves: AttendanceLeavesService,
+  ) {}
 
   async reviewCounts(actor: AttendanceActor) {
     const selfReview = await selfReviewAllowance(this.db, actor);
-    const [[requests], [parentalReturns]] = await Promise.all([
+    const [[requests], [parentalReturns], extraWork] = await Promise.all([
       isAuthorized(actor.role, { attendanceRequest: ['update'] })
         ? this.db
             .select({ count: count() })
@@ -175,10 +185,19 @@ export class AttendanceRequestsService {
               ),
             )
         : [{ count: 0 }],
+      isAuthorized(actor.role, { attendanceRequest: ['update'] })
+        ? this.shifts.unreviewedOvertimeShiftIds(
+            actor,
+            selfReview.attendanceRequest
+              ? undefined
+              : ne(attendanceEmployee.userId, actor.userId),
+          )
+        : [],
     ]);
     return {
       requests: requests.count,
       parentalReturns: parentalReturns.count,
+      extraWork: extraWork.length,
     };
   }
 
@@ -255,6 +274,7 @@ export class AttendanceRequestsService {
             WHERE pending.request_id = ${attendanceRequest.id} AND pending.status = 'pending')`,
           shiftStartsAt: attendanceShift.startsAt,
           shiftEndsAt: attendanceShift.endsAt,
+          shiftDayKind: attendanceShift.dayKind,
         })
         .from(attendanceRequest)
         .innerJoin(
@@ -316,6 +336,7 @@ export class AttendanceRequestsService {
           returnPending,
           shiftStartsAt,
           shiftEndsAt,
+          shiftDayKind,
         }) => ({
           ...request,
           employeeName,
@@ -330,6 +351,7 @@ export class AttendanceRequestsService {
           returnPending,
           shiftStartsAt,
           shiftEndsAt,
+          shiftDayKind,
           originalEvents:
             request.kind === 'correction'
               ? events
@@ -423,7 +445,10 @@ export class AttendanceRequestsService {
           )
           .limit(1);
         if (overlap) throw conflictError('overlappingLeave');
-        if (isEventLeave(policy.statutoryKind)) {
+        if (
+          isEventLeave(policy.statutoryKind) &&
+          (dto.leaveCaseId || policy.statutoryKind === 'parental')
+        ) {
           await matchLeaveCase(
             tx,
             actor.organizationId,
@@ -573,6 +598,7 @@ export class AttendanceRequestsService {
         return this.reviewLeaveCancellation(tx, actor, request, dto);
       if (request.status !== 'pending')
         throw conflictError('requestAlreadyReviewed');
+      const reason = reviewReasonOf(dto);
       if (dto.status === 'approved') {
         await this.assertRequestPayrollUnlocked(tx, request);
         if (request.kind === 'overtime')
@@ -588,15 +614,44 @@ export class AttendanceRequestsService {
           status: dto.status,
           reviewedBy: actor.userId,
           reviewedAt: new Date(),
-          reviewReason: dto.reason,
+          reviewReason: reason || null,
         })
         .where(eq(attendanceRequest.id, id))
         .returning();
       await writeAudit(tx, actor, 'request.review', id, {
         status: dto.status,
-        reason: dto.reason,
+        reason,
       });
       return result;
+    });
+  }
+
+  reviewBatch(
+    actor: AttendanceActor,
+    { ids, ...dto }: ReviewAttendanceBatchDto,
+  ) {
+    reviewReasonOf(dto);
+    return runBatch(ids, (id) => this.review(actor, id, dto));
+  }
+
+  async reviewExtraWorkBatch(
+    actor: AttendanceActor,
+    { ids, ...dto }: ReviewAttendanceBatchDto,
+  ) {
+    reviewReasonOf(dto);
+    const { data } = await this.shifts.shifts(
+      actor,
+      { limit: ids.length },
+      false,
+      inArray(attendanceShift.id, ids),
+    );
+    return runBatch(ids, async (id) => {
+      const intervals = data.find(
+        (shift) => shift.id === id,
+      )?.unreviewedOvertime;
+      if (!intervals?.length) throw badRequestError('invalidInterval');
+      for (const interval of intervals)
+        await this.reviewExtraWork(actor, id, { ...dto, ...interval });
     });
   }
 
@@ -627,6 +682,7 @@ export class AttendanceRequestsService {
       ]);
       const { shift } = row;
       const interval = parseInterval(dto.startsAt, dto.endsAt);
+      const reason = reviewReasonOf(dto);
       const [correction] = await tx
         .select({ correctedEvents: attendanceRequest.correctedEvents })
         .from(attendanceRequest)
@@ -707,9 +763,9 @@ export class AttendanceRequestsService {
           kind: 'overtime',
           status: dto.status,
           ...interval,
-          reason: dto.reason.trim(),
+          reason,
           reviewedBy: actor.userId,
-          reviewReason: dto.reason.trim(),
+          reviewReason: reason || null,
           reviewedAt,
         })
         .returning();
@@ -720,7 +776,7 @@ export class AttendanceRequestsService {
         startsAt: dto.startsAt,
         endsAt: dto.endsAt,
         status: dto.status,
-        reason: dto.reason,
+        reason,
       });
       return request;
     });
@@ -732,6 +788,7 @@ export class AttendanceRequestsService {
     request: AttendanceRequestRow,
     dto: ReviewAttendanceRequestDto,
   ) {
+    const reason = reviewReasonOf(dto);
     if (dto.status === 'approved') {
       await this.assertRequestPayrollUnlocked(tx, request);
       const [policy] = await tx
@@ -771,13 +828,13 @@ export class AttendanceRequestsService {
         status,
         reviewedBy: actor.userId,
         reviewedAt: new Date(),
-        reviewReason: dto.reason,
+        reviewReason: reason || null,
       })
       .where(eq(attendanceRequest.id, request.id))
       .returning();
     await writeAudit(tx, actor, 'leave.cancelReview', request.id, {
       status,
-      reason: dto.reason,
+      reason,
     });
     return result;
   }
@@ -1105,7 +1162,7 @@ export class AttendanceRequestsService {
       request,
     );
     const paidPercent = isEventLeave(policy.statutoryKind)
-      ? await this.approveEventLeave(tx, actor, policy, request, minutes)
+      ? await this.approveEventLeave(tx, actor, policy, request, minutes, dto)
       : effectivePaidPercent(policy.statutoryKind, policy.paidPercent);
     await tx
       .update(attendanceRequest)
@@ -1130,13 +1187,30 @@ export class AttendanceRequestsService {
     policy: typeof attendanceLeaveType.$inferSelect,
     request: AttendanceRequestRow,
     minutes: number,
+    dto: ReviewAttendanceRequestDto,
   ) {
+    const granted =
+      !request.leaveCaseId &&
+      dto.leaveCase &&
+      isAuthorized(actor.role, { leaveCase: ['create'] })
+        ? await this.leaves.insertLeaveCase(tx, actor, {
+            ...dto.leaveCase,
+            employeeId: request.employeeId,
+            leaveTypeId: policy.id,
+            reason: request.reason,
+          })
+        : null;
+    if (granted)
+      await tx
+        .update(attendanceRequest)
+        .set({ leaveCaseId: granted.id })
+        .where(eq(attendanceRequest.id, request.id));
     const leaveCase = await matchLeaveCase(
       tx,
       actor.organizationId,
       request.employeeId,
       policy.id,
-      request.leaveCaseId,
+      granted?.id ?? request.leaveCaseId,
       request.startsAt,
       request.endsAt,
     );
