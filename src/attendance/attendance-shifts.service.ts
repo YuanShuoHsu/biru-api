@@ -702,7 +702,6 @@ export class AttendanceShiftsService {
             teamId: shift.teamId,
             startsAt: move(shift.startsAt),
             endsAt: move(shift.endsAt),
-            paidBreak: shift.paidBreak,
             dayKind: designatedDayKind(
               employee,
               weekdayOfDate(platformDateString(shift.startsAt)),
@@ -1104,7 +1103,7 @@ export class AttendanceShiftsService {
             scheduledWorkIntervals({
               ...interval,
               breaks,
-              paidBreak: dto.paidBreak,
+              paidBreak: false,
             }),
             maternalProtectionPeriods(employee),
           )
@@ -1159,7 +1158,7 @@ export class AttendanceShiftsService {
               scheduledWorkSeconds({
                 ...interval,
                 breaks,
-                paidBreak: dto.paidBreak,
+                paidBreak: false,
               }),
             ) > MAX_DAILY_WORK_SECONDS
         )
@@ -1201,6 +1200,7 @@ export class AttendanceShiftsService {
           teamId: dto.teamId ?? null,
           dayKind,
           breaks,
+          paidBreak: false,
           id: randomUUID(),
           organizationId: actor.organizationId,
         });
@@ -1342,7 +1342,6 @@ export class AttendanceShiftsService {
             teamId: shift.teamId,
             startsAt: shift.startsAt.toISOString(),
             endsAt: shift.endsAt.toISOString(),
-            paidBreak: shift.paidBreak,
           },
         ],
         shift,

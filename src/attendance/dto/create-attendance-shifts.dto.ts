@@ -23,7 +23,6 @@ export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;
   @IsDateString() startsAt: string;
   @IsDateString() endsAt: string;
-  @IsBoolean() paidBreak: boolean;
   @ApiPropertyOptional({
     description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
     enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
