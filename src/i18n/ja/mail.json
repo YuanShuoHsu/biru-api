@@ -86,5 +86,34 @@
     "subject": "{productName}へようこそ！メールアドレスをご確認ください",
     "title": "ようこそ、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "attendance_notification": {
+    "kinds": {
+      "leave": "休暇",
+      "correction": "打刻修正",
+      "overtime": "残業",
+      "cancellation": "休暇取消",
+      "extraWork": "シフト外の時間",
+      "parentalReturn": "早期復職"
+    },
+    "results": {
+      "approved": "承認されました",
+      "rejected": "却下されました"
+    },
+    "submitted": {
+      "subject": "{organizationName}：{employeeName} さんが{requestName}を申請しました",
+      "title": "審査待ちの申請があります",
+      "intro": "{employeeName} さんが {organizationName} で{requestName}を申請しました（{period}）。",
+      "action": "審査する"
+    },
+    "reviewed": {
+      "subject": "{organizationName}：{requestName}の申請が{result}",
+      "title": "{requestName}の申請が{result}",
+      "intro": "{reviewerName} さんが {organizationName} での{requestName}の申請（{period}）を審査しました。結果：{result}。",
+      "action": "申請履歴を見る"
+    },
+    "reason": "審査コメント：{reason}",
+    "salutation": "ありがとうございます。<br>{productName} チーム",
+    "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   }
 }

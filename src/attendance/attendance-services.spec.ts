@@ -1,5 +1,7 @@
 jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import { AttendanceEmployeesService } from './attendance-employees.service';
@@ -68,6 +70,7 @@ const requestsService = (db: DrizzleDB) =>
     db,
     new AttendanceShiftsService(db),
     new AttendanceLeavesService(db),
+    new EventEmitter2(),
   );
 
 describe('attendance services', () => {

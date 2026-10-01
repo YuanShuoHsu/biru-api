@@ -149,6 +149,35 @@ export type I18nTranslations = {
             "title": string;
             "trouble_hint": string;
         };
+        "attendance_notification": {
+            "kinds": {
+                "leave": string;
+                "correction": string;
+                "overtime": string;
+                "cancellation": string;
+                "extraWork": string;
+                "parentalReturn": string;
+            };
+            "results": {
+                "approved": string;
+                "rejected": string;
+            };
+            "submitted": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "action": string;
+            };
+            "reviewed": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "action": string;
+            };
+            "reason": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
     };
     "test": {
         "hello": string;

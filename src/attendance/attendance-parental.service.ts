@@ -1,4 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
   and,
@@ -36,6 +37,12 @@ import {
   writeAudit,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
+import {
+  ATTENDANCE_REQUEST_REVIEWED_EVENT,
+  ATTENDANCE_REQUEST_SUBMITTED_EVENT,
+  type AttendanceRequestReviewedEvent,
+  type AttendanceRequestSubmittedEvent,
+} from './attendance-notification.events';
 import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto';
 import {
   ATTENDANCE_PARENTAL_CHILD_DATE_FILTER_FIELDS,
@@ -61,7 +68,10 @@ import { assertIndependentReview } from './review-separation';
 
 @Injectable()
 export class AttendanceParentalService {
-  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private db: DrizzleDB,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async parentalChildren(
     actor: AttendanceActor,
@@ -364,7 +374,7 @@ export class AttendanceParentalService {
     requestId: string,
     dto: CreateAttendanceParentalReturnDto,
   ) {
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const employee = await requireEmployee(actor, tx);
       const [row] = await tx
@@ -423,6 +433,14 @@ export class AttendanceParentalService {
       });
       return result;
     });
+    this.events.emit(ATTENDANCE_REQUEST_SUBMITTED_EVENT, {
+      organizationId: result.organizationId,
+      employeeId: result.employeeId,
+      kind: 'parentalReturn',
+      startsAt: result.returnsAt,
+      endsAt: result.originalEndsAt,
+    } satisfies AttendanceRequestSubmittedEvent);
+    return result;
   }
 
   async reviewParentalReturn(
@@ -430,7 +448,7 @@ export class AttendanceParentalService {
     id: string,
     dto: ReviewAttendanceRequestDto,
   ) {
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [row] = await tx
         .select({
@@ -502,6 +520,17 @@ export class AttendanceParentalService {
       });
       return result;
     });
+    this.events.emit(ATTENDANCE_REQUEST_REVIEWED_EVENT, {
+      organizationId: result.organizationId,
+      employeeId: result.employeeId,
+      kind: 'parentalReturn',
+      startsAt: result.returnsAt,
+      endsAt: result.originalEndsAt,
+      reviewerUserId: actor.userId,
+      status: dto.status,
+      reason: result.reviewReason ?? '',
+    } satisfies AttendanceRequestReviewedEvent);
+    return result;
   }
 
   async withdrawParentalReturn(actor: AttendanceActor, id: string) {

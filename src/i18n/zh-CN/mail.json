@@ -86,5 +86,34 @@
     "subject": "欢迎来到 {productName}！请确认您的电子邮件",
     "title": "欢迎您，{name}！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "attendance_notification": {
+    "kinds": {
+      "leave": "请假",
+      "correction": "补打卡",
+      "overtime": "加班",
+      "cancellation": "撤假",
+      "extraWork": "排班外时数",
+      "parentalReturn": "提前复职"
+    },
+    "results": {
+      "approved": "已批准",
+      "rejected": "已驳回"
+    },
+    "submitted": {
+      "subject": "{organizationName}：{employeeName} 提交了{requestName}申请",
+      "title": "有新的申请待审核",
+      "intro": "{employeeName} 在 {organizationName} 提交了{requestName}申请，期间 {period}。",
+      "action": "前往审核"
+    },
+    "reviewed": {
+      "subject": "{organizationName}：您的{requestName}申请{result}",
+      "title": "您的{requestName}申请{result}",
+      "intro": "{reviewerName} 已审核您在 {organizationName} 的{requestName}申请（{period}），结果：{result}。",
+      "action": "查看申请记录"
+    },
+    "reason": "审核说明：{reason}",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }

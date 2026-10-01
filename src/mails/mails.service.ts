@@ -3,8 +3,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
+import type { AttendanceNotificationKind } from 'src/attendance/attendance-notification.events';
 import { PRODUCT_NAME } from 'src/common/constants/product';
-import { DEFAULT_LANGUAGE } from 'src/db/schema/enums';
+import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { DEFAULT_LANGUAGE, type Language } from 'src/db/schema/enums';
 import type { User } from 'src/db/schema/users';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { UAParser } from 'ua-parser-js';
@@ -433,6 +435,101 @@ export class MailsService {
           productName,
           support_url,
           url: verifyEmailUrl,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  public async sendAttendanceNotification({
+    recipient: { email, lang },
+    direction,
+    kind,
+    employeeName,
+    organizationName,
+    path,
+    reason = '',
+    reviewerName = '',
+    startsAt,
+    endsAt,
+    status = 'approved',
+  }: {
+    recipient: { email: string; lang: Language };
+    direction: 'submitted' | 'reviewed';
+    kind: AttendanceNotificationKind;
+    employeeName: string;
+    organizationName: string;
+    path: string;
+    reason?: string;
+    reviewerName?: string;
+    startsAt: Date;
+    endsAt: Date;
+    status?: 'approved' | 'rejected';
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const args = {
+      employeeName,
+      organizationName,
+      period: new Intl.DateTimeFormat(lang, {
+        dateStyle: 'medium',
+        hourCycle: 'h23',
+        timeStyle: 'short',
+        timeZone: PLATFORM_TIMEZONE,
+      }).formatRange(startsAt, endsAt),
+      productName,
+      requestName: this.i18n.t(
+        `mail.attendance_notification.kinds.${kind}`,
+        options,
+      ),
+      result: this.i18n.t(
+        `mail.attendance_notification.results.${status}`,
+        options,
+      ),
+      reviewerName,
+    };
+    const translate = { args, lang };
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t(
+          `mail.attendance_notification.${direction}.subject`,
+          translate,
+        ),
+        template: 'attendance-notification',
+        context: {
+          action: this.i18n.t(
+            `mail.attendance_notification.${direction}.action`,
+            options,
+          ),
+          home_url: url,
+          i18nLang: lang,
+          intro: this.i18n.t(
+            `mail.attendance_notification.${direction}.intro`,
+            translate,
+          ),
+          productName,
+          reason:
+            reason &&
+            this.i18n.t('mail.attendance_notification.reason', {
+              args: { reason },
+              lang,
+            }),
+          salutation: this.i18n.t(
+            'mail.attendance_notification.salutation',
+            translate,
+          ),
+          title: this.i18n.t(
+            `mail.attendance_notification.${direction}.title`,
+            translate,
+          ),
+          trouble_hint: this.i18n.t(
+            'mail.attendance_notification.trouble_hint',
+            options,
+          ),
+          url,
         },
       })
       .then(() => {})

@@ -1,4 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
   and,
@@ -52,6 +53,13 @@ import {
 } from './attendance-audit';
 import { badRequestError, conflictError, runBatch } from './attendance-errors';
 import { AttendanceLeavesService } from './attendance-leaves.service';
+import {
+  ATTENDANCE_REQUEST_REVIEWED_EVENT,
+  ATTENDANCE_REQUEST_SUBMITTED_EVENT,
+  type AttendanceNotificationKind,
+  type AttendanceRequestReviewedEvent,
+  type AttendanceRequestSubmittedEvent,
+} from './attendance-notification.events';
 import {
   blockingRequestStatuses,
   countedIntervals,
@@ -138,66 +146,103 @@ export class AttendanceRequestsService {
     @Inject(DRIZZLE) private db: DrizzleDB,
     private readonly shifts: AttendanceShiftsService,
     private readonly leaves: AttendanceLeavesService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  private notifySubmitted(
+    request: AttendanceRequestRow,
+    kind: AttendanceRequestSubmittedEvent['kind'],
+  ) {
+    this.events.emit(ATTENDANCE_REQUEST_SUBMITTED_EVENT, {
+      organizationId: request.organizationId,
+      employeeId: request.employeeId,
+      kind,
+      startsAt: request.startsAt,
+      endsAt: request.endsAt,
+    } satisfies AttendanceRequestSubmittedEvent);
+  }
+
+  private notifyReviewed(
+    actor: AttendanceActor,
+    request: AttendanceRequestRow,
+    kind: AttendanceNotificationKind,
+    status: AttendanceRequestReviewedEvent['status'],
+  ) {
+    this.events.emit(ATTENDANCE_REQUEST_REVIEWED_EVENT, {
+      organizationId: request.organizationId,
+      employeeId: request.employeeId,
+      kind,
+      startsAt: request.startsAt,
+      endsAt: request.endsAt,
+      reviewerUserId: actor.userId,
+      status,
+      reason: request.reviewReason ?? '',
+    } satisfies AttendanceRequestReviewedEvent);
+  }
 
   async reviewCounts(actor: AttendanceActor) {
     const selfReview = await selfReviewAllowance(this.db, actor);
-    const [[requests], [parentalReturns], extraWork] = await Promise.all([
-      isAuthorized(actor.role, { attendanceRequest: ['update'] })
-        ? this.db
-            .select({ count: count() })
-            .from(attendanceRequest)
-            .innerJoin(
-              attendanceEmployee,
-              eq(attendanceEmployee.id, attendanceRequest.employeeId),
-            )
-            .where(
-              and(
-                eq(attendanceRequest.organizationId, actor.organizationId),
-                inArray(attendanceRequest.status, [
-                  'pending',
-                  'cancellationPending',
-                ]),
-                selfReview.attendanceRequest
-                  ? undefined
-                  : ne(attendanceEmployee.userId, actor.userId),
-              ),
-            )
-        : [{ count: 0 }],
-      isAuthorized(actor.role, { parentalReturn: ['update'] })
-        ? this.db
-            .select({ count: count() })
-            .from(attendanceParentalReturn)
-            .innerJoin(
-              attendanceEmployee,
-              eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
-            )
-            .where(
-              and(
-                eq(
-                  attendanceParentalReturn.organizationId,
-                  actor.organizationId,
+    const [[requests], [parentalReturns], extraWork, holidaySubstitutes] =
+      await Promise.all([
+        isAuthorized(actor.role, { attendanceRequest: ['update'] })
+          ? this.db
+              .select({ count: count() })
+              .from(attendanceRequest)
+              .innerJoin(
+                attendanceEmployee,
+                eq(attendanceEmployee.id, attendanceRequest.employeeId),
+              )
+              .where(
+                and(
+                  eq(attendanceRequest.organizationId, actor.organizationId),
+                  inArray(attendanceRequest.status, [
+                    'pending',
+                    'cancellationPending',
+                  ]),
+                  selfReview.attendanceRequest
+                    ? undefined
+                    : ne(attendanceEmployee.userId, actor.userId),
                 ),
-                eq(attendanceParentalReturn.status, 'pending'),
-                selfReview.parentalReturn
-                  ? undefined
-                  : ne(attendanceEmployee.userId, actor.userId),
-              ),
+              )
+          : [{ count: 0 }],
+        isAuthorized(actor.role, { parentalReturn: ['update'] })
+          ? this.db
+              .select({ count: count() })
+              .from(attendanceParentalReturn)
+              .innerJoin(
+                attendanceEmployee,
+                eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
+              )
+              .where(
+                and(
+                  eq(
+                    attendanceParentalReturn.organizationId,
+                    actor.organizationId,
+                  ),
+                  eq(attendanceParentalReturn.status, 'pending'),
+                  selfReview.parentalReturn
+                    ? undefined
+                    : ne(attendanceEmployee.userId, actor.userId),
+                ),
+              )
+          : [{ count: 0 }],
+        isAuthorized(actor.role, { attendanceRequest: ['update'] })
+          ? this.shifts.unreviewedOvertimeShiftIds(
+              actor,
+              selfReview.attendanceRequest
+                ? undefined
+                : ne(attendanceEmployee.userId, actor.userId),
             )
-        : [{ count: 0 }],
-      isAuthorized(actor.role, { attendanceRequest: ['update'] })
-        ? this.shifts.unreviewedOvertimeShiftIds(
-            actor,
-            selfReview.attendanceRequest
-              ? undefined
-              : ne(attendanceEmployee.userId, actor.userId),
-          )
-        : [],
-    ]);
+          : [],
+        isAuthorized(actor.role, { shift: ['update'] })
+          ? this.leaves.unresolvedHolidaySubstitutes(actor)
+          : 0,
+      ]);
     return {
       requests: requests.count,
       parentalReturns: parentalReturns.count,
       extraWork: extraWork.length,
+      holidaySubstitutes,
     };
   }
 
@@ -399,7 +444,7 @@ export class AttendanceRequestsService {
   }
 
   async createRequest(actor: AttendanceActor, dto: CreateAttendanceRequestDto) {
-    return this.db.transaction(async (tx) => {
+    const row = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const employee = await requireActiveEmployee(actor, tx);
       const interval = parseInterval(dto.startsAt, dto.endsAt);
@@ -562,6 +607,8 @@ export class AttendanceRequestsService {
       await writeAudit(tx, actor, 'request.create', row.id, { kind: dto.kind });
       return row;
     });
+    this.notifySubmitted(row, row.kind);
+    return row;
   }
 
   async review(
@@ -569,7 +616,8 @@ export class AttendanceRequestsService {
     id: string,
     dto: ReviewAttendanceRequestDto,
   ) {
-    return this.db.transaction(async (tx) => {
+    let kind: AttendanceNotificationKind = 'leave';
+    const result = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [row] = await tx
         .select({
@@ -592,6 +640,10 @@ export class AttendanceRequestsService {
         row.userId,
       ]);
       const { request } = row;
+      kind =
+        request.status === 'cancellationPending'
+          ? 'cancellation'
+          : request.kind;
       if (request.status === 'cancellationPending')
         await assertNoParentalReturn(tx, request.id);
       if (request.status === 'cancellationPending' && request.kind === 'leave')
@@ -624,6 +676,8 @@ export class AttendanceRequestsService {
       });
       return result;
     });
+    this.notifyReviewed(actor, result, kind, dto.status);
+    return result;
   }
 
   reviewBatch(
@@ -660,7 +714,7 @@ export class AttendanceRequestsService {
     shiftId: string,
     dto: ReviewAttendanceExtraWorkDto,
   ) {
-    return this.db.transaction(async (tx) => {
+    const request = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [row] = await tx
         .select({ shift: attendanceShift, userId: attendanceEmployee.userId })
@@ -780,6 +834,8 @@ export class AttendanceRequestsService {
       });
       return request;
     });
+    this.notifyReviewed(actor, request, 'extraWork', dto.status);
+    return request;
   }
 
   private async reviewLeaveCancellation(
@@ -1200,6 +1256,8 @@ export class AttendanceRequestsService {
             reason: request.reason,
           })
         : null;
+    if (!granted && !request.leaveCaseId)
+      throw badRequestError('leaveCaseGrantRequired');
     if (granted)
       await tx
         .update(attendanceRequest)
@@ -1450,7 +1508,7 @@ export class AttendanceRequestsService {
   }
 
   async withdraw(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    const cancellation = await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const employee = await requireEmployee(actor, tx);
       const [row] = await tx
@@ -1479,7 +1537,9 @@ export class AttendanceRequestsService {
         .set({ status })
         .where(eq(attendanceRequest.id, id));
       await writeAudit(tx, actor, 'request.withdraw', id, { status });
-      return { id };
+      return status === 'cancellationPending' ? row : null;
     });
+    if (cancellation) this.notifySubmitted(cancellation, 'cancellation');
+    return { id };
   }
 }

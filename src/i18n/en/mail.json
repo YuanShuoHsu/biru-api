@@ -86,5 +86,34 @@
     "subject": "Welcome to {productName}! Confirm your Email",
     "title": "Welcome, {name}!",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "attendance_notification": {
+    "kinds": {
+      "leave": "leave",
+      "correction": "punch correction",
+      "overtime": "overtime",
+      "cancellation": "leave cancellation",
+      "extraWork": "time outside schedule",
+      "parentalReturn": "early return"
+    },
+    "results": {
+      "approved": "approved",
+      "rejected": "rejected"
+    },
+    "submitted": {
+      "subject": "{organizationName}: {employeeName} submitted a {requestName} request",
+      "title": "A request is waiting for your review",
+      "intro": "{employeeName} submitted a {requestName} request at {organizationName} for {period}.",
+      "action": "Review request"
+    },
+    "reviewed": {
+      "subject": "{organizationName}: your {requestName} request was {result}",
+      "title": "Your {requestName} request was {result}",
+      "intro": "{reviewerName} reviewed your {requestName} request at {organizationName} ({period}). Result: {result}.",
+      "action": "View my requests"
+    },
+    "reason": "Review note: {reason}",
+    "salutation": "Thanks,<br>The {productName} Team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }

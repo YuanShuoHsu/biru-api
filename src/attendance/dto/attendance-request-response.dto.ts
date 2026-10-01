@@ -118,4 +118,6 @@ export class AttendanceReviewCountsResponseDto {
   @ApiProperty() requests: number;
   @ApiProperty() parentalReturns: number;
   @ApiProperty() extraWork: number;
+  @ApiProperty({ description: '本年度待指定或須撤銷的國定假日補假' })
+  holidaySubstitutes: number;
 }

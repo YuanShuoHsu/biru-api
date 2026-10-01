@@ -17,7 +17,11 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { DAY_MS, platformDateString } from 'src/common/constants/timezone';
+import {
+  DAY_MS,
+  platformDateString,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import {
   buildFilterCondition,
@@ -1389,15 +1393,40 @@ export class AttendanceLeavesService {
     });
   }
 
-  async holidaySubstitutes(
-    actor: AttendanceActor,
-    query: AttendanceHolidaySubstitutePaginationQueryDto,
-  ) {
-    const employees = await this.db
+  private holidaySubstituteEmployees(actor: AttendanceActor) {
+    return this.db
       .select({ ...getTableColumns(attendanceEmployee), name: user.name })
       .from(attendanceEmployee)
       .innerJoin(user, eq(user.id, attendanceEmployee.userId))
       .where(eq(attendanceEmployee.organizationId, actor.organizationId));
+  }
+
+  async unresolvedHolidaySubstitutes(actor: AttendanceActor) {
+    const year = toPlatformTime(new Date()).getUTCFullYear();
+    const { owed, rows } = await loadHolidaySubstitutes(
+      this.db,
+      await this.holidaySubstituteEmployees(actor),
+      `${year}-01-01`,
+      `${year}-12-31`,
+    );
+    const designated = new Set(
+      rows.map(({ employeeId, holidayDate }) => `${employeeId}:${holidayDate}`),
+    );
+    const undesignated = [...owed].flatMap(([employeeId, dates]) =>
+      dates.filter((date) => !designated.has(`${employeeId}:${date}`)),
+    );
+    const unowed = rows.filter(
+      ({ employeeId, holidayDate }) =>
+        !owed.get(employeeId)?.includes(holidayDate),
+    );
+    return undesignated.length + unowed.length;
+  }
+
+  async holidaySubstitutes(
+    actor: AttendanceActor,
+    query: AttendanceHolidaySubstitutePaginationQueryDto,
+  ) {
+    const employees = await this.holidaySubstituteEmployees(actor);
     const { holidays, owed, rows } = await loadHolidaySubstitutes(
       this.db,
       employees,

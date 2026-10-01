@@ -23,8 +23,13 @@ export const employmentInsuranceEligible = (
 export const pensionApplicable = (legalStatus: AttendanceLegalStatus) =>
   legalStatus !== 'foreignStudent' && legalStatus !== 'otherForeigner';
 
+export const foreignTaxIdentityRequired = (
+  legalStatus: AttendanceLegalStatus,
+) => legalStatus !== 'national';
+
 export const legalStatusObligations = (legalStatus: AttendanceLegalStatus) => ({
   employmentInsuranceEligible: employmentInsuranceEligible(legalStatus),
+  foreignTaxIdentityRequired: foreignTaxIdentityRequired(legalStatus),
   pensionApplicable: pensionApplicable(legalStatus),
   workPermitRequired: workPermitRequired(legalStatus),
 });

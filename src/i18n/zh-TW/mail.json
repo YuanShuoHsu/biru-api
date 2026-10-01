@@ -86,5 +86,34 @@
     "subject": "歡迎來到 {productName}！請確認您的電子郵件",
     "title": "歡迎您，{name}！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "attendance_notification": {
+    "kinds": {
+      "leave": "請假",
+      "correction": "補打卡",
+      "overtime": "加班",
+      "cancellation": "撤假",
+      "extraWork": "排班外時數",
+      "parentalReturn": "提前復職"
+    },
+    "results": {
+      "approved": "已核准",
+      "rejected": "已駁回"
+    },
+    "submitted": {
+      "subject": "{organizationName}：{employeeName} 送出{requestName}申請",
+      "title": "有新的申請待審核",
+      "intro": "{employeeName} 在 {organizationName} 送出了{requestName}申請，期間 {period}。",
+      "action": "前往審核"
+    },
+    "reviewed": {
+      "subject": "{organizationName}：您的{requestName}申請{result}",
+      "title": "您的{requestName}申請{result}",
+      "intro": "{reviewerName} 已審核您在 {organizationName} 的{requestName}申請（{period}），結果：{result}。",
+      "action": "查看申請紀錄"
+    },
+    "reason": "審核說明：{reason}",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   }
 }

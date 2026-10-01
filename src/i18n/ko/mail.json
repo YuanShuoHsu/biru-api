@@ -86,5 +86,34 @@
     "subject": "{productName}에 오신 것을 환영합니다! 이메일을 확인해주세요",
     "title": "환영합니다, {name}님!",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
+  },
+  "attendance_notification": {
+    "kinds": {
+      "leave": "휴가",
+      "correction": "출퇴근 정정",
+      "overtime": "초과 근무",
+      "cancellation": "휴가 취소",
+      "extraWork": "근무표 밖 시간",
+      "parentalReturn": "조기 복직"
+    },
+    "results": {
+      "approved": "승인됨",
+      "rejected": "반려됨"
+    },
+    "submitted": {
+      "subject": "{organizationName}: {employeeName} 님이 {requestName} 신청을 제출했습니다",
+      "title": "검토 대기 중인 신청이 있습니다",
+      "intro": "{employeeName} 님이 {organizationName}에서 {requestName} 신청을 제출했습니다({period}).",
+      "action": "검토하기"
+    },
+    "reviewed": {
+      "subject": "{organizationName}: {requestName} 신청 결과 - {result}",
+      "title": "{requestName} 신청 결과: {result}",
+      "intro": "{reviewerName} 님이 {organizationName}의 {requestName} 신청({period})을 검토했습니다. 결과: {result}.",
+      "action": "신청 내역 보기"
+    },
+    "reason": "검토 의견: {reason}",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
   }
 }

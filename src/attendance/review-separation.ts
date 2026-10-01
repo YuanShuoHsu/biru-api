@@ -28,20 +28,28 @@ const holdsPermission = (roles: string, permission: ReviewPermission) =>
     .split(',')
     .some((role) => isAuthorized(role.trim(), REVIEW_PERMISSIONS[permission]));
 
-export const alternateReviewerExists = async (
+export const reviewerUserIds = async (
   db: DrizzleDB | Transaction,
   organizationId: string,
   permission: ReviewPermission,
-  excludedUserIds: string[],
 ) =>
   (
     await db
       .select({ userId: member.userId, role: member.role })
       .from(member)
       .where(eq(member.organizationId, organizationId))
-  ).some(
-    ({ role, userId }) =>
-      !excludedUserIds.includes(userId) && holdsPermission(role, permission),
+  )
+    .filter(({ role }) => holdsPermission(role, permission))
+    .map(({ userId }) => userId);
+
+export const alternateReviewerExists = async (
+  db: DrizzleDB | Transaction,
+  organizationId: string,
+  permission: ReviewPermission,
+  excludedUserIds: string[],
+) =>
+  (await reviewerUserIds(db, organizationId, permission)).some(
+    (userId) => !excludedUserIds.includes(userId),
   );
 
 // 雙人覆核只在店裡確實有第二位有權限者時才強制；獨資店家沒有人能審，強制只會讓案件永遠卡住

@@ -35,6 +35,7 @@ import type {
   WithholdingIdType,
 } from './dto/payroll-withholding.dto';
 import { lineCents, salaryIncomeCents } from './salary-income';
+import { foreignTaxIdentityRequired } from './taiwan-rules';
 import {
   isValidBusinessNumber,
   isValidNationalId,
@@ -219,7 +220,7 @@ export class PayrollWithholdingService {
           ),
         );
       if (!employee) throw new NotFoundException();
-      const national = employee.legalStatus === 'national';
+      const national = !foreignTaxIdentityRequired(employee.legalStatus);
       if (
         national
           ? !isValidNationalId(dto.taxId)

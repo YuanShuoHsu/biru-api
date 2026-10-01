@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 
+import { MailsModule } from 'src/mails/mails.module';
+
 import { AttendanceEmployeesController } from './attendance-employees.controller';
 import { AttendanceEmployeesService } from './attendance-employees.service';
 import { AttendanceLeavesController } from './attendance-leaves.controller';
 import { AttendanceLeavesService } from './attendance-leaves.service';
+import { AttendanceNotificationsService } from './attendance-notifications.service';
 import { AttendanceParentalController } from './attendance-parental.controller';
 import { AttendanceParentalService } from './attendance-parental.service';
 import { AttendanceRequestsController } from './attendance-requests.controller';
@@ -14,6 +17,7 @@ import { AttendanceShiftsController } from './attendance-shifts.controller';
 import { AttendanceShiftsService } from './attendance-shifts.service';
 
 @Module({
+  imports: [MailsModule],
   controllers: [
     AttendanceEmployeesController,
     AttendanceShiftTypesController,
@@ -28,6 +32,7 @@ import { AttendanceShiftsService } from './attendance-shifts.service';
     AttendanceShiftsService,
     AttendanceRequestsService,
     AttendanceLeavesService,
+    AttendanceNotificationsService,
     AttendanceParentalService,
   ],
 })

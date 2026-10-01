@@ -439,7 +439,7 @@ export function owedHolidaySubstitutes({
   return owed;
 }
 
-const OVERTIME_REVIEW_MIN_MS = 60 * 1000;
+export const OVERTIME_REVIEW_MIN_MS = 60 * 1000;
 
 // 勞動事件法 §38：出勤紀錄內的時間推定經雇主同意執行職務，排班外的打卡時數要有人審過才能結算
 export const unreviewedOvertime = (

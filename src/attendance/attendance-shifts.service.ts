@@ -40,13 +40,14 @@ import {
   statutoryHoliday,
 } from 'src/db/schema/attendance';
 import { team, teamMember } from 'src/db/schema/organizations';
+import { payrollStatement } from 'src/db/schema/payroll';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import {
   DAY_MS,
   platformDateString,
   platformMidnight,
-  platformMonthStart,
+  PLATFORM_TIMEZONE,
   STORE_UTC_OFFSET,
   toPlatformTime,
 } from 'src/common/constants/timezone';
@@ -81,6 +82,7 @@ import {
   MAX_DAILY_WORK_SECONDS,
   MAX_SHIFT_MS,
   normalizeIp,
+  OVERTIME_REVIEW_MIN_MS,
   punchLeewayMs,
   countedIntervals,
   maternalNightWork,
@@ -160,8 +162,26 @@ const clockOutAt = sql<Date | null>`CASE
 
 const CALENDAR_SHIFT_LIMIT = 500;
 
-// 當月與前兩個月：更早的月份薪資應已發布，發布前就會被未審時數擋下
-const UNREVIEWED_OVERTIME_MONTHS = 3;
+const shiftMonth = (time: SQL | typeof attendanceShift.startsAt) =>
+  sql`to_char((${time}) AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM')`;
+
+const overtimeReviewMin = sql.raw(
+  `interval '${OVERTIME_REVIEW_MIN_MS} milliseconds'`,
+);
+
+// 須是 unreviewedOvertime 可能非空的超集合：沒有休息打卡時採計時段不會超出上下班區間，區間內的未付休息也同時從排定時段扣除
+const mayHaveUnreviewedOvertime = sql`(
+  ${clockInAt} <= ${attendanceShift.startsAt} - ${overtimeReviewMin}
+  OR ${clockOutAt} >= ${attendanceShift.endsAt} + ${overtimeReviewMin}
+  OR (${approvedCorrectedEvents} IS NULL AND EXISTS (SELECT 1 FROM ${attendanceEvent} rest
+    WHERE rest.shift_id = ${attendanceShift.id} AND rest.action = 'breakStart'))
+)`;
+
+const payrollUnpublished = sql`NOT EXISTS (SELECT 1 FROM ${payrollStatement} published
+  WHERE published.employee_id = ${attendanceShift.employeeId}
+    AND published.status = 'published'
+    AND published.month IN (${shiftMonth(attendanceShift.startsAt)},
+      ${shiftMonth(sql`${attendanceShift.endsAt} - interval '1 millisecond'`)}))`;
 
 const punchLeewaySql = sql`greatest(interval '0',
   make_interval(secs => ${sql.raw(String(MAX_DAILY_WORK_SECONDS))})
@@ -431,11 +451,6 @@ export class AttendanceShiftsService {
   }
 
   async unreviewedOvertimeShiftIds(actor: AttendanceActor, scope?: SQL) {
-    const today = toPlatformTime(new Date());
-    const from = platformMonthStart(
-      today.getUTCFullYear(),
-      today.getUTCMonth() - (UNREVIEWED_OVERTIME_MONTHS - 1),
-    );
     const ids: string[] = [];
     let loaded = 0;
     let total: number;
@@ -450,8 +465,9 @@ export class AttendanceShiftsService {
         },
         false,
         and(
-          gte(attendanceShift.startsAt, from),
           sql`NOT (${unfinishedShift})`,
+          mayHaveUnreviewedOvertime,
+          payrollUnpublished,
           scope,
         ),
       );

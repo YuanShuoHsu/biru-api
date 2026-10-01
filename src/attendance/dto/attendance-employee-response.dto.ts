@@ -43,6 +43,10 @@ export class AttendanceEmploymentResponseDto {
   @ApiPropertyOptional({ nullable: true, type: Number })
   restDayWeekday: number | null;
   @ApiProperty() employmentInsuranceEligible: boolean;
+  @ApiProperty({
+    description: '報稅身分須填居留證號、居住地國與當地稅務識別碼',
+  })
+  foreignTaxIdentityRequired: boolean;
   @ApiProperty() workPermitRequired: boolean;
   @ApiProperty() pensionApplicable: boolean;
   @ApiPropertyOptional({ nullable: true, type: String })
@@ -128,6 +132,10 @@ export class AttendanceLegalStatusObligationResponseDto {
   })
   legalStatus: AttendanceLegalStatus;
   @ApiProperty() employmentInsuranceEligible: boolean;
+  @ApiProperty({
+    description: '報稅身分須填居留證號、居住地國與當地稅務識別碼',
+  })
+  foreignTaxIdentityRequired: boolean;
   @ApiProperty() pensionApplicable: boolean;
   @ApiProperty() workPermitRequired: boolean;
 }

@@ -1736,7 +1736,11 @@ export class PayrollService {
     };
   }
 
-  async draft(actor: AttendanceActor, dto: PayrollDraftDto) {
+  async draft(
+    actor: AttendanceActor,
+    dto: PayrollDraftDto,
+    { skipUnscheduled = false } = {},
+  ) {
     const reason = dto.reason?.trim() ?? '';
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -1783,6 +1787,8 @@ export class PayrollService {
         employee,
         await this.payrollSettings(tx, actor.organizationId, dto.month),
       );
+      if (skipUnscheduled && snapshot.blockers.includes('noShifts'))
+        throw badRequestError('noShifts');
       const calculation = {
         employeeName: employee.name,
         idempotencyKey: dto.idempotencyKey,
@@ -1843,12 +1849,11 @@ export class PayrollService {
     return runBatch(
       employees.map(({ id }) => id),
       (employeeId) =>
-        this.draft(actor, {
-          employeeId,
-          idempotencyKey: randomUUID(),
-          month,
-          reason,
-        }),
+        this.draft(
+          actor,
+          { employeeId, idempotencyKey: randomUUID(), month, reason },
+          { skipUnscheduled: true },
+        ),
     );
   }
 
