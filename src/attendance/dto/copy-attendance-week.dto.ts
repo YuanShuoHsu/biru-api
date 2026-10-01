@@ -18,6 +18,7 @@ export const ATTENDANCE_COPY_SKIP_REASONS = [
   'restDay',
   'regularLeave',
   'employeeNotEnabled',
+  'employeeNotInTeam',
   'workPermitRequired',
   'maternalNightWork',
   'shiftTooLong',

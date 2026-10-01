@@ -39,6 +39,7 @@ import {
   type ShiftBreak,
   statutoryHoliday,
 } from 'src/db/schema/attendance';
+import { team, teamMember } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import {
@@ -231,6 +232,7 @@ export class AttendanceShiftsService {
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      teamName: team.name,
       startsAt: attendanceShift.startsAt,
       endsAt: attendanceShift.endsAt,
       clockInAt,
@@ -268,6 +270,7 @@ export class AttendanceShiftsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(team.name, `%${value}%`),
           ilike(localTimeText(attendanceShift.startsAt), `%${value}%`),
           ilike(localTimeText(attendanceShift.endsAt), `%${value}%`),
         ],
@@ -279,6 +282,7 @@ export class AttendanceShiftsService {
         .select({
           shift: attendanceShift,
           employeeName: user.name,
+          teamName: team.name,
           clockInAt,
           clockOutAt,
         })
@@ -288,6 +292,7 @@ export class AttendanceShiftsService {
           eq(attendanceEmployee.id, attendanceShift.employeeId),
         )
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .leftJoin(team, eq(team.id, attendanceShift.teamId))
         .where(where)
         .orderBy(
           sort(sortBy ? fieldMap[sortBy] : attendanceShift.startsAt),
@@ -303,6 +308,7 @@ export class AttendanceShiftsService {
           eq(attendanceEmployee.id, attendanceShift.employeeId),
         )
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .leftJoin(team, eq(team.id, attendanceShift.teamId))
         .where(where),
     ]);
     if (!rows.length) return { data: [], total };
@@ -354,7 +360,8 @@ export class AttendanceShiftsService {
         .from(attendanceSettings)
         .where(eq(attendanceSettings.organizationId, actor.organizationId)),
     ]);
-    const data = rows.map(({ shift, employeeName, clockInAt, clockOutAt }) => {
+    const data = rows.map((row) => {
+      const { shift, employeeName, teamName, clockInAt, clockOutAt } = row;
       const rawEvents = events
         .filter((event) => event.shiftId === shift.id)
         .map(({ action, occurredAt, paidBreak }) => ({
@@ -386,6 +393,7 @@ export class AttendanceShiftsService {
       return {
         ...shift,
         employeeName,
+        teamName,
         clockInAt,
         clockOutAt,
         events: effectiveEvents,
@@ -444,6 +452,37 @@ export class AttendanceShiftsService {
       if (!page.data.length) break;
     } while (shifts.length < total);
     return shifts;
+  }
+
+  async teams(actor: AttendanceActor) {
+    const [teams, memberships] = await Promise.all([
+      this.db
+        .select({ id: team.id, name: team.name })
+        .from(team)
+        .where(eq(team.organizationId, actor.organizationId))
+        .orderBy(asc(team.name), asc(team.id)),
+      this.db
+        .select({
+          teamId: teamMember.teamId,
+          employeeId: attendanceEmployee.id,
+        })
+        .from(teamMember)
+        .innerJoin(team, eq(team.id, teamMember.teamId))
+        .innerJoin(
+          attendanceEmployee,
+          and(
+            eq(attendanceEmployee.userId, teamMember.userId),
+            eq(attendanceEmployee.organizationId, team.organizationId),
+          ),
+        )
+        .where(eq(team.organizationId, actor.organizationId)),
+    ]);
+    return teams.map((row) => ({
+      ...row,
+      employeeIds: memberships
+        .filter(({ teamId }) => teamId === row.id)
+        .map(({ employeeId }) => employeeId),
+    }));
   }
 
   async calendarDayKinds(
@@ -610,6 +649,7 @@ export class AttendanceShiftsService {
             new Date(new Date(date).getTime() + offset).toISOString();
           return {
             employeeId: shift.employeeId,
+            teamId: shift.teamId,
             startsAt: move(shift.startsAt),
             endsAt: move(shift.endsAt),
             paidBreak: shift.paidBreak,
@@ -717,15 +757,29 @@ export class AttendanceShiftsService {
       const [value] = await this.prepareShifts(
         tx,
         actor,
-        [{ ...change, employeeId: change.employeeId ?? shift.employeeId }],
+        [
+          {
+            ...change,
+            employeeId: change.employeeId ?? shift.employeeId,
+            teamId: change.teamId === undefined ? shift.teamId : change.teamId,
+          },
+        ],
         shift,
       );
-      const { employeeId, startsAt, endsAt, breaks, paidBreak, dayKind } =
-        value;
+      const {
+        employeeId,
+        teamId,
+        startsAt,
+        endsAt,
+        breaks,
+        paidBreak,
+        dayKind,
+      } = value;
       if (dryRun)
         return {
           ...shift,
           employeeId,
+          teamId,
           startsAt,
           endsAt,
           breaks,
@@ -734,19 +788,36 @@ export class AttendanceShiftsService {
         };
       const [row] = await tx
         .update(attendanceShift)
-        .set({ employeeId, startsAt, endsAt, breaks, paidBreak, dayKind })
+        .set({
+          employeeId,
+          teamId,
+          startsAt,
+          endsAt,
+          breaks,
+          paidBreak,
+          dayKind,
+        })
         .where(eq(attendanceShift.id, id))
         .returning();
       await writeAudit(tx, actor, 'shift.update', id, {
         before: {
           employeeId: shift.employeeId,
+          teamId: shift.teamId,
           startsAt: shift.startsAt,
           endsAt: shift.endsAt,
           breaks: shift.breaks,
           paidBreak: shift.paidBreak,
           dayKind: shift.dayKind,
         },
-        after: { employeeId, startsAt, endsAt, breaks, paidBreak, dayKind },
+        after: {
+          employeeId,
+          teamId,
+          startsAt,
+          endsAt,
+          breaks,
+          paidBreak,
+          dayKind,
+        },
       });
       return row;
     });
@@ -761,6 +832,7 @@ export class AttendanceShiftsService {
   ) {
     const values: (typeof attendanceShift.$inferInsert & {
       id: string;
+      teamId: string | null;
       dayKind: AttendanceDayKind;
       paidBreak: boolean;
       breaks: ShiftBreak[];
@@ -778,6 +850,19 @@ export class AttendanceShiftsService {
           eq(attendanceEmployee.organizationId, actor.organizationId),
         ),
       );
+    const teamIds = [...new Set(dtos.flatMap(({ teamId }) => teamId ?? []))];
+    const teamMemberships = teamIds.length
+      ? await tx
+          .select({ teamId: teamMember.teamId, userId: teamMember.userId })
+          .from(teamMember)
+          .innerJoin(team, eq(team.id, teamMember.teamId))
+          .where(
+            and(
+              inArray(teamMember.teamId, teamIds),
+              eq(team.organizationId, actor.organizationId),
+            ),
+          )
+      : [];
     const intervals = dtos.map((dto) =>
       parseInterval(dto.startsAt, dto.endsAt),
     );
@@ -949,6 +1034,14 @@ export class AttendanceShiftsService {
         )
           throw badRequestError('employeeNotEnabled');
         if (
+          dto.teamId &&
+          !teamMemberships.some(
+            ({ teamId, userId }) =>
+              teamId === dto.teamId && userId === employee.userId,
+          )
+        )
+          throw badRequestError('employeeNotInTeam');
+        if (
           workPermitRequired(employee.legalStatus) &&
           !withinPeriods(
             employee.workPermits,
@@ -1055,6 +1148,7 @@ export class AttendanceShiftsService {
         values.push({
           ...dto,
           ...interval,
+          teamId: dto.teamId ?? null,
           dayKind,
           breaks,
           id: randomUUID(),
@@ -1195,6 +1289,7 @@ export class AttendanceShiftsService {
         [
           {
             employeeId: shift.employeeId,
+            teamId: shift.teamId,
             startsAt: shift.startsAt.toISOString(),
             endsAt: shift.endsAt.toISOString(),
             paidBreak: shift.paidBreak,

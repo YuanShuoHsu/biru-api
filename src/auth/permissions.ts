@@ -28,6 +28,7 @@ const statement = {
   purchasing: ['create', 'update', 'delete', 'read'],
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
+  shiftType: ['create', 'update', 'delete'],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -54,6 +55,7 @@ export const owner = ac.newRole({
   purchasing: ['create', 'update', 'delete', 'read'],
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
+  shiftType: ['create', 'update', 'delete'],
 });
 
 export const admin = ac.newRole({
@@ -74,6 +76,7 @@ export const admin = ac.newRole({
   purchasing: ['create', 'update', 'delete', 'read'],
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
+  shiftType: ['create', 'update', 'delete'],
 });
 
 export const member = ac.newRole({

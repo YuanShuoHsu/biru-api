@@ -4,7 +4,10 @@ import { IsIn, IsOptional } from 'class-validator';
 
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
-export const ATTENDANCE_SHIFT_STRING_FILTER_FIELDS = ['employeeName'] as const;
+export const ATTENDANCE_SHIFT_STRING_FILTER_FIELDS = [
+  'employeeName',
+  'teamName',
+] as const;
 
 export const ATTENDANCE_SHIFT_DATE_FILTER_FIELDS = [
   'startsAt',

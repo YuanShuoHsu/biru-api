@@ -9,6 +9,7 @@ import {
   IsDateString,
   IsIn,
   IsOptional,
+  IsString,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
@@ -31,11 +32,19 @@ export class CreateAttendanceShiftDto {
   @IsOptional()
   @IsIn(ATTENDANCE_SCHEDULED_DAY_KINDS)
   dayKind?: AttendanceScheduledDayKind;
+  @ApiPropertyOptional({
+    description: '員工必須是該團隊的成員',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  teamId?: string | null;
 }
 
 export class UpdateAttendanceShiftDto extends OmitType(
   CreateAttendanceShiftDto,
-  ['employeeId', 'dayKind'] as const,
+  ['employeeId', 'dayKind', 'teamId'] as const,
 ) {
   @ApiPropertyOptional({ description: '改排給其他員工，省略則沿用原員工' })
   @IsOptional()
@@ -50,6 +59,14 @@ export class UpdateAttendanceShiftDto extends OmitType(
   @IsOptional()
   @IsIn(ATTENDANCE_SCHEDULED_DAY_KINDS)
   dayKind?: AttendanceScheduledDayKind;
+  @ApiPropertyOptional({
+    description: '省略則沿用原團隊，null 則清除',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  teamId?: string | null;
   @ApiPropertyOptional({ description: '只檢查能否排入，不寫入' })
   @IsOptional()
   @IsBoolean()

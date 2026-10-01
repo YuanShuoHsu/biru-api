@@ -32,6 +32,10 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  teamId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  teamName: string | null;
   @ApiProperty() startsAt: Date;
   @ApiProperty() endsAt: Date;
   @ApiProperty() paidBreak: boolean;
@@ -74,6 +78,7 @@ export class AttendanceShiftRecordResponseDto extends PickType(
     'id',
     'organizationId',
     'employeeId',
+    'teamId',
     'startsAt',
     'endsAt',
     'paidBreak',
@@ -83,6 +88,17 @@ export class AttendanceShiftRecordResponseDto extends PickType(
     'createdAt',
   ] as const,
 ) {}
+
+export class AttendanceTeamResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({
+    description: '屬於該團隊的出勤員工',
+    isArray: true,
+    type: String,
+  })
+  employeeIds: string[];
+}
 
 export class AttendancePunchResponseDto {
   @ApiProperty() id: string;

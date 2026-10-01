@@ -29,6 +29,7 @@ import {
   AttendanceShiftRecordResponseDto,
   AttendanceShiftResponseDto,
   AttendanceShiftsResponseDto,
+  AttendanceTeamResponseDto,
 } from './dto/attendance-shift-response.dto';
 import {
   AttendanceCopyWeekResponseDto,
@@ -113,6 +114,16 @@ export class AttendanceShiftsController {
       actor(req, session),
       query,
     );
+  }
+
+  @Get('teams')
+  @Roles({ shift: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '可排班的團隊與其成員' })
+  teams(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+  ): Promise<AttendanceTeamResponseDto[]> {
+    return this.attendanceShiftsService.teams(actor(req, session));
   }
 
   @Post('shifts')

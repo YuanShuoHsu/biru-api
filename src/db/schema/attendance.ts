@@ -13,7 +13,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { organization } from './organizations';
+import { organization, team } from './organizations';
 import { user } from './users';
 
 export const ATTENDANCE_DAY_KINDS = [
@@ -250,6 +250,29 @@ export const attendanceSettings = pgTable(
   ],
 );
 
+export const attendanceShiftType = pgTable(
+  'attendance_shift_type',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    startTime: text('start_time').notNull(),
+    endTime: text('end_time').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('attendance_shift_type_name_uidx').on(t.organizationId, t.name),
+    check(
+      'attendance_shift_type_times',
+      sql`${t.startTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' AND ${t.endTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' AND ${t.startTime} <> ${t.endTime}`,
+    ),
+  ],
+);
+
 export const attendanceShift = pgTable(
   'attendance_shift',
   {
@@ -260,6 +283,7 @@ export const attendanceShift = pgTable(
     employeeId: text('employee_id')
       .notNull()
       .references(() => attendanceEmployee.id),
+    teamId: text('team_id').references(() => team.id, { onDelete: 'set null' }),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     paidBreak: boolean('paid_break').notNull().default(false),
