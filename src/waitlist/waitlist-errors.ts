@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 
 export const waitlistErrorCodes = [
   'waitlistClosed',
+  'waitlistCutoff',
   'waitlistDisabled',
   'waitlistGroupsInvalid',
   'waitlistPartySizeUnavailable',

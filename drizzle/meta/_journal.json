@@ -1282,6 +1282,13 @@
       "when": 1791291252624,
       "tag": "0182_waitlist_hold_confirm",
       "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1791292196310,
+      "tag": "0183_waitlist_cutoff",
+      "breakpoints": true
     }
   ]
 }

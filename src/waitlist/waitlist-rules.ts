@@ -1,9 +1,14 @@
+import {
+  getMinutesUntilClose,
+  isWithinOpeningHours,
+} from 'src/common/utils/opening-hours';
 import type {
   WaitlistGroup,
   WaitlistTicket,
   WaitlistTicketStatus,
 } from 'src/db/schema/waitlist';
 
+export const DEFAULT_CUTOFF_MINUTES = 60;
 export const DEFAULT_HOLD_MINUTES = 10;
 
 export const DEFAULT_WAITLIST_GROUPS: WaitlistGroup[] = [
@@ -60,6 +65,19 @@ export const findGroup = (
 
 export const formatTicketNumber = (prefix: string, number: number): string =>
   `${prefix}${String(number).padStart(3, '0')}`;
+
+export const getAvailability = (
+  openingHours: string | null,
+  cutoffMinutes: number,
+  at: Date,
+): { cutoff: boolean; open: boolean } => {
+  const open = isWithinOpeningHours(openingHours, at);
+
+  return {
+    cutoff: open && getMinutesUntilClose(openingHours, at) < cutoffMinutes,
+    open,
+  };
+};
 
 export const getHoldUntil = (
   { calledAt, status }: Pick<WaitlistTicket, 'calledAt' | 'status'>,

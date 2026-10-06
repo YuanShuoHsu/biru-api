@@ -6,6 +6,8 @@ import { WaitlistService } from './waitlist.service';
 
 const ALWAYS_OPEN = null;
 const NEVER_OPEN = 'Mo 00:00-00:01';
+// 假時鐘是週二 12:00（台北），距打烊 30 分鐘
+const CLOSING_SOON = 'Tu 09:00-12:30';
 
 const createService = ({
   openingHours = ALWAYS_OPEN,
@@ -16,6 +18,7 @@ const createService = ({
   setting?: {
     enabled: boolean;
     groups: unknown[];
+    cutoffMinutes?: number;
     holdMinutes?: number;
     paused: boolean;
   };
@@ -62,6 +65,7 @@ describe('WaitlistService.createTicket', () => {
     ],
     ['waitlistPaused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
     ['waitlistClosed', { enabled: true, groups, paused: false }, NEVER_OPEN],
+    ['waitlistCutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
   ])('rejects with %s', async (code, setting, openingHours) => {
     const { db, service } = createService({ openingHours, setting });
 
@@ -70,6 +74,21 @@ describe('WaitlistService.createTicket', () => {
     ).rejects.toThrow(code);
     expect(db.transaction).not.toHaveBeenCalled();
   });
+
+  it.each([0, 30])(
+    'lets customers in when the cutoff is %i minutes',
+    async (cutoffMinutes) => {
+      const { db, service } = createService({
+        openingHours: CLOSING_SOON,
+        setting: { cutoffMinutes, enabled: true, groups, paused: false },
+      });
+      db.transaction.mockRejectedValue(new Error('reached transaction'));
+
+      await expect(
+        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+      ).rejects.toThrow('reached transaction');
+    },
+  );
 
   it('rejects a party size outside every group', async () => {
     const { service } = createService({
@@ -101,6 +120,7 @@ describe('WaitlistService.createTicket by staff', () => {
   it.each([
     ['paused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
     ['closed', { enabled: true, groups, paused: false }, NEVER_OPEN],
+    ['cutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
   ])(
     'passes the %s check through to numbering',
     async (_, setting, openingHours) => {

@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_setting" ADD COLUMN "cutoff_minutes" integer DEFAULT 60 NOT NULL;

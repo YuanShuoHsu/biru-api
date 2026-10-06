@@ -34,6 +34,7 @@ import {
   AdminWaitlistResponseDto,
   WaitlistErrorResponseDto,
   WaitlistStatusResponseDto,
+  WaitlistTicketDetailResponseDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto';
 import {
@@ -130,7 +131,7 @@ export class WaitlistController {
   getTicket(
     @Param('organizationSlug') organizationSlug: string,
     @Param('ticketId') ticketId: string,
-  ): Promise<WaitlistTicketResponseDto> {
+  ): Promise<WaitlistTicketDetailResponseDto> {
     return this.waitlistService.getTicket(organizationSlug, ticketId);
   }
 

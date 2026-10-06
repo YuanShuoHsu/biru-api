@@ -14,6 +14,12 @@ import {
 import { WaitlistGroupDto } from './waitlist-group.dto';
 
 export class UpdateWaitlistSettingsDto {
+  @ApiProperty({ description: '打烊前幾分鐘停止顧客自助取號', example: 60 })
+  @IsInt()
+  @Min(0)
+  @Max(240)
+  cutoffMinutes: number;
+
   @ApiProperty()
   @IsBoolean()
   enabled: boolean;
@@ -39,6 +45,8 @@ export class UpdateWaitlistPausedDto {
 }
 
 export class WaitlistSettingsResponseDto {
+  @ApiProperty({ description: '打烊前幾分鐘停止顧客自助取號' })
+  cutoffMinutes: number;
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupDto] }) groups: WaitlistGroupDto[];
   @ApiProperty({ description: '叫號後保留分鐘數' }) holdMinutes: number;

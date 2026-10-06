@@ -9,12 +9,18 @@ import { waitlistErrorCodes, type WaitlistErrorCode } from '../waitlist-errors';
 import { WaitlistGroupDto } from './waitlist-group.dto';
 
 export class WaitlistGroupStatusDto extends WaitlistGroupDto {
-  @ApiProperty({ type: [String], description: '叫號中的號碼，最近叫的在前' })
-  calledTicketNumbers: string[];
+  @ApiPropertyOptional({
+    description:
+      '最近一次叫號的號碼（之後入座、過號或取消仍保留），尚未叫號為 null',
+    example: 'A008',
+  })
+  currentTicketNumber: string | null;
   @ApiProperty() waitingCount: number;
 }
 
 export class WaitlistStatusResponseDto {
+  @ApiProperty({ description: '營業中但已過打烊前停止取號時間' })
+  cutoff: boolean;
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupStatusDto] })
   groups: WaitlistGroupStatusDto[];
@@ -43,6 +49,15 @@ export class WaitlistTicketResponseDto {
   @ApiProperty({ example: 'A012' }) ticketNumber: string;
 }
 
+export class WaitlistTicketDetailResponseDto extends WaitlistTicketResponseDto {
+  @ApiPropertyOptional({
+    description:
+      '同組最近一次叫號的號碼，與候位狀態的 currentTicketNumber 相同',
+    example: 'B003',
+  })
+  currentTicketNumber: string | null;
+}
+
 export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
   @ApiPropertyOptional() email: string | null;
   @ApiProperty() name: string;
@@ -50,9 +65,13 @@ export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
 }
 
 export class AdminWaitlistResponseDto {
+  @ApiProperty({ description: '營業中但已過打烊前停止取號時間' })
+  cutoff: boolean;
+  @ApiProperty() cutoffMinutes: number;
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupDto] }) groups: WaitlistGroupDto[];
   @ApiProperty() holdMinutes: number;
+  @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
   @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [AdminWaitlistTicketDto],

@@ -11,12 +11,12 @@ import {
   eq,
   gte,
   inArray,
+  isNotNull,
   lt,
   max,
   or,
 } from 'drizzle-orm';
 import { platformDateString } from 'src/common/constants/timezone';
-import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
 import type { Language } from 'src/db/schema/enums';
 import { organization } from 'src/db/schema/organizations';
 import {
@@ -37,6 +37,7 @@ import type {
   AdminWaitlistResponseDto,
   AdminWaitlistTicketDto,
   WaitlistStatusResponseDto,
+  WaitlistTicketDetailResponseDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto';
 import type {
@@ -46,14 +47,25 @@ import type {
 import { badRequestError, conflictError } from './waitlist-errors';
 import {
   canTransition,
+  DEFAULT_CUTOFF_MINUTES,
   DEFAULT_HOLD_MINUTES,
   DEFAULT_WAITLIST_GROUPS,
   findGroup,
   formatTicketNumber,
+  getAvailability,
   getHoldUntil,
   isValidGroups,
   type StaffTransitionStatus,
 } from './waitlist-rules';
+
+const inTodayQueue = (organizationId: string) =>
+  and(
+    eq(waitlistTicket.organizationId, organizationId),
+    or(
+      inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+      gte(waitlistTicket.serviceDate, platformDateString(new Date())),
+    ),
+  );
 
 const isActive = (status: WaitlistTicketStatus) =>
   (WAITLIST_ACTIVE_STATUSES as readonly WaitlistTicketStatus[]).includes(
@@ -84,6 +96,7 @@ export class WaitlistService {
     });
 
     return {
+      cutoffMinutes: setting?.cutoffMinutes ?? DEFAULT_CUTOFF_MINUTES,
       enabled: setting?.enabled || false,
       groups: setting?.groups.length ? setting.groups : DEFAULT_WAITLIST_GROUPS,
       holdMinutes: setting?.holdMinutes || DEFAULT_HOLD_MINUTES,
@@ -161,36 +174,36 @@ export class WaitlistService {
     if (!org) throw new NotFoundException('Organization not found');
 
     const settings = await this.getSettings(organizationId);
-    const active = await this.db
+    const tickets = await this.db
       .select({
+        calledAt: waitlistTicket.calledAt,
         number: waitlistTicket.number,
         prefix: waitlistTicket.prefix,
         status: waitlistTicket.status,
       })
       .from(waitlistTicket)
-      .where(
-        and(
-          eq(waitlistTicket.organizationId, organizationId),
-          inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-        ),
-      )
+      .where(inTodayQueue(organizationId))
       .orderBy(desc(waitlistTicket.calledAt));
 
     return {
+      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
       enabled: settings.enabled,
       groups: settings.groups.map((group) => {
-        const tickets = active.filter(({ prefix }) => prefix === group.prefix);
+        const groupTickets = tickets.filter(
+          ({ prefix }) => prefix === group.prefix,
+        );
+        const current = groupTickets.find(({ calledAt }) => calledAt);
 
         return {
           ...group,
-          calledTicketNumbers: tickets
-            .filter(({ status }) => status === 'called')
-            .map(({ number, prefix }) => formatTicketNumber(prefix, number)),
-          waitingCount: tickets.filter(({ status }) => status === 'waiting')
-            .length,
+          currentTicketNumber: current
+            ? formatTicketNumber(current.prefix, current.number)
+            : null,
+          waitingCount: groupTickets.filter(
+            ({ status }) => status === 'waiting',
+          ).length,
         };
       }),
-      open: isWithinOpeningHours(org.openingHours, new Date()),
       paused: settings.paused,
     };
   }
@@ -233,10 +246,15 @@ export class WaitlistService {
       );
 
     if (!settings.enabled) throw badRequestError('waitlistDisabled');
-    // 暫停與營業時間只限制顧客自助取號，店員代客登記不受限
+    // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused) throw badRequestError('waitlistPaused');
-    if (!byStaff && !isWithinOpeningHours(org.openingHours, new Date()))
-      throw badRequestError('waitlistClosed');
+    const { cutoff, open } = getAvailability(
+      org.openingHours,
+      settings.cutoffMinutes,
+      new Date(),
+    );
+    if (!byStaff && !open) throw badRequestError('waitlistClosed');
+    if (!byStaff && cutoff) throw badRequestError('waitlistCutoff');
 
     const group = findGroup(settings.groups, dto.partySize);
     if (!group) throw badRequestError('waitlistPartySizeUnavailable');
@@ -305,18 +323,44 @@ export class WaitlistService {
     );
   }
 
+  private async getCurrentTicketNumber(
+    organizationId: string,
+    prefix: string,
+  ): Promise<string | null> {
+    const [current] = await this.db
+      .select({ number: waitlistTicket.number, prefix: waitlistTicket.prefix })
+      .from(waitlistTicket)
+      .where(
+        and(
+          inTodayQueue(organizationId),
+          eq(waitlistTicket.prefix, prefix),
+          isNotNull(waitlistTicket.calledAt),
+        ),
+      )
+      .orderBy(desc(waitlistTicket.calledAt))
+      .limit(1);
+
+    return current ? formatTicketNumber(current.prefix, current.number) : null;
+  }
+
   async getTicket(
     organizationSlug: string,
     ticketId: string,
-  ): Promise<WaitlistTicketResponseDto> {
+  ): Promise<WaitlistTicketDetailResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
 
-    return this.toTicketResponse(
-      ticket,
-      await this.countAhead(ticket),
-      holdMinutes,
-    );
+    return {
+      ...this.toTicketResponse(
+        ticket,
+        await this.countAhead(ticket),
+        holdMinutes,
+      ),
+      currentTicketNumber: await this.getCurrentTicketNumber(
+        ticket.organizationId,
+        ticket.prefix,
+      ),
+    };
   }
 
   private async updateStatus(
@@ -418,21 +462,14 @@ export class WaitlistService {
     const tickets = await this.db
       .select()
       .from(waitlistTicket)
-      .where(
-        and(
-          eq(waitlistTicket.organizationId, org.id),
-          or(
-            inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-            gte(waitlistTicket.serviceDate, platformDateString(new Date())),
-          ),
-        ),
-      )
+      .where(inTodayQueue(org.id))
       .orderBy(asc(waitlistTicket.createdAt));
 
     const waitingRank = new Map<string, number>();
 
     return {
       ...settings,
+      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
       tickets: tickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')
@@ -472,6 +509,7 @@ export class WaitlistService {
     );
 
     const values = {
+      cutoffMinutes: dto.cutoffMinutes,
       enabled: dto.enabled,
       groups,
       holdMinutes: dto.holdMinutes,
