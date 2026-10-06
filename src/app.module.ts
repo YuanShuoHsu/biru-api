@@ -41,6 +41,7 @@ import { PayrollModule } from './payroll/payroll.module';
 import { PointsModule } from './points/points.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { UsersModule } from './users/users.module';
       ],
     }),
     UsersModule,
+    WaitlistModule,
   ],
   controllers: [AppController],
   providers: [

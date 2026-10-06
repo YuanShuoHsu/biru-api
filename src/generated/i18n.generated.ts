@@ -178,6 +178,24 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "waitlist_notification": {
+            "joined": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "detail": string;
+                "action": string;
+            };
+            "called": {
+                "subject": string;
+                "title": string;
+                "intro": string;
+                "detail": string;
+                "action": string;
+            };
+            "salutation": string;
+            "trouble_hint": string;
+        };
     };
     "test": {
         "hello": string;

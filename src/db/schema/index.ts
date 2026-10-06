@@ -14,3 +14,4 @@ export * from './payroll';
 export * from './points';
 export * from './refunds';
 export * from './users';
+export * from './waitlist';

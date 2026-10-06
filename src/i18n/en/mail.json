@@ -115,5 +115,23 @@
     "reason": "Review note: {reason}",
     "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "waitlist_notification": {
+    "joined": {
+      "subject": "{organizationName}: your waitlist number is {ticketNumber}",
+      "title": "You're on the waitlist",
+      "intro": "You've joined the waitlist at {organizationName}. Your number is {ticketNumber} (party of {partySize}).",
+      "detail": "We'll email you again when it's your turn. You can check your place in line any time with the button below.",
+      "action": "Check your place in line"
+    },
+    "called": {
+      "subject": "{organizationName}: {ticketNumber}, it's your turn",
+      "title": "It's your turn",
+      "intro": "{organizationName} is now calling {ticketNumber} (party of {partySize}).",
+      "detail": "Please check in at the counter as soon as possible. If you don't arrive in time, your number may be skipped.",
+      "action": "View your ticket"
+    },
+    "salutation": "Thanks,<br>The {productName} team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }

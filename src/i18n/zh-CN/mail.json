@@ -115,5 +115,23 @@
     "reason": "审核说明：{reason}",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "waitlist_notification": {
+    "joined": {
+      "subject": "{organizationName}：您的排队号码 {ticketNumber}",
+      "title": "排队成功",
+      "intro": "您已在 {organizationName} 完成排队，号码为 {ticketNumber}（{partySize} 位）。",
+      "detail": "轮到您时我们会再发邮件通知，也可以随时点击下方按钮查看当前进度。",
+      "action": "查看排队进度"
+    },
+    "called": {
+      "subject": "{organizationName}：轮到 {ticketNumber} 了",
+      "title": "轮到您了",
+      "intro": "{organizationName} 正在叫号 {ticketNumber}（{partySize} 位）。",
+      "detail": "请尽快到店内柜台报到，逾时未到可能会被过号。",
+      "action": "查看号码牌"
+    },
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }

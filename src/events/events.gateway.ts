@@ -20,6 +20,8 @@ import type { MenuUpdatedEvent } from './menu-updated.event';
 import { MENU_UPDATED_EVENT } from './menu-updated.event';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event';
 import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event';
+import type { WaitlistUpdatedEvent } from './waitlist-updated.event';
+import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event';
 
 import { Namespace, Socket } from 'socket.io';
 import { Roles } from 'src/menus/decorators/roles.decorator';
@@ -27,6 +29,8 @@ import type { OrderMenuResponseDto } from 'src/menus/dto/order-menu-response.dto
 import { WsRolesGuard } from 'src/menus/guards/ws-roles.guard';
 import { PublicMenusService } from 'src/menus/menus-public.service';
 import { OrdersService } from 'src/orders/orders.service';
+import type { WaitlistStatusResponseDto } from 'src/waitlist/dto/waitlist-response.dto';
+import { WaitlistService } from 'src/waitlist/waitlist.service';
 
 const organizationRoom = (organizationId: string) => `org:${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
@@ -35,6 +39,10 @@ const ordersBoardRoom = (organizationId: string) =>
 const PUBLIC_ORDERS_BOARD_ROOM_PREFIX = 'public-orders-board:';
 const publicOrdersBoardRoom = (organizationId: string) =>
   `${PUBLIC_ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
+
+const waitlistRoom = (organizationId: string) => `waitlist:${organizationId}`;
+const publicWaitlistRoom = (organizationId: string) =>
+  `public-waitlist:${organizationId}`;
 
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
@@ -53,6 +61,7 @@ export class EventsGateway {
   constructor(
     private readonly publicMenusService: PublicMenusService,
     private readonly ordersService: OrdersService,
+    private readonly waitlistService: WaitlistService,
   ) {}
 
   @SubscribeMessage('orderMenu')
@@ -132,6 +141,36 @@ export class EventsGateway {
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
     await client.join(ordersBoardRoom(organizationId));
+
+    return true;
+  }
+
+  @OnEvent(WAITLIST_UPDATED_EVENT)
+  handleWaitlistUpdated({ organizationId }: WaitlistUpdatedEvent) {
+    this.server.to(waitlistRoom(organizationId)).emit('waitlistUpdated');
+    this.server
+      .to(publicWaitlistRoom(organizationId))
+      .emit('publicWaitlistUpdated');
+  }
+
+  @SubscribeMessage('joinPublicWaitlist')
+  async joinPublicWaitlist(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ): Promise<WaitlistStatusResponseDto> {
+    await client.join(publicWaitlistRoom(organizationId));
+
+    return this.waitlistService.getPublicStatusByOrganizationId(organizationId);
+  }
+
+  @SubscribeMessage('joinWaitlist')
+  @UseGuards(WsRolesGuard)
+  @Roles({ waitlist: ['read'] }, 'organizationId')
+  async joinWaitlist(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.join(waitlistRoom(organizationId));
 
     return true;
   }

@@ -115,5 +115,23 @@
     "reason": "審査コメント：{reason}",
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
+  },
+  "waitlist_notification": {
+    "joined": {
+      "subject": "{organizationName}：順番待ち番号 {ticketNumber}",
+      "title": "順番待ちの受付が完了しました",
+      "intro": "{organizationName} の順番待ちを受け付けました。番号は {ticketNumber}（{partySize} 名）です。",
+      "detail": "順番が来ましたら改めてメールでお知らせします。下のボタンからいつでも待ち状況をご確認いただけます。",
+      "action": "待ち状況を確認"
+    },
+    "called": {
+      "subject": "{organizationName}：{ticketNumber} 番の方、順番が来ました",
+      "title": "順番が来ました",
+      "intro": "{organizationName} で {ticketNumber} 番（{partySize} 名）をお呼びしています。",
+      "detail": "お早めに店内のカウンターまでお越しください。時間内にお越しいただけない場合、順番が飛ばされることがあります。",
+      "action": "整理券を見る"
+    },
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   }
 }

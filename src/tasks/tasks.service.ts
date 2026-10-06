@@ -6,6 +6,7 @@ import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { PayrollRulesService } from 'src/payroll/payroll-rules.service';
+import { WaitlistService } from 'src/waitlist/waitlist.service';
 
 const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
@@ -25,7 +26,19 @@ export class TasksService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly payrollRulesService: PayrollRulesService,
+    private readonly waitlistService: WaitlistService,
   ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleWaitlistExpiryCron() {
+    try {
+      const expired = await this.waitlistService.expireStaleTickets();
+
+      if (expired) this.logger.log(`作廢 ${expired} 張前日候位號碼牌`);
+    } catch (error) {
+      this.logger.error('作廢前日候位號碼牌失敗', error);
+    }
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
   async handlePayrollRuleIngestCron() {

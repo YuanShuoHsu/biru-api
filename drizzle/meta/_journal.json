@@ -1268,6 +1268,13 @@
       "when": 1790825570719,
       "tag": "0180_shift_types_and_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1791272494862,
+      "tag": "0181_waitlist",
+      "breakpoints": true
     }
   ]
 }

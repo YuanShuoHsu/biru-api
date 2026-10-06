@@ -535,4 +535,72 @@ export class MailsService {
       .then(() => {})
       .catch(() => {});
   }
+
+  public async sendWaitlistNotification({
+    email,
+    kind,
+    lang,
+    organizationName,
+    partySize,
+    path,
+    ticketNumber,
+  }: {
+    email: string;
+    kind: 'joined' | 'called';
+    lang: Language;
+    organizationName: string;
+    partySize: number;
+    path: string;
+    ticketNumber: string;
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_URL')}/${lang}${path}`;
+    const options = { lang };
+    const translate = {
+      args: { organizationName, partySize, productName, ticketNumber },
+      lang,
+    };
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject: this.i18n.t(
+          `mail.waitlist_notification.${kind}.subject`,
+          translate,
+        ),
+        template: 'waitlist-notification',
+        context: {
+          action: this.i18n.t(
+            `mail.waitlist_notification.${kind}.action`,
+            options,
+          ),
+          detail: this.i18n.t(
+            `mail.waitlist_notification.${kind}.detail`,
+            translate,
+          ),
+          home_url: url,
+          i18nLang: lang,
+          intro: this.i18n.t(
+            `mail.waitlist_notification.${kind}.intro`,
+            translate,
+          ),
+          productName,
+          salutation: this.i18n.t(
+            'mail.waitlist_notification.salutation',
+            translate,
+          ),
+          title: this.i18n.t(
+            `mail.waitlist_notification.${kind}.title`,
+            translate,
+          ),
+          trouble_hint: this.i18n.t(
+            'mail.waitlist_notification.trouble_hint',
+            options,
+          ),
+          url,
+        },
+      })
+      .then(() => {})
+      .catch(() => {});
+  }
 }

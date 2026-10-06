@@ -115,5 +115,23 @@
     "reason": "審核說明：{reason}",
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "waitlist_notification": {
+    "joined": {
+      "subject": "{organizationName}：您的候位號碼 {ticketNumber}",
+      "title": "候位成功",
+      "intro": "您已在 {organizationName} 完成候位，號碼為 {ticketNumber}（{partySize} 位）。",
+      "detail": "輪到您時我們會再寄信通知，也可以隨時點下方按鈕查看目前進度。",
+      "action": "查看候位進度"
+    },
+    "called": {
+      "subject": "{organizationName}：輪到 {ticketNumber} 了",
+      "title": "輪到您了",
+      "intro": "{organizationName} 正在叫號 {ticketNumber}（{partySize} 位）。",
+      "detail": "請盡快到店內櫃檯報到，逾時未到可能會被過號。",
+      "action": "查看號碼牌"
+    },
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   }
 }

@@ -29,6 +29,8 @@ const statement = {
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
+  waitlist: ['read', 'update'],
+  waitlistSetting: ['read', 'update'],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -56,6 +58,8 @@ export const owner = ac.newRole({
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
+  waitlist: ['read', 'update'],
+  waitlistSetting: ['read', 'update'],
 });
 
 export const admin = ac.newRole({
@@ -77,6 +81,8 @@ export const admin = ac.newRole({
   revenue: ['read'],
   shift: ['create', 'update', 'read'],
   shiftType: ['create', 'update', 'delete'],
+  waitlist: ['read', 'update'],
+  waitlistSetting: ['read', 'update'],
 });
 
 export const member = ac.newRole({
@@ -87,6 +93,7 @@ export const member = ac.newRole({
   itemAvailability: ['update'],
   menu: ['read'],
   order: ['read', 'update'],
+  waitlist: ['read', 'update'],
 });
 
 export const isAuthorized = (
