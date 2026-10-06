@@ -2,6 +2,7 @@ import {
   canTransition,
   findGroup,
   formatTicketNumber,
+  getHoldUntil,
   isValidGroups,
 } from './waitlist-rules';
 
@@ -71,5 +72,15 @@ describe('waitlist rules', () => {
   it('pads the ticket number', () => {
     expect(formatTicketNumber('A', 7)).toBe('A007');
     expect(formatTicketNumber('B', 1234)).toBe('B1234');
+  });
+
+  it('holds a called ticket for the configured minutes', () => {
+    const calledAt = new Date('2026-10-06T12:00:00Z');
+
+    expect(getHoldUntil({ calledAt, status: 'called' }, 10)).toEqual(
+      new Date('2026-10-06T12:10:00Z'),
+    );
+    expect(getHoldUntil({ calledAt, status: 'noShow' }, 10)).toBeNull();
+    expect(getHoldUntil({ calledAt: null, status: 'waiting' }, 10)).toBeNull();
   });
 });

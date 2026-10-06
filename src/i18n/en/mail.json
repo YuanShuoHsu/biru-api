@@ -128,8 +128,8 @@
       "subject": "{organizationName}: {ticketNumber}, it's your turn",
       "title": "It's your turn",
       "intro": "{organizationName} is now calling {ticketNumber} (party of {partySize}).",
-      "detail": "Please check in at the counter as soon as possible. If you don't arrive in time, your number may be skipped.",
-      "action": "View your ticket"
+      "detail": "Please check in at the counter by {holdUntil}. Use the button below to let us know whether you're coming. If you don't arrive in time, the store may skip your number.",
+      "action": "Respond to your call"
     },
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."

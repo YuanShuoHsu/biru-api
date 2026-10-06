@@ -128,8 +128,8 @@
       "subject": "{organizationName}：轮到 {ticketNumber} 了",
       "title": "轮到您了",
       "intro": "{organizationName} 正在叫号 {ticketNumber}（{partySize} 位）。",
-      "detail": "请尽快到店内柜台报到，逾时未到可能会被过号。",
-      "action": "查看号码牌"
+      "detail": "请于 {holdUntil} 前到店内柜台报到。请点击下方按钮回复是否前往；逾时未到，店家可能将您的号码过号。",
+      "action": "回复是否前往"
     },
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"

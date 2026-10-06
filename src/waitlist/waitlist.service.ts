@@ -46,9 +46,11 @@ import type {
 import { badRequestError, conflictError } from './waitlist-errors';
 import {
   canTransition,
+  DEFAULT_HOLD_MINUTES,
   DEFAULT_WAITLIST_GROUPS,
   findGroup,
   formatTicketNumber,
+  getHoldUntil,
   isValidGroups,
   type StaffTransitionStatus,
 } from './waitlist-rules';
@@ -84,6 +86,7 @@ export class WaitlistService {
     return {
       enabled: setting?.enabled || false,
       groups: setting?.groups.length ? setting.groups : DEFAULT_WAITLIST_GROUPS,
+      holdMinutes: setting?.holdMinutes || DEFAULT_HOLD_MINUTES,
       paused: setting?.paused || false,
     };
   }
@@ -121,12 +124,15 @@ export class WaitlistService {
   private toTicketResponse(
     ticket: WaitlistTicket,
     aheadCount: number,
+    holdMinutes: number,
   ): WaitlistTicketResponseDto {
     return {
       aheadCount,
       calledAt: ticket.calledAt,
+      confirmedAt: ticket.confirmedAt,
       createdAt: ticket.createdAt,
       endedAt: ticket.endedAt,
+      holdUntil: getHoldUntil(ticket, holdMinutes),
       id: ticket.id,
       partySize: ticket.partySize,
       prefix: ticket.prefix,
@@ -216,11 +222,16 @@ export class WaitlistService {
           })
         : undefined;
 
+    const settings = await this.getSettings(org.id);
+
     const replayed = await findReplay(this.db);
     if (replayed)
-      return this.toTicketResponse(replayed, await this.countAhead(replayed));
+      return this.toTicketResponse(
+        replayed,
+        await this.countAhead(replayed),
+        settings.holdMinutes,
+      );
 
-    const settings = await this.getSettings(org.id);
     if (!settings.enabled) throw badRequestError('waitlistDisabled');
     // 暫停與營業時間只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused) throw badRequestError('waitlistPaused');
@@ -287,7 +298,11 @@ export class WaitlistService {
     if (created)
       this.emitUpdated(org.id, { id: ticket.id, status: ticket.status });
 
-    return this.toTicketResponse(ticket, await this.countAhead(ticket));
+    return this.toTicketResponse(
+      ticket,
+      await this.countAhead(ticket),
+      settings.holdMinutes,
+    );
   }
 
   async getTicket(
@@ -295,7 +310,13 @@ export class WaitlistService {
     ticketId: string,
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
-    return this.toTicketResponse(ticket, await this.countAhead(ticket));
+    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+
+    return this.toTicketResponse(
+      ticket,
+      await this.countAhead(ticket),
+      holdMinutes,
+    );
   }
 
   private async updateStatus(
@@ -337,11 +358,41 @@ export class WaitlistService {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     if (!isActive(ticket.status))
       throw badRequestError('waitlistTransitionInvalid');
+    const { holdMinutes } = await this.getSettings(ticket.organizationId);
 
     return this.toTicketResponse(
       await this.updateStatus(ticket, 'cancelled'),
       0,
+      holdMinutes,
     );
+  }
+
+  async confirmTicket(
+    organizationSlug: string,
+    ticketId: string,
+  ): Promise<WaitlistTicketResponseDto> {
+    const ticket = await this.findTicket(organizationSlug, ticketId);
+    if (ticket.status !== 'called')
+      throw badRequestError('waitlistTransitionInvalid');
+    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+    if (ticket.confirmedAt)
+      return this.toTicketResponse(ticket, 0, holdMinutes);
+
+    const [updated] = await this.db
+      .update(waitlistTicket)
+      .set({ confirmedAt: new Date() })
+      .where(
+        and(
+          eq(waitlistTicket.id, ticket.id),
+          eq(waitlistTicket.status, 'called'),
+        ),
+      )
+      .returning();
+    if (!updated) throw badRequestError('waitlistTransitionInvalid');
+
+    this.emitUpdated(updated.organizationId, null);
+
+    return this.toTicketResponse(updated, 0, holdMinutes);
   }
 
   async transitionTicket(
@@ -351,8 +402,13 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     const updated = await this.updateStatus(ticket, status);
+    const { holdMinutes } = await this.getSettings(ticket.organizationId);
 
-    return this.toTicketResponse(updated, await this.countAhead(updated));
+    return this.toTicketResponse(
+      updated,
+      await this.countAhead(updated),
+      holdMinutes,
+    );
   }
 
   async listAdmin(organizationSlug: string): Promise<AdminWaitlistResponseDto> {
@@ -386,6 +442,7 @@ export class WaitlistService {
           ...this.toTicketResponse(
             ticket,
             ticket.status === 'waiting' ? rank : 0,
+            settings.holdMinutes,
           ),
           email: ticket.email,
           name: ticket.name,
@@ -414,12 +471,18 @@ export class WaitlistService {
       (a, b) => a.minPartySize - b.minPartySize,
     );
 
+    const values = {
+      enabled: dto.enabled,
+      groups,
+      holdMinutes: dto.holdMinutes,
+    };
+
     await this.db
       .insert(waitlistSetting)
-      .values({ enabled: dto.enabled, groups, organizationId: org.id })
+      .values({ ...values, organizationId: org.id })
       .onConflictDoUpdate({
         target: waitlistSetting.organizationId,
-        set: { enabled: dto.enabled, groups },
+        set: values,
       });
 
     this.emitUpdated(org.id, null);

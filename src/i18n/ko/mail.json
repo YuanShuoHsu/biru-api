@@ -128,8 +128,8 @@
       "subject": "{organizationName}: {ticketNumber}번 고객님 차례입니다",
       "title": "고객님 차례입니다",
       "intro": "{organizationName}에서 {ticketNumber}번({partySize}명)을 호출하고 있습니다.",
-      "detail": "매장 카운터로 빨리 와 주세요. 제시간에 오지 않으시면 순서가 넘어갈 수 있습니다.",
-      "action": "번호표 보기"
+      "detail": "{holdUntil}까지 매장 카운터로 와 주세요. 아래 버튼으로 방문 여부를 알려 주세요. 제시간에 오지 않으시면 순서가 넘어갈 수 있습니다.",
+      "action": "방문 여부 회신하기"
     },
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."

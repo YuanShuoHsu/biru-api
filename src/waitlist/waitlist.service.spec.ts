@@ -13,7 +13,12 @@ const createService = ({
   ticket,
 }: {
   openingHours?: string | null;
-  setting?: { enabled: boolean; groups: unknown[]; paused: boolean };
+  setting?: {
+    enabled: boolean;
+    groups: unknown[];
+    holdMinutes?: number;
+    paused: boolean;
+  };
   ticket?: Record<string, unknown>;
 }) => {
   const db = {
@@ -25,6 +30,7 @@ const createService = ({
       waitlistTicket: { findFirst: jest.fn().mockResolvedValue(ticket) },
     },
     transaction: jest.fn(),
+    update: jest.fn(),
   };
 
   return {
@@ -127,5 +133,44 @@ describe('WaitlistService.cancelTicket', () => {
     await expect(service.cancelTicket('slug', 't')).rejects.toThrow(
       'waitlistTransitionInvalid',
     );
+  });
+});
+
+describe('WaitlistService.confirmTicket', () => {
+  it.each(['waiting', 'noShow', 'seated', 'cancelled'])(
+    'refuses to confirm a %s ticket',
+    async (status) => {
+      const { db, service } = createService({
+        ticket: { id: 't', organizationId: 'org', status },
+      });
+
+      await expect(service.confirmTicket('slug', 't')).rejects.toThrow(
+        'waitlistTransitionInvalid',
+      );
+      expect(db.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('returns an already confirmed ticket without writing again', async () => {
+    const confirmedAt = new Date('2026-10-06T12:01:00Z');
+    const { db, service } = createService({
+      setting: { enabled: true, groups, holdMinutes: 15, paused: false },
+      ticket: {
+        calledAt: new Date('2026-10-06T12:00:00Z'),
+        confirmedAt,
+        id: 't',
+        number: 3,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(service.confirmTicket('slug', 't')).resolves.toMatchObject({
+      confirmedAt,
+      holdUntil: new Date('2026-10-06T12:15:00Z'),
+      ticketNumber: 'A003',
+    });
+    expect(db.update).not.toHaveBeenCalled();
   });
 });

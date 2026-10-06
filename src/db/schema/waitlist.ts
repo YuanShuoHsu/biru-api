@@ -30,6 +30,7 @@ export const waitlistSetting = pgTable('waitlist_setting', {
     .references(() => organization.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').notNull().default(false),
   paused: boolean('paused').notNull().default(false),
+  holdMinutes: integer('hold_minutes').notNull().default(10),
   groups: jsonb('groups').$type<WaitlistGroup[]>().notNull().default([]),
   ...timestamps,
 });
@@ -67,6 +68,7 @@ export const waitlistTicket = pgTable(
     status: waitlistTicketStatusEnum('status').notNull().default('waiting'),
     idempotencyKey: text('idempotency_key'),
     calledAt: timestamp('called_at'),
+    confirmedAt: timestamp('confirmed_at'),
     endedAt: timestamp('ended_at'),
     userId: text('user_id').references(() => user.id, {
       onDelete: 'set null',

@@ -143,6 +143,15 @@ export class WaitlistController {
     return this.waitlistService.cancelTicket(organizationSlug, ticketId);
   }
 
+  @Post('tickets/:ticketId/confirm')
+  @ApiOperation({ summary: '顧客回覆確認前往（僅限已叫號）' })
+  confirmTicket(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('ticketId') ticketId: string,
+  ): Promise<WaitlistTicketResponseDto> {
+    return this.waitlistService.confirmTicket(organizationSlug, ticketId);
+  }
+
   @Patch('tickets/:ticketId/transitions/:status')
   @Roles({ waitlist: ['update'] }, 'organizationSlug')
   @ApiOperation({

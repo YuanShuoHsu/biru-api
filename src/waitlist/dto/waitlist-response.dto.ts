@@ -26,8 +26,12 @@ export class WaitlistTicketResponseDto {
   @ApiProperty({ description: '前方候位組數，非候位中為 0' })
   aheadCount: number;
   @ApiPropertyOptional() calledAt: Date | null;
+  @ApiPropertyOptional({ description: '顧客回覆確認前往的時間' })
+  confirmedAt: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiPropertyOptional() endedAt: Date | null;
+  @ApiPropertyOptional({ description: '叫號後的保留期限，非叫號中為 null' })
+  holdUntil: Date | null;
   @ApiProperty() id: string;
   @ApiProperty() partySize: number;
   @ApiProperty() prefix: string;
@@ -48,6 +52,7 @@ export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
 export class AdminWaitlistResponseDto {
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupDto] }) groups: WaitlistGroupDto[];
+  @ApiProperty() holdMinutes: number;
   @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [AdminWaitlistTicketDto],

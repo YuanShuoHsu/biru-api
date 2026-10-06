@@ -538,6 +538,7 @@ export class MailsService {
 
   public async sendWaitlistNotification({
     email,
+    holdUntil,
     kind,
     lang,
     organizationName,
@@ -546,6 +547,7 @@ export class MailsService {
     ticketNumber,
   }: {
     email: string;
+    holdUntil: Date | null;
     kind: 'joined' | 'called';
     lang: Language;
     organizationName: string;
@@ -557,7 +559,20 @@ export class MailsService {
     const url = `${this.configService.get<string>('NEXT_URL')}/${lang}${path}`;
     const options = { lang };
     const translate = {
-      args: { organizationName, partySize, productName, ticketNumber },
+      args: {
+        holdUntil:
+          holdUntil &&
+          new Intl.DateTimeFormat(lang, {
+            hour: '2-digit',
+            hourCycle: 'h23',
+            minute: '2-digit',
+            timeZone: PLATFORM_TIMEZONE,
+          }).format(holdUntil),
+        organizationName,
+        partySize,
+        productName,
+        ticketNumber,
+      },
       lang,
     };
 
