@@ -60,6 +60,7 @@ export class WaitlistTicketDetailResponseDto extends WaitlistTicketResponseDto {
 
 export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
   @ApiPropertyOptional() email: string | null;
+  @ApiProperty({ description: '已叫號且超過保留期限' }) overdue: boolean;
   @ApiProperty() name: string;
   @ApiProperty() phoneNumber: string;
 }
@@ -70,6 +71,7 @@ export class AdminWaitlistResponseDto {
   @ApiProperty() cutoffMinutes: number;
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupDto] }) groups: WaitlistGroupDto[];
+  @ApiProperty() graceMinutes: number;
   @ApiProperty() holdMinutes: number;
   @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
   @ApiProperty() paused: boolean;

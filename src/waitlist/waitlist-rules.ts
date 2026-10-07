@@ -9,6 +9,7 @@ import type {
 } from 'src/db/schema/waitlist';
 
 export const DEFAULT_CUTOFF_MINUTES = 60;
+export const DEFAULT_GRACE_MINUTES = 10;
 export const DEFAULT_HOLD_MINUTES = 10;
 
 export const DEFAULT_WAITLIST_GROUPS: WaitlistGroup[] = [
@@ -18,6 +19,7 @@ export const DEFAULT_WAITLIST_GROUPS: WaitlistGroup[] = [
 ];
 
 export const STAFF_TRANSITION_STATUSES = [
+  'waiting',
   'called',
   'seated',
   'noShow',
@@ -28,11 +30,18 @@ export type StaffTransitionStatus = (typeof STAFF_TRANSITION_STATUSES)[number];
 
 const TRANSITIONS: Record<WaitlistTicketStatus, WaitlistTicketStatus[]> = {
   waiting: ['called', 'seated', 'cancelled'],
-  called: ['called', 'seated', 'noShow', 'cancelled'],
+  called: ['waiting', 'called', 'seated', 'noShow', 'cancelled'],
   noShow: ['seated'],
-  seated: [],
+  seated: ['called'],
   cancelled: [],
 };
+
+export const isRevert = (
+  from: WaitlistTicketStatus,
+  to: WaitlistTicketStatus,
+): boolean =>
+  (from === 'called' && to === 'waiting') ||
+  (from === 'seated' && to === 'called');
 
 export const canTransition = (
   from: WaitlistTicketStatus,
@@ -77,6 +86,28 @@ export const getAvailability = (
     cutoff: open && getMinutesUntilClose(openingHours, at) < cutoffMinutes,
     open,
   };
+};
+
+export const isOverdue = (
+  ticket: Pick<WaitlistTicket, 'calledAt' | 'status'>,
+  holdMinutes: number,
+  at: Date,
+): boolean => {
+  const holdUntil = getHoldUntil(ticket, holdMinutes);
+
+  return !!holdUntil && holdUntil.getTime() <= at.getTime();
+};
+
+export const getAutoNoShowAt = (
+  ticket: Pick<WaitlistTicket, 'calledAt' | 'status'>,
+  holdMinutes: number,
+  graceMinutes: number,
+): Date | null => {
+  const holdUntil = getHoldUntil(ticket, holdMinutes);
+
+  return graceMinutes > 0 && holdUntil
+    ? new Date(holdUntil.getTime() + graceMinutes * 60 * 1000)
+    : null;
 };
 
 export const getHoldUntil = (

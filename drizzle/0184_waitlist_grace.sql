@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_setting" ADD COLUMN "grace_minutes" integer DEFAULT 10 NOT NULL;

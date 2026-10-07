@@ -36,6 +36,10 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import {
+  ADMIN_BOARD_COLUMN_LIMIT,
+  ADMIN_BOARD_DONE_COLUMN_LIMIT,
+} from 'src/common/constants/board';
+import {
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
 } from 'src/common/constants/timezone';
@@ -58,10 +62,7 @@ import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
 import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
 
-import {
-  ADMIN_BOARD_COLUMN_LIMIT,
-  type AdminOrderBoardColumnDto,
-} from './dto/admin-order-board-response.dto';
+import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import type {
   CreateOrderCustomerDto,
@@ -580,8 +581,14 @@ export class OrdersService {
                 lt(order.pickupTime, new Date(now + ADMIN_BOARD_LEAD_MS)),
               ),
             ),
-            orderBy: [asc(BOARD_AT)],
-            limit: ADMIN_BOARD_COLUMN_LIMIT,
+            orderBy:
+              orderStatus === 'OrderDelivered'
+                ? [desc(order.updatedAt)]
+                : [asc(BOARD_AT)],
+            limit:
+              orderStatus === 'OrderDelivered'
+                ? ADMIN_BOARD_DONE_COLUMN_LIMIT
+                : ADMIN_BOARD_COLUMN_LIMIT,
             with: { items: true },
           })
         ).map(toAdminOrder),

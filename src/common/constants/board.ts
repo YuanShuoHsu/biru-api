@@ -1,0 +1,2 @@
+export const ADMIN_BOARD_COLUMN_LIMIT = 100;
+export const ADMIN_BOARD_DONE_COLUMN_LIMIT = 10;

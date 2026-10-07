@@ -16,6 +16,10 @@ import {
   max,
   or,
 } from 'drizzle-orm';
+import {
+  ADMIN_BOARD_COLUMN_LIMIT,
+  ADMIN_BOARD_DONE_COLUMN_LIMIT,
+} from 'src/common/constants/board';
 import { platformDateString } from 'src/common/constants/timezone';
 import type { Language } from 'src/db/schema/enums';
 import { organization } from 'src/db/schema/organizations';
@@ -23,6 +27,7 @@ import {
   WAITLIST_ACTIVE_STATUSES,
   waitlistSetting,
   waitlistTicket,
+  waitlistTicketStatusEnum,
   type WaitlistTicket,
   type WaitlistTicketStatus,
 } from 'src/db/schema/waitlist';
@@ -48,12 +53,16 @@ import { badRequestError, conflictError } from './waitlist-errors';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
+  DEFAULT_GRACE_MINUTES,
   DEFAULT_HOLD_MINUTES,
   DEFAULT_WAITLIST_GROUPS,
   findGroup,
   formatTicketNumber,
   getAvailability,
+  getAutoNoShowAt,
   getHoldUntil,
+  isOverdue,
+  isRevert,
   isValidGroups,
   type StaffTransitionStatus,
 } from './waitlist-rules';
@@ -99,6 +108,7 @@ export class WaitlistService {
       cutoffMinutes: setting?.cutoffMinutes ?? DEFAULT_CUTOFF_MINUTES,
       enabled: setting?.enabled || false,
       groups: setting?.groups.length ? setting.groups : DEFAULT_WAITLIST_GROUPS,
+      graceMinutes: setting?.graceMinutes ?? DEFAULT_GRACE_MINUTES,
       holdMinutes: setting?.holdMinutes || DEFAULT_HOLD_MINUTES,
       paused: setting?.paused || false,
     };
@@ -371,12 +381,17 @@ export class WaitlistService {
       throw badRequestError('waitlistTransitionInvalid');
 
     const now = new Date();
+    const revert = isRevert(ticket.status, status);
     const [updated] = await this.db
       .update(waitlistTicket)
       .set(
-        status === 'called'
-          ? { calledAt: now, status }
-          : { endedAt: now, status },
+        status === 'waiting'
+          ? { calledAt: null, confirmedAt: null, status }
+          : revert
+            ? { calledAt: now, endedAt: null, status }
+            : status === 'called'
+              ? { calledAt: now, status }
+              : { endedAt: now, status },
       )
       .where(
         and(
@@ -384,13 +399,19 @@ export class WaitlistService {
           eq(waitlistTicket.status, ticket.status),
         ),
       )
-      .returning();
+      .returning()
+      .catch((error: unknown) => {
+        if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+          throw conflictError('waitlistPhoneInQueue');
+        throw error;
+      });
     if (!updated) throw badRequestError('waitlistTransitionInvalid');
 
-    this.emitUpdated(updated.organizationId, {
-      id: updated.id,
-      status: updated.status,
-    });
+    // 退回不帶號碼牌狀態，避免通知服務把它當成新取號、新叫號而重寄信
+    this.emitUpdated(
+      updated.organizationId,
+      revert ? null : { id: updated.id, status: updated.status },
+    );
 
     return updated;
   }
@@ -458,6 +479,7 @@ export class WaitlistService {
   async listAdmin(organizationSlug: string): Promise<AdminWaitlistResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
     const settings = await this.getSettings(org.id);
+    const now = new Date();
 
     const tickets = await this.db
       .select()
@@ -466,11 +488,27 @@ export class WaitlistService {
       .orderBy(asc(waitlistTicket.createdAt));
 
     const waitingRank = new Map<string, number>();
+    const boardTickets = waitlistTicketStatusEnum.enumValues.flatMap(
+      (status) => {
+        const statusTickets = tickets.filter(
+          (ticket) => ticket.status === status,
+        );
+
+        return status === 'seated'
+          ? statusTickets
+              .sort(
+                (a, b) =>
+                  (b.endedAt?.getTime() || 0) - (a.endedAt?.getTime() || 0),
+              )
+              .slice(0, ADMIN_BOARD_DONE_COLUMN_LIMIT)
+          : statusTickets.slice(0, ADMIN_BOARD_COLUMN_LIMIT);
+      },
+    );
 
     return {
       ...settings,
       ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
-      tickets: tickets.map((ticket): AdminWaitlistTicketDto => {
+      tickets: boardTickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')
           waitingRank.set(ticket.prefix, rank + 1);
@@ -483,6 +521,7 @@ export class WaitlistService {
           ),
           email: ticket.email,
           name: ticket.name,
+          overdue: isOverdue(ticket, settings.holdMinutes, now),
           phoneNumber: ticket.phoneNumber,
         };
       }),
@@ -512,6 +551,7 @@ export class WaitlistService {
       cutoffMinutes: dto.cutoffMinutes,
       enabled: dto.enabled,
       groups,
+      graceMinutes: dto.graceMinutes,
       holdMinutes: dto.holdMinutes,
     };
 
@@ -545,6 +585,51 @@ export class WaitlistService {
     this.emitUpdated(org.id, null);
 
     return this.getSettings(org.id);
+  }
+
+  async processOverdueTickets(since: Date): Promise<number> {
+    const now = new Date();
+    const rows = await this.db
+      .select({
+        graceMinutes: waitlistSetting.graceMinutes,
+        holdMinutes: waitlistSetting.holdMinutes,
+        ticket: waitlistTicket,
+      })
+      .from(waitlistTicket)
+      .leftJoin(
+        waitlistSetting,
+        eq(waitlistSetting.organizationId, waitlistTicket.organizationId),
+      )
+      .where(eq(waitlistTicket.status, 'called'));
+
+    const becameOverdue = new Set<string>();
+    let skipped = 0;
+
+    for (const { graceMinutes, holdMinutes, ticket } of rows) {
+      const hold = holdMinutes || DEFAULT_HOLD_MINUTES;
+      const autoNoShowAt = getAutoNoShowAt(
+        ticket,
+        hold,
+        graceMinutes ?? DEFAULT_GRACE_MINUTES,
+      );
+
+      if (autoNoShowAt && autoNoShowAt <= now) {
+        await this.updateStatus(ticket, 'noShow').then(
+          () => skipped++,
+          () => {},
+        );
+      } else if (
+        isOverdue(ticket, hold, now) &&
+        !isOverdue(ticket, hold, since)
+      ) {
+        becameOverdue.add(ticket.organizationId);
+      }
+    }
+
+    for (const organizationId of becameOverdue)
+      this.emitUpdated(organizationId, null);
+
+    return skipped;
   }
 
   async expireStaleTickets(): Promise<number> {

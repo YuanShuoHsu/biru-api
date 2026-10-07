@@ -29,6 +29,22 @@ export class TasksService {
     private readonly waitlistService: WaitlistService,
   ) {}
 
+  private lastOverdueCheck = new Date();
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async handleWaitlistOverdueCron() {
+    const since = this.lastOverdueCheck;
+    this.lastOverdueCheck = new Date();
+
+    try {
+      const skipped = await this.waitlistService.processOverdueTickets(since);
+
+      if (skipped) this.logger.log(`自動過號 ${skipped} 張逾時的候位號碼牌`);
+    } catch (error) {
+      this.logger.error('處理逾時候位號碼牌失敗', error);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
   async handleWaitlistExpiryCron() {
     try {

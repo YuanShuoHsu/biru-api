@@ -7,8 +7,6 @@ import {
 
 import { AdminOrderResponseDto } from './admin-order-response.dto';
 
-export const ADMIN_BOARD_COLUMN_LIMIT = 100;
-
 export class AdminOrderBoardColumnDto {
   @ApiProperty({ enum: ORDER_FLOW_STATUSES, enumName: 'OrderFlowStatus' })
   orderStatus: OrderFlowStatus;

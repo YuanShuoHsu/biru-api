@@ -31,6 +31,15 @@ export class UpdateWaitlistSettingsDto {
   @Type(() => WaitlistGroupDto)
   groups: WaitlistGroupDto[];
 
+  @ApiProperty({
+    description: '保留期限過後再等幾分鐘自動過號，0 為不自動過號',
+    example: 10,
+  })
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  graceMinutes: number;
+
   @ApiProperty({ description: '叫號後保留分鐘數', example: 10 })
   @IsInt()
   @Min(1)
@@ -49,6 +58,10 @@ export class WaitlistSettingsResponseDto {
   cutoffMinutes: number;
   @ApiProperty() enabled: boolean;
   @ApiProperty({ type: [WaitlistGroupDto] }) groups: WaitlistGroupDto[];
+  @ApiProperty({
+    description: '保留期限過後再等幾分鐘自動過號，0 為不自動過號',
+  })
+  graceMinutes: number;
   @ApiProperty({ description: '叫號後保留分鐘數' }) holdMinutes: number;
   @ApiProperty() paused: boolean;
 }
