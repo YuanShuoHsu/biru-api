@@ -67,6 +67,8 @@ import {
   type StaffTransitionStatus,
 } from './waitlist-rules';
 
+const STALE_TICKET_MS = 12 * 60 * 60 * 1000;
+
 const inTodayQueue = (organizationId: string) =>
   and(
     eq(waitlistTicket.organizationId, organizationId),
@@ -639,7 +641,7 @@ export class WaitlistService {
       .where(
         and(
           inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-          lt(waitlistTicket.serviceDate, platformDateString(new Date())),
+          lt(waitlistTicket.createdAt, new Date(Date.now() - STALE_TICKET_MS)),
         ),
       )
       .returning({ id: waitlistTicket.id });

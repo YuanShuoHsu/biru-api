@@ -45,14 +45,14 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_HOUR)
   async handleWaitlistExpiryCron() {
     try {
       const expired = await this.waitlistService.expireStaleTickets();
 
-      if (expired) this.logger.log(`作廢 ${expired} 張前日候位號碼牌`);
+      if (expired) this.logger.log(`作廢 ${expired} 張逾時候位號碼牌`);
     } catch (error) {
-      this.logger.error('作廢前日候位號碼牌失敗', error);
+      this.logger.error('作廢逾時候位號碼牌失敗', error);
     }
   }
 
