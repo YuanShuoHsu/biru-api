@@ -299,7 +299,10 @@ export class OrderMenuItemResponseDto {
   @ApiProperty()
   sortOrder: number;
 
-  @ApiProperty({ description: '近期售出數量，含被加購的次數' })
+  @ApiProperty({
+    description:
+      '近期售出數量（含被加購的次數）減去同期退款份數；退款多於售出時為負數',
+  })
   sold: number;
 
   @ApiProperty({ type: [OrderMenuOfferResponseDto] })

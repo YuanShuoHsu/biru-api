@@ -10,8 +10,10 @@ import {
   gte,
   ilike,
   inArray,
+  lt,
   ne,
   or,
+  sql,
 } from 'drizzle-orm';
 import {
   buildDateFilterCondition,
@@ -19,6 +21,11 @@ import {
   buildStringFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
+import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
+import {
+  getStatsWindow,
+  utcTimestampParam,
+} from 'src/common/utils/stats-buckets';
 import * as schema from 'src/db/schema';
 import type { CreateUser, User, UserRole } from 'src/db/schema/users';
 import { user, userRoles } from 'src/db/schema/users';
@@ -44,6 +51,7 @@ import {
   STRING_FILTER_FIELDS,
 } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import type { UserStatsResponseDto } from './dto/user-stats.dto';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
@@ -302,5 +310,41 @@ export class UsersService {
       .returning();
 
     return user;
+  }
+
+  async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
+    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
+      getStatsWindow(query);
+    const createdIn = (from: Date, to: Date) =>
+      and(
+        gte(user.createdAt, utcTimestampParam(from)),
+        lt(user.createdAt, utcTimestampParam(to)),
+      );
+
+    const [[{ total }], bucketRows, [{ previous }]] = await Promise.all([
+      this.db.select({ total: count() }).from(user),
+      this.db
+        .select({ index: bucketIndexOf(user.createdAt), users: count() })
+        .from(user)
+        .where(createdIn(since, until))
+        .groupBy(sql`1`),
+      this.db
+        .select({ previous: count() })
+        .from(user)
+        .where(createdIn(previousSince, since)),
+    ]);
+
+    const usersByIndex = new Map(
+      bucketRows.map(({ index, users }) => [index, users]),
+    );
+
+    return {
+      total,
+      buckets: bucketStarts.map((start, index) => ({
+        start,
+        users: usersByIndex.get(index) ?? 0,
+      })),
+      previous,
+    };
   }
 }

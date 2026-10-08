@@ -40,6 +40,10 @@ import {
   WaitlistTicketListItemDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto';
+import {
+  WaitlistStatsQueryDto,
+  WaitlistStatsResponseDto,
+} from './dto/waitlist-stats.dto';
 import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto';
 import {
   UpdateWaitlistPausedDto,
@@ -139,6 +143,16 @@ export class WaitlistController {
     @Query() query: WaitlistTicketPaginationQueryDto,
   ): Promise<{ data: WaitlistTicketListItemDto[]; total: number }> {
     return this.waitlistService.listTickets(organizationSlug, query);
+  }
+
+  @Get('stats')
+  @Roles({ waitlist: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '候位統計' })
+  stats(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() { since }: WaitlistStatsQueryDto,
+  ): Promise<WaitlistStatsResponseDto> {
+    return this.waitlistService.getStats(organizationSlug, new Date(since));
   }
 
   @Get('tickets/:ticketId')

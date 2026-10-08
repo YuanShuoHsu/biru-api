@@ -9,13 +9,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 
+import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserStatsResponseDto } from './dto/user-stats.dto';
 import { UsersService } from './users.service';
 
 @ApiBearerAuth()
@@ -36,6 +38,13 @@ export class UsersController {
     @Query() query: ListUsersQueryDto,
   ): Promise<{ data: UserResponseDto[]; total: number }> {
     return this.usersService.listUsers(query);
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: '查詢使用者統計' })
+  @ApiOkResponse({ type: UserStatsResponseDto })
+  getStats(@Query() query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
+    return this.usersService.getStats(query);
   }
 
   @Get(':id')

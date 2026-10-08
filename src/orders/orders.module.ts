@@ -6,6 +6,8 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { MenuItemSalesController } from './menu-item-sales.controller';
 import { MenuItemSalesService } from './menu-item-sales.service';
 import { OrderPricingModule } from './order-pricing.module';
+import { OrderStatsController } from './order-stats.controller';
+import { OrderStatsService } from './order-stats.service';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { UserOrdersController } from './user-orders.controller';
@@ -14,10 +16,11 @@ import { UserOrdersController } from './user-orders.controller';
   imports: [CouponsModule, InventoryModule, OrderPricingModule],
   controllers: [
     MenuItemSalesController,
+    OrderStatsController,
     OrdersController,
     UserOrdersController,
   ],
-  providers: [MenuItemSalesService, OrdersService],
+  providers: [MenuItemSalesService, OrderStatsService, OrdersService],
   exports: [MenuItemSalesService, OrdersService],
 })
 export class OrdersModule {}

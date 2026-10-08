@@ -26,6 +26,7 @@ import {
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from 'src/common/constants/board';
 import {
+  PLATFORM_TIMEZONE,
   platformDateString,
   platformMidnight,
 } from 'src/common/constants/timezone';
@@ -66,6 +67,7 @@ import {
   WAITLIST_TICKET_STRING_FILTER_FIELDS,
   type WaitlistTicketPaginationQueryDto,
 } from './dto/waitlist-ticket-pagination-query.dto';
+import type { WaitlistStatsResponseDto } from './dto/waitlist-stats.dto';
 import type {
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
@@ -856,10 +858,61 @@ export class WaitlistService {
     return skipped;
   }
 
+  async getStats(
+    organizationSlug: string,
+    since: Date,
+  ): Promise<WaitlistStatsResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const [{ rows: summaryRows }, { rows: hourlyRows }] = await Promise.all([
+      this.db.execute<{
+        cancelled: number;
+        expired: number;
+        medianWaitSeconds: number | null;
+        noShow: number;
+        seated: number;
+        total: number;
+      }>(sql`
+        SELECT
+          COUNT(*)::int AS total,
+          (COUNT(*) FILTER (WHERE status = 'seated'))::int AS seated,
+          (COUNT(*) FILTER (WHERE status = 'noShow'))::int AS "noShow",
+          (COUNT(*) FILTER (WHERE status = 'cancelled'))::int AS cancelled,
+          (COUNT(*) FILTER (WHERE status = 'expired'))::int AS expired,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM ended_at - created_at)
+          ) FILTER (WHERE status = 'seated') AS "medianWaitSeconds"
+        FROM waitlist_ticket
+        WHERE organization_id = ${org.id} AND created_at >= ${since}
+      `),
+      this.db.execute<{ count: number; hour: number }>(sql`
+        SELECT
+          EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})::int AS hour,
+          COUNT(*)::int AS count
+        FROM waitlist_ticket
+        WHERE organization_id = ${org.id} AND created_at >= ${since}
+        GROUP BY hour
+      `),
+    ]);
+
+    const { medianWaitSeconds, ...counts } = summaryRows[0];
+    const hourlyTickets = Array<number>(24).fill(0);
+    for (const { count, hour } of hourlyRows) hourlyTickets[hour] = count;
+
+    return {
+      ...counts,
+      medianWaitMinutes:
+        medianWaitSeconds === null
+          ? null
+          : Math.round(Number(medianWaitSeconds) / 60),
+      hourlyTickets,
+    };
+  }
+
   async expireStaleTickets(): Promise<number> {
     const expired = await this.db
       .update(waitlistTicket)
-      .set({ endedAt: new Date(), status: 'cancelled' })
+      .set({ endedAt: new Date(), status: 'expired' })
       .where(
         and(
           inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),

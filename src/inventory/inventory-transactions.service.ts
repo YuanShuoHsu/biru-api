@@ -249,12 +249,24 @@ export class InventoryTransactionsService {
 
     const items = await tx
       .select({
+        addOns: orderItem.addOns,
         menuItemId: orderItem.menuItemId,
         orderQuantity: orderItem.orderQuantity,
       })
       .from(orderItem)
       .where(eq(orderItem.orderId, orderId));
-    if (!items.length) return;
+
+    const servingsByMenuItemId = new Map<string, number>();
+    for (const { addOns, menuItemId, orderQuantity } of items)
+      for (const id of [
+        menuItemId,
+        ...(addOns ?? []).map((addOn) => addOn.menuItemId),
+      ])
+        servingsByMenuItemId.set(
+          id,
+          (servingsByMenuItemId.get(id) ?? 0) + orderQuantity,
+        );
+    if (!servingsByMenuItemId.size) return;
 
     const recipes = await tx
       .select({
@@ -263,12 +275,7 @@ export class InventoryTransactionsService {
         recipeYield: recipe.recipeYield,
       })
       .from(recipe)
-      .where(
-        inArray(
-          recipe.menuItemId,
-          items.map(({ menuItemId }) => menuItemId),
-        ),
-      );
+      .where(inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]));
     if (!recipes.length) return;
 
     const materials = await tx
@@ -283,9 +290,8 @@ export class InventoryTransactionsService {
 
     const quantities = new Map<string, number>();
     for (const { id, menuItemId, recipeYield } of recipes) {
-      const servings = items
-        .filter((item) => item.menuItemId === menuItemId)
-        .reduce((sum, { orderQuantity }) => sum + orderQuantity, 0);
+      const servings =
+        (menuItemId && servingsByMenuItemId.get(menuItemId)) || 0;
 
       for (const material of materials.filter(
         ({ recipeId }) => recipeId === id,

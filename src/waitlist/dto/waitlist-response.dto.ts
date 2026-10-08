@@ -6,6 +6,10 @@ import {
 } from 'src/db/schema/waitlist';
 
 import { waitlistErrorCodes, type WaitlistErrorCode } from '../waitlist-errors';
+import {
+  STAFF_TRANSITION_STATUSES,
+  type StaffTransitionStatus,
+} from '../waitlist-rules';
 import { WaitlistGroupDto } from './waitlist-group.dto';
 
 export class WaitlistGroupStatusDto extends WaitlistGroupDto {
@@ -61,11 +65,11 @@ export class WaitlistTicketDetailResponseDto extends WaitlistTicketResponseDto {
 export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
   @ApiProperty({
     description: '店員可將此號碼牌轉換到的狀態',
-    enum: waitlistTicketStatusEnum.enumValues,
-    enumName: 'WaitlistTicketStatus',
+    enum: STAFF_TRANSITION_STATUSES,
+    enumName: 'WaitlistTransitionStatus',
     isArray: true,
   })
-  availableTransitions: WaitlistTicketStatus[];
+  availableTransitions: StaffTransitionStatus[];
   @ApiPropertyOptional() email: string | null;
   @ApiProperty({ description: '已叫號且超過保留期限' }) overdue: boolean;
   @ApiProperty() name: string;

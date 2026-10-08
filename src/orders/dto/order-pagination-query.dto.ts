@@ -63,8 +63,7 @@ export class OrderPaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  // 上限高於其他列表：後台儀表板的趨勢圖要一次取回整段期間的訂單
-  @Max(1000)
+  @Max(100)
   limit?: number = 10;
 
   @IsOptional()

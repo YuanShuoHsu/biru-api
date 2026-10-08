@@ -56,6 +56,7 @@ import {
   isWithinOpeningHours,
 } from 'src/common/utils/opening-hours';
 import { sumOrderItems } from 'src/common/utils/order-items';
+import { utcTimestampParam } from 'src/common/utils/stats-buckets';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
@@ -91,7 +92,12 @@ import type {
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
 import { OrderPricingService } from './order-pricing.service';
-import { getAvailableTransitions, toAdminOrder } from './order-transitions';
+import {
+  CANCEL_UNPAID_ORDER,
+  getAvailableTransitions,
+  type OrderTransitionRule,
+  toAdminOrder,
+} from './order-transitions';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot';
 
 const dateStamp = (at: Date = new Date()): string =>
@@ -123,9 +129,6 @@ const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
 export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
-
-const timestampParam = (at: Date): SQL =>
-  sql`${order.createdAt.mapToDriverValue(at)}`;
 
 const PAYMENT_DEADLINE = sql`GREATEST(
   ${order.createdAt} + make_interval(secs => ${MIN_PAYMENT_WINDOW_MS / 1000}),
@@ -307,10 +310,10 @@ export class OrdersService {
         .where(
           and(
             eq(order.sellerId, org.id),
-            gte(BOARD_AT, timestampParam(pickupDayStart)),
+            gte(BOARD_AT, utcTimestampParam(pickupDayStart)),
             lt(
               BOARD_AT,
-              timestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+              utcTimestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
             ),
           ),
         );
@@ -579,7 +582,7 @@ export class OrdersService {
               orderStatus === 'OrderPaymentDue'
                 ? eq(order.paymentMethod, 'Cash')
                 : undefined,
-              gte(BOARD_AT, timestampParam(new Date(now - BOARD_WINDOW_MS))),
+              gte(BOARD_AT, utcTimestampParam(new Date(now - BOARD_WINDOW_MS))),
               or(
                 isNull(order.pickupTime),
                 lt(order.pickupTime, new Date(now + ADMIN_BOARD_LEAD_MS)),
@@ -626,7 +629,7 @@ export class OrdersService {
       .where(
         and(
           eq(order.sellerId, organizationId),
-          gte(BOARD_AT, timestampParam(new Date(now - BOARD_WINDOW_MS))),
+          gte(BOARD_AT, utcTimestampParam(new Date(now - BOARD_WINDOW_MS))),
           or(
             isNull(order.pickupTime),
             lt(order.pickupTime, new Date(now + PUBLIC_BOARD_LEAD_MS)),
@@ -677,29 +680,11 @@ export class OrdersService {
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {
-        const [updated] = await tx
-          .update(order)
-          .set({ orderStatus: toStatus, ...rule.extraSet?.() })
-          .where(
-            and(
-              eq(order.id, current.id),
-              eq(order.orderStatus, rule.fromStatus),
-            ),
-          )
-          .returning();
+        const [updated] = await this.runTransition(tx, rule, [current.id]);
         if (!updated)
           throw new BadRequestException(
             `Order in ${current.orderStatus} cannot be set to ${toStatus}`,
           );
-
-        if (rule.restoresCoupon && updated.discountCode)
-          await this.couponsService.restore(tx, {
-            code: updated.discountCode,
-            orderId: current.id,
-          });
-
-        if (rule.direction === 'cancel')
-          await this.inventoryTransactionsService.restoreAll(current.id, tx);
 
         results.push(toAdminOrder({ ...current, ...updated }));
       }
@@ -717,6 +702,36 @@ export class OrdersService {
     for (const { current, rule } of planned)
       if (rule.recordsPayment)
         this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: current.id });
+
+    return updated;
+  }
+
+  private async runTransition(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    rule: OrderTransitionRule,
+    orderIds: string[],
+  ) {
+    const updated = await tx
+      .update(order)
+      .set({ orderStatus: rule.toStatus, ...rule.extraSet?.() })
+      .where(
+        and(
+          inArray(order.id, orderIds),
+          eq(order.orderStatus, rule.fromStatus),
+        ),
+      )
+      .returning();
+
+    for (const { discountCode, id } of updated) {
+      if (rule.restoresCoupon && discountCode)
+        await this.couponsService.restore(tx, {
+          code: discountCode,
+          orderId: id,
+        });
+
+      if (rule.direction === 'cancel')
+        await this.inventoryTransactionsService.restoreAll(id, tx);
+    }
 
     return updated;
   }
@@ -802,6 +817,12 @@ export class OrdersService {
       : 'OrderProblem';
 
     const updated = await this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(eq(order.id, this.attemptOrderId(tx, body.MerchantTradeNo)))
+        .for('update');
+
       const [updated] = await tx
         .update(order)
         .set({
@@ -836,11 +857,19 @@ export class OrdersService {
           sellerId: order.sellerId,
         });
 
-      if (!succeeded && updated?.discountCode)
-        await this.couponsService.restore(tx, {
-          code: updated.discountCode,
-          orderId: updated.id,
-        });
+      if (!updated) return updated;
+
+      if (!succeeded) {
+        if (updated.discountCode)
+          await this.couponsService.restore(tx, {
+            code: updated.discountCode,
+            orderId: updated.id,
+          });
+
+        await this.inventoryTransactionsService.restoreAll(updated.id, tx);
+      } else if (current?.orderStatus === 'OrderProblem')
+        // 轉付款異常時已回補庫存，補正成已付款要重新扣
+        await this.inventoryTransactionsService.consume(updated.id, tx);
 
       return updated;
     });
@@ -959,7 +988,7 @@ export class OrdersService {
         or(
           and(
             eq(order.orderStatus, 'OrderPaymentDue'),
-            lt(PAYMENT_DEADLINE, timestampParam(new Date(now))),
+            lt(PAYMENT_DEADLINE, utcTimestampParam(new Date(now))),
           ),
           and(
             eq(order.orderStatus, 'OrderProblem'),
@@ -1007,39 +1036,14 @@ export class OrdersService {
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    const cancelled = await this.db.transaction(async (tx) => {
-      const cancelled = await tx
-        .update(order)
-        .set({ orderStatus: 'OrderCancelled' })
-        .where(
-          and(
-            inArray(order.id, orderIds),
-            eq(order.orderStatus, 'OrderPaymentDue'),
-          ),
-        )
-        .returning({
-          discountCode: order.discountCode,
-          id: order.id,
-          sellerId: order.sellerId,
-        });
-
-      for (const { discountCode, id } of cancelled) {
-        if (discountCode)
-          await this.couponsService.restore(tx, {
-            code: discountCode,
-            orderId: id,
-          });
-
-        await this.inventoryTransactionsService.restoreAll(id, tx);
-      }
-
-      return cancelled;
-    });
+    const cancelled = await this.db.transaction((tx) =>
+      this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
+    );
 
     for (const { id, sellerId } of cancelled)
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
         orderId: id,
-        orderStatus: 'OrderCancelled',
+        orderStatus: CANCEL_UNPAID_ORDER.toStatus,
         organizationId: sellerId,
       });
 

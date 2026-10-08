@@ -1303,6 +1303,13 @@
       "when": 1791451241752,
       "tag": "0185_audit_resource_waitlist_ticket",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1791465440970,
+      "tag": "0186_waitlist_expired_status",
+      "breakpoints": true
     }
   ]
 }

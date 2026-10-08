@@ -1,0 +1,1 @@
+ALTER TYPE "public"."waitlist_ticket_status" ADD VALUE 'expired';

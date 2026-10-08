@@ -1,11 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, eq, SQL } from 'drizzle-orm';
-import { member, Organization } from 'src/db/schema/organizations';
+import { and, count, eq, gte, lt, SQL, sql } from 'drizzle-orm';
+import {
+  member,
+  Organization,
+  organization,
+} from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
+import {
+  getStatsWindow,
+  utcTimestampParam,
+} from 'src/common/utils/stats-buckets';
+
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
+import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -72,5 +83,56 @@ export class OrganizationsService {
       },
     });
     return result || null;
+  }
+
+  async getMemberStats(
+    userId: string,
+    query: StatsBucketQueryDto,
+  ): Promise<OrganizationStatsResponseDto> {
+    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
+      getStatsWindow(query);
+    const isMember = and(
+      eq(member.organizationId, organization.id),
+      eq(member.userId, userId),
+    );
+    const createdIn = (from: Date, to: Date) =>
+      and(
+        gte(organization.createdAt, utcTimestampParam(from)),
+        lt(organization.createdAt, utcTimestampParam(to)),
+      );
+
+    const [[{ total }], bucketRows, [{ previous }]] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(organization)
+        .innerJoin(member, isMember),
+      this.db
+        .select({
+          index: bucketIndexOf(organization.createdAt),
+          organizations: count(),
+        })
+        .from(organization)
+        .innerJoin(member, isMember)
+        .where(createdIn(since, until))
+        .groupBy(sql`1`),
+      this.db
+        .select({ previous: count() })
+        .from(organization)
+        .innerJoin(member, isMember)
+        .where(createdIn(previousSince, since)),
+    ]);
+
+    const organizationsByIndex = new Map(
+      bucketRows.map(({ index, organizations }) => [index, organizations]),
+    );
+
+    return {
+      total,
+      buckets: bucketStarts.map((start, index) => ({
+        start,
+        organizations: organizationsByIndex.get(index) ?? 0,
+      })),
+      previous,
+    };
   }
 }

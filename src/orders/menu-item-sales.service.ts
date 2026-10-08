@@ -5,6 +5,7 @@ import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import { orderItemMovements } from './counted-orders';
 import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto';
 
 export const SALES_WINDOW_DAYS = 30;
@@ -25,18 +26,11 @@ export class MenuItemSalesService {
       menuItemName: string;
       sold: number;
     }>(sql`
-      WITH counted_orders AS (
-        SELECT o.id
-        FROM "order" o
-        WHERE o.seller_id = ${organizationId}
-          AND o.order_status IN ('OrderProcessing', 'OrderPickupAvailable', 'OrderDelivered')
-          -- 綠界回調未帶 PaymentDate 時 payment_date 會是 null，退回下單時間
-          AND COALESCE(o.payment_date, o.order_date) >= ${since}
-      ),
+      WITH movements AS (${orderItemMovements(organizationId, since)}),
       sales AS (
-        SELECT entry.menu_item_id, entry.menu_item_name, oi.order_quantity, oi.created_at
-        FROM order_item oi
-        JOIN counted_orders co ON co.id = oi.order_id
+        SELECT entry.menu_item_id, entry.menu_item_name, m.quantity, oi.created_at
+        FROM movements m
+        JOIN order_item oi ON oi.id = m.order_item_id
         CROSS JOIN LATERAL (
           SELECT oi.menu_item_id, oi.menu_item_name
           UNION ALL
@@ -47,10 +41,11 @@ export class MenuItemSalesService {
       SELECT
         menu_item_id AS "menuItemId",
         (array_agg(menu_item_name ORDER BY created_at DESC))[1] AS "menuItemName",
-        SUM(order_quantity)::int AS sold
+        SUM(quantity)::int AS sold
       FROM sales
       WHERE menu_item_id IS NOT NULL
       GROUP BY menu_item_id
+      HAVING SUM(quantity) <> 0
       ORDER BY sold DESC
     `);
 

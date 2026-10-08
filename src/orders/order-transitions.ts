@@ -31,6 +31,13 @@ export interface OrderTransitionRule {
   toStatus: OrderStatus;
 }
 
+export const CANCEL_UNPAID_ORDER: OrderTransitionRule = {
+  direction: 'cancel',
+  fromStatus: 'OrderPaymentDue',
+  restoresCoupon: true,
+  toStatus: 'OrderCancelled',
+};
+
 export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   {
     cashOnly: true,
@@ -71,12 +78,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     fromStatus: 'OrderDelivered',
     toStatus: 'OrderPickupAvailable',
   },
-  {
-    direction: 'cancel',
-    fromStatus: 'OrderPaymentDue',
-    restoresCoupon: true,
-    toStatus: 'OrderCancelled',
-  },
+  CANCEL_UNPAID_ORDER,
 ];
 
 export const isRefundable = (found: {

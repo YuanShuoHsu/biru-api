@@ -34,6 +34,7 @@ const TRANSITIONS: Record<WaitlistTicketStatus, WaitlistTicketStatus[]> = {
   noShow: ['called', 'seated'],
   seated: ['called'],
   cancelled: ['waiting'],
+  expired: [],
 };
 
 export const isRevert = (

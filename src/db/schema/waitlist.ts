@@ -44,6 +44,7 @@ export const WAITLIST_ENDED_STATUSES = [
   'seated',
   'noShow',
   'cancelled',
+  'expired',
 ] as const;
 export const waitlistTicketStatusEnum = pgEnum('waitlist_ticket_status', [
   ...WAITLIST_ACTIVE_STATUSES,
