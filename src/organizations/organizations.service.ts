@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, count, eq, gte, lt, SQL, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
 import {
   member,
   Organization,
@@ -85,40 +85,41 @@ export class OrganizationsService {
     return result || null;
   }
 
-  async getMemberStats(
-    userId: string,
+  async getStats(
+    memberUserId: string | null,
     query: StatsBucketQueryDto,
   ): Promise<OrganizationStatsResponseDto> {
     const { bucketIndexOf, bucketStarts, previousSince, since, until } =
       getStatsWindow(query);
-    const isMember = and(
-      eq(member.organizationId, organization.id),
-      eq(member.userId, userId),
-    );
+    const visible = memberUserId
+      ? inArray(
+          organization.id,
+          this.db
+            .select({ id: member.organizationId })
+            .from(member)
+            .where(eq(member.userId, memberUserId)),
+        )
+      : undefined;
     const createdIn = (from: Date, to: Date) =>
       and(
+        visible,
         gte(organization.createdAt, utcTimestampParam(from)),
         lt(organization.createdAt, utcTimestampParam(to)),
       );
 
     const [[{ total }], bucketRows, [{ previous }]] = await Promise.all([
-      this.db
-        .select({ total: count() })
-        .from(organization)
-        .innerJoin(member, isMember),
+      this.db.select({ total: count() }).from(organization).where(visible),
       this.db
         .select({
           index: bucketIndexOf(organization.createdAt),
           organizations: count(),
         })
         .from(organization)
-        .innerJoin(member, isMember)
         .where(createdIn(since, until))
         .groupBy(sql`1`),
       this.db
         .select({ previous: count() })
         .from(organization)
-        .innerJoin(member, isMember)
         .where(createdIn(previousSince, since)),
     ]);
 

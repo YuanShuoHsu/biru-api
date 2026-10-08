@@ -13,12 +13,17 @@ export class MyOrganizationStatsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Get()
-  @ApiOperation({ summary: '查詢我所屬組織的統計' })
+  @ApiOperation({
+    summary: '查詢組織統計；平台管理員為全平台，其他人為所屬組織',
+  })
   @ApiOkResponse({ type: OrganizationStatsResponseDto })
   getStats(
     @Session() session: UserSession,
     @Query() query: StatsBucketQueryDto,
   ): Promise<OrganizationStatsResponseDto> {
-    return this.organizationsService.getMemberStats(session.user.id, query);
+    return this.organizationsService.getStats(
+      session.user.role === 'admin' ? null : session.user.id,
+      query,
+    );
   }
 }
