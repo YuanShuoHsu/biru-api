@@ -20,6 +20,8 @@ import type { MenuUpdatedEvent } from './menu-updated.event';
 import { MENU_UPDATED_EVENT } from './menu-updated.event';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event';
 import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event';
+import type { OrderUpdatedEvent } from './order-updated.event';
+import { ORDER_UPDATED_EVENT } from './order-updated.event';
 import type { WaitlistUpdatedEvent } from './waitlist-updated.event';
 import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event';
 
@@ -114,6 +116,11 @@ export class EventsGateway {
     this.server
       .to(publicOrdersBoardRoom(organizationId))
       .emit('orderBoardUpdated');
+  }
+
+  @OnEvent(ORDER_UPDATED_EVENT)
+  handleOrderUpdated({ organizationId }: OrderUpdatedEvent) {
+    this.server.to(ordersBoardRoom(organizationId)).emit('orderUpdated');
   }
 
   @SubscribeMessage('joinPublicOrdersBoard')

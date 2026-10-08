@@ -61,6 +61,10 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import type { InvoicePrintReadyEvent } from 'src/events/invoice-print-ready.event';
 import { INVOICE_PRINT_READY_EVENT } from 'src/events/invoice-print-ready.event';
+import {
+  ORDER_UPDATED_EVENT,
+  type OrderUpdatedEvent,
+} from 'src/events/order-updated.event';
 import type { OrderPaidEvent } from 'src/events/order-paid.event';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 
@@ -163,6 +167,12 @@ export class EcpayOrderInvoiceService {
     });
   }
 
+  private emitOrderUpdated(organizationId: string) {
+    this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      organizationId,
+    } satisfies OrderUpdatedEvent);
+  }
+
   @OnEvent(ORDER_PAID_EVENT, { async: true })
   async handleOrderPaid({ orderId }: OrderPaidEvent): Promise<void> {
     await this.issueQuietly(orderId);
@@ -196,14 +206,22 @@ export class EcpayOrderInvoiceService {
 
   private async reconcileIssuingInvoices(staleBefore: Date): Promise<void> {
     const stuck = await this.db
-      .select({ id: invoice.id, relateNumber: invoice.relateNumber })
+      .select({
+        id: invoice.id,
+        organizationId: order.sellerId,
+        relateNumber: invoice.relateNumber,
+      })
       .from(invoice)
+      .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
         and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
       )
       .limit(RETRY_BATCH_SIZE);
 
-    for (const [index, { id, relateNumber }] of stuck.entries()) {
+    for (const [
+      index,
+      { id, organizationId, relateNumber },
+    ] of stuck.entries()) {
       if (!relateNumber) {
         this.logger.error(
           `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
@@ -229,6 +247,8 @@ export class EcpayOrderInvoiceService {
             status: 'issued',
           })
           .where(eq(invoice.id, id));
+
+        this.emitOrderUpdated(organizationId);
 
         this.logger.warn(
           `發票 ${id} 在綠界已開立但本機未記錄，已補上 ${result.IIS_Number}`,
@@ -330,6 +350,8 @@ export class EcpayOrderInvoiceService {
       .where(eq(invoice.id, data.id))
       .returning();
 
+    this.emitOrderUpdated(found.sellerId);
+
     if (isPrintable(updated))
       this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
         invoiceNumber: updated.invoiceNumber,
@@ -378,9 +400,16 @@ export class EcpayOrderInvoiceService {
     organizationSlug: string,
     orderId: string,
   ): Promise<OrderInvoicePrintDto> {
-    return this.getPrint(
-      await this.findPrintableInvoice(organizationSlug, orderId),
+    const { data, organizationId } = await this.findPrintableInvoice(
+      organizationSlug,
+      orderId,
     );
+
+    const print = await this.getPrint(data);
+
+    this.emitOrderUpdated(organizationId);
+
+    return print;
   }
 
   async resetPrintForOrder(
@@ -388,7 +417,10 @@ export class EcpayOrderInvoiceService {
     orderId: string,
     reason: string,
   ): Promise<Invoice> {
-    const data = await this.findPrintableInvoice(organizationSlug, orderId);
+    const { data, organizationId } = await this.findPrintableInvoice(
+      organizationSlug,
+      orderId,
+    );
 
     const [updated] = await this.db
       .update(invoice)
@@ -401,6 +433,8 @@ export class EcpayOrderInvoiceService {
       .returning();
 
     if (!updated) throw new ConflictException(this.tInvoice('notPrintable'));
+
+    this.emitOrderUpdated(organizationId);
 
     this.logger.warn(
       `訂單 ${orderId} 的發票 ${data.invoiceNumber} 第 ${updated.printResetCount} 次重設列印：${reason}`,
@@ -485,6 +519,8 @@ export class EcpayOrderInvoiceService {
       );
     }
 
+    this.emitOrderUpdated(org.id);
+
     return (await this.issueQuietly(orderId)) ?? reissued;
   }
 
@@ -532,7 +568,7 @@ export class EcpayOrderInvoiceService {
   private async findPrintableInvoice(
     organizationSlug: string,
     orderId: string,
-  ): Promise<PrintableInvoice> {
+  ): Promise<{ data: PrintableInvoice; organizationId: string }> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
@@ -549,7 +585,7 @@ export class EcpayOrderInvoiceService {
     if (!isPrintable(data))
       throw new ConflictException(this.tInvoice('notPrintable'));
 
-    return data;
+    return { data, organizationId: org.id };
   }
 
   private async getPrint(

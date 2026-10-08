@@ -60,6 +60,10 @@ import { CouponsService } from 'src/coupons/coupons.service';
 import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
 import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+import {
+  ORDER_UPDATED_EVENT,
+  type OrderUpdatedEvent,
+} from 'src/events/order-updated.event';
 import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
@@ -735,6 +739,10 @@ export class OrdersService {
       .set({ customer })
       .where(eq(order.id, orderId))
       .returning();
+
+    this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      organizationId: org.id,
+    } satisfies OrderUpdatedEvent);
 
     return { ...found, ...updated };
   }

@@ -64,6 +64,10 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+import {
+  ORDER_UPDATED_EVENT,
+  type OrderUpdatedEvent,
+} from 'src/events/order-updated.event';
 import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
 import { getRefundChannel, isRefundable } from 'src/orders/order-transitions';
 import { PointsService } from 'src/points/points.service';
@@ -373,6 +377,10 @@ export class EcpayOrderRefundService {
         orderStatus: 'OrderReturned',
         organizationId: found.sellerId,
       });
+    else
+      this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+        organizationId: found.sellerId,
+      } satisfies OrderUpdatedEvent);
   }
 
   /**
