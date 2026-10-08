@@ -1,6 +1,9 @@
 import * as crypto from 'crypto';
 
-import { toPlatformTime } from 'src/common/constants/timezone';
+import {
+  STORE_UTC_OFFSET,
+  toPlatformTime,
+} from 'src/common/constants/timezone';
 
 export class EcpayRejectedError extends Error {
   name = 'EcpayRejectedError';
@@ -47,6 +50,9 @@ export const ITEM_WORD = '份';
 
 export const toInvoiceDateText = (value: Date): string =>
   toPlatformTime(value).toISOString().slice(0, 10);
+
+export const fromEcpayDateTime = (value: string): Date =>
+  new Date(`${value.replace(/\//g, '-').replace(' ', 'T')}${STORE_UTC_OFFSET}`);
 
 export const toGetIssueQuery = (data: {
   invoiceDate: Date | null;

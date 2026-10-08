@@ -589,9 +589,9 @@ export class OrdersService {
               orderStatus === 'OrderDelivered'
                 ? ADMIN_BOARD_DONE_COLUMN_LIMIT
                 : ADMIN_BOARD_COLUMN_LIMIT,
-            with: { items: true },
+            with: { invoices: true, items: true },
           })
-        ).map(toAdminOrder),
+        ).map((found) => toAdminOrder(toActiveInvoice(found))),
       })),
     );
   }

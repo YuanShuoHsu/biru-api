@@ -15,6 +15,7 @@ import {
   isNotNull,
   lt,
   max,
+  ne,
   or,
   sql,
   type Column,
@@ -497,6 +498,103 @@ export class WaitlistService {
       updated,
       await this.countAhead(updated),
       holdMinutes,
+    );
+  }
+
+  async updateTicket(
+    organizationSlug: string,
+    ticketId: string,
+    dto: CreateWaitlistTicketDto,
+  ): Promise<WaitlistTicketResponseDto> {
+    const ticket = await this.findTicket(organizationSlug, ticketId);
+    if (!isActive(ticket.status))
+      throw badRequestError('waitlistTransitionInvalid');
+
+    const settings = await this.getSettings(ticket.organizationId);
+    const group = findGroup(settings.groups, dto.partySize);
+    if (!group) throw badRequestError('waitlistPartySizeUnavailable');
+
+    const regrouped = group.prefix !== ticket.prefix;
+    const email = dto.email || null;
+
+    const updated = await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, ticket.organizationId))
+        .for('update');
+
+      const inQueue = await tx.query.waitlistTicket.findFirst({
+        where: and(
+          eq(waitlistTicket.organizationId, ticket.organizationId),
+          eq(waitlistTicket.phoneNumber, dto.phoneNumber),
+          inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          ne(waitlistTicket.id, ticket.id),
+        ),
+        columns: { id: true },
+      });
+      if (inQueue) throw conflictError('waitlistPhoneInQueue');
+
+      const serviceDate = platformDateString(new Date());
+      const [{ value: lastNumber }] = regrouped
+        ? await tx
+            .select({ value: max(waitlistTicket.number) })
+            .from(waitlistTicket)
+            .where(
+              and(
+                eq(waitlistTicket.organizationId, ticket.organizationId),
+                eq(waitlistTicket.serviceDate, serviceDate),
+                eq(waitlistTicket.prefix, group.prefix),
+              ),
+            )
+        : [{ value: null }];
+
+      const [row] = await tx
+        .update(waitlistTicket)
+        .set({
+          email,
+          name: dto.name.trim(),
+          partySize: dto.partySize,
+          phoneNumber: dto.phoneNumber,
+          // 排隊順序與 24 小時作廢都以 createdAt 計，換組要當成重新取號
+          ...(regrouped && {
+            calledAt: null,
+            confirmedAt: null,
+            createdAt: new Date(),
+            number: (lastNumber || 0) + 1,
+            prefix: group.prefix,
+            serviceDate,
+            status: 'waiting' as const,
+          }),
+        })
+        .where(
+          and(
+            eq(waitlistTicket.id, ticket.id),
+            eq(waitlistTicket.status, ticket.status),
+          ),
+        )
+        .returning()
+        .catch((error: unknown) => {
+          if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+            throw conflictError('waitlistPhoneInQueue');
+          throw error;
+        });
+
+      return row;
+    });
+    if (!updated) throw badRequestError('waitlistTransitionInvalid');
+
+    this.emitUpdated(
+      updated.organizationId,
+      regrouped || email !== ticket.email
+        ? { id: updated.id, status: updated.status }
+        : null,
+    );
+
+    return this.toTicketResponse(
+      updated,
+      await this.countAhead(updated),
+      settings.holdMinutes,
     );
   }
 

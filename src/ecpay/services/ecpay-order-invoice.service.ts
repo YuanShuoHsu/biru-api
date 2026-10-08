@@ -23,6 +23,7 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 
 import {
+  fromEcpayDateTime,
   ITEM_WORD,
   QUERY_INTERVAL_MS,
   sleep,
@@ -58,7 +59,6 @@ import { organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
-import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
 import type { InvoicePrintReadyEvent } from 'src/events/invoice-print-ready.event';
 import { INVOICE_PRINT_READY_EVENT } from 'src/events/invoice-print-ready.event';
 import type { OrderPaidEvent } from 'src/events/order-paid.event';
@@ -222,9 +222,7 @@ export class EcpayOrderInvoiceService {
         await this.db
           .update(invoice)
           .set({
-            invoiceDate: new Date(
-              `${result.IIS_Create_Date.replace(/\//g, '-').replace(' ', 'T')}${STORE_UTC_OFFSET}`,
-            ),
+            invoiceDate: fromEcpayDateTime(result.IIS_Create_Date),
             invoiceNumber: result.IIS_Number,
             paymentStatus: 'PaymentComplete',
             randomNumber: result.IIS_Random_Number,
@@ -323,9 +321,7 @@ export class EcpayOrderInvoiceService {
     const [updated] = await this.db
       .update(invoice)
       .set({
-        invoiceDate: new Date(
-          `${result.InvoiceDate.replace(/\//g, '-').replace(' ', 'T')}${STORE_UTC_OFFSET}`,
-        ),
+        invoiceDate: fromEcpayDateTime(result.InvoiceDate),
         invoiceNumber: result.InvoiceNo,
         paymentStatus: 'PaymentComplete',
         randomNumber: result.RandomNumber,
@@ -525,7 +521,7 @@ export class EcpayOrderInvoiceService {
 
     return {
       invalidated,
-      invoiceDate: result.IIS_Create_Date,
+      invoiceDate: fromEcpayDateTime(result.IIS_Create_Date),
       invoiceNumber: result.IIS_Number,
       matchesLocal: invalidated === (data.status === 'voided'),
       salesAmount: String(result.IIS_Sales_Amount),

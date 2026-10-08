@@ -1,4 +1,4 @@
-import { IsBoolean, IsDefined, IsString } from 'class-validator';
+import { IsBoolean, IsDate, IsDefined, IsString } from 'class-validator';
 
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -10,8 +10,8 @@ export class OrderInvoiceVerificationDto {
 
   @ApiProperty({ description: '綠界端的開立時間' })
   @IsDefined()
-  @IsString()
-  invoiceDate: string;
+  @IsDate()
+  invoiceDate: Date;
 
   @ApiProperty({ description: '綠界端的發票金額' })
   @IsDefined()

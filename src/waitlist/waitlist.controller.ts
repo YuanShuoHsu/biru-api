@@ -168,6 +168,21 @@ export class WaitlistController {
     return this.waitlistService.confirmTicket(organizationSlug, ticketId);
   }
 
+  @Patch('tickets/:ticketId')
+  @Roles({ waitlist: ['update'] }, 'organizationSlug')
+  @Audit('waitlistTicket', { param: 'ticketId' })
+  @ApiOperation({
+    summary: '修改號碼牌',
+    description: '僅限進行中；人數換到其他分組時改發新組號碼並排到最後',
+  })
+  updateTicket(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('ticketId') ticketId: string,
+    @Body() dto: CreateWaitlistTicketDto,
+  ): Promise<WaitlistTicketResponseDto> {
+    return this.waitlistService.updateTicket(organizationSlug, ticketId, dto);
+  }
+
   @Patch('tickets/:ticketId/transitions/:status')
   @Roles({ waitlist: ['update'] }, 'organizationSlug')
   @Audit('waitlistTicket', { param: 'ticketId' })

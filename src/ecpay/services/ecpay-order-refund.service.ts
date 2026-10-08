@@ -11,6 +11,7 @@ import type {
 
 import {
   EcpayRejectedError,
+  fromEcpayDateTime,
   ITEM_WORD,
   QUERY_INTERVAL_MS,
   sleep,
@@ -60,7 +61,6 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
-import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
@@ -992,9 +992,7 @@ export class EcpayOrderRefundService {
           amount: String(plan.amount),
           invoiceId: data.id,
           refundId,
-          issuedAt: new Date(
-            `${result.IA_Date.replace(' ', 'T')}${STORE_UTC_OFFSET}`,
-          ),
+          issuedAt: fromEcpayDateTime(result.IA_Date),
           remainingAmount: String(result.IA_Remain_Allowance_Amt),
         });
       } catch (writeError) {
