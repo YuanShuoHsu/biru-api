@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, OmitType } from '@nestjs/swagger';
 
 import { IsInt, Matches, Max, Min } from 'class-validator';
 
@@ -19,3 +19,7 @@ export class WaitlistGroupDto {
   @Matches(/^[A-Z]$/)
   prefix: string;
 }
+
+export class UpdateWaitlistGroupDto extends OmitType(WaitlistGroupDto, [
+  'prefix',
+] as const) {}

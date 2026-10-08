@@ -31,7 +31,7 @@ export type StaffTransitionStatus = (typeof STAFF_TRANSITION_STATUSES)[number];
 const TRANSITIONS: Record<WaitlistTicketStatus, WaitlistTicketStatus[]> = {
   waiting: ['called', 'seated', 'cancelled'],
   called: ['waiting', 'called', 'seated', 'noShow', 'cancelled'],
-  noShow: ['seated'],
+  noShow: ['called', 'seated'],
   seated: ['called'],
   cancelled: [],
 };
@@ -41,6 +41,7 @@ export const isRevert = (
   to: WaitlistTicketStatus,
 ): boolean =>
   (from === 'called' && to === 'waiting') ||
+  (from === 'noShow' && to === 'called') ||
   (from === 'seated' && to === 'called');
 
 export const canTransition = (
@@ -48,11 +49,11 @@ export const canTransition = (
   to: WaitlistTicketStatus,
 ): boolean => TRANSITIONS[from].includes(to);
 
-// 各組人數區間須從 1 起連續、不重疊，前綴為不重複的單一大寫字母
-export const isValidGroups = (groups: WaitlistGroup[]): boolean => {
+// 各組人數區間須從 1 起連續、不重疊
+export const isValidGroups = (
+  groups: Omit<WaitlistGroup, 'prefix'>[],
+): boolean => {
   if (!groups.length) return false;
-  if (new Set(groups.map(({ prefix }) => prefix)).size !== groups.length)
-    return false;
 
   const sorted = [...groups].sort((a, b) => a.minPartySize - b.minPartySize);
 

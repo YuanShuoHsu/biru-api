@@ -545,9 +545,12 @@ export class WaitlistService {
       throw badRequestError('waitlistGroupsInvalid');
 
     const org = await this.getOrgBySlug(organizationSlug);
-    const groups = [...dto.groups].sort(
-      (a, b) => a.minPartySize - b.minPartySize,
-    );
+    const groups = [...dto.groups]
+      .sort((a, b) => a.minPartySize - b.minPartySize)
+      .map((group, index) => ({
+        ...group,
+        prefix: String.fromCharCode(65 + index),
+      }));
 
     const values = {
       cutoffMinutes: dto.cutoffMinutes,

@@ -16,10 +16,12 @@ const groups = [
 ];
 
 describe('waitlist rules', () => {
-  it('allows undoing a mistaken call or seat', () => {
+  it('allows undoing a mistaken call, no-show or seat', () => {
     expect(canTransition('called', 'waiting')).toBe(true);
+    expect(canTransition('noShow', 'called')).toBe(true);
     expect(canTransition('seated', 'called')).toBe(true);
     expect(isRevert('called', 'waiting')).toBe(true);
+    expect(isRevert('noShow', 'called')).toBe(true);
     expect(isRevert('seated', 'called')).toBe(true);
     expect(isRevert('waiting', 'called')).toBe(false);
     expect(isRevert('called', 'called')).toBe(false);
@@ -39,7 +41,6 @@ describe('waitlist rules', () => {
   it('rejects leaving an ended ticket or skipping before calling', () => {
     expect(canTransition('waiting', 'noShow')).toBe(false);
     expect(canTransition('cancelled', 'waiting')).toBe(false);
-    expect(canTransition('noShow', 'called')).toBe(false);
   });
 
   it('accepts contiguous groups in any order', () => {
@@ -47,32 +48,22 @@ describe('waitlist rules', () => {
     expect(isValidGroups([...groups].reverse())).toBe(true);
   });
 
-  it('rejects gaps, overlaps, duplicates and empty groups', () => {
+  it('rejects gaps, overlaps and empty groups', () => {
     expect(isValidGroups([])).toBe(false);
     expect(
       isValidGroups([
-        { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
-        { maxPartySize: 6, minPartySize: 4, prefix: 'B' },
+        { maxPartySize: 2, minPartySize: 1 },
+        { maxPartySize: 6, minPartySize: 4 },
       ]),
     ).toBe(false);
     expect(
       isValidGroups([
-        { maxPartySize: 3, minPartySize: 1, prefix: 'A' },
-        { maxPartySize: 6, minPartySize: 3, prefix: 'B' },
+        { maxPartySize: 3, minPartySize: 1 },
+        { maxPartySize: 6, minPartySize: 3 },
       ]),
     ).toBe(false);
-    expect(
-      isValidGroups([
-        { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
-        { maxPartySize: 4, minPartySize: 3, prefix: 'A' },
-      ]),
-    ).toBe(false);
-    expect(
-      isValidGroups([{ maxPartySize: 4, minPartySize: 2, prefix: 'A' }]),
-    ).toBe(false);
-    expect(
-      isValidGroups([{ maxPartySize: 1, minPartySize: 2, prefix: 'A' }]),
-    ).toBe(false);
+    expect(isValidGroups([{ maxPartySize: 4, minPartySize: 2 }])).toBe(false);
+    expect(isValidGroups([{ maxPartySize: 1, minPartySize: 2 }])).toBe(false);
   });
 
   it('finds the group by party size', () => {

@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { WaitlistGroupDto } from './waitlist-group.dto';
+import { UpdateWaitlistGroupDto, WaitlistGroupDto } from './waitlist-group.dto';
 
 export class UpdateWaitlistSettingsDto {
   @ApiProperty({ description: '打烊前幾分鐘停止顧客自助取號', example: 60 })
@@ -24,12 +24,12 @@ export class UpdateWaitlistSettingsDto {
   @IsBoolean()
   enabled: boolean;
 
-  @ApiProperty({ type: [WaitlistGroupDto] })
+  @ApiProperty({ type: [UpdateWaitlistGroupDto] })
   @IsArray()
   @ArrayMaxSize(26)
   @ValidateNested({ each: true })
-  @Type(() => WaitlistGroupDto)
-  groups: WaitlistGroupDto[];
+  @Type(() => UpdateWaitlistGroupDto)
+  groups: UpdateWaitlistGroupDto[];
 
   @ApiProperty({
     description: '保留期限過後再等幾分鐘自動過號，0 為不自動過號',
