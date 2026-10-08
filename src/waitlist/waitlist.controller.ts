@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import {
   ApiExtraModels,
@@ -22,12 +23,12 @@ import {
 } from '@thallesp/nestjs-better-auth';
 
 import { I18nLang } from 'nestjs-i18n';
+import { Audit } from 'src/common/decorators/audit.decorator';
 import {
   DEFAULT_LANGUAGE,
   languagesEnum,
   type Language,
 } from 'src/db/schema/enums';
-import { Audit } from 'src/common/decorators/audit.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto';
@@ -36,8 +37,10 @@ import {
   WaitlistErrorResponseDto,
   WaitlistStatusResponseDto,
   WaitlistTicketDetailResponseDto,
+  WaitlistTicketListItemDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto';
+import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto';
 import {
   UpdateWaitlistPausedDto,
   UpdateWaitlistSettingsDto,
@@ -54,7 +57,7 @@ const toLanguage = (lang: string): Language =>
 
 @AllowAnonymous()
 @ApiTags('waitlist')
-@ApiExtraModels(WaitlistErrorResponseDto)
+@ApiExtraModels(WaitlistErrorResponseDto, WaitlistTicketListItemDto)
 @Controller('organizations/:organizationSlug/waitlist')
 export class WaitlistController {
   constructor(private readonly waitlistService: WaitlistService) {}
@@ -126,6 +129,16 @@ export class WaitlistController {
     @Param('organizationSlug') organizationSlug: string,
   ): Promise<AdminWaitlistResponseDto> {
     return this.waitlistService.listAdmin(organizationSlug);
+  }
+
+  @Get('tickets/list')
+  @Roles({ waitlist: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '後台號碼牌歷史列表' })
+  listTickets(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: WaitlistTicketPaginationQueryDto,
+  ): Promise<{ data: WaitlistTicketListItemDto[]; total: number }> {
+    return this.waitlistService.listTickets(organizationSlug, query);
   }
 
   @Get('tickets/:ticketId')

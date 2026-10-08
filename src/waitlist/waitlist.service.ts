@@ -10,11 +10,15 @@ import {
   desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNotNull,
   lt,
   max,
   or,
+  sql,
+  type Column,
+  type SQL,
 } from 'drizzle-orm';
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
@@ -24,6 +28,11 @@ import {
   platformDateString,
   platformMidnight,
 } from 'src/common/constants/timezone';
+import {
+  buildFilterCondition,
+  buildQuickFilterCondition,
+  localTimeText,
+} from 'src/common/utils/data-grid-filters';
 import type { Language } from 'src/db/schema/enums';
 import { organization } from 'src/db/schema/organizations';
 import {
@@ -46,8 +55,17 @@ import type {
   AdminWaitlistTicketDto,
   WaitlistStatusResponseDto,
   WaitlistTicketDetailResponseDto,
+  WaitlistTicketListItemDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto';
+import {
+  WAITLIST_TICKET_DATE_FILTER_FIELDS,
+  WAITLIST_TICKET_ENUM_FILTER_FIELDS,
+  WAITLIST_TICKET_NUMBER_FILTER_FIELDS,
+  WAITLIST_TICKET_PLAIN_DATE_FILTER_FIELDS,
+  WAITLIST_TICKET_STRING_FILTER_FIELDS,
+  type WaitlistTicketPaginationQueryDto,
+} from './dto/waitlist-ticket-pagination-query.dto';
 import type {
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
@@ -533,6 +551,108 @@ export class WaitlistService {
           phoneNumber: ticket.phoneNumber,
         };
       }),
+    };
+  }
+
+  async listTickets(
+    organizationSlug: string,
+    query: WaitlistTicketPaginationQueryDto = {},
+  ): Promise<{ data: WaitlistTicketListItemDto[]; total: number }> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
+
+    const ticketNumber = sql`${waitlistTicket.prefix} || lpad(${waitlistTicket.number}::text, 3, '0')`;
+    const fieldMap: Record<string, Column | SQL> = {
+      ticketNumber,
+      name: waitlistTicket.name,
+      phoneNumber: waitlistTicket.phoneNumber,
+      email: waitlistTicket.email,
+      status: sql`${waitlistTicket.status}::text`,
+      partySize: waitlistTicket.partySize,
+      serviceDate: waitlistTicket.serviceDate,
+      createdAt: waitlistTicket.createdAt,
+      calledAt: waitlistTicket.calledAt,
+      endedAt: waitlistTicket.endedAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy = sortBy
+      ? [dir(fieldMap[sortBy]), desc(waitlistTicket.createdAt)]
+      : [desc(waitlistTicket.createdAt)];
+
+    const where = and(
+      eq(waitlistTicket.organizationId, org.id),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            WAITLIST_TICKET_STRING_FILTER_FIELDS,
+            WAITLIST_TICKET_DATE_FILTER_FIELDS,
+            WAITLIST_TICKET_ENUM_FILTER_FIELDS,
+            WAITLIST_TICKET_NUMBER_FILTER_FIELDS,
+            WAITLIST_TICKET_PLAIN_DATE_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: WAITLIST_TICKET_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(ticketNumber, `%${value}%`),
+          ilike(waitlistTicket.name, `%${value}%`),
+          ilike(waitlistTicket.phoneNumber, `%${value}%`),
+          ilike(waitlistTicket.email, `%${value}%`),
+          ilike(sql`${waitlistTicket.partySize}::text`, `%${value}%`),
+          ilike(sql`${waitlistTicket.serviceDate}::text`, `%${value}%`),
+          ilike(localTimeText(waitlistTicket.createdAt), `%${value}%`),
+          ilike(localTimeText(waitlistTicket.calledAt), `%${value}%`),
+          ilike(localTimeText(waitlistTicket.endedAt), `%${value}%`),
+        ],
+      }),
+    );
+
+    const [tickets, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(waitlistTicket)
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(waitlistTicket).where(where),
+    ]);
+
+    return {
+      data: tickets.map((ticket) => ({
+        calledAt: ticket.calledAt,
+        confirmedAt: ticket.confirmedAt,
+        createdAt: ticket.createdAt,
+        email: ticket.email,
+        endedAt: ticket.endedAt,
+        id: ticket.id,
+        name: ticket.name,
+        partySize: ticket.partySize,
+        phoneNumber: ticket.phoneNumber,
+        prefix: ticket.prefix,
+        serviceDate: ticket.serviceDate,
+        status: ticket.status,
+        ticketNumber: formatTicketNumber(ticket.prefix, ticket.number),
+      })),
+      total,
     };
   }
 

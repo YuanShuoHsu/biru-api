@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import {
   waitlistTicketStatusEnum,
@@ -70,6 +70,13 @@ export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
   @ApiProperty({ description: '已叫號且超過保留期限' }) overdue: boolean;
   @ApiProperty() name: string;
   @ApiProperty() phoneNumber: string;
+}
+
+export class WaitlistTicketListItemDto extends OmitType(
+  AdminWaitlistTicketDto,
+  ['aheadCount', 'availableTransitions', 'holdUntil', 'overdue'] as const,
+) {
+  @ApiProperty({ example: '2026-10-08' }) serviceDate: string;
 }
 
 export class AdminWaitlistResponseDto {
