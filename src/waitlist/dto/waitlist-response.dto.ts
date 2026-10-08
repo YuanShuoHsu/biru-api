@@ -75,9 +75,7 @@ export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
 export class WaitlistTicketListItemDto extends OmitType(
   AdminWaitlistTicketDto,
   ['aheadCount', 'availableTransitions', 'holdUntil', 'overdue'] as const,
-) {
-  @ApiProperty({ example: '2026-10-08' }) serviceDate: string;
-}
+) {}
 
 export class AdminWaitlistResponseDto {
   @ApiProperty({ description: '營業中但已過打烊前停止取號時間' })
