@@ -20,7 +20,10 @@ import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from 'src/common/constants/board';
-import { platformDateString } from 'src/common/constants/timezone';
+import {
+  platformDateString,
+  platformMidnight,
+} from 'src/common/constants/timezone';
 import type { Language } from 'src/db/schema/enums';
 import { organization } from 'src/db/schema/organizations';
 import {
@@ -67,7 +70,7 @@ import {
   type StaffTransitionStatus,
 } from './waitlist-rules';
 
-const STALE_TICKET_MS = 12 * 60 * 60 * 1000;
+const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
 
 const inTodayQueue = (organizationId: string) =>
   and(
@@ -75,6 +78,7 @@ const inTodayQueue = (organizationId: string) =>
     or(
       inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
       gte(waitlistTicket.serviceDate, platformDateString(new Date())),
+      gte(waitlistTicket.endedAt, new Date(platformMidnight(Date.now()))),
     ),
   );
 
@@ -388,7 +392,7 @@ export class WaitlistService {
       .update(waitlistTicket)
       .set(
         status === 'waiting'
-          ? { calledAt: null, confirmedAt: null, status }
+          ? { calledAt: null, confirmedAt: null, endedAt: null, status }
           : revert
             ? { calledAt: now, endedAt: null, status }
             : status === 'called'

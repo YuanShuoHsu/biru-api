@@ -33,7 +33,7 @@ const TRANSITIONS: Record<WaitlistTicketStatus, WaitlistTicketStatus[]> = {
   called: ['waiting', 'called', 'seated', 'noShow', 'cancelled'],
   noShow: ['called', 'seated'],
   seated: ['called'],
-  cancelled: [],
+  cancelled: ['waiting'],
 };
 
 export const isRevert = (
@@ -41,6 +41,7 @@ export const isRevert = (
   to: WaitlistTicketStatus,
 ): boolean =>
   (from === 'called' && to === 'waiting') ||
+  (from === 'cancelled' && to === 'waiting') ||
   (from === 'noShow' && to === 'called') ||
   (from === 'seated' && to === 'called');
 

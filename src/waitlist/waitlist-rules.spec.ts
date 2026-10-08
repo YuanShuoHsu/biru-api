@@ -16,12 +16,14 @@ const groups = [
 ];
 
 describe('waitlist rules', () => {
-  it('allows undoing a mistaken call, no-show or seat', () => {
+  it('allows undoing a mistaken call, no-show, seat or cancel', () => {
     expect(canTransition('called', 'waiting')).toBe(true);
+    expect(canTransition('cancelled', 'waiting')).toBe(true);
     expect(canTransition('noShow', 'called')).toBe(true);
     expect(canTransition('seated', 'called')).toBe(true);
     expect(isRevert('called', 'waiting')).toBe(true);
     expect(isRevert('noShow', 'called')).toBe(true);
+    expect(isRevert('cancelled', 'waiting')).toBe(true);
     expect(isRevert('seated', 'called')).toBe(true);
     expect(isRevert('waiting', 'called')).toBe(false);
     expect(isRevert('called', 'called')).toBe(false);
@@ -40,7 +42,7 @@ describe('waitlist rules', () => {
 
   it('rejects leaving an ended ticket or skipping before calling', () => {
     expect(canTransition('waiting', 'noShow')).toBe(false);
-    expect(canTransition('cancelled', 'waiting')).toBe(false);
+    expect(canTransition('cancelled', 'called')).toBe(false);
   });
 
   it('accepts contiguous groups in any order', () => {
