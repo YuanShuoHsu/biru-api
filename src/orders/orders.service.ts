@@ -26,6 +26,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
 import { invoice } from 'src/db/schema/invoices';
 import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
@@ -94,11 +95,11 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 import { OrderPricingService } from './order-pricing.service';
 import {
   CANCEL_UNPAID_ORDER,
+  findTransition,
   getAvailableTransitions,
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions';
-import { POINTS_SNAPSHOT_SET } from './points-snapshot';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -692,16 +693,8 @@ export class OrdersService {
       return results;
     });
 
-    for (const { id: orderId } of updated)
-      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-        orderId,
-        orderStatus: toStatus,
-        organizationId: org.id,
-      });
-
     for (const { current, rule } of planned)
-      if (rule.recordsPayment)
-        this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: current.id });
+      this.emitTransitioned(rule, [{ id: current.id, sellerId: org.id }]);
 
     return updated;
   }
@@ -710,14 +703,17 @@ export class OrdersService {
     tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
     rule: OrderTransitionRule,
     orderIds: string[],
+    extra: { set?: PgUpdateSetSource<typeof order>; where?: SQL } = {},
   ) {
     const updated = await tx
       .update(order)
-      .set({ orderStatus: rule.toStatus, ...rule.extraSet?.() })
+      .set({ orderStatus: rule.toStatus, ...rule.extraSet?.(), ...extra.set })
       .where(
         and(
           inArray(order.id, orderIds),
           eq(order.orderStatus, rule.fromStatus),
+          rule.where?.(),
+          extra.where,
         ),
       )
       .returning();
@@ -729,11 +725,30 @@ export class OrdersService {
           orderId: id,
         });
 
-      if (rule.direction === 'cancel')
+      if (rule.restoresInventory)
         await this.inventoryTransactionsService.restoreAll(id, tx);
+
+      if (rule.consumesInventory)
+        await this.inventoryTransactionsService.consume(id, tx);
     }
 
     return updated;
+  }
+
+  private emitTransitioned(
+    rule: OrderTransitionRule,
+    orders: { id: string; sellerId: string }[],
+  ): void {
+    for (const { id, sellerId } of orders) {
+      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
+        orderId: id,
+        orderStatus: rule.toStatus,
+        organizationId: sellerId,
+      });
+
+      if (rule.recordsPayment)
+        this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: id });
+    }
   }
 
   async updateOrderCustomer(
@@ -812,78 +827,39 @@ export class OrdersService {
       return 'ignored';
     }
 
-    const orderStatus: OrderStatus = succeeded
+    const toStatus: OrderStatus = succeeded
       ? 'OrderProcessing'
       : 'OrderProblem';
 
-    const updated = await this.db.transaction(async (tx) => {
+    const transitioned = await this.db.transaction(async (tx) => {
       const [current] = await tx
-        .select({ orderStatus: order.orderStatus })
+        .select({ id: order.id, orderStatus: order.orderStatus })
         .from(order)
         .where(eq(order.id, this.attemptOrderId(tx, body.MerchantTradeNo)))
         .for('update');
+      const rule =
+        current && findTransition('payment', current.orderStatus, toStatus);
+      if (!rule) return undefined;
 
-      const [updated] = await tx
-        .update(order)
-        .set({
+      const [updated] = await this.runTransition(tx, rule, [current.id], {
+        set: {
           authorizationNo: body.gwsr || undefined,
-          orderStatus,
           paymentDate: toPaymentDate(body.PaymentDate),
           merchantTradeNo: body.MerchantTradeNo,
           paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
-          ...(succeeded && POINTS_SNAPSHOT_SET),
-        })
-        .where(
-          and(
-            eq(order.id, this.attemptOrderId(tx, body.MerchantTradeNo)),
-            succeeded
-              ? or(
-                  eq(order.orderStatus, 'OrderPaymentDue'),
-                  and(
-                    eq(order.orderStatus, 'OrderProblem'),
-                    isNull(order.discountCode),
-                  ),
-                )
-              : eq(order.orderStatus, 'OrderPaymentDue'),
-            ...(succeeded
-              ? [sql`${order.total} = ${Number(body.TradeAmt)}`]
-              : []),
-          ),
-        )
-        .returning({
-          id: order.id,
-          discountCode: order.discountCode,
-          sellerId: order.sellerId,
-        });
+        },
+        where: succeeded
+          ? sql`${order.total} = ${Number(body.TradeAmt)}`
+          : undefined,
+      });
 
-      if (!updated) return updated;
-
-      if (!succeeded) {
-        if (updated.discountCode)
-          await this.couponsService.restore(tx, {
-            code: updated.discountCode,
-            orderId: updated.id,
-          });
-
-        await this.inventoryTransactionsService.restoreAll(updated.id, tx);
-      } else if (current?.orderStatus === 'OrderProblem')
-        // 轉付款異常時已回補庫存，補正成已付款要重新扣
-        await this.inventoryTransactionsService.consume(updated.id, tx);
-
-      return updated;
+      return updated && { rule, updated };
     });
 
-    if (!updated) return this.classifyUnmatchedPayment(body, succeeded);
+    if (!transitioned) return this.classifyUnmatchedPayment(body, succeeded);
 
-    this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-      orderId: updated.id,
-      orderStatus,
-      organizationId: updated.sellerId,
-    });
-
-    if (succeeded)
-      this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: updated.id });
+    this.emitTransitioned(transitioned.rule, [transitioned.updated]);
 
     return 'handled';
   }
@@ -1040,12 +1016,7 @@ export class OrdersService {
       this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
     );
 
-    for (const { id, sellerId } of cancelled)
-      this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
-        orderId: id,
-        orderStatus: CANCEL_UNPAID_ORDER.toStatus,
-        organizationId: sellerId,
-      });
+    this.emitTransitioned(CANCEL_UNPAID_ORDER, cancelled);
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);

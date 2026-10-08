@@ -1,11 +1,7 @@
+import { type SQL, isNull } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import type {
-  order,
-  OrderFlowStatus,
-  OrderStatus,
-  PaymentMethod,
-} from 'src/db/schema/orders';
-import { ORDER_FLOW_STATUSES } from 'src/db/schema/orders';
+import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
+import { ORDER_FLOW_STATUSES, order } from 'src/db/schema/orders';
 import type { RefundChannel } from 'src/db/schema/refunds';
 
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
@@ -21,21 +17,29 @@ export const ORDER_TRANSITION_DIRECTIONS = [
 export type OrderTransitionDirection =
   (typeof ORDER_TRANSITION_DIRECTIONS)[number];
 
+export type OrderTransitionTrigger = 'admin' | 'expiry' | 'payment';
+
 export interface OrderTransitionRule {
   cashOnly?: boolean;
+  consumesInventory?: boolean;
   direction: OrderTransitionDirection;
   extraSet?: () => PgUpdateSetSource<typeof order>;
-  fromStatus: OrderFlowStatus;
+  fromStatus: OrderStatus;
   recordsPayment?: boolean;
   restoresCoupon?: boolean;
+  restoresInventory?: boolean;
   toStatus: OrderStatus;
+  triggers: readonly OrderTransitionTrigger[];
+  where?: () => SQL;
 }
 
 export const CANCEL_UNPAID_ORDER: OrderTransitionRule = {
   direction: 'cancel',
   fromStatus: 'OrderPaymentDue',
   restoresCoupon: true,
+  restoresInventory: true,
   toStatus: 'OrderCancelled',
+  triggers: ['admin', 'expiry'],
 };
 
 export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
@@ -46,16 +50,19 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     fromStatus: 'OrderPaymentDue',
     recordsPayment: true,
     toStatus: 'OrderProcessing',
+    triggers: ['admin'],
   },
   {
     direction: 'advance',
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPickupAvailable',
+    triggers: ['admin'],
   },
   {
     direction: 'advance',
     fromStatus: 'OrderPickupAvailable',
     toStatus: 'OrderDelivered',
+    triggers: ['admin'],
   },
   {
     cashOnly: true,
@@ -67,19 +74,61 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     }),
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPaymentDue',
+    triggers: ['admin'],
   },
   {
     direction: 'revert',
     fromStatus: 'OrderPickupAvailable',
     toStatus: 'OrderProcessing',
+    triggers: ['admin'],
   },
   {
     direction: 'revert',
     fromStatus: 'OrderDelivered',
     toStatus: 'OrderPickupAvailable',
+    triggers: ['admin'],
   },
   CANCEL_UNPAID_ORDER,
+  {
+    direction: 'advance',
+    extraSet: () => POINTS_SNAPSHOT_SET,
+    fromStatus: 'OrderPaymentDue',
+    recordsPayment: true,
+    toStatus: 'OrderProcessing',
+    triggers: ['payment'],
+  },
+  {
+    direction: 'cancel',
+    fromStatus: 'OrderPaymentDue',
+    restoresCoupon: true,
+    restoresInventory: true,
+    toStatus: 'OrderProblem',
+    triggers: ['payment'],
+  },
+  {
+    consumesInventory: true,
+    direction: 'advance',
+    extraSet: () => POINTS_SNAPSHOT_SET,
+    fromStatus: 'OrderProblem',
+    recordsPayment: true,
+    toStatus: 'OrderProcessing',
+    triggers: ['payment'],
+    // 轉異常時已還券，券可能已被別人用完，帶券的訂單不能自動補回
+    where: () => isNull(order.discountCode),
+  },
 ];
+
+export const findTransition = (
+  trigger: OrderTransitionTrigger,
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+): OrderTransitionRule | undefined =>
+  ORDER_TRANSITIONS.find(
+    (rule) =>
+      rule.triggers.includes(trigger) &&
+      rule.fromStatus === fromStatus &&
+      rule.toStatus === toStatus,
+  );
 
 export const isRefundable = (found: {
   orderStatus: OrderStatus;
@@ -102,6 +151,7 @@ export const getAvailableTransitions = (found: {
 }): OrderTransitionRule[] =>
   ORDER_TRANSITIONS.filter(
     (rule) =>
+      rule.triggers.includes('admin') &&
       rule.fromStatus === found.orderStatus &&
       (!rule.cashOnly || found.paymentMethod === 'Cash'),
   );
