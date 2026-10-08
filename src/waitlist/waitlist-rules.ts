@@ -50,7 +50,11 @@ export const canTransition = (
   to: WaitlistTicketStatus,
 ): boolean => TRANSITIONS[from].includes(to);
 
-// 各組人數區間須從 1 起連續、不重疊
+export const getAvailableTransitions = (
+  from: WaitlistTicketStatus,
+): StaffTransitionStatus[] =>
+  STAFF_TRANSITION_STATUSES.filter((to) => canTransition(from, to));
+
 export const isValidGroups = (
   groups: Omit<WaitlistGroup, 'prefix'>[],
 ): boolean => {

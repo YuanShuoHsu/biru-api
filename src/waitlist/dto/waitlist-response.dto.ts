@@ -59,6 +59,13 @@ export class WaitlistTicketDetailResponseDto extends WaitlistTicketResponseDto {
 }
 
 export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
+  @ApiProperty({
+    description: '店員可將此號碼牌轉換到的狀態',
+    enum: waitlistTicketStatusEnum.enumValues,
+    enumName: 'WaitlistTicketStatus',
+    isArray: true,
+  })
+  availableTransitions: WaitlistTicketStatus[];
   @ApiPropertyOptional() email: string | null;
   @ApiProperty({ description: '已叫號且超過保留期限' }) overdue: boolean;
   @ApiProperty() name: string;
