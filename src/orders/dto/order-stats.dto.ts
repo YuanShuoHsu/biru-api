@@ -6,6 +6,12 @@ import {
   type OrderMode,
   type PaymentMethod,
 } from 'src/db/schema/orders';
+import {
+  servingTemperatureLevelEnum,
+  sweetnessLevelEnum,
+  type ServingTemperatureLevel,
+  type SweetnessLevel,
+} from 'src/db/schema/enums';
 
 export class OrderStatsTotalsDto {
   @ApiProperty() orders: number;
@@ -44,6 +50,24 @@ export class OrderStatsModifierDto {
   @ApiProperty({ description: '售出份數減去退款份數' }) sold: number;
 }
 
+export class OrderStatsSweetnessLevelDto {
+  @ApiProperty({
+    enum: sweetnessLevelEnum.enumValues,
+    enumName: 'SweetnessLevel',
+  })
+  level: SweetnessLevel;
+  @ApiProperty({ description: '售出份數減去退款份數' }) sold: number;
+}
+
+export class OrderStatsServingTemperatureLevelDto {
+  @ApiProperty({
+    enum: servingTemperatureLevelEnum.enumValues,
+    enumName: 'ServingTemperatureLevel',
+  })
+  level: ServingTemperatureLevel;
+  @ApiProperty({ description: '售出份數減去退款份數' }) sold: number;
+}
+
 export class OrderStatsResponseDto {
   @ApiProperty({ description: '開店以來計入的訂單數（含之後退貨的訂單）' })
   lifetimeOrders: number;
@@ -74,4 +98,16 @@ export class OrderStatsResponseDto {
     type: [OrderStatsModifierDto],
   })
   modifiers: OrderStatsModifierDto[];
+
+  @ApiProperty({
+    description: '各甜度售出份數（含加購品項）；不適用甜度的品項不計',
+    type: [OrderStatsSweetnessLevelDto],
+  })
+  sweetnessLevels: OrderStatsSweetnessLevelDto[];
+
+  @ApiProperty({
+    description: '各冰量／溫度售出份數（含加購品項）；不分冷熱的品項不計',
+    type: [OrderStatsServingTemperatureLevelDto],
+  })
+  servingTemperatureLevels: OrderStatsServingTemperatureLevelDto[];
 }

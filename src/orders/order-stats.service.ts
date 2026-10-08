@@ -17,6 +17,11 @@ import { refund } from 'src/db/schema/refunds';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
+import type {
+  ServingTemperatureLevel,
+  SweetnessLevel,
+} from 'src/db/schema/enums';
+
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
 import {
@@ -84,6 +89,33 @@ export class OrderStatsService {
     };
     const localHour = sql<number>`EXTRACT(HOUR FROM ${COUNTED_AT} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})::int`;
 
+    const servedLevels = <Level extends string>(
+      column: 'serving_temperature_level' | 'sweetness_level',
+    ) => {
+      const addOnKey =
+        column === 'sweetness_level'
+          ? 'sweetnessLevel'
+          : 'servingTemperatureLevel';
+
+      return this.db.execute<{ level: Level; sold: number }>(sql`
+        WITH movements AS (${orderItemMovements(org.id, since, until)}),
+        served AS (
+          SELECT oi.${sql.raw(column)}::text AS level, m.quantity
+          FROM movements m
+          JOIN order_item oi ON oi.id = m.order_item_id
+          UNION ALL
+          SELECT add_on.value ->> ${addOnKey}, m.quantity
+          FROM movements m
+          JOIN order_item oi ON oi.id = m.order_item_id
+          CROSS JOIN LATERAL jsonb_array_elements(COALESCE(oi.add_ons, '[]'::jsonb)) AS add_on
+        )
+        SELECT level, SUM(quantity)::int AS sold
+        FROM served
+        WHERE level IS NOT NULL
+        GROUP BY level
+      `);
+    };
+
     const [
       [{ lifetimeOrders }],
       bucketRows,
@@ -95,6 +127,8 @@ export class OrderStatsService {
       paymentMethods,
       coupons,
       modifierRows,
+      sweetnessRows,
+      servingTemperatureRows,
     ] = await Promise.all([
       this.db.select({ lifetimeOrders: count() }).from(order).where(counted),
       this.db
@@ -166,6 +200,8 @@ export class OrderStatsService {
         ORDER BY sold DESC, 1
         LIMIT ${MODIFIER_LIMIT}
       `),
+      servedLevels<SweetnessLevel>('sweetness_level'),
+      servedLevels<ServingTemperatureLevel>('serving_temperature_level'),
     ]);
 
     const toTotals = (
@@ -198,6 +234,8 @@ export class OrderStatsService {
       paymentMethods,
       coupons,
       modifiers: modifierRows.rows,
+      sweetnessLevels: sweetnessRows.rows,
+      servingTemperatureLevels: servingTemperatureRows.rows,
     };
   }
 }

@@ -83,15 +83,20 @@ export const buildRefundPlan = (
         t('itemNotInOrder', { orderItemId: input.orderItemId }),
       );
 
-    const remaining =
-      source.orderQuantity - (refundedQuantities.get(source.id) ?? 0);
+    const refunded = refundedQuantities.get(source.id) ?? 0;
+    const remaining = source.orderQuantity - refunded;
     if (input.quantity > remaining)
       throw new BadRequestException(
         t('quantityExceeded', { name: source.menuItemName, remaining }),
       );
 
+    const unitPrice = Number(source.unitPrice);
+
     return {
-      amount: String(round(Number(source.unitPrice) * input.quantity)),
+      amount: String(
+        round(unitPrice * (refunded + input.quantity)) -
+          round(unitPrice * refunded),
+      ),
       menuItemName: source.menuItemName,
       orderItemId: source.id,
       quantity: input.quantity,
