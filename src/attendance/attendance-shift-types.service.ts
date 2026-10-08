@@ -28,10 +28,15 @@ import {
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
 import {
+  MAX_DAILY_WORK_SECONDS,
+  scheduledWorkSeconds,
+} from './attendance-rules';
+import {
   ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS,
   type AttendanceShiftTypePaginationQueryDto,
   type SaveAttendanceShiftTypeDto,
 } from './dto/attendance-shift-type.dto';
+import { scheduledBreaks } from './shift-intervals';
 
 @Injectable()
 export class AttendanceShiftTypesService {
@@ -189,6 +194,19 @@ export class AttendanceShiftTypesService {
     exceptId?: string,
   ) {
     if (startTime === endTime) throw badRequestError('invalidInterval');
+    const startsAt = new Date(`2000-01-01T${startTime}Z`);
+    const endsAt = new Date(
+      `2000-01-0${endTime > startTime ? 1 : 2}T${endTime}Z`,
+    );
+    if (
+      scheduledWorkSeconds({
+        startsAt,
+        endsAt,
+        breaks: scheduledBreaks({ startsAt, endsAt }),
+        paidBreak: false,
+      }) > MAX_DAILY_WORK_SECONDS
+    )
+      throw badRequestError('shiftTypeTooLong');
     const name = rawName.trim();
     const [taken] = await tx
       .select({ id: attendanceShiftType.id })

@@ -116,6 +116,7 @@ export const attendanceErrorCodes = [
   'shiftRestTooShort',
   'shiftTooLong',
   'shiftTypeNameTaken',
+  'shiftTypeTooLong',
   'splitLeaveByYear',
   'statutoryBalanceAutomatic',
   'statutoryLeaveTypeLocked',
