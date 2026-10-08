@@ -27,6 +27,7 @@ import {
   languagesEnum,
   type Language,
 } from 'src/db/schema/enums';
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto';
@@ -92,6 +93,7 @@ export class WaitlistController {
 
   @Post('tickets/admin')
   @Roles({ waitlist: ['update'] }, 'organizationSlug')
+  @Audit('waitlistTicket', { response: true })
   @ApiHeader({
     description: '同一次登記重試請帶同一把鍵，重送會回傳既有號碼牌',
     name: 'Idempotency-Key',
@@ -155,6 +157,7 @@ export class WaitlistController {
 
   @Patch('tickets/:ticketId/transitions/:status')
   @Roles({ waitlist: ['update'] }, 'organizationSlug')
+  @Audit('waitlistTicket', { param: 'ticketId' })
   @ApiOperation({
     summary: '叫號／入座／過號／取消',
     description: '已叫號可再次叫號；過號可補入座',
@@ -174,6 +177,11 @@ export class WaitlistController {
 
   @Put('paused')
   @Roles({ waitlist: ['update'] }, 'organizationSlug')
+  @Audit({
+    resource: 'organization',
+    idSource: { column: 'organizationId', organization: true },
+    via: { table: 'waitlistSetting', ownerColumn: 'organizationId' },
+  })
   @ApiOperation({ summary: '暫停／恢復取號' })
   updatePaused(
     @Param('organizationSlug') organizationSlug: string,
@@ -193,6 +201,11 @@ export class WaitlistController {
 
   @Put('settings')
   @Roles({ waitlistSetting: ['update'] }, 'organizationSlug')
+  @Audit({
+    resource: 'organization',
+    idSource: { column: 'organizationId', organization: true },
+    via: { table: 'waitlistSetting', ownerColumn: 'organizationId' },
+  })
   @ApiOperation({ summary: '更新候位設定' })
   updateSettings(
     @Param('organizationSlug') organizationSlug: string,

@@ -29,7 +29,10 @@ import {
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
+import { waitlistSetting, waitlistTicket } from 'src/db/schema/waitlist';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+
+import { formatTicketNumber } from 'src/waitlist/waitlist-rules';
 
 import type { AuditSubTable } from '../decorators/audit.decorator';
 
@@ -44,11 +47,10 @@ export type AuditLabel = {
   ancestorIds: string[];
 };
 
-export const AUDIT_TABLES: Record<AuditLabelScope, AuditableTable> = {
+export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   menu,
   menuSection,
   menuItem,
-  offer,
   menuItemAddOn,
   modifierGroup,
   modifier,
@@ -61,8 +63,19 @@ export const AUDIT_TABLES: Record<AuditLabelScope, AuditableTable> = {
   supplier,
   ingredient,
   recipe,
-  recipeIngredient,
   organization,
+  waitlistTicket,
+};
+
+export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
+  offer,
+  recipeIngredient,
+  waitlistSetting,
+};
+
+// waitlistSetting 一店一列、以 organizationId 為主鍵，沒有 id 欄位
+export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
+  waitlistSetting: 'organizationId',
 };
 
 type LabelSource = { table: AuditableTable; column: string };
@@ -306,6 +319,17 @@ export const resolveAuditLabels = async (
           ];
         case 'banner':
           return [resourceId, { resourceLabel: null, ancestorIds: [] }];
+        case 'waitlistTicket':
+          return [
+            resourceId,
+            {
+              resourceLabel:
+                typeof row.prefix === 'string' && typeof row.number === 'number'
+                  ? formatTicketNumber(row.prefix, row.number)
+                  : null,
+              ancestorIds: [],
+            },
+          ];
         case 'invoice':
           return [
             resourceId,

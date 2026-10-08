@@ -10,9 +10,10 @@ export type AuditIdSource =
   | { response: true }
   | { column: string; param: string }
   | { column: string; body: string }
-  | { column: string; response: true };
+  | { column: string; response: true }
+  | { column: string; organization: true };
 
-export type AuditSubTable = 'offer' | 'recipeIngredient';
+export type AuditSubTable = 'offer' | 'recipeIngredient' | 'waitlistSetting';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };
 

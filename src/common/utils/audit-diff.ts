@@ -4,6 +4,7 @@ export type AuditRow = Record<string, unknown>;
 
 const IGNORED_COLUMNS = new Set([
   'id',
+  'idempotencyKey',
   'organizationId',
   'createdAt',
   'updatedAt',

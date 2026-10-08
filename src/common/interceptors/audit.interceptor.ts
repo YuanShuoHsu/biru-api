@@ -11,6 +11,7 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import { getTableColumns, inArray, or } from 'drizzle-orm';
+import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import { Request } from 'express';
 import { from, Observable, switchMap, tap } from 'rxjs';
 
@@ -29,10 +30,11 @@ import {
   type AuditTarget,
 } from '../decorators/audit.decorator';
 import {
+  AUDIT_KEY_COLUMNS,
+  AUDIT_SUB_TABLES,
   AUDIT_TABLES,
   resolveAuditLabels,
   resolveChangeLabels,
-  type AuditableTable,
   type AuditLabelScope,
 } from '../utils/audit-resources';
 
@@ -60,7 +62,13 @@ const ACTION_BY_METHOD: Record<string, AuditAction> = {
 const scopeOf = (target: AuditTarget): AuditLabelScope =>
   target.via?.table ?? target.resource;
 
-const tableOf = (target: AuditTarget) => AUDIT_TABLES[scopeOf(target)];
+const tableOf = (target: AuditTarget): AnyPgTable =>
+  target.via
+    ? AUDIT_SUB_TABLES[target.via.table]
+    : AUDIT_TABLES[target.resource];
+
+const keyColumnOf = (target: AuditTarget) =>
+  AUDIT_KEY_COLUMNS[scopeOf(target)] ?? 'id';
 
 const resourceColumnOf = (target: AuditTarget) =>
   target.via?.ownerColumn ?? 'id';
@@ -92,6 +100,9 @@ const idsFromRequest = (
 
     return value ? [value] : [];
   }
+
+  if ('organization' in idSource)
+    return request.organizationId ? [request.organizationId] : [];
 
   if ('body' in idSource) {
     const value = (request.body as Row | undefined)?.[idSource.body];
@@ -194,23 +205,25 @@ export class AuditInterceptor implements NestInterceptor {
     knownIds: string[] = [],
   ): Promise<Map<string, SnapshotRow>> {
     const table = tableOf(target);
+    const keyColumn = keyColumnOf(target);
+    const key = getTableColumns(table)[keyColumn];
     const located = locators.map((locator) =>
       locator.kind === 'ids'
-        ? inArray(table.id, locator.ids)
+        ? inArray(key, locator.ids)
         : this.columnCondition(table, locator),
     );
     const where = or(
       ...located,
-      knownIds.length ? inArray(table.id, knownIds) : undefined,
+      knownIds.length ? inArray(key, knownIds) : undefined,
     );
     if (!where) return new Map();
 
-    const rows = await this.db.select().from(table).where(where);
+    const rows: Row[] = await this.db.select().from(table).where(where);
     const resourceColumn = resourceColumnOf(target);
     const entries: [string, SnapshotRow][] = [];
 
     for (const row of rows) {
-      const { id } = row;
+      const id = row[keyColumn];
       const resourceId = row[resourceColumn];
       if (typeof id === 'string' && typeof resourceId === 'string')
         entries.push([id, { resourceId, row }]);
@@ -220,7 +233,7 @@ export class AuditInterceptor implements NestInterceptor {
   }
 
   private columnCondition(
-    table: AuditableTable,
+    table: AnyPgTable,
     locator: Extract<Locator, { kind: 'column' }>,
   ) {
     const column = getTableColumns(table)[locator.column];
