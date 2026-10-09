@@ -37,6 +37,7 @@ import {
 } from './dto/copy-attendance-week.dto';
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import {
+  CancelAttendanceShiftDto,
   CreateAttendanceShiftsDto,
   UpdateAttendanceShiftDto,
 } from './dto/create-attendance-shifts.dto';
@@ -180,8 +181,13 @@ export class AttendanceShiftsController {
     @Req() req: AuthRequest,
     @Session() session: UserSession,
     @Param('id') id: string,
+    @Body() dto: CancelAttendanceShiftDto,
   ): Promise<AttendanceIdResponseDto> {
-    return this.attendanceShiftsService.cancelShift(actor(req, session), id);
+    return this.attendanceShiftsService.cancelShift(
+      actor(req, session),
+      id,
+      dto.reason,
+    );
   }
 
   @Patch('shifts/:id/restore')

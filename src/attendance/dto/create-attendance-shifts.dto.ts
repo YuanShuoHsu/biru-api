@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -83,4 +84,12 @@ export class CreateAttendanceShiftsDto {
   @IsOptional()
   @IsBoolean()
   dryRun?: boolean;
+}
+
+export class CancelAttendanceShiftDto {
+  @ApiPropertyOptional({ description: '班次已開始後取消時必填，寫入稽核紀錄' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
 }

@@ -1367,7 +1367,7 @@ export class AttendanceShiftsService {
     return values;
   }
 
-  async cancelShift(actor: AttendanceActor, id: string) {
+  async cancelShift(actor: AttendanceActor, id: string, rawReason = '') {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [shift] = await tx
@@ -1381,6 +1381,9 @@ export class AttendanceShiftsService {
         );
       if (!shift) throw new NotFoundException();
       if (shift.status === 'cancelled') return { id };
+      const reason = rawReason.trim();
+      if (shift.startsAt <= new Date() && !reason)
+        throw badRequestError('cancelReasonRequired');
       await assertShiftWithoutRecords(tx, shift);
       await assertPayrollUnlocked(
         tx,
@@ -1393,7 +1396,7 @@ export class AttendanceShiftsService {
         .update(attendanceShift)
         .set({ status: 'cancelled' })
         .where(eq(attendanceShift.id, id));
-      await writeAudit(tx, actor, 'shift.cancel', id, {});
+      await writeAudit(tx, actor, 'shift.cancel', id, reason ? { reason } : {});
       return { id };
     });
   }
