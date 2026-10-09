@@ -13,6 +13,7 @@ const IGNORED_COLUMNS = new Set([
 export const diffAuditRows = (
   before: AuditRow | undefined,
   after: AuditRow | undefined,
+  ignoredColumns: string[] = [],
 ): AuditChanges => {
   const keys = new Set([
     ...Object.keys(before ?? {}),
@@ -21,7 +22,7 @@ export const diffAuditRows = (
   const changes: AuditChanges = {};
 
   for (const key of keys) {
-    if (IGNORED_COLUMNS.has(key)) continue;
+    if (IGNORED_COLUMNS.has(key) || ignoredColumns.includes(key)) continue;
 
     const previous = before?.[key] ?? null;
     const next = after?.[key] ?? null;

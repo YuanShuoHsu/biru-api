@@ -14,7 +14,11 @@ export async function findEmployee(
   db: DrizzleDB | Transaction,
 ) {
   const [employee] = await db
-    .select({ ...getTableColumns(attendanceEmployee), name: user.name })
+    .select({
+      ...getTableColumns(attendanceEmployee),
+      name: user.name,
+      email: user.email,
+    })
     .from(attendanceEmployee)
     .innerJoin(user, eq(user.id, attendanceEmployee.userId))
     .where(

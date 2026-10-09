@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm';
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
-import { refund } from 'src/db/schema/refunds';
+import { refund, type RefundReasonCode } from 'src/db/schema/refunds';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -42,6 +42,7 @@ import type {
 
 const COUPON_LIMIT = 10;
 const MODIFIER_LIMIT = 10;
+const REFUNDED_ITEM_LIMIT = 10;
 
 @Injectable()
 export class OrderStatsService {
@@ -87,6 +88,15 @@ export class OrderStatsService {
     const refunded = {
       amount: sql<number>`COALESCE(SUM(${refund.amount}), 0)`.mapWith(Number),
     };
+    const firstRefunds = this.db
+      .select({
+        firstRefundedAt: sql`MIN(${refund.createdAt})`.as('first_refunded_at'),
+      })
+      .from(refund)
+      .innerJoin(order, eq(order.id, refund.orderId))
+      .where(and(eq(order.sellerId, org.id), isConfirmedRefund))
+      .groupBy(refund.orderId)
+      .as('first_refund');
     const localHour = sql<number>`EXTRACT(HOUR FROM ${COUNTED_AT} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})::int`;
 
     const servedLevels = <Level extends string>(
@@ -122,6 +132,7 @@ export class OrderStatsService {
       [previous],
       refundBucketRows,
       [previousRefunded],
+      firstRefundBucketRows,
       hourRows,
       modes,
       paymentMethods,
@@ -129,6 +140,8 @@ export class OrderStatsService {
       modifierRows,
       sweetnessRows,
       servingTemperatureRows,
+      refundedItemRows,
+      refundReasons,
     ] = await Promise.all([
       this.db.select({ lifetimeOrders: count() }).from(order).where(counted),
       this.db
@@ -148,6 +161,19 @@ export class OrderStatsService {
         .from(refund)
         .innerJoin(order, eq(order.id, refund.orderId))
         .where(refundsInRange(previousSince, since)),
+      this.db
+        .select({
+          index: bucketIndexOf(sql`${firstRefunds.firstRefundedAt}`),
+          orders: count(),
+        })
+        .from(firstRefunds)
+        .where(
+          and(
+            gte(firstRefunds.firstRefundedAt, utcTimestampParam(since)),
+            lt(firstRefunds.firstRefundedAt, utcTimestampParam(until)),
+          ),
+        )
+        .groupBy(sql`1`),
       this.db
         .select({ hour: localHour, orders: count() })
         .from(order)
@@ -202,6 +228,33 @@ export class OrderStatsService {
       `),
       servedLevels<SweetnessLevel>('sweetness_level'),
       servedLevels<ServingTemperatureLevel>('serving_temperature_level'),
+      this.db.execute<{
+        menuItemId: string;
+        menuItemName: string;
+        quantity: number;
+      }>(sql`
+        SELECT
+          oi.menu_item_id AS "menuItemId",
+          (array_agg(refunded_item.value ->> 'menuItemName' ORDER BY ${refund.createdAt} DESC))[1] AS "menuItemName",
+          SUM((refunded_item.value ->> 'quantity')::int)::int AS quantity
+        FROM ${refund}
+        JOIN ${order} ON ${order.id} = ${refund.orderId}
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(${refund.items}, '[]'::jsonb)) AS refunded_item
+        JOIN order_item oi ON oi.id = refunded_item.value ->> 'orderItemId'
+        WHERE ${refundsInRange(since, until)}
+        GROUP BY 1
+        ORDER BY quantity DESC, 1
+        LIMIT ${REFUNDED_ITEM_LIMIT}
+      `),
+      this.db
+        .select({
+          reasonCode: sql<RefundReasonCode>`${refund.reasonCode}`,
+          refunds: count(),
+        })
+        .from(refund)
+        .innerJoin(order, eq(order.id, refund.orderId))
+        .where(and(refundsInRange(since, until), isNotNull(refund.reasonCode)))
+        .groupBy(refund.reasonCode),
     ]);
 
     const toTotals = (
@@ -216,6 +269,9 @@ export class OrderStatsService {
     const refundedByIndex = new Map(
       refundBucketRows.map(({ amount, index }) => [index, amount]),
     );
+    const firstRefundedByIndex = new Map(
+      firstRefundBucketRows.map(({ index, orders }) => [index, orders]),
+    );
     const hourlyOrders = Array<number>(24).fill(0);
     for (const { hour, orders } of hourRows) hourlyOrders[hour] = orders;
 
@@ -227,8 +283,15 @@ export class OrderStatsService {
           bucketByIndex.get(index) ?? { discount: 0, orders: 0, revenue: 0 },
           refundedByIndex.get(index) ?? 0,
         ),
+        refundedOrders: firstRefundedByIndex.get(index) ?? 0,
       })),
       previous: toTotals(previous, previousRefunded.amount),
+      refundedOrders: firstRefundBucketRows.reduce(
+        (sum, { orders }) => sum + orders,
+        0,
+      ),
+      refundedItems: refundedItemRows.rows,
+      refundReasons,
       hourlyOrders,
       modes,
       paymentMethods,

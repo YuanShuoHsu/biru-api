@@ -2,6 +2,7 @@ import {
   CreateOrderRefundDto,
   OrderRefundDto,
   OrderRefundPreviewDto,
+  PreviewOrderRefundDto,
 } from './dto/order-refund.dto';
 
 import { EcpayOrderRefundService } from './services/ecpay-order-refund.service';
@@ -43,7 +44,7 @@ export class EcpayOrderRefundController {
   preview(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
-    @Body() dto: CreateOrderRefundDto,
+    @Body() dto: PreviewOrderRefundDto,
   ): Promise<OrderRefundPreviewDto> {
     return this.ecpayOrderRefundService.previewRefund(
       organizationSlug,
@@ -54,7 +55,15 @@ export class EcpayOrderRefundController {
 
   @Post()
   @Roles({ order: ['update'] }, 'organizationSlug')
-  @Audit('order', { param: 'orderId' })
+  @Audit(
+    { resource: 'order', idSource: { param: 'orderId' } },
+    {
+      resource: 'order',
+      idSource: { column: 'orderId', param: 'orderId' },
+      via: { table: 'refund', ownerColumn: 'orderId' },
+    },
+    { resource: 'invoice', idSource: { column: 'orderId', param: 'orderId' } },
+  )
   @ApiCreatedResponse({ type: OrderRefundDto })
   @ApiOperation({
     summary:

@@ -7,6 +7,10 @@ import {
   type PaymentMethod,
 } from 'src/db/schema/orders';
 import {
+  refundReasonCodeEnum,
+  type RefundReasonCode,
+} from 'src/db/schema/refunds';
+import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
   type ServingTemperatureLevel,
@@ -25,6 +29,10 @@ export class OrderStatsTotalsDto {
 
 export class OrderStatsBucketDto extends OrderStatsTotalsDto {
   @ApiProperty({ format: 'date-time' }) start: string;
+  @ApiProperty({
+    description: '區間內首次確認退款的訂單數（依首次退款日歸期）',
+  })
+  refundedOrders: number;
 }
 
 export class OrderStatsModeDto {
@@ -48,6 +56,21 @@ export class OrderStatsModifierDto {
   @ApiProperty() modifierGroupName: string;
   @ApiProperty() modifierName: string;
   @ApiProperty({ description: '售出份數減去退款份數' }) sold: number;
+}
+
+export class OrderStatsRefundedItemDto {
+  @ApiProperty() menuItemId: string;
+  @ApiProperty() menuItemName: string;
+  @ApiProperty({ description: '確認退款的份數' }) quantity: number;
+}
+
+export class OrderStatsRefundReasonDto {
+  @ApiProperty({
+    enum: refundReasonCodeEnum.enumValues,
+    enumName: 'RefundReasonCode',
+  })
+  reasonCode: RefundReasonCode;
+  @ApiProperty({ description: '確認退款的筆數' }) refunds: number;
 }
 
 export class OrderStatsSweetnessLevelDto {
@@ -83,6 +106,25 @@ export class OrderStatsResponseDto {
     type: [Number],
   })
   hourlyOrders: number[];
+
+  @ApiProperty({
+    description:
+      '期間內首次確認退款的訂單數（依首次退款日歸期，同一訂單只算一次）',
+  })
+  refundedOrders: number;
+
+  @ApiProperty({
+    description: '期間內確認退款份數前 10 名品項（依退款日歸期）',
+    type: [OrderStatsRefundedItemDto],
+  })
+  refundedItems: OrderStatsRefundedItemDto[];
+
+  @ApiProperty({
+    description:
+      '期間內確認退款依原因分類的筆數（依退款日歸期）；導入分類前的舊紀錄不計',
+    type: [OrderStatsRefundReasonDto],
+  })
+  refundReasons: OrderStatsRefundReasonDto[];
 
   @ApiProperty({ type: [OrderStatsModeDto] })
   modes: OrderStatsModeDto[];

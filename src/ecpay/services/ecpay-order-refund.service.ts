@@ -7,6 +7,7 @@ import type {
   CreateOrderRefundDto,
   OrderRefundDto,
   OrderRefundPreviewDto,
+  PreviewOrderRefundDto,
 } from '../dto/order-refund.dto';
 
 import {
@@ -177,7 +178,7 @@ export class EcpayOrderRefundService {
   async previewRefund(
     organizationSlug: string,
     orderId: string,
-    dto: CreateOrderRefundDto,
+    dto: PreviewOrderRefundDto,
   ): Promise<OrderRefundPreviewDto> {
     const found = await this.findRefundableOrder(organizationSlug, orderId);
 
@@ -256,6 +257,7 @@ export class EcpayOrderRefundService {
           operatorId,
           orderId,
           reason: dto.reason,
+          reasonCode: dto.reasonCode,
           scope: plan.isFull ? 'full' : 'partial',
         })
         .returning();
@@ -881,6 +883,7 @@ export class EcpayOrderRefundService {
         invoiceError: refund.invoiceError,
         items: refund.items,
         reason: refund.reason,
+        reasonCode: refund.reasonCode,
         scope: refund.scope,
         status: refund.status,
       })

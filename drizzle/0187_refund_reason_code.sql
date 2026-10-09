@@ -1,0 +1,2 @@
+CREATE TYPE "public"."refund_reason_code" AS ENUM('wrongItem', 'qualityIssue', 'outOfStock', 'longWait', 'customerMistake', 'customerCancelled', 'other');--> statement-breakpoint
+ALTER TABLE "refund" ADD COLUMN "reason_code" "refund_reason_code";

@@ -30,6 +30,7 @@ import {
   type AuditTarget,
 } from '../decorators/audit.decorator';
 import {
+  AUDIT_IGNORED_COLUMNS,
   AUDIT_KEY_COLUMNS,
   AUDIT_SUB_TABLES,
   AUDIT_TABLES,
@@ -73,8 +74,17 @@ const keyColumnOf = (target: AuditTarget) =>
 const resourceColumnOf = (target: AuditTarget) =>
   target.via?.ownerColumn ?? 'id';
 
-const actionOf = (target: AuditTarget, action: AuditAction): AuditAction =>
-  target.action ?? (target.via ? 'update' : action);
+const actionOf = (
+  target: AuditTarget,
+  previous: SnapshotRow | undefined,
+  next: SnapshotRow | undefined,
+): AuditAction => {
+  if (target.action) return target.action;
+  if (target.via) return 'update';
+  if (!previous) return 'create';
+
+  return next ? 'update' : 'delete';
+};
 
 const pickId = (value: unknown): string | undefined => {
   if (typeof value !== 'object' || value === null) return undefined;
@@ -286,7 +296,11 @@ export class AuditInterceptor implements NestInterceptor {
         const resourceId = next?.resourceId ?? previous?.resourceId;
         if (!resourceId) continue;
 
-        const changes = diffAuditRows(previous?.row, next?.row);
+        const changes = diffAuditRows(
+          previous?.row,
+          next?.row,
+          AUDIT_IGNORED_COLUMNS[scopeOf(target)],
+        );
         if (!Object.keys(changes).length) continue;
 
         const snapshot =
@@ -307,7 +321,7 @@ export class AuditInterceptor implements NestInterceptor {
             organizationId,
             resource: target.resource,
             resourceId,
-            action: actionOf(target, action),
+            action: actionOf(target, previous, next),
             changes,
           },
         });

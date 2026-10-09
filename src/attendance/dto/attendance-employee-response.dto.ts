@@ -18,6 +18,7 @@ export class AttendanceEmploymentResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
+  @ApiProperty() email: string;
   @ApiProperty({
     enum: ATTENDANCE_EMPLOYMENT_TYPES,
     enumName: 'AttendanceEmploymentType',

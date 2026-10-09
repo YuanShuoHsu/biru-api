@@ -3,20 +3,24 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsDefined,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   Length,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
+  refundReasonCodeEnum,
   refundStatusEnum,
   type RefundChannel,
   type RefundInvoiceAction,
+  type RefundReasonCode,
   type RefundScope,
   type RefundStatus,
 } from 'src/db/schema/refunds';
@@ -51,7 +55,7 @@ export class RefundItemSnapshotDto {
   amount: string;
 }
 
-export class CreateOrderRefundDto {
+export class PreviewOrderRefundDto {
   @ApiPropertyOptional({
     description:
       '退款品項與數量；省略代表整單全額退款。金額由後端依原單價計算，不接受自訂金額，否則湊不出合法的發票折讓明細',
@@ -63,9 +67,27 @@ export class CreateOrderRefundDto {
   @ValidateNested({ each: true })
   @Type(() => RefundItemInputDto)
   items?: RefundItemInputDto[];
+}
 
-  @ApiPropertyOptional({ description: '退款原因', maxLength: 50 })
-  @IsOptional()
+export class CreateOrderRefundDto extends PreviewOrderRefundDto {
+  @ApiProperty({
+    description: '退款原因分類，用於統計出錯比例',
+    enum: refundReasonCodeEnum.enumValues,
+    enumName: 'RefundReasonCode',
+  })
+  @IsDefined()
+  @IsIn(refundReasonCodeEnum.enumValues)
+  reasonCode: RefundReasonCode;
+
+  @ApiPropertyOptional({
+    description:
+      '退款說明，會作為發票作廢／折讓原因送至綠界；原因分類為 other 時必填',
+    maxLength: 50,
+  })
+  @ValidateIf(
+    (dto: CreateOrderRefundDto) =>
+      dto.reasonCode === 'other' || dto.reason !== undefined,
+  )
   @IsString()
   @Length(1, 50)
   reason?: string;
@@ -122,7 +144,15 @@ export class OrderRefundDto {
   @ApiProperty({ description: '綠界折讓單號', nullable: true })
   allowanceNo: string | null;
 
-  @ApiProperty({ description: '退款原因', nullable: true })
+  @ApiProperty({
+    description: '退款原因分類；導入分類前的舊紀錄為 null',
+    enum: refundReasonCodeEnum.enumValues,
+    enumName: 'RefundReasonCode',
+    nullable: true,
+  })
+  reasonCode: RefundReasonCode | null;
+
+  @ApiProperty({ description: '退款說明', nullable: true })
   reason: string | null;
 
   @ApiProperty({ description: '建立時間' })

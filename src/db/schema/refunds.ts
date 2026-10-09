@@ -28,6 +28,17 @@ export const refundStatusEnum = pgEnum('refund_status', [
 ]);
 export type RefundStatus = (typeof refundStatusEnum.enumValues)[number];
 
+export const refundReasonCodeEnum = pgEnum('refund_reason_code', [
+  'wrongItem',
+  'qualityIssue',
+  'outOfStock',
+  'longWait',
+  'customerMistake',
+  'customerCancelled',
+  'other',
+]);
+export type RefundReasonCode = (typeof refundReasonCodeEnum.enumValues)[number];
+
 export const refundInvoiceActionEnum = pgEnum('refund_invoice_action', [
   'none',
   'voided',
@@ -67,6 +78,7 @@ export const refund = pgTable(
     operatorId: text('operator_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    reasonCode: refundReasonCodeEnum('reason_code'),
     reason: text('reason'),
     ...timestamps,
   },

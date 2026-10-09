@@ -235,6 +235,7 @@ export class AttendanceEmployeesService {
           organizationId: attendanceEmployee.organizationId,
           userId: attendanceEmployee.userId,
           name: user.name,
+          email: user.email,
           employmentType: sql<AttendanceEmploymentType>`${employmentTypeSql}`,
           birthDate: attendanceEmployee.birthDate,
           taiwanStaySince: attendanceEmployee.taiwanStaySince,
@@ -385,7 +386,15 @@ export class AttendanceEmployeesService {
     ]);
     return {
       data: data.map(
-        ({ deletable, email, joinedAt, name, status, userId, ...employee }) => ({
+        ({
+          deletable,
+          email,
+          joinedAt,
+          name,
+          status,
+          userId,
+          ...employee
+        }) => ({
           deletable,
           email,
           joinedAt,
@@ -419,6 +428,7 @@ export class AttendanceEmployeesService {
                   createdAt: employee.createdAt,
                   userId,
                   name,
+                  email,
                 },
         }),
       ),
@@ -430,7 +440,7 @@ export class AttendanceEmployeesService {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [membership] = await tx
-        .select({ name: user.name })
+        .select({ email: user.email, name: user.name })
         .from(member)
         .innerJoin(user, eq(user.id, member.userId))
         .where(
@@ -753,6 +763,7 @@ export class AttendanceEmployeesService {
         ...row,
         ...legalStatusObligations(row.legalStatus),
         name: membership.name,
+        email: membership.email,
         employmentType: await currentEmploymentType(tx, row),
         status: employeeStatus(row),
       };

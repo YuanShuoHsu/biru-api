@@ -28,6 +28,7 @@ import {
 } from 'src/db/schema/menus';
 import { order } from 'src/db/schema/orders';
 import { organization } from 'src/db/schema/organizations';
+import { refund } from 'src/db/schema/refunds';
 import { user } from 'src/db/schema/users';
 import { waitlistSetting, waitlistTicket } from 'src/db/schema/waitlist';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -70,6 +71,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   offer,
   recipeIngredient,
+  refund,
   waitlistSetting,
 };
 
@@ -77,6 +79,18 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
   waitlistSetting: 'organizationId',
 };
+
+// 重試排程與金流回應是系統記帳，不是人的操作；操作人已是稽核列的 actor
+export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
+  {
+    refund: [
+      'ecpayRtnCode',
+      'ecpayRtnMsg',
+      'invoiceAttempts',
+      'invoiceRetryAt',
+      'operatorId',
+    ],
+  };
 
 type LabelSource = { table: AuditableTable; column: string };
 
@@ -130,6 +144,9 @@ const FK_LABEL_SOURCES: Partial<
   },
   recipeIngredient: {
     ingredientId: { table: ingredient, column: 'name' },
+  },
+  refund: {
+    orderId: { table: order, column: 'confirmationNumber' },
   },
 };
 
