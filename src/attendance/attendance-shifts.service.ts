@@ -64,8 +64,10 @@ import {
 } from './attendance-audit';
 import {
   badRequestError,
+  cancelIrreversibleError,
   conflictError,
   forbiddenError,
+  isAttendanceErrorCode,
 } from './attendance-errors';
 import {
   ADULT_WORKING_AGE,
@@ -117,6 +119,7 @@ import {
 } from './dto/copy-attendance-week.dto';
 import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
 import {
+  CancelAttendanceShiftDto,
   CreateAttendanceShiftDto,
   UpdateAttendanceShiftDto,
 } from './dto/create-attendance-shifts.dto';
@@ -551,6 +554,42 @@ export class AttendanceShiftsService {
     query: AttendanceShiftPaginationQueryDto,
   ) {
     const ids = await this.unreviewedOvertimeShiftIds(actor);
+    if (!ids.length) return { data: [], total: 0 };
+    return this.shifts(actor, query, false, inArray(attendanceShift.id, ids));
+  }
+
+  async incompleteAttendanceShifts(
+    actor: AttendanceActor,
+    query: AttendanceShiftPaginationQueryDto,
+  ) {
+    const ids: string[] = [];
+    let loaded = 0;
+    let total: number;
+    do {
+      const page = await this.shifts(
+        actor,
+        {
+          limit: CALENDAR_SHIFT_LIMIT,
+          offset: loaded,
+          sortBy: 'startsAt',
+          sortDirection: 'asc',
+        },
+        false,
+        and(
+          unfinishedShift,
+          lt(attendanceShift.startsAt, sql`now()`),
+          payrollUnpublished,
+        ),
+      );
+      ids.push(
+        ...page.data
+          .filter(({ absent, missingClockOut }) => absent || missingClockOut)
+          .map((shift) => shift.id),
+      );
+      loaded += page.data.length;
+      total = page.total;
+      if (!page.data.length) break;
+    } while (loaded < total);
     if (!ids.length) return { data: [], total: 0 };
     return this.shifts(actor, query, false, inArray(attendanceShift.id, ids));
   }
@@ -1367,7 +1406,11 @@ export class AttendanceShiftsService {
     return values;
   }
 
-  async cancelShift(actor: AttendanceActor, id: string, rawReason = '') {
+  async cancelShift(
+    actor: AttendanceActor,
+    id: string,
+    { irreversible = false, reason: rawReason = '' }: CancelAttendanceShiftDto,
+  ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [shift] = await tx
@@ -1392,13 +1435,47 @@ export class AttendanceShiftsService {
         shift.startsAt,
         shift.endsAt,
       );
+      if (!irreversible)
+        try {
+          await this.prepareRestore(tx, actor, shift);
+        } catch (error) {
+          if (
+            error instanceof HttpException &&
+            isAttendanceErrorCode(error.message)
+          )
+            throw cancelIrreversibleError(error.message);
+          throw error;
+        }
       await tx
         .update(attendanceShift)
         .set({ status: 'cancelled' })
         .where(eq(attendanceShift.id, id));
-      await writeAudit(tx, actor, 'shift.cancel', id, reason ? { reason } : {});
+      await writeAudit(tx, actor, 'shift.cancel', id, {
+        ...(reason && { reason }),
+        ...(irreversible && { irreversible }),
+      });
       return { id };
     });
+  }
+
+  private prepareRestore(
+    tx: Transaction,
+    actor: AttendanceActor,
+    shift: typeof attendanceShift.$inferSelect,
+  ) {
+    return this.prepareShifts(
+      tx,
+      actor,
+      [
+        {
+          employeeId: shift.employeeId,
+          teamId: shift.teamId,
+          startsAt: shift.startsAt.toISOString(),
+          endsAt: shift.endsAt.toISOString(),
+        },
+      ],
+      shift,
+    );
   }
 
   async restoreShift(actor: AttendanceActor, id: string) {
@@ -1415,19 +1492,7 @@ export class AttendanceShiftsService {
         );
       if (!shift) throw new NotFoundException();
       if (shift.status !== 'cancelled') return { id };
-      const [{ breaks, dayKind }] = await this.prepareShifts(
-        tx,
-        actor,
-        [
-          {
-            employeeId: shift.employeeId,
-            teamId: shift.teamId,
-            startsAt: shift.startsAt.toISOString(),
-            endsAt: shift.endsAt.toISOString(),
-          },
-        ],
-        shift,
-      );
+      const [{ breaks, dayKind }] = await this.prepareRestore(tx, actor, shift);
       await tx
         .update(attendanceShift)
         .set({ status: 'scheduled', breaks, dayKind })

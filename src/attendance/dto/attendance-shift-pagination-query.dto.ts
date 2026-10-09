@@ -58,4 +58,11 @@ export class AttendanceShiftPaginationQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['true'])
   unreviewedOvertime?: 'true';
+  @ApiPropertyOptional({
+    description: '只列出缺勤或未打下班卡、會擋住薪資結算的班次',
+    enum: ['true'],
+  })
+  @IsOptional()
+  @IsIn(['true'])
+  incompleteAttendance?: 'true';
 }

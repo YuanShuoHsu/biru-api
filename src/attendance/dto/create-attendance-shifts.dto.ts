@@ -87,6 +87,13 @@ export class CreateAttendanceShiftsDto {
 }
 
 export class CancelAttendanceShiftDto {
+  @ApiPropertyOptional({
+    description:
+      '確認班次已不符排班規則、取消後無法復原；未帶時遇到此情況回 cancelIrreversible',
+  })
+  @IsOptional()
+  @IsBoolean()
+  irreversible?: boolean;
   @ApiPropertyOptional({ description: '班次已開始後取消時必填，寫入稽核紀錄' })
   @IsOptional()
   @IsString()

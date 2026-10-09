@@ -82,12 +82,21 @@ export class AttendanceShiftsController {
     @Session() session: UserSession,
     @Query() query: AttendanceShiftPaginationQueryDto,
   ): Promise<AttendanceShiftsResponseDto> {
-    return query.unreviewedOvertime
-      ? this.attendanceShiftsService.unreviewedOvertimeShifts(
-          actor(req, session),
-          query,
-        )
-      : this.attendanceShiftsService.shifts(actor(req, session), query, false);
+    if (query.unreviewedOvertime)
+      return this.attendanceShiftsService.unreviewedOvertimeShifts(
+        actor(req, session),
+        query,
+      );
+    if (query.incompleteAttendance)
+      return this.attendanceShiftsService.incompleteAttendanceShifts(
+        actor(req, session),
+        query,
+      );
+    return this.attendanceShiftsService.shifts(
+      actor(req, session),
+      query,
+      false,
+    );
   }
 
   @Get('shifts/calendar')
@@ -186,7 +195,7 @@ export class AttendanceShiftsController {
     return this.attendanceShiftsService.cancelShift(
       actor(req, session),
       id,
-      dto.reason,
+      dto,
     );
   }
 

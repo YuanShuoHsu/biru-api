@@ -13,6 +13,7 @@ export const attendanceErrorCodes = [
   'belowStatutoryPaidPercent',
   'calendarLeaveInterval',
   'calendarLeavePayRequired',
+  'cancelIrreversible',
   'cancelReasonRequired',
   'cannotReviewOwnDraft',
   'cannotReviewSelf',
@@ -138,10 +139,19 @@ export const badRequestError = (code: AttendanceErrorCode) =>
 export const conflictError = (code: AttendanceErrorCode) =>
   new ConflictException(code);
 
+export const cancelIrreversibleError = (reason: AttendanceErrorCode) =>
+  new ConflictException({
+    error: 'Conflict',
+    message: 'cancelIrreversible',
+    reason,
+  });
+
 export const forbiddenError = (code: AttendanceErrorCode) =>
   new ForbiddenException(code);
 
-const isAttendanceErrorCode = (value: string): value is AttendanceErrorCode =>
+export const isAttendanceErrorCode = (
+  value: string,
+): value is AttendanceErrorCode =>
   (attendanceErrorCodes as readonly string[]).includes(value);
 
 export const runBatch = async (

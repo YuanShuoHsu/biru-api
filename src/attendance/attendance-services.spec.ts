@@ -297,7 +297,10 @@ describe('attendance services', () => {
         ],
       ],
       [
-        (db) => new AttendanceShiftsService(db).cancelShift(reviewer, 'shift'),
+        (db) =>
+          new AttendanceShiftsService(db).cancelShift(reviewer, 'shift', {
+            reason: 'correction',
+          }),
         [[shift], [], [], [], published],
       ],
     ];
