@@ -77,11 +77,7 @@ export class IngredientsController {
 
   @Post('inventory-transactions')
   @Roles({ inventoryTransaction: ['create'] }, 'ingredientId')
-  @Audit({
-    resource: 'ingredient',
-    idSource: { param: 'ingredientId' },
-    action: 'update',
-  })
+  @Audit('ingredient', { param: 'ingredientId' })
   @ApiOperation({ summary: '登記食材庫存異動' })
   createTransaction(
     @Param('ingredientId') ingredientId: string,

@@ -480,6 +480,40 @@ export const scheduledWorkSeconds = (
     ) / 1000,
   );
 
+export const scheduledLeaveSeconds = (
+  shift: ScheduledShift,
+  leaves: { startsAt: Date; endsAt: Date }[],
+) =>
+  leaves.reduce(
+    (total, leave) =>
+      total +
+      overlapIntervals(
+        scheduledWorkIntervals(shift),
+        leave.startsAt.getTime(),
+        leave.endsAt.getTime(),
+      ).reduce(
+        (sum, interval) =>
+          sum + Math.floor((interval.end - interval.start) / 1000),
+        0,
+      ),
+    0,
+  );
+
+export const attendanceIncomplete = ({
+  dayKind,
+  leaveSeconds,
+  state,
+  workSeconds,
+}: {
+  dayKind: AttendanceDayKind;
+  leaveSeconds: number;
+  state: ShiftState;
+  workSeconds: number;
+}) =>
+  state !== 'completed' &&
+  (state !== 'scheduled' || dayKind === 'workday') &&
+  leaveSeconds < workSeconds;
+
 export const punchLeewayMs = (shift: ScheduledShift) =>
   Math.max(0, MAX_DAILY_WORK_SECONDS - scheduledWorkSeconds(shift)) * 1000;
 

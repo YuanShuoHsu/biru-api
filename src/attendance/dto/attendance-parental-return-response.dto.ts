@@ -4,6 +4,7 @@ export class AttendanceParentalReturnResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiProperty() requestId: string;
   @ApiProperty() originalStartsAt: Date;
   @ApiProperty() originalEndsAt: Date;
@@ -21,7 +22,7 @@ export class AttendanceParentalReturnResponseDto {
 
 export class AttendanceParentalReturnRecordResponseDto extends OmitType(
   AttendanceParentalReturnResponseDto,
-  ['employeeName'] as const,
+  ['employeeName', 'employeeEmail'] as const,
 ) {}
 
 export class AttendanceParentalReturnsResponseDto {

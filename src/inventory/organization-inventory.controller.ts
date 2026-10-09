@@ -94,7 +94,6 @@ export class OrganizationInventoryController {
         { body: 'ingredientIds' },
         { column: 'supplierId', response: true },
       ],
-      action: 'update',
     },
   )
   @ApiOperation({ summary: '建立供應商' })

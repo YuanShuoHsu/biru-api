@@ -25,6 +25,7 @@ export class AttendanceRequestResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiPropertyOptional() shiftId: string | null;
   @ApiProperty({
     enum: ['correction', 'leave', 'overtime'],
@@ -96,6 +97,7 @@ export class AttendanceRequestRecordResponseDto extends OmitType(
   AttendanceRequestResponseDto,
   [
     'employeeName',
+    'employeeEmail',
     'leaveTypeName',
     'leaveTypeStatutoryKind',
     'calendarLeave',

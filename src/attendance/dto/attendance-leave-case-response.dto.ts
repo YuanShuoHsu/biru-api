@@ -10,6 +10,7 @@ export class AttendanceLeaveCaseResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiProperty() leaveTypeId: string;
   @ApiProperty() leaveTypeName: string;
   @ApiProperty({
@@ -33,6 +34,7 @@ export class AttendanceLeaveCaseRecordResponseDto extends OmitType(
   AttendanceLeaveCaseResponseDto,
   [
     'employeeName',
+    'employeeEmail',
     'leaveTypeName',
     'leaveTypeStatutoryKind',
     'calendarLeave',

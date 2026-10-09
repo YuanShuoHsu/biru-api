@@ -42,6 +42,7 @@ import {
   ageOn,
   agreedWorkdates,
   childLaborViolation,
+  attendanceIncomplete,
   exceedsConsecutiveWorkdays,
   exceedsStudentWeeklyLimit,
   hasShortRestBetweenShifts,
@@ -535,6 +536,7 @@ export class PayrollService {
     }
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: payrollStatement.employeeName,
+      employeeEmail: user.email,
       month: payrollStatement.month,
       status: payrollStatement.status,
     };
@@ -563,6 +565,7 @@ export class PayrollService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(payrollStatement.employeeName, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(
             sql`replace(${payrollStatement.month}, '-', '/')`,
             `%${value}%`,
@@ -571,10 +574,15 @@ export class PayrollService {
       }),
     );
     const sort = sortDirection === 'asc' ? asc : desc;
-    const [data, [{ total }]] = await Promise.all([
+    const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select({ statement: payrollStatement, employeeEmail: user.email })
         .from(payrollStatement)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, payrollStatement.employeeId),
+        )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
         .orderBy(
           ...(sortBy
@@ -584,9 +592,23 @@ export class PayrollService {
         )
         .limit(limit)
         .offset(offset),
-      this.db.select({ total: count() }).from(payrollStatement).where(where),
+      this.db
+        .select({ total: count() })
+        .from(payrollStatement)
+        .innerJoin(
+          attendanceEmployee,
+          eq(attendanceEmployee.id, payrollStatement.employeeId),
+        )
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .where(where),
     ]);
-    return { data, total };
+    return {
+      data: rows.map(({ statement, employeeEmail }) => ({
+        ...statement,
+        employeeEmail,
+      })),
+      total,
+    };
   }
 
   private async payrollEmployee(
@@ -1086,9 +1108,12 @@ export class PayrollService {
         }
       }
       if (
-        summary.state !== 'completed' &&
-        (summary.state !== 'scheduled' || shift.dayKind === 'workday') &&
-        leaveSeconds < workSeconds
+        attendanceIncomplete({
+          dayKind: shift.dayKind,
+          leaveSeconds,
+          state: summary.state,
+          workSeconds,
+        })
       )
         blockers.push('incompleteAttendance');
       const counted = countedIntervals(effective, shift);

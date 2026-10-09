@@ -6,6 +6,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS = [
   'employeeName',
+  'employeeEmail',
 ] as const;
 
 export const ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS = [

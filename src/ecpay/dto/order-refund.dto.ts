@@ -152,6 +152,12 @@ export class OrderRefundDto {
   })
   reasonCode: RefundReasonCode | null;
 
+  @ApiProperty({
+    description: '操作人員姓名；系統自動處理或帳號已刪除時為 null',
+    nullable: true,
+  })
+  operatorName: string | null;
+
   @ApiProperty({ description: '退款說明', nullable: true })
   reason: string | null;
 

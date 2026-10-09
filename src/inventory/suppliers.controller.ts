@@ -24,7 +24,6 @@ export class SuppliersController {
         { column: 'supplierId', param: 'supplierId' },
         { body: 'ingredientIds' },
       ],
-      action: 'update',
     },
   )
   @ApiOperation({ summary: '更新供應商' })

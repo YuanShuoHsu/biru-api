@@ -268,6 +268,7 @@ export class AttendanceRequestsService {
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      employeeEmail: user.email,
       leaveTypeName: attendanceLeaveType.name,
       leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
       reason: attendanceRequest.reason,
@@ -299,6 +300,7 @@ export class AttendanceRequestsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(attendanceLeaveType.name, `%${value}%`),
           ilike(attendanceRequest.reason, `%${value}%`),
           ilike(attendanceRequest.reviewReason, `%${value}%`),
@@ -313,6 +315,7 @@ export class AttendanceRequestsService {
         .select({
           request: attendanceRequest,
           employeeName: user.name,
+          employeeEmail: user.email,
           leaveTypeName: attendanceLeaveType.name,
           leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
           returnPending: sql<boolean>`EXISTS (SELECT 1 FROM ${attendanceParentalReturn} pending
@@ -376,6 +379,7 @@ export class AttendanceRequestsService {
         ({
           request,
           employeeName,
+          employeeEmail,
           leaveTypeName,
           leaveTypeStatutoryKind,
           returnPending,
@@ -385,6 +389,7 @@ export class AttendanceRequestsService {
         }) => ({
           ...request,
           employeeName,
+          employeeEmail,
           leaveTypeName,
           leaveTypeStatutoryKind,
           calendarLeave:

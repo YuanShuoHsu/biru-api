@@ -32,6 +32,7 @@ export class AttendanceShiftResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiPropertyOptional({ nullable: true, type: String })
   teamId: string | null;
   @ApiPropertyOptional({ nullable: true, type: String })
@@ -61,6 +62,15 @@ export class AttendanceShiftResponseDto {
   unreviewedOvertime: AttendanceIntervalResponseDto[];
   @ApiProperty() late: boolean;
   @ApiProperty() early: boolean;
+  @ApiProperty({
+    description:
+      '工作日班次已結束仍未打卡，且請假未涵蓋排定工時（會擋住薪資結算）',
+  })
+  absent: boolean;
+  @ApiProperty({
+    description: '已上班但超過單日工時上限仍未打下班卡（會擋住薪資結算）',
+  })
+  missingClockOut: boolean;
   @ApiProperty() createdAt: Date;
   @ApiProperty({ isArray: true, type: AttendanceEventResponseDto })
   events: AttendanceEventResponseDto[];

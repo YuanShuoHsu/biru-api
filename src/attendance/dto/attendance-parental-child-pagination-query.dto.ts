@@ -6,6 +6,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_PARENTAL_CHILD_STRING_FILTER_FIELDS = [
   'employeeName',
+  'employeeEmail',
   'reference',
   'label',
 ] as const;

@@ -78,7 +78,10 @@ export class PayrollController {
     return this.payrollService
       .list(actor(req, session), false, query)
       .then(({ data, total }) => ({
-        data: data.map(toPayrollStatementResponse),
+        data: data.map(({ employeeEmail, ...statement }) => ({
+          ...toPayrollStatementResponse(statement),
+          employeeEmail,
+        })),
         total,
       }));
   }
@@ -108,7 +111,10 @@ export class PayrollController {
     return this.payrollService
       .list(actor(req, session), true, query)
       .then(({ data, total }) => ({
-        data: data.map(toPayrollStatementResponse),
+        data: data.map(({ employeeEmail, ...statement }) => ({
+          ...toPayrollStatementResponse(statement),
+          employeeEmail,
+        })),
         total,
       }));
   }

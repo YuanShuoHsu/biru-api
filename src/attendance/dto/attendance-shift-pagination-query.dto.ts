@@ -6,6 +6,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_SHIFT_STRING_FILTER_FIELDS = [
   'employeeName',
+  'employeeEmail',
   'teamName',
 ] as const;
 

@@ -92,6 +92,7 @@ export class AttendanceParentalService {
     const employee = mine ? await requireEmployee(actor, this.db) : null;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      employeeEmail: user.email,
       reference: attendanceParentalChild.reference,
       label: attendanceParentalChild.label,
       birthDate: attendanceParentalChild.birthDate,
@@ -117,6 +118,7 @@ export class AttendanceParentalService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(attendanceParentalChild.reference, `%${value}%`),
           ilike(attendanceParentalChild.label, `%${value}%`),
           ilike(localTimeText(attendanceParentalChild.birthDate), `%${value}%`),
@@ -129,6 +131,7 @@ export class AttendanceParentalService {
         .select({
           child: attendanceParentalChild,
           employeeName: user.name,
+          employeeEmail: user.email,
         })
         .from(attendanceParentalChild)
         .innerJoin(
@@ -154,7 +157,11 @@ export class AttendanceParentalService {
         .where(where),
     ]);
     return {
-      data: rows.map(({ child, employeeName }) => ({ ...child, employeeName })),
+      data: rows.map(({ child, employeeEmail, employeeName }) => ({
+        ...child,
+        employeeEmail,
+        employeeName,
+      })),
       total,
     };
   }
@@ -294,6 +301,7 @@ export class AttendanceParentalService {
     const employee = mine ? await requireEmployee(actor, this.db) : null;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      employeeEmail: user.email,
       reason: attendanceParentalReturn.reason,
       reviewReason: attendanceParentalReturn.reviewReason,
       returnsAt: attendanceParentalReturn.returnsAt,
@@ -324,6 +332,7 @@ export class AttendanceParentalService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(attendanceParentalReturn.reason, `%${value}%`),
           ilike(attendanceParentalReturn.reviewReason, `%${value}%`),
           ilike(
@@ -339,6 +348,7 @@ export class AttendanceParentalService {
         .select({
           item: attendanceParentalReturn,
           employeeName: user.name,
+          employeeEmail: user.email,
         })
         .from(attendanceParentalReturn)
         .innerJoin(
@@ -364,7 +374,11 @@ export class AttendanceParentalService {
         .where(where),
     ]);
     return {
-      data: rows.map(({ item, employeeName }) => ({ ...item, employeeName })),
+      data: rows.map(({ item, employeeEmail, employeeName }) => ({
+        ...item,
+        employeeEmail,
+        employeeName,
+      })),
       total,
     };
   }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, asc, desc, eq, lt, lte, ne, or } from 'drizzle-orm';
+import { type SQL, and, asc, desc, eq, lt, lte, ne, or } from 'drizzle-orm';
 
 import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto';
 import type {
@@ -58,6 +58,7 @@ import type {
   RefundItemSnapshot,
 } from 'src/db/schema/refunds';
 import { refund } from 'src/db/schema/refunds';
+import { user } from 'src/db/schema/users';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
@@ -316,10 +317,7 @@ export class EcpayOrderRefundService {
       this.logger.error(`退款 ${refunded.id} 的後續處理失敗，待補正`, error),
     );
 
-    const [final] = await this.db
-      .select()
-      .from(refund)
-      .where(eq(refund.id, created.id));
+    const [final] = await this.selectRefunds(eq(refund.id, created.id));
 
     return final;
   }
@@ -872,6 +870,10 @@ export class EcpayOrderRefundService {
       .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)));
     if (!found.length) throw new NotFoundException('Order not found');
 
+    return this.selectRefunds(eq(refund.orderId, orderId));
+  }
+
+  private selectRefunds(where: SQL) {
     return this.db
       .select({
         id: refund.id,
@@ -882,13 +884,15 @@ export class EcpayOrderRefundService {
         invoiceAction: refund.invoiceAction,
         invoiceError: refund.invoiceError,
         items: refund.items,
+        operatorName: user.name,
         reason: refund.reason,
         reasonCode: refund.reasonCode,
         scope: refund.scope,
         status: refund.status,
       })
       .from(refund)
-      .where(eq(refund.orderId, orderId))
+      .leftJoin(user, eq(user.id, refund.operatorId))
+      .where(where)
       .orderBy(desc(refund.createdAt));
   }
 

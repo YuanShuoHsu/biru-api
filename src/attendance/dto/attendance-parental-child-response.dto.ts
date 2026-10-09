@@ -4,6 +4,7 @@ export class AttendanceParentalChildResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiProperty() reference: string;
   @ApiProperty() label: string;
   @ApiProperty() birthDate: Date;
@@ -12,7 +13,7 @@ export class AttendanceParentalChildResponseDto {
 
 export class AttendanceParentalChildRecordResponseDto extends OmitType(
   AttendanceParentalChildResponseDto,
-  ['employeeName'] as const,
+  ['employeeName', 'employeeEmail'] as const,
 ) {}
 
 export class AttendanceParentalChildrenResponseDto {

@@ -390,6 +390,7 @@ export class AttendanceLeavesService {
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      employeeEmail: user.email,
       leaveTypeName: attendanceLeaveType.name,
       leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
       reference: attendanceLeaveCase.reference,
@@ -422,6 +423,7 @@ export class AttendanceLeavesService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(attendanceLeaveType.name, `%${value}%`),
           ilike(attendanceLeaveCase.reference, `%${value}%`),
           ilike(attendanceLeaveCase.reason, `%${value}%`),
@@ -437,6 +439,7 @@ export class AttendanceLeavesService {
           id: attendanceLeaveCase.id,
           employeeId: attendanceLeaveCase.employeeId,
           employeeName: user.name,
+          employeeEmail: user.email,
           leaveTypeId: attendanceLeaveCase.leaveTypeId,
           leaveTypeName: attendanceLeaveType.name,
           leaveTypeStatutoryKind: attendanceLeaveType.statutoryKind,
@@ -1070,7 +1073,11 @@ export class AttendanceLeavesService {
           ),
         );
       const employees = await tx
-        .select({ ...getTableColumns(attendanceEmployee), name: user.name })
+        .select({
+          ...getTableColumns(attendanceEmployee),
+          email: user.email,
+          name: user.name,
+        })
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(
@@ -1162,6 +1169,9 @@ export class AttendanceLeavesService {
         employeeName:
           employees.find((employee) => employee.id === balance.employeeId)
             ?.name ?? '',
+        employeeEmail:
+          employees.find((employee) => employee.id === balance.employeeId)
+            ?.email ?? '',
         leaveTypeName:
           policies.find((policy) => policy.id === balance.leaveTypeId)?.name ??
           '',
@@ -1189,7 +1199,7 @@ export class AttendanceLeavesService {
       dateFields: ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
       enumFields: ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
       numberFields: ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
-      textFields: ['employeeName', 'leaveTypeName'],
+      textFields: ['employeeName', 'employeeEmail', 'leaveTypeName'],
     });
   }
 
@@ -1395,7 +1405,11 @@ export class AttendanceLeavesService {
 
   private holidaySubstituteEmployees(actor: AttendanceActor) {
     return this.db
-      .select({ ...getTableColumns(attendanceEmployee), name: user.name })
+      .select({
+        ...getTableColumns(attendanceEmployee),
+        email: user.email,
+        name: user.name,
+      })
       .from(attendanceEmployee)
       .innerJoin(user, eq(user.id, attendanceEmployee.userId))
       .where(eq(attendanceEmployee.organizationId, actor.organizationId));
@@ -1464,6 +1478,8 @@ export class AttendanceLeavesService {
         employeeId,
         employeeName:
           employees.find((employee) => employee.id === employeeId)?.name ?? '',
+        employeeEmail:
+          employees.find((employee) => employee.id === employeeId)?.email ?? '',
         holidayDate,
         holidayName:
           holidays
@@ -1485,7 +1501,12 @@ export class AttendanceLeavesService {
       dateFields: ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
       enumFields: [],
       numberFields: [],
-      textFields: ['employeeName', 'holidayName', 'holidayDate'],
+      textFields: [
+        'employeeName',
+        'employeeEmail',
+        'holidayName',
+        'holidayDate',
+      ],
     });
   }
 

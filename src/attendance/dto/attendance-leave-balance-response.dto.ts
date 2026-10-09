@@ -10,6 +10,7 @@ export class AttendanceLeaveBalanceResponseDto {
   @ApiProperty() organizationId: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiProperty() leaveTypeId: string;
   @ApiProperty() leaveTypeName: string;
   @ApiProperty({

@@ -97,9 +97,13 @@ export class PayrollStatementResponseDto {
   @ApiProperty() createdAt: Date;
 }
 
+export class PayrollStatementListItemResponseDto extends PayrollStatementResponseDto {
+  @ApiProperty() employeeEmail: string;
+}
+
 export class PayrollStatementsResponseDto {
-  @ApiProperty({ isArray: true, type: PayrollStatementResponseDto })
-  data: PayrollStatementResponseDto[];
+  @ApiProperty({ isArray: true, type: PayrollStatementListItemResponseDto })
+  data: PayrollStatementListItemResponseDto[];
   @ApiProperty() total: number;
 }
 

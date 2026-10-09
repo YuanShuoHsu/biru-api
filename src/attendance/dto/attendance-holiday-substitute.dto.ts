@@ -15,6 +15,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export const ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS = [
   'employeeName',
+  'employeeEmail',
   'holidayName',
   'holidayDate',
 ] as const;
@@ -59,6 +60,7 @@ export class AttendanceHolidaySubstituteResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
+  @ApiProperty() employeeEmail: string;
   @ApiProperty() holidayDate: string;
   @ApiProperty() holidayName: string;
   @ApiProperty() owed: boolean;

@@ -4,7 +4,10 @@ import { IsIn, IsOptional } from 'class-validator';
 
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
-export const PAYROLL_STATEMENT_STRING_FILTER_FIELDS = ['employeeName'] as const;
+export const PAYROLL_STATEMENT_STRING_FILTER_FIELDS = [
+  'employeeName',
+  'employeeEmail',
+] as const;
 
 export const PAYROLL_STATEMENT_MONTH_FILTER_FIELDS = ['month'] as const;
 

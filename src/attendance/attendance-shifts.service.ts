@@ -11,6 +11,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
@@ -72,6 +73,7 @@ import {
   agreedWorkdates,
   blockingRequestStatuses,
   childLaborViolation,
+  attendanceIncomplete,
   distanceMeters,
   exceedsConsecutiveWorkdays,
   exceedsStudentWeeklyLimit,
@@ -91,6 +93,7 @@ import {
   employeeHolidays,
   weekdayOfDate,
   type ScheduledShift,
+  scheduledLeaveSeconds,
   scheduledWorkIntervals,
   scheduledWorkSeconds,
   SHIFT_STATE_BY_LAST_ACTION,
@@ -256,6 +259,7 @@ export class AttendanceShiftsService {
       : undefined;
     const fieldMap: Record<string, Column | SQL> = {
       employeeName: user.name,
+      employeeEmail: user.email,
       teamName: team.name,
       startsAt: attendanceShift.startsAt,
       endsAt: attendanceShift.endsAt,
@@ -294,6 +298,7 @@ export class AttendanceShiftsService {
         quickFilterValue,
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
+          ilike(user.email, `%${value}%`),
           ilike(team.name, `%${value}%`),
           ilike(localTimeText(attendanceShift.startsAt), `%${value}%`),
           ilike(localTimeText(attendanceShift.endsAt), `%${value}%`),
@@ -306,6 +311,7 @@ export class AttendanceShiftsService {
         .select({
           shift: attendanceShift,
           employeeName: user.name,
+          employeeEmail: user.email,
           teamName: team.name,
           clockInAt,
           clockOutAt,
@@ -337,55 +343,94 @@ export class AttendanceShiftsService {
     ]);
     if (!rows.length) return { data: [], total };
     const ids = rows.map((row) => row.shift.id);
-    const [events, corrections, overtime, [settings]] = await Promise.all([
-      this.db
-        .select()
-        .from(attendanceEvent)
-        .where(
-          and(
-            eq(attendanceEvent.organizationId, actor.organizationId),
-            inArray(attendanceEvent.shiftId, ids),
+    const [events, corrections, overtime, [settings], leaves] =
+      await Promise.all([
+        this.db
+          .select()
+          .from(attendanceEvent)
+          .where(
+            and(
+              eq(attendanceEvent.organizationId, actor.organizationId),
+              inArray(attendanceEvent.shiftId, ids),
+            ),
+          )
+          .orderBy(asc(attendanceEvent.occurredAt)),
+        this.db
+          .select()
+          .from(attendanceRequest)
+          .where(
+            and(
+              eq(attendanceRequest.organizationId, actor.organizationId),
+              inArray(attendanceRequest.shiftId, ids),
+              eq(attendanceRequest.kind, 'correction'),
+              eq(attendanceRequest.status, 'approved'),
+            ),
+          )
+          .orderBy(desc(attendanceRequest.reviewedAt)),
+        this.db
+          .select({
+            shiftId: attendanceRequest.shiftId,
+            startsAt: attendanceRequest.startsAt,
+            endsAt: attendanceRequest.endsAt,
+          })
+          .from(attendanceRequest)
+          .where(
+            and(
+              eq(attendanceRequest.organizationId, actor.organizationId),
+              inArray(attendanceRequest.shiftId, ids),
+              eq(attendanceRequest.kind, 'overtime'),
+              inArray(attendanceRequest.status, [
+                'pending',
+                'approved',
+                'rejected',
+              ]),
+            ),
           ),
-        )
-        .orderBy(asc(attendanceEvent.occurredAt)),
-      this.db
-        .select()
-        .from(attendanceRequest)
-        .where(
-          and(
-            eq(attendanceRequest.organizationId, actor.organizationId),
-            inArray(attendanceRequest.shiftId, ids),
-            eq(attendanceRequest.kind, 'correction'),
-            eq(attendanceRequest.status, 'approved'),
+        this.db
+          .select({ graceMinutes: attendanceSettings.graceMinutes })
+          .from(attendanceSettings)
+          .where(eq(attendanceSettings.organizationId, actor.organizationId)),
+        this.db
+          .select({
+            employeeId: attendanceRequest.employeeId,
+            startsAt: attendanceRequest.startsAt,
+            endsAt: attendanceRequest.endsAt,
+          })
+          .from(attendanceRequest)
+          .where(
+            and(
+              eq(attendanceRequest.organizationId, actor.organizationId),
+              inArray(
+                attendanceRequest.employeeId,
+                rows.map((row) => row.shift.employeeId),
+              ),
+              eq(attendanceRequest.kind, 'leave'),
+              eq(attendanceRequest.status, 'approved'),
+              lt(
+                attendanceRequest.startsAt,
+                new Date(
+                  Math.max(...rows.map((row) => row.shift.endsAt.getTime())),
+                ),
+              ),
+              gt(
+                attendanceRequest.endsAt,
+                new Date(
+                  Math.min(...rows.map((row) => row.shift.startsAt.getTime())),
+                ),
+              ),
+            ),
           ),
-        )
-        .orderBy(desc(attendanceRequest.reviewedAt)),
-      this.db
-        .select({
-          shiftId: attendanceRequest.shiftId,
-          startsAt: attendanceRequest.startsAt,
-          endsAt: attendanceRequest.endsAt,
-        })
-        .from(attendanceRequest)
-        .where(
-          and(
-            eq(attendanceRequest.organizationId, actor.organizationId),
-            inArray(attendanceRequest.shiftId, ids),
-            eq(attendanceRequest.kind, 'overtime'),
-            inArray(attendanceRequest.status, [
-              'pending',
-              'approved',
-              'rejected',
-            ]),
-          ),
-        ),
-      this.db
-        .select({ graceMinutes: attendanceSettings.graceMinutes })
-        .from(attendanceSettings)
-        .where(eq(attendanceSettings.organizationId, actor.organizationId)),
-    ]);
+      ]);
+    const now = Date.now();
     const data = rows.map((row) => {
-      const { shift, employeeName, teamName, clockInAt, clockOutAt } = row;
+      const {
+        shift,
+        employeeName,
+        employeeEmail,
+        teamName,
+        clockInAt,
+        clockOutAt,
+      } = row;
       const rawEvents = events
         .filter((event) => event.shiftId === shift.id)
         .map(({ action, occurredAt, paidBreak }) => ({
@@ -414,9 +459,19 @@ export class AttendanceShiftsService {
       const first = effectiveEvents[0],
         last = effectiveEvents.at(-1);
       const grace = (settings?.graceMinutes ?? 0) * 60000;
+      const incomplete = attendanceIncomplete({
+        dayKind: shift.dayKind,
+        leaveSeconds: scheduledLeaveSeconds(
+          shift,
+          leaves.filter((leave) => leave.employeeId === shift.employeeId),
+        ),
+        state: summary.state,
+        workSeconds: scheduledWorkSeconds(shift),
+      });
       return {
         ...shift,
         employeeName,
+        employeeEmail,
         teamName,
         clockInAt,
         clockOutAt,
@@ -435,6 +490,14 @@ export class AttendanceShiftsService {
           !!last &&
           last.action === 'clockOut' &&
           new Date(last.occurredAt).getTime() < shift.endsAt.getTime() - grace,
+        absent:
+          incomplete &&
+          summary.state === 'scheduled' &&
+          now > shift.endsAt.getTime(),
+        missingClockOut:
+          incomplete &&
+          summary.state !== 'scheduled' &&
+          now > shift.endsAt.getTime() + punchLeewayMs(shift),
       };
     });
     return { data, total };
