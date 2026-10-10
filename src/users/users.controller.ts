@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 
+import { Audit } from 'src/common/decorators/audit.decorator';
 import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
@@ -57,6 +58,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Audit('user', { param: 'id' })
   @ApiOperation({ summary: '更新使用者' })
   update(
     @Body() updateUserDto: UpdateUserDto,
@@ -69,6 +71,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Audit('user', { param: 'id' })
   @ApiOperation({ summary: '刪除使用者' })
   remove(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.deleteUser({ id });

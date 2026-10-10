@@ -20,6 +20,7 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
+import { authAuditHooks } from './audit-hooks';
 import { ac, admin, member, owner } from './permissions';
 
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
@@ -191,6 +192,7 @@ export const createAuth = (mailsService: MailsService) =>
         await mailsService.sendVerificationEmail({ user, url, token }, request);
       },
     },
+    hooks: authAuditHooks,
     plugins: [
       adminPlugin(),
       multiSession(),
