@@ -548,22 +548,40 @@ export class OrdersService {
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    if (found.userId && found.userId !== userId) {
-      const membership = userId
-        ? await this.db.query.member.findFirst({
-            where: and(
-              eq(member.organizationId, org.id),
-              eq(member.userId, userId),
-            ),
-            columns: { role: true },
-          })
-        : null;
-
-      if (!membership || !isAuthorized(membership.role, { order: ['read'] }))
-        throw new ForbiddenException();
-    }
+    if (!(await this.canReadOrder(found, userId)))
+      throw new ForbiddenException();
 
     return found;
+  }
+
+  async canReadOrderById(
+    orderId: string,
+    userId: string | null,
+  ): Promise<boolean> {
+    const found = await this.db.query.order.findFirst({
+      where: eq(order.id, orderId),
+      columns: { sellerId: true, userId: true },
+    });
+
+    return !!found && (await this.canReadOrder(found, userId));
+  }
+
+  private async canReadOrder(
+    { sellerId, userId: ownerId }: { sellerId: string; userId: string | null },
+    userId: string | null,
+  ): Promise<boolean> {
+    if (!ownerId || ownerId === userId) return true;
+    if (!userId) return false;
+
+    const membership = await this.db.query.member.findFirst({
+      where: and(
+        eq(member.organizationId, sellerId),
+        eq(member.userId, userId),
+      ),
+      columns: { role: true },
+    });
+
+    return !!membership && isAuthorized(membership.role, { order: ['read'] });
   }
 
   async listAdminBoard(

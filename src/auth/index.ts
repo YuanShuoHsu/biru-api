@@ -17,7 +17,7 @@ import {
   multiSession,
   organization,
 } from 'better-auth/plugins';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ac, admin, member, owner } from './permissions';
@@ -42,6 +42,7 @@ const logger = new Logger('OrganizationAudit');
 const getInitialOrganization = async (userId: string) => {
   const membership = await db.query.member.findFirst({
     where: eq(schema.member.userId, userId),
+    orderBy: [asc(schema.member.createdAt), asc(schema.member.id)],
     with: { organization: true },
   });
 
@@ -195,6 +196,7 @@ export const createAuth = (mailsService: MailsService) =>
       multiSession(),
       organization({
         ac,
+        allowUserToCreateOrganization: (user) => user.role === 'admin',
         cancelPendingInvitationsOnReInvite: true,
         organizationHooks: {
           afterCreateOrganization: async ({ organization }) => {

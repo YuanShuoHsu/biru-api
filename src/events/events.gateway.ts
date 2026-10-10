@@ -9,7 +9,8 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
 
 import { FindOrderMenuDto } from './dto/find-order-menu.dto';
 import { JoinOrderDto } from './dto/join-order.dto';
@@ -61,6 +62,7 @@ export class EventsGateway {
   server: Namespace;
 
   constructor(
+    private readonly authService: AuthService,
     private readonly publicMenusService: PublicMenusService,
     private readonly ordersService: OrdersService,
     private readonly waitlistService: WaitlistService,
@@ -87,6 +89,17 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { orderId }: JoinOrderDto,
   ) {
+    const session = await this.authService.api.getSession({
+      headers: fromNodeHeaders(client.handshake.headers),
+    });
+    if (
+      !(await this.ordersService.canReadOrderById(
+        orderId,
+        session?.user.id ?? null,
+      ))
+    )
+      return false;
+
     await client.join(orderRoom(orderId));
 
     return true;
