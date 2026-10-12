@@ -53,6 +53,7 @@ import { legalStatusObligations } from 'src/payroll/taiwan-rules';
 import type { AttendanceActor } from './attendance-actor';
 import {
   assertPayrollUnlocked,
+  auditChanges,
   lockOrganization,
   writeAudit,
   type Transaction,
@@ -520,12 +521,7 @@ export class AttendanceEmployeesService {
       )
         throw badRequestError('invalidInterval');
       const [current] = await tx
-        .select({
-          id: attendanceEmployee.id,
-          hiredAt: attendanceEmployee.hiredAt,
-          terminatedAt: attendanceEmployee.terminatedAt,
-          indigenousHolidays: attendanceEmployee.indigenousHolidays,
-        })
+        .select()
         .from(attendanceEmployee)
         .where(
           and(
@@ -766,7 +762,7 @@ export class AttendanceEmployeesService {
             ? 'employee.restore'
             : 'employee.create',
         row.id,
-        values,
+        current ? auditChanges(current, values) : values,
       );
       await restored?.finalize(tx);
       return {
@@ -836,11 +832,7 @@ export class AttendanceEmployeesService {
       )
         throw badRequestError('overtimeAgreementRequired');
       const [current] = await tx
-        .select({
-          voluntaryLaborInsuranceFrom:
-            attendanceSettings.voluntaryLaborInsuranceFrom,
-          overtimeAgreedFrom: attendanceSettings.overtimeAgreedFrom,
-        })
+        .select()
         .from(attendanceSettings)
         .where(eq(attendanceSettings.organizationId, actor.organizationId));
       const voluntaryLaborInsuranceFrom =
@@ -908,7 +900,7 @@ export class AttendanceEmployeesService {
         actor,
         'settings.update',
         actor.organizationId,
-        values,
+        current ? auditChanges(current, values) : values,
       );
       return row;
     });

@@ -1,14 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
+  ATTENDANCE_AUDIT_RESOURCES,
+  ATTENDANCE_AUDIT_VERBS,
+} from 'src/attendance/attendance-audit';
+import {
   auditActionEnum,
   auditResourceEnum,
-  type AuditAction,
   type AuditChangeLabels,
-  type AuditChanges,
-  type AuditResource,
   type AuditResourceLabel,
 } from 'src/db/schema/audit';
+
+export const AUDIT_LOG_RESOURCES = [
+  ...auditResourceEnum.enumValues,
+  ...ATTENDANCE_AUDIT_RESOURCES,
+];
+export type AuditLogResource = (typeof AUDIT_LOG_RESOURCES)[number];
+
+export const AUDIT_LOG_ACTIONS = [
+  ...new Set([...auditActionEnum.enumValues, ...ATTENDANCE_AUDIT_VERBS]),
+];
+export type AuditLogAction = (typeof AUDIT_LOG_ACTIONS)[number];
+
+export type AuditLogChanges = Record<
+  string,
+  { before?: unknown; after?: unknown }
+>;
 
 export class AuditLogResponseDto {
   @ApiProperty() id: string;
@@ -19,8 +36,13 @@ export class AuditLogResponseDto {
   })
   actorId?: string | null;
 
-  @ApiProperty() actorName: string;
-  @ApiProperty() actorEmail: string;
+  @ApiPropertyOptional({
+    description: '出勤與薪資紀錄取自目前帳號，帳號刪除後為 null',
+    nullable: true,
+  })
+  actorName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) actorEmail?: string | null;
 
   @ApiPropertyOptional({
     description: '異動所屬店家；平台層異動（優惠券定義、輪播圖）為 null',
@@ -28,11 +50,8 @@ export class AuditLogResponseDto {
   })
   organizationId?: string | null;
 
-  @ApiProperty({
-    enum: auditResourceEnum.enumValues,
-    enumName: 'AuditResource',
-  })
-  resource: AuditResource;
+  @ApiProperty({ enum: AUDIT_LOG_RESOURCES, enumName: 'AuditResource' })
+  resource: AuditLogResource;
 
   @ApiProperty() resourceId: string;
 
@@ -55,18 +74,19 @@ export class AuditLogResponseDto {
   })
   ancestorIds?: string[] | null;
 
-  @ApiProperty({ enum: auditActionEnum.enumValues, enumName: 'AuditAction' })
-  action: AuditAction;
+  @ApiProperty({ enum: AUDIT_LOG_ACTIONS, enumName: 'AuditAction' })
+  action: AuditLogAction;
 
   @ApiProperty({
     additionalProperties: {
       properties: { after: {}, before: {} },
       type: 'object',
     },
-    description: '欄位名 → 變更前後值；建立的 before 與刪除的 after 為 null',
+    description:
+      '欄位名 → 變更前後值；建立的 before 與刪除的 after 為 null。出勤與薪資紀錄只記當下的值時省略另一側',
     type: 'object',
   })
-  changes: AuditChanges;
+  changes: AuditLogChanges;
 
   @ApiPropertyOptional({
     additionalProperties: {

@@ -8,7 +8,12 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { OrganizationMember } from 'src/menus/decorators/roles.decorator';
@@ -25,6 +30,7 @@ import {
 } from './dto/deleted-record-batch.dto';
 
 @ApiTags('deleted-records')
+@ApiParam({ name: 'organizationSlug' })
 @Controller('organizations/:organizationSlug/deleted-records')
 export class OrganizationDeletedRecordsController {
   constructor(private readonly deletedRecordsService: DeletedRecordsService) {}

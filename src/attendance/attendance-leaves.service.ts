@@ -47,6 +47,7 @@ import { statutoryDailyPayCents } from 'src/payroll/leave-pay';
 import type { AttendanceActor } from './attendance-actor';
 import {
   assertPayrollUnlocked,
+  auditChanges,
   lockOrganization,
   writeAudit,
   type RestoredRecord,
@@ -827,11 +828,13 @@ export class AttendanceLeavesService {
         );
         if (errors.length) throw conflictError(errors[0]);
       }
-      await writeAudit(tx, actor, 'leaveCase.update', id, {
-        ...dto,
-        grantedMinutes: values.grantedMinutes,
-        paidPercent: values.paidPercent,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        'leaveCase.update',
+        id,
+        auditChanges(current, values),
+      );
       return row;
     });
   }
@@ -1028,7 +1031,7 @@ export class AttendanceLeavesService {
             ? 'leaveType.restore'
             : 'leaveType.create',
         row.id,
-        { ...dto },
+        current ? auditChanges(current, values) : values,
       );
       return leaveTypeWithFlags(row);
     });
@@ -1292,10 +1295,15 @@ export class AttendanceLeavesService {
           set: { grantedMinutes: dto.grantedMinutes },
         })
         .returning();
-      await writeAudit(tx, actor, 'leaveBalance.update', row.id, {
-        ...dto,
-        previous: previous?.grantedMinutes,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        previous ? 'leaveBalance.update' : 'leaveBalance.create',
+        row.id,
+        previous
+          ? auditChanges(previous, { grantedMinutes: dto.grantedMinutes })
+          : { ...dto },
+      );
       return row;
     });
   }

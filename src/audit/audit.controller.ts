@@ -1,12 +1,14 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiParam,
   ApiExtraModels,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 
 import { Roles } from 'src/menus/decorators/roles.decorator';
+import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
 import { AuditService } from './audit.service';
 import { AuditLogPaginationQueryDto } from './dto/audit-log-pagination-query.dto';
@@ -16,6 +18,7 @@ import { AuditLogResponseDto } from './dto/audit-log-response.dto';
 @ApiBearerAuth()
 // 唯一端點回傳 { data, total } 這種 inline 型別，swagger 推導不到其中的 DTO
 @ApiExtraModels(AuditLogResponseDto)
+@ApiParam({ name: 'organizationSlug' })
 @Controller('organizations/:organizationSlug/audit-logs')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -23,12 +26,17 @@ export class AuditController {
   @Get()
   @Roles({ auditLog: ['read'] }, 'organizationSlug')
   @ApiOperation({
-    summary: '查詢異動紀錄；帶 resource + resourceId 可取單一資源的歷史',
+    summary:
+      '查詢異動紀錄；帶 resource + resourceId 可取單一資源的歷史。出勤與薪資紀錄只列出具備該資料讀取權限者',
   })
   findAll(
-    @Param('organizationSlug') organizationSlug: string,
     @Query() query: AuditLogPaginationQueryDto,
+    @Req() req: AuthRequest,
   ): Promise<{ data: AuditLogResponseDto[]; total: number }> {
-    return this.auditService.listForOrganization(organizationSlug, query);
+    return this.auditService.listForOrganization(
+      req.organizationId!,
+      req.memberRole!,
+      query,
+    );
   }
 }

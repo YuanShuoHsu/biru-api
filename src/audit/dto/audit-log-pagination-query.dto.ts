@@ -9,7 +9,11 @@ import {
   type FilterOperator,
   type SortDirection,
 } from 'src/common/constants/pagination';
-import { auditResourceEnum, type AuditResource } from 'src/db/schema/audit';
+
+import {
+  AUDIT_LOG_RESOURCES,
+  type AuditLogResource,
+} from './audit-log-response.dto';
 
 export const AUDIT_LOG_STRING_FILTER_FIELDS = [
   'actorName',
@@ -55,13 +59,10 @@ export class AuditLogPaginationQueryDto {
   @Min(0)
   offset?: number = 0;
 
-  @ApiPropertyOptional({
-    enum: auditResourceEnum.enumValues,
-    enumName: 'AuditResource',
-  })
+  @ApiPropertyOptional({ enum: AUDIT_LOG_RESOURCES, enumName: 'AuditResource' })
   @IsOptional()
-  @IsIn(auditResourceEnum.enumValues)
-  resource?: AuditResource;
+  @IsIn(AUDIT_LOG_RESOURCES)
+  resource?: AuditLogResource;
 
   @ApiPropertyOptional()
   @IsOptional()

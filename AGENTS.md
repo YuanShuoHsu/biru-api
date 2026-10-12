@@ -154,6 +154,12 @@ change, and it is kept 60 months — 勞基法 §30 requires attendance records 
 is purged after 12. Don't add `@Audit` to attendance or payroll handlers, and don't move these rows into
 `audit_log`.
 
+Both tables are shown together on the 異動紀錄 page: `AuditService` unions them, mapping each
+`attendance_audit.action` through `ATTENDANCE_AUDIT_ACTIONS` to a resource and verb. A new attendance action
+must be added there (the `writeAudit` signature enforces it), and a new resource needs an entry in
+`READ_PERMISSIONS` (`src/audit/attendance-audit-entries.ts`) so members without that data's read permission
+never see its history.
+
 The attendance record tables and `payroll_*` reference `organization` with `ON DELETE restrict` (like
 `order`), so an organization holding them cannot be deleted; don't switch them back to cascade.
 
