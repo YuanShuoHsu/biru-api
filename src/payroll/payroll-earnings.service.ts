@@ -20,6 +20,7 @@ import {
   lockOrganization,
   writeAudit,
   type Transaction,
+  type RestoredRecord,
 } from 'src/attendance/attendance-audit';
 import {
   badRequestError,
@@ -113,22 +114,30 @@ export class PayrollEarningsService {
   async createEarningType(
     actor: AttendanceActor,
     dto: CreatePayrollEarningTypeDto,
+    restored?: RestoredRecord,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const name = dto.name.trim();
       await this.assertNameAvailable(tx, actor.organizationId, name);
-      const id = randomUUID();
+      const id = restored?.id ?? randomUUID();
       await tx.insert(payrollEarningType).values({
         id,
         organizationId: actor.organizationId,
         name,
         category: dto.category,
       });
-      await writeAudit(tx, actor, 'payroll.earningType.create', id, {
-        name,
-        category: dto.category,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        restored ? 'payroll.earningType.restore' : 'payroll.earningType.create',
+        id,
+        {
+          name,
+          category: dto.category,
+        },
+      );
+      await restored?.finalize(tx);
       return { id };
     });
   }

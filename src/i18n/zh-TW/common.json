@@ -2,6 +2,7 @@
   "coupons": {
     "alreadyClaimed": "您已領取過此優惠券",
     "expired": "優惠碼已過期",
+    "inUse": "已有顧客領取此優惠券，無法刪除，請改為停用。",
     "memberOnly": "此優惠碼限會員使用",
     "minSubtotal": "訂單金額須滿 {amount} 才能使用此優惠碼",
     "notApplicable": "此優惠碼不適用於購物車內的品項",
@@ -13,8 +14,15 @@
     "pointsOnly": "此優惠碼需以點數兌換後才能使用",
     "usedUp": "此優惠碼已達使用上限"
   },
+  "deletedRecords": {
+    "restoreConflict": "無法還原：系統中已有相同的資料（例如店家代稱、優惠碼或電子郵件重複）。",
+    "restoreMissingReference": "無法還原：它所屬的上層資料已不存在，請先還原上層資料。"
+  },
   "exceptions": {
     "internalServerError": "內部伺服器錯誤",
+    "organizationClosed": "此門市已停止營業",
+    "organizationHasOpenWork": "尚有 {orders} 筆未完成的訂單、{tickets} 張候位中的號碼牌，請先完成或取消後再停業",
+    "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
     "tooManyRequests": "請求過多"
   },
   "invoices": {

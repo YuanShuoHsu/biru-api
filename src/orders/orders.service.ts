@@ -52,6 +52,7 @@ import {
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
 import { toActiveInvoice } from 'src/common/utils/invoices';
+import { organizationClosedError } from 'src/common/utils/organization-closure';
 import {
   getMinutesUntilClose,
   isWithinOpeningHours,
@@ -266,6 +267,8 @@ export class OrdersService {
       ? await this.findOrderByIdempotencyKey(this.db, org.id, idempotencyKey)
       : null;
     if (replayed) return replayed;
+
+    if (org.closedAt) throw organizationClosedError();
 
     const pickupTime = isPickup
       ? this.resolvePickupTime(org, dto.pickupTime)

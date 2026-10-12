@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import { lt } from 'drizzle-orm';
+import { lt, sql } from 'drizzle-orm';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
+import { DeletedRecordsService } from 'src/deleted-records/deleted-records.service';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { PayrollRulesService } from 'src/payroll/payroll-rules.service';
 import { WaitlistService } from 'src/waitlist/waitlist.service';
@@ -25,6 +26,7 @@ export class TasksService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly deletedRecordsService: DeletedRecordsService,
     private readonly payrollRulesService: PayrollRulesService,
     private readonly waitlistService: WaitlistService,
   ) {}
@@ -104,6 +106,28 @@ export class TasksService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleWaitlistPersonalDataCron() {
+    try {
+      const erased = await this.waitlistService.erasePersonalData();
+
+      if (erased) this.logger.log(`清除 ${erased} 張已結束候位號碼牌的個資`);
+    } catch (error) {
+      this.logger.error('清除候位個資失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  async handleDeletedRecordRetentionCron() {
+    try {
+      const purged = await this.deletedRecordsService.purgeExpired();
+
+      if (purged) this.logger.log(`清除 ${purged} 筆超過保留期限的刪除留存`);
+    } catch (error) {
+      this.logger.error('清除過期刪除留存失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
   async handleAuditLogRetentionCron() {
     await this.purge(
       '異動紀錄',
@@ -139,9 +163,14 @@ export class TasksService {
     cutoff: Date,
   ): Promise<void> {
     try {
-      const { rowCount } = await this.db
-        .delete(table)
-        .where(lt(table.createdAt, cutoff));
+      const { rowCount } = await this.db.transaction(async (tx) => {
+        // 到期清理不是使用者刪除，不留存到 deleted_record
+        await tx.execute(
+          sql`SELECT set_config('app.skip_deleted_record', 'on', true)`,
+        );
+
+        return tx.delete(table).where(lt(table.createdAt, cutoff));
+      });
 
       if (!rowCount) return;
 

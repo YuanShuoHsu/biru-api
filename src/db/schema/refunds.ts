@@ -75,9 +75,7 @@ export const refund = pgTable(
     invoiceRetryAt: timestamp('invoice_retry_at'),
     invoiceAttempts: integer('invoice_attempts').notNull().default(0),
     allowanceNo: text('allowance_no'),
-    operatorId: text('operator_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+    operatorId: text('operator_id'),
     reasonCode: refundReasonCodeEnum('reason_code'),
     reason: text('reason'),
     ...timestamps,

@@ -35,5 +35,10 @@ import { AttendanceShiftsService } from './attendance-shifts.service';
     AttendanceNotificationsService,
     AttendanceParentalService,
   ],
+  exports: [
+    AttendanceEmployeesService,
+    AttendanceLeavesService,
+    AttendanceShiftTypesService,
+  ],
 })
 export class AttendanceModule {}

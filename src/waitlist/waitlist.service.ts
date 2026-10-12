@@ -35,10 +35,13 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from 'src/common/utils/data-grid-filters';
+import { organizationClosedError } from 'src/common/utils/organization-closure';
 import type { Language } from 'src/db/schema/enums';
 import { organization } from 'src/db/schema/organizations';
+import { auditLog } from 'src/db/schema/audit';
 import {
   WAITLIST_ACTIVE_STATUSES,
+  WAITLIST_ENDED_STATUSES,
   waitlistSetting,
   waitlistTicket,
   waitlistTicketStatusEnum,
@@ -92,6 +95,7 @@ import {
 } from './waitlist-rules';
 
 const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
+const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const inTodayQueue = (organizationId: string) =>
   and(
@@ -118,7 +122,7 @@ export class WaitlistService {
   private async getOrgBySlug(slug: string) {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, slug),
-      columns: { id: true, openingHours: true },
+      columns: { closedAt: true, id: true, openingHours: true },
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
@@ -282,6 +286,7 @@ export class WaitlistService {
         settings.holdMinutes,
       );
 
+    if (org.closedAt) throw organizationClosedError();
     if (!settings.enabled) throw badRequestError('waitlistDisabled');
     // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused) throw badRequestError('waitlistPaused');
@@ -922,5 +927,49 @@ export class WaitlistService {
       .returning({ id: waitlistTicket.id });
 
     return expired.length;
+  }
+
+  // 候位結束後個資已無使用目的；保留其餘欄位供統計，稽核紀錄裡的同欄位一併清除
+  async erasePersonalData(): Promise<number> {
+    const cutoff = new Date(Date.now() - PERSONAL_DATA_RETENTION_MS);
+
+    return this.db.transaction(async (tx) => {
+      const erased = await tx
+        .update(waitlistTicket)
+        .set({ email: null, name: null, phoneNumber: null })
+        .where(
+          and(
+            inArray(waitlistTicket.status, [...WAITLIST_ENDED_STATUSES]),
+            lt(
+              sql`COALESCE(${waitlistTicket.endedAt}, ${waitlistTicket.createdAt})`,
+              cutoff,
+            ),
+            or(
+              isNotNull(waitlistTicket.name),
+              isNotNull(waitlistTicket.phoneNumber),
+              isNotNull(waitlistTicket.email),
+            ),
+          ),
+        )
+        .returning({ id: waitlistTicket.id });
+      if (!erased.length) return 0;
+
+      await tx
+        .update(auditLog)
+        .set({
+          changes: sql`${auditLog.changes} - 'email' - 'name' - 'phoneNumber'`,
+        })
+        .where(
+          and(
+            eq(auditLog.resource, 'waitlistTicket'),
+            inArray(
+              auditLog.resourceId,
+              erased.map(({ id }) => id),
+            ),
+          ),
+        );
+
+      return erased.length;
+    });
   }
 }

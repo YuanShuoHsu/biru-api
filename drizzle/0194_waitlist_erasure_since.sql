@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_setting" ADD COLUMN "personal_data_erasure_since" timestamp DEFAULT now() NOT NULL;

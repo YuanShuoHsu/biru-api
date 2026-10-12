@@ -26,6 +26,7 @@ import { BannersModule } from './banners/banners.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { CouponsModule } from './coupons/coupons.module';
 import { DonateCodesModule } from './donate-codes/donate-codes.module';
+import { DeletedRecordsModule } from './deleted-records/deleted-records.module';
 import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
@@ -68,6 +69,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     }),
     ConfigModule.forRoot({ isGlobal: true }),
     CouponsModule,
+    DeletedRecordsModule,
     DonateCodesModule,
     DrizzleModule,
     EcpayModule,

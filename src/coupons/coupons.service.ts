@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -127,6 +128,7 @@ export class CouponsService {
     key:
       | 'alreadyClaimed'
       | 'expired'
+      | 'inUse'
       | 'memberOnly'
       | 'minSubtotal'
       | 'notApplicable'
@@ -644,6 +646,7 @@ export class CouponsService {
         .select({
           id: userCoupon.id,
           grantedByEmail: granter.email,
+          grantedByDeleted: sql<boolean>`${userCoupon.grantedBy} IS NOT NULL AND ${granter.id} IS NULL`,
           source: userCoupon.source,
           userEmail: user.email,
           usedAt: userCoupon.usedAt,
@@ -766,6 +769,12 @@ export class CouponsService {
   }
 
   async remove(couponId: string): Promise<void> {
+    const claimed = await this.db.query.userCoupon.findFirst({
+      where: eq(userCoupon.couponId, couponId),
+      columns: { id: true },
+    });
+    if (claimed) throw new ConflictException(this.t('inUse'));
+
     const deleted = await this.db
       .delete(coupon)
       .where(eq(coupon.id, couponId))

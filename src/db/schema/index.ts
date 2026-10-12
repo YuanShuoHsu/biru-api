@@ -2,6 +2,7 @@ export * from './attendance';
 export * from './audit';
 export * from './banners';
 export * from './coupons';
+export * from './deleted-records';
 export * from './ecpay-callback-logs';
 export * from './ecpay-payment-attempts';
 export * from './enums';

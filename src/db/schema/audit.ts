@@ -33,6 +33,7 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'member',
   'invitation',
   'user',
+  'team',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 
@@ -56,9 +57,8 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: text('id').primaryKey(),
-    actorId: text('actor_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+    // 刻意不設外鍵：記錄的是當時的操作者，帳號刪除後保留原 id，帳號還原時自動接回
+    actorId: text('actor_id'),
     actorName: text('actor_name').notNull(),
     actorEmail: text('actor_email').notNull(),
     organizationId: text('organization_id').references(() => organization.id, {

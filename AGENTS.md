@@ -95,6 +95,8 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
 
+Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; platform admins restore batches whose root table is in `RESTORABLE_TABLES`. Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
+
 ### Payroll Rule Sets
 
 Insurance rates, 投保級距 and 基本工資 are **not** constants in code. `payroll_rule_set` holds one row per

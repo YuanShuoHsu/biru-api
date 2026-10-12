@@ -10,7 +10,7 @@ import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
-import { asc } from 'drizzle-orm';
+import { asc, isNull } from 'drizzle-orm';
 import { organization } from 'src/db/schema/organizations';
 
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
@@ -24,9 +24,10 @@ export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Get()
-  @ApiOperation({ summary: '查詢所有組織' })
+  @ApiOperation({ summary: '查詢營業中的組織' })
   findAll(): Promise<OrganizationResponseDto[]> {
     return this.organizationsService.organizations({
+      where: isNull(organization.closedAt),
       orderBy: [asc(organization.createdAt)],
     });
   }

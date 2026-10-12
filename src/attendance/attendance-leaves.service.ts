@@ -49,6 +49,7 @@ import {
   assertPayrollUnlocked,
   lockOrganization,
   writeAudit,
+  type RestoredRecord,
   type Transaction,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
@@ -682,25 +683,52 @@ export class AttendanceLeavesService {
     });
   }
 
+  // 與刪除相同，案件期間的薪資已發布就不能再改動
+  async restoreLeaveCase(
+    actor: AttendanceActor,
+    dto: CreateAttendanceLeaveCaseDto,
+    restored: RestoredRecord,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      await assertPayrollUnlocked(
+        tx,
+        actor.organizationId,
+        dto.employeeId,
+        new Date(dto.startsAt),
+        dto.endsAt ? new Date(dto.endsAt) : undefined,
+      );
+      return this.insertLeaveCase(tx, actor, dto, restored);
+    });
+  }
+
   async insertLeaveCase(
     tx: Transaction,
     actor: AttendanceActor,
     dto: CreateAttendanceLeaveCaseDto,
+    restored?: RestoredRecord,
   ) {
     const { entitlement, values } = await this.resolveLeaveCase(tx, actor, dto);
     const [row] = await tx
       .insert(attendanceLeaveCase)
       .values({
-        id: randomUUID(),
+        id: restored?.id ?? randomUUID(),
         organizationId: actor.organizationId,
-        createdBy: actor.userId,
+        createdBy: restored?.createdBy ?? actor.userId,
         ...values,
       })
       .returning();
-    await writeAudit(tx, actor, 'leaveCase.create', row.id, {
-      ...dto,
-      ...entitlement,
-    });
+    await writeAudit(
+      tx,
+      actor,
+      restored ? 'leaveCase.restore' : 'leaveCase.create',
+      row.id,
+      {
+        ...dto,
+        ...entitlement,
+      },
+    );
+    await restored?.finalize(tx);
     return row;
   }
 
@@ -933,6 +961,7 @@ export class AttendanceLeavesService {
     actor: AttendanceActor,
     dto: SaveAttendanceLeaveTypeDto,
     id?: string,
+    restored?: RestoredRecord,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -984,15 +1013,20 @@ export class AttendanceLeavesService {
         : await tx
             .insert(attendanceLeaveType)
             .values({
-              id: randomUUID(),
+              id: restored?.id ?? randomUUID(),
               organizationId: actor.organizationId,
               ...values,
             })
             .returning();
+      await restored?.finalize(tx);
       await writeAudit(
         tx,
         actor,
-        id ? 'leaveType.update' : 'leaveType.create',
+        id
+          ? 'leaveType.update'
+          : restored
+            ? 'leaveType.restore'
+            : 'leaveType.create',
         row.id,
         { ...dto },
       );
@@ -1269,6 +1303,7 @@ export class AttendanceLeavesService {
   async createAnnualLeaveDeferral(
     actor: AttendanceActor,
     dto: CreateAttendanceAnnualLeaveDeferralDto,
+    restored?: RestoredRecord,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -1303,21 +1338,28 @@ export class AttendanceLeavesService {
       const [row] = await tx
         .insert(attendanceAnnualLeaveDeferral)
         .values({
-          id: randomUUID(),
+          id: restored?.id ?? randomUUID(),
           organizationId: actor.organizationId,
           employeeId: employee.id,
           periodStart,
           reason: dto.reason.trim(),
-          createdBy: actor.userId,
+          createdBy: restored?.createdBy ?? actor.userId,
         })
         .onConflictDoNothing()
         .returning();
       if (!row) throw conflictError('annualLeaveDeferralInvalid');
-      await writeAudit(tx, actor, 'leaveBalance.defer', row.id, {
-        employeeId: employee.id,
-        periodStart: dto.periodStart,
-        reason: row.reason,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        restored ? 'leaveBalance.redefer' : 'leaveBalance.defer',
+        row.id,
+        {
+          employeeId: employee.id,
+          periodStart: dto.periodStart,
+          reason: row.reason,
+        },
+      );
+      await restored?.finalize(tx);
       return row;
     });
   }
@@ -1513,6 +1555,7 @@ export class AttendanceLeavesService {
   async createHolidaySubstitute(
     actor: AttendanceActor,
     dto: CreateAttendanceHolidaySubstituteDto,
+    restored?: RestoredRecord,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -1557,12 +1600,12 @@ export class AttendanceLeavesService {
       const [row] = await tx
         .insert(attendanceHolidaySubstitute)
         .values({
-          id: randomUUID(),
+          id: restored?.id ?? randomUUID(),
           organizationId: actor.organizationId,
           employeeId: employee.id,
           holidayDate: dto.holidayDate,
           shiftId: shift.id,
-          createdBy: actor.userId,
+          createdBy: restored?.createdBy ?? actor.userId,
         })
         .onConflictDoNothing()
         .returning();
@@ -1577,11 +1620,18 @@ export class AttendanceLeavesService {
             eq(shiftStartDate, platformDateString(shift.startsAt)),
           ),
         );
-      await writeAudit(tx, actor, 'holidaySubstitute.create', row.id, {
-        employeeId: employee.id,
-        holidayDate: dto.holidayDate,
-        shiftId: shift.id,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        restored ? 'holidaySubstitute.restore' : 'holidaySubstitute.create',
+        row.id,
+        {
+          employeeId: employee.id,
+          holidayDate: dto.holidayDate,
+          shiftId: shift.id,
+        },
+      );
+      await restored?.finalize(tx);
       return { id: row.id };
     });
   }

@@ -27,7 +27,12 @@ import {
   offer,
 } from 'src/db/schema/menus';
 import { order } from 'src/db/schema/orders';
-import { invitation, member, organization } from 'src/db/schema/organizations';
+import {
+  invitation,
+  member,
+  organization,
+  team,
+} from 'src/db/schema/organizations';
 import { refund } from 'src/db/schema/refunds';
 import { user } from 'src/db/schema/users';
 import { waitlistSetting, waitlistTicket } from 'src/db/schema/waitlist';
@@ -69,6 +74,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   member,
   invitation,
   user,
+  team,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -159,6 +165,9 @@ const FK_LABEL_SOURCES: Partial<
   },
   user: {
     impersonatedBy: { table: user, column: 'name' },
+  },
+  team: {
+    member: { table: user, column: 'name' },
   },
 };
 

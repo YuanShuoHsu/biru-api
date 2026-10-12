@@ -2,6 +2,7 @@
   "coupons": {
     "alreadyClaimed": "이미 받은 쿠폰입니다",
     "expired": "쿠폰 코드가 만료되었습니다",
+    "inUse": "이미 고객이 받은 쿠폰이라 삭제할 수 없습니다. 대신 비활성화하세요.",
     "memberOnly": "이 쿠폰 코드는 회원 전용입니다",
     "minSubtotal": "이 쿠폰 코드는 {amount} 이상 주문 시 사용할 수 있습니다",
     "notApplicable": "이 쿠폰 코드는 장바구니의 상품에 적용되지 않습니다",
@@ -13,8 +14,15 @@
     "pointsOnly": "이 쿠폰 코드는 포인트로 교환한 후 사용할 수 있습니다",
     "usedUp": "이 쿠폰 코드는 사용 한도에 도달했습니다"
   },
+  "deletedRecords": {
+    "restoreConflict": "복원할 수 없습니다: 같은 데이터가 이미 있습니다(매장 슬러그, 쿠폰 코드, 이메일 중복 등).",
+    "restoreMissingReference": "복원할 수 없습니다: 소속된 상위 데이터가 없습니다. 상위 데이터를 먼저 복원하세요."
+  },
   "exceptions": {
     "internalServerError": "내부 서버 오류",
+    "organizationClosed": "이 매장은 영업을 종료했습니다",
+    "organizationHasOpenWork": "완료되지 않은 주문 {orders}건과 대기 중인 번호표 {tickets}장이 있습니다. 완료하거나 취소한 후 폐점하세요",
+    "organizationReadOnly": "이 매장은 폐점되었습니다. 메뉴, 재고, 쿠폰, 대기, 매장 설정은 조회만 가능합니다",
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "invoices": {

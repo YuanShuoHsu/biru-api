@@ -131,6 +131,8 @@ export class MyClaimableCouponDto extends CustomerCouponDto {
 export class CouponRecipientResponseDto {
   @ApiProperty() id: string;
   @ApiPropertyOptional({ nullable: true }) grantedByEmail?: string | null;
+  @ApiProperty({ description: '發放者帳號已刪除（email 因此為 null）' })
+  grantedByDeleted: boolean;
   @ApiProperty({
     enum: userCouponSourceEnum.enumValues,
     enumName: 'UserCouponSource',

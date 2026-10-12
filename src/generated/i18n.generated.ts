@@ -9,6 +9,7 @@ export type I18nTranslations = {
         "coupons": {
             "alreadyClaimed": string;
             "expired": string;
+            "inUse": string;
             "memberOnly": string;
             "minSubtotal": string;
             "notApplicable": string;
@@ -20,8 +21,15 @@ export type I18nTranslations = {
             "pointsOnly": string;
             "usedUp": string;
         };
+        "deletedRecords": {
+            "restoreConflict": string;
+            "restoreMissingReference": string;
+        };
         "exceptions": {
             "internalServerError": string;
+            "organizationClosed": string;
+            "organizationHasOpenWork": string;
+            "organizationReadOnly": string;
             "tooManyRequests": string;
         };
         "invoices": {

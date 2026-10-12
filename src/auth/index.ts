@@ -20,7 +20,8 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-import { authAuditHooks } from './audit-hooks';
+import { assertOrganizationDeletable } from './deletion-guards';
+import { authHooks } from './hooks';
 import { ac, admin, member, owner } from './permissions';
 
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
@@ -192,7 +193,7 @@ export const createAuth = (mailsService: MailsService) =>
         await mailsService.sendVerificationEmail({ user, url, token }, request);
       },
     },
-    hooks: authAuditHooks,
+    hooks: authHooks,
     plugins: [
       adminPlugin(),
       multiSession(),
@@ -228,6 +229,8 @@ export const createAuth = (mailsService: MailsService) =>
               });
             }
           },
+          beforeDeleteOrganization: ({ organization: target }) =>
+            assertOrganizationDeletable(target.id),
           beforeCreateOrganization: ({ organization: data }) => {
             assertValidOrganizationInput(data);
 
@@ -352,6 +355,12 @@ export const createAuth = (mailsService: MailsService) =>
               pointsEnabledAt: {
                 type: 'date',
                 required: false,
+              },
+              // 停業／復業只走平台管理員端點，店家不能經由 organization.update 自行改
+              closedAt: {
+                type: 'date',
+                required: false,
+                input: false,
               },
               pointsValidityYears: {
                 type: 'number',

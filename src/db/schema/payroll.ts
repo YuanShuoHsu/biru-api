@@ -369,7 +369,7 @@ export const payrollEarningType = pgTable(
     id: text('id').primaryKey(),
     organizationId: text('organization_id')
       .notNull()
-      .references(() => organization.id, { onDelete: 'restrict' }),
+      .references(() => organization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     category: text('category').$type<PayrollEarningCategory>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -408,7 +408,7 @@ export const payrollEarning = pgTable(
 export const payrollWithholdingUnit = pgTable('payroll_withholding_unit', {
   organizationId: text('organization_id')
     .primaryKey()
-    .references(() => organization.id, { onDelete: 'restrict' }),
+    .references(() => organization.id, { onDelete: 'cascade' }),
   businessNumber: text('business_number').notNull(),
   taxOfficeCode: text('tax_office_code').notNull(),
   taxRegistrationNumber: text('tax_registration_number').notNull(),

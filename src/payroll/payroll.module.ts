@@ -22,6 +22,6 @@ import { PayrollService } from './payroll.service';
     PayrollEarningsService,
     PayrollWithholdingService,
   ],
-  exports: [PayrollRulesService],
+  exports: [PayrollEarningsService, PayrollRulesService],
 })
 export class PayrollModule {}

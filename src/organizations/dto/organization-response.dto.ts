@@ -65,4 +65,10 @@ export class OrganizationResponseDto {
 
   @ApiProperty()
   pickupCutoffMinutes: number;
+
+  @ApiPropertyOptional({
+    description: '停業時間；營業中為 null',
+    nullable: true,
+  })
+  closedAt: Date | null;
 }

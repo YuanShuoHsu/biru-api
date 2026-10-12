@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_setting" DROP COLUMN "personal_data_erasure_since";

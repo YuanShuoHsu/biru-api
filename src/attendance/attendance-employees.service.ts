@@ -56,6 +56,7 @@ import {
   lockOrganization,
   writeAudit,
   type Transaction,
+  type RestoredRecord,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
 import {
@@ -436,7 +437,11 @@ export class AttendanceEmployeesService {
     };
   }
 
-  async saveEmployee(actor: AttendanceActor, dto: SaveAttendanceEmployeeDto) {
+  async saveEmployee(
+    actor: AttendanceActor,
+    dto: SaveAttendanceEmployeeDto,
+    restored?: RestoredRecord,
+  ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [membership] = await tx
@@ -743,7 +748,7 @@ export class AttendanceEmployeesService {
       };
       const [row] = await tx
         .insert(attendanceEmployee)
-        .values({ id: randomUUID(), ...values })
+        .values({ id: restored?.id ?? randomUUID(), ...values })
         .onConflictDoUpdate({
           target: [
             attendanceEmployee.organizationId,
@@ -755,10 +760,15 @@ export class AttendanceEmployeesService {
       await writeAudit(
         tx,
         actor,
-        current ? 'employee.update' : 'employee.create',
+        current
+          ? 'employee.update'
+          : restored
+            ? 'employee.restore'
+            : 'employee.create',
         row.id,
         values,
       );
+      await restored?.finalize(tx);
       return {
         ...row,
         ...legalStatusObligations(row.legalStatus),

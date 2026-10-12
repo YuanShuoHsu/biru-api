@@ -2,7 +2,11 @@
 
 import { Logger } from '@nestjs/common';
 
-import { createAuthMiddleware, isAPIError } from 'better-auth/api';
+import {
+  createAuthMiddleware,
+  getSessionFromCtx,
+  isAPIError,
+} from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -10,6 +14,13 @@ import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff';
 import { resolveChangeLabels } from '../common/utils/audit-resources';
 import { db } from '../db';
 import * as schema from '../db/schema';
+import { forgetDeletedUser } from '../deleted-records/forget-user';
+import {
+  assertOrganizationOpen,
+  ORGANIZATION_WRITE_PATHS,
+} from './closure-guards';
+import { assertUserDeletable } from './deletion-guards';
+
 import type {
   AuditAction,
   AuditChanges,
@@ -22,12 +33,14 @@ type AuditedTable =
   | typeof schema.invitation
   | typeof schema.member
   | typeof schema.organization
+  | typeof schema.team
   | typeof schema.user;
 
 const TABLES = {
   invitation: schema.invitation,
   member: schema.member,
   organization: schema.organization,
+  team: schema.team,
   user: schema.user,
 } satisfies Partial<Record<AuditResource, AuditedTable>>;
 
@@ -81,8 +94,10 @@ const BEFORE_TARGETS: Record<string, (body: Body) => Target | undefined> = {
     toTarget('organization')(organizationId),
   '/organization/reject-invitation': ({ invitationId }) =>
     invitationTarget(invitationId),
+  '/organization/remove-team': ({ teamId }) => toTarget('team')(teamId),
   '/organization/update-member-role': ({ memberId }) =>
     toTarget('member')(memberId),
+  '/organization/update-team': ({ teamId }) => toTarget('team')(teamId),
 };
 
 const findRow = async ({ resource, id }: Target) => {
@@ -148,6 +163,51 @@ const toEvents = (
             {
               target: { resource: 'user', id },
               changes: { passwordReset: { before: false, after: true } },
+            },
+          ]
+        : [];
+    }
+    case '/admin/revoke-user-session':
+    case '/admin/revoke-user-sessions': {
+      const id = asString(before?.userId);
+      const count = before?.count;
+
+      return id && typeof count === 'number' && count > 0
+        ? [
+            {
+              target: { resource: 'user', id },
+              changes: { revokedSessions: { before: null, after: count } },
+            },
+          ]
+        : [];
+    }
+    case '/organization/add-team-member': {
+      const id = asString(returned.teamId);
+
+      return id
+        ? [
+            {
+              target: { resource: 'team', id },
+              changes: {
+                member: { before: null, after: returned.userId ?? null },
+              },
+            },
+          ]
+        : [];
+    }
+    case '/organization/create-team': {
+      const id = asString(returned.id);
+
+      return id ? [{ target: { resource: 'team', id } }] : [];
+    }
+    case '/organization/remove-team-member': {
+      const id = asString(body.teamId);
+
+      return id
+        ? [
+            {
+              target: { resource: 'team', id },
+              changes: { member: { before: body.userId ?? null, after: null } },
             },
           ]
         : [];
@@ -266,8 +326,79 @@ const writeEvent = async (
   });
 };
 
-export const authAuditHooks = {
+const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
+
+const REVOKE_SESSION_PATHS = new Set([
+  '/admin/revoke-user-session',
+  '/admin/revoke-user-sessions',
+]);
+
+const countRevokedSessions = async (
+  path: string,
+  body: Record<string, unknown>,
+): Promise<AuditRow | undefined> => {
+  if (path === '/admin/revoke-user-session') {
+    const token = asString(body.sessionToken);
+    if (!token) return undefined;
+
+    const row = await db.query.session.findFirst({
+      where: eq(schema.session.token, token),
+      columns: { userId: true },
+    });
+
+    return row ? { userId: row.userId, count: 1 } : undefined;
+  }
+
+  const userId = asString(body.userId);
+  if (!userId) return undefined;
+
+  const rows = await db.query.session.findMany({
+    where: eq(schema.session.userId, userId),
+    columns: { id: true },
+  });
+
+  return { userId, count: rows.length };
+};
+
+const selfDeletions = new WeakMap<Request, string>();
+
+export const authHooks = {
   before: createAuthMiddleware(async (ctx) => {
+    if (ctx.path === '/admin/remove-user' || SELF_DELETE_PATHS.has(ctx.path)) {
+      const session = await getSessionFromCtx(ctx);
+      const isSelfDelete = SELF_DELETE_PATHS.has(ctx.path);
+      const userId = isSelfDelete
+        ? session?.user.id
+        : session?.user.role === 'admin'
+          ? asString(asRow(ctx.body)?.userId)
+          : undefined;
+
+      if (userId) {
+        await assertUserDeletable(userId);
+        if (isSelfDelete && ctx.request) selfDeletions.set(ctx.request, userId);
+      }
+    }
+
+    if (ORGANIZATION_WRITE_PATHS.has(ctx.path)) {
+      const session = await getSessionFromCtx(ctx);
+      if (session)
+        await assertOrganizationOpen(
+          asRow(ctx.body) ?? {},
+          asString(asRow(session.session)?.activeOrganizationId),
+        );
+    }
+
+    if (REVOKE_SESSION_PATHS.has(ctx.path) && ctx.request) {
+      try {
+        snapshots.set(
+          ctx.request,
+          await countRevokedSessions(ctx.path, asRow(ctx.body) ?? {}),
+        );
+      } catch (error) {
+        logger.error('Failed to snapshot audit target', error);
+      }
+    }
+
     const target = BEFORE_TARGETS[ctx.path]?.(asRow(ctx.body) ?? {});
     if (!target || !ctx.request) return;
 
@@ -279,20 +410,37 @@ export const authAuditHooks = {
   }),
   after: createAuthMiddleware(async (ctx) => {
     const before = ctx.request ? snapshots.get(ctx.request) : undefined;
-    if (ctx.request) snapshots.delete(ctx.request);
+    const selfDeletedUserId = ctx.request
+      ? selfDeletions.get(ctx.request)
+      : undefined;
+    if (ctx.request) {
+      snapshots.delete(ctx.request);
+      selfDeletions.delete(ctx.request);
+    }
 
-    const actor = ctx.context.session?.user;
+    if (selfDeletedUserId && !isAPIError(ctx.context.returned))
+      try {
+        const remaining = await db.query.user.findFirst({
+          where: eq(schema.user.id, selfDeletedUserId),
+          columns: { id: true },
+        });
+        if (!remaining) await forgetDeletedUser(selfDeletedUserId);
+      } catch (error) {
+        logger.error('Failed to erase deleted account copies', error);
+      }
+
     const returned = asRow(ctx.context.returned);
-    if (!actor || !returned || isAPIError(returned)) return;
+    if (!returned || isAPIError(returned)) return;
+
+    const events = toEvents(ctx.path, asRow(ctx.body) ?? {}, returned, before);
+    if (!events.length) return;
 
     try {
-      for (const event of toEvents(
-        ctx.path,
-        asRow(ctx.body) ?? {},
-        returned,
-        before,
-      ))
-        await writeEvent(actor, event);
+      const actor =
+        ctx.context.session?.user ?? (await getSessionFromCtx(ctx))?.user;
+      if (!actor) return;
+
+      for (const event of events) await writeEvent(actor, event);
     } catch (error) {
       logger.error('Failed to write audit log', error);
     }

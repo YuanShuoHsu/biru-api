@@ -25,6 +25,7 @@ import {
   lockOrganization,
   type Transaction,
   writeAudit,
+  type RestoredRecord,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
 import {
@@ -111,15 +112,23 @@ export class AttendanceShiftTypesService {
   async createShiftType(
     actor: AttendanceActor,
     dto: SaveAttendanceShiftTypeDto,
+    restored?: RestoredRecord,
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const values = await this.prepare(tx, actor.organizationId, dto);
-      const id = randomUUID();
+      const id = restored?.id ?? randomUUID();
       await tx
         .insert(attendanceShiftType)
         .values({ id, organizationId: actor.organizationId, ...values });
-      await writeAudit(tx, actor, 'shiftType.create', id, values);
+      await writeAudit(
+        tx,
+        actor,
+        restored ? 'shiftType.restore' : 'shiftType.create',
+        id,
+        values,
+      );
+      await restored?.finalize(tx);
       return { id };
     });
   }

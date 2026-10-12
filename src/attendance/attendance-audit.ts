@@ -35,6 +35,12 @@ export const lockEmployee = async (
   );
 };
 
+export interface RestoredRecord {
+  id: string;
+  createdBy: string;
+  finalize: (tx: Transaction) => Promise<void>;
+}
+
 export const writeAudits = async (
   tx: Transaction,
   actor: AttendanceActor,

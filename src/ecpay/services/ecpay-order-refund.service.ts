@@ -1,6 +1,17 @@
 import { randomUUID } from 'crypto';
 
-import { type SQL, and, asc, desc, eq, lt, lte, ne, or } from 'drizzle-orm';
+import {
+  type SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto';
 import type {
@@ -885,6 +896,7 @@ export class EcpayOrderRefundService {
         invoiceError: refund.invoiceError,
         items: refund.items,
         operatorName: user.name,
+        operatorDeleted: sql<boolean>`${refund.operatorId} IS NOT NULL AND ${user.id} IS NULL`,
         reason: refund.reason,
         reasonCode: refund.reasonCode,
         scope: refund.scope,

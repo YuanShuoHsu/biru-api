@@ -72,8 +72,17 @@ export class AdminWaitlistTicketDto extends WaitlistTicketResponseDto {
   availableTransitions: StaffTransitionStatus[];
   @ApiPropertyOptional() email: string | null;
   @ApiProperty({ description: '已叫號且超過保留期限' }) overdue: boolean;
-  @ApiProperty() name: string;
-  @ApiProperty() phoneNumber: string;
+  @ApiPropertyOptional({
+    description: '候位結束 30 天後清除個資，此時為 null',
+    nullable: true,
+  })
+  name: string | null;
+
+  @ApiPropertyOptional({
+    description: '候位結束 30 天後清除個資，此時為 null',
+    nullable: true,
+  })
+  phoneNumber: string | null;
 }
 
 export class WaitlistTicketListItemDto extends OmitType(

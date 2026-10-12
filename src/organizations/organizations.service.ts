@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { and, count, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
 import {
@@ -6,10 +6,16 @@ import {
   Organization,
   organization,
 } from 'src/db/schema/organizations';
+import { order } from 'src/db/schema/orders';
+import {
+  WAITLIST_ACTIVE_STATUSES,
+  waitlistTicket,
+} from 'src/db/schema/waitlist';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
+import { organizationHasOpenWorkError } from 'src/common/utils/organization-closure';
 import {
   getStatsWindow,
   utcTimestampParam,
@@ -67,6 +73,49 @@ export class OrganizationsService {
         .filter(({ team }) => team.organizationId === organizationId)
         .map(({ team }) => ({ id: team.id, name: team.name })),
     }));
+  }
+
+  async setClosed(
+    organizationId: string,
+    closed: boolean,
+  ): Promise<Organization> {
+    if (closed) {
+      const [[{ orders }], [{ tickets }]] = await Promise.all([
+        this.db
+          .select({ orders: count() })
+          .from(order)
+          .where(
+            and(
+              eq(order.sellerId, organizationId),
+              inArray(order.orderStatus, [
+                'OrderPaymentDue',
+                'OrderProcessing',
+                'OrderPickupAvailable',
+              ]),
+            ),
+          ),
+        this.db
+          .select({ tickets: count() })
+          .from(waitlistTicket)
+          .where(
+            and(
+              eq(waitlistTicket.organizationId, organizationId),
+              inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+            ),
+          ),
+      ]);
+      if (orders || tickets)
+        throw organizationHasOpenWorkError(orders, tickets);
+    }
+
+    const [updated] = await this.db
+      .update(organization)
+      .set({ closedAt: closed ? new Date() : null })
+      .where(eq(organization.id, organizationId))
+      .returning();
+    if (!updated) throw new NotFoundException('Organization not found');
+
+    return updated;
   }
 
   async organization(

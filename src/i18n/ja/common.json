@@ -2,6 +2,7 @@
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
     "expired": "クーポンコードの有効期限が切れています",
+    "inUse": "このクーポンはすでにお客様が受け取っているため削除できません。無効化してください。",
     "memberOnly": "このクーポンコードは会員限定です",
     "minSubtotal": "このクーポンコードは{amount}以上のご注文でご利用いただけます",
     "notApplicable": "このクーポンコードはカート内の商品には適用されません",
@@ -13,8 +14,15 @@
     "pointsOnly": "このクーポンコードはポイントと交換してからご利用いただけます",
     "usedUp": "このクーポンコードは利用上限に達しました"
   },
+  "deletedRecords": {
+    "restoreConflict": "復元できません：同じデータがすでに存在します（店舗スラッグ、クーポンコード、メールアドレスの重複など）。",
+    "restoreMissingReference": "復元できません：所属する上位データが存在しません。先に上位データを復元してください。"
+  },
   "exceptions": {
     "internalServerError": "内部サーバーエラー",
+    "organizationClosed": "この店舗は営業を終了しました",
+    "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
+    "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "tooManyRequests": "リクエストが多すぎます"
   },
   "invoices": {

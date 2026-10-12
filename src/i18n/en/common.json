@@ -2,6 +2,7 @@
   "coupons": {
     "alreadyClaimed": "You have already claimed this coupon",
     "expired": "This promo code has expired",
+    "inUse": "Customers have already claimed this coupon, so it can't be deleted. Deactivate it instead.",
     "memberOnly": "This promo code is for members only",
     "minSubtotal": "A minimum order of {amount} is required to use this promo code",
     "notApplicable": "This promo code does not apply to the items in your cart",
@@ -13,8 +14,15 @@
     "pointsOnly": "This promo code must be redeemed with points before use",
     "usedUp": "This promo code has reached its usage limit"
   },
+  "deletedRecords": {
+    "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email).",
+    "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first."
+  },
   "exceptions": {
     "internalServerError": "Internal server error",
+    "organizationClosed": "This store is closed.",
+    "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
+    "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
     "tooManyRequests": "Too many requests"
   },
   "invoices": {

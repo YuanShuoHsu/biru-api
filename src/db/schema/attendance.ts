@@ -256,7 +256,7 @@ export const attendanceShiftType = pgTable(
     id: text('id').primaryKey(),
     organizationId: text('organization_id')
       .notNull()
-      .references(() => organization.id, { onDelete: 'restrict' }),
+      .references(() => organization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     startTime: text('start_time').notNull(),
     endTime: text('end_time').notNull(),
@@ -401,10 +401,9 @@ export const attendanceAudit = pgTable(
     id: text('id').primaryKey(),
     organizationId: text('organization_id')
       .notNull()
-      .references(() => organization.id, { onDelete: 'restrict' }),
-    actorId: text('actor_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    // 刻意不設外鍵：記錄的是當時的操作者，帳號刪除後保留原 id，帳號還原時自動接回
+    actorId: text('actor_id'),
     action: text('action').notNull(),
     resourceId: text('resource_id').notNull(),
     changes: jsonb('changes').$type<Record<string, unknown>>().notNull(),

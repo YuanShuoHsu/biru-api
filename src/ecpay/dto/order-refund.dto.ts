@@ -158,6 +158,9 @@ export class OrderRefundDto {
   })
   operatorName: string | null;
 
+  @ApiProperty({ description: '經手人帳號已刪除（姓名因此為 null）' })
+  operatorDeleted: boolean;
+
   @ApiProperty({ description: '退款說明', nullable: true })
   reason: string | null;
 
