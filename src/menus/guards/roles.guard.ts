@@ -41,7 +41,7 @@ export type AuthRequest = Request & {
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // 停業後仍須結算薪資、辦理離職與處理售後退款；復業會讓門市重新上架，不能拿來替代
-const CLOSED_WRITABLE_RESOURCES = new Set([
+export const CLOSED_WRITABLE_RESOURCES = new Set([
   'attendanceRequest',
   'attendanceSetting',
   'employee',

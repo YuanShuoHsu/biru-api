@@ -15,7 +15,7 @@
     "usedUp": "此优惠码已达使用上限"
   },
   "deletedRecords": {
-    "restoreConflict": "无法还原：系统中已有相同的数据（例如店家代称、优惠码或电子邮件重复）。",
+    "restoreConflict": "无法还原：系统中已有相同的数据（例如店家代称、优惠码、电子邮件重复，或该成员已在店内）。",
     "restoreMissingReference": "无法还原：它所属的上层数据已不存在，请先还原上层数据。"
   },
   "exceptions": {

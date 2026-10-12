@@ -56,4 +56,14 @@ export class DeletedRecordBatchResponseDto {
     nullable: true,
   })
   deletedBy?: string | null;
+
+  @ApiProperty({
+    description: '目前操作者可否還原（店內須具備各資料的建立權限）',
+  })
+  canRestore: boolean;
+}
+
+export class DeletedRecordPermissionDto {
+  @ApiProperty({ description: '目前成員是否能還原本店任何一種資料' })
+  canRestore: boolean;
 }

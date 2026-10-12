@@ -58,3 +58,33 @@ export const LABEL_COLUMNS = [
   'email',
   'reference',
 ] as const;
+
+// 還原等於重新建立，店內成員須具備各表建立端點所要求的權限；不在表內的只有平台管理員能還原（例如優惠券定義只由平台建立）
+export const RESTORE_PERMISSIONS: Partial<
+  Record<string, Record<string, string[]>>
+> = {
+  attendance_annual_leave_deferral: { leaveBalance: ['create'] },
+  attendance_employee: { employee: ['create'] },
+  attendance_holiday_substitute: { shift: ['update'] },
+  attendance_leave_balance: { leaveBalance: ['create'] },
+  attendance_leave_case: { leaveCase: ['create'] },
+  attendance_leave_type: { leaveType: ['create'] },
+  attendance_shift_type: { shiftType: ['create'] },
+  ingredient: { inventory: ['create'] },
+  inventory_transaction: { inventoryTransaction: ['create'] },
+  invitation: { invitation: ['create'] },
+  member: { member: ['create'] },
+  menu_item: { menu: ['create'] },
+  menu_item_add_on: { menu: ['create'] },
+  menu_item_modifier_group: { menu: ['create'] },
+  menu_section: { menu: ['create'] },
+  modifier: { menu: ['create'] },
+  modifier_group: { menu: ['create'] },
+  offer: { menu: ['create'] },
+  payroll_earning_type: { payrollTerm: ['create'] },
+  recipe: { inventory: ['create'] },
+  recipe_ingredient: { inventory: ['create'] },
+  supplier: { purchasing: ['create'] },
+  team: { team: ['create'] },
+  team_member: { member: ['update'] },
+};

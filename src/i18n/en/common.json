@@ -15,7 +15,7 @@
     "usedUp": "This promo code has reached its usage limit"
   },
   "deletedRecords": {
-    "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email).",
+    "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email, or the member is already in the store).",
     "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first."
   },
   "exceptions": {

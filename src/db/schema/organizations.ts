@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -90,6 +90,10 @@ export const teamMember = pgTable(
   (table) => [
     index('teamMember_teamId_idx').on(table.teamId),
     index('teamMember_userId_idx').on(table.userId),
+    uniqueIndex('teamMember_teamId_userId_unique').on(
+      table.teamId,
+      table.userId,
+    ),
   ],
 );
 
@@ -111,6 +115,10 @@ export const member = pgTable(
   (table) => [
     index('member_organizationId_idx').on(table.organizationId),
     index('member_userId_idx').on(table.userId),
+    uniqueIndex('member_organizationId_userId_unique').on(
+      table.organizationId,
+      table.userId,
+    ),
   ],
 );
 
@@ -136,6 +144,9 @@ export const invitation = pgTable(
   (table) => [
     index('invitation_organizationId_idx').on(table.organizationId),
     index('invitation_email_idx').on(table.email),
+    uniqueIndex('invitation_pending_email_unique')
+      .on(table.organizationId, sql`lower(${table.email})`)
+      .where(sql`${table.status} = 'pending'`),
   ],
 );
 

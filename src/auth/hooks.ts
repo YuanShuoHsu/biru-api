@@ -16,6 +16,11 @@ import { db } from '../db';
 import * as schema from '../db/schema';
 import { forgetDeletedUser } from '../deleted-records/forget-user';
 import {
+  latestDeletedRecordId,
+  mergePreDeletedChildren,
+  type DeletionParent,
+} from '../deleted-records/request-batch';
+import {
   assertOrganizationOpen,
   ORGANIZATION_WRITE_PATHS,
 } from './closure-guards';
@@ -362,6 +367,11 @@ const countRevokedSessions = async (
 
 const selfDeletions = new WeakMap<Request, string>();
 
+const deletionParents = new WeakMap<
+  Request,
+  { parent: DeletionParent; sinceId: string }
+>();
+
 export const authHooks = {
   before: createAuthMiddleware(async (ctx) => {
     if (ctx.path === '/admin/remove-user' || SELF_DELETE_PATHS.has(ctx.path)) {
@@ -376,7 +386,21 @@ export const authHooks = {
       if (userId) {
         await assertUserDeletable(userId);
         if (isSelfDelete && ctx.request) selfDeletions.set(ctx.request, userId);
+        if (ctx.request)
+          deletionParents.set(ctx.request, {
+            parent: { table: 'user', id: userId },
+            sinceId: await latestDeletedRecordId(),
+          });
       }
+    }
+
+    if (ctx.path === '/organization/delete' && ctx.request) {
+      const organizationId = asString(asRow(ctx.body)?.organizationId);
+      if (organizationId)
+        deletionParents.set(ctx.request, {
+          parent: { table: 'organization', id: organizationId },
+          sinceId: await latestDeletedRecordId(),
+        });
     }
 
     if (ORGANIZATION_WRITE_PATHS.has(ctx.path)) {
@@ -413,10 +437,22 @@ export const authHooks = {
     const selfDeletedUserId = ctx.request
       ? selfDeletions.get(ctx.request)
       : undefined;
+    const deletion = ctx.request ? deletionParents.get(ctx.request) : undefined;
     if (ctx.request) {
       snapshots.delete(ctx.request);
       selfDeletions.delete(ctx.request);
+      deletionParents.delete(ctx.request);
     }
+
+    if (deletion && !isAPIError(ctx.context.returned))
+      try {
+        await mergePreDeletedChildren(deletion.parent, deletion.sinceId);
+      } catch (error) {
+        logger.error(
+          'Failed to merge pre-deleted rows into their batch',
+          error,
+        );
+      }
 
     if (selfDeletedUserId && !isAPIError(ctx.context.returned))
       try {

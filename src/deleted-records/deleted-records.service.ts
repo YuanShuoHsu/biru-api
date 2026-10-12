@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  ForbiddenException,
   NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -36,9 +37,11 @@ import {
 import { auditLog, type AuditResource } from 'src/db/schema/audit';
 import { deletedRecord } from 'src/db/schema/deleted-records';
 import type { LocalizedText } from 'src/db/schema/enums';
-import { member } from 'src/db/schema/organizations';
+import { member, organization } from 'src/db/schema/organizations';
 import { PAYROLL_EARNING_CATEGORIES } from 'src/db/schema/payroll';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { CLOSED_WRITABLE_RESOURCES } from 'src/menus/guards/roles.guard';
+import { isAuthorized } from 'src/auth/permissions';
 import {
   asBoolean,
   asNumber,
@@ -57,6 +60,7 @@ import { PayrollEarningsService } from 'src/payroll/payroll-earnings.service';
 import {
   LABEL_COLUMNS,
   RESTORABLE_TABLES,
+  RESTORE_PERMISSIONS,
   SERVICE_RESTORED_TABLES,
   UNTRACKED_TABLES,
   type RestorableTable,
@@ -68,43 +72,41 @@ import type {
 
 const RETENTION_DAYS = 30;
 
-// better-auth 刪除使用者時先刪 account、刪除組織時先刪 member 與 invitation，都不在同一個交易，
-// 所以這些子列落在父列之前的另一個批次，還原與列表都要把它們算回父列
-const PRE_DELETED_CHILDREN: Record<
-  string,
-  { table: string; column: string }[]
-> = {
-  organization: [
-    { table: 'invitation', column: 'organization_id' },
-    { table: 'member', column: 'organization_id' },
-  ],
-  user: [{ table: 'account', column: 'user_id' }],
-};
-
-const PRE_DELETE_WINDOW = sql.raw(`interval '1 minute'`);
-
-const preDeletedChildOf = (parent: string, child: string) => {
-  const p = sql.raw(parent);
-  const c = sql.raw(child);
-
-  return sql`(
-    (${sql.join(
-      Object.entries(PRE_DELETED_CHILDREN).flatMap(([parentTable, children]) =>
-        children.map(
-          ({ table, column }) =>
-            sql`(${p}.table_name = ${parentTable} AND ${c}.table_name = ${table} AND ${c}.data ->> ${column} = ${p}.record_id)`,
-        ),
-      ),
-      sql` OR `,
-    )})
-    AND ${c}.batch_id <> ${p}.batch_id
-    AND ${c}.deleted_at BETWEEN ${p}.deleted_at - ${PRE_DELETE_WINDOW} AND ${p}.deleted_at
-  )`;
-};
-
 type Row = typeof deletedRecord.$inferSelect;
 
 type Actor = { id: string; name: string; email: string };
+
+export type RestoreScope = {
+  organizationId: string;
+  role: string;
+  closed: boolean;
+};
+
+const restorableTablesFor = (role: string) =>
+  Object.entries(RESTORE_PERMISSIONS).flatMap(([table, action]) =>
+    action && isAuthorized(role, action) ? [table] : [],
+  );
+
+export const canRestoreAnything = (role: string) =>
+  RESTORABLE_TABLES.some((table) => restorableTablesFor(role).includes(table));
+
+const canRestoreTables = (tables: string[], scope: RestoreScope) => {
+  const required = tables.map((table) => RESTORE_PERMISSIONS[table]);
+  if (!required.length || required.some((action) => !action)) return false;
+
+  const action: Record<string, string[]> = {};
+  for (const entry of required)
+    for (const [resource, verbs] of Object.entries(entry ?? {}))
+      action[resource] = [...new Set([...(action[resource] ?? []), ...verbs])];
+
+  return (
+    isAuthorized(scope.role, action) &&
+    (!scope.closed ||
+      Object.keys(action).every((resource) =>
+        CLOSED_WRITABLE_RESOURCES.has(resource),
+      ))
+  );
+};
 
 // 附屬表沿用稽核的 via 慣例：記在擁有者資源底下、動作為 update
 const AUDIT_TARGETS: Partial<
@@ -246,10 +248,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     }
   }
 
-  async list({
-    limit = 10,
-    offset = 0,
-  }: DeletedRecordPaginationQueryDto): Promise<{
+  async list(
+    { limit = 10, offset = 0 }: DeletedRecordPaginationQueryDto,
+    scope?: RestoreScope,
+  ): Promise<{
     data: DeletedRecordBatchResponseDto[];
     total: number;
   }> {
@@ -259,14 +261,26 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     );
 
     const roots = sql`
-      SELECT DISTINCT ON (batch_id) *
-      FROM deleted_record child
-      WHERE table_name IN (${restorable})
-        AND NOT EXISTS (
-          SELECT 1 FROM deleted_record parent
-          WHERE ${preDeletedChildOf('parent', 'child')}
-        )
-      ORDER BY batch_id, id
+      SELECT DISTINCT ON (d.batch_id) d.*
+      FROM deleted_record d
+      WHERE d.table_name IN (${restorable})
+        ${
+          scope
+            ? sql`
+              AND ${organizationIdOf(sql`d.table_name`, sql`d.record_id`, sql`d.data`)} = ${scope.organizationId}
+              AND NOT EXISTS (
+                SELECT 1 FROM deleted_record other
+                WHERE other.batch_id = d.batch_id
+                  AND other.table_name NOT IN (${sql.join(
+                    [...restorableTablesFor(scope.role), ''].map(
+                      (table) => sql`${table}`,
+                    ),
+                    sql`, `,
+                  )})
+              )`
+            : sql``
+        }
+      ORDER BY d.batch_id, d.id
     `;
 
     const [{ rows }, { rows: totals }] = await Promise.all([
@@ -280,6 +294,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         organization_name: string | null;
         user_name: string | null;
         deleted_by: string | null;
+        tables: string[];
       }>(sql`
         WITH roots AS (${roots})
         SELECT
@@ -288,8 +303,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           r.table_name,
           r.record_id,
           r.data,
-          (SELECT count(*)::int - 1 FROM deleted_record d WHERE d.batch_id = r.batch_id)
-            + (SELECT count(*)::int FROM deleted_record c WHERE ${preDeletedChildOf('r', 'c')}) AS related_count,
+          (SELECT count(*)::int - 1 FROM deleted_record d WHERE d.batch_id = r.batch_id) AS related_count,
+          (SELECT array_agg(DISTINCT t.table_name) FROM deleted_record t WHERE t.batch_id = r.batch_id) AS tables,
           o.name AS organization_name,
           u.name AS user_name,
           COALESCE(
@@ -349,6 +364,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                     : null),
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
+                canRestore: !scope || canRestoreTables(row.tables, scope),
               },
             ]
           : [],
@@ -357,7 +373,11 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     };
   }
 
-  async restore(batchId: number, actor: Actor): Promise<void> {
+  async restore(
+    batchId: number,
+    actor: Actor,
+    scope?: RestoreScope,
+  ): Promise<void> {
     const batch = await this.db
       .select()
       .from(deletedRecord)
@@ -366,6 +386,18 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
 
     const root = batch.find(({ tableName }) => isRestorable(tableName));
     if (!root) throw new NotFoundException('Deleted record batch not found');
+
+    if (scope) {
+      if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
+        throw new NotFoundException('Deleted record batch not found');
+      if (
+        !canRestoreTables(
+          [...new Set(batch.map(({ tableName }) => tableName))],
+          scope,
+        )
+      )
+        throw new ForbiddenException();
+    }
 
     if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
       try {
@@ -376,7 +408,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       return;
     }
 
-    const rows = [...batch, ...(await this.findPreDeletedChildren(root))];
+    const rows = batch;
 
     try {
       await this.db.transaction(async (tx) => {
@@ -405,6 +437,15 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     } catch (error) {
       this.logger.error('Failed to write audit log', error);
     }
+  }
+
+  async getScope(organizationId: string, role: string): Promise<RestoreScope> {
+    const [row] = await this.db
+      .select({ closedAt: organization.closedAt })
+      .from(organization)
+      .where(eq(organization.id, organizationId));
+
+    return { organizationId, role, closed: !!row?.closedAt };
   }
 
   private toRestoreError(error: unknown) {
@@ -708,26 +749,6 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       .where(lt(deletedRecord.deletedAt, cutoff));
 
     return rowCount ?? 0;
-  }
-
-  private async findPreDeletedChildren(root: Row): Promise<Row[]> {
-    if (!PRE_DELETED_CHILDREN[root.tableName]) return [];
-
-    const { rows } = await this.db.execute<{ id: number }>(sql`
-      SELECT c.id FROM deleted_record c, deleted_record r
-      WHERE r.id = ${root.id} AND ${preDeletedChildOf('r', 'c')}
-    `);
-    if (!rows.length) return [];
-
-    return this.db
-      .select()
-      .from(deletedRecord)
-      .where(
-        inArray(
-          deletedRecord.id,
-          rows.map(({ id }) => Number(id)),
-        ),
-      );
   }
 
   // 依外鍵相依排序，父表先寫回；同一張表內依刪除順序（cascade 時父列先被記錄）
