@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 
 import { db } from '../db';
+import type { DrizzleDB } from '../drizzle/drizzle.module';
 
 // better-auth 刪帳號先刪 account、刪組織先刪 member 與 invitation，各自不在同一個交易，
 // 所以刪除成功後要把同一請求留存的子列併進父列的批次，還原時才會一起回來
@@ -11,6 +12,15 @@ const PRE_DELETED_CHILDREN = {
   ],
   user: [{ table: 'account', column: 'user_id' }],
 } as const;
+
+// 同一交易刪除的列預設會共用 txid 成為同一批，批次刪除要讓每筆各自還原就得在每筆之前換批號
+export const startDeletedRecordBatch = async (
+  tx: Pick<DrizzleDB, 'execute'>,
+) => {
+  await tx.execute(
+    sql`SELECT set_config('app.deleted_record_batch', (-nextval('deleted_record_batch_seq'))::text, true)`,
+  );
+};
 
 export type DeletionParent = {
   table: keyof typeof PRE_DELETED_CHILDREN;

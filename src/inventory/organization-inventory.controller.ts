@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -10,7 +11,9 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 
+import { OrganizationId } from 'src/menus/decorators/organization-id.decorator';
 import { HasPermission } from 'src/menus/decorators/permission.decorator';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import { ReorderDto } from 'src/menus/dto/reorder.dto';
@@ -74,6 +77,17 @@ export class OrganizationInventoryController {
     return this.ingredientsService.reorder(organizationSlug, ids, offset);
   }
 
+  @Delete('ingredients')
+  @Roles({ inventory: ['delete'] }, 'organizationSlug')
+  @Audit('ingredient', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除食材' })
+  removeIngredients(
+    @OrganizationId() organizationId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.ingredientsService.removeMany(organizationId, ids);
+  }
+
   @Get('suppliers')
   @Roles({ purchasing: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢供應商列表' })
@@ -82,6 +96,17 @@ export class OrganizationInventoryController {
     @Query() query: SupplierPaginationQueryDto,
   ): Promise<{ data: SupplierResponseDto[]; total: number }> {
     return this.suppliersService.findAll(organizationSlug, query);
+  }
+
+  @Delete('suppliers')
+  @Roles({ purchasing: ['delete'] }, 'organizationSlug')
+  @Audit('supplier', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除供應商' })
+  removeSuppliers(
+    @OrganizationId() organizationId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.suppliersService.removeMany(organizationId, ids);
   }
 
   @Post('suppliers')

@@ -22,6 +22,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { isSameLocalizedText } from 'src/common/utils/localized-text';
 import { getOrganizationCurrency } from 'src/common/utils/organizations';
 import type { LocalizedText } from 'src/db/schema/enums';
@@ -283,7 +284,7 @@ export class MenusService {
   }
 
   async reorderMenuSections(
-    _menuId: string,
+    menuId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -292,7 +293,7 @@ export class MenusService {
         await tx
           .update(menuSection)
           .set({ sortOrder: offset + i })
-          .where(eq(menuSection.id, id));
+          .where(and(eq(menuSection.id, id), eq(menuSection.menuId, menuId)));
       }
     });
   }
@@ -327,6 +328,19 @@ export class MenusService {
     return deleted;
   }
 
+  async deleteMenuSections(menuId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(menuSection)
+          .where(and(eq(menuSection.menuId, menuId), eq(menuSection.id, id)))
+          .returning({ id: menuSection.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
+  }
+
   // ── MenuItem ──────────────────────────────────────────────────────
 
   async createMenuItem(
@@ -341,6 +355,7 @@ export class MenusService {
       columns: { menuId: true },
       with: { menu: { columns: { organizationId: true } } },
     });
+    if (!section) throw new NotFoundException('Menu section not found');
 
     const result = await this.db.transaction(async (tx) => {
       await tx
@@ -353,13 +368,13 @@ export class MenusService {
         .values({
           id: uuidv4(),
           menuSectionId: sectionId,
-          menuId: section?.menuId,
+          menuId: section.menuId,
           sortOrder: 0,
           ...itemData,
         })
         .returning();
 
-      const boundRecipe = section?.menu
+      const boundRecipe = section.menu
         ? await bindRecipeByMenuItemName(tx, {
             menuItemId: created.id,
             name: created.name,
@@ -605,7 +620,7 @@ export class MenusService {
   }
 
   async reorderMenuItems(
-    _sectionId: string,
+    sectionId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -614,7 +629,9 @@ export class MenusService {
         await tx
           .update(menuItem)
           .set({ sortOrder: offset + i })
-          .where(eq(menuItem.id, id));
+          .where(
+            and(eq(menuItem.id, id), eq(menuItem.menuSectionId, sectionId)),
+          );
       }
     });
   }
@@ -732,6 +749,21 @@ export class MenusService {
       .returning();
 
     return { ...deleted, offer: null };
+  }
+
+  async deleteMenuItems(sectionId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(menuItem)
+          .where(
+            and(eq(menuItem.menuSectionId, sectionId), eq(menuItem.id, id)),
+          )
+          .returning({ id: menuItem.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
   }
 
   // ── Offer ─────────────────────────────────────────────────────────
@@ -903,14 +935,48 @@ export class MenusService {
     return row;
   }
 
-  private validateAddOnMenuItem(
+  private async menuIdOfItem(menuItemId: string): Promise<string> {
+    const [row] = await this.db
+      .select({ menuId: menuItem.menuId })
+      .from(menuItem)
+      .where(eq(menuItem.id, menuItemId));
+    if (!row) throw new NotFoundException('Menu item not found');
+
+    return row.menuId;
+  }
+
+  private async validateAddOnTargets(
     menuItemId: string,
-    addOnMenuItemId: string | null | undefined,
-  ): void {
+    {
+      addOnMenuItemId,
+      addOnMenuSectionId,
+    }: CreateMenuItemAddOnDto | UpdateMenuItemAddOnDto,
+  ): Promise<void> {
     if (addOnMenuItemId === menuItemId) {
       throw new BadRequestException(
         'addOnMenuItemId must not be the menu item itself',
       );
+    }
+
+    const menuId = await this.menuIdOfItem(menuItemId);
+
+    if (
+      addOnMenuItemId &&
+      (await this.menuIdOfItem(addOnMenuItemId)) !== menuId
+    )
+      throw new NotFoundException('Menu item not found');
+
+    if (addOnMenuSectionId) {
+      const [target] = await this.db
+        .select({ id: menuSection.id })
+        .from(menuSection)
+        .where(
+          and(
+            eq(menuSection.id, addOnMenuSectionId),
+            eq(menuSection.menuId, menuId),
+          ),
+        );
+      if (!target) throw new NotFoundException('Add-on menu section not found');
     }
   }
 
@@ -925,7 +991,7 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
-    this.validateAddOnMenuItem(menuItemId, data.addOnMenuItemId);
+    await this.validateAddOnTargets(menuItemId, data);
 
     const created = await this.db.transaction(async (tx) => {
       await tx
@@ -1067,7 +1133,7 @@ export class MenusService {
   }
 
   async reorderMenuItemAddOns(
-    _menuItemId: string,
+    menuItemId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -1076,13 +1142,18 @@ export class MenusService {
         await tx
           .update(menuItemAddOn)
           .set({ sortOrder: offset + i })
-          .where(eq(menuItemAddOn.id, id));
+          .where(
+            and(
+              eq(menuItemAddOn.id, id),
+              eq(menuItemAddOn.menuItemId, menuItemId),
+            ),
+          );
       }
     });
   }
 
   async updateMenuItemAddOn(
-    id: string,
+    where: { id: string; menuItemId: string },
     data: UpdateMenuItemAddOnDto,
   ): Promise<
     MenuItemAddOn & {
@@ -1092,18 +1163,19 @@ export class MenusService {
       addOnMenuItemSectionName: LocalizedText | null;
     }
   > {
-    const { menuItemId } = await this.findMenuItemAddOnById(id);
-    this.validateAddOnMenuItem(menuItemId, data.addOnMenuItemId);
+    const found = await this.findMenuItemAddOnById(where.id);
+    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
+    await this.validateAddOnTargets(where.menuItemId, data);
 
     await this.db
       .update(menuItemAddOn)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(menuItemAddOn.id, id));
+      .where(eq(menuItemAddOn.id, where.id));
 
-    return this.findMenuItemAddOnById(id);
+    return this.findMenuItemAddOnById(where.id);
   }
 
-  async deleteMenuItemAddOn(where: { id: string }): Promise<
+  async deleteMenuItemAddOn(where: { id: string; menuItemId: string }): Promise<
     MenuItemAddOn & {
       addOnMenuItemName: LocalizedText | null;
       addOnMenuSectionName: LocalizedText | null;
@@ -1112,9 +1184,28 @@ export class MenusService {
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
+    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
     await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
     return found;
+  }
+
+  async deleteMenuItemAddOns(menuItemId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(menuItemAddOn)
+          .where(
+            and(
+              eq(menuItemAddOn.menuItemId, menuItemId),
+              eq(menuItemAddOn.id, id),
+            ),
+          )
+          .returning({ id: menuItemAddOn.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
   }
 
   // ── ModifierGroup ─────────────────────────────────────────────────
@@ -1243,7 +1334,7 @@ export class MenusService {
   }
 
   async reorderModifierGroups(
-    _menuId: string,
+    menuId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -1252,7 +1343,9 @@ export class MenusService {
         await tx
           .update(modifierGroup)
           .set({ sortOrder: offset + i })
-          .where(eq(modifierGroup.id, id));
+          .where(
+            and(eq(modifierGroup.id, id), eq(modifierGroup.menuId, menuId)),
+          );
       }
     });
   }
@@ -1300,6 +1393,21 @@ export class MenusService {
       .returning();
 
     return deleted;
+  }
+
+  async deleteModifierGroups(menuId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(modifierGroup)
+          .where(
+            and(eq(modifierGroup.menuId, menuId), eq(modifierGroup.id, id)),
+          )
+          .returning({ id: modifierGroup.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
   }
 
   // ── Modifier ──────────────────────────────────────────────────────
@@ -1417,7 +1525,7 @@ export class MenusService {
   }
 
   async reorderModifiers(
-    _modifierGroupId: string,
+    modifierGroupId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -1426,7 +1534,12 @@ export class MenusService {
         await tx
           .update(modifier)
           .set({ sortOrder: offset + i })
-          .where(eq(modifier.id, id));
+          .where(
+            and(
+              eq(modifier.id, id),
+              eq(modifier.modifierGroupId, modifierGroupId),
+            ),
+          );
       }
     });
   }
@@ -1471,12 +1584,39 @@ export class MenusService {
     };
   }
 
+  async deleteModifiers(groupId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(modifier)
+          .where(
+            and(eq(modifier.modifierGroupId, groupId), eq(modifier.id, id)),
+          )
+          .returning({ id: modifier.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
+  }
+
   // ── MenuItemModifierGroup ─────────────────────────────────────────
 
   async createMenuItemModifierGroup(
     menuItemId: string,
     data: CreateMenuItemModifierGroupDto,
   ): Promise<MenuItemModifierGroup> {
+    const menuId = await this.menuIdOfItem(menuItemId);
+    const [group] = await this.db
+      .select({ id: modifierGroup.id })
+      .from(modifierGroup)
+      .where(
+        and(
+          eq(modifierGroup.id, data.modifierGroupId),
+          eq(modifierGroup.menuId, menuId),
+        ),
+      );
+    if (!group) throw new NotFoundException('Modifier group not found');
+
     return this.db.transaction(async (tx) => {
       await tx
         .update(menuItemModifierGroup)
@@ -1615,7 +1755,7 @@ export class MenusService {
   }
 
   async reorderMenuItemModifierGroups(
-    _menuItemId: string,
+    menuItemId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
@@ -1624,19 +1764,52 @@ export class MenusService {
         await tx
           .update(menuItemModifierGroup)
           .set({ sortOrder: offset + i })
-          .where(eq(menuItemModifierGroup.id, id));
+          .where(
+            and(
+              eq(menuItemModifierGroup.id, id),
+              eq(menuItemModifierGroup.menuItemId, menuItemId),
+            ),
+          );
       }
     });
   }
 
   async deleteMenuItemModifierGroup(where: {
     id: string;
+    menuItemId: string;
   }): Promise<MenuItemModifierGroup> {
     const [deleted] = await this.db
       .delete(menuItemModifierGroup)
-      .where(eq(menuItemModifierGroup.id, where.id))
+      .where(
+        and(
+          eq(menuItemModifierGroup.id, where.id),
+          eq(menuItemModifierGroup.menuItemId, where.menuItemId),
+        ),
+      )
       .returning();
+    if (!deleted) throw new NotFoundException();
 
     return deleted;
+  }
+
+  async deleteMenuItemModifierGroups(
+    menuItemId: string,
+    ids: string[],
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(menuItemModifierGroup)
+          .where(
+            and(
+              eq(menuItemModifierGroup.menuItemId, menuItemId),
+              eq(menuItemModifierGroup.id, id),
+            ),
+          )
+          .returning({ id: menuItemModifierGroup.id });
+        if (!deleted.length) throw new NotFoundException();
+      }
+    });
   }
 }

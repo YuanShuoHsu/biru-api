@@ -1408,6 +1408,20 @@
       "when": 1791825798321,
       "tag": "0200_membership_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1791870666500,
+      "tag": "0201_deleted_record_item_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1791875208685,
+      "tag": "0202_menu_id_not_null",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import type { AttendanceActor } from 'src/attendance/attendance-actor';
 import {
   lockOrganization,
@@ -164,21 +165,30 @@ export class PayrollEarningsService {
   }
 
   async deleteEarningType(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteEarningTypes(actor, [id]);
+    return { id };
+  }
+
+  async deleteEarningTypes(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const current = await this.requireEarningType(tx, actor, id);
-      const [used] = await tx
-        .select({ id: payrollEarning.id })
-        .from(payrollEarning)
-        .where(eq(payrollEarning.earningTypeId, id))
-        .limit(1);
-      if (used) throw conflictError('earningTypeInUse');
-      await tx.delete(payrollEarningType).where(eq(payrollEarningType.id, id));
-      await writeAudit(tx, actor, 'payroll.earningType.delete', id, {
-        name: current.name,
-        category: current.category,
-      });
-      return { id };
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const current = await this.requireEarningType(tx, actor, id);
+        const [used] = await tx
+          .select({ id: payrollEarning.id })
+          .from(payrollEarning)
+          .where(eq(payrollEarning.earningTypeId, id))
+          .limit(1);
+        if (used) throw conflictError('earningTypeInUse');
+        await tx
+          .delete(payrollEarningType)
+          .where(eq(payrollEarningType.id, id));
+        await writeAudit(tx, actor, 'payroll.earningType.delete', id, {
+          name: current.name,
+          category: current.category,
+        });
+      }
     });
   }
 

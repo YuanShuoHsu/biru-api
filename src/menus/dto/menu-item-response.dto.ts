@@ -22,8 +22,8 @@ export class MenuItemResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiPropertyOptional()
-  menuId: string | null;
+  @ApiProperty()
+  menuId: string;
 
   @ApiPropertyOptional()
   menuSectionId: string | null;

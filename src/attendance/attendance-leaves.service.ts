@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   DAY_MS,
   platformDateString,
@@ -840,52 +841,59 @@ export class AttendanceLeavesService {
   }
 
   async deleteLeaveCase(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteLeaveCases(actor, [id]);
+    return { id };
+  }
+
+  async deleteLeaveCases(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const [row] = await tx
-        .select({
-          leaveCase: attendanceLeaveCase,
-          employee: attendanceEmployee,
-        })
-        .from(attendanceLeaveCase)
-        .innerJoin(
-          attendanceEmployee,
-          eq(attendanceEmployee.id, attendanceLeaveCase.employeeId),
-        )
-        .where(
-          and(
-            eq(attendanceLeaveCase.id, id),
-            eq(attendanceLeaveCase.organizationId, actor.organizationId),
-          ),
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const [row] = await tx
+          .select({
+            leaveCase: attendanceLeaveCase,
+            employee: attendanceEmployee,
+          })
+          .from(attendanceLeaveCase)
+          .innerJoin(
+            attendanceEmployee,
+            eq(attendanceEmployee.id, attendanceLeaveCase.employeeId),
+          )
+          .where(
+            and(
+              eq(attendanceLeaveCase.id, id),
+              eq(attendanceLeaveCase.organizationId, actor.organizationId),
+            ),
+          );
+        if (!row) throw new NotFoundException();
+        await assertIndependentReview(tx, actor, 'leaveCase', [
+          row.employee.userId,
+        ]);
+        // 任何狀態的請假單都以外鍵指向案件，撤回與駁回的也會讓刪除失敗
+        const [referenced] = await tx
+          .select({ id: attendanceRequest.id })
+          .from(attendanceRequest)
+          .where(eq(attendanceRequest.leaveCaseId, id))
+          .limit(1);
+        if (referenced) throw conflictError('leaveCaseInUse');
+        await assertPayrollUnlocked(
+          tx,
+          actor.organizationId,
+          row.leaveCase.employeeId,
+          row.leaveCase.startsAt,
+          row.leaveCase.endsAt,
         );
-      if (!row) throw new NotFoundException();
-      await assertIndependentReview(tx, actor, 'leaveCase', [
-        row.employee.userId,
-      ]);
-      // 任何狀態的請假單都以外鍵指向案件，撤回與駁回的也會讓刪除失敗
-      const [referenced] = await tx
-        .select({ id: attendanceRequest.id })
-        .from(attendanceRequest)
-        .where(eq(attendanceRequest.leaveCaseId, id))
-        .limit(1);
-      if (referenced) throw conflictError('leaveCaseInUse');
-      await assertPayrollUnlocked(
-        tx,
-        actor.organizationId,
-        row.leaveCase.employeeId,
-        row.leaveCase.startsAt,
-        row.leaveCase.endsAt,
-      );
-      await tx
-        .delete(attendanceLeaveCase)
-        .where(eq(attendanceLeaveCase.id, id));
-      await writeAudit(tx, actor, 'leaveCase.delete', id, {
-        reference: row.leaveCase.reference,
-        startsAt: row.leaveCase.startsAt,
-        endsAt: row.leaveCase.endsAt,
-        grantedMinutes: row.leaveCase.grantedMinutes,
-      });
-      return { id };
+        await tx
+          .delete(attendanceLeaveCase)
+          .where(eq(attendanceLeaveCase.id, id));
+        await writeAudit(tx, actor, 'leaveCase.delete', id, {
+          reference: row.leaveCase.reference,
+          startsAt: row.leaveCase.startsAt,
+          endsAt: row.leaveCase.endsAt,
+          grantedMinutes: row.leaveCase.grantedMinutes,
+        });
+      }
     });
   }
 
@@ -1038,54 +1046,61 @@ export class AttendanceLeavesService {
   }
 
   async deleteLeaveType(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteLeaveTypes(actor, [id]);
+    return { id };
+  }
+
+  async deleteLeaveTypes(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const [row] = await tx
-        .select()
-        .from(attendanceLeaveType)
-        .where(
-          and(
-            eq(attendanceLeaveType.id, id),
-            eq(attendanceLeaveType.organizationId, actor.organizationId),
-          ),
-        );
-      if (!row) throw new NotFoundException();
-      if (row.statutoryKind !== 'custom')
-        throw conflictError('statutoryLeaveTypeLocked');
-      const [request] = await tx
-        .select({ id: attendanceRequest.id })
-        .from(attendanceRequest)
-        .where(eq(attendanceRequest.leaveTypeId, id))
-        .limit(1);
-      const [leaveCase] = await tx
-        .select({ id: attendanceLeaveCase.id })
-        .from(attendanceLeaveCase)
-        .where(eq(attendanceLeaveCase.leaveTypeId, id))
-        .limit(1);
-      const [used] = await tx
-        .select({ id: attendanceLeaveBalance.id })
-        .from(attendanceLeaveBalance)
-        .where(
-          and(
-            eq(attendanceLeaveBalance.leaveTypeId, id),
-            gt(attendanceLeaveBalance.usedMinutes, 0),
-          ),
-        )
-        .limit(1);
-      if (request || leaveCase || used) throw conflictError('leaveTypeInUse');
-      await tx
-        .delete(attendanceLeaveBalance)
-        .where(eq(attendanceLeaveBalance.leaveTypeId, id));
-      await tx
-        .delete(attendanceLeaveType)
-        .where(eq(attendanceLeaveType.id, id));
-      await writeAudit(tx, actor, 'leaveType.delete', id, {
-        name: row.name,
-        paidPercent: row.paidPercent,
-        requiresBalance: row.requiresBalance,
-        enabled: row.enabled,
-      });
-      return { id };
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const [row] = await tx
+          .select()
+          .from(attendanceLeaveType)
+          .where(
+            and(
+              eq(attendanceLeaveType.id, id),
+              eq(attendanceLeaveType.organizationId, actor.organizationId),
+            ),
+          );
+        if (!row) throw new NotFoundException();
+        if (row.statutoryKind !== 'custom')
+          throw conflictError('statutoryLeaveTypeLocked');
+        const [request] = await tx
+          .select({ id: attendanceRequest.id })
+          .from(attendanceRequest)
+          .where(eq(attendanceRequest.leaveTypeId, id))
+          .limit(1);
+        const [leaveCase] = await tx
+          .select({ id: attendanceLeaveCase.id })
+          .from(attendanceLeaveCase)
+          .where(eq(attendanceLeaveCase.leaveTypeId, id))
+          .limit(1);
+        const [used] = await tx
+          .select({ id: attendanceLeaveBalance.id })
+          .from(attendanceLeaveBalance)
+          .where(
+            and(
+              eq(attendanceLeaveBalance.leaveTypeId, id),
+              gt(attendanceLeaveBalance.usedMinutes, 0),
+            ),
+          )
+          .limit(1);
+        if (request || leaveCase || used) throw conflictError('leaveTypeInUse');
+        await tx
+          .delete(attendanceLeaveBalance)
+          .where(eq(attendanceLeaveBalance.leaveTypeId, id));
+        await tx
+          .delete(attendanceLeaveType)
+          .where(eq(attendanceLeaveType.id, id));
+        await writeAudit(tx, actor, 'leaveType.delete', id, {
+          name: row.name,
+          paidPercent: row.paidPercent,
+          requiresBalance: row.requiresBalance,
+          enabled: row.enabled,
+        });
+      }
     });
   }
 
@@ -1373,83 +1388,90 @@ export class AttendanceLeavesService {
   }
 
   async deleteAnnualLeaveDeferral(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteAnnualLeaveDeferrals(actor, [id]);
+    return { id };
+  }
+
+  async deleteAnnualLeaveDeferrals(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const [row] = await tx
-        .select({
-          deferral: attendanceAnnualLeaveDeferral,
-          employee: attendanceEmployee,
-        })
-        .from(attendanceAnnualLeaveDeferral)
-        .innerJoin(
-          attendanceEmployee,
-          eq(attendanceEmployee.id, attendanceAnnualLeaveDeferral.employeeId),
-        )
-        .where(
-          and(
-            eq(attendanceAnnualLeaveDeferral.id, id),
-            eq(
-              attendanceAnnualLeaveDeferral.organizationId,
-              actor.organizationId,
-            ),
-          ),
-        );
-      if (!row) throw new NotFoundException();
-      const { deferral, employee } = row;
-      const annualIds = new Set(
-        (
-          await tx
-            .select({ id: attendanceLeaveType.id })
-            .from(attendanceLeaveType)
-            .where(
-              and(
-                eq(attendanceLeaveType.organizationId, actor.organizationId),
-                eq(attendanceLeaveType.statutoryKind, 'annual'),
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const [row] = await tx
+          .select({
+            deferral: attendanceAnnualLeaveDeferral,
+            employee: attendanceEmployee,
+          })
+          .from(attendanceAnnualLeaveDeferral)
+          .innerJoin(
+            attendanceEmployee,
+            eq(attendanceEmployee.id, attendanceAnnualLeaveDeferral.employeeId),
+          )
+          .where(
+            and(
+              eq(attendanceAnnualLeaveDeferral.id, id),
+              eq(
+                attendanceAnnualLeaveDeferral.organizationId,
+                actor.organizationId,
               ),
-            )
-        ).map(({ id }) => id),
-      );
-      const records = (
-        await countedLeaves(
-          tx,
-          employee.id,
-          anniversary(employee.hiredAt, 6),
-          new Date('9999-12-31T00:00:00Z'),
-        )
-      ).filter(
-        (record) => record.leaveTypeId && annualIds.has(record.leaveTypeId),
-      );
-      const ledger = annualLeaveLedger(
-        employee.hiredAt,
-        new Date(),
-        weeklyMinutesOf(await loadOneEmployeeHours(tx, employee)),
-        records,
-        (await annualLeaveDeferrals(tx, [employee.id]))
-          .filter((item) => item.id !== deferral.id)
-          .map((item) => item.periodStart),
-      );
-      const index = ledger.findIndex(
-        (entry) => entry.start.getTime() === deferral.periodStart.getTime(),
-      );
-      if (index >= 0)
-        await assertPayrollUnlocked(
-          tx,
-          actor.organizationId,
-          employee.id,
-          ledger[index].end,
+            ),
+          );
+        if (!row) throw new NotFoundException();
+        const { deferral, employee } = row;
+        const annualIds = new Set(
+          (
+            await tx
+              .select({ id: attendanceLeaveType.id })
+              .from(attendanceLeaveType)
+              .where(
+                and(
+                  eq(attendanceLeaveType.organizationId, actor.organizationId),
+                  eq(attendanceLeaveType.statutoryKind, 'annual'),
+                ),
+              )
+          ).map(({ id }) => id),
         );
-      const next = index >= 0 ? ledger[index + 1] : undefined;
-      if (next && next.usedMinutes > next.minutes)
-        throw conflictError('annualLeaveDeferralInUse');
-      await tx
-        .delete(attendanceAnnualLeaveDeferral)
-        .where(eq(attendanceAnnualLeaveDeferral.id, deferral.id));
-      await writeAudit(tx, actor, 'leaveBalance.undefer', deferral.id, {
-        employeeId: employee.id,
-        periodStart: deferral.periodStart.toISOString(),
-        reason: deferral.reason,
-      });
-      return { id: deferral.id };
+        const records = (
+          await countedLeaves(
+            tx,
+            employee.id,
+            anniversary(employee.hiredAt, 6),
+            new Date('9999-12-31T00:00:00Z'),
+          )
+        ).filter(
+          (record) => record.leaveTypeId && annualIds.has(record.leaveTypeId),
+        );
+        const ledger = annualLeaveLedger(
+          employee.hiredAt,
+          new Date(),
+          weeklyMinutesOf(await loadOneEmployeeHours(tx, employee)),
+          records,
+          (await annualLeaveDeferrals(tx, [employee.id]))
+            .filter((item) => item.id !== deferral.id)
+            .map((item) => item.periodStart),
+        );
+        const index = ledger.findIndex(
+          (entry) => entry.start.getTime() === deferral.periodStart.getTime(),
+        );
+        if (index >= 0)
+          await assertPayrollUnlocked(
+            tx,
+            actor.organizationId,
+            employee.id,
+            ledger[index].end,
+          );
+        const next = index >= 0 ? ledger[index + 1] : undefined;
+        if (next && next.usedMinutes > next.minutes)
+          throw conflictError('annualLeaveDeferralInUse');
+        await tx
+          .delete(attendanceAnnualLeaveDeferral)
+          .where(eq(attendanceAnnualLeaveDeferral.id, deferral.id));
+        await writeAudit(tx, actor, 'leaveBalance.undefer', deferral.id, {
+          employeeId: employee.id,
+          periodStart: deferral.periodStart.toISOString(),
+          reason: deferral.reason,
+        });
+      }
     });
   }
 
@@ -1645,64 +1667,71 @@ export class AttendanceLeavesService {
   }
 
   async deleteHolidaySubstitute(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteHolidaySubstitutes(actor, [id]);
+    return { id };
+  }
+
+  async deleteHolidaySubstitutes(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const [row] = await tx
-        .select({
-          substitute: attendanceHolidaySubstitute,
-          shiftStartsAt: attendanceShift.startsAt,
-          terminatedAt: attendanceEmployee.terminatedAt,
-        })
-        .from(attendanceHolidaySubstitute)
-        .innerJoin(
-          attendanceShift,
-          eq(attendanceShift.id, attendanceHolidaySubstitute.shiftId),
-        )
-        .innerJoin(
-          attendanceEmployee,
-          eq(attendanceEmployee.id, attendanceHolidaySubstitute.employeeId),
-        )
-        .where(
-          and(
-            eq(attendanceHolidaySubstitute.id, id),
-            eq(
-              attendanceHolidaySubstitute.organizationId,
-              actor.organizationId,
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const [row] = await tx
+          .select({
+            substitute: attendanceHolidaySubstitute,
+            shiftStartsAt: attendanceShift.startsAt,
+            terminatedAt: attendanceEmployee.terminatedAt,
+          })
+          .from(attendanceHolidaySubstitute)
+          .innerJoin(
+            attendanceShift,
+            eq(attendanceShift.id, attendanceHolidaySubstitute.shiftId),
+          )
+          .innerJoin(
+            attendanceEmployee,
+            eq(attendanceEmployee.id, attendanceHolidaySubstitute.employeeId),
+          )
+          .where(
+            and(
+              eq(attendanceHolidaySubstitute.id, id),
+              eq(
+                attendanceHolidaySubstitute.organizationId,
+                actor.organizationId,
+              ),
             ),
-          ),
-        );
-      if (!row) throw new NotFoundException();
-      const { substitute, shiftStartsAt, terminatedAt } = row;
-      // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
-      for (const at of terminatedAt
-        ? [shiftStartsAt, new Date(terminatedAt.getTime() - 1)]
-        : [shiftStartsAt])
-        await assertPayrollUnlocked(
-          tx,
-          actor.organizationId,
-          substitute.employeeId,
-          at,
-          new Date(at.getTime() + 1),
-        );
-      await tx
-        .delete(attendanceHolidaySubstitute)
-        .where(eq(attendanceHolidaySubstitute.id, id));
-      await tx
-        .update(attendanceShift)
-        .set({ dayKind: 'workday' })
-        .where(
-          and(
-            eq(attendanceShift.employeeId, substitute.employeeId),
-            eq(attendanceShift.dayKind, 'holiday'),
-            eq(shiftStartDate, platformDateString(shiftStartsAt)),
-          ),
-        );
-      await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
-        employeeId: substitute.employeeId,
-        holidayDate: substitute.holidayDate,
-        shiftId: substitute.shiftId,
-      });
-      return { id };
+          );
+        if (!row) throw new NotFoundException();
+        const { substitute, shiftStartsAt, terminatedAt } = row;
+        // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
+        for (const at of terminatedAt
+          ? [shiftStartsAt, new Date(terminatedAt.getTime() - 1)]
+          : [shiftStartsAt])
+          await assertPayrollUnlocked(
+            tx,
+            actor.organizationId,
+            substitute.employeeId,
+            at,
+            new Date(at.getTime() + 1),
+          );
+        await tx
+          .delete(attendanceHolidaySubstitute)
+          .where(eq(attendanceHolidaySubstitute.id, id));
+        await tx
+          .update(attendanceShift)
+          .set({ dayKind: 'workday' })
+          .where(
+            and(
+              eq(attendanceShift.employeeId, substitute.employeeId),
+              eq(attendanceShift.dayKind, 'holiday'),
+              eq(shiftStartDate, platformDateString(shiftStartsAt)),
+            ),
+          );
+        await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
+          employeeId: substitute.employeeId,
+          holidayDate: substitute.holidayDate,
+          shiftId: substitute.shiftId,
+        });
+      }
     });
   }
 }

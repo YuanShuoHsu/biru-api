@@ -20,6 +20,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -427,6 +428,25 @@ export class RecipesService {
       .returning({ id: recipeIngredient.id });
     if (!deleted.length)
       throw new NotFoundException('Recipe ingredient not found');
+  }
+
+  async removeIngredients(recipeId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(recipeIngredient)
+          .where(
+            and(
+              eq(recipeIngredient.recipeId, recipeId),
+              eq(recipeIngredient.id, id),
+            ),
+          )
+          .returning({ id: recipeIngredient.id });
+        if (!deleted.length)
+          throw new NotFoundException('Recipe ingredient not found');
+      }
+    });
   }
 
   async reorderIngredients(

@@ -6,8 +6,8 @@ export class MenuSectionResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiPropertyOptional()
-  menuId: string | null;
+  @ApiProperty()
+  menuId: string;
 
   @ApiPropertyOptional()
   parentSectionId: string | null;

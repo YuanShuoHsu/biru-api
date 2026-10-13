@@ -17,6 +17,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -276,5 +277,23 @@ export class SuppliersService {
       .where(eq(supplier.id, supplierId))
       .returning({ id: supplier.id });
     if (!deleted.length) throw new NotFoundException('Supplier not found');
+  }
+
+  async removeMany(organizationId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(supplier)
+          .where(
+            and(
+              eq(supplier.organizationId, organizationId),
+              eq(supplier.id, id),
+            ),
+          )
+          .returning({ id: supplier.id });
+        if (!deleted.length) throw new NotFoundException('Supplier not found');
+      }
+    });
   }
 }

@@ -11,12 +11,17 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 
+import { isUserDeletable } from 'src/auth/deletion-guards';
 import { Audit } from 'src/common/decorators/audit.decorator';
 import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import {
+  UserDeletabilityDto,
+  UserDeletabilityQueryDto,
+} from './dto/user-deletability.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserStatsResponseDto } from './dto/user-stats.dto';
 import { UsersService } from './users.service';
@@ -46,6 +51,17 @@ export class UsersController {
   @ApiOkResponse({ type: UserStatsResponseDto })
   getStats(@Query() query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
     return this.usersService.getStats(query);
+  }
+
+  @Get('deletability')
+  @ApiOperation({ summary: '查詢使用者是否可刪除' })
+  @ApiOkResponse({ type: [UserDeletabilityDto] })
+  async deletability(
+    @Query() { ids }: UserDeletabilityQueryDto,
+  ): Promise<UserDeletabilityDto[]> {
+    return Promise.all(
+      ids.map(async (id) => ({ id, deletable: await isUserDeletable(id) })),
+    );
   }
 
   @Get(':id')

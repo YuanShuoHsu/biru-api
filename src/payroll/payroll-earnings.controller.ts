@@ -15,6 +15,7 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { actor } from 'src/attendance/attendance-actor';
 import { AttendanceIdResponseDto } from 'src/attendance/dto/attendance-id-response.dto';
+import { IdsDto } from 'src/common/dto/ids.dto';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
@@ -73,6 +74,20 @@ export class PayrollEarningsController {
       actor(req, session),
       id,
       dto,
+    );
+  }
+
+  @Delete('earning-types')
+  @Roles({ payrollTerm: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次刪除尚未使用的薪資加項名目' })
+  deleteEarningTypes(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.payrollEarningsService.deleteEarningTypes(
+      actor(req, session),
+      ids,
     );
   }
 

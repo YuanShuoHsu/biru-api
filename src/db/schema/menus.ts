@@ -79,7 +79,9 @@ export const menuSection = pgTable(
   'menu_section',
   {
     id: text('id').primaryKey(),
-    menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
+    menuId: text('menu_id')
+      .notNull()
+      .references(() => menu.id, { onDelete: 'cascade' }),
     parentSectionId: text('parent_section_id').references(
       (): AnyPgColumn => menuSection.id,
       { onDelete: 'cascade' },
@@ -120,7 +122,9 @@ export const menuItem = pgTable(
   'menu_item',
   {
     id: text('id').primaryKey(),
-    menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
+    menuId: text('menu_id')
+      .notNull()
+      .references(() => menu.id, { onDelete: 'cascade' }),
     menuSectionId: text('menu_section_id').references(() => menuSection.id, {
       onDelete: 'cascade',
     }),
@@ -245,7 +249,9 @@ export const modifierGroup = pgTable(
   'modifier_group',
   {
     id: text('id').primaryKey(),
-    menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
+    menuId: text('menu_id')
+      .notNull()
+      .references(() => menu.id, { onDelete: 'cascade' }),
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     minSelectionCount: integer('min_selection_count').notNull().default(0),
     maxSelectionCount: integer('max_selection_count'),

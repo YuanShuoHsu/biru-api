@@ -12,6 +12,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { BannersService } from './banners.service';
@@ -46,6 +47,13 @@ export class AdminBannersController {
   @ApiOperation({ summary: '重新排序輪播圖' })
   reorder(@Body() { ids, offset }: ReorderBannersDto): Promise<void> {
     return this.bannersService.reorder(ids, offset);
+  }
+
+  @Delete()
+  @Audit('banner', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除輪播圖' })
+  removeMany(@Body() { ids }: IdsDto): Promise<void> {
+    return this.bannersService.removeMany(ids);
   }
 
   @Patch(':bannerId')

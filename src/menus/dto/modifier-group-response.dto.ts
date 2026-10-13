@@ -8,8 +8,8 @@ export class ModifierGroupResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiPropertyOptional()
-  menuId: string | null;
+  @ApiProperty()
+  menuId: string;
 
   @ApiProperty()
   displayName: LocalizedText;

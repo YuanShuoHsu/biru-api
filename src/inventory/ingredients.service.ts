@@ -18,6 +18,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { COMPATIBLE_UNIT_CODES } from 'src/common/constants/units';
 import {
   buildFilterCondition,
@@ -350,6 +351,25 @@ export class IngredientsService {
       .where(eq(ingredient.id, ingredientId))
       .returning({ id: ingredient.id });
     if (!deleted.length) throw new NotFoundException('Ingredient not found');
+  }
+
+  async removeMany(organizationId: string, ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(ingredient)
+          .where(
+            and(
+              eq(ingredient.organizationId, organizationId),
+              eq(ingredient.id, id),
+            ),
+          )
+          .returning({ id: ingredient.id });
+        if (!deleted.length)
+          throw new NotFoundException('Ingredient not found');
+      }
+    });
   }
 
   private async assertSupplierInOrganization(

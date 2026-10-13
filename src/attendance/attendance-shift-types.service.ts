@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -159,22 +160,29 @@ export class AttendanceShiftTypesService {
   }
 
   async deleteShiftType(actor: AttendanceActor, id: string) {
-    return this.db.transaction(async (tx) => {
+    await this.deleteShiftTypes(actor, [id]);
+    return { id };
+  }
+
+  async deleteShiftTypes(actor: AttendanceActor, ids: string[]) {
+    await this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
-      const { name, startTime, endTime } = await this.requireShiftType(
-        tx,
-        actor,
-        id,
-      );
-      await tx
-        .delete(attendanceShiftType)
-        .where(eq(attendanceShiftType.id, id));
-      await writeAudit(tx, actor, 'shiftType.delete', id, {
-        name,
-        startTime,
-        endTime,
-      });
-      return { id };
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const { name, startTime, endTime } = await this.requireShiftType(
+          tx,
+          actor,
+          id,
+        );
+        await tx
+          .delete(attendanceShiftType)
+          .where(eq(attendanceShiftType.id, id));
+        await writeAudit(tx, actor, 'shiftType.delete', id, {
+          name,
+          startTime,
+          endTime,
+        });
+      }
     });
   }
 

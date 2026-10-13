@@ -31,6 +31,16 @@ export const assertUserDeletable = async (userId: string) => {
     });
 };
 
+export const isUserDeletable = async (userId: string) => {
+  try {
+    await assertUserDeletable(userId);
+    return true;
+  } catch (error) {
+    if (error instanceof APIError) return false;
+    throw error;
+  }
+};
+
 const blockingReferences = new Map<
   string,
   Promise<{ table: string; column: string }[]>

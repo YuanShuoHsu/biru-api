@@ -12,6 +12,7 @@ import { ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { IdsDto } from 'src/common/dto/ids.dto';
 import {
   OrganizationMember,
   Roles,
@@ -103,6 +104,20 @@ export class AttendanceEmployeesController {
     return this.attendanceEmployeesService.saveEmployee(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Delete('employees')
+  @Roles({ employee: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次刪除沒有任何出勤或薪資紀錄的員工設定' })
+  deleteEmployees(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceEmployeesService.deleteEmployees(
+      actor(req, session),
+      ids,
     );
   }
 

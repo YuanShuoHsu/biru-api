@@ -13,6 +13,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import { CouponsService } from './coupons.service';
@@ -61,6 +62,13 @@ export class AdminCouponsController {
     @Body() dto: UpdateCouponDto,
   ): Promise<CouponResponseDto> {
     return this.couponsService.update(couponId, dto);
+  }
+
+  @Delete()
+  @Audit('coupon', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除優惠券' })
+  removeMany(@Body() { ids }: IdsDto): Promise<void> {
+    return this.couponsService.removeMany(ids);
   }
 
   @Delete(':couponId')

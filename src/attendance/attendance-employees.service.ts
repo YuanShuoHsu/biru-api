@@ -19,6 +19,7 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { isAuthorized } from 'src/auth/permissions';
 import {
   DAY_MS,
@@ -777,29 +778,36 @@ export class AttendanceEmployeesService {
   }
 
   async deleteEmployee(actor: AttendanceActor, id: string) {
+    await this.deleteEmployees(actor, [id]);
+    return { id };
+  }
+
+  async deleteEmployees(actor: AttendanceActor, ids: string[]) {
     try {
-      return await this.db.transaction(async (tx) => {
+      await this.db.transaction(async (tx) => {
         await lockOrganization(tx, actor.organizationId);
-        const [row] = await tx
-          .select({
-            id: attendanceEmployee.id,
-            userId: attendanceEmployee.userId,
-          })
-          .from(attendanceEmployee)
-          .where(
-            and(
-              eq(attendanceEmployee.id, id),
-              eq(attendanceEmployee.organizationId, actor.organizationId),
-            ),
-          );
-        if (!row) throw new NotFoundException();
-        await writeAudit(tx, actor, 'employee.delete', id, {
-          userId: row.userId,
-        });
-        await tx
-          .delete(attendanceEmployee)
-          .where(eq(attendanceEmployee.id, id));
-        return { id };
+        for (const id of ids) {
+          await startDeletedRecordBatch(tx);
+          const [row] = await tx
+            .select({
+              id: attendanceEmployee.id,
+              userId: attendanceEmployee.userId,
+            })
+            .from(attendanceEmployee)
+            .where(
+              and(
+                eq(attendanceEmployee.id, id),
+                eq(attendanceEmployee.organizationId, actor.organizationId),
+              ),
+            );
+          if (!row) throw new NotFoundException();
+          await writeAudit(tx, actor, 'employee.delete', id, {
+            userId: row.userId,
+          });
+          await tx
+            .delete(attendanceEmployee)
+            .where(eq(attendanceEmployee.id, id));
+        }
       });
     } catch (error) {
       // 有任何出勤或薪資紀錄就已是僱傭事實，只能以離職日結束，不可刪除

@@ -11,6 +11,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 
 import { ReorderDto } from 'src/menus/dto/reorder.dto';
 
@@ -121,6 +122,21 @@ export class RecipesController {
     @Body() dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     return this.recipesService.updateIngredient(recipeIngredientId, dto);
+  }
+
+  @Delete('recipe-ingredients')
+  @Roles({ inventory: ['delete'] }, 'recipeId')
+  @Audit({
+    resource: 'recipe',
+    idSource: { body: 'ids' },
+    via: { table: 'recipeIngredient', ownerColumn: 'recipeId' },
+  })
+  @ApiOperation({ summary: '批次刪除食譜材料' })
+  removeIngredients(
+    @Param('recipeId') recipeId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.recipesService.removeIngredients(recipeId, ids);
   }
 
   @Delete('recipe-ingredients/:recipeIngredientId')

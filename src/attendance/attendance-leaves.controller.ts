@@ -14,6 +14,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { IdsDto } from 'src/common/dto/ids.dto';
 import {
   OrganizationMember,
   Roles,
@@ -115,6 +116,20 @@ export class AttendanceLeavesController {
     );
   }
 
+  @Delete('leave-cases')
+  @Roles({ leaveCase: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次刪除尚未被使用的請假案件' })
+  deleteLeaveCases(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceLeavesService.deleteLeaveCases(
+      actor(req, session),
+      ids,
+    );
+  }
+
   @Delete('leave-cases/:id')
   @Roles({ leaveCase: ['delete'] }, 'organizationSlug')
   @ApiOperation({ summary: '刪除尚未被使用的請假案件' })
@@ -164,6 +179,20 @@ export class AttendanceLeavesController {
       actor(req, session),
       dto,
       id,
+    );
+  }
+
+  @Delete('leave-types')
+  @Roles({ leaveType: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次刪除尚未被使用的自訂假別' })
+  deleteLeaveTypes(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceLeavesService.deleteLeaveTypes(
+      actor(req, session),
+      ids,
     );
   }
 
@@ -239,6 +268,20 @@ export class AttendanceLeavesController {
     );
   }
 
+  @Delete('annual-leave-deferrals')
+  @Roles({ leaveBalance: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次撤銷特休遞延協議' })
+  deleteAnnualLeaveDeferrals(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceLeavesService.deleteAnnualLeaveDeferrals(
+      actor(req, session),
+      ids,
+    );
+  }
+
   @Delete('annual-leave-deferrals/:id')
   @Roles({ leaveBalance: ['delete'] }, 'organizationSlug')
   @ApiOperation({ summary: '撤銷特休遞延協議' })
@@ -278,6 +321,20 @@ export class AttendanceLeavesController {
     return this.attendanceLeavesService.createHolidaySubstitute(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Delete('holiday-substitutes')
+  @Roles({ shift: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次撤銷補假日' })
+  deleteHolidaySubstitutes(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceLeavesService.deleteHolidaySubstitutes(
+      actor(req, session),
+      ids,
     );
   }
 

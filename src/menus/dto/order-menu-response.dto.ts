@@ -228,8 +228,8 @@ export class OrderMenuItemResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiPropertyOptional()
-  menuId: string | null;
+  @ApiProperty()
+  menuId: string;
 
   @ApiPropertyOptional()
   menuSectionId: string | null;
@@ -325,8 +325,8 @@ export class OrderMenuSectionResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiPropertyOptional()
-  menuId: string | null;
+  @ApiProperty()
+  menuId: string;
 
   @ApiPropertyOptional()
   parentSectionId: string | null;

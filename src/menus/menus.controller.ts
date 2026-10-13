@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 
 import { OrganizationId } from './decorators/organization-id.decorator';
 import { HasPermission } from './decorators/permission.decorator';
@@ -152,6 +153,17 @@ export class MenusController {
     });
   }
 
+  @Delete('menus/:menuId/menu-sections')
+  @Roles({ menu: ['delete'] }, 'menuId')
+  @Audit('menuSection', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除菜單分類' })
+  deleteMenuSections(
+    @Param('menuId') menuId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteMenuSections(menuId, ids);
+  }
+
   @Delete('menu-sections/:sectionId')
   @Roles({ menu: ['delete'] }, 'sectionId')
   @Audit('menuSection', { param: 'sectionId' })
@@ -256,6 +268,17 @@ export class MenusController {
       organizationId,
       data: updateMenuItemDto,
     });
+  }
+
+  @Delete('menu-sections/:sectionId/menu-items')
+  @Roles({ menu: ['delete'] }, 'sectionId')
+  @Audit('menuItem', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除品項' })
+  deleteMenuItems(
+    @Param('sectionId') sectionId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteMenuItems(sectionId, ids);
   }
 
   @Delete('menu-items/:menuItemId')
@@ -398,12 +421,24 @@ export class MenusController {
   @ApiOperation({ summary: '更新品項加購' })
   updateMenuItemAddOn(
     @Body() updateMenuItemAddOnDto: UpdateMenuItemAddOnDto,
+    @Param('menuItemId') menuItemId: string,
     @Param('addOnId') addOnId: string,
   ): Promise<MenuItemAddOnResponseDto> {
     return this.menusService.updateMenuItemAddOn(
-      addOnId,
+      { id: addOnId, menuItemId },
       updateMenuItemAddOnDto,
     );
+  }
+
+  @Delete('menu-items/:menuItemId/add-ons')
+  @Roles({ menu: ['delete'] }, 'menuItemId')
+  @Audit('menuItemAddOn', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除品項加購' })
+  deleteMenuItemAddOns(
+    @Param('menuItemId') menuItemId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteMenuItemAddOns(menuItemId, ids);
   }
 
   @Delete('menu-items/:menuItemId/add-ons/:addOnId')
@@ -411,9 +446,10 @@ export class MenusController {
   @Audit('menuItemAddOn', { param: 'addOnId' })
   @ApiOperation({ summary: '刪除品項加購' })
   deleteMenuItemAddOn(
+    @Param('menuItemId') menuItemId: string,
     @Param('addOnId') addOnId: string,
   ): Promise<MenuItemAddOnResponseDto> {
-    return this.menusService.deleteMenuItemAddOn({ id: addOnId });
+    return this.menusService.deleteMenuItemAddOn({ id: addOnId, menuItemId });
   }
 
   // ── ModifierGroup ─────────────────────────────────────────────────
@@ -477,6 +513,17 @@ export class MenusController {
       where: { id: groupId },
       data: updateModifierGroupDto,
     });
+  }
+
+  @Delete('menus/:menuId/modifier-groups')
+  @Roles({ menu: ['delete'] }, 'menuId')
+  @Audit('modifierGroup', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除選項群組' })
+  deleteModifierGroups(
+    @Param('menuId') menuId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteModifierGroups(menuId, ids);
   }
 
   @Delete('modifier-groups/:groupId')
@@ -561,6 +608,17 @@ export class MenusController {
     });
   }
 
+  @Delete('modifier-groups/:groupId/modifiers')
+  @Roles({ menu: ['delete'] }, 'groupId')
+  @Audit('modifier', { body: 'ids' })
+  @ApiOperation({ summary: '批次刪除選項' })
+  deleteModifiers(
+    @Param('groupId') groupId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteModifiers(groupId, ids);
+  }
+
   @Delete('modifiers/:modifierId')
   @Roles({ menu: ['delete'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
@@ -613,13 +671,28 @@ export class MenusController {
     );
   }
 
+  @Delete('menu-items/:menuItemId/modifier-groups')
+  @Roles({ menu: ['delete'] }, 'menuItemId')
+  @Audit('menuItemModifierGroup', { body: 'ids' })
+  @ApiOperation({ summary: '批次解除品項的選項群組掛載' })
+  deleteMenuItemModifierGroups(
+    @Param('menuItemId') menuItemId: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.menusService.deleteMenuItemModifierGroups(menuItemId, ids);
+  }
+
   @Delete('menu-items/:menuItemId/modifier-groups/:linkId')
   @Roles({ menu: ['delete'] }, 'menuItemId')
   @Audit('menuItemModifierGroup', { param: 'linkId' })
   @ApiOperation({ summary: '解除品項的選項群組掛載' })
   deleteMenuItemModifierGroup(
+    @Param('menuItemId') menuItemId: string,
     @Param('linkId') linkId: string,
   ): Promise<MenuItemModifierGroupResponseDto> {
-    return this.menusService.deleteMenuItemModifierGroup({ id: linkId });
+    return this.menusService.deleteMenuItemModifierGroup({
+      id: linkId,
+      menuItemId,
+    });
   }
 }

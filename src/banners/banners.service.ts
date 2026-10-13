@@ -14,6 +14,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { banner } from 'src/db/schema/banners';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -140,6 +141,19 @@ export class BannersService {
       .where(eq(banner.id, bannerId))
       .returning({ id: banner.id });
     if (deleted.length === 0) throw new NotFoundException('Banner not found');
+  }
+
+  async removeMany(ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const deleted = await tx
+          .delete(banner)
+          .where(eq(banner.id, id))
+          .returning({ id: banner.id });
+        if (!deleted.length) throw new NotFoundException('Banner not found');
+      }
+    });
   }
 
   async reorder(ids: string[], offset: number): Promise<void> {

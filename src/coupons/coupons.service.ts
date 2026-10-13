@@ -30,6 +30,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   coupon,
   couponIssueTriggerEnum,
@@ -780,6 +781,26 @@ export class CouponsService {
       .where(eq(coupon.id, couponId))
       .returning({ id: coupon.id });
     if (deleted.length === 0) throw new NotFoundException('Coupon not found');
+  }
+
+  async removeMany(ids: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const id of ids) {
+        await startDeletedRecordBatch(tx);
+        const [claimed] = await tx
+          .select({ id: userCoupon.id })
+          .from(userCoupon)
+          .where(eq(userCoupon.couponId, id))
+          .limit(1);
+        if (claimed) throw new ConflictException(this.t('inUse'));
+
+        const deleted = await tx
+          .delete(coupon)
+          .where(eq(coupon.id, id))
+          .returning({ id: coupon.id });
+        if (!deleted.length) throw new NotFoundException('Coupon not found');
+      }
+    });
   }
 
   private async issueEligibleCoupons(

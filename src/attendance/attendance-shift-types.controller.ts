@@ -13,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { IdsDto } from 'src/common/dto/ids.dto';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
@@ -76,6 +77,20 @@ export class AttendanceShiftTypesController {
       actor(req, session),
       id,
       dto,
+    );
+  }
+
+  @Delete()
+  @Roles({ shiftType: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '批次刪除班別' })
+  deleteShiftTypes(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.attendanceShiftTypesService.deleteShiftTypes(
+      actor(req, session),
+      ids,
     );
   }
 
