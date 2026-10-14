@@ -1,8 +1,9 @@
 import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 
-import { db } from '../db';
 import * as schema from '../db/schema';
+
+import { authDb } from './auth-transaction';
 
 export const ORGANIZATION_WRITE_PATHS = new Set([
   '/organization/accept-invitation',
@@ -30,7 +31,7 @@ const findOrganizationId = async (
 
   const invitationId = asString(body.invitationId);
   if (invitationId) {
-    const row = await db.query.invitation.findFirst({
+    const row = await authDb().query.invitation.findFirst({
       where: eq(schema.invitation.id, invitationId),
       columns: { organizationId: true },
     });
@@ -40,7 +41,7 @@ const findOrganizationId = async (
 
   const teamId = asString(body.teamId);
   if (teamId) {
-    const row = await db.query.team.findFirst({
+    const row = await authDb().query.team.findFirst({
       where: eq(schema.team.id, teamId),
       columns: { organizationId: true },
     });
@@ -58,7 +59,7 @@ export const assertOrganizationOpen = async (
   const organizationId = await findOrganizationId(body, activeOrganizationId);
   if (!organizationId) return;
 
-  const row = await db.query.organization.findFirst({
+  const row = await authDb().query.organization.findFirst({
     where: eq(schema.organization.id, organizationId),
     columns: { closedAt: true },
   });

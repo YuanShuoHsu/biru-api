@@ -444,7 +444,7 @@ export class AttendanceEmployeesService {
     dto: SaveAttendanceEmployeeDto,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [membership] = await tx
         .select({ email: user.email, name: user.name })

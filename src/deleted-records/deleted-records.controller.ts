@@ -1,9 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
-  Param,
-  ParseIntPipe,
   Post,
   Query,
   UseGuards,
@@ -23,6 +22,7 @@ import { DeletedRecordsService } from './deleted-records.service';
 import {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
+  RestoreDeletedRecordsDto,
 } from './dto/deleted-record-batch.dto';
 
 @ApiTags('deleted-records')
@@ -41,13 +41,13 @@ export class DeletedRecordsController {
     return this.deletedRecordsService.list(query);
   }
 
-  @Post(':batchId/restore')
+  @Post('restore')
   @HttpCode(204)
-  @ApiOperation({ summary: '還原同一次刪除的所有資料' })
+  @ApiOperation({ summary: '批次還原多次刪除，全部成功或全部不還原' })
   restore(
-    @Param('batchId', ParseIntPipe) batchId: number,
+    @Body() { ids }: RestoreDeletedRecordsDto,
     @Session() { user }: UserSession,
   ): Promise<void> {
-    return this.deletedRecordsService.restore(batchId, user);
+    return this.deletedRecordsService.restore(ids, user);
   }
 }

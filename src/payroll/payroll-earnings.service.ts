@@ -117,7 +117,7 @@ export class PayrollEarningsService {
     dto: CreatePayrollEarningTypeDto,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const name = dto.name.trim();
       await this.assertNameAvailable(tx, actor.organizationId, name);

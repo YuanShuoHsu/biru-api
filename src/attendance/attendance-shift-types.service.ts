@@ -115,7 +115,7 @@ export class AttendanceShiftTypesService {
     dto: SaveAttendanceShiftTypeDto,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const values = await this.prepare(tx, actor.organizationId, dto);
       const id = restored?.id ?? randomUUID();

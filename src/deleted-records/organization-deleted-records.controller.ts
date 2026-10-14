@@ -1,9 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
-  Param,
-  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -27,6 +26,7 @@ import {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
   DeletedRecordPermissionDto,
+  RestoreDeletedRecordsDto,
 } from './dto/deleted-record-batch.dto';
 
 @ApiTags('deleted-records')
@@ -59,17 +59,20 @@ export class OrganizationDeletedRecordsController {
     return { canRestore: canRestoreAnything(req.memberRole!) };
   }
 
-  @Post(':batchId/restore')
+  @Post('restore')
   @HttpCode(204)
   @OrganizationMember('organizationSlug')
-  @ApiOperation({ summary: '還原本店同一次刪除的資料，須具備各資料的建立權限' })
+  @ApiOperation({
+    summary:
+      '批次還原本店多次刪除的資料，須具備各資料的建立權限，全部成功或全部不還原',
+  })
   async restore(
-    @Param('batchId', ParseIntPipe) batchId: number,
+    @Body() { ids }: RestoreDeletedRecordsDto,
     @Req() req: AuthRequest,
     @Session() { user }: UserSession,
   ): Promise<void> {
     await this.deletedRecordsService.restore(
-      batchId,
+      ids,
       user,
       await this.deletedRecordsService.getScope(
         req.organizationId!,

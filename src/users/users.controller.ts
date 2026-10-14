@@ -7,12 +7,17 @@ import {
   Param,
   Patch,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 
+import type { Request } from 'express';
+
+import { AuthBatchService } from 'src/auth/auth-batch.service';
 import { isUserDeletable } from 'src/auth/deletion-guards';
 import { Audit } from 'src/common/decorators/audit.decorator';
+import { IdsDto } from 'src/common/dto/ids.dto';
 import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
@@ -30,7 +35,10 @@ import { UsersService } from './users.service';
 @UseGuards(AdminGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly authBatchService: AuthBatchService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: '查詢所有使用者' })
@@ -62,6 +70,25 @@ export class UsersController {
     return Promise.all(
       ids.map(async (id) => ({ id, deletable: await isUserDeletable(id) })),
     );
+  }
+
+  @Delete()
+  @ApiOperation({ summary: '批次刪除使用者' })
+  removeMany(
+    @Req() { headers }: Request,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.authBatchService.removeUsers(headers, ids);
+  }
+
+  @Delete(':id/sessions')
+  @ApiOperation({ summary: '批次撤銷使用者的登入裝置' })
+  revokeSessions(
+    @Req() { headers }: Request,
+    @Param('id') id: string,
+    @Body() { ids }: IdsDto,
+  ): Promise<void> {
+    return this.authBatchService.revokeUserSessions(headers, id, ids);
   }
 
   @Get(':id')

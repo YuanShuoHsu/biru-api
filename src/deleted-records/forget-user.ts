@@ -1,10 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
-import { db } from '../db';
+import { authDb } from '../auth/auth-transaction';
 import { deletedRecord } from '../db/schema/deleted-records';
 
 export const forgetDeletedUser = async (userId: string) => {
-  const userBatches = db
+  const database = authDb();
+  const userBatches = database
     .select({ batchId: deletedRecord.batchId })
     .from(deletedRecord)
     .where(
@@ -14,7 +15,7 @@ export const forgetDeletedUser = async (userId: string) => {
       ),
     );
 
-  await db
+  await database
     .delete(deletedRecord)
     .where(inArray(deletedRecord.batchId, userBatches));
 };

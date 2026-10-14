@@ -1,9 +1,9 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
-  ForbiddenException,
   NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -22,8 +22,9 @@ import type {
 import { AttendanceEmployeesService } from 'src/attendance/attendance-employees.service';
 import { AttendanceLeavesService } from 'src/attendance/attendance-leaves.service';
 import { AttendanceShiftTypesService } from 'src/attendance/attendance-shift-types.service';
-import type { AuditSubTable } from 'src/common/decorators/audit.decorator';
+import { isAuthorized } from 'src/auth/permissions';
 import { platformDateString } from 'src/common/constants/timezone';
+import type { AuditSubTable } from 'src/common/decorators/audit.decorator';
 import { diffAuditRows } from 'src/common/utils/audit-diff';
 import {
   resolveAuditLabels,
@@ -40,8 +41,13 @@ import type { LocalizedText } from 'src/db/schema/enums';
 import { member, organization } from 'src/db/schema/organizations';
 import { PAYROLL_EARNING_CATEGORIES } from 'src/db/schema/payroll';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import {
+  MENU_UPDATED_EVENT,
+  type MenuUpdatedEvent,
+} from 'src/events/menu-updated.event';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 import { CLOSED_WRITABLE_RESOURCES } from 'src/menus/guards/roles.guard';
-import { isAuthorized } from 'src/auth/permissions';
+import { PayrollEarningsService } from 'src/payroll/payroll-earnings.service';
 import {
   asBoolean,
   asNumber,
@@ -50,12 +56,6 @@ import {
   asStrings,
   toCamelRow,
 } from './deleted-row';
-import {
-  MENU_UPDATED_EVENT,
-  type MenuUpdatedEvent,
-} from 'src/events/menu-updated.event';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
-import { PayrollEarningsService } from 'src/payroll/payroll-earnings.service';
 
 import {
   LABEL_COLUMNS,
@@ -69,6 +69,7 @@ import type {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
 } from './dto/deleted-record-batch.dto';
+import { isPreDeletedChild, preDeletedChildCondition } from './request-batch';
 
 const RETENTION_DAYS = 30;
 
@@ -280,7 +281,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
               )`
             : sql``
         }
-      ORDER BY d.batch_id, d.id
+      ORDER BY d.batch_id, ${preDeletedChildCondition('d')}, d.id
     `;
 
     const [{ rows }, { rows: totals }] = await Promise.all([
@@ -298,8 +299,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       }>(sql`
         WITH roots AS (${roots})
         SELECT
-          r.batch_id::text AS batch_id,
-          r.deleted_at,
+          r.batch_id,
+          r.deleted_at AT TIME ZONE 'UTC' AS deleted_at,
           r.table_name,
           r.record_id,
           r.data,
@@ -351,7 +352,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         isRestorable(row.table_name)
           ? [
               {
-                batchId: row.batch_id,
+                batchId: Number(row.batch_id),
                 deletedAt: row.deleted_at,
                 tableName: row.table_name,
                 recordId: row.record_id,
@@ -374,69 +375,77 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   async restore(
-    batchId: number,
+    batchIds: number[],
     actor: Actor,
     scope?: RestoreScope,
   ): Promise<void> {
+    const batches = (
+      await Promise.all(
+        batchIds.map((batchId) => this.loadBatch(batchId, scope)),
+      )
+    ).toSorted((a, b) => b.root.id - a.root.id);
+
+    try {
+      await this.db.transaction(async (tx) => {
+        for (const { root, batch } of batches) {
+          if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
+            await this.restoreThroughService(root, batch, actor, tx);
+            continue;
+          }
+
+          await this.insertRows(tx, batch);
+          await tx.delete(deletedRecord).where(
+            inArray(
+              deletedRecord.id,
+              batch.map(({ id }) => id),
+            ),
+          );
+        }
+      });
+    } catch (error) {
+      throw this.toRestoreError(error);
+    }
+
+    for (const { root } of batches) {
+      if (SERVICE_RESTORED_TABLES.has(root.tableName)) continue;
+
+      const organizationId = await this.resolveOrganizationId(root);
+
+      if (organizationId && MENU_TABLES.has(root.tableName))
+        this.eventEmitter.emit(MENU_UPDATED_EVENT, {
+          organizationId,
+        } satisfies MenuUpdatedEvent);
+
+      try {
+        await this.writeRestoreAudit(root, organizationId, actor);
+      } catch (error) {
+        this.logger.error('Failed to write audit log', error);
+      }
+    }
+  }
+
+  private async loadBatch(batchId: number, scope?: RestoreScope) {
     const batch = await this.db
       .select()
       .from(deletedRecord)
       .where(eq(deletedRecord.batchId, batchId))
       .orderBy(asc(deletedRecord.id));
 
-    const root = batch.find(({ tableName }) => isRestorable(tableName));
+    const batchTables = new Set(batch.map(({ tableName }) => tableName));
+    const root = batch.find(
+      ({ tableName }) =>
+        isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
+    );
     if (!root) throw new NotFoundException('Deleted record batch not found');
 
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
         throw new NotFoundException('Deleted record batch not found');
-      if (
-        !canRestoreTables(
-          [...new Set(batch.map(({ tableName }) => tableName))],
-          scope,
-        )
-      )
+      if (!canRestoreTables([...batchTables], scope))
         throw new ForbiddenException();
     }
 
-    if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
-      try {
-        await this.restoreThroughService(root, batch, actor);
-      } catch (error) {
-        throw this.toRestoreError(error);
-      }
-      return;
-    }
-
-    const rows = batch;
-
-    try {
-      await this.db.transaction(async (tx) => {
-        await this.insertRows(tx, rows);
-
-        await tx.delete(deletedRecord).where(
-          inArray(
-            deletedRecord.id,
-            rows.map(({ id }) => id),
-          ),
-        );
-      });
-    } catch (error) {
-      throw this.toRestoreError(error);
-    }
-
-    const organizationId = await this.resolveOrganizationId(root);
-
-    if (organizationId && MENU_TABLES.has(root.tableName))
-      this.eventEmitter.emit(MENU_UPDATED_EVENT, {
-        organizationId,
-      } satisfies MenuUpdatedEvent);
-
-    try {
-      await this.writeRestoreAudit(root, organizationId, actor);
-    } catch (error) {
-      this.logger.error('Failed to write audit log', error);
-    }
+    return { root, batch };
   }
 
   async getScope(organizationId: string, role: string): Promise<RestoreScope> {
@@ -458,14 +467,18 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     return error;
   }
 
-  // 出勤與薪資資料走各自的建立流程：重跑檢查、薪資鎖定與連動效果（例如補假會把班次改為休假日）
-  private async restoreThroughService(root: Row, batch: Row[], admin: Actor) {
+  private async restoreThroughService(
+    root: Row,
+    batch: Row[],
+    admin: Actor,
+    tx: Transaction,
+  ) {
     const data = toCamelRow(root.tableName, root.data);
     const organizationId = asString(data.organizationId);
     if (!organizationId || !root.recordId)
       throw new NotFoundException('Deleted record batch not found');
 
-    const [membership] = await this.db
+    const [membership] = await tx
       .select({ role: member.role })
       .from(member)
       .where(
@@ -488,12 +501,13 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       id: root.recordId,
       createdBy: asString(data.createdBy) ?? admin.id,
       finalize: removeRetained,
+      tx,
     };
 
     switch (root.tableName) {
       case 'attendance_employee': {
         const userId = asString(data.userId) ?? '';
-        const [current] = await this.db
+        const [current] = await tx
           .select({ id: attendanceEmployee.id })
           .from(attendanceEmployee)
           .where(
@@ -696,12 +710,12 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   private async insertRows(tx: Transaction, rows: Row[]) {
     if (!rows.length) return;
 
-    const order = await this.getInsertOrder([
+    const order = await this.getInsertOrder(tx, [
       ...new Set(rows.map(({ tableName }) => tableName)),
     ]);
     const [columns, setNullReferences] = await Promise.all([
-      this.getInsertableColumns(order),
-      this.getSetNullReferences(order),
+      this.getInsertableColumns(tx, order),
+      this.getSetNullReferences(tx, order),
     ]);
 
     for (const table of order) {
@@ -751,9 +765,11 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     return rowCount ?? 0;
   }
 
-  // 依外鍵相依排序，父表先寫回；同一張表內依刪除順序（cascade 時父列先被記錄）
-  private async getInsertOrder(tables: string[]): Promise<string[]> {
-    const { rows: edges } = await this.db.execute<{
+  private async getInsertOrder(
+    tx: Transaction,
+    tables: string[],
+  ): Promise<string[]> {
+    const { rows: edges } = await tx.execute<{
       child: string;
       parent: string;
     }>(sql`
@@ -788,11 +804,12 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
 
   // ON DELETE SET NULL 的參照目標已不存在時寫回 null，與資料從未被刪時外鍵會做的事相同
   private async getSetNullReferences(
+    tx: Transaction,
     tables: string[],
   ): Promise<
     Map<string, { column: string; parentTable: string; parentColumn: string }[]>
   > {
-    const { rows } = await this.db.execute<{
+    const { rows } = await tx.execute<{
       table_name: string;
       column_name: string;
       parent_table: string;
@@ -836,9 +853,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   private async getInsertableColumns(
+    tx: Transaction,
     tables: string[],
   ): Promise<Map<string, string[]>> {
-    const { rows } = await this.db.execute<{
+    const { rows } = await tx.execute<{
       table_name: string;
       column_name: string;
     }>(sql`

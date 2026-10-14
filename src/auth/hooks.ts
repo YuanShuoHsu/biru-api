@@ -8,11 +8,11 @@ import {
   isAPIError,
 } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { v4 as uuidv4 } from 'uuid';
 
 import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff';
 import { resolveChangeLabels } from '../common/utils/audit-resources';
-import { db } from '../db';
 import * as schema from '../db/schema';
 import { forgetDeletedUser } from '../deleted-records/forget-user';
 import {
@@ -20,6 +20,7 @@ import {
   mergePreDeletedChildren,
   type DeletionParent,
 } from '../deleted-records/request-batch';
+import { authDb, runInAuthSavepoint } from './auth-transaction';
 import {
   assertOrganizationOpen,
   ORGANIZATION_WRITE_PATHS,
@@ -107,15 +108,13 @@ const BEFORE_TARGETS: Record<string, (body: Body) => Target | undefined> = {
 
 const findRow = async ({ resource, id }: Target) => {
   const table = TABLES[resource];
-  const [row]: AuditRow[] = await db
+  const [row]: AuditRow[] = await authDb()
     .select()
     .from(table)
     .where(eq(table.id, id));
 
   return row;
 };
-
-const snapshots = new WeakMap<Request, AuditRow | undefined>();
 
 const toEvents = (
   path: string,
@@ -270,7 +269,7 @@ const getLabel = async (resource: AuditedResource, row: AuditRow) => {
       const userId = asString(row.userId);
       if (!userId) return null;
 
-      const [owner] = await db
+      const [owner] = await authDb()
         .select({ name: schema.user.name })
         .from(schema.user)
         .where(eq(schema.user.id, userId));
@@ -311,11 +310,12 @@ const writeEvent = async (
         ? null
         : (asString(row.organizationId) ?? null);
 
-  const [changeLabels] = await resolveChangeLabels(db, [
+  const database = authDb();
+  const [changeLabels] = await resolveChangeLabels(database, [
     { scope: target.resource, changes },
   ]);
 
-  await db.insert(schema.auditLog).values({
+  await database.insert(schema.auditLog).values({
     id: uuidv4(),
     actorId: actor.id,
     actorName: actor.name,
@@ -346,7 +346,7 @@ const countRevokedSessions = async (
     const token = asString(body.sessionToken);
     if (!token) return undefined;
 
-    const row = await db.query.session.findFirst({
+    const row = await authDb().query.session.findFirst({
       where: eq(schema.session.token, token),
       columns: { userId: true },
     });
@@ -357,7 +357,7 @@ const countRevokedSessions = async (
   const userId = asString(body.userId);
   if (!userId) return undefined;
 
-  const rows = await db.query.session.findMany({
+  const rows = await authDb().query.session.findMany({
     where: eq(schema.session.userId, userId),
     columns: { id: true },
   });
@@ -365,12 +365,26 @@ const countRevokedSessions = async (
   return { userId, count: rows.length };
 };
 
-const selfDeletions = new WeakMap<Request, string>();
+type AuthHookState = {
+  snapshot?: AuditRow;
+  selfDeletedUserId?: string;
+  deletion?: { parent: DeletionParent; sinceId: string };
+};
 
-const deletionParents = new WeakMap<
-  Request,
-  { parent: DeletionParent; sinceId: string }
->();
+const hookStates = new AsyncLocalStorage<{ state: AuthHookState }>();
+
+export const runWithAuthHookState = <T>(fn: () => T) =>
+  hookStates.run({ state: {} }, fn);
+
+export const authHookState = () => {
+  const store = hookStates.getStore();
+  if (!store)
+    throw new Error(
+      'auth.api calls that keep hook state must run inside runWithAuthHookState',
+    );
+
+  return store.state;
+};
 
 export const authHooks = {
   before: createAuthMiddleware(async (ctx) => {
@@ -385,22 +399,30 @@ export const authHooks = {
 
       if (userId) {
         await assertUserDeletable(userId);
-        if (isSelfDelete && ctx.request) selfDeletions.set(ctx.request, userId);
-        if (ctx.request)
-          deletionParents.set(ctx.request, {
-            parent: { table: 'user', id: userId },
-            sinceId: await latestDeletedRecordId(),
-          });
+        if (isSelfDelete) authHookState().selfDeletedUserId = userId;
+        authHookState().deletion = {
+          parent: { table: 'user', id: userId },
+          sinceId: await latestDeletedRecordId(),
+        };
       }
     }
 
-    if (ctx.path === '/organization/delete' && ctx.request) {
+    if (ctx.path === '/organization/delete') {
       const organizationId = asString(asRow(ctx.body)?.organizationId);
       if (organizationId)
-        deletionParents.set(ctx.request, {
+        authHookState().deletion = {
           parent: { table: 'organization', id: organizationId },
           sinceId: await latestDeletedRecordId(),
-        });
+        };
+    }
+
+    if (ctx.path === '/organization/remove-team') {
+      const teamId = asString(asRow(ctx.body)?.teamId);
+      if (teamId)
+        authHookState().deletion = {
+          parent: { table: 'team', id: teamId },
+          sinceId: await latestDeletedRecordId(),
+        };
     }
 
     if (ORGANIZATION_WRITE_PATHS.has(ctx.path)) {
@@ -412,11 +434,10 @@ export const authHooks = {
         );
     }
 
-    if (REVOKE_SESSION_PATHS.has(ctx.path) && ctx.request) {
+    if (REVOKE_SESSION_PATHS.has(ctx.path)) {
       try {
-        snapshots.set(
-          ctx.request,
-          await countRevokedSessions(ctx.path, asRow(ctx.body) ?? {}),
+        authHookState().snapshot = await runInAuthSavepoint(() =>
+          countRevokedSessions(ctx.path, asRow(ctx.body) ?? {}),
         );
       } catch (error) {
         logger.error('Failed to snapshot audit target', error);
@@ -424,29 +445,30 @@ export const authHooks = {
     }
 
     const target = BEFORE_TARGETS[ctx.path]?.(asRow(ctx.body) ?? {});
-    if (!target || !ctx.request) return;
+    if (!target) return;
 
     try {
-      snapshots.set(ctx.request, await findRow(target));
+      authHookState().snapshot = await runInAuthSavepoint(() =>
+        findRow(target),
+      );
     } catch (error) {
       logger.error('Failed to snapshot audit target', error);
     }
   }),
   after: createAuthMiddleware(async (ctx) => {
-    const before = ctx.request ? snapshots.get(ctx.request) : undefined;
-    const selfDeletedUserId = ctx.request
-      ? selfDeletions.get(ctx.request)
-      : undefined;
-    const deletion = ctx.request ? deletionParents.get(ctx.request) : undefined;
-    if (ctx.request) {
-      snapshots.delete(ctx.request);
-      selfDeletions.delete(ctx.request);
-      deletionParents.delete(ctx.request);
-    }
+    const store = hookStates.getStore();
+    const {
+      snapshot: before,
+      selfDeletedUserId,
+      deletion,
+    } = store?.state ?? {};
+    if (store) store.state = {};
 
     if (deletion && !isAPIError(ctx.context.returned))
       try {
-        await mergePreDeletedChildren(deletion.parent, deletion.sinceId);
+        await runInAuthSavepoint(() =>
+          mergePreDeletedChildren(deletion.parent, deletion.sinceId),
+        );
       } catch (error) {
         logger.error(
           'Failed to merge pre-deleted rows into their batch',
@@ -456,11 +478,13 @@ export const authHooks = {
 
     if (selfDeletedUserId && !isAPIError(ctx.context.returned))
       try {
-        const remaining = await db.query.user.findFirst({
-          where: eq(schema.user.id, selfDeletedUserId),
-          columns: { id: true },
+        await runInAuthSavepoint(async () => {
+          const remaining = await authDb().query.user.findFirst({
+            where: eq(schema.user.id, selfDeletedUserId),
+            columns: { id: true },
+          });
+          if (!remaining) await forgetDeletedUser(selfDeletedUserId);
         });
-        if (!remaining) await forgetDeletedUser(selfDeletedUserId);
       } catch (error) {
         logger.error('Failed to erase deleted account copies', error);
       }
@@ -476,7 +500,9 @@ export const authHooks = {
         ctx.context.session?.user ?? (await getSessionFromCtx(ctx))?.user;
       if (!actor) return;
 
-      for (const event of events) await writeEvent(actor, event);
+      await runInAuthSavepoint(async () => {
+        for (const event of events) await writeEvent(actor, event);
+      });
     } catch (error) {
       logger.error('Failed to write audit log', error);
     }

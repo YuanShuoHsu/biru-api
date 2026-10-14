@@ -22,6 +22,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { runWithAuthHookState } from './auth/hooks';
 import { BannersModule } from './banners/banners.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { CouponsModule } from './coupons/coupons.module';
@@ -56,6 +57,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
       useFactory: (mailsService: MailsService) => ({
         auth: createAuth(mailsService),
         bodyParser: { json: { limit: '2mb' } },
+        middleware: (_req, _res, next) => runWithAuthHookState(next),
       }),
     }),
     ClsModule.forRoot({

@@ -91,6 +91,7 @@ import {
 import type {
   AvailableCouponDto,
   ClaimableCouponDto,
+  CouponListResponseDto,
   CouponRecipientListResponseDto,
   CouponResponseDto,
   CustomerCouponDto,
@@ -307,7 +308,7 @@ export class CouponsService {
   async findAll(
     query: CouponPaginationQueryDto = {},
     organizationId?: string,
-  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+  ): Promise<CouponListResponseDto> {
     const {
       lang = DEFAULT_LANGUAGE,
       limit = 10,
@@ -421,7 +422,8 @@ export class CouponsService {
       ...new Set(rows.flatMap((r) => r.menuSectionIds || [])),
     ];
     const itemIds = [...new Set(rows.flatMap((r) => r.menuItemIds || []))];
-    const [sections, items] = await Promise.all([
+    const couponIds = rows.map(({ id }) => id);
+    const [sections, items, claims] = await Promise.all([
       sectionIds.length
         ? this.db
             .select({ id: menuSection.id, name: menuSection.name })
@@ -434,7 +436,14 @@ export class CouponsService {
             .from(menuItem)
             .where(inArray(menuItem.id, itemIds))
         : [],
+      couponIds.length
+        ? this.db
+            .selectDistinct({ couponId: userCoupon.couponId })
+            .from(userCoupon)
+            .where(inArray(userCoupon.couponId, couponIds))
+        : [],
     ]);
+    const claimedIds = new Set(claims.map(({ couponId }) => couponId));
     const sectionNameMap = new Map(
       sections.map(({ id, name }) => [id, localize(name, lang)]),
     );
@@ -444,6 +453,7 @@ export class CouponsService {
 
     const data = rows.map((row) => ({
       ...row,
+      claimed: claimedIds.has(row.id),
       menuItemNames:
         row.menuItemIds?.map((id) => itemNameMap.get(id) || id) ?? null,
       menuSectionNames:
@@ -456,7 +466,7 @@ export class CouponsService {
   async findAllForOrganization(
     organizationSlug: string,
     query: CouponPaginationQueryDto = {},
-  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+  ): Promise<CouponListResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
     const scopedQuery =

@@ -60,6 +60,17 @@ export class CouponResponseDto {
   @ApiProperty() updatedAt: Date;
 }
 
+export class CouponListItemDto extends CouponResponseDto {
+  @ApiProperty({ description: '已有顧客持有，不可刪除（只能停用）' })
+  claimed: boolean;
+}
+
+export class CouponListResponseDto {
+  @ApiProperty({ type: [CouponListItemDto] })
+  data: CouponListItemDto[];
+  @ApiProperty() total: number;
+}
+
 export class CustomerCouponDto {
   @ApiProperty() id: string;
   @ApiProperty() code: string;

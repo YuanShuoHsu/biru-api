@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from 'src/common/decorators/audit.decorator';
@@ -9,7 +9,7 @@ import { Roles } from 'src/menus/decorators/roles.decorator';
 import { CouponsService } from './coupons.service';
 import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto';
 import {
-  CouponResponseDto,
+  CouponListResponseDto,
   UserCouponResponseDto,
 } from './dto/coupon-response.dto';
 import { GrantCouponDto } from './dto/grant-coupon.dto';
@@ -22,10 +22,11 @@ export class OrganizationCouponsController {
   @Get()
   @Roles({ coupon: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢本店適用的優惠券列表' })
+  @ApiOkResponse({ type: CouponListResponseDto })
   findAll(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: CouponPaginationQueryDto,
-  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+  ): Promise<CouponListResponseDto> {
     return this.couponsService.findAllForOrganization(organizationSlug, query);
   }
 

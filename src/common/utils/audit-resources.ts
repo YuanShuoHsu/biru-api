@@ -200,7 +200,7 @@ const selectByIds = async (
 };
 
 const selectLabelsByIds = async (
-  db: DrizzleDB,
+  db: Pick<DrizzleDB, 'select'>,
   { table, column }: LabelSource,
   ids: string[],
 ): Promise<Map<string, AuditResourceLabel>> => {
@@ -387,7 +387,7 @@ export const resolveAuditLabels = async (
 };
 
 export const resolveChangeLabels = async (
-  db: DrizzleDB,
+  db: Pick<DrizzleDB, 'select'>,
   entries: { scope: AuditLabelScope; changes: AuditChanges }[],
 ): Promise<(AuditChangeLabels | null)[]> => {
   const sourceOf = (scope: AuditLabelScope, field: string) =>

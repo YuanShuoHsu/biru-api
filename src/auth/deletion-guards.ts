@@ -1,8 +1,9 @@
 import { APIError } from 'better-auth/api';
 import { sql } from 'drizzle-orm';
 
-import { db } from '../db';
 import * as schema from '../db/schema';
+
+import { authDb } from './auth-transaction';
 
 export const assertUserDeletable = async (userId: string) => {
   if (await hasBlockingRecords('user', userId))
@@ -11,7 +12,7 @@ export const assertUserDeletable = async (userId: string) => {
       code: 'USER_HAS_EMPLOYMENT_RECORDS',
     });
 
-  const { rows: soleOwned } = await db.execute(sql`
+  const { rows: soleOwned } = await authDb().execute(sql`
     SELECT 1 FROM ${schema.member} owned
     WHERE owned.user_id = ${userId}
       AND owned.role = 'owner'
@@ -50,7 +51,7 @@ const getBlockingReferences = (parentTable: string) => {
   const cached = blockingReferences.get(parentTable);
   if (cached) return cached;
 
-  const references = db
+  const references = authDb()
     .execute<{ table: string; column: string }>(
       sql`
         SELECT child.relname AS "table", a.attname AS "column"
@@ -78,7 +79,7 @@ const hasBlockingRecords = async (parentTable: string, id: string) => {
   const references = await getBlockingReferences(parentTable);
   if (!references.length) return false;
 
-  const { rows } = await db.execute(sql`
+  const { rows } = await authDb().execute(sql`
     SELECT 1 FROM (
       ${sql.join(
         references.map(

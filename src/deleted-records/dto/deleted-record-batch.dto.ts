@@ -1,7 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 
 import type { LocalizedText } from 'src/db/schema/enums';
 
@@ -25,9 +34,19 @@ export class DeletedRecordPaginationQueryDto {
   offset?: number = 0;
 }
 
+export class RestoreDeletedRecordsDto {
+  @ApiProperty({ type: [Number] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsInt({ each: true })
+  ids: number[];
+}
+
 export class DeletedRecordBatchResponseDto {
   @ApiProperty({ description: '同一次刪除（同一個交易）的編號' })
-  batchId: string;
+  batchId: number;
 
   @ApiProperty() deletedAt: Date;
 

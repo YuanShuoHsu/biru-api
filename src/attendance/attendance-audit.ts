@@ -149,6 +149,7 @@ export interface RestoredRecord {
   id: string;
   createdBy: string;
   finalize: (tx: Transaction) => Promise<void>;
+  tx: Transaction;
 }
 
 export const writeAudits = async (

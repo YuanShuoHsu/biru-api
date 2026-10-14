@@ -17,7 +17,6 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
   DAY_MS,
   platformDateString,
@@ -35,13 +34,14 @@ import {
   attendanceAnnualLeaveDeferral,
   attendanceEmployee,
   attendanceHolidaySubstitute,
-  attendanceShift,
   attendanceLeaveBalance,
   attendanceLeaveCase,
   attendanceLeaveType,
   attendanceRequest,
+  attendanceShift,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import { statutoryDailyPayCents } from 'src/payroll/leave-pay';
 
@@ -56,6 +56,12 @@ import {
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
 import { countedRequestStatuses } from './attendance-rules';
+import {
+  ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
+  ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
+  AttendanceHolidaySubstitutePaginationQueryDto,
+  CreateAttendanceHolidaySubstituteDto,
+} from './dto/attendance-holiday-substitute.dto';
 import {
   ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
@@ -77,12 +83,6 @@ import {
   ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   AttendanceLeaveTypePaginationQueryDto,
 } from './dto/attendance-leave-type-pagination-query.dto';
-import {
-  ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
-  ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
-  AttendanceHolidaySubstitutePaginationQueryDto,
-  CreateAttendanceHolidaySubstituteDto,
-} from './dto/attendance-holiday-substitute.dto';
 import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
@@ -95,7 +95,6 @@ import {
 } from './employee-hours';
 import { requireEmployee } from './employee-lookup';
 import { loadHolidaySubstitutes } from './holiday-substitutes';
-import { shiftStartDate } from './shift-queries';
 import {
   annualLeaveDeferrals,
   countedLeaves,
@@ -117,9 +116,10 @@ import {
 import { isMedicalLeave, loadMedicalLedgers } from './medical-leave';
 import { parentalLeaveErrors } from './parental-leave';
 import { matchParentalChild } from './parental-ledger';
-import { parseInterval } from './shift-intervals';
-import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types';
 import { assertIndependentReview } from './review-separation';
+import { parseInterval } from './shift-intervals';
+import { shiftStartDate } from './shift-queries';
+import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types';
 
 interface MemoryPageOptions<Row> {
   defaultSort: (first: Row, second: Row) => number;
@@ -685,13 +685,12 @@ export class AttendanceLeavesService {
     });
   }
 
-  // 與刪除相同，案件期間的薪資已發布就不能再改動
   async restoreLeaveCase(
     actor: AttendanceActor,
     dto: CreateAttendanceLeaveCaseDto,
     restored: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return restored.tx.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       await assertPayrollUnlocked(
         tx,
@@ -974,7 +973,7 @@ export class AttendanceLeavesService {
     id?: string,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [current] = id
         ? await tx
@@ -1328,7 +1327,7 @@ export class AttendanceLeavesService {
     dto: CreateAttendanceAnnualLeaveDeferralDto,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [employee] = await tx
         .select()
@@ -1587,7 +1586,7 @@ export class AttendanceLeavesService {
     dto: CreateAttendanceHolidaySubstituteDto,
     restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [employee] = await tx
         .select()

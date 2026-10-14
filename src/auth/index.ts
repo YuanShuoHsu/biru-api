@@ -9,7 +9,6 @@
 
 import { Logger } from '@nestjs/common';
 
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
 import {
@@ -20,8 +19,9 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
+import { authDatabase, authDb, runInAuthSavepoint } from './auth-transaction';
 import { assertOrganizationDeletable } from './deletion-guards';
-import { authHooks } from './hooks';
+import { authHookState, authHooks } from './hooks';
 import { ac, admin, member, owner } from './permissions';
 
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
@@ -30,19 +30,17 @@ import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_MINUTES,
 } from '../common/constants/pickup';
-import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff';
+import { diffAuditRows } from '../common/utils/audit-diff';
 import { isValidCurrency } from '../common/utils/currency';
 import { isValidOpeningHours } from '../common/utils/opening-hours';
 import { db } from '../db';
 import * as schema from '../db/schema';
 import type { MailsService } from '../mails/mails.service';
 
-const organizationSnapshots = new WeakMap<object, AuditRow | undefined>();
-
 const logger = new Logger('OrganizationAudit');
 
 const getInitialOrganization = async (userId: string) => {
-  const membership = await db.query.member.findFirst({
+  const membership = await authDb().query.member.findFirst({
     where: eq(schema.member.userId, userId),
     orderBy: [asc(schema.member.createdAt), asc(schema.member.id)],
     with: { organization: true },
@@ -129,7 +127,7 @@ export const createAuth = (mailsService: MailsService) =>
                 ? user.phoneNumber
                 : null;
             if (phoneNumber) {
-              const owner = await db.query.user.findFirst({
+              const owner = await authDb().query.user.findFirst({
                 where: eq(schema.user.phoneNumber, phoneNumber),
               });
 
@@ -153,10 +151,7 @@ export const createAuth = (mailsService: MailsService) =>
         },
       },
     },
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-      schema,
-    }),
+    database: authDatabase(db),
     emailAndPassword: {
       customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
         ...coreFields,
@@ -204,7 +199,7 @@ export const createAuth = (mailsService: MailsService) =>
         organizationHooks: {
           afterCreateOrganization: async ({ organization }) => {
             try {
-              await db.transaction(async (tx) => {
+              await authDb().transaction(async (tx) => {
                 await tx
                   .insert(schema.menu)
                   .values({
@@ -219,7 +214,7 @@ export const createAuth = (mailsService: MailsService) =>
                   .onConflictDoNothing();
               });
             } catch (error) {
-              await db
+              await authDb()
                 .delete(schema.organization)
                 .where(eq(schema.organization.id, organization.id));
 
@@ -239,11 +234,11 @@ export const createAuth = (mailsService: MailsService) =>
           beforeUpdateOrganization: async ({ organization: data, member }) => {
             assertValidOrganizationInput(data);
 
-            const current = await db.query.organization.findFirst({
+            const current = await authDb().query.organization.findFirst({
               where: eq(schema.organization.id, member.organizationId),
             });
 
-            organizationSnapshots.set(member, current);
+            authHookState().snapshot = current;
 
             const touchesPoints =
               Object.hasOwn(data, 'amountPerPoint') ||
@@ -267,11 +262,10 @@ export const createAuth = (mailsService: MailsService) =>
             user,
             member,
           }) => {
-            const before = organizationSnapshots.get(member);
-            organizationSnapshots.delete(member);
+            const before = authHookState().snapshot;
             if (!updated) return;
 
-            const after = await db.query.organization.findFirst({
+            const after = await authDb().query.organization.findFirst({
               where: eq(schema.organization.id, member.organizationId),
             });
             if (!after) return;
@@ -280,19 +274,21 @@ export const createAuth = (mailsService: MailsService) =>
             if (!Object.keys(changes).length) return;
 
             try {
-              await db.insert(schema.auditLog).values({
-                id: uuidv4(),
-                actorId: user.id,
-                actorName: user.name,
-                actorEmail: user.email,
-                organizationId: member.organizationId,
-                resource: 'organization',
-                resourceId: member.organizationId,
-                resourceLabel: after.name,
-                ancestorIds: [],
-                action: 'update',
-                changes,
-              });
+              await runInAuthSavepoint(() =>
+                authDb().insert(schema.auditLog).values({
+                  id: uuidv4(),
+                  actorId: user.id,
+                  actorName: user.name,
+                  actorEmail: user.email,
+                  organizationId: member.organizationId,
+                  resource: 'organization',
+                  resourceId: member.organizationId,
+                  resourceLabel: after.name,
+                  ancestorIds: [],
+                  action: 'update',
+                  changes,
+                }),
+              );
             } catch (error) {
               logger.error('Failed to write audit log', error);
             }

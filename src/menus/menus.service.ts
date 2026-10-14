@@ -22,7 +22,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
+import type { Transaction } from 'src/attendance/attendance-audit';
 import { isSameLocalizedText } from 'src/common/utils/localized-text';
 import { getOrganizationCurrency } from 'src/common/utils/organizations';
 import type { LocalizedText } from 'src/db/schema/enums';
@@ -48,6 +48,7 @@ import {
   modifierGroup,
   offer,
 } from 'src/db/schema/menus';
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
@@ -182,11 +183,53 @@ export class MenusService {
 
   // ── MenuSection ───────────────────────────────────────────────────
 
+  private async validateParentSection(
+    tx: Transaction,
+    menuId: string,
+    parentSectionId: string | null | undefined,
+    sectionId?: string,
+  ): Promise<void> {
+    if (!parentSectionId) return;
+    if (parentSectionId === sectionId)
+      throw new BadRequestException(
+        'parentSectionId must not be the section itself',
+      );
+
+    await tx
+      .select({ id: menu.id })
+      .from(menu)
+      .where(eq(menu.id, menuId))
+      .for('update');
+
+    const { rows: ancestors } = await tx.execute<{
+      id: string;
+      menu_id: string;
+    }>(sql`
+      WITH RECURSIVE ancestors AS (
+        SELECT id, menu_id, parent_section_id FROM menu_section
+        WHERE id = ${parentSectionId}
+        UNION
+        SELECT s.id, s.menu_id, s.parent_section_id FROM menu_section s
+        JOIN ancestors a ON s.id = a.parent_section_id
+      )
+      SELECT id, menu_id FROM ancestors
+    `);
+
+    if (ancestors.find(({ id }) => id === parentSectionId)?.menu_id !== menuId)
+      throw new NotFoundException('Parent section not found');
+    if (sectionId && ancestors.some(({ id }) => id === sectionId))
+      throw new BadRequestException(
+        'parentSectionId must not be a descendant of the section',
+      );
+  }
+
   async createMenuSection(
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
     return this.db.transaction(async (tx) => {
+      await this.validateParentSection(tx, menuId, data.parentSectionId);
+
       await tx
         .update(menuSection)
         .set({ sortOrder: sql`${menuSection.sortOrder} + 1` })
@@ -310,13 +353,27 @@ export class MenusService {
     where: { id: string };
     data: UpdateMenuSectionDto;
   }): Promise<MenuSection> {
-    const [updated] = await this.db
-      .update(menuSection)
-      .set({ ...params.data, updatedAt: new Date() })
-      .where(eq(menuSection.id, params.where.id))
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ menuId: menuSection.menuId })
+        .from(menuSection)
+        .where(eq(menuSection.id, params.where.id));
+      if (!current) throw new NotFoundException('Menu section not found');
+      await this.validateParentSection(
+        tx,
+        current.menuId,
+        params.data.parentSectionId,
+        params.where.id,
+      );
 
-    return updated;
+      const [updated] = await tx
+        .update(menuSection)
+        .set({ ...params.data, updatedAt: new Date() })
+        .where(eq(menuSection.id, params.where.id))
+        .returning();
+
+      return updated;
+    });
   }
 
   async deleteMenuSection(where: { id: string }): Promise<MenuSection> {

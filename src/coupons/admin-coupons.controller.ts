@@ -20,6 +20,7 @@ import { CouponsService } from './coupons.service';
 import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto';
 import { CouponRecipientQueryDto } from './dto/coupon-recipient-query.dto';
 import {
+  CouponListResponseDto,
   CouponRecipientListResponseDto,
   CouponResponseDto,
   UserCouponResponseDto,
@@ -42,9 +43,10 @@ export class AdminCouponsController {
 
   @Get()
   @ApiOperation({ summary: '查詢優惠券列表' })
+  @ApiOkResponse({ type: CouponListResponseDto })
   findAll(
     @Query() query: CouponPaginationQueryDto,
-  ): Promise<{ data: CouponResponseDto[]; total: number }> {
+  ): Promise<CouponListResponseDto> {
     return this.couponsService.findAll(query);
   }
 
