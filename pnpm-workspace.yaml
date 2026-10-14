@@ -1,7 +1,9 @@
-onlyBuiltDependencies:
-  - '@nestjs/core'
-  - '@scarf/scarf'
-  - '@swc/core'
-  - bcrypt
-  - esbuild
-  - unrs-resolver
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/engines': false
+  '@scarf/scarf': true
+  '@swc/core': true
+  bcrypt: true
+  esbuild: true
+  prisma: false
+  unrs-resolver: true

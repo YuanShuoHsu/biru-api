@@ -64,6 +64,7 @@ export const team = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    memberCount: integer('member_count').notNull().default(0),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
@@ -85,6 +86,7 @@ export const teamMember = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    membershipKey: text('membership_key'),
     createdAt: timestamp('created_at'),
   },
   (table) => [
@@ -94,6 +96,7 @@ export const teamMember = pgTable(
       table.teamId,
       table.userId,
     ),
+    uniqueIndex('teamMember_membershipKey_uidx').on(table.membershipKey),
   ],
 );
 

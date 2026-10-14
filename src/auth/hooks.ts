@@ -12,7 +12,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { v4 as uuidv4 } from 'uuid';
 
 import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff';
-import { resolveChangeLabels } from '../common/utils/audit-resources';
+import {
+  AUDIT_IGNORED_COLUMNS,
+  resolveChangeLabels,
+} from '../common/utils/audit-resources';
 import * as schema from '../db/schema';
 import { forgetDeletedUser } from '../deleted-records/forget-user';
 import {
@@ -289,7 +292,9 @@ const writeEvent = async (
   const row = after ?? before;
   if (!row) return;
 
-  const changes = explicitChanges ?? diffAuditRows(before, after);
+  const changes =
+    explicitChanges ??
+    diffAuditRows(before, after, AUDIT_IGNORED_COLUMNS[target.resource]);
   if (!Object.keys(changes).length) return;
 
   const action: AuditAction = explicitChanges

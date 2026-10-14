@@ -27,6 +27,7 @@ import { platformDateString } from 'src/common/constants/timezone';
 import type { AuditSubTable } from 'src/common/decorators/audit.decorator';
 import { diffAuditRows } from 'src/common/utils/audit-diff';
 import {
+  AUDIT_IGNORED_COLUMNS,
   resolveAuditLabels,
   resolveChangeLabels,
 } from 'src/common/utils/audit-resources';
@@ -109,13 +110,13 @@ const canRestoreTables = (tables: string[], scope: RestoreScope) => {
   );
 };
 
-// 附屬表沿用稽核的 via 慣例：記在擁有者資源底下、動作為 update
 const AUDIT_TARGETS: Partial<
   Record<
     RestorableTable,
     {
       resource: AuditResource;
       via?: { scope: AuditSubTable; ownerColumn: string };
+      membership?: { ownerColumn: string; memberColumn: string };
     }
   >
 > = {
@@ -141,6 +142,11 @@ const AUDIT_TARGETS: Partial<
     via: { scope: 'recipeIngredient', ownerColumn: 'recipe_id' },
   },
   supplier: { resource: 'supplier' },
+  team: { resource: 'team' },
+  team_member: {
+    resource: 'team',
+    membership: { ownerColumn: 'team_id', memberColumn: 'user_id' },
+  },
   user: { resource: 'user' },
 };
 
@@ -669,15 +675,25 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     if (!isRestorable(root.tableName)) return;
 
     const target = AUDIT_TARGETS[root.tableName];
-    const resourceId = target?.via
-      ? asString(root.data[target.via.ownerColumn])
+    const ownerColumn =
+      target?.via?.ownerColumn ?? target?.membership?.ownerColumn;
+    const resourceId = ownerColumn
+      ? asString(root.data[ownerColumn])
       : root.recordId;
     if (!target || !resourceId) return;
 
-    const changes = diffAuditRows(
-      undefined,
-      toCamelRow(root.tableName, root.data),
-    );
+    const changes = target.membership
+      ? {
+          member: {
+            before: null,
+            after: root.data[target.membership.memberColumn] ?? null,
+          },
+        }
+      : diffAuditRows(
+          undefined,
+          toCamelRow(root.tableName, root.data),
+          AUDIT_IGNORED_COLUMNS[target.via?.scope ?? target.resource],
+        );
     const [labels, [changeLabels]] = await Promise.all([
       resolveAuditLabels(
         this.db,
@@ -701,7 +717,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       resourceId,
       resourceLabel: label?.resourceLabel ?? getLabel(root.data),
       ancestorIds: label?.ancestorIds ?? [],
-      action: target.via ? 'update' : 'create',
+      action: ownerColumn ? 'update' : 'create',
       changes,
       changeLabels,
     });
@@ -719,15 +735,17 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     ]);
 
     for (const table of order) {
-      const names = sql.join(
-        (columns.get(table) ?? []).map((column) => sql.identifier(column)),
-        sql`, `,
-      );
-
       for (const { data } of rows.filter(
         ({ tableName }) => tableName === table,
       )) {
         const restored = { ...data };
+        // 留存之後才新增的欄位不在資料裡，要交給欄位預設值，否則 NOT NULL 欄位會被寫成 null
+        const names = sql.join(
+          (columns.get(table) ?? [])
+            .filter((column) => Object.hasOwn(restored, column))
+            .map((column) => sql.identifier(column)),
+          sql`, `,
+        );
 
         for (const {
           column,

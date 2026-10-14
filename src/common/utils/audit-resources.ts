@@ -84,12 +84,10 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   waitlistSetting,
 };
 
-// waitlistSetting 一店一列、以 organizationId 為主鍵，沒有 id 欄位
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
   waitlistSetting: 'organizationId',
 };
 
-// 重試排程與金流回應是系統記帳，不是人的操作；操作人已是稽核列的 actor
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
     refund: [
@@ -99,6 +97,7 @@ export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
       'invoiceRetryAt',
       'operatorId',
     ],
+    team: ['memberCount'],
   };
 
 type LabelSource = { table: AuditableTable; column: string };
