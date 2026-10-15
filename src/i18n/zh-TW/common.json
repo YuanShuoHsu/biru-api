@@ -11,6 +11,7 @@
     "notFound": "優惠碼無效",
     "notGrantable": "此優惠券非貴店專屬，無法發放",
     "notYetValid": "優惠碼尚未生效",
+    "organizationClosed": "所選店家已停業，無法設為適用店家",
     "perUserLimitReached": "您已使用過此優惠碼",
     "pointsOnly": "此優惠碼需以點數兌換後才能使用",
     "usedUp": "此優惠碼已達使用上限"

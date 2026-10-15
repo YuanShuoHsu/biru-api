@@ -61,6 +61,7 @@ export type I18nTranslations = {
             "notFound": string;
             "notGrantable": string;
             "notYetValid": string;
+            "organizationClosed": string;
             "perUserLimitReached": string;
             "pointsOnly": string;
             "usedUp": string;

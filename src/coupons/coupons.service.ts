@@ -139,6 +139,7 @@ export class CouponsService {
       | 'notFound'
       | 'notGrantable'
       | 'notYetValid'
+      | 'organizationClosed'
       | 'perUserLimitReached'
       | 'pointsOnly'
       | 'usedUp',
@@ -160,17 +161,20 @@ export class CouponsService {
 
   private async normalizeApplicableOrganizationIds(
     ids: string[] | null | undefined,
+    currentIds: string[] | null = null,
   ): Promise<string[] | null | undefined> {
     if (ids === undefined) return undefined;
     if (!ids?.length) return null;
 
     const unique = [...new Set(ids)];
     const found = await this.db
-      .select({ value: count() })
+      .select({ id: organization.id, closedAt: organization.closedAt })
       .from(organization)
       .where(inArray(organization.id, unique));
-    if (found[0].value !== unique.length)
+    if (found.length !== unique.length)
       throw new BadRequestException('Organization not found');
+    if (found.some(({ id, closedAt }) => closedAt && !currentIds?.includes(id)))
+      throw new BadRequestException(this.t('organizationClosed'));
     return unique;
   }
 
@@ -713,6 +717,7 @@ export class CouponsService {
     const applicableOrganizationIds =
       await this.normalizeApplicableOrganizationIds(
         dto.applicableOrganizationIds,
+        found.applicableOrganizationIds,
       );
     const effectiveOrganizationIds =
       applicableOrganizationIds === undefined

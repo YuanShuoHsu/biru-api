@@ -11,6 +11,7 @@
     "notFound": "Invalid promo code",
     "notGrantable": "This coupon is not exclusive to your store and cannot be granted",
     "notYetValid": "This promo code is not yet valid",
+    "organizationClosed": "The selected store is closed and can't be set as an applicable store",
     "perUserLimitReached": "You have already used this promo code",
     "pointsOnly": "This promo code must be redeemed with points before use",
     "usedUp": "This promo code has reached its usage limit"
