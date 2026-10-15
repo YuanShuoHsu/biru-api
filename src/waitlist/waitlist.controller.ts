@@ -24,11 +24,7 @@ import {
 
 import { I18nLang } from 'nestjs-i18n';
 import { Audit } from 'src/common/decorators/audit.decorator';
-import {
-  DEFAULT_LANGUAGE,
-  languagesEnum,
-  type Language,
-} from 'src/db/schema/enums';
+import { toLanguage } from 'src/common/utils/language';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 
 import { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto';
@@ -55,9 +51,6 @@ import {
   type StaffTransitionStatus,
 } from './waitlist-rules';
 import { WaitlistService } from './waitlist.service';
-
-const toLanguage = (lang: string): Language =>
-  languagesEnum.enumValues.find((value) => value === lang) || DEFAULT_LANGUAGE;
 
 @AllowAnonymous()
 @ApiTags('waitlist')

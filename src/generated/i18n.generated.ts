@@ -252,15 +252,6 @@ export type I18nTranslations = {
     "test": {
         "hello": string;
     };
-    "users": {
-        "emailAlreadyExists": string;
-        "emailAlreadyVerified": string;
-        "emailNotVerified": string;
-        "invalidCredentials": string;
-        "invalidVerificationToken": string;
-        "phoneNumberAlreadyExists": string;
-        "userNotFound": string;
-    };
     "validation": {
         "isEmail": string;
         "isNotEmpty": string;

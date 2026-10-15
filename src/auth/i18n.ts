@@ -3,17 +3,9 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, isAPIError } from 'better-auth/api';
 import type { I18nService } from 'nestjs-i18n';
 
-import {
-  DEFAULT_LANGUAGE,
-  type Language,
-  languagesEnum,
-} from '../db/schema/enums';
+import { toLanguage } from '../common/utils/language';
+import { DEFAULT_LANGUAGE, languagesEnum } from '../db/schema/enums';
 import type { I18nTranslations } from '../generated/i18n.generated';
-
-const toLanguage = (headers?: Headers | null): Language =>
-  languagesEnum.enumValues.find(
-    (value) => value === headers?.get('accept-language'),
-  ) ?? DEFAULT_LANGUAGE;
 
 export const createAuthI18n = (i18nService: I18nService<I18nTranslations>) => {
   const translations: Record<
@@ -30,17 +22,17 @@ export const createAuthI18n = (i18nService: I18nService<I18nTranslations>) => {
     translations,
     defaultLocale: DEFAULT_LANGUAGE,
     detection: ['callback'],
-    getLocale: ({ headers }) => toLanguage(headers),
+    getLocale: ({ headers }) => toLanguage(headers?.get('accept-language')),
   });
 
   return {
     plugin,
-    // before hook 丟出的錯誤不會經過 after hook，官方 i18n 外掛翻不到
     localizeError: (error: unknown, headers?: Headers) => {
       if (!isAPIError(error)) return error;
 
       const code = error.body?.code;
-      const message = code && translations[toLanguage(headers)][code];
+      const message =
+        code && translations[toLanguage(headers?.get('accept-language'))][code];
 
       return message
         ? new APIError(error.status, {

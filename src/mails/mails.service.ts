@@ -6,7 +6,8 @@ import { I18nService } from 'nestjs-i18n';
 import type { AttendanceNotificationKind } from 'src/attendance/attendance-notification.events';
 import { PRODUCT_NAME } from 'src/common/constants/product';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
-import { DEFAULT_LANGUAGE, type Language } from 'src/db/schema/enums';
+import { toLanguage } from 'src/common/utils/language';
+import { type Language } from 'src/db/schema/enums';
 import type { User } from 'src/db/schema/users';
 import { I18nTranslations } from 'src/generated/i18n.generated';
 import { UAParser } from 'ua-parser-js';
@@ -32,7 +33,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -75,7 +76,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -119,7 +120,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -169,7 +170,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -226,7 +227,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -288,7 +289,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -332,7 +333,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -400,7 +401,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = request?.headers.get('accept-language') || DEFAULT_LANGUAGE;
+    const lang = toLanguage(request?.headers.get('accept-language'));
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 

@@ -62,12 +62,12 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
     !isValidOpeningHours(data.openingHours)
   )
     throw new APIError('BAD_REQUEST', {
-      message: '營業時間格式須為 "Mo-Fr 09:00-12:00,13:00-18:00"',
+      message: 'openingHours must match "Mo-Fr 09:00-12:00,13:00-18:00"',
     });
 
   if (Object.hasOwn(data, 'currency') && !isValidCurrency(data.currency))
     throw new APIError('BAD_REQUEST', {
-      message: 'currency 須為 ISO 4217 三碼大寫字母',
+      message: 'currency must be an uppercase ISO 4217 code',
     });
 
   for (const [field, max] of Object.entries(PICKUP_FIELD_MAXIMUMS)) {
@@ -81,7 +81,7 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
       value > max
     )
       throw new APIError('BAD_REQUEST', {
-        message: `${field} 須為 0 到 ${max} 的整數`,
+        message: `${field} must be an integer from 0 to ${max}`,
       });
   }
 };
