@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -19,6 +20,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import {
@@ -38,6 +40,7 @@ import {
 } from 'src/db/schema/inventory';
 import { menuItem, offer } from 'src/db/schema/menus';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
   CreateRecipeDto,
@@ -75,7 +78,16 @@ const PURCHASING_FIELDS: string[] = ['unitPrice', 'cost'];
 
 @Injectable()
 export class RecipesService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly i18n: I18nService<I18nTranslations>,
+  ) {}
+
+  private t(key: keyof I18nTranslations['common']['inventory']): string {
+    return this.i18n.t(`common.inventory.${key}`, {
+      lang: I18nContext.current()?.lang,
+    });
+  }
 
   async findAll(
     organizationSlug: string,
@@ -353,7 +365,7 @@ export class RecipesService {
       );
 
     if (duplicates.some(({ id }) => id !== exceptId)) {
-      throw new ConflictException('Ingredient is already in this recipe');
+      throw new ConflictException(this.t('recipeIngredientExists'));
     }
   }
 
@@ -362,7 +374,7 @@ export class RecipesService {
       return await write();
     } catch (error) {
       if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-        throw new ConflictException('Ingredient is already in this recipe');
+        throw new ConflictException(this.t('recipeIngredientExists'));
       throw error;
     }
   }

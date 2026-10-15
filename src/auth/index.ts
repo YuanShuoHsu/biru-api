@@ -9,6 +9,7 @@
 
 import { Logger } from '@nestjs/common';
 
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
 import {
@@ -19,12 +20,13 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-import { authDatabase, authDb, runInAuthSavepoint } from './auth-transaction';
+import { authDb, runInAuthSavepoint } from './auth-transaction';
 import { assertOrganizationDeletable } from './deletion-guards';
 import { authHookState, createAuthHooks } from './hooks';
 import type { createAuthI18n } from './i18n';
 import { ac, admin, member, owner } from './permissions';
 
+import type { Transaction } from '../attendance/attendance-audit';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
 
 import {
@@ -85,6 +87,9 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
       });
   }
 };
+
+export const authDatabase = (database: typeof db | Transaction) =>
+  drizzleAdapter(database, { provider: 'pg', schema });
 
 export const createAuth = (
   mailsService: MailsService,

@@ -21,6 +21,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { Transaction } from 'src/attendance/attendance-audit';
 import { isSameLocalizedText } from 'src/common/utils/localized-text';
@@ -51,6 +52,7 @@ import {
 import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
 import { RecipesService } from 'src/inventory/recipes.service';
 
@@ -138,7 +140,14 @@ export class MenusService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly recipesService: RecipesService,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
+
+  private t(key: keyof I18nTranslations['common']['menus']): string {
+    return this.i18n.t(`common.menus.${key}`, {
+      lang: I18nContext.current()?.lang,
+    });
+  }
 
   private async recipeWithCost(
     found: RecipeSummary | null | undefined,
@@ -191,9 +200,7 @@ export class MenusService {
   ): Promise<void> {
     if (!parentSectionId) return;
     if (parentSectionId === sectionId)
-      throw new BadRequestException(
-        'parentSectionId must not be the section itself',
-      );
+      throw new BadRequestException(this.t('parentSectionSelf'));
 
     await tx
       .select({ id: menu.id })
@@ -218,9 +225,7 @@ export class MenusService {
     if (ancestors.find(({ id }) => id === parentSectionId)?.menu_id !== menuId)
       throw new NotFoundException('Parent section not found');
     if (sectionId && ancestors.some(({ id }) => id === sectionId))
-      throw new BadRequestException(
-        'parentSectionId must not be a descendant of the section',
-      );
+      throw new BadRequestException(this.t('parentSectionDescendant'));
   }
 
   async createMenuSection(
@@ -1010,9 +1015,7 @@ export class MenusService {
     }: CreateMenuItemAddOnDto | UpdateMenuItemAddOnDto,
   ): Promise<void> {
     if (addOnMenuItemId === menuItemId) {
-      throw new BadRequestException(
-        'addOnMenuItemId must not be the menu item itself',
-      );
+      throw new BadRequestException(this.t('addOnSelf'));
     }
 
     const menuId = await this.menuIdOfItem(menuItemId);
@@ -1272,9 +1275,7 @@ export class MenusService {
     maxSelectionCount: number | null,
   ): void {
     if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
-      throw new BadRequestException(
-        'maxSelectionCount must be greater than or equal to minSelectionCount',
-      );
+      throw new BadRequestException(this.t('selectionCountInvalid'));
     }
   }
 

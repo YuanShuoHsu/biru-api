@@ -5,6 +5,10 @@ import {
   HttpException,
 } from '@nestjs/common';
 
+import { I18nContext } from 'nestjs-i18n';
+
+import type { I18nTranslations } from 'src/generated/i18n.generated';
+
 export const attendanceErrorCodes = [
   'activeShiftExists',
   'annualLeaveDeferralInUse',
@@ -133,44 +137,64 @@ export const attendanceErrorCodes = [
 
 export type AttendanceErrorCode = (typeof attendanceErrorCodes)[number];
 
+const translate = (code: AttendanceErrorCode) =>
+  I18nContext.current<I18nTranslations>()?.t(`common.attendance.${code}`) ??
+  code;
+
+const errorBody = (code: AttendanceErrorCode) => ({
+  code,
+  message: translate(code),
+});
+
 export const badRequestError = (code: AttendanceErrorCode) =>
-  new BadRequestException(code);
+  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
 
 export const conflictError = (code: AttendanceErrorCode) =>
-  new ConflictException(code);
+  new ConflictException({ error: 'Conflict', ...errorBody(code) });
 
 export const cancelIrreversibleError = (reason: AttendanceErrorCode) =>
   new ConflictException({
     error: 'Conflict',
-    message: 'cancelIrreversible',
+    ...errorBody('cancelIrreversible'),
     reason,
+    reasonMessage: translate(reason),
   });
 
 export const forbiddenError = (code: AttendanceErrorCode) =>
-  new ForbiddenException(code);
+  new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });
 
-export const isAttendanceErrorCode = (
-  value: string,
-): value is AttendanceErrorCode =>
-  (attendanceErrorCodes as readonly string[]).includes(value);
+export const attendanceErrorCodeOf = (
+  error: unknown,
+): AttendanceErrorCode | undefined => {
+  if (!(error instanceof HttpException)) return undefined;
+
+  const response = error.getResponse();
+  const code =
+    typeof response === 'object' && 'code' in response
+      ? response.code
+      : undefined;
+
+  return attendanceErrorCodes.find((value) => value === code);
+};
 
 export const runBatch = async (
   ids: string[],
   run: (id: string) => Promise<unknown>,
 ) => {
   const succeeded: string[] = [];
-  const skipped: { id: string; reason: AttendanceErrorCode }[] = [];
+  const skipped: {
+    id: string;
+    message: string;
+    reason: AttendanceErrorCode;
+  }[] = [];
   for (const id of [...new Set(ids)]) {
     try {
       await run(id);
       succeeded.push(id);
     } catch (error) {
-      if (
-        !(error instanceof HttpException) ||
-        !isAttendanceErrorCode(error.message)
-      )
-        throw error;
-      skipped.push({ id, reason: error.message });
+      const reason = attendanceErrorCodeOf(error);
+      if (!reason) throw error;
+      skipped.push({ id, message: translate(reason), reason });
     }
   }
   return { succeeded, skipped };

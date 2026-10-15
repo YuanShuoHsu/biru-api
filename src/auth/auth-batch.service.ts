@@ -13,8 +13,8 @@ import { session } from 'src/db/schema/users';
 import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
-import type { Auth } from '.';
-import { authDatabase, runInAuthTransaction } from './auth-transaction';
+import { authDatabase, type Auth } from '.';
+import { runInAuthTransaction } from './auth-transaction';
 import { runWithAuthHookState } from './hooks';
 
 @Injectable()

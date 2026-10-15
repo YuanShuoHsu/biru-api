@@ -75,7 +75,11 @@ import type {
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
 } from './dto/waitlist-settings.dto';
-import { badRequestError, conflictError } from './waitlist-errors';
+import {
+  badRequestError,
+  conflictError,
+  type WaitlistAudience,
+} from './waitlist-errors';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
@@ -287,19 +291,25 @@ export class WaitlistService {
       );
 
     if (org.closedAt) throw organizationClosedError();
-    if (!settings.enabled) throw badRequestError('waitlistDisabled');
+    if (!settings.enabled)
+      throw badRequestError('waitlistDisabled', byStaff ? 'staff' : 'guest');
     // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
-    if (!byStaff && settings.paused) throw badRequestError('waitlistPaused');
+    if (!byStaff && settings.paused)
+      throw badRequestError('waitlistPaused', 'guest');
     const { cutoff, open } = getAvailability(
       org.openingHours,
       settings.cutoffMinutes,
       new Date(),
     );
-    if (!byStaff && !open) throw badRequestError('waitlistClosed');
-    if (!byStaff && cutoff) throw badRequestError('waitlistCutoff');
+    if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
+    if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
 
     const group = findGroup(settings.groups, dto.partySize);
-    if (!group) throw badRequestError('waitlistPartySizeUnavailable');
+    if (!group)
+      throw badRequestError(
+        'waitlistPartySizeUnavailable',
+        byStaff ? 'staff' : 'guest',
+      );
 
     const serviceDate = platformDateString(new Date());
 
@@ -321,7 +331,11 @@ export class WaitlistService {
         ),
         columns: { id: true },
       });
-      if (inQueue) throw conflictError('waitlistPhoneInQueue');
+      if (inQueue)
+        throw conflictError(
+          'waitlistPhoneInQueue',
+          byStaff ? 'staff' : 'guest',
+        );
 
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
@@ -408,9 +422,10 @@ export class WaitlistService {
   private async updateStatus(
     ticket: WaitlistTicket,
     status: WaitlistTicketStatus,
+    audience: WaitlistAudience,
   ): Promise<WaitlistTicket> {
     if (!canTransition(ticket.status, status))
-      throw badRequestError('waitlistTransitionInvalid');
+      throw badRequestError('waitlistTransitionInvalid', audience);
 
     const now = new Date();
     const revert = isRevert(ticket.status, status);
@@ -434,10 +449,10 @@ export class WaitlistService {
       .returning()
       .catch((error: unknown) => {
         if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-          throw conflictError('waitlistPhoneInQueue');
+          throw conflictError('waitlistPhoneInQueue', audience);
         throw error;
       });
-    if (!updated) throw badRequestError('waitlistTransitionInvalid');
+    if (!updated) throw badRequestError('waitlistTransitionInvalid', audience);
 
     // 退回不帶號碼牌狀態，避免通知服務把它當成新取號、新叫號而重寄信
     this.emitUpdated(
@@ -454,11 +469,11 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     if (!isActive(ticket.status))
-      throw badRequestError('waitlistTransitionInvalid');
+      throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
 
     return this.toTicketResponse(
-      await this.updateStatus(ticket, 'cancelled'),
+      await this.updateStatus(ticket, 'cancelled', 'guest'),
       0,
       holdMinutes,
     );
@@ -470,7 +485,7 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     if (ticket.status !== 'called')
-      throw badRequestError('waitlistTransitionInvalid');
+      throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
     if (ticket.confirmedAt)
       return this.toTicketResponse(ticket, 0, holdMinutes);
@@ -485,7 +500,7 @@ export class WaitlistService {
         ),
       )
       .returning();
-    if (!updated) throw badRequestError('waitlistTransitionInvalid');
+    if (!updated) throw badRequestError('waitlistTransitionInvalid', 'guest');
 
     this.emitUpdated(updated.organizationId, null);
 
@@ -498,7 +513,7 @@ export class WaitlistService {
     status: StaffTransitionStatus,
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
-    const updated = await this.updateStatus(ticket, status);
+    const updated = await this.updateStatus(ticket, status, 'staff');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
 
     return this.toTicketResponse(
@@ -515,11 +530,11 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     if (!isActive(ticket.status))
-      throw badRequestError('waitlistTransitionInvalid');
+      throw badRequestError('waitlistTransitionInvalid', 'staff');
 
     const settings = await this.getSettings(ticket.organizationId);
     const group = findGroup(settings.groups, dto.partySize);
-    if (!group) throw badRequestError('waitlistPartySizeUnavailable');
+    if (!group) throw badRequestError('waitlistPartySizeUnavailable', 'staff');
 
     const regrouped = group.prefix !== ticket.prefix;
     const email = dto.email || null;
@@ -540,7 +555,7 @@ export class WaitlistService {
         ),
         columns: { id: true },
       });
-      if (inQueue) throw conflictError('waitlistPhoneInQueue');
+      if (inQueue) throw conflictError('waitlistPhoneInQueue', 'staff');
 
       const serviceDate = platformDateString(new Date());
       const [{ value: lastNumber }] = regrouped
@@ -583,13 +598,13 @@ export class WaitlistService {
         .returning()
         .catch((error: unknown) => {
           if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-            throw conflictError('waitlistPhoneInQueue');
+            throw conflictError('waitlistPhoneInQueue', 'staff');
           throw error;
         });
 
       return row;
     });
-    if (!updated) throw badRequestError('waitlistTransitionInvalid');
+    if (!updated) throw badRequestError('waitlistTransitionInvalid', 'staff');
 
     this.emitUpdated(
       updated.organizationId,
@@ -768,7 +783,7 @@ export class WaitlistService {
     dto: UpdateWaitlistSettingsDto,
   ): Promise<WaitlistSettingsResponseDto> {
     if (!isValidGroups(dto.groups))
-      throw badRequestError('waitlistGroupsInvalid');
+      throw badRequestError('waitlistGroupsInvalid', 'staff');
 
     const org = await this.getOrgBySlug(organizationSlug);
     const groups = [...dto.groups]
@@ -845,7 +860,7 @@ export class WaitlistService {
       );
 
       if (autoNoShowAt && autoNoShowAt <= now) {
-        await this.updateStatus(ticket, 'noShow').then(
+        await this.updateStatus(ticket, 'noShow', 'staff').then(
           () => skipped++,
           () => {},
         );

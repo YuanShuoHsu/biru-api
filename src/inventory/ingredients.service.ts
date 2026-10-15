@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -17,6 +18,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { COMPATIBLE_UNIT_CODES } from 'src/common/constants/units';
@@ -33,6 +35,7 @@ import {
 import { ingredient, supplier, type Ingredient } from 'src/db/schema/inventory';
 import { organization } from 'src/db/schema/organizations';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
   CreateIngredientDto,
@@ -71,7 +74,14 @@ export class IngredientsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
+
+  private t(key: keyof I18nTranslations['common']['inventory']): string {
+    return this.i18n.t(`common.inventory.${key}`, {
+      lang: I18nContext.current()?.lang,
+    });
+  }
 
   async findAll(
     organizationSlug: string,
@@ -404,9 +414,7 @@ export class IngredientsService {
     )
       return;
 
-    throw new BadRequestException(
-      'Package quantity, its unit, price, currency and base unit are all required',
-    );
+    throw new BadRequestException(this.t('packageRequired'));
   }
 
   private assertCompatibleUnitCode({
@@ -416,9 +424,7 @@ export class IngredientsService {
     if (!eligibleQuantityUnitCode || !unitCode) return;
 
     if (!COMPATIBLE_UNIT_CODES[unitCode].includes(eligibleQuantityUnitCode)) {
-      throw new BadRequestException(
-        `Package unit ${eligibleQuantityUnitCode} is not compatible with ingredient unit ${unitCode}`,
-      );
+      throw new BadRequestException(this.t('packageUnitIncompatible'));
     }
   }
 }

@@ -129,8 +129,12 @@ export class CouponsService {
   private t(
     key:
       | 'alreadyClaimed'
+      | 'codeExists'
       | 'expired'
       | 'inUse'
+      | 'issueMinSpendRequired'
+      | 'itemScopeSingleOrganization'
+      | 'itemScopeTargetsRequired'
       | 'memberNotFound'
       | 'memberOnly'
       | 'minSubtotal'
@@ -141,6 +145,7 @@ export class CouponsService {
       | 'notYetValid'
       | 'organizationClosed'
       | 'perUserLimitReached'
+      | 'percentageTooHigh'
       | 'pointsOnly'
       | 'usedUp',
     args?: Record<string, unknown>,
@@ -212,9 +217,7 @@ export class CouponsService {
     discountValue: number,
   ): void {
     if (discountType === 'percentage' && discountValue > 100)
-      throw new BadRequestException(
-        'Percentage discount value must be at most 100',
-      );
+      throw new BadRequestException(this.t('percentageTooHigh'));
   }
 
   private assertIssueTrigger(
@@ -222,9 +225,7 @@ export class CouponsService {
     issueMinSpend: number | null,
   ): void {
     if (issueTrigger === 'spend' && !issueMinSpend)
-      throw new BadRequestException(
-        'issueMinSpend is required for spend trigger',
-      );
+      throw new BadRequestException(this.t('issueMinSpendRequired'));
   }
 
   private assertScopeTargets(
@@ -236,13 +237,9 @@ export class CouponsService {
     if (scope !== 'item') return;
 
     if (!menuItemIds?.length && !menuSectionIds?.length)
-      throw new BadRequestException(
-        'menuItemIds or menuSectionIds is required for item scope',
-      );
+      throw new BadRequestException(this.t('itemScopeTargetsRequired'));
     if (applicableOrganizationIds?.length !== 1)
-      throw new BadRequestException(
-        'Item scope requires exactly one applicable organization',
-      );
+      throw new BadRequestException(this.t('itemScopeSingleOrganization'));
   }
 
   private async resolveDiscountCurrency(
@@ -276,7 +273,7 @@ export class CouponsService {
     const existing = await this.db.query.coupon.findFirst({
       where: sql`lower(${coupon.code}) = lower(${code})`,
     });
-    if (existing) throw new BadRequestException('Coupon code already exists');
+    if (existing) throw new BadRequestException(this.t('codeExists'));
 
     const [created] = await this.db
       .insert(coupon)
@@ -737,8 +734,7 @@ export class CouponsService {
           sql`lower(${coupon.code}) = lower(${dto.code.trim()})`,
         ),
       });
-      if (duplicated)
-        throw new BadRequestException('Coupon code already exists');
+      if (duplicated) throw new BadRequestException(this.t('codeExists'));
     }
 
     const [updated] = await this.db

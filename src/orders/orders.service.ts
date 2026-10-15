@@ -8,6 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -27,6 +28,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
 import { invoice } from 'src/db/schema/invoices';
 import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
@@ -35,6 +37,7 @@ import type { Organization } from 'src/db/schema/organizations';
 import { member, organization } from 'src/db/schema/organizations';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
@@ -187,7 +190,14 @@ export class OrdersService {
     private readonly inventoryTransactionsService: InventoryTransactionsService,
     private readonly orderPricingService: OrderPricingService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
+
+  private t(key: keyof I18nTranslations['common']['orders']): string {
+    return this.i18n.t(`common.orders.${key}`, {
+      lang: I18nContext.current()?.lang,
+    });
+  }
 
   private async getOrgBySlug(slug: string) {
     const org = await this.db.query.organization.findFirst({
@@ -225,21 +235,21 @@ export class OrdersService {
       throw new BadRequestException('pickupTime is not on the pickup interval');
 
     if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
-      throw new BadRequestException('pickupTime is too soon');
+      throw new BadRequestException(this.t('pickupTooSoon'));
 
     const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
     const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
     if (pickupTime.getTime() >= advanceLimit)
-      throw new BadRequestException('pickupTime is too far ahead');
+      throw new BadRequestException(this.t('pickupTooFarAhead'));
 
     if (!isWithinOpeningHours(org.openingHours, pickupTime))
-      throw new BadRequestException('pickupTime is outside opening hours');
+      throw new BadRequestException(this.t('pickupOutsideOpeningHours'));
 
     if (
       getMinutesUntilClose(org.openingHours, pickupTime) <
       Math.max(org.pickupCutoffMinutes, 0)
     )
-      throw new BadRequestException('pickupTime is too close to closing time');
+      throw new BadRequestException(this.t('pickupTooCloseToClosing'));
 
     return pickupTime;
   }
@@ -690,10 +700,7 @@ export class OrdersService {
       const rule = getAvailableTransitions(current).find(
         (available) => available.toStatus === toStatus,
       );
-      if (!rule)
-        throw new BadRequestException(
-          `Order in ${current.orderStatus} cannot be set to ${toStatus}`,
-        );
+      if (!rule) throw new BadRequestException(this.t('statusChanged'));
 
       return { current, rule };
     });
@@ -703,10 +710,7 @@ export class OrdersService {
 
       for (const { current, rule } of planned) {
         const [updated] = await this.runTransition(tx, rule, [current.id]);
-        if (!updated)
-          throw new BadRequestException(
-            `Order in ${current.orderStatus} cannot be set to ${toStatus}`,
-          );
+        if (!updated) throw new BadRequestException(this.t('statusChanged'));
 
         results.push(toAdminOrder({ ...current, ...updated }));
       }
@@ -822,7 +826,7 @@ export class OrdersService {
       found.orderStatus !== 'OrderPaymentDue' ||
       Date.now() > deadline.getTime()
     )
-      throw new BadRequestException('Order is not awaiting payment');
+      throw new BadRequestException(this.t('notAwaitingPayment'));
 
     const merchantTradeNo = generateMerchantTradeNo();
 

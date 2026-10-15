@@ -94,6 +94,7 @@ export class ReviewAttendanceBatchDto {
 
 export class AttendanceBatchSkippedResponseDto {
   @ApiProperty() id: string;
+  @ApiProperty() message: string;
   @ApiProperty({ enum: attendanceErrorCodes, enumName: 'AttendanceErrorCode' })
   reason: AttendanceErrorCode;
 }

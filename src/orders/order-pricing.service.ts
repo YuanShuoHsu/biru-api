@@ -6,8 +6,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
+import { toLanguage } from 'src/common/utils/language';
 import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
 
 import { eq, inArray } from 'drizzle-orm';
@@ -32,6 +34,8 @@ import type {
 } from 'src/db/schema/orders';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import type { I18nTranslations } from 'src/generated/i18n.generated';
+import { localize } from 'src/menus/menus-public.service';
 
 import type {
   CreateOrderItemAddOnDto,
@@ -76,7 +80,24 @@ export interface ResolvedOrderItem {
 
 @Injectable()
 export class OrderPricingService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly i18n: I18nService<I18nTranslations>,
+  ) {}
+
+  private t(
+    key: keyof I18nTranslations['common']['orders'],
+    args?: Record<string, unknown>,
+  ): string {
+    return this.i18n.t(`common.orders.${key}`, {
+      args,
+      lang: I18nContext.current()?.lang,
+    });
+  }
+
+  private localName(text: LocalizedText | null | undefined): string {
+    return localize(text, toLanguage(I18nContext.current()?.lang)) ?? '';
+  }
 
   async resolveOrderItems(
     organizationId: string,
@@ -169,11 +190,15 @@ export class OrderPricingService {
         throw new BadRequestException(`MenuItem ${menuItemId} not found`);
       if (!item.availableModes.includes(mode))
         throw new BadRequestException(
-          `MenuItem ${menuItemId} is unavailable for mode ${mode}`,
+          this.t('menuItemUnavailableForMode', {
+            name: this.localName(item.name),
+          }),
         );
       if (outsideAvailableHours.has(menuItemId))
         throw new BadRequestException(
-          `MenuItem ${menuItemId} is unavailable at the requested time`,
+          this.t('menuItemUnavailableAtTime', {
+            name: this.localName(item.name),
+          }),
         );
       return item;
     };
@@ -267,13 +292,19 @@ export class OrderPricingService {
             );
           if (!mod.availableModes.includes(mode))
             throw new BadRequestException(
-              `Modifier ${modId} is unavailable for mode ${mode}`,
+              this.t('modifierUnavailableForMode', {
+                name: this.localName(mod.displayName),
+              }),
             );
           if (
             mod.availability === 'SoldOut' ||
             mod.availability === 'Discontinued'
           )
-            throw new BadRequestException(`Modifier ${modId} is unavailable`);
+            throw new BadRequestException(
+              this.t('modifierUnavailable', {
+                name: this.localName(mod.displayName),
+              }),
+            );
           return {
             modifierGroupId: mod.modifierGroupId,
             modifierGroupName: getName(mod.modifierGroup?.displayName),

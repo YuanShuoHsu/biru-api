@@ -1,9 +1,4 @@
-import {
-  HttpException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   and,
@@ -67,7 +62,7 @@ import {
   cancelIrreversibleError,
   conflictError,
   forbiddenError,
-  isAttendanceErrorCode,
+  attendanceErrorCodeOf,
 } from './attendance-errors';
 import {
   ADULT_WORKING_AGE,
@@ -1323,8 +1318,9 @@ export class AttendanceShiftsService {
           organizationId: actor.organizationId,
         });
       } catch (error) {
+        const code = attendanceErrorCodeOf(error);
         const reason = ATTENDANCE_COPY_SKIP_REASONS.find(
-          (code) => error instanceof HttpException && error.message === code,
+          (value) => value === code,
         );
         if (!skip || !reason) throw error;
         skip(index, reason);
@@ -1439,11 +1435,8 @@ export class AttendanceShiftsService {
         try {
           await this.prepareRestore(tx, actor, shift);
         } catch (error) {
-          if (
-            error instanceof HttpException &&
-            isAttendanceErrorCode(error.message)
-          )
-            throw cancelIrreversibleError(error.message);
+          const code = attendanceErrorCodeOf(error);
+          if (code) throw cancelIrreversibleError(code);
           throw error;
         }
       await tx
