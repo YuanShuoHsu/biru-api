@@ -92,7 +92,23 @@ const restorableTablesFor = (role: string) =>
 export const canRestoreAnything = (role: string) =>
   RESTORABLE_TABLES.some((table) => restorableTablesFor(role).includes(table));
 
-const canRestoreTables = (tables: string[], scope: RestoreScope) => {
+const grantsOwner = (rows: Pick<Row, 'tableName' | 'data'>[]) =>
+  rows.some(
+    ({ tableName, data }) =>
+      (tableName === 'member' || tableName === 'invitation') &&
+      (asString(data.role) ?? '')
+        .split(',')
+        .map((role) => role.trim())
+        .includes('owner'),
+  );
+
+const canRestoreTables = (
+  tables: string[],
+  scope: RestoreScope,
+  restoresOwner: boolean,
+) => {
+  if (restoresOwner && scope.role !== 'owner') return false;
+
   const required = tables.map((table) => RESTORE_PERMISSIONS[table]);
   if (!required.length || required.some((action) => !action)) return false;
 
@@ -302,6 +318,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         user_name: string | null;
         deleted_by: string | null;
         tables: string[];
+        restores_owner: boolean;
       }>(sql`
         WITH roots AS (${roots})
         SELECT
@@ -312,6 +329,14 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           r.data,
           (SELECT count(*)::int - 1 FROM deleted_record d WHERE d.batch_id = r.batch_id) AS related_count,
           (SELECT array_agg(DISTINCT t.table_name) FROM deleted_record t WHERE t.batch_id = r.batch_id) AS tables,
+          EXISTS (
+            SELECT 1 FROM deleted_record m
+            WHERE m.batch_id = r.batch_id
+              AND m.table_name IN ('member', 'invitation')
+              AND 'owner' = ANY (
+                SELECT trim(role) FROM unnest(string_to_array(m.data ->> 'role', ',')) AS role
+              )
+          ) AS restores_owner,
           o.name AS organization_name,
           u.name AS user_name,
           COALESCE(
@@ -371,7 +396,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                     : null),
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
-                canRestore: !scope || canRestoreTables(row.tables, scope),
+                canRestore:
+                  !scope ||
+                  canRestoreTables(row.tables, scope, row.restores_owner),
               },
             ]
           : [],
@@ -447,7 +474,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
         throw new NotFoundException('Deleted record batch not found');
-      if (!canRestoreTables([...batchTables], scope))
+      if (!canRestoreTables([...batchTables], scope, grantsOwner(batch)))
         throw new ForbiddenException();
     }
 
