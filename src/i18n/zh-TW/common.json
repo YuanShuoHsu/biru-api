@@ -3,6 +3,7 @@
     "alreadyClaimed": "您已領取過此優惠券",
     "expired": "優惠碼已過期",
     "inUse": "已有顧客領取此優惠券，無法刪除，請改為停用。",
+    "memberNotFound": "找不到使用此電子信箱的會員",
     "memberOnly": "此優惠碼限會員使用",
     "minSubtotal": "訂單金額須滿 {amount} 才能使用此優惠碼",
     "notApplicable": "此優惠碼不適用於購物車內的品項",

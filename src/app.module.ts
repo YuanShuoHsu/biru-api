@@ -12,6 +12,7 @@ import {
   AcceptLanguageResolver,
   HeaderResolver,
   I18nModule,
+  I18nService,
   QueryResolver,
 } from 'nestjs-i18n';
 import { join } from 'node:path';
@@ -23,6 +24,7 @@ import { AuditModule } from './audit/audit.module';
 import { createAuth } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { runWithAuthHookState } from './auth/hooks';
+import { createAuthI18n } from './auth/i18n';
 import { BannersModule } from './banners/banners.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { CouponsModule } from './coupons/coupons.module';
@@ -32,6 +34,7 @@ import { DrizzleModule } from './drizzle/drizzle.module';
 import { EcpayModule } from './ecpay/ecpay.module';
 import { EventsModule } from './events/events.module';
 import { GcisModule } from './gcis/gcis.module';
+import type { I18nTranslations } from './generated/i18n.generated';
 import { InventoryModule } from './inventory/inventory.module';
 import { MailsModule } from './mails/mails.module';
 import { MailsService } from './mails/mails.service';
@@ -53,9 +56,12 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     BannersModule,
     BetterAuthModule.forRootAsync({
       imports: [MailsModule],
-      inject: [MailsService],
-      useFactory: (mailsService: MailsService) => ({
-        auth: createAuth(mailsService),
+      inject: [MailsService, I18nService],
+      useFactory: (
+        mailsService: MailsService,
+        i18nService: I18nService<I18nTranslations>,
+      ) => ({
+        auth: createAuth(mailsService, createAuthI18n(i18nService)),
         bodyParser: { json: { limit: '2mb' } },
         middleware: (_req, _res, next) => runWithAuthHookState(next),
       }),

@@ -3,6 +3,7 @@
     "alreadyClaimed": "You have already claimed this coupon",
     "expired": "This promo code has expired",
     "inUse": "Customers have already claimed this coupon, so it can't be deleted. Deactivate it instead.",
+    "memberNotFound": "No member found with this email.",
     "memberOnly": "This promo code is for members only",
     "minSubtotal": "A minimum order of {amount} is required to use this promo code",
     "notApplicable": "This promo code does not apply to the items in your cart",

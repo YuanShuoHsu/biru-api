@@ -29,6 +29,7 @@ import {
   ORGANIZATION_WRITE_PATHS,
 } from './closure-guards';
 import { assertUserDeletable } from './deletion-guards';
+import type { LocalizeAuthError } from './i18n';
 
 import type {
   AuditAction,
@@ -391,73 +392,80 @@ export const authHookState = () => {
   return store.state;
 };
 
-export const authHooks = {
+export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
   before: createAuthMiddleware(async (ctx) => {
-    if (ctx.path === '/admin/remove-user' || SELF_DELETE_PATHS.has(ctx.path)) {
-      const session = await getSessionFromCtx(ctx);
-      const isSelfDelete = SELF_DELETE_PATHS.has(ctx.path);
-      const userId = isSelfDelete
-        ? session?.user.id
-        : session?.user.role === 'admin'
-          ? asString(asRow(ctx.body)?.userId)
-          : undefined;
+    try {
+      if (
+        ctx.path === '/admin/remove-user' ||
+        SELF_DELETE_PATHS.has(ctx.path)
+      ) {
+        const session = await getSessionFromCtx(ctx);
+        const isSelfDelete = SELF_DELETE_PATHS.has(ctx.path);
+        const userId = isSelfDelete
+          ? session?.user.id
+          : session?.user.role === 'admin'
+            ? asString(asRow(ctx.body)?.userId)
+            : undefined;
 
-      if (userId) {
-        await assertUserDeletable(userId);
-        if (isSelfDelete) authHookState().selfDeletedUserId = userId;
-        authHookState().deletion = {
-          parent: { table: 'user', id: userId },
-          sinceId: await latestDeletedRecordId(),
-        };
+        if (userId) {
+          await assertUserDeletable(userId);
+          if (isSelfDelete) authHookState().selfDeletedUserId = userId;
+          authHookState().deletion = {
+            parent: { table: 'user', id: userId },
+            sinceId: await latestDeletedRecordId(),
+          };
+        }
       }
-    }
 
-    if (ctx.path === '/organization/delete') {
-      const organizationId = asString(asRow(ctx.body)?.organizationId);
-      if (organizationId)
-        authHookState().deletion = {
-          parent: { table: 'organization', id: organizationId },
-          sinceId: await latestDeletedRecordId(),
-        };
-    }
+      if (ctx.path === '/organization/delete') {
+        const organizationId = asString(asRow(ctx.body)?.organizationId);
+        if (organizationId)
+          authHookState().deletion = {
+            parent: { table: 'organization', id: organizationId },
+            sinceId: await latestDeletedRecordId(),
+          };
+      }
 
-    if (ctx.path === '/organization/remove-team') {
-      const teamId = asString(asRow(ctx.body)?.teamId);
-      if (teamId)
-        authHookState().deletion = {
-          parent: { table: 'team', id: teamId },
-          sinceId: await latestDeletedRecordId(),
-        };
-    }
+      if (ctx.path === '/organization/remove-team') {
+        const teamId = asString(asRow(ctx.body)?.teamId);
+        if (teamId)
+          authHookState().deletion = {
+            parent: { table: 'team', id: teamId },
+            sinceId: await latestDeletedRecordId(),
+          };
+      }
 
-    if (ORGANIZATION_WRITE_PATHS.has(ctx.path)) {
-      const session = await getSessionFromCtx(ctx);
-      if (session)
-        await assertOrganizationOpen(
-          asRow(ctx.body) ?? {},
-          asString(asRow(session.session)?.activeOrganizationId),
-        );
-    }
+      if (ORGANIZATION_WRITE_PATHS.has(ctx.path)) {
+        const session = await getSessionFromCtx(ctx);
+        if (session)
+          await assertOrganizationOpen(
+            asRow(ctx.body) ?? {},
+            asString(asRow(session.session)?.activeOrganizationId),
+          );
+      }
 
-    if (REVOKE_SESSION_PATHS.has(ctx.path)) {
+      if (REVOKE_SESSION_PATHS.has(ctx.path)) {
+        try {
+          authHookState().snapshot = await runInAuthSavepoint(() =>
+            countRevokedSessions(ctx.path, asRow(ctx.body) ?? {}),
+          );
+        } catch (error) {
+          logger.error('Failed to snapshot audit target', error);
+        }
+      }
+
+      const target = BEFORE_TARGETS[ctx.path]?.(asRow(ctx.body) ?? {});
+      if (!target) return;
+
       try {
         authHookState().snapshot = await runInAuthSavepoint(() =>
-          countRevokedSessions(ctx.path, asRow(ctx.body) ?? {}),
+          findRow(target),
         );
       } catch (error) {
         logger.error('Failed to snapshot audit target', error);
       }
-    }
-
-    const target = BEFORE_TARGETS[ctx.path]?.(asRow(ctx.body) ?? {});
-    if (!target) return;
-
-    try {
-      authHookState().snapshot = await runInAuthSavepoint(() =>
-        findRow(target),
-      );
     } catch (error) {
-      logger.error('Failed to snapshot audit target', error);
+      throw localizeError(error, ctx.headers);
     }
   }),
   after: createAuthMiddleware(async (ctx) => {
@@ -512,4 +520,4 @@ export const authHooks = {
       logger.error('Failed to write audit log', error);
     }
   }),
-};
+});

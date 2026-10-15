@@ -3,6 +3,7 @@
     "alreadyClaimed": "您已领取过此优惠券",
     "expired": "优惠码已过期",
     "inUse": "已有顾客领取此优惠券，无法删除，请改为停用。",
+    "memberNotFound": "找不到使用此电子邮箱的会员",
     "memberOnly": "此优惠码仅限会员使用",
     "minSubtotal": "订单金额需满 {amount} 才能使用此优惠码",
     "notApplicable": "此优惠码不适用于购物车内的商品",

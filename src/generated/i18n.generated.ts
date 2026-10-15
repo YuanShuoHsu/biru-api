@@ -5,11 +5,55 @@
 import type { Path } from "nestjs-i18n";
 /* prettier-ignore */
 export type I18nTranslations = {
+    "auth": {
+        "BANNED_USER": string;
+        "CREDENTIAL_ACCOUNT_NOT_FOUND": string;
+        "EMAIL_ALREADY_VERIFIED": string;
+        "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
+        "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
+        "INVALID_EMAIL_OR_PASSWORD": string;
+        "INVALID_PASSWORD": string;
+        "INVALID_SESSION_TOKEN": string;
+        "INVALID_TOKEN": string;
+        "INVALID_USER": string;
+        "INVITATION_NOT_FOUND": string;
+        "MEMBER_NOT_FOUND": string;
+        "NO_ACTIVE_ORGANIZATION": string;
+        "ORGANIZATION_ALREADY_EXISTS": string;
+        "ORGANIZATION_CLOSED": string;
+        "ORGANIZATION_HAS_BUSINESS_RECORDS": string;
+        "ORGANIZATION_NOT_FOUND": string;
+        "ORGANIZATION_SLUG_ALREADY_TAKEN": string;
+        "PASSWORD_TOO_LONG": string;
+        "PHONE_NUMBER_ALREADY_EXISTS": string;
+        "TEAM_NOT_FOUND": string;
+        "TOKEN_EXPIRED": string;
+        "UNAUTHORIZED": string;
+        "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": string;
+        "USER_HAS_EMPLOYMENT_RECORDS": string;
+        "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION": string;
+        "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION": string;
+        "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION": string;
+        "USER_IS_NOT_A_MEMBER_OF_THE_TEAM": string;
+        "USER_IS_SOLE_ORGANIZATION_OWNER": string;
+        "USER_NOT_FOUND": string;
+        "VALIDATION_ERROR": string;
+        "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_ORGANIZATION": string;
+        "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER": string;
+        "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION": string;
+        "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION": string;
+        "YOU_CANNOT_BAN_YOURSELF": string;
+        "YOU_CANNOT_IMPERSONATE_ADMINS": string;
+        "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER": string;
+        "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER": string;
+        "YOU_CANNOT_REMOVE_YOURSELF": string;
+    };
     "common": {
         "coupons": {
             "alreadyClaimed": string;
             "expired": string;
             "inUse": string;
+            "memberNotFound": string;
             "memberOnly": string;
             "minSubtotal": string;
             "notApplicable": string;

@@ -21,7 +21,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { authDatabase, authDb, runInAuthSavepoint } from './auth-transaction';
 import { assertOrganizationDeletable } from './deletion-guards';
-import { authHookState, authHooks } from './hooks';
+import { authHookState, createAuthHooks } from './hooks';
+import type { createAuthI18n } from './i18n';
 import { ac, admin, member, owner } from './permissions';
 
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
@@ -85,7 +86,10 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
   }
 };
 
-export const createAuth = (mailsService: MailsService) =>
+export const createAuth = (
+  mailsService: MailsService,
+  authI18n: ReturnType<typeof createAuthI18n>,
+) =>
   betterAuth({
     account: {
       accountLinking: {
@@ -188,7 +192,7 @@ export const createAuth = (mailsService: MailsService) =>
         await mailsService.sendVerificationEmail({ user, url, token }, request);
       },
     },
-    hooks: authHooks,
+    hooks: createAuthHooks(authI18n.localizeError),
     plugins: [
       adminPlugin(),
       multiSession(),
@@ -392,6 +396,7 @@ export const createAuth = (mailsService: MailsService) =>
           allowRemovingAllTeams: true,
         },
       }),
+      authI18n.plugin,
     ],
     rateLimit: {
       enabled: true,

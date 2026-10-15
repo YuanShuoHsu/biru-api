@@ -131,6 +131,7 @@ export class CouponsService {
       | 'alreadyClaimed'
       | 'expired'
       | 'inUse'
+      | 'memberNotFound'
       | 'memberOnly'
       | 'minSubtotal'
       | 'notApplicable'
@@ -1103,7 +1104,7 @@ export class CouponsService {
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
     });
-    if (!target) throw new NotFoundException('User not found');
+    if (!target) throw new NotFoundException(this.t('memberNotFound'));
 
     const created = await this.db.transaction(async (tx) => {
       if (found.totalLimit !== null) {
