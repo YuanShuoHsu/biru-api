@@ -16,6 +16,7 @@ import {
   getTableColumns,
   ilike,
   inArray,
+  is,
   or,
   sql,
 } from 'drizzle-orm';
@@ -24,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { Transaction } from 'src/attendance/attendance-audit';
+import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
 import { isSameLocalizedText } from 'src/common/utils/localized-text';
 import { getOrganizationCurrency } from 'src/common/utils/organizations';
 import type { LocalizedText } from 'src/db/schema/enums';
@@ -128,6 +130,71 @@ type ModifierWithCurrency = Modifier & { priceCurrency: string };
 type MenuItemWithRecipe = MenuItem & {
   offer: OfferWithCurrency | null;
   recipe: (RecipeSummary & { cost?: number | null }) | null;
+};
+
+type DrinkOptions = Pick<
+  MenuItem,
+  | 'servingTemperatures'
+  | 'recommendedServingTemperatureLevel'
+  | 'sweetness'
+  | 'fixedSweetnessLevel'
+  | 'recommendedSweetnessLevel'
+>;
+
+const DRINK_OPTION_FIELDS = [
+  'servingTemperatures',
+  'recommendedServingTemperatureLevel',
+  'sweetness',
+  'fixedSweetnessLevel',
+  'recommendedSweetnessLevel',
+] as const satisfies readonly (keyof DrinkOptions)[];
+
+const literalDefault = <T>(value: T | SQL | undefined): T => {
+  if (value === undefined || is(value, SQL))
+    throw new Error('Expected a literal column default');
+
+  return value;
+};
+
+const NEW_MENU_ITEM_DRINK_OPTIONS: DrinkOptions = {
+  servingTemperatures: literalDefault(menuItem.servingTemperatures.default),
+  recommendedServingTemperatureLevel: null,
+  sweetness: literalDefault(menuItem.sweetness.default),
+  fixedSweetnessLevel: null,
+  recommendedSweetnessLevel: null,
+};
+
+const resolveDrinkOptions = (
+  current: DrinkOptions,
+  data: UpdateMenuItemDto,
+): Omit<DrinkOptions, 'servingTemperatures' | 'sweetness'> => {
+  const next = <K extends keyof DrinkOptions>(field: K): DrinkOptions[K] =>
+    data[field] === undefined
+      ? current[field]
+      : (data[field] as DrinkOptions[K]);
+
+  const sweetness = next('sweetness');
+  const servingTemperatures = next('servingTemperatures');
+  const temperatureLevel = next('recommendedServingTemperatureLevel');
+  const fixedSweetnessLevel =
+    sweetness === 'Fixed' ? next('fixedSweetnessLevel') : null;
+  if (sweetness === 'Fixed' && !fixedSweetnessLevel)
+    throw new BadRequestException(
+      'fixedSweetnessLevel is required when sweetness is Fixed',
+    );
+
+  return {
+    recommendedServingTemperatureLevel:
+      temperatureLevel &&
+      servingTemperatures.includes(
+        SERVING_TEMPERATURE_OF_LEVEL[temperatureLevel],
+      )
+        ? temperatureLevel
+        : null,
+    fixedSweetnessLevel,
+    recommendedSweetnessLevel:
+      sweetness === 'Adjustable' ? next('recommendedSweetnessLevel') : null,
+  };
 };
 
 const withCurrency = (
@@ -433,6 +500,7 @@ export class MenusService {
           menuId: section.menuId,
           sortOrder: 0,
           ...itemData,
+          ...resolveDrinkOptions(NEW_MENU_ITEM_DRINK_OPTIONS, itemData),
         })
         .returning();
 
@@ -705,18 +773,38 @@ export class MenusService {
   }): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = params.data;
 
+    const touchesDrinkOptions = DRINK_OPTION_FIELDS.some(
+      (field) => itemData[field] !== undefined,
+    );
+
     const result = await this.db.transaction(async (tx) => {
-      const [previous] = itemData.name
-        ? await tx
-            .select({ name: menuItem.name })
-            .from(menuItem)
-            .where(eq(menuItem.id, params.where.id))
-        : [];
+      const [previous] =
+        itemData.name || touchesDrinkOptions
+          ? await tx
+              .select({
+                name: menuItem.name,
+                servingTemperatures: menuItem.servingTemperatures,
+                recommendedServingTemperatureLevel:
+                  menuItem.recommendedServingTemperatureLevel,
+                sweetness: menuItem.sweetness,
+                fixedSweetnessLevel: menuItem.fixedSweetnessLevel,
+                recommendedSweetnessLevel: menuItem.recommendedSweetnessLevel,
+              })
+              .from(menuItem)
+              .where(eq(menuItem.id, params.where.id))
+              .for('update')
+          : [];
 
       const [[updated], existingOffers] = await Promise.all([
         tx
           .update(menuItem)
-          .set({ ...itemData, updatedAt: new Date() })
+          .set({
+            ...itemData,
+            ...(touchesDrinkOptions &&
+              previous &&
+              resolveDrinkOptions(previous, itemData)),
+            updatedAt: new Date(),
+          })
           .where(eq(menuItem.id, params.where.id))
           .returning(),
         tx
@@ -729,7 +817,9 @@ export class MenusService {
       if (!updated) throw new NotFoundException('Menu item not found');
 
       const renamed =
-        !!previous && !isSameLocalizedText(previous.name, updated.name);
+        !!itemData.name &&
+        !!previous &&
+        !isSameLocalizedText(previous.name, updated.name);
 
       if (renamed) {
         await tx

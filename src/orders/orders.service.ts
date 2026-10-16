@@ -91,11 +91,13 @@ import {
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto';
 import type {
+  OrderReceiptResponseDto,
   OrderResponseDto,
   UserOrderResponseDto,
 } from './dto/order-response.dto';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
+import { isValidOrderAccessToken } from './order-access-token';
 import { OrderPricingService } from './order-pricing.service';
 import {
   CANCEL_UNPAID_ORDER,
@@ -173,6 +175,52 @@ const toPaymentDate = (value?: string): Date | undefined => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
+const ORDER_RECEIPT_COLUMNS = {
+  id: true,
+  mode: true,
+  orderNumber: true,
+  paymentMethod: true,
+  paymentMethodId: true,
+  orderStatus: true,
+  confirmationNumber: true,
+  orderDate: true,
+  paymentDate: true,
+  paymentDueDate: true,
+  tradeNo: true,
+  partySize: true,
+  pickupTime: true,
+  tableNumber: true,
+  discount: true,
+  discountCode: true,
+  discountCurrency: true,
+  subtotal: true,
+  total: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const ORDER_RECEIPT_INVOICE_COLUMNS = {
+  id: true,
+  orderId: true,
+  type: true,
+  carrierType: true,
+  carrierNum: true,
+  email: true,
+  customerIdentifier: true,
+  customerName: true,
+  customerAddr: true,
+  donateCode: true,
+  paymentStatus: true,
+  status: true,
+  invoiceNumber: true,
+  invoiceDate: true,
+  randomNumber: true,
+  printedAt: true,
+  printResetCount: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
 
 const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -207,20 +255,35 @@ export class OrdersService {
     return org;
   }
 
-  private async findOrderByIdempotencyKey(
+  private findOrderByIdempotencyKey(
     db: Pick<DrizzleDB, 'query'>,
     sellerId: string,
     idempotencyKey: string,
   ) {
-    const found = await db.query.order.findFirst({
+    return db.query.order.findFirst({
       where: and(
         eq(order.sellerId, sellerId),
         eq(order.idempotencyKey, idempotencyKey),
       ),
-      with: { invoices: true, items: true },
+      columns: { id: true, orderStatus: true },
     });
+  }
 
-    return found && toActiveInvoice(found);
+  private async findOrderReceipt(
+    sellerId: string,
+    orderId: string,
+  ): Promise<OrderReceiptResponseDto> {
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, sellerId)),
+      columns: ORDER_RECEIPT_COLUMNS,
+      with: {
+        invoices: { columns: ORDER_RECEIPT_INVOICE_COLUMNS },
+        items: true,
+      },
+    });
+    if (!found) throw new NotFoundException('Order not found');
+
+    return toActiveInvoice(found);
   }
 
   private resolvePickupTime(org: Organization, value?: string): Date {
@@ -259,7 +322,7 @@ export class OrdersService {
     dto: CreateOrderDto,
     userId: string | null,
     idempotencyKey: string | null,
-  ): Promise<OrderResponseDto> {
+  ): Promise<OrderReceiptResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
       throw new BadRequestException('Cash is unavailable for this order mode');
 
@@ -276,7 +339,7 @@ export class OrdersService {
     const replayed = idempotencyKey
       ? await this.findOrderByIdempotencyKey(this.db, org.id, idempotencyKey)
       : null;
-    if (replayed) return replayed;
+    if (replayed) return this.findOrderReceipt(org.id, replayed.id);
 
     if (org.closedAt) throw organizationClosedError();
 
@@ -420,7 +483,7 @@ export class OrdersService {
         organizationId: org.id,
       });
 
-    return result;
+    return this.findOrderReceipt(org.id, result.id);
   }
 
   async listOrders(
@@ -529,7 +592,9 @@ export class OrdersService {
         orderBy: [desc(order.createdAt)],
         limit,
         offset,
+        columns: ORDER_RECEIPT_COLUMNS,
         with: {
+          invoices: { columns: ORDER_RECEIPT_INVOICE_COLUMNS },
           items: true,
           seller: {
             columns: {
@@ -545,46 +610,50 @@ export class OrdersService {
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data, total };
+    return { data: data.map(toActiveInvoice), total };
   }
 
   async getOrder(
     organizationSlug: string,
     orderId: string,
     userId: string | null,
-  ): Promise<OrderResponseDto> {
+    accessToken: string | null,
+  ): Promise<OrderReceiptResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const found = await this.db.query.order.findFirst({
-      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
-      with: { items: true },
-    });
-    if (!found) throw new NotFoundException('Order not found');
+    const receipt = await this.findOrderReceipt(org.id, orderId);
 
-    if (!(await this.canReadOrder(found, userId)))
+    if (!(await this.canReadOrderById(orderId, userId, accessToken)))
       throw new ForbiddenException();
 
-    return found;
+    return receipt;
   }
 
   async canReadOrderById(
     orderId: string,
     userId: string | null,
+    accessToken: string | null,
   ): Promise<boolean> {
     const found = await this.db.query.order.findFirst({
       where: eq(order.id, orderId),
-      columns: { sellerId: true, userId: true },
+      columns: { id: true, sellerId: true, userId: true },
     });
 
-    return !!found && (await this.canReadOrder(found, userId));
+    return !!found && (await this.canReadOrder(found, userId, accessToken));
   }
 
   private async canReadOrder(
-    { sellerId, userId: ownerId }: { sellerId: string; userId: string | null },
+    {
+      id,
+      sellerId,
+      userId: ownerId,
+    }: { id: string; sellerId: string; userId: string | null },
     userId: string | null,
+    accessToken: string | null,
   ): Promise<boolean> {
-    if (!ownerId || ownerId === userId) return true;
+    if (isValidOrderAccessToken(id, accessToken)) return true;
     if (!userId) return false;
+    if (ownerId === userId) return true;
 
     const membership = await this.db.query.member.findFirst({
       where: and(
@@ -670,16 +739,6 @@ export class OrdersService {
         ),
       )
       .orderBy(asc(BOARD_AT));
-  }
-
-  async getOrderStatus(orderId: string): Promise<{ orderStatus: OrderStatus }> {
-    const found = await this.db.query.order.findFirst({
-      where: eq(order.id, orderId),
-      columns: { orderStatus: true },
-    });
-    if (!found) throw new NotFoundException('Order not found');
-
-    return found;
   }
 
   async applyTransitions(
@@ -796,6 +855,7 @@ export class OrdersService {
       .returning();
 
     this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      orderId,
       organizationId: org.id,
     } satisfies OrderUpdatedEvent);
 

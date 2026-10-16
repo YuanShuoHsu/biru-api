@@ -167,8 +167,9 @@ export class EcpayOrderInvoiceService {
     });
   }
 
-  private emitOrderUpdated(organizationId: string) {
+  private emitOrderUpdated(organizationId: string, orderId: string) {
     this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      orderId,
       organizationId,
     } satisfies OrderUpdatedEvent);
   }
@@ -208,6 +209,7 @@ export class EcpayOrderInvoiceService {
     const stuck = await this.db
       .select({
         id: invoice.id,
+        orderId: invoice.orderId,
         organizationId: order.sellerId,
         relateNumber: invoice.relateNumber,
       })
@@ -220,7 +222,7 @@ export class EcpayOrderInvoiceService {
 
     for (const [
       index,
-      { id, organizationId, relateNumber },
+      { id, orderId, organizationId, relateNumber },
     ] of stuck.entries()) {
       if (!relateNumber) {
         this.logger.error(
@@ -248,7 +250,7 @@ export class EcpayOrderInvoiceService {
           })
           .where(eq(invoice.id, id));
 
-        this.emitOrderUpdated(organizationId);
+        this.emitOrderUpdated(organizationId, orderId);
 
         this.logger.warn(
           `發票 ${id} 在綠界已開立但本機未記錄，已補上 ${result.IIS_Number}`,
@@ -350,7 +352,7 @@ export class EcpayOrderInvoiceService {
       .where(eq(invoice.id, data.id))
       .returning();
 
-    this.emitOrderUpdated(found.sellerId);
+    this.emitOrderUpdated(found.sellerId, orderId);
 
     if (isPrintable(updated))
       this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
@@ -407,7 +409,7 @@ export class EcpayOrderInvoiceService {
 
     const print = await this.getPrint(data);
 
-    this.emitOrderUpdated(organizationId);
+    this.emitOrderUpdated(organizationId, orderId);
 
     return print;
   }
@@ -434,7 +436,7 @@ export class EcpayOrderInvoiceService {
 
     if (!updated) throw new ConflictException(this.tInvoice('notPrintable'));
 
-    this.emitOrderUpdated(organizationId);
+    this.emitOrderUpdated(organizationId, orderId);
 
     this.logger.warn(
       `訂單 ${orderId} 的發票 ${data.invoiceNumber} 第 ${updated.printResetCount} 次重設列印：${reason}`,
@@ -519,7 +521,7 @@ export class EcpayOrderInvoiceService {
       );
     }
 
-    this.emitOrderUpdated(org.id);
+    this.emitOrderUpdated(org.id, orderId);
 
     return (await this.issueQuietly(orderId)) ?? reissued;
   }

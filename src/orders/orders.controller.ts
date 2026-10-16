@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   AllowAnonymous,
   Session,
@@ -26,7 +26,12 @@ import { ApplyTransitionsDto } from './dto/apply-transitions.dto';
 import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
 import { OrderBoardItemDto } from './dto/order-board-response.dto';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
-import { OrderResponseDto } from './dto/order-response.dto';
+import {
+  CreateOrderResponseDto,
+  OrderReceiptResponseDto,
+  OrderResponseDto,
+} from './dto/order-response.dto';
+import { orderAccessToken } from './order-access-token';
 import { OrdersService } from './orders.service';
 
 @AllowAnonymous()
@@ -42,18 +47,20 @@ export class OrdersController {
     required: false,
   })
   @ApiOperation({ summary: '建立訂單' })
-  create(
+  async create(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateOrderDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Session() session: UserSession | null,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.createOrder(
+  ): Promise<CreateOrderResponseDto> {
+    const created = await this.ordersService.createOrder(
       organizationSlug,
       dto,
       session?.user.id || null,
       idempotencyKey || null,
     );
+
+    return { ...created, accessToken: orderAccessToken(created.id) };
   }
 
   @Get()
@@ -85,15 +92,18 @@ export class OrdersController {
 
   @Get(':orderId')
   @ApiOperation({ summary: '查詢訂單' })
+  @ApiQuery({ name: 'accessToken', required: false, type: String })
   findOne(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
+    @Query('accessToken') accessToken: string | undefined,
     @Session() session: UserSession | null,
-  ): Promise<OrderResponseDto> {
+  ): Promise<OrderReceiptResponseDto> {
     return this.ordersService.getOrder(
       organizationSlug,
       orderId,
       session?.user.id || null,
+      accessToken || null,
     );
   }
 

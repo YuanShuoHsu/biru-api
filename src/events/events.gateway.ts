@@ -87,7 +87,7 @@ export class EventsGateway {
   @SubscribeMessage('joinOrder')
   async joinOrder(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { orderId }: JoinOrderDto,
+    @MessageBody() { accessToken, orderId }: JoinOrderDto,
   ) {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
@@ -96,6 +96,7 @@ export class EventsGateway {
       !(await this.ordersService.canReadOrderById(
         orderId,
         session?.user.id ?? null,
+        accessToken ?? null,
       ))
     )
       return false;
@@ -132,7 +133,8 @@ export class EventsGateway {
   }
 
   @OnEvent(ORDER_UPDATED_EVENT)
-  handleOrderUpdated({ organizationId }: OrderUpdatedEvent) {
+  handleOrderUpdated({ orderId, organizationId }: OrderUpdatedEvent) {
+    this.server.to(orderRoom(orderId)).emit('orderUpdated');
     this.server.to(ordersBoardRoom(organizationId)).emit('orderUpdated');
   }
 

@@ -1,6 +1,6 @@
-import { IsDefined, IsNotEmpty, IsString } from 'class-validator';
+import { IsDefined, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-import { ApiProperty, PickType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
 import { BaseEcpayDto } from './base-ecpay.dto';
 
@@ -14,6 +14,11 @@ export class CheckoutEcpayDto extends PickType(BaseEcpayDto, [
   @IsNotEmpty()
   @IsString()
   orderId: string;
+
+  @ApiPropertyOptional({ description: '建立訂單時取得；訪客訂單必帶' })
+  @IsOptional()
+  @IsString()
+  accessToken?: string;
 }
 
 export class CheckoutEcpayResponseDto {

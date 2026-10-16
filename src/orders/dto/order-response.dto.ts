@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import {
   invoiceCarrierTypeEnum,
@@ -157,6 +157,20 @@ export class OrderResponseDto {
   @ApiProperty() updatedAt: Date;
 }
 
+export class OrderReceiptResponseDto extends OmitType(OrderResponseDto, [
+  'customer',
+  'sellerId',
+  'userId',
+] as const) {}
+
+export class CreateOrderResponseDto extends OrderReceiptResponseDto {
+  @ApiProperty({
+    description:
+      '查詢此訂單、訂閱狀態與付款時帶上；訪客訂單沒有登入身分，只能靠它證明是下單者',
+  })
+  accessToken: string;
+}
+
 // https://schema.org/seller
 export class OrderSellerDto {
   @ApiProperty() id: string;
@@ -166,7 +180,7 @@ export class OrderSellerDto {
   @ApiPropertyOptional() addressCountry?: string | null;
 }
 
-export class UserOrderResponseDto extends OrderResponseDto {
+export class UserOrderResponseDto extends OrderReceiptResponseDto {
   @ApiProperty({ type: OrderSellerDto }) seller: OrderSellerDto;
 }
 

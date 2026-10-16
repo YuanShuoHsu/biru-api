@@ -390,6 +390,7 @@ export class EcpayOrderRefundService {
       });
     else
       this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+        orderId: claimed.orderId,
         organizationId: found.sellerId,
       } satisfies OrderUpdatedEvent);
   }

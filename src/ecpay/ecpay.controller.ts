@@ -20,6 +20,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   HttpCode,
   Logger,
   Post,
@@ -30,7 +31,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import {
+  AllowAnonymous,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth';
 
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
@@ -134,11 +139,23 @@ export class EcpayController {
   @Post()
   @AllowAnonymous()
   @ApiCreatedResponse({ type: CheckoutEcpayResponseDto })
-  async checkout(@Body() dto: CheckoutEcpayDto) {
-    const { orderId, ...base } = dto;
+  async checkout(
+    @Body() dto: CheckoutEcpayDto,
+    @Session() session: UserSession | null,
+  ) {
+    const { accessToken, orderId, ...base } = dto;
 
     if (base.ClientBackURL && !this.isAllowedUrl(base.ClientBackURL))
       throw new BadRequestException('ClientBackURL is not allowed');
+
+    if (
+      !(await this.ordersService.canReadOrderById(
+        orderId,
+        session?.user.id ?? null,
+        accessToken ?? null,
+      ))
+    )
+      throw new ForbiddenException();
 
     const order = await this.ordersService.createPaymentAttempt(orderId);
 

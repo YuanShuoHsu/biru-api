@@ -12,7 +12,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
-import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
 import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
 import {
   servingTemperatureEnum,
@@ -70,7 +69,7 @@ export class CreateMenuItemDto {
     enumName: 'ServingTemperature',
     isArray: true,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsEnum(servingTemperatureEnum.enumValues, { each: true })
   // 去重並依 enum 順序排序，同一組溫度在 DB 只有一種寫法；非法值保留給 @IsEnum 擋
@@ -93,16 +92,6 @@ export class CreateMenuItemDto {
   })
   @IsOptional()
   @IsEnum(servingTemperatureLevelEnum.enumValues)
-  // 取消勾選對應的冷熱時一併清掉，避免推薦不存在的細項
-  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
-    Array.isArray(obj.servingTemperatures) &&
-    typeof value === 'string' &&
-    !obj.servingTemperatures.includes(
-      SERVING_TEMPERATURE_OF_LEVEL[value as ServingTemperatureLevel],
-    )
-      ? null
-      : value,
-  )
   recommendedServingTemperatureLevel?: ServingTemperatureLevel | null;
 
   @ApiPropertyOptional({
@@ -110,7 +99,7 @@ export class CreateMenuItemDto {
     enum: sweetnessEnum.enumValues,
     enumName: 'Sweetness',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(sweetnessEnum.enumValues)
   sweetness?: Sweetness;
 
@@ -121,12 +110,8 @@ export class CreateMenuItemDto {
     enumName: 'SweetnessLevel',
     nullable: true,
   })
-  @ValidateIf(({ sweetness }: CreateMenuItemDto) => sweetness === 'Fixed')
+  @IsOptional()
   @IsEnum(sweetnessLevelEnum.enumValues)
-  // 改成非固定時一併清掉，避免殘留舊的固定等級
-  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
-    obj.sweetness && obj.sweetness !== 'Fixed' ? null : value,
-  )
   fixedSweetnessLevel?: SweetnessLevel | null;
 
   @ApiPropertyOptional({
@@ -138,10 +123,6 @@ export class CreateMenuItemDto {
   })
   @IsOptional()
   @IsEnum(sweetnessLevelEnum.enumValues)
-  // 改成非可調時一併清掉
-  @Transform(({ obj, value }: { obj: CreateMenuItemDto; value: unknown }) =>
-    obj.sweetness && obj.sweetness !== 'Adjustable' ? null : value,
-  )
   recommendedSweetnessLevel?: SweetnessLevel | null;
 
   @ApiPropertyOptional({
@@ -150,7 +131,7 @@ export class CreateMenuItemDto {
     enumName: 'OrderMode',
     isArray: true,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsEnum(orderModeEnum.enumValues, { each: true })
   availableModes?: OrderMode[];
