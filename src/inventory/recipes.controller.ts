@@ -118,10 +118,15 @@ export class RecipesController {
   })
   @ApiOperation({ summary: '更新食譜材料' })
   updateIngredient(
+    @Param('recipeId') recipeId: string,
     @Param('recipeIngredientId') recipeIngredientId: string,
     @Body() dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
-    return this.recipesService.updateIngredient(recipeIngredientId, dto);
+    return this.recipesService.updateIngredient(
+      recipeId,
+      recipeIngredientId,
+      dto,
+    );
   }
 
   @Delete('recipe-ingredients')
@@ -148,8 +153,9 @@ export class RecipesController {
   })
   @ApiOperation({ summary: '刪除食譜材料' })
   removeIngredient(
+    @Param('recipeId') recipeId: string,
     @Param('recipeIngredientId') recipeIngredientId: string,
   ): Promise<void> {
-    return this.recipesService.removeIngredient(recipeIngredientId);
+    return this.recipesService.removeIngredient(recipeId, recipeIngredientId);
   }
 }

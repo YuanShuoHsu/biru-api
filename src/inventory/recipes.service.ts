@@ -38,7 +38,7 @@ import {
   type Recipe,
   type RecipeIngredient,
 } from 'src/db/schema/inventory';
-import { menuItem, offer } from 'src/db/schema/menus';
+import { menu, menuItem, offer } from 'src/db/schema/menus';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
@@ -207,6 +207,7 @@ export class RecipesService {
       this.db,
       organizationSlug,
     );
+    await this.assertMenuItemInOrganization(organizationId, dto.menuItemId);
 
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
@@ -234,6 +235,18 @@ export class RecipesService {
     recipeId: string,
     dto: UpdateRecipeDto,
   ): Promise<RecipeResponseDto> {
+    if (dto.menuItemId) {
+      const [current] = await this.db
+        .select({ organizationId: recipe.organizationId })
+        .from(recipe)
+        .where(eq(recipe.id, recipeId));
+      if (!current) throw new NotFoundException('Recipe not found');
+      await this.assertMenuItemInOrganization(
+        current.organizationId,
+        dto.menuItemId,
+      );
+    }
+
     const updated = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .update(recipe)
@@ -346,6 +359,39 @@ export class RecipesService {
     return { data: this.priced(rows, canReadPurchasing), total };
   }
 
+  private async assertMenuItemInOrganization(
+    organizationId: string,
+    menuItemId: string | null | undefined,
+  ): Promise<void> {
+    if (!menuItemId) return;
+
+    const [found] = await this.db
+      .select({ id: menuItem.id })
+      .from(menuItem)
+      .innerJoin(menu, eq(menu.id, menuItem.menuId))
+      .where(
+        and(
+          eq(menuItem.id, menuItemId),
+          eq(menu.organizationId, organizationId),
+        ),
+      );
+    if (!found) throw new NotFoundException('Menu item not found');
+  }
+
+  private async assertIngredientInRecipeOrganization(
+    recipeId: string,
+    ingredientId: string | undefined,
+  ): Promise<void> {
+    if (!ingredientId) return;
+
+    const [found] = await this.db
+      .select({ id: ingredient.id })
+      .from(ingredient)
+      .innerJoin(recipe, eq(recipe.organizationId, ingredient.organizationId))
+      .where(and(eq(ingredient.id, ingredientId), eq(recipe.id, recipeId)));
+    if (!found) throw new NotFoundException('Ingredient not found');
+  }
+
   // 同一食材重複成兩列時，consume() 會依每一列各扣一次庫存
   private async assertIngredientNotUsed(
     recipeId: string,
@@ -383,6 +429,7 @@ export class RecipesService {
     recipeId: string,
     dto: CreateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
+    await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(recipeId, dto.ingredientId);
 
     const [{ maxSortOrder }] = await this.db
@@ -406,17 +453,13 @@ export class RecipesService {
   }
 
   async updateIngredient(
+    recipeId: string,
     recipeIngredientId: string,
     dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
-    const [existing] = await this.db
-      .select({ recipeId: recipeIngredient.recipeId })
-      .from(recipeIngredient)
-      .where(eq(recipeIngredient.id, recipeIngredientId));
-    if (!existing) throw new NotFoundException('Recipe ingredient not found');
-
+    await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(
-      existing.recipeId,
+      recipeId,
       dto.ingredientId,
       recipeIngredientId,
     );
@@ -425,7 +468,12 @@ export class RecipesService {
       this.db
         .update(recipeIngredient)
         .set(dto)
-        .where(eq(recipeIngredient.id, recipeIngredientId))
+        .where(
+          and(
+            eq(recipeIngredient.id, recipeIngredientId),
+            eq(recipeIngredient.recipeId, recipeId),
+          ),
+        )
         .returning(),
     );
     if (!updated) throw new NotFoundException('Recipe ingredient not found');
@@ -433,10 +481,18 @@ export class RecipesService {
     return this.toMaterial(updated.id);
   }
 
-  async removeIngredient(recipeIngredientId: string): Promise<void> {
+  async removeIngredient(
+    recipeId: string,
+    recipeIngredientId: string,
+  ): Promise<void> {
     const deleted = await this.db
       .delete(recipeIngredient)
-      .where(eq(recipeIngredient.id, recipeIngredientId))
+      .where(
+        and(
+          eq(recipeIngredient.id, recipeIngredientId),
+          eq(recipeIngredient.recipeId, recipeId),
+        ),
+      )
       .returning({ id: recipeIngredient.id });
     if (!deleted.length)
       throw new NotFoundException('Recipe ingredient not found');

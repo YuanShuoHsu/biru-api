@@ -190,6 +190,7 @@
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
   },
   "orders": {
+    "menuItemUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "menuItemUnavailableAtTime": "'{name}'은(는) 선택한 픽업 시간에 제공되지 않습니다",
     "menuItemUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "modifierUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",

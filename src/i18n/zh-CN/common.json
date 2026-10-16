@@ -190,6 +190,7 @@
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
   "orders": {
+    "menuItemUnavailable": "「{name}」目前无法供应",
     "menuItemUnavailableAtTime": "「{name}」在所选取餐时间不供应",
     "menuItemUnavailableForMode": "「{name}」不适用此点餐方式",
     "modifierUnavailable": "「{name}」目前无法供应",

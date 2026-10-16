@@ -12,7 +12,7 @@ import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-tempe
 import { toLanguage } from 'src/common/utils/language';
 import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
 
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type LocalizedText,
@@ -23,6 +23,7 @@ import type { PriceSpecification } from 'src/db/schema/menus';
 import {
   menu,
   menuItem,
+  menuItemAddOn,
   menuItemModifierGroup,
   modifier,
   offer,
@@ -121,30 +122,43 @@ export class OrderPricingService {
       ]),
     ];
 
-    const [orgMenu, menuItems, modifiers, offers, itemModifierGroups] =
-      await Promise.all([
-        this.db.query.menu.findFirst({
-          where: eq(menu.organizationId, organizationId),
-          with: { organization: { columns: { currency: true } } },
-        }),
-        this.db.query.menuItem.findMany({
-          where: inArray(menuItem.id, allMenuItemIds),
-          with: { menuSection: { with: { parentSection: true } } },
-        }),
-        allModifierIds.length > 0
-          ? this.db.query.modifier.findMany({
-              where: inArray(modifier.id, allModifierIds),
-              with: { modifierGroup: true },
-            })
-          : Promise.resolve([]),
-        this.db.query.offer.findMany({
-          where: inArray(offer.menuItemId, allMenuItemIds),
-        }),
-        this.db.query.menuItemModifierGroup.findMany({
-          where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),
-          with: { modifierGroup: true },
-        }),
-      ]);
+    const [
+      orgMenu,
+      menuItems,
+      modifiers,
+      offers,
+      itemModifierGroups,
+      itemAddOns,
+    ] = await Promise.all([
+      this.db.query.menu.findFirst({
+        where: eq(menu.organizationId, organizationId),
+        with: { organization: { columns: { currency: true } } },
+      }),
+      this.db.query.menuItem.findMany({
+        where: inArray(menuItem.id, allMenuItemIds),
+        with: { menuSection: { with: { parentSection: true } } },
+      }),
+      allModifierIds.length > 0
+        ? this.db.query.modifier.findMany({
+            where: inArray(modifier.id, allModifierIds),
+            with: { modifierGroup: true },
+          })
+        : Promise.resolve([]),
+      this.db.query.offer.findMany({
+        where: inArray(offer.menuItemId, allMenuItemIds),
+        orderBy: [asc(offer.createdAt)],
+      }),
+      this.db.query.menuItemModifierGroup.findMany({
+        where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),
+        with: { modifierGroup: true },
+      }),
+      this.db.query.menuItemAddOn.findMany({
+        where: inArray(
+          menuItemAddOn.menuItemId,
+          items.map((i) => i.menuItemId),
+        ),
+      }),
+    ]);
     if (!orgMenu) throw new NotFoundException('Menu not found');
 
     const priceCurrency = orgMenu.organization.currency;
@@ -199,6 +213,11 @@ export class OrderPricingService {
           this.t('menuItemUnavailableAtTime', {
             name: this.localName(item.name),
           }),
+        );
+      const availability = offerMap.get(menuItemId)?.availability;
+      if (availability === 'SoldOut' || availability === 'Discontinued')
+        throw new BadRequestException(
+          this.t('menuItemUnavailable', { name: this.localName(item.name) }),
         );
       return item;
     };
@@ -317,9 +336,23 @@ export class OrderPricingService {
     };
 
     const resolveAddOnSnapshot = (
+      parent: ReturnType<typeof getMenuItem>,
       addOn: CreateOrderItemAddOnDto,
     ): OrderItemAddOnSnapshot => {
       const item = getMenuItem(addOn.menuItemId);
+      if (
+        item.id === parent.id ||
+        !itemAddOns.some(
+          (link) =>
+            link.menuItemId === parent.id &&
+            (link.addOnMenuItemId === item.id ||
+              (!!item.menuSectionId &&
+                link.addOnMenuSectionId === item.menuSectionId)),
+        )
+      )
+        throw new BadRequestException(
+          `MenuItem ${item.id} is not an add-on of MenuItem ${parent.id}`,
+        );
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
         addOn.servingTemperatureLevel,
@@ -346,7 +379,9 @@ export class OrderPricingService {
         cartItem.sweetnessLevel,
       );
       const itemModifiers = resolveModifierSnapshots(item, cartItem.modifiers);
-      const addOns = cartItem.addOns.map(resolveAddOnSnapshot);
+      const addOns = cartItem.addOns.map((addOn) =>
+        resolveAddOnSnapshot(item, addOn),
+      );
 
       const unitPrice =
         Number(getOfferPrice(cartItem.menuItemId)) +
