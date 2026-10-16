@@ -1,0 +1,1 @@
+ALTER TABLE "ecpay_payment_attempt" ADD COLUMN "return_url" text;

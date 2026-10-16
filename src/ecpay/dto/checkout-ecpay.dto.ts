@@ -1,14 +1,27 @@
-import { IsDefined, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsDefined,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+} from 'class-validator';
 
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
 import { BaseEcpayDto } from './base-ecpay.dto';
 
 export class CheckoutEcpayDto extends PickType(BaseEcpayDto, [
-  'ClientBackURL',
   'Language',
   'TradeDesc',
 ] as const) {
+  @ApiPropertyOptional({
+    description:
+      '付款完成或在綠界頁按返回後要回到的前台網址；由後端保存，不直接交給綠界',
+  })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  returnUrl?: string;
+
   @ApiProperty({ description: '訂單 ID' })
   @IsDefined()
   @IsNotEmpty()

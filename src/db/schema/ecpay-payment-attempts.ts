@@ -10,6 +10,7 @@ export const ecpayPaymentAttempt = pgTable(
     orderId: text('order_id')
       .notNull()
       .references(() => order.id, { onDelete: 'cascade' }),
+    returnUrl: text('return_url'),
     ...timestamps,
   },
   (table) => [index('ecpayPaymentAttempt_orderId_idx').on(table.orderId)],

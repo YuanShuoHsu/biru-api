@@ -864,6 +864,7 @@ export class OrdersService {
 
   async createPaymentAttempt(
     orderId: string,
+    returnUrl: string | null,
   ): Promise<
     OrderResponseDto & { confirmationNumber: string; merchantTradeNo: string }
   > {
@@ -892,9 +893,18 @@ export class OrdersService {
 
     await this.db
       .insert(ecpayPaymentAttempt)
-      .values({ merchantTradeNo, orderId });
+      .values({ merchantTradeNo, orderId, returnUrl });
 
     return { ...found, confirmationNumber, merchantTradeNo };
+  }
+
+  async findPaymentReturnUrl(merchantTradeNo: string): Promise<string | null> {
+    const [found] = await this.db
+      .select({ returnUrl: ecpayPaymentAttempt.returnUrl })
+      .from(ecpayPaymentAttempt)
+      .where(eq(ecpayPaymentAttempt.merchantTradeNo, merchantTradeNo));
+
+    return found?.returnUrl ?? null;
   }
 
   async recordPaymentResult(

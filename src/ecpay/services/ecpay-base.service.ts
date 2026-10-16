@@ -93,6 +93,7 @@ export class EcpayBaseService {
   private readonly apiUrl: string;
   private readonly returnUrl: string;
   private readonly resultUrl: string;
+  private readonly backUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.merchantId = configService.getOrThrow('ECPAY_BASE_MERCHANT_ID');
@@ -103,6 +104,7 @@ export class EcpayBaseService {
 
     this.returnUrl = configService.getOrThrow('ECPAY_BASE_RETURN_URL');
     this.resultUrl = new URL('./result', this.returnUrl).toString();
+    this.backUrl = new URL('./back/', this.returnUrl).toString();
   }
 
   private getEcpayDateString(): string {
@@ -147,7 +149,8 @@ export class EcpayBaseService {
       confirmationNumber: string;
       merchantTradeNo: string;
     },
-    base: Omit<CheckoutEcpayDto, 'orderId'>,
+    base: Pick<CheckoutEcpayDto, 'Language' | 'TradeDesc'>,
+    hasReturnUrl: boolean,
   ): CheckoutEcpayResponseDto {
     const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
 
@@ -166,9 +169,11 @@ export class EcpayBaseService {
       MerchantTradeDate: this.getEcpayDateString(),
       MerchantTradeNo: order.merchantTradeNo,
       NeedExtraPaidInfo: 'Y',
-      OrderResultURL: base.ClientBackURL
-        ? `${this.resultUrl}?redirect=${encodeURIComponent(base.ClientBackURL)}`
-        : this.resultUrl,
+      // 綠界拒收含 & 的網址，前台網址存在付款嘗試上，這裡只給以交易編號查回的後端網址
+      ...(hasReturnUrl && {
+        ClientBackURL: new URL(order.merchantTradeNo, this.backUrl).toString(),
+      }),
+      OrderResultURL: this.resultUrl,
       PaymentType: 'aio',
       ...(order.customer.remark && {
         Remark: truncate(order.customer.remark, REMARK_MAX_LENGTH),

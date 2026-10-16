@@ -21,10 +21,11 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   Logger,
+  Param,
   Post,
-  Query,
   Redirect,
   UseGuards,
 } from '@nestjs/common';
@@ -68,8 +69,16 @@ export class EcpayController {
     }
   }
 
-  private getSafeRedirectUrl(redirect: string): string {
-    return this.isAllowedUrl(redirect) ? redirect : this.fallbackUrl;
+  private async getReturnUrl(
+    merchantTradeNo: string | undefined,
+  ): Promise<string> {
+    const returnUrl = merchantTradeNo
+      ? await this.ordersService.findPaymentReturnUrl(merchantTradeNo)
+      : null;
+
+    return returnUrl && this.isAllowedUrl(returnUrl)
+      ? returnUrl
+      : this.fallbackUrl;
   }
 
   private async handleCallback(
@@ -143,10 +152,10 @@ export class EcpayController {
     @Body() dto: CheckoutEcpayDto,
     @Session() session: UserSession | null,
   ) {
-    const { accessToken, orderId, ...base } = dto;
+    const { accessToken, orderId, returnUrl, ...base } = dto;
 
-    if (base.ClientBackURL && !this.isAllowedUrl(base.ClientBackURL))
-      throw new BadRequestException('ClientBackURL is not allowed');
+    if (returnUrl && !this.isAllowedUrl(returnUrl))
+      throw new BadRequestException('returnUrl is not allowed');
 
     if (
       !(await this.ordersService.canReadOrderById(
@@ -157,9 +166,12 @@ export class EcpayController {
     )
       throw new ForbiddenException();
 
-    const order = await this.ordersService.createPaymentAttempt(orderId);
+    const order = await this.ordersService.createPaymentAttempt(
+      orderId,
+      returnUrl ?? null,
+    );
 
-    return this.ecpayBaseService.aioCheckOutAll(order, base);
+    return this.ecpayBaseService.aioCheckOutAll(order, base, !!returnUrl);
   }
 
   @Post('check-barcode')
@@ -191,15 +203,23 @@ export class EcpayController {
   @SkipThrottle()
   @ApiBody({ type: ReturnEcpayDto })
   @Redirect()
-  async result(
-    @Query('redirect') redirect: string,
-    @Body() body: Record<string, string>,
-  ) {
+  async result(@Body() body: Record<string, string>) {
     const result = this.ecpayBaseService.isCheckMacValueValid(body);
 
     await this.handleCallback('result', body, result);
 
-    return { statusCode: 303, url: this.getSafeRedirectUrl(redirect) };
+    return {
+      statusCode: 303,
+      url: await this.getReturnUrl(body.MerchantTradeNo),
+    };
+  }
+
+  @Get('back/:merchantTradeNo')
+  @AllowAnonymous()
+  @SkipThrottle()
+  @Redirect()
+  async back(@Param('merchantTradeNo') merchantTradeNo: string) {
+    return { statusCode: 303, url: await this.getReturnUrl(merchantTradeNo) };
   }
 
   @Post('sync-invoice-word-settings')
