@@ -135,6 +135,9 @@ export class PionexSocket {
       this.logger.warn(`Pionex stream: ${raw}`);
       return;
     }
+    // 訂閱確認也帶 topic 但沒有 data，當成推播處理會在解析時炸掉
+    if (message.type === 'SUBSCRIBED' || message.type === 'UNSUBSCRIBED')
+      return;
 
     this.onMessage(message);
   }
