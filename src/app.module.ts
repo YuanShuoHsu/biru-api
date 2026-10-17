@@ -44,6 +44,7 @@ import { OrdersModule } from './orders/orders.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { PointsModule } from './points/points.module';
+import { QuantModule } from './quant/quant.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
@@ -107,6 +108,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     OrganizationsModule,
     PayrollModule,
     PointsModule,
+    QuantModule,
     ScheduleModule.forRoot(),
     TasksModule,
     ThrottlerModule.forRoot({
