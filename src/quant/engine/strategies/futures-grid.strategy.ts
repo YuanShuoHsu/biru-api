@@ -1,0 +1,182 @@
+import type { FuturesGridConfigDto } from '../../dto/quant-bot.dto';
+import type { FuturesLedger } from '../futures-account';
+import type { BotOrder, Strategy, StrategyContext } from '../types';
+
+import { gridLayout, gridLines } from './grid.strategy';
+
+const LEVEL_TAG = 'grid:';
+// 開倉市價單可能吃到比現價差的檔位，預留這個比例的滑價，免得最後幾格保證金不足
+const OPEN_SLIPPAGE_BUFFER = 0.005;
+
+const levelOf = ({ tag }: BotOrder) =>
+  tag?.startsWith(LEVEL_TAG) ? Number(tag.slice(LEVEL_TAG.length)) : null;
+
+/**
+ * 每格同樣數量：做多先以現價買進上方各格的部位、做空先賣出下方各格的部位，
+ * 中性不開倉、兩邊掛單都要占保證金。保證金加上開倉手續費不超過投入金額。
+ */
+export const futuresGridQuantity = (
+  config: Pick<FuturesGridConfigDto, 'leverage' | 'trend'> & {
+    lines: number[];
+  },
+  price: number,
+  investment: number,
+  feeRate: number,
+) => {
+  const { buys, sells } = gridLayout(config.lines, price);
+  const sum = (levels: { line: number }[]) =>
+    levels.reduce((total, { line }) => total + line, 0);
+  const openPrice = price * (1 + OPEN_SLIPPAGE_BUFFER);
+  const notional =
+    config.trend === 'long'
+      ? sells.length * openPrice + sum(buys)
+      : config.trend === 'short'
+        ? buys.length * openPrice + sum(sells)
+        : sum(buys) + sum(sells);
+
+  return investment / (notional / config.leverage + notional * feeRate);
+};
+
+export class FuturesGridStrategy implements Strategy {
+  private readonly config: FuturesGridConfigDto;
+  private readonly lines: number[];
+  private triggered: boolean;
+
+  constructor(
+    private readonly context: StrategyContext<FuturesLedger>,
+    private readonly feeRate: number,
+  ) {
+    this.config = context.config as FuturesGridConfigDto;
+    this.lines = gridLines(this.config);
+    this.triggered = !this.config.trigger;
+  }
+
+  async start() {
+    if (this.context.fills().length || this.context.openOrders().length) {
+      this.triggered = true;
+      return;
+    }
+
+    const price = this.context.lastPrice();
+    if (price !== null) await this.onPrice(price);
+  }
+
+  async onPrice(price: number) {
+    if (!this.triggered) {
+      const { direction, price: trigger } = this.config.trigger!;
+      if (direction === 'above' ? price < trigger : price > trigger) return;
+
+      this.triggered = true;
+      this.context.log('triggered', { price });
+    }
+
+    if (!this.context.fills().length && !this.context.openOrders().length)
+      return this.layout(price);
+
+    await this.checkStops(price);
+  }
+
+  async onFill(order: BotOrder) {
+    const level = levelOf(order);
+    if (level === null || order.status !== 'filled' || !order.size) return;
+
+    const next = order.side === 'BUY' ? level + 1 : level - 1;
+    const line = this.lines[next];
+    if (line === undefined) return;
+
+    await this.context.placeOrder({
+      price: line,
+      side: order.side === 'BUY' ? 'SELL' : 'BUY',
+      size: order.size,
+      tag: `${LEVEL_TAG}${next}`,
+      type: 'LIMIT',
+    });
+  }
+
+  // Pionex 合約網格停止時一律平倉
+  async stop() {
+    const { position } = this.context.ledger();
+    if (position !== 0)
+      await this.context.placeOrder({
+        side: position > 0 ? 'SELL' : 'BUY',
+        size: Math.abs(position),
+        tag: 'grid:close',
+        type: 'MARKET',
+      });
+  }
+
+  private async layout(price: number) {
+    const { trend } = this.config;
+    const quantity = futuresGridQuantity(
+      { ...this.config, lines: this.lines },
+      price,
+      this.context.investment,
+      this.feeRate,
+    );
+    const { buys, sells } = gridLayout(this.lines, price);
+    const opening =
+      trend === 'long' ? sells.length : trend === 'short' ? buys.length : 0;
+
+    if (opening) {
+      const opened = await this.context.placeOrder({
+        side: trend === 'long' ? 'BUY' : 'SELL',
+        size: quantity * opening,
+        tag: 'grid:open',
+        type: 'MARKET',
+      });
+      if (!opened) return this.context.stop('grid_open_failed');
+    }
+
+    for (const { index, line } of sells)
+      await this.context.placeOrder({
+        price: line,
+        side: 'SELL',
+        size: quantity,
+        tag: `${LEVEL_TAG}${index}`,
+        type: 'LIMIT',
+      });
+
+    for (const { index, line } of buys)
+      await this.context.placeOrder({
+        price: line,
+        side: 'BUY',
+        size: quantity,
+        tag: `${LEVEL_TAG}${index}`,
+        type: 'LIMIT',
+      });
+
+    this.context.log('grid_started', { price, quantity });
+  }
+
+  private async checkStops(price: number) {
+    const { lossStop, lossStopHigh, profitStop, trend } = this.config;
+    const { entryPrice, marginBalance, position } = this.context.ledger();
+    const pnl =
+      marginBalance +
+      position * (price - entryPrice) -
+      this.context.investment -
+      (this.config.extraMargin ?? 0);
+    // 做空的停損在上方、停利在下方，做多與中性相反
+    const lossHit = (stop: number) =>
+      trend === 'short' ? price >= stop : price <= stop;
+
+    if (
+      (lossStop &&
+        (lossStop.type === 'price'
+          ? lossHit(lossStop.value)
+          : -pnl >= lossStop.value)) ||
+      (trend === 'no_trend' && lossStopHigh && price >= lossStopHigh)
+    )
+      return this.context.stop('loss_stop');
+
+    if (
+      profitStop &&
+      (profitStop.type === 'price'
+        ? trend === 'short'
+          ? price <= profitStop.value
+          : price >= profitStop.value
+        : pnl >= profitStop.value)
+    )
+      return this.context.stop('profit_stop');
+  }
+}

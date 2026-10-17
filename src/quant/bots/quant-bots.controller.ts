@@ -22,7 +22,11 @@ import {
   CreateIndicatorBotDto,
   CreateQuantBotResponseDto,
   CreateWebhookBotDto,
+  CreateFuturesGridBotDto,
   DcaBacktestDto,
+  FuturesGridBacktestDto,
+  FuturesGridCheckDto,
+  FuturesGridCheckResultDto,
   GridAiStrategyDto,
   GridBacktestDto,
   IndicatorBacktestDto,
@@ -60,6 +64,29 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<CreateQuantBotResponseDto> {
     return this.bots.create(user.id, 'grid', dto);
+  }
+
+  @Post('bots/futures_grid')
+  @ApiOperation({
+    summary: '建立合約網格機器人（實盤交給 Pionex 合約網格執行）',
+  })
+  createFuturesGrid(
+    @Body() dto: CreateFuturesGridBotDto,
+    @Session() { user }: UserSession,
+  ): Promise<CreateQuantBotResponseDto> {
+    return this.bots.create(user.id, 'futures_grid', dto);
+  }
+
+  @Post('bots/futures_grid/check')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '向 Pionex 試算合約網格的投入範圍與預估強平價（不會下單）',
+  })
+  checkFuturesGrid(
+    @Body() dto: FuturesGridCheckDto,
+    @Session() { user }: UserSession,
+  ): Promise<FuturesGridCheckResultDto> {
+    return this.bots.futuresGridCheck(user.id, dto);
   }
 
   @Post('bots/dca')
@@ -184,6 +211,15 @@ export class QuantBotsController {
   @ApiOperation({ summary: '網格回測' })
   backtestGrid(@Body() dto: GridBacktestDto): Promise<BacktestResultDto> {
     return this.backtest.run('grid', dto);
+  }
+
+  @Post('backtests/futures_grid')
+  @HttpCode(200)
+  @ApiOperation({ summary: '合約網格回測（含資金費與強平）' })
+  backtestFuturesGrid(
+    @Body() dto: FuturesGridBacktestDto,
+  ): Promise<BacktestResultDto> {
+    return this.backtest.run('futures_grid', dto);
   }
 
   @Post('backtests/dca')

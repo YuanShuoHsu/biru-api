@@ -271,7 +271,11 @@ export type I18nTranslations = {
             "dcaInvestmentTooSmall": string;
             "exchangeError": string;
             "exchangeRejected": string;
+            "futuresGridInvestmentTooSmall": string;
+            "futuresGridNeutralProfitStop": string;
             "futuresLeverageAboveLimit": string;
+            "futuresLeverageAboveSymbol": string;
+            "futuresLiquidationTooClose": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;

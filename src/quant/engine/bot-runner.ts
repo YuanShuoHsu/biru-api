@@ -2,25 +2,25 @@ import { Logger } from '@nestjs/common';
 
 import type { QuantBot } from 'src/db/schema/quant';
 
+import { isFuturesBotType } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
+import type { SpotAccount } from './account';
 import {
   type Broker,
   BotSession,
   type SessionStore,
   type SubmittedOrder,
 } from './bot-session';
+import { FuturesAccount, type FuturesLedger } from './futures-account';
+import type { Ledger } from './ledger';
 import type { PionexBroker } from './pionex-broker';
-import { createStrategy } from './strategies';
-import type {
-  BotFill,
-  StrategyContext,
-  SymbolSpec,
-  WebhookSignal,
-} from './types';
+import { createFuturesStrategy, createStrategy } from './strategies';
+import type { BotFill, SymbolSpec, WebhookSignal } from './types';
 
 export interface RunnerDependencies {
+  account: FuturesAccount | SpotAccount;
   broker: Broker & Partial<Pick<PionexBroker, 'sync'>>;
   candles: (
     interval: PionexKlineInterval,
@@ -40,7 +40,7 @@ export const candleIntervalOf = (bot: QuantBot): PionexKlineInterval =>
 
 export class BotRunner {
   private readonly logger: Logger;
-  private readonly session: BotSession;
+  private readonly session: BotSession<FuturesLedger> | BotSession<Ledger>;
   private readonly knownFillIds: Set<string>;
   private lastCandle: QuantCandleDto | null = null;
   private syncing = false;
@@ -54,12 +54,12 @@ export class BotRunner {
     this.knownFillIds = new Set(
       dependencies.fills.flatMap(({ id }) => (id ? [id] : [])),
     );
-    this.session = new BotSession({
+    const { account } = dependencies;
+    const { type } = bot;
+    const common = {
       broker: dependencies.broker,
       candles: dependencies.candles,
       config: bot.config,
-      createStrategy: (context: StrategyContext) =>
-        createStrategy(bot.type, context),
       fills: dependencies.fills,
       investment: bot.investment,
       maxDailyLoss: bot.maxDailyLoss ?? undefined,
@@ -67,17 +67,37 @@ export class BotRunner {
       orders: dependencies.orders,
       spec: dependencies.spec,
       store: {
-        insertFill: async (fill) => {
+        insertFill: async (fill: BotFill) => {
           if (fill.id) this.knownFillIds.add(fill.id);
           await store.insertFill(fill);
         },
-        insertOrder: (order) => store.insertOrder(order),
-        log: (kind, payload) => store.log(kind, payload),
-        nextClientOrderId: () => store.nextClientOrderId(),
-        setStopped: (reason, error) => store.setStopped(reason, error),
-        updateOrder: (order) => store.updateOrder(order),
-      },
-    });
+        insertFunding: store.insertFunding.bind(store),
+        insertOrder: store.insertOrder.bind(store),
+        log: store.log.bind(store),
+        nextClientOrderId: store.nextClientOrderId.bind(store),
+        setStopped: store.setStopped.bind(store),
+        updateOrder: store.updateOrder.bind(store),
+      } satisfies SessionStore,
+    };
+
+    if (isFuturesBotType(type)) {
+      if (!(account instanceof FuturesAccount))
+        throw new Error('Futures bot requires a futures account');
+      this.session = new BotSession<FuturesLedger>({
+        ...common,
+        account,
+        createStrategy: (context) =>
+          createFuturesStrategy(type, context, bot.paperFeeRate ?? 0),
+      });
+    } else {
+      if (account instanceof FuturesAccount)
+        throw new Error('Spot bot requires a spot account');
+      this.session = new BotSession<Ledger>({
+        ...common,
+        account,
+        createStrategy: (context) => createStrategy(type, context),
+      });
+    }
   }
 
   get isStopped() {
@@ -108,6 +128,14 @@ export class BotRunner {
     this.lastCandle = candle;
     if (previous && candle.time > previous.time)
       void this.session.handleCandleClose(previous).catch(this.report);
+  }
+
+  handleMark(mark: number) {
+    return this.session.handleMark(mark).catch(this.report);
+  }
+
+  handleFunding(rate: number, mark: number, time: number) {
+    return this.session.handleFunding(rate, mark, time).catch(this.report);
   }
 
   handleSignal(signal: WebhookSignal) {

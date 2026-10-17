@@ -16,6 +16,7 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { SessionStore, SubmittedOrder } from './bot-session';
 import { botClientOrderId } from './client-order-id';
+import type { FundingPayment } from './futures-account';
 import type { BotFill, SymbolSpec } from './types';
 
 export const QUANT_BOT_CHANGED_EVENT = 'quant.bot.changed';
@@ -24,6 +25,8 @@ export interface QuantBotChangedEvent {
   botId: string;
   userId: string;
 }
+
+export const FUNDING_EVENT = 'funding';
 
 const optional = <T>(value: T | null) => value ?? undefined;
 
@@ -113,6 +116,21 @@ export class BotStore implements SessionStore {
         size: fill.size,
       })
       .onConflictDoNothing();
+    this.changed();
+  }
+
+  // 重啟時要從這些事件還原保證金，所以和成交一樣等寫入完成
+  async insertFunding({
+    amount,
+    rate,
+    time,
+  }: FundingPayment & { rate: number }) {
+    await this.db.insert(quantBotEvent).values({
+      botId: this.bot.id,
+      id: randomUUID(),
+      kind: FUNDING_EVENT,
+      payload: { amount, rate, time },
+    });
     this.changed();
   }
 

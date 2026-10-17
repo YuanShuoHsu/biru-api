@@ -77,32 +77,5 @@ export class LedgerBook {
   }
 }
 
-export const buildLedger = (
-  investment: number,
-  fills: readonly BotFill[],
-): Ledger => {
-  const state = initialState(investment);
-  for (const fill of fills) applyFill(state, fill);
-
-  return finalize(state);
-};
-
-/** 每筆賣出成交實現的損益，用來算勝率 */
-export const realizedPerSell = (
-  investment: number,
-  fills: readonly BotFill[],
-) => {
-  const state = initialState(investment);
-  const results: number[] = [];
-
-  for (const fill of fills) {
-    const before = state.realizedPnl;
-    applyFill(state, fill);
-    if (fill.side === 'SELL') results.push(state.realizedPnl - before);
-  }
-
-  return results;
-};
-
 export const equityOf = (ledger: Ledger, price: number) =>
   ledger.quoteBalance + ledger.position * price;

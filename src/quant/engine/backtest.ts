@@ -1,27 +1,54 @@
-import type { QuantBotType } from '../dto/quant-bot.dto';
+import type {
+  FuturesBotType,
+  FuturesGridConfigDto,
+  SpotBotType,
+} from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import {
   PIONEX_KLINE_INTERVAL_MS,
   type PionexKlineInterval,
 } from '../pionex/pionex.types';
 
-import { BotSession, type SubmittedOrder } from './bot-session';
-import { buildLedger, equityOf, realizedPerSell } from './ledger';
+import { SpotAccount } from './account';
+import {
+  BotSession,
+  type SessionOptions,
+  type SessionStore,
+  type SubmittedOrder,
+} from './bot-session';
+import {
+  FuturesAccount,
+  type FuturesLedger,
+  type RiskTier,
+} from './futures-account';
+import type { Ledger } from './ledger';
 import { SimulatedBroker } from './simulated-broker';
-import { createStrategy } from './strategies';
+import { createFuturesStrategy, createStrategy } from './strategies';
 import type { BotFill, SymbolSpec } from './types';
 
 const DAY_MS = 86_400_000;
 
-export interface BacktestInput {
+interface BacktestCommonInput {
   candles: QuantCandleDto[];
   config: unknown;
   feeRate: number;
   interval: PionexKlineInterval;
   investment: number;
   spec: SymbolSpec;
-  type: QuantBotType;
 }
+
+export interface FuturesBacktestMarket {
+  /** 依時間排序的歷史資金費率 */
+  fundingRates: { rate: number; time: number }[];
+  liquidationFeeRate: number;
+  riskTiers: RiskTier[];
+}
+
+export type BacktestInput = BacktestCommonInput &
+  (
+    | { type: SpotBotType }
+    | { futures: FuturesBacktestMarket; type: FuturesBotType }
+  );
 
 export interface BacktestEvent {
   kind: string;
@@ -79,76 +106,133 @@ const sharpeOf = (equity: { time: number; value: number }[]) => {
   return deviation > 0 ? (mean / deviation) * Math.sqrt(365) : null;
 };
 
-export const runBacktest = async ({
-  candles,
-  config,
-  feeRate,
-  interval,
-  investment,
-  spec,
-  type,
-}: BacktestInput): Promise<BacktestResult> => {
+export const runBacktest = async (
+  input: BacktestInput,
+): Promise<BacktestResult> => {
+  const { candles, config, feeRate, interval, investment, spec } = input;
   const intervalMs = PIONEX_KLINE_INTERVAL_MS[interval];
   const orders: SubmittedOrder[] = [];
   const fills: BotFill[] = [];
   const events: BacktestEvent[] = [];
+  const closedPnls: number[] = [];
   let price: number | null = null;
   let now = candles[0]?.time ?? 0;
   let index = 0;
   let sequence = 0;
   let stoppedReason: string | null = null;
+  let realized = 0;
 
+  const isFutures = 'futures' in input;
   const broker = new SimulatedBroker(
     feeRate,
     { averagePrice: () => Promise.resolve(price), lastPrice: () => price },
     () => now,
+    isFutures ? 'PERP' : 'SPOT',
   );
-
-  const session = new BotSession({
+  const store: SessionStore = {
+    insertFill: (fill) => Promise.resolve(void fills.push(fill)),
+    insertFunding: ({ amount, rate, time }) =>
+      Promise.resolve(
+        void events.push({ kind: 'funding', payload: { amount, rate }, time }),
+      ),
+    insertOrder: (order) => Promise.resolve(void orders.push(order)),
+    log: (kind, payload) => void events.push({ kind, payload, time: now }),
+    nextClientOrderId: () => Promise.resolve(`backtest-${++sequence}`),
+    setStopped: (reason) => Promise.resolve(void (stoppedReason = reason)),
+    updateOrder: () => Promise.resolve(),
+  };
+  const common = {
     broker,
-    candles: (_, count) =>
+    candles: (_: PionexKlineInterval, count: number) =>
       Promise.resolve(candles.slice(Math.max(0, index + 1 - count), index + 1)),
     config,
-    createStrategy: (context) => createStrategy(type, context),
     fills: [],
     investment,
     now: () => now,
     orders: [],
     spec,
-    store: {
-      insertFill: (fill) => Promise.resolve(void fills.push(fill)),
-      insertOrder: (order) => Promise.resolve(void orders.push(order)),
-      log: (kind, payload) => void events.push({ kind, payload, time: now }),
-      nextClientOrderId: () => Promise.resolve(`backtest-${++sequence}`),
-      setStopped: (reason) => Promise.resolve(void (stoppedReason = reason)),
-      updateOrder: () => Promise.resolve(),
-    },
-  });
+  } satisfies Partial<SessionOptions>;
 
+  const extraMargin = isFutures
+    ? ((config as FuturesGridConfigDto).extraMargin ?? 0)
+    : 0;
+  const committed = investment + extraMargin;
+
+  // 平倉成交才會改變已實現損益，用每次的變化量算勝率
+  const trackRealized = (next: number) => {
+    if (next !== realized) closedPnls.push(next - realized);
+    realized = next;
+  };
+
+  const session: BotSession<Ledger> | BotSession<FuturesLedger> =
+    'futures' in input
+      ? new BotSession<FuturesLedger>({
+          ...common,
+          account: new FuturesAccount({
+            investment: committed,
+            leverage: (config as FuturesGridConfigDto).leverage,
+            liquidationFeeRate: input.futures.liquidationFeeRate,
+            riskTiers: input.futures.riskTiers,
+          }),
+          createStrategy: (context) =>
+            createFuturesStrategy(input.type, context, feeRate),
+          store: {
+            ...store,
+            insertFill: async (fill) => {
+              await store.insertFill(fill);
+              trackRealized(session.ledger.realizedPnl);
+            },
+          },
+        })
+      : new BotSession<Ledger>({
+          ...common,
+          account: new SpotAccount(investment),
+          createStrategy: (context) => createStrategy(input.type, context),
+          store: {
+            ...store,
+            insertFill: async (fill) => {
+              await store.insertFill(fill);
+              trackRealized(session.ledger.realizedPnl);
+            },
+          },
+        });
+
+  const fundingRates = 'futures' in input ? input.futures.fundingRates : [];
+  let fundingIndex = 0;
   const equity: { time: number; value: number }[] = [];
 
   for (index = 0; index < candles.length; index++) {
     const candle = candles[index];
     const path = pricePath(candle);
 
+    for (
+      ;
+      fundingIndex < fundingRates.length &&
+      fundingRates[fundingIndex].time <= candle.time;
+      fundingIndex++
+    )
+      if (index > 0) {
+        const { rate, time } = fundingRates[fundingIndex];
+        now = time;
+        await session.handleFunding(rate, candle.open, time);
+      }
+
     for (const [step, point] of path.entries()) {
       price = point;
       now = candle.time + (intervalMs * step) / (path.length - 1);
       await session.handlePrice(point);
+      // 歷史標記價格只能取到最近 2000 根，強平以成交價判斷，比交易所以標記價格判斷保守
+      if (isFutures) await session.handleMark(point);
       if (index === 0 && step === 0) await session.start();
     }
 
     now = candle.time + intervalMs;
     await session.handleCandleClose(candle);
-    equity.push({
-      time: candle.time,
-      value: equityOf(buildLedger(investment, fills), candle.close),
-    });
+    equity.push({ time: candle.time, value: session.equity(candle.close) });
     if (session.isStopped) break;
   }
 
-  const finalEquity = equity.at(-1)?.value ?? investment;
-  const sells = realizedPerSell(investment, fills);
+  const finalEquity = equity.at(-1)?.value ?? committed;
 
   return {
     equity,
@@ -156,13 +240,13 @@ export const runBacktest = async ({
     fills,
     maxDrawdown: maxDrawdownOf(equity.map(({ value }) => value)),
     orders,
-    pnl: finalEquity - investment,
-    returnRate: finalEquity / investment - 1,
+    pnl: finalEquity - committed,
+    returnRate: finalEquity / committed - 1,
     sharpe: sharpeOf(equity),
     stoppedReason,
     tradeCount: fills.length,
-    winRate: sells.length
-      ? sells.filter((pnl) => pnl > 0).length / sells.length
+    winRate: closedPnls.length
+      ? closedPnls.filter((pnl) => pnl > 0).length / closedPnls.length
       : null,
   };
 };

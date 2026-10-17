@@ -28,13 +28,21 @@ import {
   type PionexKlineInterval,
 } from '../pionex/pionex.types';
 
-export const QUANT_BOT_TYPES = ['grid', 'dca', 'indicator', 'webhook'] as const;
+export const QUANT_BOT_TYPES = [
+  'grid',
+  'dca',
+  'indicator',
+  'webhook',
+  'futures_grid',
+] as const;
+export const FUTURES_BOT_TYPES = ['futures_grid'] as const;
 export const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
 export const GRID_STOP_TYPES = ['price', 'profit_amount'] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
 export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
+export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
 export const INDICATOR_KINDS = [
   'rsi',
   'maCross',
@@ -48,6 +56,11 @@ export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
+export type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
+export type SpotBotType = Exclude<QuantBotType, FuturesBotType>;
+
+export const isFuturesBotType = (type: QuantBotType): type is FuturesBotType =>
+  (FUTURES_BOT_TYPES as readonly string[]).includes(type);
 export type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
 
 const trim = ({ value }: { value: unknown }) =>
@@ -118,6 +131,76 @@ export class GridConfigDto {
   })
   @IsIn(GRID_CLOSE_MODELS)
   closeModel: (typeof GRID_CLOSE_MODELS)[number];
+}
+
+// https://www.pionex.com/docs/api-docs/bot-api/futures-grid
+export class FuturesGridConfigDto {
+  @ApiProperty({ description: '上界' }) @IsNumber() @IsPositive() top: number;
+  @ApiProperty({ description: '下界' })
+  @IsNumber()
+  @IsPositive()
+  bottom: number;
+
+  @ApiProperty({ description: '格數', minimum: 2, maximum: 500 })
+  @IsInt()
+  @Min(2)
+  @Max(500)
+  row: number;
+
+  @ApiProperty({ enum: GRID_TYPES, enumName: 'QuantGridType' })
+  @IsIn(GRID_TYPES)
+  gridType: (typeof GRID_TYPES)[number];
+
+  @ApiProperty({
+    enum: FUTURES_GRID_TRENDS,
+    enumName: 'QuantFuturesGridTrend',
+    description: 'long 做多、short 做空、no_trend 中性',
+  })
+  @IsIn(FUTURES_GRID_TRENDS)
+  trend: (typeof FUTURES_GRID_TRENDS)[number];
+
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  leverage: number;
+
+  @ApiPropertyOptional({
+    description: '額外保證金（計價幣），不參與網格交易、只用來拉遠強平價',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  extraMargin?: number;
+
+  @ApiPropertyOptional({
+    type: GridStopDto,
+    description: 'price：做多與中性為下方停損價、做空為上方停損價',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GridStopDto)
+  lossStop?: GridStopDto;
+
+  @ApiPropertyOptional({ description: '中性網格的上方停損價' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  lossStopHigh?: number;
+
+  @ApiPropertyOptional({
+    type: GridStopDto,
+    description: 'price：做多為上方停利價、做空為下方停利價；中性只能用金額',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GridStopDto)
+  profitStop?: GridStopDto;
+
+  @ApiPropertyOptional({ type: TriggerDto, description: '價格觸及才開始' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TriggerDto)
+  trigger?: TriggerDto;
 }
 
 export class DcaConfigDto {
@@ -359,7 +442,15 @@ export class CreateWebhookBotDto extends CreateQuantBotBaseDto {
   config: WebhookConfigDto;
 }
 
+export class CreateFuturesGridBotDto extends CreateQuantBotBaseDto {
+  @ApiProperty({ type: FuturesGridConfigDto })
+  @ValidateNested()
+  @Type(() => FuturesGridConfigDto)
+  config: FuturesGridConfigDto;
+}
+
 export type CreateQuantBotDto =
+  | CreateFuturesGridBotDto
   | CreateGridBotDto
   | CreateDcaBotDto
   | CreateIndicatorBotDto
@@ -369,12 +460,18 @@ export class QuantBotSummaryDto {
   @ApiProperty({ description: '目前權益（計價幣）' }) equity: number;
   @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
   @ApiProperty({ description: '已實現損益（計價幣）' }) realizedPnl: number;
-  @ApiProperty({ description: '持有基礎幣數量' }) position: number;
+  @ApiProperty({ description: '持有基礎幣數量；合約做空為負數' })
+  position: number;
   @ApiProperty({ description: '持倉均價' }) averageCost: number;
   @ApiProperty({ description: '成交筆數' }) fillCount: number;
+  @ApiPropertyOptional({ description: '合約：預估強平價' })
+  liquidationPrice?: number;
+  @ApiPropertyOptional({ description: '合約：累計資金費（正數為收入）' })
+  fundingFee?: number;
 }
 
 @ApiExtraModels(
+  FuturesGridConfigDto,
   GridConfigDto,
   DcaConfigDto,
   IndicatorConfigDto,
@@ -399,9 +496,15 @@ export class QuantBotDto {
       { $ref: getSchemaPath(DcaConfigDto) },
       { $ref: getSchemaPath(IndicatorConfigDto) },
       { $ref: getSchemaPath(WebhookConfigDto) },
+      { $ref: getSchemaPath(FuturesGridConfigDto) },
     ],
   })
-  config: GridConfigDto | DcaConfigDto | IndicatorConfigDto | WebhookConfigDto;
+  config:
+    | GridConfigDto
+    | DcaConfigDto
+    | IndicatorConfigDto
+    | WebhookConfigDto
+    | FuturesGridConfigDto;
   @ApiProperty() investment: number;
   @ApiPropertyOptional() paperFeeRate?: number;
   @ApiPropertyOptional() maxDailyLoss?: number;
@@ -532,7 +635,15 @@ export class IndicatorBacktestDto extends BacktestBaseDto {
   config: IndicatorConfigDto;
 }
 
+export class FuturesGridBacktestDto extends BacktestBaseDto {
+  @ApiProperty({ type: FuturesGridConfigDto })
+  @ValidateNested()
+  @Type(() => FuturesGridConfigDto)
+  config: FuturesGridConfigDto;
+}
+
 export type BacktestDto =
+  | FuturesGridBacktestDto
   | GridBacktestDto
   | DcaBacktestDto
   | IndicatorBacktestDto;
@@ -578,4 +689,33 @@ export class GridAiStrategyDto {
 export class WebhookTokenDto {
   @ApiProperty({ description: '新的 token，只在這次回傳；舊 token 立即失效' })
   webhookToken: string;
+}
+
+export class FuturesGridCheckDto {
+  @ApiProperty() @IsString() @IsNotEmpty() credentialId: string;
+
+  @ApiProperty({ example: 'BTC_USDT_PERP' })
+  @IsString()
+  @IsNotEmpty()
+  symbol: string;
+
+  @ApiProperty() @IsNumber() @IsPositive() investment: number;
+
+  @ApiProperty({ type: FuturesGridConfigDto })
+  @ValidateNested()
+  @Type(() => FuturesGridConfigDto)
+  config: FuturesGridConfigDto;
+}
+
+export class FuturesGridCheckResultDto {
+  @ApiPropertyOptional({ description: '最小投入（不含額外保證金）' })
+  minInvestment?: number;
+  @ApiPropertyOptional({ description: '最大投入（不含額外保證金）' })
+  maxInvestment?: number;
+  @ApiPropertyOptional({ description: '每格數量（基礎幣）' })
+  perVolume?: number;
+  @ApiPropertyOptional({ description: '下方預估強平價' })
+  liquidationPriceDown?: number;
+  @ApiPropertyOptional({ description: '上方預估強平價' })
+  liquidationPriceUp?: number;
 }

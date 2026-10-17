@@ -3,7 +3,12 @@ import type { BotFill, BotOrder, Strategy, StrategyContext } from '../types';
 
 const LEVEL_TAG = 'grid:';
 
-export const gridLines = ({ bottom, gridType, row, top }: GridConfigDto) =>
+export const gridLines = ({
+  bottom,
+  gridType,
+  row,
+  top,
+}: Pick<GridConfigDto, 'bottom' | 'gridType' | 'row' | 'top'>) =>
   Array.from({ length: row + 1 }, (_, index) =>
     gridType === 'arithmetic'
       ? bottom + ((top - bottom) * index) / row

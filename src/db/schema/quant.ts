@@ -43,6 +43,7 @@ export const quantBotTypeEnum = pgEnum('quant_bot_type', [
   'dca',
   'indicator',
   'webhook',
+  'futures_grid',
 ]);
 export const quantBotModeEnum = pgEnum('quant_bot_mode', ['paper', 'live']);
 export const quantBotStatusEnum = pgEnum('quant_bot_status', [

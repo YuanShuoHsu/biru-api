@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import {
   type QuantBot,
   quantBot,
+  quantBotEvent,
   quantBotFill,
   quantBotOrder,
   quantEngineLease,
@@ -22,6 +23,10 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import { QuantAccountService } from '../account/quant-account.service';
+import {
+  type FuturesGridConfigDto,
+  isFuturesBotType,
+} from '../dto/quant-bot.dto';
 import {
   QUANT_CANDLE_EVENT,
   QuantMarketStreamService,
@@ -34,20 +39,29 @@ import {
   type PionexAccountEvent,
 } from '../pionex/pionex-private-streams';
 import {
+  PIONEX_INDEX_EVENT,
   PIONEX_TRADES_EVENT,
+  type PionexIndexEvent,
   type PionexTradesEvent,
 } from '../pionex/pionex-public-stream';
 import { PionexRestClient } from '../pionex/pionex-rest.client';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import { quantEnvironment } from '../quant-environment';
 
+import { SpotAccount } from './account';
 import { BotRunner, candleIntervalOf } from './bot-runner';
-import { BotStore, toBotFill, toSubmittedOrder } from './bot-store';
+import {
+  BotStore,
+  FUNDING_EVENT,
+  toBotFill,
+  toSubmittedOrder,
+} from './bot-store';
+import { type FundingPayment, FuturesAccount } from './futures-account';
 import { MarketCacheService } from './market-cache.service';
 import { PionexBroker } from './pionex-broker';
 import { SimulatedBroker } from './simulated-broker';
-import { toSymbolSpec } from './symbol-spec';
-import type { WebhookSignal } from './types';
+import { botSymbolSpec, toRiskTiers } from './symbol-spec';
+import type { BotFill, WebhookSignal } from './types';
 
 const LEASE_TICK_MS = 10_000;
 const LEASE_TTL_MS = 30_000;
@@ -55,6 +69,7 @@ const LEASE_TTL_MS = 30_000;
 const LEASE_SAFETY_MS = 10_000;
 const LIVE_SYNC_EVERY_TICKS = 2;
 const MAX_CANDLES_PER_REQUEST = 500;
+const FUNDING_BACKFILL_LIMIT = 100;
 
 interface ActiveRunner {
   releases: (() => void)[];
@@ -70,6 +85,7 @@ export class QuantEngineService
   private readonly holderId = randomUUID();
   private readonly runners = new Map<string, ActiveRunner>();
   private readonly starting = new Set<string>();
+  private readonly nextFundingTimes = new Map<string, number>();
   private leaseValidUntil = 0;
   private timer: NodeJS.Timeout | null = null;
   private ticks = 0;
@@ -172,8 +188,13 @@ export class QuantEngineService
         eq(quantBot.status, 'running'),
       ),
     });
+    // 實盤網格交給 Pionex 內建機器人執行，不在本機撮合
     const selfManaged = running.filter(
-      (bot) => !(bot.mode === 'live' && bot.type === 'grid'),
+      (bot) =>
+        !(
+          bot.mode === 'live' &&
+          (bot.type === 'grid' || bot.type === 'futures_grid')
+        ),
     );
     const runningIds = new Set(selfManaged.map(({ id }) => id));
 
@@ -193,8 +214,9 @@ export class QuantEngineService
     const releases: (() => void)[] = [];
 
     try {
-      const spec = toSymbolSpec(await this.symbols.get(bot.symbol));
-      const [orders, fills] = await Promise.all([
+      const spec = await botSymbolSpec(this.symbols, bot);
+      const isFutures = isFuturesBotType(bot.type);
+      const [orders, fillRows, fundings] = await Promise.all([
         this.db.query.quantBotOrder.findMany({
           orderBy: asc(quantBotOrder.createdAt),
           where: eq(quantBotOrder.botId, bot.id),
@@ -203,7 +225,9 @@ export class QuantEngineService
           orderBy: asc(quantBotFill.filledAt),
           where: eq(quantBotFill.botId, bot.id),
         }),
+        isFutures ? this.fundingsOf(bot.id) : Promise.resolve([]),
       ]);
+      const fills = fillRows.map((fill) => toBotFill(fill, spec));
 
       const credentials =
         bot.mode === 'live' && bot.credentialId
@@ -222,9 +246,13 @@ export class QuantEngineService
               lastPrice: () => this.marketCache.lastPrice(bot.symbol),
             },
             () => Date.now(),
+            isFutures ? 'PERP' : 'SPOT',
           );
 
       const runner = new BotRunner(bot, {
+        account: isFutures
+          ? await this.futuresAccount(bot, fills, fundings)
+          : new SpotAccount(bot.investment, fills),
         broker,
         candles: (interval, count) =>
           this.market.findCandles(
@@ -232,7 +260,7 @@ export class QuantEngineService
             interval,
             Math.min(count, MAX_CANDLES_PER_REQUEST),
           ),
-        fills: fills.map((fill) => toBotFill(fill, spec)),
+        fills,
         orders: orders.map(toSubmittedOrder),
         spec,
         store: new BotStore(this.db, this.eventEmitter, bot, spec),
@@ -258,6 +286,7 @@ export class QuantEngineService
       this.marketCache.setLastPrice(bot.symbol, price);
 
       this.runners.set(bot.id, { releases, runner });
+      if (isFutures) await this.backfillFunding(bot, runner, fundings);
       await runner.start(price);
     } catch (error) {
       releases.forEach((release) => release());
@@ -271,6 +300,84 @@ export class QuantEngineService
     } finally {
       this.starting.delete(bot.id);
     }
+  }
+
+  private async fundingsOf(botId: string): Promise<FundingPayment[]> {
+    const rows = await this.db.query.quantBotEvent.findMany({
+      columns: { payload: true },
+      orderBy: asc(quantBotEvent.createdAt),
+      where: and(
+        eq(quantBotEvent.botId, botId),
+        eq(quantBotEvent.kind, FUNDING_EVENT),
+      ),
+    });
+
+    return rows.map(({ payload }) => ({
+      amount: Number(payload?.amount),
+      time: Number(payload?.time),
+    }));
+  }
+
+  private async futuresAccount(
+    bot: QuantBot,
+    fills: BotFill[],
+    fundings: FundingPayment[],
+  ) {
+    const config = bot.config as unknown as FuturesGridConfigDto;
+    const [symbol, riskTiers] = await Promise.all([
+      this.symbols.getPerp(bot.symbol),
+      this.symbols.riskTiersOf(bot.symbol),
+    ]);
+
+    return new FuturesAccount({
+      fills,
+      fundings,
+      investment: bot.investment + (config.extraMargin ?? 0),
+      leverage: config.leverage,
+      liquidationFeeRate: Number(symbol.liquidationFeeRate),
+      riskTiers: toRiskTiers(riskTiers),
+    });
+  }
+
+  // 伺服器停機期間沒有成交，部位不變，補收停機期間結算的資金費
+  private async backfillFunding(
+    bot: QuantBot,
+    runner: BotRunner,
+    fundings: FundingPayment[],
+  ) {
+    const since = Math.max(
+      bot.startedAt?.getTime() ?? Date.now(),
+      ...fundings.map(({ time }) => time),
+    );
+    const rates = await this.market.findFundingRates(
+      bot.symbol,
+      FUNDING_BACKFILL_LIMIT,
+    );
+
+    for (const { rate, time } of rates.filter(
+      (item) => item.time > since && item.time <= Date.now(),
+    )) {
+      const [candle] = await this.market.findCandles(bot.symbol, '1M', 1, time);
+      if (candle) await runner.handleFunding(rate, candle.close, time);
+    }
+  }
+
+  private async settleFunding(symbol: string, time: number, mark: number) {
+    const rate = (await this.market.findFundingRates(symbol, 5)).find(
+      (item) => item.time === time,
+    )?.rate;
+    if (rate === undefined) {
+      this.logger.warn(`Funding rate for ${symbol} at ${time} not found`);
+      return;
+    }
+
+    for (const { runner } of this.runners.values())
+      if (
+        runner.symbol === symbol &&
+        isFuturesBotType(runner.bot.type) &&
+        (runner.bot.startedAt?.getTime() ?? Infinity) < time
+      )
+        await runner.handleFunding(rate, mark, time);
   }
 
   private detach(botId: string) {
@@ -302,6 +409,24 @@ export class QuantEngineService
         void (async () => {
           for (const price of path) await runner.handlePrice(price);
         })();
+  }
+
+  @OnEvent(PIONEX_INDEX_EVENT)
+  handleIndex({ markPrice, nextFundingTime, symbol }: PionexIndexEvent) {
+    if (!this.hasLease) return;
+
+    const mark = Number(markPrice);
+    for (const { runner } of this.runners.values())
+      if (runner.symbol === symbol && isFuturesBotType(runner.bot.type))
+        void runner.handleMark(mark);
+
+    // 下次結算時間往後跳，代表上一次已結算
+    const previous = this.nextFundingTimes.get(symbol);
+    this.nextFundingTimes.set(symbol, nextFundingTime);
+    if (previous !== undefined && nextFundingTime > previous)
+      void this.settleFunding(symbol, previous, mark).catch((error: unknown) =>
+        this.logger.error(error instanceof Error ? error.stack : String(error)),
+      );
   }
 
   @OnEvent(QUANT_CANDLE_EVENT)

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."quant_bot_type" ADD VALUE 'futures_grid';

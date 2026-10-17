@@ -61,7 +61,7 @@ export interface WebhookSignal {
   amount?: number;
 }
 
-export interface StrategyContext {
+export interface StrategyContext<L = Ledger> {
   readonly config: unknown;
   readonly investment: number;
   readonly spec: SymbolSpec;
@@ -75,7 +75,7 @@ export interface StrategyContext {
   fills(): readonly BotFill[];
   findOrder(orderId: string): BotOrder | undefined;
   lastPrice(): number | null;
-  ledger(): Ledger;
+  ledger(): L;
   log(kind: string, payload?: Record<string, unknown>): void;
   now(): number;
   openOrders(): readonly BotOrder[];

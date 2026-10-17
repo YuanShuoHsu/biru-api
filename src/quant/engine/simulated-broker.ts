@@ -1,4 +1,6 @@
 import type { Broker, MatchedFill, SubmittedOrder } from './bot-session';
+import type { PionexMarketType } from '../pionex/pionex.types';
+
 import type { BotFill, OrderSide } from './types';
 
 export interface MarketQuote {
@@ -10,12 +12,13 @@ export interface MarketQuote {
   lastPrice(): number | null;
 }
 
-// 模擬盤與回測共用的撮合：手續費扣法對齊 Pionex（買入扣基礎幣、賣出扣計價幣）
+// 模擬盤與回測共用的撮合；手續費扣法對齊 Pionex：現貨買入扣基礎幣、賣出扣計價幣，合約一律扣計價幣
 export class SimulatedBroker implements Broker {
   constructor(
     private readonly feeRate: number,
     private readonly quote: MarketQuote,
     private readonly now: () => number,
+    private readonly market: PionexMarketType = 'SPOT',
   ) {}
 
   async submit(order: SubmittedOrder): Promise<BotFill[]> {
@@ -27,16 +30,14 @@ export class SimulatedBroker implements Broker {
         (order.side === 'BUY' ? order.price >= last : order.price <= last));
     if (!marketable) return [];
 
+    const byAmount = order.type === 'MARKET' && order.amount !== undefined;
     const price = await this.quote.averagePrice(order.side, {
-      amount: order.type === 'MARKET' ? order.amount : undefined,
+      amount: byAmount ? order.amount : undefined,
       size: order.size,
     });
     if (price === null) throw new Error('Insufficient liquidity');
 
-    const size =
-      order.type === 'MARKET' && order.side === 'BUY'
-        ? (order.amount ?? 0) / price
-        : (order.size ?? 0);
+    const size = byAmount ? (order.amount ?? 0) / price : (order.size ?? 0);
 
     Object.assign(order, {
       filledAmount: price * size,
@@ -70,7 +71,7 @@ export class SimulatedBroker implements Broker {
   }
 
   private fill(order: SubmittedOrder, price: number, size: number): BotFill {
-    return order.side === 'BUY'
+    return order.side === 'BUY' && this.market === 'SPOT'
       ? {
           fee: size * this.feeRate,
           feeAsset: 'base',
@@ -85,7 +86,7 @@ export class SimulatedBroker implements Broker {
           feeAsset: 'quote',
           orderId: order.id,
           price,
-          side: 'SELL',
+          side: order.side,
           size,
           time: this.now(),
         };

@@ -4,6 +4,7 @@ import { QuantAccountController } from './account/quant-account.controller';
 import { QuantAccountService } from './account/quant-account.service';
 import { QuantFuturesController } from './account/quant-futures.controller';
 import { QuantFuturesService } from './account/quant-futures.service';
+import { PionexFuturesGridService } from './bots/pionex-futures-grid.service';
 import { PionexGridService } from './bots/pionex-grid.service';
 import { QuantBacktestService } from './bots/quant-backtest.service';
 import { QuantBotsController } from './bots/quant-bots.controller';
@@ -30,6 +31,7 @@ import { QuantGateway } from './quant.gateway';
   ],
   providers: [
     MarketCacheService,
+    PionexFuturesGridService,
     PionexGridService,
     PionexPrivateStreams,
     PionexPublicStream,
