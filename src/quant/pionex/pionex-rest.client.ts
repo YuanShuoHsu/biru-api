@@ -20,12 +20,13 @@ export interface PionexCredentials {
 
 type QueryParams = Record<string, string | number | undefined>;
 
+// 回應帶上交易所的錯誤代碼，前端 fetcher 會放進 error.info.code
 export class PionexApiError extends BadGatewayException {
   constructor(
     readonly code: string,
     message: string,
   ) {
-    super(message);
+    super({ code, error: 'Bad Gateway', message });
   }
 }
 

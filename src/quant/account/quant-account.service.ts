@@ -43,8 +43,12 @@ const OPEN_ORDERS_WEIGHT = 5;
 const FILLS_WEIGHT = 5;
 const ORDER_HISTORY_LIMIT = 50;
 
+// 文件寫 TRADE_ORDER_NOT_FOUND，實測回 TRADE_ORDER_NOT_EXIST
 // https://www.pionex.com/docs/api-docs/trade-api/trade
-const ORDER_NOT_FOUND_CODE = 'TRADE_ORDER_NOT_FOUND';
+const ORDER_NOT_FOUND_CODES = new Set([
+  'TRADE_ORDER_NOT_EXIST',
+  'TRADE_ORDER_NOT_FOUND',
+]);
 
 // https://pionex-doc.gitbook.io/apidocs/restful/orders/new-order
 const KNOWN_ORDER_ERRORS = {
@@ -327,7 +331,7 @@ export class QuantAccountService {
       .catch((error: unknown) => {
         if (
           error instanceof PionexApiError &&
-          error.code === ORDER_NOT_FOUND_CODE
+          ORDER_NOT_FOUND_CODES.has(error.code)
         )
           throw new NotFoundException(this.t('orderNotFound'));
         throw error;
