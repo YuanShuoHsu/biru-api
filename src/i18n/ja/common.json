@@ -212,6 +212,7 @@
     "botCredentialRequired": "本番ボットには取引口座の選択が必要です",
     "botNotFound": "ボットが見つかりません",
     "botNotRunning": "ボットは実行されていません",
+    "botNotSignal": "シグナルボットではないか、まだ Pionex で作成されていません",
     "botNotWebhook": "トークンは Webhook ボットにのみあります",
     "botPaperFeeRequired": "シミュレーションには手数料率の入力が必要です",
     "botStillRunning": "アーカイブする前にボットを停止してください",
@@ -237,7 +238,8 @@
     "orderFieldsMarketBuy": "成行買い注文には金額が必要です",
     "orderFieldsMarketSell": "成行売り注文には数量が必要です",
     "orderNotFound": "注文が見つかりません",
-    "orderSizeRejected": "注文数量が取引所の制限を満たしていません。最小値・最大値・小数桁数を確認してください"
+    "orderSizeRejected": "注文数量が取引所の制限を満たしていません。最小値・最大値・小数桁数を確認してください",
+    "signalBotLiveOnly": "シグナルボットは Pionex で実行されるため実運用のみです"
   },
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",

@@ -44,6 +44,7 @@ export const quantBotTypeEnum = pgEnum('quant_bot_type', [
   'indicator',
   'webhook',
   'futures_grid',
+  'signal',
 ]);
 export const quantBotModeEnum = pgEnum('quant_bot_mode', ['paper', 'live']);
 export const quantBotStatusEnum = pgEnum('quant_bot_status', [
@@ -74,6 +75,7 @@ export const quantBot = pgTable(
     paperFeeRate: decimal('paper_fee_rate'),
     maxDailyLoss: decimal('max_daily_loss'),
     pionexBotId: text('pionex_bot_id'),
+    pionexSignalType: text('pionex_signal_type'),
     webhookTokenHash: text('webhook_token_hash'),
     orderSequence: integer('order_sequence').notNull().default(0),
     startedAt: timestamp('started_at'),

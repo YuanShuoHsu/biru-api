@@ -212,6 +212,7 @@
     "botCredentialRequired": "실거래 봇에는 거래 계정이 필요합니다",
     "botNotFound": "봇을 찾을 수 없습니다",
     "botNotRunning": "봇이 실행 중이 아닙니다",
+    "botNotSignal": "신호 봇이 아니거나 아직 Pionex에 생성되지 않았습니다",
     "botNotWebhook": "토큰은 Webhook 봇에만 있습니다",
     "botPaperFeeRequired": "모의 거래에는 수수료율이 필요합니다",
     "botStillRunning": "보관하기 전에 봇을 중지하세요",
@@ -237,7 +238,8 @@
     "orderFieldsMarketBuy": "시장가 매수 주문에는 금액이 필요합니다",
     "orderFieldsMarketSell": "시장가 매도 주문에는 수량이 필요합니다",
     "orderNotFound": "주문을 찾을 수 없습니다",
-    "orderSizeRejected": "주문 수량이 거래소 제한에 맞지 않습니다. 최소값, 최대값, 소수 자릿수를 확인하세요"
+    "orderSizeRejected": "주문 수량이 거래소 제한에 맞지 않습니다. 최소값, 최대값, 소수 자릿수를 확인하세요",
+    "signalBotLiveOnly": "신호 봇은 Pionex에서 실행되므로 실전만 가능합니다"
   },
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",

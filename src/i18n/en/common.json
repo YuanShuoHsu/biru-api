@@ -212,6 +212,7 @@
     "botCredentialRequired": "Live bots need a trading account",
     "botNotFound": "Bot not found",
     "botNotRunning": "The bot is not running",
+    "botNotSignal": "This is not a signal bot, or it has not been created on Pionex yet",
     "botNotWebhook": "Only webhook bots have a token",
     "botPaperFeeRequired": "Paper bots need a fee rate",
     "botStillRunning": "Stop the bot before archiving it",
@@ -237,7 +238,8 @@
     "orderFieldsMarketBuy": "Market buy orders need an amount",
     "orderFieldsMarketSell": "Market sell orders need a size",
     "orderNotFound": "Order not found",
-    "orderSizeRejected": "The order size does not meet the exchange limits. Check the minimum, maximum and decimal places."
+    "orderSizeRejected": "The order size does not meet the exchange limits. Check the minimum, maximum and decimal places.",
+    "signalBotLiveOnly": "Signal bots run on Pionex and can only be live"
   },
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",

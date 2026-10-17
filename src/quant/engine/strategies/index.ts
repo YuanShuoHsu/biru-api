@@ -32,5 +32,7 @@ export const createFuturesStrategy = (
   switch (type) {
     case 'futures_grid':
       return new FuturesGridStrategy(context, feeRate);
+    case 'signal':
+      throw new Error('Signal bots are executed by Pionex smart copy');
   }
 };

@@ -262,6 +262,7 @@ export type I18nTranslations = {
             "botCredentialRequired": string;
             "botNotFound": string;
             "botNotRunning": string;
+            "botNotSignal": string;
             "botNotWebhook": string;
             "botPaperFeeRequired": string;
             "botStillRunning": string;
@@ -288,6 +289,7 @@ export type I18nTranslations = {
             "orderFieldsMarketSell": string;
             "orderNotFound": string;
             "orderSizeRejected": string;
+            "signalBotLiveOnly": string;
         };
         "refunds": {
             "allowanceExceeded": string;

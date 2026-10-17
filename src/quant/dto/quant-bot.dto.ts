@@ -10,6 +10,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -34,8 +35,9 @@ export const QUANT_BOT_TYPES = [
   'indicator',
   'webhook',
   'futures_grid',
+  'signal',
 ] as const;
-export const FUTURES_BOT_TYPES = ['futures_grid'] as const;
+export const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
 export const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
@@ -54,6 +56,7 @@ export const CONDITION_OPERATORS = ['above', 'below'] as const;
 export const CROSS_DIRECTIONS = ['golden', 'death'] as const;
 export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
+export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
 export type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
@@ -201,6 +204,32 @@ export class FuturesGridConfigDto {
   @ValidateNested()
   @Type(() => TriggerDto)
   trigger?: TriggerDto;
+}
+
+// https://www.pionex.com/docs/api-docs/bot-api/smart-copy
+export class SignalBotConfigDto {
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  leverage: number;
+
+  @ApiPropertyOptional({ description: '停利（%，相對投入），由 Pionex 執行' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Max(10000)
+  takeProfit?: number;
+
+  @ApiPropertyOptional({ description: '停損（%，相對投入），由 Pionex 執行' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Max(100)
+  stopLoss?: number;
+
+  @ApiProperty({ description: '獲利是否滾入下一筆的本金' })
+  @IsBoolean()
+  compound: boolean;
 }
 
 export class DcaConfigDto {
@@ -449,7 +478,15 @@ export class CreateFuturesGridBotDto extends CreateQuantBotBaseDto {
   config: FuturesGridConfigDto;
 }
 
+export class CreateSignalBotDto extends CreateQuantBotBaseDto {
+  @ApiProperty({ type: SignalBotConfigDto })
+  @ValidateNested()
+  @Type(() => SignalBotConfigDto)
+  config: SignalBotConfigDto;
+}
+
 export type CreateQuantBotDto =
+  | CreateSignalBotDto
   | CreateFuturesGridBotDto
   | CreateGridBotDto
   | CreateDcaBotDto
@@ -472,6 +509,7 @@ export class QuantBotSummaryDto {
 
 @ApiExtraModels(
   FuturesGridConfigDto,
+  SignalBotConfigDto,
   GridConfigDto,
   DcaConfigDto,
   IndicatorConfigDto,
@@ -497,9 +535,11 @@ export class QuantBotDto {
       { $ref: getSchemaPath(IndicatorConfigDto) },
       { $ref: getSchemaPath(WebhookConfigDto) },
       { $ref: getSchemaPath(FuturesGridConfigDto) },
+      { $ref: getSchemaPath(SignalBotConfigDto) },
     ],
   })
   config:
+    | SignalBotConfigDto
     | GridConfigDto
     | DcaConfigDto
     | IndicatorConfigDto
@@ -718,4 +758,31 @@ export class FuturesGridCheckResultDto {
   liquidationPriceDown?: number;
   @ApiPropertyOptional({ description: '上方預估強平價' })
   liquidationPriceUp?: number;
+}
+
+export class SignalSetupDto {
+  @ApiProperty({
+    description:
+      '填到 TradingView alert 的 Webhook URL（含 Pionex 的 token，請勿外流）',
+  })
+  webhookUrl: string;
+  @ApiProperty({ description: 'TradingView alert 的訊息範本' }) message: string;
+}
+
+export class SendSignalDto {
+  @ApiProperty({ enum: SIGNAL_ACTIONS, enumName: 'QuantSignalAction' })
+  @IsIn(SIGNAL_ACTIONS)
+  action: (typeof SIGNAL_ACTIONS)[number];
+
+  @ApiProperty({ description: '這筆訊號的數量，對應 TradingView 的 contracts' })
+  @IsNumber()
+  @IsPositive()
+  contracts: number;
+
+  @ApiProperty({
+    description:
+      '訊號送出後的目標部位，對應 TradingView 的 position_size：正數做多、負數做空、0 平倉',
+  })
+  @IsNumber()
+  positionSize: number;
 }

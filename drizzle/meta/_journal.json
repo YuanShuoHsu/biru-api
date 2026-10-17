@@ -1464,6 +1464,13 @@
       "when": 1792227310050,
       "tag": "0208_quant_futures_grid",
       "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "7",
+      "when": 1792228540587,
+      "tag": "0209_quant_signal_bot",
+      "breakpoints": true
     }
   ]
 }

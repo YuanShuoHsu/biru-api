@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -49,12 +50,16 @@ import {
   type QuantBotOrderDto,
   type QuantBotSummaryDto,
   type QuantBotType,
+  type SendSignalDto,
+  type SignalBotConfigDto,
+  type SignalSetupDto,
   type WebhookConfigDto,
   type WebhookSignalDto,
 } from '../dto/quant-bot.dto';
 import { SpotAccount } from '../engine/account';
 import { FUNDING_EVENT, toBotFill } from '../engine/bot-store';
 import { FuturesAccount } from '../engine/futures-account';
+import { toDecimalString } from '../engine/precision';
 import { MarketCacheService } from '../engine/market-cache.service';
 import { QuantEngineService } from '../engine/quant-engine.service';
 import { dcaMaxInvestment } from '../engine/strategies/dca.strategy';
@@ -77,13 +82,18 @@ import {
   PionexFuturesGridService,
 } from './pionex-futures-grid.service';
 import { PIONEX_GRID_FINISHED, PionexGridService } from './pionex-grid.service';
+import {
+  PionexSignalService,
+  type SmartCopyParams,
+} from './pionex-signal.service';
 
 const EVENT_LIMIT = 200;
 const PIONEX_GRID_SYNC_MS = 30_000;
 const WEBHOOK_TOKEN_BYTES = 24;
 
 const isLivePionexBot = ({ mode, type }: Pick<QuantBot, 'mode' | 'type'>) =>
-  mode === 'live' && (type === 'grid' || type === 'futures_grid');
+  mode === 'live' &&
+  (type === 'grid' || type === 'futures_grid' || type === 'signal');
 
 const dayOf = (time: number) => Math.floor(time / 86_400_000);
 
@@ -96,7 +106,8 @@ const optional = <T>(value: T | null) => value ?? undefined;
 
 @Injectable()
 export class QuantBotsService {
-  // 實盤 Pionex 合約網格當天開始時的損益，用來判斷每日虧損上限；重啟後從當下重新起算
+  private readonly logger = new Logger(QuantBotsService.name);
+  // 實盤 Pionex 合約機器人當天開始時的損益，用來判斷每日虧損上限；重啟後從當下重新起算
   private readonly dayStartPnl = new Map<
     string,
     { day: number; pnl: number }
@@ -112,6 +123,7 @@ export class QuantBotsService {
     private readonly marketCache: MarketCacheService,
     private readonly pionexFuturesGrid: PionexFuturesGridService,
     private readonly pionexGrid: PionexGridService,
+    private readonly pionexSignal: PionexSignalService,
     private readonly symbols: PionexSymbolsService,
   ) {}
 
@@ -160,11 +172,13 @@ export class QuantBotsService {
       await this.account.resolveCredentials(userId, dto.credentialId);
     }
     this.validateConfig(type, dto, spec);
-    if (type === 'futures_grid')
-      await this.validateFuturesGrid(
+    if (type === 'signal' && dto.mode !== 'live')
+      this.invalid('signalBotLiveOnly');
+    if (type === 'futures_grid' || type === 'signal')
+      await this.validateFuturesLeverage(
         userId,
         dto.symbol,
-        dto.config as FuturesGridConfigDto,
+        (dto.config as FuturesGridConfigDto | SignalBotConfigDto).leverage,
         dto.mode === 'live' ? dto.credentialId : undefined,
       );
 
@@ -200,19 +214,22 @@ export class QuantBotsService {
     const bot = await this.owned(userId, id);
     if (bot.startedAt) throw new ConflictException(this.t('botAlreadyStarted'));
 
-    const pionexBotId =
+    const pionexBotId: { botId: string | null; signalType?: string } | null =
       bot.mode !== 'live'
         ? null
         : bot.type === 'grid'
-          ? await this.startPionexGrid(bot)
+          ? { botId: await this.startPionexGrid(bot) }
           : bot.type === 'futures_grid'
-            ? await this.startPionexFuturesGrid(bot)
-            : null;
+            ? { botId: await this.startPionexFuturesGrid(bot) }
+            : bot.type === 'signal'
+              ? await this.startSignalBot(bot)
+              : null;
 
     const [updated] = await this.db
       .update(quantBot)
       .set({
-        pionexBotId,
+        pionexBotId: pionexBotId?.botId ?? null,
+        pionexSignalType: pionexBotId?.signalType ?? null,
         startedAt: new Date(),
         status: 'running',
         statusReason: null,
@@ -442,7 +459,7 @@ export class QuantBotsService {
         eq(quantBot.environment, quantEnvironment()),
         eq(quantBot.status, 'running'),
         eq(quantBot.mode, 'live'),
-        inArray(quantBot.type, ['grid', 'futures_grid']),
+        inArray(quantBot.type, ['grid', 'futures_grid', 'signal']),
       ),
     });
     const dailyLossByCredential = new Map<string, number>();
@@ -451,39 +468,32 @@ export class QuantBotsService {
     for (const bot of bots) {
       if (!bot.pionexBotId || !bot.credentialId) continue;
 
-      const credentials = await this.account.resolveCredentials(
-        bot.userId,
-        bot.credentialId,
-      );
-      const data =
-        bot.type === 'futures_grid'
-          ? (await this.pionexFuturesGrid.get(credentials, bot.pionexBotId))
-              .buOrderData
-          : (await this.pionexGrid.get(credentials, bot.pionexBotId))
-              .buOrderData;
+      try {
+        const { finished, pnl, reason } = await this.pionexBotState(bot);
+        if (finished) {
+          this.dayStartPnl.delete(bot.id);
+          await this.markStopped(bot, reason ?? 'pionex_finished');
+          continue;
+        }
+        if (bot.type === 'grid') continue;
 
-      if (data.status === PIONEX_GRID_FINISHED) {
-        this.dayStartPnl.delete(bot.id);
-        await this.markStopped(bot, data.reasonBy ?? 'pionex_finished');
-        continue;
+        const start = this.dayStartPnl.get(bot.id);
+        if (start?.day !== today)
+          this.dayStartPnl.set(bot.id, { day: today, pnl });
+        const loss = this.dayStartPnl.get(bot.id)!.pnl - pnl;
+        dailyLossByCredential.set(
+          bot.credentialId,
+          (dailyLossByCredential.get(bot.credentialId) ?? 0) +
+            Math.max(0, loss),
+        );
+
+        if (bot.maxDailyLoss !== null && loss >= bot.maxDailyLoss)
+          await this.stopBot(bot, 'daily_loss_limit');
+      } catch (error) {
+        this.logger.error(
+          `Sync ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      if (bot.type !== 'futures_grid') continue;
-
-      const { pnl } = await this.futuresGridSummary(
-        bot,
-        data as PionexFuturesGridData,
-      );
-      const start = this.dayStartPnl.get(bot.id);
-      if (start?.day !== today)
-        this.dayStartPnl.set(bot.id, { day: today, pnl });
-      const loss = this.dayStartPnl.get(bot.id)!.pnl - pnl;
-      dailyLossByCredential.set(
-        bot.credentialId,
-        (dailyLossByCredential.get(bot.credentialId) ?? 0) + Math.max(0, loss),
-      );
-
-      if (bot.maxDailyLoss !== null && loss >= bot.maxDailyLoss)
-        await this.stopBot(bot, 'daily_loss_limit').catch(() => undefined);
     }
 
     for (const [credentialId, loss] of dailyLossByCredential) {
@@ -495,10 +505,55 @@ export class QuantBotsService {
       if (maxDailyLoss === null || loss < maxDailyLoss) continue;
 
       for (const bot of bots)
-        if (bot.credentialId === credentialId && bot.type === 'futures_grid')
+        if (bot.credentialId === credentialId && bot.type !== 'grid')
           await this.stopBot(bot, 'futures_daily_loss_limit').catch(
             () => undefined,
           );
+    }
+  }
+
+  private async pionexBotState(
+    bot: QuantBot,
+  ): Promise<{ finished: boolean; pnl: number; reason?: string }> {
+    const credentials = await this.account.resolveCredentials(
+      bot.userId,
+      bot.credentialId!,
+    );
+
+    switch (bot.type) {
+      case 'futures_grid': {
+        const { buOrderData: data } = await this.pionexFuturesGrid.get(
+          credentials,
+          bot.pionexBotId!,
+        );
+        return {
+          finished: data.status === PIONEX_GRID_FINISHED,
+          pnl: (await this.futuresGridSummary(bot, data)).pnl,
+          reason: data.reasonBy,
+        };
+      }
+      case 'signal': {
+        const { buOrderData: data } = await this.pionexSignal.getSmartCopy(
+          credentials,
+          bot.pionexBotId!,
+        );
+        return {
+          finished: data.status === PIONEX_GRID_FINISHED,
+          pnl: Number(data.profit ?? 0),
+          reason: data.reasonBy,
+        };
+      }
+      default: {
+        const { buOrderData: data } = await this.pionexGrid.get(
+          credentials,
+          bot.pionexBotId!,
+        );
+        return {
+          finished: data.status === PIONEX_GRID_FINISHED,
+          pnl: 0,
+          reason: data.reasonBy,
+        };
+      }
     }
   }
 
@@ -533,12 +588,23 @@ export class QuantBotsService {
       await this.withExchangeError(() =>
         bot.type === 'futures_grid'
           ? this.pionexFuturesGrid.cancel(credentials, bot.pionexBotId!)
-          : this.pionexGrid.cancel(
-              credentials,
-              bot.pionexBotId!,
-              (bot.config as unknown as GridConfigDto).closeModel,
-            ),
+          : bot.type === 'signal'
+            ? this.pionexSignal.cancelSmartCopy(credentials, bot.pionexBotId!)
+            : this.pionexGrid.cancel(
+                credentials,
+                bot.pionexBotId!,
+                (bot.config as unknown as GridConfigDto).closeModel,
+              ),
       );
+      // 訊號只屬於這個機器人；刪掉後 TradingView 再送來的 alert 會被 Pionex 拒收
+      if (bot.type === 'signal' && bot.pionexSignalType)
+        await this.pionexSignal
+          .deleteSignal(credentials, bot.pionexSignalType)
+          .catch((error: unknown) =>
+            this.logger.warn(
+              `Delete signal of ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+            ),
+          );
     } else if (await this.engine.stopRunner(bot.id, reason)) {
       const refreshed = await this.db.query.quantBot.findFirst({
         where: eq(quantBot.id, bot.id),
@@ -596,10 +662,10 @@ export class QuantBotsService {
       bot.credentialId!,
     );
     // 參數可能在建立後被交易所調整規則或使用者改了風控上限，送出前再檢查一次
-    await this.validateFuturesGrid(
+    await this.validateFuturesLeverage(
       bot.userId,
       bot.symbol,
-      config,
+      config.leverage,
       bot.credentialId!,
     );
     const check = await this.withExchangeError(
@@ -662,24 +728,146 @@ export class QuantBotsService {
     }
   }
 
-  private async validateFuturesGrid(
+  private async validateFuturesLeverage(
     userId: string,
     symbol: string,
-    config: FuturesGridConfigDto,
+    leverage: number,
     credentialId?: string,
   ) {
     const [first] = await this.symbols.riskTiersOf(symbol);
     const symbolMax = Number(first?.maxLeverage ?? 0);
-    if (config.leverage > symbolMax)
+    if (leverage > symbolMax)
       this.invalid('futuresLeverageAboveSymbol', { max: symbolMax });
 
     if (!credentialId) return;
     const { maxLeverage } = await this.futures.findRisk(userId, credentialId);
-    if (maxLeverage !== null && config.leverage > maxLeverage)
-      this.invalid('futuresLeverageAboveLimit', {
-        leverage: config.leverage,
-        max: maxLeverage,
-      });
+    if (maxLeverage !== null && leverage > maxLeverage)
+      this.invalid('futuresLeverageAboveLimit', { leverage, max: maxLeverage });
+  }
+
+  private smartCopyParams(
+    bot: QuantBot,
+    spec: SymbolSpec,
+    signalType: string,
+  ): SmartCopyParams {
+    const config = bot.config as unknown as SignalBotConfigDto;
+
+    return {
+      compound: config.compound,
+      investment: toDecimalString(bot.investment, spec.amountPrecision),
+      leverage: config.leverage,
+      lossStopRatio:
+        config.stopLoss === undefined
+          ? undefined
+          : String(-config.stopLoss / 100),
+      profitStopRatio:
+        config.takeProfit === undefined
+          ? undefined
+          : String(config.takeProfit / 100),
+      signalType,
+    };
+  }
+
+  // 每個訊號機器人各自建立一個 Pionex 自訂訊號，TradingView 的 alert 直接送到 Pionex
+  private async startSignalBot(bot: QuantBot) {
+    const config = bot.config as unknown as SignalBotConfigDto;
+    const spec = await botSymbolSpec(this.symbols, bot);
+    const credentials = await this.account.resolveCredentials(
+      bot.userId,
+      bot.credentialId!,
+    );
+    await this.validateFuturesLeverage(
+      bot.userId,
+      bot.symbol,
+      config.leverage,
+      bot.credentialId!,
+    );
+
+    const signal = await this.withExchangeError(
+      () => this.pionexSignal.createSignal(credentials, bot.name, bot.id),
+      'exchangeRejected',
+    );
+    try {
+      const params = this.smartCopyParams(bot, spec, signal.signalType);
+      const check = await this.withExchangeError(
+        () => this.pionexSignal.checkSmartCopy(credentials, spec, params),
+        'exchangeRejected',
+      );
+      if (check.max_leverage && config.leverage > Number(check.max_leverage))
+        this.invalid('futuresLeverageAboveSymbol', {
+          max: Number(check.max_leverage),
+        });
+
+      const order = await this.withExchangeError(
+        () =>
+          this.pionexSignal.createSmartCopy(
+            credentials,
+            spec,
+            params,
+            bot.name,
+          ),
+        'exchangeRejected',
+      );
+
+      return { botId: order.bu_order_id, signalType: signal.signalType };
+    } catch (error) {
+      await this.pionexSignal
+        .deleteSignal(credentials, signal.signalType)
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async signalSetup(userId: string, id: string): Promise<SignalSetupDto> {
+    const bot = await this.owned(userId, id);
+    if (bot.type !== 'signal' || !bot.pionexSignalType || !bot.credentialId)
+      this.invalid('botNotSignal');
+
+    const signal = await this.withExchangeError(async () =>
+      this.pionexSignal.getSignal(
+        await this.account.resolveCredentials(userId, bot.credentialId!),
+        bot.pionexSignalType!,
+      ),
+    );
+    if (!signal.tradingviewConfig) this.invalid('botNotSignal');
+
+    return signal.tradingviewConfig;
+  }
+
+  async sendSignal(
+    userId: string,
+    id: string,
+    { action, contracts, positionSize }: SendSignalDto,
+  ) {
+    const bot = await this.owned(userId, id);
+    if (bot.type !== 'signal' || !bot.pionexSignalType || !bot.credentialId)
+      this.invalid('botNotSignal');
+    if (bot.status !== 'running')
+      throw new ConflictException(this.t('botNotRunning'));
+
+    const spec = await botSymbolSpec(this.symbols, bot);
+    const price = await this.priceOf(bot.symbol);
+    await this.withExchangeError(
+      async () =>
+        this.pionexSignal.push(
+          await this.account.resolveCredentials(userId, bot.credentialId!),
+          spec,
+          {
+            action,
+            contracts: String(contracts),
+            positionSize: String(positionSize),
+            price: String(price),
+            signalType: bot.pionexSignalType!,
+          },
+        ),
+      'exchangeRejected',
+    );
+    await this.db.insert(quantBotEvent).values({
+      botId: bot.id,
+      id: randomUUID(),
+      kind: 'manual_signal',
+      payload: { action, contracts, positionSize, price },
+    });
   }
 
   private async withExchangeError<T>(
@@ -754,6 +942,8 @@ export class QuantBotsService {
           this.invalid('futuresGridInvestmentTooSmall');
         return;
       }
+      case 'signal':
+        return;
       case 'dca': {
         const max = dcaMaxInvestment(dto.config as DcaConfigDto);
         if (max > investment)
@@ -803,6 +993,7 @@ export class QuantBotsService {
       return this.pionexGridSummary(bot);
     if (bot.mode === 'live' && bot.type === 'futures_grid')
       return this.futuresGridSummary(bot);
+    if (bot.type === 'signal') return this.signalSummary(bot);
 
     const spec = await botSymbolSpec(this.symbols, bot);
     const fills = (
@@ -873,6 +1064,49 @@ export class QuantBotsService {
       (await this.market.findCandles(symbol, '1M', 1))[0]?.close ??
       0
     );
+  }
+
+  private async signalSummary(bot: QuantBot): Promise<QuantBotSummaryDto> {
+    const empty = {
+      averageCost: 0,
+      equity: bot.investment,
+      fillCount: 0,
+      pnl: 0,
+      position: 0,
+      realizedPnl: 0,
+    };
+    if (!bot.pionexBotId || !bot.credentialId) return empty;
+
+    try {
+      const { buOrderData: data } = await this.pionexSignal.getSmartCopy(
+        await this.account.resolveCredentials(bot.userId, bot.credentialId),
+        bot.pionexBotId,
+      );
+      const [item] = data.portfolio ?? [];
+      const long = Number(item?.qtyLong ?? 0);
+      const short = Math.abs(Number(item?.qtyShort ?? 0));
+      const position = long - short;
+      const cost =
+        position > 0
+          ? Math.abs(Number(item?.amountLong ?? 0)) / long
+          : position < 0
+            ? Math.abs(Number(item?.amountShort ?? 0)) / short
+            : 0;
+      const pnl = Number(data.profit ?? 0);
+
+      return {
+        averageCost: cost,
+        equity: bot.investment + pnl,
+        fillCount: 0,
+        fundingFee: Number(item?.fundingFee ?? data.fundingFee ?? 0),
+        liquidationPrice: Number(item?.maintPrice ?? 0) || undefined,
+        pnl,
+        position,
+        realizedPnl: Number(item?.profit ?? 0),
+      };
+    } catch {
+      return empty;
+    }
   }
 
   private async futuresGridSummary(

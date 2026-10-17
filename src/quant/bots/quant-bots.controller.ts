@@ -21,6 +21,7 @@ import {
   CreateGridBotDto,
   CreateIndicatorBotDto,
   CreateQuantBotResponseDto,
+  CreateSignalBotDto,
   CreateWebhookBotDto,
   CreateFuturesGridBotDto,
   DcaBacktestDto,
@@ -34,6 +35,8 @@ import {
   QuantBotEventDto,
   QuantBotFillDto,
   QuantBotOrderDto,
+  SendSignalDto,
+  SignalSetupDto,
   WebhookTokenDto,
 } from '../dto/quant-bot.dto';
 
@@ -87,6 +90,17 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<FuturesGridCheckResultDto> {
     return this.bots.futuresGridCheck(user.id, dto);
+  }
+
+  @Post('bots/signal')
+  @ApiOperation({
+    summary: '建立訊號機器人（Pionex 自訂訊號＋智慧跟單，只能實盤）',
+  })
+  createSignal(
+    @Body() dto: CreateSignalBotDto,
+    @Session() { user }: UserSession,
+  ): Promise<CreateQuantBotResponseDto> {
+    return this.bots.create(user.id, 'signal', dto);
   }
 
   @Post('bots/dca')
@@ -157,6 +171,28 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<WebhookTokenDto> {
     return this.bots.regenerateWebhookToken(user.id, id);
+  }
+
+  @Get('bots/:id/signal')
+  @ApiOperation({
+    summary: '訊號機器人在 TradingView 要填的 Webhook URL 與訊息',
+  })
+  findSignalSetup(
+    @Param('id') id: string,
+    @Session() { user }: UserSession,
+  ): Promise<SignalSetupDto> {
+    return this.bots.signalSetup(user.id, id);
+  }
+
+  @Post('bots/:id/signal')
+  @HttpCode(204)
+  @ApiOperation({ summary: '手動送出一筆訊號給訊號機器人（會實際下單）' })
+  sendSignal(
+    @Param('id') id: string,
+    @Body() dto: SendSignalDto,
+    @Session() { user }: UserSession,
+  ): Promise<void> {
+    return this.bots.sendSignal(user.id, id, dto);
   }
 
   @Post('bots/:id/archive')

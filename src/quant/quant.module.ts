@@ -6,6 +6,7 @@ import { QuantFuturesController } from './account/quant-futures.controller';
 import { QuantFuturesService } from './account/quant-futures.service';
 import { PionexFuturesGridService } from './bots/pionex-futures-grid.service';
 import { PionexGridService } from './bots/pionex-grid.service';
+import { PionexSignalService } from './bots/pionex-signal.service';
 import { QuantBacktestService } from './bots/quant-backtest.service';
 import { QuantBotsController } from './bots/quant-bots.controller';
 import { QuantBotsService } from './bots/quant-bots.service';
@@ -34,6 +35,7 @@ import { QuantGateway } from './quant.gateway';
     PionexFuturesGridService,
     PionexGridService,
     PionexPrivateStreams,
+    PionexSignalService,
     PionexPublicStream,
     PionexRestClient,
     PionexSymbolsService,

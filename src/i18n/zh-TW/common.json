@@ -212,6 +212,7 @@
     "botCredentialRequired": "實盤機器人需要選擇交易帳戶",
     "botNotFound": "找不到這個機器人",
     "botNotRunning": "機器人沒有在執行",
+    "botNotSignal": "這不是訊號機器人，或還沒在 Pionex 建立",
     "botNotWebhook": "只有 Webhook 機器人有 token",
     "botPaperFeeRequired": "模擬盤需要填寫手續費率",
     "botStillRunning": "請先停止機器人再封存",
@@ -237,7 +238,8 @@
     "orderFieldsMarketBuy": "市價買單需要填寫金額",
     "orderFieldsMarketSell": "市價賣單需要填寫數量",
     "orderNotFound": "找不到這筆委託",
-    "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數"
+    "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數",
+    "signalBotLiveOnly": "訊號機器人由 Pionex 執行，只能建立實盤"
   },
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",

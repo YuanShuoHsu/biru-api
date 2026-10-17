@@ -193,7 +193,9 @@ export class QuantEngineService
       (bot) =>
         !(
           bot.mode === 'live' &&
-          (bot.type === 'grid' || bot.type === 'futures_grid')
+          (bot.type === 'grid' ||
+            bot.type === 'futures_grid' ||
+            bot.type === 'signal')
         ),
     );
     const runningIds = new Set(selfManaged.map(({ id }) => id));
