@@ -100,7 +100,7 @@ export const runBacktest = async ({
 
   const broker = new SimulatedBroker(
     feeRate,
-    { averagePrice: () => price, lastPrice: () => price },
+    { averagePrice: () => Promise.resolve(price), lastPrice: () => price },
     () => now,
   );
 

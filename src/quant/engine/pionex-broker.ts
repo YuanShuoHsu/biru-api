@@ -124,14 +124,18 @@ export class PionexBroker implements Broker {
         exchangeOrderId: exchange.orderId,
         filledAmount: Number(exchange.filledAmount),
         filledSize,
-        status:
-          exchange.status === 'OPEN'
-            ? 'open'
-            : filledSize > 0
-              ? 'filled'
-              : 'canceled',
+        status: this.statusOf(exchange, filledSize),
       },
     };
+  }
+
+  // 市價買單只有金額沒有數量，收單即成交完畢；其餘部分成交後結束的單視為已撤銷
+  private statusOf(exchange: PionexOrder, filledSize: number) {
+    if (exchange.status === 'OPEN') return 'open';
+    if (exchange.type === 'MARKET')
+      return filledSize > 0 ? 'filled' : 'canceled';
+
+    return filledSize >= Number(exchange.size) ? 'filled' : 'canceled';
   }
 
   private toFill(orderId: string, fill: PionexFill): BotFill {

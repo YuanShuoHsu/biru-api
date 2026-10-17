@@ -206,6 +206,19 @@ export class QuantBotsService {
       );
   }
 
+  async regenerateWebhookToken(userId: string, id: string) {
+    const bot = await this.owned(userId, id);
+    if (bot.type !== 'webhook') this.invalid('botNotWebhook');
+
+    const webhookToken = randomBytes(WEBHOOK_TOKEN_BYTES).toString('base64url');
+    await this.db
+      .update(quantBot)
+      .set({ webhookTokenHash: hashToken(webhookToken) })
+      .where(eq(quantBot.id, bot.id));
+
+    return { webhookToken };
+  }
+
   async archive(userId: string, id: string): Promise<void> {
     const bot = await this.owned(userId, id);
     if (bot.status === 'running')
@@ -436,28 +449,31 @@ export class QuantBotsService {
       bot.credentialId!,
     );
 
-    const order = await this.withExchangeError(() =>
-      this.pionexGrid.create(
-        credentials,
-        spec,
-        bot.config as unknown as GridConfigDto,
-        bot.investment,
-        bot.name,
-      ),
+    const order = await this.withExchangeError(
+      () =>
+        this.pionexGrid.create(
+          credentials,
+          spec,
+          bot.config as unknown as GridConfigDto,
+          bot.investment,
+          bot.name,
+        ),
+      'exchangeRejected',
     );
 
     return order.buOrderId;
   }
 
-  private async withExchangeError<T>(request: () => Promise<T>) {
+  private async withExchangeError<T>(
+    request: () => Promise<T>,
+    key: 'exchangeError' | 'exchangeRejected' = 'exchangeError',
+  ) {
     try {
       return await request();
     } catch (error) {
       if (!(error instanceof PionexApiError)) throw error;
 
-      throw new BadRequestException(
-        this.t('exchangeRejected', { message: error.message }),
-      );
+      throw new BadRequestException(this.t(key, { message: error.message }));
     }
   }
 

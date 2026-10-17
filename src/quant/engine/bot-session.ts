@@ -145,18 +145,28 @@ export class BotSession {
     });
   }
 
-  /** 由 broker 對帳或模擬撮合帶回的成交 */
-  applyFill(orderId: string, fill: BotFill, orderUpdate: Partial<BotOrder>) {
-    return this.serialize(() => this.recordFill(orderId, fill, orderUpdate));
-  }
-
-  updateOrder(orderId: string, update: Partial<BotOrder>) {
+  /**
+   * 實盤對帳：和策略動作排在同一個佇列，機器人自己撤單時不會被誤判成外部撤銷。
+   * 交易所回報已撤銷、但本地仍是掛單中，代表被使用者在 Pionex 手動撤掉，機器人停止。
+   */
+  reconcile(
+    syncOrder: (
+      order: SubmittedOrder,
+    ) => Promise<{ fills: BotFill[]; order: Partial<SubmittedOrder> }>,
+  ) {
     return this.serialize(async () => {
-      const order = this.orders.get(orderId);
-      if (!order) return;
+      for (const order of this.openOrders()) {
+        const { fills, order: update } = await syncOrder(order);
 
-      Object.assign(order, update);
-      await this.options.store.updateOrder(order);
+        for (const fill of fills) await this.recordFill(order.id, fill, update);
+        if (!fills.length) {
+          Object.assign(order, update);
+          await this.options.store.updateOrder(order);
+        }
+
+        if (update.status === 'canceled')
+          return this.halt('order_canceled_externally', true, false);
+      }
     });
   }
 

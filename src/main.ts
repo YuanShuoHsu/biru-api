@@ -58,6 +58,9 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
 
+  // Render 重新部署時送 SIGTERM；不啟用則 onModuleDestroy 不會執行，量化引擎的租約要等過期才會交接
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT ?? 3001);
 }
 

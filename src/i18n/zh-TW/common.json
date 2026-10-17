@@ -212,12 +212,14 @@
     "botCredentialRequired": "實盤機器人需要選擇交易帳戶",
     "botNotFound": "找不到這個機器人",
     "botNotRunning": "機器人沒有在執行",
+    "botNotWebhook": "只有 Webhook 機器人有 token",
     "botPaperFeeRequired": "模擬盤需要填寫手續費率",
     "botStillRunning": "請先停止機器人再封存",
     "botStopAllPartial": "有 {count} 個機器人停止失敗，請稍後再試",
     "credentialInvalid": "API key 驗證失敗，請確認金鑰、密鑰與權限是否正確：{message}",
     "credentialNotFound": "找不到這組 API key",
     "dcaInvestmentTooSmall": "投入金額不足：首單加上所有加碼最多需要 {required}",
+    "exchangeError": "交易所回應錯誤：{message}",
     "exchangeRejected": "交易所拒絕了這筆委託：{message}",
     "gridInvestmentTooSmall": "投入金額不足：每格至少要達到最小下單金額，共需 {min}",
     "gridRangeInvalid": "網格上界必須高於下界",
@@ -228,6 +230,7 @@
     "orderFieldsLimit": "限價單需要填寫價格與數量",
     "orderFieldsMarketBuy": "市價買單需要填寫金額",
     "orderFieldsMarketSell": "市價賣單需要填寫數量",
+    "orderNotFound": "找不到這筆委託",
     "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數"
   },
   "refunds": {

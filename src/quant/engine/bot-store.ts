@@ -15,6 +15,7 @@ import {
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { SessionStore, SubmittedOrder } from './bot-session';
+import { botClientOrderId } from './client-order-id';
 import type { BotFill, SymbolSpec } from './types';
 
 export const QUANT_BOT_CHANGED_EVENT = 'quant.bot.changed';
@@ -129,7 +130,7 @@ export class BotStore implements SessionStore {
       .where(eq(quantBot.id, this.bot.id))
       .returning({ orderSequence: quantBot.orderSequence });
 
-    return `${this.bot.id}-${orderSequence}`;
+    return botClientOrderId(this.bot.id, orderSequence);
   }
 
   async setStopped(reason: string, error: boolean) {

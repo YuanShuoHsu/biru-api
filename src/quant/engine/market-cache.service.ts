@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
+import { QuantMarketService } from '../market/quant-market.service';
 import {
   PIONEX_DEPTH_EVENT,
   PIONEX_TRADES_EVENT,
@@ -13,11 +14,16 @@ import type { OrderSide } from './types';
 
 type Levels = [price: number, size: number][];
 
+// 推播最多 100 檔，REST 最多約 1000 檔
+const FULL_DEPTH_LEVELS = 1000;
+
 // 模擬盤市價單要用委託簿逐檔吃單估算滑價
 @Injectable()
 export class MarketCacheService {
   private readonly depths = new Map<string, { asks: Levels; bids: Levels }>();
   private readonly prices = new Map<string, number>();
+
+  constructor(private readonly market: QuantMarketService) {}
 
   lastPrice(symbol: string) {
     return this.prices.get(symbol) ?? null;
@@ -27,15 +33,19 @@ export class MarketCacheService {
     this.prices.set(symbol, price);
   }
 
-  averagePrice(
+  async averagePrice(
     symbol: string,
     side: OrderSide,
     quantity: { amount?: number; size?: number },
   ) {
-    const depth = this.depths.get(symbol);
-    const levels = side === 'BUY' ? depth?.asks : depth?.bids;
+    const cached = this.depths.get(symbol);
+    const cachedLevels = side === 'BUY' ? cached?.asks : cached?.bids;
+    const price = cachedLevels && walkDepth(cachedLevels, quantity);
+    if (price) return price;
 
-    return (levels && walkDepth(levels, quantity)) ?? this.lastPrice(symbol);
+    const full = await this.market.findDepth(symbol, FULL_DEPTH_LEVELS);
+
+    return walkDepth(side === 'BUY' ? full.asks : full.bids, quantity);
   }
 
   @OnEvent(PIONEX_TRADES_EVENT)

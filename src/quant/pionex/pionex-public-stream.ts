@@ -6,7 +6,7 @@ import type { PionexDepth, PionexTrade } from './pionex.types';
 
 const PIONEX_PUBLIC_WS_URL = 'wss://ws.pionex.com/wsPub';
 
-const DEPTH_LEVELS = 20;
+const DEPTH_LEVELS = 100;
 
 export const PIONEX_TRADES_EVENT = 'pionex.trades';
 export const PIONEX_DEPTH_EVENT = 'pionex.depth';

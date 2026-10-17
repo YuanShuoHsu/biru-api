@@ -2,11 +2,11 @@ import type { Broker, MatchedFill, SubmittedOrder } from './bot-session';
 import type { BotFill, OrderSide } from './types';
 
 export interface MarketQuote {
-  /** 回傳成交均價；沒有報價時回傳 null */
+  /** 回傳成交均價；沒有報價或深度不足以成交全部數量時回傳 null */
   averagePrice(
     side: OrderSide,
     quantity: { amount?: number; size?: number },
-  ): number | null;
+  ): Promise<number | null>;
   lastPrice(): number | null;
 }
 
@@ -18,20 +18,20 @@ export class SimulatedBroker implements Broker {
     private readonly now: () => number,
   ) {}
 
-  submit(order: SubmittedOrder): Promise<BotFill[]> {
+  async submit(order: SubmittedOrder): Promise<BotFill[]> {
     const last = this.quote.lastPrice();
     const marketable =
       order.type === 'MARKET' ||
       (last !== null &&
         order.price !== undefined &&
         (order.side === 'BUY' ? order.price >= last : order.price <= last));
-    if (!marketable) return Promise.resolve([]);
+    if (!marketable) return [];
 
-    const price = this.quote.averagePrice(order.side, {
+    const price = await this.quote.averagePrice(order.side, {
       amount: order.type === 'MARKET' ? order.amount : undefined,
       size: order.size,
     });
-    if (price === null) throw new Error('No market price available');
+    if (price === null) throw new Error('Insufficient liquidity');
 
     const size =
       order.type === 'MARKET' && order.side === 'BUY'
@@ -44,7 +44,7 @@ export class SimulatedBroker implements Broker {
       status: 'filled',
     });
 
-    return Promise.resolve([this.fill(order, price, size)]);
+    return [this.fill(order, price, size)];
   }
 
   cancel(): Promise<void> {
@@ -92,6 +92,7 @@ export class SimulatedBroker implements Broker {
   }
 }
 
+/** 逐檔吃單的成交均價；這些檔位吃不完全部數量時回傳 null */
 export const walkDepth = (
   levels: [price: number, size: number][],
   { amount, size }: { amount?: number; size?: number },
@@ -107,8 +108,9 @@ export const walkDepth = (
     filledAmount += take * price;
     remainingSize -= take;
     remainingAmount -= take * price;
-    if (remainingSize <= 0 || remainingAmount <= 1e-12) break;
+    if (remainingSize <= 1e-12 || remainingAmount <= 1e-12)
+      return filledAmount / filledSize;
   }
 
-  return filledSize > 0 ? filledAmount / filledSize : null;
+  return null;
 };

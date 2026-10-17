@@ -262,12 +262,14 @@ export type I18nTranslations = {
             "botCredentialRequired": string;
             "botNotFound": string;
             "botNotRunning": string;
+            "botNotWebhook": string;
             "botPaperFeeRequired": string;
             "botStillRunning": string;
             "botStopAllPartial": string;
             "credentialInvalid": string;
             "credentialNotFound": string;
             "dcaInvestmentTooSmall": string;
+            "exchangeError": string;
             "exchangeRejected": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
@@ -278,6 +280,7 @@ export type I18nTranslations = {
             "orderFieldsLimit": string;
             "orderFieldsMarketBuy": string;
             "orderFieldsMarketSell": string;
+            "orderNotFound": string;
             "orderSizeRejected": string;
         };
         "refunds": {

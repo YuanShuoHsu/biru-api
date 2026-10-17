@@ -574,3 +574,8 @@ export class GridAiStrategyDto {
   @ApiProperty({ description: '回測最大回撤（0.1 = 10%）' })
   maxDrawdown: number;
 }
+
+export class WebhookTokenDto {
+  @ApiProperty({ description: '新的 token，只在這次回傳；舊 token 立即失效' })
+  webhookToken: string;
+}

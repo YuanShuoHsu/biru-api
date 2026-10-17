@@ -8,6 +8,7 @@ import type {
 import { PionexRestClient } from '../pionex/pionex-rest.client';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import type {
+  PionexDepth,
   PionexKline,
   PionexKlineInterval,
   PionexTicker,
@@ -96,10 +97,11 @@ export class QuantMarketService {
     let endTime: number | undefined;
 
     while (candles.length < count) {
+      // endTime 含邊界，會把上一頁最舊的那根再回傳一次，所以多取一根
       const page = await this.findCandles(
         symbol,
         interval,
-        Math.min(500, count - candles.length),
+        Math.min(500, count - candles.length + (endTime === undefined ? 0 : 1)),
         endTime,
       );
       const older = page.filter(
@@ -112,6 +114,20 @@ export class QuantMarketService {
     }
 
     return candles;
+  }
+
+  async findDepth(symbol: string, limit: number) {
+    const { asks, bids } = await this.rest.get<PionexDepth>(
+      '/api/v1/market/depth',
+      { limit, symbol },
+    );
+    const toLevels = (levels: PionexDepth['asks']) =>
+      levels.map(([price, size]): [number, number] => [
+        Number(price),
+        Number(size),
+      ]);
+
+    return { asks: toLevels(asks), bids: toLevels(bids) };
   }
 
   async findTrades(symbol: string): Promise<QuantTradeDto[]> {

@@ -125,15 +125,9 @@ export class BotRunner {
 
     this.syncing = true;
     try {
-      for (const order of this.session.openOrders()) {
-        const { fills, order: update } = await broker.sync(
-          order,
-          this.knownFillIds,
-        );
-        for (const fill of fills)
-          await this.session.applyFill(order.id, fill, update);
-        if (!fills.length) await this.session.updateOrder(order.id, update);
-      }
+      await this.session.reconcile((order) =>
+        broker.sync!(order, this.knownFillIds),
+      );
     } catch (error) {
       this.report(error);
     } finally {

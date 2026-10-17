@@ -5,12 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
 import { decryptField, encryptField } from 'src/common/utils/field-encryption';
-import { quantCredential } from 'src/db/schema/quant';
+import { quantBot, quantBotOrder, quantCredential } from 'src/db/schema/quant';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
@@ -24,6 +24,7 @@ import type {
   QuantFillDto,
   QuantOrderDto,
 } from '../dto/quant-account.dto';
+import { isBotClientOrderId } from '../engine/client-order-id';
 import { PionexPrivateStreams } from '../pionex/pionex-private-streams';
 import {
   PionexApiError,
@@ -42,11 +43,17 @@ const OPEN_ORDERS_WEIGHT = 5;
 const FILLS_WEIGHT = 5;
 const ORDER_HISTORY_LIMIT = 50;
 
+// https://www.pionex.com/docs/api-docs/trade-api/trade
+const ORDER_NOT_FOUND_CODE = 'TRADE_ORDER_NOT_FOUND';
+
 // https://pionex-doc.gitbook.io/apidocs/restful/orders/new-order
 const KNOWN_ORDER_ERRORS = {
   TRADE_AMOUNT_FILTER_DENIED: 'orderAmountRejected',
   TRADE_SIZE_FILTER_DENIED: 'orderSizeRejected',
 } as const;
+
+const isManualOrder = ({ clientOrderId }: PionexOrder) =>
+  !isBotClientOrderId(clientOrderId);
 
 const toNumber = (value?: string) =>
   value === undefined || value === '' ? undefined : Number(value);
@@ -111,6 +118,7 @@ export class QuantAccountService {
       | 'orderFieldsMarketBuy'
       | 'orderFieldsMarketSell'
       | 'orderFieldsLimit'
+      | 'orderNotFound'
       | 'orderSizeRejected',
     args?: Record<string, unknown>,
   ): string {
@@ -228,7 +236,7 @@ export class QuantAccountService {
       { params: { symbol }, weight: OPEN_ORDERS_WEIGHT },
     );
 
-    return orders.map(toOrder);
+    return orders.filter(isManualOrder).map(toOrder);
   }
 
   async listOrders(
@@ -243,7 +251,7 @@ export class QuantAccountService {
       { params: { limit: ORDER_HISTORY_LIMIT, symbol } },
     );
 
-    return orders.map(toOrder);
+    return orders.filter(isManualOrder).map(toOrder);
   }
 
   async listFills(
@@ -257,8 +265,12 @@ export class QuantAccountService {
       '/api/v1/trade/fills',
       { params: { symbol }, weight: FILLS_WEIGHT },
     );
+    const botOrderIds = await this.botExchangeOrderIds(
+      id,
+      fills.map(({ orderId }) => orderId),
+    );
 
-    return fills.map(toFill);
+    return fills.filter(({ orderId }) => !botOrderIds.has(orderId)).map(toFill);
   }
 
   async placeOrder(
@@ -305,9 +317,23 @@ export class QuantAccountService {
     orderId: string,
   ): Promise<void> {
     if (!/^\d+$/.test(orderId))
-      throw new NotFoundException(`Unknown order ${orderId}`);
+      throw new NotFoundException(this.t('orderNotFound'));
 
     const credentials = await this.resolveCredentials(userId, id);
+    const order = await this.rest
+      .signed<PionexOrder>(credentials, 'GET', '/api/v1/trade/order', {
+        params: { orderId },
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof PionexApiError &&
+          error.code === ORDER_NOT_FOUND_CODE
+        )
+          throw new NotFoundException(this.t('orderNotFound'));
+        throw error;
+      });
+    if (!isManualOrder(order))
+      throw new NotFoundException(this.t('orderNotFound'));
 
     await this.translateOrderError(() =>
       this.rest.signed(credentials, 'DELETE', '/api/v1/trade/order', {
@@ -323,11 +349,38 @@ export class QuantAccountService {
     symbol: string,
   ): Promise<void> {
     const credentials = await this.resolveCredentials(userId, id);
+    const { orders } = await this.rest.signed<{ orders: PionexOrder[] }>(
+      credentials,
+      'GET',
+      '/api/v1/trade/openOrders',
+      { params: { symbol }, weight: OPEN_ORDERS_WEIGHT },
+    );
 
-    await this.translateOrderError(() =>
-      this.rest.signed(credentials, 'DELETE', '/api/v1/trade/allOrders', {
-        body: { symbol },
-      }),
+    // 交易所的整批撤單不分來源，會連機器人的掛單一起撤掉，所以逐筆撤手動單
+    for (const order of orders.filter(isManualOrder))
+      await this.translateOrderError(() =>
+        this.rest.signed(credentials, 'DELETE', '/api/v1/trade/order', {
+          body: `{"symbol":${JSON.stringify(symbol)},"orderId":${order.orderId}}`,
+        }),
+      );
+  }
+
+  private async botExchangeOrderIds(credentialId: string, orderIds: string[]) {
+    if (!orderIds.length) return new Set<string>();
+
+    const rows = await this.db
+      .select({ exchangeOrderId: quantBotOrder.exchangeOrderId })
+      .from(quantBotOrder)
+      .innerJoin(quantBot, eq(quantBot.id, quantBotOrder.botId))
+      .where(
+        and(
+          eq(quantBot.credentialId, credentialId),
+          inArray(quantBotOrder.exchangeOrderId, orderIds),
+        ),
+      );
+
+    return new Set(
+      rows.flatMap(({ exchangeOrderId }) => exchangeOrderId ?? []),
     );
   }
 

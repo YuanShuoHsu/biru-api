@@ -30,6 +30,7 @@ import {
   QuantBotEventDto,
   QuantBotFillDto,
   QuantBotOrderDto,
+  WebhookTokenDto,
 } from '../dto/quant-bot.dto';
 
 import { QuantBacktestService } from './quant-backtest.service';
@@ -120,6 +121,15 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<QuantBotDto> {
     return this.bots.stop(user.id, id);
+  }
+
+  @Post('bots/:id/webhook-token')
+  @ApiOperation({ summary: '重新產生 Webhook token（舊的立即失效）' })
+  regenerateWebhookToken(
+    @Param('id') id: string,
+    @Session() { user }: UserSession,
+  ): Promise<WebhookTokenDto> {
+    return this.bots.regenerateWebhookToken(user.id, id);
   }
 
   @Post('bots/:id/archive')

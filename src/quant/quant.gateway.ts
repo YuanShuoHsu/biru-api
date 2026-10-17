@@ -46,6 +46,8 @@ const candleRoom = (symbol: string, interval: string) =>
 const accountRoom = (credentialId: string) => `account:${credentialId}`;
 const userRoom = (userId: string) => `user:${userId}`;
 
+const CLIENT_DEPTH_LEVELS = 20;
+
 interface QuantSocketData {
   releaseAccount?: () => void;
   releaseMarket?: () => void;
@@ -178,7 +180,9 @@ export class QuantGateway implements OnGatewayDisconnect {
   @OnEvent(PIONEX_DEPTH_EVENT)
   handleDepth({ asks, bids, symbol }: PionexDepthEvent) {
     const toLevels = (levels: PionexDepthEvent['bids']) =>
-      levels.map(([price, size]) => [Number(price), Number(size)]);
+      levels
+        .slice(0, CLIENT_DEPTH_LEVELS)
+        .map(([price, size]) => [Number(price), Number(size)]);
 
     this.server
       .to(marketRoom(symbol))
