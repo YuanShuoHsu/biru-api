@@ -52,10 +52,14 @@ export class QuantMarketService {
       if (!symbol.enable || !ticker) return [];
 
       return {
+        amountPrecision: symbol.amountPrecision,
         baseCurrency: symbol.baseCurrency,
         close: Number(ticker.close),
         high: Number(ticker.high),
         low: Number(ticker.low),
+        maxTradeSize: Number(symbol.maxTradeSize),
+        minAmount: Number(symbol.minAmount),
+        minTradeSize: Number(symbol.minTradeSize),
         open: Number(ticker.open),
         pricePrecision: symbol.quotePrecision,
         quoteCurrency: symbol.quoteCurrency,

@@ -207,6 +207,16 @@
     "notRedeemable": "This coupon cannot be redeemed with points",
     "perUserLimitReached": "You have already redeemed this coupon"
   },
+  "quant": {
+    "credentialInvalid": "API key verification failed. Check the key, secret and permissions: {message}",
+    "credentialNotFound": "API key not found",
+    "exchangeRejected": "The exchange rejected this order: {message}",
+    "orderAmountRejected": "The order amount does not meet the exchange limits. Check the minimum order amount.",
+    "orderFieldsLimit": "Limit orders need a price and a size",
+    "orderFieldsMarketBuy": "Market buy orders need an amount",
+    "orderFieldsMarketSell": "Market sell orders need a size",
+    "orderSizeRejected": "The order size does not meet the exchange limits. Check the minimum, maximum and decimal places."
+  },
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",
     "alreadyRefunded": "This order has already been fully refunded",

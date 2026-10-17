@@ -82,9 +82,53 @@ export interface PionexDepth {
 
 export interface PionexTrade {
   price: string;
-  side: 'BUY' | 'SELL';
+  side: PionexOrderSide;
   size: string;
   symbol: string;
   timestamp: number;
   tradeId: string;
+}
+
+export interface PionexBalance {
+  coin: string;
+  free: string;
+  frozen: string;
+}
+
+export const PIONEX_ORDER_SIDES = ['BUY', 'SELL'] as const;
+export const PIONEX_ORDER_TYPES = ['LIMIT', 'MARKET'] as const;
+
+export type PionexOrderSide = (typeof PIONEX_ORDER_SIDES)[number];
+export type PionexOrderType = (typeof PIONEX_ORDER_TYPES)[number];
+
+export interface PionexOrder {
+  amount?: string;
+  clientOrderId?: string;
+  createTime: number;
+  fee: string;
+  feeCoin: string;
+  filledAmount: string;
+  filledSize: string;
+  IOC: boolean;
+  orderId: string;
+  price?: string;
+  side: PionexOrderSide;
+  size?: string;
+  status: 'OPEN' | 'CLOSED';
+  symbol: string;
+  type: PionexOrderType;
+  updateTime: number;
+}
+
+export interface PionexFill {
+  fee: string;
+  feeCoin: string;
+  id: string;
+  orderId: string;
+  price: string;
+  role: 'MAKER' | 'TAKER';
+  side: PionexOrderSide;
+  size: string;
+  symbol: string;
+  timestamp: number;
 }

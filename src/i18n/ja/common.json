@@ -207,6 +207,16 @@
     "notRedeemable": "このクーポンはポイントと交換できません",
     "perUserLimitReached": "このクーポンは既に交換済みです"
   },
+  "quant": {
+    "credentialInvalid": "API キーの検証に失敗しました。キー、シークレット、権限を確認してください：{message}",
+    "credentialNotFound": "API キーが見つかりません",
+    "exchangeRejected": "取引所がこの注文を拒否しました：{message}",
+    "orderAmountRejected": "注文金額が取引所の制限を満たしていません。最小注文金額を確認してください",
+    "orderFieldsLimit": "指値注文には価格と数量が必要です",
+    "orderFieldsMarketBuy": "成行買い注文には金額が必要です",
+    "orderFieldsMarketSell": "成行売り注文には数量が必要です",
+    "orderSizeRejected": "注文数量が取引所の制限を満たしていません。最小値・最大値・小数桁数を確認してください"
+  },
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",
     "alreadyRefunded": "この注文はすでに全額返金済みです",

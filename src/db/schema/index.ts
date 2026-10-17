@@ -13,6 +13,7 @@ export * from './orders';
 export * from './organizations';
 export * from './payroll';
 export * from './points';
+export * from './quant';
 export * from './refunds';
 export * from './users';
 export * from './waitlist';

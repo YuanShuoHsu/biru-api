@@ -207,6 +207,16 @@
     "notRedeemable": "此优惠券无法用点数兑换",
     "perUserLimitReached": "您已兑换过此优惠券"
   },
+  "quant": {
+    "credentialInvalid": "API key 验证失败，请确认密钥、私钥与权限是否正确：{message}",
+    "credentialNotFound": "找不到这组 API key",
+    "exchangeRejected": "交易所拒绝了这笔委托：{message}",
+    "orderAmountRejected": "委托金额不符合交易所限制，请确认是否低于最小下单金额",
+    "orderFieldsLimit": "限价单需要填写价格与数量",
+    "orderFieldsMarketBuy": "市价买单需要填写金额",
+    "orderFieldsMarketSell": "市价卖单需要填写数量",
+    "orderSizeRejected": "委托数量不符合交易所限制，请确认数量的最小值、最大值与小数位数"
+  },
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
     "alreadyRefunded": "此订单已全额退款",

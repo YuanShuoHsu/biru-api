@@ -9,8 +9,11 @@ import {
   WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
 
+import { QuantAccountService } from './account/quant-account.service';
+import { WatchAccountDto } from './dto/quant-account.dto';
 import { WatchMarketDto } from './dto/quant-market.dto';
 import {
   QUANT_CANDLE_EVENT,
@@ -24,6 +27,11 @@ import {
   type PionexDepthEvent,
   type PionexTradesEvent,
 } from './pionex/pionex-public-stream';
+import {
+  PIONEX_ACCOUNT_EVENT,
+  PionexPrivateStreams,
+  type PionexAccountEvent,
+} from './pionex/pionex-private-streams';
 
 import { Namespace, Socket } from 'socket.io';
 import { WsAdminGuard } from 'src/common/guards/ws-admin.guard';
@@ -31,10 +39,14 @@ import { WsAdminGuard } from 'src/common/guards/ws-admin.guard';
 const marketRoom = (symbol: string) => `market:${symbol}`;
 const candleRoom = (symbol: string, interval: string) =>
   `candle:${symbol}:${interval}`;
+const accountRoom = (credentialId: string) => `account:${credentialId}`;
 
 interface QuantSocketData {
+  releaseAccount?: () => void;
   releaseMarket?: () => void;
 }
+
+type QuantSocket = Socket<never, never, never, QuantSocketData>;
 
 @AllowAnonymous()
 @UseGuards(WsAdminGuard)
@@ -53,11 +65,16 @@ export class QuantGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Namespace;
 
-  constructor(private readonly marketStream: QuantMarketStreamService) {}
+  constructor(
+    private readonly account: QuantAccountService,
+    private readonly authService: AuthService,
+    private readonly marketStream: QuantMarketStreamService,
+    private readonly privateStreams: PionexPrivateStreams,
+  ) {}
 
   @SubscribeMessage('watchMarket')
   async watchMarket(
-    @ConnectedSocket() client: Socket<never, never, never, QuantSocketData>,
+    @ConnectedSocket() client: QuantSocket,
     @MessageBody() { interval, symbol }: WatchMarketDto,
   ) {
     const release = await this.marketStream.watch(symbol, interval);
@@ -70,9 +87,7 @@ export class QuantGateway implements OnGatewayDisconnect {
   }
 
   @SubscribeMessage('unwatchMarket')
-  unwatchMarket(
-    @ConnectedSocket() client: Socket<never, never, never, QuantSocketData>,
-  ) {
+  unwatchMarket(@ConnectedSocket() client: QuantSocket) {
     client.data.releaseMarket?.();
     client.data.releaseMarket = undefined;
     for (const room of client.rooms)
@@ -82,8 +97,53 @@ export class QuantGateway implements OnGatewayDisconnect {
     return true;
   }
 
-  handleDisconnect(client: Socket<never, never, never, QuantSocketData>) {
+  @SubscribeMessage('watchAccount')
+  async watchAccount(
+    @ConnectedSocket() client: QuantSocket,
+    @MessageBody() { credentialId, symbol }: WatchAccountDto,
+  ) {
+    const session = await this.authService.api.getSession({
+      headers: fromNodeHeaders(client.handshake.headers),
+    });
+    if (!session) throw new WsException('Forbidden');
+
+    const credentials = await this.account.resolveCredentials(
+      session.user.id,
+      credentialId,
+    );
+    const release = this.privateStreams.watch(
+      credentialId,
+      credentials,
+      symbol,
+    );
+    this.unwatchAccount(client);
+
+    client.data.releaseAccount = release;
+    await client.join(accountRoom(credentialId));
+
+    return true;
+  }
+
+  @SubscribeMessage('unwatchAccount')
+  unwatchAccount(@ConnectedSocket() client: QuantSocket) {
+    client.data.releaseAccount?.();
+    client.data.releaseAccount = undefined;
+    for (const room of client.rooms)
+      if (room.startsWith('account:')) void client.leave(room);
+
+    return true;
+  }
+
+  handleDisconnect(client: QuantSocket) {
     client.data.releaseMarket?.();
+    client.data.releaseAccount?.();
+  }
+
+  @OnEvent(PIONEX_ACCOUNT_EVENT)
+  handleAccount({ credentialId, symbol, topic }: PionexAccountEvent) {
+    this.server
+      .to(accountRoom(credentialId))
+      .emit('account', { credentialId, symbol, topic });
   }
 
   @OnEvent(PIONEX_TRADES_EVENT)

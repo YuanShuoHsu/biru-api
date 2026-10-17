@@ -207,6 +207,16 @@
     "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다",
     "perUserLimitReached": "이미 교환한 쿠폰입니다"
   },
+  "quant": {
+    "credentialInvalid": "API 키 인증에 실패했습니다. 키, 시크릿, 권한을 확인하세요: {message}",
+    "credentialNotFound": "API 키를 찾을 수 없습니다",
+    "exchangeRejected": "거래소가 이 주문을 거부했습니다: {message}",
+    "orderAmountRejected": "주문 금액이 거래소 제한에 맞지 않습니다. 최소 주문 금액을 확인하세요",
+    "orderFieldsLimit": "지정가 주문에는 가격과 수량이 필요합니다",
+    "orderFieldsMarketBuy": "시장가 매수 주문에는 금액이 필요합니다",
+    "orderFieldsMarketSell": "시장가 매도 주문에는 수량이 필요합니다",
+    "orderSizeRejected": "주문 수량이 거래소 제한에 맞지 않습니다. 최소값, 최대값, 소수 자릿수를 확인하세요"
+  },
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",
     "alreadyRefunded": "이 주문은 이미 전액 환불되었습니다",

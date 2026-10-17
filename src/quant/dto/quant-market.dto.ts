@@ -5,10 +5,10 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 import {
   PIONEX_KLINE_INTERVALS,
+  PIONEX_ORDER_SIDES,
   type PionexKlineInterval,
+  type PionexOrderSide,
 } from '../pionex/pionex.types';
-
-const TRADE_SIDES = ['BUY', 'SELL'] as const;
 
 export class QuantMarketDto {
   @ApiProperty({ example: 'BTC_USDT' }) symbol: string;
@@ -16,6 +16,10 @@ export class QuantMarketDto {
   @ApiProperty() quoteCurrency: string;
   @ApiProperty({ description: '價格小數位數' }) pricePrecision: number;
   @ApiProperty({ description: '數量小數位數' }) sizePrecision: number;
+  @ApiProperty({ description: '市價買單金額小數位數' }) amountPrecision: number;
+  @ApiProperty({ description: '最小下單金額（計價幣）' }) minAmount: number;
+  @ApiProperty({ description: '最小下單數量（基礎幣）' }) minTradeSize: number;
+  @ApiProperty({ description: '最大下單數量（基礎幣）' }) maxTradeSize: number;
   @ApiProperty({ description: '24 小時前的價格' }) open: number;
   @ApiProperty({ description: '最新價' }) close: number;
   @ApiProperty() high: number;
@@ -37,8 +41,8 @@ export class QuantTradeDto {
   @ApiProperty() id: string;
   @ApiProperty() price: number;
   @ApiProperty() size: number;
-  @ApiProperty({ enum: TRADE_SIDES, enumName: 'QuantTradeSide' })
-  side: (typeof TRADE_SIDES)[number];
+  @ApiProperty({ enum: PIONEX_ORDER_SIDES, enumName: 'QuantOrderSide' })
+  side: PionexOrderSide;
   @ApiProperty({ description: '成交時間（毫秒）' }) time: number;
 }
 

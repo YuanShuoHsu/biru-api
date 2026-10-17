@@ -257,6 +257,16 @@ export type I18nTranslations = {
             "notRedeemable": string;
             "perUserLimitReached": string;
         };
+        "quant": {
+            "credentialInvalid": string;
+            "credentialNotFound": string;
+            "exchangeRejected": string;
+            "orderAmountRejected": string;
+            "orderFieldsLimit": string;
+            "orderFieldsMarketBuy": string;
+            "orderFieldsMarketSell": string;
+            "orderSizeRejected": string;
+        };
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;

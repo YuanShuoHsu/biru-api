@@ -207,6 +207,16 @@
     "notRedeemable": "此優惠券無法用點數兌換",
     "perUserLimitReached": "您已兌換過此優惠券"
   },
+  "quant": {
+    "credentialInvalid": "API key 驗證失敗，請確認金鑰、密鑰與權限是否正確：{message}",
+    "credentialNotFound": "找不到這組 API key",
+    "exchangeRejected": "交易所拒絕了這筆委託：{message}",
+    "orderAmountRejected": "委託金額不符合交易所限制，請確認是否低於最小下單金額",
+    "orderFieldsLimit": "限價單需要填寫價格與數量",
+    "orderFieldsMarketBuy": "市價買單需要填寫金額",
+    "orderFieldsMarketSell": "市價賣單需要填寫數量",
+    "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數"
+  },
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
     "alreadyRefunded": "此訂單已全額退款",
