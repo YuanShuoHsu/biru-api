@@ -6,8 +6,10 @@ import type { PionexEnvelope } from './pionex.types';
 
 const PIONEX_REST_URL = 'https://api.pionex.com';
 
-// 官方上限是 IP 與帳戶各 10 req/s，超過封鎖 60 秒，且封鎖期間再送會延長
-const MIN_REQUEST_INTERVAL_MS = 125;
+// 官方上限是 IP 與帳戶各每秒 10 個權重單位，超過封鎖 60 秒，且封鎖期間再送會延長。
+// 視窗多留 100ms，不論交易所是滑動視窗還是整秒切齊都不會超過
+const RATE_LIMIT_WEIGHT = 10;
+const RATE_LIMIT_WINDOW_MS = 1100;
 const RATE_LIMIT_BAN_MS = 60 * 1000;
 
 // 訂單與成交 id 是 JSON 數字，超過 2^53 會被 JSON.parse 改掉，一律保留原始字串
@@ -56,14 +58,30 @@ const parseBody = <T>(text: string) =>
 
 @Injectable()
 export class PionexRestClient {
-  private nextSlotAt = 0;
+  private bannedUntil = 0;
+  private sent: { at: number; weight: number }[] = [];
   private queue: Promise<void> = Promise.resolve();
 
   private reserveSlot(weight: number): Promise<void> {
     const slot = this.queue.then(async () => {
-      const wait = this.nextSlotAt - Date.now();
-      if (wait > 0) await sleep(wait);
-      this.nextSlotAt = Date.now() + MIN_REQUEST_INTERVAL_MS * weight;
+      for (;;) {
+        const now = Date.now();
+        if (now < this.bannedUntil) {
+          await sleep(this.bannedUntil - now);
+          continue;
+        }
+
+        this.sent = this.sent.filter(
+          ({ at }) => now - at < RATE_LIMIT_WINDOW_MS,
+        );
+        const used = this.sent.reduce((sum, entry) => sum + entry.weight, 0);
+        if (used + weight <= RATE_LIMIT_WEIGHT) {
+          this.sent.push({ at: now, weight });
+          return;
+        }
+
+        await sleep(this.sent[0].at + RATE_LIMIT_WINDOW_MS - now);
+      }
     });
     this.queue = slot;
 
@@ -121,7 +139,7 @@ export class PionexRestClient {
       headers: { Accept: 'application/json', ...init.headers },
     });
     if (res.status === 429) {
-      this.nextSlotAt = Date.now() + RATE_LIMIT_BAN_MS;
+      this.bannedUntil = Date.now() + RATE_LIMIT_BAN_MS;
       throw new PionexApiError('RATE_LIMITED', 'Pionex rate limit exceeded');
     }
 

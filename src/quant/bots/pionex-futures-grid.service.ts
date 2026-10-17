@@ -9,12 +9,13 @@ import {
 } from '../pionex/pionex-rest.client';
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
+// 文件的回應範例是 snake_case，實際回傳是 camelCase
 export interface PionexFuturesGridCheck {
-  estimate_liquidation_price_down?: string;
-  estimate_liquidation_price_up?: string;
-  estimate_per_volume?: string;
-  max_investment?: string;
-  min_investment?: string;
+  estimateLiquidationPriceDown?: string;
+  estimateLiquidationPriceUp?: string;
+  estimatePerVolume?: string;
+  maxInvestment?: string;
+  minInvestment?: string;
   slippage?: string;
 }
 

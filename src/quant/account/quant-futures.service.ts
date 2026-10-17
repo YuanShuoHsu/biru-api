@@ -32,7 +32,7 @@ import type {
 import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
 import { FuturesAccount } from '../engine/futures-account';
 import { toRiskTiers } from '../engine/symbol-spec';
-import { QuantMarketService } from '../market/quant-market.service';
+import { MarketCacheService } from '../engine/market-cache.service';
 import { quantEnvironment } from '../quant-environment';
 import {
   type PionexCredentials,
@@ -153,7 +153,7 @@ export class QuantFuturesService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly account: QuantAccountService,
     private readonly i18n: I18nService<I18nTranslations>,
-    private readonly market: QuantMarketService,
+    private readonly marketCache: MarketCacheService,
     private readonly rest: PionexRestClient,
     private readonly symbols: PionexSymbolsService,
   ) {}
@@ -488,12 +488,25 @@ export class QuantFuturesService {
     id: string,
     dto: PlaceFuturesOrderDto,
   ): Promise<PlaceQuantOrderResponseDto> {
-    if (!isClosingOrder(dto)) {
+    const { maxLeverage, minLiquidationDistance } = await this.findRisk(
+      userId,
+      id,
+    );
+    // 每個合約端點權重 5、每秒最多 10，沒設上限就不多打交易所，市價單才不會延遲成交
+    if (
+      !isClosingOrder(dto) &&
+      (maxLeverage !== null || minLiquidationDistance !== null)
+    ) {
       // 槓桿可能在 App 裡被調高，所以開倉時以交易所目前的設定為準
       const settings = await this.findSymbolSettings(userId, id, dto.symbol);
-      await this.assertLeverageAllowed(userId, id, settings.leverage);
+      if (maxLeverage !== null && settings.leverage > maxLeverage)
+        throw new BadRequestException(
+          this.t('futuresLeverageAboveLimit', {
+            leverage: settings.leverage,
+            max: maxLeverage,
+          }),
+        );
 
-      const { minLiquidationDistance } = await this.findRisk(userId, id);
       if (minLiquidationDistance !== null) {
         const preview = await this.previewOrder(userId, id, dto, settings);
         const { liquidationDistance } =
@@ -524,20 +537,20 @@ export class QuantFuturesService {
     { price: limitPrice, size: sizeText, symbol, type }: PreviewFuturesOrderDto,
     settings?: QuantFuturesSymbolSettingsDto,
   ): Promise<QuantFuturesOrderPreviewDto> {
-    const [perp, riskTiers, index, symbolSettings, positions, detail] =
+    const [perp, riskTiers, markPrice, symbolSettings, detail] =
       await Promise.all([
         this.symbols.getPerp(symbol),
         this.symbols.riskTiersOf(symbol),
-        this.market.findPerpIndex(symbol),
+        this.marketCache.markPrice(symbol),
         settings ?? this.findSymbolSettings(userId, id, symbol),
-        this.listPositions(userId, id, symbol),
-        this.get<{ balances: PionexFuturesBalance[] }>(
-          userId,
-          id,
-          '/uapi/v1/account/detail',
-        ),
+        this.get<{
+          balances: PionexFuturesBalance[];
+          positions: PionexPosition[] | null;
+        }>(userId, id, '/uapi/v1/account/detail'),
       ]);
-    const markPrice = Number(index.markPrice);
+    const positions = (detail.positions ?? [])
+      .filter((position) => position.symbol === symbol)
+      .map(toPosition);
     const size = Number(sizeText);
     const price = type === 'MARKET_QTY' ? markPrice : Number(limitPrice);
     const { leverage, marginMode } = symbolSettings;

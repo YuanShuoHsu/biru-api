@@ -502,11 +502,11 @@ export class QuantBotsService {
         : Number(value);
 
     return {
-      liquidationPriceDown: toNumber(check.estimate_liquidation_price_down),
-      liquidationPriceUp: toNumber(check.estimate_liquidation_price_up),
-      maxInvestment: toNumber(check.max_investment),
-      minInvestment: toNumber(check.min_investment),
-      perVolume: toNumber(check.estimate_per_volume),
+      liquidationPriceDown: toNumber(check.estimateLiquidationPriceDown),
+      liquidationPriceUp: toNumber(check.estimateLiquidationPriceUp),
+      maxInvestment: toNumber(check.maxInvestment),
+      minInvestment: toNumber(check.minInvestment),
+      perVolume: toNumber(check.estimatePerVolume),
     };
   }
 
@@ -698,9 +698,8 @@ export class QuantBotsService {
 
     if (dto.operation !== 'pause' && dto.operation !== 'resume')
       await this.assertLiquidationDistance(bot, {
-        estimate_liquidation_price_down:
-          check?.estimateLiquidationPriceDownAfter,
-        estimate_liquidation_price_up: check?.estimateLiquidationPriceUpAfter,
+        estimateLiquidationPriceDown: check?.estimateLiquidationPriceDownAfter,
+        estimateLiquidationPriceUp: check?.estimateLiquidationPriceUpAfter,
       });
 
     await this.withExchangeError(
@@ -1030,8 +1029,8 @@ export class QuantBotsService {
   private async assertLiquidationDistance(
     bot: QuantBot,
     check: {
-      estimate_liquidation_price_down?: string;
-      estimate_liquidation_price_up?: string;
+      estimateLiquidationPriceDown?: string;
+      estimateLiquidationPriceUp?: string;
     },
   ) {
     const { minLiquidationDistance } = await this.futures.findRisk(
@@ -1046,8 +1045,8 @@ export class QuantBotsService {
     if (!price) return;
 
     for (const estimate of [
-      check.estimate_liquidation_price_down,
-      check.estimate_liquidation_price_up,
+      check.estimateLiquidationPriceDown,
+      check.estimateLiquidationPriceUp,
     ]) {
       const liquidation = Number(estimate);
       if (!liquidation) continue;
@@ -1126,9 +1125,9 @@ export class QuantBotsService {
         () => this.pionexSignal.checkSmartCopy(credentials, spec, params),
         'exchangeRejected',
       );
-      if (check.max_leverage && config.leverage > Number(check.max_leverage))
+      if (check.maxLeverage && config.leverage > Number(check.maxLeverage))
         this.invalid('futuresLeverageAboveSymbol', {
-          max: Number(check.max_leverage),
+          max: Number(check.maxLeverage),
         });
 
       const order = await this.withExchangeError(

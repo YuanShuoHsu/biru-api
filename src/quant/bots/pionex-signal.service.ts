@@ -15,11 +15,12 @@ export interface PionexUserSignal {
 }
 
 // https://www.pionex.com/docs/api-docs/bot-api/smart-copy
+// 文件的回應範例是 snake_case，實際回傳是 camelCase
 export interface PionexSmartCopyCheck {
-  available_limit?: string;
-  max_investment?: string;
-  max_leverage?: string;
-  notional_limit?: string;
+  availableLimit?: string;
+  maxInvestment?: string;
+  maxLeverage?: string;
+  notionalLimit?: string;
 }
 
 export interface PionexSmartCopyPortfolioItem {

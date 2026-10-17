@@ -14,13 +14,29 @@ export const PIONEX_KLINE_INTERVALS = [
   '8H',
   '12H',
   '1D',
+  '1W',
+  '1m',
 ] as const;
 
 export type PionexKlineInterval = (typeof PIONEX_KLINE_INTERVALS)[number];
 
-const MINUTE_MS = 60 * 1000;
+// 文件列了 1W（週）與 1m（月），但 REST 實際回 MARKET_PARAMETER_ERROR，只能由日 K 合成
+export const AGGREGATED_KLINE_INTERVALS = ['1W', '1m'] as const;
 
-export const PIONEX_KLINE_INTERVAL_MS: Record<PionexKlineInterval, number> = {
+export type NativeKlineInterval = Exclude<
+  PionexKlineInterval,
+  (typeof AGGREGATED_KLINE_INTERVALS)[number]
+>;
+
+export const isNativeKlineInterval = (
+  interval: PionexKlineInterval,
+): interval is NativeKlineInterval =>
+  !(AGGREGATED_KLINE_INTERVALS as readonly string[]).includes(interval);
+
+const MINUTE_MS = 60 * 1000;
+const DAY_MS = 1440 * MINUTE_MS;
+
+const NATIVE_KLINE_INTERVAL_MS: Record<NativeKlineInterval, number> = {
   '1M': MINUTE_MS,
   '5M': 5 * MINUTE_MS,
   '15M': 15 * MINUTE_MS,
@@ -29,7 +45,34 @@ export const PIONEX_KLINE_INTERVAL_MS: Record<PionexKlineInterval, number> = {
   '4H': 240 * MINUTE_MS,
   '8H': 480 * MINUTE_MS,
   '12H': 720 * MINUTE_MS,
-  '1D': 1440 * MINUTE_MS,
+  '1D': DAY_MS,
+};
+
+/** K 線開盤時間：日以下依 UTC epoch 對齊，週從週一 00:00 UTC 起，月從每月 1 日 00:00 UTC 起 */
+export const candleStartOf = (interval: PionexKlineInterval, time: number) => {
+  if (isNativeKlineInterval(interval)) {
+    const intervalMs = NATIVE_KLINE_INTERVAL_MS[interval];
+
+    return Math.floor(time / intervalMs) * intervalMs;
+  }
+
+  const day = Math.floor(time / DAY_MS) * DAY_MS;
+  if (interval === '1W')
+    return day - ((new Date(day).getUTCDay() + 6) % 7) * DAY_MS;
+
+  const date = new Date(time);
+
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+};
+
+export const candleEndOf = (interval: PionexKlineInterval, start: number) => {
+  if (isNativeKlineInterval(interval))
+    return start + NATIVE_KLINE_INTERVAL_MS[interval];
+  if (interval === '1W') return start + 7 * DAY_MS;
+
+  const date = new Date(start);
+
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
 };
 
 export interface PionexEnvelope<T> {

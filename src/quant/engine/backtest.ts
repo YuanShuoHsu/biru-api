@@ -1,9 +1,6 @@
 import { futuresMarginOf, type QuantBotType } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
-import {
-  PIONEX_KLINE_INTERVAL_MS,
-  type PionexKlineInterval,
-} from '../pionex/pionex.types';
+import { candleEndOf, type PionexKlineInterval } from '../pionex/pionex.types';
 
 import { SpotAccount } from './account';
 import {
@@ -106,7 +103,6 @@ export const runBacktest = async (
   input: BacktestInput,
 ): Promise<BacktestResult> => {
   const { candles, config, feeRate, interval, investment, spec } = input;
-  const intervalMs = PIONEX_KLINE_INTERVAL_MS[interval];
   const orders: SubmittedOrder[] = [];
   const fills: BotFill[] = [];
   const events: BacktestEvent[] = [];
@@ -214,14 +210,17 @@ export const runBacktest = async (
 
     for (const [step, point] of path.entries()) {
       price = point;
-      now = candle.time + (intervalMs * step) / (path.length - 1);
+      now =
+        candle.time +
+        ((candleEndOf(interval, candle.time) - candle.time) * step) /
+          (path.length - 1);
       await session.handlePrice(point);
       // 歷史標記價格只能取到最近 2000 根，強平以成交價判斷，比交易所以標記價格判斷保守
       if (isFutures) await session.handleMark(point);
       if (index === 0 && step === 0) await session.start();
     }
 
-    now = candle.time + intervalMs;
+    now = candleEndOf(interval, candle.time);
     await session.handleCandleClose(candle);
     equity.push({ time: candle.time, value: session.equity(candle.close) });
     if (session.isStopped) break;

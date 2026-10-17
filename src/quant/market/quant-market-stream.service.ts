@@ -9,7 +9,7 @@ import {
 } from '../pionex/pionex-public-stream';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import {
-  PIONEX_KLINE_INTERVAL_MS,
+  candleStartOf,
   type PionexKlineInterval,
 } from '../pionex/pionex.types';
 
@@ -90,11 +90,10 @@ export class QuantMarketStreamService {
     for (const watch of watches.values()) {
       if (!watch.candle) continue;
 
-      const intervalMs = PIONEX_KLINE_INTERVAL_MS[watch.interval];
       for (const trade of ordered) {
         const price = Number(trade.price);
         const size = Number(trade.size);
-        const bucket = Math.floor(trade.timestamp / intervalMs) * intervalMs;
+        const bucket = candleStartOf(watch.interval, trade.timestamp);
 
         if (bucket < watch.candle.time) continue;
         if (bucket > watch.candle.time)
