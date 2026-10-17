@@ -86,6 +86,34 @@ export class QuantMarketService {
     return klines.map(toCandle).sort((a, b) => a.time - b.time);
   }
 
+  /** 往回分頁取 K 線，交易所單次最多 500 根、最多往回 10000 根 */
+  async findCandleHistory(
+    symbol: string,
+    interval: PionexKlineInterval,
+    count: number,
+  ): Promise<QuantCandleDto[]> {
+    const candles: QuantCandleDto[] = [];
+    let endTime: number | undefined;
+
+    while (candles.length < count) {
+      const page = await this.findCandles(
+        symbol,
+        interval,
+        Math.min(500, count - candles.length),
+        endTime,
+      );
+      const older = page.filter(
+        ({ time }) => endTime === undefined || time < endTime,
+      );
+      if (!older.length) break;
+
+      candles.unshift(...older);
+      endTime = older[0].time;
+    }
+
+    return candles;
+  }
+
   async findTrades(symbol: string): Promise<QuantTradeDto[]> {
     await this.symbols.get(symbol);
     const { trades } = await this.rest.get<{ trades: PionexTrade[] }>(

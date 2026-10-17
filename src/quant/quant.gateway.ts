@@ -13,6 +13,10 @@ import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 
 import { QuantAccountService } from './account/quant-account.service';
+import {
+  QUANT_BOT_CHANGED_EVENT,
+  type QuantBotChangedEvent,
+} from './engine/bot-store';
 import { WatchAccountDto } from './dto/quant-account.dto';
 import { WatchMarketDto } from './dto/quant-market.dto';
 import {
@@ -40,6 +44,7 @@ const marketRoom = (symbol: string) => `market:${symbol}`;
 const candleRoom = (symbol: string, interval: string) =>
   `candle:${symbol}:${interval}`;
 const accountRoom = (credentialId: string) => `account:${credentialId}`;
+const userRoom = (userId: string) => `user:${userId}`;
 
 interface QuantSocketData {
   releaseAccount?: () => void;
@@ -122,6 +127,23 @@ export class QuantGateway implements OnGatewayDisconnect {
     await client.join(accountRoom(credentialId));
 
     return true;
+  }
+
+  @SubscribeMessage('watchBots')
+  async watchBots(@ConnectedSocket() client: QuantSocket) {
+    const session = await this.authService.api.getSession({
+      headers: fromNodeHeaders(client.handshake.headers),
+    });
+    if (!session) throw new WsException('Forbidden');
+
+    await client.join(userRoom(session.user.id));
+
+    return true;
+  }
+
+  @OnEvent(QUANT_BOT_CHANGED_EVENT)
+  handleBotChanged({ botId, userId }: QuantBotChangedEvent) {
+    this.server.to(userRoom(userId)).emit('bot', { botId });
   }
 
   @SubscribeMessage('unwatchAccount')

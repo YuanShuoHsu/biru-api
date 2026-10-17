@@ -36,6 +36,7 @@ import type {
   PionexFill,
   PionexOrder,
 } from '../pionex/pionex.types';
+import { quantEnvironment } from '../quant-environment';
 
 const OPEN_ORDERS_WEIGHT = 5;
 const FILLS_WEIGHT = 5;
@@ -122,7 +123,10 @@ export class QuantAccountService {
   async listCredentials(userId: string): Promise<QuantCredentialDto[]> {
     const rows = await this.db.query.quantCredential.findMany({
       orderBy: desc(quantCredential.createdAt),
-      where: eq(quantCredential.userId, userId),
+      where: and(
+        eq(quantCredential.userId, userId),
+        eq(quantCredential.environment, quantEnvironment()),
+      ),
     });
 
     return rows.map(toCredentialDto);
@@ -152,6 +156,7 @@ export class QuantAccountService {
         apiKeyLast4: apiKey.slice(-4),
         encryptedApiKey: encryptField(apiKey, 'quantCredential'),
         encryptedApiSecret: encryptField(apiSecret, 'quantCredential'),
+        environment: quantEnvironment(),
         id: randomUUID(),
         label,
         userId,
@@ -165,7 +170,11 @@ export class QuantAccountService {
     const [removed] = await this.db
       .delete(quantCredential)
       .where(
-        and(eq(quantCredential.id, id), eq(quantCredential.userId, userId)),
+        and(
+          eq(quantCredential.id, id),
+          eq(quantCredential.userId, userId),
+          eq(quantCredential.environment, quantEnvironment()),
+        ),
       )
       .returning({ id: quantCredential.id });
     if (!removed) throw new NotFoundException(this.t('credentialNotFound'));
@@ -182,6 +191,7 @@ export class QuantAccountService {
       where: and(
         eq(quantCredential.id, id),
         eq(quantCredential.userId, userId),
+        eq(quantCredential.environment, quantEnvironment()),
       ),
     });
     if (!row) throw new NotFoundException(this.t('credentialNotFound'));

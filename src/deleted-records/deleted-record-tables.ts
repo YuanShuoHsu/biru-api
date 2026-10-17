@@ -6,6 +6,10 @@ export const UNTRACKED_TABLES = [
   'ecpay_callback_log',
   'statutory_holiday',
   'payroll_rule_set',
+  'quant_bot_order',
+  'quant_bot_fill',
+  'quant_bot_event',
+  'quant_engine_lease',
 ] as const;
 
 // 出勤與薪資資料不直接寫回，交給各自的建立流程重跑檢查、薪資鎖定與連動效果

@@ -1443,6 +1443,13 @@
       "when": 1792211244127,
       "tag": "0205_quant_credential",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1792215877584,
+      "tag": "0206_quant_bots",
+      "breakpoints": true
     }
   ]
 }

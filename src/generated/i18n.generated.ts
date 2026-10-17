@@ -258,9 +258,22 @@ export type I18nTranslations = {
             "perUserLimitReached": string;
         };
         "quant": {
+            "botAlreadyStarted": string;
+            "botCredentialRequired": string;
+            "botNotFound": string;
+            "botNotRunning": string;
+            "botPaperFeeRequired": string;
+            "botStillRunning": string;
+            "botStopAllPartial": string;
             "credentialInvalid": string;
             "credentialNotFound": string;
+            "dcaInvestmentTooSmall": string;
             "exchangeRejected": string;
+            "gridInvestmentTooSmall": string;
+            "gridRangeInvalid": string;
+            "gridSpacingTooSmall": string;
+            "indicatorConditionIncomplete": string;
+            "orderAmountAboveInvestment": string;
             "orderAmountRejected": string;
             "orderFieldsLimit": string;
             "orderFieldsMarketBuy": string;
