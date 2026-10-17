@@ -1,4 +1,8 @@
-// https://pionex-doc.gitbook.io/apidocs
+// https://www.pionex.com/docs/llms.txt
+
+export const PIONEX_MARKET_TYPES = ['SPOT', 'PERP'] as const;
+
+export type PionexMarketType = (typeof PIONEX_MARKET_TYPES)[number];
 
 export const PIONEX_KLINE_INTERVALS = [
   '1M',
@@ -70,7 +74,46 @@ export interface PionexSymbol {
   quotePrecision: number;
   sellFloor: string;
   symbol: string;
-  type: 'SPOT' | 'PERP';
+  type: 'SPOT';
+}
+
+export interface PionexPerpSymbol {
+  baseCurrency: string;
+  basePrecision: number;
+  baseStep: string;
+  liquidationFeeRate: string;
+  maxImpactLimit: string;
+  maxImpactMarket: string;
+  maxOrderNum: number;
+  maxSizeLimit: string;
+  maxSizeMarket: string;
+  minNotional: string;
+  minSizeLimit: string;
+  minSizeMarket: string;
+  name: string;
+  quoteCurrency: string;
+  quotePrecision: number;
+  quoteStep: string;
+  status: 'TRADING' | 'OFFLINE';
+  symbol: string;
+  type: 'PERP';
+}
+
+export interface PionexRiskTier {
+  maintMarginRatio: string;
+  maxLeverage: string;
+  notionalLimit: string;
+  quickDeduction: string;
+  rowNum: number;
+}
+
+export interface PionexFuturesIndex {
+  indexPrice: string;
+  markPrice: string;
+  nextFundingRate: string;
+  nextFundingTime: number;
+  symbol: string;
+  updateTime: number;
 }
 
 export type PionexPriceLevel = [price: string, size: string];
@@ -129,6 +172,118 @@ export interface PionexFill {
   role: 'MAKER' | 'TAKER';
   side: PionexOrderSide;
   size: string;
+  symbol: string;
+  timestamp: number;
+}
+
+export const PIONEX_FUTURES_ORDER_TYPES = [
+  'LIMIT',
+  'MARKET_QTY',
+  'IOC',
+  'FOK',
+  'POSTONLY',
+] as const;
+export const PIONEX_POSITION_SIDES = ['BOTH', 'LONG', 'SHORT'] as const;
+export const PIONEX_POSITION_MODES = ['BUYSELL', 'OPENCLOSE'] as const;
+export const PIONEX_MARGIN_MODES = ['CROSS', 'ISOLATED'] as const;
+export const PIONEX_ISOLATED_MODES = [
+  'CROSS',
+  'ISOLATED_BOTH',
+  'ISOLATED_LONG',
+  'ISOLATED_SHORT',
+] as const;
+
+export type PionexFuturesOrderType =
+  (typeof PIONEX_FUTURES_ORDER_TYPES)[number];
+export type PionexPositionSide = (typeof PIONEX_POSITION_SIDES)[number];
+export type PionexPositionMode = (typeof PIONEX_POSITION_MODES)[number];
+export type PionexMarginMode = (typeof PIONEX_MARGIN_MODES)[number];
+export type PionexIsolatedMode = (typeof PIONEX_ISOLATED_MODES)[number];
+
+export interface PionexFuturesOrder {
+  clientOrderId?: string;
+  createTime: number;
+  filledAmount: string;
+  filledSize: string;
+  isolatedMode: PionexIsolatedMode;
+  orderId: string;
+  origSize: string;
+  positionMode: PionexPositionMode;
+  positionSide: PionexPositionSide;
+  price: string;
+  reduceOnly: boolean;
+  side: PionexOrderSide;
+  size: string;
+  source: 'MANUAL' | 'API' | 'SYSTEM' | 'TRIGGER';
+  status: 'OPEN' | 'CLOSED';
+  symbol: string;
+  type: PionexFuturesOrderType;
+  updateTime: number;
+}
+
+export interface PionexFuturesFill {
+  fee: string;
+  feeCoin: string;
+  feeType: 'TRADING' | 'LIQUIDATION';
+  id: string;
+  orderId: string;
+  price: string;
+  role: 'MAKER' | 'TAKER';
+  side: PionexOrderSide;
+  size: string;
+  symbol: string;
+  timestamp: number;
+}
+
+export interface PionexPosition {
+  avgPrice: string;
+  createTime: number;
+  initialMargin: string;
+  isolatedMode: PionexIsolatedMode;
+  leverage: string;
+  liquidationPrice: string;
+  maintMargin: string;
+  markPrice: string;
+  netSize: string;
+  positionId: string;
+  positionSide: 'LONG' | 'SHORT';
+  symbol: string;
+  unrealizedPnL: string;
+  updateTime: number;
+}
+
+export interface PionexHistoryPosition {
+  amountLong: string;
+  amountSettled: string;
+  amountShort: string;
+  createTime: number;
+  isolatedMode: PionexIsolatedMode;
+  leverage: string;
+  positionId: string;
+  positionSide: 'LONG' | 'SHORT';
+  sizeLiquidated: string;
+  sizeLong: string;
+  sizeShort: string;
+  symbol: string;
+  updateTime: number;
+}
+
+export interface PionexFuturesBalance {
+  assets: string;
+  available: string;
+  coin: string;
+  free: string;
+  frozen: string;
+  totalInitialMargin: string;
+  transferable: string;
+  unrealizedPnL: string;
+}
+
+export interface PionexFundingFee {
+  fundingCoin: string;
+  fundingFee: string;
+  fundingRate: string;
+  isolatedMode: 'CROSS' | 'ISOLATED';
   symbol: string;
   timestamp: number;
 }

@@ -27,10 +27,13 @@ import {
 import { toTrade } from './market/quant-market.service';
 import {
   PIONEX_DEPTH_EVENT,
+  PIONEX_INDEX_EVENT,
   PIONEX_TRADES_EVENT,
   type PionexDepthEvent,
+  type PionexIndexEvent,
   type PionexTradesEvent,
 } from './pionex/pionex-public-stream';
+import { PionexSymbolsService } from './pionex/pionex-symbols.service';
 import {
   PIONEX_ACCOUNT_EVENT,
   PionexPrivateStreams,
@@ -77,6 +80,7 @@ export class QuantGateway implements OnGatewayDisconnect {
     private readonly authService: AuthService,
     private readonly marketStream: QuantMarketStreamService,
     private readonly privateStreams: PionexPrivateStreams,
+    private readonly symbols: PionexSymbolsService,
   ) {}
 
   @SubscribeMessage('watchMarket')
@@ -122,6 +126,7 @@ export class QuantGateway implements OnGatewayDisconnect {
       credentialId,
       credentials,
       symbol,
+      await this.symbols.marketTypeOf(symbol),
     );
     this.unwatchAccount(client);
 
@@ -164,10 +169,10 @@ export class QuantGateway implements OnGatewayDisconnect {
   }
 
   @OnEvent(PIONEX_ACCOUNT_EVENT)
-  handleAccount({ credentialId, symbol, topic }: PionexAccountEvent) {
+  handleAccount({ credentialId, market, symbol, topic }: PionexAccountEvent) {
     this.server
       .to(accountRoom(credentialId))
-      .emit('account', { credentialId, symbol, topic });
+      .emit('account', { credentialId, market, symbol, topic });
   }
 
   @OnEvent(PIONEX_TRADES_EVENT)
@@ -187,6 +192,17 @@ export class QuantGateway implements OnGatewayDisconnect {
     this.server
       .to(marketRoom(symbol))
       .emit('depth', { asks: toLevels(asks), bids: toLevels(bids), symbol });
+  }
+
+  @OnEvent(PIONEX_INDEX_EVENT)
+  handleIndex(index: PionexIndexEvent) {
+    this.server.to(marketRoom(index.symbol)).emit('perpIndex', {
+      indexPrice: Number(index.indexPrice),
+      markPrice: Number(index.markPrice),
+      nextFundingRate: Number(index.nextFundingRate),
+      nextFundingTime: index.nextFundingTime,
+      symbol: index.symbol,
+    });
   }
 
   @OnEvent(QUANT_CANDLE_EVENT)

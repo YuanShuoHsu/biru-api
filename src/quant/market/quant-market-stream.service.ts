@@ -7,6 +7,7 @@ import {
   PionexPublicStream,
   type PionexTradesEvent,
 } from '../pionex/pionex-public-stream';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import {
   PIONEX_KLINE_INTERVAL_MS,
   type PionexKlineInterval,
@@ -37,17 +38,21 @@ export class QuantMarketStreamService {
     private readonly eventEmitter: EventEmitter2,
     private readonly market: QuantMarketService,
     private readonly publicStream: PionexPublicStream,
+    private readonly symbols: PionexSymbolsService,
   ) {}
 
   async watch(
     symbol: string,
     interval: PionexKlineInterval,
   ): Promise<() => void> {
-    const [latest] = (await this.market.findCandles(symbol, interval, 1)) as [
-      QuantCandleDto?,
-    ];
+    const [[latest], type] = await Promise.all([
+      this.market.findCandles(symbol, interval, 1) as Promise<
+        [QuantCandleDto?]
+      >,
+      this.symbols.marketTypeOf(symbol),
+    ]);
 
-    const releaseSymbol = this.publicStream.subscribe(symbol);
+    const releaseSymbol = this.publicStream.subscribe(symbol, type);
 
     const watches =
       this.candleWatches.get(symbol) ?? new Map<string, CandleWatch>();

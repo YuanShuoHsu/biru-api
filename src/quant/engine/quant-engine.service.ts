@@ -243,7 +243,12 @@ export class QuantEngineService
       );
       if (credentials && bot.credentialId)
         releases.push(
-          this.privateStreams.watch(bot.credentialId, credentials, bot.symbol),
+          this.privateStreams.watch(
+            bot.credentialId,
+            credentials,
+            bot.symbol,
+            'SPOT',
+          ),
         );
 
       const price =
@@ -309,8 +314,8 @@ export class QuantEngineService
   }
 
   @OnEvent(PIONEX_ACCOUNT_EVENT)
-  handleAccount({ credentialId, symbol }: PionexAccountEvent) {
-    if (!this.hasLease) return;
+  handleAccount({ credentialId, market, symbol }: PionexAccountEvent) {
+    if (!this.hasLease || market !== 'SPOT') return;
 
     for (const { runner } of this.runners.values())
       if (

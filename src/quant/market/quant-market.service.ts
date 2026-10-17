@@ -2,18 +2,25 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   QuantCandleDto,
+  QuantFundingRateDto,
   QuantMarketDto,
+  QuantPerpInfoDto,
   QuantTradeDto,
 } from '../dto/quant-market.dto';
 import { PionexRestClient } from '../pionex/pionex-rest.client';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import type {
   PionexDepth,
+  PionexFuturesIndex,
   PionexKline,
+  PionexMarketType,
   PionexKlineInterval,
   PionexTicker,
   PionexTrade,
 } from '../pionex/pionex.types';
+
+// 合約行情端點的權重是 5，現貨是 1
+const weightOf = (type: PionexMarketType) => (type === 'PERP' ? 5 : 1);
 
 export const toCandle = (kline: PionexKline): QuantCandleDto => ({
   close: Number(kline.close),
@@ -39,37 +46,126 @@ export class QuantMarketService {
     private readonly symbols: PionexSymbolsService,
   ) {}
 
-  async listMarkets(): Promise<QuantMarketDto[]> {
-    const [symbols, { tickers }] = await Promise.all([
-      this.symbols.list(),
-      this.rest.get<{ tickers: PionexTicker[] }>('/api/v1/market/tickers', {
-        type: 'SPOT',
-      }),
+  async listMarkets(type: PionexMarketType): Promise<QuantMarketDto[]> {
+    const tickers = await this.rest
+      .get<{
+        tickers: PionexTicker[];
+      }>('/api/v1/market/tickers', { type }, weightOf(type))
+      .then(({ tickers }) => new Map(tickers.map((t) => [t.symbol, t])));
+    const stats = (ticker: PionexTicker) => ({
+      close: Number(ticker.close),
+      high: Number(ticker.high),
+      low: Number(ticker.low),
+      open: Number(ticker.open),
+      quoteVolume: Number(ticker.amount),
+      volume: Number(ticker.volume),
+    });
+
+    if (type === 'SPOT')
+      return (await this.symbols.list()).flatMap((symbol) => {
+        const ticker = tickers.get(symbol.symbol);
+        if (!ticker) return [];
+
+        return {
+          ...stats(ticker),
+          amountPrecision: symbol.amountPrecision,
+          baseCurrency: symbol.baseCurrency,
+          maxTradeSize: Number(symbol.maxTradeSize),
+          minAmount: Number(symbol.minAmount),
+          minTradeSize: Number(symbol.minTradeSize),
+          pricePrecision: symbol.quotePrecision,
+          quoteCurrency: symbol.quoteCurrency,
+          sizePrecision: symbol.basePrecision,
+          symbol: symbol.symbol,
+          type,
+        };
+      });
+
+    const [symbols, riskTiers] = await Promise.all([
+      this.symbols.listPerp(),
+      this.symbols.allRiskTiers(),
     ]);
-    const tickerBySymbol = new Map(tickers.map((t) => [t.symbol, t]));
 
     return symbols.flatMap((symbol) => {
-      const ticker = tickerBySymbol.get(symbol.symbol);
-      if (!symbol.enable || !ticker) return [];
+      const ticker = tickers.get(symbol.symbol);
+      const [firstTier] = riskTiers.get(symbol.symbol) ?? [];
+      if (!ticker || !firstTier) return [];
 
       return {
-        amountPrecision: symbol.amountPrecision,
+        ...stats(ticker),
+        // 合約市價單以數量下單，沒有另外的金額精度
+        amountPrecision: symbol.quotePrecision,
         baseCurrency: symbol.baseCurrency,
-        close: Number(ticker.close),
-        high: Number(ticker.high),
-        low: Number(ticker.low),
-        maxTradeSize: Number(symbol.maxTradeSize),
-        minAmount: Number(symbol.minAmount),
-        minTradeSize: Number(symbol.minTradeSize),
-        open: Number(ticker.open),
+        maxTradeSize: Number(symbol.maxSizeLimit),
+        minAmount: Number(symbol.minNotional),
+        minTradeSize: Number(symbol.minSizeLimit),
+        perp: {
+          liquidationFeeRate: Number(symbol.liquidationFeeRate),
+          maxLeverage: Number(firstTier.maxLeverage),
+          maxMarketSize: Number(symbol.maxSizeMarket),
+          minMarketSize: Number(symbol.minSizeMarket),
+        },
         pricePrecision: symbol.quotePrecision,
         quoteCurrency: symbol.quoteCurrency,
-        quoteVolume: Number(ticker.amount),
         sizePrecision: symbol.basePrecision,
         symbol: symbol.symbol,
-        volume: Number(ticker.volume),
+        type,
       };
     });
+  }
+
+  async findPerpInfo(symbol: string): Promise<QuantPerpInfoDto> {
+    await this.symbols.getPerp(symbol);
+    const [{ indexes }, { openInterests }, riskTiers] = await Promise.all([
+      this.rest.get<{ indexes: PionexFuturesIndex[] }>(
+        '/api/v1/market/indexes',
+        { symbol },
+        weightOf('PERP'),
+      ),
+      this.rest.get<{
+        openInterests: { openInterest: string; symbol: string }[];
+      }>('/api/v1/market/openInterests', {}, weightOf('PERP')),
+      this.symbols.riskTiersOf(symbol),
+    ]);
+    const [index] = indexes;
+
+    return {
+      indexPrice: Number(index.indexPrice),
+      markPrice: Number(index.markPrice),
+      nextFundingRate: Number(index.nextFundingRate),
+      nextFundingTime: index.nextFundingTime,
+      openInterest: Number(
+        openInterests.find((item) => item.symbol === symbol)?.openInterest ?? 0,
+      ),
+      riskTiers: riskTiers.map((tier) => ({
+        maintMarginRatio: Number(tier.maintMarginRatio),
+        maxLeverage: Number(tier.maxLeverage),
+        notionalLimit: Number(tier.notionalLimit),
+        quickDeduction: Number(tier.quickDeduction),
+      })),
+    };
+  }
+
+  async findFundingRates(
+    symbol: string,
+    limit: number,
+    endTime?: number,
+  ): Promise<QuantFundingRateDto[]> {
+    await this.symbols.getPerp(symbol);
+    const { rates } = await this.rest.get<{
+      rates: { fundingRate: string; fundingTime: number }[];
+    }>(
+      '/api/v1/market/fundingRates',
+      { endTime, limit, symbol },
+      weightOf('PERP'),
+    );
+
+    return rates
+      .map(({ fundingRate, fundingTime }) => ({
+        rate: Number(fundingRate),
+        time: fundingTime,
+      }))
+      .sort((a, b) => a.time - b.time);
   }
 
   async findCandles(
@@ -78,10 +174,11 @@ export class QuantMarketService {
     limit: number,
     endTime?: number,
   ): Promise<QuantCandleDto[]> {
-    await this.symbols.get(symbol);
+    const type = await this.symbols.marketTypeOf(symbol);
     const { klines } = await this.rest.get<{ klines: PionexKline[] }>(
       '/api/v1/market/klines',
       { endTime, interval, limit, symbol },
+      weightOf(type),
     );
 
     return klines.map(toCandle).sort((a, b) => a.time - b.time);
@@ -120,6 +217,7 @@ export class QuantMarketService {
     const { asks, bids } = await this.rest.get<PionexDepth>(
       '/api/v1/market/depth',
       { limit, symbol },
+      weightOf(await this.symbols.marketTypeOf(symbol)),
     );
     const toLevels = (levels: PionexDepth['asks']) =>
       levels.map(([price, size]): [number, number] => [
@@ -131,10 +229,11 @@ export class QuantMarketService {
   }
 
   async findTrades(symbol: string): Promise<QuantTradeDto[]> {
-    await this.symbols.get(symbol);
+    const type = await this.symbols.marketTypeOf(symbol);
     const { trades } = await this.rest.get<{ trades: PionexTrade[] }>(
       '/api/v1/market/trades',
       { limit: 100, symbol },
+      weightOf(type),
     );
 
     return trades.map(toTrade);

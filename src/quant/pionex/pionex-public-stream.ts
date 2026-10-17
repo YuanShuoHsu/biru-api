@@ -2,7 +2,12 @@ import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PionexSocket } from './pionex-socket';
-import type { PionexDepth, PionexTrade } from './pionex.types';
+import type {
+  PionexDepth,
+  PionexFuturesIndex,
+  PionexMarketType,
+  PionexTrade,
+} from './pionex.types';
 
 const PIONEX_PUBLIC_WS_URL = 'wss://ws.pionex.com/wsPub';
 
@@ -10,6 +15,7 @@ const DEPTH_LEVELS = 100;
 
 export const PIONEX_TRADES_EVENT = 'pionex.trades';
 export const PIONEX_DEPTH_EVENT = 'pionex.depth';
+export const PIONEX_INDEX_EVENT = 'pionex.index';
 
 export interface PionexTradesEvent {
   symbol: string;
@@ -19,6 +25,8 @@ export interface PionexTradesEvent {
 export interface PionexDepthEvent extends PionexDepth {
   symbol: string;
 }
+
+export type PionexIndexEvent = PionexFuturesIndex;
 
 // 每個 IP 最多 10 條連線，所以全站共用一條
 @Injectable()
@@ -42,12 +50,21 @@ export class PionexPublicStream implements OnModuleDestroy {
             symbol,
             ...(data as PionexDepth),
           } satisfies PionexDepthEvent);
+        else if (topic === 'INDEX')
+          for (const index of data as PionexFuturesIndex[])
+            eventEmitter.emit(
+              PIONEX_INDEX_EVENT,
+              index satisfies PionexIndexEvent,
+            );
       },
     );
   }
 
-  subscribe(symbol: string): () => void {
+  subscribe(symbol: string, type: PionexMarketType): () => void {
     const releases = [
+      ...(type === 'PERP'
+        ? [this.socket.subscribe({ symbol, topic: 'INDEX' })]
+        : []),
       this.socket.subscribe({ symbol, topic: 'TRADE' }),
       this.socket.subscribe({
         extra: { limit: DEPTH_LEVELS },

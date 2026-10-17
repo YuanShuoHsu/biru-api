@@ -271,12 +271,14 @@ export type I18nTranslations = {
             "dcaInvestmentTooSmall": string;
             "exchangeError": string;
             "exchangeRejected": string;
+            "futuresLeverageAboveLimit": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;
             "indicatorConditionIncomplete": string;
             "orderAmountAboveInvestment": string;
             "orderAmountRejected": string;
+            "orderFieldsFuturesLimit": string;
             "orderFieldsLimit": string;
             "orderFieldsMarketBuy": string;
             "orderFieldsMarketSell": string;

@@ -117,6 +117,7 @@ export class QuantAccountService {
     key:
       | 'credentialInvalid'
       | 'credentialNotFound'
+      | 'exchangeError'
       | 'exchangeRejected'
       | 'orderAmountRejected'
       | 'orderFieldsMarketBuy'
@@ -388,7 +389,23 @@ export class QuantAccountService {
     );
   }
 
-  private async translateOrderError<T>(request: () => Promise<T>) {
+  orderNotFound() {
+    return new NotFoundException(this.t('orderNotFound'));
+  }
+
+  async withExchangeError<T>(request: () => Promise<T>) {
+    try {
+      return await request();
+    } catch (error) {
+      if (!(error instanceof PionexApiError)) throw error;
+
+      throw new BadRequestException(
+        this.t('exchangeError', { message: error.message }),
+      );
+    }
+  }
+
+  async translateOrderError<T>(request: () => Promise<T>) {
     try {
       return await request();
     } catch (error) {

@@ -1450,6 +1450,13 @@
       "when": 1792215877584,
       "tag": "0206_quant_bots",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1792225263420,
+      "tag": "0207_quant_futures_risk",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,11 @@ import { AdminGuard } from 'src/common/guards/admin.guard';
 import {
   QuantCandleDto,
   QuantCandleQueryDto,
+  QuantFundingRateDto,
+  QuantFundingRateQueryDto,
   QuantMarketDto,
+  QuantMarketsQueryDto,
+  QuantPerpInfoDto,
   QuantTradeDto,
 } from './dto/quant-market.dto';
 import { QuantMarketService } from './market/quant-market.service';
@@ -19,9 +23,26 @@ export class QuantController {
   constructor(private readonly market: QuantMarketService) {}
 
   @Get('markets')
-  @ApiOperation({ summary: '列出可交易的現貨交易對與 24 小時行情' })
-  findMarkets(): Promise<QuantMarketDto[]> {
-    return this.market.listMarkets();
+  @ApiOperation({ summary: '列出可交易的現貨或合約交易對與 24 小時行情' })
+  findMarkets(
+    @Query() { type }: QuantMarketsQueryDto,
+  ): Promise<QuantMarketDto[]> {
+    return this.market.listMarkets(type);
+  }
+
+  @Get('markets/:symbol/perp')
+  @ApiOperation({ summary: '合約的標記價格、資金費率、未平倉量與風險限額' })
+  findPerpInfo(@Param('symbol') symbol: string): Promise<QuantPerpInfoDto> {
+    return this.market.findPerpInfo(symbol);
+  }
+
+  @Get('markets/:symbol/funding-rates')
+  @ApiOperation({ summary: '合約的歷史資金費率（時間由舊到新）' })
+  findFundingRates(
+    @Param('symbol') symbol: string,
+    @Query() { endTime, limit }: QuantFundingRateQueryDto,
+  ): Promise<QuantFundingRateDto[]> {
+    return this.market.findFundingRates(symbol, limit, endTime);
   }
 
   @Get('markets/:symbol/candles')
