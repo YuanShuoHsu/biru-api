@@ -12,6 +12,7 @@ const KEY_BYTES = 32;
 // 各用途各自推導金鑰；purpose 改了舊密文就解不開
 const FIELD_ENCRYPTION_PURPOSES = {
   payroll: 'biru-payroll-pii-v1',
+  quantAiKey: 'biru-quant-ai-key-v1',
   quantCredential: 'biru-quant-credential-v1',
 } as const;
 

@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers';
@@ -38,6 +39,27 @@ export const quantCredential = pgTable(
 
 export type QuantCredential = typeof quantCredential.$inferSelect;
 
+// 每位平台管理員自己的 Claude API key；和交易所金鑰一樣依環境分開，別環境的解不開
+export const quantAiKey = pgTable(
+  'quant_ai_key',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    environment: text('environment').notNull(),
+    apiKeyLast4: text('api_key_last4').notNull(),
+    encryptedApiKey: text('encrypted_api_key').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('quant_ai_key_user_environment_idx').on(
+      table.userId,
+      table.environment,
+    ),
+  ],
+);
+
 export const quantBotTypeEnum = pgEnum('quant_bot_type', [
   'grid',
   'dca',
@@ -45,6 +67,7 @@ export const quantBotTypeEnum = pgEnum('quant_bot_type', [
   'webhook',
   'futures_grid',
   'signal',
+  'ai',
 ]);
 export const quantBotModeEnum = pgEnum('quant_bot_mode', ['paper', 'live']);
 export const quantBotStatusEnum = pgEnum('quant_bot_status', [

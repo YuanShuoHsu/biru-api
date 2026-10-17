@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type {
   QuantCandleDto,
@@ -144,6 +144,18 @@ export class QuantMarketService {
         quickDeduction: Number(tier.quickDeduction),
       })),
     };
+  }
+
+  async findPerpIndex(symbol: string): Promise<PionexFuturesIndex> {
+    const { indexes } = await this.rest.get<{ indexes: PionexFuturesIndex[] }>(
+      '/api/v1/market/indexes',
+      { symbol },
+      weightOf('PERP'),
+    );
+    const [index] = indexes;
+    if (!index) throw new NotFoundException(`Unknown symbol ${symbol}`);
+
+    return index;
   }
 
   async findFundingRates(

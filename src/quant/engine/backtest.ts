@@ -1,8 +1,4 @@
-import type {
-  FuturesBotType,
-  FuturesGridConfigDto,
-  SpotBotType,
-} from '../dto/quant-bot.dto';
+import { futuresMarginOf, type QuantBotType } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import {
   PIONEX_KLINE_INTERVAL_MS,
@@ -44,11 +40,11 @@ export interface FuturesBacktestMarket {
   riskTiers: RiskTier[];
 }
 
-export type BacktestInput = BacktestCommonInput &
-  (
-    | { type: SpotBotType }
-    | { futures: FuturesBacktestMarket; type: FuturesBotType }
-  );
+export interface BacktestInput extends BacktestCommonInput {
+  /** 合約才需要；有帶就以逐倉保證金模型回測 */
+  futures?: FuturesBacktestMarket;
+  type: QuantBotType;
+}
 
 export interface BacktestEvent {
   kind: string;
@@ -122,7 +118,8 @@ export const runBacktest = async (
   let stoppedReason: string | null = null;
   let realized = 0;
 
-  const isFutures = 'futures' in input;
+  const { futures, type } = input;
+  const isFutures = !!futures;
   const broker = new SimulatedBroker(
     feeRate,
     { averagePrice: () => Promise.resolve(price), lastPrice: () => price },
@@ -153,10 +150,8 @@ export const runBacktest = async (
     spec,
   } satisfies Partial<SessionOptions>;
 
-  const extraMargin = isFutures
-    ? ((config as FuturesGridConfigDto).extraMargin ?? 0)
-    : 0;
-  const committed = investment + extraMargin;
+  const margin = isFutures ? futuresMarginOf({ config, type }) : null;
+  const committed = investment + (margin?.extraMargin ?? 0);
 
   // 平倉成交才會改變已實現損益，用每次的變化量算勝率
   const trackRealized = (next: number) => {
@@ -165,17 +160,17 @@ export const runBacktest = async (
   };
 
   const session: BotSession<Ledger> | BotSession<FuturesLedger> =
-    'futures' in input
+    futures && margin
       ? new BotSession<FuturesLedger>({
           ...common,
           account: new FuturesAccount({
             investment: committed,
-            leverage: (config as FuturesGridConfigDto).leverage,
-            liquidationFeeRate: input.futures.liquidationFeeRate,
-            riskTiers: input.futures.riskTiers,
+            leverage: margin.leverage,
+            liquidationFeeRate: futures.liquidationFeeRate,
+            riskTiers: futures.riskTiers,
           }),
           createStrategy: (context) =>
-            createFuturesStrategy(input.type, context, feeRate),
+            createFuturesStrategy(type, context, feeRate),
           store: {
             ...store,
             insertFill: async (fill) => {
@@ -187,7 +182,7 @@ export const runBacktest = async (
       : new BotSession<Ledger>({
           ...common,
           account: new SpotAccount(investment),
-          createStrategy: (context) => createStrategy(input.type, context),
+          createStrategy: (context) => createStrategy(type, context),
           store: {
             ...store,
             insertFill: async (fill) => {
@@ -197,7 +192,7 @@ export const runBacktest = async (
           },
         });
 
-  const fundingRates = 'futures' in input ? input.futures.fundingRates : [];
+  const fundingRates = futures?.fundingRates ?? [];
   let fundingIndex = 0;
   const equity: { time: number; value: number }[] = [];
 

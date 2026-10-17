@@ -10,7 +10,7 @@ import {
   type FuturesGridConfigDto,
   type GridConfigDto,
   type IndicatorConfigDto,
-  isFuturesBotType,
+  isFuturesBot,
   type QuantBotType,
 } from '../dto/quant-bot.dto';
 import type { QuantFundingRateDto } from '../dto/quant-market.dto';
@@ -33,7 +33,10 @@ export class QuantBacktestService {
     type: Exclude<QuantBotType, 'webhook'>,
     { candleCount, config, feeRate, interval, investment, symbol }: BacktestDto,
   ): Promise<BacktestResultDto> {
-    const spec = await botSymbolSpec(this.symbols, { symbol, type });
+    const spec = await botSymbolSpec(this.symbols, { config, symbol, type });
+    const isFutures =
+      isFuturesBot({ config, type }) ||
+      (await this.symbols.marketTypeOf(symbol)) === 'PERP';
     const range = config as GridConfigDto | FuturesGridConfigDto;
     if (
       (type === 'grid' || type === 'futures_grid') &&
@@ -62,15 +65,13 @@ export class QuantBacktestService {
       investment,
       spec,
     };
-    const result = await runBacktest(
-      isFuturesBotType(type)
-        ? {
-            ...common,
-            futures: await this.futuresMarket(symbol, candles[0]?.time ?? 0),
-            type,
-          }
-        : { ...common, type },
-    );
+    const result = await runBacktest({
+      ...common,
+      futures: isFutures
+        ? await this.futuresMarket(symbol, candles[0]?.time ?? 0)
+        : undefined,
+      type,
+    });
 
     return {
       equity: result.equity,

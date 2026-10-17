@@ -23,10 +23,8 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import { QuantAccountService } from '../account/quant-account.service';
-import {
-  type FuturesGridConfigDto,
-  isFuturesBotType,
-} from '../dto/quant-bot.dto';
+import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
+import { futuresMarginOf, isFuturesBot } from '../dto/quant-bot.dto';
 import {
   QUANT_CANDLE_EVENT,
   QuantMarketStreamService,
@@ -94,6 +92,7 @@ export class QuantEngineService
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly account: QuantAccountService,
+    private readonly aiAdvisor: QuantAiAdvisorService,
     private readonly eventEmitter: EventEmitter2,
     private readonly marketCache: MarketCacheService,
     private readonly market: QuantMarketService,
@@ -217,7 +216,7 @@ export class QuantEngineService
 
     try {
       const spec = await botSymbolSpec(this.symbols, bot);
-      const isFutures = isFuturesBotType(bot.type);
+      const isFutures = isFuturesBot(bot);
       const [orders, fillRows, fundings] = await Promise.all([
         this.db.query.quantBotOrder.findMany({
           orderBy: asc(quantBotOrder.createdAt),
@@ -252,6 +251,7 @@ export class QuantEngineService
           );
 
       const runner = new BotRunner(bot, {
+        advisor: bot.type === 'ai' ? this.aiAdvisor.forBot(bot) : undefined,
         account: isFutures
           ? await this.futuresAccount(bot, fills, fundings)
           : new SpotAccount(bot.investment, fills),
@@ -325,7 +325,7 @@ export class QuantEngineService
     fills: BotFill[],
     fundings: FundingPayment[],
   ) {
-    const config = bot.config as unknown as FuturesGridConfigDto;
+    const { extraMargin, leverage } = futuresMarginOf(bot);
     const [symbol, riskTiers] = await Promise.all([
       this.symbols.getPerp(bot.symbol),
       this.symbols.riskTiersOf(bot.symbol),
@@ -334,8 +334,8 @@ export class QuantEngineService
     return new FuturesAccount({
       fills,
       fundings,
-      investment: bot.investment + (config.extraMargin ?? 0),
-      leverage: config.leverage,
+      investment: bot.investment + extraMargin,
+      leverage,
       liquidationFeeRate: Number(symbol.liquidationFeeRate),
       riskTiers: toRiskTiers(riskTiers),
     });
@@ -376,7 +376,7 @@ export class QuantEngineService
     for (const { runner } of this.runners.values())
       if (
         runner.symbol === symbol &&
-        isFuturesBotType(runner.bot.type) &&
+        runner.isFutures &&
         (runner.bot.startedAt?.getTime() ?? Infinity) < time
       )
         await runner.handleFunding(rate, mark, time);
@@ -419,7 +419,7 @@ export class QuantEngineService
 
     const mark = Number(markPrice);
     for (const { runner } of this.runners.values())
-      if (runner.symbol === symbol && isFuturesBotType(runner.bot.type))
+      if (runner.symbol === symbol && runner.isFutures)
         void runner.handleMark(mark);
 
     // 下次結算時間往後跳，代表上一次已結算

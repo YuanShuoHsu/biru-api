@@ -20,10 +20,12 @@ import { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
 import {
   AdjustIsolatedMarginDto,
   PlaceFuturesOrderDto,
+  PreviewFuturesOrderDto,
   QuantFundingFeeDto,
   QuantFuturesAccountDto,
   QuantFuturesFillDto,
   QuantFuturesOrderDto,
+  QuantFuturesOrderPreviewDto,
   QuantFuturesRiskDto,
   QuantFuturesSymbolQueryDto,
   QuantFuturesSymbolSettingsDto,
@@ -186,6 +188,19 @@ export class QuantFuturesController {
     @Session() { user }: UserSession,
   ): Promise<PlaceQuantOrderResponseDto> {
     return this.futures.placeOrder(user.id, id, dto);
+  }
+
+  @Post('orders/preview')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '試算合約委託的保證金與成交後預估強平價（不會下單）',
+  })
+  previewOrder(
+    @Param('id') id: string,
+    @Body() dto: PreviewFuturesOrderDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantFuturesOrderPreviewDto> {
+    return this.futures.previewOrder(user.id, id, dto);
   }
 
   @Delete('orders/:orderId')

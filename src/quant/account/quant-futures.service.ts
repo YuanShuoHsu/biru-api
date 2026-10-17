@@ -21,14 +21,19 @@ import type {
   QuantFuturesAccountDto,
   QuantFuturesFillDto,
   QuantFuturesOrderDto,
+  PreviewFuturesOrderDto,
+  QuantFuturesOrderPreviewDto,
   QuantFuturesRiskDto,
   QuantFuturesSymbolSettingsDto,
   QuantPositionDto,
   QuantPositionHistoryDto,
   UpdateQuantFuturesRiskDto,
 } from '../dto/quant-futures.dto';
-import { quantEnvironment } from '../quant-environment';
 import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
+import { FuturesAccount } from '../engine/futures-account';
+import { toRiskTiers } from '../engine/symbol-spec';
+import { QuantMarketService } from '../market/quant-market.service';
+import { quantEnvironment } from '../quant-environment';
 import {
   type PionexCredentials,
   PionexRestClient,
@@ -60,6 +65,9 @@ const isClosingOrder = ({
   positionSide === 'BOTH'
     ? !!reduceOnly
     : (positionSide === 'LONG') === (side === 'SELL');
+
+const openingDirectionOf = ({ positionSide, side }: PlaceFuturesOrderDto) =>
+  positionSide === 'BOTH' ? (side === 'BUY' ? 'LONG' : 'SHORT') : positionSide;
 
 const toOrder = (order: PionexFuturesOrder): QuantFuturesOrderDto => ({
   createTime: order.createTime,
@@ -145,6 +153,7 @@ export class QuantFuturesService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly account: QuantAccountService,
     private readonly i18n: I18nService<I18nTranslations>,
+    private readonly market: QuantMarketService,
     private readonly rest: PionexRestClient,
     private readonly symbols: PionexSymbolsService,
   ) {}
@@ -153,6 +162,7 @@ export class QuantFuturesService {
     key:
       | 'credentialNotFound'
       | 'futuresLeverageAboveLimit'
+      | 'futuresLiquidationTooClose'
       | 'orderFieldsFuturesLimit',
     args?: Record<string, unknown>,
   ): string {
@@ -478,15 +488,114 @@ export class QuantFuturesService {
     id: string,
     dto: PlaceFuturesOrderDto,
   ): Promise<PlaceQuantOrderResponseDto> {
-    // 槓桿可能在 App 裡被調高，所以開倉時以交易所目前的設定為準
-    if (!isClosingOrder(dto))
-      await this.assertLeverageAllowed(
-        userId,
-        id,
-        (await this.findSymbolSettings(userId, id, dto.symbol)).leverage,
-      );
+    if (!isClosingOrder(dto)) {
+      // 槓桿可能在 App 裡被調高，所以開倉時以交易所目前的設定為準
+      const settings = await this.findSymbolSettings(userId, id, dto.symbol);
+      await this.assertLeverageAllowed(userId, id, settings.leverage);
+
+      const { minLiquidationDistance } = await this.findRisk(userId, id);
+      if (minLiquidationDistance !== null) {
+        const preview = await this.previewOrder(userId, id, dto, settings);
+        const { liquidationDistance } =
+          preview[openingDirectionOf(dto) === 'LONG' ? 'long' : 'short'];
+        if (
+          liquidationDistance !== undefined &&
+          liquidationDistance < minLiquidationDistance
+        )
+          throw new BadRequestException(
+            this.t('futuresLiquidationTooClose', {
+              distance: (liquidationDistance * 100).toFixed(2),
+              min: (minLiquidationDistance * 100).toFixed(2),
+            }),
+          );
+      }
+    }
 
     return this.submitOrder(userId, id, dto);
+  }
+
+  /**
+   * 開多與開空成交後的預估強平價。逐倉以該方向倉位自己的保證金計算；全倉把帳戶保證金都算進來，
+   * 但不計其他全倉部位的盈虧變動，所以是估計值，實際以成交後交易所回報的強平價為準。
+   */
+  async previewOrder(
+    userId: string,
+    id: string,
+    { price: limitPrice, size: sizeText, symbol, type }: PreviewFuturesOrderDto,
+    settings?: QuantFuturesSymbolSettingsDto,
+  ): Promise<QuantFuturesOrderPreviewDto> {
+    const [perp, riskTiers, index, symbolSettings, positions, detail] =
+      await Promise.all([
+        this.symbols.getPerp(symbol),
+        this.symbols.riskTiersOf(symbol),
+        this.market.findPerpIndex(symbol),
+        settings ?? this.findSymbolSettings(userId, id, symbol),
+        this.listPositions(userId, id, symbol),
+        this.get<{ balances: PionexFuturesBalance[] }>(
+          userId,
+          id,
+          '/uapi/v1/account/detail',
+        ),
+      ]);
+    const markPrice = Number(index.markPrice);
+    const size = Number(sizeText);
+    const price = type === 'MARKET_QTY' ? markPrice : Number(limitPrice);
+    const { leverage, marginMode } = symbolSettings;
+    const requiredMargin = (size * price) / leverage;
+    const crossBalance = Number(
+      detail.balances.find(({ coin }) => coin === perp.quoteCurrency)?.assets ??
+        0,
+    );
+
+    const estimate = (direction: 'LONG' | 'SHORT') => {
+      const existing = positions.find(
+        (position) => position.positionSide === direction,
+      );
+      const simulated = new FuturesAccount({
+        investment:
+          marginMode === 'ISOLATED'
+            ? (existing?.initialMargin ?? 0) + requiredMargin
+            : crossBalance,
+        leverage,
+        liquidationFeeRate: Number(perp.liquidationFeeRate),
+        riskTiers: toRiskTiers(riskTiers),
+      });
+      const side = direction === 'LONG' ? 'BUY' : 'SELL';
+      const fill = (fillPrice: number, fillSize: number) =>
+        simulated.apply({
+          fee: 0,
+          feeAsset: 'quote',
+          orderId: 'preview',
+          price: fillPrice,
+          side,
+          size: fillSize,
+          time: 0,
+        });
+      if (existing) fill(existing.avgPrice, Math.abs(existing.size));
+      fill(price, size);
+
+      const liquidationPrice = simulated.liquidationPrice() ?? undefined;
+
+      return {
+        // 從成交價量起；強平價已在成交價另一側代表一成交就會被強平，距離算 0
+        liquidationDistance:
+          liquidationPrice === undefined
+            ? undefined
+            : Math.max(
+                0,
+                ((direction === 'LONG' ? 1 : -1) * (price - liquidationPrice)) /
+                  price,
+              ),
+        liquidationPrice,
+      };
+    };
+
+    return {
+      long: estimate('LONG'),
+      markPrice,
+      requiredMargin,
+      short: estimate('SHORT'),
+    };
   }
 
   private async submitOrder(

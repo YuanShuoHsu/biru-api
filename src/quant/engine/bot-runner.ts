@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 
 import type { QuantBot } from 'src/db/schema/quant';
 
-import { isFuturesBotType } from '../dto/quant-bot.dto';
+import { isFuturesBot } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
@@ -17,10 +17,12 @@ import { FuturesAccount, type FuturesLedger } from './futures-account';
 import type { Ledger } from './ledger';
 import type { PionexBroker } from './pionex-broker';
 import { createFuturesStrategy, createStrategy } from './strategies';
+import type { AiAdvisor } from './strategies/ai.strategy';
 import type { BotFill, SymbolSpec, WebhookSignal } from './types';
 
 export interface RunnerDependencies {
   account: FuturesAccount | SpotAccount;
+  advisor?: AiAdvisor;
   broker: Broker & Partial<Pick<PionexBroker, 'sync'>>;
   candles: (
     interval: PionexKlineInterval,
@@ -32,9 +34,9 @@ export interface RunnerDependencies {
   store: SessionStore;
 }
 
-// 只有指標策略依賴收盤；其他策略也訂 1 分 K 才能拿到即時價格
+// 只有指標與 AI 策略依賴收盤；其他策略也訂 1 分 K 才能拿到即時價格
 export const candleIntervalOf = (bot: QuantBot): PionexKlineInterval =>
-  bot.type === 'indicator'
+  bot.type === 'indicator' || bot.type === 'ai'
     ? ((bot.config as { interval: PionexKlineInterval }).interval ?? '1M')
     : '1M';
 
@@ -80,14 +82,16 @@ export class BotRunner {
       } satisfies SessionStore,
     };
 
-    if (isFuturesBotType(type)) {
+    if (isFuturesBot(bot)) {
       if (!(account instanceof FuturesAccount))
         throw new Error('Futures bot requires a futures account');
       this.session = new BotSession<FuturesLedger>({
         ...common,
         account,
         createStrategy: (context) =>
-          createFuturesStrategy(type, context, bot.paperFeeRate ?? 0),
+          createFuturesStrategy(type, context, bot.paperFeeRate ?? 0, {
+            advisor: dependencies.advisor,
+          }),
       });
     } else {
       if (account instanceof FuturesAccount)
@@ -95,13 +99,18 @@ export class BotRunner {
       this.session = new BotSession<Ledger>({
         ...common,
         account,
-        createStrategy: (context) => createStrategy(type, context),
+        createStrategy: (context) =>
+          createStrategy(type, context, { advisor: dependencies.advisor }),
       });
     }
   }
 
   get isStopped() {
     return this.session.isStopped;
+  }
+
+  get isFutures() {
+    return isFuturesBot(this.bot);
   }
 
   get symbol() {

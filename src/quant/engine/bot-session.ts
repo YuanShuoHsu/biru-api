@@ -391,6 +391,10 @@ export class BotSession<L = Ledger> {
       now,
       openOrders: () => this.openOrders(),
       placeOrder: (request) => this.placeOrder(request),
+      schedule: (task) =>
+        this.serialize(async () => {
+          if (!this.stopped) await task();
+        }),
       spec,
       // 策略自己決定要停時（例如觸發停損）已經在 serialize 佇列裡，不能再排一次
       stop: (reason) => this.halt(reason, false, true),

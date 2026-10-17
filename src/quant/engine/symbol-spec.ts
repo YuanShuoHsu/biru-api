@@ -1,4 +1,4 @@
-import { isFuturesBotType, type QuantBotType } from '../dto/quant-bot.dto';
+import { isFuturesBot, type QuantBotType } from '../dto/quant-bot.dto';
 import type { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import type {
   PionexPerpSymbol,
@@ -37,11 +37,11 @@ export const toPerpSymbolSpec = (symbol: PionexPerpSymbol): SymbolSpec => ({
 
 export const botSymbolSpec = async (
   symbols: PionexSymbolsService,
-  { symbol, type }: { symbol: string; type: QuantBotType },
+  bot: { config: unknown; symbol: string; type: QuantBotType },
 ) =>
-  isFuturesBotType(type)
-    ? toPerpSymbolSpec(await symbols.getPerp(symbol))
-    : toSymbolSpec(await symbols.get(symbol));
+  isFuturesBot(bot) || (await symbols.marketTypeOf(bot.symbol)) === 'PERP'
+    ? toPerpSymbolSpec(await symbols.getPerp(bot.symbol))
+    : toSymbolSpec(await symbols.get(bot.symbol));
 
 export const toRiskTiers = (tiers: readonly PionexRiskTier[]): RiskTier[] =>
   tiers.map((tier) => ({

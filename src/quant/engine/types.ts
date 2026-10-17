@@ -81,6 +81,8 @@ export interface StrategyContext<L = Ledger> {
   openOrders(): readonly BotOrder[];
   /** 被風控擋下或數量低於交易所下限時回傳 null */
   placeOrder(request: OrderRequest): Promise<BotOrder | null>;
+  /** 在機器人的序列佇列裡執行；給不在佇列內產生結果的工作（例如等 AI 回應）使用 */
+  schedule(task: () => Promise<void>): Promise<void>;
   stop(reason: string): Promise<void>;
 }
 

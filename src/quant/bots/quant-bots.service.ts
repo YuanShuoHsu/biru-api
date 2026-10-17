@@ -32,17 +32,26 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { QuantAccountService } from '../account/quant-account.service';
 import { QuantFuturesService } from '../account/quant-futures.service';
+import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
+import { QuantAiKeyService } from '../ai/quant-ai-key.service';
 import {
+  type AiConfigDto,
   type CreateQuantBotDto,
   type CreateQuantBotResponseDto,
   type DcaConfigDto,
   type FuturesGridCheckDto,
   type FuturesGridCheckResultDto,
   type FuturesGridConfigDto,
+  type FuturesGridOperationCheckDto,
+  type FuturesGridOperationDto,
+  type GridStopDto,
   type GridAiStrategyDto,
   type GridConfigDto,
   type IndicatorConditionDto,
   type IndicatorConfigDto,
+  futuresMarginOf,
+  type FuturesPositionConfigDto,
+  isFuturesBot,
   isFuturesBotType,
   type QuantBotDto,
   type QuantBotEventDto,
@@ -77,8 +86,10 @@ import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import { quantEnvironment } from '../quant-environment';
 
 import {
+  type FuturesGridOperationPath,
   futuresGridIdOf,
   type PionexFuturesGridData,
+  type PionexFuturesGridOperationCheck,
   PionexFuturesGridService,
 } from './pionex-futures-grid.service';
 import { PIONEX_GRID_FINISHED, PionexGridService } from './pionex-grid.service';
@@ -96,6 +107,40 @@ const isLivePionexBot = ({ mode, type }: Pick<QuantBot, 'mode' | 'type'>) =>
   (type === 'grid' || type === 'futures_grid' || type === 'signal');
 
 const dayOf = (time: number) => Math.floor(time / 86_400_000);
+
+const optionalNumber = (value?: string | number | null) =>
+  value === undefined || value === null || value === '' || Number(value) === 0
+    ? undefined
+    : Number(value);
+
+const toOperationCheck = (
+  check?: PionexFuturesGridOperationCheck,
+): FuturesGridOperationCheckDto => ({
+  liquidationPriceDownAfter: optionalNumber(
+    check?.estimateLiquidationPriceDownAfter,
+  ),
+  liquidationPriceDownBefore: optionalNumber(
+    check?.estimateLiquidationPriceDownBefore ??
+      check?.estimateLiquidationPriceDown,
+  ),
+  liquidationPriceUpAfter: optionalNumber(
+    check?.estimateLiquidationPriceUpAfter,
+  ),
+  liquidationPriceUpBefore: optionalNumber(
+    check?.estimateLiquidationPriceUpBefore ??
+      check?.estimateLiquidationPriceUp,
+  ),
+  maxAmount: optionalNumber(check?.maxAmount),
+  maxInvestment: optionalNumber(check?.maxInvestment),
+  maxReduceNum: check?.maxReduceNum,
+  minInvestment: optionalNumber(check?.minInvestment),
+  // 有些試算端點成功時不回 data
+  ok: check?.checkResult ?? true,
+  perVolume: optionalNumber(check?.estimatePerVolume),
+  reason: check?.reason,
+  reduceAmount: optionalNumber(check?.reduceAmount),
+  reducePnl: optionalNumber(check?.reducePnl),
+});
 
 type ErrorKey = keyof I18nTranslations['common']['quant'];
 
@@ -116,6 +161,8 @@ export class QuantBotsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly account: QuantAccountService,
+    private readonly aiAdvisor: QuantAiAdvisorService,
+    private readonly aiKeys: QuantAiKeyService,
     private readonly engine: QuantEngineService,
     private readonly futures: QuantFuturesService,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -161,9 +208,24 @@ export class QuantBotsService {
     dto: CreateQuantBotDto,
   ): Promise<CreateQuantBotResponseDto> {
     const spec = await botSymbolSpec(this.symbols, {
+      config: dto.config,
       symbol: dto.symbol,
       type,
     });
+    const isPerp = (await this.symbols.marketTypeOf(dto.symbol)) === 'PERP';
+    const position = (dto.config as { futures?: FuturesPositionConfigDto })
+      .futures;
+    if (
+      type === 'dca' ||
+      type === 'indicator' ||
+      type === 'webhook' ||
+      type === 'ai'
+    ) {
+      if (isPerp !== !!position) this.invalid('futuresPositionMismatch');
+      if (isPerp && dto.mode === 'live')
+        this.invalid('futuresStrategyLiveNotReady');
+    } else if (isPerp !== isFuturesBotType(type))
+      throw new NotFoundException(`Unknown symbol ${dto.symbol}`);
 
     if (dto.mode === 'paper' && dto.paperFeeRate === undefined)
       this.invalid('botPaperFeeRequired');
@@ -172,13 +234,15 @@ export class QuantBotsService {
       await this.account.resolveCredentials(userId, dto.credentialId);
     }
     this.validateConfig(type, dto, spec);
+    if (type === 'ai' && !(await this.aiKeys.find(userId)).configured)
+      this.invalid('aiKeyMissing');
     if (type === 'signal' && dto.mode !== 'live')
       this.invalid('signalBotLiveOnly');
-    if (type === 'futures_grid' || type === 'signal')
+    if (isPerp)
       await this.validateFuturesLeverage(
         userId,
         dto.symbol,
-        (dto.config as FuturesGridConfigDto | SignalBotConfigDto).leverage,
+        futuresMarginOf({ config: dto.config, type }).leverage,
         dto.mode === 'live' ? dto.credentialId : undefined,
       );
 
@@ -420,6 +484,7 @@ export class QuantBotsService {
     { config, credentialId, investment, symbol }: FuturesGridCheckDto,
   ): Promise<FuturesGridCheckResultDto> {
     const spec = await botSymbolSpec(this.symbols, {
+      config,
       symbol,
       type: 'futures_grid',
     });
@@ -443,6 +508,273 @@ export class QuantBotsService {
       minInvestment: toNumber(check.min_investment),
       perVolume: toNumber(check.estimate_per_volume),
     };
+  }
+
+  /** 對執行中的 Pionex 合約網格做調整；dryRun 只向 Pionex 試算不執行 */
+  async futuresGridOperation(
+    userId: string,
+    id: string,
+    dto: FuturesGridOperationDto,
+    dryRun: boolean,
+  ): Promise<FuturesGridOperationCheckDto> {
+    const bot = await this.owned(userId, id);
+    if (
+      bot.type !== 'futures_grid' ||
+      bot.mode !== 'live' ||
+      !bot.pionexBotId ||
+      !bot.credentialId
+    )
+      this.invalid('botNotPionexFuturesGrid');
+    if (bot.status !== 'running')
+      throw new ConflictException(this.t('botNotRunning'));
+
+    const spec = await botSymbolSpec(this.symbols, bot);
+    const credentials = await this.account.resolveCredentials(
+      userId,
+      bot.credentialId,
+    );
+    const config = bot.config as unknown as FuturesGridConfigDto;
+    const price = (value: number) =>
+      toDecimalString(value, spec.pricePrecision);
+    const amount = (value: number) =>
+      toDecimalString(value, spec.amountPrecision);
+    const required = <T>(value: T | undefined): T =>
+      value ?? this.invalid('futuresGridOperationIncomplete');
+    const buOrderId = bot.pionexBotId;
+
+    if (dto.operation === 'stops') {
+      if (dryRun) return { ok: true };
+
+      const stopItem = (
+        type: 'stop_loss' | 'stop_profit',
+        stop: GridStopDto | null | undefined,
+      ) =>
+        stop === undefined
+          ? []
+          : [
+              {
+                stop_type: stop?.type ?? 'price',
+                type,
+                value:
+                  stop === null
+                    ? ''
+                    : stop.type === 'price'
+                      ? price(stop.value)
+                      : amount(stop.value),
+                ...(type === 'stop_loss' &&
+                  config.trend === 'no_trend' &&
+                  dto.lossStopHigh !== undefined && {
+                    stop_high_price:
+                      dto.lossStopHigh === null ? '' : price(dto.lossStopHigh),
+                  }),
+              },
+            ];
+      await this.withExchangeError(
+        () =>
+          this.pionexFuturesGrid.updateStops(credentials, {
+            bu_order_id: buOrderId,
+            list: [
+              ...stopItem('stop_loss', dto.lossStop),
+              ...stopItem('stop_profit', dto.profitStop),
+            ],
+          }),
+        'exchangeRejected',
+      );
+      await this.updateConfig(bot, {
+        ...config,
+        ...(dto.lossStop !== undefined && {
+          lossStop: dto.lossStop ?? undefined,
+        }),
+        ...(dto.lossStopHigh !== undefined && {
+          lossStopHigh: dto.lossStopHigh ?? undefined,
+        }),
+        ...(dto.profitStop !== undefined && {
+          profitStop: dto.profitStop ?? undefined,
+        }),
+      });
+      return { ok: true };
+    }
+
+    const current = await this.priceOf(bot.symbol);
+    const request = ((): { body: object; path: FuturesGridOperationPath } => {
+      switch (dto.operation) {
+        case 'invest':
+          return {
+            body: {
+              buOrderId,
+              extraMargin: false,
+              openPrice: current,
+              quoteInvestment: required(dto.amount),
+              type: 'invest_in',
+            },
+            path: 'adjustParams',
+          };
+        case 'range':
+          if (required(dto.top) <= required(dto.bottom))
+            this.invalid('gridRangeInvalid');
+          return {
+            body: {
+              bottom: price(dto.bottom!),
+              buOrderId,
+              extraMargin: false,
+              keepInvestment: true,
+              openPrice: current,
+              row: required(dto.row),
+              top: price(dto.top!),
+              type: 'adjust_params',
+            },
+            path: 'adjustParams',
+          };
+        case 'reduce':
+          return {
+            body: {
+              buOrderId,
+              openPrice: price(current),
+              reduceNum: required(dto.reduceNum),
+            },
+            path: 'reduce',
+          };
+        case 'pause': {
+          const mode = required(dto.pauseMode);
+          return {
+            body: {
+              buOrderId,
+              mode,
+              ...(mode === 'conditional' && {
+                ...(dto.triggerUp && {
+                  triggerPausePriceUp: price(dto.triggerUp),
+                }),
+                ...(dto.triggerDown && {
+                  triggerPausePriceDown: price(dto.triggerDown),
+                }),
+              }),
+              // 暫停期間仍讓停利停損生效，避免暫停時失去保護
+              ...(!dryRun && {
+                stopLossEnabled: true,
+                stopProfitEnabled: true,
+              }),
+            },
+            path: 'pause',
+          };
+        }
+        case 'resume':
+          return {
+            body: {
+              buOrderId,
+              ...(dto.triggerUp && {
+                triggerResumePriceUp: price(dto.triggerUp),
+              }),
+              ...(dto.triggerDown && {
+                triggerResumePriceDown: price(dto.triggerDown),
+              }),
+            },
+            path: 'resume',
+          };
+        case 'addMargin':
+        case 'reduceMargin':
+          return {
+            body: {
+              amount: required(dto.amount),
+              buOrderId,
+              ...(!dryRun && { coin: spec.quote }),
+            },
+            path: dto.operation,
+          };
+      }
+    })();
+
+    const check = await this.withExchangeError(
+      () =>
+        this.pionexFuturesGrid.operate(
+          credentials,
+          request.path,
+          request.body,
+          true,
+        ),
+      'exchangeRejected',
+    );
+    const result = toOperationCheck(check);
+    if (dryRun || !result.ok) return result;
+
+    if (dto.operation !== 'pause' && dto.operation !== 'resume')
+      await this.assertLiquidationDistance(bot, {
+        estimate_liquidation_price_down:
+          check?.estimateLiquidationPriceDownAfter,
+        estimate_liquidation_price_up: check?.estimateLiquidationPriceUpAfter,
+      });
+
+    await this.withExchangeError(
+      () =>
+        this.pionexFuturesGrid.operate(
+          credentials,
+          request.path,
+          request.body,
+          false,
+        ),
+      'exchangeRejected',
+    );
+    if (dto.operation === 'range')
+      await this.updateConfig(bot, {
+        ...config,
+        bottom: dto.bottom!,
+        row: dto.row!,
+        top: dto.top!,
+      });
+    await this.db.insert(quantBotEvent).values({
+      botId: bot.id,
+      id: randomUUID(),
+      kind: 'futures_grid_operation',
+      payload: { ...dto },
+    });
+
+    return result;
+  }
+
+  // 參數可能在 Pionex App 裡被調整（追加投入、改區間、改停利停損），以 Pionex 為準
+  private async syncFuturesGridConfig(
+    bot: QuantBot,
+    data: PionexFuturesGridData,
+  ) {
+    const config = bot.config as unknown as FuturesGridConfigDto;
+    const stop = (
+      type?: string,
+      value?: string | null,
+    ): GridStopDto | undefined =>
+      (type === 'price' || type === 'profit_amount') && optionalNumber(value)
+        ? { type, value: Number(value) }
+        : undefined;
+    const next: FuturesGridConfigDto = {
+      ...config,
+      bottom: optionalNumber(data.bottom) ?? config.bottom,
+      extraMargin: optionalNumber(data.extraMargin),
+      leverage: optionalNumber(data.leverage) ?? config.leverage,
+      lossStop: stop(data.lossStopType, data.lossStop),
+      lossStopHigh: optionalNumber(data.lossStopHigh),
+      profitStop: stop(data.profitStopType, data.profitStop),
+      row: data.row ?? config.row,
+      top: optionalNumber(data.top) ?? config.top,
+    };
+    const investment = optionalNumber(data.quoteInvestment) ?? bot.investment;
+    if (
+      investment === bot.investment &&
+      JSON.stringify(next) === JSON.stringify(config)
+    )
+      return;
+
+    await this.db
+      .update(quantBot)
+      .set({
+        config: next as unknown as Record<string, unknown>,
+        investment,
+      })
+      .where(eq(quantBot.id, bot.id));
+  }
+
+  private async updateConfig(bot: QuantBot, config: FuturesGridConfigDto) {
+    await this.db
+      .update(quantBot)
+      .set({ config: config as unknown as Record<string, unknown> })
+      .where(eq(quantBot.id, bot.id));
   }
 
   /**
@@ -526,6 +858,7 @@ export class QuantBotsService {
           credentials,
           bot.pionexBotId!,
         );
+        await this.syncFuturesGridConfig(bot, data);
         return {
           finished: data.status === PIONEX_GRID_FINISHED,
           pnl: (await this.futuresGridSummary(bot, data)).pnl,
@@ -889,6 +1222,8 @@ export class QuantBotsService {
     spec: SymbolSpec,
   ) {
     const { investment } = dto;
+    const { futures } = dto.config as { futures?: FuturesPositionConfigDto };
+    const leverage = futures?.leverage ?? 1;
 
     switch (type) {
       case 'grid': {
@@ -944,15 +1279,20 @@ export class QuantBotsService {
       }
       case 'signal':
         return;
+      case 'ai':
+        if ((dto.config as AiConfigDto).maxOrderAmount > investment * leverage)
+          this.invalid('orderAmountAboveInvestment');
+        return;
+      // 合約的下單金額是倉位名目價值，投入金額是保證金，可動用名目＝投入×槓桿
       case 'dca': {
-        const max = dcaMaxInvestment(dto.config as DcaConfigDto);
+        const max = dcaMaxInvestment(dto.config as DcaConfigDto) / leverage;
         if (max > investment)
           this.invalid('dcaInvestmentTooSmall', { required: max });
         return;
       }
       case 'indicator': {
         const config = dto.config as IndicatorConfigDto;
-        if (config.orderAmount > investment)
+        if (config.orderAmount > investment * leverage)
           this.invalid('orderAmountAboveInvestment');
         for (const condition of [...config.entry, ...config.exit])
           if (!this.conditionComplete(condition))
@@ -960,7 +1300,10 @@ export class QuantBotsService {
         return;
       }
       case 'webhook': {
-        if ((dto.config as WebhookConfigDto).orderAmount > investment)
+        if (
+          (dto.config as WebhookConfigDto).orderAmount >
+          investment * leverage
+        )
           this.invalid('orderAmountAboveInvestment');
         return;
       }
@@ -1004,7 +1347,7 @@ export class QuantBotsService {
     ).map((fill) => toBotFill(fill, spec));
     const price = await this.priceOf(bot.symbol);
 
-    if (!isFuturesBotType(bot.type)) {
+    if (!isFuturesBot(bot)) {
       const account = new SpotAccount(bot.investment, fills);
       const ledger = account.snapshot();
       const equity = account.equity(price);
@@ -1019,8 +1362,8 @@ export class QuantBotsService {
       };
     }
 
-    const config = bot.config as unknown as FuturesGridConfigDto;
-    const committed = bot.investment + (config.extraMargin ?? 0);
+    const { extraMargin, leverage } = futuresMarginOf(bot);
+    const committed = bot.investment + extraMargin;
     const [perp, riskTiers, fundingRows] = await Promise.all([
       this.symbols.getPerp(bot.symbol),
       this.symbols.riskTiersOf(bot.symbol),
@@ -1039,7 +1382,7 @@ export class QuantBotsService {
         time: Number(payload?.time),
       })),
       investment: committed,
-      leverage: config.leverage,
+      leverage,
       liquidationFeeRate: Number(perp.liquidationFeeRate),
       riskTiers: toRiskTiers(riskTiers),
     });
@@ -1100,6 +1443,7 @@ export class QuantBotsService {
         fillCount: 0,
         fundingFee: Number(item?.fundingFee ?? data.fundingFee ?? 0),
         liquidationPrice: Number(item?.maintPrice ?? 0) || undefined,
+        pionexStatus: data.status,
         pnl,
         position,
         realizedPnl: Number(item?.profit ?? 0),
@@ -1154,6 +1498,7 @@ export class QuantBotsService {
         fillCount: 0,
         fundingFee: Number(data.totalFundingFee ?? 0),
         liquidationPrice: liquidation || undefined,
+        pionexStatus: data.status,
         pnl: equity - invested,
         position,
         realizedPnl: Number(data.gridProfit ?? 0),
@@ -1199,6 +1544,13 @@ export class QuantBotsService {
     }
   }
 
+  private async summaryWithAiCost(bot: QuantBot) {
+    const summary = await this.summary(bot);
+    if (bot.type !== 'ai') return summary;
+
+    return { ...summary, aiMonthCost: await this.aiAdvisor.monthCost(bot.id) };
+  }
+
   private async toDto(bot: QuantBot): Promise<QuantBotDto> {
     return {
       config: bot.config as unknown as QuantBotDto['config'],
@@ -1215,7 +1567,7 @@ export class QuantBotsService {
       status: bot.status,
       statusReason: optional(bot.statusReason),
       stoppedAt: optional(bot.stoppedAt),
-      summary: await this.summary(bot),
+      summary: await this.summaryWithAiCost(bot),
       symbol: bot.symbol,
       type: bot.type,
     };

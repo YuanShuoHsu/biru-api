@@ -36,6 +36,7 @@ export const QUANT_BOT_TYPES = [
   'webhook',
   'futures_grid',
   'signal',
+  'ai',
 ] as const;
 export const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
 export const QUANT_BOT_MODES = ['paper', 'live'] as const;
@@ -45,6 +46,7 @@ export const GRID_STOP_TYPES = ['price', 'profit_amount'] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
 export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
 export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
+export const FUTURES_DIRECTIONS = ['long', 'short'] as const;
 export const INDICATOR_KINDS = [
   'rsi',
   'maCross',
@@ -57,6 +59,8 @@ export const CROSS_DIRECTIONS = ['golden', 'death'] as const;
 export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
+export const AI_EFFORTS = ['low', 'medium', 'high'] as const;
+export const AI_LOCALES = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
 export type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
@@ -64,6 +68,33 @@ export type SpotBotType = Exclude<QuantBotType, FuturesBotType>;
 
 export const isFuturesBotType = (type: QuantBotType): type is FuturesBotType =>
   (FUTURES_BOT_TYPES as readonly string[]).includes(type);
+
+interface BotShape {
+  config: unknown;
+  type: QuantBotType;
+}
+
+const futuresPositionOf = (config: unknown) =>
+  (config as { futures?: FuturesPositionConfigDto } | null)?.futures;
+
+/** 合約網格、訊號機器人，以及帶 futures 設定（交易對是合約）的 DCA／指標／Webhook */
+export const isFuturesBot = ({ config, type }: BotShape) =>
+  isFuturesBotType(type) || !!futuresPositionOf(config);
+
+export const futuresMarginOf = ({ config, type }: BotShape) => {
+  const position = futuresPositionOf(config);
+  if (position) return { extraMargin: 0, leverage: position.leverage };
+
+  const { extraMargin, leverage } = config as {
+    extraMargin?: number;
+    leverage: number;
+  };
+
+  return {
+    extraMargin: type === 'futures_grid' ? (extraMargin ?? 0) : 0,
+    leverage,
+  };
+};
 export type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
 
 const trim = ({ value }: { value: unknown }) =>
@@ -232,6 +263,18 @@ export class SignalBotConfigDto {
   compound: boolean;
 }
 
+/** 合約交易對才需要：DCA、指標、Webhook 策略只做單一方向 */
+export class FuturesPositionConfigDto {
+  @ApiProperty({ enum: FUTURES_DIRECTIONS, enumName: 'QuantFuturesDirection' })
+  @IsIn(FUTURES_DIRECTIONS)
+  direction: (typeof FUTURES_DIRECTIONS)[number];
+
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  leverage: number;
+}
+
 export class DcaConfigDto {
   @ApiProperty({ description: '首單金額（計價幣）' })
   @IsNumber()
@@ -279,6 +322,14 @@ export class DcaConfigDto {
   @IsPositive()
   @Max(100)
   stopLoss?: number;
+  @ApiPropertyOptional({
+    type: FuturesPositionConfigDto,
+    description: '合約交易對必填，現貨不可填',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FuturesPositionConfigDto)
+  futures?: FuturesPositionConfigDto;
 }
 
 export class IndicatorConditionDto {
@@ -391,6 +442,79 @@ export class IndicatorConfigDto {
   @IsPositive()
   @Max(100)
   stopLoss?: number;
+  @ApiPropertyOptional({
+    type: FuturesPositionConfigDto,
+    description: '合約交易對必填，現貨不可填',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FuturesPositionConfigDto)
+  futures?: FuturesPositionConfigDto;
+}
+
+// AI 只能回傳結構化的決策，下單仍經過機器人自己的資金與風控檢查
+export class AiConfigDto {
+  @ApiProperty({
+    enum: PIONEX_KLINE_INTERVALS,
+    enumName: 'QuantCandleInterval',
+    description: '每根 K 線收盤時請 AI 判斷一次',
+  })
+  @IsIn(PIONEX_KLINE_INTERVALS)
+  interval: PionexKlineInterval;
+
+  @ApiPropertyOptional({
+    description: '交易方針（風格、可承受的風險等），會放進給 AI 的指示',
+    maxLength: 2000,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  guideline?: string;
+
+  @ApiProperty({ description: '每次開倉的金額上限（計價幣名目）' })
+  @IsNumber()
+  @IsPositive()
+  maxOrderAmount: number;
+
+  @ApiProperty({ description: '每月 AI 費用上限（美元），超過就停止機器人' })
+  @IsNumber()
+  @IsPositive()
+  monthlyCostLimit: number;
+
+  @ApiProperty({ enum: AI_EFFORTS, enumName: 'QuantAiEffort' })
+  @IsIn(AI_EFFORTS)
+  effort: (typeof AI_EFFORTS)[number];
+
+  @ApiProperty({
+    enum: AI_LOCALES,
+    enumName: 'QuantAiLocale',
+    description: 'AI 寫判斷理由用的語言',
+  })
+  @IsIn(AI_LOCALES)
+  locale: (typeof AI_LOCALES)[number];
+
+  @ApiPropertyOptional({ description: '停利（%，相對持倉均價），由系統強制' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Max(1000)
+  takeProfit?: number;
+
+  @ApiPropertyOptional({ description: '停損（%，相對持倉均價），由系統強制' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Max(100)
+  stopLoss?: number;
+
+  @ApiPropertyOptional({
+    type: FuturesPositionConfigDto,
+    description: '合約交易對必填，現貨不可填',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FuturesPositionConfigDto)
+  futures?: FuturesPositionConfigDto;
 }
 
 export class WebhookConfigDto {
@@ -398,6 +522,14 @@ export class WebhookConfigDto {
   @IsNumber()
   @IsPositive()
   orderAmount: number;
+  @ApiPropertyOptional({
+    type: FuturesPositionConfigDto,
+    description: '合約交易對必填，現貨不可填',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FuturesPositionConfigDto)
+  futures?: FuturesPositionConfigDto;
 }
 
 class CreateQuantBotBaseDto {
@@ -485,7 +617,15 @@ export class CreateSignalBotDto extends CreateQuantBotBaseDto {
   config: SignalBotConfigDto;
 }
 
+export class CreateAiBotDto extends CreateQuantBotBaseDto {
+  @ApiProperty({ type: AiConfigDto })
+  @ValidateNested()
+  @Type(() => AiConfigDto)
+  config: AiConfigDto;
+}
+
 export type CreateQuantBotDto =
+  | CreateAiBotDto
   | CreateSignalBotDto
   | CreateFuturesGridBotDto
   | CreateGridBotDto
@@ -505,9 +645,16 @@ export class QuantBotSummaryDto {
   liquidationPrice?: number;
   @ApiPropertyOptional({ description: '合約：累計資金費（正數為收入）' })
   fundingFee?: number;
+  @ApiPropertyOptional({
+    description: 'Pionex 機器人目前的狀態，例如 running、paused',
+  })
+  pionexStatus?: string;
+  @ApiPropertyOptional({ description: 'AI：本月（UTC）已花費的費用（美元）' })
+  aiMonthCost?: number;
 }
 
 @ApiExtraModels(
+  AiConfigDto,
   FuturesGridConfigDto,
   SignalBotConfigDto,
   GridConfigDto,
@@ -536,9 +683,11 @@ export class QuantBotDto {
       { $ref: getSchemaPath(WebhookConfigDto) },
       { $ref: getSchemaPath(FuturesGridConfigDto) },
       { $ref: getSchemaPath(SignalBotConfigDto) },
+      { $ref: getSchemaPath(AiConfigDto) },
     ],
   })
   config:
+    | AiConfigDto
     | SignalBotConfigDto
     | GridConfigDto
     | DcaConfigDto
@@ -785,4 +934,155 @@ export class SendSignalDto {
   })
   @IsNumber()
   positionSize: number;
+}
+
+export const FUTURES_GRID_OPERATIONS = [
+  'invest',
+  'range',
+  'reduce',
+  'pause',
+  'resume',
+  'addMargin',
+  'reduceMargin',
+  'stops',
+] as const;
+export const FUTURES_GRID_PAUSE_MODES = ['immediate', 'conditional'] as const;
+
+export type FuturesGridOperation = (typeof FUTURES_GRID_OPERATIONS)[number];
+
+// https://www.pionex.com/docs/api-docs/bot-api/futures-grid
+export class FuturesGridOperationDto {
+  @ApiProperty({
+    enum: FUTURES_GRID_OPERATIONS,
+    enumName: 'QuantFuturesGridOperation',
+  })
+  @IsIn(FUTURES_GRID_OPERATIONS)
+  operation: FuturesGridOperation;
+
+  @ApiPropertyOptional({
+    description: 'invest：追加投入；addMargin／reduceMargin：保證金金額',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  amount?: number;
+
+  @ApiPropertyOptional({ description: 'range：新上界' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  top?: number;
+
+  @ApiPropertyOptional({ description: 'range：新下界' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  bottom?: number;
+
+  @ApiPropertyOptional({
+    description: 'range：新格數',
+    minimum: 2,
+    maximum: 500,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  @Max(500)
+  row?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'reduce：減倉份數，以每格數量為單位，上限見試算的 maxReduceNum',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  reduceNum?: number;
+
+  @ApiPropertyOptional({
+    enum: FUTURES_GRID_PAUSE_MODES,
+    enumName: 'QuantFuturesGridPauseMode',
+  })
+  @IsOptional()
+  @IsIn(FUTURES_GRID_PAUSE_MODES)
+  pauseMode?: (typeof FUTURES_GRID_PAUSE_MODES)[number];
+
+  @ApiPropertyOptional({
+    description: 'pause／resume：價格漲到此價才暫停或恢復，須高於現價',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  triggerUp?: number;
+
+  @ApiPropertyOptional({
+    description: 'pause／resume：價格跌到此價才暫停或恢復，須低於現價',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  triggerDown?: number;
+
+  @ApiPropertyOptional({
+    type: GridStopDto,
+    nullable: true,
+    description: 'stops：停損，null 代表清除',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GridStopDto)
+  lossStop?: GridStopDto | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'stops：中性網格的上方停損價，null 代表清除',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  lossStopHigh?: number | null;
+
+  @ApiPropertyOptional({
+    type: GridStopDto,
+    nullable: true,
+    description: 'stops：停利，null 代表清除',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GridStopDto)
+  profitStop?: GridStopDto | null;
+}
+
+export class FuturesGridOperationCheckDto {
+  @ApiProperty() ok: boolean;
+  @ApiPropertyOptional({ description: 'Pionex 回傳的不可執行原因' })
+  reason?: string;
+  @ApiPropertyOptional() minInvestment?: number;
+  @ApiPropertyOptional() maxInvestment?: number;
+  @ApiPropertyOptional({ description: '最多可減少的保證金' })
+  maxAmount?: number;
+  @ApiPropertyOptional({ description: '最多可減倉的份數' })
+  maxReduceNum?: number;
+  @ApiPropertyOptional({ description: '調整後每格數量' }) perVolume?: number;
+  @ApiPropertyOptional() reduceAmount?: number;
+  @ApiPropertyOptional({ description: '減倉實現的盈虧' }) reducePnl?: number;
+  @ApiPropertyOptional() liquidationPriceUpBefore?: number;
+  @ApiPropertyOptional() liquidationPriceDownBefore?: number;
+  @ApiPropertyOptional() liquidationPriceUpAfter?: number;
+  @ApiPropertyOptional() liquidationPriceDownAfter?: number;
+}
+
+export class QuantAiKeyDto {
+  @ApiProperty() configured: boolean;
+  @ApiPropertyOptional({ description: 'Claude API key 末 4 碼' })
+  apiKeyLast4?: string;
+  @ApiPropertyOptional() createdAt?: Date;
+}
+
+export class SetQuantAiKeyDto {
+  @ApiProperty()
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  apiKey: string;
 }

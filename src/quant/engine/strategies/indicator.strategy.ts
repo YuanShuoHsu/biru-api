@@ -3,11 +3,15 @@ import type { QuantCandleDto } from '../../dto/quant-market.dto';
 import type { Strategy, StrategyContext } from '../types';
 
 import { conditionMet, requiredCandles } from './indicator-conditions';
+import { adverse, favorable, type Trader } from './trader';
 
 export class IndicatorStrategy implements Strategy {
   private readonly config: IndicatorConfigDto;
 
-  constructor(private readonly context: StrategyContext) {
+  constructor(
+    private readonly context: StrategyContext<unknown>,
+    private readonly trader: Trader,
+  ) {
     this.config = context.config as IndicatorConfigDto;
   }
 
@@ -32,44 +36,51 @@ export class IndicatorStrategy implements Strategy {
     }
 
     if (entry.every((condition) => conditionMet(condition, closes)))
-      await this.context.placeOrder({
-        amount: Math.min(orderAmount, this.ledger().quoteBalance),
-        side: 'BUY',
+      await this.trader.openMarket({
+        amount: Math.min(orderAmount, this.trader.budget()),
         tag: 'indicator:entry',
-        type: 'MARKET',
       });
   }
 
   async onPrice(price: number) {
     const { stopLoss, takeProfit } = this.config;
-    const { averageCost } = this.ledger();
+    const { direction } = this.trader;
+    const { averageCost } = this.trader.holding();
     if (!this.holding(price)) return;
 
-    if (takeProfit && price >= averageCost * (1 + takeProfit / 100))
+    if (
+      takeProfit &&
+      favorable(
+        direction,
+        price,
+        averageCost * (1 + (direction * takeProfit) / 100),
+      )
+    )
       await this.closePosition('take_profit');
-    else if (stopLoss && price <= averageCost * (1 - stopLoss / 100))
+    else if (
+      stopLoss &&
+      adverse(
+        direction,
+        price,
+        averageCost * (1 - (direction * stopLoss) / 100),
+      )
+    )
       await this.closePosition('stop_loss');
   }
 
-  private ledger() {
-    return this.context.ledger();
-  }
-
-  // 賣不掉的零頭（低於交易所最小單）不算持倉
+  // 平不掉的零頭（低於交易所最小單）不算持倉
   private holding(price: number) {
-    const { position } = this.ledger();
+    const { size } = this.trader.holding();
     const { minAmount, minTradeSize } = this.context.spec;
 
-    return position >= minTradeSize && position * price >= minAmount;
+    return size >= minTradeSize && size * price >= minAmount;
   }
 
   private async closePosition(reason: string) {
     this.context.log('exit', { reason });
-    await this.context.placeOrder({
-      side: 'SELL',
-      size: this.ledger().position,
-      tag: `indicator:${reason}`,
-      type: 'MARKET',
-    });
+    await this.trader.closeMarket(
+      this.trader.holding().size,
+      `indicator:${reason}`,
+    );
   }
 }

@@ -258,9 +258,12 @@ export type I18nTranslations = {
             "perUserLimitReached": string;
         };
         "quant": {
+            "aiKeyInvalid": string;
+            "aiKeyMissing": string;
             "botAlreadyStarted": string;
             "botCredentialRequired": string;
             "botNotFound": string;
+            "botNotPionexFuturesGrid": string;
             "botNotRunning": string;
             "botNotSignal": string;
             "botNotWebhook": string;
@@ -274,9 +277,12 @@ export type I18nTranslations = {
             "exchangeRejected": string;
             "futuresGridInvestmentTooSmall": string;
             "futuresGridNeutralProfitStop": string;
+            "futuresGridOperationIncomplete": string;
             "futuresLeverageAboveLimit": string;
             "futuresLeverageAboveSymbol": string;
             "futuresLiquidationTooClose": string;
+            "futuresPositionMismatch": string;
+            "futuresStrategyLiveNotReady": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;

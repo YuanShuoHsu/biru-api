@@ -1471,6 +1471,13 @@
       "when": 1792228540587,
       "tag": "0209_quant_signal_bot",
       "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "7",
+      "when": 1792249211981,
+      "tag": "0210_quant_ai",
+      "breakpoints": true
     }
   ]
 }

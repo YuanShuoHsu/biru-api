@@ -20,7 +20,20 @@ export interface PionexFuturesGridCheck {
 
 // 文件沒列出 marginBalance、gridProfit、totalFundingFee、usdtInvestment，實際回傳有
 export interface PionexFuturesGridData {
+  bottom?: string;
   buOrderId?: string;
+  extraMargin?: string;
+  gridType?: 'arithmetic' | 'geometric';
+  leverage?: string;
+  lossStop?: string | null;
+  lossStopHigh?: string | null;
+  lossStopType?: string;
+  profitStop?: string | null;
+  profitStopType?: string;
+  quoteInvestment?: string;
+  row?: number;
+  top?: string;
+  trend?: 'long' | 'short' | 'no_trend';
   estimateLiquidationPriceDown?: string | null;
   estimateLiquidationPriceUp?: string | null;
   gridProfit?: string;
@@ -45,6 +58,25 @@ export const futuresGridIdOf = ({
   buOrderData,
   buOrderId,
 }: PionexFuturesGridOrder) => buOrderId ?? buOrderData.buOrderId;
+
+/** 各種調整的試算結果，欄位依操作而不同 */
+export interface PionexFuturesGridOperationCheck {
+  checkResult: boolean;
+  estimateLiquidationPriceDown?: string;
+  estimateLiquidationPriceDownAfter?: string;
+  estimateLiquidationPriceDownBefore?: string;
+  estimateLiquidationPriceUp?: string;
+  estimateLiquidationPriceUpAfter?: string;
+  estimateLiquidationPriceUpBefore?: string;
+  estimatePerVolume?: string;
+  maxAmount?: string;
+  maxInvestment?: string;
+  maxReduceNum?: number;
+  minInvestment?: string;
+  reason?: string;
+  reduceAmount?: string;
+  reducePnl?: string;
+}
 
 // 合約網格以 BTC.PERP／USDT 表示交易對，和行情的 BTC_USDT_PERP 不同
 const botBase = (spec: SymbolSpec) => `${spec.base}.PERP`;
@@ -164,6 +196,30 @@ export class PionexFuturesGridService {
     );
   }
 
+  // 試算端點是在操作路徑後面加 Check；updateTriggerProfitLoss 沒有試算
+  operate(
+    credentials: PionexCredentials,
+    path: FuturesGridOperationPath,
+    body: object,
+    dryRun: boolean,
+  ) {
+    return this.rest.signed<PionexFuturesGridOperationCheck | undefined>(
+      credentials,
+      'POST',
+      `/api/v1/bot/orders/futuresGrid/${dryRun ? `${path}Check` : path}`,
+      { body },
+    );
+  }
+
+  async updateStops(credentials: PionexCredentials, body: object) {
+    await this.rest.signed(
+      credentials,
+      'POST',
+      '/api/v1/bot/orders/futuresGrid/updateTriggerProfitLoss',
+      { body },
+    );
+  }
+
   async cancel(credentials: PionexCredentials, buOrderId: string) {
     await this.rest.signed(
       credentials,
@@ -173,3 +229,30 @@ export class PionexFuturesGridService {
     );
   }
 }
+
+/** 各種調整的試算結果，欄位依操作而不同 */
+export interface PionexFuturesGridOperationCheck {
+  checkResult: boolean;
+  estimateLiquidationPriceDown?: string;
+  estimateLiquidationPriceDownAfter?: string;
+  estimateLiquidationPriceDownBefore?: string;
+  estimateLiquidationPriceUp?: string;
+  estimateLiquidationPriceUpAfter?: string;
+  estimateLiquidationPriceUpBefore?: string;
+  estimatePerVolume?: string;
+  maxAmount?: string;
+  maxInvestment?: string;
+  maxReduceNum?: number;
+  minInvestment?: string;
+  reason?: string;
+  reduceAmount?: string;
+  reducePnl?: string;
+}
+
+export type FuturesGridOperationPath =
+  | 'addMargin'
+  | 'adjustParams'
+  | 'pause'
+  | 'reduce'
+  | 'reduceMargin'
+  | 'resume';

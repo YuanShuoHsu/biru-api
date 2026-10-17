@@ -48,6 +48,17 @@ export class MarketCacheService {
     return walkDepth(side === 'BUY' ? full.asks : full.bids, quantity);
   }
 
+  /** 推播快取的前幾檔；還沒收到推播時回頭打 REST */
+  async topLevels(symbol: string, levels: number) {
+    const cached = this.depths.get(symbol);
+    const depth = cached ?? (await this.market.findDepth(symbol, levels));
+
+    return {
+      asks: depth.asks.slice(0, levels),
+      bids: depth.bids.slice(0, levels),
+    };
+  }
+
   @OnEvent(PIONEX_TRADES_EVENT)
   handleTrades({ symbol, trades }: PionexTradesEvent) {
     const latest = trades.reduce(

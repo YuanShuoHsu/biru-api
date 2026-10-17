@@ -334,3 +334,47 @@ export class UpdateQuantFuturesRiskDto {
   @Max(1)
   minLiquidationDistance: number | null;
 }
+
+export class QuantLiquidationEstimateDto {
+  @ApiPropertyOptional({
+    description: '成交後的預估強平價；不會被強平時不回傳',
+  })
+  liquidationPrice?: number;
+  @ApiPropertyOptional({
+    description: '預估強平價與成交價的距離（比例），一成交就會被強平時為 0',
+  })
+  liquidationDistance?: number;
+}
+
+export class PreviewFuturesOrderDto {
+  @ApiProperty({ example: 'BTC_USDT_PERP' })
+  @IsString()
+  @IsNotEmpty()
+  symbol: string;
+
+  @ApiProperty({
+    enum: PIONEX_FUTURES_ORDER_TYPES,
+    enumName: 'QuantFuturesOrderType',
+  })
+  @IsIn(PIONEX_FUTURES_ORDER_TYPES)
+  type: PionexFuturesOrderType;
+
+  @ApiProperty({ example: '0.001' })
+  @Matches(DECIMAL_PATTERN)
+  size: string;
+
+  @ApiPropertyOptional({ description: '市價單以外必填' })
+  @IsOptional()
+  @Matches(DECIMAL_PATTERN)
+  price?: string;
+}
+
+export class QuantFuturesOrderPreviewDto {
+  @ApiProperty() markPrice: number;
+  @ApiProperty({ description: '開倉需要的起始保證金（計價幣）' })
+  requiredMargin: number;
+  @ApiProperty({ type: QuantLiquidationEstimateDto, description: '開多' })
+  long: QuantLiquidationEstimateDto;
+  @ApiProperty({ type: QuantLiquidationEstimateDto, description: '開空' })
+  short: QuantLiquidationEstimateDto;
+}

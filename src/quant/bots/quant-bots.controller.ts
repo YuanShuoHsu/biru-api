@@ -28,6 +28,8 @@ import {
   FuturesGridBacktestDto,
   FuturesGridCheckDto,
   FuturesGridCheckResultDto,
+  FuturesGridOperationCheckDto,
+  FuturesGridOperationDto,
   GridAiStrategyDto,
   GridBacktestDto,
   IndicatorBacktestDto,
@@ -40,8 +42,11 @@ import {
   WebhookTokenDto,
 } from '../dto/quant-bot.dto';
 
+import { QuantKolDto, QuantKolQueryDto } from '../dto/quant-kol.dto';
+
 import { QuantBacktestService } from './quant-backtest.service';
 import { QuantBotsService } from './quant-bots.service';
+import { QuantKolService } from './quant-kol.service';
 
 // 機器人只屬於建立者本人，平台管理員彼此也看不到
 @ApiTags('quant')
@@ -52,6 +57,7 @@ export class QuantBotsController {
   constructor(
     private readonly backtest: QuantBacktestService,
     private readonly bots: QuantBotsService,
+    private readonly kol: QuantKolService,
   ) {}
 
   @Get('bots')
@@ -195,6 +201,31 @@ export class QuantBotsController {
     return this.bots.sendSignal(user.id, id, dto);
   }
 
+  @Post('bots/:id/futures-grid/check')
+  @HttpCode(200)
+  @ApiOperation({ summary: '向 Pionex 試算合約網格的調整（不會執行）' })
+  checkFuturesGridOperation(
+    @Param('id') id: string,
+    @Body() dto: FuturesGridOperationDto,
+    @Session() { user }: UserSession,
+  ): Promise<FuturesGridOperationCheckDto> {
+    return this.bots.futuresGridOperation(user.id, id, dto, true);
+  }
+
+  @Post('bots/:id/futures-grid/operate')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      '調整執行中的 Pionex 合約網格：追加投入、改區間、減倉、暫停、恢復、調整保證金、改停利停損',
+  })
+  operateFuturesGrid(
+    @Param('id') id: string,
+    @Body() dto: FuturesGridOperationDto,
+    @Session() { user }: UserSession,
+  ): Promise<FuturesGridOperationCheckDto> {
+    return this.bots.futuresGridOperation(user.id, id, dto, false);
+  }
+
   @Post('bots/:id/archive')
   @HttpCode(204)
   @ApiOperation({ summary: '封存已停止的機器人' })
@@ -230,6 +261,16 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<QuantBotEventDto[]> {
     return this.bots.listEvents(user.id, id);
+  }
+
+  @Get('credentials/:id/kol')
+  @ApiOperation({ summary: 'KOL 精選的跟單合約網格（依分享碼查詢）' })
+  findKol(
+    @Param('id') id: string,
+    @Query() query: QuantKolQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantKolDto> {
+    return this.kol.list(user.id, id, query);
   }
 
   @Get('credentials/:id/grid-ai-strategy')
