@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { lt, sql } from 'drizzle-orm';
+import { CRON_ENABLED } from 'src/common/constants/cron';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
 import { DeletedRecordsService } from 'src/deleted-records/deleted-records.service';
@@ -33,7 +34,7 @@ export class TasksService {
 
   private lastOverdueCheck = new Date();
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE, { disabled: !CRON_ENABLED })
   async handleWaitlistOverdueCron() {
     const since = this.lastOverdueCheck;
     this.lastOverdueCheck = new Date();
@@ -47,7 +48,7 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_HOUR, { disabled: !CRON_ENABLED })
   async handleWaitlistExpiryCron() {
     try {
       const expired = await this.waitlistService.expireStaleTickets();
@@ -58,7 +59,10 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handlePayrollRuleIngestCron() {
     try {
       const { written } = await this.payrollRulesService.ingest();
@@ -78,7 +82,10 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleCleanupCron() {
     const cleanupTargets = [
       { label: 'Sessions', table: schema.session },
@@ -105,7 +112,10 @@ export class TasksService {
     );
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleWaitlistPersonalDataCron() {
     try {
       const erased = await this.waitlistService.erasePersonalData();
@@ -116,7 +126,10 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleDeletedRecordRetentionCron() {
     try {
       const purged = await this.deletedRecordsService.purgeExpired();
@@ -127,7 +140,10 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleAuditLogRetentionCron() {
     await this.purge(
       '異動紀錄',
@@ -136,7 +152,10 @@ export class TasksService {
     );
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleEcpayCallbackLogRetentionCron() {
     await this.purge(
       '綠界回調紀錄',
@@ -145,7 +164,10 @@ export class TasksService {
     );
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: PLATFORM_TIMEZONE })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async handleAttendanceAuditRetentionCron() {
     await this.purge(
       '出勤稽核紀錄',

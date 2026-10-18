@@ -20,6 +20,7 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { InvoiceStatus } from 'src/db/schema/invoices';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
+import { CRON_ENABLED } from 'src/common/constants/cron';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 
 import {
@@ -179,7 +180,7 @@ export class EcpayOrderInvoiceService {
     await this.issueQuietly(orderId);
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_10_MINUTES, { disabled: !CRON_ENABLED })
   async retryPendingInvoices(): Promise<void> {
     const staleBefore = new Date(Date.now() - RETRY_DELAY_MS);
 

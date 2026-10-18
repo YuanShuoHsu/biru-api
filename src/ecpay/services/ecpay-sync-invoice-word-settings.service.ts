@@ -18,6 +18,7 @@ import { EcpayUpdateInvoiceWordStatusService } from './ecpay-update-invoice-word
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
+import { CRON_ENABLED } from 'src/common/constants/cron';
 import {
   PLATFORM_TIMEZONE,
   toPlatformTime,
@@ -61,7 +62,10 @@ export class EcpaySyncInvoiceWordSettingsService {
 
   private running = false;
 
-  @Cron('0 4 * * *', { timeZone: PLATFORM_TIMEZONE })
+  @Cron('0 4 * * *', {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async syncScheduled(): Promise<void> {
     if (this.running) return;
 

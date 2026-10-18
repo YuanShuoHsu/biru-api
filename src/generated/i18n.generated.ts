@@ -240,6 +240,7 @@ export type I18nTranslations = {
             "selectionCountInvalid": string;
         };
         "orders": {
+            "idempotencyConflict": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;

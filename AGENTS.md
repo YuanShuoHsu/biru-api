@@ -277,6 +277,9 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
 - `PORT` — HTTP port (default 3001)
+- `CRON_ENABLED` — `true` only in production. Local, stage and production share one database, so
+  every `@Cron` must pass `disabled: !CRON_ENABLED` or it runs against production data from every
+  environment. `@Interval` jobs that are already environment-scoped are not gated
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
 and `POSTMAN_API_KEY` are present in `.env` but referenced nowhere in `src/` — leftovers from

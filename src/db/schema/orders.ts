@@ -120,6 +120,7 @@ export const order = pgTable(
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
+    idempotencyFingerprint: text('idempotency_fingerprint'),
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
     tableNumber: integer('table_number'),

@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
+import { CRON_ENABLED } from 'src/common/constants/cron';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 
 export interface DonateCode {
@@ -22,7 +23,10 @@ export class DonateCodesService implements OnModuleInit {
     await this.refresh();
   }
 
-  @Cron('0 3 * * 1', { timeZone: PLATFORM_TIMEZONE })
+  @Cron('0 3 * * 1', {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
   async refresh() {
     try {
       const entries: DonateCode[] = [];

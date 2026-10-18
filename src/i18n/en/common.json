@@ -190,6 +190,7 @@
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orders": {
+    "idempotencyConflict": "Your order details have changed. Please submit again.",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
     "menuItemUnavailableAtTime": "\"{name}\" isn't available at the selected pickup time",
     "menuItemUnavailableForMode": "\"{name}\" isn't available for this ordering method",

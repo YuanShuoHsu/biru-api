@@ -74,6 +74,7 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
+import { CRON_ENABLED } from 'src/common/constants/cron';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
@@ -439,7 +440,7 @@ export class EcpayOrderRefundService {
     };
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_10_MINUTES, { disabled: !CRON_ENABLED })
   async repairInterruptedRefunds(): Promise<void> {
     if (this.repairing) return;
 

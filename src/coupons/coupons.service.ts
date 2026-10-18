@@ -1351,19 +1351,7 @@ export class CouponsService {
     if (!voucher && found.perUserLimit !== null) {
       if (!userId) throw new BadRequestException(this.t('memberOnly'));
 
-      const [{ value: used }] = await this.db
-        .select({ value: count() })
-        .from(order)
-        .where(
-          and(
-            ...(found.applicableOrganizationIds
-              ? [inArray(order.sellerId, found.applicableOrganizationIds)]
-              : []),
-            eq(order.userId, userId),
-            sql`lower(${order.discountCode}) = lower(${found.code})`,
-            notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
-          ),
-        );
+      const used = await this.countUserCouponOrders(this.db, found, userId);
       if (used >= found.perUserLimit)
         throw new BadRequestException(this.t('perUserLimitReached'));
     }
@@ -1401,16 +1389,56 @@ export class CouponsService {
     return { coupon: found, discount, userCouponId: voucher?.id || null };
   }
 
+  private async countUserCouponOrders(
+    db: Pick<DrizzleDB, 'select'>,
+    found: Coupon,
+    userId: string,
+  ): Promise<number> {
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(order)
+      .where(
+        and(
+          ...(found.applicableOrganizationIds
+            ? [inArray(order.sellerId, found.applicableOrganizationIds)]
+            : []),
+          eq(order.userId, userId),
+          sql`lower(${order.discountCode}) = lower(${found.code})`,
+          notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+        ),
+      );
+    return value;
+  }
+
   async redeem(
-    db: Pick<DrizzleDB, 'update'>,
-    applied: { couponId: string; orderId: string; userCouponId: string | null },
+    db: Pick<DrizzleDB, 'execute' | 'select' | 'update'>,
+    applied: {
+      coupon: Coupon;
+      orderId: string;
+      userCouponId: string | null;
+      userId: string | null;
+    },
   ): Promise<void> {
+    const { perUserLimit } = applied.coupon;
+    if (!applied.userCouponId && perUserLimit !== null && applied.userId) {
+      await db.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`${applied.coupon.id}:${applied.userId}`}, 0))`,
+      );
+      const used = await this.countUserCouponOrders(
+        db,
+        applied.coupon,
+        applied.userId,
+      );
+      if (used > perUserLimit)
+        throw new BadRequestException(this.t('perUserLimitReached'));
+    }
+
     const updated = await db
       .update(coupon)
       .set({ updatedAt: new Date(), usedCount: sql`${coupon.usedCount} + 1` })
       .where(
         and(
-          eq(coupon.id, applied.couponId),
+          eq(coupon.id, applied.coupon.id),
           ...(applied.userCouponId
             ? []
             : [

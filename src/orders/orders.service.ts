@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
@@ -7,6 +7,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -255,18 +256,25 @@ export class OrdersService {
     return org;
   }
 
-  private findOrderByIdempotencyKey(
+  private async findOrderByIdempotencyKey(
     db: Pick<DrizzleDB, 'query'>,
     sellerId: string,
     idempotencyKey: string,
+    fingerprint: string,
   ) {
-    return db.query.order.findFirst({
+    const existing = await db.query.order.findFirst({
       where: and(
         eq(order.sellerId, sellerId),
         eq(order.idempotencyKey, idempotencyKey),
       ),
-      columns: { id: true, orderStatus: true },
+      columns: { id: true, orderStatus: true, idempotencyFingerprint: true },
     });
+    if (
+      existing?.idempotencyFingerprint &&
+      existing.idempotencyFingerprint !== fingerprint
+    )
+      throw new UnprocessableEntityException(this.t('idempotencyConflict'));
+    return existing;
   }
 
   private async findOrderReceipt(
@@ -336,9 +344,19 @@ export class OrdersService {
 
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const replayed = idempotencyKey
-      ? await this.findOrderByIdempotencyKey(this.db, org.id, idempotencyKey)
+    const idempotencyFingerprint = idempotencyKey
+      ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
       : null;
+
+    const replayed =
+      idempotencyKey && idempotencyFingerprint
+        ? await this.findOrderByIdempotencyKey(
+            this.db,
+            org.id,
+            idempotencyKey,
+            idempotencyFingerprint,
+          )
+        : null;
     if (replayed) return this.findOrderReceipt(org.id, replayed.id);
 
     if (org.closedAt) throw organizationClosedError();
@@ -375,9 +393,15 @@ export class OrdersService {
         .where(eq(organization.id, org.id))
         .for('update');
 
-      const duplicate = idempotencyKey
-        ? await this.findOrderByIdempotencyKey(tx, org.id, idempotencyKey)
-        : null;
+      const duplicate =
+        idempotencyKey && idempotencyFingerprint
+          ? await this.findOrderByIdempotencyKey(
+              tx,
+              org.id,
+              idempotencyKey,
+              idempotencyFingerprint,
+            )
+          : null;
       if (duplicate) return duplicate;
 
       const pickupDayStart = startOfDay(pickupTime ?? undefined);
@@ -401,6 +425,7 @@ export class OrdersService {
           id: orderId,
           sellerId: org.id,
           idempotencyKey,
+          idempotencyFingerprint,
           mode: dto.mode,
           orderNumber: String(pickupDayCount + 1),
           customer: dto.customer,
@@ -428,9 +453,10 @@ export class OrdersService {
 
       if (applied)
         await this.couponsService.redeem(tx, {
-          couponId: applied.coupon.id,
+          coupon: applied.coupon,
           orderId,
           userCouponId: applied.userCouponId,
+          userId,
         });
 
       const items = await tx

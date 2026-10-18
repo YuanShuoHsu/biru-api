@@ -13,6 +13,8 @@ import {
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
+import { CRON_ENABLED } from 'src/common/constants/cron';
+
 const CANDIDATE_LIMIT_PER_RUN = 100;
 const QUERY_LIMIT_PER_RUN = 20;
 
@@ -36,7 +38,7 @@ export class EcpayUnpaidOrderReconcileService {
     private readonly ecpayCallbackLogService: EcpayCallbackLogService,
   ) {}
 
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES, { disabled: !CRON_ENABLED })
   async reconcileExpiredUnpaidOrders(): Promise<void> {
     if (this.running) return;
     if (Date.now() < this.rateLimitedUntil) return;
