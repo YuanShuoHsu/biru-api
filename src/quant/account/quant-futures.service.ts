@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { and, eq } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
-import { quantCredential } from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import type {
@@ -23,17 +14,14 @@ import type {
   QuantFuturesOrderDto,
   PreviewFuturesOrderDto,
   QuantFuturesOrderPreviewDto,
-  QuantFuturesRiskDto,
   QuantFuturesSymbolSettingsDto,
   QuantPositionDto,
   QuantPositionHistoryDto,
-  UpdateQuantFuturesRiskDto,
 } from '../dto/quant-futures.dto';
 import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
 import { FuturesAccount } from '../engine/futures-account';
 import { toRiskTiers } from '../engine/symbol-spec';
 import { MarketCacheService } from '../engine/market-cache.service';
-import { quantEnvironment } from '../quant-environment';
 import {
   type PionexCredentials,
   PionexRestClient,
@@ -55,19 +43,6 @@ import { QuantAccountService } from './quant-account.service';
 // 合約端點的權重一律是 5
 const FUTURES_WEIGHT = 5;
 const HISTORY_LIMIT = 50;
-
-// 雙向持倉的反方向單、單向持倉的只減倉單都是平倉，不受槓桿上限限制
-const isClosingOrder = ({
-  positionSide,
-  reduceOnly,
-  side,
-}: PlaceFuturesOrderDto) =>
-  positionSide === 'BOTH'
-    ? !!reduceOnly
-    : (positionSide === 'LONG') === (side === 'SELL');
-
-const openingDirectionOf = ({ positionSide, side }: PlaceFuturesOrderDto) =>
-  positionSide === 'BOTH' ? (side === 'BUY' ? 'LONG' : 'SHORT') : positionSide;
 
 const toOrder = (order: PionexFuturesOrder): QuantFuturesOrderDto => ({
   createTime: order.createTime,
@@ -150,7 +125,6 @@ const toPositionHistory = (
 @Injectable()
 export class QuantFuturesService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly account: QuantAccountService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly marketCache: MarketCacheService,
@@ -159,74 +133,13 @@ export class QuantFuturesService {
   ) {}
 
   private t(
-    key:
-      | 'credentialNotFound'
-      | 'futuresLeverageAboveLimit'
-      | 'futuresLiquidationTooClose'
-      | 'orderFieldsFuturesLimit',
+    key: 'orderFieldsFuturesLimit',
     args?: Record<string, unknown>,
   ): string {
     return this.i18n.t(`common.quant.${key}`, {
       args,
       lang: I18nContext.current()?.lang,
     });
-  }
-
-  private credentialScope(userId: string, id: string) {
-    return and(
-      eq(quantCredential.id, id),
-      eq(quantCredential.userId, userId),
-      eq(quantCredential.environment, quantEnvironment()),
-    );
-  }
-
-  async findRisk(userId: string, id: string): Promise<QuantFuturesRiskDto> {
-    const row = await this.db.query.quantCredential.findFirst({
-      columns: {
-        futuresMaxDailyLoss: true,
-        futuresMaxLeverage: true,
-        futuresMinLiquidationDistance: true,
-      },
-      where: this.credentialScope(userId, id),
-    });
-    if (!row) throw new NotFoundException(this.t('credentialNotFound'));
-
-    return {
-      maxDailyLoss: row.futuresMaxDailyLoss,
-      maxLeverage: row.futuresMaxLeverage,
-      minLiquidationDistance: row.futuresMinLiquidationDistance,
-    };
-  }
-
-  async updateRisk(
-    userId: string,
-    id: string,
-    dto: UpdateQuantFuturesRiskDto,
-  ): Promise<QuantFuturesRiskDto> {
-    const [row] = await this.db
-      .update(quantCredential)
-      .set({
-        futuresMaxDailyLoss: dto.maxDailyLoss,
-        futuresMaxLeverage: dto.maxLeverage,
-        futuresMinLiquidationDistance: dto.minLiquidationDistance,
-      })
-      .where(this.credentialScope(userId, id))
-      .returning({ id: quantCredential.id });
-    if (!row) throw new NotFoundException(this.t('credentialNotFound'));
-
-    return this.findRisk(userId, id);
-  }
-
-  private async assertLeverageAllowed(
-    userId: string,
-    id: string,
-    leverage: number,
-  ) {
-    const { maxLeverage } = await this.findRisk(userId, id);
-    if (maxLeverage !== null && leverage > maxLeverage)
-      throw new BadRequestException(
-        this.t('futuresLeverageAboveLimit', { leverage, max: maxLeverage }),
-      );
   }
 
   private async get<T>(
@@ -329,7 +242,6 @@ export class QuantFuturesService {
     leverage: number,
   ): Promise<void> {
     await this.symbols.getPerp(symbol);
-    await this.assertLeverageAllowed(userId, id, leverage);
     await this.post(
       await this.account.resolveCredentials(userId, id),
       'POST',
@@ -488,42 +400,6 @@ export class QuantFuturesService {
     id: string,
     dto: PlaceFuturesOrderDto,
   ): Promise<PlaceQuantOrderResponseDto> {
-    const { maxLeverage, minLiquidationDistance } = await this.findRisk(
-      userId,
-      id,
-    );
-    // 每個合約端點權重 5、每秒最多 10，沒設上限就不多打交易所，市價單才不會延遲成交
-    if (
-      !isClosingOrder(dto) &&
-      (maxLeverage !== null || minLiquidationDistance !== null)
-    ) {
-      // 槓桿可能在 App 裡被調高，所以開倉時以交易所目前的設定為準
-      const settings = await this.findSymbolSettings(userId, id, dto.symbol);
-      if (maxLeverage !== null && settings.leverage > maxLeverage)
-        throw new BadRequestException(
-          this.t('futuresLeverageAboveLimit', {
-            leverage: settings.leverage,
-            max: maxLeverage,
-          }),
-        );
-
-      if (minLiquidationDistance !== null) {
-        const preview = await this.previewOrder(userId, id, dto, settings);
-        const { liquidationDistance } =
-          preview[openingDirectionOf(dto) === 'LONG' ? 'long' : 'short'];
-        if (
-          liquidationDistance !== undefined &&
-          liquidationDistance < minLiquidationDistance
-        )
-          throw new BadRequestException(
-            this.t('futuresLiquidationTooClose', {
-              distance: (liquidationDistance * 100).toFixed(2),
-              min: (minLiquidationDistance * 100).toFixed(2),
-            }),
-          );
-      }
-    }
-
     return this.submitOrder(userId, id, dto);
   }
 
@@ -535,14 +411,13 @@ export class QuantFuturesService {
     userId: string,
     id: string,
     { price: limitPrice, size: sizeText, symbol, type }: PreviewFuturesOrderDto,
-    settings?: QuantFuturesSymbolSettingsDto,
   ): Promise<QuantFuturesOrderPreviewDto> {
     const [perp, riskTiers, markPrice, symbolSettings, detail] =
       await Promise.all([
         this.symbols.getPerp(symbol),
         this.symbols.riskTiersOf(symbol),
         this.marketCache.markPrice(symbol),
-        settings ?? this.findSymbolSettings(userId, id, symbol),
+        this.findSymbolSettings(userId, id, symbol),
         this.get<{
           balances: PionexFuturesBalance[];
           positions: PionexPosition[] | null;

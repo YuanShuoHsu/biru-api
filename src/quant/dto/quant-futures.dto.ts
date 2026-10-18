@@ -7,13 +7,9 @@ import {
   IsInt,
   IsNotEmpty,
   IsOptional,
-  IsNumber,
-  IsPositive,
   IsString,
   Matches,
-  Max,
   Min,
-  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -276,63 +272,6 @@ export class PlaceFuturesOrderDto {
   @IsOptional()
   @IsBoolean()
   reduceOnly?: boolean;
-}
-
-export class QuantFuturesRiskDto {
-  @ApiProperty({
-    type: Number,
-    nullable: true,
-    description: '槓桿上限，手動下單與合約機器人都不能超過；null 代表不限制',
-  })
-  maxLeverage: number | null;
-
-  @ApiProperty({
-    type: Number,
-    nullable: true,
-    description:
-      '合約機器人每日虧損上限合計（計價幣），超過就停止全部合約機器人；null 代表不限制',
-  })
-  maxDailyLoss: number | null;
-
-  @ApiProperty({
-    type: Number,
-    nullable: true,
-    description:
-      '建立合約機器人時，預估強平價與目前價格的最小距離（比例，0.1＝10%）；null 代表不限制',
-  })
-  minLiquidationDistance: number | null;
-}
-
-export class UpdateQuantFuturesRiskDto {
-  @ApiProperty({ type: Number, nullable: true, minimum: 1 })
-  @ValidateIf((_, value) => value !== null)
-  @IsInt()
-  @Min(1)
-  maxLeverage: number | null;
-
-  @ApiProperty({
-    type: Number,
-    nullable: true,
-    exclusiveMinimum: true,
-    minimum: 0,
-  })
-  @ValidateIf((_, value) => value !== null)
-  @IsNumber()
-  @IsPositive()
-  maxDailyLoss: number | null;
-
-  @ApiProperty({
-    type: Number,
-    nullable: true,
-    exclusiveMinimum: true,
-    minimum: 0,
-    maximum: 1,
-  })
-  @ValidateIf((_, value) => value !== null)
-  @IsNumber()
-  @IsPositive()
-  @Max(1)
-  minLiquidationDistance: number | null;
 }
 
 export class QuantLiquidationEstimateDto {

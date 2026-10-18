@@ -31,7 +31,6 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { QuantAccountService } from '../account/quant-account.service';
-import { QuantFuturesService } from '../account/quant-futures.service';
 import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
 import { QuantAiKeyService } from '../ai/quant-ai-key.service';
 import {
@@ -164,7 +163,6 @@ export class QuantBotsService {
     private readonly aiAdvisor: QuantAiAdvisorService,
     private readonly aiKeys: QuantAiKeyService,
     private readonly engine: QuantEngineService,
-    private readonly futures: QuantFuturesService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly market: QuantMarketService,
     private readonly marketCache: MarketCacheService,
@@ -240,10 +238,8 @@ export class QuantBotsService {
       this.invalid('signalBotLiveOnly');
     if (isPerp)
       await this.validateFuturesLeverage(
-        userId,
         dto.symbol,
         futuresMarginOf({ config: dto.config, type }).leverage,
-        dto.mode === 'live' ? dto.credentialId : undefined,
       );
 
     const webhookToken =
@@ -696,12 +692,6 @@ export class QuantBotsService {
     const result = toOperationCheck(check);
     if (dryRun || !result.ok) return result;
 
-    if (dto.operation !== 'pause' && dto.operation !== 'resume')
-      await this.assertLiquidationDistance(bot, {
-        estimateLiquidationPriceDown: check?.estimateLiquidationPriceDownAfter,
-        estimateLiquidationPriceUp: check?.estimateLiquidationPriceUpAfter,
-      });
-
     await this.withExchangeError(
       () =>
         this.pionexFuturesGrid.operate(
@@ -778,7 +768,7 @@ export class QuantBotsService {
 
   /**
    * Pionex 內建網格可能因停損停利、強平或資金不足自己結束，結束了就同步成停止。
-   * 合約網格的每日虧損上限也在這裡檢查，所以只有伺服器在跑時才會生效。
+   * 合約機器人自己的每日虧損上限也在這裡檢查，所以只有伺服器在跑時才會生效。
    */
   @Interval(PIONEX_GRID_SYNC_MS)
   async syncPionexGrids() {
@@ -793,7 +783,6 @@ export class QuantBotsService {
         inArray(quantBot.type, ['grid', 'futures_grid', 'signal']),
       ),
     });
-    const dailyLossByCredential = new Map<string, number>();
     const today = dayOf(Date.now());
 
     for (const bot of bots) {
@@ -812,11 +801,6 @@ export class QuantBotsService {
         if (start?.day !== today)
           this.dayStartPnl.set(bot.id, { day: today, pnl });
         const loss = this.dayStartPnl.get(bot.id)!.pnl - pnl;
-        dailyLossByCredential.set(
-          bot.credentialId,
-          (dailyLossByCredential.get(bot.credentialId) ?? 0) +
-            Math.max(0, loss),
-        );
 
         if (bot.maxDailyLoss !== null && loss >= bot.maxDailyLoss)
           await this.stopBot(bot, 'daily_loss_limit');
@@ -825,21 +809,6 @@ export class QuantBotsService {
           `Sync ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-    }
-
-    for (const [credentialId, loss] of dailyLossByCredential) {
-      const owner = bots.find((bot) => bot.credentialId === credentialId)!;
-      const { maxDailyLoss } = await this.futures.findRisk(
-        owner.userId,
-        credentialId,
-      );
-      if (maxDailyLoss === null || loss < maxDailyLoss) continue;
-
-      for (const bot of bots)
-        if (bot.credentialId === credentialId && bot.type !== 'grid')
-          await this.stopBot(bot, 'futures_daily_loss_limit').catch(
-            () => undefined,
-          );
     }
   }
 
@@ -993,14 +962,9 @@ export class QuantBotsService {
       bot.userId,
       bot.credentialId!,
     );
-    // 參數可能在建立後被交易所調整規則或使用者改了風控上限，送出前再檢查一次
-    await this.validateFuturesLeverage(
-      bot.userId,
-      bot.symbol,
-      config.leverage,
-      bot.credentialId!,
-    );
-    const check = await this.withExchangeError(
+    // 交易所的風險級距可能在建立後調整，送出前再檢查一次
+    await this.validateFuturesLeverage(bot.symbol, config.leverage);
+    await this.withExchangeError(
       () =>
         this.pionexFuturesGrid.checkParams(
           credentials,
@@ -1010,7 +974,6 @@ export class QuantBotsService {
         ),
       'exchangeRejected',
     );
-    await this.assertLiquidationDistance(bot, check);
 
     const order = await this.withExchangeError(
       () =>
@@ -1026,55 +989,11 @@ export class QuantBotsService {
     return futuresGridIdOf(order) ?? null;
   }
 
-  private async assertLiquidationDistance(
-    bot: QuantBot,
-    check: {
-      estimateLiquidationPriceDown?: string;
-      estimateLiquidationPriceUp?: string;
-    },
-  ) {
-    const { minLiquidationDistance } = await this.futures.findRisk(
-      bot.userId,
-      bot.credentialId!,
-    );
-    if (minLiquidationDistance === null) return;
-
-    const price =
-      this.marketCache.lastPrice(bot.symbol) ??
-      (await this.market.findCandles(bot.symbol, '1M', 1))[0]?.close;
-    if (!price) return;
-
-    for (const estimate of [
-      check.estimateLiquidationPriceDown,
-      check.estimateLiquidationPriceUp,
-    ]) {
-      const liquidation = Number(estimate);
-      if (!liquidation) continue;
-
-      const distance = Math.abs(price - liquidation) / price;
-      if (distance < minLiquidationDistance)
-        this.invalid('futuresLiquidationTooClose', {
-          distance: (distance * 100).toFixed(2),
-          min: (minLiquidationDistance * 100).toFixed(2),
-        });
-    }
-  }
-
-  private async validateFuturesLeverage(
-    userId: string,
-    symbol: string,
-    leverage: number,
-    credentialId?: string,
-  ) {
+  private async validateFuturesLeverage(symbol: string, leverage: number) {
     const [first] = await this.symbols.riskTiersOf(symbol);
     const symbolMax = Number(first?.maxLeverage ?? 0);
     if (leverage > symbolMax)
       this.invalid('futuresLeverageAboveSymbol', { max: symbolMax });
-
-    if (!credentialId) return;
-    const { maxLeverage } = await this.futures.findRisk(userId, credentialId);
-    if (maxLeverage !== null && leverage > maxLeverage)
-      this.invalid('futuresLeverageAboveLimit', { leverage, max: maxLeverage });
   }
 
   private smartCopyParams(
@@ -1108,12 +1027,7 @@ export class QuantBotsService {
       bot.userId,
       bot.credentialId!,
     );
-    await this.validateFuturesLeverage(
-      bot.userId,
-      bot.symbol,
-      config.leverage,
-      bot.credentialId!,
-    );
+    await this.validateFuturesLeverage(bot.symbol, config.leverage);
 
     const signal = await this.withExchangeError(
       () => this.pionexSignal.createSignal(credentials, bot.name, bot.id),

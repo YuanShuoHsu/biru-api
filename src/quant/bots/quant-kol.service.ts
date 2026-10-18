@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+
+import { I18nContext, I18nService } from 'nestjs-i18n';
+
+import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { QuantAccountService } from '../account/quant-account.service';
 import type {
@@ -6,7 +10,7 @@ import type {
   QuantKolOrderDto,
   QuantKolQueryDto,
 } from '../dto/quant-kol.dto';
-import { PionexRestClient } from '../pionex/pionex-rest.client';
+import { PionexApiError, PionexRestClient } from '../pionex/pionex-rest.client';
 
 // https://www.pionex.com/docs/api-docs/bot-api/kol
 interface PionexKolOrder {
@@ -39,6 +43,12 @@ interface PionexKolList {
   topResults?: PionexKolOrder[];
   total: number;
 }
+
+// 實測查不到的分享碼回 BOT_INTERNAL_ERROR，不是文件寫的參數錯誤
+const SHARE_CODE_NOT_FOUND_CODES = new Set([
+  'BOT_INTERNAL_ERROR',
+  'BOT_INVALID_ARGUMENT',
+]);
 
 const toNumber = (value?: string | number | null) =>
   value === undefined || value === null || value === ''
@@ -78,6 +88,7 @@ const toOrder = (order: PionexKolOrder): QuantKolOrderDto => {
 export class QuantKolService {
   constructor(
     private readonly account: QuantAccountService,
+    private readonly i18n: I18nService<I18nTranslations>,
     private readonly rest: PionexRestClient,
   ) {}
 
@@ -86,22 +97,39 @@ export class QuantKolService {
     credentialId: string,
     { limit, page, shareCode, symbol, trend }: QuantKolQueryDto,
   ): Promise<QuantKolDto> {
-    const data = await this.account.withExchangeError(async () =>
-      this.rest.signed<PionexKolList>(
-        await this.account.resolveCredentials(userId, credentialId),
-        'GET',
-        '/api/v1/bot/kol/selectCopyTradeList',
-        {
-          params: {
-            buOrderType: 'futures_grid',
-            limit,
-            page,
-            shareCode,
-            symbol,
-            trend,
+    const credentials = await this.account.resolveCredentials(
+      userId,
+      credentialId,
+    );
+    const data = await this.account.withExchangeError(() =>
+      this.rest
+        .signed<PionexKolList>(
+          credentials,
+          'GET',
+          '/api/v1/bot/kol/selectCopyTradeList',
+          {
+            params: {
+              buOrderType: 'futures_grid',
+              limit,
+              page,
+              shareCode,
+              symbol,
+              trend,
+            },
           },
-        },
-      ),
+        )
+        .catch((error: unknown) => {
+          if (
+            error instanceof PionexApiError &&
+            SHARE_CODE_NOT_FOUND_CODES.has(error.code)
+          )
+            throw new BadRequestException(
+              this.i18n.t('common.quant.kolShareCodeNotFound', {
+                lang: I18nContext.current()?.lang,
+              }),
+            );
+          throw error;
+        }),
     );
     const pinned = page === 1 ? (data.topResults ?? []) : [];
     const pinnedIds = new Set(pinned.map(({ buOrderId }) => buOrderId));

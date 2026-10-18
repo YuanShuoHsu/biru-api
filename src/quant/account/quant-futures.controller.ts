@@ -26,7 +26,6 @@ import {
   QuantFuturesFillDto,
   QuantFuturesOrderDto,
   QuantFuturesOrderPreviewDto,
-  QuantFuturesRiskDto,
   QuantFuturesSymbolQueryDto,
   QuantFuturesSymbolSettingsDto,
   QuantOptionalSymbolQueryDto,
@@ -35,7 +34,6 @@ import {
   SetLeverageDto,
   SetMarginModeDto,
   SetPositionModeDto,
-  UpdateQuantFuturesRiskDto,
 } from '../dto/quant-futures.dto';
 
 import { QuantFuturesService } from './quant-futures.service';
@@ -54,25 +52,6 @@ export class QuantFuturesController {
     @Session() { user }: UserSession,
   ): Promise<QuantFuturesAccountDto> {
     return this.futures.findAccount(user.id, id);
-  }
-
-  @Get('risk')
-  @ApiOperation({ summary: '取得合約風控上限' })
-  findRisk(
-    @Param('id') id: string,
-    @Session() { user }: UserSession,
-  ): Promise<QuantFuturesRiskDto> {
-    return this.futures.findRisk(user.id, id);
-  }
-
-  @Put('risk')
-  @ApiOperation({ summary: '更新合約風控上限（完整取代，null 代表不限制）' })
-  updateRisk(
-    @Param('id') id: string,
-    @Body() dto: UpdateQuantFuturesRiskDto,
-    @Session() { user }: UserSession,
-  ): Promise<QuantFuturesRiskDto> {
-    return this.futures.updateRisk(user.id, id, dto);
   }
 
   @Put('position-mode')

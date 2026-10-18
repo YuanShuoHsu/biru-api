@@ -278,15 +278,14 @@ export type I18nTranslations = {
             "futuresGridInvestmentTooSmall": string;
             "futuresGridNeutralProfitStop": string;
             "futuresGridOperationIncomplete": string;
-            "futuresLeverageAboveLimit": string;
             "futuresLeverageAboveSymbol": string;
-            "futuresLiquidationTooClose": string;
             "futuresPositionMismatch": string;
             "futuresStrategyLiveNotReady": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;
             "indicatorConditionIncomplete": string;
+            "kolShareCodeNotFound": string;
             "orderAmountAboveInvestment": string;
             "orderAmountRejected": string;
             "orderFieldsFuturesLimit": string;
