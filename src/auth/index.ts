@@ -88,6 +88,20 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
   }
 };
 
+const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
+  if (typeof slug !== 'string') return;
+
+  const previous = await authDb().query.organizationSlugHistory.findFirst({
+    where: eq(schema.organizationSlugHistory.slug, slug),
+    columns: { organizationId: true },
+  });
+  if (previous && previous.organizationId !== organizationId)
+    throw new APIError('BAD_REQUEST', {
+      message: 'Organization slug already taken',
+      code: 'ORGANIZATION_SLUG_ALREADY_TAKEN',
+    });
+};
+
 export const authDatabase = (database: typeof db | Transaction) =>
   drizzleAdapter(database, { provider: 'pg', schema });
 
@@ -235,10 +249,9 @@ export const createAuth = (
           },
           beforeDeleteOrganization: ({ organization: target }) =>
             assertOrganizationDeletable(target.id),
-          beforeCreateOrganization: ({ organization: data }) => {
+          beforeCreateOrganization: async ({ organization: data }) => {
             assertValidOrganizationInput(data);
-
-            return Promise.resolve();
+            await assertSlugAvailable(data.slug);
           },
           beforeUpdateOrganization: async ({ organization: data, member }) => {
             assertValidOrganizationInput(data);
@@ -248,6 +261,22 @@ export const createAuth = (
             });
 
             authHookState().snapshot = current;
+
+            if (
+              current &&
+              data.slug !== undefined &&
+              data.slug !== current.slug
+            ) {
+              await assertSlugAvailable(data.slug, current.id);
+              await authDb()
+                .insert(schema.organizationSlugHistory)
+                .values({
+                  id: uuidv4(),
+                  slug: current.slug,
+                  organizationId: current.id,
+                })
+                .onConflictDoNothing();
+            }
 
             const touchesPoints =
               Object.hasOwn(data, 'amountPerPoint') ||

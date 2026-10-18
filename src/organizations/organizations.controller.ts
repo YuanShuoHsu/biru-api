@@ -48,9 +48,9 @@ export class OrganizationsController {
   }
 
   @Get(':slug')
-  @ApiOperation({ summary: '查詢組織' })
+  @ApiOperation({ summary: '查詢組織；舊 slug 也查得到，回傳的 slug 為現行值' })
   async findOne(@Param('slug') slug: string): Promise<OrganizationResponseDto> {
-    const org = await this.organizationsService.organization({ slug });
+    const org = await this.organizationsService.organizationBySlug(slug);
     if (!org) throw new NotFoundException();
 
     return org;

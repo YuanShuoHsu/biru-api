@@ -59,6 +59,24 @@ export const organization = pgTable(
 
 export type Organization = typeof organization.$inferSelect;
 
+export const organizationSlugHistory = pgTable(
+  'organization_slug_history',
+  {
+    id: text('id').primaryKey(),
+    slug: text('slug').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('organization_slug_history_slug_uidx').on(table.slug),
+    index('organization_slug_history_organization_id_idx').on(
+      table.organizationId,
+    ),
+  ],
+);
+
 export const team = pgTable(
   'team',
   {

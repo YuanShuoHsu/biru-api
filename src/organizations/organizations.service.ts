@@ -5,6 +5,7 @@ import {
   member,
   Organization,
   organization,
+  organizationSlugHistory,
 } from 'src/db/schema/organizations';
 import { order } from 'src/db/schema/orders';
 import {
@@ -132,6 +133,18 @@ export class OrganizationsService {
       },
     });
     return result || null;
+  }
+
+  async organizationBySlug(slug: string): Promise<Organization | null> {
+    const current = await this.organization({ slug });
+    if (current) return current;
+
+    const previous = await this.db.query.organizationSlugHistory.findFirst({
+      where: eq(organizationSlugHistory.slug, slug),
+      columns: { organizationId: true },
+    });
+
+    return previous ? this.organization({ id: previous.organizationId }) : null;
   }
 
   async getStats(

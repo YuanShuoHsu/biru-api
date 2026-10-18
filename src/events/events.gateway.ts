@@ -13,6 +13,7 @@ import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 
 import { FindOrderMenuDto } from './dto/find-order-menu.dto';
+import { JoinInvoicePrinterDto } from './dto/join-invoice-printer.dto';
 import { JoinOrderDto } from './dto/join-order.dto';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto';
 import type { InvoicePrintReadyEvent } from './invoice-print-ready.event';
@@ -26,7 +27,7 @@ import { ORDER_UPDATED_EVENT } from './order-updated.event';
 import type { WaitlistUpdatedEvent } from './waitlist-updated.event';
 import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event';
 
-import { Namespace, Socket } from 'socket.io';
+import { DefaultEventsMap, Namespace, Socket } from 'socket.io';
 import { Roles } from 'src/menus/decorators/roles.decorator';
 import type { OrderMenuResponseDto } from 'src/menus/dto/order-menu-response.dto';
 import { WsRolesGuard } from 'src/menus/guards/ws-roles.guard';
@@ -35,10 +36,23 @@ import { OrdersService } from 'src/orders/orders.service';
 import type { WaitlistStatusResponseDto } from 'src/waitlist/dto/waitlist-response.dto';
 import { WaitlistService } from 'src/waitlist/waitlist.service';
 
+interface GatewaySocketData {
+  invoicePrinterDeviceId?: string;
+}
+
+type GatewaySocket = Socket<
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  GatewaySocketData
+>;
+
 const organizationRoom = (organizationId: string) => `org:${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
 const ordersBoardRoom = (organizationId: string) =>
   `orders-board:${organizationId}`;
+const invoicePrinterRoom = (organizationId: string) =>
+  `invoice-printer:${organizationId}`;
 const PUBLIC_ORDERS_BOARD_ROOM_PREFIX = 'public-orders-board:';
 const publicOrdersBoardRoom = (organizationId: string) =>
   `${PUBLIC_ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
@@ -59,7 +73,12 @@ const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 })
 export class EventsGateway {
   @WebSocketServer()
-  server: Namespace;
+  server: Namespace<
+    DefaultEventsMap,
+    DefaultEventsMap,
+    DefaultEventsMap,
+    GatewaySocketData
+  >;
 
   constructor(
     private readonly authService: AuthService,
@@ -113,7 +132,7 @@ export class EventsGateway {
     organizationId,
   }: InvoicePrintReadyEvent) {
     this.server
-      .to(ordersBoardRoom(organizationId))
+      .to(invoicePrinterRoom(organizationId))
       .emit('invoicePrintReady', { invoiceNumber, orderId });
   }
 
@@ -165,6 +184,48 @@ export class EventsGateway {
     await client.join(ordersBoardRoom(organizationId));
 
     return true;
+  }
+
+  @SubscribeMessage('leaveOrdersBoard')
+  async leaveOrdersBoard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(ordersBoardRoom(organizationId));
+  }
+
+  @SubscribeMessage('joinInvoicePrinter')
+  @UseGuards(WsRolesGuard)
+  @Roles({ order: ['update'] }, 'organizationId')
+  async joinInvoicePrinter(
+    @ConnectedSocket() client: GatewaySocket,
+    @MessageBody()
+    { deviceId, organizationId, takeover }: JoinInvoicePrinterDto,
+  ) {
+    const room = invoicePrinterRoom(organizationId);
+    const others = (await this.server.in(room).fetchSockets()).filter(
+      (socket) => socket.id !== client.id,
+    );
+    // 斷線重連時同裝置的舊連線可能還沒被判定斷線，不能把它當成別台裝置
+    const otherDevices = others.filter(
+      (socket) => socket.data.invoicePrinterDeviceId !== deviceId,
+    );
+    if (!takeover && otherDevices.length > 0) return false;
+
+    for (const socket of otherDevices) socket.emit('invoicePrinterReplaced');
+    for (const socket of others) socket.leave(room);
+    client.data.invoicePrinterDeviceId = deviceId;
+    await client.join(room);
+
+    return true;
+  }
+
+  @SubscribeMessage('leaveInvoicePrinter')
+  async leaveInvoicePrinter(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(invoicePrinterRoom(organizationId));
   }
 
   @OnEvent(WAITLIST_UPDATED_EVENT)
