@@ -2,12 +2,12 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -273,7 +273,7 @@ export class OrdersService {
       existing?.idempotencyFingerprint &&
       existing.idempotencyFingerprint !== fingerprint
     )
-      throw new UnprocessableEntityException(this.t('idempotencyConflict'));
+      throw new ConflictException(this.t('idempotencyConflict'));
     return existing;
   }
 
