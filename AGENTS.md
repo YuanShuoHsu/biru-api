@@ -270,16 +270,16 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS` — SMTP; `MAIL_PREVIEW=true` switches to jsonTransport + local preview
 - `ECPAY_BASE_MERCHANT_ID` / `ECPAY_BASE_HASH_KEY` / `ECPAY_BASE_HASH_IV` / `ECPAY_BASE_RETURN_URL` — AIO checkout
 - `ECPAY_INVOICE_MERCHANT_ID` / `ECPAY_INVOICE_HASH_KEY` / `ECPAY_INVOICE_HASH_IV` — invoicing
-- `ECPAY_OPERATION_MODE` — ECPay stage vs. production endpoint selection
+- `ECPAY_OPERATION_MODE` — ECPay stage vs. production endpoint selection. Also gates every
+  `@Cron`: local, stage and production share one database, so cron jobs run only when this is
+  `Production` (every `@Cron` must pass `disabled: !CRON_ENABLED`). `@Interval` jobs that are
+  already environment-scoped are not gated
 - `NEXT_URL` — Frontend origin (CORS + ECPay redirect allowlist)
 - `NEXT_ADMIN_URL` — Admin frontend origin (same two uses)
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
 - `PORT` — HTTP port (default 3001)
-- `CRON_ENABLED` — `true` only in production. Local, stage and production share one database, so
-  every `@Cron` must pass `disabled: !CRON_ENABLED` or it runs against production data from every
-  environment. `@Interval` jobs that are already environment-scoped are not gated
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
 and `POSTMAN_API_KEY` are present in `.env` but referenced nowhere in `src/` — leftovers from
