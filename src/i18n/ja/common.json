@@ -191,6 +191,7 @@
   },
   "orders": {
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
+    "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
     "menuItemUnavailable": "「{name}」は現在ご提供できません",
     "menuItemUnavailableAtTime": "「{name}」は選択した受取時間にはご提供できません",
     "menuItemUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",

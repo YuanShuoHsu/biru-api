@@ -191,6 +191,7 @@
   },
   "orders": {
     "idempotencyConflict": "订单内容已变更，请重新提交。",
+    "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
     "menuItemUnavailable": "「{name}」目前无法供应",
     "menuItemUnavailableAtTime": "「{name}」在所选取餐时间不供应",
     "menuItemUnavailableForMode": "「{name}」不适用此点餐方式",

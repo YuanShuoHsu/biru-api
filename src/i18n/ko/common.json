@@ -191,6 +191,7 @@
   },
   "orders": {
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",
+    "invalidTable": "테이블 QR 코드가 유효하지 않습니다. 테이블의 QR 코드를 다시 스캔하세요",
     "menuItemUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "menuItemUnavailableAtTime": "'{name}'은(는) 선택한 픽업 시간에 제공되지 않습니다",
     "menuItemUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",

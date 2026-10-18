@@ -241,6 +241,7 @@ export type I18nTranslations = {
         };
         "orders": {
             "idempotencyConflict": string;
+            "invalidTable": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;

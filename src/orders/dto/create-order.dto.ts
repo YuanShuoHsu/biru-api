@@ -221,4 +221,9 @@ export class CreateOrderDto {
   @IsInt()
   @Min(1)
   tableNumber?: number;
+
+  @ApiPropertyOptional({ description: '桌上 QR code 帶的桌號簽章，內用必填' })
+  @IsOptional()
+  @IsString()
+  tableToken?: string;
 }

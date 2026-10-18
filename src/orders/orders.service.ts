@@ -98,6 +98,10 @@ import type {
 } from './dto/order-response.dto';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
+import {
+  dineInTableToken,
+  isValidDineInTableToken,
+} from './dine-in-table-token';
 import { isValidOrderAccessToken } from './order-access-token';
 import { OrderPricingService } from './order-pricing.service';
 import {
@@ -325,6 +329,11 @@ export class OrdersService {
     return pickupTime;
   }
 
+  async getDineInTableToken(organizationSlug: string, tableNumber: number) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    return { token: dineInTableToken(org.id, tableNumber) };
+  }
+
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
@@ -343,6 +352,12 @@ export class OrdersService {
       );
 
     const org = await this.getOrgBySlug(organizationSlug);
+
+    if (
+      isDineIn &&
+      !isValidDineInTableToken(org.id, dto.tableNumber, dto.tableToken)
+    )
+      throw new BadRequestException(this.t('invalidTable'));
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')

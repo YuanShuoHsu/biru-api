@@ -191,6 +191,7 @@
   },
   "orders": {
     "idempotencyConflict": "Your order details have changed. Please submit again.",
+    "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
     "menuItemUnavailableAtTime": "\"{name}\" isn't available at the selected pickup time",
     "menuItemUnavailableForMode": "\"{name}\" isn't available for this ordering method",

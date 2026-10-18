@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { CouponsModule } from '../coupons/coupons.module';
 import { InventoryModule } from '../inventory/inventory.module';
 
+import { DineInTablesController } from './dine-in-tables.controller';
 import { MenuItemSalesController } from './menu-item-sales.controller';
 import { MenuItemSalesService } from './menu-item-sales.service';
 import { OrderPricingModule } from './order-pricing.module';
@@ -15,6 +16,7 @@ import { UserOrdersController } from './user-orders.controller';
 @Module({
   imports: [CouponsModule, InventoryModule, OrderPricingModule],
   controllers: [
+    DineInTablesController,
     MenuItemSalesController,
     OrderStatsController,
     OrdersController,
