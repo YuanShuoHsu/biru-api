@@ -235,7 +235,6 @@
     "gridRangeInvalid": "網格上界必須高於下界",
     "gridSpacingTooSmall": "格距太小：每格利潤低於來回手續費，網格每成交一次都會虧損",
     "indicatorConditionIncomplete": "指標條件沒有填完整",
-    "kolShareCodeNotFound": "查不到這個分享碼。請確認輸入的是 KOL 的邀請碼；如果確定沒錯，可能是 Pionex 暫時異常，請稍後再試。",
     "orderAmountAboveInvestment": "每次下單金額不能高於投入金額",
     "orderAmountRejected": "委託金額不符合交易所限制，請確認是否低於最小下單金額",
     "orderFieldsFuturesLimit": "限價、IOC、FOK、只做 Maker 單需要填寫價格",

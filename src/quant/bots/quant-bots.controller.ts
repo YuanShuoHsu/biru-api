@@ -42,11 +42,8 @@ import {
   WebhookTokenDto,
 } from '../dto/quant-bot.dto';
 
-import { QuantKolDto, QuantKolQueryDto } from '../dto/quant-kol.dto';
-
 import { QuantBacktestService } from './quant-backtest.service';
 import { QuantBotsService } from './quant-bots.service';
-import { QuantKolService } from './quant-kol.service';
 
 // 機器人只屬於建立者本人，平台管理員彼此也看不到
 @ApiTags('quant')
@@ -57,7 +54,6 @@ export class QuantBotsController {
   constructor(
     private readonly backtest: QuantBacktestService,
     private readonly bots: QuantBotsService,
-    private readonly kol: QuantKolService,
   ) {}
 
   @Get('bots')
@@ -261,16 +257,6 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<QuantBotEventDto[]> {
     return this.bots.listEvents(user.id, id);
-  }
-
-  @Get('credentials/:id/kol')
-  @ApiOperation({ summary: 'KOL 精選的跟單合約網格（依分享碼查詢）' })
-  findKol(
-    @Param('id') id: string,
-    @Query() query: QuantKolQueryDto,
-    @Session() { user }: UserSession,
-  ): Promise<QuantKolDto> {
-    return this.kol.list(user.id, id, query);
   }
 
   @Get('credentials/:id/grid-ai-strategy')

@@ -285,7 +285,6 @@ export type I18nTranslations = {
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;
             "indicatorConditionIncomplete": string;
-            "kolShareCodeNotFound": string;
             "orderAmountAboveInvestment": string;
             "orderAmountRejected": string;
             "orderFieldsFuturesLimit": string;

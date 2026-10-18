@@ -235,7 +235,6 @@
     "gridRangeInvalid": "网格上界必须高于下界",
     "gridSpacingTooSmall": "格距太小：每格利润低于来回手续费，网格每成交一次都会亏损",
     "indicatorConditionIncomplete": "指标条件没有填完整",
-    "kolShareCodeNotFound": "查不到这个分享码。请确认输入的是 KOL 的邀请码；如果确定没错，可能是 Pionex 暂时异常，请稍后再试。",
     "orderAmountAboveInvestment": "每次下单金额不能高于投入金额",
     "orderAmountRejected": "委托金额不符合交易所限制，请确认是否低于最小下单金额",
     "orderFieldsFuturesLimit": "限价、IOC、FOK、只做 Maker 单需要填写价格",

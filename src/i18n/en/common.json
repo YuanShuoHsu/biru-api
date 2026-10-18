@@ -235,7 +235,6 @@
     "gridRangeInvalid": "The upper price must be higher than the lower price",
     "gridSpacingTooSmall": "Grid spacing too small: the profit per grid is below the round-trip fee, so every trade loses money",
     "indicatorConditionIncomplete": "An indicator condition is incomplete",
-    "kolShareCodeNotFound": "No KOL found for this share code. Make sure it is the KOL's invitation code; if it is, Pionex may be having a temporary issue, so try again later.",
     "orderAmountAboveInvestment": "The order amount cannot exceed the investment",
     "orderAmountRejected": "The order amount does not meet the exchange limits. Check the minimum order amount.",
     "orderFieldsFuturesLimit": "Limit, IOC, FOK and post-only orders require a price",

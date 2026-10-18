@@ -13,7 +13,6 @@ import { PionexSignalService } from './bots/pionex-signal.service';
 import { QuantBacktestService } from './bots/quant-backtest.service';
 import { QuantBotsController } from './bots/quant-bots.controller';
 import { QuantBotsService } from './bots/quant-bots.service';
-import { QuantKolService } from './bots/quant-kol.service';
 import { QuantWebhookController } from './bots/quant-webhook.controller';
 import { MarketCacheService } from './engine/market-cache.service';
 import { QuantEngineService } from './engine/quant-engine.service';
@@ -52,7 +51,6 @@ import { QuantGateway } from './quant.gateway';
     QuantEngineService,
     QuantFuturesService,
     QuantGateway,
-    QuantKolService,
     QuantMarketService,
     QuantMarketStreamService,
   ],

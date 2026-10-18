@@ -235,7 +235,6 @@
     "gridRangeInvalid": "상단 가격은 하단 가격보다 높아야 합니다",
     "gridSpacingTooSmall": "그리드 간격이 너무 좁습니다: 그리드당 수익이 왕복 수수료보다 낮아 체결될 때마다 손실이 납니다",
     "indicatorConditionIncomplete": "지표 조건이 완전하지 않습니다",
-    "kolShareCodeNotFound": "이 공유 코드를 찾을 수 없습니다. KOL의 초대 코드를 입력했는지 확인하세요. 맞다면 Pionex의 일시적인 문제일 수 있으니 잠시 후 다시 시도하세요.",
     "orderAmountAboveInvestment": "주문 금액은 투자 금액을 초과할 수 없습니다",
     "orderAmountRejected": "주문 금액이 거래소 제한에 맞지 않습니다. 최소 주문 금액을 확인하세요",
     "orderFieldsFuturesLimit": "지정가, IOC, FOK, 메이커 전용 주문은 가격이 필요합니다",

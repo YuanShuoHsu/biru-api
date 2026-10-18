@@ -235,7 +235,6 @@
     "gridRangeInvalid": "上限価格は下限価格より高くしてください",
     "gridSpacingTooSmall": "グリッド間隔が狭すぎます：1 グリッドの利益が往復手数料を下回り、約定のたびに損失が出ます",
     "indicatorConditionIncomplete": "インジケーター条件が未入力です",
-    "kolShareCodeNotFound": "この共有コードは見つかりませんでした。KOL の招待コードを入力しているか確認してください。正しい場合は Pionex 側の一時的な不具合の可能性があるため、しばらくしてから再度お試しください。",
     "orderAmountAboveInvestment": "1 回の注文金額は投資額を超えられません",
     "orderAmountRejected": "注文金額が取引所の制限を満たしていません。最小注文金額を確認してください",
     "orderFieldsFuturesLimit": "指値・IOC・FOK・Post Only 注文には価格が必要です",
