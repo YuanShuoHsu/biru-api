@@ -462,7 +462,8 @@ export class QuantAccountService {
             'GET',
             '/api/v1/assets/transfers',
             {
-              params: { endTime: cursor, limit: TRANSFER_BATCH },
+              // 不帶 endTime 時 Pionex 一律回 records: null（實測）
+              params: { endTime: cursor ?? Date.now(), limit: TRANSFER_BATCH },
               weight: TRANSFER_WEIGHT,
             },
           ),
