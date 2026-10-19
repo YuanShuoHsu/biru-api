@@ -21,7 +21,8 @@ export interface PionexFuturesGridCheck {
   slippage?: string;
 }
 
-// 文件沒列出 marginBalance、gridProfit、totalFundingFee、usdtInvestment，實際回傳有
+// 文件沒列出 marginBalance、gridProfit、profitWithdrawn、totalFundingFee、usdtInvestment，實際回傳有
+// marginBalance＝投入＋額外保證金＋已實現損益＋資金費＋手續費−已提取利潤（已用實際回應逐項核對）
 export interface PionexFuturesGridData {
   bottom?: string;
   buOrderId?: string;
@@ -47,6 +48,7 @@ export interface PionexFuturesGridData {
   marginBalance?: string;
   position?: string;
   positionOpenPrice?: string;
+  profitWithdrawn?: string;
   reasonBy?: string;
   status: string;
   totalFundingFee?: string;

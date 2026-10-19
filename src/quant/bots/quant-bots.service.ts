@@ -1439,9 +1439,14 @@ export class QuantBotsService {
           bot.pionexBotId!,
         );
         await this.syncFuturesGridConfig(bot, data);
+        const { pnl, profitWithdrawn = 0 } = await this.futuresGridSummary(
+          bot,
+          data,
+        );
         return {
           finished: data.status === PIONEX_GRID_FINISHED,
-          pnl: (await this.futuresGridSummary(bot, data)).pnl,
+          // 提取利潤會讓總利潤下降，但不是虧損，每日虧損上限不能把它算進去
+          pnl: pnl + profitWithdrawn,
           reason: data.reasonBy,
         };
       }
@@ -2046,9 +2051,15 @@ export class QuantBotsService {
       const price = await this.priceOf(bot.symbol);
       const position = Number(data.position ?? 0);
       const entry = Number(data.positionOpenPrice ?? 0);
-      const invested = Number(data.usdtInvestment ?? committed);
+      // usdtInvestment 停在建立時的值，之後追加或減少的保證金不會反映
+      const invested =
+        Number(data.quoteInvestment ?? bot.investment) +
+        Number(data.extraMargin ?? config.extraMargin ?? 0);
+      const withdrawn = Number(data.profitWithdrawn ?? 0);
       const equity =
         Number(data.marginBalance ?? invested) + position * (price - entry);
+      const pnl = equity - invested;
+      const gridProfit = Number(data.gridProfit ?? 0) - withdrawn;
       const liquidation = Number(
         data.liquidationPrice ||
           (position < 0
@@ -2061,13 +2072,15 @@ export class QuantBotsService {
         averageCost: entry,
         equity,
         fillCount: 0,
-        floatingPnl: floatingPnlOf(position, entry, price),
+        floatingPnl: pnl - gridProfit,
         fundingFee: Number(data.totalFundingFee ?? 0),
         liquidationPrice: liquidation || undefined,
         pionexStatus: data.status,
-        pnl: equity - invested,
+        // 和 App 一致：總利潤不加回已提取的利潤，網格利潤扣掉已提取的部分
+        pnl,
         position,
-        realizedPnl: Number(data.gridProfit ?? 0),
+        profitWithdrawn: withdrawn,
+        realizedPnl: gridProfit,
       };
     } catch {
       return empty;
@@ -2099,18 +2112,19 @@ export class QuantBotsService {
       const equity = Number(data.quoteAmount ?? 0) + position * price;
       const withdrawn = Number(data.profitWithdrawn ?? 0);
       const invested = Number(data.quoteTotalInvestment ?? bot.investment);
-      const averageCost = Number(data.averageCost ?? 0);
+      const pnl = equity - invested;
+      const gridProfit = Number(data.gridProfit ?? 0) - withdrawn;
 
       return {
-        averageCost,
+        averageCost: Number(data.averageCost ?? 0),
         equity,
         fillCount: 0,
-        floatingPnl: floatingPnlOf(position, averageCost, price),
-        // 提取出去的利潤已不在機器人帳上，但仍是這個機器人賺的
-        pnl: equity + withdrawn - invested,
+        floatingPnl: pnl - gridProfit,
+        // 和 App 一致：總利潤不加回已提取的利潤，網格利潤扣掉已提取的部分
+        pnl,
         position,
         profitWithdrawn: withdrawn,
-        realizedPnl: Number(data.gridProfit ?? 0),
+        realizedPnl: gridProfit,
       };
     } catch {
       return empty;
@@ -2132,13 +2146,12 @@ export class QuantBotsService {
 
     const runningMs =
       (bot.stoppedAt ?? new Date()).getTime() - bot.startedAt.getTime();
-    const committed =
-      bot.investment +
-      (isFuturesBot(bot) ? futuresMarginOf(bot).extraMargin : 0);
-    if (runningMs <= 0 || committed <= 0) return summary;
+    if (runningMs <= 0 || bot.investment <= 0) return summary;
 
+    // 和 App 一致：分母只算投入（不含額外保證金），分子加回已提取的利潤
+    const withdrawn = summary.profitWithdrawn ?? 0;
     const annualize = (profit: number) =>
-      (profit / committed) * (YEAR_MS / runningMs);
+      ((profit + withdrawn) / bot.investment) * (YEAR_MS / runningMs);
 
     return {
       ...summary,

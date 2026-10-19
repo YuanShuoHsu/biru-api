@@ -710,10 +710,14 @@ export class QuantBotSummaryDto {
   @ApiProperty({ description: '目前權益（計價幣）' }) equity: number;
   @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
   @ApiProperty({
-    description: '已實現損益（計價幣）；網格機器人即網格利潤',
+    description:
+      '已實現損益（計價幣）；網格機器人為網格利潤，Pionex 網格扣掉已提取的部分',
   })
   realizedPnl: number;
-  @ApiProperty({ description: '浮動盈虧＝持倉 ×（現價 − 持倉均價）' })
+  @ApiProperty({
+    description:
+      '浮動盈虧＝持倉 ×（現價 − 持倉均價）；Pionex 網格與 App 一致，為總損益 − 網格利潤',
+  })
   floatingPnl: number;
   @ApiPropertyOptional({
     description: '總損益相對投入的年化報酬率（比例）；尚未啟動時不回傳',
@@ -737,7 +741,7 @@ export class QuantBotSummaryDto {
   pionexStatus?: string;
   @ApiPropertyOptional({ description: 'AI：本月（UTC）已花費的費用（美元）' })
   aiMonthCost?: number;
-  @ApiPropertyOptional({ description: 'Pionex 現貨網格：已提取的利潤' })
+  @ApiPropertyOptional({ description: 'Pionex 網格：已提取的利潤' })
   profitWithdrawn?: number;
 }
 

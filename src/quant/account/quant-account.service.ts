@@ -524,12 +524,10 @@ export class QuantAccountService {
       source: PionexBalancesFull['botAccount'],
     ): QuantAssetAccountDto => ({
       account,
-      categories: (source?.detail ?? []).map(
-        ({ title, totalInUsdt, type }) => ({
-          title: title ?? type,
-          totalInUsdt: Number(totalInUsdt ?? 0),
-          type,
-        }),
+      // 合約帳戶只有一個沒有名稱的分類，就是帳戶本身
+      categories: (source?.detail ?? []).flatMap(
+        ({ title, totalInUsdt, type }) =>
+          title ? [{ title, totalInUsdt: Number(totalInUsdt ?? 0), type }] : [],
       ),
       totalInUsdt: Number(source?.totalInUsdt ?? 0),
     });
