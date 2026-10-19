@@ -8,7 +8,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiExtraModels,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -32,11 +37,20 @@ import {
   FuturesGridOperationDto,
   GridAiStrategyDto,
   GridBacktestDto,
+  GridCheckDto,
+  GridCheckResultDto,
+  GridOperationDto,
   IndicatorBacktestDto,
   QuantBotDto,
   QuantBotEventDto,
+  QuantBotEventPaginationQueryDto,
   QuantBotFillDto,
+  QuantBotFillMarkerDto,
+  QuantBotFillMarkerQueryDto,
+  QuantBotFillPaginationQueryDto,
   QuantBotOrderDto,
+  QuantBotOrderPaginationQueryDto,
+  QuantBotPaginationQueryDto,
   SendSignalDto,
   SignalSetupDto,
   WebhookTokenDto,
@@ -48,6 +62,7 @@ import { QuantBotsService } from './quant-bots.service';
 // 機器人只屬於建立者本人，平台管理員彼此也看不到
 @ApiTags('quant')
 @ApiBearerAuth()
+@ApiExtraModels(QuantBotEventDto, QuantBotFillDto, QuantBotOrderDto)
 @UseGuards(AdminGuard)
 @Controller('quant')
 export class QuantBotsController {
@@ -58,8 +73,11 @@ export class QuantBotsController {
 
   @Get('bots')
   @ApiOperation({ summary: '列出自己的機器人（不含已封存）' })
-  findAll(@Session() { user }: UserSession): Promise<QuantBotDto[]> {
-    return this.bots.list(user.id);
+  findAll(
+    @Query() query: QuantBotPaginationQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<{ data: QuantBotDto[]; total: number }> {
+    return this.bots.list(user.id, query);
   }
 
   @Post('bots/grid')
@@ -69,6 +87,18 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<CreateQuantBotResponseDto> {
     return this.bots.create(user.id, 'grid', dto);
+  }
+
+  @Post('bots/grid/check')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '向 Pionex 試算網格的投入範圍與每格數量（不會下單）',
+  })
+  checkGrid(
+    @Body() dto: GridCheckDto,
+    @Session() { user }: UserSession,
+  ): Promise<GridCheckResultDto> {
+    return this.bots.gridCheck(user.id, dto);
   }
 
   @Post('bots/futures_grid')
@@ -197,6 +227,19 @@ export class QuantBotsController {
     return this.bots.sendSignal(user.id, id, dto);
   }
 
+  @Post('bots/:id/grid/operate')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: '調整執行中的 Pionex 現貨網格：追加投入、改區間、提取利潤',
+  })
+  operateGrid(
+    @Param('id') id: string,
+    @Body() dto: GridOperationDto,
+    @Session() { user }: UserSession,
+  ): Promise<void> {
+    return this.bots.gridOperation(user.id, id, dto);
+  }
+
   @Post('bots/:id/futures-grid/check')
   @HttpCode(200)
   @ApiOperation({ summary: '向 Pionex 試算合約網格的調整（不會執行）' })
@@ -236,27 +279,40 @@ export class QuantBotsController {
   @ApiOperation({ summary: '機器人的委託' })
   findOrders(
     @Param('id') id: string,
+    @Query() query: QuantBotOrderPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantBotOrderDto[]> {
-    return this.bots.listOrders(user.id, id);
+  ): Promise<{ data: QuantBotOrderDto[]; total: number }> {
+    return this.bots.listOrders(user.id, id, query);
   }
 
   @Get('bots/:id/fills')
   @ApiOperation({ summary: '機器人的成交' })
   findFills(
     @Param('id') id: string,
+    @Query() query: QuantBotFillPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantBotFillDto[]> {
-    return this.bots.listFills(user.id, id);
+  ): Promise<{ data: QuantBotFillDto[]; total: number }> {
+    return this.bots.listFills(user.id, id, query);
+  }
+
+  @Get('bots/:id/fill-markers')
+  @ApiOperation({ summary: '機器人在一段時間內的成交，供 K 線圖標記' })
+  findFillMarkers(
+    @Param('id') id: string,
+    @Query() { since }: QuantBotFillMarkerQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantBotFillMarkerDto[]> {
+    return this.bots.listFillMarkers(user.id, id, since);
   }
 
   @Get('bots/:id/events')
-  @ApiOperation({ summary: '機器人最近的事件紀錄' })
+  @ApiOperation({ summary: '機器人的事件紀錄' })
   findEvents(
     @Param('id') id: string,
+    @Query() query: QuantBotEventPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantBotEventDto[]> {
-    return this.bots.listEvents(user.id, id);
+  ): Promise<{ data: QuantBotEventDto[]; total: number }> {
+    return this.bots.listEvents(user.id, id, query);
   }
 
   @Get('credentials/:id/grid-ai-strategy')

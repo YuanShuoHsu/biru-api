@@ -215,6 +215,7 @@
     "botAlreadyStarted": "這個機器人已經執行過，停止後不能再次啟動；要沿用設定請另建一個",
     "botCredentialRequired": "實盤機器人需要選擇交易帳戶",
     "botNotFound": "找不到這個機器人",
+    "botNotPionexGrid": "只有實盤的 Pionex 現貨網格可以調整",
     "botNotPionexFuturesGrid": "只有實盤的 Pionex 合約網格可以調整",
     "botNotRunning": "機器人沒有在執行",
     "botNotSignal": "這不是訊號機器人，或還沒在 Pionex 建立",

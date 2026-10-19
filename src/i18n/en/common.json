@@ -215,6 +215,7 @@
     "botAlreadyStarted": "This bot has already run and cannot be started again after stopping. Create a new one to reuse its settings.",
     "botCredentialRequired": "Live bots need a trading account",
     "botNotFound": "Bot not found",
+    "botNotPionexGrid": "Only live Pionex spot grids can be adjusted",
     "botNotPionexFuturesGrid": "Only live Pionex futures grids can be adjusted",
     "botNotRunning": "The bot is not running",
     "botNotSignal": "This is not a signal bot, or it has not been created on Pionex yet",

@@ -3,6 +3,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   getSchemaPath,
+  PickType,
 } from '@nestjs/swagger';
 
 import { Transform, Type } from 'class-transformer';
@@ -11,6 +12,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -23,6 +25,8 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 import {
   PIONEX_KLINE_INTERVALS,
@@ -651,6 +655,8 @@ export class QuantBotSummaryDto {
   pionexStatus?: string;
   @ApiPropertyOptional({ description: 'AI：本月（UTC）已花費的費用（美元）' })
   aiMonthCost?: number;
+  @ApiPropertyOptional({ description: 'Pionex 現貨網格：已提取的利潤' })
+  profitWithdrawn?: number;
 }
 
 @ApiExtraModels(
@@ -909,6 +915,71 @@ export class FuturesGridCheckResultDto {
   liquidationPriceUp?: number;
 }
 
+export class GridCheckDto {
+  @ApiProperty() @IsString() @IsNotEmpty() credentialId: string;
+
+  @ApiProperty({ example: 'BTC_USDT' })
+  @IsString()
+  @IsNotEmpty()
+  symbol: string;
+
+  @ApiProperty() @IsNumber() @IsPositive() investment: number;
+
+  @ApiProperty({ type: GridConfigDto })
+  @ValidateNested()
+  @Type(() => GridConfigDto)
+  config: GridConfigDto;
+}
+
+export class GridCheckResultDto {
+  @ApiPropertyOptional() minInvestment?: number;
+  @ApiPropertyOptional() maxInvestment?: number;
+  @ApiPropertyOptional({ description: '每格數量（基礎幣）' })
+  perVolume?: number;
+  @ApiPropertyOptional({ description: '預估開倉手續費（計價幣）' })
+  fee?: number;
+}
+
+export const GRID_OPERATIONS = ['invest', 'range', 'profit'] as const;
+
+// https://www.pionex.com/docs/api-docs/bot-api/spot-grid
+export class GridOperationDto {
+  @ApiProperty({ enum: GRID_OPERATIONS, enumName: 'QuantGridOperation' })
+  @IsIn(GRID_OPERATIONS)
+  operation: (typeof GRID_OPERATIONS)[number];
+
+  @ApiPropertyOptional({
+    description: 'invest：追加投入；profit：提取的利潤（計價幣）',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  amount?: number;
+
+  @ApiPropertyOptional({ description: 'range：新上界' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  top?: number;
+
+  @ApiPropertyOptional({ description: 'range：新下界' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  bottom?: number;
+
+  @ApiPropertyOptional({
+    description: 'range：新格數',
+    minimum: 2,
+    maximum: 200,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  @Max(200)
+  row?: number;
+}
+
 export class SignalSetupDto {
   @ApiProperty({
     description:
@@ -1085,4 +1156,129 @@ export class SetQuantAiKeyDto {
   @IsString()
   @IsNotEmpty()
   apiKey: string;
+}
+
+export const QUANT_BOT_STRING_FILTER_FIELDS = ['name', 'symbol'] as const;
+export const QUANT_BOT_ENUM_FILTER_FIELDS = ['type', 'mode', 'status'] as const;
+export const QUANT_BOT_NUMBER_FILTER_FIELDS = ['investment'] as const;
+export const QUANT_BOT_DATE_FILTER_FIELDS = ['startedAt'] as const;
+export const QUANT_BOT_ALL_FILTER_FIELDS = [
+  ...QUANT_BOT_STRING_FILTER_FIELDS,
+  ...QUANT_BOT_ENUM_FILTER_FIELDS,
+  ...QUANT_BOT_NUMBER_FILTER_FIELDS,
+  ...QUANT_BOT_DATE_FILTER_FIELDS,
+] as const;
+
+export type QuantBotFilterField = (typeof QUANT_BOT_ALL_FILTER_FIELDS)[number];
+
+// 損益要即時算，不在資料庫裡，無法排序或篩選
+export const QUANT_BOT_SORT_FIELDS = QUANT_BOT_ALL_FILTER_FIELDS;
+
+export type QuantBotSortField = (typeof QUANT_BOT_SORT_FIELDS)[number];
+
+export class QuantBotPaginationQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: QUANT_BOT_ALL_FILTER_FIELDS,
+    enumName: 'QuantBotFilterField',
+  })
+  @IsOptional()
+  @IsIn(QUANT_BOT_ALL_FILTER_FIELDS)
+  filterField?: QuantBotFilterField;
+
+  @ApiPropertyOptional({
+    enum: QUANT_BOT_SORT_FIELDS,
+    enumName: 'QuantBotSortField',
+  })
+  @IsOptional()
+  @IsIn(QUANT_BOT_SORT_FIELDS)
+  sortBy?: QuantBotSortField;
+}
+
+class BotRecordPaginationQueryDto extends PickType(PaginationQueryDto, [
+  'limit',
+  'offset',
+  'sortDirection',
+] as const) {}
+
+export const QUANT_BOT_ORDER_SORT_FIELDS = [
+  'createdAt',
+  'side',
+  'type',
+  'price',
+  'filledSize',
+  'status',
+  'tag',
+] as const;
+
+export type QuantBotOrderSortField =
+  (typeof QUANT_BOT_ORDER_SORT_FIELDS)[number];
+
+export class QuantBotOrderPaginationQueryDto extends BotRecordPaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: QUANT_BOT_ORDER_SORT_FIELDS,
+    enumName: 'QuantBotOrderSortField',
+  })
+  @IsOptional()
+  @IsIn(QUANT_BOT_ORDER_SORT_FIELDS)
+  sortBy?: QuantBotOrderSortField;
+}
+
+export const QUANT_BOT_FILL_SORT_FIELDS = [
+  'filledAt',
+  'side',
+  'price',
+  'size',
+  'fee',
+] as const;
+
+export type QuantBotFillSortField = (typeof QUANT_BOT_FILL_SORT_FIELDS)[number];
+
+export class QuantBotFillPaginationQueryDto extends BotRecordPaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: QUANT_BOT_FILL_SORT_FIELDS,
+    enumName: 'QuantBotFillSortField',
+  })
+  @IsOptional()
+  @IsIn(QUANT_BOT_FILL_SORT_FIELDS)
+  sortBy?: QuantBotFillSortField;
+}
+
+export const QUANT_BOT_EVENT_SORT_FIELDS = ['createdAt', 'kind'] as const;
+
+export type QuantBotEventSortField =
+  (typeof QUANT_BOT_EVENT_SORT_FIELDS)[number];
+
+export class QuantBotEventPaginationQueryDto extends BotRecordPaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: QUANT_BOT_EVENT_SORT_FIELDS,
+    enumName: 'QuantBotEventSortField',
+  })
+  @IsOptional()
+  @IsIn(QUANT_BOT_EVENT_SORT_FIELDS)
+  sortBy?: QuantBotEventSortField;
+
+  @ApiPropertyOptional({
+    description: '只列這些種類的事件，例如 AI 決策紀錄',
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: string | string[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
+  @IsString({ each: true })
+  kinds?: string[];
+}
+
+export class QuantBotFillMarkerQueryDto {
+  @ApiProperty({ description: '只回傳此時間之後的成交', format: 'date-time' })
+  @IsDateString()
+  since: string;
+}
+
+export class QuantBotFillMarkerDto {
+  @ApiProperty({ enum: ['BUY', 'SELL'], enumName: 'QuantOrderSide' })
+  side: 'BUY' | 'SELL';
+  @ApiProperty() price: number;
+  @ApiProperty() filledAt: Date;
 }

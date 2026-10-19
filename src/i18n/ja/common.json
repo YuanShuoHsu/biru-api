@@ -215,6 +215,7 @@
     "botAlreadyStarted": "このボットは一度実行済みのため、停止後に再開できません。設定を流用する場合は新しく作成してください",
     "botCredentialRequired": "本番ボットには取引口座の選択が必要です",
     "botNotFound": "ボットが見つかりません",
+    "botNotPionexGrid": "調整できるのは実運用の Pionex 現物グリッドだけです",
     "botNotPionexFuturesGrid": "調整できるのは実運用の Pionex 先物グリッドだけです",
     "botNotRunning": "ボットは実行されていません",
     "botNotSignal": "シグナルボットではないか、まだ Pionex で作成されていません",

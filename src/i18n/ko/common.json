@@ -215,6 +215,7 @@
     "botAlreadyStarted": "이 봇은 이미 실행된 적이 있어 중지 후 다시 시작할 수 없습니다. 설정을 재사용하려면 새로 만드세요",
     "botCredentialRequired": "실거래 봇에는 거래 계정이 필요합니다",
     "botNotFound": "봇을 찾을 수 없습니다",
+    "botNotPionexGrid": "실전 Pionex 현물 그리드만 조정할 수 있습니다",
     "botNotPionexFuturesGrid": "실전 Pionex 선물 그리드만 조정할 수 있습니다",
     "botNotRunning": "봇이 실행 중이 아닙니다",
     "botNotSignal": "신호 봇이 아니거나 아직 Pionex에 생성되지 않았습니다",

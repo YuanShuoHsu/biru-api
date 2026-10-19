@@ -12,12 +12,27 @@ import {
 export interface PionexSpotGridData {
   averageCost?: string;
   baseAmount?: string;
+  bottom?: string;
   gridProfit?: string;
+  lossStop?: string | null;
+  lossStopType?: string;
+  profitStop?: string | null;
+  profitStopType?: string;
+  profitWithdrawn?: string;
   quoteAmount?: string;
   quoteTotalInvestment?: string;
   realizedProfit?: string;
   reasonBy?: string;
+  row?: number;
   status: string;
+  top?: string;
+}
+
+export interface PionexSpotGridCheck {
+  estimateFee?: string;
+  estimatePerVolume?: string;
+  maxInvestment?: string;
+  minInvestment?: string;
 }
 
 export interface PionexSpotGridOrder {
@@ -107,6 +122,43 @@ export class PionexGridService {
     );
   }
 
+  checkParams(
+    credentials: PionexCredentials,
+    spec: SymbolSpec,
+    config: GridConfigDto,
+    investment: number,
+  ) {
+    const price = (value: number) =>
+      toDecimalString(value, spec.pricePrecision);
+
+    return this.rest.signed<PionexSpotGridCheck>(
+      credentials,
+      'POST',
+      '/api/v1/bot/orders/spotGrid/checkParams',
+      {
+        body: {
+          base: spec.base,
+          buOrderData: {
+            bottom: price(config.bottom),
+            grid_type: config.gridType,
+            quote_total_investment: toDecimalString(
+              investment,
+              spec.amountPrecision,
+            ),
+            row: config.row,
+            top: price(config.top),
+            ...(config.trigger && {
+              condition: price(config.trigger.price),
+              condition_direction:
+                config.trigger.direction === 'above' ? '1' : '-1',
+            }),
+          },
+          quote: spec.quote,
+        },
+      },
+    );
+  }
+
   get(credentials: PionexCredentials, buOrderId: string) {
     return this.rest.signed<PionexSpotGridOrder>(
       credentials,
@@ -126,6 +178,44 @@ export class PionexGridService {
       'POST',
       '/api/v1/bot/orders/spotGrid/cancel',
       { body: { buOrderId, closeSellModel: closeModel } },
+    );
+  }
+
+  async adjustParams(
+    credentials: PionexCredentials,
+    body: { bottom: string; buOrderId: string; row: number; top: string },
+  ) {
+    await this.rest.signed(
+      credentials,
+      'POST',
+      '/api/v1/bot/orders/spotGrid/adjustParams',
+      { body },
+    );
+  }
+
+  async investIn(
+    credentials: PionexCredentials,
+    buOrderId: string,
+    quoteInvest: string,
+  ) {
+    await this.rest.signed(
+      credentials,
+      'POST',
+      '/api/v1/bot/orders/spotGrid/investIn',
+      { body: { buOrderId, quoteInvest } },
+    );
+  }
+
+  async extractProfit(
+    credentials: PionexCredentials,
+    buOrderId: string,
+    amount: string,
+  ) {
+    await this.rest.signed(
+      credentials,
+      'POST',
+      '/api/v1/bot/orders/spotGrid/profit',
+      { body: { amount, buOrderId } },
     );
   }
 

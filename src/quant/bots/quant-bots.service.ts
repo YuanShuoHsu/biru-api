@@ -10,7 +10,20 @@ import {
 
 import { Interval } from '@nestjs/schedule';
 
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import {
+  type Column,
+  type SQL,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  sql,
+} from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   createHash,
@@ -30,6 +43,12 @@ import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
+import {
+  buildFilterCondition,
+  buildQuickFilterCondition,
+  localTimeText,
+} from 'src/common/utils/data-grid-filters';
+
 import { QuantAccountService } from '../account/quant-account.service';
 import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
 import { QuantAiKeyService } from '../ai/quant-ai-key.service';
@@ -45,17 +64,32 @@ import {
   type FuturesGridOperationDto,
   type GridStopDto,
   type GridAiStrategyDto,
+  type GridCheckDto,
+  type GridCheckResultDto,
   type GridConfigDto,
+  type GridOperationDto,
   type IndicatorConditionDto,
   type IndicatorConfigDto,
   futuresMarginOf,
   type FuturesPositionConfigDto,
   isFuturesBot,
   isFuturesBotType,
+  QUANT_BOT_DATE_FILTER_FIELDS,
+  QUANT_BOT_ENUM_FILTER_FIELDS,
+  QUANT_BOT_NUMBER_FILTER_FIELDS,
+  QUANT_BOT_STRING_FILTER_FIELDS,
   type QuantBotDto,
   type QuantBotEventDto,
+  type QuantBotEventPaginationQueryDto,
+  type QuantBotEventSortField,
   type QuantBotFillDto,
+  type QuantBotFillMarkerDto,
+  type QuantBotFillPaginationQueryDto,
+  type QuantBotFillSortField,
   type QuantBotOrderDto,
+  type QuantBotOrderPaginationQueryDto,
+  type QuantBotOrderSortField,
+  type QuantBotPaginationQueryDto,
   type QuantBotSummaryDto,
   type QuantBotType,
   type SendSignalDto,
@@ -91,13 +125,16 @@ import {
   type PionexFuturesGridOperationCheck,
   PionexFuturesGridService,
 } from './pionex-futures-grid.service';
-import { PIONEX_GRID_FINISHED, PionexGridService } from './pionex-grid.service';
+import {
+  PIONEX_GRID_FINISHED,
+  PionexGridService,
+  type PionexSpotGridData,
+} from './pionex-grid.service';
 import {
   PionexSignalService,
   type SmartCopyParams,
 } from './pionex-signal.service';
 
-const EVENT_LIMIT = 200;
 const PIONEX_GRID_SYNC_MS = 30_000;
 const WEBHOOK_TOKEN_BYTES = 24;
 
@@ -111,6 +148,14 @@ const optionalNumber = (value?: string | number | null) =>
   value === undefined || value === null || value === '' || Number(value) === 0
     ? undefined
     : Number(value);
+
+const gridStopOf = (
+  type?: string,
+  value?: string | null,
+): GridStopDto | undefined =>
+  (type === 'price' || type === 'profit_amount') && optionalNumber(value)
+    ? { type, value: Number(value) }
+    : undefined;
 
 const toOperationCheck = (
   check?: PionexFuturesGridOperationCheck,
@@ -183,17 +228,86 @@ export class QuantBotsService {
     throw new BadRequestException(this.t(key, args));
   }
 
-  async list(userId: string): Promise<QuantBotDto[]> {
-    const bots = await this.db.query.quantBot.findMany({
-      orderBy: desc(quantBot.createdAt),
-      where: and(
-        eq(quantBot.userId, userId),
-        eq(quantBot.environment, quantEnvironment()),
-        isNull(quantBot.archivedAt),
-      ),
-    });
+  async list(
+    userId: string,
+    query: QuantBotPaginationQueryDto = {},
+  ): Promise<{ data: QuantBotDto[]; total: number }> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
 
-    return Promise.all(bots.map((bot) => this.toDto(bot)));
+    // 建立後尚未啟動的機器人在資料庫是 stopped，畫面上顯示為 notStarted
+    const status = sql`case when ${quantBot.startedAt} is null then 'notStarted' else ${quantBot.status}::text end`;
+    // 畫面上的交易對寫成 BTC/USDT，篩選要比對看得到的字
+    const pair = sql`replace(regexp_replace(${quantBot.symbol}, '_PERP$', ''), '_', '/')`;
+    const fieldMap: Record<string, Column | SQL> = {
+      name: quantBot.name,
+      symbol: pair,
+      type: sql`${quantBot.type}::text`,
+      mode: sql`${quantBot.mode}::text`,
+      status,
+      investment: quantBot.investment,
+      startedAt: quantBot.startedAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy = sortBy
+      ? [dir(fieldMap[sortBy]), desc(quantBot.createdAt)]
+      : [desc(quantBot.createdAt)];
+
+    const where = and(
+      eq(quantBot.userId, userId),
+      eq(quantBot.environment, quantEnvironment()),
+      isNull(quantBot.archivedAt),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            QUANT_BOT_STRING_FILTER_FIELDS,
+            QUANT_BOT_DATE_FILTER_FIELDS,
+            QUANT_BOT_ENUM_FILTER_FIELDS,
+            QUANT_BOT_NUMBER_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: QUANT_BOT_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(quantBot.name, `%${value}%`),
+          ilike(pair, `%${value}%`),
+          ilike(sql`${quantBot.investment}::text`, `%${value}%`),
+          ilike(localTimeText(quantBot.startedAt), `%${value}%`),
+        ],
+      }),
+    );
+
+    const [bots, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(quantBot)
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(quantBot).where(where),
+    ]);
+
+    return {
+      data: await Promise.all(bots.map((bot) => this.toDto(bot))),
+      total,
+    };
   }
 
   async findOne(userId: string, id: string): Promise<QuantBotDto> {
@@ -350,14 +464,44 @@ export class QuantBotsService {
       .where(eq(quantBot.id, bot.id));
   }
 
-  async listOrders(userId: string, id: string): Promise<QuantBotOrderDto[]> {
+  async listOrders(
+    userId: string,
+    id: string,
+    {
+      limit = 10,
+      offset = 0,
+      sortBy,
+      sortDirection = 'desc',
+    }: QuantBotOrderPaginationQueryDto = {},
+  ): Promise<{ data: QuantBotOrderDto[]; total: number }> {
     const bot = await this.owned(userId, id);
-    const rows = await this.db.query.quantBotOrder.findMany({
-      orderBy: desc(quantBotOrder.createdAt),
-      where: eq(quantBotOrder.botId, bot.id),
-    });
+    const fieldMap: Record<QuantBotOrderSortField, Column | SQL> = {
+      createdAt: quantBotOrder.createdAt,
+      filledSize: quantBotOrder.filledSize,
+      price: quantBotOrder.price,
+      side: quantBotOrder.side,
+      status: sql`${quantBotOrder.status}::text`,
+      tag: quantBotOrder.tag,
+      type: quantBotOrder.type,
+    };
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const where = eq(quantBotOrder.botId, bot.id);
 
-    return rows.map((row) => ({
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(quantBotOrder)
+        .where(where)
+        .orderBy(
+          dir(fieldMap[sortBy ?? 'createdAt']),
+          desc(quantBotOrder.createdAt),
+        )
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(quantBotOrder).where(where),
+    ]);
+
+    const data = rows.map((row) => ({
       amount: optional(row.amount),
       createdAt: row.createdAt,
       fee: row.fee,
@@ -371,16 +515,46 @@ export class QuantBotsService {
       tag: optional(row.tag),
       type: row.type,
     }));
+
+    return { data, total };
   }
 
-  async listFills(userId: string, id: string): Promise<QuantBotFillDto[]> {
+  async listFills(
+    userId: string,
+    id: string,
+    {
+      limit = 10,
+      offset = 0,
+      sortBy,
+      sortDirection = 'desc',
+    }: QuantBotFillPaginationQueryDto = {},
+  ): Promise<{ data: QuantBotFillDto[]; total: number }> {
     const bot = await this.owned(userId, id);
-    const rows = await this.db.query.quantBotFill.findMany({
-      orderBy: desc(quantBotFill.filledAt),
-      where: eq(quantBotFill.botId, bot.id),
-    });
+    const fieldMap: Record<QuantBotFillSortField, Column | SQL> = {
+      fee: quantBotFill.fee,
+      filledAt: quantBotFill.filledAt,
+      price: quantBotFill.price,
+      side: quantBotFill.side,
+      size: quantBotFill.size,
+    };
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const where = eq(quantBotFill.botId, bot.id);
 
-    return rows.map(
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(quantBotFill)
+        .where(where)
+        .orderBy(
+          dir(fieldMap[sortBy ?? 'filledAt']),
+          desc(quantBotFill.filledAt),
+        )
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(quantBotFill).where(where),
+    ]);
+
+    const data = rows.map(
       ({ fee, feeCoin, filledAt, id: fillId, orderId, price, side, size }) => ({
         fee,
         feeCoin,
@@ -392,22 +566,77 @@ export class QuantBotsService {
         size,
       }),
     );
+
+    return { data, total };
   }
 
-  async listEvents(userId: string, id: string): Promise<QuantBotEventDto[]> {
+  async listFillMarkers(
+    userId: string,
+    id: string,
+    since: string,
+  ): Promise<QuantBotFillMarkerDto[]> {
     const bot = await this.owned(userId, id);
-    const rows = await this.db.query.quantBotEvent.findMany({
-      limit: EVENT_LIMIT,
-      orderBy: desc(quantBotEvent.createdAt),
-      where: eq(quantBotEvent.botId, bot.id),
-    });
 
-    return rows.map(({ createdAt, id: eventId, kind, payload }) => ({
+    return this.db
+      .select({
+        filledAt: quantBotFill.filledAt,
+        price: quantBotFill.price,
+        side: quantBotFill.side,
+      })
+      .from(quantBotFill)
+      .where(
+        and(
+          eq(quantBotFill.botId, bot.id),
+          gte(quantBotFill.filledAt, new Date(since)),
+        ),
+      )
+      .orderBy(asc(quantBotFill.filledAt));
+  }
+
+  async listEvents(
+    userId: string,
+    id: string,
+    {
+      kinds,
+      limit = 10,
+      offset = 0,
+      sortBy,
+      sortDirection = 'desc',
+    }: QuantBotEventPaginationQueryDto = {},
+  ): Promise<{ data: QuantBotEventDto[]; total: number }> {
+    const bot = await this.owned(userId, id);
+    const fieldMap: Record<QuantBotEventSortField, Column | SQL> = {
+      createdAt: quantBotEvent.createdAt,
+      kind: quantBotEvent.kind,
+    };
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const where = and(
+      eq(quantBotEvent.botId, bot.id),
+      kinds?.length ? inArray(quantBotEvent.kind, kinds) : undefined,
+    );
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(quantBotEvent)
+        .where(where)
+        .orderBy(
+          dir(fieldMap[sortBy ?? 'createdAt']),
+          desc(quantBotEvent.createdAt),
+        )
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(quantBotEvent).where(where),
+    ]);
+
+    const data = rows.map(({ createdAt, id: eventId, kind, payload }) => ({
       createdAt,
       id: eventId,
       kind,
       payload: optional(payload),
     }));
+
+    return { data, total };
   }
 
   async receiveWebhook(
@@ -473,6 +702,100 @@ export class QuantBotsService {
       row: strategy.gridCount,
       top: Number(strategy.high),
     };
+  }
+
+  async gridCheck(
+    userId: string,
+    { config, credentialId, investment, symbol }: GridCheckDto,
+  ): Promise<GridCheckResultDto> {
+    const spec = await botSymbolSpec(this.symbols, {
+      config,
+      symbol,
+      type: 'grid',
+    });
+    const check = await this.withExchangeError(async () =>
+      this.pionexGrid.checkParams(
+        await this.account.resolveCredentials(userId, credentialId),
+        spec,
+        config,
+        investment,
+      ),
+    );
+
+    return {
+      fee: optionalNumber(check.estimateFee),
+      maxInvestment: optionalNumber(check.maxInvestment),
+      minInvestment: optionalNumber(check.minInvestment),
+      perVolume: optionalNumber(check.estimatePerVolume),
+    };
+  }
+
+  /** 對執行中的 Pionex 現貨網格追加投入、改區間或提取利潤；Pionex 沒有這些操作的試算端點 */
+  async gridOperation(
+    userId: string,
+    id: string,
+    dto: GridOperationDto,
+  ): Promise<void> {
+    const bot = await this.owned(userId, id);
+    if (
+      bot.type !== 'grid' ||
+      bot.mode !== 'live' ||
+      !bot.pionexBotId ||
+      !bot.credentialId
+    )
+      this.invalid('botNotPionexGrid');
+    if (bot.status !== 'running')
+      throw new ConflictException(this.t('botNotRunning'));
+
+    const spec = await botSymbolSpec(this.symbols, bot);
+    const credentials = await this.account.resolveCredentials(
+      userId,
+      bot.credentialId,
+    );
+    const buOrderId = bot.pionexBotId;
+    const amount = () =>
+      toDecimalString(
+        dto.amount ?? this.invalid('futuresGridOperationIncomplete'),
+        spec.amountPrecision,
+      );
+
+    await this.withExchangeError(async () => {
+      switch (dto.operation) {
+        case 'invest':
+          return this.pionexGrid.investIn(credentials, buOrderId, amount());
+        case 'profit':
+          return this.pionexGrid.extractProfit(
+            credentials,
+            buOrderId,
+            amount(),
+          );
+        case 'range': {
+          const { bottom, row, top } = dto;
+          if (top === undefined || bottom === undefined || row === undefined)
+            this.invalid('futuresGridOperationIncomplete');
+          if (top <= bottom) this.invalid('gridRangeInvalid');
+
+          return this.pionexGrid.adjustParams(credentials, {
+            bottom: toDecimalString(bottom, spec.pricePrecision),
+            buOrderId,
+            row,
+            top: toDecimalString(top, spec.pricePrecision),
+          });
+        }
+      }
+    }, 'exchangeRejected');
+
+    // 投入與區間以 Pionex 回報為準，交給同步寫回
+    await this.syncSpotGridConfig(
+      bot,
+      (await this.pionexGrid.get(credentials, buOrderId)).buOrderData,
+    );
+    await this.db.insert(quantBotEvent).values({
+      botId: bot.id,
+      id: randomUUID(),
+      kind: 'grid_operation',
+      payload: { ...dto },
+    });
   }
 
   async futuresGridCheck(
@@ -719,27 +1042,47 @@ export class QuantBotsService {
     return result;
   }
 
+  private async syncSpotGridConfig(bot: QuantBot, data: PionexSpotGridData) {
+    const config = bot.config as unknown as GridConfigDto;
+    const next: GridConfigDto = {
+      ...config,
+      bottom: optionalNumber(data.bottom) ?? config.bottom,
+      lossStop: gridStopOf(data.lossStopType, data.lossStop),
+      profitStop: gridStopOf(data.profitStopType, data.profitStop),
+      row: data.row ?? config.row,
+      top: optionalNumber(data.top) ?? config.top,
+    };
+    const investment =
+      optionalNumber(data.quoteTotalInvestment) ?? bot.investment;
+    if (
+      investment === bot.investment &&
+      JSON.stringify(next) === JSON.stringify(config)
+    )
+      return;
+
+    await this.db
+      .update(quantBot)
+      .set({
+        config: next as unknown as Record<string, unknown>,
+        investment,
+      })
+      .where(eq(quantBot.id, bot.id));
+  }
+
   // 參數可能在 Pionex App 裡被調整（追加投入、改區間、改停利停損），以 Pionex 為準
   private async syncFuturesGridConfig(
     bot: QuantBot,
     data: PionexFuturesGridData,
   ) {
     const config = bot.config as unknown as FuturesGridConfigDto;
-    const stop = (
-      type?: string,
-      value?: string | null,
-    ): GridStopDto | undefined =>
-      (type === 'price' || type === 'profit_amount') && optionalNumber(value)
-        ? { type, value: Number(value) }
-        : undefined;
     const next: FuturesGridConfigDto = {
       ...config,
       bottom: optionalNumber(data.bottom) ?? config.bottom,
       extraMargin: optionalNumber(data.extraMargin),
       leverage: optionalNumber(data.leverage) ?? config.leverage,
-      lossStop: stop(data.lossStopType, data.lossStop),
+      lossStop: gridStopOf(data.lossStopType, data.lossStop),
       lossStopHigh: optionalNumber(data.lossStopHigh),
-      profitStop: stop(data.profitStopType, data.profitStop),
+      profitStop: gridStopOf(data.profitStopType, data.profitStop),
       row: data.row ?? config.row,
       top: optionalNumber(data.top) ?? config.top,
     };
@@ -849,6 +1192,7 @@ export class QuantBotsService {
           credentials,
           bot.pionexBotId!,
         );
+        await this.syncSpotGridConfig(bot, data);
         return {
           finished: data.status === PIONEX_GRID_FINISHED,
           pnl: 0,
@@ -938,6 +1282,17 @@ export class QuantBotsService {
     const credentials = await this.account.resolveCredentials(
       bot.userId,
       bot.credentialId!,
+    );
+
+    await this.withExchangeError(
+      () =>
+        this.pionexGrid.checkParams(
+          credentials,
+          spec,
+          bot.config as unknown as GridConfigDto,
+          bot.investment,
+        ),
+      'exchangeRejected',
     );
 
     const order = await this.withExchangeError(
@@ -1443,13 +1798,17 @@ export class QuantBotsService {
         0;
       const position = Number(data.baseAmount ?? 0);
       const equity = Number(data.quoteAmount ?? 0) + position * price;
+      const withdrawn = Number(data.profitWithdrawn ?? 0);
+      const invested = Number(data.quoteTotalInvestment ?? bot.investment);
 
       return {
         averageCost: Number(data.averageCost ?? 0),
         equity,
         fillCount: 0,
-        pnl: equity - bot.investment,
+        // 提取出去的利潤已不在機器人帳上，但仍是這個機器人賺的
+        pnl: equity + withdrawn - invested,
         position,
+        profitWithdrawn: withdrawn,
         realizedPnl: Number(data.gridProfit ?? 0),
       };
     } catch {

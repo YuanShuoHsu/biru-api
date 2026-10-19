@@ -215,6 +215,7 @@
     "botAlreadyStarted": "这个机器人已经运行过，停止后不能再次启动；要沿用设置请另建一个",
     "botCredentialRequired": "实盘机器人需要选择交易账户",
     "botNotFound": "找不到这个机器人",
+    "botNotPionexGrid": "只有实盘的 Pionex 现货网格可以调整",
     "botNotPionexFuturesGrid": "只有实盘的 Pionex 合约网格可以调整",
     "botNotRunning": "机器人没有在运行",
     "botNotSignal": "这不是信号机器人，或还没在 Pionex 创建",

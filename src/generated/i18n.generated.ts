@@ -265,6 +265,7 @@ export type I18nTranslations = {
             "botAlreadyStarted": string;
             "botCredentialRequired": string;
             "botNotFound": string;
+            "botNotPionexGrid": string;
             "botNotPionexFuturesGrid": string;
             "botNotRunning": string;
             "botNotSignal": string;
