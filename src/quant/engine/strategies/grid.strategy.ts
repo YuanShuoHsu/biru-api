@@ -1,4 +1,4 @@
-import type { GridConfigDto } from '../../dto/quant-bot.dto';
+import type { GridConfigDto, GridStopDto } from '../../dto/quant-bot.dto';
 import type { BotFill, BotOrder, Strategy, StrategyContext } from '../types';
 
 const LEVEL_TAG = 'grid:';
@@ -14,6 +14,12 @@ export const gridLines = ({
       ? bottom + ((top - bottom) * index) / row
       : bottom * (top / bottom) ** (index / row),
   );
+
+/** 金額或比例型停損停利換算成計價幣金額；比例相對投入，與 Pionex 相同 */
+export const stopAmount =
+  (investment: number) =>
+  ({ type, value }: GridStopDto) =>
+    type === 'profit_ratio' ? (investment * value) / 100 : value;
 
 const levelOf = ({ tag }: BotOrder) =>
   tag?.startsWith(LEVEL_TAG) ? Number(tag.slice(LEVEL_TAG.length)) : null;
@@ -173,12 +179,13 @@ export class GridStrategy implements Strategy {
     const ledger = this.context.ledger();
     const pnl =
       ledger.quoteBalance + ledger.position * price - this.context.investment;
+    const threshold = stopAmount(this.context.investment);
 
     if (
       lossStop &&
       (lossStop.type === 'price'
         ? price <= lossStop.value
-        : -pnl >= lossStop.value)
+        : -pnl >= threshold(lossStop))
     )
       return this.context.stop('loss_stop');
 
@@ -186,7 +193,7 @@ export class GridStrategy implements Strategy {
       profitStop &&
       (profitStop.type === 'price'
         ? price >= profitStop.value
-        : ledger.realizedPnl >= profitStop.value)
+        : ledger.realizedPnl >= threshold(profitStop))
     )
       return this.context.stop('profit_stop');
   }

@@ -49,7 +49,11 @@ export const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
 export const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
-export const GRID_STOP_TYPES = ['price', 'profit_amount'] as const;
+export const GRID_STOP_TYPES = [
+  'price',
+  'profit_amount',
+  'profit_ratio',
+] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
 export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
 export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
@@ -126,7 +130,10 @@ export class GridStopDto {
   @IsIn(GRID_STOP_TYPES)
   type: (typeof GRID_STOP_TYPES)[number];
 
-  @ApiProperty({ description: 'price：觸發價；profit_amount：金額（計價幣）' })
+  @ApiProperty({
+    description:
+      'price：觸發價；profit_amount：金額（計價幣）；profit_ratio：相對投入的 %。停損也填正數',
+  })
   @IsNumber()
   @IsPositive()
   value: number;

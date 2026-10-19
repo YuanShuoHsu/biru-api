@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { GridConfigDto } from '../dto/quant-bot.dto';
+import type { GridConfigDto, GridStopDto } from '../dto/quant-bot.dto';
 import { toDecimalString } from '../engine/precision';
 import type { SymbolSpec } from '../engine/types';
 import {
@@ -57,6 +57,40 @@ export interface PionexSpotGridAiStrategy {
   }[];
 }
 
+// Pionex 的停損金額與比例是負數（-50、-0.1 = -10%）；本系統一律存正數、比例存 %
+export const toPionexStop = (
+  stop: GridStopDto,
+  kind: 'loss' | 'profit',
+  spec: SymbolSpec,
+) => {
+  const sign = kind === 'loss' ? -1 : 1;
+
+  switch (stop.type) {
+    case 'price':
+      return toDecimalString(stop.value, spec.pricePrecision);
+    case 'profit_amount':
+      return toDecimalString(sign * stop.value, spec.amountPrecision);
+    case 'profit_ratio':
+      return toDecimalString((sign * stop.value) / 100, 6);
+  }
+};
+
+export const fromPionexStop = (
+  type?: string,
+  value?: string | null,
+): GridStopDto | undefined => {
+  const number = Math.abs(Number(value || 0));
+  if (!number) return undefined;
+
+  switch (type) {
+    case 'price':
+    case 'profit_amount':
+      return { type, value: number };
+    case 'profit_ratio':
+      return { type, value: Number((number * 100).toPrecision(15)) };
+  }
+};
+
 /** Pionex 內建網格已結束（使用者停止、停損停利或建立失敗） */
 export const PIONEX_GRID_FINISHED = 'canceled';
 
@@ -73,16 +107,7 @@ export class PionexGridService {
   ): Promise<PionexSpotGridOrder> {
     const price = (value: number) =>
       toDecimalString(value, spec.pricePrecision);
-    const stop = (stopConfig?: GridConfigDto['lossStop']) =>
-      stopConfig && {
-        type: stopConfig.type,
-        value:
-          stopConfig.type === 'price'
-            ? price(stopConfig.value)
-            : toDecimalString(stopConfig.value, spec.amountPrecision),
-      };
-    const lossStop = stop(config.lossStop);
-    const profitStop = stop(config.profitStop);
+    const { lossStop, profitStop } = config;
 
     return this.rest.signed<PionexSpotGridOrder>(
       credentials,
@@ -102,11 +127,11 @@ export class PionexGridService {
             row: config.row,
             top: price(config.top),
             ...(lossStop && {
-              lossStop: lossStop.value,
+              lossStop: toPionexStop(lossStop, 'loss', spec),
               lossStopType: lossStop.type,
             }),
             ...(profitStop && {
-              profitStop: profitStop.value,
+              profitStop: toPionexStop(profitStop, 'profit', spec),
               profitStopType: profitStop.type,
             }),
             ...(config.trigger && {

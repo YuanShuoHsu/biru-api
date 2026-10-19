@@ -230,7 +230,7 @@
     "exchangeError": "交易所返回错误：{message}",
     "exchangeRejected": "交易所拒绝了这笔委托：{message}",
     "futuresGridInvestmentTooSmall": "投入金额不足：每格的数量或金额低于交易所下限，请提高投入或减少格数",
-    "futuresGridNeutralProfitStop": "中性网格的止盈只能用金额设置",
+    "futuresGridNeutralProfitStop": "中性网格的止盈只能用金额或比例设置",
     "futuresGridOperationIncomplete": "调整需要的字段没有填写完整",
     "futuresLeverageAboveSymbol": "此交易对最高只能开 {max}x 杠杆",
     "futuresPositionMismatch": "合约交易对要设置方向与杠杆，现货交易对不能设置",

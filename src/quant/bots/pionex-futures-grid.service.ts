@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
-import type { FuturesGridConfigDto, GridStopDto } from '../dto/quant-bot.dto';
+import type { FuturesGridConfigDto } from '../dto/quant-bot.dto';
 import { toDecimalString } from '../engine/precision';
 import type { SymbolSpec } from '../engine/types';
 import {
   type PionexCredentials,
   PionexRestClient,
 } from '../pionex/pionex-rest.client';
+
+import { toPionexStop } from './pionex-grid.service';
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
 // 文件的回應範例是 snake_case，實際回傳是 camelCase
@@ -138,14 +140,7 @@ export class PionexFuturesGridService {
       toDecimalString(value, spec.pricePrecision);
     const amount = (value: number) =>
       toDecimalString(value, spec.amountPrecision);
-    const stop = (value?: GridStopDto) =>
-      value && {
-        type: value.type,
-        value:
-          value.type === 'price' ? price(value.value) : amount(value.value),
-      };
-    const lossStop = stop(config.lossStop);
-    const profitStop = stop(config.profitStop);
+    const { lossStop, profitStop } = config;
 
     return this.rest.signed<PionexFuturesGridOrder>(
       credentials,
@@ -166,14 +161,14 @@ export class PionexFuturesGridService {
             top: price(config.top),
             trend: config.trend,
             ...(lossStop && {
-              lossStop: lossStop.value,
+              lossStop: toPionexStop(lossStop, 'loss', spec),
               lossStopType: lossStop.type,
             }),
             ...(config.lossStopHigh && {
               lossStopHigh: price(config.lossStopHigh),
             }),
             ...(profitStop && {
-              profitStop: profitStop.value,
+              profitStop: toPionexStop(profitStop, 'profit', spec),
               profitStopType: profitStop.type,
             }),
             ...(config.trigger && {

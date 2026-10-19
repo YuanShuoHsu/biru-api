@@ -130,9 +130,11 @@ import {
   PionexFuturesGridService,
 } from './pionex-futures-grid.service';
 import {
+  fromPionexStop,
   PIONEX_GRID_FINISHED,
   PionexGridService,
   type PionexSpotGridData,
+  toPionexStop,
 } from './pionex-grid.service';
 import {
   PionexSignalService,
@@ -151,14 +153,6 @@ const optionalNumber = (value?: string | number | null) =>
   value === undefined || value === null || value === '' || Number(value) === 0
     ? undefined
     : Number(value);
-
-const gridStopOf = (
-  type?: string,
-  value?: string | null,
-): GridStopDto | undefined =>
-  (type === 'price' || type === 'profit_amount') && optionalNumber(value)
-    ? { type, value: Number(value) }
-    : undefined;
 
 const toOperationCheck = (
   check?: PionexFuturesGridOperationCheck,
@@ -866,8 +860,6 @@ export class QuantBotsService {
     const config = bot.config as unknown as FuturesGridConfigDto;
     const price = (value: number) =>
       toDecimalString(value, spec.pricePrecision);
-    const amount = (value: number) =>
-      toDecimalString(value, spec.amountPrecision);
     const required = <T>(value: T | undefined): T =>
       value ?? this.invalid('futuresGridOperationIncomplete');
     const buOrderId = bot.pionexBotId;
@@ -888,9 +880,11 @@ export class QuantBotsService {
                 value:
                   stop === null
                     ? ''
-                    : stop.type === 'price'
-                      ? price(stop.value)
-                      : amount(stop.value),
+                    : toPionexStop(
+                        stop,
+                        type === 'stop_loss' ? 'loss' : 'profit',
+                        spec,
+                      ),
                 ...(type === 'stop_loss' &&
                   config.trend === 'no_trend' &&
                   dto.lossStopHigh !== undefined && {
@@ -1058,8 +1052,8 @@ export class QuantBotsService {
     const next: GridConfigDto = {
       ...config,
       bottom: optionalNumber(data.bottom) ?? config.bottom,
-      lossStop: gridStopOf(data.lossStopType, data.lossStop),
-      profitStop: gridStopOf(data.profitStopType, data.profitStop),
+      lossStop: fromPionexStop(data.lossStopType, data.lossStop),
+      profitStop: fromPionexStop(data.profitStopType, data.profitStop),
       row: data.row ?? config.row,
       top: optionalNumber(data.top) ?? config.top,
     };
@@ -1091,9 +1085,9 @@ export class QuantBotsService {
       bottom: optionalNumber(data.bottom) ?? config.bottom,
       extraMargin: optionalNumber(data.extraMargin),
       leverage: optionalNumber(data.leverage) ?? config.leverage,
-      lossStop: gridStopOf(data.lossStopType, data.lossStop),
+      lossStop: fromPionexStop(data.lossStopType, data.lossStop),
       lossStopHigh: optionalNumber(data.lossStopHigh),
-      profitStop: gridStopOf(data.profitStopType, data.profitStop),
+      profitStop: fromPionexStop(data.profitStopType, data.profitStop),
       row: data.row ?? config.row,
       top: optionalNumber(data.top) ?? config.top,
     };

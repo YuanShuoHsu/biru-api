@@ -230,7 +230,7 @@
     "exchangeError": "取引所からエラーが返されました：{message}",
     "exchangeRejected": "取引所がこの注文を拒否しました：{message}",
     "futuresGridInvestmentTooSmall": "投資額が不足しています。1 グリッドあたりの数量または金額が取引所の下限を下回っています。投資額を増やすかグリッド数を減らしてください",
-    "futuresGridNeutralProfitStop": "ニュートラルグリッドの利確は金額でのみ設定できます",
+    "futuresGridNeutralProfitStop": "ニュートラルグリッドの利確は金額か比率でのみ設定できます",
     "futuresGridOperationIncomplete": "この調整に必要な項目が入力されていません",
     "futuresLeverageAboveSymbol": "この銘柄の最大レバレッジは {max}x です",
     "futuresPositionMismatch": "先物の銘柄には方向とレバレッジが必要で、現物の銘柄には設定できません",

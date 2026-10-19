@@ -2,7 +2,7 @@ import type { FuturesGridConfigDto } from '../../dto/quant-bot.dto';
 import type { FuturesLedger } from '../futures-account';
 import type { BotOrder, Strategy, StrategyContext } from '../types';
 
-import { gridLayout, gridLines } from './grid.strategy';
+import { gridLayout, gridLines, stopAmount } from './grid.strategy';
 
 const LEVEL_TAG = 'grid:';
 // 開倉市價單可能吃到比現價差的檔位，預留這個比例的滑價，免得最後幾格保證金不足
@@ -156,6 +156,9 @@ export class FuturesGridStrategy implements Strategy {
       position * (price - entryPrice) -
       this.context.investment -
       (this.config.extraMargin ?? 0);
+    const threshold = stopAmount(
+      this.context.investment + (this.config.extraMargin ?? 0),
+    );
     // 做空的停損在上方、停利在下方，做多與中性相反
     const lossHit = (stop: number) =>
       trend === 'short' ? price >= stop : price <= stop;
@@ -164,7 +167,7 @@ export class FuturesGridStrategy implements Strategy {
       (lossStop &&
         (lossStop.type === 'price'
           ? lossHit(lossStop.value)
-          : -pnl >= lossStop.value)) ||
+          : -pnl >= threshold(lossStop))) ||
       (trend === 'no_trend' && lossStopHigh && price >= lossStopHigh)
     )
       return this.context.stop('loss_stop');
@@ -175,7 +178,7 @@ export class FuturesGridStrategy implements Strategy {
         ? trend === 'short'
           ? price <= profitStop.value
           : price >= profitStop.value
-        : pnl >= profitStop.value)
+        : pnl >= threshold(profitStop))
     )
       return this.context.stop('profit_stop');
   }
