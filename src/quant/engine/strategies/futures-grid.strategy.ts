@@ -1,10 +1,15 @@
-import type { FuturesGridConfigDto } from '../../dto/quant-bot.dto';
+import type {
+  FuturesGridConfigDto,
+  FuturesGridStopDto,
+} from '../../dto/quant-bot.dto';
 import type { FuturesLedger } from '../futures-account';
 import type { BotOrder, Strategy, StrategyContext } from '../types';
 
 import { gridLayout, gridLines, stopAmount } from './grid.strategy';
 
 const LEVEL_TAG = 'grid:';
+// 限價停損停利觸發後掛出的平倉單，tag 帶停止原因，重啟後也認得出來
+const STOP_TAG = 'stop:';
 // 開倉市價單可能吃到比現價差的檔位，預留這個比例的滑價，免得最後幾格保證金不足
 const OPEN_SLIPPAGE_BUFFER = 0.005;
 
@@ -70,13 +75,21 @@ export class FuturesGridStrategy implements Strategy {
       this.context.log('triggered', { price });
     }
 
-    if (!this.context.fills().length && !this.context.openOrders().length)
+    const openOrders = this.context.openOrders();
+    if (openOrders.some(({ tag }) => tag?.startsWith(STOP_TAG))) return;
+    if (!this.context.fills().length && !openOrders.length)
       return this.layout(price);
 
     await this.checkStops(price);
   }
 
   async onFill(order: BotOrder) {
+    if (order.tag?.startsWith(STOP_TAG)) {
+      if (order.status === 'filled')
+        await this.context.stop(order.tag.slice(STOP_TAG.length));
+      return;
+    }
+
     const level = levelOf(order);
     if (level === null || order.status !== 'filled' || !order.size) return;
 
@@ -148,8 +161,25 @@ export class FuturesGridStrategy implements Strategy {
     this.context.log('grid_started', { price, quantity });
   }
 
+  /** 限價停損停利：撤掉網格單、掛限價平倉，成交後才停止；其餘方式直接市價平倉 */
+  private async close(reason: string, limitPrice?: number) {
+    const { position } = this.context.ledger();
+    if (!limitPrice || position === 0) return this.context.stop(reason);
+
+    await this.context.cancelAll();
+    const order = await this.context.placeOrder({
+      price: limitPrice,
+      side: position > 0 ? 'SELL' : 'BUY',
+      size: Math.abs(position),
+      tag: `${STOP_TAG}${reason}`,
+      type: 'LIMIT',
+    });
+    if (!order) return this.context.stop(reason);
+  }
+
   private async checkStops(price: number) {
-    const { lossStop, lossStopHigh, profitStop, trend } = this.config;
+    const { lossStop, lossStopHigh, lossStopLimitHigh, profitStop, trend } =
+      this.config;
     const { entryPrice, marginBalance, position } = this.context.ledger();
     const pnl =
       marginBalance +
@@ -163,23 +193,32 @@ export class FuturesGridStrategy implements Strategy {
     const lossHit = (stop: number) =>
       trend === 'short' ? price >= stop : price <= stop;
 
+    const isPrice = ({ type }: FuturesGridStopDto) =>
+      type === 'price' || type === 'price_limit';
+    const isLimit = lossStop?.type === 'price_limit';
+
     if (
-      (lossStop &&
-        (lossStop.type === 'price'
-          ? lossHit(lossStop.value)
-          : -pnl >= threshold(lossStop))) ||
-      (trend === 'no_trend' && lossStopHigh && price >= lossStopHigh)
+      lossStop &&
+      (isPrice(lossStop)
+        ? lossHit(lossStop.value)
+        : -pnl >= threshold(lossStop))
     )
-      return this.context.stop('loss_stop');
+      return this.close('loss_stop', isLimit ? lossStop.limitPrice : undefined);
+
+    if (trend === 'no_trend' && lossStopHigh && price >= lossStopHigh)
+      return this.close('loss_stop', isLimit ? lossStopLimitHigh : undefined);
 
     if (
       profitStop &&
-      (profitStop.type === 'price'
+      (isPrice(profitStop)
         ? trend === 'short'
           ? price <= profitStop.value
           : price >= profitStop.value
         : pnl >= threshold(profitStop))
     )
-      return this.context.stop('profit_stop');
+      return this.close(
+        'profit_stop',
+        profitStop.type === 'price_limit' ? profitStop.limitPrice : undefined,
+      );
   }
 }

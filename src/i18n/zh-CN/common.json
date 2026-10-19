@@ -232,6 +232,7 @@
     "futuresGridInvestmentTooSmall": "投入金额不足：每格的数量或金额低于交易所下限，请提高投入或减少格数",
     "futuresGridNeutralProfitStop": "中性网格的止盈只能用金额或比例设置",
     "futuresGridOperationIncomplete": "调整需要的字段没有填写完整",
+    "futuresGridStopLimitRequired": "选择「限价」时要填写限价",
     "futuresLeverageAboveSymbol": "此交易对最高只能开 {max}x 杠杆",
     "futuresPositionMismatch": "合约交易对要设置方向与杠杆，现货交易对不能设置",
     "futuresStrategyLiveNotReady": "合约的 DCA／指标／Webhook 实盘要等 Pionex 信号下单量实测确认后才开放，目前请先用模拟盘",

@@ -54,6 +54,10 @@ export const GRID_STOP_TYPES = [
   'profit_amount',
   'profit_ratio',
 ] as const;
+export const FUTURES_GRID_STOP_TYPES = [
+  ...GRID_STOP_TYPES,
+  'price_limit',
+] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
 export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
 export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
@@ -137,6 +141,29 @@ export class GridStopDto {
   @IsNumber()
   @IsPositive()
   value: number;
+}
+
+export class FuturesGridStopDto {
+  @ApiProperty({
+    enum: FUTURES_GRID_STOP_TYPES,
+    enumName: 'QuantFuturesGridStopType',
+  })
+  @IsIn(FUTURES_GRID_STOP_TYPES)
+  type: (typeof FUTURES_GRID_STOP_TYPES)[number];
+
+  @ApiProperty({
+    description:
+      'price、price_limit：觸發價；profit_amount：金額（計價幣）；profit_ratio：相對投入的 %。停損也填正數',
+  })
+  @IsNumber()
+  @IsPositive()
+  value: number;
+
+  @ApiPropertyOptional({ description: 'price_limit：觸發後掛限價單平倉的價格' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  limitPrice?: number;
 }
 
 export class TriggerDto {
@@ -235,13 +262,13 @@ export class FuturesGridConfigDto {
   extraMargin?: number;
 
   @ApiPropertyOptional({
-    type: GridStopDto,
+    type: FuturesGridStopDto,
     description: 'price：做多與中性為下方停損價、做空為上方停損價',
   })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GridStopDto)
-  lossStop?: GridStopDto;
+  @Type(() => FuturesGridStopDto)
+  lossStop?: FuturesGridStopDto;
 
   @ApiPropertyOptional({ description: '中性網格的上方停損價' })
   @IsOptional()
@@ -250,13 +277,22 @@ export class FuturesGridConfigDto {
   lossStopHigh?: number;
 
   @ApiPropertyOptional({
-    type: GridStopDto,
-    description: 'price：做多為上方停利價、做空為下方停利價；中性只能用金額',
+    description: '中性網格的上方停損限價，停損方式為 price_limit 時使用',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  lossStopLimitHigh?: number;
+
+  @ApiPropertyOptional({
+    type: FuturesGridStopDto,
+    description:
+      'price：做多為上方停利價、做空為下方停利價；中性只能用金額或比例',
   })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GridStopDto)
-  profitStop?: GridStopDto;
+  @Type(() => FuturesGridStopDto)
+  profitStop?: FuturesGridStopDto;
 
   @ApiPropertyOptional({ type: TriggerDto, description: '價格觸及才開始' })
   @IsOptional()
@@ -1135,14 +1171,14 @@ export class FuturesGridOperationDto {
   triggerDown?: number;
 
   @ApiPropertyOptional({
-    type: GridStopDto,
+    type: FuturesGridStopDto,
     nullable: true,
     description: 'stops：停損，null 代表清除',
   })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GridStopDto)
-  lossStop?: GridStopDto | null;
+  @Type(() => FuturesGridStopDto)
+  lossStop?: FuturesGridStopDto | null;
 
   @ApiPropertyOptional({
     nullable: true,
@@ -1154,14 +1190,23 @@ export class FuturesGridOperationDto {
   lossStopHigh?: number | null;
 
   @ApiPropertyOptional({
-    type: GridStopDto,
+    nullable: true,
+    description: 'stops：中性網格的上方停損限價，null 代表清除',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  lossStopLimitHigh?: number | null;
+
+  @ApiPropertyOptional({
+    type: FuturesGridStopDto,
     nullable: true,
     description: 'stops：停利，null 代表清除',
   })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GridStopDto)
-  profitStop?: GridStopDto | null;
+  @Type(() => FuturesGridStopDto)
+  profitStop?: FuturesGridStopDto | null;
 }
 
 export class FuturesGridOperationCheckDto {

@@ -232,6 +232,7 @@
     "futuresGridInvestmentTooSmall": "Investment too small: each grid is below the exchange minimum size or value; invest more or use fewer grids",
     "futuresGridNeutralProfitStop": "Neutral grids can only take profit by amount or ratio",
     "futuresGridOperationIncomplete": "Required fields for this adjustment are missing",
+    "futuresGridStopLimitRequired": "Enter a limit price when using a limit stop",
     "futuresLeverageAboveSymbol": "This symbol allows at most {max}x leverage",
     "futuresPositionMismatch": "Futures pairs need a direction and leverage; spot pairs cannot have them",
     "futuresStrategyLiveNotReady": "Live futures DCA / indicator / webhook bots open once Pionex signal sizing is verified; use paper trading for now",

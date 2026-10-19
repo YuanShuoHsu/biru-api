@@ -232,6 +232,7 @@
     "futuresGridInvestmentTooSmall": "투자 금액이 부족합니다. 그리드당 수량 또는 금액이 거래소 최소치보다 작습니다. 투자 금액을 늘리거나 그리드 수를 줄이세요",
     "futuresGridNeutralProfitStop": "중립 그리드의 익절은 금액 또는 비율로만 설정할 수 있습니다",
     "futuresGridOperationIncomplete": "이 조정에 필요한 항목이 입력되지 않았습니다",
+    "futuresGridStopLimitRequired": "「지정가」를 선택하면 지정가를 입력해야 합니다",
     "futuresLeverageAboveSymbol": "이 종목은 최대 {max}x 레버리지까지 가능합니다",
     "futuresPositionMismatch": "선물 종목은 방향과 레버리지가 필요하며 현물 종목에는 설정할 수 없습니다",
     "futuresStrategyLiveNotReady": "선물 DCA／지표／Webhook 실전은 Pionex 신호 주문 수량을 실측으로 확인한 뒤 열립니다. 지금은 모의 거래를 사용하세요",

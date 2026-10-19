@@ -64,7 +64,7 @@ import {
   type FuturesGridConfigDto,
   type FuturesGridOperationCheckDto,
   type FuturesGridOperationDto,
-  type GridStopDto,
+  type FuturesGridStopDto,
   type GridAiStrategyDto,
   type GridCheckDto,
   type GridCheckResultDto,
@@ -130,6 +130,7 @@ import {
   PionexFuturesGridService,
 } from './pionex-futures-grid.service';
 import {
+  fromPionexSpotStop,
   fromPionexStop,
   PIONEX_GRID_FINISHED,
   PionexGridService,
@@ -865,11 +866,27 @@ export class QuantBotsService {
     const buOrderId = bot.pionexBotId;
 
     if (dto.operation === 'stops') {
+      const merged = {
+        ...config,
+        ...(dto.lossStop !== undefined && {
+          lossStop: dto.lossStop ?? undefined,
+        }),
+        ...(dto.lossStopHigh !== undefined && {
+          lossStopHigh: dto.lossStopHigh ?? undefined,
+        }),
+        ...(dto.lossStopLimitHigh !== undefined && {
+          lossStopLimitHigh: dto.lossStopLimitHigh ?? undefined,
+        }),
+        ...(dto.profitStop !== undefined && {
+          profitStop: dto.profitStop ?? undefined,
+        }),
+      };
+      this.validateFuturesGridStops(merged);
       if (dryRun) return { ok: true };
 
       const stopItem = (
         type: 'stop_loss' | 'stop_profit',
-        stop: GridStopDto | null | undefined,
+        stop: FuturesGridStopDto | null | undefined,
       ) =>
         stop === undefined
           ? []
@@ -885,11 +902,22 @@ export class QuantBotsService {
                         type === 'stop_loss' ? 'loss' : 'profit',
                         spec,
                       ),
+                ...(stop?.type === 'price_limit' &&
+                  stop.limitPrice && { limit_price: price(stop.limitPrice) }),
                 ...(type === 'stop_loss' &&
                   config.trend === 'no_trend' &&
                   dto.lossStopHigh !== undefined && {
                     stop_high_price:
                       dto.lossStopHigh === null ? '' : price(dto.lossStopHigh),
+                  }),
+                ...(type === 'stop_loss' &&
+                  config.trend === 'no_trend' &&
+                  stop?.type === 'price_limit' &&
+                  dto.lossStopLimitHigh !== undefined && {
+                    limit_high_price:
+                      dto.lossStopLimitHigh === null
+                        ? ''
+                        : price(dto.lossStopLimitHigh),
                   }),
               },
             ];
@@ -904,18 +932,7 @@ export class QuantBotsService {
           }),
         'exchangeRejected',
       );
-      await this.updateConfig(bot, {
-        ...config,
-        ...(dto.lossStop !== undefined && {
-          lossStop: dto.lossStop ?? undefined,
-        }),
-        ...(dto.lossStopHigh !== undefined && {
-          lossStopHigh: dto.lossStopHigh ?? undefined,
-        }),
-        ...(dto.profitStop !== undefined && {
-          profitStop: dto.profitStop ?? undefined,
-        }),
-      });
+      await this.updateConfig(bot, merged);
       return { ok: true };
     }
 
@@ -1052,8 +1069,8 @@ export class QuantBotsService {
     const next: GridConfigDto = {
       ...config,
       bottom: optionalNumber(data.bottom) ?? config.bottom,
-      lossStop: fromPionexStop(data.lossStopType, data.lossStop),
-      profitStop: fromPionexStop(data.profitStopType, data.profitStop),
+      lossStop: fromPionexSpotStop(data.lossStopType, data.lossStop),
+      profitStop: fromPionexSpotStop(data.profitStopType, data.profitStop),
       row: data.row ?? config.row,
       top: optionalNumber(data.top) ?? config.top,
     };
@@ -1085,9 +1102,18 @@ export class QuantBotsService {
       bottom: optionalNumber(data.bottom) ?? config.bottom,
       extraMargin: optionalNumber(data.extraMargin),
       leverage: optionalNumber(data.leverage) ?? config.leverage,
-      lossStop: fromPionexStop(data.lossStopType, data.lossStop),
+      lossStop: fromPionexStop(
+        data.lossStopType,
+        data.lossStop,
+        data.lossStopLimitPrice,
+      ),
       lossStopHigh: optionalNumber(data.lossStopHigh),
-      profitStop: fromPionexStop(data.profitStopType, data.profitStop),
+      lossStopLimitHigh: optionalNumber(data.lossStopLimitHighPrice),
+      profitStop: fromPionexStop(
+        data.profitStopType,
+        data.profitStop,
+        data.profitStopLimitPrice,
+      ),
       row: data.row ?? config.row,
       top: optionalNumber(data.top) ?? config.top,
     };
@@ -1553,6 +1579,29 @@ export class QuantBotsService {
     }
   }
 
+  private validateFuturesGridStops({
+    lossStop,
+    lossStopHigh,
+    lossStopLimitHigh,
+    profitStop,
+    trend,
+  }: FuturesGridConfigDto) {
+    if (
+      trend === 'no_trend' &&
+      (profitStop?.type === 'price' || profitStop?.type === 'price_limit')
+    )
+      this.invalid('futuresGridNeutralProfitStop');
+    if (
+      (lossStop?.type === 'price_limit' && !lossStop.limitPrice) ||
+      (profitStop?.type === 'price_limit' && !profitStop.limitPrice) ||
+      (trend === 'no_trend' &&
+        lossStop?.type === 'price_limit' &&
+        lossStopHigh &&
+        !lossStopLimitHigh)
+    )
+      this.invalid('futuresGridStopLimitRequired');
+  }
+
   private validateConfig(
     type: QuantBotType,
     dto: CreateQuantBotDto,
@@ -1585,8 +1634,7 @@ export class QuantBotsService {
       case 'futures_grid': {
         const config = dto.config as FuturesGridConfigDto;
         if (config.top <= config.bottom) this.invalid('gridRangeInvalid');
-        if (config.trend === 'no_trend' && config.profitStop?.type === 'price')
-          this.invalid('futuresGridNeutralProfitStop');
+        this.validateFuturesGridStops(config);
 
         const lines = gridLines(config);
         const spacing = Math.min(

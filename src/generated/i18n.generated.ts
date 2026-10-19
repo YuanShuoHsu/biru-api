@@ -282,6 +282,7 @@ export type I18nTranslations = {
             "futuresGridInvestmentTooSmall": string;
             "futuresGridNeutralProfitStop": string;
             "futuresGridOperationIncomplete": string;
+            "futuresGridStopLimitRequired": string;
             "futuresLeverageAboveSymbol": string;
             "futuresPositionMismatch": string;
             "futuresStrategyLiveNotReady": string;

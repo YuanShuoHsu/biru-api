@@ -1,4 +1,7 @@
-import type { GridConfigDto, GridStopDto } from '../../dto/quant-bot.dto';
+import type {
+  FuturesGridStopDto,
+  GridConfigDto,
+} from '../../dto/quant-bot.dto';
 import type { BotFill, BotOrder, Strategy, StrategyContext } from '../types';
 
 const LEVEL_TAG = 'grid:';
@@ -18,7 +21,7 @@ export const gridLines = ({
 /** 金額或比例型停損停利換算成計價幣金額；比例相對投入，與 Pionex 相同 */
 export const stopAmount =
   (investment: number) =>
-  ({ type, value }: GridStopDto) =>
+  ({ type, value }: Pick<FuturesGridStopDto, 'type' | 'value'>) =>
     type === 'profit_ratio' ? (investment * value) / 100 : value;
 
 const levelOf = ({ tag }: BotOrder) =>

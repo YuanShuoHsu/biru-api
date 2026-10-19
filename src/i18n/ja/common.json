@@ -232,6 +232,7 @@
     "futuresGridInvestmentTooSmall": "投資額が不足しています。1 グリッドあたりの数量または金額が取引所の下限を下回っています。投資額を増やすかグリッド数を減らしてください",
     "futuresGridNeutralProfitStop": "ニュートラルグリッドの利確は金額か比率でのみ設定できます",
     "futuresGridOperationIncomplete": "この調整に必要な項目が入力されていません",
+    "futuresGridStopLimitRequired": "「指値」を選んだ場合は指値価格を入力してください",
     "futuresLeverageAboveSymbol": "この銘柄の最大レバレッジは {max}x です",
     "futuresPositionMismatch": "先物の銘柄には方向とレバレッジが必要で、現物の銘柄には設定できません",
     "futuresStrategyLiveNotReady": "先物の DCA／インジケーター／Webhook の実運用は、Pionex シグナルの注文数量を実測で確認してから開放します。今は模擬取引を使ってください",

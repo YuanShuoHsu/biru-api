@@ -30,8 +30,11 @@ export interface PionexFuturesGridData {
   leverage?: string;
   lossStop?: string | null;
   lossStopHigh?: string | null;
+  lossStopLimitHighPrice?: string | null;
+  lossStopLimitPrice?: string | null;
   lossStopType?: string;
   profitStop?: string | null;
+  profitStopLimitPrice?: string | null;
   profitStopType?: string;
   quoteInvestment?: string;
   row?: number;
@@ -163,13 +166,23 @@ export class PionexFuturesGridService {
             ...(lossStop && {
               lossStop: toPionexStop(lossStop, 'loss', spec),
               lossStopType: lossStop.type,
+              ...(lossStop.limitPrice && {
+                lossStopLimitPrice: price(lossStop.limitPrice),
+              }),
             }),
             ...(config.lossStopHigh && {
               lossStopHigh: price(config.lossStopHigh),
             }),
+            ...(lossStop?.type === 'price_limit' &&
+              config.lossStopLimitHigh && {
+                lossStopLimitHighPrice: price(config.lossStopLimitHigh),
+              }),
             ...(profitStop && {
               profitStop: toPionexStop(profitStop, 'profit', spec),
               profitStopType: profitStop.type,
+              ...(profitStop.limitPrice && {
+                profitStopLimitPrice: price(profitStop.limitPrice),
+              }),
             }),
             ...(config.trigger && {
               condition: price(config.trigger.price),
