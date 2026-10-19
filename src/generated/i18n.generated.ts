@@ -273,7 +273,6 @@ export type I18nTranslations = {
             "botOrderLimitUnsupported": string;
             "botPaperFeeRequired": string;
             "botStillRunning": string;
-            "botStopAllPartial": string;
             "credentialInvalid": string;
             "credentialNotFound": string;
             "dcaInvestmentTooSmall": string;
