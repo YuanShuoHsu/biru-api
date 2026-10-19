@@ -1,4 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+} from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -26,6 +30,11 @@ import {
   type PionexPositionMode,
   type PionexPositionSide,
 } from '../pionex/pionex.types';
+
+import {
+  NEXT_END_TIME_DESCRIPTION,
+  QuantHistoryRangeQueryDto,
+} from './quant-account.dto';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
 const FILL_ROLES = ['MAKER', 'TAKER'] as const;
@@ -176,6 +185,36 @@ export class QuantFuturesSymbolQueryDto {
   @IsString()
   @IsNotEmpty()
   symbol: string;
+}
+
+export class QuantFuturesOrderHistoryQueryDto extends IntersectionType(
+  QuantOptionalSymbolQueryDto,
+  QuantHistoryRangeQueryDto,
+) {}
+
+export class QuantFuturesFillHistoryQueryDto extends IntersectionType(
+  QuantFuturesSymbolQueryDto,
+  QuantHistoryRangeQueryDto,
+) {}
+
+export class QuantFuturesOrderPageDto {
+  @ApiProperty({ type: [QuantFuturesOrderDto] }) data: QuantFuturesOrderDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
+}
+
+export class QuantFuturesFillPageDto {
+  @ApiProperty({ type: [QuantFuturesFillDto] }) data: QuantFuturesFillDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
 }
 
 export class SetLeverageDto {

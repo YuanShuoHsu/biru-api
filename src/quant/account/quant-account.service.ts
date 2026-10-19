@@ -22,6 +22,7 @@ import type {
   QuantBalanceDto,
   QuantCredentialDto,
   QuantFillDto,
+  QuantHistoryQueryDto,
   QuantOrderDto,
 } from '../dto/quant-account.dto';
 import { isBotClientOrderId } from '../engine/client-order-id';
@@ -39,9 +40,14 @@ import type {
 } from '../pionex/pionex.types';
 import { quantEnvironment } from '../quant-environment';
 
+import { collectHistoryPage, type HistoryPage } from './history-page';
+
 const OPEN_ORDERS_WEIGHT = 5;
 const FILLS_WEIGHT = 5;
-const ORDER_HISTORY_LIMIT = 50;
+const ORDER_HISTORY_WEIGHT = 5;
+const ORDER_HISTORY_BATCH = 200;
+// 成交端點沒有 limit 參數，固定回最新 100 筆
+const FILLS_BATCH = 100;
 
 // 文件寫 TRADE_ORDER_NOT_FOUND，實測回 TRADE_ORDER_NOT_EXIST
 // https://www.pionex.com/docs/api-docs/trade-api/trade
@@ -247,35 +253,75 @@ export class QuantAccountService {
   async listOrders(
     userId: string,
     id: string,
-    symbol: string,
-  ): Promise<QuantOrderDto[]> {
-    const { orders } = await this.rest.signed<{ orders: PionexOrder[] }>(
-      await this.resolveCredentials(userId, id),
-      'GET',
-      '/api/v1/trade/allOrders',
-      { params: { limit: ORDER_HISTORY_LIMIT, symbol } },
-    );
+    { endTime, limit, startTime, symbol }: QuantHistoryQueryDto,
+  ): Promise<HistoryPage<QuantOrderDto>> {
+    const credentials = await this.resolveCredentials(userId, id);
+    const page = await collectHistoryPage({
+      batchSize: ORDER_HISTORY_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        const { orders } = await this.rest.signed<{ orders: PionexOrder[] }>(
+          credentials,
+          'GET',
+          '/api/v1/trade/allOrders',
+          {
+            params: {
+              endTime: cursor,
+              limit: ORDER_HISTORY_BATCH,
+              startTime,
+              symbol,
+            },
+            weight: ORDER_HISTORY_WEIGHT,
+          },
+        );
 
-    return orders.filter(isManualOrder).map(toOrder);
+        return orders;
+      },
+      idOf: ({ orderId }) => orderId,
+      keep: (orders) => orders.filter(isManualOrder),
+      limit,
+      timeOf: ({ createTime }) => createTime,
+    });
+
+    return { ...page, data: page.data.map(toOrder) };
   }
 
   async listFills(
     userId: string,
     id: string,
-    symbol: string,
-  ): Promise<QuantFillDto[]> {
-    const { fills } = await this.rest.signed<{ fills: PionexFill[] }>(
-      await this.resolveCredentials(userId, id),
-      'GET',
-      '/api/v1/trade/fills',
-      { params: { symbol }, weight: FILLS_WEIGHT },
-    );
-    const botOrderIds = await this.botExchangeOrderIds(
-      id,
-      fills.map(({ orderId }) => orderId),
-    );
+    { endTime, limit, startTime, symbol }: QuantHistoryQueryDto,
+  ): Promise<HistoryPage<QuantFillDto>> {
+    const credentials = await this.resolveCredentials(userId, id);
+    const page = await collectHistoryPage({
+      batchSize: FILLS_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        const { fills } = await this.rest.signed<{ fills: PionexFill[] }>(
+          credentials,
+          'GET',
+          '/api/v1/trade/fills',
+          {
+            params: { endTime: cursor, startTime, symbol },
+            weight: FILLS_WEIGHT,
+          },
+        );
 
-    return fills.filter(({ orderId }) => !botOrderIds.has(orderId)).map(toFill);
+        return fills;
+      },
+      idOf: ({ id: fillId }) => fillId,
+      keep: async (fills) => {
+        const botOrderIds = await this.botExchangeOrderIds(
+          id,
+          fills.map(({ orderId }) => orderId),
+        );
+
+        return fills.filter(({ orderId }) => !botOrderIds.has(orderId));
+      },
+      limit,
+      timeOf: ({ timestamp }) => timestamp,
+    });
+
+    return { ...page, data: page.data.map(toFill) };
   }
 
   async placeOrder(

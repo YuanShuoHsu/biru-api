@@ -22,6 +22,7 @@ import { AdminGuard } from 'src/common/guards/admin.guard';
 import { QuantSymbolQueryDto } from '../dto/quant-account.dto';
 import {
   BacktestResultDto,
+  CreateAiBotDto,
   CreateDcaBotDto,
   CreateGridBotDto,
   CreateIndicatorBotDto,
@@ -161,6 +162,15 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<CreateQuantBotResponseDto> {
     return this.bots.create(user.id, 'webhook', dto);
+  }
+
+  @Post('bots/ai')
+  @ApiOperation({ summary: '建立 AI 交易機器人' })
+  createAi(
+    @Body() dto: CreateAiBotDto,
+    @Session() { user }: UserSession,
+  ): Promise<CreateQuantBotResponseDto> {
+    return this.bots.create(user.id, 'ai', dto);
   }
 
   @Post('bots/stop-all')

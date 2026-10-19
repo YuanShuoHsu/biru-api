@@ -21,8 +21,10 @@ import {
   PlaceQuantOrderResponseDto,
   QuantBalanceDto,
   QuantCredentialDto,
-  QuantFillDto,
+  QuantFillPageDto,
+  QuantHistoryQueryDto,
   QuantOrderDto,
+  QuantOrderPageDto,
   QuantSymbolQueryDto,
 } from '../dto/quant-account.dto';
 
@@ -92,13 +94,13 @@ export class QuantAccountController {
   }
 
   @Get(':id/orders')
-  @ApiOperation({ summary: '取得交易對最近的委託紀錄' })
+  @ApiOperation({ summary: '取得交易對的手動委託紀錄（依時間由新到舊分頁）' })
   findOrders(
     @Param('id') id: string,
-    @Query() { symbol }: QuantSymbolQueryDto,
+    @Query() query: QuantHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantOrderDto[]> {
-    return this.account.listOrders(user.id, id, symbol);
+  ): Promise<QuantOrderPageDto> {
+    return this.account.listOrders(user.id, id, query);
   }
 
   @Post(':id/orders')
@@ -124,12 +126,12 @@ export class QuantAccountController {
   }
 
   @Get(':id/fills')
-  @ApiOperation({ summary: '取得交易對最近的成交紀錄' })
+  @ApiOperation({ summary: '取得交易對的手動成交紀錄（依時間由新到舊分頁）' })
   findFills(
     @Param('id') id: string,
-    @Query() { symbol }: QuantSymbolQueryDto,
+    @Query() query: QuantHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantFillDto[]> {
-    return this.account.listFills(user.id, id, symbol);
+  ): Promise<QuantFillPageDto> {
+    return this.account.listFills(user.id, id, query);
   }
 }

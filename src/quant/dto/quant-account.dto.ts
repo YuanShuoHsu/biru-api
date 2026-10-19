@@ -1,13 +1,20 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+} from '@nestjs/swagger';
 
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 import {
@@ -99,6 +106,61 @@ export class QuantSymbolQueryDto {
   @IsString()
   @IsNotEmpty()
   symbol: string;
+}
+
+export class QuantHistoryRangeQueryDto {
+  @ApiPropertyOptional({ default: 10, maximum: 100, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 10;
+
+  @ApiPropertyOptional({ description: '起始時間（毫秒）' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  startTime?: number;
+
+  @ApiPropertyOptional({
+    description:
+      '只回傳此時間（含）以前的紀錄（毫秒）；換頁時帶上一頁的 nextEndTime',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  endTime?: number;
+}
+
+export class QuantHistoryQueryDto extends IntersectionType(
+  QuantSymbolQueryDto,
+  QuantHistoryRangeQueryDto,
+) {}
+
+export const NEXT_END_TIME_DESCRIPTION =
+  '下一頁要帶的 endTime；null 表示沒有更早的紀錄';
+
+export class QuantOrderPageDto {
+  @ApiProperty({ type: [QuantOrderDto] }) data: QuantOrderDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
+}
+
+export class QuantFillPageDto {
+  @ApiProperty({ type: [QuantFillDto] }) data: QuantFillDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
 }
 
 export class PlaceQuantOrderDto {

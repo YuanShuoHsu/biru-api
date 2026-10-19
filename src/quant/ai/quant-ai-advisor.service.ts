@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import Anthropic from '@anthropic-ai/sdk';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, type SQL, sql } from 'drizzle-orm';
 import * as z from 'zod';
 
-import { type QuantBot, quantBotEvent } from 'src/db/schema/quant';
+import { type QuantBot, quantBot, quantBotEvent } from 'src/db/schema/quant';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -16,6 +16,7 @@ import type {
   AiSnapshot,
 } from '../engine/strategies/ai.strategy';
 import { QuantMarketService } from '../market/quant-market.service';
+import { quantEnvironment } from '../quant-environment';
 
 import { AI_MODEL } from './ai-model';
 import { QuantAiKeyService } from './quant-ai-key.service';
@@ -140,7 +141,29 @@ export class QuantAiAdvisorService {
   }
 
   /** 本月（UTC）已花的 AI 費用，拒答也照樣計費 */
-  async monthCost(botId: string) {
+  monthCost(botId: string) {
+    return this.sumMonthCost(eq(quantBotEvent.botId, botId));
+  }
+
+  // 封存的機器人也算，費用已經付給 Anthropic
+  userMonthCost(userId: string) {
+    return this.sumMonthCost(
+      inArray(
+        quantBotEvent.botId,
+        this.db
+          .select({ id: quantBot.id })
+          .from(quantBot)
+          .where(
+            and(
+              eq(quantBot.userId, userId),
+              eq(quantBot.environment, quantEnvironment()),
+            ),
+          ),
+      ),
+    );
+  }
+
+  private async sumMonthCost(scope: SQL) {
     const [row] = await this.db
       .select({
         total: sql<string>`coalesce(sum((${quantBotEvent.payload}->>'cost')::numeric), 0)`,
@@ -148,7 +171,7 @@ export class QuantAiAdvisorService {
       .from(quantBotEvent)
       .where(
         and(
-          eq(quantBotEvent.botId, botId),
+          scope,
           inArray(quantBotEvent.kind, [AI_DECISION_EVENT, AI_REFUSAL_EVENT]),
           gte(quantBotEvent.createdAt, monthStart()),
         ),

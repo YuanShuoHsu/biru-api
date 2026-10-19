@@ -45,7 +45,7 @@ export class QuantAiKeyService {
     );
   }
 
-  async find(userId: string): Promise<QuantAiKeyDto> {
+  async find(userId: string): Promise<Omit<QuantAiKeyDto, 'monthCost'>> {
     const row = await this.db.query.quantAiKey.findFirst({
       columns: { apiKeyLast4: true, createdAt: true },
       where: this.scope(userId),
@@ -55,7 +55,10 @@ export class QuantAiKeyService {
   }
 
   // 綁定前先用這把 key 查一次模型，確認有效且帳戶能用這個模型
-  async set(userId: string, apiKey: string): Promise<QuantAiKeyDto> {
+  async set(
+    userId: string,
+    apiKey: string,
+  ): Promise<Omit<QuantAiKeyDto, 'monthCost'>> {
     try {
       await new Anthropic({ apiKey }).models.retrieve(AI_MODEL);
     } catch (error) {

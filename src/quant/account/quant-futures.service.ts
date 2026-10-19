@@ -11,7 +11,9 @@ import type {
   QuantFundingFeeDto,
   QuantFuturesAccountDto,
   QuantFuturesFillDto,
+  QuantFuturesFillHistoryQueryDto,
   QuantFuturesOrderDto,
+  QuantFuturesOrderHistoryQueryDto,
   PreviewFuturesOrderDto,
   QuantFuturesOrderPreviewDto,
   QuantFuturesSymbolSettingsDto,
@@ -38,11 +40,13 @@ import type {
   PionexPositionMode,
 } from '../pionex/pionex.types';
 
+import { collectHistoryPage, type HistoryPage } from './history-page';
 import { QuantAccountService } from './quant-account.service';
 
 // 合約端點的權重一律是 5
 const FUTURES_WEIGHT = 5;
 const HISTORY_LIMIT = 50;
+const HISTORY_BATCH = 200;
 
 const toOrder = (order: PionexFuturesOrder): QuantFuturesOrderDto => ({
   createTime: order.createTime,
@@ -347,31 +351,53 @@ export class QuantFuturesService {
   async listOrders(
     userId: string,
     id: string,
-    symbol?: string,
-  ): Promise<QuantFuturesOrderDto[]> {
-    const { orders } = await this.get<{ orders: PionexFuturesOrder[] }>(
-      userId,
-      id,
-      '/uapi/v1/trade/historyOrders',
-      { limit: HISTORY_LIMIT, symbol },
-    );
+    { endTime, limit, startTime, symbol }: QuantFuturesOrderHistoryQueryDto,
+  ): Promise<HistoryPage<QuantFuturesOrderDto>> {
+    const page = await collectHistoryPage({
+      batchSize: HISTORY_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        const { orders } = await this.get<{ orders: PionexFuturesOrder[] }>(
+          userId,
+          id,
+          '/uapi/v1/trade/historyOrders',
+          { endTime: cursor, limit: HISTORY_BATCH, startTime, symbol },
+        );
 
-    return orders.map(toOrder);
+        return orders;
+      },
+      idOf: ({ orderId }) => orderId,
+      limit,
+      timeOf: ({ createTime }) => createTime,
+    });
+
+    return { ...page, data: page.data.map(toOrder) };
   }
 
   async listFills(
     userId: string,
     id: string,
-    symbol: string,
-  ): Promise<QuantFuturesFillDto[]> {
-    const { fills } = await this.get<{ fills: PionexFuturesFill[] }>(
-      userId,
-      id,
-      '/uapi/v1/trade/fills',
-      { limit: HISTORY_LIMIT, symbol },
-    );
+    { endTime, limit, startTime, symbol }: QuantFuturesFillHistoryQueryDto,
+  ): Promise<HistoryPage<QuantFuturesFillDto>> {
+    const page = await collectHistoryPage({
+      batchSize: HISTORY_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        const { fills } = await this.get<{ fills: PionexFuturesFill[] }>(
+          userId,
+          id,
+          '/uapi/v1/trade/fills',
+          { endTime: cursor, limit: HISTORY_BATCH, startTime, symbol },
+        );
 
-    return fills.map(toFill);
+        return fills;
+      },
+      idOf: ({ id: fillId }) => fillId,
+      limit,
+      timeOf: ({ timestamp }) => timestamp,
+    });
+
+    return { ...page, data: page.data.map(toFill) };
   }
 
   async listFundingFees(

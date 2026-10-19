@@ -1233,6 +1233,8 @@ export class QuantAiKeyDto {
   @ApiPropertyOptional({ description: 'Claude API key 末 4 碼' })
   apiKeyLast4?: string;
   @ApiPropertyOptional() createdAt?: Date;
+  @ApiProperty({ description: '本月（UTC）所有 AI 機器人的費用（美元）' })
+  monthCost: number;
 }
 
 export class SetQuantAiKeyDto {

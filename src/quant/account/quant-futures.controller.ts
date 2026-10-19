@@ -23,8 +23,11 @@ import {
   PreviewFuturesOrderDto,
   QuantFundingFeeDto,
   QuantFuturesAccountDto,
-  QuantFuturesFillDto,
+  QuantFuturesFillHistoryQueryDto,
+  QuantFuturesFillPageDto,
   QuantFuturesOrderDto,
+  QuantFuturesOrderHistoryQueryDto,
+  QuantFuturesOrderPageDto,
   QuantFuturesOrderPreviewDto,
   QuantFuturesSymbolQueryDto,
   QuantFuturesSymbolSettingsDto,
@@ -150,13 +153,13 @@ export class QuantFuturesController {
   }
 
   @Get('orders')
-  @ApiOperation({ summary: '取得已結束的合約委託' })
+  @ApiOperation({ summary: '取得已結束的合約委託（依時間由新到舊分頁）' })
   findOrders(
     @Param('id') id: string,
-    @Query() { symbol }: QuantOptionalSymbolQueryDto,
+    @Query() query: QuantFuturesOrderHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantFuturesOrderDto[]> {
-    return this.futures.listOrders(user.id, id, symbol);
+  ): Promise<QuantFuturesOrderPageDto> {
+    return this.futures.listOrders(user.id, id, query);
   }
 
   @Post('orders')
@@ -195,13 +198,13 @@ export class QuantFuturesController {
   }
 
   @Get('fills')
-  @ApiOperation({ summary: '取得合約成交紀錄' })
+  @ApiOperation({ summary: '取得合約成交紀錄（依時間由新到舊分頁）' })
   findFills(
     @Param('id') id: string,
-    @Query() { symbol }: QuantFuturesSymbolQueryDto,
+    @Query() query: QuantFuturesFillHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantFuturesFillDto[]> {
-    return this.futures.listFills(user.id, id, symbol);
+  ): Promise<QuantFuturesFillPageDto> {
+    return this.futures.listFills(user.id, id, query);
   }
 
   @Get('funding-fees')
