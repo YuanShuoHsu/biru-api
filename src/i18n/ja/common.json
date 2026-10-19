@@ -220,6 +220,7 @@
     "botNotRunning": "ボットは実行されていません",
     "botNotSignal": "シグナルボットではないか、まだ Pionex で作成されていません",
     "botNotWebhook": "トークンは Webhook ボットにのみあります",
+    "botOrderLimitUnsupported": "1 注文あたりの上限は DCA・指標シグナル・Webhook ボットにのみ設定できます",
     "botPaperFeeRequired": "シミュレーションには手数料率の入力が必要です",
     "botStillRunning": "アーカイブする前にボットを停止してください",
     "botStopAllPartial": "{count} 個のボットの停止に失敗しました。しばらくしてから再試行してください",

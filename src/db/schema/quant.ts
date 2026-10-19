@@ -5,6 +5,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -94,6 +95,7 @@ export const quantBot = pgTable(
     investment: decimal('investment').notNull(),
     paperFeeRate: decimal('paper_fee_rate'),
     maxDailyLoss: decimal('max_daily_loss'),
+    maxOrderAmount: decimal('max_order_amount'),
     pionexBotId: text('pionex_bot_id'),
     pionexSignalType: text('pionex_signal_type'),
     webhookTokenHash: text('webhook_token_hash'),
@@ -110,6 +112,19 @@ export const quantBot = pgTable(
 );
 
 export type QuantBot = typeof quantBot.$inferSelect;
+
+export const quantBotEquity = pgTable(
+  'quant_bot_equity',
+  {
+    botId: text('bot_id')
+      .notNull()
+      .references(() => quantBot.id, { onDelete: 'cascade' }),
+    time: timestamp('time').notNull(),
+    equity: decimal('equity').notNull(),
+    pnl: decimal('pnl').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.botId, table.time] })],
+);
 
 export const quantBotOrderStatusEnum = pgEnum('quant_bot_order_status', [
   'open',

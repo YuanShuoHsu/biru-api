@@ -65,6 +65,7 @@ export class BotRunner {
       fills: dependencies.fills,
       investment: bot.investment,
       maxDailyLoss: bot.maxDailyLoss ?? undefined,
+      maxOrderAmount: bot.maxOrderAmount ?? undefined,
       now: () => Date.now(),
       orders: dependencies.orders,
       spec: dependencies.spec,

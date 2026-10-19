@@ -43,6 +43,9 @@ export const QUANT_BOT_TYPES = [
   'ai',
 ] as const;
 export const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
+/** 可以設單筆金額上限的自建策略；AI 的上限在自己的設定裡，網格的每格金額由投入決定 */
+export const ORDER_LIMIT_BOT_TYPES = ['dca', 'indicator', 'webhook'] as const;
+export const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
 export const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
@@ -100,6 +103,20 @@ export const futuresMarginOf = ({ config, type }: BotShape) => {
   };
 };
 export type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
+export type QuantBotExecutor = (typeof QUANT_BOT_EXECUTORS)[number];
+
+/** 實盤的網格、合約網格、訊號機器人交給 Pionex 執行，其餘由本系統的引擎執行 */
+export const executorOf = ({
+  mode,
+  type,
+}: {
+  mode: QuantBotMode;
+  type: QuantBotType;
+}): QuantBotExecutor =>
+  mode === 'live' &&
+  (type === 'grid' || type === 'futures_grid' || type === 'signal')
+    ? 'pionex'
+    : 'engine';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -577,6 +594,15 @@ class CreateQuantBotBaseDto {
   @IsNumber()
   @IsPositive()
   maxDailyLoss?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'DCA／指標／Webhook：開倉單的單筆金額上限（計價幣），超過就略過；平倉不受限',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  maxOrderAmount?: number;
 }
 
 export class CreateGridBotDto extends CreateQuantBotBaseDto {
@@ -703,6 +729,13 @@ export class QuantBotDto {
   @ApiProperty() investment: number;
   @ApiPropertyOptional() paperFeeRate?: number;
   @ApiPropertyOptional() maxDailyLoss?: number;
+  @ApiPropertyOptional() maxOrderAmount?: number;
+  @ApiProperty({
+    enum: QUANT_BOT_EXECUTORS,
+    enumName: 'QuantBotExecutor',
+    description: 'pionex：交給 Pionex 執行；engine：由本系統執行',
+  })
+  executor: QuantBotExecutor;
   @ApiPropertyOptional({ description: 'Pionex 內建機器人 id' })
   pionexBotId?: string;
   @ApiProperty({ type: QuantBotSummaryDto }) summary: QuantBotSummaryDto;
@@ -1159,7 +1192,12 @@ export class SetQuantAiKeyDto {
 }
 
 export const QUANT_BOT_STRING_FILTER_FIELDS = ['name', 'symbol'] as const;
-export const QUANT_BOT_ENUM_FILTER_FIELDS = ['type', 'mode', 'status'] as const;
+export const QUANT_BOT_ENUM_FILTER_FIELDS = [
+  'type',
+  'executor',
+  'mode',
+  'status',
+] as const;
 export const QUANT_BOT_NUMBER_FILTER_FIELDS = ['investment'] as const;
 export const QUANT_BOT_DATE_FILTER_FIELDS = ['startedAt'] as const;
 export const QUANT_BOT_ALL_FILTER_FIELDS = [
@@ -1281,4 +1319,10 @@ export class QuantBotFillMarkerDto {
   side: 'BUY' | 'SELL';
   @ApiProperty() price: number;
   @ApiProperty() filledAt: Date;
+}
+
+export class QuantBotEquityPointDto {
+  @ApiProperty() time: Date;
+  @ApiProperty({ description: '權益（計價幣）' }) equity: number;
+  @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
 }

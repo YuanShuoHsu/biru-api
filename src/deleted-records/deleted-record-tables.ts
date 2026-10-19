@@ -9,6 +9,7 @@ export const UNTRACKED_TABLES = [
   'quant_bot_order',
   'quant_bot_fill',
   'quant_bot_event',
+  'quant_bot_equity',
   'quant_engine_lease',
 ] as const;
 

@@ -14,6 +14,8 @@ export interface AccountModel<L> {
     openOrders: readonly SubmittedOrder[],
     lastPrice: number | null,
   ): string | null;
+  /** 這張單會減少既有部位（平倉方向） */
+  reduces(request: OrderRequest): boolean;
   snapshot(): L;
 }
 
@@ -27,6 +29,10 @@ export class SpotAccount implements AccountModel<Ledger> {
 
   apply(fill: BotFill) {
     this.book.apply(fill);
+  }
+
+  reduces({ side }: OrderRequest) {
+    return side === 'SELL';
   }
 
   snapshot() {

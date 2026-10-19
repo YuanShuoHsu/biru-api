@@ -42,6 +42,7 @@ import {
   GridOperationDto,
   IndicatorBacktestDto,
   QuantBotDto,
+  QuantBotEquityPointDto,
   QuantBotEventDto,
   QuantBotEventPaginationQueryDto,
   QuantBotFillDto,
@@ -303,6 +304,15 @@ export class QuantBotsController {
     @Session() { user }: UserSession,
   ): Promise<QuantBotFillMarkerDto[]> {
     return this.bots.listFillMarkers(user.id, id, since);
+  }
+
+  @Get('bots/:id/equity')
+  @ApiOperation({ summary: '機器人的權益曲線（每 5 分鐘取樣）' })
+  findEquity(
+    @Param('id') id: string,
+    @Session() { user }: UserSession,
+  ): Promise<QuantBotEquityPointDto[]> {
+    return this.bots.listEquity(user.id, id);
   }
 
   @Get('bots/:id/events')

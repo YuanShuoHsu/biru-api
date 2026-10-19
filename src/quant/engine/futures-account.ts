@@ -94,6 +94,10 @@ export class FuturesAccount implements AccountModel<FuturesLedger> {
 
   // 只檢查會加倉的委託：持倉成本與其他加倉掛單的起始保證金加上這筆，不能超過保證金餘額；
   // 未實現虧損交給強平處理，不拿來擋網格的反向單
+  reduces({ side }: OrderRequest) {
+    return this.state.position * (side === 'BUY' ? 1 : -1) < 0;
+  }
+
   rejection(
     { price, side, size = 0, type }: OrderRequest,
     openOrders: readonly SubmittedOrder[],

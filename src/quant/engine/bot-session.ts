@@ -66,6 +66,8 @@ export interface SessionOptions<L = Ledger> {
   fills: BotFill[];
   investment: number;
   maxDailyLoss?: number;
+  /** 開倉單的單筆金額上限（計價幣）；平倉不受限，否則可能出不了場 */
+  maxOrderAmount?: number;
   now: () => number;
   orders: SubmittedOrder[];
   spec: SymbolSpec;
@@ -321,6 +323,14 @@ export class BotSession<L = Ledger> {
       if (size > spec.maxTradeSize) return 'above_maximum';
       if (notional < spec.minAmount) return 'below_minimum';
     }
+
+    const { account, maxOrderAmount } = this.options;
+    if (
+      maxOrderAmount !== undefined &&
+      notional > maxOrderAmount &&
+      !account.reduces(request)
+    )
+      return 'above_order_limit';
 
     return this.options.account.rejection(
       request,

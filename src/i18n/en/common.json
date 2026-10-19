@@ -220,6 +220,7 @@
     "botNotRunning": "The bot is not running",
     "botNotSignal": "This is not a signal bot, or it has not been created on Pionex yet",
     "botNotWebhook": "Only webhook bots have a token",
+    "botOrderLimitUnsupported": "The per-order limit applies only to DCA, indicator, and webhook bots",
     "botPaperFeeRequired": "Paper bots need a fee rate",
     "botStillRunning": "Stop the bot before archiving it",
     "botStopAllPartial": "{count} bots failed to stop. Please try again.",

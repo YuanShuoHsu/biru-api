@@ -35,6 +35,7 @@ import {
 import {
   type QuantBot,
   quantBot,
+  quantBotEquity,
   quantBotEvent,
   quantBotFill,
   quantBotOrder,
@@ -57,6 +58,7 @@ import {
   type CreateQuantBotDto,
   type CreateQuantBotResponseDto,
   type DcaConfigDto,
+  executorOf,
   type FuturesGridCheckDto,
   type FuturesGridCheckResultDto,
   type FuturesGridConfigDto,
@@ -74,11 +76,13 @@ import {
   type FuturesPositionConfigDto,
   isFuturesBot,
   isFuturesBotType,
+  ORDER_LIMIT_BOT_TYPES,
   QUANT_BOT_DATE_FILTER_FIELDS,
   QUANT_BOT_ENUM_FILTER_FIELDS,
   QUANT_BOT_NUMBER_FILTER_FIELDS,
   QUANT_BOT_STRING_FILTER_FIELDS,
   type QuantBotDto,
+  type QuantBotEquityPointDto,
   type QuantBotEventDto,
   type QuantBotEventPaginationQueryDto,
   type QuantBotEventSortField,
@@ -138,9 +142,8 @@ import {
 const PIONEX_GRID_SYNC_MS = 30_000;
 const WEBHOOK_TOKEN_BYTES = 24;
 
-const isLivePionexBot = ({ mode, type }: Pick<QuantBot, 'mode' | 'type'>) =>
-  mode === 'live' &&
-  (type === 'grid' || type === 'futures_grid' || type === 'signal');
+const EQUITY_SAMPLE_MS = 5 * 60_000;
+const EQUITY_MAX_POINTS = 1000;
 
 const dayOf = (time: number) => Math.floor(time / 86_400_000);
 
@@ -248,10 +251,12 @@ export class QuantBotsService {
     const status = sql`case when ${quantBot.startedAt} is null then 'notStarted' else ${quantBot.status}::text end`;
     // 畫面上的交易對寫成 BTC/USDT，篩選要比對看得到的字
     const pair = sql`replace(regexp_replace(${quantBot.symbol}, '_PERP$', ''), '_', '/')`;
+    const executor = sql`case when ${quantBot.mode} = 'live' and ${quantBot.type} in ('grid', 'futures_grid', 'signal') then 'pionex' else 'engine' end`;
     const fieldMap: Record<string, Column | SQL> = {
       name: quantBot.name,
       symbol: pair,
       type: sql`${quantBot.type}::text`,
+      executor,
       mode: sql`${quantBot.mode}::text`,
       status,
       investment: quantBot.investment,
@@ -350,6 +355,11 @@ export class QuantBotsService {
       this.invalid('aiKeyMissing');
     if (type === 'signal' && dto.mode !== 'live')
       this.invalid('signalBotLiveOnly');
+    if (
+      dto.maxOrderAmount !== undefined &&
+      !(ORDER_LIMIT_BOT_TYPES as readonly string[]).includes(type)
+    )
+      this.invalid('botOrderLimitUnsupported');
     if (isPerp)
       await this.validateFuturesLeverage(
         dto.symbol,
@@ -370,6 +380,7 @@ export class QuantBotsService {
         id: randomUUID(),
         investment: dto.investment,
         maxDailyLoss: dto.maxDailyLoss,
+        maxOrderAmount: dto.maxOrderAmount,
         mode: dto.mode,
         name: dto.name,
         paperFeeRate: dto.mode === 'paper' ? dto.paperFeeRate : null,
@@ -1113,6 +1124,70 @@ export class QuantBotsService {
    * Pionex 內建網格可能因停損停利、強平或資金不足自己結束，結束了就同步成停止。
    * 合約機器人自己的每日虧損上限也在這裡檢查，所以只有伺服器在跑時才會生效。
    */
+  async listEquity(
+    userId: string,
+    id: string,
+  ): Promise<QuantBotEquityPointDto[]> {
+    const bot = await this.owned(userId, id);
+    const [range] = await this.db
+      .select({
+        first: sql<Date | null>`min(${quantBotEquity.time})`,
+        last: sql<Date | null>`max(${quantBotEquity.time})`,
+      })
+      .from(quantBotEquity)
+      .where(eq(quantBotEquity.botId, bot.id));
+    if (!range.first || !range.last) return [];
+
+    const span =
+      new Date(range.last).getTime() - new Date(range.first).getTime();
+    const bucketMs = Math.max(
+      EQUITY_SAMPLE_MS,
+      Math.ceil(span / EQUITY_MAX_POINTS / EQUITY_SAMPLE_MS) * EQUITY_SAMPLE_MS,
+    );
+    const bucket = sql`date_bin(${sql.raw(`'${bucketMs} milliseconds'`)}::interval, ${quantBotEquity.time}, timestamp '2000-01-01')`;
+
+    const rows = await this.db
+      .selectDistinctOn([bucket], {
+        equity: quantBotEquity.equity,
+        pnl: quantBotEquity.pnl,
+        time: quantBotEquity.time,
+      })
+      .from(quantBotEquity)
+      .where(eq(quantBotEquity.botId, bot.id))
+      .orderBy(bucket, desc(quantBotEquity.time));
+
+    return rows;
+  }
+
+  @Interval(EQUITY_SAMPLE_MS)
+  async sampleEquity() {
+    if (!this.engine.hasLease) return;
+
+    const bots = await this.db.query.quantBot.findMany({
+      where: and(
+        eq(quantBot.environment, quantEnvironment()),
+        eq(quantBot.status, 'running'),
+      ),
+    });
+    const time = new Date(
+      Math.floor(Date.now() / EQUITY_SAMPLE_MS) * EQUITY_SAMPLE_MS,
+    );
+
+    for (const bot of bots) {
+      try {
+        const { equity, pnl } = await this.summary(bot);
+        await this.db
+          .insert(quantBotEquity)
+          .values({ botId: bot.id, equity, pnl, time })
+          .onConflictDoNothing();
+      } catch (error) {
+        this.logger.error(
+          `Sample equity of ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
   @Interval(PIONEX_GRID_SYNC_MS)
   async syncPionexGrids() {
     if (!this.engine.hasLease) return;
@@ -1225,7 +1300,7 @@ export class QuantBotsService {
   private async stopBot(bot: QuantBot, reason: string) {
     if (bot.status !== 'running') return bot;
 
-    if (isLivePionexBot(bot) && bot.pionexBotId) {
+    if (executorOf(bot) === 'pionex' && bot.pionexBotId) {
       const credentials = await this.account.resolveCredentials(
         bot.userId,
         bot.credentialId!,
@@ -1830,7 +1905,9 @@ export class QuantBotsService {
       credentialId: optional(bot.credentialId),
       id: bot.id,
       investment: bot.investment,
+      executor: executorOf(bot),
       maxDailyLoss: optional(bot.maxDailyLoss),
+      maxOrderAmount: optional(bot.maxOrderAmount),
       mode: bot.mode,
       name: bot.name,
       paperFeeRate: optional(bot.paperFeeRate),

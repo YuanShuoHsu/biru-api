@@ -270,6 +270,7 @@ export type I18nTranslations = {
             "botNotRunning": string;
             "botNotSignal": string;
             "botNotWebhook": string;
+            "botOrderLimitUnsupported": string;
             "botPaperFeeRequired": string;
             "botStillRunning": string;
             "botStopAllPartial": string;
