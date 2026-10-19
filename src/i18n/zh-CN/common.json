@@ -223,7 +223,6 @@
     "botOrderLimitUnsupported": "单笔金额上限只适用于 DCA、指标信号与 Webhook 机器人",
     "botPaperFeeRequired": "模拟盘需要填写手续费率",
     "botStillRunning": "请先停止机器人再归档",
-    "botStopAllPartial": "有 {count} 个机器人停止失败，请稍后再试",
     "credentialInvalid": "API key 验证失败，请确认密钥、私钥与权限是否正确：{message}",
     "credentialNotFound": "找不到这组 API key",
     "dcaInvestmentTooSmall": "投入金额不足：首单加上所有加仓最多需要 {required}",

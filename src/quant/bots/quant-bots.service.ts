@@ -39,6 +39,7 @@ import {
   quantBotEvent,
   quantBotFill,
   quantBotOrder,
+  quantCredential,
 } from 'src/db/schema/quant';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
@@ -118,7 +119,10 @@ import {
 } from '../engine/symbol-spec';
 import type { SymbolSpec } from '../engine/types';
 import { QuantMarketService } from '../market/quant-market.service';
-import { PionexApiError } from '../pionex/pionex-rest.client';
+import {
+  PionexApiError,
+  type PionexCredentials,
+} from '../pionex/pionex-rest.client';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import { quantEnvironment } from '../quant-environment';
 
@@ -133,6 +137,7 @@ import {
   fromPionexSpotStop,
   fromPionexStop,
   PIONEX_GRID_FINISHED,
+  type PionexBotOrder,
   PionexGridService,
   type PionexSpotGridData,
   toPionexStop,
@@ -148,7 +153,13 @@ const WEBHOOK_TOKEN_BYTES = 24;
 const EQUITY_SAMPLE_MS = 5 * 60_000;
 const EQUITY_MAX_POINTS = 1000;
 
-const dayOf = (time: number) => Math.floor(time / 86_400_000);
+const DAY_MS = 86_400_000;
+const YEAR_MS = 365 * DAY_MS;
+
+const dayOf = (time: number) => Math.floor(time / DAY_MS);
+
+const floatingPnlOf = (position: number, averageCost: number, price: number) =>
+  position === 0 ? 0 : position * (price - averageCost);
 
 const optionalNumber = (value?: string | number | null) =>
   value === undefined || value === null || value === '' || Number(value) === 0
@@ -190,6 +201,64 @@ const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
 
 const optional = <T>(value: T | null) => value ?? undefined;
+
+const PIONEX_IMPORT_TYPES: Partial<Record<string, 'futures_grid' | 'grid'>> = {
+  futures_grid: 'futures_grid',
+  grid_v5: 'grid',
+  spot_grid: 'grid',
+};
+const PIONEX_IMPORT_GRACE_MS = 60_000;
+
+const importedSpotGrid = (data: PionexSpotGridData) => {
+  const condition = optionalNumber(data.condition);
+  const config: GridConfigDto = {
+    bottom: Number(data.bottom),
+    // 本系統只分保留或賣回；TO_USDT 在 USDT 計價的交易對就是賣回計價幣
+    closeModel:
+      !data.closeSellModel || data.closeSellModel === 'NOT_SELL'
+        ? 'NOT_SELL'
+        : 'TO_QUOTE',
+    gridType: data.gridType ?? 'arithmetic',
+    lossStop: fromPionexSpotStop(data.lossStopType, data.lossStop),
+    profitStop: fromPionexSpotStop(data.profitStopType, data.profitStop),
+    row: data.row ?? 0,
+    top: Number(data.top),
+    ...(condition && {
+      trigger: {
+        direction: data.conditionDirection === '1' ? 'above' : 'below',
+        price: condition,
+      },
+    }),
+  };
+
+  return { config, investment: Number(data.quoteTotalInvestment ?? 0) };
+};
+
+const importedFuturesGrid = (data: PionexFuturesGridData) => {
+  const config: FuturesGridConfigDto = {
+    bottom: Number(data.bottom),
+    extraMargin: optionalNumber(data.extraMargin),
+    gridType: data.gridType ?? 'arithmetic',
+    leverage: Number(data.leverage),
+    lossStop: fromPionexStop(
+      data.lossStopType,
+      data.lossStop,
+      data.lossStopLimitPrice,
+    ),
+    lossStopHigh: optionalNumber(data.lossStopHigh),
+    lossStopLimitHigh: optionalNumber(data.lossStopLimitHighPrice),
+    profitStop: fromPionexStop(
+      data.profitStopType,
+      data.profitStop,
+      data.profitStopLimitPrice,
+    ),
+    row: data.row ?? 0,
+    top: Number(data.top),
+    trend: data.trend ?? 'no_trend',
+  };
+
+  return { config, investment: Number(data.quoteInvestment ?? 0) };
+};
 
 @Injectable()
 export class QuantBotsService {
@@ -425,25 +494,6 @@ export class QuantBotsService {
     const bot = await this.owned(userId, id);
 
     return this.toDto(await this.stopBot(bot, 'stopped_by_user'));
-  }
-
-  async stopAll(userId: string): Promise<void> {
-    const running = await this.db.query.quantBot.findMany({
-      where: and(
-        eq(quantBot.userId, userId),
-        eq(quantBot.environment, quantEnvironment()),
-        eq(quantBot.status, 'running'),
-      ),
-    });
-
-    const results = await Promise.allSettled(
-      running.map((bot) => this.stopBot(bot, 'stopped_all')),
-    );
-    const failed = results.filter(({ status }) => status === 'rejected');
-    if (failed.length)
-      throw new ConflictException(
-        this.t('botStopAllPartial', { count: failed.length }),
-      );
   }
 
   async regenerateWebhookToken(userId: string, id: string) {
@@ -1248,6 +1298,130 @@ export class QuantBotsService {
         );
       }
     }
+
+    await this.importPionexBots();
+  }
+
+  /** 和 Pionex App 一致：帳戶裡執行中的網格都列在後台，包含在 App 建立的 */
+  private async importPionexBots() {
+    const credentials = await this.db.query.quantCredential.findMany({
+      columns: { id: true, userId: true },
+      where: eq(quantCredential.environment, quantEnvironment()),
+    });
+
+    for (const credential of credentials) {
+      try {
+        await this.importPionexBotsOf(credential);
+      } catch (error) {
+        this.logger.error(
+          `Import Pionex bots of ${credential.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  private async importPionexBotsOf({
+    id: credentialId,
+    userId,
+  }: {
+    id: string;
+    userId: string;
+  }) {
+    const credentials = await this.account.resolveCredentials(
+      userId,
+      credentialId,
+    );
+    // 本系統剛建立的機器人，Pionex 已有、id 可能還沒寫回資料庫，留到下一輪
+    const settledBefore = Date.now() - PIONEX_IMPORT_GRACE_MS;
+    const candidates = (
+      await this.pionexGrid.listRunningBots(credentials)
+    ).filter(
+      ({ buOrderType, createTime }) =>
+        PIONEX_IMPORT_TYPES[buOrderType] && createTime < settledBefore,
+    );
+    if (!candidates.length) return;
+
+    const known = await this.db
+      .select({
+        credentialId: quantBot.credentialId,
+        id: quantBot.id,
+        pionexBotId: quantBot.pionexBotId,
+        userId: quantBot.userId,
+      })
+      .from(quantBot)
+      .where(
+        and(
+          eq(quantBot.environment, quantEnvironment()),
+          inArray(
+            quantBot.pionexBotId,
+            candidates.map(({ buOrderId }) => buOrderId),
+          ),
+        ),
+      );
+
+    for (const order of candidates) {
+      const existing = known.find(
+        ({ pionexBotId }) => pionexBotId === order.buOrderId,
+      );
+      if (!existing) {
+        await this.importPionexBot(credentials, credentialId, userId, order);
+        continue;
+      }
+      // 解除綁定後重新綁定同一個帳戶的金鑰，機器人改接新金鑰才能繼續同步與操作
+      if (!existing.credentialId && existing.userId === userId)
+        await this.db
+          .update(quantBot)
+          .set({ credentialId })
+          .where(eq(quantBot.id, existing.id));
+    }
+  }
+
+  private async importPionexBot(
+    credentials: PionexCredentials,
+    credentialId: string,
+    userId: string,
+    order: PionexBotOrder,
+  ) {
+    const type = PIONEX_IMPORT_TYPES[order.buOrderType];
+    if (!type) return;
+
+    const isFutures = type === 'futures_grid';
+    const symbol = isFutures
+      ? `${order.base.replace(/\.PERP$/, '')}_${order.quote}_PERP`
+      : `${order.base}_${order.quote}`;
+    await (isFutures ? this.symbols.getPerp(symbol) : this.symbols.get(symbol));
+
+    const { config, investment } = isFutures
+      ? importedFuturesGrid(
+          (await this.pionexFuturesGrid.get(credentials, order.buOrderId))
+            .buOrderData,
+        )
+      : importedSpotGrid(
+          (await this.pionexGrid.get(credentials, order.buOrderId)).buOrderData,
+        );
+
+    await this.db
+      .insert(quantBot)
+      .values({
+        config: config as unknown as Record<string, unknown>,
+        credentialId,
+        environment: quantEnvironment(),
+        id: randomUUID(),
+        investment,
+        mode: 'live',
+        name:
+          order.customizeName ||
+          order.note ||
+          order.botName ||
+          `${order.base.replace(/\.PERP$/, '')}/${order.quote}`,
+        pionexBotId: order.buOrderId,
+        startedAt: new Date(order.createTime),
+        status: 'running',
+        symbol,
+        type,
+        userId,
+      })
+      .onConflictDoNothing();
   }
 
   private async pionexBotState(
@@ -1741,6 +1915,7 @@ export class QuantBotsService {
         averageCost: ledger.averageCost,
         equity,
         fillCount: fills.length,
+        floatingPnl: floatingPnlOf(ledger.position, ledger.averageCost, price),
         pnl: equity - bot.investment,
         position: ledger.position,
         realizedPnl: ledger.realizedPnl,
@@ -1778,6 +1953,7 @@ export class QuantBotsService {
       averageCost: ledger.entryPrice,
       equity,
       fillCount: fills.length,
+      floatingPnl: floatingPnlOf(ledger.position, ledger.entryPrice, price),
       fundingFee: ledger.funding,
       liquidationPrice: account.liquidationPrice() ?? undefined,
       pnl: equity - committed,
@@ -1799,6 +1975,7 @@ export class QuantBotsService {
       averageCost: 0,
       equity: bot.investment,
       fillCount: 0,
+      floatingPnl: 0,
       pnl: 0,
       position: 0,
       realizedPnl: 0,
@@ -1821,11 +1998,13 @@ export class QuantBotsService {
             ? Math.abs(Number(item?.amountShort ?? 0)) / short
             : 0;
       const pnl = Number(data.profit ?? 0);
+      const price = await this.priceOf(bot.symbol);
 
       return {
         averageCost: cost,
         equity: bot.investment + pnl,
         fillCount: 0,
+        floatingPnl: floatingPnlOf(position, cost, price),
         fundingFee: Number(item?.fundingFee ?? data.fundingFee ?? 0),
         liquidationPrice: Number(item?.maintPrice ?? 0) || undefined,
         pionexStatus: data.status,
@@ -1848,6 +2027,7 @@ export class QuantBotsService {
       averageCost: 0,
       equity: committed,
       fillCount: 0,
+      floatingPnl: 0,
       pnl: 0,
       position: 0,
       realizedPnl: 0,
@@ -1881,6 +2061,7 @@ export class QuantBotsService {
         averageCost: entry,
         equity,
         fillCount: 0,
+        floatingPnl: floatingPnlOf(position, entry, price),
         fundingFee: Number(data.totalFundingFee ?? 0),
         liquidationPrice: liquidation || undefined,
         pionexStatus: data.status,
@@ -1898,6 +2079,7 @@ export class QuantBotsService {
       averageCost: 0,
       equity: bot.investment,
       fillCount: 0,
+      floatingPnl: 0,
       pnl: 0,
       position: 0,
       realizedPnl: 0,
@@ -1917,11 +2099,13 @@ export class QuantBotsService {
       const equity = Number(data.quoteAmount ?? 0) + position * price;
       const withdrawn = Number(data.profitWithdrawn ?? 0);
       const invested = Number(data.quoteTotalInvestment ?? bot.investment);
+      const averageCost = Number(data.averageCost ?? 0);
 
       return {
-        averageCost: Number(data.averageCost ?? 0),
+        averageCost,
         equity,
         fillCount: 0,
+        floatingPnl: floatingPnlOf(position, averageCost, price),
         // 提取出去的利潤已不在機器人帳上，但仍是這個機器人賺的
         pnl: equity + withdrawn - invested,
         position,
@@ -1938,6 +2122,31 @@ export class QuantBotsService {
     if (bot.type !== 'ai') return summary;
 
     return { ...summary, aiMonthCost: await this.aiAdvisor.monthCost(bot.id) };
+  }
+
+  private withAnnualizedReturn(
+    bot: QuantBot,
+    summary: QuantBotSummaryDto,
+  ): QuantBotSummaryDto {
+    if (!bot.startedAt) return summary;
+
+    const runningMs =
+      (bot.stoppedAt ?? new Date()).getTime() - bot.startedAt.getTime();
+    const committed =
+      bot.investment +
+      (isFuturesBot(bot) ? futuresMarginOf(bot).extraMargin : 0);
+    if (runningMs <= 0 || committed <= 0) return summary;
+
+    const annualize = (profit: number) =>
+      (profit / committed) * (YEAR_MS / runningMs);
+
+    return {
+      ...summary,
+      annualizedReturn: annualize(summary.pnl),
+      ...((bot.type === 'grid' || bot.type === 'futures_grid') && {
+        gridAnnualizedReturn: annualize(summary.realizedPnl),
+      }),
+    };
   }
 
   private async toDto(bot: QuantBot): Promise<QuantBotDto> {
@@ -1958,7 +2167,10 @@ export class QuantBotsService {
       status: bot.status,
       statusReason: optional(bot.statusReason),
       stoppedAt: optional(bot.stoppedAt),
-      summary: await this.summaryWithAiCost(bot),
+      summary: this.withAnnualizedReturn(
+        bot,
+        await this.summaryWithAiCost(bot),
+      ),
       symbol: bot.symbol,
       type: bot.type,
     };

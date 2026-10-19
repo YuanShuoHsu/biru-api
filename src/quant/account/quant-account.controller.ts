@@ -17,15 +17,20 @@ import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import {
   CreateQuantCredentialDto,
+  CreateQuantTransferDto,
   PlaceQuantOrderDto,
   PlaceQuantOrderResponseDto,
+  QuantAssetsDto,
   QuantBalanceDto,
   QuantCredentialDto,
+  QuantFillDto,
   QuantFillPageDto,
   QuantHistoryQueryDto,
   QuantOrderDto,
   QuantOrderPageDto,
   QuantSymbolQueryDto,
+  QuantTransferPageDto,
+  QuantTransferQueryDto,
 } from '../dto/quant-account.dto';
 
 import { QuantAccountService } from './quant-account.service';
@@ -125,6 +130,17 @@ export class QuantAccountController {
     return this.account.cancelOrder(user.id, id, symbol, orderId);
   }
 
+  @Get(':id/orders/:orderId/fills')
+  @ApiOperation({ summary: '取得一筆委託的成交明細' })
+  findOrderFills(
+    @Param('id') id: string,
+    @Param('orderId') orderId: string,
+    @Query() { symbol }: QuantSymbolQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantFillDto[]> {
+    return this.account.listOrderFills(user.id, id, symbol, orderId);
+  }
+
   @Get(':id/fills')
   @ApiOperation({ summary: '取得交易對的手動成交紀錄（依時間由新到舊分頁）' })
   findFills(
@@ -133,5 +149,37 @@ export class QuantAccountController {
     @Session() { user }: UserSession,
   ): Promise<QuantFillPageDto> {
     return this.account.listFills(user.id, id, query);
+  }
+
+  @Get(':id/assets')
+  @ApiOperation({ summary: '取得現貨與合約帳戶的總資產估值' })
+  findAssets(
+    @Param('id') id: string,
+    @Session() { user }: UserSession,
+  ): Promise<QuantAssetsDto> {
+    return this.account.findAssets(user.id, id);
+  }
+
+  @Get(':id/transfers')
+  @ApiOperation({
+    summary: '取得現貨與合約帳戶間的劃轉紀錄（依時間由新到舊分頁）',
+  })
+  findTransfers(
+    @Param('id') id: string,
+    @Query() query: QuantTransferQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantTransferPageDto> {
+    return this.account.listTransfers(user.id, id, query);
+  }
+
+  @Post(':id/transfers')
+  @HttpCode(204)
+  @ApiOperation({ summary: '在現貨與合約帳戶間劃轉資金' })
+  createTransfer(
+    @Param('id') id: string,
+    @Body() dto: CreateQuantTransferDto,
+    @Session() { user }: UserSession,
+  ): Promise<void> {
+    return this.account.createTransfer(user.id, id, dto);
   }
 }

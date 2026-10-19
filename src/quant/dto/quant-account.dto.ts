@@ -2,6 +2,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   IntersectionType,
+  PickType,
 } from '@nestjs/swagger';
 
 import { Transform, Type } from 'class-transformer';
@@ -20,8 +21,12 @@ import {
 import {
   PIONEX_ORDER_SIDES,
   PIONEX_ORDER_TYPES,
+  PIONEX_TRANSFER_ACCOUNTS,
+  PIONEX_TRANSFER_STATUSES,
   type PionexOrderSide,
   type PionexOrderType,
+  type PionexTransferAccount,
+  type PionexTransferStatus,
 } from '../pionex/pionex.types';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
@@ -198,6 +203,91 @@ export class PlaceQuantOrderDto {
 
 export class PlaceQuantOrderResponseDto {
   @ApiProperty() orderId: string;
+}
+
+const TRANSFER_ACCOUNT_DESCRIPTION = 'MAIN 現貨帳戶、TRADE 合約帳戶';
+
+export class CreateQuantTransferDto {
+  @ApiProperty({
+    description: `轉出帳戶，轉入另一個；${TRANSFER_ACCOUNT_DESCRIPTION}`,
+    enum: PIONEX_TRANSFER_ACCOUNTS,
+    enumName: 'QuantTransferAccount',
+  })
+  @IsIn(PIONEX_TRANSFER_ACCOUNTS)
+  fromAccount: PionexTransferAccount;
+
+  @ApiProperty({ example: 'USDT' })
+  @IsString()
+  @IsNotEmpty()
+  currency: string;
+
+  @ApiProperty({ example: '100' })
+  @Matches(DECIMAL_PATTERN)
+  amount: string;
+}
+
+export class QuantTransferDto {
+  @ApiProperty() transferId: string;
+  @ApiProperty({
+    description: TRANSFER_ACCOUNT_DESCRIPTION,
+    enum: PIONEX_TRANSFER_ACCOUNTS,
+    enumName: 'QuantTransferAccount',
+  })
+  fromAccount: PionexTransferAccount;
+  @ApiProperty({
+    description: TRANSFER_ACCOUNT_DESCRIPTION,
+    enum: PIONEX_TRANSFER_ACCOUNTS,
+    enumName: 'QuantTransferAccount',
+  })
+  toAccount: PionexTransferAccount;
+  @ApiProperty() currency: string;
+  @ApiProperty() amount: number;
+  @ApiProperty({
+    enum: PIONEX_TRANSFER_STATUSES,
+    enumName: 'QuantTransferStatus',
+  })
+  status: PionexTransferStatus;
+  @ApiProperty({ description: '劃轉時間（毫秒）' }) time: number;
+}
+
+export class QuantTransferQueryDto extends PickType(QuantHistoryRangeQueryDto, [
+  'endTime',
+  'limit',
+]) {}
+
+export class QuantTransferPageDto {
+  @ApiProperty({ type: [QuantTransferDto] }) data: QuantTransferDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
+}
+
+export class QuantAssetCategoryDto {
+  @ApiProperty({ description: 'Pionex 的分類代碼' }) type: string;
+  @ApiProperty({ description: 'Pionex 依語系翻譯的分類名稱' }) title: string;
+  @ApiProperty() totalInUsdt: number;
+}
+
+export class QuantAssetAccountDto {
+  @ApiProperty({
+    description: TRANSFER_ACCOUNT_DESCRIPTION,
+    enum: PIONEX_TRANSFER_ACCOUNTS,
+    enumName: 'QuantTransferAccount',
+  })
+  account: PionexTransferAccount;
+  @ApiProperty() totalInUsdt: number;
+  @ApiProperty({ type: [QuantAssetCategoryDto] })
+  categories: QuantAssetCategoryDto[];
+}
+
+export class QuantAssetsDto {
+  @ApiProperty({ description: '所有帳戶的 USDT 估值' }) totalInUsdt: number;
+  @ApiProperty({ description: '所有帳戶的 BTC 估值' }) totalInBtc: number;
+  @ApiProperty({ type: [QuantAssetAccountDto] })
+  accounts: QuantAssetAccountDto[];
 }
 
 export class WatchAccountDto {

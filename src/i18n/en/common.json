@@ -223,7 +223,6 @@
     "botOrderLimitUnsupported": "The per-order limit applies only to DCA, indicator, and webhook bots",
     "botPaperFeeRequired": "Paper bots need a fee rate",
     "botStillRunning": "Stop the bot before archiving it",
-    "botStopAllPartial": "{count} bots failed to stop. Please try again.",
     "credentialInvalid": "API key verification failed. Check the key, secret and permissions: {message}",
     "credentialNotFound": "API key not found",
     "dcaInvestmentTooSmall": "Investment too small: the base order and all safety orders need up to {required}",

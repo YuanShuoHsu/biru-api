@@ -709,7 +709,20 @@ export type CreateQuantBotDto =
 export class QuantBotSummaryDto {
   @ApiProperty({ description: '目前權益（計價幣）' }) equity: number;
   @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
-  @ApiProperty({ description: '已實現損益（計價幣）' }) realizedPnl: number;
+  @ApiProperty({
+    description: '已實現損益（計價幣）；網格機器人即網格利潤',
+  })
+  realizedPnl: number;
+  @ApiProperty({ description: '浮動盈虧＝持倉 ×（現價 − 持倉均價）' })
+  floatingPnl: number;
+  @ApiPropertyOptional({
+    description: '總損益相對投入的年化報酬率（比例）；尚未啟動時不回傳',
+  })
+  annualizedReturn?: number;
+  @ApiPropertyOptional({
+    description: '網格：網格利潤相對投入的年化報酬率（比例）；尚未啟動時不回傳',
+  })
+  gridAnnualizedReturn?: number;
   @ApiProperty({ description: '持有基礎幣數量；合約做空為負數' })
   position: number;
   @ApiProperty({ description: '持倉均價' }) averageCost: number;

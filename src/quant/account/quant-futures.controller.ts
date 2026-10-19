@@ -23,6 +23,7 @@ import {
   PreviewFuturesOrderDto,
   QuantFundingFeeDto,
   QuantFuturesAccountDto,
+  QuantFuturesFillDto,
   QuantFuturesFillHistoryQueryDto,
   QuantFuturesFillPageDto,
   QuantFuturesOrderDto,
@@ -195,6 +196,17 @@ export class QuantFuturesController {
     @Session() { user }: UserSession,
   ): Promise<void> {
     return this.futures.cancelOrder(user.id, id, symbol, orderId);
+  }
+
+  @Get('orders/:orderId/fills')
+  @ApiOperation({ summary: '取得一筆合約委託的成交明細' })
+  findOrderFills(
+    @Param('id') id: string,
+    @Param('orderId') orderId: string,
+    @Query() { symbol }: QuantFuturesSymbolQueryDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantFuturesFillDto[]> {
+    return this.futures.listOrderFills(user.id, id, symbol, orderId);
   }
 
   @Get('fills')

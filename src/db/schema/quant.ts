@@ -108,6 +108,10 @@ export const quantBot = pgTable(
   (table) => [
     index('quant_bot_user_id_idx').on(table.userId, table.environment),
     index('quant_bot_status_idx').on(table.environment, table.status),
+    uniqueIndex('quant_bot_pionex_bot_id_idx').on(
+      table.environment,
+      table.pionexBotId,
+    ),
   ],
 );
 

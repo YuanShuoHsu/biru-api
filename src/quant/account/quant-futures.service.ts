@@ -400,6 +400,24 @@ export class QuantFuturesService {
     return { ...page, data: page.data.map(toFill) };
   }
 
+  async listOrderFills(
+    userId: string,
+    id: string,
+    symbol: string,
+    orderId: string,
+  ): Promise<QuantFuturesFillDto[]> {
+    if (!/^\d+$/.test(orderId)) throw this.account.orderNotFound();
+
+    const { fills } = await this.get<{ fills: PionexFuturesFill[] }>(
+      userId,
+      id,
+      '/uapi/v1/trade/fillsByOrderId',
+      { limit: HISTORY_BATCH, orderId, symbol },
+    );
+
+    return fills.map(toFill);
+  }
+
   async listFundingFees(
     userId: string,
     id: string,

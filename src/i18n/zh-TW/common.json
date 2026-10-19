@@ -223,7 +223,6 @@
     "botOrderLimitUnsupported": "單筆金額上限只適用於 DCA、指標訊號與 Webhook 機器人",
     "botPaperFeeRequired": "模擬盤需要填寫手續費率",
     "botStillRunning": "請先停止機器人再封存",
-    "botStopAllPartial": "有 {count} 個機器人停止失敗，請稍後再試",
     "credentialInvalid": "API key 驗證失敗，請確認金鑰、密鑰與權限是否正確：{message}",
     "credentialNotFound": "找不到這組 API key",
     "dcaInvestmentTooSmall": "投入金額不足：首單加上所有加碼最多需要 {required}",

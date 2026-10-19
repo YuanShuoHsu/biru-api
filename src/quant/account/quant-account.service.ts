@@ -17,13 +17,18 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import type {
   CreateQuantCredentialDto,
+  CreateQuantTransferDto,
   PlaceQuantOrderDto,
   PlaceQuantOrderResponseDto,
+  QuantAssetAccountDto,
+  QuantAssetsDto,
   QuantBalanceDto,
   QuantCredentialDto,
   QuantFillDto,
   QuantHistoryQueryDto,
   QuantOrderDto,
+  QuantTransferDto,
+  QuantTransferQueryDto,
 } from '../dto/quant-account.dto';
 import { isBotClientOrderId } from '../engine/client-order-id';
 import { PionexPrivateStreams } from '../pionex/pionex-private-streams';
@@ -35,8 +40,10 @@ import {
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import type {
   PionexBalance,
+  PionexBalancesFull,
   PionexFill,
   PionexOrder,
+  PionexTransfer,
 } from '../pionex/pionex.types';
 import { quantEnvironment } from '../quant-environment';
 
@@ -48,6 +55,8 @@ const ORDER_HISTORY_WEIGHT = 5;
 const ORDER_HISTORY_BATCH = 200;
 // 成交端點沒有 limit 參數，固定回最新 100 筆
 const FILLS_BATCH = 100;
+const TRANSFER_WEIGHT = 5;
+const TRANSFER_BATCH = 100;
 
 // 文件寫 TRADE_ORDER_NOT_FOUND，實測回 TRADE_ORDER_NOT_EXIST
 // https://www.pionex.com/docs/api-docs/trade-api/trade
@@ -414,6 +423,125 @@ export class QuantAccountService {
           body: `{"symbol":${JSON.stringify(symbol)},"orderId":${order.orderId}}`,
         }),
       );
+  }
+
+  async listOrderFills(
+    userId: string,
+    id: string,
+    symbol: string,
+    orderId: string,
+  ): Promise<QuantFillDto[]> {
+    if (!/^\d+$/.test(orderId))
+      throw new NotFoundException(this.t('orderNotFound'));
+
+    const { fills } = await this.withExchangeError(async () =>
+      this.rest.signed<{ fills: PionexFill[] }>(
+        await this.resolveCredentials(userId, id),
+        'GET',
+        '/api/v1/trade/fillsByOrderId',
+        { params: { orderId, symbol }, weight: FILLS_WEIGHT },
+      ),
+    );
+
+    return fills.map(toFill);
+  }
+
+  async listTransfers(
+    userId: string,
+    id: string,
+    { endTime, limit }: QuantTransferQueryDto,
+  ): Promise<HistoryPage<QuantTransferDto>> {
+    const credentials = await this.resolveCredentials(userId, id);
+    const page = await collectHistoryPage({
+      batchSize: TRANSFER_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        const { records } = await this.withExchangeError(() =>
+          this.rest.signed<{ records: PionexTransfer[] | null }>(
+            credentials,
+            'GET',
+            '/api/v1/assets/transfers',
+            {
+              params: { endTime: cursor, limit: TRANSFER_BATCH },
+              weight: TRANSFER_WEIGHT,
+            },
+          ),
+        );
+
+        return records ?? [];
+      },
+      idOf: ({ transferId }) => transferId,
+      limit,
+      timeOf: ({ timestamp }) => timestamp,
+    });
+
+    return {
+      ...page,
+      data: page.data.map((transfer) => ({
+        amount: Number(transfer.amount),
+        currency: transfer.currency,
+        fromAccount: transfer.fromAccount,
+        status: transfer.status,
+        time: transfer.timestamp,
+        toAccount: transfer.toAccount,
+        transferId: transfer.transferId,
+      })),
+    };
+  }
+
+  async createTransfer(
+    userId: string,
+    id: string,
+    { amount, currency, fromAccount }: CreateQuantTransferDto,
+  ): Promise<void> {
+    const credentials = await this.resolveCredentials(userId, id);
+
+    await this.translateOrderError(() =>
+      this.rest.signed(credentials, 'POST', '/api/v1/assets/transfer', {
+        body: {
+          amount,
+          clientId: randomUUID(),
+          currency,
+          fromAccount,
+          toAccount: fromAccount === 'MAIN' ? 'TRADE' : 'MAIN',
+        },
+        weight: TRANSFER_WEIGHT,
+      }),
+    );
+  }
+
+  async findAssets(userId: string, id: string): Promise<QuantAssetsDto> {
+    const full = await this.withExchangeError(async () =>
+      this.rest.signed<PionexBalancesFull>(
+        await this.resolveCredentials(userId, id),
+        'GET',
+        '/api/v1/wallet/balancesFull',
+        { params: { appLang: I18nContext.current()?.lang } },
+      ),
+    );
+    const accountOf = (
+      account: QuantAssetAccountDto['account'],
+      source: PionexBalancesFull['botAccount'],
+    ): QuantAssetAccountDto => ({
+      account,
+      categories: (source?.detail ?? []).map(
+        ({ title, totalInUsdt, type }) => ({
+          title: title ?? type,
+          totalInUsdt: Number(totalInUsdt ?? 0),
+          type,
+        }),
+      ),
+      totalInUsdt: Number(source?.totalInUsdt ?? 0),
+    });
+
+    return {
+      accounts: [
+        accountOf('MAIN', full.botAccount),
+        accountOf('TRADE', full.traderAccount),
+      ],
+      totalInBtc: Number(full.totalInBtc ?? 0),
+      totalInUsdt: Number(full.totalInUsdt ?? 0),
+    };
   }
 
   private async botExchangeOrderIds(credentialId: string, orderIds: string[]) {

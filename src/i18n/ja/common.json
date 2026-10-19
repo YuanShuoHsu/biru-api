@@ -223,7 +223,6 @@
     "botOrderLimitUnsupported": "1 注文あたりの上限は DCA・指標シグナル・Webhook ボットにのみ設定できます",
     "botPaperFeeRequired": "シミュレーションには手数料率の入力が必要です",
     "botStillRunning": "アーカイブする前にボットを停止してください",
-    "botStopAllPartial": "{count} 個のボットの停止に失敗しました。しばらくしてから再試行してください",
     "credentialInvalid": "API キーの検証に失敗しました。キー、シークレット、権限を確認してください：{message}",
     "credentialNotFound": "API キーが見つかりません",
     "dcaInvestmentTooSmall": "投資額が不足しています：初回注文とすべての追加注文で最大 {required} 必要です",

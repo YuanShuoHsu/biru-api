@@ -330,3 +330,42 @@ export interface PionexFundingFee {
   symbol: string;
   timestamp: number;
 }
+
+// MAIN 是現貨（機器人）帳戶，TRADE 是合約帳戶
+export const PIONEX_TRANSFER_ACCOUNTS = ['MAIN', 'TRADE'] as const;
+export const PIONEX_TRANSFER_STATUSES = [
+  'COMPLETED',
+  'PROCESSING',
+  'FAILED',
+] as const;
+
+export type PionexTransferAccount = (typeof PIONEX_TRANSFER_ACCOUNTS)[number];
+export type PionexTransferStatus = (typeof PIONEX_TRANSFER_STATUSES)[number];
+
+export interface PionexTransfer {
+  amount: string;
+  clientId?: string;
+  currency: string;
+  fromAccount: PionexTransferAccount;
+  status: PionexTransferStatus;
+  timestamp: number;
+  toAccount: PionexTransferAccount;
+  transferId: string;
+}
+
+interface PionexBalanceCategory {
+  title?: string;
+  totalInUsdt?: string;
+  type: string;
+}
+
+export interface PionexBalancesFull {
+  botAccount?: { detail?: PionexBalanceCategory[]; totalInUsdt?: string };
+  totalInBtc?: string;
+  totalInUsdt?: string;
+  traderAccount?: {
+    detail?: PionexBalanceCategory[];
+    title?: string;
+    totalInUsdt?: string;
+  };
+}

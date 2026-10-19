@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "quant_bot_pionex_bot_id_idx" ON "quant_bot" USING btree ("environment","pionex_bot_id");

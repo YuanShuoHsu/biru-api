@@ -17,7 +17,11 @@ export interface PionexSpotGridData {
   averageCost?: string;
   baseAmount?: string;
   bottom?: string;
+  closeSellModel?: string;
+  condition?: string;
+  conditionDirection?: '-1' | '1';
   gridProfit?: string;
+  gridType?: GridConfigDto['gridType'];
   lossStop?: string | null;
   lossStopType?: string;
   profitStop?: string | null;
@@ -115,6 +119,22 @@ export const fromPionexSpotStop = (
 
 /** Pionex 內建網格已結束（使用者停止、停損停利或建立失敗） */
 export const PIONEX_GRID_FINISHED = 'canceled';
+
+// https://www.pionex.com/docs/api-docs/bot-api/bot-orders
+// 現貨網格在列表寫 spot_grid、單筆查詢寫 grid_v5
+export interface PionexBotOrder {
+  base: string;
+  botName?: string;
+  buOrderId: string;
+  buOrderType: string;
+  createTime: number;
+  customizeName?: string;
+  note?: string;
+  quote: string;
+  status: string;
+}
+
+const BOT_LIST_MAX_PAGES = 10;
 
 @Injectable()
 export class PionexGridService {
@@ -264,6 +284,26 @@ export class PionexGridService {
       '/api/v1/bot/orders/spotGrid/profit',
       { body: { amount, buOrderId } },
     );
+  }
+
+  /** 帳戶中執行中的所有 Pionex 機器人，包含在 App 建立的 */
+  async listRunningBots(credentials: PionexCredentials) {
+    const orders: PionexBotOrder[] = [];
+    let pageToken: string | undefined;
+
+    for (let page = 0; page < BOT_LIST_MAX_PAGES; page++) {
+      const { nextPageToken, results } = await this.rest.signed<{
+        nextPageToken?: string | null;
+        results?: PionexBotOrder[] | null;
+      }>(credentials, 'GET', '/api/v1/bot/orders', {
+        params: { pageToken, status: 'running' },
+      });
+      orders.push(...(results ?? []));
+      if (!nextPageToken) break;
+      pageToken = nextPageToken;
+    }
+
+    return orders;
   }
 
   aiStrategy(credentials: PionexCredentials, spec: SymbolSpec) {

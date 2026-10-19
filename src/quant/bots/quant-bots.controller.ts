@@ -173,13 +173,6 @@ export class QuantBotsController {
     return this.bots.create(user.id, 'ai', dto);
   }
 
-  @Post('bots/stop-all')
-  @HttpCode(204)
-  @ApiOperation({ summary: '一鍵停止自己所有執行中的機器人' })
-  stopAll(@Session() { user }: UserSession): Promise<void> {
-    return this.bots.stopAll(user.id);
-  }
-
   @Get('bots/:id')
   @ApiOperation({ summary: '取得機器人與損益摘要' })
   findOne(
