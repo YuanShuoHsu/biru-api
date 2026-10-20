@@ -26,6 +26,7 @@ import { QuantAccountService } from '../account/quant-account.service';
 import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
 import {
   futuresMarginOf,
+  futuresPositionOf,
   type GridConfigDto,
   isFuturesBot,
 } from '../dto/quant-bot.dto';
@@ -47,6 +48,7 @@ import {
   type PionexTradesEvent,
 } from '../pionex/pionex-public-stream';
 import { PionexRestClient } from '../pionex/pionex-rest.client';
+import type { PionexPositionMode } from '../pionex/pionex.types';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 import { quantEnvironment } from '../quant-environment';
 
@@ -61,6 +63,7 @@ import {
 import { type FundingPayment, FuturesAccount } from './futures-account';
 import { MarketCacheService } from './market-cache.service';
 import { PionexBroker } from './pionex-broker';
+import { PionexFuturesBroker } from './pionex-futures-broker';
 import { SimulatedBroker } from './simulated-broker';
 import { botSymbolSpec, toRiskTiers } from './symbol-spec';
 import type { AiDecision } from './strategies/ai.strategy';
@@ -257,8 +260,20 @@ export class QuantEngineService
       if (bot.mode === 'live' && !credentials)
         throw new Error('Live bot has no credential');
 
+      const hasLease = () => this.hasLease;
       const broker = credentials
-        ? new PionexBroker(this.rest, credentials, spec, () => this.hasLease)
+        ? isFutures
+          ? new PionexFuturesBroker(this.rest, credentials, spec, hasLease, {
+              direction: futuresPositionOf(bot.config)!.direction,
+              mode: (
+                await this.rest.signed<{ positionMode: PionexPositionMode }>(
+                  credentials,
+                  'GET',
+                  '/uapi/v1/account/positionMode',
+                )
+              ).positionMode,
+            })
+          : new PionexBroker(this.rest, credentials, spec, hasLease)
         : new SimulatedBroker(
             {
               averagePrice: (side, quantity) =>
@@ -437,8 +452,9 @@ export class QuantEngineService
     if (!this.hasLease) return;
 
     const mark = Number(markPrice);
+    // 實盤由 Pionex 強平，機器人在對帳時發現倉位對不上就停止
     for (const { runner } of this.runners.values())
-      if (runner.symbol === symbol && runner.isFutures)
+      if (runner.symbol === symbol && runner.isFutures && !runner.isLive)
         void runner.handleMark(mark);
 
     // 下次結算時間往後跳，代表上一次已結算

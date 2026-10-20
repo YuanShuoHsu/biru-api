@@ -22,6 +22,7 @@ import {
   ilike,
   inArray,
   isNull,
+  ne,
   sql,
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -52,6 +53,7 @@ import {
 } from 'src/common/utils/data-grid-filters';
 
 import { QuantAccountService } from '../account/quant-account.service';
+import { QuantFuturesService } from '../account/quant-futures.service';
 import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
 import { QuantAiKeyService } from '../ai/quant-ai-key.service';
 import {
@@ -287,6 +289,7 @@ export class QuantBotsService {
     private readonly aiAdvisor: QuantAiAdvisorService,
     private readonly aiKeys: QuantAiKeyService,
     private readonly engine: QuantEngineService,
+    private readonly futures: QuantFuturesService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly market: QuantMarketService,
     private readonly marketCache: MarketCacheService,
@@ -415,12 +418,8 @@ export class QuantBotsService {
       type === 'ai'
     ) {
       if (isPerp !== !!position) this.invalid('futuresPositionMismatch');
-      if (isPerp && dto.mode === 'live')
-        this.invalid(
-          type === 'ai'
-            ? 'futuresStrategyLiveNotReady'
-            : 'futuresStrategyPaperOnly',
-        );
+      if (isPerp && dto.mode === 'live' && type !== 'ai')
+        this.invalid('futuresStrategyPaperOnly');
     } else if (isPerp !== isFuturesBotType(type))
       throw new NotFoundException(`Unknown symbol ${dto.symbol}`);
 
@@ -479,6 +478,8 @@ export class QuantBotsService {
   async start(userId: string, id: string): Promise<QuantBotDto> {
     const bot = await this.owned(userId, id);
     if (bot.startedAt) throw new ConflictException(this.t('botAlreadyStarted'));
+    if (bot.mode === 'live' && bot.type === 'ai' && isFuturesBot(bot))
+      await this.prepareLiveFutures(bot);
 
     const pionexBotId: { botId: string | null; signalType?: string } | null =
       bot.mode !== 'live'
@@ -505,6 +506,50 @@ export class QuantBotsService {
     void this.engine.tick();
 
     return this.toDto(updated);
+  }
+
+  // Pionex 合約帳戶同一交易對只有一個倉位，機器人的帳要和它一致，所以不能和其他倉位、掛單或機器人共用
+  private async prepareLiveFutures(bot: QuantBot) {
+    const credentialId = bot.credentialId!;
+    const [busy] = await this.db
+      .select({ id: quantBot.id })
+      .from(quantBot)
+      .where(
+        and(
+          eq(quantBot.environment, bot.environment),
+          eq(quantBot.credentialId, credentialId),
+          eq(quantBot.symbol, bot.symbol),
+          eq(quantBot.mode, 'live'),
+          eq(quantBot.status, 'running'),
+          ne(quantBot.id, bot.id),
+        ),
+      )
+      .limit(1);
+    if (busy) this.invalid('futuresSymbolBusy');
+
+    const [positions, openOrders, settings] = await Promise.all([
+      this.futures.listPositions(bot.userId, credentialId, bot.symbol),
+      this.futures.listOpenOrders(bot.userId, credentialId, bot.symbol),
+      this.futures.findSymbolSettings(bot.userId, credentialId, bot.symbol),
+    ]);
+    if (positions.some(({ size }) => size !== 0) || openOrders.length)
+      this.invalid('futuresSymbolInUse');
+
+    const { leverage } = futuresMarginOf(bot);
+    if (settings.marginMode !== 'ISOLATED')
+      await this.futures.setMarginMode(
+        bot.userId,
+        credentialId,
+        bot.symbol,
+        'ISOLATED',
+      );
+    if (settings.leverage !== leverage)
+      await this.futures.setLeverage(
+        bot.userId,
+        credentialId,
+        bot.symbol,
+        leverage,
+      );
   }
 
   async stop(

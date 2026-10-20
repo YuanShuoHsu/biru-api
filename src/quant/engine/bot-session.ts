@@ -227,6 +227,24 @@ export class BotSession<L = Ledger> {
     });
   }
 
+  /** 實盤合約：交易所倉位和自己的帳對不上（被強平，或在 Pionex 手動動過）就停止，不再下單 */
+  verifyPosition(
+    exchangePosition: () => Promise<number>,
+    ledgerPosition: () => number,
+    tolerance: number,
+  ) {
+    return this.serialize(async () => {
+      if (this.stopped || this.openOrders().length) return;
+
+      const exchange = await exchangePosition();
+      const ledger = ledgerPosition();
+      if (Math.abs(exchange - ledger) <= tolerance) return;
+
+      this.options.store.log('position_mismatch', { exchange, ledger });
+      await this.halt('futures_position_mismatch', true, false);
+    });
+  }
+
   stop(
     reason: string,
     {

@@ -285,7 +285,8 @@ export type I18nTranslations = {
             "futuresGridStopLimitRequired": string;
             "futuresLeverageAboveSymbol": string;
             "futuresPositionMismatch": string;
-            "futuresStrategyLiveNotReady": string;
+            "futuresSymbolBusy": string;
+            "futuresSymbolInUse": string;
             "gridInvestmentTooSmall": string;
             "gridRangeInvalid": string;
             "gridSpacingTooSmall": string;

@@ -16,6 +16,7 @@ import {
 import { FuturesAccount, type FuturesLedger } from './futures-account';
 import type { Ledger } from './ledger';
 import type { PionexBroker } from './pionex-broker';
+import type { PionexFuturesBroker } from './pionex-futures-broker';
 import { createFuturesStrategy, createStrategy } from './strategies';
 import type { AiAdvisor, AiDecision } from './strategies/ai.strategy';
 import type { BotFill, SymbolSpec, WebhookSignal } from './types';
@@ -23,7 +24,8 @@ import type { BotFill, SymbolSpec, WebhookSignal } from './types';
 export interface RunnerDependencies {
   account: FuturesAccount | SpotAccount;
   advisor?: AiAdvisor;
-  broker: Broker & Partial<Pick<PionexBroker, 'sync'>>;
+  broker: Broker &
+    Partial<Pick<PionexBroker, 'sync'> & Pick<PionexFuturesBroker, 'position'>>;
   candles: (
     interval: PionexKlineInterval,
     count: number,
@@ -114,6 +116,10 @@ export class BotRunner {
     return isFuturesBot(this.bot);
   }
 
+  get isLive() {
+    return this.bot.mode === 'live';
+  }
+
   get symbol() {
     return this.bot.symbol;
   }
@@ -170,6 +176,12 @@ export class BotRunner {
       await this.session.reconcile((order) =>
         broker.sync!(order, this.knownFillIds),
       );
+      if (broker.position)
+        await this.session.verifyPosition(
+          () => broker.position!(),
+          () => (this.session.ledger as FuturesLedger).position,
+          10 ** -this.dependencies.spec.sizePrecision / 2,
+        );
     } catch (error) {
       this.report(error);
     } finally {

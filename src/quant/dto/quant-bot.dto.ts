@@ -93,7 +93,7 @@ interface BotShape {
   type: QuantBotType;
 }
 
-const futuresPositionOf = (config: unknown) =>
+export const futuresPositionOf = (config: unknown) =>
   (config as { futures?: FuturesPositionConfigDto } | null)?.futures;
 
 /** 合約網格、訊號機器人，以及帶 futures 設定（交易對是合約）的 DCA／指標／Webhook */
