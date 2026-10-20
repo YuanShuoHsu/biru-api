@@ -61,7 +61,7 @@ export class QuantAiAgentController {
   @Post('requests/:id')
   @HttpCode(204)
   @ApiOperation({
-    summary: '回傳判斷；模擬盤與回測直接套用，實盤等使用者在後台確認',
+    summary: '回傳判斷，後台依判斷下單或推進回測',
   })
   async submit(
     @Param('id') id: string,

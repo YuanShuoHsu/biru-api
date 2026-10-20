@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // 本機 Claude Code 代理：用 Claude 訂閱額度替後台 AI 機器人做判斷。
-// 只回傳判斷；模擬盤與回測由後台套用，實盤一律等使用者在後台確認才下單。
 //
 //   node scripts/quant-claude-agent.mjs           處理一次目前的請求就結束
 //   node scripts/quant-claude-agent.mjs --watch   每分鐘檢查一次，按 Ctrl+C 停止

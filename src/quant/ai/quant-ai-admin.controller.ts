@@ -61,34 +61,12 @@ export class QuantAiAdminController {
   }
 
   @Get('bots/:id/ai-requests')
-  @ApiOperation({ summary: 'Claude Code 機器人最近的判斷請求與待確認建議' })
+  @ApiOperation({ summary: 'Claude Code 機器人最近的判斷請求' })
   listRequests(
     @Param('id') id: string,
     @Session() { user }: UserSession,
   ): Promise<QuantAiRequestDto[]> {
     return this.agent.listForBot(user.id, id);
-  }
-
-  @Post('bots/:id/ai-requests/:requestId/approve')
-  @HttpCode(204)
-  @ApiOperation({ summary: '確認 AI 建議並實際下單' })
-  approve(
-    @Param('id') id: string,
-    @Param('requestId') requestId: string,
-    @Session() { user }: UserSession,
-  ): Promise<void> {
-    return this.agent.approve(user.id, id, requestId);
-  }
-
-  @Post('bots/:id/ai-requests/:requestId/reject')
-  @HttpCode(204)
-  @ApiOperation({ summary: '略過 AI 建議，不下單' })
-  reject(
-    @Param('id') id: string,
-    @Param('requestId') requestId: string,
-    @Session() { user }: UserSession,
-  ): Promise<void> {
-    return this.agent.reject(user.id, id, requestId);
   }
 
   @Get('ai-backtests')

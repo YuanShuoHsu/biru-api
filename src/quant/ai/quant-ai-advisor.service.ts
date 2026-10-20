@@ -172,7 +172,7 @@ export class QuantAiAdvisorService {
         .where(
           and(
             eq(quantAiRequest.botId, bot.id),
-            inArray(quantAiRequest.status, ['pending', 'awaiting_approval']),
+            eq(quantAiRequest.status, 'pending'),
           ),
         );
       await tx.insert(quantAiRequest).values({

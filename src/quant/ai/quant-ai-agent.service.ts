@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-import { and, desc, eq, inArray, lte, or } from 'drizzle-orm';
+import { and, desc, eq, lte, or } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
@@ -262,20 +262,7 @@ export class QuantAiAgentService {
     if (bot?.status !== 'running')
       throw new BadRequestException(this.t('botNotRunning'));
 
-    // 實盤只記下建議，要使用者在後台確認才下單；觀望不會下單，直接記錄
-    if (bot.mode === 'live' && decision.action !== 'hold') {
-      await this.db
-        .update(quantAiRequest)
-        .set({
-          answeredAt: new Date(),
-          decision: decision as unknown as Record<string, unknown>,
-          status: 'awaiting_approval',
-        })
-        .where(eq(quantAiRequest.id, id));
-      return;
-    }
-
-    await this.execute(request, 'pending', decision, {});
+    await this.execute(request, decision);
   }
 
   async listForBot(
@@ -297,39 +284,8 @@ export class QuantAiAgentService {
     return rows.map(toRequestDto);
   }
 
-  async approve(userId: string, botId: string, id: string) {
-    await this.expireStale(userId);
-
-    const request = await this.ownedRequest(userId, id, botId);
-    if (request.status !== 'awaiting_approval' || !request.decision)
-      throw new BadRequestException(this.t('aiRequestClosed'));
-
-    await this.execute(
-      request,
-      'awaiting_approval',
-      request.decision as unknown as AiDecisionDto,
-      { approved: true },
-    );
-  }
-
-  async reject(userId: string, botId: string, id: string) {
-    const request = await this.ownedRequest(userId, id, botId);
-    if (request.status !== 'awaiting_approval')
-      throw new BadRequestException(this.t('aiRequestClosed'));
-
-    await this.db
-      .update(quantAiRequest)
-      .set({ resolvedAt: new Date(), status: 'rejected' })
-      .where(eq(quantAiRequest.id, id));
-  }
-
-  // 先把請求改成已執行再下單，連按兩次確認也只會執行一次；下單失敗就還原
-  private async execute(
-    request: QuantAiRequest,
-    from: 'awaiting_approval' | 'pending',
-    decision: AiDecisionDto,
-    meta: Record<string, unknown>,
-  ) {
+  // 先把請求改成已執行再下單，同一筆重送也只會執行一次；下單失敗就還原
+  private async execute(request: QuantAiRequest, decision: AiDecisionDto) {
     const bot = await this.db.query.quantBot.findFirst({
       columns: { status: true },
       where: eq(quantBot.id, request.botId!),
@@ -340,27 +296,29 @@ export class QuantAiAgentService {
     const [claimed] = await this.db
       .update(quantAiRequest)
       .set({
-        answeredAt: request.answeredAt ?? new Date(),
+        answeredAt: new Date(),
         decision: decision as unknown as Record<string, unknown>,
         resolvedAt: new Date(),
         status: 'executed',
       })
       .where(
-        and(eq(quantAiRequest.id, request.id), eq(quantAiRequest.status, from)),
+        and(
+          eq(quantAiRequest.id, request.id),
+          eq(quantAiRequest.status, 'pending'),
+        ),
       )
       .returning({ id: quantAiRequest.id });
     if (!claimed) throw new BadRequestException(this.t('aiRequestClosed'));
 
     try {
       await this.engine.aiDecision(request.botId!, decision, {
-        ...meta,
         requestId: request.id,
         source: 'claude_code',
       });
     } catch (error) {
       await this.db
         .update(quantAiRequest)
-        .set({ resolvedAt: null, status: from })
+        .set({ answeredAt: null, resolvedAt: null, status: 'pending' })
         .where(eq(quantAiRequest.id, request.id));
       throw error;
     }
@@ -375,19 +333,18 @@ export class QuantAiAgentService {
       .where(
         and(
           eq(quantAiRequest.userId, userId),
-          inArray(quantAiRequest.status, ['pending', 'awaiting_approval']),
+          eq(quantAiRequest.status, 'pending'),
           lte(quantAiRequest.expiresAt, now),
         ),
       );
   }
 
-  private async ownedRequest(userId: string, id: string, botId?: string) {
+  private async ownedRequest(userId: string, id: string) {
     const request = await this.db.query.quantAiRequest.findFirst({
       where: and(
         eq(quantAiRequest.id, id),
         eq(quantAiRequest.userId, userId),
         eq(quantAiRequest.environment, quantEnvironment()),
-        ...(botId ? [eq(quantAiRequest.botId, botId)] : []),
       ),
     });
     if (!request) throw new NotFoundException(this.t('aiRequestNotFound'));

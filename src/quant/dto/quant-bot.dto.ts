@@ -543,7 +543,7 @@ export class AiConfigDto {
     enum: AI_SOURCES,
     enumName: 'QuantAiSource',
     description:
-      'claude_api：伺服器用 Claude API key 呼叫；claude_code：本機 Claude Code 代理用訂閱額度判斷，實盤需人工確認才下單',
+      'claude_api：伺服器用 Claude API key 呼叫；claude_code：用 Claude Code 訂閱額度判斷',
   })
   @IsIn(AI_SOURCES)
   source: AiSource;
@@ -1351,9 +1351,7 @@ export class AiDecisionDto {
 
 export const AI_REQUEST_STATUSES = [
   'pending',
-  'awaiting_approval',
   'executed',
-  'rejected',
   'expired',
   'answered',
 ] as const;

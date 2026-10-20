@@ -280,9 +280,7 @@ export type QuantAiBacktest = typeof quantAiBacktest.$inferSelect;
 
 export const quantAiRequestStatusEnum = pgEnum('quant_ai_request_status', [
   'pending',
-  'awaiting_approval',
   'executed',
-  'rejected',
   'expired',
   'answered',
 ]);

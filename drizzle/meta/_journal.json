@@ -1527,6 +1527,13 @@
       "when": 1792506375005,
       "tag": "0217_quant_official_fee_rates",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1792507503511,
+      "tag": "0218_quant_ai_request_auto_execute",
+      "breakpoints": true
     }
   ]
 }
