@@ -235,7 +235,7 @@
     "futuresGridStopLimitRequired": "選擇「限價」時要填限價",
     "futuresLeverageAboveSymbol": "此交易對最高只能開 {max}x 槓桿",
     "futuresPositionMismatch": "合約交易對要設定方向與槓桿，現貨交易對不能設定",
-    "futuresSymbolBusy": "這個交易對已經有其他實盤機器人在交易，同一個 Pionex 帳戶的同一交易對只能有一個",
+    "futuresSymbolBusy": "這個交易對已經有另一個由本系統執行的合約實盤機器人；同一個 Pionex 帳戶的同一交易對只能有一個",
     "futuresSymbolInUse": "這個交易對在 Pionex 合約帳戶已有倉位或掛單，請先平倉並撤單再啟動，否則機器人的帳會和實際倉位對不上",
     "gridInvestmentTooSmall": "投入金額不足：每格至少要達到最小下單金額，共需 {min}",
     "gridRangeInvalid": "網格上界必須高於下界",

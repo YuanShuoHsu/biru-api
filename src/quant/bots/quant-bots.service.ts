@@ -23,6 +23,7 @@ import {
   inArray,
   isNull,
   ne,
+  notInArray,
   sql,
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -513,6 +514,8 @@ export class QuantBotsService {
           eq(quantBot.symbol, bot.symbol),
           eq(quantBot.mode, 'live'),
           eq(quantBot.status, 'running'),
+          // Pionex 代跑的機器人用主帳戶，和合約 API 下單的合約帳戶是分開的倉位
+          notInArray(quantBot.type, ['grid', 'futures_grid', 'signal']),
           ne(quantBot.id, bot.id),
         ),
       )

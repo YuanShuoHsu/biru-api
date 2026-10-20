@@ -235,7 +235,7 @@
     "futuresGridStopLimitRequired": "选择「限价」时要填写限价",
     "futuresLeverageAboveSymbol": "此交易对最高只能开 {max}x 杠杆",
     "futuresPositionMismatch": "合约交易对要设置方向与杠杆，现货交易对不能设置",
-    "futuresSymbolBusy": "这个交易对已经有其他实盘机器人在交易，同一个 Pionex 账户的同一交易对只能有一个",
+    "futuresSymbolBusy": "这个交易对已经有另一个由本系统执行的合约实盘机器人；同一个 Pionex 账户的同一交易对只能有一个",
     "futuresSymbolInUse": "这个交易对在 Pionex 合约账户已有仓位或挂单，请先平仓并撤单再启动，否则机器人的账会和实际仓位对不上",
     "gridInvestmentTooSmall": "投入金额不足：每格至少要达到最小下单金额，共需 {min}",
     "gridRangeInvalid": "网格上界必须高于下界",
