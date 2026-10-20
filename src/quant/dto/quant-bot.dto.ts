@@ -742,6 +742,12 @@ export class QuantBotSummaryDto {
   @ApiProperty({ description: '成交筆數' }) fillCount: number;
   @ApiPropertyOptional({ description: '合約：預估強平價' })
   liquidationPrice?: number;
+  @ApiPropertyOptional({
+    description: '合約：預估強平價與現價的距離（比例）',
+  })
+  liquidationDistance?: number;
+  @ApiPropertyOptional({ description: 'Pionex 網格：建立時的市價' })
+  openPrice?: number;
   @ApiPropertyOptional({ description: '合約：累計資金費（正數為收入）' })
   fundingFee?: number;
   @ApiPropertyOptional({
@@ -1127,6 +1133,7 @@ export class SendSignalDto {
 export const FUTURES_GRID_OPERATIONS = [
   'invest',
   'range',
+  'reinvest',
   'reduce',
   'pause',
   'resume',

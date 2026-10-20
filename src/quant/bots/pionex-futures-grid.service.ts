@@ -46,6 +46,7 @@ export interface PionexFuturesGridData {
   gridProfit?: string;
   liquidationPrice?: string;
   marginBalance?: string;
+  openPrice?: string;
   position?: string;
   positionOpenPrice?: string;
   profitWithdrawn?: string;

@@ -203,6 +203,9 @@ const hashToken = (token: string) =>
 
 const optional = <T>(value: T | null) => value ?? undefined;
 
+const liquidationDistanceOf = (price: number, liquidation?: number) =>
+  liquidation && price ? Math.abs(price - liquidation) / price : undefined;
+
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -1031,6 +1034,22 @@ export class QuantBotsService {
               openPrice: current,
               row: required(dto.row),
               top: price(dto.top!),
+              type: 'adjust_params',
+            },
+            path: 'adjustParams',
+          };
+        case 'reinvest':
+          return {
+            body: {
+              adjustParamsSence: 'reinvest',
+              bottom: price(config.bottom),
+              buOrderId,
+              extraMargin: false,
+              isReinvest: true,
+              openPrice: current,
+              quoteInvestment: 0,
+              row: config.row,
+              top: price(config.top),
               type: 'adjust_params',
             },
             path: 'adjustParams',
@@ -1973,6 +1992,7 @@ export class QuantBotsService {
     });
     const ledger = account.snapshot();
     const equity = account.equity(price);
+    const liquidationPrice = account.liquidationPrice() ?? undefined;
 
     return {
       averageCost: ledger.entryPrice,
@@ -1980,7 +2000,8 @@ export class QuantBotsService {
       fillCount: fills.length,
       floatingPnl: floatingPnlOf(ledger.position, ledger.entryPrice, price),
       fundingFee: ledger.funding,
-      liquidationPrice: account.liquidationPrice() ?? undefined,
+      liquidationDistance: liquidationDistanceOf(price, liquidationPrice),
+      liquidationPrice,
       pnl: equity - committed,
       position: ledger.position,
       realizedPnl: ledger.realizedPnl - ledger.fees,
@@ -2024,6 +2045,7 @@ export class QuantBotsService {
             : 0;
       const pnl = Number(data.profit ?? 0);
       const price = await this.priceOf(bot.symbol);
+      const liquidationPrice = Number(item?.maintPrice ?? 0) || undefined;
 
       return {
         averageCost: cost,
@@ -2031,7 +2053,8 @@ export class QuantBotsService {
         fillCount: 0,
         floatingPnl: floatingPnlOf(position, cost, price),
         fundingFee: Number(item?.fundingFee ?? data.fundingFee ?? 0),
-        liquidationPrice: Number(item?.maintPrice ?? 0) || undefined,
+        liquidationDistance: liquidationDistanceOf(price, liquidationPrice),
+        liquidationPrice,
         pionexStatus: data.status,
         pnl,
         position,
@@ -2094,7 +2117,9 @@ export class QuantBotsService {
         fillCount: 0,
         floatingPnl: pnl - gridProfit,
         fundingFee: Number(data.totalFundingFee ?? 0),
+        liquidationDistance: liquidationDistanceOf(price, liquidation),
         liquidationPrice: liquidation || undefined,
+        openPrice: optionalNumber(data.openPrice),
         pionexStatus: data.status,
         // 和 App 一致：總利潤不加回已提取的利潤，網格利潤扣掉已提取的部分
         pnl,
@@ -2140,6 +2165,7 @@ export class QuantBotsService {
         equity,
         fillCount: 0,
         floatingPnl: pnl - gridProfit,
+        openPrice: optionalNumber(data.openPrice),
         // 和 App 一致：總利潤不加回已提取的利潤，網格利潤扣掉已提取的部分
         pnl,
         position,

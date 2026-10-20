@@ -24,6 +24,7 @@ export interface PionexSpotGridData {
   gridType?: GridConfigDto['gridType'];
   lossStop?: string | null;
   lossStopType?: string;
+  openPrice?: string;
   profitStop?: string | null;
   profitStopType?: string;
   profitWithdrawn?: string;
