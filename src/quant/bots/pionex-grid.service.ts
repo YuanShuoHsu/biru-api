@@ -32,6 +32,7 @@ export interface PionexSpotGridData {
   realizedProfit?: string;
   reasonBy?: string;
   row?: number;
+  slippage?: string;
   status: string;
   top?: string;
 }
@@ -168,6 +169,9 @@ export class PionexGridService {
             ),
             row: config.row,
             top: price(config.top),
+            ...(config.slippage && {
+              slippage: toDecimalString(config.slippage / 100, 6),
+            }),
             ...(lossStop && {
               lossStop: toPionexStop(lossStop, 'loss', spec),
               lossStopType: lossStop.type,

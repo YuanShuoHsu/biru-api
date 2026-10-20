@@ -100,6 +100,7 @@ import {
   type SendSignalDto,
   type SignalBotConfigDto,
   type SignalSetupDto,
+  type StopQuantBotDto,
   type WebhookConfigDto,
   type WebhookSignalDto,
 } from '../dto/quant-bot.dto';
@@ -202,6 +203,9 @@ const hashToken = (token: string) =>
 
 const optional = <T>(value: T | null) => value ?? undefined;
 
+const messageOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 const PIONEX_IMPORT_TYPES: Partial<Record<string, 'futures_grid' | 'grid'>> = {
   futures_grid: 'futures_grid',
   grid_v5: 'grid',
@@ -211,6 +215,7 @@ const PIONEX_IMPORT_GRACE_MS = 60_000;
 
 const importedSpotGrid = (data: PionexSpotGridData) => {
   const condition = optionalNumber(data.condition);
+  const slippage = optionalNumber(data.slippage);
   const config: GridConfigDto = {
     bottom: Number(data.bottom),
     // 本系統只分保留或賣回；TO_USDT 在 USDT 計價的交易對就是賣回計價幣
@@ -222,6 +227,7 @@ const importedSpotGrid = (data: PionexSpotGridData) => {
     lossStop: fromPionexSpotStop(data.lossStopType, data.lossStop),
     profitStop: fromPionexSpotStop(data.profitStopType, data.profitStop),
     row: data.row ?? 0,
+    ...(slippage && { slippage: Number((slippage * 100).toPrecision(15)) }),
     top: Number(data.top),
     ...(condition && {
       trigger: {
@@ -490,10 +496,23 @@ export class QuantBotsService {
     return this.toDto(updated);
   }
 
-  async stop(userId: string, id: string): Promise<QuantBotDto> {
+  async stop(
+    userId: string,
+    id: string,
+    { closeModel }: StopQuantBotDto,
+  ): Promise<QuantBotDto> {
     const bot = await this.owned(userId, id);
+    if (bot.type !== 'grid' || !closeModel || bot.status !== 'running')
+      return this.toDto(await this.stopBot(bot, 'stopped_by_user'));
 
-    return this.toDto(await this.stopBot(bot, 'stopped_by_user'));
+    const stopped = await this.stopBot(bot, 'stopped_by_user', closeModel);
+    const [updated] = await this.db
+      .update(quantBot)
+      .set({ config: { ...stopped.config, closeModel } })
+      .where(eq(quantBot.id, bot.id))
+      .returning();
+
+    return this.toDto(updated);
   }
 
   async regenerateWebhookToken(userId: string, id: string) {
@@ -1245,7 +1264,8 @@ export class QuantBotsService {
 
     for (const bot of bots) {
       try {
-        const { equity, pnl } = await this.summary(bot);
+        const { equity, pionexError, pnl } = await this.summary(bot);
+        if (pionexError) throw new Error(pionexError);
         await this.db
           .insert(quantBotEquity)
           .values({ botId: bot.id, equity, pnl, time })
@@ -1496,7 +1516,11 @@ export class QuantBotsService {
     return bot;
   }
 
-  private async stopBot(bot: QuantBot, reason: string) {
+  private async stopBot(
+    bot: QuantBot,
+    reason: string,
+    closeModel = (bot.config as unknown as GridConfigDto).closeModel,
+  ) {
     if (bot.status !== 'running') return bot;
 
     if (executorOf(bot) === 'pionex' && bot.pionexBotId) {
@@ -1509,11 +1533,7 @@ export class QuantBotsService {
           ? this.pionexFuturesGrid.cancel(credentials, bot.pionexBotId!)
           : bot.type === 'signal'
             ? this.pionexSignal.cancelSmartCopy(credentials, bot.pionexBotId!)
-            : this.pionexGrid.cancel(
-                credentials,
-                bot.pionexBotId!,
-                (bot.config as unknown as GridConfigDto).closeModel,
-              ),
+            : this.pionexGrid.cancel(credentials, bot.pionexBotId!, closeModel),
       );
       // 訊號只屬於這個機器人；刪掉後 TradingView 再送來的 alert 會被 Pionex 拒收
       if (bot.type === 'signal' && bot.pionexSignalType)
@@ -1524,7 +1544,7 @@ export class QuantBotsService {
               `Delete signal of ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
             ),
           );
-    } else if (await this.engine.stopRunner(bot.id, reason)) {
+    } else if (await this.engine.stopRunner(bot.id, reason, closeModel)) {
       const refreshed = await this.db.query.quantBot.findFirst({
         where: eq(quantBot.id, bot.id),
       });
@@ -2017,8 +2037,8 @@ export class QuantBotsService {
         position,
         realizedPnl: Number(item?.profit ?? 0),
       };
-    } catch {
-      return empty;
+    } catch (error) {
+      return { ...empty, pionexError: messageOf(error) };
     }
   }
 
@@ -2082,8 +2102,8 @@ export class QuantBotsService {
         profitWithdrawn: withdrawn,
         realizedPnl: gridProfit,
       };
-    } catch {
-      return empty;
+    } catch (error) {
+      return { ...empty, pionexError: messageOf(error) };
     }
   }
 
@@ -2126,8 +2146,8 @@ export class QuantBotsService {
         profitWithdrawn: withdrawn,
         realizedPnl: gridProfit,
       };
-    } catch {
-      return empty;
+    } catch (error) {
+      return { ...empty, pionexError: messageOf(error) };
     }
   }
 

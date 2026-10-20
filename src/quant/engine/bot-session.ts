@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { GridConfigDto } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
@@ -219,8 +220,21 @@ export class BotSession<L = Ledger> {
     });
   }
 
-  stop(reason: string, { error = false, closePosition = true } = {}) {
-    return this.serialize(() => this.halt(reason, error, closePosition));
+  stop(
+    reason: string,
+    {
+      closeModel,
+      closePosition = true,
+      error = false,
+    }: {
+      closeModel?: GridConfigDto['closeModel'];
+      closePosition?: boolean;
+      error?: boolean;
+    } = {},
+  ) {
+    return this.serialize(() =>
+      this.halt(reason, error, closePosition, closeModel),
+    );
   }
 
   private serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -236,11 +250,16 @@ export class BotSession<L = Ledger> {
     return run;
   }
 
-  private async halt(reason: string, error: boolean, closePosition: boolean) {
+  private async halt(
+    reason: string,
+    error: boolean,
+    closePosition: boolean,
+    closeModel?: GridConfigDto['closeModel'],
+  ) {
     if (this.stopped) return;
 
     await this.cancelAll();
-    if (closePosition) await this.strategy.stop?.();
+    if (closePosition) await this.strategy.stop?.(closeModel);
     this.stopped = true;
     await this.cancelAll();
     await this.options.store.setStopped(reason, error);

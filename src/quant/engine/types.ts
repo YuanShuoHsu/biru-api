@@ -1,3 +1,4 @@
+import type { GridConfigDto } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
@@ -94,5 +95,5 @@ export interface Strategy {
   /** 重啟後也會呼叫；策略要從 openOrders／fills 判斷是首次啟動還是續跑 */
   start(): Promise<void>;
   /** 使用者停止時的收尾，例如網格的平倉方式 */
-  stop?(): Promise<void>;
+  stop?(closeModel?: GridConfigDto['closeModel']): Promise<void>;
 }

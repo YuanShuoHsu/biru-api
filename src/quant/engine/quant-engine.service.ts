@@ -24,7 +24,11 @@ import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
 import { QuantAccountService } from '../account/quant-account.service';
 import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
-import { futuresMarginOf, isFuturesBot } from '../dto/quant-bot.dto';
+import {
+  futuresMarginOf,
+  type GridConfigDto,
+  isFuturesBot,
+} from '../dto/quant-bot.dto';
 import {
   QUANT_CANDLE_EVENT,
   QuantMarketStreamService,
@@ -122,11 +126,15 @@ export class QuantEngineService
   }
 
   /** 使用者按停止：本機有在跑就立即停；不在本機則由持有租約的那台在下次巡檢時停 */
-  async stopRunner(botId: string, reason: string) {
+  async stopRunner(
+    botId: string,
+    reason: string,
+    closeModel?: GridConfigDto['closeModel'],
+  ) {
     const active = this.runners.get(botId);
     if (!active) return false;
 
-    await active.runner.stop(reason);
+    await active.runner.stop(reason, closeModel);
     this.detach(botId);
 
     return true;

@@ -220,6 +220,15 @@ export class GridConfigDto {
   })
   @IsIn(GRID_CLOSE_MODELS)
   closeModel: (typeof GRID_CLOSE_MODELS)[number];
+
+  @ApiPropertyOptional({
+    description:
+      '實盤：初始買入價格最多高於下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  slippage?: number;
 }
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
@@ -743,6 +752,10 @@ export class QuantBotSummaryDto {
   aiMonthCost?: number;
   @ApiPropertyOptional({ description: 'Pionex 網格：已提取的利潤' })
   profitWithdrawn?: number;
+  @ApiPropertyOptional({
+    description: '向 Pionex 查詢失敗的原因；有值時其他數字都不是實際狀態',
+  })
+  pionexError?: string;
 }
 
 @ApiExtraModels(
@@ -802,6 +815,17 @@ export class QuantBotDto {
   @ApiPropertyOptional() startedAt?: Date;
   @ApiPropertyOptional() stoppedAt?: Date;
   @ApiProperty() createdAt: Date;
+}
+
+export class StopQuantBotDto {
+  @ApiPropertyOptional({
+    enum: GRID_CLOSE_MODELS,
+    enumName: 'QuantGridCloseModel',
+    description: '只用於現貨網格；省略時依建立時的設定',
+  })
+  @IsOptional()
+  @IsIn(GRID_CLOSE_MODELS)
+  closeModel?: (typeof GRID_CLOSE_MODELS)[number];
 }
 
 export class CreateQuantBotResponseDto extends QuantBotDto {

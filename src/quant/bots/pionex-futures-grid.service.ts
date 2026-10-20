@@ -86,6 +86,8 @@ export interface PionexFuturesGridOperationCheck {
   reducePnl?: string;
 }
 
+export const PIONEX_FUTURES_GRID_CLOSING = 'close_position';
+
 // 合約網格以 BTC.PERP／USDT 表示交易對，和行情的 BTC_USDT_PERP 不同
 const botBase = (spec: SymbolSpec) => `${spec.base}.PERP`;
 
@@ -232,11 +234,21 @@ export class PionexFuturesGridService {
   }
 
   async cancel(credentials: PionexCredentials, buOrderId: string) {
+    const { buOrderData } = await this.get(credentials, buOrderId);
+
+    // immediate 只救「限價停利停損已觸發、平倉單未成交」而卡在平倉中的單（改以市價平倉），其他狀態帶 true 會被拒
     await this.rest.signed(
       credentials,
       'POST',
       '/api/v1/bot/orders/futuresGrid/cancel',
-      { body: { buOrderId } },
+      {
+        body: {
+          buOrderId,
+          ...(buOrderData.status === PIONEX_FUTURES_GRID_CLOSING && {
+            immediate: true,
+          }),
+        },
+      },
     );
   }
 }

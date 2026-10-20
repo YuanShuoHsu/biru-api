@@ -111,8 +111,8 @@ export class GridStrategy implements Strategy {
     });
   }
 
-  async stop() {
-    if (this.config.closeModel !== 'TO_QUOTE') return;
+  async stop(closeModel = this.config.closeModel) {
+    if (closeModel !== 'TO_QUOTE') return;
 
     const { position } = this.context.ledger();
     if (position > 0)

@@ -55,6 +55,7 @@ import {
   QuantBotPaginationQueryDto,
   SendSignalDto,
   SignalSetupDto,
+  StopQuantBotDto,
   WebhookTokenDto,
 } from '../dto/quant-bot.dto';
 
@@ -195,9 +196,10 @@ export class QuantBotsController {
   @ApiOperation({ summary: '停止機器人並撤銷掛單' })
   stop(
     @Param('id') id: string,
+    @Body() dto: StopQuantBotDto,
     @Session() { user }: UserSession,
   ): Promise<QuantBotDto> {
-    return this.bots.stop(user.id, id);
+    return this.bots.stop(user.id, id, dto);
   }
 
   @Post('bots/:id/webhook-token')

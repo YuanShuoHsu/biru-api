@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 
 import type { QuantBot } from 'src/db/schema/quant';
 
-import { isFuturesBot } from '../dto/quant-bot.dto';
+import { type GridConfigDto, isFuturesBot } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
@@ -152,8 +152,8 @@ export class BotRunner {
     return this.session.handleSignal(signal);
   }
 
-  stop(reason: string) {
-    return this.session.stop(reason);
+  stop(reason: string, closeModel?: GridConfigDto['closeModel']) {
+    return this.session.stop(reason, { closeModel });
   }
 
   /** 實盤：向交易所對帳未完成委託 */
