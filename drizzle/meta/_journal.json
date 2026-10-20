@@ -1541,6 +1541,13 @@
       "when": 1792508915704,
       "tag": "0219_quant_ai_backtest_context_candles",
       "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1792517017991,
+      "tag": "0220_quant_bot_drop_max_daily_loss",
+      "breakpoints": true
     }
   ]
 }

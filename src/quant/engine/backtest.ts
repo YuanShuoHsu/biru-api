@@ -140,6 +140,7 @@ export const runBacktest = async (
       input.onEvent?.(event);
     },
     nextClientOrderId: () => Promise.resolve(`backtest-${++sequence}`),
+    setPaused: () => Promise.resolve(),
     setStopped: (reason) => Promise.resolve(void (stoppedReason = reason)),
     updateOrder: () => Promise.resolve(),
   };

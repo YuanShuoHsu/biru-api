@@ -81,6 +81,8 @@ export interface StrategyContext<L = Ledger> {
   log(kind: string, payload?: Record<string, unknown>): void;
   now(): number;
   openOrders(): readonly BotOrder[];
+  /** 暫停或恢復開新倉，機器人仍在執行、照常檢查停利停損 */
+  pause(reason: string, active: boolean): Promise<void>;
   /** 被風控擋下或數量低於交易所下限時回傳 null */
   placeOrder(request: OrderRequest): Promise<BotOrder | null>;
   /** 在機器人的序列佇列裡執行；給不在佇列內產生結果的工作（例如等 AI 回應）使用 */
@@ -99,6 +101,6 @@ export interface Strategy {
   ): Promise<void>;
   /** 重啟後也會呼叫；策略要從 openOrders／fills 判斷是首次啟動還是續跑 */
   start(): Promise<void>;
-  /** 使用者停止時的收尾，例如網格的平倉方式 */
+  /** 使用者停止時的收尾：網格依平倉方式；DCA／指標／Webhook／AI 選 TO_QUOTE 時市價平倉 */
   stop?(closeModel?: GridConfigDto['closeModel']): Promise<void>;
 }

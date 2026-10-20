@@ -1,0 +1,1 @@
+ALTER TABLE "quant_bot" DROP COLUMN "max_daily_loss";

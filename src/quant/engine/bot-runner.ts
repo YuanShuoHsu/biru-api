@@ -32,6 +32,7 @@ export interface RunnerDependencies {
   ) => Promise<QuantCandleDto[]>;
   fills: BotFill[];
   orders: SubmittedOrder[];
+  pausedReason?: string;
   spec: SymbolSpec;
   store: SessionStore;
 }
@@ -66,10 +67,10 @@ export class BotRunner {
       config: bot.config,
       fills: dependencies.fills,
       investment: bot.investment,
-      maxDailyLoss: bot.maxDailyLoss ?? undefined,
       maxOrderAmount: bot.maxOrderAmount ?? undefined,
       now: () => Date.now(),
       orders: dependencies.orders,
+      pausedReason: dependencies.pausedReason,
       spec: dependencies.spec,
       store: {
         insertFill: async (fill: BotFill) => {
@@ -80,6 +81,7 @@ export class BotRunner {
         insertOrder: store.insertOrder.bind(store),
         log: store.log.bind(store),
         nextClientOrderId: store.nextClientOrderId.bind(store),
+        setPaused: store.setPaused.bind(store),
         setStopped: store.setStopped.bind(store),
         updateOrder: store.updateOrder.bind(store),
       } satisfies SessionStore,

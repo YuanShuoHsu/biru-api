@@ -673,12 +673,6 @@ class CreateQuantBotBaseDto {
   @IsPositive()
   investment: number;
 
-  @ApiPropertyOptional({ description: '每日最大虧損（計價幣），觸發即停止' })
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  maxDailyLoss?: number;
-
   @ApiPropertyOptional({
     description:
       'DCA／指標／Webhook：開倉單的單筆金額上限（計價幣），超過就略過；平倉不受限',
@@ -838,7 +832,6 @@ export class QuantBotDto {
     | WebhookConfigDto
     | FuturesGridConfigDto;
   @ApiProperty() investment: number;
-  @ApiPropertyOptional() maxDailyLoss?: number;
   @ApiPropertyOptional() maxOrderAmount?: number;
   @ApiProperty({
     enum: QUANT_BOT_EXECUTORS,
@@ -858,7 +851,8 @@ export class StopQuantBotDto {
   @ApiPropertyOptional({
     enum: GRID_CLOSE_MODELS,
     enumName: 'QuantGridCloseModel',
-    description: '只用於現貨網格；省略時依建立時的設定',
+    description:
+      '現貨網格省略時依建立時的設定；現貨 DCA／指標／Webhook／AI 傳 TO_QUOTE 會市價平倉，省略時保留倉位；合約一律平倉',
   })
   @IsOptional()
   @IsIn(GRID_CLOSE_MODELS)

@@ -160,8 +160,6 @@ const EQUITY_MAX_POINTS = 1000;
 const DAY_MS = 86_400_000;
 const YEAR_MS = 365 * DAY_MS;
 
-const dayOf = (time: number) => Math.floor(time / DAY_MS);
-
 const floatingPnlOf = (position: number, averageCost: number, price: number) =>
   position === 0 ? 0 : position * (price - averageCost);
 
@@ -277,11 +275,6 @@ const importedFuturesGrid = (data: PionexFuturesGridData) => {
 @Injectable()
 export class QuantBotsService {
   private readonly logger = new Logger(QuantBotsService.name);
-  // 實盤 Pionex 合約機器人當天開始時的損益，用來判斷每日虧損上限；重啟後從當下重新起算
-  private readonly dayStartPnl = new Map<
-    string,
-    { day: number; pnl: number }
-  >();
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
@@ -460,7 +453,6 @@ export class QuantBotsService {
         environment: quantEnvironment(),
         id: randomUUID(),
         investment: dto.investment,
-        maxDailyLoss: dto.maxDailyLoss,
         maxOrderAmount: dto.maxOrderAmount,
         mode: dto.mode,
         name: dto.name,
@@ -558,8 +550,11 @@ export class QuantBotsService {
     { closeModel }: StopQuantBotDto,
   ): Promise<QuantBotDto> {
     const bot = await this.owned(userId, id);
+    // 合約一律平倉，對齊 Pionex 合約網格與合約馬丁格爾
+    if (isFuturesBot(bot))
+      return this.toDto(await this.stopBot(bot, 'stopped_by_user', 'TO_QUOTE'));
     if (bot.type !== 'grid' || !closeModel || bot.status !== 'running')
-      return this.toDto(await this.stopBot(bot, 'stopped_by_user'));
+      return this.toDto(await this.stopBot(bot, 'stopped_by_user', closeModel));
 
     const stopped = await this.stopBot(bot, 'stopped_by_user', closeModel);
     const [updated] = await this.db
@@ -1362,27 +1357,12 @@ export class QuantBotsService {
         inArray(quantBot.type, ['grid', 'futures_grid', 'signal']),
       ),
     });
-    const today = dayOf(Date.now());
-
     for (const bot of bots) {
       if (!bot.pionexBotId || !bot.credentialId) continue;
 
       try {
-        const { finished, pnl, reason } = await this.pionexBotState(bot);
-        if (finished) {
-          this.dayStartPnl.delete(bot.id);
-          await this.markStopped(bot, reason ?? 'pionex_finished');
-          continue;
-        }
-        if (bot.type === 'grid') continue;
-
-        const start = this.dayStartPnl.get(bot.id);
-        if (start?.day !== today)
-          this.dayStartPnl.set(bot.id, { day: today, pnl });
-        const loss = this.dayStartPnl.get(bot.id)!.pnl - pnl;
-
-        if (bot.maxDailyLoss !== null && loss >= bot.maxDailyLoss)
-          await this.stopBot(bot, 'daily_loss_limit');
+        const { finished, reason } = await this.pionexBotState(bot);
+        if (finished) await this.markStopped(bot, reason ?? 'pionex_finished');
       } catch (error) {
         this.logger.error(
           `Sync ${bot.id} failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -2268,7 +2248,6 @@ export class QuantBotsService {
       id: bot.id,
       investment: bot.investment,
       executor: executorOf(bot),
-      maxDailyLoss: optional(bot.maxDailyLoss),
       maxOrderAmount: optional(bot.maxOrderAmount),
       mode: bot.mode,
       name: bot.name,

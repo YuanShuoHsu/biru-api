@@ -45,6 +45,8 @@ export interface SessionStore {
   insertOrder(order: SubmittedOrder): Promise<void>;
   log(kind: string, payload?: Record<string, unknown>): void;
   nextClientOrderId(): Promise<string>;
+  /** 機器人仍在執行但暫停開新倉；null 代表恢復 */
+  setPaused(reason: string | null): Promise<void>;
   setStopped(reason: string, error: boolean): Promise<void>;
   updateOrder(order: SubmittedOrder): Promise<void>;
 }
@@ -67,16 +69,15 @@ export interface SessionOptions<L = Ledger> {
   createStrategy: (context: StrategyContext<L>) => Strategy;
   fills: BotFill[];
   investment: number;
-  maxDailyLoss?: number;
   /** 開倉單的單筆金額上限（計價幣）；平倉不受限，否則可能出不了場 */
   maxOrderAmount?: number;
   now: () => number;
   orders: SubmittedOrder[];
+  /** 重啟前的暫停原因 */
+  pausedReason?: string;
   spec: SymbolSpec;
   store: SessionStore;
 }
-
-const dayOf = (time: number) => Math.floor(time / 86_400_000);
 
 export class BotSession<L = Ledger> {
   private readonly orders = new Map<string, SubmittedOrder>();
@@ -85,11 +86,12 @@ export class BotSession<L = Ledger> {
   private price: number | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private stopped = false;
-  private dayStart: { day: number; equity: number } | null = null;
+  private pausedReason: string | null;
 
   constructor(private readonly options: SessionOptions<L>) {
     for (const order of options.orders) this.orders.set(order.id, order);
     this.fills = [...options.fills];
+    this.pausedReason = options.pausedReason ?? null;
     this.strategy = options.createStrategy(this.context());
   }
 
@@ -140,9 +142,6 @@ export class BotSession<L = Ledger> {
         });
         if (this.stopped) return;
       }
-
-      await this.checkDailyLoss(price);
-      if (this.stopped) return;
 
       await this.strategy.onPrice?.(price);
     });
@@ -291,16 +290,13 @@ export class BotSession<L = Ledger> {
     this.options.store.log(error ? 'error' : 'stopped', { reason });
   }
 
-  private async checkDailyLoss(price: number) {
-    const { maxDailyLoss, now } = this.options;
-    if (maxDailyLoss === undefined) return;
+  // 同時只顯示一個暫停原因；已因別的原因暫停時，後來的原因不覆蓋
+  private async setPause(reason: string, active: boolean) {
+    if (active ? this.pausedReason !== null : this.pausedReason !== reason)
+      return;
 
-    const day = dayOf(now());
-    const equity = this.options.account.equity(price);
-    if (this.dayStart?.day !== day) this.dayStart = { day, equity };
-
-    if (this.dayStart.equity - equity >= maxDailyLoss)
-      await this.halt('daily_loss_limit', false, false);
+    this.pausedReason = active ? reason : null;
+    await this.options.store.setPaused(this.pausedReason);
   }
 
   private async recordFill(
@@ -444,6 +440,7 @@ export class BotSession<L = Ledger> {
       log: (kind, payload) => store.log(kind, payload),
       now,
       openOrders: () => this.openOrders(),
+      pause: (reason, active) => this.setPause(reason, active),
       placeOrder: (request) => this.placeOrder(request),
       schedule: (task) =>
         this.serialize(async () => {

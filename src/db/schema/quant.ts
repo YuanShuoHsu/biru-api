@@ -93,7 +93,6 @@ export const quantBot = pgTable(
     statusReason: text('status_reason'),
     config: jsonb('config').$type<Record<string, unknown>>().notNull(),
     investment: decimal('investment').notNull(),
-    maxDailyLoss: decimal('max_daily_loss'),
     maxOrderAmount: decimal('max_order_amount'),
     pionexBotId: text('pionex_bot_id'),
     pionexSignalType: text('pionex_signal_type'),

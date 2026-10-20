@@ -1,5 +1,6 @@
 import type {
   FuturesPositionConfigDto,
+  GridConfigDto,
   QuantBotType,
 } from '../../dto/quant-bot.dto';
 import type { FuturesLedger } from '../futures-account';
@@ -14,6 +15,25 @@ import { IndicatorStrategy } from './indicator.strategy';
 import { futuresTrader, spotTrader, type Trader } from './trader';
 import { WebhookStrategy } from './webhook.strategy';
 
+// 停止時的平倉選擇只來自使用者按停止；策略自己停止（例如 DCA 停損）時不帶，已經處理過倉位
+const closingOnStop = (
+  strategy: Strategy,
+  context: StrategyContext<unknown>,
+  trader: Trader,
+): Strategy => {
+  const flatten = async () => {
+    await context.cancelAll();
+    const { size } = trader.holding();
+    if (size > 0) await trader.closeMarket(size, 'flatten');
+  };
+
+  return Object.assign(strategy, {
+    stop: async (closeModel?: GridConfigDto['closeModel']) => {
+      if (closeModel === 'TO_QUOTE') await flatten();
+    },
+  });
+};
+
 const directionalStrategy = (
   type: 'dca' | 'indicator' | 'webhook',
   context: StrategyContext<unknown>,
@@ -21,11 +41,19 @@ const directionalStrategy = (
 ): Strategy => {
   switch (type) {
     case 'dca':
-      return new DcaStrategy(context, trader);
+      return closingOnStop(new DcaStrategy(context, trader), context, trader);
     case 'indicator':
-      return new IndicatorStrategy(context, trader);
+      return closingOnStop(
+        new IndicatorStrategy(context, trader),
+        context,
+        trader,
+      );
     case 'webhook':
-      return new WebhookStrategy(context, trader);
+      return closingOnStop(
+        new WebhookStrategy(context, trader),
+        context,
+        trader,
+      );
   }
 };
 
@@ -40,7 +68,11 @@ const aiStrategy = (
 ) => {
   if (!advisor) throw new Error('AI bot requires an advisor');
 
-  return new AiStrategy(context, trader, advisor);
+  return closingOnStop(
+    new AiStrategy(context, trader, advisor),
+    context,
+    trader,
+  );
 };
 
 export const createStrategy = (

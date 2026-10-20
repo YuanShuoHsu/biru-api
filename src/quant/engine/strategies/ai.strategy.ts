@@ -179,14 +179,13 @@ export class AiStrategy implements Strategy {
 
   private async consult(candle: QuantCandleDto) {
     try {
+      // 超過上限只暫停判斷，下個月費用歸零後自動恢復；既有倉位照停利停損處理
       const { monthlyCostLimit } = this.config;
-      if (
+      const overLimit =
         monthlyCostLimit !== undefined &&
-        (await this.advisor.monthCost()) >= monthlyCostLimit
-      ) {
-        await this.context.schedule(() => this.context.stop('ai_cost_limit'));
-        return;
-      }
+        (await this.advisor.monthCost()) >= monthlyCostLimit;
+      await this.context.pause('ai_cost_limit', overLimit);
+      if (overLimit) return;
 
       const snapshot = await this.snapshot(candle);
       const result = await this.advisor.decide(snapshot);

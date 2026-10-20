@@ -1,6 +1,6 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -149,6 +149,14 @@ export class BotStore implements SessionStore {
       .returning({ orderSequence: quantBot.orderSequence });
 
     return botClientOrderId(this.bot.id, orderSequence);
+  }
+
+  async setPaused(reason: string | null) {
+    await this.db
+      .update(quantBot)
+      .set({ statusReason: reason })
+      .where(and(eq(quantBot.id, this.bot.id), eq(quantBot.status, 'running')));
+    this.changed();
   }
 
   async setStopped(reason: string, error: boolean) {

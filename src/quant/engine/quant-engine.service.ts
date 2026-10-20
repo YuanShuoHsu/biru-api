@@ -298,6 +298,7 @@ export class QuantEngineService
           ),
         fills,
         orders: orders.map(toSubmittedOrder),
+        pausedReason: bot.statusReason ?? undefined,
         spec,
         store: new BotStore(this.db, this.eventEmitter, bot, spec),
       });
