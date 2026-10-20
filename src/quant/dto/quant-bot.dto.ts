@@ -29,6 +29,7 @@ import {
 
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
+import { AI_MODEL_IDS, type AiModel } from '../ai/ai-model';
 import {
   PIONEX_KLINE_INTERVALS,
   type PionexKlineInterval,
@@ -75,7 +76,7 @@ export const CROSS_DIRECTIONS = ['golden', 'death'] as const;
 export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
-export const AI_EFFORTS = ['low', 'medium', 'high'] as const;
+export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export const AI_SOURCES = ['claude_api', 'claude_code'] as const;
 export type AiSource = (typeof AI_SOURCES)[number];
 export const AI_LOCALES = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko'] as const;
@@ -581,11 +582,20 @@ export class AiConfigDto {
   @ApiPropertyOptional({
     enum: AI_EFFORTS,
     enumName: 'QuantAiEffort',
-    description: 'claude_api 必填',
+    description: '省略時用 medium',
   })
-  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
+  @IsOptional()
   @IsIn(AI_EFFORTS)
   effort?: (typeof AI_EFFORTS)[number];
+
+  @ApiPropertyOptional({
+    enum: AI_MODEL_IDS,
+    enumName: 'QuantAiModel',
+    description: '省略時用 claude-opus-5-5',
+  })
+  @IsOptional()
+  @IsIn(AI_MODEL_IDS)
+  model?: AiModel;
 
   @ApiProperty({
     enum: AI_LOCALES,
@@ -1377,6 +1387,9 @@ export class QuantAgentRequestDto {
   @ApiProperty({ enum: ['bot', 'backtest'], enumName: 'QuantAgentRequestKind' })
   kind: 'backtest' | 'bot';
   @ApiProperty({ description: '交給 Claude 的系統指示' }) instructions: string;
+  @ApiProperty({ description: '傳給 claude --model' }) model: string;
+  @ApiProperty({ enum: AI_EFFORTS, enumName: 'QuantAiEffort' })
+  effort: (typeof AI_EFFORTS)[number];
   @ApiProperty({
     description: '判斷用的市場與部位快照',
     type: 'object',

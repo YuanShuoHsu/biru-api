@@ -73,7 +73,9 @@ export class QuantClaudeCodeService {
 
   // 不載入 MCP、工具、設定與 Claude Code 的預設提示，一次判斷只用到快照本身的 token
   private decide({
+    effort,
     instructions,
+    model,
     schema,
     snapshot,
   }: QuantAgentRequestDto): Promise<AiDecisionDto> {
@@ -90,6 +92,10 @@ export class QuantClaudeCodeService {
           '--setting-sources',
           '',
           '--no-session-persistence',
+          '--model',
+          model,
+          '--effort',
+          effort,
           '--system-prompt',
           instructions,
           '--json-schema',

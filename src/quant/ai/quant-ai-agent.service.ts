@@ -34,6 +34,7 @@ import type {
 import { QuantEngineService } from '../engine/quant-engine.service';
 import { quantEnvironment } from '../quant-environment';
 
+import { DEFAULT_AI_EFFORT, DEFAULT_AI_MODEL } from './ai-model';
 import { isClaudeCodeLocal } from './claude-code-local';
 import { QuantAiBacktestService } from './quant-ai-backtest.service';
 import { DECISION_SCHEMA, systemPrompt } from './quant-ai-advisor.service';
@@ -238,6 +239,7 @@ export class QuantAiAgentService {
       const config = (botConfig ?? backtestConfig) as unknown as AiConfigDto;
 
       return {
+        effort: config.effort ?? DEFAULT_AI_EFFORT,
         expiresAt: request.expiresAt ?? undefined,
         id: request.id,
         instructions: systemPrompt(
@@ -246,6 +248,7 @@ export class QuantAiAgentService {
           !request.botId,
         ),
         kind: request.botId ? 'bot' : 'backtest',
+        model: config.model ?? DEFAULT_AI_MODEL,
         schema: DECISION_SCHEMA as unknown as Record<string, unknown>,
         snapshot: request.snapshot,
       };
@@ -291,7 +294,7 @@ export class QuantAiAgentService {
   // 先把請求改成已執行再下單，同一筆重送也只會執行一次；下單失敗就還原
   private async execute(request: QuantAiRequest, decision: AiDecisionDto) {
     const bot = await this.db.query.quantBot.findFirst({
-      columns: { status: true },
+      columns: { config: true, status: true },
       where: eq(quantBot.id, request.botId!),
     });
     if (bot?.status !== 'running')
@@ -316,6 +319,7 @@ export class QuantAiAgentService {
 
     try {
       await this.engine.aiDecision(request.botId!, decision, {
+        model: (bot.config as unknown as AiConfigDto).model ?? DEFAULT_AI_MODEL,
         requestId: request.id,
         source: 'claude_code',
       });

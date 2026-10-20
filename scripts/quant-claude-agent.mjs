@@ -9,7 +9,6 @@
 //   QUANT_AGENT_URL        後台 API 位址，預設 http://localhost:3001
 //   QUANT_AGENT_ADMIN_URL  後台網頁位址（核准連線用），預設 http://localhost:3002
 //   QUANT_AGENT_INTERVAL   監看模式的檢查間隔（秒），預設 60
-//   QUANT_AGENT_MODEL      傳給 claude --model，省略時用 Claude Code 的預設模型
 //   QUANT_AGENT_MAX_STEPS  每次檢查最多回答幾筆（回測會連續產生請求），預設 20
 //   CLAUDE_BIN             claude 指令位置，預設 claude
 
@@ -39,7 +38,6 @@ const adminUrl = (
 ).replace(/\/$/, '');
 const CONNECT_POLL_MS = 2_000;
 const intervalMs = Number(process.env.QUANT_AGENT_INTERVAL ?? 60) * 1000;
-const model = process.env.QUANT_AGENT_MODEL;
 const maxSteps = Number(process.env.QUANT_AGENT_MAX_STEPS ?? 20);
 const claudeBin = process.env.CLAUDE_BIN ?? 'claude';
 const lockPath = join(tmpdir(), 'quant-claude-agent.lock');
@@ -73,7 +71,7 @@ const api = async (path, init = {}) => {
 };
 
 // 不載入 MCP、工具、設定與 Claude Code 的預設提示，一次判斷只用到快照本身的 token
-const decide = ({ instructions, schema, snapshot }) =>
+const decide = ({ effort, instructions, model, schema, snapshot }) =>
   new Promise((resolve, reject) => {
     const child = spawn(
       claudeBin,
@@ -87,11 +85,14 @@ const decide = ({ instructions, schema, snapshot }) =>
         '--setting-sources',
         '',
         '--no-session-persistence',
+        '--model',
+        model,
+        '--effort',
+        effort,
         '--system-prompt',
         instructions,
         '--json-schema',
         JSON.stringify(schema),
-        ...(model ? ['--model', model] : []),
       ],
       { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] },
     );

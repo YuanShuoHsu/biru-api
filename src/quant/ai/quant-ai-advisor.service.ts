@@ -25,7 +25,12 @@ import { QuantMarketService } from '../market/quant-market.service';
 import { candleEndOf } from '../pionex/pionex.types';
 import { quantEnvironment } from '../quant-environment';
 
-import { AI_MODEL } from './ai-model';
+import {
+  AI_MODELS,
+  type AiModel,
+  DEFAULT_AI_EFFORT,
+  DEFAULT_AI_MODEL,
+} from './ai-model';
 import { QuantAiKeyService } from './quant-ai-key.service';
 
 export const AI_DECISION_EVENT = 'ai_decision';
@@ -42,18 +47,7 @@ const LANGUAGES = {
   'zh-TW': 'Traditional Chinese (Taiwan)',
 } as const;
 
-// 美元／每個 token；回應可能由 fallback 模型產生，沒列到的模型以較高的費率計算
-const PRICES: Record<
-  string,
-  { cacheRead: number; cacheWrite: number; input: number; output: number }
-> = {
-  [AI_MODEL]: {
-    cacheRead: 0.2e-6,
-    cacheWrite: 5e-6,
-    input: 4e-6,
-    output: 20e-6,
-  },
-};
+// 回應可能由 fallback 模型產生，沒列到的模型以 Opus 4.8 的較高費率計算
 const FALLBACK_PRICE = {
   cacheRead: 0.5e-6,
   cacheWrite: 6.25e-6,
@@ -121,7 +115,7 @@ export const systemPrompt = (
   ].join('\n');
 
 const costOf = (model: string, usage: Anthropic.Beta.BetaUsage) => {
-  const price = PRICES[model] ?? FALLBACK_PRICE;
+  const price = AI_MODELS[model as AiModel]?.price ?? FALLBACK_PRICE;
 
   return (
     usage.input_tokens * price.input +
@@ -251,10 +245,13 @@ export class QuantAiAdvisorService {
     const client = new Anthropic({
       apiKey: await this.aiKeys.resolve(userId),
     });
+    const model = config.model ?? DEFAULT_AI_MODEL;
 
     const response = await client.beta.messages.create({
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      ...(AI_MODELS[model].fallbacks && {
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default' as const,
+      }),
       max_tokens: MAX_TOKENS,
       messages: [
         {
@@ -262,9 +259,9 @@ export class QuantAiAdvisorService {
           role: 'user',
         },
       ],
-      model: AI_MODEL,
+      model,
       output_config: {
-        effort: config.effort,
+        effort: config.effort ?? DEFAULT_AI_EFFORT,
         format: { schema: DECISION_SCHEMA, type: 'json_schema' },
       },
       system: systemPrompt(

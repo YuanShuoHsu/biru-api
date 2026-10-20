@@ -19,7 +19,7 @@ import type { I18nTranslations } from 'src/generated/i18n.generated';
 import type { QuantAiKeyDto } from '../dto/quant-bot.dto';
 import { quantEnvironment } from '../quant-environment';
 
-import { AI_MODEL } from './ai-model';
+import { DEFAULT_AI_MODEL } from './ai-model';
 
 @Injectable()
 export class QuantAiKeyService {
@@ -60,7 +60,7 @@ export class QuantAiKeyService {
     apiKey: string,
   ): Promise<Omit<QuantAiKeyDto, 'monthCost'>> {
     try {
-      await new Anthropic({ apiKey }).models.retrieve(AI_MODEL);
+      await new Anthropic({ apiKey }).models.retrieve(DEFAULT_AI_MODEL);
     } catch (error) {
       if (!(error instanceof Anthropic.APIError)) throw error;
 
