@@ -2103,13 +2103,15 @@ export class QuantBotsService {
         Number(data.marginBalance ?? invested) + position * (price - entry);
       const pnl = equity - invested;
       const gridProfit = Number(data.gridProfit ?? 0) - withdrawn;
-      const liquidation = Number(
-        data.liquidationPrice ||
-          (position < 0
+      // 沒有強平價時 Pionex 回字串 "0"，要轉成數字再判斷才會改用預估值
+      const liquidation =
+        Number(data.liquidationPrice) ||
+        Number(
+          position < 0
             ? data.estimateLiquidationPriceUp
-            : data.estimateLiquidationPriceDown) ||
-          0,
-      );
+            : data.estimateLiquidationPriceDown,
+        ) ||
+        0;
 
       return {
         averageCost: entry,
@@ -2119,7 +2121,6 @@ export class QuantBotsService {
         fundingFee: Number(data.totalFundingFee ?? 0),
         liquidationDistance: liquidationDistanceOf(price, liquidation),
         liquidationPrice: liquidation || undefined,
-        openPrice: optionalNumber(data.openPrice),
         pionexStatus: data.status,
         // 和 App 一致：總利潤不加回已提取的利潤，網格利潤扣掉已提取的部分
         pnl,

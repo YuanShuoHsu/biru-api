@@ -746,7 +746,7 @@ export class QuantBotSummaryDto {
     description: '合約：預估強平價與現價的距離（比例）',
   })
   liquidationDistance?: number;
-  @ApiPropertyOptional({ description: 'Pionex 網格：建立時的市價' })
+  @ApiPropertyOptional({ description: 'Pionex 現貨網格：建立時的市價' })
   openPrice?: number;
   @ApiPropertyOptional({ description: '合約：累計資金費（正數為收入）' })
   fundingFee?: number;
