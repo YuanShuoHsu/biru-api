@@ -244,6 +244,7 @@ const importedSpotGrid = (data: PionexSpotGridData) => {
 };
 
 const importedFuturesGrid = (data: PionexFuturesGridData) => {
+  const slippage = optionalNumber(data.slippage);
   const config: FuturesGridConfigDto = {
     bottom: Number(data.bottom),
     extraMargin: optionalNumber(data.extraMargin),
@@ -262,6 +263,7 @@ const importedFuturesGrid = (data: PionexFuturesGridData) => {
       data.profitStopLimitPrice,
     ),
     row: data.row ?? 0,
+    ...(slippage && { slippage: Number((slippage * 100).toPrecision(15)) }),
     top: Number(data.top),
     trend: data.trend ?? 'no_trend',
   };
@@ -1077,10 +1079,9 @@ export class QuantBotsService {
                   triggerPausePriceDown: price(dto.triggerDown),
                 }),
               }),
-              // 暫停期間仍讓停利停損生效，避免暫停時失去保護
               ...(!dryRun && {
-                stopLossEnabled: true,
-                stopProfitEnabled: true,
+                stopLossEnabled: dto.stopLossEnabled ?? true,
+                stopProfitEnabled: dto.stopProfitEnabled ?? true,
               }),
             },
             path: 'pause',

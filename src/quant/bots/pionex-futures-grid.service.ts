@@ -50,6 +50,7 @@ export interface PionexFuturesGridData {
   positionOpenPrice?: string;
   profitWithdrawn?: string;
   reasonBy?: string;
+  slippage?: string;
   status: string;
   totalFundingFee?: string;
   usdtInvestment?: string;
@@ -165,6 +166,9 @@ export class PionexFuturesGridService {
             leverage: config.leverage,
             quoteInvestment: amount(investment),
             row: config.row,
+            ...(config.slippage && {
+              slippage: toDecimalString(config.slippage / 100, 6),
+            }),
             top: price(config.top),
             trend: config.trend,
             ...(lossStop && {

@@ -308,6 +308,15 @@ export class FuturesGridConfigDto {
   @ValidateNested()
   @Type(() => TriggerDto)
   trigger?: TriggerDto;
+
+  @ApiPropertyOptional({
+    description:
+      '實盤：開倉成交價最多偏離下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  slippage?: number;
 }
 
 // https://www.pionex.com/docs/api-docs/bot-api/smart-copy
@@ -1201,6 +1210,20 @@ export class FuturesGridOperationDto {
   @IsOptional()
   @IsIn(FUTURES_GRID_PAUSE_MODES)
   pauseMode?: (typeof FUTURES_GRID_PAUSE_MODES)[number];
+
+  @ApiPropertyOptional({
+    description: 'pause：暫停期間是否仍允許觸發停利，預設 true',
+  })
+  @IsOptional()
+  @IsBoolean()
+  stopProfitEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'pause：暫停期間是否仍允許觸發停損，預設 true',
+  })
+  @IsOptional()
+  @IsBoolean()
+  stopLossEnabled?: boolean;
 
   @ApiPropertyOptional({
     description: 'pause／resume：價格漲到此價才暫停或恢復，須高於現價',
