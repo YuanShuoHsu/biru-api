@@ -257,25 +257,6 @@ export class PionexFuturesGridService {
   }
 }
 
-/** 各種調整的試算結果，欄位依操作而不同 */
-export interface PionexFuturesGridOperationCheck {
-  checkResult: boolean;
-  estimateLiquidationPriceDown?: string;
-  estimateLiquidationPriceDownAfter?: string;
-  estimateLiquidationPriceDownBefore?: string;
-  estimateLiquidationPriceUp?: string;
-  estimateLiquidationPriceUpAfter?: string;
-  estimateLiquidationPriceUpBefore?: string;
-  estimatePerVolume?: string;
-  maxAmount?: string;
-  maxInvestment?: string;
-  maxReduceNum?: number;
-  minInvestment?: string;
-  reason?: string;
-  reduceAmount?: string;
-  reducePnl?: string;
-}
-
 export type FuturesGridOperationPath =
   | 'addMargin'
   | 'adjustParams'
