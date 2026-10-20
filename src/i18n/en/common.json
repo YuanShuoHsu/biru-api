@@ -254,7 +254,9 @@
     "agentTokenInvalid": "Invalid Claude Code connection token. Generate a new one on the settings page.",
     "aiRequestNotFound": "AI decision request not found",
     "aiRequestClosed": "This AI decision has already been handled or has expired",
-    "aiBacktestNotFound": "AI backtest not found"
+    "aiBacktestNotFound": "AI backtest not found",
+    "agentConnectExpired": "The connection code does not exist or has expired. Run the local agent again to get a new one.",
+    "agentNotNeeded": "The backend runs locally and already decides with this computer's Claude Code, so the agent is not needed"
   },
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",

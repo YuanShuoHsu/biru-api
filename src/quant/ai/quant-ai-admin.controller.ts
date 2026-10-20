@@ -15,8 +15,8 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 
 import {
+  ApproveAgentConnectDto,
   CreateAiBacktestDto,
-  QuantAgentTokenCreatedDto,
   QuantAgentTokenDto,
   QuantAiBacktestDto,
   QuantAiRequestDto,
@@ -43,12 +43,14 @@ export class QuantAiAdminController {
     return this.agent.findToken(user.id);
   }
 
-  @Post('agent-token')
-  @ApiOperation({ summary: '產生新的 Claude Code 連線 token，舊的立即失效' })
-  regenerateToken(
+  @Post('agent-token/approve')
+  @HttpCode(204)
+  @ApiOperation({ summary: '核准本機 Claude Code 代理的連線代碼' })
+  approveConnect(
+    @Body() { code }: ApproveAgentConnectDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantAgentTokenCreatedDto> {
-    return this.agent.regenerateToken(user.id);
+  ): Promise<void> {
+    return this.agent.approveConnect(user.id, code);
   }
 
   @Delete('agent-token')

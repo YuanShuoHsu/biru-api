@@ -254,7 +254,9 @@
     "agentTokenInvalid": "Claude Code の接続トークンが無効です。設定ページで再発行してください",
     "aiRequestNotFound": "AI 判断リクエストが見つかりません",
     "aiRequestClosed": "この AI 判断は処理済みか、有効期限が切れています",
-    "aiBacktestNotFound": "AI バックテストが見つかりません"
+    "aiBacktestNotFound": "AI バックテストが見つかりません",
+    "agentConnectExpired": "接続コードが存在しないか期限切れです。ローカルのエージェントを再実行して新しいコードを取得してください",
+    "agentNotNeeded": "バックエンドがローカルで動いており、このパソコンの Claude Code で直接判断しているため、エージェントは不要です"
   },
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",

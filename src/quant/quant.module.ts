@@ -11,6 +11,7 @@ import { QuantAiBacktestService } from './ai/quant-ai-backtest.service';
 import { QuantAiController } from './ai/quant-ai.controller';
 import { QuantAiAdvisorService } from './ai/quant-ai-advisor.service';
 import { QuantAiKeyService } from './ai/quant-ai-key.service';
+import { QuantClaudeCodeService } from './ai/quant-claude-code.service';
 import { PionexFuturesGridService } from './bots/pionex-futures-grid.service';
 import { PionexGridService } from './bots/pionex-grid.service';
 import { PionexSignalService } from './bots/pionex-signal.service';
@@ -54,6 +55,7 @@ import { QuantGateway } from './quant.gateway';
     QuantAiAgentService,
     QuantAiBacktestService,
     QuantAiKeyService,
+    QuantClaudeCodeService,
     QuantBacktestService,
     QuantBotsService,
     QuantEngineService,

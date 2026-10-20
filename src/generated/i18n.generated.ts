@@ -305,6 +305,8 @@ export type I18nTranslations = {
             "aiRequestNotFound": string;
             "aiRequestClosed": string;
             "aiBacktestNotFound": string;
+            "agentConnectExpired": string;
+            "agentNotNeeded": string;
         };
         "refunds": {
             "allowanceExceeded": string;

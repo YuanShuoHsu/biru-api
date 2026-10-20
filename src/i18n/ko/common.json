@@ -254,7 +254,9 @@
     "agentTokenInvalid": "Claude Code 연결 토큰이 유효하지 않습니다. 설정 페이지에서 다시 발급하세요",
     "aiRequestNotFound": "AI 판단 요청을 찾을 수 없습니다",
     "aiRequestClosed": "이 AI 판단은 이미 처리되었거나 만료되었습니다",
-    "aiBacktestNotFound": "AI 백테스트를 찾을 수 없습니다"
+    "aiBacktestNotFound": "AI 백테스트를 찾을 수 없습니다",
+    "agentConnectExpired": "연결 코드가 없거나 만료되었습니다. 로컬 에이전트를 다시 실행해 새 코드를 받으세요",
+    "agentNotNeeded": "백엔드가 로컬에서 실행 중이며 이 컴퓨터의 Claude Code로 직접 판단하므로 에이전트가 필요 없습니다"
   },
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",

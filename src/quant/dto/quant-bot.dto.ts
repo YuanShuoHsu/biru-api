@@ -1409,6 +1409,10 @@ export class QuantAgentRequestDto {
 }
 
 export class QuantAgentTokenDto {
+  @ApiProperty({
+    description: '後端跑在本機時直接用本機 Claude Code 判斷，不需要代理',
+  })
+  claudeCodeLocal: boolean;
   @ApiProperty() configured: boolean;
   @ApiPropertyOptional() tokenLast4?: string;
   @ApiPropertyOptional({ description: '代理最後一次取請求的時間' })
@@ -1416,9 +1420,34 @@ export class QuantAgentTokenDto {
   @ApiPropertyOptional() createdAt?: Date;
 }
 
-export class QuantAgentTokenCreatedDto extends QuantAgentTokenDto {
-  @ApiProperty({ description: '新的 token，只在這次回傳；舊 token 立即失效' })
-  token: string;
+export class QuantAgentConnectDto {
+  @ApiProperty({ description: '代理輪詢用的識別碼，只有代理知道' }) id: string;
+  @ApiProperty({ description: '使用者在後台核准時看到的代碼' }) code: string;
+  @ApiProperty() expiresAt: Date;
+}
+
+export const AGENT_CONNECT_STATUSES = [
+  'pending',
+  'approved',
+  'expired',
+] as const;
+
+export class QuantAgentConnectStatusDto {
+  @ApiProperty({
+    enum: AGENT_CONNECT_STATUSES,
+    enumName: 'QuantAgentConnectStatus',
+  })
+  status: (typeof AGENT_CONNECT_STATUSES)[number];
+  @ApiPropertyOptional({ description: '核准後只回傳這一次' }) token?: string;
+}
+
+export class ApproveAgentConnectDto {
+  @ApiProperty({ example: 'K7Q2-M9XA' })
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  code: string;
 }
 
 export const AI_BACKTEST_STATUSES = [

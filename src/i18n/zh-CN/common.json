@@ -254,7 +254,9 @@
     "agentTokenInvalid": "Claude Code 连接 token 无效，请到设置页重新生成",
     "aiRequestNotFound": "找不到这笔 AI 判断请求",
     "aiRequestClosed": "这笔 AI 判断已经处理过或已过期",
-    "aiBacktestNotFound": "找不到这笔 AI 回测"
+    "aiBacktestNotFound": "找不到这笔 AI 回测",
+    "agentConnectExpired": "连接代码不存在或已过期，请重新运行本机代理获取新代码",
+    "agentNotNeeded": "后台在本机运行，已经直接用这台电脑的 Claude Code 判断，不需要再开代理"
   },
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
