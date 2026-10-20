@@ -240,7 +240,11 @@ export class QuantAiAgentService {
       return {
         expiresAt: request.expiresAt ?? undefined,
         id: request.id,
-        instructions: systemPrompt(config, config.futures?.direction ?? 'long'),
+        instructions: systemPrompt(
+          config,
+          config.futures?.direction ?? 'long',
+          !request.botId,
+        ),
         kind: request.botId ? 'bot' : 'backtest',
         schema: DECISION_SCHEMA as unknown as Record<string, unknown>,
         snapshot: request.snapshot,

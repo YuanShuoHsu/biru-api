@@ -1534,6 +1534,13 @@
       "when": 1792507503511,
       "tag": "0218_quant_ai_request_auto_execute",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1792508915704,
+      "tag": "0219_quant_ai_backtest_context_candles",
+      "breakpoints": true
     }
   ]
 }

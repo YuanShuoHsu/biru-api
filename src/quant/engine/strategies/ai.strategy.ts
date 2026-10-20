@@ -8,8 +8,8 @@ import type { Strategy, StrategyContext } from '../types';
 import { adverse, favorable, type Trader } from './trader';
 
 const DECISION_CANDLES = 120;
-const CONTEXT_CANDLES = 30;
-const CONTEXT_INTERVALS: PionexKlineInterval[] = ['4H', '1D'];
+export const CONTEXT_CANDLES = 30;
+export const CONTEXT_INTERVALS: PionexKlineInterval[] = ['4H', '1D'];
 
 export interface AiDecision {
   action: 'open' | 'close' | 'hold';
@@ -51,7 +51,7 @@ export interface AiSnapshot {
 export interface AiAdvisor {
   decide(snapshot: AiSnapshot): Promise<AiDecisionResult | AiDeferredResult>;
   monthCost(): Promise<number>;
-  /** 回測：在收盤處理裡同步等判斷，並且只有決策週期的歷史 K 線可用 */
+  /** 回測：在收盤處理裡同步等判斷 */
   inline?: boolean;
 }
 
@@ -254,15 +254,13 @@ export class AiStrategy implements Strategy {
       await this.context.candles(interval, DECISION_CANDLES)
     ).filter(({ time }) => time <= candle.time);
     const contexts = await Promise.all(
-      (this.advisor.inline ? [] : CONTEXT_INTERVALS)
-        .filter((value) => value !== interval)
-        .map(
-          async (value) =>
-            [
-              value,
-              compact(await this.context.candles(value, CONTEXT_CANDLES)),
-            ] as const,
-        ),
+      CONTEXT_INTERVALS.filter((value) => value !== interval).map(
+        async (value) =>
+          [
+            value,
+            compact(await this.context.candles(value, CONTEXT_CANDLES)),
+          ] as const,
+      ),
     );
     const lastPrice = this.context.lastPrice() ?? candle.close;
     const { averageCost, size } = this.trader.holding();

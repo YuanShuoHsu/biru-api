@@ -40,6 +40,10 @@ export interface FuturesBacktestMarket {
 export interface BacktestInput extends BacktestCommonInput {
   /** AI 策略的判斷來源；回測時必須是 inline */
   aiAdvisor?: AiAdvisor;
+  /** 撮合週期以外的歷史 K 線，策略只拿得到當下已收盤的 */
+  contextCandles?: Partial<Record<PionexKlineInterval, QuantCandleDto[]>>;
+  /** 事件一產生就通知；回測中途中斷時，已發生的事件仍拿得到 */
+  onEvent?: (event: BacktestEvent) => void;
   /** 合約才需要；有帶就以逐倉保證金模型回測 */
   futures?: FuturesBacktestMarket;
   type: QuantBotType;
@@ -130,15 +134,29 @@ export const runBacktest = async (
         void events.push({ kind: 'funding', payload: { amount, rate }, time }),
       ),
     insertOrder: (order) => Promise.resolve(void orders.push(order)),
-    log: (kind, payload) => void events.push({ kind, payload, time: now }),
+    log: (kind, payload) => {
+      const event = { kind, payload, time: now };
+      events.push(event);
+      input.onEvent?.(event);
+    },
     nextClientOrderId: () => Promise.resolve(`backtest-${++sequence}`),
     setStopped: (reason) => Promise.resolve(void (stoppedReason = reason)),
     updateOrder: () => Promise.resolve(),
   };
   const common = {
     broker,
-    candles: (_: PionexKlineInterval, count: number) =>
-      Promise.resolve(candles.slice(Math.max(0, index + 1 - count), index + 1)),
+    candles: (requested: PionexKlineInterval, count: number) => {
+      const context =
+        requested === interval ? undefined : input.contextCandles?.[requested];
+
+      return Promise.resolve(
+        context
+          ? context
+              .filter(({ time }) => candleEndOf(requested, time) <= now)
+              .slice(-count)
+          : candles.slice(Math.max(0, index + 1 - count), index + 1),
+      );
+    },
     config,
     fills: [],
     investment,

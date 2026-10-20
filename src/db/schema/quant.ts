@@ -260,6 +260,8 @@ export const quantAiBacktest = pgTable(
     config: jsonb('config').$type<Record<string, unknown>>().notNull(),
     investment: decimal('investment').notNull(),
     candles: jsonb('candles').$type<number[][]>().notNull(),
+    contextCandles:
+      jsonb('context_candles').$type<Record<string, number[][]>>(),
     status: quantAiBacktestStatusEnum('status').notNull(),
     decidedCount: integer('decided_count').notNull().default(0),
     cost: decimal('cost').notNull().default(0),

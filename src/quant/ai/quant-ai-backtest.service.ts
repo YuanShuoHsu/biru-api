@@ -32,12 +32,22 @@ import type {
   QuantAiBacktestDto,
 } from '../dto/quant-bot.dto';
 import type { QuantCandleDto } from '../dto/quant-market.dto';
-import { type FuturesBacktestMarket, runBacktest } from '../engine/backtest';
+import {
+  type BacktestEvent,
+  type FuturesBacktestMarket,
+  runBacktest,
+} from '../engine/backtest';
 import { QuantEngineService } from '../engine/quant-engine.service';
-import type { AiAdvisor, AiSnapshot } from '../engine/strategies/ai.strategy';
+import {
+  type AiAdvisor,
+  type AiSnapshot,
+  CONTEXT_CANDLES,
+  CONTEXT_INTERVALS,
+} from '../engine/strategies/ai.strategy';
 import { botSymbolSpec } from '../engine/symbol-spec';
 import { QuantMarketService } from '../market/quant-market.service';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+import { candleEndOf, type PionexKlineInterval } from '../pionex/pionex.types';
 import { quantEnvironment } from '../quant-environment';
 
 import { QuantAiAdvisorService } from './quant-ai-advisor.service';
@@ -112,9 +122,31 @@ export class QuantAiBacktestService {
       config.interval,
       candleCount,
     );
+    const from = candles[0]?.time ?? Date.now();
+    // 涵蓋整段回測期間，再加上第一根之前判斷要用的那幾根
+    const contextCandles = Object.fromEntries(
+      await Promise.all(
+        CONTEXT_INTERVALS.filter((value) => value !== config.interval).map(
+          async (value) =>
+            [
+              value,
+              toRows(
+                await this.market.findCandleHistory(
+                  symbol,
+                  value,
+                  Math.ceil(
+                    (Date.now() - from) / (candleEndOf(value, from) - from),
+                  ) + CONTEXT_CANDLES,
+                ),
+              ),
+            ] as const,
+        ),
+      ),
+    );
     const id = randomUUID();
     await this.db.insert(quantAiBacktest).values({
       candles: toRows(candles),
+      contextCandles,
       config: config as unknown as Record<string, unknown>,
       environment: quantEnvironment(),
       id,
@@ -239,6 +271,7 @@ export class QuantAiBacktestService {
           run.userId,
           config,
           request.snapshot,
+          true,
         );
         await this.db
           .update(quantAiBacktest)
@@ -288,6 +321,7 @@ export class QuantAiBacktestService {
     );
     const config = run.config as unknown as AiConfigDto;
     const candles = toCandles(run.candles);
+    const decisionEvents: BacktestEvent[] = [];
     const advisor: AiAdvisor = {
       decide: (snapshot) => {
         const decision = decisions.get(Date.parse(snapshot.time));
@@ -309,11 +343,20 @@ export class QuantAiBacktestService {
         aiAdvisor: advisor,
         candles,
         config,
+        contextCandles: Object.fromEntries(
+          Object.entries(run.contextCandles ?? {}).map(([value, rows]) => [
+            value as PionexKlineInterval,
+            toCandles(rows),
+          ]),
+        ),
         futures: config.futures
           ? await this.futuresMarketOf(run, candles)
           : undefined,
         interval: config.interval,
         investment: run.investment,
+        onEvent: (event) => {
+          if (event.kind === 'ai_decision') decisionEvents.push(event);
+        },
         spec: await botSymbolSpec(this.symbols, {
           config,
           symbol: run.symbol,
@@ -344,12 +387,18 @@ export class QuantAiBacktestService {
       }
 
       const time = Date.parse(error.snapshot.time);
-      const recentDecisions = answered
-        .filter(({ candleTime }) => candleTime.getTime() < time)
+      // 和實盤的 recentDecisions 同樣欄位，讓模型看得到每次判斷有沒有成交、在什麼價格
+      const recentDecisions = decisionEvents
         .slice(-RECENT_DECISIONS)
-        .map(({ candleTime, decision }) => ({
-          ...decision,
-          time: candleTime.toISOString(),
+        .map(({ payload, time: decidedAt }) => ({
+          action: payload?.action,
+          amount: payload?.amount,
+          closeRatio: payload?.closeRatio,
+          executed: payload?.executed,
+          price: payload?.price,
+          reasoning: payload?.reasoning,
+          skipped: payload?.skipReason,
+          time: new Date(decidedAt).toISOString(),
         }));
 
       await this.db

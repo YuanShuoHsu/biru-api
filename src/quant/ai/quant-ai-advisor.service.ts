@@ -104,11 +104,14 @@ export const decisionSchema = z.object({
 export const systemPrompt = (
   config: AiConfigDto,
   direction: 'long' | 'short',
+  backtest = false,
 ) =>
   [
     'You are the decision engine of an automated trading bot on the Pionex exchange.',
     `The bot only trades ${direction === 'long' ? 'long: open means buy, close means sell' : 'short: open means sell short, close means buy back'}.`,
-    'Each request gives you a market snapshot: recent candles on several intervals, indicators, the order book, the bot position and budget, and your own recent decisions with their outcomes.',
+    backtest
+      ? 'This is a backtest on historical data. Each request gives you the market snapshot at that past moment: recent candles on several intervals, indicators, the bot position and budget, and your own recent decisions with their outcomes. Historical order book data does not exist, so there is no order book.'
+      : 'Each request gives you a market snapshot: recent candles on several intervals, indicators, the order book, the bot position and budget, and your own recent decisions with their outcomes.',
     'Choose exactly one action. Prefer hold when the edge is unclear; trading fees and slippage make marginal trades lose money.',
     `Never open more than maxOrderAmount or the remaining budget. The system enforces these limits and its own stop loss and take profit, and rejects orders below the exchange minimum.`,
     `Write reasoning in ${LANGUAGES[config.locale]}.`,
@@ -243,6 +246,7 @@ export class QuantAiAdvisorService {
     userId: string,
     config: AiConfigDto,
     payload: object,
+    backtest = false,
   ): Promise<AiDecisionResult> {
     const client = new Anthropic({
       apiKey: await this.aiKeys.resolve(userId),
@@ -263,7 +267,11 @@ export class QuantAiAdvisorService {
         effort: config.effort,
         format: { schema: DECISION_SCHEMA, type: 'json_schema' },
       },
-      system: systemPrompt(config, config.futures?.direction ?? 'long'),
+      system: systemPrompt(
+        config,
+        config.futures?.direction ?? 'long',
+        backtest,
+      ),
     });
     const cost = costOf(response.model, response.usage);
     const usage = {

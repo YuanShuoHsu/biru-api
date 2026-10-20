@@ -1,0 +1,1 @@
+ALTER TABLE "quant_ai_backtest" ADD COLUMN "context_candles" jsonb;
