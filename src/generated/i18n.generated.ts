@@ -240,6 +240,7 @@ export type I18nTranslations = {
             "selectionCountInvalid": string;
         };
         "orders": {
+            "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
             "invalidTable": string;
             "menuItemUnavailable": string;
@@ -248,6 +249,7 @@ export type I18nTranslations = {
             "modifierUnavailable": string;
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
+            "orderTotalTooLarge": string;
             "pickupOutsideOpeningHours": string;
             "pickupTooCloseToClosing": string;
             "pickupTooFarAhead": string;
@@ -299,6 +301,10 @@ export type I18nTranslations = {
             "orderSizeRejected": string;
             "signalBotLiveOnly": string;
             "futuresStrategyPaperOnly": string;
+            "agentTokenInvalid": string;
+            "aiRequestNotFound": string;
+            "aiRequestClosed": string;
+            "aiBacktestNotFound": string;
         };
         "refunds": {
             "allowanceExceeded": string;

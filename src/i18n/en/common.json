@@ -190,6 +190,7 @@
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orders": {
+    "cashRequiresInStoreQrCode": "To pay in cash, please order by scanning the QR code in store.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
@@ -198,6 +199,7 @@
     "modifierUnavailable": "\"{name}\" is currently unavailable",
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
+    "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",
     "pickupTooFarAhead": "This pickup time is too far in advance. Please choose another time.",
@@ -248,7 +250,11 @@
     "orderNotFound": "Order not found",
     "orderSizeRejected": "The order size does not meet the exchange limits. Check the minimum, maximum and decimal places.",
     "signalBotLiveOnly": "Signal bots run on Pionex and can only be live",
-    "futuresStrategyPaperOnly": "Futures DCA / indicator / webhook bots are paper only; for live trading use a Signal bot so TradingView triggers Pionex directly, or create an official futures bot in the Pionex app"
+    "futuresStrategyPaperOnly": "Futures DCA / indicator / webhook bots are paper only; for live trading use a Signal bot so TradingView triggers Pionex directly, or create an official futures bot in the Pionex app",
+    "agentTokenInvalid": "Invalid Claude Code connection token. Generate a new one on the settings page.",
+    "aiRequestNotFound": "AI decision request not found",
+    "aiRequestClosed": "This AI decision has already been handled or has expired",
+    "aiBacktestNotFound": "AI backtest not found"
   },
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",

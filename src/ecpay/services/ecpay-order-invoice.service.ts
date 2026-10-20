@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto';
@@ -14,6 +14,7 @@ import {
 } from '../dto/issue-invoice-ecpay.dto';
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto';
+import { UnprintedInvoiceDto } from '../dto/unprinted-invoice.dto';
 import { VoidInvoiceDto } from '../dto/void-invoice.dto';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -21,6 +22,7 @@ import type { InvoiceStatus } from 'src/db/schema/invoices';
 import type { I18nTranslations } from 'src/generated/i18n.generated';
 
 import { CRON_ENABLED } from 'src/common/constants/cron';
+import { platformMidnight } from 'src/common/constants/timezone';
 import { toActiveInvoice } from 'src/common/utils/invoices';
 
 import {
@@ -413,6 +415,33 @@ export class EcpayOrderInvoiceService {
     this.emitOrderUpdated(organizationId, orderId);
 
     return print;
+  }
+
+  async listUnprintedToday(
+    organizationSlug: string,
+  ): Promise<UnprintedInvoiceDto[]> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    return this.db
+      .select({ orderId: invoice.orderId })
+      .from(invoice)
+      .innerJoin(order, eq(order.id, invoice.orderId))
+      .where(
+        and(
+          eq(order.sellerId, org.id),
+          eq(invoice.status, 'issued'),
+          isNull(invoice.printedAt),
+          isNotNull(invoice.invoiceNumber),
+          isNull(invoice.carrierType),
+          ne(invoice.type, 'donate'),
+          gte(invoice.invoiceDate, new Date(platformMidnight(Date.now()))),
+        ),
+      )
+      .orderBy(asc(invoice.invoiceDate));
   }
 
   async resetPrintForOrder(

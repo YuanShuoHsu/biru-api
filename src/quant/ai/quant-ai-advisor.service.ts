@@ -2,9 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import Anthropic from '@anthropic-ai/sdk';
 import { and, desc, eq, gte, inArray, type SQL, sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 import * as z from 'zod';
 
-import { type QuantBot, quantBot, quantBotEvent } from 'src/db/schema/quant';
+import {
+  type QuantBot,
+  quantAiRequest,
+  quantBot,
+  quantBotEvent,
+} from 'src/db/schema/quant';
 import type { DrizzleDB } from 'src/drizzle/drizzle.module';
 import { DRIZZLE } from 'src/drizzle/drizzle.module';
 
@@ -16,6 +22,7 @@ import type {
   AiSnapshot,
 } from '../engine/strategies/ai.strategy';
 import { QuantMarketService } from '../market/quant-market.service';
+import { candleEndOf } from '../pionex/pionex.types';
 import { quantEnvironment } from '../quant-environment';
 
 import { AI_MODEL } from './ai-model';
@@ -54,7 +61,7 @@ const FALLBACK_PRICE = {
   output: 25e-6,
 };
 
-const DECISION_SCHEMA = {
+export const DECISION_SCHEMA = {
   additionalProperties: false,
   properties: {
     action: {
@@ -86,7 +93,7 @@ const DECISION_SCHEMA = {
   type: 'object',
 } as const;
 
-const decisionSchema = z.object({
+export const decisionSchema = z.object({
   action: z.enum(['open', 'close', 'hold']),
   amount: z.number().min(0),
   closeRatio: z.number().min(0).max(1),
@@ -94,7 +101,10 @@ const decisionSchema = z.object({
   reasoning: z.string(),
 });
 
-const systemPrompt = (config: AiConfigDto, direction: 'long' | 'short') =>
+export const systemPrompt = (
+  config: AiConfigDto,
+  direction: 'long' | 'short',
+) =>
   [
     'You are the decision engine of an automated trading bot on the Pionex exchange.',
     `The bot only trades ${direction === 'long' ? 'long: open means buy, close means sell' : 'short: open means sell short, close means buy back'}.`,
@@ -134,10 +144,48 @@ export class QuantAiAdvisorService {
   ) {}
 
   forBot(bot: QuantBot): AiAdvisor {
+    if ((bot.config as unknown as AiConfigDto).source === 'claude_code')
+      return {
+        decide: async (snapshot) => {
+          await this.requestDecision(bot, snapshot);
+          return { deferred: true };
+        },
+        monthCost: () => Promise.resolve(0),
+      };
+
     return {
       decide: (snapshot) => this.decide(bot, snapshot),
       monthCost: () => this.monthCost(bot.id),
     };
+  }
+
+  // 一次只等一個判斷；新的一根收盤時，上一個還沒回或沒確認的就作廢，不會在過時的價格下單
+  private async requestDecision(bot: QuantBot, snapshot: AiSnapshot) {
+    const config = bot.config as unknown as AiConfigDto;
+    const now = new Date(snapshot.time);
+    const payload = await this.enrich(bot, snapshot);
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(quantAiRequest)
+        .set({ resolvedAt: now, status: 'expired' })
+        .where(
+          and(
+            eq(quantAiRequest.botId, bot.id),
+            inArray(quantAiRequest.status, ['pending', 'awaiting_approval']),
+          ),
+        );
+      await tx.insert(quantAiRequest).values({
+        botId: bot.id,
+        candleTime: now,
+        environment: bot.environment,
+        expiresAt: new Date(candleEndOf(config.interval, now.getTime())),
+        id: randomUUID(),
+        snapshot: payload as unknown as Record<string, unknown>,
+        status: 'pending',
+        userId: bot.userId,
+      });
+    });
   }
 
   /** 本月（UTC）已花的 AI 費用，拒答也照樣計費 */
@@ -184,9 +232,20 @@ export class QuantAiAdvisorService {
     bot: QuantBot,
     snapshot: AiSnapshot,
   ): Promise<AiDecisionResult> {
-    const config = bot.config as unknown as AiConfigDto;
+    return this.callModel(
+      bot.userId,
+      bot.config as unknown as AiConfigDto,
+      await this.enrich(bot, snapshot),
+    );
+  }
+
+  async callModel(
+    userId: string,
+    config: AiConfigDto,
+    payload: object,
+  ): Promise<AiDecisionResult> {
     const client = new Anthropic({
-      apiKey: await this.aiKeys.resolve(bot.userId),
+      apiKey: await this.aiKeys.resolve(userId),
     });
 
     const response = await client.beta.messages.create({
@@ -195,7 +254,7 @@ export class QuantAiAdvisorService {
       max_tokens: MAX_TOKENS,
       messages: [
         {
-          content: JSON.stringify(await this.enrich(bot, snapshot)),
+          content: JSON.stringify(payload),
           role: 'user',
         },
       ],

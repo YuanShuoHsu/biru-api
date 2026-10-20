@@ -6,6 +6,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { DineInTablesController } from './dine-in-tables.controller';
 import { MenuItemSalesController } from './menu-item-sales.controller';
 import { MenuItemSalesService } from './menu-item-sales.service';
+import { OrderModesController } from './order-modes.controller';
 import { OrderPricingModule } from './order-pricing.module';
 import { OrderStatsController } from './order-stats.controller';
 import { OrderStatsService } from './order-stats.service';
@@ -18,6 +19,7 @@ import { UserOrdersController } from './user-orders.controller';
   controllers: [
     DineInTablesController,
     MenuItemSalesController,
+    OrderModesController,
     OrderStatsController,
     OrdersController,
     UserOrdersController,

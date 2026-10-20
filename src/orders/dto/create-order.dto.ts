@@ -2,7 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsDefined,
   IsEmail,
@@ -13,6 +15,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -133,6 +136,7 @@ export class CreateOrderItemDto {
   @ApiProperty()
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity: number;
 
   @ApiProperty({
@@ -145,6 +149,8 @@ export class CreateOrderItemDto {
 
   @ApiProperty({ type: [CreateOrderItemAddOnDto] })
   @IsArray()
+  @ArrayMaxSize(20)
+  @ArrayUnique((addOn: CreateOrderItemAddOnDto) => addOn.menuItemId)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemAddOnDto)
   addOns: CreateOrderItemAddOnDto[];
@@ -198,6 +204,7 @@ export class CreateOrderDto {
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
@@ -206,6 +213,7 @@ export class CreateOrderDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100)
   partySize?: number;
 
   @ApiPropertyOptional({ example: '2026-08-31T09:15:00+08:00' })
@@ -220,10 +228,19 @@ export class CreateOrderDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(999)
   tableNumber?: number;
 
   @ApiPropertyOptional({ description: '桌上 QR code 帶的桌號簽章，內用必填' })
   @IsOptional()
   @IsString()
   tableToken?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '櫃台／得來速 QR code 帶的點餐方式簽章，這兩種方式付現金時必填',
+  })
+  @IsOptional()
+  @IsString()
+  modeToken?: string;
 }

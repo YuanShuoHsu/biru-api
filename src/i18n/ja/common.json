@@ -190,6 +190,7 @@
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
   "orders": {
+    "cashRequiresInStoreQrCode": "現金でお支払いの場合は、店内の QR コードを読み取ってご注文ください",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
     "menuItemUnavailable": "「{name}」は現在ご提供できません",
@@ -198,6 +199,7 @@
     "modifierUnavailable": "「{name}」は現在ご提供できません",
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
+    "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",
     "pickupTooFarAhead": "この受取時間は予約可能な範囲を超えています。別の時間を選択してください",
@@ -248,7 +250,11 @@
     "orderNotFound": "注文が見つかりません",
     "orderSizeRejected": "注文数量が取引所の制限を満たしていません。最小値・最大値・小数桁数を確認してください",
     "signalBotLiveOnly": "シグナルボットは Pionex で実行されるため実運用のみです",
-    "futuresStrategyPaperOnly": "先物の DCA／インジケーター／Webhook は模擬取引のみです。実運用は「シグナルボット」で TradingView から Pionex を直接動かすか、Pionex アプリで公式の先物ボットを作成してください"
+    "futuresStrategyPaperOnly": "先物の DCA／インジケーター／Webhook は模擬取引のみです。実運用は「シグナルボット」で TradingView から Pionex を直接動かすか、Pionex アプリで公式の先物ボットを作成してください",
+    "agentTokenInvalid": "Claude Code の接続トークンが無効です。設定ページで再発行してください",
+    "aiRequestNotFound": "AI 判断リクエストが見つかりません",
+    "aiRequestClosed": "この AI 判断は処理済みか、有効期限が切れています",
+    "aiBacktestNotFound": "AI バックテストが見つかりません"
   },
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",

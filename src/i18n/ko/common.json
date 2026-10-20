@@ -190,6 +190,7 @@
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
   },
   "orders": {
+    "cashRequiresInStoreQrCode": "현금으로 결제하려면 매장 내 QR 코드를 스캔하여 주문하세요",
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",
     "invalidTable": "테이블 QR 코드가 유효하지 않습니다. 테이블의 QR 코드를 다시 스캔하세요",
     "menuItemUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
@@ -198,6 +199,7 @@
     "modifierUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "modifierUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "notAwaitingPayment": "결제 기한이 지났거나 상태가 변경되어 이 주문은 결제할 수 없습니다",
+    "orderTotalTooLarge": "주문 금액이 한도를 초과했습니다. 품목을 줄이거나 주문을 나눠 주세요",
     "pickupOutsideOpeningHours": "이 픽업 시간은 매장 영업시간이 아닙니다. 다른 시간을 선택하세요",
     "pickupTooCloseToClosing": "이 픽업 시간은 마감 시간에 너무 가깝습니다. 다른 시간을 선택하세요",
     "pickupTooFarAhead": "이 픽업 시간은 예약 가능한 범위를 벗어났습니다. 다른 시간을 선택하세요",
@@ -248,7 +250,11 @@
     "orderNotFound": "주문을 찾을 수 없습니다",
     "orderSizeRejected": "주문 수량이 거래소 제한에 맞지 않습니다. 최소값, 최대값, 소수 자릿수를 확인하세요",
     "signalBotLiveOnly": "신호 봇은 Pionex에서 실행되므로 실전만 가능합니다",
-    "futuresStrategyPaperOnly": "선물 DCA／지표／Webhook은 모의 거래만 제공합니다. 실전은 「신호 봇」으로 TradingView가 Pionex를 직접 실행하게 하거나 Pionex 앱에서 공식 선물 봇을 만드세요"
+    "futuresStrategyPaperOnly": "선물 DCA／지표／Webhook은 모의 거래만 제공합니다. 실전은 「신호 봇」으로 TradingView가 Pionex를 직접 실행하게 하거나 Pionex 앱에서 공식 선물 봇을 만드세요",
+    "agentTokenInvalid": "Claude Code 연결 토큰이 유효하지 않습니다. 설정 페이지에서 다시 발급하세요",
+    "aiRequestNotFound": "AI 판단 요청을 찾을 수 없습니다",
+    "aiRequestClosed": "이 AI 판단은 이미 처리되었거나 만료되었습니다",
+    "aiBacktestNotFound": "AI 백테스트를 찾을 수 없습니다"
   },
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",

@@ -63,6 +63,7 @@ import { MarketCacheService } from './market-cache.service';
 import { PionexBroker } from './pionex-broker';
 import { SimulatedBroker } from './simulated-broker';
 import { botSymbolSpec, toRiskTiers } from './symbol-spec';
+import type { AiDecision } from './strategies/ai.strategy';
 import type { BotFill, WebhookSignal } from './types';
 
 const LEASE_TICK_MS = 10_000;
@@ -145,6 +146,17 @@ export class QuantEngineService
     if (!active) throw new ServiceUnavailableException('Bot is not running');
 
     await active.runner.handleSignal(signal);
+  }
+
+  async aiDecision(
+    botId: string,
+    decision: AiDecision,
+    meta: Record<string, unknown>,
+  ) {
+    const active = this.runners.get(botId);
+    if (!active) throw new ServiceUnavailableException('Bot is not running');
+
+    await active.runner.handleAiDecision(decision, meta);
   }
 
   async tick() {

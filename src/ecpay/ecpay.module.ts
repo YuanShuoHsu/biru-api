@@ -1,6 +1,7 @@
 import { EcpayOrderInvoiceController } from './ecpay-order-invoice.controller';
 import { EcpayOrderPaymentNotificationController } from './ecpay-order-payment-notification.controller';
 import { EcpayOrderRefundController } from './ecpay-order-refund.controller';
+import { EcpayOrganizationInvoiceController } from './ecpay-organization-invoice.controller';
 import { EcpayAttentionController } from './ecpay-attention.controller';
 import { EcpayController } from './ecpay.controller';
 
@@ -49,6 +50,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayOrderInvoiceController,
     EcpayOrderPaymentNotificationController,
     EcpayOrderRefundController,
+    EcpayOrganizationInvoiceController,
   ],
   providers: [
     EcpayAllowanceInvoiceService,

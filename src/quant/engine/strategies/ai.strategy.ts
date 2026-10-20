@@ -27,6 +27,11 @@ export interface AiDecisionResult {
   usage: { input: number; output: number };
 }
 
+/** 判斷交給機器人以外的人（本機 Claude Code），稍後經 onAiDecision 送回 */
+export interface AiDeferredResult {
+  deferred: true;
+}
+
 export interface AiSnapshot {
   budget: number;
   candles: Record<string, number[][]>;
@@ -44,8 +49,10 @@ export interface AiSnapshot {
 
 /** 由引擎提供：呼叫模型並計費，策略本身不碰 API key */
 export interface AiAdvisor {
-  decide(snapshot: AiSnapshot): Promise<AiDecisionResult>;
+  decide(snapshot: AiSnapshot): Promise<AiDecisionResult | AiDeferredResult>;
   monthCost(): Promise<number>;
+  /** 回測：在收盤處理裡同步等判斷，並且只有決策週期的歷史 K 線可用 */
+  inline?: boolean;
 }
 
 const compact = (candles: QuantCandleDto[]) =>
@@ -96,13 +103,25 @@ export class AiStrategy implements Strategy {
   }
 
   // 模型回應可能要數十秒，不在序列佇列裡等，否則停損與成交處理會被卡住
-  onCandleClose(candle: QuantCandleDto) {
+  async onCandleClose(candle: QuantCandleDto) {
+    if (this.advisor.inline) return this.consultInline(candle);
+
     if (!this.consulting) {
       this.consulting = true;
       void this.consult(candle).finally(() => (this.consulting = false));
     }
+  }
 
-    return Promise.resolve();
+  async onAiDecision(decision: AiDecision, meta: Record<string, unknown>) {
+    const skipReason = await this.apply(decision);
+    this.context.log('ai_decision', {
+      ...meta,
+      ...decision,
+      cost: 0,
+      executed: decision.action !== 'hold' && !skipReason,
+      price: this.context.lastPrice(),
+      skipReason,
+    });
   }
 
   async onPrice(price: number) {
@@ -139,15 +158,39 @@ export class AiStrategy implements Strategy {
     return size >= minTradeSize && size * price >= minAmount;
   }
 
+  private async consultInline(candle: QuantCandleDto) {
+    const snapshot = await this.snapshot(candle);
+    const result = await this.advisor.decide(snapshot);
+    if ('deferred' in result) return;
+
+    if (!result.decision) {
+      this.context.log('ai_refusal', { reason: result.refusal });
+      return;
+    }
+
+    const skipReason = await this.apply(result.decision);
+    this.context.log('ai_decision', {
+      ...result.decision,
+      executed: result.decision.action !== 'hold' && !skipReason,
+      price: snapshot.lastPrice,
+      skipReason,
+    });
+  }
+
   private async consult(candle: QuantCandleDto) {
     try {
-      if ((await this.advisor.monthCost()) >= this.config.monthlyCostLimit) {
+      const { monthlyCostLimit } = this.config;
+      if (
+        monthlyCostLimit !== undefined &&
+        (await this.advisor.monthCost()) >= monthlyCostLimit
+      ) {
         await this.context.schedule(() => this.context.stop('ai_cost_limit'));
         return;
       }
 
       const snapshot = await this.snapshot(candle);
       const result = await this.advisor.decide(snapshot);
+      if ('deferred' in result) return;
       const common = {
         cost: result.cost,
         inputTokens: result.usage.input,
@@ -211,13 +254,15 @@ export class AiStrategy implements Strategy {
       await this.context.candles(interval, DECISION_CANDLES)
     ).filter(({ time }) => time <= candle.time);
     const contexts = await Promise.all(
-      CONTEXT_INTERVALS.filter((value) => value !== interval).map(
-        async (value) =>
-          [
-            value,
-            compact(await this.context.candles(value, CONTEXT_CANDLES)),
-          ] as const,
-      ),
+      (this.advisor.inline ? [] : CONTEXT_INTERVALS)
+        .filter((value) => value !== interval)
+        .map(
+          async (value) =>
+            [
+              value,
+              compact(await this.context.candles(value, CONTEXT_CANDLES)),
+            ] as const,
+        ),
     );
     const lastPrice = this.context.lastPrice() ?? candle.close;
     const { averageCost, size } = this.trader.holding();

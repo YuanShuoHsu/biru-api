@@ -13,13 +13,42 @@ import {
   isFuturesBot,
   type QuantBotType,
 } from '../dto/quant-bot.dto';
-import type { QuantFundingRateDto } from '../dto/quant-market.dto';
-import { type FuturesBacktestMarket, runBacktest } from '../engine/backtest';
+import type {
+  QuantCandleDto,
+  QuantFundingRateDto,
+} from '../dto/quant-market.dto';
+import {
+  type BacktestResult,
+  type FuturesBacktestMarket,
+  runBacktest,
+} from '../engine/backtest';
 import { botSymbolSpec, toRiskTiers } from '../engine/symbol-spec';
 import { QuantMarketService } from '../market/quant-market.service';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
 
 const FUNDING_PAGE_SIZE = 500;
+
+export const toBacktestResultDto = (
+  result: BacktestResult,
+  candles: QuantCandleDto[],
+): BacktestResultDto => ({
+  equity: result.equity,
+  from: candles[0]?.time ?? 0,
+  maxDrawdown: result.maxDrawdown,
+  pnl: result.pnl,
+  returnRate: result.returnRate,
+  sharpe: result.sharpe ?? undefined,
+  stoppedReason: result.stoppedReason ?? undefined,
+  to: candles.at(-1)?.time ?? 0,
+  tradeCount: result.tradeCount,
+  trades: result.fills.map(({ price, side, size, time }) => ({
+    price,
+    side,
+    size,
+    time,
+  })),
+  winRate: result.winRate ?? undefined,
+});
 
 @Injectable()
 export class QuantBacktestService {
@@ -73,27 +102,10 @@ export class QuantBacktestService {
       type,
     });
 
-    return {
-      equity: result.equity,
-      from: candles[0]?.time ?? 0,
-      maxDrawdown: result.maxDrawdown,
-      pnl: result.pnl,
-      returnRate: result.returnRate,
-      sharpe: result.sharpe ?? undefined,
-      stoppedReason: result.stoppedReason ?? undefined,
-      to: candles.at(-1)?.time ?? 0,
-      tradeCount: result.tradeCount,
-      trades: result.fills.map(({ price, side, size, time }) => ({
-        price,
-        side,
-        size,
-        time,
-      })),
-      winRate: result.winRate ?? undefined,
-    };
+    return toBacktestResultDto(result, candles);
   }
 
-  private async futuresMarket(
+  async futuresMarket(
     symbol: string,
     from: number,
   ): Promise<FuturesBacktestMarket> {

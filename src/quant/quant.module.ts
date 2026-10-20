@@ -4,6 +4,10 @@ import { QuantAccountController } from './account/quant-account.controller';
 import { QuantAccountService } from './account/quant-account.service';
 import { QuantFuturesController } from './account/quant-futures.controller';
 import { QuantFuturesService } from './account/quant-futures.service';
+import { QuantAiAdminController } from './ai/quant-ai-admin.controller';
+import { QuantAiAgentController } from './ai/quant-ai-agent.controller';
+import { QuantAiAgentService } from './ai/quant-ai-agent.service';
+import { QuantAiBacktestService } from './ai/quant-ai-backtest.service';
 import { QuantAiController } from './ai/quant-ai.controller';
 import { QuantAiAdvisorService } from './ai/quant-ai-advisor.service';
 import { QuantAiKeyService } from './ai/quant-ai-key.service';
@@ -28,6 +32,8 @@ import { QuantGateway } from './quant.gateway';
 @Module({
   controllers: [
     QuantAccountController,
+    QuantAiAdminController,
+    QuantAiAgentController,
     QuantAiController,
     QuantBotsController,
     QuantController,
@@ -45,6 +51,8 @@ import { QuantGateway } from './quant.gateway';
     PionexSymbolsService,
     QuantAccountService,
     QuantAiAdvisorService,
+    QuantAiAgentService,
+    QuantAiBacktestService,
     QuantAiKeyService,
     QuantBacktestService,
     QuantBotsService,

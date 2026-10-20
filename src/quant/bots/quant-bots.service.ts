@@ -430,7 +430,11 @@ export class QuantBotsService {
       await this.account.resolveCredentials(userId, dto.credentialId);
     }
     this.validateConfig(type, dto, spec);
-    if (type === 'ai' && !(await this.aiKeys.find(userId)).configured)
+    if (
+      type === 'ai' &&
+      (dto.config as AiConfigDto).source === 'claude_api' &&
+      !(await this.aiKeys.find(userId)).configured
+    )
       this.invalid('aiKeyMissing');
     if (type === 'signal' && dto.mode !== 'live')
       this.invalid('signalBotLiveOnly');

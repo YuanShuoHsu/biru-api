@@ -190,6 +190,7 @@
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
   "orders": {
+    "cashRequiresInStoreQrCode": "現金付款請掃描店內的 QR code 點餐",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",
     "invalidTable": "桌號 QR code 無效，請重新掃描桌上的 QR code",
     "menuItemUnavailable": "「{name}」目前無法供應",
@@ -198,6 +199,7 @@
     "modifierUnavailable": "「{name}」目前無法供應",
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
+    "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
     "pickupTooFarAhead": "這個取餐時間超出可預訂的範圍，請重新選擇",
@@ -248,7 +250,11 @@
     "orderNotFound": "找不到這筆委託",
     "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數",
     "signalBotLiveOnly": "訊號機器人由 Pionex 執行，只能建立實盤",
-    "futuresStrategyPaperOnly": "合約的 DCA／指標／Webhook 只提供模擬盤；實盤請改用「訊號機器人」讓 TradingView 直接觸發 Pionex，或在 Pionex App 建立官方合約機器人"
+    "futuresStrategyPaperOnly": "合約的 DCA／指標／Webhook 只提供模擬盤；實盤請改用「訊號機器人」讓 TradingView 直接觸發 Pionex，或在 Pionex App 建立官方合約機器人",
+    "agentTokenInvalid": "Claude Code 連線 token 無效，請到設定頁重新產生",
+    "aiRequestNotFound": "找不到這筆 AI 判斷請求",
+    "aiRequestClosed": "這筆 AI 判斷已經處理過或已過期",
+    "aiBacktestNotFound": "找不到這筆 AI 回測"
   },
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",

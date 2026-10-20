@@ -211,3 +211,119 @@ export const quantEngineLease = pgTable('quant_engine_lease', {
   holderId: text('holder_id').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
+
+export const quantAiSourceEnum = pgEnum('quant_ai_source', [
+  'claude_api',
+  'claude_code',
+]);
+
+// 本機 Claude Code 代理用來取待判斷請求、回傳判斷的憑證；只存雜湊，產生時顯示一次
+export const quantAiAgentToken = pgTable(
+  'quant_ai_agent_token',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    environment: text('environment').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    tokenLast4: text('token_last4').notNull(),
+    lastUsedAt: timestamp('last_used_at'),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('quant_ai_agent_token_user_environment_idx').on(
+      table.userId,
+      table.environment,
+    ),
+    uniqueIndex('quant_ai_agent_token_hash_idx').on(table.tokenHash),
+  ],
+);
+
+export const quantAiBacktestStatusEnum = pgEnum('quant_ai_backtest_status', [
+  'running',
+  'completed',
+  'failed',
+  'canceled',
+]);
+
+// K 線在建立時固定下來，之後逐根補上判斷、重播計算，結果可重現
+export const quantAiBacktest = pgTable(
+  'quant_ai_backtest',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    environment: text('environment').notNull(),
+    symbol: text('symbol').notNull(),
+    source: quantAiSourceEnum('source').notNull(),
+    config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+    investment: decimal('investment').notNull(),
+    feeRate: decimal('fee_rate').notNull(),
+    candles: jsonb('candles').$type<number[][]>().notNull(),
+    status: quantAiBacktestStatusEnum('status').notNull(),
+    decidedCount: integer('decided_count').notNull().default(0),
+    cost: decimal('cost').notNull().default(0),
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    error: text('error'),
+    ...timestamps,
+  },
+  (table) => [
+    index('quant_ai_backtest_user_idx').on(
+      table.userId,
+      table.environment,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type QuantAiBacktest = typeof quantAiBacktest.$inferSelect;
+
+export const quantAiRequestStatusEnum = pgEnum('quant_ai_request_status', [
+  'pending',
+  'awaiting_approval',
+  'executed',
+  'rejected',
+  'expired',
+  'answered',
+]);
+
+export const quantAiRequest = pgTable(
+  'quant_ai_request',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    environment: text('environment').notNull(),
+    botId: text('bot_id').references(() => quantBot.id, {
+      onDelete: 'cascade',
+    }),
+    backtestId: text('backtest_id').references(() => quantAiBacktest.id, {
+      onDelete: 'cascade',
+    }),
+    candleTime: timestamp('candle_time').notNull(),
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+    status: quantAiRequestStatusEnum('status').notNull(),
+    decision: jsonb('decision').$type<Record<string, unknown>>(),
+    expiresAt: timestamp('expires_at'),
+    answeredAt: timestamp('answered_at'),
+    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('quant_ai_request_user_status_idx').on(
+      table.userId,
+      table.environment,
+      table.status,
+    ),
+    index('quant_ai_request_bot_idx').on(table.botId, table.createdAt),
+    uniqueIndex('quant_ai_request_backtest_candle_idx').on(
+      table.backtestId,
+      table.candleTime,
+    ),
+  ],
+);
+
+export type QuantAiRequest = typeof quantAiRequest.$inferSelect;

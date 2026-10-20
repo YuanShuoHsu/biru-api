@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 複製到 ~/Library/LaunchAgents/com.biru.quant-claude-agent.plist，把 __TOKEN__、__REPO__、__HOME__ 換成實際值後執行：
+     launchctl load ~/Library/LaunchAgents/com.biru.quant-claude-agent.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.biru.quant-claude-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>__REPO__/scripts/quant-claude-agent.mjs</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:__HOME__/.local/bin</string>
+    <key>QUANT_AGENT_TOKEN</key>
+    <string>__TOKEN__</string>
+    <key>QUANT_AGENT_URL</key>
+    <string>http://localhost:3001</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>60</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/quant-claude-agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/quant-claude-agent.log</string>
+</dict>
+</plist>

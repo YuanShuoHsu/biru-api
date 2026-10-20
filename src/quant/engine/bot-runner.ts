@@ -17,7 +17,7 @@ import { FuturesAccount, type FuturesLedger } from './futures-account';
 import type { Ledger } from './ledger';
 import type { PionexBroker } from './pionex-broker';
 import { createFuturesStrategy, createStrategy } from './strategies';
-import type { AiAdvisor } from './strategies/ai.strategy';
+import type { AiAdvisor, AiDecision } from './strategies/ai.strategy';
 import type { BotFill, SymbolSpec, WebhookSignal } from './types';
 
 export interface RunnerDependencies {
@@ -150,6 +150,10 @@ export class BotRunner {
 
   handleSignal(signal: WebhookSignal) {
     return this.session.handleSignal(signal);
+  }
+
+  handleAiDecision(decision: AiDecision, meta: Record<string, unknown>) {
+    return this.session.handleAiDecision(decision, meta);
   }
 
   stop(reason: string, closeModel?: GridConfigDto['closeModel']) {

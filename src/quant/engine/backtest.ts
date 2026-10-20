@@ -17,6 +17,7 @@ import {
 import type { Ledger } from './ledger';
 import { SimulatedBroker } from './simulated-broker';
 import { createFuturesStrategy, createStrategy } from './strategies';
+import type { AiAdvisor } from './strategies/ai.strategy';
 import type { BotFill, SymbolSpec } from './types';
 
 const DAY_MS = 86_400_000;
@@ -38,6 +39,8 @@ export interface FuturesBacktestMarket {
 }
 
 export interface BacktestInput extends BacktestCommonInput {
+  /** AI 策略的判斷來源；回測時必須是 inline */
+  aiAdvisor?: AiAdvisor;
   /** 合約才需要；有帶就以逐倉保證金模型回測 */
   futures?: FuturesBacktestMarket;
   type: QuantBotType;
@@ -166,7 +169,9 @@ export const runBacktest = async (
             riskTiers: futures.riskTiers,
           }),
           createStrategy: (context) =>
-            createFuturesStrategy(type, context, feeRate),
+            createFuturesStrategy(type, context, feeRate, {
+              advisor: input.aiAdvisor,
+            }),
           store: {
             ...store,
             insertFill: async (fill) => {
@@ -178,7 +183,8 @@ export const runBacktest = async (
       : new BotSession<Ledger>({
           ...common,
           account: new SpotAccount(investment),
-          createStrategy: (context) => createStrategy(type, context),
+          createStrategy: (context) =>
+            createStrategy(type, context, { advisor: input.aiAdvisor }),
           store: {
             ...store,
             insertFill: async (fill) => {

@@ -8,6 +8,7 @@ import type { AccountModel } from './account';
 import type { FundingPayment } from './futures-account';
 import type { Ledger } from './ledger';
 import { floorTo, roundTo } from './precision';
+import type { AiDecision } from './strategies/ai.strategy';
 import type {
   BotFill,
   BotOrder,
@@ -192,6 +193,12 @@ export class BotSession<L = Ledger> {
   handleSignal(signal: WebhookSignal) {
     return this.serialize(async () => {
       if (!this.stopped) await this.strategy.onSignal?.(signal);
+    });
+  }
+
+  handleAiDecision(decision: AiDecision, meta: Record<string, unknown>) {
+    return this.serialize(async () => {
+      if (!this.stopped) await this.strategy.onAiDecision?.(decision, meta);
     });
   }
 

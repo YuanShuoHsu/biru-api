@@ -98,12 +98,16 @@ import type {
 } from './dto/order-response.dto';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
 
+import { isValidOrderAccessToken } from './order-access-token';
+import { OrderPricingService } from './order-pricing.service';
 import {
   dineInTableToken,
   isValidDineInTableToken,
-} from './dine-in-table-token';
-import { isValidOrderAccessToken } from './order-access-token';
-import { OrderPricingService } from './order-pricing.service';
+  isValidOrderModeToken,
+  modeTokenOrderModes,
+  orderModeToken,
+  type ModeTokenOrderMode,
+} from './order-qr-token';
 import {
   CANCEL_UNPAID_ORDER,
   findTransition,
@@ -141,6 +145,9 @@ const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
 export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
+
+// 金額欄位是 numeric(10,2)，超過會在寫入時變成 500
+const MAX_ORDER_AMOUNT = 99_999_999.99;
 
 const PAYMENT_DEADLINE = sql`GREATEST(
   ${order.createdAt} + make_interval(secs => ${MIN_PAYMENT_WINDOW_MS / 1000}),
@@ -334,6 +341,11 @@ export class OrdersService {
     return { token: dineInTableToken(org.id, tableNumber) };
   }
 
+  async getOrderModeToken(organizationSlug: string, mode: ModeTokenOrderMode) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    return { token: orderModeToken(org.id, mode) };
+  }
+
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
@@ -358,6 +370,14 @@ export class OrdersService {
       !isValidDineInTableToken(org.id, dto.tableNumber, dto.tableToken)
     )
       throw new BadRequestException(this.t('invalidTable'));
+
+    const modeTokenMode = modeTokenOrderModes.find((mode) => mode === dto.mode);
+    if (
+      modeTokenMode &&
+      dto.payment === 'Cash' &&
+      !isValidOrderModeToken(org.id, modeTokenMode, dto.modeToken)
+    )
+      throw new BadRequestException(this.t('cashRequiresInStoreQrCode'));
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
@@ -388,6 +408,8 @@ export class OrdersService {
     );
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
+    if (subtotal > MAX_ORDER_AMOUNT)
+      throw new BadRequestException(this.t('orderTotalTooLarge'));
     const applied = dto.discountCode
       ? await this.couponsService.getApplicableCoupon(
           org.id,

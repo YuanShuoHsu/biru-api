@@ -190,6 +190,7 @@
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
   "orders": {
+    "cashRequiresInStoreQrCode": "现金付款请扫描店内的二维码点餐",
     "idempotencyConflict": "订单内容已变更，请重新提交。",
     "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
     "menuItemUnavailable": "「{name}」目前无法供应",
@@ -198,6 +199,7 @@
     "modifierUnavailable": "「{name}」目前无法供应",
     "modifierUnavailableForMode": "「{name}」不适用此点餐方式",
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
+    "orderTotalTooLarge": "订单金额超过上限，请减少品项或分开下单",
     "pickupOutsideOpeningHours": "这个取餐时间不在门店营业时间内，请重新选择",
     "pickupTooCloseToClosing": "这个取餐时间太接近打烊，请重新选择",
     "pickupTooFarAhead": "这个取餐时间超出可预订的范围，请重新选择",
@@ -248,7 +250,11 @@
     "orderNotFound": "找不到这笔委托",
     "orderSizeRejected": "委托数量不符合交易所限制，请确认数量的最小值、最大值与小数位数",
     "signalBotLiveOnly": "信号机器人由 Pionex 执行，只能创建实盘",
-    "futuresStrategyPaperOnly": "合约的 DCA／指标／Webhook 只提供模拟盘；实盘请改用「信号机器人」让 TradingView 直接触发 Pionex，或在 Pionex App 创建官方合约机器人"
+    "futuresStrategyPaperOnly": "合约的 DCA／指标／Webhook 只提供模拟盘；实盘请改用「信号机器人」让 TradingView 直接触发 Pionex，或在 Pionex App 创建官方合约机器人",
+    "agentTokenInvalid": "Claude Code 连接 token 无效，请到设置页重新生成",
+    "aiRequestNotFound": "找不到这笔 AI 判断请求",
+    "aiRequestClosed": "这笔 AI 判断已经处理过或已过期",
+    "aiBacktestNotFound": "找不到这笔 AI 回测"
   },
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",

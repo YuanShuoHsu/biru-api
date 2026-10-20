@@ -23,6 +23,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -75,6 +76,8 @@ export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
 export const AI_EFFORTS = ['low', 'medium', 'high'] as const;
+export const AI_SOURCES = ['claude_api', 'claude_code'] as const;
+export type AiSource = (typeof AI_SOURCES)[number];
 export const AI_LOCALES = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
@@ -537,6 +540,15 @@ export class IndicatorConfigDto {
 // AI 只能回傳結構化的決策，下單仍經過機器人自己的資金與風控檢查
 export class AiConfigDto {
   @ApiProperty({
+    enum: AI_SOURCES,
+    enumName: 'QuantAiSource',
+    description:
+      'claude_api：伺服器用 Claude API key 呼叫；claude_code：本機 Claude Code 代理用訂閱額度判斷，實盤需人工確認才下單',
+  })
+  @IsIn(AI_SOURCES)
+  source: AiSource;
+
+  @ApiProperty({
     enum: PIONEX_KLINE_INTERVALS,
     enumName: 'QuantCandleInterval',
     description: '每根 K 線收盤時請 AI 判斷一次',
@@ -558,14 +570,22 @@ export class AiConfigDto {
   @IsPositive()
   maxOrderAmount: number;
 
-  @ApiProperty({ description: '每月 AI 費用上限（美元），超過就停止機器人' })
+  @ApiPropertyOptional({
+    description: 'claude_api 必填：每月 AI 費用上限（美元），超過就停止機器人',
+  })
+  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
   @IsNumber()
   @IsPositive()
-  monthlyCostLimit: number;
+  monthlyCostLimit?: number;
 
-  @ApiProperty({ enum: AI_EFFORTS, enumName: 'QuantAiEffort' })
+  @ApiPropertyOptional({
+    enum: AI_EFFORTS,
+    enumName: 'QuantAiEffort',
+    description: 'claude_api 必填',
+  })
+  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
   @IsIn(AI_EFFORTS)
-  effort: (typeof AI_EFFORTS)[number];
+  effort?: (typeof AI_EFFORTS)[number];
 
   @ApiProperty({
     enum: AI_LOCALES,
@@ -1306,6 +1326,142 @@ export class QuantAiKeyDto {
   @ApiPropertyOptional() createdAt?: Date;
   @ApiProperty({ description: '本月（UTC）所有 AI 機器人的費用（美元）' })
   monthCost: number;
+}
+
+export const AI_DECISION_ACTIONS = ['open', 'close', 'hold'] as const;
+
+export class AiDecisionDto {
+  @ApiProperty({
+    enum: AI_DECISION_ACTIONS,
+    enumName: 'QuantAiDecisionAction',
+    description: 'open：依機器人方向加倉；close：減倉或平倉；hold：不動作',
+  })
+  @IsIn(AI_DECISION_ACTIONS)
+  action: (typeof AI_DECISION_ACTIONS)[number];
+
+  @ApiProperty({ description: 'open 時加倉的名目金額（計價幣），其他填 0' })
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @ApiProperty({ description: 'close 時要平掉的持倉比例（0–1），其他填 0' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  closeRatio: number;
+
+  @ApiProperty({ description: '信心（0–1）' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  confidence: number;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  reasoning: string;
+}
+
+export const AI_REQUEST_STATUSES = [
+  'pending',
+  'awaiting_approval',
+  'executed',
+  'rejected',
+  'expired',
+  'answered',
+] as const;
+
+export class QuantAiRequestDto {
+  @ApiProperty() id: string;
+  @ApiProperty({
+    enum: AI_REQUEST_STATUSES,
+    enumName: 'QuantAiRequestStatus',
+  })
+  status: (typeof AI_REQUEST_STATUSES)[number];
+  @ApiProperty({ description: '判斷依據的 K 線開盤時間' }) candleTime: Date;
+  @ApiProperty({ description: '送出請求時的價格' }) price: number;
+  @ApiPropertyOptional({ type: AiDecisionDto }) decision?: AiDecisionDto;
+  @ApiPropertyOptional({ description: '超過就作廢，不會再執行' })
+  expiresAt?: Date;
+  @ApiPropertyOptional() answeredAt?: Date;
+  @ApiProperty() createdAt: Date;
+}
+
+export class QuantAgentRequestDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ enum: ['bot', 'backtest'], enumName: 'QuantAgentRequestKind' })
+  kind: 'backtest' | 'bot';
+  @ApiProperty({ description: '交給 Claude 的系統指示' }) instructions: string;
+  @ApiProperty({
+    description: '判斷用的市場與部位快照',
+    type: 'object',
+    additionalProperties: true,
+  })
+  snapshot: Record<string, unknown>;
+  @ApiProperty({
+    description: '回應必須符合的 JSON Schema',
+    type: 'object',
+    additionalProperties: true,
+  })
+  schema: Record<string, unknown>;
+  @ApiPropertyOptional() expiresAt?: Date;
+}
+
+export class QuantAgentTokenDto {
+  @ApiProperty() configured: boolean;
+  @ApiPropertyOptional() tokenLast4?: string;
+  @ApiPropertyOptional({ description: '代理最後一次取請求的時間' })
+  lastUsedAt?: Date;
+  @ApiPropertyOptional() createdAt?: Date;
+}
+
+export class QuantAgentTokenCreatedDto extends QuantAgentTokenDto {
+  @ApiProperty({ description: '新的 token，只在這次回傳；舊 token 立即失效' })
+  token: string;
+}
+
+export const AI_BACKTEST_STATUSES = [
+  'running',
+  'completed',
+  'failed',
+  'canceled',
+] as const;
+
+export class CreateAiBacktestDto extends PickType(BacktestBaseDto, [
+  'candleCount',
+  'feeRate',
+  'investment',
+  'symbol',
+]) {
+  @ApiProperty({ type: AiConfigDto })
+  @ValidateNested()
+  @Type(() => AiConfigDto)
+  config: AiConfigDto;
+}
+
+export class QuantAiBacktestDto {
+  @ApiProperty() id: string;
+  @ApiProperty() symbol: string;
+  @ApiProperty({ enum: AI_SOURCES, enumName: 'QuantAiSource' })
+  source: AiSource;
+  @ApiProperty({
+    enum: AI_BACKTEST_STATUSES,
+    enumName: 'QuantAiBacktestStatus',
+  })
+  status: (typeof AI_BACKTEST_STATUSES)[number];
+  @ApiProperty({ type: AiConfigDto }) config: AiConfigDto;
+  @ApiProperty() investment: number;
+  @ApiProperty() feeRate: number;
+  @ApiProperty({ description: '已取得判斷的 K 線數' }) decidedCount: number;
+  @ApiProperty({ description: '回測的 K 線總數' }) candleCount: number;
+  @ApiProperty({ description: 'claude_api 這次回測已花的費用（美元）' })
+  cost: number;
+  @ApiProperty({ description: '回測區間起點（毫秒）' }) from: number;
+  @ApiProperty({ description: '回測區間終點（毫秒）' }) to: number;
+  @ApiPropertyOptional({ type: BacktestResultDto }) result?: BacktestResultDto;
+  @ApiPropertyOptional() error?: string;
+  @ApiProperty() createdAt: Date;
 }
 
 export class SetQuantAiKeyDto {

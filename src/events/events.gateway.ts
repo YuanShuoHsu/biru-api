@@ -133,7 +133,7 @@ export class EventsGateway {
   }: InvoicePrintReadyEvent) {
     this.server
       .to(invoicePrinterRoom(organizationId))
-      .emit('invoicePrintReady', { invoiceNumber, orderId });
+      .emit('invoicePrintReady', { invoiceNumber, orderId, organizationId });
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
@@ -206,13 +206,14 @@ export class EventsGateway {
     const others = (await this.server.in(room).fetchSockets()).filter(
       (socket) => socket.id !== client.id,
     );
-    // 斷線重連時同裝置的舊連線可能還沒被判定斷線，不能把它當成別台裝置
+    // 斷線重連時同分頁的舊連線可能還沒被判定斷線，不能把它當成別的分頁
     const otherDevices = others.filter(
       (socket) => socket.data.invoicePrinterDeviceId !== deviceId,
     );
     if (!takeover && otherDevices.length > 0) return false;
 
-    for (const socket of otherDevices) socket.emit('invoicePrinterReplaced');
+    for (const socket of otherDevices)
+      socket.emit('invoicePrinterReplaced', { organizationId });
     for (const socket of others) socket.leave(room);
     client.data.invoicePrinterDeviceId = deviceId;
     await client.join(room);

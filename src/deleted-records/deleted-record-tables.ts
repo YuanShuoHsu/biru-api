@@ -11,6 +11,7 @@ export const UNTRACKED_TABLES = [
   'quant_bot_event',
   'quant_bot_equity',
   'quant_engine_lease',
+  'quant_ai_request',
 ] as const;
 
 // 出勤與薪資資料不直接寫回，交給各自的建立流程重跑檢查、薪資鎖定與連動效果

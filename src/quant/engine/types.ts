@@ -3,6 +3,7 @@ import type { QuantCandleDto } from '../dto/quant-market.dto';
 import type { PionexKlineInterval } from '../pionex/pionex.types';
 
 import type { Ledger } from './ledger';
+import type { AiDecision } from './strategies/ai.strategy';
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'LIMIT' | 'MARKET';
@@ -92,6 +93,10 @@ export interface Strategy {
   onFill?(order: BotOrder, fill: BotFill): Promise<void>;
   onPrice?(price: number): Promise<void>;
   onSignal?(signal: WebhookSignal): Promise<void>;
+  onAiDecision?(
+    decision: AiDecision,
+    meta: Record<string, unknown>,
+  ): Promise<void>;
   /** 重啟後也會呼叫；策略要從 openOrders／fills 判斷是首次啟動還是續跑 */
   start(): Promise<void>;
   /** 使用者停止時的收尾，例如網格的平倉方式 */
