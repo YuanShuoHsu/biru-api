@@ -1869,12 +1869,12 @@ export class QuantBotsService {
         const config = dto.config as GridConfigDto;
         if (config.top <= config.bottom) this.invalid('gridRangeInvalid');
 
-        // 每格利潤小於來回手續費，網格每做一次就虧一次
+        // 每格利潤小於來回手續費，網格每做一次就虧一次；實盤由 Pionex 執行，交給它自己的試算判斷
         const lines = gridLines(config);
         const spacing = Math.min(
           ...lines.slice(1).map((line, index) => line / lines[index] - 1),
         );
-        if (spacing <= PIONEX_FEE_RATES.SPOT.maker * 2)
+        if (dto.mode === 'paper' && spacing <= PIONEX_FEE_RATES.SPOT.maker * 2)
           this.invalid('gridSpacingTooSmall');
 
         const perGrid = investment / config.row;
@@ -1893,7 +1893,7 @@ export class QuantBotsService {
         const spacing = Math.min(
           ...lines.slice(1).map((line, index) => line / lines[index] - 1),
         );
-        if (spacing <= PIONEX_FEE_RATES.PERP.maker * 2)
+        if (dto.mode === 'paper' && spacing <= PIONEX_FEE_RATES.PERP.maker * 2)
           this.invalid('gridSpacingTooSmall');
 
         // 以區間中點估每格數量，太小的格子交易所不接受
