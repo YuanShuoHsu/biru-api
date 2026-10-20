@@ -99,7 +99,7 @@ export class QuantAiBacktestService {
 
   async create(
     userId: string,
-    { candleCount, config, feeRate, investment, symbol }: CreateAiBacktestDto,
+    { candleCount, config, investment, symbol }: CreateAiBacktestDto,
   ): Promise<QuantAiBacktestDto> {
     const isPerp = (await this.symbols.marketTypeOf(symbol)) === 'PERP';
     if (isPerp !== !!config.futures)
@@ -117,7 +117,6 @@ export class QuantAiBacktestService {
       candles: toRows(candles),
       config: config as unknown as Record<string, unknown>,
       environment: quantEnvironment(),
-      feeRate,
       id,
       investment,
       source: config.source,
@@ -310,7 +309,6 @@ export class QuantAiBacktestService {
         aiAdvisor: advisor,
         candles,
         config,
-        feeRate: run.feeRate,
         futures: config.futures
           ? await this.futuresMarketOf(run, candles)
           : undefined,
@@ -423,7 +421,6 @@ const toDto = (run: QuantAiBacktest): QuantAiBacktestDto => ({
   createdAt: run.createdAt,
   decidedCount: run.decidedCount,
   error: run.error ?? undefined,
-  feeRate: run.feeRate,
   from: run.candles[0]?.[0] ?? 0,
   id: run.id,
   investment: run.investment,

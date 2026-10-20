@@ -260,7 +260,6 @@ export class QuantEngineService
       const broker = credentials
         ? new PionexBroker(this.rest, credentials, spec, () => this.hasLease)
         : new SimulatedBroker(
-            bot.paperFeeRate ?? 0,
             {
               averagePrice: (side, quantity) =>
                 this.marketCache.averagePrice(bot.symbol, side, quantity),

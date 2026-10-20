@@ -60,7 +60,7 @@ export class QuantBacktestService {
 
   async run(
     type: Exclude<QuantBotType, 'webhook'>,
-    { candleCount, config, feeRate, interval, investment, symbol }: BacktestDto,
+    { candleCount, config, interval, investment, symbol }: BacktestDto,
   ): Promise<BacktestResultDto> {
     const spec = await botSymbolSpec(this.symbols, { config, symbol, type });
     const isFutures =
@@ -89,7 +89,6 @@ export class QuantBacktestService {
     const common = {
       candles,
       config,
-      feeRate,
       interval: candleInterval,
       investment,
       spec,

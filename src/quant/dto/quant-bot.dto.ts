@@ -663,13 +663,6 @@ class CreateQuantBotBaseDto {
   @IsPositive()
   investment: number;
 
-  @ApiPropertyOptional({ description: '模擬盤必填：手續費率（例如 0.0005）' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(0.01)
-  paperFeeRate?: number;
-
   @ApiPropertyOptional({ description: '每日最大虧損（計價幣），觸發即停止' })
   @IsOptional()
   @IsNumber()
@@ -835,7 +828,6 @@ export class QuantBotDto {
     | WebhookConfigDto
     | FuturesGridConfigDto;
   @ApiProperty() investment: number;
-  @ApiPropertyOptional() paperFeeRate?: number;
   @ApiPropertyOptional() maxDailyLoss?: number;
   @ApiPropertyOptional() maxOrderAmount?: number;
   @ApiProperty({
@@ -953,12 +945,6 @@ class BacktestBaseDto {
   candleCount: number;
 
   @ApiProperty() @IsNumber() @IsPositive() investment: number;
-
-  @ApiProperty({ description: '手續費率（例如 0.0005）' })
-  @IsNumber()
-  @Min(0)
-  @Max(0.01)
-  feeRate: number;
 }
 
 export class GridBacktestDto extends BacktestBaseDto {
@@ -1459,7 +1445,6 @@ export const AI_BACKTEST_STATUSES = [
 
 export class CreateAiBacktestDto extends PickType(BacktestBaseDto, [
   'candleCount',
-  'feeRate',
   'investment',
   'symbol',
 ]) {
@@ -1481,7 +1466,6 @@ export class QuantAiBacktestDto {
   status: (typeof AI_BACKTEST_STATUSES)[number];
   @ApiProperty({ type: AiConfigDto }) config: AiConfigDto;
   @ApiProperty() investment: number;
-  @ApiProperty() feeRate: number;
   @ApiProperty({ description: '已取得判斷的 K 線數' }) decidedCount: number;
   @ApiProperty({ description: '回測的 K 線總數' }) candleCount: number;
   @ApiProperty({ description: 'claude_api 這次回測已花的費用（美元）' })

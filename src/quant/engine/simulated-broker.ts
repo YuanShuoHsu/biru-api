@@ -1,6 +1,7 @@
 import type { Broker, MatchedFill, SubmittedOrder } from './bot-session';
 import type { PionexMarketType } from '../pionex/pionex.types';
 
+import { PIONEX_FEE_RATES } from './fee-rates';
 import type { BotFill, OrderSide } from './types';
 
 export interface MarketQuote {
@@ -13,9 +14,9 @@ export interface MarketQuote {
 }
 
 // 模擬盤與回測共用的撮合；手續費扣法對齊 Pionex：現貨買入扣基礎幣、賣出扣計價幣，合約一律扣計價幣
+// 送出當下就成交的是吃單，掛在簿上之後才被碰到的是掛單
 export class SimulatedBroker implements Broker {
   constructor(
-    private readonly feeRate: number,
     private readonly quote: MarketQuote,
     private readonly now: () => number,
     private readonly market: PionexMarketType = 'SPOT',
@@ -45,7 +46,7 @@ export class SimulatedBroker implements Broker {
       status: 'filled',
     });
 
-    return [this.fill(order, price, size)];
+    return [this.fill(order, price, size, PIONEX_FEE_RATES[this.market].taker)];
   }
 
   cancel(): Promise<void> {
@@ -65,15 +66,21 @@ export class SimulatedBroker implements Broker {
           order,
           order.price ?? price,
           (order.size ?? 0) - order.filledSize,
+          PIONEX_FEE_RATES[this.market].maker,
         ),
         orderId: order.id,
       }));
   }
 
-  private fill(order: SubmittedOrder, price: number, size: number): BotFill {
+  private fill(
+    order: SubmittedOrder,
+    price: number,
+    size: number,
+    feeRate: number,
+  ): BotFill {
     return order.side === 'BUY' && this.market === 'SPOT'
       ? {
-          fee: size * this.feeRate,
+          fee: size * feeRate,
           feeAsset: 'base',
           orderId: order.id,
           price,
@@ -82,7 +89,7 @@ export class SimulatedBroker implements Broker {
           time: this.now(),
         }
       : {
-          fee: price * size * this.feeRate,
+          fee: price * size * feeRate,
           feeAsset: 'quote',
           orderId: order.id,
           price,

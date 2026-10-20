@@ -2,6 +2,7 @@ import type {
   FuturesGridConfigDto,
   FuturesGridStopDto,
 } from '../../dto/quant-bot.dto';
+import { PIONEX_FEE_RATES } from '../fee-rates';
 import type { FuturesLedger } from '../futures-account';
 import type { BotOrder, Strategy, StrategyContext } from '../types';
 
@@ -26,7 +27,6 @@ export const futuresGridQuantity = (
   },
   price: number,
   investment: number,
-  feeRate: number,
 ) => {
   const { buys, sells } = gridLayout(config.lines, price);
   const sum = (levels: { line: number }[]) =>
@@ -39,7 +39,10 @@ export const futuresGridQuantity = (
         ? buys.length * openPrice + sum(sells)
         : sum(buys) + sum(sells);
 
-  return investment / (notional / config.leverage + notional * feeRate);
+  return (
+    investment /
+    (notional / config.leverage + notional * PIONEX_FEE_RATES.PERP.taker)
+  );
 };
 
 export class FuturesGridStrategy implements Strategy {
@@ -47,10 +50,7 @@ export class FuturesGridStrategy implements Strategy {
   private readonly lines: number[];
   private triggered: boolean;
 
-  constructor(
-    private readonly context: StrategyContext<FuturesLedger>,
-    private readonly feeRate: number,
-  ) {
+  constructor(private readonly context: StrategyContext<FuturesLedger>) {
     this.config = context.config as FuturesGridConfigDto;
     this.lines = gridLines(this.config);
     this.triggered = !this.config.trigger;
@@ -124,7 +124,6 @@ export class FuturesGridStrategy implements Strategy {
       { ...this.config, lines: this.lines },
       price,
       this.context.investment,
-      this.feeRate,
     );
     const { buys, sells } = gridLayout(this.lines, price);
     const opening =

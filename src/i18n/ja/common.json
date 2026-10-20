@@ -223,7 +223,6 @@
     "botNotSignal": "シグナルボットではないか、まだ Pionex で作成されていません",
     "botNotWebhook": "トークンは Webhook ボットにのみあります",
     "botOrderLimitUnsupported": "1 注文あたりの上限は DCA・指標シグナル・Webhook ボットにのみ設定できます",
-    "botPaperFeeRequired": "シミュレーションには手数料率の入力が必要です",
     "botStillRunning": "アーカイブする前にボットを停止してください",
     "credentialInvalid": "API キーの検証に失敗しました。キー、シークレット、権限を確認してください：{message}",
     "credentialNotFound": "API キーが見つかりません",

@@ -90,7 +90,7 @@ export class BotRunner {
         ...common,
         account,
         createStrategy: (context) =>
-          createFuturesStrategy(type, context, bot.paperFeeRate ?? 0, {
+          createFuturesStrategy(type, context, {
             advisor: dependencies.advisor,
           }),
       });

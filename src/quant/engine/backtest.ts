@@ -25,7 +25,6 @@ const DAY_MS = 86_400_000;
 interface BacktestCommonInput {
   candles: QuantCandleDto[];
   config: unknown;
-  feeRate: number;
   interval: PionexKlineInterval;
   investment: number;
   spec: SymbolSpec;
@@ -105,7 +104,7 @@ const sharpeOf = (equity: { time: number; value: number }[]) => {
 export const runBacktest = async (
   input: BacktestInput,
 ): Promise<BacktestResult> => {
-  const { candles, config, feeRate, interval, investment, spec } = input;
+  const { candles, config, interval, investment, spec } = input;
   const orders: SubmittedOrder[] = [];
   const fills: BotFill[] = [];
   const events: BacktestEvent[] = [];
@@ -120,7 +119,6 @@ export const runBacktest = async (
   const { futures, type } = input;
   const isFutures = !!futures;
   const broker = new SimulatedBroker(
-    feeRate,
     { averagePrice: () => Promise.resolve(price), lastPrice: () => price },
     () => now,
     isFutures ? 'PERP' : 'SPOT',
@@ -169,7 +167,7 @@ export const runBacktest = async (
             riskTiers: futures.riskTiers,
           }),
           createStrategy: (context) =>
-            createFuturesStrategy(type, context, feeRate, {
+            createFuturesStrategy(type, context, {
               advisor: input.aiAdvisor,
             }),
           store: {

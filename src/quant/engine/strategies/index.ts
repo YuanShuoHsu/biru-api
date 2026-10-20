@@ -66,7 +66,6 @@ export const createStrategy = (
 export const createFuturesStrategy = (
   type: QuantBotType,
   context: StrategyContext<FuturesLedger>,
-  feeRate: number,
   extras: StrategyExtras = {},
 ): Strategy => {
   const trader = () => {
@@ -79,7 +78,7 @@ export const createFuturesStrategy = (
 
   switch (type) {
     case 'futures_grid':
-      return new FuturesGridStrategy(context, feeRate);
+      return new FuturesGridStrategy(context);
     case 'dca':
     case 'indicator':
     case 'webhook':

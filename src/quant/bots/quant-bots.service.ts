@@ -111,6 +111,7 @@ import { toDecimalString } from '../engine/precision';
 import { MarketCacheService } from '../engine/market-cache.service';
 import { QuantEngineService } from '../engine/quant-engine.service';
 import { dcaMaxInvestment } from '../engine/strategies/dca.strategy';
+import { PIONEX_FEE_RATES } from '../engine/fee-rates';
 import { futuresGridQuantity } from '../engine/strategies/futures-grid.strategy';
 import { gridLayout, gridLines } from '../engine/strategies/grid.strategy';
 import {
@@ -423,8 +424,6 @@ export class QuantBotsService {
     } else if (isPerp !== isFuturesBotType(type))
       throw new NotFoundException(`Unknown symbol ${dto.symbol}`);
 
-    if (dto.mode === 'paper' && dto.paperFeeRate === undefined)
-      this.invalid('botPaperFeeRequired');
     if (dto.mode === 'live') {
       if (!dto.credentialId) this.invalid('botCredentialRequired');
       await this.account.resolveCredentials(userId, dto.credentialId);
@@ -466,7 +465,6 @@ export class QuantBotsService {
         maxOrderAmount: dto.maxOrderAmount,
         mode: dto.mode,
         name: dto.name,
-        paperFeeRate: dto.mode === 'paper' ? dto.paperFeeRate : null,
         symbol: dto.symbol,
         type,
         userId,
@@ -1848,7 +1846,7 @@ export class QuantBotsService {
         const spacing = Math.min(
           ...lines.slice(1).map((line, index) => line / lines[index] - 1),
         );
-        if (dto.paperFeeRate !== undefined && spacing <= dto.paperFeeRate * 2)
+        if (spacing <= PIONEX_FEE_RATES.SPOT.maker * 2)
           this.invalid('gridSpacingTooSmall');
 
         const perGrid = investment / config.row;
@@ -1867,7 +1865,7 @@ export class QuantBotsService {
         const spacing = Math.min(
           ...lines.slice(1).map((line, index) => line / lines[index] - 1),
         );
-        if (dto.paperFeeRate !== undefined && spacing <= dto.paperFeeRate * 2)
+        if (spacing <= PIONEX_FEE_RATES.PERP.maker * 2)
           this.invalid('gridSpacingTooSmall');
 
         // 以區間中點估每格數量，太小的格子交易所不接受
@@ -1876,7 +1874,6 @@ export class QuantBotsService {
           { ...config, lines },
           middle,
           investment,
-          dto.paperFeeRate ?? 0,
         );
         const { buys, sells } = gridLayout(lines, middle);
         const smallest = Math.min(
@@ -2230,7 +2227,6 @@ export class QuantBotsService {
       maxOrderAmount: optional(bot.maxOrderAmount),
       mode: bot.mode,
       name: bot.name,
-      paperFeeRate: optional(bot.paperFeeRate),
       pionexBotId: optional(bot.pionexBotId),
       startedAt: optional(bot.startedAt),
       status: bot.status,
