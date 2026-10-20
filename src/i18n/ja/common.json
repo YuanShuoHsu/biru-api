@@ -234,7 +234,7 @@
     "futuresGridStopLimitRequired": "「指値」を選んだ場合は指値価格を入力してください",
     "futuresLeverageAboveSymbol": "この銘柄の最大レバレッジは {max}x です",
     "futuresPositionMismatch": "先物の銘柄には方向とレバレッジが必要で、現物の銘柄には設定できません",
-    "futuresStrategyLiveNotReady": "先物の DCA／インジケーター／Webhook の実運用は、Pionex シグナルの注文数量を実測で確認してから開放します。今は模擬取引を使ってください",
+    "futuresStrategyLiveNotReady": "先物の AI トレードの実運用は、Pionex シグナルの注文数量を実測で確認してから開放します。今は模擬取引を使ってください",
     "gridInvestmentTooSmall": "投資額が不足しています：各グリッドが最小注文金額を満たす必要があり、合計 {min} 必要です",
     "gridRangeInvalid": "上限価格は下限価格より高くしてください",
     "gridSpacingTooSmall": "グリッド間隔が狭すぎます：1 グリッドの利益が往復手数料を下回り、約定のたびに損失が出ます",
@@ -247,7 +247,8 @@
     "orderFieldsMarketSell": "成行売り注文には数量が必要です",
     "orderNotFound": "注文が見つかりません",
     "orderSizeRejected": "注文数量が取引所の制限を満たしていません。最小値・最大値・小数桁数を確認してください",
-    "signalBotLiveOnly": "シグナルボットは Pionex で実行されるため実運用のみです"
+    "signalBotLiveOnly": "シグナルボットは Pionex で実行されるため実運用のみです",
+    "futuresStrategyPaperOnly": "先物の DCA／インジケーター／Webhook は模擬取引のみです。実運用は「シグナルボット」で TradingView から Pionex を直接動かすか、Pionex アプリで公式の先物ボットを作成してください"
   },
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",

@@ -298,6 +298,7 @@ export type I18nTranslations = {
             "orderNotFound": string;
             "orderSizeRejected": string;
             "signalBotLiveOnly": string;
+            "futuresStrategyPaperOnly": string;
         };
         "refunds": {
             "allowanceExceeded": string;

@@ -234,7 +234,7 @@
     "futuresGridStopLimitRequired": "「지정가」를 선택하면 지정가를 입력해야 합니다",
     "futuresLeverageAboveSymbol": "이 종목은 최대 {max}x 레버리지까지 가능합니다",
     "futuresPositionMismatch": "선물 종목은 방향과 레버리지가 필요하며 현물 종목에는 설정할 수 없습니다",
-    "futuresStrategyLiveNotReady": "선물 DCA／지표／Webhook 실전은 Pionex 신호 주문 수량을 실측으로 확인한 뒤 열립니다. 지금은 모의 거래를 사용하세요",
+    "futuresStrategyLiveNotReady": "선물 AI 트레이딩 실전은 Pionex 신호 주문 수량을 실측으로 확인한 뒤 열립니다. 지금은 모의 거래를 사용하세요",
     "gridInvestmentTooSmall": "투자 금액이 부족합니다: 각 그리드가 최소 주문 금액을 충족해야 하며 총 {min}가 필요합니다",
     "gridRangeInvalid": "상단 가격은 하단 가격보다 높아야 합니다",
     "gridSpacingTooSmall": "그리드 간격이 너무 좁습니다: 그리드당 수익이 왕복 수수료보다 낮아 체결될 때마다 손실이 납니다",
@@ -247,7 +247,8 @@
     "orderFieldsMarketSell": "시장가 매도 주문에는 수량이 필요합니다",
     "orderNotFound": "주문을 찾을 수 없습니다",
     "orderSizeRejected": "주문 수량이 거래소 제한에 맞지 않습니다. 최소값, 최대값, 소수 자릿수를 확인하세요",
-    "signalBotLiveOnly": "신호 봇은 Pionex에서 실행되므로 실전만 가능합니다"
+    "signalBotLiveOnly": "신호 봇은 Pionex에서 실행되므로 실전만 가능합니다",
+    "futuresStrategyPaperOnly": "선물 DCA／지표／Webhook은 모의 거래만 제공합니다. 실전은 「신호 봇」으로 TradingView가 Pionex를 직접 실행하게 하거나 Pionex 앱에서 공식 선물 봇을 만드세요"
   },
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",

@@ -234,7 +234,7 @@
     "futuresGridStopLimitRequired": "Enter a limit price when using a limit stop",
     "futuresLeverageAboveSymbol": "This symbol allows at most {max}x leverage",
     "futuresPositionMismatch": "Futures pairs need a direction and leverage; spot pairs cannot have them",
-    "futuresStrategyLiveNotReady": "Live futures DCA / indicator / webhook bots open once Pionex signal sizing is verified; use paper trading for now",
+    "futuresStrategyLiveNotReady": "Live futures AI trading opens once Pionex signal sizing is verified; use paper trading for now",
     "gridInvestmentTooSmall": "Investment too small: each grid must reach the minimum order amount, {min} in total",
     "gridRangeInvalid": "The upper price must be higher than the lower price",
     "gridSpacingTooSmall": "Grid spacing too small: the profit per grid is below the round-trip fee, so every trade loses money",
@@ -247,7 +247,8 @@
     "orderFieldsMarketSell": "Market sell orders need a size",
     "orderNotFound": "Order not found",
     "orderSizeRejected": "The order size does not meet the exchange limits. Check the minimum, maximum and decimal places.",
-    "signalBotLiveOnly": "Signal bots run on Pionex and can only be live"
+    "signalBotLiveOnly": "Signal bots run on Pionex and can only be live",
+    "futuresStrategyPaperOnly": "Futures DCA / indicator / webhook bots are paper only; for live trading use a Signal bot so TradingView triggers Pionex directly, or create an official futures bot in the Pionex app"
   },
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",

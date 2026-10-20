@@ -234,7 +234,7 @@
     "futuresGridStopLimitRequired": "选择「限价」时要填写限价",
     "futuresLeverageAboveSymbol": "此交易对最高只能开 {max}x 杠杆",
     "futuresPositionMismatch": "合约交易对要设置方向与杠杆，现货交易对不能设置",
-    "futuresStrategyLiveNotReady": "合约的 DCA／指标／Webhook 实盘要等 Pionex 信号下单量实测确认后才开放，目前请先用模拟盘",
+    "futuresStrategyLiveNotReady": "合约的 AI 交易实盘要等 Pionex 信号下单量实测确认后才开放，目前请先用模拟盘",
     "gridInvestmentTooSmall": "投入金额不足：每格至少要达到最小下单金额，共需 {min}",
     "gridRangeInvalid": "网格上界必须高于下界",
     "gridSpacingTooSmall": "格距太小：每格利润低于来回手续费，网格每成交一次都会亏损",
@@ -247,7 +247,8 @@
     "orderFieldsMarketSell": "市价卖单需要填写数量",
     "orderNotFound": "找不到这笔委托",
     "orderSizeRejected": "委托数量不符合交易所限制，请确认数量的最小值、最大值与小数位数",
-    "signalBotLiveOnly": "信号机器人由 Pionex 执行，只能创建实盘"
+    "signalBotLiveOnly": "信号机器人由 Pionex 执行，只能创建实盘",
+    "futuresStrategyPaperOnly": "合约的 DCA／指标／Webhook 只提供模拟盘；实盘请改用「信号机器人」让 TradingView 直接触发 Pionex，或在 Pionex App 创建官方合约机器人"
   },
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",

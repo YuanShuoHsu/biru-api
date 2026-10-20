@@ -415,7 +415,11 @@ export class QuantBotsService {
     ) {
       if (isPerp !== !!position) this.invalid('futuresPositionMismatch');
       if (isPerp && dto.mode === 'live')
-        this.invalid('futuresStrategyLiveNotReady');
+        this.invalid(
+          type === 'ai'
+            ? 'futuresStrategyLiveNotReady'
+            : 'futuresStrategyPaperOnly',
+        );
     } else if (isPerp !== isFuturesBotType(type))
       throw new NotFoundException(`Unknown symbol ${dto.symbol}`);
 

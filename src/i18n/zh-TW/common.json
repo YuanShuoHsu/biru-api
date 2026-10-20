@@ -234,7 +234,7 @@
     "futuresGridStopLimitRequired": "選擇「限價」時要填限價",
     "futuresLeverageAboveSymbol": "此交易對最高只能開 {max}x 槓桿",
     "futuresPositionMismatch": "合約交易對要設定方向與槓桿，現貨交易對不能設定",
-    "futuresStrategyLiveNotReady": "合約的 DCA／指標／Webhook 實盤要等 Pionex 訊號下單量實測確認後才開放，目前請先用模擬盤",
+    "futuresStrategyLiveNotReady": "合約的 AI 交易實盤要等 Pionex 訊號下單量實測確認後才開放，目前請先用模擬盤",
     "gridInvestmentTooSmall": "投入金額不足：每格至少要達到最小下單金額，共需 {min}",
     "gridRangeInvalid": "網格上界必須高於下界",
     "gridSpacingTooSmall": "格距太小：每格利潤低於來回手續費，網格每成交一次都會虧損",
@@ -247,7 +247,8 @@
     "orderFieldsMarketSell": "市價賣單需要填寫數量",
     "orderNotFound": "找不到這筆委託",
     "orderSizeRejected": "委託數量不符合交易所限制，請確認數量的最小值、最大值與小數位數",
-    "signalBotLiveOnly": "訊號機器人由 Pionex 執行，只能建立實盤"
+    "signalBotLiveOnly": "訊號機器人由 Pionex 執行，只能建立實盤",
+    "futuresStrategyPaperOnly": "合約的 DCA／指標／Webhook 只提供模擬盤；實盤請改用「訊號機器人」讓 TradingView 直接觸發 Pionex，或在 Pionex App 建立官方合約機器人"
   },
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
