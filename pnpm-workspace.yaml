@@ -7,3 +7,6 @@ allowBuilds:
   esbuild: true
   prisma: false
   unrs-resolver: true
+
+overrides:
+  proxy-addr: '>=2.0.8'

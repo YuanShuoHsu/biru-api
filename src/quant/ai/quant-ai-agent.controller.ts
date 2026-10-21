@@ -23,7 +23,7 @@ import { QuantAiAgentService } from './quant-ai-agent.service';
 const bearer = (authorization?: string) =>
   authorization?.replace(/^Bearer\s+/i, '').trim() ?? '';
 
-// 本機 Claude Code 代理沒有登入狀態，改用設定頁產生的 token 驗證；只能判斷，不能直接下實盤單
+// 本機 Claude Code 代理沒有登入狀態，改用後台核准產生的 token 驗證；持有 token 就能讓執行中的機器人依判斷下實盤單
 @AllowAnonymous()
 @ApiTags('quant')
 @ApiBearerAuth()
