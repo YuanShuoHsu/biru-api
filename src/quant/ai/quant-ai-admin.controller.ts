@@ -20,6 +20,7 @@ import {
   QuantAgentTokenDto,
   QuantAiBacktestDto,
   QuantAiRequestDto,
+  ResumeAiBacktestDto,
 } from '../dto/quant-bot.dto.js';
 
 import { QuantAiAgentService } from './quant-ai-agent.service.js';
@@ -105,6 +106,18 @@ export class QuantAiAdminController {
     @Session() { user }: UserSession,
   ): Promise<QuantAiBacktestDto> {
     return this.backtests.cancel(user.id, id);
+  }
+
+  @Post('ai-backtests/:id/resume')
+  @ApiOperation({
+    summary: '從停下的那根 K 線繼續已停止或失敗的 AI 回測',
+  })
+  resumeBacktest(
+    @Param('id') id: string,
+    @Body() dto: ResumeAiBacktestDto,
+    @Session() { user }: UserSession,
+  ): Promise<QuantAiBacktestDto> {
+    return this.backtests.resumeStopped(user.id, id, dto);
   }
 
   @Delete('ai-backtests/:id')

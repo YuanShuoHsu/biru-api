@@ -30,6 +30,7 @@ import type {
   BacktestResultDto,
   CreateAiBacktestDto,
   QuantAiBacktestDto,
+  ResumeAiBacktestDto,
 } from '../dto/quant-bot.dto.js';
 import type { QuantCandleDto } from '../dto/quant-market.dto.js';
 import {
@@ -202,6 +203,55 @@ export class QuantAiBacktestService {
     return this.find(userId, id);
   }
 
+  async resumeStopped(
+    userId: string,
+    id: string,
+    { monthlyCostLimit }: ResumeAiBacktestDto,
+  ): Promise<QuantAiBacktestDto> {
+    const run = await this.owned(userId, id);
+    if (run.status !== 'canceled' && run.status !== 'failed')
+      throw new BadRequestException(this.t('aiBacktestNotResumable'));
+
+    const config = {
+      ...(run.config as unknown as AiConfigDto),
+      ...(monthlyCostLimit !== undefined && { monthlyCostLimit }),
+    };
+    if (config.source === 'claude_api') {
+      await this.aiKeys.resolve(userId);
+      if (
+        config.monthlyCostLimit !== undefined &&
+        run.cost >= config.monthlyCostLimit
+      )
+        throw new BadRequestException(this.t('aiBacktestCostLimitReached'));
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(quantAiBacktest)
+        .set({
+          config: config as unknown as Record<string, unknown>,
+          error: null,
+          status: 'running',
+        })
+        .where(eq(quantAiBacktest.id, id));
+      // 同一根 K 線只能有一筆請求，停止時作廢的那筆要改回待判斷，不然推進時開不出新請求
+      await tx
+        .update(quantAiRequest)
+        .set({ resolvedAt: null, status: 'pending' })
+        .where(
+          and(
+            eq(quantAiRequest.backtestId, id),
+            eq(quantAiRequest.status, 'expired'),
+          ),
+        );
+    });
+
+    await this.advance(id);
+    if (config.source === 'claude_api') void this.drive(id);
+
+    return this.find(userId, id);
+  }
+
   async remove(userId: string, id: string): Promise<void> {
     await this.owned(userId, id);
     await this.db.delete(quantAiBacktest).where(eq(quantAiBacktest.id, id));
@@ -325,26 +375,10 @@ export class QuantAiBacktestService {
     const config = run.config as unknown as AiConfigDto;
     const candles = toCandles(run.candles);
     const decisionEvents: BacktestEvent[] = [];
-    const advisor: AiAdvisor = {
-      decide: (snapshot) => {
-        const decision = decisions.get(Date.parse(snapshot.time));
-        if (!decision) throw new NeedAiDecision(snapshot);
-
-        return Promise.resolve({
-          cost: 0,
-          decision,
-          model: 'recorded',
-          usage: { input: 0, output: 0 },
-        });
-      },
-      inline: true,
-      monthCost: () => Promise.resolve(0),
-    };
-
-    try {
-      const result = await runBacktest({
+    const replay = async (until: QuantCandleDto[]) =>
+      runBacktest({
         aiAdvisor: advisor,
-        candles,
+        candles: until,
         config,
         contextCandles: Object.fromEntries(
           Object.entries(run.contextCandles ?? {}).map(([value, rows]) => [
@@ -367,6 +401,24 @@ export class QuantAiBacktestService {
         }),
         type: 'ai',
       });
+    const advisor: AiAdvisor = {
+      decide: (snapshot) => {
+        const decision = decisions.get(Date.parse(snapshot.time));
+        if (!decision) throw new NeedAiDecision(snapshot);
+
+        return Promise.resolve({
+          cost: 0,
+          decision,
+          model: 'recorded',
+          usage: { input: 0, output: 0 },
+        });
+      },
+      inline: true,
+      monthCost: () => Promise.resolve(0),
+    };
+
+    try {
+      const result = await replay(candles);
 
       await this.db
         .update(quantAiBacktest)
@@ -416,9 +468,21 @@ export class QuantAiBacktestService {
           userId: run.userId,
         })
         .onConflictDoNothing();
+
+      // 判斷時間是該根的收盤時間
+      const decided = candles.filter(
+        ({ time: candleTime }) =>
+          candleEndOf(config.interval, candleTime) < time,
+      );
+      const partial = decided.length
+        ? toBacktestResultDto(await replay(decided), decided)
+        : null;
       await this.db
         .update(quantAiBacktest)
-        .set({ decidedCount: decisions.size })
+        .set({
+          decidedCount: decisions.size,
+          result: partial as unknown as Record<string, unknown> | null,
+        })
         .where(eq(quantAiBacktest.id, id));
     }
   }

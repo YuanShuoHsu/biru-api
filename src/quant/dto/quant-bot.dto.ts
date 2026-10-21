@@ -1459,6 +1459,17 @@ export class CreateAiBacktestDto extends PickType(BacktestBaseDto, [
   config: AiConfigDto;
 }
 
+export class ResumeAiBacktestDto {
+  @ApiPropertyOptional({
+    description:
+      'claude_api：調整這次回測的費用上限（美元），已花費用達到上限時必須調高',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyCostLimit?: number;
+}
+
 export class QuantAiBacktestDto {
   @ApiProperty() id: string;
   @ApiProperty() symbol: string;

@@ -257,6 +257,8 @@
     "aiRequestNotFound": "AI 判断リクエストが見つかりません",
     "aiRequestClosed": "この AI 判断は処理済みか、有効期限が切れています",
     "aiBacktestNotFound": "AI バックテストが見つかりません",
+    "aiBacktestNotResumable": "停止または失敗した AI バックテストのみ再開できます",
+    "aiBacktestCostLimitReached": "費用が上限に達しています。上限を引き上げてから再開してください",
     "agentConnectExpired": "接続コードが存在しないか期限切れです。ローカルのエージェントを再実行して新しいコードを取得してください",
     "agentNotNeeded": "バックエンドがローカルで動いており、このパソコンの Claude Code で直接判断しているため、エージェントは不要です"
   },

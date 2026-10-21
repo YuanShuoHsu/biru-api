@@ -257,6 +257,8 @@
     "aiRequestNotFound": "AI 판단 요청을 찾을 수 없습니다",
     "aiRequestClosed": "이 AI 판단은 이미 처리되었거나 만료되었습니다",
     "aiBacktestNotFound": "AI 백테스트를 찾을 수 없습니다",
+    "aiBacktestNotResumable": "중지되었거나 실패한 AI 백테스트만 이어서 실행할 수 있습니다",
+    "aiBacktestCostLimitReached": "지금까지의 비용이 비용 상한에 도달했습니다. 상한을 올린 뒤 이어서 실행하세요",
     "agentConnectExpired": "연결 코드가 없거나 만료되었습니다. 로컬 에이전트를 다시 실행해 새 코드를 받으세요",
     "agentNotNeeded": "백엔드가 로컬에서 실행 중이며 이 컴퓨터의 Claude Code로 직접 판단하므로 에이전트가 필요 없습니다"
   },

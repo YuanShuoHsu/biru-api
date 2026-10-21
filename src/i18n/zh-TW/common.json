@@ -257,6 +257,8 @@
     "aiRequestNotFound": "找不到這筆 AI 判斷請求",
     "aiRequestClosed": "這筆 AI 判斷已經處理過或已過期",
     "aiBacktestNotFound": "找不到這筆 AI 回測",
+    "aiBacktestNotResumable": "這筆 AI 回測只有停止或失敗後才能繼續",
+    "aiBacktestCostLimitReached": "已花費用達到費用上限，請調高上限再繼續",
     "agentConnectExpired": "連線代碼不存在或已過期，請重新執行本機代理取得新代碼",
     "agentNotNeeded": "後台在本機執行，已經直接用這台電腦的 Claude Code 判斷，不需要再開代理"
   },
