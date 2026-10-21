@@ -15,7 +15,6 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { AuthBatchService } from '../auth/auth-batch.service.js';
-import { isUserDeletable } from '../auth/deletion-guards.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
 import { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
@@ -24,10 +23,9 @@ import { AdminGuard } from '../common/guards/admin.guard.js';
 import { ListUsersQueryDto } from './dto/list-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import {
-  UserDeletabilityDto,
-  UserDeletabilityQueryDto,
-} from './dto/user-deletability.dto.js';
-import { UserResponseDto } from './dto/user-response.dto.js';
+  UserListResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto.js';
 import { UserStatsResponseDto } from './dto/user-stats.dto.js';
 import { UsersService } from './users.service.js';
 
@@ -48,9 +46,8 @@ export class UsersController {
 
   @Get('list')
   @ApiOperation({ summary: '查詢所有使用者' })
-  findList(
-    @Query() query: ListUsersQueryDto,
-  ): Promise<{ data: UserResponseDto[]; total: number }> {
+  @ApiOkResponse({ type: UserListResponseDto })
+  findList(@Query() query: ListUsersQueryDto): Promise<UserListResponseDto> {
     return this.usersService.listUsers(query);
   }
 
@@ -59,17 +56,6 @@ export class UsersController {
   @ApiOkResponse({ type: UserStatsResponseDto })
   getStats(@Query() query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
     return this.usersService.getStats(query);
-  }
-
-  @Get('deletability')
-  @ApiOperation({ summary: '查詢使用者是否可刪除' })
-  @ApiOkResponse({ type: [UserDeletabilityDto] })
-  async deletability(
-    @Query() { ids }: UserDeletabilityQueryDto,
-  ): Promise<UserDeletabilityDto[]> {
-    return Promise.all(
-      ids.map(async (id) => ({ id, deletable: await isUserDeletable(id) })),
-    );
   }
 
   @Delete()

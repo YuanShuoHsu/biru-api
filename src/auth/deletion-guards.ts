@@ -5,16 +5,15 @@ import * as schema from '../db/schema/index.js';
 
 import { authDb } from './auth-transaction.js';
 
-export const assertUserDeletable = async (userId: string) => {
-  if (await hasBlockingRecords('user', userId))
-    throw new APIError('CONFLICT', {
-      message: 'The user has employment records and cannot be deleted',
-      code: 'USER_HAS_EMPLOYMENT_RECORDS',
-    });
+const findSoleOwnerIds = async (userIds: string[]) => {
+  if (!userIds.length) return new Set<string>();
 
-  const { rows: soleOwned } = await authDb().execute(sql`
-    SELECT 1 FROM ${schema.member} owned
-    WHERE owned.user_id = ${userId}
+  const { rows } = await authDb().execute<{ id: string }>(sql`
+    SELECT DISTINCT owned.user_id AS id FROM ${schema.member} owned
+    WHERE owned.user_id IN (${sql.join(
+      userIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})
       AND owned.role = 'owner'
       AND NOT EXISTS (
         SELECT 1 FROM ${schema.member} other
@@ -22,24 +21,39 @@ export const assertUserDeletable = async (userId: string) => {
           AND other.role = 'owner'
           AND other.user_id <> owned.user_id
       )
-    LIMIT 1
   `);
 
-  if (soleOwned.length)
+  return new Set(rows.map(({ id }) => id));
+};
+
+export const assertUserDeletable = async (userId: string) => {
+  const [blockedIds, soleOwnerIds] = await Promise.all([
+    findBlockedIds('user', [userId]),
+    findSoleOwnerIds([userId]),
+  ]);
+
+  if (blockedIds.size)
+    throw new APIError('CONFLICT', {
+      message: 'The user has employment records and cannot be deleted',
+      code: 'USER_HAS_EMPLOYMENT_RECORDS',
+    });
+
+  if (soleOwnerIds.size)
     throw new APIError('CONFLICT', {
       message: 'The user is the only owner of an organization',
       code: 'USER_IS_SOLE_ORGANIZATION_OWNER',
     });
 };
 
-export const isUserDeletable = async (userId: string) => {
-  try {
-    await assertUserDeletable(userId);
-    return true;
-  } catch (error) {
-    if (error instanceof APIError) return false;
-    throw error;
-  }
+export const getDeletableUserIds = async (userIds: string[]) => {
+  const [blockedIds, soleOwnerIds] = await Promise.all([
+    findBlockedIds('user', userIds),
+    findSoleOwnerIds(userIds),
+  ]);
+
+  return new Set(
+    userIds.filter((id) => !blockedIds.has(id) && !soleOwnerIds.has(id)),
+  );
 };
 
 const blockingReferences = new Map<
@@ -75,28 +89,31 @@ const getBlockingReferences = (parentTable: string) => {
   return references;
 };
 
-const hasBlockingRecords = async (parentTable: string, id: string) => {
+const findBlockedIds = async (parentTable: string, ids: string[]) => {
   const references = await getBlockingReferences(parentTable);
-  if (!references.length) return false;
+  if (!references.length || !ids.length) return new Set<string>();
 
-  const { rows } = await authDb().execute(sql`
-    SELECT 1 FROM (
-      ${sql.join(
-        references.map(
-          ({ table, column }) =>
-            sql`(SELECT 1 FROM ${sql.identifier(table)} WHERE ${sql.identifier(column)} = ${id} LIMIT 1)`,
-        ),
-        sql` UNION ALL `,
+  const { rows } = await authDb().execute<{ id: string }>(sql`
+    SELECT candidate.id FROM (
+      VALUES ${sql.join(
+        ids.map((id) => sql`(${id})`),
+        sql`, `,
       )}
-    ) AS blocking
-    LIMIT 1
+    ) AS candidate (id)
+    WHERE ${sql.join(
+      references.map(
+        ({ table, column }) =>
+          sql`EXISTS (SELECT 1 FROM ${sql.identifier(table)} WHERE ${sql.identifier(table)}.${sql.identifier(column)} = candidate.id)`,
+      ),
+      sql` OR `,
+    )}
   `);
 
-  return rows.length > 0;
+  return new Set(rows.map(({ id }) => id));
 };
 
-export const hasBusinessRecords = (organizationId: string) =>
-  hasBlockingRecords('organization', organizationId);
+export const hasBusinessRecords = async (organizationId: string) =>
+  (await findBlockedIds('organization', [organizationId])).size > 0;
 
 export const assertOrganizationDeletable = async (organizationId: string) => {
   if (await hasBusinessRecords(organizationId))

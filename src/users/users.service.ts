@@ -7,6 +7,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
@@ -21,6 +22,7 @@ import {
   buildStringFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { getDeletableUserIds } from '../auth/deletion-guards.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
   getStatsWindow,
@@ -51,6 +53,7 @@ import {
   STRING_FILTER_FIELDS,
 } from './dto/list-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
+import type { UserListResponseDto } from './dto/user-response.dto.js';
 import type { UserStatsResponseDto } from './dto/user-stats.dto.js';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
@@ -207,9 +210,7 @@ export class UsersService {
     });
   }
 
-  async listUsers(
-    query: ListUsersQueryDto,
-  ): Promise<{ data: User[]; total: number }> {
+  async listUsers(query: ListUsersQueryDto): Promise<UserListResponseDto> {
     const {
       limit = 10,
       offset = 0,
@@ -273,7 +274,33 @@ export class UsersService {
       this.db.select({ total: count() }).from(user).where(where),
     ]);
 
-    return { data, total };
+    const userIds = data.map(({ id }) => id);
+    const [activeSessions, deletableUserIds] = await Promise.all([
+      userIds.length
+        ? this.db
+            .selectDistinct({ userId: schema.session.userId })
+            .from(schema.session)
+            .where(
+              and(
+                inArray(schema.session.userId, userIds),
+                gt(schema.session.expiresAt, new Date()),
+              ),
+            )
+        : [],
+      getDeletableUserIds(userIds),
+    ]);
+    const activeSessionUserIds = new Set(
+      activeSessions.map(({ userId }) => userId),
+    );
+
+    return {
+      data: data.map((row) => ({
+        ...row,
+        deletable: deletableUserIds.has(row.id),
+        hasActiveSession: activeSessionUserIds.has(row.id),
+      })),
+      total,
+    };
   }
 
   async createUser(data: CreateUser): Promise<User> {

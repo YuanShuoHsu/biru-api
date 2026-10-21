@@ -112,3 +112,19 @@ export class UserResponseDto {
   })
   updatedAt: Date;
 }
+
+export class UserListItemDto extends UserResponseDto {
+  @ApiProperty({
+    description: '有出勤或薪資紀錄、或是某組織唯一的擁有者時不可刪除',
+  })
+  deletable: boolean;
+
+  @ApiProperty({ description: '有未過期的登入裝置' })
+  hasActiveSession: boolean;
+}
+
+export class UserListResponseDto {
+  @ApiProperty({ type: [UserListItemDto] })
+  data: UserListItemDto[];
+  @ApiProperty() total: number;
+}
