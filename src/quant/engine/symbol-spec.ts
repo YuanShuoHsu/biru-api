@@ -1,14 +1,14 @@
-import { isFuturesBot, type QuantBotType } from '../dto/quant-bot.dto';
-import type { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+import { isFuturesBot, type QuantBotType } from '../dto/quant-bot.dto.js';
+import type { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import type {
   PionexPerpSymbol,
   PionexRiskTier,
   PionexSymbol,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
-import type { RiskTier } from './futures-account';
+import type { RiskTier } from './futures-account.js';
 
-import type { SymbolSpec } from './types';
+import type { SymbolSpec } from './types.js';
 
 export const toSymbolSpec = (symbol: PionexSymbol): SymbolSpec => ({
   amountPrecision: symbol.amountPrecision,

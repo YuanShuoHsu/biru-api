@@ -7,21 +7,21 @@ import { randomUUID } from 'node:crypto';
 import {
   attendanceAnnualLeaveNotice,
   attendanceEmployee,
-} from 'src/db/schema/attendance';
-import { organization } from 'src/db/schema/organizations';
-import { user } from 'src/db/schema/users';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import { MailsService } from 'src/mails/mails.service';
+} from '../db/schema/attendance.js';
+import { organization } from '../db/schema/organizations.js';
+import { user } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { MailsService } from '../mails/mails.service.js';
 
 import {
   ATTENDANCE_REQUEST_REVIEWED_EVENT,
   ATTENDANCE_REQUEST_SUBMITTED_EVENT,
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
-} from './attendance-notification.events';
-import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours';
-import { anniversary, annualLeaveLedger } from './leave-rules';
-import { reviewerUserIds } from './review-separation';
+} from './attendance-notification.events.js';
+import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours.js';
+import { anniversary, annualLeaveLedger } from './leave-rules.js';
+import { reviewerUserIds } from './review-separation.js';
 
 const REVIEW_PAGES = {
   parentalReturn: '/attendance/leave/parental-returns',

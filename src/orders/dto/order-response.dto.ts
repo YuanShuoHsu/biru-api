@@ -9,13 +9,13 @@ import {
   type InvoiceStatus,
   type InvoiceType,
   type PaymentStatus,
-} from 'src/db/schema/invoices';
+} from '../../db/schema/invoices.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
   type ServingTemperatureLevel,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 import {
   orderModeEnum,
   orderStatusEnum,
@@ -23,7 +23,7 @@ import {
   type OrderMode,
   type OrderStatus,
   type PaymentMethod,
-} from 'src/db/schema/orders';
+} from '../../db/schema/orders.js';
 
 export class OrderItemModifierSnapshotDto {
   @ApiProperty() modifierGroupId: string;

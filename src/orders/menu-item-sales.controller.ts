@@ -1,17 +1,17 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import {
   MenuItemSalesQueryDto,
   MenuItemSalesResponseDto,
-} from './dto/menu-item-sales.dto';
+} from './dto/menu-item-sales.dto.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
   getSalesWindowStart,
-} from './menu-item-sales.service';
+} from './menu-item-sales.service.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/menu-item-sales')

@@ -1,13 +1,13 @@
 import { type SQL, isNull } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
-import { ORDER_FLOW_STATUSES, order } from 'src/db/schema/orders';
-import type { RefundChannel } from 'src/db/schema/refunds';
+import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
+import { ORDER_FLOW_STATUSES, order } from '../db/schema/orders.js';
+import type { RefundChannel } from '../db/schema/refunds.js';
 
-import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
-import type { OrderResponseDto } from './dto/order-response.dto';
+import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
+import type { OrderResponseDto } from './dto/order-response.dto.js';
 
-import { POINTS_SNAPSHOT_SET } from './points-snapshot';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 export const ORDER_TRANSITION_DIRECTIONS = [
   'advance',

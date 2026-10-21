@@ -13,33 +13,36 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { actor } from 'src/attendance/attendance-actor';
+import { actor } from '../attendance/attendance-actor.js';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
 import {
   EmployerHealthSupplementQueryDto,
   EmployerHealthSupplementResponseDto,
-} from './dto/employer-health-supplement.dto';
-import { AttendanceBatchResponseDto } from 'src/attendance/dto/review-attendance-request.dto';
+} from './dto/employer-health-supplement.dto.js';
+import { AttendanceBatchResponseDto } from '../attendance/dto/review-attendance-request.dto.js';
 
-import { PayrollBatchDraftDto, PayrollDraftDto } from './dto/payroll-draft.dto';
+import {
+  PayrollBatchDraftDto,
+  PayrollDraftDto,
+} from './dto/payroll-draft.dto.js';
 import {
   PayrollBatchReviewDto,
   PayrollReviewDto,
-} from './dto/payroll-review.dto';
-import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagination-query.dto';
+} from './dto/payroll-review.dto.js';
+import { PayrollStatementPaginationQueryDto } from './dto/payroll-statement-pagination-query.dto.js';
 import {
   PayrollStatementResponseDto,
   PayrollStatementsResponseDto,
   toPayrollStatementResponse,
-} from './dto/payroll-statement-response.dto';
-import { PayrollTermsResponseDto } from './dto/payroll-terms-response.dto';
-import { PayrollTermsDto } from './dto/payroll-terms.dto';
-import { PayrollService } from './payroll.service';
+} from './dto/payroll-statement-response.dto.js';
+import { PayrollTermsResponseDto } from './dto/payroll-terms-response.dto.js';
+import { PayrollTermsDto } from './dto/payroll-terms.dto.js';
+import { PayrollService } from './payroll.service.js';
 
 @ApiTags('payroll')
 @Controller('organizations/:organizationSlug/payroll')

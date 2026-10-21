@@ -1,13 +1,13 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { PionexSocket } from './pionex-socket';
+import { PionexSocket } from './pionex-socket.js';
 import type {
   PionexDepth,
   PionexFuturesIndex,
   PionexMarketType,
   PionexTrade,
-} from './pionex.types';
+} from './pionex.types.js';
 
 const PIONEX_PUBLIC_WS_URL = 'wss://ws.pionex.com/wsPub';
 

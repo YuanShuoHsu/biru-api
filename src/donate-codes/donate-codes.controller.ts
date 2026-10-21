@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { DonateCodesService } from './donate-codes.service';
+import { DonateCodesService } from './donate-codes.service.js';
 
 @AllowAnonymous()
 @Controller('donate-codes')

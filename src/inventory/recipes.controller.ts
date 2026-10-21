@@ -10,25 +10,25 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { IdsDto } from 'src/common/dto/ids.dto';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
 
-import { ReorderDto } from 'src/menus/dto/reorder.dto';
+import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
-import { HasPermission } from 'src/menus/decorators/permission.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import {
   CreateRecipeIngredientDto,
   UpdateRecipeDto,
   UpdateRecipeIngredientDto,
-} from './dto/create-recipe.dto';
-import { RecipeIngredientPaginationQueryDto } from './dto/recipe-ingredient-pagination-query.dto';
+} from './dto/create-recipe.dto.js';
+import { RecipeIngredientPaginationQueryDto } from './dto/recipe-ingredient-pagination-query.dto.js';
 import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
-} from './dto/recipe-response.dto';
-import { RecipesService } from './recipes.service';
+} from './dto/recipe-response.dto.js';
+import { RecipesService } from './recipes.service.js';
 
 @ApiTags('inventory')
 @Controller('recipes/:recipeId')

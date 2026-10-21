@@ -1,4 +1,4 @@
-import { PLATFORM_UTC_OFFSET_MS } from '../constants/timezone';
+import { PLATFORM_UTC_OFFSET_MS } from '../constants/timezone.js';
 
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
 

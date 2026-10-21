@@ -1,11 +1,11 @@
 import { sql } from 'drizzle-orm';
 
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import {
   attendanceEvent,
   attendanceRequest,
   attendanceShift,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
 export const unfinishedShift = sql`NOT EXISTS (SELECT 1 FROM ${attendanceEvent} closing
     WHERE closing.shift_id = ${attendanceShift.id} AND closing.action = 'clockOut')

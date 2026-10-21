@@ -3,7 +3,7 @@ import { type Column, type SQL, sql } from 'drizzle-orm';
 import type {
   StatsBucketQueryDto,
   StatsBucketUnit,
-} from '../dto/stats-bucket-query.dto';
+} from '../dto/stats-bucket-query.dto.js';
 
 const BUCKET_UNIT_MS: Record<StatsBucketUnit, number> = {
   day: 24 * 60 * 60 * 1000,

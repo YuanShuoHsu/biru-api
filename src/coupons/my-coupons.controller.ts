@@ -2,12 +2,12 @@ import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { CouponsService } from './coupons.service';
+import { CouponsService } from './coupons.service.js';
 import {
   MyClaimableCouponDto,
   MyCouponResponseDto,
   UserCouponResponseDto,
-} from './dto/coupon-response.dto';
+} from './dto/coupon-response.dto.js';
 
 @ApiTags('coupons')
 @Controller('users/me/coupons')

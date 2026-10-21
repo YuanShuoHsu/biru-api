@@ -4,12 +4,12 @@ import {
   PionexApiError,
   type PionexCredentials,
   type PionexRestClient,
-} from '../pionex/pionex-rest.client';
-import type { PionexFill, PionexOrder } from '../pionex/pionex.types';
+} from '../pionex/pionex-rest.client.js';
+import type { PionexFill, PionexOrder } from '../pionex/pionex.types.js';
 
-import type { Broker, SubmittedOrder } from './bot-session';
-import { toDecimalString } from './precision';
-import type { BotFill, SymbolSpec } from './types';
+import type { Broker, SubmittedOrder } from './bot-session.js';
+import { toDecimalString } from './precision.js';
+import type { BotFill, SymbolSpec } from './types.js';
 
 export interface SyncedOrder {
   fills: BotFill[];

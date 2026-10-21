@@ -13,13 +13,13 @@ import {
   sql,
 } from 'drizzle-orm';
 
-import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto';
+import type { AllowanceInvoiceEcpayItemDto } from '../dto/allowance-invoice-ecpay.dto.js';
 import type {
   CreateOrderRefundDto,
   OrderRefundDto,
   OrderRefundPreviewDto,
   PreviewOrderRefundDto,
-} from '../dto/order-refund.dto';
+} from '../dto/order-refund.dto.js';
 
 import {
   EcpayRejectedError,
@@ -29,22 +29,22 @@ import {
   sleep,
   toGetIssueQuery,
   toInvoiceDateText,
-} from '../utils/ecpay';
-import type { RefundPlanTranslate } from '../utils/refund-plan';
+} from '../utils/ecpay.js';
+import type { RefundPlanTranslate } from '../utils/refund-plan.js';
 import {
   buildRefundPlan,
   earliestVoidableInvoiceDate,
-} from '../utils/refund-plan';
+} from '../utils/refund-plan.js';
 
-import { EcpayAllowanceInvoiceService } from './ecpay-allowance-invoice.service';
+import { EcpayAllowanceInvoiceService } from './ecpay-allowance-invoice.service.js';
 import {
   EcpayDoActionService,
   EcpayResultUnknownError,
-} from './ecpay-do-action.service';
-import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
-import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service';
-import { EcpayQueryCreditDetailService } from './ecpay-query-credit-detail.service';
-import { EcpayRateLimitedError } from './ecpay-query-trade-info.service';
+} from './ecpay-do-action.service.js';
+import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
+import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
+import { EcpayQueryCreditDetailService } from './ecpay-query-credit-detail.service.js';
+import { EcpayRateLimitedError } from './ecpay-query-trade-info.service.js';
 
 import {
   ConflictException,
@@ -58,33 +58,36 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { Invoice } from 'src/db/schema/invoices';
-import { invoice, invoiceAllowance } from 'src/db/schema/invoices';
-import type { OrderCustomerSnapshot } from 'src/db/schema/orders';
-import { order } from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
+import type { Invoice } from '../../db/schema/invoices.js';
+import { invoice, invoiceAllowance } from '../../db/schema/invoices.js';
+import type { OrderCustomerSnapshot } from '../../db/schema/orders.js';
+import { order } from '../../db/schema/orders.js';
+import { organization } from '../../db/schema/organizations.js';
 import type {
   Refund,
   RefundInvoiceAction,
   RefundItemSnapshot,
-} from 'src/db/schema/refunds';
-import { refund } from 'src/db/schema/refunds';
-import { user } from 'src/db/schema/users';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../../db/schema/refunds.js';
+import { refund } from '../../db/schema/refunds.js';
+import { user } from '../../db/schema/users.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
-import { CRON_ENABLED } from 'src/common/constants/cron';
-import { toActiveInvoice } from 'src/common/utils/invoices';
-import { CouponsService } from 'src/coupons/coupons.service';
-import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+import { CRON_ENABLED } from '../../common/constants/cron.js';
+import { toActiveInvoice } from '../../common/utils/invoices.js';
+import { CouponsService } from '../../coupons/coupons.service.js';
+import { ORDER_STATUS_UPDATED_EVENT } from '../../events/order-status-updated.event.js';
 import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
-} from 'src/events/order-updated.event';
-import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
-import { getRefundChannel, isRefundable } from 'src/orders/order-transitions';
-import { PointsService } from 'src/points/points.service';
+} from '../../events/order-updated.event.js';
+import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
+import {
+  getRefundChannel,
+  isRefundable,
+} from '../../orders/order-transitions.js';
+import { PointsService } from '../../points/points.service.js';
 
 const SETTLE_GRACE_MS = 10 * 60 * 1000;
 const SETTLE_LEASE_MS = 15 * 60 * 1000;

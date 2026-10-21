@@ -2,13 +2,13 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
-import { platformDateString } from 'src/common/constants/timezone';
-import { attendanceAudit } from 'src/db/schema/attendance';
-import { payrollStatement } from 'src/db/schema/payroll';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { platformDateString } from '../common/constants/timezone.js';
+import { attendanceAudit } from '../db/schema/attendance.js';
+import { payrollStatement } from '../db/schema/payroll.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
-import { conflictError } from './attendance-errors';
+import type { AttendanceActor } from './attendance-actor.js';
+import { conflictError } from './attendance-errors.js';
 
 export type Transaction = Parameters<
   Parameters<DrizzleDB['transaction']>[0]

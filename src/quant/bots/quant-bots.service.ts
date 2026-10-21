@@ -42,21 +42,21 @@ import {
   quantBotFill,
   quantBotOrder,
   quantCredential,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../../common/utils/data-grid-filters.js';
 
-import { QuantAccountService } from '../account/quant-account.service';
-import { QuantFuturesService } from '../account/quant-futures.service';
-import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
-import { QuantAiKeyService } from '../ai/quant-ai-key.service';
+import { QuantAccountService } from '../account/quant-account.service.js';
+import { QuantFuturesService } from '../account/quant-futures.service.js';
+import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service.js';
+import { QuantAiKeyService } from '../ai/quant-ai-key.service.js';
 import {
   type AiConfigDto,
   type CreateQuantBotDto,
@@ -106,30 +106,30 @@ import {
   type StopQuantBotDto,
   type WebhookConfigDto,
   type WebhookSignalDto,
-} from '../dto/quant-bot.dto';
-import { SpotAccount } from '../engine/account';
-import { FUNDING_EVENT, toBotFill } from '../engine/bot-store';
-import { FuturesAccount } from '../engine/futures-account';
-import { toDecimalString } from '../engine/precision';
-import { MarketCacheService } from '../engine/market-cache.service';
-import { QuantEngineService } from '../engine/quant-engine.service';
-import { dcaMaxInvestment } from '../engine/strategies/dca.strategy';
-import { PIONEX_FEE_RATES } from '../engine/fee-rates';
-import { futuresGridQuantity } from '../engine/strategies/futures-grid.strategy';
-import { gridLayout, gridLines } from '../engine/strategies/grid.strategy';
+} from '../dto/quant-bot.dto.js';
+import { SpotAccount } from '../engine/account.js';
+import { FUNDING_EVENT, toBotFill } from '../engine/bot-store.js';
+import { FuturesAccount } from '../engine/futures-account.js';
+import { toDecimalString } from '../engine/precision.js';
+import { MarketCacheService } from '../engine/market-cache.service.js';
+import { QuantEngineService } from '../engine/quant-engine.service.js';
+import { dcaMaxInvestment } from '../engine/strategies/dca.strategy.js';
+import { PIONEX_FEE_RATES } from '../engine/fee-rates.js';
+import { futuresGridQuantity } from '../engine/strategies/futures-grid.strategy.js';
+import { gridLayout, gridLines } from '../engine/strategies/grid.strategy.js';
 import {
   botSymbolSpec,
   toRiskTiers,
   toSymbolSpec,
-} from '../engine/symbol-spec';
-import type { SymbolSpec } from '../engine/types';
-import { QuantMarketService } from '../market/quant-market.service';
+} from '../engine/symbol-spec.js';
+import type { SymbolSpec } from '../engine/types.js';
+import { QuantMarketService } from '../market/quant-market.service.js';
 import {
   PionexApiError,
   type PionexCredentials,
-} from '../pionex/pionex-rest.client';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
-import { quantEnvironment } from '../quant-environment';
+} from '../pionex/pionex-rest.client.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
+import { quantEnvironment } from '../quant-environment.js';
 
 import {
   type FuturesGridOperationPath,
@@ -137,7 +137,7 @@ import {
   type PionexFuturesGridData,
   type PionexFuturesGridOperationCheck,
   PionexFuturesGridService,
-} from './pionex-futures-grid.service';
+} from './pionex-futures-grid.service.js';
 import {
   fromPionexSpotStop,
   fromPionexStop,
@@ -146,11 +146,11 @@ import {
   PionexGridService,
   type PionexSpotGridData,
   toPionexStop,
-} from './pionex-grid.service';
+} from './pionex-grid.service.js';
 import {
   PionexSignalService,
   type SmartCopyParams,
-} from './pionex-signal.service';
+} from './pionex-signal.service.js';
 
 const PIONEX_GRID_SYNC_MS = 30_000;
 const WEBHOOK_TOKEN_BYTES = 24;

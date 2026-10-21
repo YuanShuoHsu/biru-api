@@ -5,17 +5,17 @@ import {
   paymentMethodEnum,
   type OrderMode,
   type PaymentMethod,
-} from 'src/db/schema/orders';
+} from '../../db/schema/orders.js';
 import {
   refundReasonCodeEnum,
   type RefundReasonCode,
-} from 'src/db/schema/refunds';
+} from '../../db/schema/refunds.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
   type ServingTemperatureLevel,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 
 export class OrderStatsTotalsDto {
   @ApiProperty() orders: number;

@@ -1,6 +1,6 @@
-import type { AccountModel } from './account';
-import type { SubmittedOrder } from './bot-session';
-import type { BotFill, OrderRequest } from './types';
+import type { AccountModel } from './account.js';
+import type { SubmittedOrder } from './bot-session.js';
+import type { BotFill, OrderRequest } from './types.js';
 
 const MARGIN_TOLERANCE = 1e-9;
 

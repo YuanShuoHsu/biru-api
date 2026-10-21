@@ -11,16 +11,16 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
+import { timestamps } from './columns.helpers.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
   type ServingTemperatureLevel,
   type SweetnessLevel,
-} from './enums';
-import { invoice } from './invoices';
-import { organization } from './organizations';
-import { user } from './users';
+} from './enums.js';
+import { invoice } from './invoices.js';
+import { organization } from './organizations.js';
+import { user } from './users.js';
 
 // counter＝現場外帶、pickup＝線上外帶；kiosk 是收現金的機台不是點餐模式，故不在此列
 export const orderModeEnum = pgEnum('order_mode', [

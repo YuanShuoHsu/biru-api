@@ -17,29 +17,29 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import { getOrganizationIdBySlug } from 'src/common/utils/organizations';
-import { ingredient, supplier } from 'src/db/schema/inventory';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../common/utils/data-grid-filters.js';
+import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import { ingredient, supplier } from '../db/schema/inventory.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   CreateSupplierDto,
   UpdateSupplierDto,
-} from './dto/create-supplier.dto';
+} from './dto/create-supplier.dto.js';
 import {
   SUPPLIER_DATE_FILTER_FIELDS,
   SUPPLIER_STRING_FILTER_FIELDS,
   SupplierPaginationQueryDto,
-} from './dto/supplier-pagination-query.dto';
+} from './dto/supplier-pagination-query.dto.js';
 import {
   SupplierIngredientResponseDto,
   SupplierResponseDto,
-} from './dto/supplier-response.dto';
+} from './dto/supplier-response.dto.js';
 
 type Tx = Pick<DrizzleDB, 'update'>;
 

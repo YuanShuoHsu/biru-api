@@ -4,7 +4,7 @@ import { IsEnum } from 'class-validator';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
-} from 'src/db/schema/menus';
+} from '../../db/schema/menus.js';
 
 export class UpdateItemAvailabilityDto {
   @ApiProperty({

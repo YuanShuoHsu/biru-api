@@ -1,24 +1,22 @@
-jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+import { loadMedicalLedger } from '../attendance/medical-leave.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { loadMedicalLedger } from 'src/attendance/medical-leave';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { calculatePayroll } from './payroll-calculation.js';
+import type { PayrollEarningsService } from './payroll-earnings.service.js';
+import type { PayrollRulesService } from './payroll-rules.service.js';
+import { PayrollService } from './payroll.service.js';
 
-import { calculatePayroll } from './payroll-calculation';
-import type { PayrollEarningsService } from './payroll-earnings.service';
-import type { PayrollRulesService } from './payroll-rules.service';
-import { PayrollService } from './payroll.service';
-
-jest.mock('./payroll-calculation', () => ({
-  ...jest.requireActual<typeof import('./payroll-calculation')>(
-    './payroll-calculation',
-  ),
-  calculatePayroll: jest.fn(() => ({ blockers: [] })),
+vi.mock('./payroll-calculation.js', async () => ({
+  ...(await vi.importActual<typeof import('./payroll-calculation.js')>(
+    './payroll-calculation.js',
+  )),
+  calculatePayroll: vi.fn(() => ({ blockers: [] })),
 }));
-jest.mock('src/attendance/medical-leave', () => ({
-  ...jest.requireActual<typeof import('src/attendance/medical-leave')>(
-    'src/attendance/medical-leave',
-  ),
-  loadMedicalLedger: jest.fn(),
+vi.mock('../attendance/medical-leave.js', async () => ({
+  ...(await vi.importActual<typeof import('../attendance/medical-leave.js')>(
+    '../attendance/medical-leave.js',
+  )),
+  loadMedicalLedger: vi.fn(),
 }));
 const at = (hour: string) => new Date(`2026-01-15T${hour}:00:00+08:00`);
 
@@ -77,7 +75,7 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
       return query;
     },
   };
-  jest.mocked(loadMedicalLedger).mockResolvedValue({
+  vi.mocked(loadMedicalLedger).mockResolvedValue({
     segments: [
       {
         requestId: request.id,
@@ -123,11 +121,11 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
     '2026-01',
     employee,
   );
-  return jest.mocked(calculatePayroll).mock.calls.at(-1)?.[3];
+  return vi.mocked(calculatePayroll).mock.calls.at(-1)?.[3];
 }
 
 describe('Calendar medical leave payroll', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
   it('deducts six hours for a half-paid morning and unpaid afternoon regardless of the scheduled shift', async () => {
     expect(await calculate(true)).toBe(6 * 3600);
     expect(await calculate(false)).toBe(6 * 3600);

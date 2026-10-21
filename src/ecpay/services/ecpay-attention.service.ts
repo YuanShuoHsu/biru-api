@@ -1,4 +1,4 @@
-import type { EcpayAttentionItemDto } from '../dto/ecpay-attention.dto';
+import type { EcpayAttentionItemDto } from '../dto/ecpay-attention.dto.js';
 
 import {
   and,
@@ -17,14 +17,14 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { ecpayCallbackLog } from 'src/db/schema/ecpay-callback-logs';
-import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
-import { invoice } from 'src/db/schema/invoices';
-import { order } from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
-import { refund } from 'src/db/schema/refunds';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import { ecpayCallbackLog } from '../../db/schema/ecpay-callback-logs.js';
+import { ecpayPaymentAttempt } from '../../db/schema/ecpay-payment-attempts.js';
+import { invoice } from '../../db/schema/invoices.js';
+import { order } from '../../db/schema/orders.js';
+import { organization } from '../../db/schema/organizations.js';
+import { refund } from '../../db/schema/refunds.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
 const SETTLE_GRACE_MS = 30 * 60 * 1000;
 const ISSUE_GRACE_MS = 60 * 60 * 1000;

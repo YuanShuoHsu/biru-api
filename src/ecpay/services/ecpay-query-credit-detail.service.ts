@@ -1,13 +1,13 @@
 import { firstValueFrom } from 'rxjs';
 
-import type { QueryCreditDetailEcpayResponseDto } from '../dto/query-credit-detail-ecpay.dto';
+import type { QueryCreditDetailEcpayResponseDto } from '../dto/query-credit-detail-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
-import { EcpayBaseService } from './ecpay-base.service';
-import { EcpayRateLimitedError } from './ecpay-query-trade-info.service';
+import { EcpayBaseService } from './ecpay-base.service.js';
+import { EcpayRateLimitedError } from './ecpay-query-trade-info.service.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';

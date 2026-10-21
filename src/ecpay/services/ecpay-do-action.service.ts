@@ -1,14 +1,14 @@
 import { isAxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
-import type { DoActionEcpayResponseDto } from '../dto/do-action-ecpay.dto';
-import { ECPAY_DO_ACTION } from '../dto/do-action-ecpay.dto';
+import type { DoActionEcpayResponseDto } from '../dto/do-action-ecpay.dto.js';
+import { ECPAY_DO_ACTION } from '../dto/do-action-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
-import { EcpayBaseService } from './ecpay-base.service';
+import { EcpayBaseService } from './ecpay-base.service.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';

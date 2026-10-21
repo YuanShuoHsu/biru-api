@@ -1,11 +1,11 @@
 import { BollingerBands, EMA, MACD, RSI } from 'technicalindicators';
 
-import type { AiConfigDto } from '../../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../../dto/quant-market.dto';
-import type { PionexKlineInterval } from '../../pionex/pionex.types';
-import type { Strategy, StrategyContext } from '../types';
+import type { AiConfigDto } from '../../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../../dto/quant-market.dto.js';
+import type { PionexKlineInterval } from '../../pionex/pionex.types.js';
+import type { Strategy, StrategyContext } from '../types.js';
 
-import { adverse, favorable, type Trader } from './trader';
+import { adverse, favorable, type Trader } from './trader.js';
 
 const DECISION_CANDLES = 120;
 export const CONTEXT_CANDLES = 30;

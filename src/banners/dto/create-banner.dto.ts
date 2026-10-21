@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
+import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
 
 export class CreateBannerDto {
   @ApiProperty({ description: '圖片來源（data URL）' })

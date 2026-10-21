@@ -15,19 +15,19 @@ import {
 } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { OrganizationMember } from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
 import {
   canRestoreAnything,
   DeletedRecordsService,
-} from './deleted-records.service';
+} from './deleted-records.service.js';
 import {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
   DeletedRecordPermissionDto,
   RestoreDeletedRecordsDto,
-} from './dto/deleted-record-batch.dto';
+} from './dto/deleted-record-batch.dto.js';
 
 @ApiTags('deleted-records')
 @ApiParam({ name: 'organizationSlug' })

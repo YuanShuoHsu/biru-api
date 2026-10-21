@@ -19,19 +19,19 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import { isAuthorized } from 'src/auth/permissions';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { isAuthorized } from '../auth/permissions.js';
 import {
   DAY_MS,
   platformDateString,
   platformMidnight,
   STORE_UTC_OFFSET,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   attendanceEmployee,
@@ -44,15 +44,15 @@ import {
   attendanceShift,
   statutoryHoliday,
   type AttendanceEmploymentType,
-} from 'src/db/schema/attendance';
-import { member } from 'src/db/schema/organizations';
-import { payrollStatement } from 'src/db/schema/payroll';
-import { user } from 'src/db/schema/users';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import { currentOccupationalIndustryRates } from 'src/payroll/payroll-rules.service';
-import { legalStatusObligations } from 'src/payroll/taiwan-rules';
+} from '../db/schema/attendance.js';
+import { member } from '../db/schema/organizations.js';
+import { payrollStatement } from '../db/schema/payroll.js';
+import { user } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { currentOccupationalIndustryRates } from '../payroll/payroll-rules.service.js';
+import { legalStatusObligations } from '../payroll/taiwan-rules.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   assertPayrollUnlocked,
   auditChanges,
@@ -60,8 +60,8 @@ import {
   writeAudit,
   type Transaction,
   type RestoredRecord,
-} from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
+} from './attendance-audit.js';
+import { badRequestError, conflictError } from './attendance-errors.js';
 import {
   ageOn,
   hasOverlappingOvertimeExtensions,
@@ -74,30 +74,30 @@ import {
   restDayDesignationConflict,
   scheduledWorkIntervals,
   workPermitRequired,
-} from './attendance-rules';
+} from './attendance-rules.js';
 import {
   ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
   ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
   AttendanceEmployeePaginationQueryDto,
-} from './dto/attendance-employee-pagination-query.dto';
-import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
-import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
+} from './dto/attendance-employee-pagination-query.dto.js';
+import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto.js';
+import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto.js';
 import {
   employmentType,
   employmentTypeSql,
   loadOneEmployeeHours,
   weeklyMinutesAt,
-} from './employee-hours';
-import { findEmployee } from './employee-lookup';
-import { anniversary } from './leave-rules';
-import { shiftStartDate } from './shift-queries';
+} from './employee-hours.js';
+import { findEmployee } from './employee-lookup.js';
+import { anniversary } from './leave-rules.js';
+import { shiftStartDate } from './shift-queries.js';
 import {
   employeeStatus,
   employeeStatusOrderSql,
   employeeStatusSql,
-} from './employee-status';
-import { selfReviewAllowance } from './review-separation';
+} from './employee-status.js';
+import { selfReviewAllowance } from './review-separation.js';
 
 // 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
 const platformDayStart = (value: string) =>

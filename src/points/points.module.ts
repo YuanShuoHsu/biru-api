@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
-import { MyPointsController } from './my-points.controller';
-import { PointsService } from './points.service';
+import { MyPointsController } from './my-points.controller.js';
+import { PointsService } from './points.service.js';
 
 @Module({
   controllers: [MyPointsController],

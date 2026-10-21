@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { ModifierGroupResponseDto } from './modifier-group-response.dto';
+import { ModifierGroupResponseDto } from './modifier-group-response.dto.js';
 
 export class MenuItemModifierGroupResponseDto {
   @ApiProperty()

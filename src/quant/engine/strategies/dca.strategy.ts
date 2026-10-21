@@ -1,7 +1,7 @@
-import type { DcaConfigDto } from '../../dto/quant-bot.dto';
-import type { BotOrder, Strategy, StrategyContext } from '../types';
+import type { DcaConfigDto } from '../../dto/quant-bot.dto.js';
+import type { BotOrder, Strategy, StrategyContext } from '../types.js';
 
-import { adverse, type Trader } from './trader';
+import { adverse, type Trader } from './trader.js';
 
 // 標記格式 dca:<輪次>:<base|safety-N|tp|sl>，重啟後靠它還原輪次與加碼進度
 const tagOf = (cycle: number, step: string) => `dca:${cycle}:${step}`;

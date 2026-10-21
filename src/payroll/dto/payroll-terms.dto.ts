@@ -27,7 +27,7 @@ import {
   type LaborInsuranceExemption,
   PAYROLL_TAX_METHODS,
   type PayrollTaxMethod,
-} from 'src/db/schema/payroll';
+} from '../../db/schema/payroll.js';
 
 export class TaiwanInsuranceDto {
   @ApiProperty({

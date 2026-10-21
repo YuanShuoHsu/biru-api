@@ -1,6 +1,6 @@
-import type { ShiftBreak } from 'src/db/schema/attendance';
+import type { ShiftBreak } from '../db/schema/attendance.js';
 
-import { badRequestError } from './attendance-errors';
+import { badRequestError } from './attendance-errors.js';
 
 export function parseInterval(start: string, end: string) {
   const startsAt = new Date(start),

@@ -17,37 +17,37 @@ import {
 } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AttendanceModule } from './attendance/attendance.module';
-import { AuditModule } from './audit/audit.module';
-import { createAuth } from './auth';
-import { AuthModule } from './auth/auth.module';
-import { runWithAuthHookState } from './auth/hooks';
-import { createAuthI18n } from './auth/i18n';
-import { BannersModule } from './banners/banners.module';
-import { AuditInterceptor } from './common/interceptors/audit.interceptor';
-import { CouponsModule } from './coupons/coupons.module';
-import { DonateCodesModule } from './donate-codes/donate-codes.module';
-import { DeletedRecordsModule } from './deleted-records/deleted-records.module';
-import { DrizzleModule } from './drizzle/drizzle.module';
-import { EcpayModule } from './ecpay/ecpay.module';
-import { EventsModule } from './events/events.module';
-import { GcisModule } from './gcis/gcis.module';
-import type { I18nTranslations } from './generated/i18n.generated';
-import { InventoryModule } from './inventory/inventory.module';
-import { MailsModule } from './mails/mails.module';
-import { MailsService } from './mails/mails.service';
-import { RolesGuard } from './menus/guards/roles.guard';
-import { MenusModule } from './menus/menus.module';
-import { OrdersModule } from './orders/orders.module';
-import { OrganizationsModule } from './organizations/organizations.module';
-import { PayrollModule } from './payroll/payroll.module';
-import { PointsModule } from './points/points.module';
-import { QuantModule } from './quant/quant.module';
-import { TasksModule } from './tasks/tasks.module';
-import { UsersModule } from './users/users.module';
-import { WaitlistModule } from './waitlist/waitlist.module';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { AttendanceModule } from './attendance/attendance.module.js';
+import { AuditModule } from './audit/audit.module.js';
+import { createAuth } from './auth/index.js';
+import { AuthModule } from './auth/auth.module.js';
+import { runWithAuthHookState } from './auth/hooks.js';
+import { createAuthI18n } from './auth/i18n.js';
+import { BannersModule } from './banners/banners.module.js';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
+import { CouponsModule } from './coupons/coupons.module.js';
+import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
+import { DeletedRecordsModule } from './deleted-records/deleted-records.module.js';
+import { DrizzleModule } from './drizzle/drizzle.module.js';
+import { EcpayModule } from './ecpay/ecpay.module.js';
+import { EventsModule } from './events/events.module.js';
+import { GcisModule } from './gcis/gcis.module.js';
+import type { I18nTranslations } from './generated/i18n.generated.js';
+import { InventoryModule } from './inventory/inventory.module.js';
+import { MailsModule } from './mails/mails.module.js';
+import { MailsService } from './mails/mails.service.js';
+import { RolesGuard } from './menus/guards/roles.guard.js';
+import { MenusModule } from './menus/menus.module.js';
+import { OrdersModule } from './orders/orders.module.js';
+import { OrganizationsModule } from './organizations/organizations.module.js';
+import { PayrollModule } from './payroll/payroll.module.js';
+import { PointsModule } from './points/points.module.js';
+import { QuantModule } from './quant/quant.module.js';
+import { TasksModule } from './tasks/tasks.module.js';
+import { UsersModule } from './users/users.module.js';
+import { WaitlistModule } from './waitlist/waitlist.module.js';
 
 @Module({
   imports: [
@@ -86,13 +86,17 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     EventsModule,
     GcisModule,
     I18nModule.forRootAsync({
+      imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         fallbackLanguage: configService.getOrThrow('FALLBACK_LANGUAGE'),
         loaderOptions: {
-          path: join(__dirname, '/i18n/'),
+          path: join(import.meta.dirname, '/i18n/'),
           watch: true,
         },
-        typesOutputPath: join(__dirname, '../src/generated/i18n.generated.ts'),
+        typesOutputPath: join(
+          import.meta.dirname,
+          '../src/generated/i18n.generated.ts',
+        ),
       }),
       resolvers: [
         { use: QueryResolver, options: ['lang'] },

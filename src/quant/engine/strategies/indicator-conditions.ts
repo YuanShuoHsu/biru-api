@@ -1,6 +1,6 @@
 import { BollingerBands, EMA, MACD, RSI, SMA } from 'technicalindicators';
 
-import type { IndicatorConditionDto } from '../../dto/quant-bot.dto';
+import type { IndicatorConditionDto } from '../../dto/quant-bot.dto.js';
 
 const DEFAULT_RSI_PERIOD = 14;
 const DEFAULT_BOLLINGER = { period: 20, stdDev: 2 };

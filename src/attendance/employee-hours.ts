@@ -1,16 +1,19 @@
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 
-import { DAY_MS, PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { DAY_MS, PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import {
   attendanceEmployee,
   attendanceShift,
   type AttendanceEmploymentType,
-} from 'src/db/schema/attendance';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { Transaction } from './attendance-audit';
-import { scheduledWorkSeconds, type ScheduledShift } from './attendance-rules';
-import { anniversary } from './leave-rules';
+import type { Transaction } from './attendance-audit.js';
+import {
+  scheduledWorkSeconds,
+  type ScheduledShift,
+} from './attendance-rules.js';
+import { anniversary } from './leave-rules.js';
 
 export const FULL_TIME_WEEKLY_MINUTES = 2400;
 export const NORMAL_DAILY_MINUTES = 480;

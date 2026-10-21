@@ -4,7 +4,7 @@ import {
   DAY_MS,
   platformDateString,
   platformMidnight,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   attendanceRequestStatus,
   type AttendanceDayKind,
@@ -15,9 +15,9 @@ import {
   type CorrectedEvent,
   type DatePeriod,
   type ShiftBreak,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
-import { badRequestError } from './attendance-errors';
+import { badRequestError } from './attendance-errors.js';
 
 export function normalizeIp(ip: string): string {
   const value = ip.startsWith('::ffff:') ? ip.slice(7) : ip;

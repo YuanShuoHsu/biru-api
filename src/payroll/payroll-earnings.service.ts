@@ -15,24 +15,24 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import type { AttendanceActor } from 'src/attendance/attendance-actor';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import type { AttendanceActor } from '../attendance/attendance-actor.js';
 import {
   lockOrganization,
   writeAudit,
   type Transaction,
   type RestoredRecord,
-} from 'src/attendance/attendance-audit';
+} from '../attendance/attendance-audit.js';
 import {
   badRequestError,
   conflictError,
-} from 'src/attendance/attendance-errors';
+} from '../attendance/attendance-errors.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
-} from 'src/common/utils/data-grid-filters';
-import { payrollEarning, payrollEarningType } from 'src/db/schema/payroll';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../common/utils/data-grid-filters.js';
+import { payrollEarning, payrollEarningType } from '../db/schema/payroll.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   type CreatePayrollEarningTypeDto,
@@ -41,7 +41,7 @@ import {
   PAYROLL_EARNING_TYPE_STRING_FILTER_FIELDS,
   type PayrollEarningTypePaginationQueryDto,
   type RenamePayrollEarningTypeDto,
-} from './dto/payroll-earning.dto';
+} from './dto/payroll-earning.dto.js';
 
 // 無 join 時 drizzle 不替外層欄位加表名，子查詢內會被解析成 payroll_earning 自己的欄位
 const inUseSql = sql<boolean>`exists (select 1 from payroll_earning used where used.earning_type_id = payroll_earning_type.id)`;

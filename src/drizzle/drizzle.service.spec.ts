@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { DrizzleService } from './drizzle.service';
+import { DrizzleService } from './drizzle.service.js';
 
 describe('DrizzleService', () => {
   let service: DrizzleService;

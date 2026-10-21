@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
-import { payrollStatement } from 'src/db/schema/payroll';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { payrollStatement } from '../db/schema/payroll.js';
 
 export const precedingMonths = (month: string, count: number) => {
   const [year, number] = month.split('-').map(Number);

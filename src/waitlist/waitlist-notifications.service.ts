@@ -2,20 +2,20 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { eq } from 'drizzle-orm';
-import { organization } from 'src/db/schema/organizations';
-import { waitlistSetting, waitlistTicket } from 'src/db/schema/waitlist';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import { organization } from '../db/schema/organizations.js';
+import { waitlistSetting, waitlistTicket } from '../db/schema/waitlist.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   WAITLIST_UPDATED_EVENT,
   type WaitlistUpdatedEvent,
-} from 'src/events/waitlist-updated.event';
-import { MailsService } from 'src/mails/mails.service';
+} from '../events/waitlist-updated.event.js';
+import { MailsService } from '../mails/mails.service.js';
 
 import {
   DEFAULT_HOLD_MINUTES,
   formatTicketNumber,
   getHoldUntil,
-} from './waitlist-rules';
+} from './waitlist-rules.js';
 
 @Injectable()
 export class WaitlistNotificationsService {

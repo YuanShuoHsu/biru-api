@@ -1,4 +1,4 @@
-import { averageWeeklyMinutes, weeklyMinutesAt } from './employee-hours';
+import { averageWeeklyMinutes, weeklyMinutesAt } from './employee-hours.js';
 
 const at = (value: string) => new Date(`${value}+08:00`);
 const shift = (day: string, from: string, to: string) => ({

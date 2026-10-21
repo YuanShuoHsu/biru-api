@@ -1,9 +1,9 @@
 import { APIError } from 'better-auth/api';
 import { sql } from 'drizzle-orm';
 
-import * as schema from '../db/schema';
+import * as schema from '../db/schema/index.js';
 
-import { authDb } from './auth-transaction';
+import { authDb } from './auth-transaction.js';
 
 export const assertUserDeletable = async (userId: string) => {
   if (await hasBlockingRecords('user', userId))

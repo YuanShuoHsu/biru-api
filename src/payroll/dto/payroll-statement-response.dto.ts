@@ -12,9 +12,9 @@ import {
   type PayrollLine,
   type PayrollLineCode,
   type payrollStatement,
-} from 'src/db/schema/payroll';
+} from '../../db/schema/payroll.js';
 
-import { PayrollTermsValuesDto } from './payroll-terms-response.dto';
+import { PayrollTermsValuesDto } from './payroll-terms-response.dto.js';
 
 export class PayrollEarningLineResponseDto {
   @ApiProperty({

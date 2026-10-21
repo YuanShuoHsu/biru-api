@@ -1,6 +1,6 @@
-import type { AttendanceErrorCode } from './attendance-errors';
-import { overlapMs } from './attendance-rules';
-import { anniversary, calendarLeaveMinutes } from './leave-rules';
+import type { AttendanceErrorCode } from './attendance-errors.js';
+import { overlapMs } from './attendance-rules.js';
+import { anniversary, calendarLeaveMinutes } from './leave-rules.js';
 
 export interface ParentalRecord {
   id: string;

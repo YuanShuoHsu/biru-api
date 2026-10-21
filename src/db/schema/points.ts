@@ -9,11 +9,11 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { userCoupon } from './coupons';
-import { order } from './orders';
-import { organization } from './organizations';
-import { user } from './users';
+import { timestamps } from './columns.helpers.js';
+import { userCoupon } from './coupons.js';
+import { order } from './orders.js';
+import { organization } from './organizations.js';
+import { user } from './users.js';
 
 export const pointTransactionTypeEnum = pgEnum('point_transaction_type', [
   'earn',

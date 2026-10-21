@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
-import type { FuturesGridConfigDto } from '../dto/quant-bot.dto';
-import { toDecimalString } from '../engine/precision';
-import type { SymbolSpec } from '../engine/types';
+import type { FuturesGridConfigDto } from '../dto/quant-bot.dto.js';
+import { toDecimalString } from '../engine/precision.js';
+import type { SymbolSpec } from '../engine/types.js';
 import {
   type PionexCredentials,
   PionexRestClient,
-} from '../pionex/pionex-rest.client';
+} from '../pionex/pionex-rest.client.js';
 
-import { toPionexStop } from './pionex-grid.service';
+import { toPionexStop } from './pionex-grid.service.js';
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
 // 文件的回應範例是 snake_case，實際回傳是 camelCase
@@ -258,9 +258,4 @@ export class PionexFuturesGridService {
 }
 
 export type FuturesGridOperationPath =
-  | 'addMargin'
-  | 'adjustParams'
-  | 'pause'
-  | 'reduce'
-  | 'reduceMargin'
-  | 'resume';
+  'addMargin' | 'adjustParams' | 'pause' | 'reduce' | 'reduceMargin' | 'resume';

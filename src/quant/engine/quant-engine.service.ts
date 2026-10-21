@@ -18,56 +18,56 @@ import {
   quantBotFill,
   quantBotOrder,
   quantEngineLease,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import { QuantAccountService } from '../account/quant-account.service';
-import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service';
+import { QuantAccountService } from '../account/quant-account.service.js';
+import { QuantAiAdvisorService } from '../ai/quant-ai-advisor.service.js';
 import {
   futuresMarginOf,
   futuresPositionOf,
   type GridConfigDto,
   isFuturesBot,
-} from '../dto/quant-bot.dto';
+} from '../dto/quant-bot.dto.js';
 import {
   QUANT_CANDLE_EVENT,
   QuantMarketStreamService,
   type QuantCandleEvent,
-} from '../market/quant-market-stream.service';
-import { QuantMarketService } from '../market/quant-market.service';
+} from '../market/quant-market-stream.service.js';
+import { QuantMarketService } from '../market/quant-market.service.js';
 import {
   PIONEX_ACCOUNT_EVENT,
   PionexPrivateStreams,
   type PionexAccountEvent,
-} from '../pionex/pionex-private-streams';
+} from '../pionex/pionex-private-streams.js';
 import {
   PIONEX_INDEX_EVENT,
   PIONEX_TRADES_EVENT,
   type PionexIndexEvent,
   type PionexTradesEvent,
-} from '../pionex/pionex-public-stream';
-import { PionexRestClient } from '../pionex/pionex-rest.client';
-import type { PionexPositionMode } from '../pionex/pionex.types';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
-import { quantEnvironment } from '../quant-environment';
+} from '../pionex/pionex-public-stream.js';
+import { PionexRestClient } from '../pionex/pionex-rest.client.js';
+import type { PionexPositionMode } from '../pionex/pionex.types.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { SpotAccount } from './account';
-import { BotRunner, candleIntervalOf } from './bot-runner';
+import { SpotAccount } from './account.js';
+import { BotRunner, candleIntervalOf } from './bot-runner.js';
 import {
   BotStore,
   FUNDING_EVENT,
   toBotFill,
   toSubmittedOrder,
-} from './bot-store';
-import { type FundingPayment, FuturesAccount } from './futures-account';
-import { MarketCacheService } from './market-cache.service';
-import { PionexBroker } from './pionex-broker';
-import { PionexFuturesBroker } from './pionex-futures-broker';
-import { SimulatedBroker } from './simulated-broker';
-import { botSymbolSpec, toRiskTiers } from './symbol-spec';
-import type { AiDecision } from './strategies/ai.strategy';
-import type { BotFill, WebhookSignal } from './types';
+} from './bot-store.js';
+import { type FundingPayment, FuturesAccount } from './futures-account.js';
+import { MarketCacheService } from './market-cache.service.js';
+import { PionexBroker } from './pionex-broker.js';
+import { PionexFuturesBroker } from './pionex-futures-broker.js';
+import { SimulatedBroker } from './simulated-broker.js';
+import { botSymbolSpec, toRiskTiers } from './symbol-spec.js';
+import type { AiDecision } from './strategies/ai.strategy.js';
+import type { BotFill, WebhookSignal } from './types.js';
 
 const LEASE_TICK_MS = 10_000;
 const LEASE_TTL_MS = 30_000;

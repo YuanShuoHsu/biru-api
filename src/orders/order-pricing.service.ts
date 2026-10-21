@@ -8,9 +8,9 @@ import {
 } from '@nestjs/common';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
-import { toLanguage } from 'src/common/utils/language';
-import { isWithinOpeningHours } from 'src/common/utils/opening-hours';
+import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import { toLanguage } from '../common/utils/language.js';
+import { isWithinOpeningHours } from '../common/utils/opening-hours.js';
 
 import { asc, eq, inArray } from 'drizzle-orm';
 import {
@@ -18,8 +18,8 @@ import {
   type LocalizedText,
   type ServingTemperatureLevel,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
-import type { PriceSpecification } from 'src/db/schema/menus';
+} from '../db/schema/enums.js';
+import type { PriceSpecification } from '../db/schema/menus.js';
 import {
   menu,
   menuItem,
@@ -27,21 +27,21 @@ import {
   menuItemModifierGroup,
   modifier,
   offer,
-} from 'src/db/schema/menus';
+} from '../db/schema/menus.js';
 import type {
   OrderItemAddOnSnapshot,
   OrderItemModifierSnapshot,
   OrderMode,
-} from 'src/db/schema/orders';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
-import { localize } from 'src/menus/menus-public.service';
+} from '../db/schema/orders.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { localize } from '../menus/menus-public.service.js';
 
 import type {
   CreateOrderItemAddOnDto,
   CreateOrderItemDto,
-} from './dto/create-order.dto';
+} from './dto/create-order.dto.js';
 
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';

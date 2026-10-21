@@ -10,18 +10,18 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
+import { Audit } from '../common/decorators/audit.decorator.js';
 
-import { HasPermission } from 'src/menus/decorators/permission.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { UpdateIngredientDto } from './dto/create-ingredient.dto';
-import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
-import { IngredientResponseDto } from './dto/ingredient-response.dto';
-import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transaction-pagination-query.dto';
-import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
-import { IngredientsService } from './ingredients.service';
-import { InventoryTransactionsService } from './inventory-transactions.service';
+import { UpdateIngredientDto } from './dto/create-ingredient.dto.js';
+import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
+import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transaction-pagination-query.dto.js';
+import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto.js';
+import { IngredientsService } from './ingredients.service.js';
+import { InventoryTransactionsService } from './inventory-transactions.service.js';
 
 @ApiTags('inventory')
 @Controller('ingredients/:ingredientId')

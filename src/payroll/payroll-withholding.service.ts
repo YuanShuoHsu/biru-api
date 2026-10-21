@@ -2,51 +2,57 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 
-import type { AttendanceActor } from 'src/attendance/attendance-actor';
-import { lockOrganization, writeAudit } from 'src/attendance/attendance-audit';
+import type { AttendanceActor } from '../attendance/attendance-actor.js';
+import {
+  lockOrganization,
+  writeAudit,
+} from '../attendance/attendance-audit.js';
 import {
   badRequestError,
   conflictError,
-} from 'src/attendance/attendance-errors';
+} from '../attendance/attendance-errors.js';
 import {
   DAY_MS,
   platformDateString,
   platformMonthStart,
   toPlatformTime,
-} from 'src/common/constants/timezone';
-import { decryptField, encryptField } from 'src/common/utils/field-encryption';
+} from '../common/constants/timezone.js';
+import {
+  decryptField,
+  encryptField,
+} from '../common/utils/field-encryption.js';
 import {
   attendanceEmployee,
   type AttendanceLegalStatus,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 import {
   payrollCertificateRequest,
   payrollStatement,
   payrollTaxIdentity,
   payrollWithholdingUnit,
   type PayrollSnapshot,
-} from 'src/db/schema/payroll';
-import { user } from 'src/db/schema/users';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/payroll.js';
+import { user } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type {
   PayrollTaxIdentityDto,
   PayrollWithholdingUnitDto,
   WithholdingIdType,
-} from './dto/payroll-withholding.dto';
-import { lineCents, salaryIncomeCents } from './salary-income';
-import { foreignTaxIdentityRequired } from './taiwan-rules';
+} from './dto/payroll-withholding.dto.js';
+import { lineCents, salaryIncomeCents } from './salary-income.js';
+import { foreignTaxIdentityRequired } from './taiwan-rules.js';
 import {
   isValidBusinessNumber,
   isValidNationalId,
   isValidPassportDerivedId,
   isValidResidentCertificateId,
   maskTaxId,
-} from './tax-ids';
+} from './tax-ids.js';
 import {
   buildWithholdingFile,
   type WithholdingFileRecord,
-} from './withholding-file';
+} from './withholding-file.js';
 
 // 所得稅法 §92 II：非居住者應於代扣稅款之日起 10 日內申報，給付當日算第 1 日
 const NON_RESIDENT_FILING_DAYS = 10;

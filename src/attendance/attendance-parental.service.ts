@@ -16,12 +16,12 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { platformMidnight } from 'src/common/constants/timezone';
+import { platformMidnight } from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
   attendanceLeaveCase,
@@ -29,12 +29,12 @@ import {
   attendanceParentalChild,
   attendanceParentalReturn,
   attendanceRequest,
-} from 'src/db/schema/attendance';
-import { user } from 'src/db/schema/users';
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import { user } from '../db/schema/users.js';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   assertPayrollUnlocked,
   auditChanges,
@@ -42,39 +42,42 @@ import {
   type RestoredRecord,
   type Transaction,
   writeAudit,
-} from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
-import { countedRequestStatuses } from './attendance-rules';
+} from './attendance-audit.js';
+import { badRequestError, conflictError } from './attendance-errors.js';
+import { countedRequestStatuses } from './attendance-rules.js';
 import {
   ATTENDANCE_REQUEST_REVIEWED_EVENT,
   ATTENDANCE_REQUEST_SUBMITTED_EVENT,
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
-} from './attendance-notification.events';
-import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto';
+} from './attendance-notification.events.js';
+import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto.js';
 import {
   ATTENDANCE_PARENTAL_CHILD_DATE_FILTER_FIELDS,
   ATTENDANCE_PARENTAL_CHILD_STRING_FILTER_FIELDS,
   AttendanceParentalChildPaginationQueryDto,
-} from './dto/attendance-parental-child-pagination-query.dto';
+} from './dto/attendance-parental-child-pagination-query.dto.js';
 import {
   ATTENDANCE_PARENTAL_RETURN_DATE_FILTER_FIELDS,
   ATTENDANCE_PARENTAL_RETURN_ENUM_FILTER_FIELDS,
   ATTENDANCE_PARENTAL_RETURN_STRING_FILTER_FIELDS,
   AttendanceParentalReturnPaginationQueryDto,
-} from './dto/attendance-parental-return-pagination-query.dto';
-import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto';
-import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto';
-import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto';
+} from './dto/attendance-parental-return-pagination-query.dto.js';
+import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto.js';
+import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto.js';
+import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto.js';
 import {
   ReviewAttendanceRequestDto,
   reviewReasonOf,
-} from './dto/review-attendance-request.dto';
-import { requireEmployee } from './employee-lookup';
-import { anniversary, calendarLeaveMinutes } from './leave-rules';
-import { parentalLeaveErrors } from './parental-leave';
-import { assertNoParentalReturn, matchParentalChild } from './parental-ledger';
-import { assertIndependentReview } from './review-separation';
+} from './dto/review-attendance-request.dto.js';
+import { requireEmployee } from './employee-lookup.js';
+import { anniversary, calendarLeaveMinutes } from './leave-rules.js';
+import { parentalLeaveErrors } from './parental-leave.js';
+import {
+  assertNoParentalReturn,
+  matchParentalChild,
+} from './parental-ledger.js';
+import { assertIndependentReview } from './review-separation.js';
 
 @Injectable()
 export class AttendanceParentalService {

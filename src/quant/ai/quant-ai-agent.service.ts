@@ -17,10 +17,10 @@ import {
   quantAiBacktest,
   quantAiRequest,
   quantBot,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   AiConfigDto,
@@ -30,14 +30,14 @@ import type {
   QuantAgentRequestDto,
   QuantAgentTokenDto,
   QuantAiRequestDto,
-} from '../dto/quant-bot.dto';
-import { QuantEngineService } from '../engine/quant-engine.service';
-import { quantEnvironment } from '../quant-environment';
+} from '../dto/quant-bot.dto.js';
+import { QuantEngineService } from '../engine/quant-engine.service.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { DEFAULT_AI_EFFORT, DEFAULT_AI_MODEL } from './ai-model';
-import { isClaudeCodeLocal } from './claude-code-local';
-import { QuantAiBacktestService } from './quant-ai-backtest.service';
-import { DECISION_SCHEMA, systemPrompt } from './quant-ai-advisor.service';
+import { DEFAULT_AI_EFFORT, DEFAULT_AI_MODEL } from './ai-model.js';
+import { isClaudeCodeLocal } from './claude-code-local.js';
+import { QuantAiBacktestService } from './quant-ai-backtest.service.js';
+import { DECISION_SCHEMA, systemPrompt } from './quant-ai-advisor.service.js';
 
 const BOT_REQUEST_LIMIT = 20;
 const CONNECT_TTL_MS = 10 * 60_000;

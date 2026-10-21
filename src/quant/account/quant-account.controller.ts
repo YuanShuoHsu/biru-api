@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard.js';
 
 import {
   CreateQuantCredentialDto,
@@ -31,9 +31,9 @@ import {
   QuantSymbolQueryDto,
   QuantTransferPageDto,
   QuantTransferQueryDto,
-} from '../dto/quant-account.dto';
+} from '../dto/quant-account.dto.js';
 
-import { QuantAccountService } from './quant-account.service';
+import { QuantAccountService } from './quant-account.service.js';
 
 // 金鑰只屬於綁定者本人，平台管理員彼此也看不到
 @ApiTags('quant')

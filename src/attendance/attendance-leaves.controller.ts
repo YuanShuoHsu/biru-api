@@ -14,42 +14,42 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { IdsDto } from 'src/common/dto/ids.dto';
+import { IdsDto } from '../common/dto/ids.dto.js';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceLeavesService } from './attendance-leaves.service';
-import { AttendanceAnnualLeaveNoticePaginationQueryDto } from './dto/attendance-annual-leave-notice-pagination-query.dto';
-import { AttendanceAnnualLeaveNoticesResponseDto } from './dto/attendance-annual-leave-notice-response.dto';
-import { AttendanceLeaveBalancePaginationQueryDto } from './dto/attendance-leave-balance-pagination-query.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceLeavesService } from './attendance-leaves.service.js';
+import { AttendanceAnnualLeaveNoticePaginationQueryDto } from './dto/attendance-annual-leave-notice-pagination-query.dto.js';
+import { AttendanceAnnualLeaveNoticesResponseDto } from './dto/attendance-annual-leave-notice-response.dto.js';
+import { AttendanceLeaveBalancePaginationQueryDto } from './dto/attendance-leave-balance-pagination-query.dto.js';
 import {
   AttendanceLeaveBalanceRecordResponseDto,
   AttendanceLeaveBalancesResponseDto,
-} from './dto/attendance-leave-balance-response.dto';
-import { AttendanceLeaveCasePaginationQueryDto } from './dto/attendance-leave-case-pagination-query.dto';
+} from './dto/attendance-leave-balance-response.dto.js';
+import { AttendanceLeaveCasePaginationQueryDto } from './dto/attendance-leave-case-pagination-query.dto.js';
 import {
   AttendanceLeaveCaseRecordResponseDto,
   AttendanceLeaveCasesResponseDto,
-} from './dto/attendance-leave-case-response.dto';
-import { AttendanceLeaveTypePaginationQueryDto } from './dto/attendance-leave-type-pagination-query.dto';
+} from './dto/attendance-leave-case-response.dto.js';
+import { AttendanceLeaveTypePaginationQueryDto } from './dto/attendance-leave-type-pagination-query.dto.js';
 import {
   AttendanceLeaveTypeResponseDto,
   AttendanceLeaveTypesResponseDto,
-} from './dto/attendance-leave-type-response.dto';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
+} from './dto/attendance-leave-type-response.dto.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
 import {
   AttendanceHolidaySubstitutePaginationQueryDto,
   AttendanceHolidaySubstitutesResponseDto,
   CreateAttendanceHolidaySubstituteDto,
-} from './dto/attendance-holiday-substitute.dto';
-import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
-import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
-import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
-import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
+} from './dto/attendance-holiday-substitute.dto.js';
+import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto.js';
+import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto.js';
+import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto.js';
+import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto.js';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')

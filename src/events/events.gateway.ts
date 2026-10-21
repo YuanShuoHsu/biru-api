@@ -12,29 +12,29 @@ import {
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 
-import { FindOrderMenuDto } from './dto/find-order-menu.dto';
-import { JoinInvoicePrinterDto } from './dto/join-invoice-printer.dto';
-import { JoinOrderDto } from './dto/join-order.dto';
-import { JoinOrdersBoardDto } from './dto/join-orders-board.dto';
-import type { InvoicePrintReadyEvent } from './invoice-print-ready.event';
-import { INVOICE_PRINT_READY_EVENT } from './invoice-print-ready.event';
-import type { MenuUpdatedEvent } from './menu-updated.event';
-import { MENU_UPDATED_EVENT } from './menu-updated.event';
-import type { OrderStatusUpdatedEvent } from './order-status-updated.event';
-import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event';
-import type { OrderUpdatedEvent } from './order-updated.event';
-import { ORDER_UPDATED_EVENT } from './order-updated.event';
-import type { WaitlistUpdatedEvent } from './waitlist-updated.event';
-import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event';
+import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
+import { JoinInvoicePrinterDto } from './dto/join-invoice-printer.dto.js';
+import { JoinOrderDto } from './dto/join-order.dto.js';
+import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
+import type { InvoicePrintReadyEvent } from './invoice-print-ready.event.js';
+import { INVOICE_PRINT_READY_EVENT } from './invoice-print-ready.event.js';
+import type { MenuUpdatedEvent } from './menu-updated.event.js';
+import { MENU_UPDATED_EVENT } from './menu-updated.event.js';
+import type { OrderStatusUpdatedEvent } from './order-status-updated.event.js';
+import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event.js';
+import type { OrderUpdatedEvent } from './order-updated.event.js';
+import { ORDER_UPDATED_EVENT } from './order-updated.event.js';
+import type { WaitlistUpdatedEvent } from './waitlist-updated.event.js';
+import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event.js';
 
 import { DefaultEventsMap, Namespace, Socket } from 'socket.io';
-import { Roles } from 'src/menus/decorators/roles.decorator';
-import type { OrderMenuResponseDto } from 'src/menus/dto/order-menu-response.dto';
-import { WsRolesGuard } from 'src/menus/guards/ws-roles.guard';
-import { PublicMenusService } from 'src/menus/menus-public.service';
-import { OrdersService } from 'src/orders/orders.service';
-import type { WaitlistStatusResponseDto } from 'src/waitlist/dto/waitlist-response.dto';
-import { WaitlistService } from 'src/waitlist/waitlist.service';
+import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
+import { WsRolesGuard } from '../menus/guards/ws-roles.guard.js';
+import { PublicMenusService } from '../menus/menus-public.service.js';
+import { OrdersService } from '../orders/orders.service.js';
+import type { WaitlistStatusResponseDto } from '../waitlist/dto/waitlist-response.dto.js';
+import { WaitlistService } from '../waitlist/waitlist.service.js';
 
 interface GatewaySocketData {
   invoicePrinterDeviceId?: string;

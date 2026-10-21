@@ -1,5 +1,5 @@
-import { MAX_MONTHLY_OVERTIME_SECONDS } from 'src/attendance/attendance-rules';
-import { platformMonthStart } from 'src/common/constants/timezone';
+import { MAX_MONTHLY_OVERTIME_SECONDS } from '../attendance/attendance-rules.js';
+import { platformMonthStart } from '../common/constants/timezone.js';
 import {
   PAYROLL_DEDUCTION_LINE_CODES,
   PAYROLL_EARNING_LINE_CODES,
@@ -9,13 +9,13 @@ import {
   type PayrollLineCode,
   type PayrollTerms,
   type TaiwanRuleSet,
-} from 'src/db/schema/payroll';
+} from '../db/schema/payroll.js';
 
 import {
   employerCosts,
   MEAL_ALLOWANCE_EXEMPT_CENTS,
   taiwanDeductions,
-} from './taiwan-rules';
+} from './taiwan-rules.js';
 
 const ATTENDANCE_BONUS_BASIS_SECONDS = 30 * 8 * 3600;
 

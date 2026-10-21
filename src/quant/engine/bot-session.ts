@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
-import type { GridConfigDto } from '../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../dto/quant-market.dto';
-import type { PionexKlineInterval } from '../pionex/pionex.types';
+import type { GridConfigDto } from '../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
+import type { PionexKlineInterval } from '../pionex/pionex.types.js';
 
-import type { AccountModel } from './account';
-import type { FundingPayment } from './futures-account';
-import type { Ledger } from './ledger';
-import { floorTo, roundTo } from './precision';
-import type { AiDecision } from './strategies/ai.strategy';
+import type { AccountModel } from './account.js';
+import type { FundingPayment } from './futures-account.js';
+import type { Ledger } from './ledger.js';
+import { floorTo, roundTo } from './precision.js';
+import type { AiDecision } from './strategies/ai.strategy.js';
 import type {
   BotFill,
   BotOrder,
@@ -17,7 +17,7 @@ import type {
   StrategyContext,
   SymbolSpec,
   WebhookSignal,
-} from './types';
+} from './types.js';
 
 export interface SubmittedOrder extends BotOrder {
   clientOrderId: string;

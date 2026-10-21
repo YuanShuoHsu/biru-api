@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class MenuItemAddOnResponseDto {
   @ApiProperty()

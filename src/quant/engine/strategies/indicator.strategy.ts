@@ -1,9 +1,9 @@
-import type { IndicatorConfigDto } from '../../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../../dto/quant-market.dto';
-import type { Strategy, StrategyContext } from '../types';
+import type { IndicatorConfigDto } from '../../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../../dto/quant-market.dto.js';
+import type { Strategy, StrategyContext } from '../types.js';
 
-import { conditionMet, requiredCandles } from './indicator-conditions';
-import { adverse, favorable, type Trader } from './trader';
+import { conditionMet, requiredCandles } from './indicator-conditions.js';
+import { adverse, favorable, type Trader } from './trader.js';
 
 export class IndicatorStrategy implements Strategy {
   private readonly config: IndicatorConfigDto;

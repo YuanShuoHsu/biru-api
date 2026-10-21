@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { UNIT_FACTORS } from 'src/common/constants/units';
-import type { LocalizedText } from 'src/db/schema/enums';
-import type { UnitCode } from 'src/db/schema/inventory';
+import { UNIT_FACTORS } from '../../common/constants/units.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
+import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class RecipeIngredientResponseDto {
   @ApiProperty() id: string;

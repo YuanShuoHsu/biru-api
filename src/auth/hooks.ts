@@ -11,31 +11,31 @@ import { eq } from 'drizzle-orm';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { v4 as uuidv4 } from 'uuid';
 
-import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff';
+import { diffAuditRows, type AuditRow } from '../common/utils/audit-diff.js';
 import {
   AUDIT_IGNORED_COLUMNS,
   resolveChangeLabels,
-} from '../common/utils/audit-resources';
-import * as schema from '../db/schema';
-import { forgetDeletedUser } from '../deleted-records/forget-user';
+} from '../common/utils/audit-resources.js';
+import * as schema from '../db/schema/index.js';
+import { forgetDeletedUser } from '../deleted-records/forget-user.js';
 import {
   latestDeletedRecordId,
   mergePreDeletedChildren,
   type DeletionParent,
-} from '../deleted-records/request-batch';
-import { authDb, runInAuthSavepoint } from './auth-transaction';
+} from '../deleted-records/request-batch.js';
+import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import {
   assertOrganizationOpen,
   ORGANIZATION_WRITE_PATHS,
-} from './closure-guards';
-import { assertUserDeletable } from './deletion-guards';
-import type { LocalizeAuthError } from './i18n';
+} from './closure-guards.js';
+import { assertUserDeletable } from './deletion-guards.js';
+import type { LocalizeAuthError } from './i18n.js';
 
 import type {
   AuditAction,
   AuditChanges,
   AuditResource,
-} from '../db/schema/audit';
+} from '../db/schema/audit.js';
 
 const logger = new Logger('AuthAudit');
 

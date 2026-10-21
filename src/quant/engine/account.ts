@@ -1,6 +1,6 @@
-import type { SubmittedOrder } from './bot-session';
-import { equityOf, type Ledger, LedgerBook } from './ledger';
-import type { BotFill, OrderRequest } from './types';
+import type { SubmittedOrder } from './bot-session.js';
+import { equityOf, type Ledger, LedgerBook } from './ledger.js';
+import type { BotFill, OrderRequest } from './types.js';
 
 const BUDGET_TOLERANCE = 1e-9;
 

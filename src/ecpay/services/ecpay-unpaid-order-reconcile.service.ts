@@ -1,19 +1,19 @@
-import { ECPAY_TRADE_STATUS } from '../dto/query-trade-info-ecpay.dto';
+import { ECPAY_TRADE_STATUS } from '../dto/query-trade-info-ecpay.dto.js';
 
-import { QUERY_INTERVAL_MS, sleep } from '../utils/ecpay';
+import { QUERY_INTERVAL_MS, sleep } from '../utils/ecpay.js';
 
-import { OrdersService } from '../../orders/orders.service';
+import { OrdersService } from '../../orders/orders.service.js';
 
-import { EcpayCallbackLogService } from './ecpay-callback-log.service';
+import { EcpayCallbackLogService } from './ecpay-callback-log.service.js';
 import {
   EcpayQueryTradeInfoService,
   EcpayRateLimitedError,
-} from './ecpay-query-trade-info.service';
+} from './ecpay-query-trade-info.service.js';
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import { CRON_ENABLED } from 'src/common/constants/cron';
+import { CRON_ENABLED } from '../../common/constants/cron.js';
 
 const CANDIDATE_LIMIT_PER_RUN = 100;
 const QUERY_LIMIT_PER_RUN = 20;

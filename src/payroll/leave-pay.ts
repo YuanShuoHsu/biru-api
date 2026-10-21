@@ -1,13 +1,13 @@
 import { and, desc, eq, lt, lte, ne } from 'drizzle-orm';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
-import { scheduledWorkSeconds } from 'src/attendance/attendance-rules';
-import { platformDateString } from 'src/common/constants/timezone';
-import { attendanceShift } from 'src/db/schema/attendance';
-import { payrollTerms } from 'src/db/schema/payroll';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { scheduledWorkSeconds } from '../attendance/attendance-rules.js';
+import { platformDateString } from '../common/constants/timezone.js';
+import { attendanceShift } from '../db/schema/attendance.js';
+import { payrollTerms } from '../db/schema/payroll.js';
 
-import { insurableWages, precedingMonths } from './insurable-wages';
-import { recurringAllowanceCents } from './payroll-calculation';
+import { insurableWages, precedingMonths } from './insurable-wages.js';
+import { recurringAllowanceCents } from './payroll-calculation.js';
 
 const NORMAL_DAILY_SECONDS = 8 * 3600;
 

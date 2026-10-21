@@ -3,14 +3,14 @@ import { firstValueFrom } from 'rxjs';
 import {
   AddInvoiceWordSettingEcpayDecryptedResponseDto,
   AddInvoiceWordSettingEcpayEncryptedResponseDto,
-} from '../dto/add-invoice-word-setting-ecpay.dto';
-import { GetGovInvoiceWordSettingEcpayDecryptedResponseDto } from '../dto/get-gov-invoice-word-setting-ecpay.dto';
+} from '../dto/add-invoice-word-setting-ecpay.dto.js';
+import { GetGovInvoiceWordSettingEcpayDecryptedResponseDto } from '../dto/get-gov-invoice-word-setting-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
-import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
+import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';

@@ -4,13 +4,13 @@ import type {
   FuturesGridStopDto,
   GridConfigDto,
   GridStopDto,
-} from '../dto/quant-bot.dto';
-import { toDecimalString } from '../engine/precision';
-import type { SymbolSpec } from '../engine/types';
+} from '../dto/quant-bot.dto.js';
+import { toDecimalString } from '../engine/precision.js';
+import type { SymbolSpec } from '../engine/types.js';
 import {
   type PionexCredentials,
   PionexRestClient,
-} from '../pionex/pionex-rest.client';
+} from '../pionex/pionex-rest.client.js';
 
 // https://www.pionex.com/docs/api-docs/bot-api/spot-grid
 export interface PionexSpotGridData {

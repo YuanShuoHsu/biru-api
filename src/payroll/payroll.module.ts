@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 
-import { AdminPayrollRulesController } from './admin-payroll-rules.controller';
-import { PayrollEarningsController } from './payroll-earnings.controller';
-import { PayrollEarningsService } from './payroll-earnings.service';
-import { PayrollWithholdingController } from './payroll-withholding.controller';
-import { PayrollWithholdingService } from './payroll-withholding.service';
-import { PayrollRulesService } from './payroll-rules.service';
-import { PayrollController } from './payroll.controller';
-import { PayrollService } from './payroll.service';
+import { AdminPayrollRulesController } from './admin-payroll-rules.controller.js';
+import { PayrollEarningsController } from './payroll-earnings.controller.js';
+import { PayrollEarningsService } from './payroll-earnings.service.js';
+import { PayrollWithholdingController } from './payroll-withholding.controller.js';
+import { PayrollWithholdingService } from './payroll-withholding.service.js';
+import { PayrollRulesService } from './payroll-rules.service.js';
+import { PayrollController } from './payroll.controller.js';
+import { PayrollService } from './payroll.service.js';
 
 @Module({
   controllers: [

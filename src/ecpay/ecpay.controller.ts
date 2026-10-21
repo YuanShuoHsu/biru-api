@@ -1,20 +1,20 @@
 import {
   CheckBarcodeEcpayDto,
   CheckBarcodeEcpayResponseDto,
-} from './dto/check-barcode-ecpay.dto';
+} from './dto/check-barcode-ecpay.dto.js';
 import {
   CheckoutEcpayDto,
   CheckoutEcpayResponseDto,
-} from './dto/checkout-ecpay.dto';
-import { ReturnEcpayDto } from './dto/return-ecpay.dto';
-import { SyncInvoiceWordSettingResultDto } from './dto/sync-invoice-word-setting-result.dto';
+} from './dto/checkout-ecpay.dto.js';
+import { ReturnEcpayDto } from './dto/return-ecpay.dto.js';
+import { SyncInvoiceWordSettingResultDto } from './dto/sync-invoice-word-setting-result.dto.js';
 
-import { OrdersService } from '../orders/orders.service';
+import { OrdersService } from '../orders/orders.service.js';
 
-import { EcpayBaseService } from './services/ecpay-base.service';
-import { EcpayCallbackLogService } from './services/ecpay-callback-log.service';
-import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service';
-import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service';
+import { EcpayBaseService } from './services/ecpay-base.service.js';
+import { EcpayCallbackLogService } from './services/ecpay-callback-log.service.js';
+import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service.js';
+import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service.js';
 
 import {
   BadRequestException,
@@ -38,7 +38,7 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
 @Controller('ecpay')
 export class EcpayController {

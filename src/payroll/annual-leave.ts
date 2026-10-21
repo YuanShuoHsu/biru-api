@@ -1,4 +1,4 @@
-import { annualLeaveLedger } from 'src/attendance/leave-rules';
+import { annualLeaveLedger } from '../attendance/leave-rules.js';
 
 export interface AnnualLeaveSettlement {
   startsAt: string;

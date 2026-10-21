@@ -19,18 +19,18 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { isAuthorized } from 'src/auth/permissions';
+import { isAuthorized } from '../auth/permissions.js';
 import {
   DAY_MS,
   PLATFORM_UTC_OFFSET_MS,
   platformDateString,
   platformMonthStart,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
   attendanceEvent,
@@ -40,26 +40,30 @@ import {
   attendanceParentalReturn,
   attendanceRequest,
   attendanceShift,
-} from 'src/db/schema/attendance';
-import { user } from 'src/db/schema/users';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import { user } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   assertPayrollUnlocked,
   lockOrganization,
   writeAudit,
   type Transaction,
-} from './attendance-audit';
-import { badRequestError, conflictError, runBatch } from './attendance-errors';
-import { AttendanceLeavesService } from './attendance-leaves.service';
+} from './attendance-audit.js';
+import {
+  badRequestError,
+  conflictError,
+  runBatch,
+} from './attendance-errors.js';
+import { AttendanceLeavesService } from './attendance-leaves.service.js';
 import {
   ATTENDANCE_REQUEST_REVIEWED_EVENT,
   ATTENDANCE_REQUEST_SUBMITTED_EVENT,
   type AttendanceNotificationKind,
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
-} from './attendance-notification.events';
+} from './attendance-notification.events.js';
 import {
   blockingRequestStatuses,
   countedIntervals,
@@ -74,27 +78,27 @@ import {
   summarizeEvents,
   unreviewedOvertime,
   weekStartOfDate,
-} from './attendance-rules';
+} from './attendance-rules.js';
 import {
   ATTENDANCE_REQUEST_DATE_FILTER_FIELDS,
   ATTENDANCE_REQUEST_ENUM_FILTER_FIELDS,
   ATTENDANCE_REQUEST_STRING_FILTER_FIELDS,
   AttendanceRequestPaginationQueryDto,
-} from './dto/attendance-request-pagination-query.dto';
-import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
-import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
-import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
+} from './dto/attendance-request-pagination-query.dto.js';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto.js';
+import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto.js';
+import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto.js';
 import {
   ReviewAttendanceBatchDto,
   ReviewAttendanceRequestDto,
   reviewReasonOf,
-} from './dto/review-attendance-request.dto';
+} from './dto/review-attendance-request.dto.js';
 import {
   loadOneEmployeeHours,
   weeklyMinutesAt,
   weeklyMinutesOf,
-} from './employee-hours';
-import { requireActiveEmployee, requireEmployee } from './employee-lookup';
+} from './employee-hours.js';
+import { requireActiveEmployee, requireEmployee } from './employee-lookup.js';
 import {
   countedLeaves,
   leaveBalanceRow,
@@ -103,7 +107,7 @@ import {
   leaveYear,
   matchLeaveCase,
   statutoryBalance,
-} from './leave-ledger';
+} from './leave-ledger.js';
 import {
   anniversary,
   calendarLeaveMinutes,
@@ -113,26 +117,26 @@ import {
   isEventLeave,
   requiresMedicalCertificate,
   statutoryLeavePeriod,
-} from './leave-rules';
+} from './leave-rules.js';
 import {
   isMedicalLeave,
   loadMedicalLedger,
   MAX_MEDICAL_LEAVE_MS,
-} from './medical-leave';
-import { parentalLeaveErrors, parentalMode } from './parental-leave';
-import { assertNoParentalReturn } from './parental-ledger';
+} from './medical-leave.js';
+import { parentalLeaveErrors, parentalMode } from './parental-leave.js';
+import { assertNoParentalReturn } from './parental-ledger.js';
 import {
   loadPlannedOvertimeInputs,
   overtimeLimitViolation,
   plannedWorkDays,
-} from './overtime-limit';
-import { parseInterval } from './shift-intervals';
-import { AttendanceShiftsService } from './attendance-shifts.service';
-import { unfinishedShift } from './shift-queries';
+} from './overtime-limit.js';
+import { parseInterval } from './shift-intervals.js';
+import { AttendanceShiftsService } from './attendance-shifts.service.js';
+import { unfinishedShift } from './shift-queries.js';
 import {
   assertIndependentReview,
   selfReviewAllowance,
-} from './review-separation';
+} from './review-separation.js';
 
 const CALENDAR_LEAVE_LIMIT = 500;
 

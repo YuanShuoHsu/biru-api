@@ -1,4 +1,4 @@
-import type { InvoiceStatus } from 'src/db/schema/invoices';
+import type { InvoiceStatus } from '../../db/schema/invoices.js';
 
 export const toActiveInvoice = <
   TOrder extends { invoices: { status: InvoiceStatus }[] },

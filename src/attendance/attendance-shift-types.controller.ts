@@ -13,18 +13,18 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { IdsDto } from 'src/common/dto/ids.dto';
-import { Roles } from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+import { IdsDto } from '../common/dto/ids.dto.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceShiftTypesService } from './attendance-shift-types.service';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceShiftTypesService } from './attendance-shift-types.service.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
 import {
   AttendanceShiftTypePaginationQueryDto,
   AttendanceShiftTypesResponseDto,
   SaveAttendanceShiftTypeDto,
-} from './dto/attendance-shift-type.dto';
+} from './dto/attendance-shift-type.dto.js';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance/shift-types')

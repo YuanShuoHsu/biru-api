@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import {
   type BacktestDto,
@@ -12,19 +12,19 @@ import {
   type IndicatorConfigDto,
   isFuturesBot,
   type QuantBotType,
-} from '../dto/quant-bot.dto';
+} from '../dto/quant-bot.dto.js';
 import type {
   QuantCandleDto,
   QuantFundingRateDto,
-} from '../dto/quant-market.dto';
+} from '../dto/quant-market.dto.js';
 import {
   type BacktestResult,
   type FuturesBacktestMarket,
   runBacktest,
-} from '../engine/backtest';
-import { botSymbolSpec, toRiskTiers } from '../engine/symbol-spec';
-import { QuantMarketService } from '../market/quant-market.service';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+} from '../engine/backtest.js';
+import { botSymbolSpec, toRiskTiers } from '../engine/symbol-spec.js';
+import { QuantMarketService } from '../market/quant-market.service.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 
 const FUNDING_PAGE_SIZE = 500;
 

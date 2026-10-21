@@ -9,7 +9,7 @@ import {
   type CouponIssueTrigger,
   type CouponScope,
   type UserCouponSource,
-} from 'src/db/schema/coupons';
+} from '../../db/schema/coupons.js';
 
 export class CouponResponseDto {
   @ApiProperty() id: string;

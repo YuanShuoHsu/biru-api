@@ -4,18 +4,18 @@ import {
   PionexApiError,
   type PionexCredentials,
   type PionexRestClient,
-} from '../pionex/pionex-rest.client';
+} from '../pionex/pionex-rest.client.js';
 import type {
   PionexFuturesFill,
   PionexFuturesOrder,
   PionexPosition,
   PionexPositionMode,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
-import type { Broker, SubmittedOrder } from './bot-session';
-import type { SyncedOrder } from './pionex-broker';
-import { toDecimalString } from './precision';
-import type { BotFill, SymbolSpec } from './types';
+import type { Broker, SubmittedOrder } from './bot-session.js';
+import type { SyncedOrder } from './pionex-broker.js';
+import { toDecimalString } from './precision.js';
+import type { BotFill, SymbolSpec } from './types.js';
 
 const FILL_POLL_ATTEMPTS = 10;
 const FILL_POLL_MS = 500;

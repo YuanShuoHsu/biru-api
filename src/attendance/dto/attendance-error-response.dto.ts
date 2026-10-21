@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   attendanceErrorCodes,
   type AttendanceErrorCode,
-} from '../attendance-errors';
+} from '../attendance-errors.js';
 
 export class AttendanceErrorResponseDto {
   @ApiProperty({ enum: attendanceErrorCodes, enumName: 'AttendanceErrorCode' })

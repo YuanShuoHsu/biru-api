@@ -16,28 +16,28 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceParentalService } from './attendance-parental.service';
-import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
-import { AttendanceLeaveCaseRecordResponseDto } from './dto/attendance-leave-case-response.dto';
-import { AttendanceParentalChildPaginationQueryDto } from './dto/attendance-parental-child-pagination-query.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceParentalService } from './attendance-parental.service.js';
+import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
+import { AttendanceLeaveCaseRecordResponseDto } from './dto/attendance-leave-case-response.dto.js';
+import { AttendanceParentalChildPaginationQueryDto } from './dto/attendance-parental-child-pagination-query.dto.js';
 import {
   AttendanceParentalChildRecordResponseDto,
   AttendanceParentalChildrenResponseDto,
-} from './dto/attendance-parental-child-response.dto';
-import { AttendanceParentalReturnPaginationQueryDto } from './dto/attendance-parental-return-pagination-query.dto';
+} from './dto/attendance-parental-child-response.dto.js';
+import { AttendanceParentalReturnPaginationQueryDto } from './dto/attendance-parental-return-pagination-query.dto.js';
 import {
   AttendanceParentalReturnRecordResponseDto,
   AttendanceParentalReturnsResponseDto,
-} from './dto/attendance-parental-return-response.dto';
-import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto';
-import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto';
-import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
-import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto';
+} from './dto/attendance-parental-return-response.dto.js';
+import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto.js';
+import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto.js';
+import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto.js';
+import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto.js';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')

@@ -1,6 +1,6 @@
-import type { FuturesLedger } from '../futures-account';
-import type { Ledger } from '../ledger';
-import type { BotOrder, StrategyContext } from '../types';
+import type { FuturesLedger } from '../futures-account.js';
+import type { Ledger } from '../ledger.js';
+import type { BotOrder, StrategyContext } from '../types.js';
 
 export type Direction = 1 | -1;
 

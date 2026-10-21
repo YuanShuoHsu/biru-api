@@ -8,7 +8,7 @@ import {
 
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
-import { BaseEcpayDto } from './base-ecpay.dto';
+import { BaseEcpayDto } from './base-ecpay.dto.js';
 
 export class CheckoutEcpayDto extends PickType(BaseEcpayDto, [
   'Language',

@@ -6,8 +6,8 @@
 import { relations } from 'drizzle-orm';
 import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
-import { DEFAULT_LANGUAGE, languagesEnum } from './enums';
-import { invitation, member, teamMember } from './organizations';
+import { DEFAULT_LANGUAGE, languagesEnum } from './enums.js';
+import { invitation, member, teamMember } from './organizations.js';
 
 export const userRoles = ['admin', 'user'] as const;
 export type UserRole = (typeof userRoles)[number];

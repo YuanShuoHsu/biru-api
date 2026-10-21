@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { PionexRestClient } from './pionex-rest.client';
+import { PionexRestClient } from './pionex-rest.client.js';
 import type {
   PionexMarketType,
   PionexPerpSymbol,
   PionexRiskTier,
   PionexSymbol,
-} from './pionex.types';
+} from './pionex.types.js';
 
 const SYMBOLS_TTL_MS = 60 * 60 * 1000;
 const SYMBOLS_WEIGHT = 5;

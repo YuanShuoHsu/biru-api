@@ -6,9 +6,9 @@ import type {
   QuantMarketDto,
   QuantPerpInfoDto,
   QuantTradeDto,
-} from '../dto/quant-market.dto';
-import { PionexRestClient } from '../pionex/pionex-rest.client';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+} from '../dto/quant-market.dto.js';
+import { PionexRestClient } from '../pionex/pionex-rest.client.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import {
   candleStartOf,
   isNativeKlineInterval,
@@ -20,7 +20,7 @@ import {
   type PionexKlineInterval,
   type PionexTicker,
   type PionexTrade,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
 // 合約行情端點的權重是 5，現貨是 1
 // 交易所最多只能往回取 10000 根

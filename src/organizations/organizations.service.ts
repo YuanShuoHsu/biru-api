@@ -6,24 +6,24 @@ import {
   Organization,
   organization,
   organizationSlugHistory,
-} from 'src/db/schema/organizations';
-import { order } from 'src/db/schema/orders';
+} from '../db/schema/organizations.js';
+import { order } from '../db/schema/orders.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
   waitlistTicket,
-} from 'src/db/schema/waitlist';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../db/schema/waitlist.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
-import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
-import { organizationHasOpenWorkError } from 'src/common/utils/organization-closure';
+import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
+import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
 import {
   getStatsWindow,
   utcTimestampParam,
-} from 'src/common/utils/stats-buckets';
+} from '../common/utils/stats-buckets.js';
 
-import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
-import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto';
+import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
 
 @Injectable()
 export class OrganizationsService {

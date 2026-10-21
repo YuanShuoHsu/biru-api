@@ -23,18 +23,18 @@ import {
 } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { AttendanceActor } from 'src/attendance/attendance-actor';
+import type { AttendanceActor } from '../attendance/attendance-actor.js';
 import {
   assertPayrollUnlocked,
   lockOrganization,
   writeAudit,
   type Transaction,
-} from 'src/attendance/attendance-audit';
+} from '../attendance/attendance-audit.js';
 import {
   badRequestError,
   conflictError,
   runBatch,
-} from 'src/attendance/attendance-errors';
+} from '../attendance/attendance-errors.js';
 import {
   countedIntervals,
   countedRequestStatuses,
@@ -68,7 +68,7 @@ import {
   weekStartOfDate,
   withinPeriods,
   workPermitRequired,
-} from 'src/attendance/attendance-rules';
+} from '../attendance/attendance-rules.js';
 import {
   averageWeeklyMinutes,
   employmentType,
@@ -76,30 +76,30 @@ import {
   weeklyMinutesAt,
   weeklyMinutesOf,
   type EmployeeHours,
-} from 'src/attendance/employee-hours';
+} from '../attendance/employee-hours.js';
 import {
   loadAgreedHolidays,
   loadHolidaySubstitutes,
-} from 'src/attendance/holiday-substitutes';
-import { annualLeaveDeferrals } from 'src/attendance/leave-ledger';
+} from '../attendance/holiday-substitutes.js';
+import { annualLeaveDeferrals } from '../attendance/leave-ledger.js';
 import {
   effectivePaidPercent,
   isCalendarLeave,
-} from 'src/attendance/leave-rules';
+} from '../attendance/leave-rules.js';
 import {
   isMedicalLeave,
   loadMedicalLedger,
   medicalPaidSeconds,
-} from 'src/attendance/medical-leave';
+} from '../attendance/medical-leave.js';
 import {
   DAY_MS,
   platformDateString,
   STORE_UTC_OFFSET,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
   attendanceEvent,
@@ -112,7 +112,7 @@ import {
   attendanceShift,
   type AttendanceDayKind,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 import {
   payrollEarning,
   payrollEarningType,
@@ -121,36 +121,39 @@ import {
   type PayrollBlocker,
   type PayrollSnapshot,
   type PayrollTerms,
-} from 'src/db/schema/payroll';
-import { user } from 'src/db/schema/users';
-import { member, organization } from 'src/db/schema/organizations';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import { openingWeekdays } from 'src/common/utils/opening-hours';
-import { overtimeBeforeAgreement } from 'src/attendance/overtime-limit';
+} from '../db/schema/payroll.js';
+import { user } from '../db/schema/users.js';
+import { member, organization } from '../db/schema/organizations.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { openingWeekdays } from '../common/utils/opening-hours.js';
+import { overtimeBeforeAgreement } from '../attendance/overtime-limit.js';
 
-import { annualLeaveSettlement } from './annual-leave';
+import { annualLeaveSettlement } from './annual-leave.js';
 import {
   averageDailyWage,
   NEW_PENSION_SYSTEM_START,
   owesNotice,
   owesSeverance,
   terminationPay,
-} from './severance';
-import { PayrollBatchDraftDto, PayrollDraftDto } from './dto/payroll-draft.dto';
-import { PayrollBatchReviewDto } from './dto/payroll-review.dto';
+} from './severance.js';
+import {
+  PayrollBatchDraftDto,
+  PayrollDraftDto,
+} from './dto/payroll-draft.dto.js';
+import { PayrollBatchReviewDto } from './dto/payroll-review.dto.js';
 import {
   PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
   PAYROLL_STATEMENT_MONTH_FILTER_FIELDS,
   PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
   PayrollStatementPaginationQueryDto,
-} from './dto/payroll-statement-pagination-query.dto';
-import { PayrollTermsDto } from './dto/payroll-terms.dto';
+} from './dto/payroll-statement-pagination-query.dto.js';
+import { PayrollTermsDto } from './dto/payroll-terms.dto.js';
 import {
   calculatePayroll,
   payrollPeriod,
   recurringAllowanceCents,
   roundRatio,
-} from './payroll-calculation';
+} from './payroll-calculation.js';
 import {
   calendarLeavePay,
   clipToPeriod,
@@ -159,15 +162,15 @@ import {
   intervalSeconds,
   contributionCoverageDays,
   periodWork,
-} from './payroll-period';
+} from './payroll-period.js';
 import {
   averageMonthlyWage,
   insurableWages,
   precedingMonths,
-} from './insurable-wages';
-import { PayrollEarningsService } from './payroll-earnings.service';
-import { PayrollRulesService } from './payroll-rules.service';
-import { salaryIncomeCents } from './salary-income';
+} from './insurable-wages.js';
+import { PayrollEarningsService } from './payroll-earnings.service.js';
+import { PayrollRulesService } from './payroll-rules.service.js';
+import { salaryIncomeCents } from './salary-income.js';
 import {
   currentGrade,
   deriveInsurance,
@@ -176,8 +179,8 @@ import {
   insuranceViolations,
   laborGradesFor,
   pensionApplicable,
-} from './taiwan-rules';
-import { assertIndependentReview } from 'src/attendance/review-separation';
+} from './taiwan-rules.js';
+import { assertIndependentReview } from '../attendance/review-separation.js';
 
 // 勞工請假規則 §9：只有普通傷病假與非家庭照顧事假可按比例扣全勤；其他法定假別依法不得視為缺勤
 const ATTENDANCE_BONUS_DEDUCTIBLE_KINDS: readonly StatutoryLeaveKind[] = [

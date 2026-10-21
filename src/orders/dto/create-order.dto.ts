@@ -24,13 +24,13 @@ import {
   sweetnessLevelEnum,
   type ServingTemperatureLevel,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 import {
   orderModeEnum,
   paymentMethodEnum,
   type OrderMode,
   type PaymentMethod,
-} from 'src/db/schema/orders';
+} from '../../db/schema/orders.js';
 
 export class CreateOrderCustomerDto {
   @ApiPropertyOptional()

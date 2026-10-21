@@ -1,4 +1,4 @@
-import type { OrderStatus } from 'src/db/schema/orders';
+import type { OrderStatus } from '../db/schema/orders.js';
 
 export const ORDER_STATUS_UPDATED_EVENT = 'order.status.updated';
 

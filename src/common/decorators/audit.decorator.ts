@@ -1,6 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
 
-import type { AuditAction, AuditResource } from 'src/db/schema/audit';
+import type { AuditAction, AuditResource } from '../../db/schema/audit.js';
 
 export const AUDIT_KEY = 'audit';
 
@@ -14,10 +14,7 @@ export type AuditIdSource =
   | { column: string; organization: true };
 
 export type AuditSubTable =
-  | 'offer'
-  | 'recipeIngredient'
-  | 'refund'
-  | 'waitlistSetting';
+  'offer' | 'recipeIngredient' | 'refund' | 'waitlistSetting';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };
 

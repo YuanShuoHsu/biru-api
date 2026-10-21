@@ -16,23 +16,26 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { orderStatusEnum, type OrderStatus } from 'src/db/schema/orders';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
-import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
-import { ApplyTransitionsDto } from './dto/apply-transitions.dto';
-import { CreateOrderCustomerDto, CreateOrderDto } from './dto/create-order.dto';
-import { OrderBoardItemDto } from './dto/order-board-response.dto';
-import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto';
+import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
+import { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
+import { ApplyTransitionsDto } from './dto/apply-transitions.dto.js';
+import {
+  CreateOrderCustomerDto,
+  CreateOrderDto,
+} from './dto/create-order.dto.js';
+import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
+import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
 import {
   CreateOrderResponseDto,
   OrderReceiptResponseDto,
   OrderResponseDto,
-} from './dto/order-response.dto';
-import { orderAccessToken } from './order-access-token';
-import { OrdersService } from './orders.service';
+} from './dto/order-response.dto.js';
+import { orderAccessToken } from './order-access-token.js';
+import { OrdersService } from './orders.service.js';
 
 @AllowAnonymous()
 @ApiTags('orders')

@@ -3,15 +3,15 @@ import { and, eq, gte, inArray, lt, ne } from 'drizzle-orm';
 import {
   platformDateString,
   platformMonthStart,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
   type AttendanceDayKind,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
-import type { Transaction } from './attendance-audit';
+import type { Transaction } from './attendance-audit.js';
 import {
   blockingRequestStatuses,
   EXTENDED_MONTHLY_OVERTIME_SECONDS,
@@ -22,7 +22,7 @@ import {
   overtimeExtensionPeriodOf,
   scheduledWorkSeconds,
   type ScheduledShift,
-} from './attendance-rules';
+} from './attendance-rules.js';
 
 const NORMAL_DAILY_SECONDS = 8 * 3600;
 

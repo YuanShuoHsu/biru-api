@@ -1,24 +1,27 @@
-import { futuresMarginOf, type QuantBotType } from '../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../dto/quant-market.dto';
-import { candleEndOf, type PionexKlineInterval } from '../pionex/pionex.types';
+import { futuresMarginOf, type QuantBotType } from '../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
+import {
+  candleEndOf,
+  type PionexKlineInterval,
+} from '../pionex/pionex.types.js';
 
-import { SpotAccount } from './account';
+import { SpotAccount } from './account.js';
 import {
   BotSession,
   type SessionOptions,
   type SessionStore,
   type SubmittedOrder,
-} from './bot-session';
+} from './bot-session.js';
 import {
   FuturesAccount,
   type FuturesLedger,
   type RiskTier,
-} from './futures-account';
-import type { Ledger } from './ledger';
-import { SimulatedBroker } from './simulated-broker';
-import { createFuturesStrategy, createStrategy } from './strategies';
-import type { AiAdvisor } from './strategies/ai.strategy';
-import type { BotFill, SymbolSpec } from './types';
+} from './futures-account.js';
+import type { Ledger } from './ledger.js';
+import { SimulatedBroker } from './simulated-broker.js';
+import { createFuturesStrategy, createStrategy } from './strategies/index.js';
+import type { AiAdvisor } from './strategies/ai.strategy.js';
+import type { BotFill, SymbolSpec } from './types.js';
 
 const DAY_MS = 86_400_000;
 

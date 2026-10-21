@@ -12,29 +12,29 @@ import { ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { IdsDto } from 'src/common/dto/ids.dto';
+import { IdsDto } from '../common/dto/ids.dto.js';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
-import { OccupationalIndustryRateResponseDto } from 'src/payroll/dto/payroll-rule-set-response.dto';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
+import { OccupationalIndustryRateResponseDto } from '../payroll/dto/payroll-rule-set-response.dto.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceEmployeesService } from './attendance-employees.service';
-import { AttendanceEmployeePaginationQueryDto } from './dto/attendance-employee-pagination-query.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceEmployeesService } from './attendance-employees.service.js';
+import { AttendanceEmployeePaginationQueryDto } from './dto/attendance-employee-pagination-query.dto.js';
 import {
   AttendanceContextResponseDto,
   AttendanceEmployeeResponseDto,
   AttendanceEmployeesResponseDto,
   AttendanceLegalStatusObligationResponseDto,
   AttendanceMembersResponseDto,
-} from './dto/attendance-employee-response.dto';
-import { AttendanceErrorResponseDto } from './dto/attendance-error-response.dto';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
-import { AttendanceSettingsResponseDto } from './dto/attendance-settings-response.dto';
-import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto';
-import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto';
+} from './dto/attendance-employee-response.dto.js';
+import { AttendanceErrorResponseDto } from './dto/attendance-error-response.dto.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
+import { AttendanceSettingsResponseDto } from './dto/attendance-settings-response.dto.js';
+import { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto.js';
+import { SaveAttendanceSettingsDto } from './dto/save-attendance-settings.dto.js';
 
 @ApiTags('attendance')
 @ApiExtraModels(AttendanceErrorResponseDto)

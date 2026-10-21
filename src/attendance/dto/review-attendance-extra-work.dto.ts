@@ -2,7 +2,7 @@ import { OmitType } from '@nestjs/swagger';
 
 import { IsDateString } from 'class-validator';
 
-import { ReviewAttendanceRequestDto } from './review-attendance-request.dto';
+import { ReviewAttendanceRequestDto } from './review-attendance-request.dto.js';
 
 export class ReviewAttendanceExtraWorkDto extends OmitType(
   ReviewAttendanceRequestDto,

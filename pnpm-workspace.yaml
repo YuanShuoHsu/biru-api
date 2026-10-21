@@ -2,7 +2,6 @@ allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': false
   '@scarf/scarf': true
-  '@swc/core': true
   bcrypt: true
   esbuild: true
   prisma: false
@@ -10,3 +9,4 @@ allowBuilds:
 
 overrides:
   proxy-addr: '>=2.0.8'
+  handlebars: '>=4.7.10'

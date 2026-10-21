@@ -1,4 +1,4 @@
-import { buildRefundPlan } from './refund-plan';
+import { buildRefundPlan } from './refund-plan.js';
 
 import { BadRequestException } from '@nestjs/common';
 

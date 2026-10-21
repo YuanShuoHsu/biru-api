@@ -1,12 +1,12 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { eq, sql } from 'drizzle-orm';
-import { organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import { organization } from '../db/schema/organizations.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
-import { orderItemMovements } from './counted-orders';
-import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto';
+import { orderItemMovements } from './counted-orders.js';
+import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto.js';
 
 export const SALES_WINDOW_DAYS = 30;
 

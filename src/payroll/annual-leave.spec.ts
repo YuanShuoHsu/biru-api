@@ -1,4 +1,4 @@
-import { annualLeaveSettlement } from './annual-leave';
+import { annualLeaveSettlement } from './annual-leave.js';
 
 const input = {
   hiredAt: new Date('2020-07-01T00:00:00+08:00'),

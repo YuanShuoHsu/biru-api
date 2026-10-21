@@ -1,18 +1,16 @@
-jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { calculatePayroll } from './payroll-calculation.js';
+import type { PayrollEarningsService } from './payroll-earnings.service.js';
+import type { PayrollRulesService } from './payroll-rules.service.js';
+import { PayrollService } from './payroll.service.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
-import { calculatePayroll } from './payroll-calculation';
-import type { PayrollEarningsService } from './payroll-earnings.service';
-import type { PayrollRulesService } from './payroll-rules.service';
-import { PayrollService } from './payroll.service';
-import { taiwan2026 } from './taiwan-rules.fixture';
-
-jest.mock('./payroll-calculation', () => ({
-  ...jest.requireActual<typeof import('./payroll-calculation')>(
-    './payroll-calculation',
-  ),
-  calculatePayroll: jest.fn(() => ({ blockers: [] })),
+vi.mock('./payroll-calculation.js', async () => ({
+  ...(await vi.importActual<typeof import('./payroll-calculation.js')>(
+    './payroll-calculation.js',
+  )),
+  calculatePayroll: vi.fn(() => ({ blockers: [] })),
 }));
 const at = (hour: string) => new Date(`2026-01-15T${hour}:00+08:00`);
 const scheduledWeeks = (weeklyMinutes: number, before: Date) =>
@@ -146,14 +144,12 @@ async function snapshot(
     '2026-01',
     employee,
   );
-  const [, , days, deduction] = jest
-    .mocked(calculatePayroll)
-    .mock.calls.at(-1)!;
+  const [, , days, deduction] = vi.mocked(calculatePayroll).mock.calls.at(-1)!;
   return { blockers, days, deduction };
 }
 
 describe('Scheduled unpaid breaks in leave payroll', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
   it('deducts a full day of unpaid leave as the eight working hours', async () => {
     const result = await snapshot(['09:00', '18:00'], ['12:00', '13:00']);
     expect(result.deduction).toBe(8 * 3600);
@@ -200,7 +196,7 @@ describe('Rule set freshness blockers', () => {
 });
 
 describe('Payroll eligibility blockers', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
   const insurance = {
     laborCoverage: 'both',
     laborLadder: 'partTime',

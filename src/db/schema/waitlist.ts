@@ -13,10 +13,10 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { languagesEnum } from './enums';
-import { organization } from './organizations';
-import { user } from './users';
+import { timestamps } from './columns.helpers.js';
+import { languagesEnum } from './enums.js';
+import { organization } from './organizations.js';
+import { user } from './users.js';
 
 export interface WaitlistGroup {
   maxPartySize: number;

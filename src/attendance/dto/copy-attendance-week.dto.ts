@@ -9,9 +9,9 @@ import {
   Min,
 } from 'class-validator';
 
-import type { AttendanceDayKind } from 'src/db/schema/attendance';
+import type { AttendanceDayKind } from '../../db/schema/attendance.js';
 
-import type { AttendanceErrorCode } from '../attendance-errors';
+import type { AttendanceErrorCode } from '../attendance-errors.js';
 
 export const ATTENDANCE_COPY_SKIP_REASONS = [
   'holiday',
@@ -29,8 +29,7 @@ export const ATTENDANCE_COPY_SKIP_REASONS = [
   'overlappingShift',
   'overlappingLeave',
 ] as const satisfies readonly (
-  | AttendanceErrorCode
-  | Exclude<AttendanceDayKind, 'workday'>
+  AttendanceErrorCode | Exclude<AttendanceDayKind, 'workday'>
 )[];
 
 export type AttendanceCopySkipReason =

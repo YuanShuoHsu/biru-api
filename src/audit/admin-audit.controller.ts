@@ -6,11 +6,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { AuditService } from './audit.service';
-import { AuditLogPaginationQueryDto } from './dto/audit-log-pagination-query.dto';
-import { AuditLogResponseDto } from './dto/audit-log-response.dto';
+import { AuditService } from './audit.service.js';
+import { AuditLogPaginationQueryDto } from './dto/audit-log-pagination-query.dto.js';
+import { AuditLogResponseDto } from './dto/audit-log-response.dto.js';
 
 @ApiTags('audit')
 @ApiBearerAuth()

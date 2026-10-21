@@ -30,76 +30,76 @@ import {
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
-import { invoice } from 'src/db/schema/invoices';
-import type { OrderStatus, PaymentMethod } from 'src/db/schema/orders';
-import { ORDER_FLOW_STATUSES, order, orderItem } from 'src/db/schema/orders';
-import type { Organization } from 'src/db/schema/organizations';
-import { member, organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
+import { invoice } from '../db/schema/invoices.js';
+import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
+import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
+import type { Organization } from '../db/schema/organizations.js';
+import { member, organization } from '../db/schema/organizations.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
-} from 'src/common/constants/board';
+} from '../common/constants/board.js';
 import {
   STORE_UTC_OFFSET,
   STORE_UTC_OFFSET_MS,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 
-import { isAuthorized } from 'src/auth/permissions';
+import { isAuthorized } from '../auth/permissions.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import { toActiveInvoice } from 'src/common/utils/invoices';
-import { organizationClosedError } from 'src/common/utils/organization-closure';
+} from '../common/utils/data-grid-filters.js';
+import { toActiveInvoice } from '../common/utils/invoices.js';
+import { organizationClosedError } from '../common/utils/organization-closure.js';
 import {
   getMinutesUntilClose,
   isWithinOpeningHours,
-} from 'src/common/utils/opening-hours';
-import { sumOrderItems } from 'src/common/utils/order-items';
-import { utcTimestampParam } from 'src/common/utils/stats-buckets';
-import { CouponsService } from 'src/coupons/coupons.service';
-import { ECPAY_PENDING_RTN_CODES } from 'src/ecpay/dto/return-ecpay.dto';
-import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
-import { ORDER_STATUS_UPDATED_EVENT } from 'src/events/order-status-updated.event';
+} from '../common/utils/opening-hours.js';
+import { sumOrderItems } from '../common/utils/order-items.js';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { CouponsService } from '../coupons/coupons.service.js';
+import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
+import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
 import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
-} from 'src/events/order-updated.event';
-import { InventoryTransactionsService } from 'src/inventory/inventory-transactions.service';
+} from '../events/order-updated.event.js';
+import { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
 
-import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto';
-import type { AdminOrderResponseDto } from './dto/admin-order-response.dto';
+import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
+import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
 import type {
   CreateOrderCustomerDto,
   CreateOrderDto,
-} from './dto/create-order.dto';
+} from './dto/create-order.dto.js';
 import {
   ORDER_BOARD_STATUSES,
   type OrderBoardItemDto,
   type OrderBoardStatus,
-} from './dto/order-board-response.dto';
+} from './dto/order-board-response.dto.js';
 import {
   ORDER_DATE_FILTER_FIELDS,
   ORDER_ENUM_FILTER_FIELDS,
   ORDER_NUMBER_FILTER_FIELDS,
   ORDER_STRING_FILTER_FIELDS,
   type OrderPaginationQueryDto,
-} from './dto/order-pagination-query.dto';
+} from './dto/order-pagination-query.dto.js';
 import type {
   OrderReceiptResponseDto,
   OrderResponseDto,
   UserOrderResponseDto,
-} from './dto/order-response.dto';
-import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
+} from './dto/order-response.dto.js';
+import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto.js';
 
-import { isValidOrderAccessToken } from './order-access-token';
-import { OrderPricingService } from './order-pricing.service';
+import { isValidOrderAccessToken } from './order-access-token.js';
+import { OrderPricingService } from './order-pricing.service.js';
 import {
   dineInTableToken,
   isValidDineInTableToken,
@@ -107,14 +107,14 @@ import {
   modeTokenOrderModes,
   orderModeToken,
   type ModeTokenOrderMode,
-} from './order-qr-token';
+} from './order-qr-token.js';
 import {
   CANCEL_UNPAID_ORDER,
   findTransition,
   getAvailableTransitions,
   type OrderTransitionRule,
   toAdminOrder,
-} from './order-transitions';
+} from './order-transitions.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)

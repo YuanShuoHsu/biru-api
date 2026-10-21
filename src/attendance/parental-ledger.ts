@@ -3,10 +3,10 @@ import { and, eq } from 'drizzle-orm';
 import {
   attendanceParentalChild,
   attendanceParentalReturn,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
-import type { Transaction } from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
+import type { Transaction } from './attendance-audit.js';
+import { badRequestError, conflictError } from './attendance-errors.js';
 
 export async function matchParentalChild(
   tx: Transaction,

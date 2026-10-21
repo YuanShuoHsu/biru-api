@@ -1,4 +1,4 @@
-import type { TaiwanInsurance } from 'src/db/schema/payroll';
+import type { TaiwanInsurance } from '../db/schema/payroll.js';
 
 import {
   currentGrade,
@@ -7,8 +7,8 @@ import {
   laborGradesFor,
   tableWithholding,
   taiwanDeductions,
-} from './taiwan-rules';
-import { taiwan2026 } from './taiwan-rules.fixture';
+} from './taiwan-rules.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
 const insurance: TaiwanInsurance = {
   laborCoverage: 'both',

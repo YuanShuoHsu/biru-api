@@ -1,4 +1,4 @@
-import { trustedProxies } from './trusted-proxy';
+import { trustedProxies } from './trusted-proxy.js';
 
 describe('trustedProxies', () => {
   it('fails closed when nothing is configured', () => {

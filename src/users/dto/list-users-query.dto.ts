@@ -5,7 +5,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import {
   SORT_DIRECTIONS,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../../common/constants/pagination.js';
 
 export const TEXT_FILTER_OPERATORS = [
   'contains',

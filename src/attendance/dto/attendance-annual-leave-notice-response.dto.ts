@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ATTENDANCE_ANNUAL_LEAVE_SETTLEMENTS,
   type AttendanceAnnualLeaveSettlement,
-} from './attendance-annual-leave-notice-pagination-query.dto';
+} from './attendance-annual-leave-notice-pagination-query.dto.js';
 
 export class AttendanceAnnualLeaveNoticeLeaveDto {
   @ApiProperty() startsAt: Date;

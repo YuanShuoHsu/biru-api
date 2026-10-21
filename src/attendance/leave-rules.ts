@@ -3,8 +3,8 @@ import {
   platformMidnight,
   platformMonthStart,
   toPlatformTime,
-} from 'src/common/constants/timezone';
-import type { StatutoryLeaveKind } from 'src/db/schema/attendance';
+} from '../common/constants/timezone.js';
+import type { StatutoryLeaveKind } from '../db/schema/attendance.js';
 
 export function anniversary(hiredAt: Date, months: number) {
   const date = toPlatformTime(hiredAt);

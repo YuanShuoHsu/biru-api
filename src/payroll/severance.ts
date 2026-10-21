@@ -1,17 +1,17 @@
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
+import type { Transaction } from '../attendance/attendance-audit.js';
 import {
   countedRequestStatuses,
   NOTICE_TERMINATION_REASONS,
   SEVERANCE_TERMINATION_REASONS,
-} from 'src/attendance/attendance-rules';
-import { anniversary, isCalendarLeave } from 'src/attendance/leave-rules';
+} from '../attendance/attendance-rules.js';
+import { anniversary, isCalendarLeave } from '../attendance/leave-rules.js';
 import {
   DAY_MS,
   platformDateString,
   platformMidnight,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   attendanceEvent,
   attendanceLeaveCase,
@@ -20,14 +20,14 @@ import {
   type attendanceEmployee,
   type AttendanceTerminationReason,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 import {
   payrollStatement,
   type PayrollTerms,
   type WithholdingTable,
-} from 'src/db/schema/payroll';
+} from '../db/schema/payroll.js';
 
-import { hourlyRate, recurringAllowanceCents } from './payroll-calculation';
+import { hourlyRate, recurringAllowanceCents } from './payroll-calculation.js';
 
 export const NEW_PENSION_SYSTEM_START = new Date('2005-07-01T00:00:00+08:00');
 

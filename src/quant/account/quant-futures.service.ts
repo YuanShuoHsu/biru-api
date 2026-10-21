@@ -3,7 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   AdjustIsolatedMarginDto,
@@ -19,16 +19,16 @@ import type {
   QuantFuturesSymbolSettingsDto,
   QuantPositionDto,
   QuantPositionHistoryDto,
-} from '../dto/quant-futures.dto';
-import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
-import { FuturesAccount } from '../engine/futures-account';
-import { toRiskTiers } from '../engine/symbol-spec';
-import { MarketCacheService } from '../engine/market-cache.service';
+} from '../dto/quant-futures.dto.js';
+import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto.js';
+import { FuturesAccount } from '../engine/futures-account.js';
+import { toRiskTiers } from '../engine/symbol-spec.js';
+import { MarketCacheService } from '../engine/market-cache.service.js';
 import {
   type PionexCredentials,
   PionexRestClient,
-} from '../pionex/pionex-rest.client';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+} from '../pionex/pionex-rest.client.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import type {
   PionexFundingFee,
   PionexFuturesBalance,
@@ -38,10 +38,10 @@ import type {
   PionexMarginMode,
   PionexPosition,
   PionexPositionMode,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
-import { collectHistoryPage, type HistoryPage } from './history-page';
-import { QuantAccountService } from './quant-account.service';
+import { collectHistoryPage, type HistoryPage } from './history-page.js';
+import { QuantAccountService } from './quant-account.service.js';
 
 // 合約端點的權重一律是 5
 const FUTURES_WEIGHT = 5;

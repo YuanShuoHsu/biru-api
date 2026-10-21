@@ -5,9 +5,9 @@ import {
   buildSignedQuery,
   type PionexCredentials,
   signPionex,
-} from './pionex-rest.client';
-import { PionexSocket } from './pionex-socket';
-import type { PionexMarketType } from './pionex.types';
+} from './pionex-rest.client.js';
+import { PionexSocket } from './pionex-socket.js';
+import type { PionexMarketType } from './pionex.types.js';
 
 // 合約文件寫連線後送 auth 訊息，實測會被直接斷線；和現貨一樣用簽章 query 才連得上
 const PIONEX_PRIVATE_WS_PATHS: Record<PionexMarketType, string> = {

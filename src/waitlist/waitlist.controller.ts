@@ -23,11 +23,11 @@ import {
 } from '@thallesp/nestjs-better-auth';
 
 import { I18nLang } from 'nestjs-i18n';
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { toLanguage } from 'src/common/utils/language';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { toLanguage } from '../common/utils/language.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto';
+import { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import {
   AdminWaitlistResponseDto,
   WaitlistErrorResponseDto,
@@ -35,22 +35,22 @@ import {
   WaitlistTicketDetailResponseDto,
   WaitlistTicketListItemDto,
   WaitlistTicketResponseDto,
-} from './dto/waitlist-response.dto';
+} from './dto/waitlist-response.dto.js';
 import {
   WaitlistStatsQueryDto,
   WaitlistStatsResponseDto,
-} from './dto/waitlist-stats.dto';
-import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto';
+} from './dto/waitlist-stats.dto.js';
+import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto.js';
 import {
   UpdateWaitlistPausedDto,
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
-} from './dto/waitlist-settings.dto';
+} from './dto/waitlist-settings.dto.js';
 import {
   STAFF_TRANSITION_STATUSES,
   type StaffTransitionStatus,
-} from './waitlist-rules';
-import { WaitlistService } from './waitlist.service';
+} from './waitlist-rules.js';
+import { WaitlistService } from './waitlist.service.js';
 
 @AllowAnonymous()
 @ApiTags('waitlist')

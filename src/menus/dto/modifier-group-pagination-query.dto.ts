@@ -8,7 +8,7 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../../common/constants/pagination.js';
 
 export const MODIFIER_GROUP_STRING_FILTER_FIELDS = ['displayName'] as const;
 export const MODIFIER_GROUP_NUMBER_FILTER_FIELDS = [

@@ -30,7 +30,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   coupon,
   couponIssueTriggerEnum,
@@ -38,42 +38,42 @@ import {
   type Coupon,
   type CouponIssueTrigger,
   type UserCoupon,
-} from 'src/db/schema/coupons';
-import { DEFAULT_LANGUAGE } from 'src/db/schema/enums';
-import { menuItem, menuSection } from 'src/db/schema/menus';
+} from '../db/schema/coupons.js';
+import { DEFAULT_LANGUAGE } from '../db/schema/enums.js';
+import { menuItem, menuSection } from '../db/schema/menus.js';
 import {
   ORDER_TERMINAL_STATUSES,
   order,
   orderItem,
-} from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
-import { user } from 'src/db/schema/users';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../db/schema/orders.js';
+import { organization } from '../db/schema/organizations.js';
+import { user } from '../db/schema/users.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   PLATFORM_UTC_OFFSET_MS,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 
 import {
   applicableToOrganization,
   notPointsRedeem,
   withinCapacity,
   withinValidity,
-} from 'src/common/utils/coupons';
+} from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import { sumOrderItems } from 'src/common/utils/order-items';
-import { getOrganizationCurrency } from 'src/common/utils/organizations';
-import { localize } from 'src/menus/menus-public.service';
+} from '../common/utils/data-grid-filters.js';
+import { sumOrderItems } from '../common/utils/order-items.js';
+import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import { localize } from '../menus/menus-public.service.js';
 
-import type { ResolvedOrderItem } from '../orders/order-pricing.service';
-import { OrderPricingService } from '../orders/order-pricing.service';
+import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
+import { OrderPricingService } from '../orders/order-pricing.service.js';
 
 import {
   COUPON_DATE_FILTER_FIELDS,
@@ -81,13 +81,13 @@ import {
   COUPON_NUMBER_FILTER_FIELDS,
   COUPON_STRING_FILTER_FIELDS,
   type CouponPaginationQueryDto,
-} from './dto/coupon-pagination-query.dto';
+} from './dto/coupon-pagination-query.dto.js';
 import {
   COUPON_RECIPIENT_DATE_FILTER_FIELDS,
   COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
   COUPON_RECIPIENT_STRING_FILTER_FIELDS,
   type CouponRecipientQueryDto,
-} from './dto/coupon-recipient-query.dto';
+} from './dto/coupon-recipient-query.dto.js';
 import type {
   AvailableCouponDto,
   ClaimableCouponDto,
@@ -98,12 +98,15 @@ import type {
   MyClaimableCouponDto,
   MyCouponResponseDto,
   UserCouponResponseDto,
-} from './dto/coupon-response.dto';
-import type { CreateCouponDto, UpdateCouponDto } from './dto/create-coupon.dto';
+} from './dto/coupon-response.dto.js';
+import type {
+  CreateCouponDto,
+  UpdateCouponDto,
+} from './dto/create-coupon.dto.js';
 import type {
   ValidateCouponDto,
   ValidateCouponResponseDto,
-} from './dto/validate-coupon.dto';
+} from './dto/validate-coupon.dto.js';
 
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,

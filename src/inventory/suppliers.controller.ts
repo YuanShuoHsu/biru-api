@@ -1,13 +1,13 @@
 import { Body, Controller, Delete, Param, Patch } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
+import { Audit } from '../common/decorators/audit.decorator.js';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { UpdateSupplierDto } from './dto/create-supplier.dto';
-import { SupplierResponseDto } from './dto/supplier-response.dto';
-import { SuppliersService } from './suppliers.service';
+import { UpdateSupplierDto } from './dto/create-supplier.dto.js';
+import { SupplierResponseDto } from './dto/supplier-response.dto.js';
+import { SuppliersService } from './suppliers.service.js';
 
 @ApiTags('inventory')
 @Controller('suppliers/:supplierId')

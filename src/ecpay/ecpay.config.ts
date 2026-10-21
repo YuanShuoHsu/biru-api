@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 
-import type { EcpayMode } from './types/ecpay.types';
+import type { EcpayMode } from './types/ecpay.types.js';
 
 export const getEcpayMode = (configService: ConfigService): EcpayMode => {
   const mode = configService.getOrThrow<string>('ECPAY_OPERATION_MODE');

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { PayrollTermsDto, TaiwanInsuranceDto } from './payroll-terms.dto';
+import { PayrollTermsDto, TaiwanInsuranceDto } from './payroll-terms.dto.js';
 
 export class PayrollTermsValuesDto extends OmitType(PayrollTermsDto, [
   'employeeId',

@@ -1,8 +1,8 @@
 import { type SQL, and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
-import { order, orderItem, type OrderStatus } from 'src/db/schema/orders';
-import { refund, type RefundStatus } from 'src/db/schema/refunds';
+import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
+import { refund, type RefundStatus } from '../db/schema/refunds.js';
 
-import { utcTimestampParam } from 'src/common/utils/stats-buckets';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
 export const COUNTED_ORDER_STATUSES = [
   'OrderProcessing',

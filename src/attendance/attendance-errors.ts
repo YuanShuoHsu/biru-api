@@ -7,7 +7,7 @@ import {
 
 import { I18nContext } from 'nestjs-i18n';
 
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const attendanceErrorCodes = [
   'activeShiftExists',

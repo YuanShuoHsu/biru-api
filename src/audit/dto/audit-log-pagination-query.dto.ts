@@ -8,12 +8,12 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../../common/constants/pagination.js';
 
 import {
   AUDIT_LOG_RESOURCES,
   type AuditLogResource,
-} from './audit-log-response.dto';
+} from './audit-log-response.dto.js';
 
 export const AUDIT_LOG_STRING_FILTER_FIELDS = [
   'actorName',

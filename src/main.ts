@@ -7,17 +7,17 @@ import helmet from 'helmet';
 import { I18nMiddleware, I18nValidationPipe } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { trustedProxies } from './common/trusted-proxy';
+import { AppModule } from './app.module.js';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { trustedProxies } from './common/trusted-proxy.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
 
-  app.useStaticAssets(join(__dirname, '..', 'public'));
-  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  app.useStaticAssets(join(import.meta.dirname, '..', 'public'));
+  app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
   app.setViewEngine('hbs');
 
   app.set('trust proxy', trustedProxies());
@@ -64,4 +64,4 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3001);
 }
 
-void bootstrap();
+await bootstrap();

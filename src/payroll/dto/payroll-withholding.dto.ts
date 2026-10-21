@@ -17,12 +17,12 @@ import {
 import {
   ATTENDANCE_LEGAL_STATUSES,
   type AttendanceLegalStatus,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 import {
   RESIDENCE_COUNTRY_CODES,
   type ResidenceCountryCode,
-} from '../residence-countries';
+} from '../residence-countries.js';
 
 export const WITHHOLDING_ID_TYPES = ['0', '3', '7'] as const;
 

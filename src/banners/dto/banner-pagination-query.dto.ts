@@ -8,7 +8,7 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../../common/constants/pagination.js';
 
 export const BANNER_ENUM_FILTER_FIELDS = ['isActive'] as const;
 export const BANNER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;

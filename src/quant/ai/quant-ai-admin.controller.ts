@@ -12,7 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard.js';
 
 import {
   ApproveAgentConnectDto,
@@ -20,10 +20,10 @@ import {
   QuantAgentTokenDto,
   QuantAiBacktestDto,
   QuantAiRequestDto,
-} from '../dto/quant-bot.dto';
+} from '../dto/quant-bot.dto.js';
 
-import { QuantAiAgentService } from './quant-ai-agent.service';
-import { QuantAiBacktestService } from './quant-ai-backtest.service';
+import { QuantAiAgentService } from './quant-ai-agent.service.js';
+import { QuantAiBacktestService } from './quant-ai-backtest.service.js';
 
 @ApiTags('quant')
 @ApiBearerAuth()

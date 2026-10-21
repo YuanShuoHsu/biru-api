@@ -22,14 +22,14 @@ import {
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import { getOrganizationIdBySlug } from 'src/common/utils/organizations';
-import type { LocalizedText } from 'src/db/schema/enums';
+} from '../common/utils/data-grid-filters.js';
+import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
   recipe,
@@ -37,35 +37,35 @@ import {
   type Ingredient,
   type Recipe,
   type RecipeIngredient,
-} from 'src/db/schema/inventory';
-import { menu, menuItem, offer } from 'src/db/schema/menus';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../db/schema/inventory.js';
+import { menu, menuItem, offer } from '../db/schema/menus.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   CreateRecipeDto,
   CreateRecipeIngredientDto,
   UpdateRecipeDto,
   UpdateRecipeIngredientDto,
-} from './dto/create-recipe.dto';
+} from './dto/create-recipe.dto.js';
 import {
   RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
   RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
   RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
   RecipeIngredientPaginationQueryDto,
-} from './dto/recipe-ingredient-pagination-query.dto';
+} from './dto/recipe-ingredient-pagination-query.dto.js';
 import {
   RECIPE_DATE_FILTER_FIELDS,
   RECIPE_NUMBER_FILTER_FIELDS,
   RECIPE_STRING_FILTER_FIELDS,
   RecipePaginationQueryDto,
-} from './dto/recipe-pagination-query.dto';
+} from './dto/recipe-pagination-query.dto.js';
 import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
-} from './dto/recipe-response.dto';
-import { unitPriceOf, unitPriceSql } from './pricing';
-import { bindMenuItemByRecipeName } from './recipe-menu-item-binding';
+} from './dto/recipe-response.dto.js';
+import { unitPriceOf, unitPriceSql } from './pricing.js';
+import { bindMenuItemByRecipeName } from './recipe-menu-item-binding.js';
 
 const totalCostOf = (
   materials: RecipeIngredientResponseDto[],

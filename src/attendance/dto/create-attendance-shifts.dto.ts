@@ -18,7 +18,7 @@ import {
 import {
   ATTENDANCE_SCHEDULED_DAY_KINDS,
   type AttendanceScheduledDayKind,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;

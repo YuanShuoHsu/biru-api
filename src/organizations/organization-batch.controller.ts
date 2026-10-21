@@ -3,9 +3,9 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import type { Request } from 'express';
 
-import { AuthBatchService } from 'src/auth/auth-batch.service';
-import { IdsDto } from 'src/common/dto/ids.dto';
-import { OrganizationMember } from 'src/menus/decorators/roles.decorator';
+import { AuthBatchService } from '../auth/auth-batch.service.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
+import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
 @ApiTags('organizations')
 @Controller('organizations')

@@ -1,10 +1,10 @@
 import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { DineInTableTokenResponseDto } from './dto/dine-in-table-token.dto';
-import { OrdersService } from './orders.service';
+import { DineInTableTokenResponseDto } from './dto/dine-in-table-token.dto.js';
+import { OrdersService } from './orders.service.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/dine-in-tables')

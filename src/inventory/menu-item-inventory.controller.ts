@@ -1,11 +1,11 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { HasPermission } from 'src/menus/decorators/permission.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { MenuItemRecipeDetailResponseDto } from './dto/recipe-response.dto';
-import { RecipesService } from './recipes.service';
+import { MenuItemRecipeDetailResponseDto } from './dto/recipe-response.dto.js';
+import { RecipesService } from './recipes.service.js';
 
 @ApiTags('inventory')
 @Controller('menu-items/:menuItemId')

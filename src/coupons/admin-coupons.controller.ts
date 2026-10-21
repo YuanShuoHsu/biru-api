@@ -12,21 +12,21 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { IdsDto } from 'src/common/dto/ids.dto';
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { CouponsService } from './coupons.service';
-import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto';
-import { CouponRecipientQueryDto } from './dto/coupon-recipient-query.dto';
+import { CouponsService } from './coupons.service.js';
+import { CouponPaginationQueryDto } from './dto/coupon-pagination-query.dto.js';
+import { CouponRecipientQueryDto } from './dto/coupon-recipient-query.dto.js';
 import {
   CouponListResponseDto,
   CouponRecipientListResponseDto,
   CouponResponseDto,
   UserCouponResponseDto,
-} from './dto/coupon-response.dto';
-import { CreateCouponDto, UpdateCouponDto } from './dto/create-coupon.dto';
-import { GrantCouponDto } from './dto/grant-coupon.dto';
+} from './dto/coupon-response.dto.js';
+import { CreateCouponDto, UpdateCouponDto } from './dto/create-coupon.dto.js';
+import { GrantCouponDto } from './dto/grant-coupon.dto.js';
 
 @ApiTags('coupons')
 @UseGuards(AdminGuard)

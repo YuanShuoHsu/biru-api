@@ -1,6 +1,6 @@
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
 export interface AttendanceActor {
   organizationId: string;

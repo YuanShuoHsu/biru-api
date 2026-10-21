@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { QuantMarketService } from '../market/quant-market.service';
+import { QuantMarketService } from '../market/quant-market.service.js';
 import {
   PIONEX_DEPTH_EVENT,
   PIONEX_INDEX_EVENT,
@@ -9,10 +9,10 @@ import {
   type PionexDepthEvent,
   type PionexIndexEvent,
   type PionexTradesEvent,
-} from '../pionex/pionex-public-stream';
+} from '../pionex/pionex-public-stream.js';
 
-import { walkDepth } from './simulated-broker';
-import type { OrderSide } from './types';
+import { walkDepth } from './simulated-broker.js';
+import type { OrderSide } from './types.js';
 
 type Levels = [price: number, size: number][];
 

@@ -7,15 +7,15 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { IncomingHttpHeaders } from 'node:http';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
-import { invitation, member } from 'src/db/schema/organizations';
-import { session } from 'src/db/schema/users';
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { invitation, member } from '../db/schema/organizations.js';
+import { session } from '../db/schema/users.js';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { authDatabase, type Auth } from '.';
-import { runInAuthTransaction } from './auth-transaction';
-import { runWithAuthHookState } from './hooks';
+import { authDatabase, type Auth } from './index.js';
+import { runInAuthTransaction } from './auth-transaction.js';
+import { runWithAuthHookState } from './hooks.js';
 
 @Injectable()
 export class AuthBatchService {

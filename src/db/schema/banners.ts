@@ -1,6 +1,6 @@
 import { boolean, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
+import { timestamps } from './columns.helpers.js';
 
 export const banner = pgTable('banner', {
   id: text('id').primaryKey(),

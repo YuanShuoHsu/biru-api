@@ -9,20 +9,24 @@ nest new biru-api --strict
 ✨  We will scaffold your app in a few seconds..
 
 ✔ Which package manager would you ❤️  to use? pnpm
-CREATE biru-api/.prettierrc (51 bytes)
-CREATE biru-api/README.md (5036 bytes)
-CREATE biru-api/eslint.config.mjs (836 bytes)
+✔ Would you like to set up @nestjs/observe (distributed tracing, auto-correlated logs, metrics and alarms - free for 300k events/month, https://observe.nestjs.com)? No
+✔ Which module system would you like to use? ESM (ESModules) [ with vitest ]
+CREATE biru-api/.gitattributes (19 bytes)
+CREATE biru-api/.oxlintrc.json (206 bytes)
+CREATE biru-api/.prettierrc (52 bytes)
+CREATE biru-api/README.md (7484 bytes)
 CREATE biru-api/nest-cli.json (171 bytes)
-CREATE biru-api/package.json (2035 bytes)
-CREATE biru-api/tsconfig.build.json (97 bytes)
-CREATE biru-api/tsconfig.json (541 bytes)
-CREATE biru-api/src/app.controller.ts (274 bytes)
-CREATE biru-api/src/app.module.ts (249 bytes)
+CREATE biru-api/package.json (1408 bytes)
+CREATE biru-api/tsconfig.build.json (170 bytes)
+CREATE biru-api/tsconfig.json (601 bytes)
+CREATE biru-api/vitest.config.e2e.ts (202 bytes)
+CREATE biru-api/vitest.config.ts (349 bytes)
+CREATE biru-api/src/app.controller.ts (277 bytes)
+CREATE biru-api/src/app.module.ts (255 bytes)
 CREATE biru-api/src/app.service.ts (142 bytes)
-CREATE biru-api/src/main.ts (228 bytes)
-CREATE biru-api/src/app.controller.spec.ts (617 bytes)
-CREATE biru-api/test/jest-e2e.json (183 bytes)
-CREATE biru-api/test/app.e2e-spec.ts (674 bytes)
+CREATE biru-api/src/main.ts (237 bytes)
+CREATE biru-api/src/app.controller.spec.ts (623 bytes)
+CREATE biru-api/test/app.e2e-spec.ts (731 bytes)
 
 ✔ Installation in progress... ☕
 
@@ -491,6 +495,39 @@ $ mau deploy
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
+## Observability
+
+In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+
+[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+
+- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
+- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
+- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
+- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
+- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
+- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
+- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
+- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+
+To add it to this project, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
+
+```bash
+$ npx @nestjs/observe link
+```
+
+It installs `@nestjs/observe`, wires it into `AppModule` and `main.ts`, and writes the app key and secret into `.env`, which every `nest start` script (`start`, `start:dev`, `start:debug`) then loads. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
+
+Or do it by hand:
+
+```bash
+$ pnpm install @nestjs/observe
+```
+
+Then follow the [setup guide](https://docs.nestjs.com/observability/sdk) - it takes a single import and an app key.
+
+The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+
 ## Resources
 
 Check out a few resources that may come in handy when working with NestJS:
@@ -499,6 +536,7 @@ Check out a few resources that may come in handy when working with NestJS:
 - For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
 - To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
 - Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
 - Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
 - Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).

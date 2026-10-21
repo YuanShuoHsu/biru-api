@@ -7,12 +7,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { AuditService } from './audit.service';
-import { AuditLogPaginationQueryDto } from './dto/audit-log-pagination-query.dto';
-import { AuditLogResponseDto } from './dto/audit-log-response.dto';
+import { AuditService } from './audit.service.js';
+import { AuditLogPaginationQueryDto } from './dto/audit-log-pagination-query.dto.js';
+import { AuditLogResponseDto } from './dto/audit-log-response.dto.js';
 
 @ApiTags('audit')
 @ApiBearerAuth()

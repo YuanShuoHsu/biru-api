@@ -2,9 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
 import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
-import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
-import type { LocalizedText } from 'src/db/schema/enums';
+import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateMenuSectionDto {
   @ApiPropertyOptional({ description: 'Parent section ID for nested sections' })

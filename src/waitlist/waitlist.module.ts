@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 
-import { MailsModule } from 'src/mails/mails.module';
+import { MailsModule } from '../mails/mails.module.js';
 
-import { WaitlistNotificationsService } from './waitlist-notifications.service';
-import { WaitlistController } from './waitlist.controller';
-import { WaitlistService } from './waitlist.service';
+import { WaitlistNotificationsService } from './waitlist-notifications.service.js';
+import { WaitlistController } from './waitlist.controller.js';
+import { WaitlistService } from './waitlist.service.js';
 
 @Module({
   imports: [MailsModule],

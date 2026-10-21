@@ -16,9 +16,9 @@ import {
   QuantAgentConnectDto,
   QuantAgentConnectStatusDto,
   QuantAgentRequestDto,
-} from '../dto/quant-bot.dto';
+} from '../dto/quant-bot.dto.js';
 
-import { QuantAiAgentService } from './quant-ai-agent.service';
+import { QuantAiAgentService } from './quant-ai-agent.service.js';
 
 const bearer = (authorization?: string) =>
   authorization?.replace(/^Bearer\s+/i, '').trim() ?? '';

@@ -22,29 +22,29 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   ingredient,
   inventoryTransaction,
   recipe,
   recipeIngredient,
-} from 'src/db/schema/inventory';
-import { order, orderItem } from 'src/db/schema/orders';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/inventory.js';
+import { order, orderItem } from '../db/schema/orders.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
+import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
   INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
   INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
   InventoryTransactionPaginationQueryDto,
-} from './dto/inventory-transaction-pagination-query.dto';
+} from './dto/inventory-transaction-pagination-query.dto.js';
 import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
-} from './dto/inventory-transaction-response.dto';
-import { unitPriceOf } from './pricing';
+} from './dto/inventory-transaction-response.dto.js';
+import { unitPriceOf } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 

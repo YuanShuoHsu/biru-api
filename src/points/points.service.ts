@@ -19,24 +19,27 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { coupon, userCoupon, type Coupon } from 'src/db/schema/coupons';
+import { coupon, userCoupon, type Coupon } from '../db/schema/coupons.js';
 import {
   ORDER_TERMINAL_STATUSES,
   order,
   orderItem,
-} from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
-import { pointTransaction } from 'src/db/schema/points';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../db/schema/orders.js';
+import { organization } from '../db/schema/organizations.js';
+import { pointTransaction } from '../db/schema/points.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
-import { withinCapacity, withinValidity } from 'src/common/utils/coupons';
+import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 
-import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
+import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
-import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
-import type { MyPointsDto, PointsCouponDto } from './dto/points-response.dto';
+import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
+import type {
+  MyPointsDto,
+  PointsCouponDto,
+} from './dto/points-response.dto.js';
 
 const toExpiresAt = (
   paymentDate: Date,

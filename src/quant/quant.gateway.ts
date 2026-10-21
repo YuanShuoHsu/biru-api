@@ -12,19 +12,19 @@ import {
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 
-import { QuantAccountService } from './account/quant-account.service';
+import { QuantAccountService } from './account/quant-account.service.js';
 import {
   QUANT_BOT_CHANGED_EVENT,
   type QuantBotChangedEvent,
-} from './engine/bot-store';
-import { WatchAccountDto } from './dto/quant-account.dto';
-import { WatchMarketDto } from './dto/quant-market.dto';
+} from './engine/bot-store.js';
+import { WatchAccountDto } from './dto/quant-account.dto.js';
+import { WatchMarketDto } from './dto/quant-market.dto.js';
 import {
   QUANT_CANDLE_EVENT,
   QuantMarketStreamService,
   type QuantCandleEvent,
-} from './market/quant-market-stream.service';
-import { toTrade } from './market/quant-market.service';
+} from './market/quant-market-stream.service.js';
+import { toTrade } from './market/quant-market.service.js';
 import {
   PIONEX_DEPTH_EVENT,
   PIONEX_INDEX_EVENT,
@@ -32,16 +32,16 @@ import {
   type PionexDepthEvent,
   type PionexIndexEvent,
   type PionexTradesEvent,
-} from './pionex/pionex-public-stream';
-import { PionexSymbolsService } from './pionex/pionex-symbols.service';
+} from './pionex/pionex-public-stream.js';
+import { PionexSymbolsService } from './pionex/pionex-symbols.service.js';
 import {
   PIONEX_ACCOUNT_EVENT,
   PionexPrivateStreams,
   type PionexAccountEvent,
-} from './pionex/pionex-private-streams';
+} from './pionex/pionex-private-streams.js';
 
 import { Namespace, Socket } from 'socket.io';
-import { WsAdminGuard } from 'src/common/guards/ws-admin.guard';
+import { WsAdminGuard } from '../common/guards/ws-admin.guard.js';
 
 const marketRoom = (symbol: string) => `market:${symbol}`;
 const candleRoom = (symbol: string, interval: string) =>

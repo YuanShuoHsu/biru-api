@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsIn, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const WAITLIST_TICKET_STRING_FILTER_FIELDS = [
   'ticketNumber',

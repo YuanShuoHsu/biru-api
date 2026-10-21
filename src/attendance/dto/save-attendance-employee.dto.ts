@@ -21,7 +21,7 @@ import {
   ATTENDANCE_TERMINATION_REASONS,
   type AttendanceLegalStatus,
   type AttendanceTerminationReason,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class DatePeriodDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/) from: string;

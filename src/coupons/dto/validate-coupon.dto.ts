@@ -8,9 +8,9 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
+import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
-import { CreateOrderItemDto } from '../../orders/dto/create-order.dto';
+import { CreateOrderItemDto } from '../../orders/dto/create-order.dto.js';
 
 export class ValidateCouponDto {
   @ApiProperty()

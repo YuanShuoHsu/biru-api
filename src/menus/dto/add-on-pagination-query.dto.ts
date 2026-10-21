@@ -8,7 +8,7 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../../common/constants/pagination.js';
 
 export const ADD_ON_STRING_FILTER_FIELDS = [
   'addOnMenuSectionName',

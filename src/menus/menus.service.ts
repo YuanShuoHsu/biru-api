@@ -24,12 +24,12 @@ import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
-import { SERVING_TEMPERATURE_OF_LEVEL } from 'src/common/constants/serving-temperature';
-import { isSameLocalizedText } from 'src/common/utils/localized-text';
-import { getOrganizationCurrency } from 'src/common/utils/organizations';
-import type { LocalizedText } from 'src/db/schema/enums';
-import { recipe } from 'src/db/schema/inventory';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import { isSameLocalizedText } from '../common/utils/localized-text.js';
+import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import type { LocalizedText } from '../db/schema/enums.js';
+import { recipe } from '../db/schema/inventory.js';
 import type {
   Menu,
   MenuItem,
@@ -40,7 +40,7 @@ import type {
   ModifierGroup,
   Offer,
   QuantitativeValue,
-} from 'src/db/schema/menus';
+} from '../db/schema/menus.js';
 import {
   menu,
   menuItem,
@@ -50,13 +50,13 @@ import {
   modifier,
   modifierGroup,
   offer,
-} from 'src/db/schema/menus';
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
-import { bindRecipeByMenuItemName } from 'src/inventory/recipe-menu-item-binding';
-import { RecipesService } from 'src/inventory/recipes.service';
+} from '../db/schema/menus.js';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
+import { RecipesService } from '../inventory/recipes.service.js';
 
 import {
   buildArrayOverlapCondition,
@@ -64,20 +64,20 @@ import {
   buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 
 import {
   ADD_ON_DATE_FILTER_FIELDS,
   ADD_ON_STRING_FILTER_FIELDS,
   type AddOnPaginationQueryDto,
-} from './dto/add-on-pagination-query.dto';
-import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto';
-import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto';
-import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
-import type { CreateMenuSectionDto } from './dto/create-menu-section.dto';
-import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
-import type { CreateModifierDto } from './dto/create-modifier.dto';
-import type { CreateOfferDto } from './dto/create-offer.dto';
+} from './dto/add-on-pagination-query.dto.js';
+import type { CreateMenuItemAddOnDto } from './dto/create-menu-item-add-on.dto.js';
+import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
+import type { CreateMenuItemDto } from './dto/create-menu-item.dto.js';
+import type { CreateMenuSectionDto } from './dto/create-menu-section.dto.js';
+import type { CreateModifierGroupDto } from './dto/create-modifier-group.dto.js';
+import type { CreateModifierDto } from './dto/create-modifier.dto.js';
+import type { CreateOfferDto } from './dto/create-offer.dto.js';
 import {
   MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
   MENU_ITEM_DATE_FILTER_FIELDS,
@@ -87,18 +87,18 @@ import {
   MENU_ITEM_QUICK_FILTER_ENUM_FIELDS,
   MENU_ITEM_STRING_FILTER_FIELDS,
   MenuItemPaginationQueryDto,
-} from './dto/menu-item-pagination-query.dto';
+} from './dto/menu-item-pagination-query.dto.js';
 import {
   MENU_SECTION_DATE_FILTER_FIELDS,
   MENU_SECTION_STRING_FILTER_FIELDS,
   MenuSectionPaginationQueryDto,
-} from './dto/menu-section-pagination-query.dto';
+} from './dto/menu-section-pagination-query.dto.js';
 import {
   MODIFIER_GROUP_DATE_FILTER_FIELDS,
   MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
   MODIFIER_GROUP_STRING_FILTER_FIELDS,
   type ModifierGroupPaginationQueryDto,
-} from './dto/modifier-group-pagination-query.dto';
+} from './dto/modifier-group-pagination-query.dto.js';
 import {
   MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
   MODIFIER_DATE_FILTER_FIELDS,
@@ -107,15 +107,15 @@ import {
   MODIFIER_QUICK_FILTER_ENUM_FIELDS,
   MODIFIER_STRING_FILTER_FIELDS,
   type ModifierPaginationQueryDto,
-} from './dto/modifier-pagination-query.dto';
-import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto';
-import type { UpdateMenuItemDto } from './dto/update-menu-item.dto';
-import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto';
-import type { UpdateMenuDto } from './dto/update-menu.dto';
-import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
-import type { UpdateModifierDto } from './dto/update-modifier.dto';
-import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto';
-import type { UpdateOfferDto } from './dto/update-offer.dto';
+} from './dto/modifier-pagination-query.dto.js';
+import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto.js';
+import type { UpdateMenuItemDto } from './dto/update-menu-item.dto.js';
+import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto.js';
+import type { UpdateMenuDto } from './dto/update-menu.dto.js';
+import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js';
+import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
+import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
+import type { UpdateOfferDto } from './dto/update-offer.dto.js';
 
 type RecipeSummary = {
   id: string;

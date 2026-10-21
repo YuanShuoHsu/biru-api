@@ -4,7 +4,7 @@ import {
   calendarLeaveMinutes,
   eventLeaveEntitlement,
   statutoryLeavePeriod,
-} from './leave-rules';
+} from './leave-rules.js';
 
 describe('Taiwan statutory leave periods', () => {
   const hired = new Date('2020-07-01T00:00:00+08:00');

@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsIn, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const INVENTORY_TRANSACTION_STRING_FILTER_FIELDS = ['note'] as const;
 export const INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS = [

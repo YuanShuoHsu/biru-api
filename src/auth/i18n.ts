@@ -3,9 +3,9 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, isAPIError } from 'better-auth/api';
 import type { I18nService } from 'nestjs-i18n';
 
-import { toLanguage } from '../common/utils/language';
-import { DEFAULT_LANGUAGE, languagesEnum } from '../db/schema/enums';
-import type { I18nTranslations } from '../generated/i18n.generated';
+import { toLanguage } from '../common/utils/language.js';
+import { DEFAULT_LANGUAGE, languagesEnum } from '../db/schema/enums.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const createAuthI18n = (i18nService: I18nService<I18nTranslations>) => {
   const translations: Record<

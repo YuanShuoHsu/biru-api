@@ -23,7 +23,7 @@ import {
   type RefundReasonCode,
   type RefundScope,
   type RefundStatus,
-} from 'src/db/schema/refunds';
+} from '../../db/schema/refunds.js';
 
 export class RefundItemInputDto {
   @ApiProperty({ description: '訂單品項 ID' })

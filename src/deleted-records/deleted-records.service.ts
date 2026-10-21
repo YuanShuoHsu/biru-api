@@ -14,42 +14,42 @@ import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { AttendanceActor } from 'src/attendance/attendance-actor';
+import type { AttendanceActor } from '../attendance/attendance-actor.js';
 import type {
   RestoredRecord,
   Transaction,
-} from 'src/attendance/attendance-audit';
-import { AttendanceEmployeesService } from 'src/attendance/attendance-employees.service';
-import { AttendanceLeavesService } from 'src/attendance/attendance-leaves.service';
-import { AttendanceParentalService } from 'src/attendance/attendance-parental.service';
-import { AttendanceShiftTypesService } from 'src/attendance/attendance-shift-types.service';
-import { isAuthorized } from 'src/auth/permissions';
-import { platformDateString } from 'src/common/constants/timezone';
-import type { AuditSubTable } from 'src/common/decorators/audit.decorator';
-import { diffAuditRows } from 'src/common/utils/audit-diff';
+} from '../attendance/attendance-audit.js';
+import { AttendanceEmployeesService } from '../attendance/attendance-employees.service.js';
+import { AttendanceLeavesService } from '../attendance/attendance-leaves.service.js';
+import { AttendanceParentalService } from '../attendance/attendance-parental.service.js';
+import { AttendanceShiftTypesService } from '../attendance/attendance-shift-types.service.js';
+import { isAuthorized } from '../auth/permissions.js';
+import { platformDateString } from '../common/constants/timezone.js';
+import type { AuditSubTable } from '../common/decorators/audit.decorator.js';
+import { diffAuditRows } from '../common/utils/audit-diff.js';
 import {
   AUDIT_IGNORED_COLUMNS,
   resolveAuditLabels,
   resolveChangeLabels,
-} from 'src/common/utils/audit-resources';
+} from '../common/utils/audit-resources.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
   attendanceEmployee,
-} from 'src/db/schema/attendance';
-import { auditLog, type AuditResource } from 'src/db/schema/audit';
-import { deletedRecord } from 'src/db/schema/deleted-records';
-import type { LocalizedText } from 'src/db/schema/enums';
-import { member, organization } from 'src/db/schema/organizations';
-import { PAYROLL_EARNING_CATEGORIES } from 'src/db/schema/payroll';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import { auditLog, type AuditResource } from '../db/schema/audit.js';
+import { deletedRecord } from '../db/schema/deleted-records.js';
+import type { LocalizedText } from '../db/schema/enums.js';
+import { member, organization } from '../db/schema/organizations.js';
+import { PAYROLL_EARNING_CATEGORIES } from '../db/schema/payroll.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   MENU_UPDATED_EVENT,
   type MenuUpdatedEvent,
-} from 'src/events/menu-updated.event';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
-import { CLOSED_WRITABLE_RESOURCES } from 'src/menus/guards/roles.guard';
-import { PayrollEarningsService } from 'src/payroll/payroll-earnings.service';
+} from '../events/menu-updated.event.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { CLOSED_WRITABLE_RESOURCES } from '../menus/guards/roles.guard.js';
+import { PayrollEarningsService } from '../payroll/payroll-earnings.service.js';
 import {
   asBoolean,
   asNumber,
@@ -57,7 +57,7 @@ import {
   asString,
   asStrings,
   toCamelRow,
-} from './deleted-row';
+} from './deleted-row.js';
 
 import {
   LABEL_COLUMNS,
@@ -66,12 +66,15 @@ import {
   SERVICE_RESTORED_TABLES,
   UNTRACKED_TABLES,
   type RestorableTable,
-} from './deleted-record-tables';
+} from './deleted-record-tables.js';
 import type {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
-} from './dto/deleted-record-batch.dto';
-import { isPreDeletedChild, preDeletedChildCondition } from './request-batch';
+} from './dto/deleted-record-batch.dto.js';
+import {
+  isPreDeletedChild,
+  preDeletedChildCondition,
+} from './request-batch.js';
 
 const RETENTION_DAYS = 30;
 

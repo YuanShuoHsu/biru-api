@@ -1,5 +1,5 @@
 import { and, gte, isNull, lte, or, sql } from 'drizzle-orm';
-import { coupon, userCoupon } from 'src/db/schema/coupons';
+import { coupon, userCoupon } from '../../db/schema/coupons.js';
 
 // 排除點數兌換券：僅能以點數兌換取得，不參與輸碼／領取／自動發放
 export const notPointsRedeem = () => isNull(coupon.pointsCost);

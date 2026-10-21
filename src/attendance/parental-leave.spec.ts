@@ -2,7 +2,7 @@ import {
   parentalLeaveErrors,
   parentalMode,
   type ParentalRecord,
-} from './parental-leave';
+} from './parental-leave.js';
 
 const at = (date: string) => new Date(`${date}T00:00:00+08:00`);
 const child = { id: 'child', eventDate: at('2024-01-01') };

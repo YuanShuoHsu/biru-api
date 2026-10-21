@@ -11,15 +11,15 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Socket } from 'socket.io';
 
-import { isAuthorized } from 'src/auth/permissions';
-import { member } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import { isAuthorized } from '../../auth/permissions.js';
+import { member } from '../../db/schema/organizations.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
 import {
   ROLES_KEY,
   type OrganizationParam,
-} from '../decorators/roles.decorator';
+} from '../decorators/roles.decorator.js';
 
 @Injectable()
 export class WsRolesGuard implements CanActivate {

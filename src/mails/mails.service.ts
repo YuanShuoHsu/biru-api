@@ -3,16 +3,16 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
-import type { AttendanceNotificationKind } from 'src/attendance/attendance-notification.events';
-import { PRODUCT_NAME } from 'src/common/constants/product';
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
-import { toLanguage } from 'src/common/utils/language';
-import { type Language } from 'src/db/schema/enums';
-import type { User } from 'src/db/schema/users';
-import { I18nTranslations } from 'src/generated/i18n.generated';
+import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
+import { PRODUCT_NAME } from '../common/constants/product.js';
+import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { toLanguage } from '../common/utils/language.js';
+import { type Language } from '../db/schema/enums.js';
+import type { User } from '../db/schema/users.js';
+import { I18nTranslations } from '../generated/i18n.generated.js';
 import { UAParser } from 'ua-parser-js';
 
-import { SendTestEmailDto } from './dto/send-test-email.dto';
+import { SendTestEmailDto } from './dto/send-test-email.dto.js';
 
 @Injectable()
 export class MailsService {

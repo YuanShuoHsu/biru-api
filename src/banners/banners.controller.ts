@@ -2,8 +2,8 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { BannersService } from './banners.service';
-import { BannerResponseDto } from './dto/banner-response.dto';
+import { BannersService } from './banners.service.js';
+import { BannerResponseDto } from './dto/banner-response.dto.js';
 
 @ApiTags('banners')
 @Controller('banners')

@@ -1,4 +1,4 @@
-import type { AuditChanges } from 'src/db/schema/audit';
+import type { AuditChanges } from '../../db/schema/audit.js';
 
 export type AuditRow = Record<string, unknown>;
 

@@ -11,9 +11,9 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { order } from './orders';
-import { user } from './users';
+import { timestamps } from './columns.helpers.js';
+import { order } from './orders.js';
+import { user } from './users.js';
 
 export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', [
   'fixed',

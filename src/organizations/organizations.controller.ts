@@ -14,15 +14,15 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { asc, isNull } from 'drizzle-orm';
-import { organization } from 'src/db/schema/organizations';
+import { organization } from '../db/schema/organizations.js';
 
-import { OrganizationListQueryDto } from './dto/organization-list-query.dto';
-import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
-import { OrganizationResponseDto } from './dto/organization-response.dto';
-import { OrganizationsService } from './organizations.service';
+import { OrganizationListQueryDto } from './dto/organization-list-query.dto.js';
+import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import { OrganizationResponseDto } from './dto/organization-response.dto.js';
+import { OrganizationsService } from './organizations.service.js';
 
 @AllowAnonymous()
 @ApiTags('organizations')

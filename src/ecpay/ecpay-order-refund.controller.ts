@@ -3,9 +3,9 @@ import {
   OrderRefundDto,
   OrderRefundPreviewDto,
   PreviewOrderRefundDto,
-} from './dto/order-refund.dto';
+} from './dto/order-refund.dto.js';
 
-import { EcpayOrderRefundService } from './services/ecpay-order-refund.service';
+import { EcpayOrderRefundService } from './services/ecpay-order-refund.service.js';
 
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
@@ -16,8 +16,8 @@ import {
 } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/orders/:orderId/refunds')

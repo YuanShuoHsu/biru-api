@@ -10,26 +10,26 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { IdsDto } from 'src/common/dto/ids.dto';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
 
-import { OrganizationId } from 'src/menus/decorators/organization-id.decorator';
-import { HasPermission } from 'src/menus/decorators/permission.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
-import { ReorderDto } from 'src/menus/dto/reorder.dto';
+import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
+import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
-import { CreateIngredientDto } from './dto/create-ingredient.dto';
-import { CreateRecipeDto } from './dto/create-recipe.dto';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
-import { IngredientPaginationQueryDto } from './dto/ingredient-pagination-query.dto';
-import { IngredientResponseDto } from './dto/ingredient-response.dto';
-import { RecipePaginationQueryDto } from './dto/recipe-pagination-query.dto';
-import { RecipeResponseDto } from './dto/recipe-response.dto';
-import { SupplierPaginationQueryDto } from './dto/supplier-pagination-query.dto';
-import { SupplierResponseDto } from './dto/supplier-response.dto';
-import { IngredientsService } from './ingredients.service';
-import { RecipesService } from './recipes.service';
-import { SuppliersService } from './suppliers.service';
+import { CreateIngredientDto } from './dto/create-ingredient.dto.js';
+import { CreateRecipeDto } from './dto/create-recipe.dto.js';
+import { CreateSupplierDto } from './dto/create-supplier.dto.js';
+import { IngredientPaginationQueryDto } from './dto/ingredient-pagination-query.dto.js';
+import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import { RecipePaginationQueryDto } from './dto/recipe-pagination-query.dto.js';
+import { RecipeResponseDto } from './dto/recipe-response.dto.js';
+import { SupplierPaginationQueryDto } from './dto/supplier-pagination-query.dto.js';
+import { SupplierResponseDto } from './dto/supplier-response.dto.js';
+import { IngredientsService } from './ingredients.service.js';
+import { RecipesService } from './recipes.service.js';
+import { SuppliersService } from './suppliers.service.js';
 
 @ApiTags('inventory')
 @Controller('organizations/:organizationSlug')

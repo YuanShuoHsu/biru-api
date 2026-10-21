@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { GcisService } from './gcis.service';
+import { GcisService } from './gcis.service.js';
 
 describe('GcisService', () => {
   let service: GcisService;

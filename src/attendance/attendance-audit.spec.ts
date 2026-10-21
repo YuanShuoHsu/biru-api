@@ -1,7 +1,7 @@
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
-import { assertPayrollUnlocked, type Transaction } from './attendance-audit';
+import { assertPayrollUnlocked, type Transaction } from './attendance-audit.js';
 
 async function lockedMonths(startsAt: Date, endsAt?: Date) {
   let where: SQL | undefined;

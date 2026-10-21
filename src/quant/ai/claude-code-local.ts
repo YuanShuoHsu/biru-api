@@ -1,4 +1,4 @@
-import { quantEnvironment } from '../quant-environment';
+import { quantEnvironment } from '../quant-environment.js';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 

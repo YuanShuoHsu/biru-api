@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 
-import { IngredientsController } from './ingredients.controller';
-import { IngredientsService } from './ingredients.service';
-import { InventoryTransactionsService } from './inventory-transactions.service';
-import { MenuItemInventoryController } from './menu-item-inventory.controller';
-import { OrganizationInventoryController } from './organization-inventory.controller';
-import { RecipesController } from './recipes.controller';
-import { RecipesService } from './recipes.service';
-import { SuppliersController } from './suppliers.controller';
-import { SuppliersService } from './suppliers.service';
+import { IngredientsController } from './ingredients.controller.js';
+import { IngredientsService } from './ingredients.service.js';
+import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { MenuItemInventoryController } from './menu-item-inventory.controller.js';
+import { OrganizationInventoryController } from './organization-inventory.controller.js';
+import { RecipesController } from './recipes.controller.js';
+import { RecipesService } from './recipes.service.js';
+import { SuppliersController } from './suppliers.controller.js';
+import { SuppliersService } from './suppliers.service.js';
 
 @Module({
   controllers: [

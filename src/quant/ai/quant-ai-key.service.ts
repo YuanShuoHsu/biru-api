@@ -10,16 +10,19 @@ import { and, eq } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
-import { decryptField, encryptField } from 'src/common/utils/field-encryption';
-import { quantAiKey } from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import {
+  decryptField,
+  encryptField,
+} from '../../common/utils/field-encryption.js';
+import { quantAiKey } from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
-import type { QuantAiKeyDto } from '../dto/quant-bot.dto';
-import { quantEnvironment } from '../quant-environment';
+import type { QuantAiKeyDto } from '../dto/quant-bot.dto.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { DEFAULT_AI_MODEL } from './ai-model';
+import { DEFAULT_AI_MODEL } from './ai-model.js';
 
 @Injectable()
 export class QuantAiKeyService {

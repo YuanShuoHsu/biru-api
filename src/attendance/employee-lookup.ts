@@ -1,13 +1,13 @@
 import { and, eq, getTableColumns } from 'drizzle-orm';
 
-import { attendanceEmployee } from 'src/db/schema/attendance';
-import { user } from 'src/db/schema/users';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { attendanceEmployee } from '../db/schema/attendance.js';
+import { user } from '../db/schema/users.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
-import type { Transaction } from './attendance-audit';
-import { forbiddenError } from './attendance-errors';
-import { employeeStatus } from './employee-status';
+import type { AttendanceActor } from './attendance-actor.js';
+import type { Transaction } from './attendance-audit.js';
+import { forbiddenError } from './attendance-errors.js';
+import { employeeStatus } from './employee-status.js';
 
 export async function findEmployee(
   actor: AttendanceActor,

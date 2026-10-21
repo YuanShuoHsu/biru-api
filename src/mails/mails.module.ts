@@ -1,14 +1,14 @@
 import { MailerModule } from '@nestjs-modules/mailer';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
-import { PRODUCT_NAME } from 'src/common/constants/product';
+import { PRODUCT_NAME } from '../common/constants/product.js';
 
-import { MailsController } from './mails.controller';
-import { MailsService } from './mails.service';
+import { MailsController } from './mails.controller.js';
+import { MailsService } from './mails.service.js';
 
 @Module({
   imports: [

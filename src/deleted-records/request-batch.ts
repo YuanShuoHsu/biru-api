@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 
-import { authDb } from '../auth/auth-transaction';
-import type { DrizzleDB } from '../drizzle/drizzle.module';
+import { authDb } from '../auth/auth-transaction.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 const PRE_DELETED_CHILDREN = {
   organization: [

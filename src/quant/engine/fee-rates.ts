@@ -1,4 +1,4 @@
-import type { PionexMarketType } from '../pionex/pionex.types';
+import type { PionexMarketType } from '../pionex/pionex.types.js';
 
 // Pionex API 沒有查詢費率的端點，以官網普通用戶費率為準：https://www.pionex.com/zh-TW/fees
 export const PIONEX_FEE_RATES = {

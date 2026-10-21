@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
-import { ModifierResponseDto } from './modifier-response.dto';
+import { ModifierResponseDto } from './modifier-response.dto.js';
 
 export class ModifierGroupResponseDto {
   @ApiProperty()

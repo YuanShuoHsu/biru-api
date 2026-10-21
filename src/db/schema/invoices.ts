@@ -10,9 +10,9 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { order } from './orders';
-import { refund } from './refunds';
+import { timestamps } from './columns.helpers.js';
+import { order } from './orders.js';
+import { refund } from './refunds.js';
 
 export const invoiceTypeEnum = pgEnum('invoice_type', [
   'personal',

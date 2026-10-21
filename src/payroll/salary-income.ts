@@ -1,6 +1,6 @@
-import type { PayrollLineCode, PayrollSnapshot } from 'src/db/schema/payroll';
+import type { PayrollLineCode, PayrollSnapshot } from '../db/schema/payroll.js';
 
-import { MEAL_ALLOWANCE_EXEMPT_CENTS } from './taiwan-rules';
+import { MEAL_ALLOWANCE_EXEMPT_CENTS } from './taiwan-rules.js';
 
 // 所得稅法 §14 I 3：規定時數內加班費與伙食費免稅額不屬薪資收入；職災補償免稅；資遣費與預告工資是退職所得另列格式 93；自提勞退不計入薪資課稅
 const EXCLUDED_CODES: readonly PayrollLineCode[] = [

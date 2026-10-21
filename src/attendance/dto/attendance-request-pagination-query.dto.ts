@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsIn, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const ATTENDANCE_REQUEST_STRING_FILTER_FIELDS = [
   'employeeName',

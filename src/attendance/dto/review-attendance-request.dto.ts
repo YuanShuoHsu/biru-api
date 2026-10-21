@@ -19,7 +19,7 @@ import {
   attendanceErrorCodes,
   type AttendanceErrorCode,
   badRequestError,
-} from '../attendance-errors';
+} from '../attendance-errors.js';
 
 export class EmergencyWorkDto {
   @ApiProperty({

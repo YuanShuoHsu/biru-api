@@ -11,7 +11,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS = [
   'employeeName',

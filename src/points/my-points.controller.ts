@@ -2,12 +2,12 @@ import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto';
+import { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
-import { PointsPaginationQueryDto } from './dto/points-pagination-query.dto';
-import { MyPointsDto } from './dto/points-response.dto';
-import { RedeemPointsDto } from './dto/redeem-points.dto';
-import { PointsService } from './points.service';
+import { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
+import { MyPointsDto } from './dto/points-response.dto.js';
+import { RedeemPointsDto } from './dto/redeem-points.dto.js';
+import { PointsService } from './points.service.js';
 
 @ApiTags('points')
 @Controller('users/me/points')

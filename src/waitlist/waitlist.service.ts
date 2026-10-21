@@ -24,21 +24,21 @@ import {
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
-} from 'src/common/constants/board';
+} from '../common/constants/board.js';
 import {
   PLATFORM_TIMEZONE,
   platformDateString,
   platformMidnight,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import { organizationClosedError } from 'src/common/utils/organization-closure';
-import type { Language } from 'src/db/schema/enums';
-import { organization } from 'src/db/schema/organizations';
-import { auditLog } from 'src/db/schema/audit';
+} from '../common/utils/data-grid-filters.js';
+import { organizationClosedError } from '../common/utils/organization-closure.js';
+import type { Language } from '../db/schema/enums.js';
+import { organization } from '../db/schema/organizations.js';
+import { auditLog } from '../db/schema/audit.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
   WAITLIST_ENDED_STATUSES,
@@ -47,14 +47,14 @@ import {
   waitlistTicketStatusEnum,
   type WaitlistTicket,
   type WaitlistTicketStatus,
-} from 'src/db/schema/waitlist';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/waitlist.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   WAITLIST_UPDATED_EVENT,
   type WaitlistUpdatedEvent,
-} from 'src/events/waitlist-updated.event';
+} from '../events/waitlist-updated.event.js';
 
-import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto';
+import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import type {
   AdminWaitlistResponseDto,
   AdminWaitlistTicketDto,
@@ -62,24 +62,24 @@ import type {
   WaitlistTicketDetailResponseDto,
   WaitlistTicketListItemDto,
   WaitlistTicketResponseDto,
-} from './dto/waitlist-response.dto';
+} from './dto/waitlist-response.dto.js';
 import {
   WAITLIST_TICKET_DATE_FILTER_FIELDS,
   WAITLIST_TICKET_ENUM_FILTER_FIELDS,
   WAITLIST_TICKET_NUMBER_FILTER_FIELDS,
   WAITLIST_TICKET_STRING_FILTER_FIELDS,
   type WaitlistTicketPaginationQueryDto,
-} from './dto/waitlist-ticket-pagination-query.dto';
-import type { WaitlistStatsResponseDto } from './dto/waitlist-stats.dto';
+} from './dto/waitlist-ticket-pagination-query.dto.js';
+import type { WaitlistStatsResponseDto } from './dto/waitlist-stats.dto.js';
 import type {
   UpdateWaitlistSettingsDto,
   WaitlistSettingsResponseDto,
-} from './dto/waitlist-settings.dto';
+} from './dto/waitlist-settings.dto.js';
 import {
   badRequestError,
   conflictError,
   type WaitlistAudience,
-} from './waitlist-errors';
+} from './waitlist-errors.js';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
@@ -96,7 +96,7 @@ import {
   isRevert,
   isValidGroups,
   type StaffTransitionStatus,
-} from './waitlist-rules';
+} from './waitlist-rules.js';
 
 const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
 const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;

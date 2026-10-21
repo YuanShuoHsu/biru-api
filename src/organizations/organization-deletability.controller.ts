@@ -1,10 +1,10 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { hasBusinessRecords } from 'src/auth/deletion-guards';
-import { OrganizationMember } from 'src/menus/decorators/roles.decorator';
+import { hasBusinessRecords } from '../auth/deletion-guards.js';
+import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
-import { OrganizationDeletabilityDto } from './dto/organization-deletability.dto';
+import { OrganizationDeletabilityDto } from './dto/organization-deletability.dto.js';
 
 @ApiTags('organizations')
 @Controller('organizations/:organizationId/deletability')

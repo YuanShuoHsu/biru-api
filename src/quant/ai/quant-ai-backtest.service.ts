@@ -15,43 +15,46 @@ import {
   type QuantAiBacktest,
   quantAiBacktest,
   quantAiRequest,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import {
   QuantBacktestService,
   toBacktestResultDto,
-} from '../bots/quant-backtest.service';
+} from '../bots/quant-backtest.service.js';
 import type {
   AiConfigDto,
   AiDecisionDto,
   BacktestResultDto,
   CreateAiBacktestDto,
   QuantAiBacktestDto,
-} from '../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../dto/quant-market.dto';
+} from '../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
 import {
   type BacktestEvent,
   type FuturesBacktestMarket,
   runBacktest,
-} from '../engine/backtest';
-import { QuantEngineService } from '../engine/quant-engine.service';
+} from '../engine/backtest.js';
+import { QuantEngineService } from '../engine/quant-engine.service.js';
 import {
   type AiAdvisor,
   type AiSnapshot,
   CONTEXT_CANDLES,
   CONTEXT_INTERVALS,
-} from '../engine/strategies/ai.strategy';
-import { botSymbolSpec } from '../engine/symbol-spec';
-import { QuantMarketService } from '../market/quant-market.service';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
-import { candleEndOf, type PionexKlineInterval } from '../pionex/pionex.types';
-import { quantEnvironment } from '../quant-environment';
+} from '../engine/strategies/ai.strategy.js';
+import { botSymbolSpec } from '../engine/symbol-spec.js';
+import { QuantMarketService } from '../market/quant-market.service.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
+import {
+  candleEndOf,
+  type PionexKlineInterval,
+} from '../pionex/pionex.types.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { QuantAiAdvisorService } from './quant-ai-advisor.service';
-import { QuantAiKeyService } from './quant-ai-key.service';
+import { QuantAiAdvisorService } from './quant-ai-advisor.service.js';
+import { QuantAiKeyService } from './quant-ai-key.service.js';
 
 const RECENT_DECISIONS = 8;
 const LIST_LIMIT = 20;

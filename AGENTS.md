@@ -17,7 +17,7 @@ pnpm run test:cov        # Coverage report
 pnpm run test:e2e        # End-to-end tests
 
 # Code Quality
-pnpm run lint            # ESLint with auto-fix
+pnpm run lint            # oxlint (type-aware)
 pnpm run format          # Prettier format
 
 # Database (Drizzle Kit)
@@ -29,16 +29,17 @@ pnpm drizzle-kit studio     # Open Drizzle Studio GUI
 To run a single test file:
 
 ```bash
-pnpm jest src/users/users.service.spec.ts
+pnpm vitest run src/payroll/payroll.service.spec.ts
 ```
 
 ## Architecture
 
-**Biru Coffee** is a multi-language coffee shop management API (NestJS 11, TypeScript, PostgreSQL).
+**Biru Coffee** is a multi-language coffee shop management API (NestJS 12, TypeScript, PostgreSQL).
 
 ### Key Stack
 
 - **Framework**: NestJS with Drizzle ORM (PostgreSQL via `pg` driver, Supabase hosted)
+- **Modules**: native ESM (`"type": "module"`); local imports are relative paths ending in `.js`
 - **Auth**: `better-auth` library wrapped in `AuthModule` — handles email/password registration, verification, and Google OAuth
 - **i18n**: `nestjs-i18n` supporting `en`, `ja`, `ko`, `zh-CN`, `zh-TW`; resolved via `lang` query param, `x-lang` header, or `Accept-Language`
 - **Payments**: ECPay integration (`src/ecpay/`) with AIO checkout and invoice services
@@ -214,8 +215,6 @@ Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes 
 - `src/auth/permissions.ts` declares the access-control statements (`coupon`, `menu`, `order`
   × `create|read|update|delete`) and builds `owner` / `admin` / `member` roles via better-auth's
   `createAccessControl`. `isAuthorized(role, action)` is the single entry point.
-  `better-auth/plugins/access` is ESM-only, so jest cannot load this module: a spec whose subject
-  imports `isAuthorized` must `jest.mock('src/auth/permissions', ...)` (the attendance services spec does).
 - `@Roles(action, organizationParam)` (`src/menus/decorators/roles.decorator.ts`) annotates a
   handler, e.g. `@Roles({ order: ['update'] }, 'organizationSlug')`.
 - `RolesGuard` (`src/menus/guards/roles.guard.ts`) is registered **globally** as `APP_GUARD` in

@@ -21,14 +21,14 @@ import {
   DAY_MS,
   platformDateString,
   toPlatformTime,
-} from 'src/common/constants/timezone';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+} from '../common/constants/timezone.js';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
   parseQuickFilterEnums,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   STATUTORY_LEAVE_KINDS,
   attendanceAnnualLeaveDeferral,
@@ -40,14 +40,14 @@ import {
   attendanceLeaveType,
   attendanceRequest,
   attendanceShift,
-} from 'src/db/schema/attendance';
-import { payrollStatement } from 'src/db/schema/payroll';
-import { user } from 'src/db/schema/users';
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import { statutoryDailyPayCents } from 'src/payroll/leave-pay';
+} from '../db/schema/attendance.js';
+import { payrollStatement } from '../db/schema/payroll.js';
+import { user } from '../db/schema/users.js';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { statutoryDailyPayCents } from '../payroll/leave-pay.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   assertPayrollUnlocked,
   auditChanges,
@@ -55,60 +55,60 @@ import {
   writeAudit,
   type RestoredRecord,
   type Transaction,
-} from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
-import { countedRequestStatuses } from './attendance-rules';
+} from './attendance-audit.js';
+import { badRequestError, conflictError } from './attendance-errors.js';
+import { countedRequestStatuses } from './attendance-rules.js';
 import {
   ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
   ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
   AttendanceHolidaySubstitutePaginationQueryDto,
   CreateAttendanceHolidaySubstituteDto,
-} from './dto/attendance-holiday-substitute.dto';
+} from './dto/attendance-holiday-substitute.dto.js';
 import {
   ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS,
   AttendanceLeaveBalancePaginationQueryDto,
-} from './dto/attendance-leave-balance-pagination-query.dto';
+} from './dto/attendance-leave-balance-pagination-query.dto.js';
 import {
   ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS,
   ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
   ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS,
   AttendanceLeaveCasePaginationQueryDto,
-} from './dto/attendance-leave-case-pagination-query.dto';
+} from './dto/attendance-leave-case-pagination-query.dto.js';
 import {
   ATTENDANCE_LEAVE_TYPE_BOOLEAN_FILTER_FIELDS,
   ATTENDANCE_LEAVE_TYPE_ENUM_FILTER_FIELDS,
   ATTENDANCE_LEAVE_TYPE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   AttendanceLeaveTypePaginationQueryDto,
-} from './dto/attendance-leave-type-pagination-query.dto';
+} from './dto/attendance-leave-type-pagination-query.dto.js';
 import {
   ATTENDANCE_ANNUAL_LEAVE_NOTICE_DATE_FILTER_FIELDS,
   ATTENDANCE_ANNUAL_LEAVE_NOTICE_ENUM_FILTER_FIELDS,
   ATTENDANCE_ANNUAL_LEAVE_NOTICE_NUMBER_FILTER_FIELDS,
   ATTENDANCE_ANNUAL_LEAVE_NOTICE_STRING_FILTER_FIELDS,
   AttendanceAnnualLeaveNoticePaginationQueryDto,
-} from './dto/attendance-annual-leave-notice-pagination-query.dto';
-import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
-import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
-import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
-import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto';
+} from './dto/attendance-annual-leave-notice-pagination-query.dto.js';
+import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto.js';
+import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto.js';
+import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto.js';
+import { SaveAttendanceLeaveTypeDto } from './dto/save-attendance-leave-type.dto.js';
 import {
   loadEmployeeHours,
   loadOneEmployeeHours,
   weeklyMinutesAt,
   weeklyMinutesOf,
-} from './employee-hours';
-import { requireEmployee } from './employee-lookup';
-import { loadHolidaySubstitutes } from './holiday-substitutes';
+} from './employee-hours.js';
+import { requireEmployee } from './employee-lookup.js';
+import { loadHolidaySubstitutes } from './holiday-substitutes.js';
 import {
   annualLeaveDeferrals,
   countedLeaves,
   statutoryBalance,
-} from './leave-ledger';
+} from './leave-ledger.js';
 import {
   anniversary,
   annualLeaveLedger,
@@ -121,14 +121,14 @@ import {
   requiresMedicalCertificate,
   statutoryLeavePeriod,
   statutoryPaidPercent,
-} from './leave-rules';
-import { isMedicalLeave, loadMedicalLedgers } from './medical-leave';
-import { parentalLeaveErrors } from './parental-leave';
-import { matchParentalChild } from './parental-ledger';
-import { assertIndependentReview } from './review-separation';
-import { parseInterval } from './shift-intervals';
-import { shiftStartDate } from './shift-queries';
-import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types';
+} from './leave-rules.js';
+import { isMedicalLeave, loadMedicalLedgers } from './medical-leave.js';
+import { parentalLeaveErrors } from './parental-leave.js';
+import { matchParentalChild } from './parental-ledger.js';
+import { assertIndependentReview } from './review-separation.js';
+import { parseInterval } from './shift-intervals.js';
+import { shiftStartDate } from './shift-queries.js';
+import { STATUTORY_LEAVE_NAMES } from './statutory-leave-types.js';
 
 interface MemoryPageOptions<Row> {
   defaultSort: (first: Row, second: Row) => number;

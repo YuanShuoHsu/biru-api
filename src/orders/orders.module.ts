@@ -1,18 +1,18 @@
 import { Module } from '@nestjs/common';
 
-import { CouponsModule } from '../coupons/coupons.module';
-import { InventoryModule } from '../inventory/inventory.module';
+import { CouponsModule } from '../coupons/coupons.module.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
 
-import { DineInTablesController } from './dine-in-tables.controller';
-import { MenuItemSalesController } from './menu-item-sales.controller';
-import { MenuItemSalesService } from './menu-item-sales.service';
-import { OrderModesController } from './order-modes.controller';
-import { OrderPricingModule } from './order-pricing.module';
-import { OrderStatsController } from './order-stats.controller';
-import { OrderStatsService } from './order-stats.service';
-import { OrdersController } from './orders.controller';
-import { OrdersService } from './orders.service';
-import { UserOrdersController } from './user-orders.controller';
+import { DineInTablesController } from './dine-in-tables.controller.js';
+import { MenuItemSalesController } from './menu-item-sales.controller.js';
+import { MenuItemSalesService } from './menu-item-sales.service.js';
+import { OrderModesController } from './order-modes.controller.js';
+import { OrderPricingModule } from './order-pricing.module.js';
+import { OrderStatsController } from './order-stats.controller.js';
+import { OrderStatsService } from './order-stats.service.js';
+import { OrdersController } from './orders.controller.js';
+import { OrdersService } from './orders.service.js';
+import { UserOrdersController } from './user-orders.controller.js';
 
 @Module({
   imports: [CouponsModule, InventoryModule, OrderPricingModule],

@@ -1,4 +1,4 @@
-import type { UnitCode } from 'src/db/schema/inventory';
+import type { UnitCode } from '../../db/schema/inventory.js';
 
 export const UNIT_FACTORS: Record<UnitCode, number> = {
   GRM: 1,

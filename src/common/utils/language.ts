@@ -2,7 +2,7 @@ import {
   DEFAULT_LANGUAGE,
   type Language,
   languagesEnum,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 
 export const toLanguage = (value?: string | null): Language =>
   languagesEnum.enumValues.find((language) => language === value) ??

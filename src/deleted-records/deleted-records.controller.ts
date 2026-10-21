@@ -16,14 +16,14 @@ import {
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { DeletedRecordsService } from './deleted-records.service';
+import { DeletedRecordsService } from './deleted-records.service.js';
 import {
   DeletedRecordBatchResponseDto,
   DeletedRecordPaginationQueryDto,
   RestoreDeletedRecordsDto,
-} from './dto/deleted-record-batch.dto';
+} from './dto/deleted-record-batch.dto.js';
 
 @ApiTags('deleted-records')
 @ApiBearerAuth()

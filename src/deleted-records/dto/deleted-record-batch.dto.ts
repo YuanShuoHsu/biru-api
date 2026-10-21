@@ -12,12 +12,12 @@ import {
   Min,
 } from 'class-validator';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 import {
   RESTORABLE_TABLES,
   type RestorableTable,
-} from '../deleted-record-tables';
+} from '../deleted-record-tables.js';
 
 export class DeletedRecordPaginationQueryDto {
   @IsOptional()

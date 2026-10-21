@@ -1,4 +1,4 @@
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   typeof value === 'object' &&

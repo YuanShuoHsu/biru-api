@@ -6,16 +6,16 @@ import {
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
-import { CouponsService } from './coupons.service';
+import { CouponsService } from './coupons.service.js';
 import {
   AvailableCouponDto,
   ClaimableCouponDto,
   UserCouponResponseDto,
-} from './dto/coupon-response.dto';
+} from './dto/coupon-response.dto.js';
 import {
   ValidateCouponDto,
   ValidateCouponResponseDto,
-} from './dto/validate-coupon.dto';
+} from './dto/validate-coupon.dto.js';
 
 @ApiTags('coupons')
 @Controller('organizations/:organizationSlug/coupons')

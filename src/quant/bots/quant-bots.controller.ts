@@ -17,9 +17,9 @@ import {
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard.js';
 
-import { QuantSymbolQueryDto } from '../dto/quant-account.dto';
+import { QuantSymbolQueryDto } from '../dto/quant-account.dto.js';
 import {
   BacktestResultDto,
   CreateAiBotDto,
@@ -57,10 +57,10 @@ import {
   SignalSetupDto,
   StopQuantBotDto,
   WebhookTokenDto,
-} from '../dto/quant-bot.dto';
+} from '../dto/quant-bot.dto.js';
 
-import { QuantBacktestService } from './quant-backtest.service';
-import { QuantBotsService } from './quant-bots.service';
+import { QuantBacktestService } from './quant-backtest.service.js';
+import { QuantBotsService } from './quant-bots.service.js';
 
 // 機器人只屬於建立者本人，平台管理員彼此也看不到
 @ApiTags('quant')

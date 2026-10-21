@@ -1,17 +1,17 @@
 import { randomUUID } from 'crypto';
 
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { EcpayCallbackEndpoint } from 'src/db/schema/ecpay-callback-logs';
-import { ecpayCallbackLog } from 'src/db/schema/ecpay-callback-logs';
-import { ecpayPaymentAttempt } from 'src/db/schema/ecpay-payment-attempts';
-import { order } from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import type { EcpayCallbackEndpoint } from '../../db/schema/ecpay-callback-logs.js';
+import { ecpayCallbackLog } from '../../db/schema/ecpay-callback-logs.js';
+import { ecpayPaymentAttempt } from '../../db/schema/ecpay-payment-attempts.js';
+import { order } from '../../db/schema/orders.js';
+import { organization } from '../../db/schema/organizations.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import type { OrderPaymentNotificationDto } from '../dto/order-payment-notification.dto';
+import type { OrderPaymentNotificationDto } from '../dto/order-payment-notification.dto.js';
 
 const MASKED_FIELDS = ['card4no', 'card6no', 'auth_code'];
 

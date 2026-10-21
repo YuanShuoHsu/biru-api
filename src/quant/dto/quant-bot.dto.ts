@@ -27,13 +27,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
-import { AI_MODEL_IDS, type AiModel } from '../ai/ai-model';
+import { AI_MODEL_IDS, type AiModel } from '../ai/ai-model.js';
 import {
   PIONEX_KLINE_INTERVALS,
   type PionexKlineInterval,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
 export const QUANT_BOT_TYPES = [
   'grid',

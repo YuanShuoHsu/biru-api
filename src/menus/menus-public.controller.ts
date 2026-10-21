@@ -7,10 +7,10 @@ import {
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { OrderMenuResponseDto } from './dto/order-menu-response.dto';
-import { PublicMenusService } from './menus-public.service';
+import { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
+import { PublicMenusService } from './menus-public.service.js';
 
-import { languagesEnum, type Language } from 'src/db/schema/enums';
+import { languagesEnum, type Language } from '../db/schema/enums.js';
 
 @AllowAnonymous()
 @ApiTags('public')

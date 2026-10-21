@@ -20,25 +20,25 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-import { authDb, runInAuthSavepoint } from './auth-transaction';
-import { assertOrganizationDeletable } from './deletion-guards';
-import { authHookState, createAuthHooks } from './hooks';
-import type { createAuthI18n } from './i18n';
-import { ac, admin, member, owner } from './permissions';
+import { authDb, runInAuthSavepoint } from './auth-transaction.js';
+import { assertOrganizationDeletable } from './deletion-guards.js';
+import { authHookState, createAuthHooks } from './hooks.js';
+import type { createAuthI18n } from './i18n.js';
+import { ac, admin, member, owner } from './permissions.js';
 
-import type { Transaction } from '../attendance/attendance-audit';
-import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
 
 import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_MINUTES,
-} from '../common/constants/pickup';
-import { diffAuditRows } from '../common/utils/audit-diff';
-import { isValidCurrency } from '../common/utils/currency';
-import { isValidOpeningHours } from '../common/utils/opening-hours';
-import { db } from '../db';
-import * as schema from '../db/schema';
-import type { MailsService } from '../mails/mails.service';
+} from '../common/constants/pickup.js';
+import { diffAuditRows } from '../common/utils/audit-diff.js';
+import { isValidCurrency } from '../common/utils/currency.js';
+import { isValidOpeningHours } from '../common/utils/opening-hours.js';
+import { db } from '../db/index.js';
+import * as schema from '../db/schema/index.js';
+import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
 

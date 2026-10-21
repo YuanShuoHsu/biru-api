@@ -13,13 +13,13 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { actor } from 'src/attendance/attendance-actor';
-import { AttendanceIdResponseDto } from 'src/attendance/dto/attendance-id-response.dto';
+import { actor } from '../attendance/attendance-actor.js';
+import { AttendanceIdResponseDto } from '../attendance/dto/attendance-id-response.dto.js';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
 import {
   MyWithholdingCertificateResponseDto,
@@ -30,8 +30,8 @@ import {
   PayrollWithholdingUnitDto,
   PayrollWithholdingUnitResponseDto,
   PayrollWithholdingYearQueryDto,
-} from './dto/payroll-withholding.dto';
-import { PayrollWithholdingService } from './payroll-withholding.service';
+} from './dto/payroll-withholding.dto.js';
+import { PayrollWithholdingService } from './payroll-withholding.service.js';
 
 @ApiTags('payroll')
 @Controller('organizations/:organizationSlug/payroll')

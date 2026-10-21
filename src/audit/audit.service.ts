@@ -6,9 +6,9 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import type { AuditChangeLabels } from 'src/db/schema/audit';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../common/utils/data-grid-filters.js';
+import type { AuditChangeLabels } from '../db/schema/audit.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   attendanceEmployeeId,
@@ -17,15 +17,15 @@ import {
   type LabeledField,
   readableAttendanceActions,
   toAuditLogChanges,
-} from './attendance-audit-entries';
+} from './attendance-audit-entries.js';
 import {
   AUDIT_LOG_DATE_FILTER_FIELDS,
   AUDIT_LOG_ENUM_FILTER_FIELDS,
   AUDIT_LOG_STRING_FILTER_FIELDS,
   PLATFORM_ORGANIZATION_ID,
   type AuditLogPaginationQueryDto,
-} from './dto/audit-log-pagination-query.dto';
-import type { AuditLogResponseDto } from './dto/audit-log-response.dto';
+} from './dto/audit-log-pagination-query.dto.js';
+import type { AuditLogResponseDto } from './dto/audit-log-response.dto.js';
 
 type AuditLogRow = Omit<AuditLogResponseDto, 'createdAt' | 'changes'> & {
   changes: Record<string, unknown>;

@@ -10,7 +10,7 @@ import {
   ne,
 } from 'drizzle-orm';
 
-import { DAY_MS, platformDateString } from 'src/common/constants/timezone';
+import { DAY_MS, platformDateString } from '../common/constants/timezone.js';
 import {
   attendanceHolidaySubstitute,
   attendanceLeaveType,
@@ -18,17 +18,17 @@ import {
   attendanceShift,
   statutoryHoliday,
   type attendanceEmployee,
-} from 'src/db/schema/attendance';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { Transaction } from './attendance-audit';
+import type { Transaction } from './attendance-audit.js';
 import {
   employeeHolidays,
   owedHolidaySubstitutes,
   weekdayOfDate,
   weekStartOfDate,
-} from './attendance-rules';
-import { CALENDAR_LEAVE_KINDS } from './leave-rules';
+} from './attendance-rules.js';
+import { CALENDAR_LEAVE_KINDS } from './leave-rules.js';
 
 const shiftDate = (date: string, days: number) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)

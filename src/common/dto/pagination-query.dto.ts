@@ -8,7 +8,7 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
+} from '../constants/pagination.js';
 
 export class PaginationQueryDto {
   @IsOptional()

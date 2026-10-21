@@ -15,14 +15,14 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceShiftsService } from './attendance-shifts.service';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
-import { AttendanceShiftPaginationQueryDto } from './dto/attendance-shift-pagination-query.dto';
-import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceShiftsService } from './attendance-shifts.service.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
+import { AttendanceShiftPaginationQueryDto } from './dto/attendance-shift-pagination-query.dto.js';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto.js';
 import {
   AttendanceCalendarDayKindsResponseDto,
   AttendancePunchResponseDto,
@@ -30,17 +30,17 @@ import {
   AttendanceShiftResponseDto,
   AttendanceShiftsResponseDto,
   AttendanceTeamResponseDto,
-} from './dto/attendance-shift-response.dto';
+} from './dto/attendance-shift-response.dto.js';
 import {
   AttendanceCopyWeekResponseDto,
   CopyAttendanceWeekDto,
-} from './dto/copy-attendance-week.dto';
-import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
+} from './dto/copy-attendance-week.dto.js';
+import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto.js';
 import {
   CancelAttendanceShiftDto,
   CreateAttendanceShiftsDto,
   UpdateAttendanceShiftDto,
-} from './dto/create-attendance-shifts.dto';
+} from './dto/create-attendance-shifts.dto.js';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')

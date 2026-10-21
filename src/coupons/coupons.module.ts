@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 
-import { OrderPricingModule } from '../orders/order-pricing.module';
+import { OrderPricingModule } from '../orders/order-pricing.module.js';
 
-import { AdminCouponsController } from './admin-coupons.controller';
-import { CouponsController } from './coupons.controller';
-import { CouponsService } from './coupons.service';
-import { MyCouponsController } from './my-coupons.controller';
-import { OrganizationCouponsController } from './organization-coupons.controller';
+import { AdminCouponsController } from './admin-coupons.controller.js';
+import { CouponsController } from './coupons.controller.js';
+import { CouponsService } from './coupons.service.js';
+import { MyCouponsController } from './my-coupons.controller.js';
+import { OrganizationCouponsController } from './organization-coupons.controller.js';
 
 @Module({
   imports: [OrderPricingModule],

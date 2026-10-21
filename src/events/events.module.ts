@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 
-import { EventsGateway } from './events.gateway';
-import { EventsService } from './events.service';
+import { EventsGateway } from './events.gateway.js';
+import { EventsService } from './events.service.js';
 
-import { MenusModule } from 'src/menus/menus.module';
-import { OrdersModule } from 'src/orders/orders.module';
-import { WaitlistModule } from 'src/waitlist/waitlist.module';
+import { MenusModule } from '../menus/menus.module.js';
+import { OrdersModule } from '../orders/orders.module.js';
+import { WaitlistModule } from '../waitlist/waitlist.module.js';
 
 @Module({
   imports: [MenusModule, OrdersModule, WaitlistModule],

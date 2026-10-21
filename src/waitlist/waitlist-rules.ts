@@ -1,12 +1,12 @@
 import {
   getMinutesUntilClose,
   isWithinOpeningHours,
-} from 'src/common/utils/opening-hours';
+} from '../common/utils/opening-hours.js';
 import type {
   WaitlistGroup,
   WaitlistTicket,
   WaitlistTicketStatus,
-} from 'src/db/schema/waitlist';
+} from '../db/schema/waitlist.js';
 
 export const DEFAULT_CUTOFF_MINUTES = 60;
 export const DEFAULT_GRACE_MINUTES = 10;

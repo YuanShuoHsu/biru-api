@@ -1,8 +1,8 @@
 import type {
   FuturesGridStopDto,
   GridConfigDto,
-} from '../../dto/quant-bot.dto';
-import type { BotFill, BotOrder, Strategy, StrategyContext } from '../types';
+} from '../../dto/quant-bot.dto.js';
+import type { BotFill, BotOrder, Strategy, StrategyContext } from '../types.js';
 
 const LEVEL_TAG = 'grid:';
 

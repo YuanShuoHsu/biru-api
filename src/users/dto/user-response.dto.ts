@@ -4,8 +4,8 @@ import {
   DEFAULT_LANGUAGE,
   languagesEnum,
   type Language,
-} from 'src/db/schema/enums';
-import { userRoles, type UserRole } from 'src/db/schema/users';
+} from '../../db/schema/enums.js';
+import { userRoles, type UserRole } from '../../db/schema/users.js';
 
 export class UserResponseDto {
   @ApiProperty({

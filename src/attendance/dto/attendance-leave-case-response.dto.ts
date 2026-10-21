@@ -1,7 +1,7 @@
 import {
   STATUTORY_LEAVE_KINDS,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 

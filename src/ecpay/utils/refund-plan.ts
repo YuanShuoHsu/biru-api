@@ -1,16 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 
-import type { RefundItemSnapshot } from 'src/db/schema/refunds';
+import type { RefundItemSnapshot } from '../../db/schema/refunds.js';
 
-import { STORE_UTC_OFFSET } from 'src/common/constants/timezone';
+import { STORE_UTC_OFFSET } from '../../common/constants/timezone.js';
 
 const round = (value: number): number => Math.round(value);
 
 export type RefundPlanErrorKey =
-  | 'invalidAmount'
-  | 'itemNotInOrder'
-  | 'nothingToRefund'
-  | 'quantityExceeded';
+  'invalidAmount' | 'itemNotInOrder' | 'nothingToRefund' | 'quantityExceeded';
 
 export type RefundPlanTranslate = (
   key: RefundPlanErrorKey,

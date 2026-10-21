@@ -1,7 +1,7 @@
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { PayrollRulesService } from './payroll-rules.service';
-import { taiwan2026 } from './taiwan-rules.fixture';
+import { PayrollRulesService } from './payroll-rules.service.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
 const seed = {
   id: 'seed',
@@ -19,17 +19,17 @@ const seed = {
 };
 
 function setup(rows: unknown[][]) {
-  const select = jest.fn(() => {
+  const select = vi.fn(() => {
     const promise = Promise.resolve(rows.shift() ?? []);
     const query: Record<string, unknown> = { then: promise.then.bind(promise) };
     for (const method of ['from', 'where', 'orderBy', 'limit', 'for'])
       query[method] = () => query;
     return query;
   });
-  const onConflictDoUpdate = jest.fn(() => Promise.resolve());
-  const insert = jest.fn(() => ({ values: () => ({ onConflictDoUpdate }) }));
+  const onConflictDoUpdate = vi.fn(() => Promise.resolve());
+  const insert = vi.fn(() => ({ values: () => ({ onConflictDoUpdate }) }));
   const updates: Record<string, unknown>[] = [];
-  const update = jest.fn(() => ({
+  const update = vi.fn(() => ({
     set: (values: Record<string, unknown>) => {
       updates.push(values);
       const where = () => ({
@@ -218,15 +218,13 @@ describe('Official grade ingestion', () => {
     throw new Error(`unexpected ${url}`);
   };
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it('carries rates forward and replaces only the ladders', async () => {
     const { service, onConflictDoUpdate, updates } = setup([[seed], [seed]]);
-    jest
-      .spyOn(global, 'fetch')
-      .mockImplementation(
-        (input) => route(input as string) as ReturnType<typeof fetch>,
-      );
+    vi.spyOn(global, 'fetch').mockImplementation(
+      (input) => route(input as string) as ReturnType<typeof fetch>,
+    );
 
     const { written, skipped, checked } = await service.ingest();
 
@@ -262,7 +260,7 @@ describe('Official grade ingestion', () => {
 
   it('does not download health ladders older than the stored periods', async () => {
     const { service } = setup([[seed], [seed]]);
-    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((input) => {
       const url = input as string;
       if (url.endsWith('/20251'))
         return fetchOk(
@@ -296,11 +294,9 @@ describe('Official grade ingestion', () => {
 
   it('will not invent a rule set with no earlier rates to inherit', async () => {
     const { service, onConflictDoUpdate } = setup([[], []]);
-    jest
-      .spyOn(global, 'fetch')
-      .mockImplementation(
-        (input) => route(input as string) as ReturnType<typeof fetch>,
-      );
+    vi.spyOn(global, 'fetch').mockImplementation(
+      (input) => route(input as string) as ReturnType<typeof fetch>,
+    );
 
     const { written, skipped } = await service.ingest();
 
@@ -311,7 +307,7 @@ describe('Official grade ingestion', () => {
 
   it('writes nothing when the official ladders are unchanged', async () => {
     const { service, onConflictDoUpdate } = setup([[seed], [seed]]);
-    jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    vi.spyOn(global, 'fetch').mockImplementation((input) => {
       const url = input as string;
       if (url.endsWith('labor.json'))
         return fetchOk(
@@ -348,7 +344,7 @@ describe('Official grade ingestion', () => {
 
   it('keeps the previous ladder when the official feed is implausible', async () => {
     const { service, onConflictDoUpdate, update } = setup([[seed], [seed]]);
-    jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    vi.spyOn(global, 'fetch').mockImplementation((input) => {
       const url = input as string;
       if (url.endsWith('health.csv'))
         return fetchOk(
@@ -404,7 +400,7 @@ describe('Official grade ingestion', () => {
       ],
     };
     const { service, onConflictDoUpdate } = setup([[seed], [seed, prior]]);
-    jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    vi.spyOn(global, 'fetch').mockImplementation((input) => {
       const url = input as string;
       if (url.endsWith('/6258')) throw new Error('ECONNREFUSED');
 
@@ -424,9 +420,9 @@ describe('Official grade ingestion', () => {
   });
   it('leaves the ladders alone when a source is unreachable', async () => {
     const { service, onConflictDoUpdate, update } = setup([[seed], [seed]]);
-    jest
-      .spyOn(global, 'fetch')
-      .mockRejectedValue(new Error('ECONNREFUSED') as never);
+    vi.spyOn(global, 'fetch').mockRejectedValue(
+      new Error('ECONNREFUSED') as never,
+    );
 
     const { written, skipped, checked } = await service.ingest();
 

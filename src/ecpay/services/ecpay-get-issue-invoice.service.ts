@@ -3,18 +3,18 @@ import { firstValueFrom } from 'rxjs';
 import type {
   GetIssueInvoiceEcpayDecryptedResponseDto,
   GetIssueInvoiceEcpayEncryptedResponseDto,
-} from '../dto/get-issue-invoice-ecpay.dto';
+} from '../dto/get-issue-invoice-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
 import {
   decodeUrlEncoded,
   decryptData,
   EcpayRejectedError,
   encryptData,
-} from '../utils/ecpay';
+} from '../utils/ecpay.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
@@ -47,8 +47,7 @@ export class EcpayGetIssueInvoiceService {
   /** 以發票號碼或開立時的自訂編號擇一查詢 */
   async getIssue(
     query:
-      | { InvoiceDate: string; InvoiceNo: string }
-      | { RelateNumber: string },
+      { InvoiceDate: string; InvoiceNo: string } | { RelateNumber: string },
   ): Promise<GetIssueInvoiceEcpayDecryptedResponseDto> {
     const json = JSON.stringify({ ...query, MerchantID: this.merchantId });
     const encrypted = encryptData(

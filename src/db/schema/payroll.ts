@@ -11,8 +11,8 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { attendanceEmployee } from './attendance';
-import { organization } from './organizations';
+import { attendanceEmployee } from './attendance.js';
+import { organization } from './organizations.js';
 
 export const PAYROLL_EARNING_LINE_CODES = [
   'basePay',

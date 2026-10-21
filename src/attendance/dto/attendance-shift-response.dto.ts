@@ -5,7 +5,7 @@ import {
   ATTENDANCE_EVENT_ACTIONS,
   type AttendanceDayKind,
   type AttendanceEventAction,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class AttendanceEventResponseDto {
   @ApiPropertyOptional() paidBreak?: boolean;

@@ -12,7 +12,7 @@ import {
 import {
   ATTENDANCE_EVENT_ACTIONS,
   type AttendanceEventAction,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class CreateAttendancePunchDto {
   @IsUUID() shiftId: string;

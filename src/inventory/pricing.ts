@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
 
-import { UNIT_FACTORS } from 'src/common/constants/units';
-import type { Ingredient } from 'src/db/schema/inventory';
-import { ingredient } from 'src/db/schema/inventory';
+import { UNIT_FACTORS } from '../common/constants/units.js';
+import type { Ingredient } from '../db/schema/inventory.js';
+import { ingredient } from '../db/schema/inventory.js';
 
 type Package = Pick<
   Ingredient,

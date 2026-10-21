@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import {
   STORE_UTC_OFFSET,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../../common/constants/timezone.js';
 
 export class EcpayRejectedError extends Error {
   name = 'EcpayRejectedError';

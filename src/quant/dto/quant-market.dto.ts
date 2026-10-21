@@ -10,7 +10,7 @@ import {
   type PionexKlineInterval,
   type PionexMarketType,
   type PionexOrderSide,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
 export class QuantPerpSpecDto {
   @ApiProperty({ description: '最高槓桿（第一級風險限額）' })

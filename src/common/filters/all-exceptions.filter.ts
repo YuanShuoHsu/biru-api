@@ -10,7 +10,7 @@ import {
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
 
 import { I18nContext } from 'nestjs-i18n';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 @Catch()
 export class AllExceptionsFilter

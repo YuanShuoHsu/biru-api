@@ -27,7 +27,7 @@ import {
   type PionexOrderType,
   type PionexTransferAccount,
   type PionexTransferStatus,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
 const FILL_ROLES = ['MAKER', 'TAKER'] as const;

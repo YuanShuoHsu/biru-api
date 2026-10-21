@@ -3,8 +3,8 @@
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth/minimal';
 import { admin as adminPlugin, organization } from 'better-auth/plugins';
-import { db } from '../../db';
-import * as schema from '../../db/schema';
+import { db } from '../../db/index.js';
+import * as schema from '../../db/schema/index.js';
 
 export const auth = betterAuth({
   account: {

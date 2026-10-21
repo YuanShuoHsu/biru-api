@@ -29,12 +29,12 @@ import {
   type PionexOrderSide,
   type PionexPositionMode,
   type PionexPositionSide,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
 import {
   NEXT_END_TIME_DESCRIPTION,
   QuantHistoryRangeQueryDto,
-} from './quant-account.dto';
+} from './quant-account.dto.js';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
 const FILL_ROLES = ['MAKER', 'TAKER'] as const;

@@ -17,7 +17,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 

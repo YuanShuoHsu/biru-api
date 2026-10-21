@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import type { RefundChannel } from 'src/db/schema/refunds';
+import type { RefundChannel } from '../../db/schema/refunds.js';
 
-import { OrderResponseDto } from './order-response.dto';
-import { OrderTransitionDto } from './order-transition.dto';
+import { OrderResponseDto } from './order-response.dto.js';
+import { OrderTransitionDto } from './order-transition.dto.js';
 
 export class AdminOrderResponseDto extends OrderResponseDto {
   @ApiProperty({ isArray: true, type: OrderTransitionDto })

@@ -10,28 +10,28 @@ import {
   quantAiRequest,
   quantBot,
   quantBotEvent,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import { type AiConfigDto, isFuturesBot } from '../dto/quant-bot.dto';
-import { MarketCacheService } from '../engine/market-cache.service';
+import { type AiConfigDto, isFuturesBot } from '../dto/quant-bot.dto.js';
+import { MarketCacheService } from '../engine/market-cache.service.js';
 import type {
   AiAdvisor,
   AiDecisionResult,
   AiSnapshot,
-} from '../engine/strategies/ai.strategy';
-import { QuantMarketService } from '../market/quant-market.service';
-import { candleEndOf } from '../pionex/pionex.types';
-import { quantEnvironment } from '../quant-environment';
+} from '../engine/strategies/ai.strategy.js';
+import { QuantMarketService } from '../market/quant-market.service.js';
+import { candleEndOf } from '../pionex/pionex.types.js';
+import { quantEnvironment } from '../quant-environment.js';
 
 import {
   AI_MODELS,
   type AiModel,
   DEFAULT_AI_EFFORT,
   DEFAULT_AI_MODEL,
-} from './ai-model';
-import { QuantAiKeyService } from './quant-ai-key.service';
+} from './ai-model.js';
+import { QuantAiKeyService } from './quant-ai-key.service.js';
 
 export const AI_DECISION_EVENT = 'ai_decision';
 export const AI_REFUSAL_EVENT = 'ai_refusal';

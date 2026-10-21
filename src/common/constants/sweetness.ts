@@ -1,4 +1,4 @@
-import type { SweetnessLevel } from 'src/db/schema/enums';
+import type { SweetnessLevel } from '../../db/schema/enums.js';
 
 export const SWEETNESS_LEVEL_NAMES: Record<SweetnessLevel, string> = {
   FullSugar: '全糖',

@@ -1,12 +1,12 @@
 import type {
   FuturesGridConfigDto,
   FuturesGridStopDto,
-} from '../../dto/quant-bot.dto';
-import { PIONEX_FEE_RATES } from '../fee-rates';
-import type { FuturesLedger } from '../futures-account';
-import type { BotOrder, Strategy, StrategyContext } from '../types';
+} from '../../dto/quant-bot.dto.js';
+import { PIONEX_FEE_RATES } from '../fee-rates.js';
+import type { FuturesLedger } from '../futures-account.js';
+import type { BotOrder, Strategy, StrategyContext } from '../types.js';
 
-import { gridLayout, gridLines, stopAmount } from './grid.strategy';
+import { gridLayout, gridLines, stopAmount } from './grid.strategy.js';
 
 const LEVEL_TAG = 'grid:';
 // 限價停損停利觸發後掛出的平倉單，tag 帶停止原因，重啟後也認得出來

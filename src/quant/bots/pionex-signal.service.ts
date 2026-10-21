@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
-import type { SymbolSpec } from '../engine/types';
+import type { SymbolSpec } from '../engine/types.js';
 import {
   type PionexCredentials,
   PionexRestClient,
-} from '../pionex/pionex-rest.client';
+} from '../pionex/pionex-rest.client.js';
 
 // https://www.pionex.com/docs/api-docs/bot-api/signal
 export interface PionexUserSignal {

@@ -3,9 +3,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   pointTransactionTypeEnum,
   type PointTransactionType,
-} from 'src/db/schema/points';
+} from '../../db/schema/points.js';
 
-import { CustomerCouponDto } from '../../coupons/dto/coupon-response.dto';
+import { CustomerCouponDto } from '../../coupons/dto/coupon-response.dto.js';
 
 export class PointsCouponDto extends CustomerCouponDto {
   @ApiPropertyOptional({

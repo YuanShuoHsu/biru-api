@@ -3,9 +3,9 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { WebhookSignalDto } from '../dto/quant-bot.dto';
+import { WebhookSignalDto } from '../dto/quant-bot.dto.js';
 
-import { QuantBotsService } from './quant-bots.service';
+import { QuantBotsService } from './quant-bots.service.js';
 
 // TradingView 的 alert 沒有登入狀態，改由 body 裡的 token 驗證
 @AllowAnonymous()

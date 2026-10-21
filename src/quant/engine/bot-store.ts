@@ -11,13 +11,13 @@ import {
   quantBotEvent,
   quantBotFill,
   quantBotOrder,
-} from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
-import type { SessionStore, SubmittedOrder } from './bot-session';
-import { botClientOrderId } from './client-order-id';
-import type { FundingPayment } from './futures-account';
-import type { BotFill, SymbolSpec } from './types';
+import type { SessionStore, SubmittedOrder } from './bot-session.js';
+import { botClientOrderId } from './client-order-id.js';
+import type { FundingPayment } from './futures-account.js';
+import type { BotFill, SymbolSpec } from './types.js';
 
 export const QUANT_BOT_CHANGED_EVENT = 'quant.bot.changed';
 

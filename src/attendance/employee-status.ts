@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import {
   attendanceEmployee,
   type AttendanceEmployeeStatus,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
 interface EmploymentWindow {
   hiredAt: Date;

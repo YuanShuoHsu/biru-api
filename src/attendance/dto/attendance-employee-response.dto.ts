@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { DatePeriodDto } from './save-attendance-employee.dto';
+import { DatePeriodDto } from './save-attendance-employee.dto.js';
 
 import {
   ATTENDANCE_EMPLOYEE_STATUSES,
@@ -11,7 +11,7 @@ import {
   type AttendanceEmploymentType,
   type AttendanceLegalStatus,
   type AttendanceTerminationReason,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class AttendanceEmploymentResponseDto {
   @ApiProperty() id: string;

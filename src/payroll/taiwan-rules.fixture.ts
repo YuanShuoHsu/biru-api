@@ -1,4 +1,4 @@
-import type { TaiwanRuleSet } from 'src/db/schema/payroll';
+import type { TaiwanRuleSet } from '../db/schema/payroll.js';
 
 export const taiwan2026: TaiwanRuleSet = {
   laborPercentBp: 1150,

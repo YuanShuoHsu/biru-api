@@ -2,7 +2,7 @@ import {
   medicalLedger,
   medicalPaidSeconds,
   type MedicalRecord,
-} from './medical-leave';
+} from './medical-leave.js';
 
 const at = (day: string, hour = '09') => new Date(`${day}T${hour}:00:00+08:00`);
 const leave = (

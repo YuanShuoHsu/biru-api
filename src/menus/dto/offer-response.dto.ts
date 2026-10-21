@@ -3,12 +3,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
-} from 'src/db/schema/menus';
+} from '../../db/schema/menus.js';
 
 import {
   PriceSpecificationDto,
   QuantitativeValueDto,
-} from './create-offer.dto';
+} from './create-offer.dto.js';
 
 export class OfferResponseDto {
   @ApiProperty()

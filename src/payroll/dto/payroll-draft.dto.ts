@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { PayrollEarningInputDto } from './payroll-earning.dto';
+import { PayrollEarningInputDto } from './payroll-earning.dto.js';
 
 export class PayrollDraftDto {
   @IsUUID() idempotencyKey: string;

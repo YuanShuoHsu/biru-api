@@ -10,10 +10,10 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
-import type { BusinessInfo } from './gcis.service';
-import { GcisService } from './gcis.service';
+import type { BusinessInfo } from './gcis.service.js';
+import { GcisService } from './gcis.service.js';
 
 @AllowAnonymous()
 @ApiTags('gcis')

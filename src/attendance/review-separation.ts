@@ -1,12 +1,15 @@
 import { eq } from 'drizzle-orm';
 
-import { isAuthorized } from 'src/auth/permissions';
-import { member } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { isAuthorized } from '../auth/permissions.js';
+import { member } from '../db/schema/organizations.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
-import type { Transaction } from './attendance-audit';
-import { type AttendanceErrorCode, forbiddenError } from './attendance-errors';
+import type { AttendanceActor } from './attendance-actor.js';
+import type { Transaction } from './attendance-audit.js';
+import {
+  type AttendanceErrorCode,
+  forbiddenError,
+} from './attendance-errors.js';
 
 export type ReviewPermission =
   | 'attendanceRequest'

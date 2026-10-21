@@ -11,8 +11,8 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { user } from './users';
+import { timestamps } from './columns.helpers.js';
+import { user } from './users.js';
 
 const decimal = (name: string) =>
   numeric(name, { mode: 'number', precision: 38, scale: 18 });

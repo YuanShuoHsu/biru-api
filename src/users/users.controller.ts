@@ -14,22 +14,22 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 
 import type { Request } from 'express';
 
-import { AuthBatchService } from 'src/auth/auth-batch.service';
-import { isUserDeletable } from 'src/auth/deletion-guards';
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { IdsDto } from 'src/common/dto/ids.dto';
-import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AuthBatchService } from '../auth/auth-batch.service.js';
+import { isUserDeletable } from '../auth/deletion-guards.js';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
+import { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
 import {
   UserDeletabilityDto,
   UserDeletabilityQueryDto,
-} from './dto/user-deletability.dto';
-import { UserResponseDto } from './dto/user-response.dto';
-import { UserStatsResponseDto } from './dto/user-stats.dto';
-import { UsersService } from './users.service';
+} from './dto/user-deletability.dto.js';
+import { UserResponseDto } from './dto/user-response.dto.js';
+import { UserStatsResponseDto } from './dto/user-stats.dto.js';
+import { UsersService } from './users.service.js';
 
 @ApiBearerAuth()
 @UseGuards(AdminGuard)

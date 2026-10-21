@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   STATUTORY_LEAVE_KINDS,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 export class AttendanceLeaveTypeResponseDto {
   @ApiProperty() id: string;

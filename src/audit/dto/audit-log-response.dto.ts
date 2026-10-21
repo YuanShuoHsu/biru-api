@@ -3,13 +3,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ATTENDANCE_AUDIT_RESOURCES,
   ATTENDANCE_AUDIT_VERBS,
-} from 'src/attendance/attendance-audit';
+} from '../../attendance/attendance-audit.js';
 import {
   auditActionEnum,
   auditResourceEnum,
   type AuditChangeLabels,
   type AuditResourceLabel,
-} from 'src/db/schema/audit';
+} from '../../db/schema/audit.js';
 
 export const AUDIT_LOG_RESOURCES = [
   ...auditResourceEnum.enumValues,

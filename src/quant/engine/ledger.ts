@@ -1,4 +1,4 @@
-import type { BotFill } from './types';
+import type { BotFill } from './types.js';
 
 export interface Ledger {
   averageCost: number;

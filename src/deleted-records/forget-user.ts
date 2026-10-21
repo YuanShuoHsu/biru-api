@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
-import { authDb } from '../auth/auth-transaction';
-import { deletedRecord } from '../db/schema/deleted-records';
+import { authDb } from '../auth/auth-transaction.js';
+import { deletedRecord } from '../db/schema/deleted-records.js';
 
 export const forgetDeletedUser = async (userId: string) => {
   const database = authDb();

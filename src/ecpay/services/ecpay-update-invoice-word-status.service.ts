@@ -3,13 +3,13 @@ import { firstValueFrom } from 'rxjs';
 import {
   UpdateInvoiceWordStatusEcpayDecryptedResponseDto,
   UpdateInvoiceWordStatusEcpayEncryptedResponseDto,
-} from '../dto/update-invoice-word-status-ecpay.dto';
+} from '../dto/update-invoice-word-status-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
-import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay';
+import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';

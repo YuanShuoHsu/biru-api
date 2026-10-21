@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { and, asc, eq, gte, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
-import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto';
+import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
 import {
   IssueInvoiceEcpayCarrierType,
   IssueInvoiceEcpayDonation,
@@ -11,19 +11,19 @@ import {
   IssueInvoiceEcpayPrint,
   IssueInvoiceEcpayTaxType,
   IssueInvoiceEcpayVatType,
-} from '../dto/issue-invoice-ecpay.dto';
-import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto';
-import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto';
-import { UnprintedInvoiceDto } from '../dto/unprinted-invoice.dto';
-import { VoidInvoiceDto } from '../dto/void-invoice.dto';
+} from '../dto/issue-invoice-ecpay.dto.js';
+import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto.js';
+import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto.js';
+import { UnprintedInvoiceDto } from '../dto/unprinted-invoice.dto.js';
+import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { InvoiceStatus } from 'src/db/schema/invoices';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import type { InvoiceStatus } from '../../db/schema/invoices.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
-import { CRON_ENABLED } from 'src/common/constants/cron';
-import { platformMidnight } from 'src/common/constants/timezone';
-import { toActiveInvoice } from 'src/common/utils/invoices';
+import { CRON_ENABLED } from '../../common/constants/cron.js';
+import { platformMidnight } from '../../common/constants/timezone.js';
+import { toActiveInvoice } from '../../common/utils/invoices.js';
 
 import {
   fromEcpayDateTime,
@@ -32,16 +32,16 @@ import {
   sleep,
   toGetIssueQuery,
   toInvoiceDateText,
-} from '../utils/ecpay';
-import { earliestVoidableInvoiceDate } from '../utils/refund-plan';
+} from '../utils/ecpay.js';
+import { earliestVoidableInvoiceDate } from '../utils/refund-plan.js';
 
-import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service';
-import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service';
-import { EcpayInvoicePrintService } from './ecpay-invoice-print.service';
+import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
+import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
+import { EcpayInvoicePrintService } from './ecpay-invoice-print.service.js';
 import {
   EcpayInvoiceNotIssuedError,
   EcpayIssueInvoiceService,
-} from './ecpay-issue-invoice.service';
+} from './ecpay-issue-invoice.service.js';
 
 import {
   BadGatewayException,
@@ -55,21 +55,21 @@ import {
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import type { Invoice } from 'src/db/schema/invoices';
-import { invoice } from 'src/db/schema/invoices';
-import { order } from 'src/db/schema/orders';
-import { organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import type { Invoice } from '../../db/schema/invoices.js';
+import { invoice } from '../../db/schema/invoices.js';
+import { order } from '../../db/schema/orders.js';
+import { organization } from '../../db/schema/organizations.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import type { InvoicePrintReadyEvent } from 'src/events/invoice-print-ready.event';
-import { INVOICE_PRINT_READY_EVENT } from 'src/events/invoice-print-ready.event';
+import type { InvoicePrintReadyEvent } from '../../events/invoice-print-ready.event.js';
+import { INVOICE_PRINT_READY_EVENT } from '../../events/invoice-print-ready.event.js';
 import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
-} from 'src/events/order-updated.event';
-import type { OrderPaidEvent } from 'src/events/order-paid.event';
-import { ORDER_PAID_EVENT } from 'src/events/order-paid.event';
+} from '../../events/order-updated.event.js';
+import type { OrderPaidEvent } from '../../events/order-paid.event.js';
+import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
 
 type IssuePayload = Omit<
   IssueInvoiceEcpayDecryptedRequestDto,

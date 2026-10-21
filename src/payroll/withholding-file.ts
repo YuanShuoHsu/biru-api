@@ -1,4 +1,4 @@
-import { platformDateString } from 'src/common/constants/timezone';
+import { platformDateString } from '../common/constants/timezone.js';
 
 export interface WithholdingFileUnit {
   businessNumber: string;

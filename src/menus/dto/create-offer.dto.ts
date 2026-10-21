@@ -17,11 +17,11 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import { isValidOpeningHours } from 'src/common/utils/opening-hours';
+import { isValidOpeningHours } from '../../common/utils/opening-hours.js';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
-} from 'src/db/schema/menus';
+} from '../../db/schema/menus.js';
 
 @ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
 class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import type { EcpayCallbackEndpoint } from 'src/db/schema/ecpay-callback-logs';
-import { ecpayCallbackEndpointEnum } from 'src/db/schema/ecpay-callback-logs';
+import type { EcpayCallbackEndpoint } from '../../db/schema/ecpay-callback-logs.js';
+import { ecpayCallbackEndpointEnum } from '../../db/schema/ecpay-callback-logs.js';
 
 export class OrderPaymentNotificationDto {
   @ApiProperty({ description: '紀錄 ID' })

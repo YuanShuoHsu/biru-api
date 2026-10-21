@@ -1,4 +1,4 @@
-import type { WaitlistTicketStatus } from 'src/db/schema/waitlist';
+import type { WaitlistTicketStatus } from '../db/schema/waitlist.js';
 
 export const WAITLIST_UPDATED_EVENT = 'waitlist.updated';
 

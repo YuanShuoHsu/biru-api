@@ -5,17 +5,20 @@ import { and, eq } from 'drizzle-orm';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 
-import { quantAiRequest } from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+import { quantAiRequest } from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import type { AiDecisionDto, QuantAgentRequestDto } from '../dto/quant-bot.dto';
-import { QuantEngineService } from '../engine/quant-engine.service';
-import { quantEnvironment } from '../quant-environment';
+import type {
+  AiDecisionDto,
+  QuantAgentRequestDto,
+} from '../dto/quant-bot.dto.js';
+import { QuantEngineService } from '../engine/quant-engine.service.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { isClaudeCodeLocal } from './claude-code-local';
-import { decisionSchema } from './quant-ai-advisor.service';
-import { QuantAiAgentService } from './quant-ai-agent.service';
+import { isClaudeCodeLocal } from './claude-code-local.js';
+import { decisionSchema } from './quant-ai-advisor.service.js';
+import { QuantAiAgentService } from './quant-ai-agent.service.js';
 
 const CLAUDE_TIMEOUT_MS = 3 * 60_000;
 

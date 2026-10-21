@@ -1,28 +1,28 @@
-import { GetGovInvoiceWordSettingEcpayInvoiceInfoDto } from '../dto/get-gov-invoice-word-setting-ecpay.dto';
+import { GetGovInvoiceWordSettingEcpayInvoiceInfoDto } from '../dto/get-gov-invoice-word-setting-ecpay.dto.js';
 import {
   GetInvoiceWordSettingEcpayInvoiceInfoDto,
   GetInvoiceWordSettingEcpayUseStatus,
-} from '../dto/get-invoice-word-setting-ecpay.dto';
+} from '../dto/get-invoice-word-setting-ecpay.dto.js';
 
 import {
   INVOICE_TERMS,
   SyncInvoiceWordSettingResultDto,
   toInvoiceTerm,
-} from '../dto/sync-invoice-word-setting-result.dto';
+} from '../dto/sync-invoice-word-setting-result.dto.js';
 
-import { EcpayAddInvoiceWordSettingService } from './ecpay-add-invoice-word-setting.service';
-import { EcpayGetGovInvoiceWordSettingService } from './ecpay-get-gov-invoice-word-setting.service';
-import { EcpayGetInvoiceWordSettingService } from './ecpay-get-invoice-word-setting.service';
-import { EcpayUpdateInvoiceWordStatusService } from './ecpay-update-invoice-word-status.service';
+import { EcpayAddInvoiceWordSettingService } from './ecpay-add-invoice-word-setting.service.js';
+import { EcpayGetGovInvoiceWordSettingService } from './ecpay-get-gov-invoice-word-setting.service.js';
+import { EcpayGetInvoiceWordSettingService } from './ecpay-get-invoice-word-setting.service.js';
+import { EcpayUpdateInvoiceWordStatusService } from './ecpay-update-invoice-word-status.service.js';
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
-import { CRON_ENABLED } from 'src/common/constants/cron';
+import { CRON_ENABLED } from '../../common/constants/cron.js';
 import {
   PLATFORM_TIMEZONE,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../../common/constants/timezone.js';
 
 type WordKey = string;
 

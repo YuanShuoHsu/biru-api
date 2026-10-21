@@ -20,17 +20,17 @@ import {
   buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
-import type { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
+} from '../common/utils/data-grid-filters.js';
+import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
   getStatsWindow,
   utcTimestampParam,
-} from 'src/common/utils/stats-buckets';
-import * as schema from 'src/db/schema';
-import type { CreateUser, User, UserRole } from 'src/db/schema/users';
-import { user, userRoles } from 'src/db/schema/users';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../common/utils/stats-buckets.js';
+import * as schema from '../db/schema/index.js';
+import type { CreateUser, User, UserRole } from '../db/schema/users.js';
+import { user, userRoles } from '../db/schema/users.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type {
   BooleanFilterField,
@@ -42,16 +42,16 @@ import type {
   SearchOperator,
   StringFilterField,
   TextFilterOperator,
-} from './dto/list-users-query.dto';
+} from './dto/list-users-query.dto.js';
 import {
   BOOLEAN_FILTER_FIELDS,
   DATE_FILTER_FIELDS,
   ENUM_FILTER_FIELDS,
   ENUM_FILTER_OPERATORS,
   STRING_FILTER_FIELDS,
-} from './dto/list-users-query.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import type { UserStatsResponseDto } from './dto/user-stats.dto';
+} from './dto/list-users-query.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
+import type { UserStatsResponseDto } from './dto/user-stats.dto.js';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 

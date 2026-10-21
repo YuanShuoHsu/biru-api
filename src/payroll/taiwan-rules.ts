@@ -1,10 +1,10 @@
-import { workPermitRequired } from 'src/attendance/attendance-rules';
-import type { AttendanceLegalStatus } from 'src/db/schema/attendance';
+import { workPermitRequired } from '../attendance/attendance-rules.js';
+import type { AttendanceLegalStatus } from '../db/schema/attendance.js';
 import type {
   TaiwanInsurance,
   TaiwanRuleSet,
   WithholdingTable,
-} from 'src/db/schema/payroll';
+} from '../db/schema/payroll.js';
 
 export const MINIMUM_EMPLOYER_PENSION_PERCENT = 6;
 

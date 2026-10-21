@@ -1,8 +1,8 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { WaitlistService } from './waitlist.service';
+import { WaitlistService } from './waitlist.service.js';
 
 const ALWAYS_OPEN = null;
 const NEVER_OPEN = 'Mo 00:00-00:01';
@@ -27,13 +27,13 @@ const createService = ({
   const db = {
     query: {
       organization: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'org', openingHours }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'org', openingHours }),
       },
-      waitlistSetting: { findFirst: jest.fn().mockResolvedValue(setting) },
-      waitlistTicket: { findFirst: jest.fn().mockResolvedValue(ticket) },
+      waitlistSetting: { findFirst: vi.fn().mockResolvedValue(setting) },
+      waitlistTicket: { findFirst: vi.fn().mockResolvedValue(ticket) },
     },
-    transaction: jest.fn(),
-    update: jest.fn(),
+    transaction: vi.fn(),
+    update: vi.fn(),
   };
 
   return {
@@ -50,11 +50,11 @@ const groups = [{ maxPartySize: 4, minPartySize: 1, prefix: 'A' }];
 
 describe('WaitlistService.createTicket', () => {
   beforeAll(() => {
-    jest.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
   });
 
   afterAll(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it.each([
@@ -110,11 +110,11 @@ describe('WaitlistService.createTicket', () => {
 
 describe('WaitlistService.createTicket by staff', () => {
   beforeAll(() => {
-    jest.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
   });
 
   afterAll(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it.each([

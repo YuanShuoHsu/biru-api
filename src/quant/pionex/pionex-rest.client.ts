@@ -2,7 +2,7 @@ import { BadGatewayException, Injectable } from '@nestjs/common';
 
 import { createHmac } from 'node:crypto';
 
-import type { PionexEnvelope } from './pionex.types';
+import type { PionexEnvelope } from './pionex.types.js';
 
 const PIONEX_REST_URL = 'https://api.pionex.com';
 

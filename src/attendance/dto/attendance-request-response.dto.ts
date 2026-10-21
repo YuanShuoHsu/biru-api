@@ -3,11 +3,11 @@ import {
   type AttendanceDayKind,
   STATUTORY_LEAVE_KINDS,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../../db/schema/attendance.js';
 
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { AttendanceEventResponseDto } from './attendance-shift-response.dto';
+import { AttendanceEventResponseDto } from './attendance-shift-response.dto.js';
 
 export class EmergencyWorkResponseDto {
   @ApiProperty({

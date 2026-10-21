@@ -13,7 +13,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { CURRENCY_REGEX } from 'src/common/utils/currency';
+import { CURRENCY_REGEX } from '../../common/utils/currency.js';
 import {
   couponDiscountTypeEnum,
   couponIssueTriggerEnum,
@@ -21,7 +21,7 @@ import {
   type CouponDiscountType,
   type CouponIssueTrigger,
   type CouponScope,
-} from 'src/db/schema/coupons';
+} from '../../db/schema/coupons.js';
 
 export class CreateCouponDto {
   @ApiPropertyOptional({

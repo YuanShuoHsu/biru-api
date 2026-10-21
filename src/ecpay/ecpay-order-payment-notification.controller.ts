@@ -1,11 +1,11 @@
-import { OrderPaymentNotificationDto } from './dto/order-payment-notification.dto';
+import { OrderPaymentNotificationDto } from './dto/order-payment-notification.dto.js';
 
-import { EcpayCallbackLogService } from './services/ecpay-callback-log.service';
+import { EcpayCallbackLogService } from './services/ecpay-callback-log.service.js';
 
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 @ApiTags('orders')
 @Controller(

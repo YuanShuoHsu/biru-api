@@ -11,12 +11,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard.js';
 
-import { QuantAiKeyDto, SetQuantAiKeyDto } from '../dto/quant-bot.dto';
+import { QuantAiKeyDto, SetQuantAiKeyDto } from '../dto/quant-bot.dto.js';
 
-import { QuantAiAdvisorService } from './quant-ai-advisor.service';
-import { QuantAiKeyService } from './quant-ai-key.service';
+import { QuantAiAdvisorService } from './quant-ai-advisor.service.js';
+import { QuantAiKeyService } from './quant-ai-key.service.js';
 
 // Claude API key 只屬於綁定者本人，平台管理員彼此也看不到
 @ApiTags('quant')

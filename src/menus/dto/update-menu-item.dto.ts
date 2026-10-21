@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 
-import { CreateMenuItemDto } from './create-menu-item.dto';
+import { CreateMenuItemDto } from './create-menu-item.dto.js';
 
 export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto, {
   skipNullProperties: false,

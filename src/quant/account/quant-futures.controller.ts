@@ -14,9 +14,9 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../../common/guards/admin.guard.js';
 
-import { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto';
+import { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto.js';
 import {
   AdjustIsolatedMarginDto,
   PlaceFuturesOrderDto,
@@ -38,9 +38,9 @@ import {
   SetLeverageDto,
   SetMarginModeDto,
   SetPositionModeDto,
-} from '../dto/quant-futures.dto';
+} from '../dto/quant-futures.dto.js';
 
-import { QuantFuturesService } from './quant-futures.service';
+import { QuantFuturesService } from './quant-futures.service.js';
 
 @ApiTags('quant')
 @ApiBearerAuth()

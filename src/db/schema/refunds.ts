@@ -10,9 +10,9 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { order } from './orders';
-import { user } from './users';
+import { timestamps } from './columns.helpers.js';
+import { order } from './orders.js';
+import { user } from './users.js';
 
 export const refundScopeEnum = pgEnum('refund_scope', ['full', 'partial']);
 export type RefundScope = (typeof refundScopeEnum.enumValues)[number];

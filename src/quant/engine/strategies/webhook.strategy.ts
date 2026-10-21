@@ -1,7 +1,7 @@
-import type { WebhookConfigDto } from '../../dto/quant-bot.dto';
-import type { Strategy, StrategyContext, WebhookSignal } from '../types';
+import type { WebhookConfigDto } from '../../dto/quant-bot.dto.js';
+import type { Strategy, StrategyContext, WebhookSignal } from '../types.js';
 
-import type { Trader } from './trader';
+import type { Trader } from './trader.js';
 
 // 做多時 buy 開倉、sell 減倉；做空時相反，和 TradingView 單向策略的語意一致
 export class WebhookStrategy implements Strategy {

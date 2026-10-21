@@ -10,13 +10,16 @@ import {
   type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
-import { restrictedDietEnum, type RestrictedDiet } from 'src/db/schema/menus';
-import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
+} from '../../db/schema/enums.js';
+import {
+  restrictedDietEnum,
+  type RestrictedDiet,
+} from '../../db/schema/menus.js';
+import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
-import { MenuItemRecipeResponseDto } from './menu-item-recipe-response.dto';
-import { NutritionInformationDto } from './nutrition-information.dto';
-import { OfferResponseDto } from './offer-response.dto';
+import { MenuItemRecipeResponseDto } from './menu-item-recipe-response.dto.js';
+import { NutritionInformationDto } from './nutrition-information.dto.js';
+import { OfferResponseDto } from './offer-response.dto.js';
 
 export class MenuItemResponseDto {
   @ApiProperty()

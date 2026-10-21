@@ -1,13 +1,13 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { HasPermission } from 'src/menus/decorators/permission.decorator';
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { StatsBucketQueryDto } from 'src/common/dto/stats-bucket-query.dto';
+import { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 
-import { OrderStatsResponseDto } from './dto/order-stats.dto';
-import { OrderStatsService } from './order-stats.service';
+import { OrderStatsResponseDto } from './dto/order-stats.dto.js';
+import { OrderStatsService } from './order-stats.service.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/order-stats')

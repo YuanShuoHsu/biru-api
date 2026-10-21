@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
-import { CRON_ENABLED } from 'src/common/constants/cron';
-import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
+import { CRON_ENABLED } from '../common/constants/cron.js';
+import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 
 export interface DonateCode {
   donateNm: string;

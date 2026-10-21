@@ -3,15 +3,15 @@ import * as crypto from 'crypto';
 import {
   CheckoutEcpayDto,
   CheckoutEcpayResponseDto,
-} from '../dto/checkout-ecpay.dto';
-import { getEcpayMode } from '../ecpay.config';
+} from '../dto/checkout-ecpay.dto.js';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
-import { SERVING_TEMPERATURE_LEVEL_NAMES } from '../../common/constants/serving-temperature';
-import { SWEETNESS_LEVEL_NAMES } from '../../common/constants/sweetness';
-import { sumOrderItems } from '../../common/utils/order-items';
-import type { OrderResponseDto } from '../../orders/dto/order-response.dto';
+import { SERVING_TEMPERATURE_LEVEL_NAMES } from '../../common/constants/serving-temperature.js';
+import { SWEETNESS_LEVEL_NAMES } from '../../common/constants/sweetness.js';
+import { sumOrderItems } from '../../common/utils/order-items.js';
+import type { OrderResponseDto } from '../../orders/dto/order-response.dto.js';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

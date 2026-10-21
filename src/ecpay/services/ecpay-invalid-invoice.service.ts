@@ -4,18 +4,18 @@ import type {
   InvalidInvoiceEcpayDecryptedRequestDto,
   InvalidInvoiceEcpayDecryptedResponseDto,
   InvalidInvoiceEcpayEncryptedResponseDto,
-} from '../dto/invalid-invoice-ecpay.dto';
+} from '../dto/invalid-invoice-ecpay.dto.js';
 
-import { getEcpayMode } from '../ecpay.config';
+import { getEcpayMode } from '../ecpay.config.js';
 
-import { EcpayMode } from '../types/ecpay.types';
+import { EcpayMode } from '../types/ecpay.types.js';
 
 import {
   decodeUrlEncoded,
   decryptData,
   EcpayRejectedError,
   encryptData,
-} from '../utils/ecpay';
+} from '../utils/ecpay.js';
 
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';

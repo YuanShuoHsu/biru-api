@@ -11,9 +11,9 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
-import { isAuthorized } from 'src/auth/permissions';
-import { organizationReadOnlyError } from 'src/common/utils/organization-closure';
-import { ingredient, recipe, supplier } from 'src/db/schema/inventory';
+import { isAuthorized } from '../../auth/permissions.js';
+import { organizationReadOnlyError } from '../../common/utils/organization-closure.js';
+import { ingredient, recipe, supplier } from '../../db/schema/inventory.js';
 import {
   menu,
   menuItem,
@@ -22,15 +22,15 @@ import {
   modifier,
   modifierGroup,
   offer,
-} from 'src/db/schema/menus';
-import { member, organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/menus.js';
+import { member, organization } from '../../db/schema/organizations.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
 import {
   ROLES_KEY,
   type OrganizationParam,
-} from '../decorators/roles.decorator';
+} from '../decorators/roles.decorator.js';
 
 export type AuthRequest = Request & {
   params: Record<string, string>;

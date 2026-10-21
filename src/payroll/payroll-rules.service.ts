@@ -3,22 +3,22 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, gt, like, lt, lte } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import type { Transaction } from 'src/attendance/attendance-audit';
-import { badRequestError } from 'src/attendance/attendance-errors';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { badRequestError } from '../attendance/attendance-errors.js';
 import {
   platformDateString,
   platformMonthStart,
-} from 'src/common/constants/timezone';
-import { statutoryHoliday } from 'src/db/schema/attendance';
+} from '../common/constants/timezone.js';
+import { statutoryHoliday } from '../db/schema/attendance.js';
 import {
   type OccupationalIndustryRate,
   payrollRuleSet,
   type PayrollRuleSource,
   type TaiwanRuleSet,
-} from 'src/db/schema/payroll';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/payroll.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { ConfirmRuleSetDto } from './dto/confirm-rule-set.dto';
+import type { ConfirmRuleSetDto } from './dto/confirm-rule-set.dto.js';
 import {
   DATA_GOV_DATASET_API,
   describedPeriod,
@@ -39,7 +39,7 @@ import {
   parseOccupationalGrades,
   parseOccupationalRates,
   parsePensionGrades,
-} from './rule-source';
+} from './rule-source.js';
 
 const JURISDICTION = 'TW';
 

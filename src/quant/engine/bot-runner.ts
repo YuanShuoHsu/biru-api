@@ -1,25 +1,25 @@
 import { Logger } from '@nestjs/common';
 
-import type { QuantBot } from 'src/db/schema/quant';
+import type { QuantBot } from '../../db/schema/quant.js';
 
-import { type GridConfigDto, isFuturesBot } from '../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../dto/quant-market.dto';
-import type { PionexKlineInterval } from '../pionex/pionex.types';
+import { type GridConfigDto, isFuturesBot } from '../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
+import type { PionexKlineInterval } from '../pionex/pionex.types.js';
 
-import type { SpotAccount } from './account';
+import type { SpotAccount } from './account.js';
 import {
   type Broker,
   BotSession,
   type SessionStore,
   type SubmittedOrder,
-} from './bot-session';
-import { FuturesAccount, type FuturesLedger } from './futures-account';
-import type { Ledger } from './ledger';
-import type { PionexBroker } from './pionex-broker';
-import type { PionexFuturesBroker } from './pionex-futures-broker';
-import { createFuturesStrategy, createStrategy } from './strategies';
-import type { AiAdvisor, AiDecision } from './strategies/ai.strategy';
-import type { BotFill, SymbolSpec, WebhookSignal } from './types';
+} from './bot-session.js';
+import { FuturesAccount, type FuturesLedger } from './futures-account.js';
+import type { Ledger } from './ledger.js';
+import type { PionexBroker } from './pionex-broker.js';
+import type { PionexFuturesBroker } from './pionex-futures-broker.js';
+import { createFuturesStrategy, createStrategy } from './strategies/index.js';
+import type { AiAdvisor, AiDecision } from './strategies/ai.strategy.js';
+import type { BotFill, SymbolSpec, WebhookSignal } from './types.js';
 
 export interface RunnerDependencies {
   account: FuturesAccount | SpotAccount;

@@ -5,13 +5,13 @@ import { sql, type SQL } from 'drizzle-orm';
 import {
   ATTENDANCE_AUDIT_ACTIONS,
   type AttendanceAuditResource,
-} from 'src/attendance/attendance-audit';
-import { isAuthorized } from 'src/auth/permissions';
+} from '../attendance/attendance-audit.js';
+import { isAuthorized } from '../auth/permissions.js';
 
 import type {
   AuditLogAction,
   AuditLogChanges,
-} from './dto/audit-log-response.dto';
+} from './dto/audit-log-response.dto.js';
 
 // 出勤與薪資紀錄另需該資料的讀取權限；null 表示有異動紀錄權限即可（假別任何成員都看得到）
 const READ_PERMISSIONS: Record<

@@ -1,10 +1,10 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { SendTestEmailDto } from './dto/send-test-email.dto';
-import { MailsService } from './mails.service';
+import { SendTestEmailDto } from './dto/send-test-email.dto.js';
+import { MailsService } from './mails.service.js';
 
 @UseGuards(AdminGuard)
 @Controller('mails')

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 
-import { AttendanceModule } from 'src/attendance/attendance.module';
-import { DeletedRecordsModule } from 'src/deleted-records/deleted-records.module';
-import { PayrollModule } from 'src/payroll/payroll.module';
-import { WaitlistModule } from 'src/waitlist/waitlist.module';
+import { AttendanceModule } from '../attendance/attendance.module.js';
+import { DeletedRecordsModule } from '../deleted-records/deleted-records.module.js';
+import { PayrollModule } from '../payroll/payroll.module.js';
+import { WaitlistModule } from '../waitlist/waitlist.module.js';
 
-import { TasksService } from './tasks.service';
+import { TasksService } from './tasks.service.js';
 
 @Module({
   imports: [

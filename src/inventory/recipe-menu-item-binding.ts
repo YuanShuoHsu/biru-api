@@ -2,10 +2,10 @@ import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
-import type { LocalizedText } from 'src/db/schema/enums';
-import { recipe } from 'src/db/schema/inventory';
-import { menu, menuItem } from 'src/db/schema/menus';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { LocalizedText } from '../db/schema/enums.js';
+import { recipe } from '../db/schema/inventory.js';
+import { menu, menuItem } from '../db/schema/menus.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 type Tx = Pick<DrizzleDB, 'select' | 'transaction' | 'update'>;
 

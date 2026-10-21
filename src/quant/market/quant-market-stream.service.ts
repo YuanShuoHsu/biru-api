@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 
-import type { QuantCandleDto } from '../dto/quant-market.dto';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
 import {
   PIONEX_TRADES_EVENT,
   PionexPublicStream,
   type PionexTradesEvent,
-} from '../pionex/pionex-public-stream';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+} from '../pionex/pionex-public-stream.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import {
   candleStartOf,
   type PionexKlineInterval,
-} from '../pionex/pionex.types';
+} from '../pionex/pionex.types.js';
 
-import { QuantMarketService } from './quant-market.service';
+import { QuantMarketService } from './quant-market.service.js';
 
 export const QUANT_CANDLE_EVENT = 'quant.candle';
 

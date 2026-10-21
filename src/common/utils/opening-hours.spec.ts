@@ -2,7 +2,7 @@ import {
   getMinutesUntilClose,
   isValidOpeningHours,
   isWithinOpeningHours,
-} from './opening-hours';
+} from './opening-hours.js';
 
 const at = (local: string) => new Date(`${local}+08:00`);
 

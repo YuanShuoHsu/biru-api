@@ -9,15 +9,15 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { ConfirmRuleSetDto } from './dto/confirm-rule-set.dto';
+import { ConfirmRuleSetDto } from './dto/confirm-rule-set.dto.js';
 import {
   PayrollRuleIngestResponseDto,
   PayrollRuleSetResponseDto,
-} from './dto/payroll-rule-set-response.dto';
-import { RuleSetPeriodParamDto } from './dto/rule-set-period-param.dto';
-import { PayrollRulesService } from './payroll-rules.service';
+} from './dto/payroll-rule-set-response.dto.js';
+import { RuleSetPeriodParamDto } from './dto/rule-set-period-param.dto.js';
+import { PayrollRulesService } from './payroll-rules.service.js';
 
 @ApiTags('payroll')
 @UseGuards(AdminGuard)

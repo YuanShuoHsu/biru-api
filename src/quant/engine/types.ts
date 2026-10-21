@@ -1,9 +1,9 @@
-import type { GridConfigDto } from '../dto/quant-bot.dto';
-import type { QuantCandleDto } from '../dto/quant-market.dto';
-import type { PionexKlineInterval } from '../pionex/pionex.types';
+import type { GridConfigDto } from '../dto/quant-bot.dto.js';
+import type { QuantCandleDto } from '../dto/quant-market.dto.js';
+import type { PionexKlineInterval } from '../pionex/pionex.types.js';
 
-import type { Ledger } from './ledger';
-import type { AiDecision } from './strategies/ai.strategy';
+import type { Ledger } from './ledger.js';
+import type { AiDecision } from './strategies/ai.strategy.js';
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'LIMIT' | 'MARKET';

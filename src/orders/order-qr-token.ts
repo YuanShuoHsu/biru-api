@@ -1,6 +1,6 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 
-import type { OrderMode } from 'src/db/schema/orders';
+import type { OrderMode } from '../db/schema/orders.js';
 
 const KEY_BYTES = 32;
 const DINE_IN_TABLE_PURPOSE = 'biru-dine-in-table-v1';

@@ -13,32 +13,32 @@ import {
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
-} from 'src/common/utils/data-grid-filters';
-import { attendanceShiftType } from 'src/db/schema/attendance';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../common/utils/data-grid-filters.js';
+import { attendanceShiftType } from '../db/schema/attendance.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   lockOrganization,
   type Transaction,
   writeAudit,
   type RestoredRecord,
-} from './attendance-audit';
-import { badRequestError, conflictError } from './attendance-errors';
+} from './attendance-audit.js';
+import { badRequestError, conflictError } from './attendance-errors.js';
 import {
   MAX_DAILY_WORK_SECONDS,
   scheduledWorkSeconds,
-} from './attendance-rules';
+} from './attendance-rules.js';
 import {
   ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS,
   type AttendanceShiftTypePaginationQueryDto,
   type SaveAttendanceShiftTypeDto,
-} from './dto/attendance-shift-type.dto';
-import { scheduledBreaks } from './shift-intervals';
+} from './dto/attendance-shift-type.dto.js';
+import { scheduledBreaks } from './shift-intervals.js';
 
 @Injectable()
 export class AttendanceShiftTypesService {

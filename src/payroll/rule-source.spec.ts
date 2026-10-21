@@ -4,7 +4,7 @@ import {
   parseHealthGrades,
   parseLaborGrades,
   rocPeriod,
-} from './rule-source';
+} from './rule-source.js';
 
 describe('Official insurance grade sources', () => {
   it('converts ROC effective dates and resource labels to payroll periods', () => {

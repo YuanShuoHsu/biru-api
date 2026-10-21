@@ -1,5 +1,5 @@
 import { IsEnum, IsString } from 'class-validator';
-import { languagesEnum, type Language } from 'src/db/schema/enums';
+import { languagesEnum, type Language } from '../../db/schema/enums.js';
 
 export class FindOrderMenuDto {
   @IsString()

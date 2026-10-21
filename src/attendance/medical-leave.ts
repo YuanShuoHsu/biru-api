@@ -5,25 +5,25 @@ import {
   platformMidnight,
   platformMonthStart,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   attendanceEmployee,
   attendanceLeaveType,
   attendanceRequest,
   attendanceShift,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { Transaction } from './attendance-audit';
+import type { Transaction } from './attendance-audit.js';
 import {
   overlapMs,
   scheduledWorkIntervals,
   type ScheduledShift,
   type TimeInterval,
-} from './attendance-rules';
-import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours';
-import { requiresMedicalCertificate } from './leave-rules';
+} from './attendance-rules.js';
+import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours.js';
+import { requiresMedicalCertificate } from './leave-rules.js';
 
 export const medicalKinds = [
   'sick',

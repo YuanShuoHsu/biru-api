@@ -2,18 +2,18 @@ import type {
   FuturesPositionConfigDto,
   GridConfigDto,
   QuantBotType,
-} from '../../dto/quant-bot.dto';
-import type { FuturesLedger } from '../futures-account';
-import type { Ledger } from '../ledger';
-import type { Strategy, StrategyContext } from '../types';
+} from '../../dto/quant-bot.dto.js';
+import type { FuturesLedger } from '../futures-account.js';
+import type { Ledger } from '../ledger.js';
+import type { Strategy, StrategyContext } from '../types.js';
 
-import { type AiAdvisor, AiStrategy } from './ai.strategy';
-import { DcaStrategy } from './dca.strategy';
-import { FuturesGridStrategy } from './futures-grid.strategy';
-import { GridStrategy } from './grid.strategy';
-import { IndicatorStrategy } from './indicator.strategy';
-import { futuresTrader, spotTrader, type Trader } from './trader';
-import { WebhookStrategy } from './webhook.strategy';
+import { type AiAdvisor, AiStrategy } from './ai.strategy.js';
+import { DcaStrategy } from './dca.strategy.js';
+import { FuturesGridStrategy } from './futures-grid.strategy.js';
+import { GridStrategy } from './grid.strategy.js';
+import { IndicatorStrategy } from './indicator.strategy.js';
+import { futuresTrader, spotTrader, type Trader } from './trader.js';
+import { WebhookStrategy } from './webhook.strategy.js';
 
 // 停止時的平倉選擇只來自使用者按停止；策略自己停止（例如 DCA 停損）時不帶，已經處理過倉位
 const closingOnStop = (

@@ -18,16 +18,16 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
+import { timestamps } from './columns.helpers.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type LocalizedText,
-} from './enums';
-import { orderModeEnum } from './orders';
-import { organization } from './organizations';
+} from './enums.js';
+import { orderModeEnum } from './orders.js';
+import { organization } from './organizations.js';
 
 // https://schema.org/RestrictedDiet
 export const restrictedDietEnum = pgEnum('restricted_diet', [

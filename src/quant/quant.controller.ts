@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import {
   QuantCandleDto,
@@ -12,8 +12,8 @@ import {
   QuantMarketsQueryDto,
   QuantPerpInfoDto,
   QuantTradeDto,
-} from './dto/quant-market.dto';
-import { QuantMarketService } from './market/quant-market.service';
+} from './dto/quant-market.dto.js';
+import { QuantMarketService } from './market/quant-market.service.js';
 
 @ApiTags('quant')
 @ApiBearerAuth()

@@ -20,37 +20,41 @@ import {
 } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
-import { COMPATIBLE_UNIT_CODES } from 'src/common/constants/units';
+import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   getOrganizationBySlug,
   getOrganizationCurrency,
   getOrganizationIdBySlug,
-} from 'src/common/utils/organizations';
-import { ingredient, supplier, type Ingredient } from 'src/db/schema/inventory';
-import { organization } from 'src/db/schema/organizations';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+} from '../common/utils/organizations.js';
+import {
+  ingredient,
+  supplier,
+  type Ingredient,
+} from '../db/schema/inventory.js';
+import { organization } from '../db/schema/organizations.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   CreateIngredientDto,
   UpdateIngredientDto,
-} from './dto/create-ingredient.dto';
+} from './dto/create-ingredient.dto.js';
 import {
   INGREDIENT_DATE_FILTER_FIELDS,
   INGREDIENT_ENUM_FILTER_FIELDS,
   INGREDIENT_NUMBER_FILTER_FIELDS,
   INGREDIENT_STRING_FILTER_FIELDS,
   IngredientPaginationQueryDto,
-} from './dto/ingredient-pagination-query.dto';
-import { IngredientResponseDto } from './dto/ingredient-response.dto';
-import { InventoryTransactionsService } from './inventory-transactions.service';
-import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing';
+} from './dto/ingredient-pagination-query.dto.js';
+import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing.js';
 
 const PURCHASING_FIELDS = [
   'price',

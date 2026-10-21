@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { NutritionInformation } from 'src/db/schema/menus';
+import type { NutritionInformation } from '../../db/schema/menus.js';
 
 export class NutritionInformationDto implements NutritionInformation {
   @ApiPropertyOptional() calories?: string;

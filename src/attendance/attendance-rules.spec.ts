@@ -5,7 +5,7 @@ import {
   overlapIntervals,
   scheduledWorkIntervals,
   summarizeEvents,
-} from './attendance-rules';
+} from './attendance-rules.js';
 
 describe('attendance rules', () => {
   it('handles overnight work and multiple paid/unpaid breaks', () => {

@@ -9,11 +9,18 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
-import { decryptField, encryptField } from 'src/common/utils/field-encryption';
-import { quantBot, quantBotOrder, quantCredential } from 'src/db/schema/quant';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
-import type { I18nTranslations } from 'src/generated/i18n.generated';
+import {
+  decryptField,
+  encryptField,
+} from '../../common/utils/field-encryption.js';
+import {
+  quantBot,
+  quantBotOrder,
+  quantCredential,
+} from '../../db/schema/quant.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   CreateQuantCredentialDto,
@@ -29,25 +36,25 @@ import type {
   QuantOrderDto,
   QuantTransferDto,
   QuantTransferQueryDto,
-} from '../dto/quant-account.dto';
-import { isBotClientOrderId } from '../engine/client-order-id';
-import { PionexPrivateStreams } from '../pionex/pionex-private-streams';
+} from '../dto/quant-account.dto.js';
+import { isBotClientOrderId } from '../engine/client-order-id.js';
+import { PionexPrivateStreams } from '../pionex/pionex-private-streams.js';
 import {
   PionexApiError,
   type PionexCredentials,
   PionexRestClient,
-} from '../pionex/pionex-rest.client';
-import { PionexSymbolsService } from '../pionex/pionex-symbols.service';
+} from '../pionex/pionex-rest.client.js';
+import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import type {
   PionexBalance,
   PionexBalancesFull,
   PionexFill,
   PionexOrder,
   PionexTransfer,
-} from '../pionex/pionex.types';
-import { quantEnvironment } from '../quant-environment';
+} from '../pionex/pionex.types.js';
+import { quantEnvironment } from '../quant-environment.js';
 
-import { collectHistoryPage, type HistoryPage } from './history-page';
+import { collectHistoryPage, type HistoryPage } from './history-page.js';
 
 const OPEN_ORDERS_WEIGHT = 5;
 const FILLS_WEIGHT = 5;

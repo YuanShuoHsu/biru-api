@@ -4,7 +4,7 @@ import {
   platformDateString,
   platformMonthStart,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 import {
   attendanceAnnualLeaveDeferral,
   attendanceEmployee,
@@ -13,27 +13,27 @@ import {
   attendanceLeaveType,
   attendanceRequest,
   attendanceShift,
-} from 'src/db/schema/attendance';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { Transaction } from './attendance-audit';
-import { badRequestError } from './attendance-errors';
+import type { Transaction } from './attendance-audit.js';
+import { badRequestError } from './attendance-errors.js';
 import {
   countedRequestStatuses,
   scheduledWorkSeconds,
-} from './attendance-rules';
+} from './attendance-rules.js';
 import {
   loadOneEmployeeHours,
   weeklyMinutesAt,
   weeklyMinutesOf,
   type EmployeeHours,
-} from './employee-hours';
+} from './employee-hours.js';
 import {
   anniversary,
   annualLeaveLedger,
   statutoryLeavePeriod,
-} from './leave-rules';
-import { isMedicalLeave, loadMedicalLedger } from './medical-leave';
+} from './leave-rules.js';
+import { isMedicalLeave, loadMedicalLedger } from './medical-leave.js';
 
 export async function leaveBalanceRow(
   tx: Transaction,

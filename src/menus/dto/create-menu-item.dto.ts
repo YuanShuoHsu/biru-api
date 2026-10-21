@@ -11,8 +11,8 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
-import { emptyLocalizedTextToNull } from 'src/common/utils/localized-text';
+import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -23,16 +23,16 @@ import {
   type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 import {
   restrictedDietEnum,
   type NutritionInformation,
   type RestrictedDiet,
-} from 'src/db/schema/menus';
-import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
+} from '../../db/schema/menus.js';
+import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
-import { CreateOfferDto } from './create-offer.dto';
-import { NutritionInformationDto } from './nutrition-information.dto';
+import { CreateOfferDto } from './create-offer.dto.js';
+import { NutritionInformationDto } from './nutrition-information.dto.js';
 
 const servingTemperatureOrder = (value: ServingTemperature) => {
   const index = servingTemperatureEnum.enumValues.indexOf(value);

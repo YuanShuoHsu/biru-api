@@ -15,20 +15,20 @@ import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import { Request } from 'express';
 import { from, Observable, switchMap, tap } from 'rxjs';
 
-import { diffAuditRows } from 'src/common/utils/audit-diff';
+import { diffAuditRows } from '../utils/audit-diff.js';
 import {
   auditLog,
   type AuditAction,
   type AuditResource,
-} from 'src/db/schema/audit';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/audit.js';
+import { DRIZZLE, type DrizzleDB } from '../../drizzle/drizzle.module.js';
 
 import {
   AUDIT_KEY,
   type AuditIdSource,
   type AuditMetadata,
   type AuditTarget,
-} from '../decorators/audit.decorator';
+} from '../decorators/audit.decorator.js';
 import {
   AUDIT_IGNORED_COLUMNS,
   AUDIT_KEY_COLUMNS,
@@ -37,7 +37,7 @@ import {
   resolveAuditLabels,
   resolveChangeLabels,
   type AuditLabelScope,
-} from '../utils/audit-resources';
+} from '../utils/audit-resources.js';
 
 type Row = Record<string, unknown>;
 

@@ -1,7 +1,7 @@
 import type {
   ServingTemperature,
   ServingTemperatureLevel,
-} from 'src/db/schema/enums';
+} from '../../db/schema/enums.js';
 
 export const SERVING_TEMPERATURE_OF_LEVEL: Record<
   ServingTemperatureLevel,

@@ -11,7 +11,7 @@ import {
   Min,
 } from 'class-validator';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateRecipeDto {
   @ApiProperty({ example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' } })

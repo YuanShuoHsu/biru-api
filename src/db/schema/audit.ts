@@ -8,9 +8,9 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-import { type LocalizedText } from './enums';
-import { organization } from './organizations';
-import { user } from './users';
+import { type LocalizedText } from './enums.js';
+import { organization } from './organizations.js';
+import { user } from './users.js';
 
 export const auditResourceEnum = pgEnum('audit_resource', [
   'menu',

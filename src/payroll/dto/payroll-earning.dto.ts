@@ -10,11 +10,11 @@ import {
   MinLength,
 } from 'class-validator';
 
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import {
   PAYROLL_EARNING_CATEGORIES,
   type PayrollEarningCategory,
-} from 'src/db/schema/payroll';
+} from '../../db/schema/payroll.js';
 
 export const PAYROLL_EARNING_TYPE_STRING_FILTER_FIELDS = ['name'] as const;
 

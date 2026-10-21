@@ -3,14 +3,17 @@ import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import {
   waitlistTicketStatusEnum,
   type WaitlistTicketStatus,
-} from 'src/db/schema/waitlist';
+} from '../../db/schema/waitlist.js';
 
-import { waitlistErrorCodes, type WaitlistErrorCode } from '../waitlist-errors';
+import {
+  waitlistErrorCodes,
+  type WaitlistErrorCode,
+} from '../waitlist-errors.js';
 import {
   STAFF_TRANSITION_STATUSES,
   type StaffTransitionStatus,
-} from '../waitlist-rules';
-import { WaitlistGroupDto } from './waitlist-group.dto';
+} from '../waitlist-rules.js';
+import { WaitlistGroupDto } from './waitlist-group.dto.js';
 
 export class WaitlistGroupStatusDto extends WaitlistGroupDto {
   @ApiPropertyOptional({

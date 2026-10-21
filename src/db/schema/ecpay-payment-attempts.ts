@@ -1,7 +1,7 @@
 import { index, pgTable, text } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { order } from './orders';
+import { timestamps } from './columns.helpers.js';
+import { order } from './orders.js';
 
 export const ecpayPaymentAttempt = pgTable(
   'ecpay_payment_attempt',

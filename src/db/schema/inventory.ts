@@ -17,11 +17,11 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
-import { type LocalizedText } from './enums';
-import { menuItem } from './menus';
-import { order } from './orders';
-import { organization } from './organizations';
+import { timestamps } from './columns.helpers.js';
+import { type LocalizedText } from './enums.js';
+import { menuItem } from './menus.js';
+import { order } from './orders.js';
+import { organization } from './organizations.js';
 
 // UN/CEFACT 代碼，對應 https://schema.org/QuantitativeValue unitCode
 export const unitCodeEnum = pgEnum('unit_code', [

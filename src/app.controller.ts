@@ -3,7 +3,7 @@ import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { I18n, I18nContext } from 'nestjs-i18n';
 
-import { AppService } from './app.service';
+import { AppService } from './app.service.js';
 
 @Controller('hello')
 export class AppController {

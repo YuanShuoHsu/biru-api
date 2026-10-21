@@ -1,7 +1,7 @@
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 
-import * as schema from 'src/db/schema';
+import * as schema from '../db/schema/index.js';
 
 const TABLES_BY_NAME = new Map<string, PgTable>(
   Object.values(schema).flatMap((value) =>

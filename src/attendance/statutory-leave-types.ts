@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   STATUTORY_LEAVE_KINDS,
   type StatutoryLeaveKind,
-} from 'src/db/schema/attendance';
+} from '../db/schema/attendance.js';
 
 export const STATUTORY_LEAVE_NAMES: Record<
   Exclude<StatutoryLeaveKind, 'custom'>,

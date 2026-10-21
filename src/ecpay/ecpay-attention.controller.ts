@@ -1,11 +1,11 @@
-import { EcpayAttentionItemDto } from './dto/ecpay-attention.dto';
+import { EcpayAttentionItemDto } from './dto/ecpay-attention.dto.js';
 
-import { EcpayAttentionService } from './services/ecpay-attention.service';
+import { EcpayAttentionService } from './services/ecpay-attention.service.js';
 
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Roles } from 'src/menus/decorators/roles.decorator';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/ecpay/attention')

@@ -1,8 +1,8 @@
-import type { PayrollTerms } from 'src/db/schema/payroll';
+import type { PayrollTerms } from '../db/schema/payroll.js';
 
-import { calculatePayroll, payrollPeriod } from './payroll-calculation';
-import { employmentPeriod, periodWork } from './payroll-period';
-import { taiwan2026 } from './taiwan-rules.fixture';
+import { calculatePayroll, payrollPeriod } from './payroll-calculation.js';
+import { employmentPeriod, periodWork } from './payroll-period.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
 const terms: PayrollTerms = {
   salaryType: 'hourly',

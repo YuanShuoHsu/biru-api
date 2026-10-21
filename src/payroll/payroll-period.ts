@@ -3,15 +3,15 @@ import {
   scheduledWorkSeconds,
   type ScheduledShift,
   type TimeInterval,
-} from 'src/attendance/attendance-rules';
+} from '../attendance/attendance-rules.js';
 import {
   DAY_MS,
   platformDayNumber,
   platformMidnight,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 
-import { roundRatio } from './payroll-calculation';
+import { roundRatio } from './payroll-calculation.js';
 
 export const intervalSeconds = (
   interval: TimeInterval,

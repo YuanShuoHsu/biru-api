@@ -11,15 +11,15 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { IdsDto } from 'src/common/dto/ids.dto';
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdsDto } from '../common/dto/ids.dto.js';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { BannersService } from './banners.service';
-import { BannerPaginationQueryDto } from './dto/banner-pagination-query.dto';
-import { BannerResponseDto } from './dto/banner-response.dto';
-import { CreateBannerDto, UpdateBannerDto } from './dto/create-banner.dto';
-import { ReorderBannersDto } from './dto/reorder-banners.dto';
+import { BannersService } from './banners.service.js';
+import { BannerPaginationQueryDto } from './dto/banner-pagination-query.dto.js';
+import { BannerResponseDto } from './dto/banner-response.dto.js';
+import { CreateBannerDto, UpdateBannerDto } from './dto/create-banner.dto.js';
+import { ReorderBannersDto } from './dto/reorder-banners.dto.js';
 
 @ApiTags('banners')
 @UseGuards(AdminGuard)

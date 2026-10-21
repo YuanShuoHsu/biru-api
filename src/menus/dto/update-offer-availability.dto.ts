@@ -9,7 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { UpdateItemAvailabilityDto } from './update-item-availability.dto';
+import { UpdateItemAvailabilityDto } from './update-item-availability.dto.js';
 
 export class OfferInventoryLevelValueDto {
   @ApiProperty({

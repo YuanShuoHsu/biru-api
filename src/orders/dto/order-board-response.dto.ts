@@ -4,7 +4,7 @@ import {
   orderModeEnum,
   type OrderMode,
   type OrderStatus,
-} from 'src/db/schema/orders';
+} from '../../db/schema/orders.js';
 
 export const ORDER_BOARD_STATUSES = [
   'OrderPaymentDue',

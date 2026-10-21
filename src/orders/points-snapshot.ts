@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import { order } from 'src/db/schema/orders';
+import { order } from '../db/schema/orders.js';
 
 export const POINTS_SNAPSHOT_SET = {
   amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,

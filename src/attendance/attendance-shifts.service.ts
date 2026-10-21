@@ -23,7 +23,7 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
-} from 'src/common/utils/data-grid-filters';
+} from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
   attendanceEvent,
@@ -34,11 +34,11 @@ import {
   type AttendanceDayKind,
   type ShiftBreak,
   statutoryHoliday,
-} from 'src/db/schema/attendance';
-import { team, teamMember } from 'src/db/schema/organizations';
-import { payrollStatement } from 'src/db/schema/payroll';
-import { user } from 'src/db/schema/users';
-import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../db/schema/attendance.js';
+import { team, teamMember } from '../db/schema/organizations.js';
+import { payrollStatement } from '../db/schema/payroll.js';
+import { user } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   DAY_MS,
   platformDateString,
@@ -46,9 +46,9 @@ import {
   PLATFORM_TIMEZONE,
   STORE_UTC_OFFSET,
   toPlatformTime,
-} from 'src/common/constants/timezone';
+} from '../common/constants/timezone.js';
 
-import type { AttendanceActor } from './attendance-actor';
+import type { AttendanceActor } from './attendance-actor.js';
 import {
   assertPayrollUnlocked,
   lockEmployee,
@@ -56,14 +56,14 @@ import {
   type Transaction,
   writeAudit,
   writeAudits,
-} from './attendance-audit';
+} from './attendance-audit.js';
 import {
   badRequestError,
   cancelIrreversibleError,
   conflictError,
   forbiddenError,
   attendanceErrorCodeOf,
-} from './attendance-errors';
+} from './attendance-errors.js';
 import {
   ADULT_WORKING_AGE,
   ageOn,
@@ -99,38 +99,38 @@ import {
   unreviewedOvertime,
   withinPeriods,
   workPermitRequired,
-} from './attendance-rules';
-import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
+} from './attendance-rules.js';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto.js';
 import {
   ATTENDANCE_SHIFT_DATE_FILTER_FIELDS,
   ATTENDANCE_SHIFT_ENUM_FILTER_FIELDS,
   ATTENDANCE_SHIFT_STRING_FILTER_FIELDS,
   AttendanceShiftPaginationQueryDto,
-} from './dto/attendance-shift-pagination-query.dto';
+} from './dto/attendance-shift-pagination-query.dto.js';
 import {
   ATTENDANCE_COPY_SKIP_REASONS,
   type AttendanceCopySkipReason,
   CopyAttendanceWeekDto,
-} from './dto/copy-attendance-week.dto';
-import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto';
+} from './dto/copy-attendance-week.dto.js';
+import { CreateAttendancePunchDto } from './dto/create-attendance-punch.dto.js';
 import {
   CancelAttendanceShiftDto,
   CreateAttendanceShiftDto,
   UpdateAttendanceShiftDto,
-} from './dto/create-attendance-shifts.dto';
-import { requireActiveEmployee, requireEmployee } from './employee-lookup';
+} from './dto/create-attendance-shifts.dto.js';
+import { requireActiveEmployee, requireEmployee } from './employee-lookup.js';
 import {
   loadAgreedHolidays,
   loadHolidaySubstitutes,
-} from './holiday-substitutes';
+} from './holiday-substitutes.js';
 import {
   loadPlannedOvertimeInputs,
   overtimeLimitViolation,
   overtimeOutsideShiftSeconds,
   plannedWorkDays,
-} from './overtime-limit';
-import { parseInterval, scheduledBreaks } from './shift-intervals';
-import { unfinishedShift } from './shift-queries';
+} from './overtime-limit.js';
+import { parseInterval, scheduledBreaks } from './shift-intervals.js';
+import { unfinishedShift } from './shift-queries.js';
 
 const shiftStateCase = sql.join(
   Object.entries(SHIFT_STATE_BY_LAST_ACTION).map(

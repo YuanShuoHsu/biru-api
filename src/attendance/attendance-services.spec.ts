@@ -1,13 +1,11 @@
-jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
-
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { AttendanceEmployeesService } from './attendance-employees.service';
-import { AttendanceLeavesService } from './attendance-leaves.service';
-import { AttendanceRequestsService } from './attendance-requests.service';
-import { AttendanceShiftsService } from './attendance-shifts.service';
+import { AttendanceEmployeesService } from './attendance-employees.service.js';
+import { AttendanceLeavesService } from './attendance-leaves.service.js';
+import { AttendanceRequestsService } from './attendance-requests.service.js';
+import { AttendanceShiftsService } from './attendance-shifts.service.js';
 
 function database(results: unknown[][]) {
   const chain = () => {
@@ -24,17 +22,17 @@ function database(results: unknown[][]) {
       query[method] = () => query;
     return query;
   };
-  const returning = jest.fn(() =>
+  const returning = vi.fn(() =>
     Promise.resolve([{ id: 'event', occurredAt: new Date() }]),
   );
-  const values = jest.fn(() => ({
+  const values = vi.fn(() => ({
     returning,
-    onConflictDoUpdate: jest.fn(() => ({ returning })),
+    onConflictDoUpdate: vi.fn(() => ({ returning })),
   }));
-  const insert = jest.fn(() => ({ values }));
+  const insert = vi.fn(() => ({ values }));
   const db = {
-    select: jest.fn(chain),
-    execute: jest.fn(),
+    select: vi.fn(chain),
+    execute: vi.fn(),
     insert,
     transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };

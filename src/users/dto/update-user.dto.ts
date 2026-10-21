@@ -9,7 +9,11 @@ import {
   IsOptional,
   IsUrl,
 } from 'class-validator';
-import { DEFAULT_GENDER, type Gender, gendersEnum } from 'src/db/schema/enums';
+import {
+  DEFAULT_GENDER,
+  type Gender,
+  gendersEnum,
+} from '../../db/schema/enums.js';
 
 export class UpdateUserDto {
   @ApiProperty({

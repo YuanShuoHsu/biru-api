@@ -5,7 +5,7 @@ import {
   restrictedDietEnum,
   type ItemAvailability,
   type RestrictedDiet,
-} from 'src/db/schema/menus';
+} from '../../db/schema/menus.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -15,14 +15,14 @@ import {
   type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
-} from 'src/db/schema/enums';
-import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
+} from '../../db/schema/enums.js';
+import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 import {
   PriceSpecificationDto,
   QuantitativeValueDto,
-} from './create-offer.dto';
-import { NutritionInformationDto } from './nutrition-information.dto';
+} from './create-offer.dto.js';
+import { NutritionInformationDto } from './nutrition-information.dto.js';
 
 export class OrderMenuOfferResponseDto {
   @ApiProperty()

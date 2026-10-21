@@ -7,7 +7,7 @@ import {
   isOverdue,
   isRevert,
   isValidGroups,
-} from './waitlist-rules';
+} from './waitlist-rules.js';
 
 const groups = [
   { maxPartySize: 2, minPartySize: 1, prefix: 'A' },

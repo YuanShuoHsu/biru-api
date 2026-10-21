@@ -15,27 +15,27 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import {
   OrganizationMember,
   Roles,
-} from 'src/menus/decorators/roles.decorator';
-import type { AuthRequest } from 'src/menus/guards/roles.guard';
+} from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
-import { actor } from './attendance-actor';
-import { AttendanceRequestsService } from './attendance-requests.service';
-import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
-import { AttendanceRequestPaginationQueryDto } from './dto/attendance-request-pagination-query.dto';
+import { actor } from './attendance-actor.js';
+import { AttendanceRequestsService } from './attendance-requests.service.js';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto.js';
+import { AttendanceRequestPaginationQueryDto } from './dto/attendance-request-pagination-query.dto.js';
 import {
   AttendanceRequestRecordResponseDto,
   AttendanceRequestResponseDto,
   AttendanceRequestsResponseDto,
   AttendanceReviewCountsResponseDto,
-} from './dto/attendance-request-response.dto';
-import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto';
-import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto';
-import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto';
+} from './dto/attendance-request-response.dto.js';
+import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto.js';
+import { CreateAttendanceRequestDto } from './dto/create-attendance-request.dto.js';
+import { ReviewAttendanceExtraWorkDto } from './dto/review-attendance-extra-work.dto.js';
 import {
   AttendanceBatchResponseDto,
   ReviewAttendanceBatchDto,
   ReviewAttendanceRequestDto,
-} from './dto/review-attendance-request.dto';
+} from './dto/review-attendance-request.dto.js';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')

@@ -7,9 +7,9 @@ import {
 } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
-import { UserOrderListResponseDto } from './dto/order-response.dto';
-import { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto';
-import { OrdersService } from './orders.service';
+import { UserOrderListResponseDto } from './dto/order-response.dto.js';
+import { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto.js';
+import { OrdersService } from './orders.service.js';
 
 @ApiBearerAuth()
 @ApiTags('orders')

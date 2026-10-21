@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { DonateCodesService } from './donate-codes.service';
+import { DonateCodesService } from './donate-codes.service.js';
 
 describe('DonateCodesService', () => {
   let service: DonateCodesService;

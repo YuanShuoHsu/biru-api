@@ -17,7 +17,7 @@ export const memberRoleEnum = pgEnum('member_role', [
 ]);
 export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
-import { user } from './users';
+import { user } from './users.js';
 
 export const organization = pgTable(
   'organization',

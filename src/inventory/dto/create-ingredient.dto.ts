@@ -10,14 +10,14 @@ import {
   MaxLength,
 } from 'class-validator';
 
-import { IMAGE_DATA_URL_MAX_LENGTH } from 'src/common/constants/image';
+import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
 import {
   BASE_UNIT_CODES,
   UNIT_FACTORS,
   type BaseUnitCode,
-} from 'src/common/constants/units';
-import type { LocalizedText } from 'src/db/schema/enums';
-import type { UnitCode } from 'src/db/schema/inventory';
+} from '../../common/constants/units.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
+import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class CreateIngredientDto {
   @ApiProperty({ example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' } })

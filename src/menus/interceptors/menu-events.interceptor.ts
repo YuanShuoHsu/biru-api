@@ -8,9 +8,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { Observable, tap } from 'rxjs';
 
-import { MENU_UPDATED_EVENT } from 'src/events/menu-updated.event';
+import { MENU_UPDATED_EVENT } from '../../events/menu-updated.event.js';
 
-import type { AuthRequest } from '../guards/roles.guard';
+import type { AuthRequest } from '../guards/roles.guard.js';
 
 @Injectable()
 export class MenuEventsInterceptor implements NestInterceptor {

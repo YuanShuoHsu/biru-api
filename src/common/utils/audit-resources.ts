@@ -6,16 +6,16 @@ import type {
   AuditChanges,
   AuditResource,
   AuditResourceLabel,
-} from 'src/db/schema/audit';
-import { banner } from 'src/db/schema/banners';
-import { coupon, userCoupon } from 'src/db/schema/coupons';
+} from '../../db/schema/audit.js';
+import { banner } from '../../db/schema/banners.js';
+import { coupon, userCoupon } from '../../db/schema/coupons.js';
 import {
   ingredient,
   recipe,
   recipeIngredient,
   supplier,
-} from 'src/db/schema/inventory';
-import { invoice } from 'src/db/schema/invoices';
+} from '../../db/schema/inventory.js';
+import { invoice } from '../../db/schema/invoices.js';
 import {
   menu,
   menuItem,
@@ -25,22 +25,22 @@ import {
   modifier,
   modifierGroup,
   offer,
-} from 'src/db/schema/menus';
-import { order } from 'src/db/schema/orders';
+} from '../../db/schema/menus.js';
+import { order } from '../../db/schema/orders.js';
 import {
   invitation,
   member,
   organization,
   team,
-} from 'src/db/schema/organizations';
-import { refund } from 'src/db/schema/refunds';
-import { user } from 'src/db/schema/users';
-import { waitlistSetting, waitlistTicket } from 'src/db/schema/waitlist';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+} from '../../db/schema/organizations.js';
+import { refund } from '../../db/schema/refunds.js';
+import { user } from '../../db/schema/users.js';
+import { waitlistSetting, waitlistTicket } from '../../db/schema/waitlist.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
-import { formatTicketNumber } from 'src/waitlist/waitlist-rules';
+import { formatTicketNumber } from '../../waitlist/waitlist-rules.js';
 
-import type { AuditSubTable } from '../decorators/audit.decorator';
+import type { AuditSubTable } from '../decorators/audit.decorator.js';
 
 type Row = Record<string, unknown>;
 

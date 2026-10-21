@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { Transaction } from '../attendance/attendance-audit';
-import { db } from '../db';
+import type { Transaction } from '../attendance/attendance-audit.js';
+import { db } from '../db/index.js';
 
 const transactions = new AsyncLocalStorage<Transaction>();
 

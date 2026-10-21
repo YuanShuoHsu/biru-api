@@ -13,8 +13,8 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { organization, team } from './organizations';
-import { user } from './users';
+import { organization, team } from './organizations.js';
+import { user } from './users.js';
 
 export const ATTENDANCE_DAY_KINDS = [
   'workday',

@@ -11,7 +11,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { UpdateWaitlistGroupDto, WaitlistGroupDto } from './waitlist-group.dto';
+import {
+  UpdateWaitlistGroupDto,
+  WaitlistGroupDto,
+} from './waitlist-group.dto.js';
 
 export class UpdateWaitlistSettingsDto {
   @ApiProperty({ description: '打烊前幾分鐘停止顧客自助取號', example: 60 })

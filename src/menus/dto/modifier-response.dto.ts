@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { LocalizedText } from 'src/db/schema/enums';
+import type { LocalizedText } from '../../db/schema/enums.js';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
-} from 'src/db/schema/menus';
-import { orderModeEnum, type OrderMode } from 'src/db/schema/orders';
+} from '../../db/schema/menus.js';
+import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 export class ModifierResponseDto {
   @ApiProperty()

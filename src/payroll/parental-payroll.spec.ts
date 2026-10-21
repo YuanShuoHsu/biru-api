@@ -1,12 +1,10 @@
-jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+import { DAY_MS, platformMonthStart } from '../common/constants/timezone.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { DAY_MS, platformMonthStart } from 'src/common/constants/timezone';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-
-import type { PayrollEarningsService } from './payroll-earnings.service';
-import type { PayrollRulesService } from './payroll-rules.service';
-import { PayrollService } from './payroll.service';
-import { taiwan2026 } from './taiwan-rules.fixture';
+import type { PayrollEarningsService } from './payroll-earnings.service.js';
+import type { PayrollRulesService } from './payroll-rules.service.js';
+import { PayrollService } from './payroll.service.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
 const at = (value: string) => new Date(`${value}+08:00`);
 const shift = (

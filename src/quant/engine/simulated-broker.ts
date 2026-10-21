@@ -1,8 +1,8 @@
-import type { Broker, MatchedFill, SubmittedOrder } from './bot-session';
-import type { PionexMarketType } from '../pionex/pionex.types';
+import type { Broker, MatchedFill, SubmittedOrder } from './bot-session.js';
+import type { PionexMarketType } from '../pionex/pionex.types.js';
 
-import { PIONEX_FEE_RATES } from './fee-rates';
-import type { BotFill, OrderSide } from './types';
+import { PIONEX_FEE_RATES } from './fee-rates.js';
+import type { BotFill, OrderSide } from './types.js';
 
 export interface MarketQuote {
   /** 回傳成交均價；沒有報價或深度不足以成交全部數量時回傳 null */

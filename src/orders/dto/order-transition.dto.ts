@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { orderStatusEnum, type OrderStatus } from 'src/db/schema/orders';
+import { orderStatusEnum, type OrderStatus } from '../../db/schema/orders.js';
 
 import {
   ORDER_TRANSITION_DIRECTIONS,
   type OrderTransitionDirection,
-} from '../order-transitions';
+} from '../order-transitions.js';
 
 export class OrderTransitionDto {
   @ApiPropertyOptional({

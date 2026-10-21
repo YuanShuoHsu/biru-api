@@ -1,8 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import { organization } from 'src/db/schema/organizations';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
+import { organization } from '../../db/schema/organizations.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
 export const getOrganizationBySlug = async (
   db: DrizzleDB,

@@ -7,7 +7,7 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 
-import { timestamps } from './columns.helpers';
+import { timestamps } from './columns.helpers.js';
 
 export const ecpayCallbackEndpointEnum = pgEnum('ecpay_callback_endpoint', [
   'return',

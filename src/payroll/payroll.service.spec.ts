@@ -1,11 +1,9 @@
-jest.mock('src/auth/permissions', () => ({ isAuthorized: () => true }));
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-
-import type { PayrollEarningsService } from './payroll-earnings.service';
-import type { PayrollRulesService } from './payroll-rules.service';
-import { PayrollService } from './payroll.service';
-import { taiwan2026 } from './taiwan-rules.fixture';
+import type { PayrollEarningsService } from './payroll-earnings.service.js';
+import type { PayrollRulesService } from './payroll-rules.service.js';
+import { PayrollService } from './payroll.service.js';
+import { taiwan2026 } from './taiwan-rules.fixture.js';
 
 const actor = { organizationId: 'org', userId: 'owner', role: 'owner' };
 const employee = {
@@ -35,7 +33,7 @@ const row = {
 };
 
 function setup(results: unknown[][], current = row.snapshot) {
-  const select = jest.fn(() => {
+  const select = vi.fn(() => {
     const promise = Promise.resolve(results.shift() ?? []);
     const query: Record<string, unknown> = { then: promise.then.bind(promise) };
     for (const method of [
@@ -49,7 +47,7 @@ function setup(results: unknown[][], current = row.snapshot) {
       query[method] = () => query;
     return query;
   });
-  const update = jest.fn(() => ({
+  const update = vi.fn(() => ({
     set: () => ({
       where: () => ({
         returning: () => Promise.resolve([{ ...row, status: 'reviewed' }]),
@@ -59,8 +57,8 @@ function setup(results: unknown[][], current = row.snapshot) {
   const db = {
     select,
     update,
-    execute: jest.fn(),
-    insert: jest.fn(() => ({ values: jest.fn() })),
+    execute: vi.fn(),
+    insert: vi.fn(() => ({ values: vi.fn() })),
     transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };
   const service = new PayrollService(
@@ -68,7 +66,7 @@ function setup(results: unknown[][], current = row.snapshot) {
     {} as PayrollRulesService,
     {} as PayrollEarningsService,
   );
-  const snapshot = jest.fn(() => Promise.resolve(current));
+  const snapshot = vi.fn(() => Promise.resolve(current));
   Object.defineProperty(service, 'snapshot', { value: snapshot });
   return { service, update, snapshot };
 }
@@ -215,7 +213,7 @@ describe('Payroll terms validation', () => {
         resolve: () => Promise.resolve({ rules: taiwan2026, unconfirmed: [] }),
       },
     });
-    const insert = jest.spyOn(
+    const insert = vi.spyOn(
       Reflect.get(service, 'db') as { insert: () => unknown },
       'insert',
     );

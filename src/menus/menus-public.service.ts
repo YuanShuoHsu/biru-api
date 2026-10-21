@@ -5,7 +5,7 @@ import {
   DEFAULT_LANGUAGE,
   type Language,
   type LocalizedText,
-} from 'src/db/schema/enums';
+} from '../db/schema/enums.js';
 import {
   menu,
   menuItem,
@@ -17,16 +17,16 @@ import {
   type Modifier,
   type ModifierGroup,
   type Offer,
-} from 'src/db/schema/menus';
-import type { DrizzleDB } from 'src/drizzle/drizzle.module';
-import { DRIZZLE } from 'src/drizzle/drizzle.module';
+} from '../db/schema/menus.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
   getSalesWindowStart,
-} from 'src/orders/menu-item-sales.service';
+} from '../orders/menu-item-sales.service.js';
 
-import type { OrderMenuResponseDto } from './dto/order-menu-response.dto';
+import type { OrderMenuResponseDto } from './dto/order-menu-response.dto.js';
 
 export const localize = (
   text: LocalizedText | null | undefined,

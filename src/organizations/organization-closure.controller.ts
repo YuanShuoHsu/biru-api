@@ -1,11 +1,11 @@
 import { Controller, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Audit } from 'src/common/decorators/audit.decorator';
-import { AdminGuard } from 'src/common/guards/admin.guard';
+import { Audit } from '../common/decorators/audit.decorator.js';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 
-import { OrganizationResponseDto } from './dto/organization-response.dto';
-import { OrganizationsService } from './organizations.service';
+import { OrganizationResponseDto } from './dto/organization-response.dto.js';
+import { OrganizationsService } from './organizations.service.js';
 
 @ApiTags('organizations')
 @UseGuards(AdminGuard)

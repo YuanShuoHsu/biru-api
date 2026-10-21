@@ -8,8 +8,8 @@ import {
   SORT_DIRECTIONS,
   type FilterOperator,
   type SortDirection,
-} from 'src/common/constants/pagination';
-import { languagesEnum, type Language } from 'src/db/schema/enums';
+} from '../../common/constants/pagination.js';
+import { languagesEnum, type Language } from '../../db/schema/enums.js';
 
 export const COUPON_STRING_FILTER_FIELDS = ['code'] as const;
 export const COUPON_ENUM_FILTER_FIELDS = ['scope', 'isActive'] as const;
