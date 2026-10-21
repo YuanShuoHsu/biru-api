@@ -32,6 +32,7 @@ import {
 import {
   STATUTORY_LEAVE_KINDS,
   attendanceAnnualLeaveDeferral,
+  attendanceAnnualLeaveNotice,
   attendanceEmployee,
   attendanceHolidaySubstitute,
   attendanceLeaveBalance,
@@ -84,6 +85,13 @@ import {
   ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   AttendanceLeaveTypePaginationQueryDto,
 } from './dto/attendance-leave-type-pagination-query.dto';
+import {
+  ATTENDANCE_ANNUAL_LEAVE_NOTICE_DATE_FILTER_FIELDS,
+  ATTENDANCE_ANNUAL_LEAVE_NOTICE_ENUM_FILTER_FIELDS,
+  ATTENDANCE_ANNUAL_LEAVE_NOTICE_NUMBER_FILTER_FIELDS,
+  ATTENDANCE_ANNUAL_LEAVE_NOTICE_STRING_FILTER_FIELDS,
+  AttendanceAnnualLeaveNoticePaginationQueryDto,
+} from './dto/attendance-annual-leave-notice-pagination-query.dto';
 import { CreateAttendanceAnnualLeaveDeferralDto } from './dto/create-attendance-annual-leave-deferral.dto';
 import { CreateAttendanceLeaveCaseDto } from './dto/create-attendance-leave-case.dto';
 import { SaveAttendanceLeaveBalanceDto } from './dto/save-attendance-leave-balance.dto';
@@ -1323,8 +1331,14 @@ export class AttendanceLeavesService {
     });
   }
 
-  async annualLeaveNotices(actor: AttendanceActor) {
-    const employee = await requireEmployee(actor, this.db);
+  async annualLeaveNotices(
+    actor: AttendanceActor,
+    query: AttendanceAnnualLeaveNoticePaginationQueryDto,
+    mine: boolean,
+  ) {
+    const employeeId = mine
+      ? (await requireEmployee(actor, this.db)).id
+      : undefined;
     const [policy] = await this.db
       .select({ id: attendanceLeaveType.id })
       .from(attendanceLeaveType)
@@ -1334,61 +1348,92 @@ export class AttendanceLeavesService {
           eq(attendanceLeaveType.statutoryKind, 'annual'),
         ),
       );
-    if (!policy) return [];
-    const [requests, hours, deferrals, statements] = await Promise.all([
-      this.db
-        .select({
-          startsAt: attendanceRequest.startsAt,
-          endsAt: attendanceRequest.endsAt,
-          leaveMinutes: attendanceRequest.leaveMinutes,
-        })
-        .from(attendanceRequest)
-        .where(
-          and(
-            eq(attendanceRequest.employeeId, employee.id),
-            eq(attendanceRequest.leaveTypeId, policy.id),
-            inArray(attendanceRequest.status, countedRequestStatuses),
-          ),
-        )
-        .orderBy(asc(attendanceRequest.startsAt)),
-      loadOneEmployeeHours(this.db, employee),
-      annualLeaveDeferrals(this.db, [employee.id]),
-      this.db
-        .select({
-          month: payrollStatement.month,
-          paidOn: payrollStatement.paidOn,
-          snapshot: payrollStatement.snapshot,
-        })
-        .from(payrollStatement)
-        .where(
-          and(
-            eq(payrollStatement.employeeId, employee.id),
-            eq(payrollStatement.status, 'published'),
-          ),
+    if (!policy) return { data: [], total: 0 };
+    const employees = await this.db
+      .select({
+        ...getTableColumns(attendanceEmployee),
+        email: user.email,
+        name: user.name,
+      })
+      .from(attendanceEmployee)
+      .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+      .where(
+        and(
+          eq(attendanceEmployee.organizationId, actor.organizationId),
+          employeeId ? eq(attendanceEmployee.id, employeeId) : undefined,
         ),
-    ]);
+      );
+    const employeeIds = employees.map((employee) => employee.id);
+    if (!employees.length) return { data: [], total: 0 };
+    const [requests, hoursOf, deferrals, statements, notified] =
+      await Promise.all([
+        this.db
+          .select({
+            employeeId: attendanceRequest.employeeId,
+            startsAt: attendanceRequest.startsAt,
+            endsAt: attendanceRequest.endsAt,
+            leaveMinutes: attendanceRequest.leaveMinutes,
+          })
+          .from(attendanceRequest)
+          .where(
+            and(
+              inArray(attendanceRequest.employeeId, employeeIds),
+              eq(attendanceRequest.leaveTypeId, policy.id),
+              inArray(attendanceRequest.status, countedRequestStatuses),
+            ),
+          )
+          .orderBy(asc(attendanceRequest.startsAt)),
+        loadEmployeeHours(this.db, employees),
+        annualLeaveDeferrals(this.db, employeeIds),
+        this.db
+          .select({
+            employeeId: payrollStatement.employeeId,
+            month: payrollStatement.month,
+            paidOn: payrollStatement.paidOn,
+            snapshot: payrollStatement.snapshot,
+          })
+          .from(payrollStatement)
+          .where(
+            and(
+              inArray(payrollStatement.employeeId, employeeIds),
+              eq(payrollStatement.status, 'published'),
+            ),
+          ),
+        this.db
+          .select({
+            employeeId: attendanceAnnualLeaveNotice.employeeId,
+            periodStart: attendanceAnnualLeaveNotice.periodStart,
+            notifiedAt: attendanceAnnualLeaveNotice.notifiedAt,
+          })
+          .from(attendanceAnnualLeaveNotice)
+          .where(inArray(attendanceAnnualLeaveNotice.employeeId, employeeIds)),
+      ]);
     const now = new Date();
-    const terminatedAt =
-      employee.terminatedAt && employee.terminatedAt <= now
-        ? employee.terminatedAt
-        : null;
-    return annualLeaveLedger(
-      employee.hiredAt,
-      terminatedAt ?? now,
-      weeklyMinutesOf(hours),
-      requests,
-      deferrals.map((deferral) => deferral.periodStart),
-    )
-      .map((entry) => ({
-        ...entry,
-        end:
+    const rows = employees.flatMap((employee) => {
+      const own = requests.filter(
+        (request) => request.employeeId === employee.id,
+      );
+      const ownStatements = statements.filter(
+        (statement) => statement.employeeId === employee.id,
+      );
+      const terminatedAt =
+        employee.terminatedAt && employee.terminatedAt <= now
+          ? employee.terminatedAt
+          : null;
+      return annualLeaveLedger(
+        employee.hiredAt,
+        terminatedAt ?? now,
+        weeklyMinutesOf(hoursOf.get(employee.id)!),
+        own,
+        deferrals
+          .filter((deferral) => deferral.employeeId === employee.id)
+          .map((deferral) => deferral.periodStart),
+      ).map((entry) => {
+        const end =
           terminatedAt && entry.start < terminatedAt && entry.end > terminatedAt
             ? terminatedAt
-            : entry.end,
-      }))
-      .filter((entry) => entry.end <= now)
-      .map((entry) => {
-        const settled = statements.flatMap(({ month, paidOn, snapshot }) =>
+            : entry.end;
+        const settled = ownStatements.flatMap(({ month, paidOn, snapshot }) =>
           (snapshot.annualLeaveSettlements ?? [])
             .filter(
               (settlement) => settlement.startsAt === entry.start.toISOString(),
@@ -1400,11 +1445,11 @@ export class AttendanceLeavesService {
               paidOn,
             })),
         );
-        const settlementMonth = platformDateString(entry.end).slice(0, 7);
+        const settlementMonth = platformDateString(end).slice(0, 7);
         // 結算明細存進 snapshot 之前發布的薪資單只有當月特休未休工資合計
         const legacy = settled.length
           ? []
-          : statements.flatMap(({ month, paidOn, snapshot }) => {
+          : ownStatements.flatMap(({ month, paidOn, snapshot }) => {
               const line = snapshot.lines.find(
                 ({ code }) => code === 'annualLeavePay',
               );
@@ -1422,28 +1467,61 @@ export class AttendanceLeavesService {
                   ]
                 : [];
             });
+        const payouts = [...settled, ...legacy];
+        const ongoing = end > now;
         return {
+          id: `${employee.id}:${entry.start.toISOString()}`,
+          employeeId: employee.id,
+          employeeName: employee.name,
+          employeeEmail: employee.email,
           periodStart: entry.start,
-          periodEnd: entry.end,
+          periodEnd: end,
+          ongoing,
+          notifiedAt:
+            notified.find(
+              (notice) =>
+                notice.employeeId === employee.id &&
+                notice.periodStart.getTime() === entry.start.getTime(),
+            )?.notifiedAt ?? null,
           grantedMinutes: entry.minutes,
           carriedInMinutes: entry.carriedInMinutes,
           usedMinutes: entry.usedMinutes,
           expiredMinutes: entry.expiredMinutes,
           unusedMinutes: entry.unusedMinutes,
           deferred: entry.deferred,
-          leaves: requests
+          settlement: ongoing
+            ? ('ongoing' as const)
+            : payouts.length
+              ? ('paid' as const)
+              : entry.deferred
+                ? ('deferred' as const)
+                : entry.unusedMinutes
+                  ? ('unrecorded' as const)
+                  : ('nothingUnused' as const),
+          leaves: own
             .filter(
               (request) =>
-                request.startsAt >= entry.start && request.startsAt < entry.end,
+                request.startsAt >= entry.start && request.startsAt < end,
             )
-            .map((request) => ({
-              ...request,
-              leaveMinutes: request.leaveMinutes ?? 0,
+            .map(({ endsAt, leaveMinutes, startsAt }) => ({
+              startsAt,
+              endsAt,
+              leaveMinutes: leaveMinutes ?? 0,
             })),
-          payouts: [...settled, ...legacy],
+          payouts,
         };
-      })
-      .reverse();
+      });
+    });
+    return pageInMemory(rows, query, {
+      defaultSort: (first, second) =>
+        second.periodStart.getTime() - first.periodStart.getTime() ||
+        first.employeeName.localeCompare(second.employeeName),
+      stringFields: ATTENDANCE_ANNUAL_LEAVE_NOTICE_STRING_FILTER_FIELDS,
+      dateFields: ATTENDANCE_ANNUAL_LEAVE_NOTICE_DATE_FILTER_FIELDS,
+      enumFields: ATTENDANCE_ANNUAL_LEAVE_NOTICE_ENUM_FILTER_FIELDS,
+      numberFields: ATTENDANCE_ANNUAL_LEAVE_NOTICE_NUMBER_FILTER_FIELDS,
+      textFields: ['employeeName', 'employeeEmail'],
+    });
   }
 
   async createAnnualLeaveDeferral(

@@ -23,7 +23,8 @@ import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
 import { actor } from './attendance-actor';
 import { AttendanceLeavesService } from './attendance-leaves.service';
-import { AttendanceAnnualLeaveNoticeResponseDto } from './dto/attendance-annual-leave-notice-response.dto';
+import { AttendanceAnnualLeaveNoticePaginationQueryDto } from './dto/attendance-annual-leave-notice-pagination-query.dto';
+import { AttendanceAnnualLeaveNoticesResponseDto } from './dto/attendance-annual-leave-notice-response.dto';
 import { AttendanceLeaveBalancePaginationQueryDto } from './dto/attendance-leave-balance-pagination-query.dto';
 import {
   AttendanceLeaveBalanceRecordResponseDto,
@@ -234,8 +235,30 @@ export class AttendanceLeavesController {
   myAnnualLeaveNotices(
     @Req() req: AuthRequest,
     @Session() session: UserSession,
-  ): Promise<AttendanceAnnualLeaveNoticeResponseDto[]> {
-    return this.attendanceLeavesService.annualLeaveNotices(actor(req, session));
+    @Query() query: AttendanceAnnualLeaveNoticePaginationQueryDto,
+  ): Promise<AttendanceAnnualLeaveNoticesResponseDto> {
+    return this.attendanceLeavesService.annualLeaveNotices(
+      actor(req, session),
+      query,
+      true,
+    );
+  }
+
+  @Get('annual-leave-notices')
+  @Roles({ leaveBalance: ['read'], payslip: ['read'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '全店特休年度書面通知，含未休工資所以同時需要薪資單讀取權限',
+  })
+  annualLeaveNotices(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Query() query: AttendanceAnnualLeaveNoticePaginationQueryDto,
+  ): Promise<AttendanceAnnualLeaveNoticesResponseDto> {
+    return this.attendanceLeavesService.annualLeaveNotices(
+      actor(req, session),
+      query,
+      false,
+    );
   }
 
   @Get('leave-balances')
