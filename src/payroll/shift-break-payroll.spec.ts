@@ -52,6 +52,7 @@ async function snapshot(
     birthDate: '1990-01-01',
     pregnancyPeriods: [],
     nursingPeriods: [],
+    childcareReductionPeriods: [],
     indigenousHolidays: [],
   };
   const shift = {

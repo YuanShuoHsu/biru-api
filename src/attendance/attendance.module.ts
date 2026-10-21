@@ -38,6 +38,8 @@ import { AttendanceShiftsService } from './attendance-shifts.service';
   exports: [
     AttendanceEmployeesService,
     AttendanceLeavesService,
+    AttendanceNotificationsService,
+    AttendanceParentalService,
     AttendanceShiftTypesService,
   ],
 })

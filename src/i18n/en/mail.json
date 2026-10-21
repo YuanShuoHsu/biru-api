@@ -87,6 +87,15 @@
     "title": "Welcome, {name}!",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
+  "annual_leave_entitlement": {
+    "subject": "{organizationName}: You are entitled to {duration} of annual leave",
+    "title": "You are entitled to annual leave",
+    "intro": "You are entitled to {duration} of annual leave at {organizationName} for the leave year {period}.",
+    "rules": "Under Article 38 of the Labor Standards Act, you schedule your annual leave dates. Either party may ask to adjust them for urgent business needs or personal reasons. Days left unused at the end of the leave year are paid out, unless both parties agree to carry them over.",
+    "action": "View leave balances",
+    "duration": "{hours} hours",
+    "duration_minutes": "{hours} hours {minutes} minutes"
+  },
   "attendance_notification": {
     "kinds": {
       "leave": "leave",

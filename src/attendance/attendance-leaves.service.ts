@@ -40,6 +40,7 @@ import {
   attendanceRequest,
   attendanceShift,
 } from 'src/db/schema/attendance';
+import { payrollStatement } from 'src/db/schema/payroll';
 import { user } from 'src/db/schema/users';
 import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -1320,6 +1321,129 @@ export class AttendanceLeavesService {
       );
       return row;
     });
+  }
+
+  async annualLeaveNotices(actor: AttendanceActor) {
+    const employee = await requireEmployee(actor, this.db);
+    const [policy] = await this.db
+      .select({ id: attendanceLeaveType.id })
+      .from(attendanceLeaveType)
+      .where(
+        and(
+          eq(attendanceLeaveType.organizationId, actor.organizationId),
+          eq(attendanceLeaveType.statutoryKind, 'annual'),
+        ),
+      );
+    if (!policy) return [];
+    const [requests, hours, deferrals, statements] = await Promise.all([
+      this.db
+        .select({
+          startsAt: attendanceRequest.startsAt,
+          endsAt: attendanceRequest.endsAt,
+          leaveMinutes: attendanceRequest.leaveMinutes,
+        })
+        .from(attendanceRequest)
+        .where(
+          and(
+            eq(attendanceRequest.employeeId, employee.id),
+            eq(attendanceRequest.leaveTypeId, policy.id),
+            inArray(attendanceRequest.status, countedRequestStatuses),
+          ),
+        )
+        .orderBy(asc(attendanceRequest.startsAt)),
+      loadOneEmployeeHours(this.db, employee),
+      annualLeaveDeferrals(this.db, [employee.id]),
+      this.db
+        .select({
+          month: payrollStatement.month,
+          paidOn: payrollStatement.paidOn,
+          snapshot: payrollStatement.snapshot,
+        })
+        .from(payrollStatement)
+        .where(
+          and(
+            eq(payrollStatement.employeeId, employee.id),
+            eq(payrollStatement.status, 'published'),
+          ),
+        ),
+    ]);
+    const now = new Date();
+    const terminatedAt =
+      employee.terminatedAt && employee.terminatedAt <= now
+        ? employee.terminatedAt
+        : null;
+    return annualLeaveLedger(
+      employee.hiredAt,
+      terminatedAt ?? now,
+      weeklyMinutesOf(hours),
+      requests,
+      deferrals.map((deferral) => deferral.periodStart),
+    )
+      .map((entry) => ({
+        ...entry,
+        end:
+          terminatedAt && entry.start < terminatedAt && entry.end > terminatedAt
+            ? terminatedAt
+            : entry.end,
+      }))
+      .filter((entry) => entry.end <= now)
+      .map((entry) => {
+        const settled = statements.flatMap(({ month, paidOn, snapshot }) =>
+          (snapshot.annualLeaveSettlements ?? [])
+            .filter(
+              (settlement) => settlement.startsAt === entry.start.toISOString(),
+            )
+            .map(({ amountCents, unusedMinutes }) => ({
+              month,
+              unusedMinutes,
+              amountCents,
+              paidOn,
+            })),
+        );
+        const settlementMonth = platformDateString(entry.end).slice(0, 7);
+        // 結算明細存進 snapshot 之前發布的薪資單只有當月特休未休工資合計
+        const legacy = settled.length
+          ? []
+          : statements.flatMap(({ month, paidOn, snapshot }) => {
+              const line = snapshot.lines.find(
+                ({ code }) => code === 'annualLeavePay',
+              );
+              return !snapshot.annualLeaveSettlements &&
+                month === settlementMonth &&
+                line &&
+                BigInt(line.amountCents) > 0n
+                ? [
+                    {
+                      month,
+                      unusedMinutes: null,
+                      amountCents: line.amountCents,
+                      paidOn,
+                    },
+                  ]
+                : [];
+            });
+        return {
+          periodStart: entry.start,
+          periodEnd: entry.end,
+          grantedMinutes: entry.minutes,
+          carriedInMinutes: entry.carriedInMinutes,
+          usedMinutes: entry.usedMinutes,
+          expiredMinutes: entry.expiredMinutes,
+          unusedMinutes: entry.unusedMinutes,
+          deferred: entry.deferred,
+          leaves: requests
+            .filter(
+              (request) =>
+                request.startsAt >= entry.start && request.startsAt < entry.end,
+            )
+            .map((request) => ({
+              ...request,
+              leaveMinutes: request.leaveMinutes ?? 0,
+            })),
+          payouts: [...settled, ...legacy],
+        };
+      })
+      .reverse();
   }
 
   async createAnnualLeaveDeferral(

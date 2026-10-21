@@ -64,6 +64,17 @@ export class SaveAttendanceEmployeeDto {
   @ValidateNested({ each: true })
   @Type(() => DatePeriodDto)
   nursingPeriods: DatePeriodDto[];
+  @ApiProperty({
+    description:
+      '性平法 §19 每日減少工作時間一小時的期間，須在已登記子女滿三歲前',
+    isArray: true,
+    type: DatePeriodDto,
+  })
+  @IsArray()
+  @ArrayMaxSize(40)
+  @ValidateNested({ each: true })
+  @Type(() => DatePeriodDto)
+  childcareReductionPeriods: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: String })
   @IsArray()
   @ArrayMaxSize(60)

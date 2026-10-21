@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { lt, sql } from 'drizzle-orm';
+import { AttendanceNotificationsService } from 'src/attendance/attendance-notifications.service';
 import { CRON_ENABLED } from 'src/common/constants/cron';
 import { PLATFORM_TIMEZONE } from 'src/common/constants/timezone';
 import * as schema from 'src/db/schema';
@@ -27,6 +28,7 @@ export class TasksService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly attendanceNotificationsService: AttendanceNotificationsService,
     private readonly deletedRecordsService: DeletedRecordsService,
     private readonly payrollRulesService: PayrollRulesService,
     private readonly waitlistService: WaitlistService,
@@ -79,6 +81,21 @@ export class TasksService {
         this.logger.log(`更新 ${written.join(', ')} 年國定假日`);
     } catch (error) {
       this.logger.error('匯入政府行政機關辦公日曆表失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleAnnualLeaveEntitlementCron() {
+    try {
+      const notified =
+        await this.attendanceNotificationsService.notifyAnnualLeaveEntitlements();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
+    } catch (error) {
+      this.logger.error('寄送特休取得通知失敗', error);
     }
   }
 

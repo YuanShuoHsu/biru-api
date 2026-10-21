@@ -639,6 +639,17 @@ export const nursingAllowanceSeconds = (
     ? NURSING_SECONDS + (overtimeSeconds >= 3600 ? OVERTIME_NURSING_SECONDS : 0)
     : 0;
 
+// 性平法 §19 I①：每天減少工作時間一小時
+const CHILDCARE_REDUCTION_SECONDS = 3600;
+
+export const childcareReductionSeconds = (
+  childcareReductionPeriods: DatePeriod[],
+  date: string,
+) =>
+  withinPeriods(childcareReductionPeriods, date)
+    ? CHILDCARE_REDUCTION_SECONDS
+    : 0;
+
 export const maternalNightWork = (
   intervals: TimeInterval[],
   protectedPeriods: DatePeriod[],

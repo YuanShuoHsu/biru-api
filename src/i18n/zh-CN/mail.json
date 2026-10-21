@@ -87,6 +87,15 @@
     "title": "欢迎您，{name}！",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "annual_leave_entitlement": {
+    "subject": "{organizationName}：您已取得特别休假 {duration}",
+    "title": "您已取得特别休假",
+    "intro": "您在 {organizationName} 已取得特别休假 {duration}，特休年度为 {period}。",
+    "rules": "依劳动基准法第 38 条，特别休假期日由您安排；雇主基于企业经营上的紧急需求或您因个人因素，得与对方协商调整。年度终结时未休完的日数，雇主应发给工资，双方协议递延者除外。",
+    "action": "查看休假额度",
+    "duration": "{hours} 小时",
+    "duration_minutes": "{hours} 小时 {minutes} 分"
+  },
   "attendance_notification": {
     "kinds": {
       "leave": "请假",

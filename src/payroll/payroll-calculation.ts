@@ -118,6 +118,7 @@ export function calculatePayroll(
     injuryCompensationCents?: string;
     monthlyOvertimeLimitSeconds?: number;
     absenceSeconds?: number;
+    childcareReductionSeconds?: number;
     attendanceDeductibleSeconds?: number;
     earnings?: {
       name: string;
@@ -264,6 +265,14 @@ export function calculatePayroll(
     hourlyNumerator * BigInt(absenceSeconds),
     hourlyDenominator * 3600n,
   );
+  const childcareReductionSeconds =
+    terms.salaryType === 'monthly'
+      ? (fraction.childcareReductionSeconds ?? 0)
+      : 0;
+  const exactChildcareReductionDeduction = ratio(
+    hourlyNumerator * BigInt(childcareReductionSeconds),
+    hourlyDenominator * 3600n,
+  );
   const regular = roundCents(exactRegular);
   const paidAllowance = roundCents(exactAllowance);
   const attendanceBonus = roundCents(exactAttendanceBonus);
@@ -287,6 +296,9 @@ export function calculatePayroll(
   );
   const leaveDeduction = roundCents(exactLeaveDeduction);
   const absenceDeduction = roundCents(exactAbsenceDeduction);
+  const childcareReductionDeduction = roundCents(
+    exactChildcareReductionDeduction,
+  );
   lines.push(
     {
       code: 'basePay',
@@ -327,6 +339,11 @@ export function calculatePayroll(
       amountCents: absenceDeduction.toString(),
       seconds: absenceSeconds,
     },
+    {
+      code: 'childcareReductionDeduction',
+      amountCents: childcareReductionDeduction.toString(),
+      seconds: childcareReductionSeconds,
+    },
   );
   const resolved = taiwanDeductions(
     rules,
@@ -342,7 +359,8 @@ export function calculatePayroll(
       annualLeavePay +
       calendarLeavePay -
       leaveDeduction -
-      absenceDeduction,
+      absenceDeduction -
+      childcareReductionDeduction,
     {
       coverageDays: fraction.coverageDays,
       healthCharged: fraction.healthCharged,
@@ -391,6 +409,7 @@ export function calculatePayroll(
     exactHolidayPay,
     negateRatio(exactLeaveDeduction),
     negateRatio(exactAbsenceDeduction),
+    negateRatio(exactChildcareReductionDeduction),
     ratio(
       calendarLeavePay +
         otherWage +
@@ -399,7 +418,10 @@ export function calculatePayroll(
         annualLeavePay +
         severancePay +
         noticePay -
-        (deduction - leaveDeduction - absenceDeduction),
+        (deduction -
+          leaveDeduction -
+          absenceDeduction -
+          childcareReductionDeduction),
     ),
   );
   if (exactNet.numerator < 0n) blockers.push('negativeNetPay');

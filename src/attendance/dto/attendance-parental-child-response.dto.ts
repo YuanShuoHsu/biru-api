@@ -9,11 +9,12 @@ export class AttendanceParentalChildResponseDto {
   @ApiProperty() label: string;
   @ApiProperty() birthDate: Date;
   @ApiProperty() createdAt: Date;
+  @ApiProperty() deletable: boolean;
 }
 
 export class AttendanceParentalChildRecordResponseDto extends OmitType(
   AttendanceParentalChildResponseDto,
-  ['employeeName', 'employeeEmail'] as const,
+  ['employeeName', 'employeeEmail', 'deletable'] as const,
 ) {}
 
 export class AttendanceParentalChildrenResponseDto {

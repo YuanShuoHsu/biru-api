@@ -172,6 +172,10 @@ export const attendanceEmployee = pgTable(
       .notNull()
       .$type<DatePeriod[]>()
       .default([]),
+    childcareReductionPeriods: jsonb('childcare_reduction_periods')
+      .notNull()
+      .$type<DatePeriod[]>()
+      .default([]),
     indigenousHolidays: jsonb('indigenous_holidays')
       .notNull()
       .$type<string[]>()
@@ -496,6 +500,31 @@ export const attendanceAnnualLeaveDeferral = pgTable(
   },
   (t) => [
     uniqueIndex('attendance_annual_leave_deferral_period_uidx').on(
+      t.employeeId,
+      t.periodStart,
+    ),
+  ],
+);
+
+export const attendanceAnnualLeaveNotice = pgTable(
+  'attendance_annual_leave_notice',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => attendanceEmployee.id),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    grantedMinutes: integer('granted_minutes').notNull(),
+    notifiedAt: timestamp('notified_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('attendance_annual_leave_notice_period_uidx').on(
       t.employeeId,
       t.periodStart,
     ),

@@ -38,6 +38,7 @@ import {
   attendanceHolidaySubstitute,
   attendanceLeaveCase,
   attendanceLeaveType,
+  attendanceParentalChild,
   attendanceRequest,
   attendanceSettings,
   attendanceShift,
@@ -89,6 +90,7 @@ import {
   weeklyMinutesAt,
 } from './employee-hours';
 import { findEmployee } from './employee-lookup';
+import { anniversary } from './leave-rules';
 import { shiftStartDate } from './shift-queries';
 import {
   employeeStatus,
@@ -116,6 +118,7 @@ const employeeDeletableSql = sql<boolean>`${attendanceEmployee.id} IS NOT NULL A
   UNION ALL SELECT 1 FROM attendance_leave_balance WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM attendance_leave_case WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM attendance_annual_leave_deferral WHERE employee_id = ${attendanceEmployee.id}
+  UNION ALL SELECT 1 FROM attendance_annual_leave_notice WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM attendance_parental_child WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM payroll_terms WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM payroll_earning WHERE employee_id = ${attendanceEmployee.id}
@@ -247,6 +250,8 @@ export class AttendanceEmployeesService {
           workPermits: attendanceEmployee.workPermits,
           pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
           nursingPeriods: attendanceEmployee.nursingPeriods,
+          childcareReductionPeriods:
+            attendanceEmployee.childcareReductionPeriods,
           indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
@@ -351,6 +356,8 @@ export class AttendanceEmployeesService {
           workPermits: attendanceEmployee.workPermits,
           pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
           nursingPeriods: attendanceEmployee.nursingPeriods,
+          childcareReductionPeriods:
+            attendanceEmployee.childcareReductionPeriods,
           indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
           restDayWeekday: attendanceEmployee.restDayWeekday,
@@ -413,6 +420,7 @@ export class AttendanceEmployeesService {
             employee.workPermits === null ||
             employee.pregnancyPeriods === null ||
             employee.nursingPeriods === null ||
+            employee.childcareReductionPeriods === null ||
             employee.indigenousHolidays === null ||
             employee.createdAt === null
               ? null
@@ -426,6 +434,7 @@ export class AttendanceEmployeesService {
                   workPermits: employee.workPermits,
                   pregnancyPeriods: employee.pregnancyPeriods,
                   nursingPeriods: employee.nursingPeriods,
+                  childcareReductionPeriods: employee.childcareReductionPeriods,
                   indigenousHolidays: employee.indigenousHolidays,
                   ...legalStatusObligations(employee.legalStatus),
                   createdAt: employee.createdAt,
@@ -473,9 +482,37 @@ export class AttendanceEmployeesService {
           ...dto.workPermits,
           ...dto.pregnancyPeriods,
           ...dto.nursingPeriods,
+          ...dto.childcareReductionPeriods,
         ].some(({ from, to }) => from > to)
       )
         throw badRequestError('invalidInterval');
+      if (dto.childcareReductionPeriods.length) {
+        const children = await tx
+          .select({ birthDate: attendanceParentalChild.birthDate })
+          .from(attendanceParentalChild)
+          .innerJoin(
+            attendanceEmployee,
+            eq(attendanceEmployee.id, attendanceParentalChild.employeeId),
+          )
+          .where(
+            and(
+              eq(attendanceEmployee.organizationId, actor.organizationId),
+              eq(attendanceEmployee.userId, dto.userId),
+            ),
+          );
+        if (
+          dto.childcareReductionPeriods.some(
+            ({ from, to }) =>
+              from < platformDateString(hiredAt) ||
+              !children.some(
+                ({ birthDate }) =>
+                  platformDateString(birthDate) <= from &&
+                  to < platformDateString(anniversary(birthDate, 36)),
+              ),
+          )
+        )
+          throw badRequestError('childcareReductionInvalid');
+      }
       const indigenousHolidays = [...new Set(dto.indigenousHolidays)].sort();
       const statutoryConflict = indigenousHolidays.length
         ? await tx
@@ -736,6 +773,7 @@ export class AttendanceEmployeesService {
         workPermits: workPermitRequired(dto.legalStatus) ? dto.workPermits : [],
         pregnancyPeriods: dto.pregnancyPeriods,
         nursingPeriods: dto.nursingPeriods,
+        childcareReductionPeriods: dto.childcareReductionPeriods,
         indigenousHolidays,
         ...restWeekdays,
         hiredAt,

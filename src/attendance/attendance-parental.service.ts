@@ -8,6 +8,9 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
+  ne,
+  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
@@ -28,15 +31,20 @@ import {
   attendanceRequest,
 } from 'src/db/schema/attendance';
 import { user } from 'src/db/schema/users';
+import { startDeletedRecordBatch } from 'src/deleted-records/request-batch';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
 
 import type { AttendanceActor } from './attendance-actor';
 import {
   assertPayrollUnlocked,
+  auditChanges,
   lockOrganization,
+  type RestoredRecord,
+  type Transaction,
   writeAudit,
 } from './attendance-audit';
 import { badRequestError, conflictError } from './attendance-errors';
+import { countedRequestStatuses } from './attendance-rules';
 import {
   ATTENDANCE_REQUEST_REVIEWED_EVENT,
   ATTENDANCE_REQUEST_SUBMITTED_EVENT,
@@ -57,12 +65,14 @@ import {
 } from './dto/attendance-parental-return-pagination-query.dto';
 import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto';
 import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto';
+import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto';
 import {
   ReviewAttendanceRequestDto,
   reviewReasonOf,
 } from './dto/review-attendance-request.dto';
 import { requireEmployee } from './employee-lookup';
-import { calendarLeaveMinutes } from './leave-rules';
+import { anniversary, calendarLeaveMinutes } from './leave-rules';
+import { parentalLeaveErrors } from './parental-leave';
 import { assertNoParentalReturn, matchParentalChild } from './parental-ledger';
 import { assertIndependentReview } from './review-separation';
 
@@ -132,6 +142,9 @@ export class AttendanceParentalService {
           child: attendanceParentalChild,
           employeeName: user.name,
           employeeEmail: user.email,
+          deletable: sql<boolean>`NOT EXISTS (
+            SELECT 1 FROM attendance_leave_case WHERE child_id = ${attendanceParentalChild.id}
+          )`,
         })
         .from(attendanceParentalChild)
         .innerJoin(
@@ -157,8 +170,9 @@ export class AttendanceParentalService {
         .where(where),
     ]);
     return {
-      data: rows.map(({ child, employeeEmail, employeeName }) => ({
+      data: rows.map(({ child, deletable, employeeEmail, employeeName }) => ({
         ...child,
+        deletable,
         employeeEmail,
         employeeName,
       })),
@@ -169,8 +183,9 @@ export class AttendanceParentalService {
   async createParentalChild(
     actor: AttendanceActor,
     dto: CreateAttendanceParentalChildDto,
+    restored?: RestoredRecord,
   ) {
-    return this.db.transaction(async (tx) => {
+    return (restored?.tx ?? this.db).transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [employee] = await tx
         .select()
@@ -185,43 +200,197 @@ export class AttendanceParentalService {
       await assertIndependentReview(tx, actor, 'parentalChild', [
         employee.userId,
       ]);
-      const birthDate = new Date(dto.birthDate);
-      if (
-        !dto.reference.trim() ||
-        !dto.label.trim() ||
-        !Number.isFinite(birthDate.getTime()) ||
-        birthDate > new Date() ||
-        birthDate.getTime() !== platformMidnight(birthDate.getTime())
-      )
-        throw badRequestError('parentalChildMismatch');
-      const [existing] = await tx
-        .select()
-        .from(attendanceParentalChild)
-        .where(
-          and(
-            eq(attendanceParentalChild.organizationId, actor.organizationId),
-            eq(attendanceParentalChild.employeeId, employee.id),
-            eq(attendanceParentalChild.reference, dto.reference.trim()),
-          ),
-        );
-      if (existing) throw conflictError('parentalChildExists');
+      const { birthDate, label, reference } = await this.prepareParentalChild(
+        tx,
+        actor,
+        employee.id,
+        dto,
+      );
       const [row] = await tx
         .insert(attendanceParentalChild)
         .values({
-          id: randomUUID(),
+          id: restored?.id ?? randomUUID(),
           organizationId: actor.organizationId,
           employeeId: employee.id,
-          reference: dto.reference.trim(),
-          label: dto.label.trim(),
+          reference,
+          label,
           birthDate,
         })
         .returning();
-      await writeAudit(tx, actor, 'parentalChild.create', row.id, {
-        employeeId: employee.id,
-        reference: row.reference,
-      });
+      await writeAudit(
+        tx,
+        actor,
+        restored ? 'parentalChild.restore' : 'parentalChild.create',
+        row.id,
+        { employeeId: employee.id, reference: row.reference },
+      );
+      await restored?.finalize(tx);
       return row;
     });
+  }
+
+  async updateParentalChild(
+    actor: AttendanceActor,
+    id: string,
+    dto: UpdateAttendanceParentalChildDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      const before = await this.requireParentalChild(tx, actor, id);
+      const values = await this.prepareParentalChild(
+        tx,
+        actor,
+        before.employeeId,
+        dto,
+        id,
+      );
+      if (values.birthDate.getTime() !== before.birthDate.getTime()) {
+        const cases = await tx
+          .select()
+          .from(attendanceLeaveCase)
+          .where(
+            and(
+              eq(attendanceLeaveCase.organizationId, actor.organizationId),
+              eq(attendanceLeaveCase.employeeId, before.employeeId),
+            ),
+          );
+        const updatedCases = cases.map((item) =>
+          item.childId === id ? { ...item, eventDate: values.birthDate } : item,
+        );
+        if (
+          updatedCases.some(
+            (item) =>
+              item.childId === id &&
+              (item.startsAt < values.birthDate ||
+                item.endsAt > anniversary(values.birthDate, 36)),
+          )
+        )
+          throw badRequestError('invalidParentalInterval');
+        const parentalCases = updatedCases.filter((item) => item.childId);
+        const records = parentalCases.length
+          ? await tx
+              .select()
+              .from(attendanceRequest)
+              .where(
+                and(
+                  inArray(
+                    attendanceRequest.leaveCaseId,
+                    parentalCases.map((item) => item.id),
+                  ),
+                  inArray(attendanceRequest.status, countedRequestStatuses),
+                ),
+              )
+          : [];
+        const errors = parentalLeaveErrors(
+          records.map((record) => ({
+            ...record,
+            leaveCaseId: record.leaveCaseId!,
+          })),
+          parentalCases,
+        );
+        if (errors.length) throw conflictError(errors[0]);
+        await tx
+          .update(attendanceLeaveCase)
+          .set({ eventDate: values.birthDate })
+          .where(eq(attendanceLeaveCase.childId, id));
+      }
+      const [row] = await tx
+        .update(attendanceParentalChild)
+        .set(values)
+        .where(eq(attendanceParentalChild.id, id))
+        .returning();
+      await writeAudit(
+        tx,
+        actor,
+        'parentalChild.update',
+        id,
+        auditChanges(before, row),
+      );
+      return row;
+    });
+  }
+
+  private async prepareParentalChild(
+    tx: Transaction,
+    actor: AttendanceActor,
+    employeeId: string,
+    dto: UpdateAttendanceParentalChildDto,
+    exceptId?: string,
+  ) {
+    const birthDate = new Date(dto.birthDate);
+    const reference = dto.reference.trim();
+    const label = dto.label.trim();
+    if (
+      !reference ||
+      !label ||
+      !Number.isFinite(birthDate.getTime()) ||
+      birthDate > new Date() ||
+      birthDate.getTime() !== platformMidnight(birthDate.getTime())
+    )
+      throw badRequestError('parentalChildMismatch');
+    const [existing] = await tx
+      .select({ id: attendanceParentalChild.id })
+      .from(attendanceParentalChild)
+      .where(
+        and(
+          eq(attendanceParentalChild.organizationId, actor.organizationId),
+          eq(attendanceParentalChild.employeeId, employeeId),
+          eq(attendanceParentalChild.reference, reference),
+          exceptId ? ne(attendanceParentalChild.id, exceptId) : undefined,
+        ),
+      );
+    if (existing) throw conflictError('parentalChildExists');
+    return { birthDate, label, reference };
+  }
+
+  async deleteParentalChild(actor: AttendanceActor, id: string) {
+    await this.db.transaction(async (tx) => {
+      await lockOrganization(tx, actor.organizationId);
+      await startDeletedRecordBatch(tx);
+      const child = await this.requireParentalChild(tx, actor, id);
+      const [referenced] = await tx
+        .select({ id: attendanceLeaveCase.id })
+        .from(attendanceLeaveCase)
+        .where(eq(attendanceLeaveCase.childId, id))
+        .limit(1);
+      if (referenced) throw conflictError('parentalChildInUse');
+      await tx
+        .delete(attendanceParentalChild)
+        .where(eq(attendanceParentalChild.id, id));
+      await writeAudit(tx, actor, 'parentalChild.delete', id, {
+        employeeId: child.employeeId,
+        reference: child.reference,
+        label: child.label,
+        birthDate: child.birthDate,
+      });
+    });
+    return { id };
+  }
+
+  private async requireParentalChild(
+    tx: Transaction,
+    actor: AttendanceActor,
+    id: string,
+  ) {
+    const [row] = await tx
+      .select({
+        child: attendanceParentalChild,
+        userId: attendanceEmployee.userId,
+      })
+      .from(attendanceParentalChild)
+      .innerJoin(
+        attendanceEmployee,
+        eq(attendanceEmployee.id, attendanceParentalChild.employeeId),
+      )
+      .where(
+        and(
+          eq(attendanceParentalChild.id, id),
+          eq(attendanceParentalChild.organizationId, actor.organizationId),
+        ),
+      );
+    if (!row) throw new NotFoundException();
+    await assertIndependentReview(tx, actor, 'parentalChild', [row.userId]);
+    return row.child;
   }
 
   async assignParentalChild(

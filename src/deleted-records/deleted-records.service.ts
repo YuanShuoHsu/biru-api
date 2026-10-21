@@ -21,6 +21,7 @@ import type {
 } from 'src/attendance/attendance-audit';
 import { AttendanceEmployeesService } from 'src/attendance/attendance-employees.service';
 import { AttendanceLeavesService } from 'src/attendance/attendance-leaves.service';
+import { AttendanceParentalService } from 'src/attendance/attendance-parental.service';
 import { AttendanceShiftTypesService } from 'src/attendance/attendance-shift-types.service';
 import { isAuthorized } from 'src/auth/permissions';
 import { platformDateString } from 'src/common/constants/timezone';
@@ -230,6 +231,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly attendanceEmployees: AttendanceEmployeesService,
     private readonly attendanceLeaves: AttendanceLeavesService,
+    private readonly attendanceParental: AttendanceParentalService,
     private readonly attendanceShiftTypes: AttendanceShiftTypesService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -571,6 +573,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
             workPermits: asPeriods(data.workPermits),
             pregnancyPeriods: asPeriods(data.pregnancyPeriods),
             nursingPeriods: asPeriods(data.nursingPeriods),
+            childcareReductionPeriods: asPeriods(
+              data.childcareReductionPeriods,
+            ),
             indigenousHolidays: asStrings(data.indigenousHolidays),
             regularLeaveWeekday:
               asNumber(data.regularLeaveWeekday) ?? undefined,
@@ -636,6 +641,18 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
             // 店家同意只放寬日期限制且不入庫；原案件能建立就代表日期當時合法，視為同意才不會擋下原本合法的案件
             earlyParentalAgreed: true,
             extensionAgreed: true,
+          },
+          restored,
+        );
+        return;
+      case 'attendance_parental_child':
+        await this.attendanceParental.createParentalChild(
+          actor,
+          {
+            employeeId: asString(data.employeeId) ?? '',
+            reference: asString(data.reference) ?? '',
+            label: asString(data.label) ?? '',
+            birthDate: asString(data.birthDate) ?? '',
           },
           restored,
         );

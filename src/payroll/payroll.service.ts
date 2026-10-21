@@ -42,6 +42,7 @@ import {
   ageOn,
   agreedWorkdates,
   childLaborViolation,
+  childcareReductionSeconds,
   attendanceIncomplete,
   exceedsConsecutiveWorkdays,
   exceedsStudentWeeklyLimit,
@@ -1229,6 +1230,7 @@ export class PayrollService {
     for (const [key, intervals] of intervalsByDay)
       Object.assign(days.get(key)!, periodWork(intervals, start, end));
     let absenceSeconds = 0;
+    let childcareReductionSecondsTotal = 0;
     for (const [key, absence] of absenceByDay) {
       const nursing = Math.min(
         absence,
@@ -1238,7 +1240,12 @@ export class PayrollService {
           overtimeByDay.get(key) ?? 0,
         ),
       );
-      absenceSeconds += absence - nursing;
+      const childcare = Math.min(
+        absence - nursing,
+        childcareReductionSeconds(employee.childcareReductionPeriods, key),
+      );
+      absenceSeconds += absence - nursing - childcare;
+      childcareReductionSecondsTotal += childcare;
       days.get(key)!.paidLeaveSeconds += nursing;
     }
     if (exceedsWeeklySchedule(adjacentShifts, start, end))
@@ -1530,6 +1537,8 @@ export class PayrollService {
         leaveDeductionSeconds,
         {
           absenceSeconds,
+          // 性平法 §21 II：育兒減少的工時不得視為缺勤而影響全勤獎金
+          childcareReductionSeconds: childcareReductionSecondsTotal,
           attendanceDeductibleSeconds:
             attendanceDeductibleLeaveSeconds + absenceSeconds,
           earnings,
@@ -1632,6 +1641,14 @@ export class PayrollService {
       }),
       nonResident,
       ...(paidOn && { paidOn }),
+      annualLeaveSettlements: annual.map(
+        ({ endsAt, startsAt, unusedMinutes }, index) => ({
+          startsAt,
+          endsAt,
+          unusedMinutes,
+          amountCents: annualLeavePayoutCents[index],
+        }),
+      ),
       terms: profile.terms,
       ruleVersion: ruleSet.ruleVersion,
       blockers: [...new Set([...blockers, ...calculated.blockers])],
@@ -1639,7 +1656,7 @@ export class PayrollService {
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'statutory-automation-4',
+            calculationVersion: 'statutory-automation-5',
             overtimeAgreedFrom,
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,

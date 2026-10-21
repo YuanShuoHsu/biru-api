@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -21,6 +22,7 @@ import type { AuthRequest } from 'src/menus/guards/roles.guard';
 import { actor } from './attendance-actor';
 import { AttendanceParentalService } from './attendance-parental.service';
 import { AssignAttendanceParentalChildDto } from './dto/assign-attendance-parental-child.dto';
+import { AttendanceIdResponseDto } from './dto/attendance-id-response.dto';
 import { AttendanceLeaveCaseRecordResponseDto } from './dto/attendance-leave-case-response.dto';
 import { AttendanceParentalChildPaginationQueryDto } from './dto/attendance-parental-child-pagination-query.dto';
 import {
@@ -35,6 +37,7 @@ import {
 import { CreateAttendanceParentalChildDto } from './dto/create-attendance-parental-child.dto';
 import { CreateAttendanceParentalReturnDto } from './dto/create-attendance-parental-return.dto';
 import { ReviewAttendanceRequestDto } from './dto/review-attendance-request.dto';
+import { UpdateAttendanceParentalChildDto } from './dto/update-attendance-parental-child.dto';
 
 @ApiTags('attendance')
 @Controller('organizations/:organizationSlug/attendance')
@@ -84,6 +87,36 @@ export class AttendanceParentalController {
     return this.attendanceParentalService.createParentalChild(
       actor(req, session),
       dto,
+    );
+  }
+
+  @Patch('children/:id')
+  @Roles({ parentalChild: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '更正子女資料，已有育嬰案件時一併重驗期間' })
+  updateChild(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+    @Body() dto: UpdateAttendanceParentalChildDto,
+  ): Promise<AttendanceParentalChildRecordResponseDto> {
+    return this.attendanceParentalService.updateParentalChild(
+      actor(req, session),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('children/:id')
+  @Roles({ parentalChild: ['delete'] }, 'organizationSlug')
+  @ApiOperation({ summary: '刪除尚未被請假案件使用的子女資料' })
+  deleteChild(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceIdResponseDto> {
+    return this.attendanceParentalService.deleteParentalChild(
+      actor(req, session),
+      id,
     );
   }
 

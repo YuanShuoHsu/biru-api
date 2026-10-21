@@ -215,7 +215,7 @@ export class AttendanceShiftsController {
 
   @Post('punch')
   @OrganizationMember('organizationSlug')
-  @ApiOperation({ summary: '打卡（上下班、休息起迄）' })
+  @ApiOperation({ summary: '打卡（上下班）' })
   punch(
     @Req() req: AuthRequest,
     @Session() session: UserSession,

@@ -34,6 +34,7 @@ export const PAYROLL_EARNING_LINE_CODES = [
 export const PAYROLL_DEDUCTION_LINE_CODES = [
   'leaveDeduction',
   'absenceDeduction',
+  'childcareReductionDeduction',
   'laborInsurance',
   'healthInsurance',
   'healthSupplement',
@@ -257,6 +258,12 @@ export interface PayrollSnapshot {
   retirementIncomeCents?: string;
   nonResident?: boolean;
   paidOn?: string;
+  annualLeaveSettlements?: {
+    startsAt: string;
+    endsAt: string;
+    unusedMinutes: number;
+    amountCents: string;
+  }[];
 }
 
 export interface PayrollRuleSource {

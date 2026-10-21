@@ -1548,6 +1548,13 @@
       "when": 1792517017991,
       "tag": "0220_quant_bot_drop_max_daily_loss",
       "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1792550822333,
+      "tag": "0221_annual_leave_notice_and_childcare",
+      "breakpoints": true
     }
   ]
 }

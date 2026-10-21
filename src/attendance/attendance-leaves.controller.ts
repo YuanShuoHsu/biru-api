@@ -23,6 +23,7 @@ import type { AuthRequest } from 'src/menus/guards/roles.guard';
 
 import { actor } from './attendance-actor';
 import { AttendanceLeavesService } from './attendance-leaves.service';
+import { AttendanceAnnualLeaveNoticeResponseDto } from './dto/attendance-annual-leave-notice-response.dto';
 import { AttendanceLeaveBalancePaginationQueryDto } from './dto/attendance-leave-balance-pagination-query.dto';
 import {
   AttendanceLeaveBalanceRecordResponseDto,
@@ -223,6 +224,18 @@ export class AttendanceLeavesController {
       query,
       true,
     );
+  }
+
+  @Get('me/annual-leave-notices')
+  @OrganizationMember('organizationSlug')
+  @ApiOperation({
+    summary: '我的特休年度書面通知（勞基法 §38 V：特休日期與未休日數工資）',
+  })
+  myAnnualLeaveNotices(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+  ): Promise<AttendanceAnnualLeaveNoticeResponseDto[]> {
+    return this.attendanceLeavesService.annualLeaveNotices(actor(req, session));
   }
 
   @Get('leave-balances')

@@ -537,6 +537,67 @@ export class MailsService {
       .catch(() => {});
   }
 
+  public async sendAnnualLeaveEntitlement({
+    recipient: { email, lang },
+    organizationName,
+    path,
+    periodStart,
+    periodEnd,
+    grantedMinutes,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    path: string;
+    periodStart: Date;
+    periodEnd: Date;
+    grantedMinutes: number;
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const hours = Math.floor(grantedMinutes / 60);
+    const minutes = grantedMinutes % 60;
+    const args = {
+      duration: this.i18n.t(
+        minutes
+          ? 'mail.annual_leave_entitlement.duration_minutes'
+          : 'mail.annual_leave_entitlement.duration',
+        { args: { hours, minutes }, lang },
+      ),
+      organizationName,
+      period: new Intl.DateTimeFormat(lang, {
+        dateStyle: 'medium',
+        timeZone: PLATFORM_TIMEZONE,
+      }).formatRange(periodStart, new Date(periodEnd.getTime() - 1)),
+      productName,
+    };
+    const translate = { args, lang };
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: this.i18n.t('mail.annual_leave_entitlement.subject', translate),
+      template: 'attendance-notification',
+      context: {
+        action: this.i18n.t('mail.annual_leave_entitlement.action', options),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.annual_leave_entitlement.intro', translate),
+        productName,
+        reason: this.i18n.t('mail.annual_leave_entitlement.rules', options),
+        salutation: this.i18n.t(
+          'mail.attendance_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.annual_leave_entitlement.title', translate),
+        trouble_hint: this.i18n.t(
+          'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
   public async sendWaitlistNotification({
     email,
     holdUntil,

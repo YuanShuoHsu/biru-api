@@ -1,9 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 
-import { attendanceEmployee } from 'src/db/schema/attendance';
+import {
+  attendanceAnnualLeaveNotice,
+  attendanceEmployee,
+} from 'src/db/schema/attendance';
 import { organization } from 'src/db/schema/organizations';
 import { user } from 'src/db/schema/users';
 import { DRIZZLE, type DrizzleDB } from 'src/drizzle/drizzle.module';
@@ -15,14 +19,21 @@ import {
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
 } from './attendance-notification.events';
+import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours';
+import { anniversary, annualLeaveLedger } from './leave-rules';
 import { reviewerUserIds } from './review-separation';
 
 const REVIEW_PAGES = {
   parentalReturn: '/attendance/leave/parental-returns',
-  default: '/attendance/records/reviews',
+  default: '/attendance/schedule/reviews',
 } as const;
 
 const MY_REQUESTS_PAGE = '/attendance/mine/requests';
+
+const MY_LEAVE_PAGE = '/attendance/mine/leave';
+
+// 勞基法施行細則 §24 III：取得特休權利之日起 30 日內告知
+const ENTITLEMENT_NOTICE_DAYS = 30;
 
 @Injectable()
 export class AttendanceNotificationsService {
@@ -101,6 +112,86 @@ export class AttendanceNotificationsService {
     } catch (error) {
       this.logger.error(error);
     }
+  }
+
+  async notifyAnnualLeaveEntitlements(now = new Date()) {
+    const windowStart = new Date(
+      now.getTime() - ENTITLEMENT_NOTICE_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const employees = (
+      await this.db
+        .select({
+          id: attendanceEmployee.id,
+          organizationId: attendanceEmployee.organizationId,
+          hiredAt: attendanceEmployee.hiredAt,
+          email: user.email,
+          lang: user.lang,
+          storeName: organization.name,
+          storeSlug: organization.slug,
+        })
+        .from(attendanceEmployee)
+        .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+        .innerJoin(
+          organization,
+          eq(organization.id, attendanceEmployee.organizationId),
+        )
+        .where(
+          and(
+            lte(attendanceEmployee.hiredAt, now),
+            or(
+              isNull(attendanceEmployee.terminatedAt),
+              gt(attendanceEmployee.terminatedAt, now),
+            ),
+          ),
+        )
+    ).filter((employee) => anniversary(employee.hiredAt, 6) <= now);
+    if (!employees.length) return 0;
+    const hours = await loadEmployeeHours(this.db, employees);
+    const candidates = employees.flatMap((employee) => {
+      const period = annualLeaveLedger(
+        employee.hiredAt,
+        now,
+        weeklyMinutesOf(hours.get(employee.id)!),
+      ).at(-1);
+      return period &&
+        period.minutes > 0 &&
+        period.start > windowStart &&
+        period.start <= now
+        ? [{ employee, period }]
+        : [];
+    });
+    let notified = 0;
+    for (const { employee, period } of candidates) {
+      try {
+        await this.db.transaction(async (tx) => {
+          const [inserted] = await tx
+            .insert(attendanceAnnualLeaveNotice)
+            .values({
+              id: randomUUID(),
+              organizationId: employee.organizationId,
+              employeeId: employee.id,
+              periodStart: period.start,
+              periodEnd: period.end,
+              grantedMinutes: period.minutes,
+            })
+            .onConflictDoNothing()
+            .returning({ id: attendanceAnnualLeaveNotice.id });
+          if (!inserted) return;
+          await this.mails.sendAnnualLeaveEntitlement({
+            recipient: employee,
+            organizationName: employee.storeName,
+            path: `${MY_LEAVE_PAGE}?organization=${employee.storeSlug}`,
+            periodStart: period.start,
+            periodEnd: period.end,
+            grantedMinutes: period.minutes,
+          });
+          notified += 1;
+        });
+      } catch (error) {
+        this.logger.error(error);
+      }
+    }
+    return notified;
   }
 
   @OnEvent(ATTENDANCE_REQUEST_REVIEWED_EVENT, { async: true })

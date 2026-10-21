@@ -89,6 +89,7 @@ export type I18nTranslations = {
             "implausibleMinimumWage": string;
             "inconsistentDayKind": string;
             "indigenousHolidayInUse": string;
+            "childcareReductionInvalid": string;
             "indigenousHolidayInvalid": string;
             "insufficientLeaveBalance": string;
             "invalidBusinessNumber": string;
@@ -130,6 +131,7 @@ export type I18nTranslations = {
             "overlappingShift": string;
             "overtimeAgreementRequired": string;
             "parentalChildExists": string;
+            "parentalChildInUse": string;
             "parentalChildMismatch": string;
             "parentalChildRequired": string;
             "parentalChildUnassigned": string;
@@ -431,6 +433,15 @@ export type I18nTranslations = {
             "subject": string;
             "title": string;
             "trouble_hint": string;
+        };
+        "annual_leave_entitlement": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "rules": string;
+            "action": string;
+            "duration": string;
+            "duration_minutes": string;
         };
         "attendance_notification": {
             "kinds": {

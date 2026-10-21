@@ -17,6 +17,7 @@ const employee = {
   birthDate: '1990-01-01',
   pregnancyPeriods: [],
   nursingPeriods: [],
+  childcareReductionPeriods: [],
   indigenousHolidays: [],
 };
 

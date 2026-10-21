@@ -37,6 +37,8 @@ export class AttendanceEmploymentResponseDto {
   pregnancyPeriods: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: DatePeriodDto })
   nursingPeriods: DatePeriodDto[];
+  @ApiProperty({ isArray: true, type: DatePeriodDto })
+  childcareReductionPeriods: DatePeriodDto[];
   @ApiProperty({ isArray: true, type: String })
   indigenousHolidays: string[];
   @ApiPropertyOptional({ nullable: true, type: Number })

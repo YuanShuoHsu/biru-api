@@ -87,6 +87,15 @@
     "title": "ようこそ、{name}さん！",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "annual_leave_entitlement": {
+    "subject": "{organizationName}：特別休暇 {duration} を取得しました",
+    "title": "特別休暇を取得しました",
+    "intro": "{organizationName} での特別休暇 {duration} を取得しました。休暇年度は {period} です。",
+    "rules": "労働基準法第 38 条により、特別休暇の取得日はあなたが決めます。雇主の経営上の緊急の必要またはあなた個人の事情により、双方で調整を協議できます。年度末に未消化の日数は賃金が支払われます（双方が繰越に合意した場合を除く）。",
+    "action": "休暇枠を見る",
+    "duration": "{hours} 時間",
+    "duration_minutes": "{hours} 時間 {minutes} 分"
+  },
   "attendance_notification": {
     "kinds": {
       "leave": "休暇",

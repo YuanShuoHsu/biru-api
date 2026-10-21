@@ -87,6 +87,15 @@
     "title": "歡迎您，{name}！",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "annual_leave_entitlement": {
+    "subject": "{organizationName}：您已取得特別休假 {duration}",
+    "title": "您已取得特別休假",
+    "intro": "您在 {organizationName} 已取得特別休假 {duration}，特休年度為 {period}。",
+    "rules": "依勞動基準法第 38 條，特別休假期日由您排定；雇主基於企業經營上之急迫需求或您因個人因素，得與對方協商調整。年度終結時未休完的日數，雇主應發給工資，雙方協議遞延者除外。",
+    "action": "查看休假額度",
+    "duration": "{hours} 小時",
+    "duration_minutes": "{hours} 小時 {minutes} 分"
+  },
   "attendance_notification": {
     "kinds": {
       "leave": "請假",

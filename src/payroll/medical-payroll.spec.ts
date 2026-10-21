@@ -31,6 +31,7 @@ async function calculate(withShift: boolean, salaryType = 'monthly') {
     weeklyMinutes: 2400,
     pregnancyPeriods: [],
     nursingPeriods: [],
+    childcareReductionPeriods: [],
     indigenousHolidays: [],
   };
   const shift = {
