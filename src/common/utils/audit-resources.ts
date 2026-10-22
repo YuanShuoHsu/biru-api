@@ -15,7 +15,7 @@ import {
   recipeIngredient,
   supplier,
 } from '../../db/schema/inventory.js';
-import { invoice } from '../../db/schema/invoices.js';
+import { invoice, invoicePrinter } from '../../db/schema/invoices.js';
 import {
   menu,
   menuItem,
@@ -78,6 +78,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
+  invoicePrinter,
   offer,
   recipeIngredient,
   refund,
@@ -85,11 +86,13 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
 };
 
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
+  invoicePrinter: 'organizationId',
   waitlistSetting: 'organizationId',
 };
 
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
+    invoicePrinter: ['digestHa1', 'lastSeenAt'],
     refund: [
       'ecpayRtnCode',
       'ecpayRtnMsg',

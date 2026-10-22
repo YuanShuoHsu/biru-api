@@ -37,7 +37,17 @@ import {
 import { SkipThrottle } from '@nestjs/throttler';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import {
+  Audit,
+  type AuditTarget,
+} from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+
+const PRINTER_AUDIT: AuditTarget = {
+  resource: 'organization',
+  idSource: { column: 'organizationId', organization: true },
+  via: { table: 'invoicePrinter', ownerColumn: 'organizationId' },
+};
 
 @ApiTags('organizations')
 @Controller('organizations/:organizationSlug/invoice-printer')
@@ -58,6 +68,7 @@ export class InvoicePrinterController {
 
   @Put()
   @Roles({ organization: ['update'] }, 'organizationSlug')
+  @Audit(PRINTER_AUDIT)
   @ApiOkResponse({ type: InvoicePrinterCredentialsDto })
   @ApiOperation({
     summary: '設定發票印表機，或重設帳密（舊帳密立即失效）',
@@ -71,6 +82,7 @@ export class InvoicePrinterController {
   @Delete()
   @HttpCode(204)
   @Roles({ organization: ['update'] }, 'organizationSlug')
+  @Audit(PRINTER_AUDIT)
   @ApiNoContentResponse()
   @ApiOperation({ summary: '移除發票印表機，之後改回瀏覽器列印' })
   remove(@Param('organizationSlug') organizationSlug: string): Promise<void> {

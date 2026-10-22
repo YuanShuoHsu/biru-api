@@ -22,6 +22,8 @@ export class InvoicePrinterDto {
 export class InvoicePrinterCredentialsDto extends InvoicePrinterDto {
   @ApiProperty({ description: '只在建立或重設時回傳一次' })
   password: string;
+  @ApiProperty({ description: '這次一併送印的未印正本張數' })
+  queuedCount: number;
 }
 
 export class InvoicePrintJobDto {

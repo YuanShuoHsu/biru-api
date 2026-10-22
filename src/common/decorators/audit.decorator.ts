@@ -14,7 +14,11 @@ export type AuditIdSource =
   | { column: string; organization: true };
 
 export type AuditSubTable =
-  'offer' | 'recipeIngredient' | 'refund' | 'waitlistSetting';
+  | 'invoicePrinter'
+  | 'offer'
+  | 'recipeIngredient'
+  | 'refund'
+  | 'waitlistSetting';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };
 

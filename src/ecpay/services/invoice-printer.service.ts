@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
 
 import type {
@@ -9,9 +9,10 @@ import type {
 } from '../dto/invoice-printer.dto.js';
 
 import { isPrintable } from '../../common/utils/invoices.js';
+import { order } from '../../db/schema/orders.js';
 
 import { digestHa1 } from '../utils/digest-auth.js';
-import { toGetIssueQuery } from '../utils/ecpay.js';
+import { QUERY_INTERVAL_MS, sleep, toGetIssueQuery } from '../utils/ecpay.js';
 import {
   buildInvoiceReceipt,
   InvoiceReceiptCodesMissingError,
@@ -55,10 +56,17 @@ const NOT_STARTED_ERROR_CODES = new Set([
   'SchemaError',
 ]);
 
+// 每次都要向綠界查條碼內容；一次給太多，印表機等回應逾時就會把整批當成沒收到
+const MAX_JOBS_PER_POLL = 10;
+
 const RECEIPT_CODES_MISSING = 'RECEIPT_CODES_MISSING';
 const ECPAY_UNAVAILABLE = 'ECPAY_UNAVAILABLE';
 
 type PrintResult = { code: string; printJobId: string; success: boolean };
+
+type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
+
+const newJobId = () => randomUUID().replace(/-/g, '');
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: '',
@@ -206,7 +214,60 @@ export class InvoicePrinterService {
       })
       .returning();
 
-    return Object.assign(this.toPrinterDto(printer), { password });
+    const queued = await this.enqueueUnprinted(organizationId);
+
+    return Object.assign(this.toPrinterDto(printer), {
+      password,
+      queuedCount: queued.length,
+    });
+  }
+
+  private async enqueueUnprinted(organizationId: string) {
+    const queued = await this.db
+      .insert(invoicePrintJob)
+      .select(
+        this.db
+          .select({
+            copy: sql<InvoicePrintCopy>`'original'::invoice_print_copy`.as(
+              'copy',
+            ),
+            createdAt: sql<Date>`now()`.as('created_at'),
+            errorCode: sql<null>`null`.as('error_code'),
+            finishedAt: sql<null>`null`.as('finished_at'),
+            id: sql<string>`replace(gen_random_uuid()::text, '-', '')`.as('id'),
+            invoiceId: invoice.id,
+            organizationId: sql<string>`${organizationId}`.as(
+              'organization_id',
+            ),
+            sentAt: sql<null>`null`.as('sent_at'),
+            status: sql<'queued'>`'queued'::invoice_print_job_status`.as(
+              'status',
+            ),
+            updatedAt: sql<Date>`now()`.as('updated_at'),
+          })
+          .from(invoice)
+          .innerJoin(order, eq(order.id, invoice.orderId))
+          .where(
+            and(
+              eq(order.sellerId, organizationId),
+              eq(invoice.status, 'issued'),
+              isNull(invoice.printedAt),
+              isNull(invoice.carrierType),
+              ne(invoice.type, 'donate'),
+              sql`${invoice.invoiceNumber} is not null`,
+              sql`${invoice.invoiceDate} is not null`,
+            ),
+          ),
+      )
+      .onConflictDoNothing()
+      .returning({ invoiceId: invoicePrintJob.invoiceId });
+
+    await this.emitOrdersUpdated(
+      organizationId,
+      queued.map(({ invoiceId }) => invoiceId),
+    );
+
+    return queued;
   }
 
   async deletePrinter(organizationSlug: string): Promise<void> {
@@ -252,11 +313,34 @@ export class InvoicePrinterService {
   ): Promise<InvoicePrintJob | null> {
     const [job] = await this.db
       .insert(invoicePrintJob)
+      .values({ copy, id: newJobId(), invoiceId, organizationId })
+      .onConflictDoNothing()
+      .returning();
+
+    if (job) await this.emitOrdersUpdated(organizationId, [invoiceId]);
+
+    return job ?? null;
+  }
+
+  /**
+   * 瀏覽器列印一建立就是結果不明：瀏覽器分不出印完還是按了取消，
+   * 等列印頁回報 afterprint 才結案，回報不來就交給店員確認。
+   * 同一張發票已有正本在途時回傳 null。
+   */
+  async startBrowserPrint(
+    invoiceId: string,
+    organizationId: string,
+    copy: InvoicePrintCopy,
+  ): Promise<InvoicePrintJob | null> {
+    const [job] = await this.db
+      .insert(invoicePrintJob)
       .values({
         copy,
-        id: randomUUID().replace(/-/g, ''),
+        id: newJobId(),
         invoiceId,
         organizationId,
+        sentAt: new Date(),
+        status: 'unknown',
       })
       .onConflictDoNothing()
       .returning();
@@ -266,19 +350,110 @@ export class InvoicePrinterService {
     return job ?? null;
   }
 
+  async cancelJob(jobId: string, organizationId: string, invoiceId: string) {
+    await this.db
+      .update(invoicePrintJob)
+      .set({ finishedAt: new Date(), status: 'cancelled' })
+      .where(eq(invoicePrintJob.id, jobId));
+
+    await this.emitOrdersUpdated(organizationId, [invoiceId]);
+  }
+
+  /**
+   * 結案為已印出。已作廢的工作（店員判斷沒印出而改印新的）也收：
+   * 遲來的成功回報代表紙其實印出來了，要擋下還沒送出的重印，否則會有兩張正本。
+   */
+  private async markPrinted(
+    tx: Tx,
+    jobId: string,
+    scope: { invoiceId?: string; organizationId?: string },
+    fromStatuses: InvoicePrintJob['status'][],
+  ): Promise<InvoicePrintJob | undefined> {
+    const [job] = await tx
+      .update(invoicePrintJob)
+      .set({ errorCode: null, finishedAt: new Date(), status: 'printed' })
+      .where(
+        and(
+          eq(invoicePrintJob.id, jobId),
+          scope.invoiceId
+            ? eq(invoicePrintJob.invoiceId, scope.invoiceId)
+            : undefined,
+          scope.organizationId
+            ? eq(invoicePrintJob.organizationId, scope.organizationId)
+            : undefined,
+          inArray(invoicePrintJob.status, fromStatuses),
+        ),
+      )
+      .returning();
+
+    if (!job || job.copy !== 'original') return job;
+
+    await tx
+      .update(invoice)
+      .set({ printedAt: new Date() })
+      .where(and(eq(invoice.id, job.invoiceId), isNull(invoice.printedAt)));
+
+    await tx
+      .update(invoicePrintJob)
+      .set({ finishedAt: new Date(), status: 'cancelled' })
+      .where(
+        and(
+          eq(invoicePrintJob.invoiceId, job.invoiceId),
+          eq(invoicePrintJob.copy, 'original'),
+          eq(invoicePrintJob.status, 'queued'),
+        ),
+      );
+
+    const duplicates = await tx
+      .select({ id: invoicePrintJob.id })
+      .from(invoicePrintJob)
+      .where(
+        and(
+          eq(invoicePrintJob.invoiceId, job.invoiceId),
+          eq(invoicePrintJob.copy, 'original'),
+          ne(invoicePrintJob.id, job.id),
+          inArray(invoicePrintJob.status, ['sent', 'unknown', 'printed']),
+        ),
+      );
+
+    if (duplicates.length)
+      this.logger.error(
+        `發票 ${job.invoiceId} 可能印出了不只一張正本（列印工作 ${[job.id, ...duplicates.map(({ id }) => id)].join('、')}），中獎時須處理重複兌領`,
+      );
+
+    return job;
+  }
+
+  async confirmBrowserPrint(
+    jobId: string,
+    invoiceId: string,
+  ): Promise<InvoicePrintJob | undefined> {
+    return this.db.transaction((tx) =>
+      this.markPrinted(tx, jobId, { invoiceId }, ['unknown', 'cancelled']),
+    );
+  }
+
+  /** 店員確認結果不明的工作；沒印出時作廢並另開新工作，避免遲來的回報被當成新工作的結果 */
   async resolveUnknown(
     jobId: string,
     invoiceId: string,
     printed: boolean,
-  ): Promise<InvoicePrintJob | undefined> {
+  ): Promise<{
+    job: InvoicePrintJob;
+    reprint: InvoicePrintJob | null;
+  } | null> {
     return this.db.transaction(async (tx) => {
+      if (printed) {
+        const job = await this.markPrinted(tx, jobId, { invoiceId }, [
+          'unknown',
+        ]);
+
+        return job ? { job, reprint: null } : null;
+      }
+
       const [job] = await tx
         .update(invoicePrintJob)
-        .set(
-          printed
-            ? { finishedAt: new Date(), status: 'printed' }
-            : { errorCode: null, sentAt: null, status: 'queued' },
-        )
+        .set({ finishedAt: new Date(), status: 'cancelled' })
         .where(
           and(
             eq(invoicePrintJob.id, jobId),
@@ -287,14 +462,26 @@ export class InvoicePrinterService {
           ),
         )
         .returning();
+      if (!job) return null;
 
-      if (job && printed && job.copy === 'original')
-        await tx
-          .update(invoice)
-          .set({ printedAt: new Date() })
-          .where(eq(invoice.id, invoiceId));
+      const printer = await tx.query.invoicePrinter.findFirst({
+        where: eq(invoicePrinter.organizationId, job.organizationId),
+        columns: { id: true },
+      });
+      if (!printer) return { job, reprint: null };
 
-      return job;
+      const [reprint] = await tx
+        .insert(invoicePrintJob)
+        .values({
+          copy: job.copy,
+          id: newJobId(),
+          invoiceId,
+          organizationId: job.organizationId,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      return { job, reprint: reprint ?? null };
     });
   }
 
@@ -323,7 +510,8 @@ export class InvoicePrinterService {
         eq(invoicePrintJob.organizationId, organizationId),
         eq(invoicePrintJob.status, 'queued'),
       ),
-      orderBy: asc(invoicePrintJob.createdAt),
+      orderBy: [asc(invoicePrintJob.createdAt), asc(invoicePrintJob.id)],
+      limit: MAX_JOBS_PER_POLL,
       with: { invoice: true },
     });
 
@@ -335,7 +523,7 @@ export class InvoicePrinterService {
     const entries: { id: string; receipt: string }[] = [];
     const changed = lost.map(({ invoiceId }) => invoiceId);
 
-    for (const job of queued) {
+    for (const [index, job] of queued.entries()) {
       const data = job.invoice;
       const query = isPrintable(data) ? toGetIssueQuery(data) : null;
 
@@ -348,6 +536,8 @@ export class InvoicePrinterService {
 
         continue;
       }
+
+      if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         entries.push({
@@ -415,14 +605,19 @@ export class InvoicePrinterService {
       responseFile,
     )) {
       const job = await this.db.transaction(async (tx) => {
+        if (success)
+          return this.markPrinted(tx, printJobId, { organizationId }, [
+            'sent',
+            'unknown',
+            'cancelled',
+          ]);
+
         const [updated] = await tx
           .update(invoicePrintJob)
           .set(
-            success
-              ? { errorCode: null, finishedAt: new Date(), status: 'printed' }
-              : NOT_STARTED_ERROR_CODES.has(code)
-                ? { errorCode: code, sentAt: null, status: 'queued' }
-                : { errorCode: code || null, status: 'unknown' },
+            NOT_STARTED_ERROR_CODES.has(code)
+              ? { errorCode: code, sentAt: null, status: 'queued' }
+              : { errorCode: code || null, status: 'unknown' },
           )
           .where(
             and(
@@ -432,12 +627,6 @@ export class InvoicePrinterService {
             ),
           )
           .returning();
-
-        if (updated && success && updated.copy === 'original')
-          await tx
-            .update(invoice)
-            .set({ printedAt: new Date() })
-            .where(eq(invoice.id, updated.invoiceId));
 
         return updated;
       });

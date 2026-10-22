@@ -58,7 +58,7 @@ export class EcpayOrderInvoiceController {
   @ApiCreatedResponse({ type: OrderInvoicePrintDto })
   @ApiOperation({
     summary:
-      '列印發票：有發票印表機時排入印表機佇列，否則領取列印頁（未印過時給正本，印完須回報 print/confirmation）',
+      '列印發票：有發票印表機時排入印表機佇列，否則回傳列印頁（未印過時給正本，印完須回報 print-jobs/:jobId/confirmation）',
   })
   print(
     @Param('organizationSlug') organizationSlug: string,
@@ -70,20 +70,22 @@ export class EcpayOrderInvoiceController {
     );
   }
 
-  @Post('print/confirmation')
+  @Post('print-jobs/:jobId/confirmation')
   @HttpCode(204)
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiNoContentResponse()
   @ApiOperation({
-    summary: '回報正本已送出列印，之後再印只會是補印聯',
+    summary: '瀏覽器列印完成後回報，正本之後再印只會是補印聯',
   })
   confirmPrint(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
+    @Param('jobId') jobId: string,
   ): Promise<void> {
     return this.ecpayOrderInvoiceService.confirmPrintForOrder(
       organizationSlug,
       orderId,
+      jobId,
     );
   }
 

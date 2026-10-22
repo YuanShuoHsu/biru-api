@@ -73,7 +73,6 @@ export const invoice = pgTable(
     relateNumber: text('relate_number'),
     voidedAt: timestamp('voided_at'),
     printedAt: timestamp('printed_at'),
-    printClaimedAt: timestamp('print_claimed_at'),
     printResetCount: integer('print_reset_count').notNull().default(0),
     printResetReason: text('print_reset_reason'),
     ...timestamps,

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -18,7 +18,10 @@ import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.d
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { InvoiceStatus } from '../../db/schema/invoices.js';
+import type {
+  InvoicePrintCopy,
+  InvoiceStatus,
+} from '../../db/schema/invoices.js';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
@@ -120,9 +123,6 @@ const toAddressText = (seller: SellerAddress): string | undefined =>
 const RETRY_DELAY_MS = 10 * 60 * 1000;
 
 const RETRY_BATCH_SIZE = 20;
-
-// 領取正本後未確認列印的保留時間，逾時視為沒印出來，下次領取仍給正本
-const PRINT_CLAIM_TTL_MS = 5 * 60 * 1000;
 
 @Injectable()
 export class EcpayOrderInvoiceService {
@@ -423,14 +423,16 @@ export class EcpayOrderInvoiceService {
       orderId,
     );
 
+    const copy = data.printedAt ? 'reprint' : 'original';
+
     if (!(await this.invoicePrinterService.hasPrinter(organizationId)))
-      return this.getPrint(data);
+      return this.getPrint(data, organizationId, copy);
 
     // 有印表機就只能走印表機，否則瀏覽器那條路又會出現按取消也算已印的正本
     const job = await this.invoicePrinterService.enqueue(
       data.id,
       organizationId,
-      data.printedAt ? 'reprint' : 'original',
+      copy,
     );
     if (!job) throw new ConflictException(this.tInvoice('printing'));
 
@@ -448,44 +450,39 @@ export class EcpayOrderInvoiceService {
       orderId,
     );
 
-    const job = await this.invoicePrinterService.resolveUnknown(
+    const resolved = await this.invoicePrinterService.resolveUnknown(
       jobId,
       data.id,
       printed,
     );
-    if (!job) throw new ConflictException(this.tInvoice('printJobResolved'));
+    if (!resolved)
+      throw new ConflictException(this.tInvoice('printJobResolved'));
 
     this.emitOrderUpdated(organizationId, orderId);
 
     this.logger.warn(
-      `訂單 ${orderId} 的發票 ${data.invoiceNumber} 列印結果不明，店員確認為${printed ? '已印出' : '未印出並重印'}`,
+      `訂單 ${orderId} 的發票 ${data.invoiceNumber} 列印結果不明，店員確認為${printed ? '已印出' : '未印出'}`,
     );
 
-    return toPrintJobDto(job);
+    return toPrintJobDto(resolved.reprint ?? resolved.job);
   }
 
   async confirmPrintForOrder(
     organizationSlug: string,
     orderId: string,
+    jobId: string,
   ): Promise<void> {
     const { data, organizationId } = await this.findPrintableInvoice(
       organizationSlug,
       orderId,
     );
 
-    const [printed] = await this.db
-      .update(invoice)
-      .set({ printClaimedAt: null, printedAt: new Date() })
-      .where(
-        and(
-          eq(invoice.id, data.id),
-          isNull(invoice.printedAt),
-          isNotNull(invoice.printClaimedAt),
-        ),
-      )
-      .returning();
+    const job = await this.invoicePrinterService.confirmBrowserPrint(
+      jobId,
+      data.id,
+    );
 
-    if (printed) this.emitOrderUpdated(organizationId, orderId);
+    if (job) this.emitOrderUpdated(organizationId, orderId);
   }
 
   async resetPrintForOrder(
@@ -501,7 +498,6 @@ export class EcpayOrderInvoiceService {
     const [updated] = await this.db
       .update(invoice)
       .set({
-        printClaimedAt: null,
         printedAt: null,
         printResetCount: sql`${invoice.printResetCount} + 1`,
         printResetReason: reason,
@@ -516,6 +512,13 @@ export class EcpayOrderInvoiceService {
     this.logger.warn(
       `訂單 ${orderId} 的發票 ${data.invoiceNumber} 第 ${updated.printResetCount} 次重設列印：${reason}`,
     );
+
+    if (await this.invoicePrinterService.hasPrinter(organizationId))
+      await this.invoicePrinterService.enqueue(
+        data.id,
+        organizationId,
+        'original',
+      );
 
     return updated;
   }
@@ -667,44 +670,33 @@ export class EcpayOrderInvoiceService {
 
   private async getPrint(
     data: PrintableInvoice,
+    organizationId: string,
+    copy: InvoicePrintCopy,
   ): Promise<OrderInvoicePrintDto> {
-    const [claimed] = await this.db
-      .update(invoice)
-      .set({ printClaimedAt: new Date() })
-      .where(
-        and(
-          eq(invoice.id, data.id),
-          isNull(invoice.printedAt),
-          or(
-            isNull(invoice.printClaimedAt),
-            lt(
-              invoice.printClaimedAt,
-              new Date(Date.now() - PRINT_CLAIM_TTL_MS),
-            ),
-          ),
-        ),
-      )
-      .returning();
-
-    if (!claimed && !data.printedAt)
-      throw new ConflictException(this.tInvoice('printing'));
+    const job = await this.invoicePrinterService.startBrowserPrint(
+      data.id,
+      organizationId,
+      copy,
+    );
+    if (!job) throw new ConflictException(this.tInvoice('printing'));
 
     try {
       const printUrl = await this.ecpayInvoicePrintService.getPrintUrl(
         data.invoiceNumber,
         data.invoiceDate,
-        !claimed,
+        copy === 'reprint',
       );
 
       return {
         printHtml: await this.ecpayInvoicePrintService.getPrintHtml(printUrl),
+        printJob: toPrintJobDto(job),
       };
     } catch (error) {
-      if (claimed)
-        await this.db
-          .update(invoice)
-          .set({ printClaimedAt: null })
-          .where(eq(invoice.id, data.id));
+      await this.invoicePrinterService.cancelJob(
+        job.id,
+        organizationId,
+        data.id,
+      );
 
       throw error;
     }

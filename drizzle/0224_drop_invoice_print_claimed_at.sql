@@ -1,0 +1,1 @@
+ALTER TABLE "invoice" DROP COLUMN "print_claimed_at";
