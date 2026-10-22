@@ -119,8 +119,8 @@ export class UserListItemDto extends UserResponseDto {
   })
   deletable: boolean;
 
-  @ApiProperty({ description: '有未過期的登入裝置' })
-  hasActiveSession: boolean;
+  @ApiProperty({ description: '有登入裝置紀錄（含已過期）' })
+  hasSession: boolean;
 }
 
 export class UserListResponseDto {

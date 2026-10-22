@@ -115,6 +115,14 @@ const findBlockedIds = async (parentTable: string, ids: string[]) => {
 export const hasBusinessRecords = async (organizationId: string) =>
   (await findBlockedIds('organization', [organizationId])).size > 0;
 
+export const getDeletableOrganizationIds = async (
+  organizationIds: string[],
+) => {
+  const blockedIds = await findBlockedIds('organization', organizationIds);
+
+  return new Set(organizationIds.filter((id) => !blockedIds.has(id)));
+};
+
 export const assertOrganizationDeletable = async (organizationId: string) => {
   if (await hasBusinessRecords(organizationId))
     throw new APIError('CONFLICT', {

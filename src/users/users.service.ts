@@ -7,7 +7,6 @@ import {
   count,
   desc,
   eq,
-  gt,
   gte,
   ilike,
   inArray,
@@ -18,6 +17,7 @@ import {
 } from 'drizzle-orm';
 import {
   buildDateFilterCondition,
+  buildFilterCondition,
   buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
@@ -54,6 +54,12 @@ import {
 } from './dto/list-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import type { UserListResponseDto } from './dto/user-response.dto.js';
+import {
+  USER_SESSION_DATE_FILTER_FIELDS,
+  USER_SESSION_STRING_FILTER_FIELDS,
+  type UserSessionPaginationQueryDto,
+} from './dto/user-session-pagination-query.dto.js';
+import type { UserSessionListResponseDto } from './dto/user-session-response.dto.js';
 import type { UserStatsResponseDto } from './dto/user-stats.dto.js';
 
 const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
@@ -275,32 +281,97 @@ export class UsersService {
     ]);
 
     const userIds = data.map(({ id }) => id);
-    const [activeSessions, deletableUserIds] = await Promise.all([
+    const [sessions, deletableUserIds] = await Promise.all([
       userIds.length
         ? this.db
             .selectDistinct({ userId: schema.session.userId })
             .from(schema.session)
-            .where(
-              and(
-                inArray(schema.session.userId, userIds),
-                gt(schema.session.expiresAt, new Date()),
-              ),
-            )
+            .where(inArray(schema.session.userId, userIds))
         : [],
       getDeletableUserIds(userIds),
     ]);
-    const activeSessionUserIds = new Set(
-      activeSessions.map(({ userId }) => userId),
-    );
+    const sessionUserIds = new Set(sessions.map(({ userId }) => userId));
 
     return {
       data: data.map((row) => ({
         ...row,
         deletable: deletableUserIds.has(row.id),
-        hasActiveSession: activeSessionUserIds.has(row.id),
+        hasSession: sessionUserIds.has(row.id),
       })),
       total,
     };
+  }
+
+  async listUserSessions(
+    userId: string,
+    query: UserSessionPaginationQueryDto,
+  ): Promise<UserSessionListResponseDto> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy = 'createdAt',
+      sortDirection = 'desc',
+    } = query;
+
+    const { session } = schema;
+
+    const fieldMap = {
+      userAgent: session.userAgent,
+      ipAddress: session.ipAddress,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+    };
+
+    const where = and(
+      eq(session.userId, userId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            USER_SESSION_STRING_FILTER_FIELDS,
+            USER_SESSION_DATE_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(session.userAgent, `%${value}%`),
+          ilike(session.ipAddress, `%${value}%`),
+          ilike(localTimeText(session.createdAt), `%${value}%`),
+          ilike(localTimeText(session.expiresAt), `%${value}%`),
+        ],
+      }),
+    );
+
+    const dir = sortDirection === 'asc' ? asc : desc;
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: session.id,
+          ipAddress: session.ipAddress,
+          userAgent: session.userAgent,
+          createdAt: session.createdAt,
+          expiresAt: session.expiresAt,
+        })
+        .from(session)
+        .where(where)
+        .orderBy(dir(fieldMap[sortBy]), desc(session.id))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(session).where(where),
+    ]);
+
+    return { data, total };
   }
 
   async createUser(data: CreateUser): Promise<User> {

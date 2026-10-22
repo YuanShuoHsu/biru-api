@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { and, count, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
 import {
   member,
   Organization,
@@ -15,6 +15,9 @@ import {
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
+import { getDeletableOrganizationIds } from '../auth/deletion-guards.js';
+import { isAuthorized } from '../auth/permissions.js';
+
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
 import {
@@ -23,6 +26,7 @@ import {
 } from '../common/utils/stats-buckets.js';
 
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import type { MyOrganizationListItemDto } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
 
 @Injectable()
@@ -133,6 +137,27 @@ export class OrganizationsService {
       },
     });
     return result || null;
+  }
+
+  async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {
+    const rows = await this.db
+      .select({ organization, role: member.role })
+      .from(member)
+      .innerJoin(organization, eq(organization.id, member.organizationId))
+      .where(eq(member.userId, userId))
+      .orderBy(desc(organization.createdAt));
+
+    const deletableIds = await getDeletableOrganizationIds(
+      rows
+        .filter(({ role }) => isAuthorized(role, { organization: ['delete'] }))
+        .map(({ organization: { id } }) => id),
+    );
+
+    return rows.map(({ organization: row, role }) => ({
+      ...row,
+      canUpdate: isAuthorized(role, { organization: ['update'] }),
+      deletable: deletableIds.has(row.id),
+    }));
   }
 
   async organizationBySlug(slug: string): Promise<Organization | null> {

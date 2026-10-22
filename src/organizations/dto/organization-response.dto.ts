@@ -72,3 +72,14 @@ export class OrganizationResponseDto {
   })
   closedAt: Date | null;
 }
+
+export class MyOrganizationListItemDto extends OrganizationResponseDto {
+  @ApiProperty({ description: '目前使用者可編輯組織資料' })
+  canUpdate: boolean;
+
+  @ApiProperty({
+    description:
+      '目前使用者有刪除權限；有訂單、出勤或薪資紀錄時依法須保存，不可刪除',
+  })
+  deletable: boolean;
+}

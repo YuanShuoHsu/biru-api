@@ -26,6 +26,8 @@ import {
   UserListResponseDto,
   UserResponseDto,
 } from './dto/user-response.dto.js';
+import { UserSessionPaginationQueryDto } from './dto/user-session-pagination-query.dto.js';
+import { UserSessionListResponseDto } from './dto/user-session-response.dto.js';
 import { UserStatsResponseDto } from './dto/user-stats.dto.js';
 import { UsersService } from './users.service.js';
 
@@ -65,6 +67,16 @@ export class UsersController {
     @Body() { ids }: IdsDto,
   ): Promise<void> {
     return this.authBatchService.removeUsers(headers, ids);
+  }
+
+  @Get(':id/sessions')
+  @ApiOperation({ summary: '查詢使用者的登入裝置' })
+  @ApiOkResponse({ type: UserSessionListResponseDto })
+  findSessions(
+    @Param('id') id: string,
+    @Query() query: UserSessionPaginationQueryDto,
+  ): Promise<UserSessionListResponseDto> {
+    return this.usersService.listUserSessions(id, query);
   }
 
   @Delete(':id/sessions')
