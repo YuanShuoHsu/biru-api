@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
 import { DatePeriodDto } from './save-attendance-employee.dto.js';
 
@@ -82,6 +82,22 @@ export class AttendanceEmployeesResponseDto {
   @ApiProperty() total: number;
 }
 
+export class AttendanceMemberEmploymentResponseDto extends PickType(
+  AttendanceEmploymentResponseDto,
+  [
+    'id',
+    'employmentType',
+    'legalStatus',
+    'workPermits',
+    'employmentInsuranceEligible',
+    'foreignTaxIdentityRequired',
+    'workPermitRequired',
+    'pensionApplicable',
+    'hiredAt',
+    'terminatedAt',
+  ] as const,
+) {}
+
 export class AttendanceMemberResponseDto {
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
@@ -96,9 +112,9 @@ export class AttendanceMemberResponseDto {
   status: AttendanceEmployeeStatus;
   @ApiPropertyOptional({
     nullable: true,
-    type: AttendanceEmploymentResponseDto,
+    type: AttendanceMemberEmploymentResponseDto,
   })
-  employee: AttendanceEmploymentResponseDto | null;
+  employee: AttendanceMemberEmploymentResponseDto | null;
 }
 
 export class AttendanceMembersResponseDto {

@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   ilike,
@@ -73,6 +74,7 @@ import {
   NOTICE_TERMINATION_REASONS,
   restDayDesignationConflict,
   scheduledWorkIntervals,
+  withinPeriods,
   workPermitRequired,
 } from './attendance-rules.js';
 import {
@@ -342,31 +344,17 @@ export class AttendanceEmployeesService {
       this.db
         .select({
           id: attendanceEmployee.id,
-          organizationId: member.organizationId,
           userId: member.userId,
           name: user.name,
           email: user.email,
           joinedAt: member.createdAt,
           deletable: employeeDeletableSql,
           employmentType: employmentTypeSql,
-          birthDate: attendanceEmployee.birthDate,
-          taiwanStaySince: attendanceEmployee.taiwanStaySince,
           legalStatus: attendanceEmployee.legalStatus,
-          studentVacations: attendanceEmployee.studentVacations,
           workPermits: attendanceEmployee.workPermits,
-          pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
-          nursingPeriods: attendanceEmployee.nursingPeriods,
-          childcareReductionPeriods:
-            attendanceEmployee.childcareReductionPeriods,
-          indigenousHolidays: attendanceEmployee.indigenousHolidays,
-          regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
-          restDayWeekday: attendanceEmployee.restDayWeekday,
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
-          terminationReason: attendanceEmployee.terminationReason,
-          terminationNoticedAt: attendanceEmployee.terminationNoticedAt,
           status: employeeStatusSql,
-          createdAt: attendanceEmployee.createdAt,
         })
         .from(member)
         .innerJoin(user, eq(user.id, member.userId))
@@ -399,11 +387,16 @@ export class AttendanceEmployeesService {
         ({
           deletable,
           email,
+          employmentType,
+          hiredAt,
+          id,
           joinedAt,
+          legalStatus,
           name,
           status,
+          terminatedAt,
           userId,
-          ...employee
+          workPermits,
         }) => ({
           deletable,
           email,
@@ -412,39 +405,48 @@ export class AttendanceEmployeesService {
           status,
           userId,
           employee:
-            employee.id === null ||
-            employee.hiredAt === null ||
-            employee.employmentType === null ||
-            employee.legalStatus === null ||
-            employee.studentVacations === null ||
-            employee.workPermits === null ||
-            employee.pregnancyPeriods === null ||
-            employee.nursingPeriods === null ||
-            employee.childcareReductionPeriods === null ||
-            employee.indigenousHolidays === null ||
-            employee.createdAt === null
+            id === null ||
+            hiredAt === null ||
+            employmentType === null ||
+            legalStatus === null ||
+            workPermits === null
               ? null
               : {
-                  ...employee,
-                  id: employee.id,
-                  hiredAt: employee.hiredAt,
-                  employmentType: employee.employmentType,
-                  legalStatus: employee.legalStatus,
-                  studentVacations: employee.studentVacations,
-                  workPermits: employee.workPermits,
-                  pregnancyPeriods: employee.pregnancyPeriods,
-                  nursingPeriods: employee.nursingPeriods,
-                  childcareReductionPeriods: employee.childcareReductionPeriods,
-                  indigenousHolidays: employee.indigenousHolidays,
-                  ...legalStatusObligations(employee.legalStatus),
-                  createdAt: employee.createdAt,
-                  userId,
-                  name,
-                  email,
+                  id,
+                  employmentType,
+                  legalStatus,
+                  workPermits,
+                  ...legalStatusObligations(legalStatus),
+                  hiredAt,
+                  terminatedAt,
                 },
         }),
       ),
       total,
+    };
+  }
+
+  async employee(actor: AttendanceActor, id: string) {
+    const [employee] = await this.db
+      .select({
+        ...getTableColumns(attendanceEmployee),
+        name: user.name,
+        email: user.email,
+      })
+      .from(attendanceEmployee)
+      .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+      .where(
+        and(
+          eq(attendanceEmployee.id, id),
+          eq(attendanceEmployee.organizationId, actor.organizationId),
+        ),
+      );
+    if (!employee) throw new NotFoundException();
+    return {
+      ...employee,
+      ...legalStatusObligations(employee.legalStatus),
+      employmentType: await currentEmploymentType(this.db, employee),
+      status: employeeStatus(employee),
     };
   }
 
@@ -692,6 +694,28 @@ export class AttendanceEmployeesService {
             )
           )
             throw conflictError('maternalNightWork');
+        }
+        if (workPermitRequired(dto.legalStatus)) {
+          const upcoming = await tx
+            .select({ startsAt: attendanceShift.startsAt })
+            .from(attendanceShift)
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                ne(attendanceShift.status, 'cancelled'),
+                gt(attendanceShift.endsAt, new Date()),
+              ),
+            );
+          if (
+            upcoming.some(
+              (shift) =>
+                !withinPeriods(
+                  dto.workPermits,
+                  platformDateString(shift.startsAt),
+                ),
+            )
+          )
+            throw conflictError('workPermitRequired');
         }
         const addedHolidays = indigenousHolidays.filter(
           (date) => !current.indigenousHolidays.includes(date),

@@ -93,6 +93,17 @@ export class AttendanceEmployeesController {
     );
   }
 
+  @Get('employees/:id')
+  @Roles({ employee: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '取得單一員工設定' })
+  employee(
+    @Req() req: AuthRequest,
+    @Session() session: UserSession,
+    @Param('id') id: string,
+  ): Promise<AttendanceEmployeeResponseDto> {
+    return this.attendanceEmployeesService.employee(actor(req, session), id);
+  }
+
   @Put('employees')
   @Roles({ employee: ['create', 'update'] }, 'organizationSlug')
   @ApiOperation({ summary: '新增或更新員工' })
