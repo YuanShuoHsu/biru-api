@@ -97,7 +97,7 @@ import {
   SHIFT_STATE_RANK,
   summarizeEvents,
   unreviewedOvertime,
-  withinPeriods,
+  intervalWithinPeriods,
   workPermitRequired,
 } from './attendance-rules.js';
 import { AttendanceShiftRangeQueryDto } from './dto/attendance-shift-range-query.dto.js';
@@ -1205,9 +1205,10 @@ export class AttendanceShiftsService {
           throw badRequestError('employeeNotInTeam');
         if (
           workPermitRequired(employee.legalStatus) &&
-          !withinPeriods(
+          !intervalWithinPeriods(
             employee.workPermits,
-            platformDateString(interval.startsAt),
+            interval.startsAt,
+            interval.endsAt,
           )
         )
           throw badRequestError('workPermitRequired');

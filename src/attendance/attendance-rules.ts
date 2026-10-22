@@ -222,6 +222,21 @@ export const weekStartOfDate = (date: string) => {
 export const withinPeriods = (periods: DatePeriod[], date: string) =>
   periods.some(({ from, to }) => from <= date && date <= to);
 
+export const intervalWithinPeriods = (
+  periods: DatePeriod[],
+  startsAt: Date,
+  endsAt: Date,
+) => {
+  for (
+    let day = platformMidnight(startsAt.getTime());
+    day < endsAt.getTime();
+    day += DAY_MS
+  )
+    if (!withinPeriods(periods, platformDateString(new Date(day))))
+      return false;
+  return true;
+};
+
 export const workPermitRequired = (legalStatus: AttendanceLegalStatus) =>
   legalStatus === 'permanentResident' ||
   legalStatus === 'foreignStudent' ||

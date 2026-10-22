@@ -66,7 +66,7 @@ import {
   type TimeInterval,
   unreviewedOvertime,
   weekStartOfDate,
-  withinPeriods,
+  intervalWithinPeriods,
   workPermitRequired,
 } from '../attendance/attendance-rules.js';
 import {
@@ -1329,11 +1329,14 @@ export class PayrollService {
       blockers.push('holidayDayKindRequired');
     if (
       workPermitRequired(employee.legalStatus) &&
-      [...days.keys()].some(
-        (date) =>
-          date >= platformDateString(start) &&
-          date < platformDateString(end) &&
-          !withinPeriods(employee.workPermits, date),
+      shifts.some(
+        (shift) =>
+          relevantShiftIds.has(shift.id) &&
+          !intervalWithinPeriods(
+            employee.workPermits,
+            shift.startsAt,
+            shift.endsAt,
+          ),
       )
     )
       blockers.push('workPermitRequired');

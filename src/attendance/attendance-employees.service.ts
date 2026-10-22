@@ -67,6 +67,7 @@ import {
   ageOn,
   hasOverlappingOvertimeExtensions,
   INDIGENOUS_HOLIDAYS_PER_YEAR,
+  intervalWithinPeriods,
   maternalNightWork,
   maternalProtectionPeriods,
   MINIMUM_WORKING_AGE,
@@ -74,7 +75,6 @@ import {
   NOTICE_TERMINATION_REASONS,
   restDayDesignationConflict,
   scheduledWorkIntervals,
-  withinPeriods,
   workPermitRequired,
 } from './attendance-rules.js';
 import {
@@ -697,7 +697,10 @@ export class AttendanceEmployeesService {
         }
         if (workPermitRequired(dto.legalStatus)) {
           const upcoming = await tx
-            .select({ startsAt: attendanceShift.startsAt })
+            .select({
+              startsAt: attendanceShift.startsAt,
+              endsAt: attendanceShift.endsAt,
+            })
             .from(attendanceShift)
             .where(
               and(
@@ -709,9 +712,10 @@ export class AttendanceEmployeesService {
           if (
             upcoming.some(
               (shift) =>
-                !withinPeriods(
+                !intervalWithinPeriods(
                   dto.workPermits,
-                  platformDateString(shift.startsAt),
+                  shift.startsAt,
+                  shift.endsAt,
                 ),
             )
           )
