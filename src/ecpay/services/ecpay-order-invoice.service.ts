@@ -1,6 +1,17 @@
 import { randomUUID } from 'crypto';
 
-import { and, asc, eq, gte, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -118,6 +129,9 @@ const RETRY_DELAY_MS = 10 * 60 * 1000;
 
 const RETRY_BATCH_SIZE = 20;
 
+// 領取正本後未確認列印的保留時間，逾時視為沒印出來，下次領取仍給正本
+const PRINT_CLAIM_TTL_MS = 5 * 60 * 1000;
+
 type PrintableInvoice = Invoice & {
   invoiceDate: Date;
   invoiceNumber: string;
@@ -155,6 +169,7 @@ export class EcpayOrderInvoiceService {
       | 'notVoidable'
       | 'orderRefunded'
       | 'pastVoidablePeriod'
+      | 'printing'
       | 'voidWriteFailed',
     args?: Record<string, string | number>,
   ): string {
@@ -405,16 +420,33 @@ export class EcpayOrderInvoiceService {
     organizationSlug: string,
     orderId: string,
   ): Promise<OrderInvoicePrintDto> {
+    const { data } = await this.findPrintableInvoice(organizationSlug, orderId);
+
+    return this.getPrint(data);
+  }
+
+  async confirmPrintForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<void> {
     const { data, organizationId } = await this.findPrintableInvoice(
       organizationSlug,
       orderId,
     );
 
-    const print = await this.getPrint(data);
+    const [printed] = await this.db
+      .update(invoice)
+      .set({ printClaimedAt: null, printedAt: new Date() })
+      .where(
+        and(
+          eq(invoice.id, data.id),
+          isNull(invoice.printedAt),
+          isNotNull(invoice.printClaimedAt),
+        ),
+      )
+      .returning();
 
-    this.emitOrderUpdated(organizationId, orderId);
-
-    return print;
+    if (printed) this.emitOrderUpdated(organizationId, orderId);
   }
 
   async listUnprintedToday(
@@ -457,6 +489,7 @@ export class EcpayOrderInvoiceService {
     const [updated] = await this.db
       .update(invoice)
       .set({
+        printClaimedAt: null,
         printedAt: null,
         printResetCount: sql`${invoice.printResetCount} + 1`,
         printResetReason: reason,
@@ -625,9 +658,24 @@ export class EcpayOrderInvoiceService {
   ): Promise<OrderInvoicePrintDto> {
     const [claimed] = await this.db
       .update(invoice)
-      .set({ printedAt: new Date() })
-      .where(and(eq(invoice.id, data.id), isNull(invoice.printedAt)))
+      .set({ printClaimedAt: new Date() })
+      .where(
+        and(
+          eq(invoice.id, data.id),
+          isNull(invoice.printedAt),
+          or(
+            isNull(invoice.printClaimedAt),
+            lt(
+              invoice.printClaimedAt,
+              new Date(Date.now() - PRINT_CLAIM_TTL_MS),
+            ),
+          ),
+        ),
+      )
       .returning();
+
+    if (!claimed && !data.printedAt)
+      throw new ConflictException(this.tInvoice('printing'));
 
     try {
       const printUrl = await this.ecpayInvoicePrintService.getPrintUrl(
@@ -643,7 +691,7 @@ export class EcpayOrderInvoiceService {
       if (claimed)
         await this.db
           .update(invoice)
-          .set({ printedAt: null })
+          .set({ printClaimedAt: null })
           .where(eq(invoice.id, data.id));
 
       throw error;

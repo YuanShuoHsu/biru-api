@@ -7,9 +7,18 @@ import { OrderInvoiceVerificationDto } from './dto/order-invoice-verification.dt
 
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service.js';
 
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -43,12 +52,32 @@ export class EcpayOrderInvoiceController {
   @Post('print')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiCreatedResponse({ type: OrderInvoicePrintDto })
-  @ApiOperation({ summary: '取得發票列印網址（熱感應紙，1 小時內有效）' })
+  @ApiOperation({
+    summary:
+      '領取發票列印頁（熱感應紙）；未印過時給正本，印完須回報 print/confirmation',
+  })
   print(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
   ): Promise<OrderInvoicePrintDto> {
     return this.ecpayOrderInvoiceService.getPrintForOrder(
+      organizationSlug,
+      orderId,
+    );
+  }
+
+  @Post('print/confirmation')
+  @HttpCode(204)
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiNoContentResponse()
+  @ApiOperation({
+    summary: '回報正本已送出列印，之後再印只會是補印聯',
+  })
+  confirmPrint(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<void> {
+    return this.ecpayOrderInvoiceService.confirmPrintForOrder(
       organizationSlug,
       orderId,
     );

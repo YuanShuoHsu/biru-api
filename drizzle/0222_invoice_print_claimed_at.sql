@@ -1,0 +1,1 @@
+ALTER TABLE "invoice" ADD COLUMN "print_claimed_at" timestamp;
