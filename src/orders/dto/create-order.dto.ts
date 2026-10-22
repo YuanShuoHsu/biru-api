@@ -14,10 +14,14 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  isObject,
   Matches,
   Max,
   Min,
+  Validate,
   ValidateNested,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import {
   servingTemperatureLevelEnum,
@@ -31,6 +35,24 @@ import {
   type OrderMode,
   type PaymentMethod,
 } from '../../db/schema/orders.js';
+
+@ValidatorConstraint({ name: 'isModifierSelections' })
+class IsModifierSelections implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return (
+      isObject(value) &&
+      Object.values(value).every(
+        (modifierIds) =>
+          Array.isArray(modifierIds) &&
+          modifierIds.every((id) => typeof id === 'string'),
+      )
+    );
+  }
+
+  defaultMessage(): string {
+    return 'modifiers 的每個值都必須是 modifierId 字串陣列';
+  }
+}
 
 export class CreateOrderCustomerDto {
   @ApiPropertyOptional()
@@ -105,6 +127,7 @@ export class CreateOrderItemAddOnDto {
     type: 'object',
   })
   @IsObject()
+  @Validate(IsModifierSelections)
   modifiers: Record<string, string[]>;
 
   @ApiPropertyOptional({
@@ -145,6 +168,7 @@ export class CreateOrderItemDto {
     type: 'object',
   })
   @IsObject()
+  @Validate(IsModifierSelections)
   modifiers: Record<string, string[]>;
 
   @ApiProperty({ type: [CreateOrderItemAddOnDto] })
