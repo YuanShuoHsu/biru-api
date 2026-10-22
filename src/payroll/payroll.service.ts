@@ -66,8 +66,6 @@ import {
   type TimeInterval,
   unreviewedOvertime,
   weekStartOfDate,
-  intervalWithinPeriods,
-  workPermitRequired,
 } from '../attendance/attendance-rules.js';
 import {
   averageWeeklyMinutes,
@@ -1123,18 +1121,6 @@ export class PayrollService {
       const counted = countedIntervals(effective, shift);
       if (maternalNightWork(counted, maternalProtectionPeriods(employee)))
         blockers.push('maternalNightWork');
-      if (
-        workPermitRequired(employee.legalStatus) &&
-        counted.some(
-          (interval) =>
-            !intervalWithinPeriods(
-              employee.workPermits,
-              new Date(interval.start),
-              new Date(interval.end),
-            ),
-        )
-      )
-        blockers.push('workPermitRequired');
       if (
         leaves.some((leave) =>
           counted.some(

@@ -686,11 +686,16 @@ export class AttendanceEmployeesService {
               ),
             );
           if (
-            nightShifts.some((shift) =>
-              maternalNightWork(
-                scheduledWorkIntervals(shift),
-                protectedPeriods,
-              ),
+            nightShifts.some(
+              (shift) =>
+                maternalNightWork(
+                  scheduledWorkIntervals(shift),
+                  protectedPeriods,
+                ) &&
+                !maternalNightWork(
+                  scheduledWorkIntervals(shift),
+                  maternalProtectionPeriods(current),
+                ),
             )
           )
             throw conflictError('maternalNightWork');
