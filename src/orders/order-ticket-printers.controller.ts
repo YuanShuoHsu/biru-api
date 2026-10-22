@@ -2,6 +2,7 @@ import {
   CreateOrderTicketPrinterDto,
   OrderTicketJobDto,
   OrderTicketPrinterStatusDto,
+  ReprintOrderTicketDto,
 } from './dto/order-ticket.dto.js';
 
 import { OrderTicketService } from './order-ticket.service.js';
@@ -100,12 +101,17 @@ export class OrderTicketPrintersController {
   @Post('orders/:orderId/order-tickets/reprint')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiCreatedResponse({ isArray: true, type: OrderTicketJobDto })
-  @ApiOperation({ summary: '重印工作單：每台工作單印表機各補印一張' })
+  @ApiOperation({ summary: '重印工作單：在指定的工作單印表機各補印一張' })
   reprint(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
+    @Body() { printerIds }: ReprintOrderTicketDto,
   ): Promise<OrderTicketJobDto[]> {
-    return this.orderTicketService.reprint(organizationSlug, orderId);
+    return this.orderTicketService.reprint(
+      organizationSlug,
+      orderId,
+      printerIds,
+    );
   }
 
   @Post('orders/:orderId/order-tickets/:jobId/resolution')

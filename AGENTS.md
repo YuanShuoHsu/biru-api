@@ -304,6 +304,16 @@ Never write:
 
 When a change makes an existing comment false, fix or delete it in the same change — a stale comment is worse than none. Don't hardcode identifiers into comments; they rot into misinformation after a rename.
 
+## Implementation Approach
+
+**Default: act, don't ask.** Ask only when the answer changes the data model, an API contract, or requires an irreversible or outward-facing action (shared-DB migration, deploy, push). For every other ambiguity, decide and proceed, then list the assumptions you made in the reply so the user can correct them afterward. This overrides "If uncertain, ask" in the vendored guidelines below.
+
+Decide in this order:
+
+1. **Official docs for the installed version** — check the version in `package.json` / `node_modules` first, never rely on memory. Next.js (`node_modules/next/dist/docs/`, next-devtools MCP), MUI (mui-mcp), better-auth, Drizzle, NestJS, next-intl, SWR, Zod, etc. Use the documented pattern over a workaround; never use APIs the docs mark deprecated.
+2. **The existing pattern in this repo** — when the docs leave room, match how the codebase already does it.
+3. **The most mainstream option** — when neither settles it.
+
 ## Behavioral Guidelines
 
 Vendored from <https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md> (headings demoted one level). Don't add rules here — put project rules in the sections above, so this stays diffable against upstream.

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 import { ApiProperty, PickType } from '@nestjs/swagger';
 
@@ -33,3 +39,11 @@ export class OrderTicketPrinterStatusDto extends PickType(PrinterDto, [
   'online',
   'pollIntervalMs',
 ] as const) {}
+
+export class ReprintOrderTicketDto {
+  @ApiProperty({ description: '要補印的工作單印表機', type: [String] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  printerIds: string[];
+}

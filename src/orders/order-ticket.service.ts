@@ -390,6 +390,7 @@ export class OrderTicketService implements PrintJobSource {
   async reprint(
     organizationSlug: string,
     orderId: string,
+    printerIds: string[],
   ): Promise<OrderTicketJobDto[]> {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
@@ -402,11 +403,15 @@ export class OrderTicketService implements PrintJobSource {
     if (!isOrderTicketPrintable(found.orderStatus))
       throw new BadRequestException(this.t('notReprintable'));
 
-    const printers = await this.printersService.list(
+    const configured = await this.printersService.list(
       organizationId,
       'orderTicket',
     );
-    if (!printers.length) throw new BadRequestException(this.t('noPrinter'));
+    if (!configured.length) throw new BadRequestException(this.t('noPrinter'));
+
+    const printers = configured.filter(({ id }) => printerIds.includes(id));
+    if (printers.length !== new Set(printerIds).size)
+      throw new NotFoundException('Printer not found');
 
     const created = await this.db
       .insert(orderTicketJob)
