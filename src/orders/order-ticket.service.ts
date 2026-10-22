@@ -1,4 +1,12 @@
-import { and, asc, eq, inArray, notExists, sql } from 'drizzle-orm';
+import {
+  and,
+  arrayContained,
+  arrayContains,
+  asc,
+  eq,
+  inArray,
+  ne,
+} from 'drizzle-orm';
 import { I18nService, type Path } from 'nestjs-i18n';
 
 import type {
@@ -25,12 +33,13 @@ import { Interval } from '@nestjs/schedule';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { DEFAULT_LANGUAGE } from '../db/schema/enums.js';
+import { menuItem, menuSection } from '../db/schema/menus.js';
 import type {
   Order,
   OrderItem,
   OrderItemAddOnSnapshot,
 } from '../db/schema/orders.js';
-import { order } from '../db/schema/orders.js';
+import { order, orderItem } from '../db/schema/orders.js';
 import type {
   OrderTicketJob,
   Printer,
@@ -98,20 +107,48 @@ const timeFormat = new Intl.DateTimeFormat('zh-TW', {
   timeZone: PLATFORM_TIMEZONE,
 });
 
+const ITEM_COVERING_STATUSES = [
+  ...IN_FLIGHT_ORDER_TICKET_STATUSES,
+  'printed',
+] as const satisfies PrintJobStatus[];
+
 export const toOrderTicketJobDto = (
-  job: OrderTicketJob & { printer: Pick<Printer, 'name'> },
+  job: OrderTicketJob & { printer: Pick<Printer, 'name'> | null },
 ): OrderTicketJobDto => ({
   copy: job.copy,
   createdAt: job.createdAt,
   errorCode: job.errorCode,
   id: job.id,
   kind: job.kind,
-  printerName: job.printer.name ?? '',
+  printerName: job.printer?.name ?? null,
   sentAt: job.sentAt,
   status: job.status,
 });
 
-type TicketOrder = Order & { items: OrderItem[] };
+/** 這張訂單有分到品項的印表機，補印只能選這些 */
+export const orderTicketPrinterIdsOf = (
+  jobs: Pick<OrderTicketJob, 'copy' | 'kind' | 'printerId' | 'status'>[],
+): string[] => [
+  ...new Set(
+    jobs.flatMap(({ copy, kind, printerId, status }) =>
+      printerId &&
+      kind === 'order' &&
+      copy === 'original' &&
+      status !== 'cancelled'
+        ? [printerId]
+        : [],
+    ),
+  ),
+];
+
+type TicketOrder = Order & {
+  items: OrderItem[];
+  orderTicketJobs: (OrderTicketJob & {
+    printer: Pick<Printer, 'name'> | null;
+  })[];
+};
+
+type ItemsByPrinter = Map<string, string[]>;
 
 @Injectable()
 export class OrderTicketService implements PrintJobSource {
@@ -192,12 +229,26 @@ export class OrderTicketService implements PrintJobSource {
 
     const { password, printer, queued } = await this.db.transaction(
       async (tx) => {
+        const existing = await this.printersService.list(
+          organizationId,
+          'orderTicket',
+          tx,
+        );
+
         const registered = await this.printersService.register(
           tx,
           organizationId,
           'orderTicket',
           { name },
         );
+
+        const [created] = existing.length
+          ? [registered.printer]
+          : await tx
+              .update(printerTable)
+              .set({ isDefault: true })
+              .where(eq(printerTable.id, registered.printer.id))
+              .returning();
 
         const processing = await tx
           .select({ id: order.id })
@@ -208,25 +259,14 @@ export class OrderTicketService implements PrintJobSource {
               eq(order.orderStatus, 'OrderProcessing'),
             ),
           )
-          .orderBy(asc(order.createdAt));
+          .orderBy(asc(order.createdAt))
+          .for('update');
 
-        const queued = processing.length
-          ? await tx
-              .insert(orderTicketJob)
-              .values(
-                processing.map(({ id }) => ({
-                  copy: 'original' as const,
-                  id: newPrintJobId(),
-                  kind: 'order' as const,
-                  orderId: id,
-                  organizationId,
-                  printerId: registered.printer.id,
-                })),
-              )
-              .returning({ orderId: orderTicketJob.orderId })
-          : [];
+        const queued: OrderTicketJob[] = [];
+        for (const { id } of processing)
+          queued.push(...(await this.enqueueOrder(tx, id, organizationId)));
 
-        return { ...registered, queued };
+        return { password: registered.password, printer: created, queued };
       },
     );
 
@@ -258,6 +298,48 @@ export class OrderTicketService implements PrintJobSource {
     return this.printersService.toCredentialsDto(printer, password, 0);
   }
 
+  async setDefaultPrinter(
+    organizationSlug: string,
+    printerId: string,
+  ): Promise<PrinterDto> {
+    const organizationId =
+      await this.printersService.findOrganizationId(organizationSlug);
+
+    const updated = await this.db.transaction(async (tx) => {
+      await tx
+        .update(printerTable)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(printerTable.organizationId, organizationId),
+            eq(printerTable.isDefault, true),
+            ne(printerTable.id, printerId),
+          ),
+        );
+
+      const [updated] = await tx
+        .update(printerTable)
+        .set({ isDefault: true })
+        .where(
+          and(
+            eq(printerTable.id, printerId),
+            eq(printerTable.organizationId, organizationId),
+            eq(printerTable.purpose, 'orderTicket'),
+          ),
+        )
+        .returning();
+      if (!updated) throw new NotFoundException('Printer not found');
+
+      return updated;
+    });
+
+    return this.printersService.toDto(updated);
+  }
+
+  /**
+   * 還沒送出的工作單改排到品項現在對應的印表機；已送出的等不到回報了，交給店員確認。
+   * 印過的紀錄要留著，否則之後補排時會把那些品項當成沒印過。
+   */
   async deletePrinter(
     organizationSlug: string,
     printerId: string,
@@ -265,74 +347,230 @@ export class OrderTicketService implements PrintJobSource {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
 
-    // 工作隨印表機一併刪除：換了印表機就再也等不到舊工作的結果
-    const [deleted] = await this.db
-      .delete(printerTable)
+    const changed = await this.db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .select({ isDefault: printerTable.isDefault })
+        .from(printerTable)
+        .where(
+          and(
+            eq(printerTable.id, printerId),
+            eq(printerTable.organizationId, organizationId),
+            eq(printerTable.purpose, 'orderTicket'),
+          ),
+        )
+        .for('update');
+      if (!deleted) throw new NotFoundException('Printer not found');
+
+      const stranded = await tx
+        .update(orderTicketJob)
+        .set({ finishedAt: new Date(), status: 'cancelled' })
+        .where(
+          and(
+            eq(orderTicketJob.printerId, printerId),
+            eq(orderTicketJob.status, 'queued'),
+          ),
+        )
+        .returning();
+
+      const unanswered = await tx
+        .update(orderTicketJob)
+        .set({ status: 'unknown' })
+        .where(
+          and(
+            eq(orderTicketJob.printerId, printerId),
+            eq(orderTicketJob.status, 'sent'),
+          ),
+        )
+        .returning({ orderId: orderTicketJob.orderId });
+
+      await tx.delete(printerTable).where(eq(printerTable.id, printerId));
+
+      if (deleted.isDefault)
+        await tx
+          .update(printerTable)
+          .set({ isDefault: true })
+          .where(
+            inArray(
+              printerTable.id,
+              tx
+                .select({ id: printerTable.id })
+                .from(printerTable)
+                .where(
+                  and(
+                    eq(printerTable.organizationId, organizationId),
+                    eq(printerTable.purpose, 'orderTicket'),
+                  ),
+                )
+                .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
+                .limit(1),
+            ),
+          );
+
+      const reroutes = new Map<string, string[]>();
+      for (const job of stranded)
+        if (job.kind === 'order' && job.copy === 'original')
+          reroutes.set(job.orderId, [
+            ...(reroutes.get(job.orderId) ?? []),
+            ...job.orderItemIds,
+          ]);
+
+      for (const [orderId, orderItemIds] of reroutes) {
+        const [locked] = await tx
+          .select({ orderStatus: order.orderStatus })
+          .from(order)
+          .where(eq(order.id, orderId))
+          .for('update');
+
+        if (locked && isOrderTicketPrintable(locked.orderStatus))
+          await this.enqueueOrder(tx, orderId, organizationId, orderItemIds);
+      }
+
+      return [...stranded, ...unanswered].map(({ orderId }) => orderId);
+    });
+
+    this.emitOrdersUpdated(organizationId, changed);
+  }
+
+  /** 品項自己的設定 → 最近一層有設定的上層分類 → 預設印表機 */
+  private async routeItems(
+    tx: Pick<DrizzleDB, 'select'>,
+    organizationId: string,
+    items: Pick<OrderItem, 'id' | 'menuItemId'>[],
+  ): Promise<ItemsByPrinter> {
+    const printers = await tx
+      .select({ id: printerTable.id, isDefault: printerTable.isDefault })
+      .from(printerTable)
       .where(
         and(
-          eq(printerTable.id, printerId),
           eq(printerTable.organizationId, organizationId),
           eq(printerTable.purpose, 'orderTicket'),
         ),
       )
-      .returning({ id: printerTable.id });
-    if (!deleted) throw new NotFoundException('Printer not found');
+      .orderBy(asc(printerTable.createdAt), asc(printerTable.id));
+
+    const fallback = (
+      printers.find(({ isDefault }) => isDefault) ?? printers.at(0)
+    )?.id;
+    if (!fallback) return new Map();
+
+    const printerIds = new Set(printers.map(({ id }) => id));
+
+    const menuItems = await tx
+      .select({
+        id: menuItem.id,
+        menuId: menuItem.menuId,
+        menuSectionId: menuItem.menuSectionId,
+        orderTicketPrinterId: menuItem.orderTicketPrinterId,
+      })
+      .from(menuItem)
+      .where(
+        inArray(menuItem.id, [
+          ...new Set(items.map(({ menuItemId }) => menuItemId)),
+        ]),
+      );
+
+    const menuIds = [...new Set(menuItems.map(({ menuId }) => menuId))];
+    const sections = menuIds.length
+      ? await tx
+          .select({
+            id: menuSection.id,
+            orderTicketPrinterId: menuSection.orderTicketPrinterId,
+            parentSectionId: menuSection.parentSectionId,
+          })
+          .from(menuSection)
+          .where(inArray(menuSection.menuId, menuIds))
+      : [];
+
+    const menuItemsById = new Map(menuItems.map((found) => [found.id, found]));
+    const sectionsById = new Map(sections.map((found) => [found.id, found]));
+
+    const resolve = (menuItemId: string): string => {
+      const found = menuItemsById.get(menuItemId);
+      const candidates = [found?.orderTicketPrinterId];
+
+      const visited = new Set<string>();
+      for (
+        let sectionId = found?.menuSectionId;
+        sectionId && !visited.has(sectionId);
+        sectionId = sectionsById.get(sectionId)?.parentSectionId
+      ) {
+        visited.add(sectionId);
+        candidates.push(sectionsById.get(sectionId)?.orderTicketPrinterId);
+      }
+
+      return (
+        candidates.find(
+          (printerId): printerId is string =>
+            !!printerId && printerIds.has(printerId),
+        ) ?? fallback
+      );
+    };
+
+    const routed: ItemsByPrinter = new Map();
+    for (const { id, menuItemId } of items) {
+      const printerId = resolve(menuItemId);
+      routed.set(printerId, [...(routed.get(printerId) ?? []), id]);
+    }
+
+    return routed;
   }
 
   /**
-   * 每台工作單印表機各排一張正本。已經有正本在途或印過的不再排，
-   * 所以退回待付款再推進、或重複觸發都不會讓吧台多做一份。
+   * 把還沒有正本的品項依對應排給各台。已有正本在途或印過的品項不再排，
+   * 所以退回待付款再推進、或重複觸發都不會讓工作站多做一份。
+   * 呼叫端要在同一個交易裡先鎖住訂單，否則併發時兩邊都會把同一批品項當成沒排過。
    */
   async enqueueOrder(
     tx: Pick<DrizzleDB, 'insert' | 'select'>,
     orderId: string,
     organizationId: string,
-  ): Promise<void> {
-    await tx
-      .insert(orderTicketJob)
-      .select(
-        tx
-          .select({
-            id: sql<string>`replace(gen_random_uuid()::text, '-', '')`.as('id'),
-            orderId: sql<string>`${orderId}`.as('order_id'),
-            refundId: sql<null>`null`.as('refund_id'),
-            printerId: printerTable.id,
-            organizationId: printerTable.organizationId,
-            kind: sql<'order'>`'order'::order_ticket_kind`.as('kind'),
-            copy: sql<'original'>`'original'::print_copy`.as('copy'),
-            status: sql<'queued'>`'queued'::print_job_status`.as('status'),
-            errorCode: sql<null>`null`.as('error_code'),
-            sentAt: sql<null>`null`.as('sent_at'),
-            finishedAt: sql<null>`null`.as('finished_at'),
-            createdAt: sql<Date>`now()`.as('created_at'),
-            updatedAt: sql<Date>`now()`.as('updated_at'),
-          })
-          .from(printerTable)
-          .where(
-            and(
-              eq(printerTable.organizationId, organizationId),
-              eq(printerTable.purpose, 'orderTicket'),
-              notExists(
-                tx
-                  .select({ id: orderTicketJob.id })
-                  .from(orderTicketJob)
-                  .where(
-                    and(
-                      eq(orderTicketJob.orderId, orderId),
-                      eq(orderTicketJob.printerId, printerTable.id),
-                      eq(orderTicketJob.kind, 'order'),
-                      eq(orderTicketJob.copy, 'original'),
-                      inArray(orderTicketJob.status, [
-                        ...IN_FLIGHT_ORDER_TICKET_STATUSES,
-                        'printed',
-                      ]),
-                    ),
-                  ),
-              ),
-            ),
+    onlyOrderItemIds?: string[],
+  ): Promise<OrderTicketJob[]> {
+    const [items, covering] = await Promise.all([
+      tx
+        .select({ id: orderItem.id, menuItemId: orderItem.menuItemId })
+        .from(orderItem)
+        .where(eq(orderItem.orderId, orderId)),
+      tx
+        .select({ orderItemIds: orderTicketJob.orderItemIds })
+        .from(orderTicketJob)
+        .where(
+          and(
+            eq(orderTicketJob.orderId, orderId),
+            eq(orderTicketJob.kind, 'order'),
+            eq(orderTicketJob.copy, 'original'),
+            inArray(orderTicketJob.status, [...ITEM_COVERING_STATUSES]),
           ),
+        ),
+    ]);
+
+    const covered = new Set(
+      covering.flatMap(({ orderItemIds }) => orderItemIds),
+    );
+    const pending = items.filter(
+      ({ id }) =>
+        !covered.has(id) &&
+        (!onlyOrderItemIds || onlyOrderItemIds.includes(id)),
+    );
+    if (!pending.length) return [];
+
+    const routed = await this.routeItems(tx, organizationId, pending);
+    if (!routed.size) return [];
+
+    return tx
+      .insert(orderTicketJob)
+      .values(
+        [...routed].map(([printerId, orderItemIds]) => ({
+          copy: 'original' as const,
+          id: newPrintJobId(),
+          kind: 'order' as const,
+          orderId,
+          orderItemIds,
+          organizationId,
+          printerId,
+        })),
       )
-      .onConflictDoNothing();
+      .returning();
   }
 
   /** 訂單退回待付款時撤下還沒送出的工作單，否則印表機恢復後會印出沒付錢的單 */
@@ -352,33 +590,61 @@ export class OrderTicketService implements PrintJobSource {
       );
   }
 
-  /** 只通知手上已經有這張單的印表機；還在排隊的正本送出時會直接印扣掉退品後的內容 */
+  /**
+   * 只通知手上已經有被退品項的印表機；還在排隊的正本送出時會直接印扣掉退品後的內容。
+   * 已移除的印表機那張紙再也送不到，不改送別台，免得收到從沒做過的退品單。
+   */
   async enqueueRefund(
-    tx: Pick<DrizzleDB, 'insert' | 'selectDistinct'>,
+    tx: Pick<DrizzleDB, 'insert' | 'select'>,
     refundId: string,
     orderId: string,
     organizationId: string,
   ): Promise<void> {
-    const holders = await tx
-      .selectDistinct({ printerId: orderTicketJob.printerId })
-      .from(orderTicketJob)
-      .where(
-        and(
-          eq(orderTicketJob.orderId, orderId),
-          eq(orderTicketJob.kind, 'order'),
-          inArray(orderTicketJob.status, [...LEFT_QUEUE_STATUSES]),
+    const [[refunded], holders] = await Promise.all([
+      tx
+        .select({ items: refund.items })
+        .from(refund)
+        .where(eq(refund.id, refundId)),
+      tx
+        .select({
+          orderItemIds: orderTicketJob.orderItemIds,
+          printerId: orderTicketJob.printerId,
+        })
+        .from(orderTicketJob)
+        .where(
+          and(
+            eq(orderTicketJob.orderId, orderId),
+            eq(orderTicketJob.kind, 'order'),
+            inArray(orderTicketJob.status, [...LEFT_QUEUE_STATUSES]),
+          ),
         ),
-      );
-    if (!holders.length) return;
+    ]);
+
+    const refundedItemIds = new Set(
+      (refunded?.items ?? []).map(({ orderItemId }) => orderItemId),
+    );
+
+    const byPrinter: ItemsByPrinter = new Map();
+    for (const { orderItemIds, printerId } of holders) {
+      if (!printerId) continue;
+
+      const held = new Set([
+        ...(byPrinter.get(printerId) ?? []),
+        ...orderItemIds.filter((id) => refundedItemIds.has(id)),
+      ]);
+      if (held.size) byPrinter.set(printerId, [...held]);
+    }
+    if (!byPrinter.size) return;
 
     await tx
       .insert(orderTicketJob)
       .values(
-        holders.map(({ printerId }) => ({
+        [...byPrinter].map(([printerId, orderItemIds]) => ({
           copy: 'original' as const,
           id: newPrintJobId(),
           kind: 'refund' as const,
           orderId,
+          orderItemIds,
           organizationId,
           printerId,
           refundId,
@@ -409,18 +675,47 @@ export class OrderTicketService implements PrintJobSource {
     );
     if (!configured.length) throw new BadRequestException(this.t('noPrinter'));
 
-    const printers = configured.filter(({ id }) => printerIds.includes(id));
+    const originals = await this.db
+      .select({
+        orderItemIds: orderTicketJob.orderItemIds,
+        printerId: orderTicketJob.printerId,
+      })
+      .from(orderTicketJob)
+      .where(
+        and(
+          eq(orderTicketJob.orderId, orderId),
+          eq(orderTicketJob.kind, 'order'),
+          eq(orderTicketJob.copy, 'original'),
+          ne(orderTicketJob.status, 'cancelled'),
+        ),
+      );
+
+    // 補印的是這台當初負責的品項；沒分到品項的印表機補印出來是空單
+    const printers = configured.flatMap((printer) => {
+      const orderItemIds = [
+        ...new Set(
+          originals
+            .filter(({ printerId }) => printerId === printer.id)
+            .flatMap(({ orderItemIds }) => orderItemIds),
+        ),
+      ];
+
+      return printerIds.includes(printer.id) && orderItemIds.length
+        ? [{ orderItemIds, printer }]
+        : [];
+    });
     if (printers.length !== new Set(printerIds).size)
       throw new NotFoundException('Printer not found');
 
     const created = await this.db
       .insert(orderTicketJob)
       .values(
-        printers.map((printer) => ({
+        printers.map(({ orderItemIds, printer }) => ({
           copy: 'reprint' as const,
           id: newPrintJobId(),
           kind: 'order' as const,
           orderId,
+          orderItemIds,
           organizationId,
           printerId: printer.id,
         })),
@@ -432,7 +727,8 @@ export class OrderTicketService implements PrintJobSource {
     return created.map((job) =>
       toOrderTicketJobDto({
         ...job,
-        printer: printers.find(({ id }) => id === job.printerId)!,
+        printer: printers.find(({ printer }) => printer.id === job.printerId)!
+          .printer,
       }),
     );
   }
@@ -465,7 +761,7 @@ export class OrderTicketService implements PrintJobSource {
       )
       .returning();
 
-    if (!job || job.copy !== 'original') return job;
+    if (!job?.printerId || job.copy !== 'original') return job;
 
     await tx
       .update(orderTicketJob)
@@ -475,6 +771,8 @@ export class OrderTicketService implements PrintJobSource {
           eq(orderTicketJob.orderId, job.orderId),
           eq(orderTicketJob.printerId, job.printerId),
           eq(orderTicketJob.kind, job.kind),
+          arrayContains(orderTicketJob.orderItemIds, job.orderItemIds),
+          arrayContained(orderTicketJob.orderItemIds, job.orderItemIds),
           job.refundId ? eq(orderTicketJob.refundId, job.refundId) : undefined,
           eq(orderTicketJob.copy, 'original'),
           eq(orderTicketJob.status, 'queued'),
@@ -509,6 +807,12 @@ export class OrderTicketService implements PrintJobSource {
         return job;
       }
 
+      await tx
+        .select({ id: order.id })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('update');
+
       const [job] = await tx
         .update(orderTicketJob)
         .set({ finishedAt: new Date(), status: 'cancelled' })
@@ -523,6 +827,21 @@ export class OrderTicketService implements PrintJobSource {
         .returning();
       if (!job) return undefined;
 
+      // 印表機已移除：正本改排到品項現在對應的印表機，退品單與補印沒有手上有單的印表機可送
+      if (!job.printerId) {
+        const [rerouted] =
+          job.kind === 'order' && job.copy === 'original'
+            ? await this.enqueueOrder(
+                tx,
+                orderId,
+                organizationId,
+                job.orderItemIds,
+              )
+            : [];
+
+        return rerouted ?? job;
+      }
+
       const [reprint] = await tx
         .insert(orderTicketJob)
         .values({
@@ -530,6 +849,7 @@ export class OrderTicketService implements PrintJobSource {
           id: newPrintJobId(),
           kind: job.kind,
           orderId,
+          orderItemIds: job.orderItemIds,
           organizationId,
           printerId: job.printerId,
           refundId: job.refundId,
@@ -544,15 +864,14 @@ export class OrderTicketService implements PrintJobSource {
 
     this.emitOrdersUpdated(organizationId, [orderId]);
 
-    const printer = await this.db.query.printer.findFirst({
-      where: eq(printerTable.id, resolved.printerId),
-      columns: { name: true },
-    });
+    const printer = resolved.printerId
+      ? await this.db.query.printer.findFirst({
+          where: eq(printerTable.id, resolved.printerId),
+          columns: { name: true },
+        })
+      : undefined;
 
-    return toOrderTicketJobDto({
-      ...resolved,
-      printer: { name: printer?.name ?? null },
-    });
+    return toOrderTicketJobDto({ ...resolved, printer: printer ?? null });
   }
 
   // 冪等，多個環境共用資料庫同時跑也無妨，所以不受 CRON_ENABLED 限制
@@ -618,6 +937,14 @@ export class OrderTicketService implements PrintJobSource {
     confirmedRefunds: Pick<Refund, 'id' | 'items'>[],
   ): string | null {
     const itemsById = new Map(found.items.map((item) => [item.id, item]));
+    const ownItemIds = new Set(job.orderItemIds);
+
+    const remainingOf = (item: OrderItem) =>
+      item.orderQuantity -
+      confirmedRefunds
+        .flatMap(({ items }) => items ?? [])
+        .filter(({ orderItemId }) => orderItemId === item.id)
+        .reduce((sum, { quantity }) => sum + quantity, 0);
 
     const items =
       job.kind === 'refund'
@@ -626,19 +953,40 @@ export class OrderTicketService implements PrintJobSource {
           ).flatMap(({ orderItemId, quantity }) => {
             const item = itemsById.get(orderItemId);
 
-            return item ? [this.toTicketItem(item, quantity)] : [];
+            return item && ownItemIds.has(orderItemId)
+              ? [this.toTicketItem(item, quantity)]
+              : [];
           })
         : found.items.flatMap((item) => {
-            const refunded = confirmedRefunds
-              .flatMap(({ items }) => items ?? [])
-              .filter(({ orderItemId }) => orderItemId === item.id)
-              .reduce((sum, { quantity }) => sum + quantity, 0);
-            const remaining = item.orderQuantity - refunded;
+            const remaining = remainingOf(item);
 
-            return remaining > 0 ? [this.toTicketItem(item, remaining)] : [];
+            return ownItemIds.has(item.id) && remaining > 0
+              ? [this.toTicketItem(item, remaining)]
+              : [];
           });
 
     if (!items.length) return null;
+
+    // 讓工作站知道還要等別站的品項一起出餐；寫站名不寫件數，件數會隨退款改變
+    const otherPrinters =
+      job.kind === 'order'
+        ? [
+            ...new Set(
+              found.orderTicketJobs.flatMap(
+                ({ orderItemIds, printer, printerId }) =>
+                  printer?.name &&
+                  printerId !== job.printerId &&
+                  orderItemIds.some((id) => {
+                    const item = itemsById.get(id);
+
+                    return !!item && remainingOf(item) > 0;
+                  })
+                    ? [printer.name]
+                    : [],
+              ),
+            ),
+          ]
+        : [];
 
     return buildOrderTicket({
       banners: [
@@ -658,6 +1006,9 @@ export class OrderTicketService implements PrintJobSource {
           ? this.t('pickupTime', { time: timeFormat.format(found.pickupTime) })
           : null,
         this.t('orderedAt', { time: timeFormat.format(found.createdAt) }),
+        otherPrinters.length
+          ? this.t('otherPrinters', { printers: otherPrinters.join('、') })
+          : null,
       ].filter((headerLine): headerLine is string => !!headerLine),
       items,
       orderNumber: found.orderNumber,
@@ -684,7 +1035,22 @@ export class OrderTicketService implements PrintJobSource {
       ),
       orderBy: [asc(orderTicketJob.createdAt), asc(orderTicketJob.id)],
       limit: MAX_JOBS_PER_POLL,
-      with: { order: { with: { items: true } } },
+      with: {
+        order: {
+          with: {
+            items: true,
+            orderTicketJobs: {
+              where: (jobs, { and, eq, ne }) =>
+                and(
+                  eq(jobs.kind, 'order'),
+                  eq(jobs.copy, 'original'),
+                  ne(jobs.status, 'cancelled'),
+                ),
+              with: { printer: { columns: { name: true } } },
+            },
+          },
+        },
+      },
     });
 
     const orderIds = [...new Set(queued.map(({ orderId }) => orderId))];

@@ -21,6 +21,14 @@ export class MenuSectionResponseDto {
   @ApiPropertyOptional()
   image: string | null;
 
+  @ApiProperty({
+    description:
+      '工作單印表機；null 時沿用上層分類，最上層也沒設就印到預設工作單印表機',
+    nullable: true,
+    type: String,
+  })
+  orderTicketPrinterId: string | null;
+
   @ApiProperty()
   createdAt: Date;
 

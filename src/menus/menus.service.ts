@@ -51,12 +51,14 @@ import {
   modifierGroup,
   offer,
 } from '../db/schema/menus.js';
+import { printer } from '../db/schema/printers.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
 import { RecipesService } from '../inventory/recipes.service.js';
+import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import {
   buildArrayOverlapCondition,
@@ -295,12 +297,51 @@ export class MenusService {
       throw new BadRequestException(this.t('parentSectionDescendant'));
   }
 
+  private async validateOrderTicketPrinter(
+    tx: Pick<DrizzleDB, 'select'>,
+    menuId: string,
+    printerId: string | null | undefined,
+  ): Promise<void> {
+    if (!printerId) return;
+
+    const [found] = await tx
+      .select({ id: printer.id })
+      .from(printer)
+      .innerJoin(menu, eq(menu.organizationId, printer.organizationId))
+      .where(
+        and(
+          eq(menu.id, menuId),
+          eq(printer.id, printerId),
+          eq(printer.purpose, 'orderTicket'),
+        ),
+      );
+    if (!found) throw new NotFoundException('Printer not found');
+  }
+
+  orderTicketPrinters(menuId: string): Promise<OrderTicketPrinterOptionDto[]> {
+    return this.db
+      .select({
+        id: printer.id,
+        isDefault: printer.isDefault,
+        name: printer.name,
+      })
+      .from(printer)
+      .innerJoin(menu, eq(menu.organizationId, printer.organizationId))
+      .where(and(eq(menu.id, menuId), eq(printer.purpose, 'orderTicket')))
+      .orderBy(asc(printer.createdAt), asc(printer.id));
+  }
+
   async createMenuSection(
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
     return this.db.transaction(async (tx) => {
       await this.validateParentSection(tx, menuId, data.parentSectionId);
+      await this.validateOrderTicketPrinter(
+        tx,
+        menuId,
+        data.orderTicketPrinterId,
+      );
 
       await tx
         .update(menuSection)
@@ -437,6 +478,11 @@ export class MenusService {
         params.data.parentSectionId,
         params.where.id,
       );
+      await this.validateOrderTicketPrinter(
+        tx,
+        current.menuId,
+        params.data.orderTicketPrinterId,
+      );
 
       const [updated] = await tx
         .update(menuSection)
@@ -487,6 +533,12 @@ export class MenusService {
     if (!section) throw new NotFoundException('Menu section not found');
 
     const result = await this.db.transaction(async (tx) => {
+      await this.validateOrderTicketPrinter(
+        tx,
+        section.menuId,
+        itemData.orderTicketPrinterId,
+      );
+
       await tx
         .update(menuItem)
         .set({ sortOrder: sql`${menuItem.sortOrder} + 1` })
@@ -778,6 +830,20 @@ export class MenusService {
     );
 
     const result = await this.db.transaction(async (tx) => {
+      if (itemData.orderTicketPrinterId) {
+        const [current] = await tx
+          .select({ menuId: menuItem.menuId })
+          .from(menuItem)
+          .where(eq(menuItem.id, params.where.id));
+        if (!current) throw new NotFoundException('Menu item not found');
+
+        await this.validateOrderTicketPrinter(
+          tx,
+          current.menuId,
+          itemData.orderTicketPrinterId,
+        );
+      }
+
       const [previous] =
         itemData.name || touchesDrinkOptions
           ? await tx

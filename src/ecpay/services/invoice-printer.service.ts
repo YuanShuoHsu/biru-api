@@ -3,7 +3,12 @@ import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { isPrintable } from '../../common/utils/invoices.js';
 import { order } from '../../db/schema/orders.js';
 
-import { QUERY_INTERVAL_MS, sleep, toGetIssueQuery } from '../utils/ecpay.js';
+import {
+  EcpayRejectedError,
+  QUERY_INTERVAL_MS,
+  sleep,
+  toGetIssueQuery,
+} from '../utils/ecpay.js';
 import {
   buildInvoiceReceipt,
   InvoiceReceiptCodesMissingError,
@@ -53,6 +58,8 @@ const OFFLINE_SWEEP_MS = 10_000;
 
 const RECEIPT_CODES_MISSING = 'RECEIPT_CODES_MISSING';
 const ECPAY_UNAVAILABLE = 'ECPAY_UNAVAILABLE';
+const ECPAY_REJECTED = 'ECPAY_REJECTED';
+const INVOICE_VOIDED_AT_ECPAY = 'INVOICE_VOIDED_AT_ECPAY';
 
 @Injectable()
 export class InvoicePrinterService implements PrintJobSource {
@@ -314,6 +321,25 @@ export class InvoicePrinterService implements PrintJobSource {
     return job ?? null;
   }
 
+  async cancelQueued(
+    jobId: string,
+    invoiceId: string,
+  ): Promise<InvoicePrintJob | undefined> {
+    const [job] = await this.db
+      .update(invoicePrintJob)
+      .set({ finishedAt: new Date(), status: 'cancelled' })
+      .where(
+        and(
+          eq(invoicePrintJob.id, jobId),
+          eq(invoicePrintJob.invoiceId, invoiceId),
+          eq(invoicePrintJob.status, 'queued'),
+        ),
+      )
+      .returning();
+
+    return job;
+  }
+
   async cancelJob(jobId: string, organizationId: string, invoiceId: string) {
     await this.db
       .update(invoicePrintJob)
@@ -472,7 +498,12 @@ export class InvoicePrinterService implements PrintJobSource {
         eq(invoicePrintJob.organizationId, organizationId),
         eq(invoicePrintJob.status, 'queued'),
       ),
-      orderBy: [asc(invoicePrintJob.createdAt), asc(invoicePrintJob.id)],
+      // 失敗過的排後面，否則綠界一直拒絕的工作會佔滿名額，新發票永遠輪不到
+      orderBy: [
+        asc(sql`${invoicePrintJob.errorCode} is not null`),
+        asc(invoicePrintJob.createdAt),
+        asc(invoicePrintJob.id),
+      ],
       limit: MAX_JOBS_PER_POLL,
       with: { invoice: true },
     });
@@ -502,10 +533,29 @@ export class InvoicePrinterService implements PrintJobSource {
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
+        const issued = await this.ecpayGetIssueInvoiceService.getIssue(query);
+
+        if (issued.IIS_Invalid_Status === '1') {
+          this.logger.error(
+            `發票 ${job.invoiceId} 在綠界已作廢但系統仍為已開立，取消列印工作 ${job.id}`,
+          );
+          await this.db
+            .update(invoicePrintJob)
+            .set({
+              errorCode: INVOICE_VOIDED_AT_ECPAY,
+              finishedAt: new Date(),
+              status: 'cancelled',
+            })
+            .where(eq(invoicePrintJob.id, job.id));
+          changed.push(job.invoiceId);
+
+          continue;
+        }
+
         entries.push({
           id: job.id,
           receipt: buildInvoiceReceipt({
-            invoice: await this.ecpayGetIssueInvoiceService.getIssue(query),
+            invoice: issued,
             isReprint: job.copy === 'reprint',
             storeName: org?.name ?? '',
           }),
@@ -514,7 +564,9 @@ export class InvoicePrinterService implements PrintJobSource {
         const errorCode =
           error instanceof InvoiceReceiptCodesMissingError
             ? RECEIPT_CODES_MISSING
-            : ECPAY_UNAVAILABLE;
+            : error instanceof EcpayRejectedError
+              ? ECPAY_REJECTED
+              : ECPAY_UNAVAILABLE;
 
         if (job.errorCode !== errorCode) {
           this.logger.error(

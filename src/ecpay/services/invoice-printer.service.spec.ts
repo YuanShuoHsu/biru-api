@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import type { GetIssueInvoiceEcpayDecryptedResponseDto } from '../dto/get-issue-invoice-ecpay.dto.js';
+import { EcpayRejectedError } from '../utils/ecpay.js';
 
 import * as schema from '../../db/schema/index.js';
 import { invoice, invoicePrintJob } from '../../db/schema/invoices.js';
@@ -194,6 +195,32 @@ describe('InvoicePrinterService（PGlite）', () => {
     success: boolean,
     code = '',
   ) => printers.report(printer, response(entry(jobId, String(success), code)));
+
+  it('同一 nonce 的 nc 要遞增，換 nonce 只能換更新簽發的', async () => {
+    const { printers, service } = createService();
+    const { printer } = await register(service);
+    const older = '1000.a.sig';
+    const newer = '2000.b.sig';
+
+    await expect(printers.acceptNonceCount(printer, older, 1)).resolves.toBe(
+      true,
+    );
+    await expect(printers.acceptNonceCount(printer, older, 1)).resolves.toBe(
+      false,
+    );
+    await expect(printers.acceptNonceCount(printer, older, 2)).resolves.toBe(
+      true,
+    );
+    await expect(printers.acceptNonceCount(printer, newer, 1)).resolves.toBe(
+      true,
+    );
+    await expect(printers.acceptNonceCount(printer, older, 3)).resolves.toBe(
+      false,
+    );
+    await expect(printers.acceptNonceCount(printer, newer, 1)).resolves.toBe(
+      false,
+    );
+  });
 
   it('設定印表機時把所有未印的正本排進佇列，載具、捐贈、作廢與已印的不排', async () => {
     const { service } = createService();
@@ -503,6 +530,75 @@ describe('InvoicePrinterService（PGlite）', () => {
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ errorCode: null, status: 'sent' }),
     ]);
+  });
+
+  it('綠界端已作廢的發票取消列印，不印出作廢的正本', async () => {
+    const { getIssue, printers, service } = createService();
+    getIssue.mockResolvedValueOnce({ ...issued, IIS_Invalid_Status: '1' });
+    vi.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
+    await addInvoice('1');
+    const { printer } = await register(service);
+
+    await expect(printers.poll(printer)).resolves.toBe('');
+    expect(await jobsOf('1')).toEqual([
+      expect.objectContaining({
+        errorCode: 'INVOICE_VOIDED_AT_ECPAY',
+        status: 'cancelled',
+      }),
+    ]);
+  });
+
+  it('綠界拒絕的工作留在佇列重試，但排在新工作後面', async () => {
+    const { getIssue, printers, service } = createService();
+    getIssue.mockImplementation(({ InvoiceNo }: { InvoiceNo: string }) =>
+      InvoiceNo === 'LO00000001'
+        ? Promise.reject(new EcpayRejectedError('查無發票'))
+        : Promise.resolve(issued),
+    );
+    vi.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
+    await addInvoice('1');
+    const { printer } = await register(service);
+
+    await printers.poll(printer);
+    expect(await jobsOf('1')).toEqual([
+      expect.objectContaining({
+        errorCode: 'ECPAY_REJECTED',
+        status: 'queued',
+      }),
+    ]);
+
+    await addInvoice('2');
+    await service.enqueue('2', ORG, 'original');
+    getIssue.mockClear();
+
+    await printers.poll(printer);
+    expect(getIssue.mock.calls.map(([{ InvoiceNo }]) => InvoiceNo)).toEqual([
+      'LO00000002',
+      'LO00000001',
+    ]);
+    expect(await jobsOf('2')).toEqual([
+      expect.objectContaining({ status: 'sent' }),
+    ]);
+  });
+
+  it('只能取消還在排隊的工作，取消後可再排入', async () => {
+    const { printers, service } = createService();
+    await addInvoice('1');
+    await addInvoice('2');
+    const { printer } = await register(service);
+    const [queued] = await jobsOf('1');
+
+    await expect(service.cancelQueued(queued.id, '2')).resolves.toBeUndefined();
+    await expect(service.cancelQueued(queued.id, '1')).resolves.toEqual(
+      expect.objectContaining({ status: 'cancelled' }),
+    );
+    await expect(service.enqueue('1', ORG, 'original')).resolves.toEqual(
+      expect.objectContaining({ status: 'queued' }),
+    );
+
+    await printers.poll(printer);
+    const [sent] = await jobsOf('2');
+    await expect(service.cancelQueued(sent.id, '2')).resolves.toBeUndefined();
   });
 
   it('別家店的印表機回報不會動到這家店的工作', async () => {

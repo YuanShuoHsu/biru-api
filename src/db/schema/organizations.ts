@@ -77,6 +77,16 @@ export const organizationSlugHistory = pgTable(
   ],
 );
 
+// 不放進 organization：那張表整列會被公開查詢回傳。secret 為 NULL 表示沿用 BETTER_AUTH_SECRET 推導的舊金鑰
+export const organizationQrSecret = pgTable('organization_qr_secret', {
+  organizationId: text('organization_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  secret: text('secret'),
+  previousSecret: text('previous_secret'),
+  rotatedAt: timestamp('rotated_at').notNull().defaultNow(),
+});
+
 export const team = pgTable(
   'team',
   {

@@ -76,6 +76,19 @@ describe('Digest 認證', () => {
     vi.useRealTimers();
   });
 
+  it('沒帶 qop=auth 的舊式回應一律拒絕', () => {
+    const nonce = nonceOf(digestChallenge());
+    const response = md5(`${ha1}:${nonce}:${md5(`POST:${URI}`)}`);
+
+    expect(
+      verifyDigest(
+        { nonce, realm: DIGEST_REALM, response, uri: URI },
+        'POST',
+        ha1,
+      ),
+    ).toBe('invalid');
+  });
+
   it('realm 不符或換了請求方法都會失敗', () => {
     const nonce = nonceOf(digestChallenge());
 

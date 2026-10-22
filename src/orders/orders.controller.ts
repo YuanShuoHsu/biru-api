@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
@@ -15,6 +16,7 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import type { Request } from 'express';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
@@ -35,6 +37,7 @@ import {
   OrderResponseDto,
 } from './dto/order-response.dto.js';
 import { orderAccessToken } from './order-access-token.js';
+import { ORDER_QR_SESSION_COOKIE } from './order-qr-token.js';
 import { OrdersService } from './orders.service.js';
 
 @AllowAnonymous()
@@ -55,12 +58,14 @@ export class OrdersController {
     @Body() dto: CreateOrderDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Session() session: UserSession | null,
+    @Req() req: Request,
   ): Promise<CreateOrderResponseDto> {
     const created = await this.ordersService.createOrder(
       organizationSlug,
       dto,
       session?.user.id || null,
       idempotencyKey || null,
+      req.cookies?.[ORDER_QR_SESSION_COOKIE] as string | undefined,
     );
 
     return { ...created, accessToken: orderAccessToken(created.id) };

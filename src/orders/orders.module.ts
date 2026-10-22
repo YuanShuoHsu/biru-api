@@ -9,6 +9,8 @@ import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
 import { OrderPricingModule } from './order-pricing.module.js';
+import { OrderQrController } from './order-qr.controller.js';
+import { OrderQrService } from './order-qr.service.js';
 import { OrderStatsController } from './order-stats.controller.js';
 import { OrderStatsService } from './order-stats.service.js';
 import { OrderTicketPrintersController } from './order-ticket-printers.controller.js';
@@ -23,6 +25,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     DineInTablesController,
     MenuItemSalesController,
     OrderModesController,
+    OrderQrController,
     OrderStatsController,
     OrderTicketPrintersController,
     OrdersController,
@@ -30,6 +33,7 @@ import { UserOrdersController } from './user-orders.controller.js';
   ],
   providers: [
     MenuItemSalesService,
+    OrderQrService,
     OrderStatsService,
     OrderTicketService,
     OrdersService,

@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
+import { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import { OrganizationId } from './decorators/organization-id.decorator.js';
 import { HasPermission } from './decorators/permission.decorator.js';
@@ -114,6 +115,15 @@ export class MenusController {
     @Query() query: MenuSectionPaginationQueryDto,
   ): Promise<{ data: MenuSectionResponseDto[]; total: number }> {
     return this.menusService.menuSections(menuId, query);
+  }
+
+  @Get('menus/:menuId/order-ticket-printers')
+  @Roles({ menu: ['read'] }, 'menuId')
+  @ApiOperation({ summary: '分類與品項可指定的工作單印表機' })
+  findOrderTicketPrinters(
+    @Param('menuId') menuId: string,
+  ): Promise<OrderTicketPrinterOptionDto[]> {
+    return this.menusService.orderTicketPrinters(menuId);
   }
 
   @Patch('menus/:menuId/menu-sections/reorder')

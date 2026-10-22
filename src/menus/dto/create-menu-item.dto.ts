@@ -148,4 +148,13 @@ export class CreateMenuItemDto {
   @ValidateNested()
   @Type(() => CreateOfferDto)
   offer?: CreateOfferDto;
+
+  @ApiPropertyOptional({
+    description: '工作單印表機；null 時沿用所屬分類',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  orderTicketPrinterId?: string | null;
 }

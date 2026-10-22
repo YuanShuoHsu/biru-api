@@ -18,6 +18,7 @@ import {
   ORDER_TRANSITIONS,
 } from './order-transitions.js';
 import type { OrderPricingService } from './order-pricing.service.js';
+import type { OrderQrService } from './order-qr.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
 
@@ -222,6 +223,7 @@ const createService = ({
       couponsService as unknown as CouponsService,
       inventory as unknown as InventoryTransactionsService,
       {} as OrderPricingService,
+      {} as OrderQrService,
       orderTickets as unknown as OrderTicketService,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,

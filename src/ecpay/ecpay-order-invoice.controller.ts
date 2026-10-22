@@ -89,6 +89,25 @@ export class EcpayOrderInvoiceController {
     );
   }
 
+  @Post('print-jobs/:jobId/cancellation')
+  @HttpCode(204)
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @ApiNoContentResponse()
+  @ApiOperation({
+    summary: '取消排隊中、還沒送到印表機的列印工作；之後可再按列印重新排入',
+  })
+  cancelPrintJob(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Param('jobId') jobId: string,
+  ): Promise<void> {
+    return this.ecpayOrderInvoiceService.cancelPrintJobForOrder(
+      organizationSlug,
+      orderId,
+      jobId,
+    );
+  }
+
   @Post('print-jobs/:jobId/resolution')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })

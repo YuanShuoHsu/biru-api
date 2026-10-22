@@ -24,6 +24,10 @@ export class PrinterDto {
     type: String,
   })
   name: string | null;
+  @ApiProperty({
+    description: '沒指定工作單印表機的品項印到這台；只有工作單印表機會是 true',
+  })
+  isDefault: boolean;
   @ApiProperty({ description: '填入印表機 Server Direct Print 的 ID' })
   username: string;
   @ApiProperty({ description: '填入印表機 Server Direct Print 的 URL' })

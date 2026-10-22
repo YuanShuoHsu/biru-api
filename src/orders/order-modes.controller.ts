@@ -8,12 +8,12 @@ import {
   modeTokenOrderModes,
   type ModeTokenOrderMode,
 } from './order-qr-token.js';
-import { OrdersService } from './orders.service.js';
+import { OrderQrService } from './order-qr.service.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/order-modes')
 export class OrderModesController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly orderQrService: OrderQrService) {}
 
   @Get(':mode/token')
   @Roles({ organization: ['update'] }, 'organizationSlug')
@@ -23,6 +23,6 @@ export class OrderModesController {
     @Param('mode', new ParseEnumPipe(modeTokenOrderModes))
     mode: ModeTokenOrderMode,
   ): Promise<OrderModeTokenResponseDto> {
-    return this.ordersService.getOrderModeToken(organizationSlug, mode);
+    return this.orderQrService.getOrderModeToken(organizationSlug, mode);
   }
 }

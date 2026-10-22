@@ -21,7 +21,12 @@ export class OrderTicketJobDto extends PrintJobDto {
     enumName: 'OrderTicketKind',
   })
   kind: OrderTicketKind;
-  @ApiProperty() printerName: string;
+  @ApiProperty({
+    description: '印表機已移除時為 null',
+    nullable: true,
+    type: String,
+  })
+  printerName: string | null;
 }
 
 export class CreateOrderTicketPrinterDto {
@@ -38,6 +43,12 @@ export class OrderTicketPrinterStatusDto extends PickType(PrinterDto, [
   'name',
   'online',
   'pollIntervalMs',
+] as const) {}
+
+export class OrderTicketPrinterOptionDto extends PickType(PrinterDto, [
+  'id',
+  'isDefault',
+  'name',
 ] as const) {}
 
 export class ReprintOrderTicketDto {

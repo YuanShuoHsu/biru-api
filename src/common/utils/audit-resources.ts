@@ -31,6 +31,7 @@ import {
   invitation,
   member,
   organization,
+  organizationQrSecret,
   team,
 } from '../../db/schema/organizations.js';
 import { printer } from '../../db/schema/printers.js';
@@ -80,6 +81,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   offer,
+  orderQrSecret: organizationQrSecret,
   printer,
   recipeIngredient,
   refund,
@@ -87,11 +89,13 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
 };
 
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
+  orderQrSecret: 'organizationId',
   waitlistSetting: 'organizationId',
 };
 
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
+    orderQrSecret: ['previousSecret', 'secret'],
     printer: ['digestHa1', 'lastSeenAt', 'pollGapsMs'],
     refund: [
       'ecpayRtnCode',
@@ -110,11 +114,13 @@ const FK_LABEL_SOURCES: Partial<
 > = {
   menuSection: {
     menuId: { table: menu, column: 'name' },
+    orderTicketPrinterId: { table: printer, column: 'name' },
     parentSectionId: { table: menuSection, column: 'name' },
   },
   menuItem: {
     menuId: { table: menu, column: 'name' },
     menuSectionId: { table: menuSection, column: 'name' },
+    orderTicketPrinterId: { table: printer, column: 'name' },
   },
   offer: {
     menuItemId: { table: menuItem, column: 'name' },

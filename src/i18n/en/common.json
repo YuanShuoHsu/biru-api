@@ -178,6 +178,7 @@
     "notVoidable": "This invoice is {status} and cannot be voided",
     "orderRefunded": "The order has been fully refunded, so no invoice will be issued",
     "pastVoidablePeriod": "This invoice is outside the filing period, so it can only be credited, not voided",
+    "printJobNotQueued": "This print job has already been sent to the printer or finished. Please refresh and try again",
     "printJobResolved": "This print job has already been confirmed. Please refresh and try again",
     "printing": "This invoice is being printed. Please try again shortly",
     "status": {
@@ -204,6 +205,7 @@
     "noPrinter": "No order ticket printer is set up",
     "notReprintable": "Only orders being prepared or ready for pickup can have their ticket reprinted",
     "orderedAt": "Ordered {time}",
+    "otherPrinters": "Also at: {printers}",
     "pickupTime": "Pickup {time}",
     "printJobResolved": "This ticket has already been confirmed. Please refresh and try again",
     "refund": "REFUND",

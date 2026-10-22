@@ -178,6 +178,7 @@
     "notVoidable": "此發票目前為{status}，無法作廢",
     "orderRefunded": "此訂單已全額退款，不再開立發票",
     "pastVoidablePeriod": "此發票已跨稅期，只能開立折讓，無法作廢",
+    "printJobNotQueued": "這筆列印工作已送到印表機或已結束，請重新整理後再試",
     "printJobResolved": "這筆列印工作已確認過，請重新整理後再試",
     "printing": "這張發票正在列印中，請稍候再試",
     "status": {
@@ -204,6 +205,7 @@
     "noPrinter": "尚未設定工作單印表機",
     "notReprintable": "只有製作中或可取餐的訂單可以重印工作單",
     "orderedAt": "下單 {time}",
+    "otherPrinters": "另有：{printers}",
     "pickupTime": "取餐 {time}",
     "printJobResolved": "這筆工作單已確認過，請重新整理後再試",
     "refund": "退品",

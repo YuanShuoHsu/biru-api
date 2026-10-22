@@ -43,6 +43,8 @@ const createNonce = () => {
   return `${issuedAt}.${salt}.${signNonce(issuedAt, salt)}`;
 };
 
+export const nonceIssuedAt = (nonce: string) => Number(nonce.split('.')[0]);
+
 const nonceState = (nonce: string): 'valid' | 'stale' | 'invalid' => {
   const [issuedAt, salt, signature] = nonce.split('.');
   if (!issuedAt || !salt || !signature) return 'invalid';
@@ -75,17 +77,22 @@ export const verifyDigest = (
   ha1: string,
 ): DigestVerification => {
   const { cnonce, nc, nonce, qop, response, uri } = params;
-  if (!nonce || !response || !uri || params.realm !== DIGEST_REALM)
+  if (
+    !nonce ||
+    !response ||
+    !uri ||
+    qop !== 'auth' ||
+    !cnonce ||
+    !/^[0-9a-f]{8}$/i.test(nc ?? '') ||
+    params.realm !== DIGEST_REALM
+  )
     return 'invalid';
 
   const state = nonceState(nonce);
   if (state === 'invalid') return 'invalid';
 
   const ha2 = md5(`${method}:${uri}`);
-  const expected =
-    qop === 'auth'
-      ? md5(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`)
-      : md5(`${ha1}:${nonce}:${ha2}`);
+  const expected = md5(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`);
 
   if (!safeEqual(response, expected)) return 'invalid';
 

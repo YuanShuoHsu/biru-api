@@ -230,17 +230,4 @@ export class CreateOrderDto {
   @Min(1)
   @Max(999)
   tableNumber?: number;
-
-  @ApiPropertyOptional({ description: '桌上 QR code 帶的桌號簽章，內用必填' })
-  @IsOptional()
-  @IsString()
-  tableToken?: string;
-
-  @ApiPropertyOptional({
-    description:
-      '櫃台／得來速 QR code 帶的點餐方式簽章，這兩種方式付現金時必填',
-  })
-  @IsOptional()
-  @IsString()
-  modeToken?: string;
 }

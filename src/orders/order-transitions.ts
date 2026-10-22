@@ -173,10 +173,14 @@ export const getAvailableTransitions = (found: {
   );
 
 export const toAdminOrder = (
-  found: OrderResponseDto & { orderTicketJobs?: OrderTicketJobDto[] },
+  found: OrderResponseDto & {
+    orderTicketJobs?: OrderTicketJobDto[];
+    orderTicketPrinterIds?: string[];
+  },
 ): AdminOrderResponseDto => ({
   ...found,
   orderTicketJobs: found.orderTicketJobs ?? [],
+  orderTicketPrinterIds: found.orderTicketPrinterIds ?? [],
   orderTicketReprintable: isOrderTicketPrintable(found.orderStatus),
   refundable: isRefundable(found),
   refundChannel: getRefundChannel(found.paymentMethod),

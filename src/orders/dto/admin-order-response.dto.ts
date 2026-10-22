@@ -32,6 +32,13 @@ export class AdminOrderResponseDto extends OrderResponseDto {
   orderTicketJobs: OrderTicketJobDto[];
 
   @ApiProperty({
+    description: '這張訂單有分到品項的工作單印表機，重印只能選這些',
+    isArray: true,
+    type: String,
+  })
+  orderTicketPrinterIds: string[];
+
+  @ApiProperty({
     description:
       '訂單狀態是否允許重印工作單；店家有沒有工作單印表機要另外看印表機清單',
   })

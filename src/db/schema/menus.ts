@@ -28,6 +28,7 @@ import {
 } from './enums.js';
 import { orderModeEnum } from './orders.js';
 import { organization } from './organizations.js';
+import { printer } from './printers.js';
 
 // https://schema.org/RestrictedDiet
 export const restrictedDietEnum = pgEnum('restricted_diet', [
@@ -89,6 +90,11 @@ export const menuSection = pgTable(
     name: jsonb('name').notNull().$type<LocalizedText>(),
     description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
+    // null 時沿用上層分類，最上層也沒設就印到預設工作單印表機
+    orderTicketPrinterId: text('order_ticket_printer_id').references(
+      (): AnyPgColumn => printer.id,
+      { onDelete: 'set null' },
+    ),
     // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
@@ -96,6 +102,9 @@ export const menuSection = pgTable(
   (table) => [
     index('menuSection_menuId_idx').on(table.menuId),
     index('menuSection_parentSectionId_idx').on(table.parentSectionId),
+    index('menuSection_orderTicketPrinterId_idx').on(
+      table.orderTicketPrinterId,
+    ),
   ],
 );
 
@@ -155,6 +164,11 @@ export const menuItem = pgTable(
       .notNull()
       .default(orderModeEnum.enumValues),
     nutrition: jsonb('nutrition').$type<NutritionInformation>(),
+    // null 時沿用所屬分類
+    orderTicketPrinterId: text('order_ticket_printer_id').references(
+      (): AnyPgColumn => printer.id,
+      { onDelete: 'set null' },
+    ),
     // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
@@ -162,6 +176,7 @@ export const menuItem = pgTable(
   (table) => [
     index('menuItem_menuId_idx').on(table.menuId),
     index('menuItem_menuSectionId_idx').on(table.menuSectionId),
+    index('menuItem_orderTicketPrinterId_idx').on(table.orderTicketPrinterId),
     check(
       'menuItem_fixed_sweetness_level',
       sql`(${table.sweetness} = 'Fixed') = (${table.fixedSweetnessLevel} IS NOT NULL)`,

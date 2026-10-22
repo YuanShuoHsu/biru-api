@@ -12,12 +12,14 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
 
 import type { CreateOrderDto } from './dto/create-order.dto.js';
-import { dineInTableToken, orderModeToken } from './order-qr-token.js';
+import { issueOrderQrSession } from './order-qr-token.js';
+import type { OrderQrService } from './order-qr.service.js';
 import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
 
 const ORG_ID = 'org';
+const QR_SECRET = 'qr-secret';
 
 const resolvedItems = [
   { id: 'i1', menuItemId: 'm1', orderQuantity: 2, unitPrice: '60.00' },
@@ -51,11 +53,13 @@ const selectChain = (rows: unknown[]) => {
 const createService = ({
   applied = null,
   closedAt = null,
+  qrSecret = QR_SECRET,
   replayed,
   txDuplicate,
 }: {
   applied?: { coupon: { code: string }; discount: number } | null;
   closedAt?: Date | null;
+  qrSecret?: string | null;
   replayed?: { id: string; idempotencyFingerprint: string | null };
   txDuplicate?: { id: string; orderStatus: string };
 } = {}) => {
@@ -124,6 +128,9 @@ const createService = ({
       couponsService as unknown as CouponsService,
       { consume: vi.fn() } as unknown as InventoryTransactionsService,
       orderPricingService as unknown as OrderPricingService,
+      {
+        secretOf: vi.fn().mockResolvedValue(qrSecret),
+      } as unknown as OrderQrService,
       { enqueueOrder: vi.fn() } as unknown as OrderTicketService,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
@@ -169,73 +176,110 @@ describe('OrdersService.createOrder', () => {
       ).rejects.toThrow('pickupTime is unavailable');
     });
 
+    const sessionOf = (
+      mode: 'counter' | 'dineIn' | 'driveThru',
+      tableNumber: number | null = null,
+      organizationId = ORG_ID,
+      qrSecret: string | null = QR_SECRET,
+    ) => issueOrderQrSession(organizationId, qrSecret, mode, tableNumber).value;
+
     it.each([
-      ['沒帶簽章', () => undefined],
-      ['簽章屬於別桌', () => dineInTableToken(ORG_ID, 8)],
-      ['簽章屬於別店', () => dineInTableToken('other-org', 7)],
-    ])('內用%s會被擋', async (_, tableTokenOf) => {
+      ['沒掃過桌上 QR code', () => undefined],
+      ['掃的是別桌', () => sessionOf('dineIn', 8)],
+      ['掃的是別店', () => sessionOf('dineIn', 7, 'other-org')],
+      ['掃碼後門市換過 QR secret', () => sessionOf('dineIn', 7, ORG_ID, null)],
+      ['掃的是櫃台 QR code', () => sessionOf('counter')],
+    ])('內用%s會被擋', async (_, qrSessionOf) => {
       const { db, service } = createService();
-      const tableToken = tableTokenOf();
 
       await expect(
         service.createOrder(
           'slug',
-          dtoOf({ mode: 'dineIn', tableNumber: 7, tableToken }),
+          dtoOf({ mode: 'dineIn', tableNumber: 7 }),
           null,
           null,
+          qrSessionOf(),
         ),
       ).rejects.toThrow('common.orders.invalidTable');
       expect(db.transaction).not.toHaveBeenCalled();
     });
 
-    it('內用帶正確桌號簽章可以下單', async () => {
+    it('內用掃碼的 session 過期會被擋', async () => {
+      const { service } = createService();
+      const qrSession = sessionOf('dineIn', 7);
+      vi.useFakeTimers({ now: Date.now() + 3 * 60 * 60 * 1000 });
+
+      try {
+        await expect(
+          service.createOrder(
+            'slug',
+            dtoOf({ mode: 'dineIn', tableNumber: 7 }),
+            null,
+            null,
+            qrSession,
+          ),
+        ).rejects.toThrow('common.orders.invalidTable');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('內用掃過該桌 QR code 可以下單', async () => {
       const { inserted, service } = createService();
 
       await service.createOrder(
         'slug',
-        dtoOf({
-          mode: 'dineIn',
-          partySize: 2,
-          tableNumber: 7,
-          tableToken: dineInTableToken(ORG_ID, 7),
-        }),
+        dtoOf({ mode: 'dineIn', partySize: 2, tableNumber: 7 }),
         null,
         null,
+        sessionOf('dineIn', 7),
+      );
+
+      expect(inserted.get(order)).toMatchObject({ tableNumber: 7 });
+    });
+
+    it('尚未換過 QR secret 的門市沿用舊金鑰', async () => {
+      const { inserted, service } = createService({ qrSecret: null });
+
+      await service.createOrder(
+        'slug',
+        dtoOf({ mode: 'dineIn', partySize: 2, tableNumber: 7 }),
+        null,
+        null,
+        sessionOf('dineIn', 7, ORG_ID, null),
       );
 
       expect(inserted.get(order)).toMatchObject({ tableNumber: 7 });
     });
 
     it.each([
-      ['沒帶簽章', () => undefined],
-      ['簽章屬於別的模式', () => orderModeToken(ORG_ID, 'driveThru')],
-      ['簽章屬於別店', () => orderModeToken('other-org', 'counter')],
-    ])('櫃檯付現金%s會被擋', async (_, modeTokenOf) => {
+      ['沒掃過店內 QR code', () => undefined],
+      ['掃的是得來速', () => sessionOf('driveThru')],
+      ['掃的是別店', () => sessionOf('counter', null, 'other-org')],
+    ])('櫃檯付現金%s會被擋', async (_, qrSessionOf) => {
       const { db, service } = createService();
-      const modeToken = modeTokenOf();
 
       await expect(
         service.createOrder(
           'slug',
-          dtoOf({ modeToken, payment: 'Cash' }),
+          dtoOf({ payment: 'Cash' }),
           null,
           null,
+          qrSessionOf(),
         ),
       ).rejects.toThrow('common.orders.cashRequiresInStoreQrCode');
       expect(db.transaction).not.toHaveBeenCalled();
     });
 
-    it('櫃檯付現金帶店內 QR code 簽章可以下單', async () => {
+    it('櫃檯付現金掃過店內 QR code 可以下單', async () => {
       const { inserted, service } = createService();
 
       await service.createOrder(
         'slug',
-        dtoOf({
-          modeToken: orderModeToken(ORG_ID, 'counter'),
-          payment: 'Cash',
-        }),
+        dtoOf({ payment: 'Cash' }),
         null,
         null,
+        sessionOf('counter'),
       );
 
       expect(inserted.get(order)).toMatchObject({ paymentMethod: 'Cash' });

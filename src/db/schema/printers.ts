@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -42,8 +43,12 @@ export const printer = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     purpose: printerPurposeEnum('purpose').notNull(),
     name: text('name'),
+    // 沒指定工作單印表機的品項印到這台；有工作單印表機時恰好一台
+    isDefault: boolean('is_default').notNull().default(false),
     username: text('username').notNull().unique(),
     digestHa1: text('digest_ha1').notNull(),
+    digestNonce: text('digest_nonce'),
+    digestNc: integer('digest_nc'),
     lastSeenAt: timestamp('last_seen_at'),
     pollGapsMs: integer('poll_gaps_ms').array(),
     ...timestamps,
@@ -53,6 +58,13 @@ export const printer = pgTable(
     uniqueIndex('printer_organizationId_invoice_idx')
       .on(table.organizationId)
       .where(sql`${table.purpose} = 'invoice'`),
+    uniqueIndex('printer_organizationId_default_idx')
+      .on(table.organizationId)
+      .where(sql`${table.isDefault}`),
+    check(
+      'printer_isDefault_check',
+      sql`not ${table.isDefault} or ${table.purpose} = 'orderTicket'`,
+    ),
   ],
 );
 
@@ -74,13 +86,16 @@ export const orderTicketJob = pgTable(
     refundId: text('refund_id').references(() => refund.id, {
       onDelete: 'cascade',
     }),
-    printerId: text('printer_id')
-      .notNull()
-      .references(() => printer.id, { onDelete: 'cascade' }),
+    // 印表機移除後保留紀錄，否則它印過的品項會被當成沒印過、補排到別台
+    printerId: text('printer_id').references(() => printer.id, {
+      onDelete: 'set null',
+    }),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     kind: orderTicketKindEnum('kind').notNull(),
+    // 入列時就定下這張單負責的品項，之後改品項對應不會讓排隊中的品項落空
+    orderItemIds: text('order_item_ids').array().notNull(),
     copy: printCopyEnum('copy').notNull(),
     status: printJobStatusEnum('status').notNull().default('queued'),
     errorCode: text('error_code'),
@@ -94,12 +109,6 @@ export const orderTicketJob = pgTable(
       table.printerId,
       table.status,
     ),
-    // 同一台印表機同時只能有一份正本在途，否則兩份都可能印出來、吧台做兩份
-    uniqueIndex('orderTicketJob_inFlightOrder_idx')
-      .on(table.orderId, table.printerId)
-      .where(
-        sql`${table.kind} = 'order' and ${table.copy} = 'original' and ${table.status} in ('queued', 'sent', 'unknown')`,
-      ),
     uniqueIndex('orderTicketJob_inFlightRefund_idx')
       .on(table.refundId, table.printerId)
       .where(

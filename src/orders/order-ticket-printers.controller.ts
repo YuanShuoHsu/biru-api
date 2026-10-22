@@ -85,12 +85,32 @@ export class OrderTicketPrintersController {
     return this.orderTicketService.resetPrinter(organizationSlug, printerId);
   }
 
+  @Put('order-ticket-printers/:printerId/default')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @Audit(PRINTER_AUDIT)
+  @ApiOkResponse({ type: PrinterDto })
+  @ApiOperation({
+    summary: '設為預設工作單印表機：沒指定工作單印表機的品項改印到這台',
+  })
+  setDefault(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('printerId') printerId: string,
+  ): Promise<PrinterDto> {
+    return this.orderTicketService.setDefaultPrinter(
+      organizationSlug,
+      printerId,
+    );
+  }
+
   @Delete('order-ticket-printers/:printerId')
   @HttpCode(204)
   @Roles({ organization: ['update'] }, 'organizationSlug')
   @Audit(PRINTER_AUDIT)
   @ApiNoContentResponse()
-  @ApiOperation({ summary: '移除工作單印表機，尚未印出的工作單一併取消' })
+  @ApiOperation({
+    summary:
+      '移除工作單印表機：還沒送出的工作單改排到品項現在對應的印表機，已送出的交給店員確認',
+  })
   remove(
     @Param('organizationSlug') organizationSlug: string,
     @Param('printerId') printerId: string,
@@ -101,7 +121,9 @@ export class OrderTicketPrintersController {
   @Post('orders/:orderId/order-tickets/reprint')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @ApiCreatedResponse({ isArray: true, type: OrderTicketJobDto })
-  @ApiOperation({ summary: '重印工作單：在指定的工作單印表機各補印一張' })
+  @ApiOperation({
+    summary: '重印工作單：在指定的工作單印表機各補印一張它負責的品項',
+  })
   reprint(
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,

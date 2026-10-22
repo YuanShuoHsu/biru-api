@@ -31,7 +31,16 @@ export class ServerDirectPrintController {
         ? verifyDigest(params, req.method, printer.digestHa1)
         : 'invalid';
 
-    if (!printer || verification !== 'valid') {
+    if (
+      !params ||
+      !printer ||
+      verification !== 'valid' ||
+      !(await this.printersService.acceptNonceCount(
+        printer,
+        params.nonce,
+        Number.parseInt(params.nc, 16),
+      ))
+    ) {
       res
         .status(401)
         .set('WWW-Authenticate', digestChallenge(verification === 'stale'))

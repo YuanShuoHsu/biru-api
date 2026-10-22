@@ -27,4 +27,14 @@ export class CreateMenuSectionDto {
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
   image?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '工作單印表機；null 時沿用上層分類，最上層也沒設就印到預設工作單印表機',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  orderTicketPrinterId?: string | null;
 }

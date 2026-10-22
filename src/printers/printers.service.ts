@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { PrinterCredentialsDto, PrinterDto } from './dto/printer.dto.js';
 
@@ -11,7 +11,7 @@ import {
   SERVER_DIRECT_PRINT_PATH,
   toPrintRequest,
 } from './server-direct-print.js';
-import { digestHa1 } from './utils/digest-auth.js';
+import { digestHa1, nonceIssuedAt } from './utils/digest-auth.js';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -73,6 +73,7 @@ export class PrintersService {
     return {
       createdAt: printer.createdAt,
       id: printer.id,
+      isDefault: printer.isDefault,
       lastSeenAt: printer.lastSeenAt,
       name: printer.name,
       online: isOnline(printer),
@@ -119,6 +120,33 @@ export class PrintersService {
     return this.db.query.printer.findFirst({
       where: eq(printerTable.username, username),
     });
+  }
+
+  // 同一 nonce 的 nc 要遞增、換 nonce 只能換更新簽發的，否則截到的請求可在 nonce 效期內重放
+  async acceptNonceCount(
+    printer: Printer,
+    nonce: string,
+    nc: number,
+  ): Promise<boolean> {
+    const accepted = await this.db
+      .update(printerTable)
+      .set({ digestNc: nc, digestNonce: nonce })
+      .where(
+        and(
+          eq(printerTable.id, printer.id),
+          or(
+            isNull(printerTable.digestNonce),
+            and(
+              eq(printerTable.digestNonce, nonce),
+              lt(printerTable.digestNc, nc),
+            ),
+            sql`split_part(${printerTable.digestNonce}, '.', 1)::bigint < ${nonceIssuedAt(nonce)}`,
+          ),
+        ),
+      )
+      .returning({ id: printerTable.id });
+
+    return accepted.length > 0;
   }
 
   /**

@@ -228,6 +228,7 @@ export type I18nTranslations = {
             "notVoidable": string;
             "orderRefunded": string;
             "pastVoidablePeriod": string;
+            "printJobNotQueued": string;
             "printJobResolved": string;
             "printing": string;
             "status": {
@@ -254,6 +255,7 @@ export type I18nTranslations = {
             "noPrinter": string;
             "notReprintable": string;
             "orderedAt": string;
+            "otherPrinters": string;
             "pickupTime": string;
             "printJobResolved": string;
             "refund": string;

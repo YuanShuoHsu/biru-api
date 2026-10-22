@@ -178,6 +178,7 @@
     "notVoidable": "このインボイスは{status}のため、無効化できません",
     "orderRefunded": "この注文は全額返金済みのため、インボイスは発行されません",
     "pastVoidablePeriod": "このインボイスは期をまたいでいるため無効化できません。値引伝票のみ発行できます",
+    "printJobNotQueued": "この印刷ジョブはすでにプリンターに送信済みか、完了しています。再読み込みしてからもう一度お試しください",
     "printJobResolved": "この印刷ジョブは確認済みです。再読み込みしてからもう一度お試しください",
     "printing": "このインボイスは印刷中です。しばらくしてから再度お試しください",
     "status": {
@@ -204,6 +205,7 @@
     "noPrinter": "オーダー伝票プリンターが設定されていません",
     "notReprintable": "伝票を再印刷できるのは調理中または受取可能な注文のみです",
     "orderedAt": "注文 {time}",
+    "otherPrinters": "他の担当：{printers}",
     "pickupTime": "受取 {time}",
     "printJobResolved": "この伝票は確認済みです。再読み込みしてからもう一度お試しください",
     "refund": "返品",

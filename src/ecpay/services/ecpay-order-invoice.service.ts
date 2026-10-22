@@ -149,6 +149,7 @@ export class EcpayOrderInvoiceService {
       | 'orderRefunded'
       | 'pastVoidablePeriod'
       | 'printing'
+      | 'printJobNotQueued'
       | 'printJobResolved'
       | 'voidWriteFailed',
     args?: Record<string, string | number>,
@@ -464,6 +465,22 @@ export class EcpayOrderInvoiceService {
     );
 
     return toPrintJobDto(resolved.reprint ?? resolved.job);
+  }
+
+  async cancelPrintJobForOrder(
+    organizationSlug: string,
+    orderId: string,
+    jobId: string,
+  ): Promise<void> {
+    const { data, organizationId } = await this.findPrintableInvoice(
+      organizationSlug,
+      orderId,
+    );
+
+    const job = await this.invoicePrinterService.cancelQueued(jobId, data.id);
+    if (!job) throw new ConflictException(this.tInvoice('printJobNotQueued'));
+
+    this.emitOrderUpdated(organizationId, orderId);
   }
 
   async confirmPrintForOrder(

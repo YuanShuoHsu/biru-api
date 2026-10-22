@@ -108,17 +108,12 @@ import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
 import {
   IN_FLIGHT_ORDER_TICKET_STATUSES,
+  orderTicketPrinterIdsOf,
   OrderTicketService,
   toOrderTicketJobDto,
 } from './order-ticket.service.js';
-import {
-  dineInTableToken,
-  isValidDineInTableToken,
-  isValidOrderModeToken,
-  modeTokenOrderModes,
-  orderModeToken,
-  type ModeTokenOrderMode,
-} from './order-qr-token.js';
+import { verifyOrderQrSession } from './order-qr-token.js';
+import { OrderQrService } from './order-qr.service.js';
 import {
   CANCEL_UNPAID_ORDER,
   findTransition,
@@ -247,7 +242,9 @@ const ORDER_RECEIPT_INVOICE_COLUMNS = {
 const toAdminOrderWithInvoice = <
   TOrder extends Omit<OrderResponseDto, 'invoice'> & {
     invoices: (Invoice & { printJobs: InvoicePrintJob[] })[];
-    orderTicketJobs: (OrderTicketJob & { printer: Pick<Printer, 'name'> })[];
+    orderTicketJobs: (OrderTicketJob & {
+      printer: Pick<Printer, 'name'> | null;
+    })[];
   },
 >(
   found: TOrder,
@@ -257,7 +254,12 @@ const toAdminOrderWithInvoice = <
   return toAdminOrder({
     ...rest,
     invoice: active && withPrintJob(active),
-    orderTicketJobs: orderTicketJobs.map(toOrderTicketJobDto),
+    orderTicketJobs: orderTicketJobs
+      .filter(({ status }) =>
+        IN_FLIGHT_ORDER_TICKET_STATUSES.some((inFlight) => inFlight === status),
+      )
+      .map(toOrderTicketJobDto),
+    orderTicketPrinterIds: orderTicketPrinterIdsOf(orderTicketJobs),
   });
 };
 
@@ -277,6 +279,7 @@ export class OrdersService {
     private readonly couponsService: CouponsService,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
     private readonly orderPricingService: OrderPricingService,
+    private readonly orderQrService: OrderQrService,
     private readonly orderTicketService: OrderTicketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -365,21 +368,12 @@ export class OrdersService {
     return pickupTime;
   }
 
-  async getDineInTableToken(organizationSlug: string, tableNumber: number) {
-    const org = await this.getOrgBySlug(organizationSlug);
-    return { token: dineInTableToken(org.id, tableNumber) };
-  }
-
-  async getOrderModeToken(organizationSlug: string, mode: ModeTokenOrderMode) {
-    const org = await this.getOrgBySlug(organizationSlug);
-    return { token: orderModeToken(org.id, mode) };
-  }
-
   async createOrder(
     organizationSlug: string,
     dto: CreateOrderDto,
     userId: string | null,
     idempotencyKey: string | null,
+    qrSessionValue?: string,
   ): Promise<OrderReceiptResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
       throw new BadRequestException('Cash is unavailable for this order mode');
@@ -394,17 +388,23 @@ export class OrdersService {
 
     const org = await this.getOrgBySlug(organizationSlug);
 
+    const qrSession = verifyOrderQrSession(
+      org.id,
+      await this.orderQrService.secretOf(org.id),
+      qrSessionValue,
+    );
+    const hasQrSession = qrSession?.mode === dto.mode;
+
     if (
       isDineIn &&
-      !isValidDineInTableToken(org.id, dto.tableNumber, dto.tableToken)
+      (!hasQrSession || qrSession.tableNumber !== dto.tableNumber)
     )
       throw new BadRequestException(this.t('invalidTable'));
 
-    const modeTokenMode = modeTokenOrderModes.find((mode) => mode === dto.mode);
     if (
-      modeTokenMode &&
+      (dto.mode === 'counter' || dto.mode === 'driveThru') &&
       dto.payment === 'Cash' &&
-      !isValidOrderModeToken(org.id, modeTokenMode, dto.modeToken)
+      !hasQrSession
     )
       throw new BadRequestException(this.t('cashRequiresInStoreQrCode'));
 
@@ -675,8 +675,7 @@ export class OrdersService {
           },
           items: true,
           orderTicketJobs: {
-            where: (jobs, { inArray }) =>
-              inArray(jobs.status, [...IN_FLIGHT_ORDER_TICKET_STATUSES]),
+            where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
             orderBy: (jobs, { asc }) => asc(jobs.createdAt),
             with: { printer: { columns: { name: true } } },
           },
@@ -823,8 +822,7 @@ export class OrdersService {
               },
               items: true,
               orderTicketJobs: {
-                where: (jobs, { inArray }) =>
-                  inArray(jobs.status, [...IN_FLIGHT_ORDER_TICKET_STATUSES]),
+                where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
                 orderBy: (jobs, { asc }) => asc(jobs.createdAt),
                 with: { printer: { columns: { name: true } } },
               },
