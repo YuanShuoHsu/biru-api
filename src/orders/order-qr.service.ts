@@ -7,17 +7,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { eq, sql } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 
 import {
   organization,
   organizationQrSecret,
+  organizationSlugHistory,
 } from '../db/schema/organizations.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type {
-  CreateOrderQrSessionDto,
+  OrderQrQueryDto,
   OrderQrSecretResponseDto,
 } from './dto/order-qr.dto.js';
 import {
@@ -66,20 +67,46 @@ export class OrderQrService {
     return { token: orderModeToken(org.id, org.secret, mode) };
   }
 
-  async createSession(
+  async scan(
     organizationSlug: string,
-    { mode, tableNumber, token }: CreateOrderQrSessionDto,
+    { mode, tableNumber, token }: OrderQrQueryDto,
   ) {
-    const org = await this.getOrgBySlug(organizationSlug);
-    if (!isValidQrToken(org.id, org.secret, mode, tableNumber, token))
-      throw new BadRequestException('Invalid QR code');
+    // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+    const [org] = await this.db
+      .select({
+        id: organization.id,
+        secret: organizationQrSecret.secret,
+        slug: organization.slug,
+      })
+      .from(organization)
+      .leftJoin(
+        organizationQrSecret,
+        eq(organizationQrSecret.organizationId, organization.id),
+      )
+      .leftJoin(
+        organizationSlugHistory,
+        eq(organizationSlugHistory.organizationId, organization.id),
+      )
+      .where(
+        or(
+          eq(organization.slug, organizationSlug),
+          eq(organizationSlugHistory.slug, organizationSlug),
+        ),
+      )
+      .limit(1);
+    if (!org) return null;
 
-    return issueOrderQrSession(
-      org.id,
-      org.secret,
-      mode,
-      mode === 'dineIn' ? tableNumber! : null,
-    );
+    return {
+      issued: isValidQrToken(org.id, org.secret, mode, tableNumber, token)
+        ? issueOrderQrSession(
+            org.id,
+            org.secret,
+            mode,
+            mode === 'dineIn' ? tableNumber! : null,
+          )
+        : null,
+      slug: org.slug,
+    };
   }
 
   async findSession(organizationSlug: string, value: string | undefined) {

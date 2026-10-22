@@ -1,16 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 import { qrOrderModes, type QrOrderMode } from '../order-qr-token.js';
 
-export class CreateOrderQrSessionDto {
+export class OrderQrQueryDto {
   @ApiProperty({ enum: qrOrderModes, enumName: 'QrOrderMode' })
   @IsEnum(qrOrderModes)
   mode: QrOrderMode;
 
   @ApiPropertyOptional({ description: '內用必填' })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(999)

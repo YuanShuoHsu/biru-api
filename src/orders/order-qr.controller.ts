@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Redirect,
+  Req,
+  Res,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
@@ -10,11 +20,11 @@ import {
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import {
-  CreateOrderQrSessionDto,
+  OrderQrQueryDto,
   OrderQrSecretResponseDto,
   OrderQrSessionResponseDto,
 } from './dto/order-qr.dto.js';
-import { ORDER_QR_SESSION_COOKIE } from './order-qr-token.js';
+import { ORDER_QR_SESSION_COOKIE, type QrOrderMode } from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 
 const ORDER_QR_SECRET_AUDIT: AuditTarget = {
@@ -23,33 +33,55 @@ const ORDER_QR_SECRET_AUDIT: AuditTarget = {
   via: { table: 'orderQrSecret', ownerColumn: 'organizationId' },
 };
 
+// 前台點餐頁 order/[mode] 的路徑段，前台改路由要一起改
+const ORDER_PAGE_MODES: Record<QrOrderMode, string> = {
+  counter: 'counter',
+  dineIn: 'dine-in',
+  driveThru: 'drive-thru',
+};
+
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug')
 export class OrderQrController {
-  constructor(private readonly orderQrService: OrderQrService) {}
+  private readonly nextUrl: string;
 
-  @Post('order-qr-sessions')
+  constructor(
+    private readonly orderQrService: OrderQrService,
+    configService: ConfigService,
+  ) {
+    this.nextUrl = configService.getOrThrow<string>('NEXT_URL');
+  }
+
+  @Get('order-qr')
   @AllowAnonymous()
+  @Redirect()
   @ApiOperation({
-    summary: '掃描店內 QR code 後換成短效 cookie，之後網址不再帶簽章',
+    summary:
+      '店內 QR code 的網址：簽章換成短效 cookie 後轉到點餐頁，點餐頁網址不帶簽章',
   })
-  async createSession(
+  async scan(
     @Param('organizationSlug') organizationSlug: string,
-    @Body() dto: CreateOrderQrSessionDto,
+    @Query() query: OrderQrQueryDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<OrderQrSessionResponseDto> {
-    const { session, value } = await this.orderQrService.createSession(
-      organizationSlug,
-      dto,
+  ) {
+    const scanned = await this.orderQrService.scan(organizationSlug, query);
+    if (scanned?.issued)
+      res.cookie(ORDER_QR_SESSION_COOKIE, scanned.issued.value, {
+        expires: scanned.issued.session.expiresAt,
+        httpOnly: true,
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+
+    const url = new URL(
+      `/order/${ORDER_PAGE_MODES[query.mode]}/${scanned?.slug || organizationSlug}`,
+      this.nextUrl,
     );
-    res.cookie(ORDER_QR_SESSION_COOKIE, value, {
-      expires: session.expiresAt,
-      httpOnly: true,
-      path: '/',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-    return session;
+    if (query.tableNumber)
+      url.searchParams.set('tableNumber', String(query.tableNumber));
+
+    return { statusCode: 303, url: url.toString() };
   }
 
   @Get('order-qr-sessions/current')
