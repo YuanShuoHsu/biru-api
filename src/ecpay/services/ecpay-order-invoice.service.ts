@@ -425,10 +425,11 @@ export class EcpayOrderInvoiceService {
 
     const copy = data.printedAt ? 'reprint' : 'original';
 
-    if (!(await this.invoicePrinterService.hasPrinter(organizationId)))
+    // 沒有印表機或印表機離線時改用瀏覽器印，不必為了故障先移除印表機
+    if (!(await this.invoicePrinterService.printerOnline(organizationId)))
       return this.getPrint(data, organizationId, copy);
 
-    // 有印表機就只能走印表機，否則瀏覽器那條路又會出現按取消也算已印的正本
+    // 印表機在線就只能走印表機，否則瀏覽器那條路又會出現按取消也算已印的正本
     const job = await this.invoicePrinterService.enqueue(
       data.id,
       organizationId,

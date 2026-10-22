@@ -54,3 +54,14 @@ export class InvoicePrinterSettingDto {
   @ApiPropertyOptional({ type: InvoicePrinterDto, nullable: true })
   printer: InvoicePrinterDto | null;
 }
+
+export class InvoicePrinterStatusDto {
+  @ApiProperty({ description: '是否設定了發票印表機' })
+  configured: boolean;
+  @ApiProperty({
+    description: '印表機最近仍有來拉列印工作；離線時列印發票改用瀏覽器',
+  })
+  online: boolean;
+  @ApiPropertyOptional({ description: '印表機最後一次連線的時間' })
+  lastSeenAt?: Date | null;
+}

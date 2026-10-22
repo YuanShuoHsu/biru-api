@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import {
   InvoicePrinterCredentialsDto,
   InvoicePrinterSettingDto,
+  InvoicePrinterStatusDto,
 } from './dto/invoice-printer.dto.js';
 
 import {
@@ -64,6 +65,16 @@ export class InvoicePrinterController {
     return {
       printer: await this.invoicePrinterService.getPrinter(organizationSlug),
     };
+  }
+
+  @Get('status')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOkResponse({ type: InvoicePrinterStatusDto })
+  @ApiOperation({ summary: '發票印表機是否在線（訂單頁顯示離線提示用）' })
+  status(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<InvoicePrinterStatusDto> {
+    return this.invoicePrinterService.getStatus(organizationSlug);
   }
 
   @Put()

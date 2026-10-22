@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
 
 import type {
@@ -23,6 +23,7 @@ import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.j
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Interval } from '@nestjs/schedule';
 
 import type {
   InvoicePrintCopy,
@@ -59,6 +60,11 @@ const NOT_STARTED_ERROR_CODES = new Set([
 // 每次都要向綠界查條碼內容；一次給太多，印表機等回應逾時就會把整批當成沒收到
 const MAX_JOBS_PER_POLL = 10;
 
+// 印表機超過這段時間沒來拉工作就視為離線（用戶定案 60 秒）
+export const PRINTER_OFFLINE_AFTER_MS = 60_000;
+
+const OFFLINE_SWEEP_MS = 10_000;
+
 const RECEIPT_CODES_MISSING = 'RECEIPT_CODES_MISSING';
 const ECPAY_UNAVAILABLE = 'ECPAY_UNAVAILABLE';
 
@@ -67,6 +73,9 @@ type PrintResult = { code: string; printJobId: string; success: boolean };
 type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 
 const newJobId = () => randomUUID().replace(/-/g, '');
+
+const isOnline = (lastSeenAt: Date | null) =>
+  !!lastSeenAt && Date.now() - lastSeenAt.getTime() <= PRINTER_OFFLINE_AFTER_MS;
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: '',
@@ -187,6 +196,69 @@ export class InvoicePrinterService {
     });
 
     return !!printer;
+  }
+
+  /** null 代表沒有設定印表機 */
+  async printerOnline(organizationId: string): Promise<boolean | null> {
+    const printer = await this.db.query.invoicePrinter.findFirst({
+      where: eq(invoicePrinter.organizationId, organizationId),
+      columns: { lastSeenAt: true },
+    });
+    if (!printer) return null;
+
+    return isOnline(printer.lastSeenAt);
+  }
+
+  async getStatus(organizationSlug: string) {
+    const organizationId = await this.findOrganizationId(organizationSlug);
+    const printer = await this.db.query.invoicePrinter.findFirst({
+      where: eq(invoicePrinter.organizationId, organizationId),
+      columns: { lastSeenAt: true },
+    });
+
+    return {
+      configured: !!printer,
+      lastSeenAt: printer?.lastSeenAt ?? null,
+      online: !!printer && isOnline(printer.lastSeenAt),
+    };
+  }
+
+  // 冪等，多個環境共用資料庫同時跑也無妨，所以不受 CRON_ENABLED 限制
+  @Interval(OFFLINE_SWEEP_MS)
+  async markOfflineJobsUnknown(): Promise<void> {
+    const offline = await this.db
+      .select({ organizationId: invoicePrinter.organizationId })
+      .from(invoicePrinter)
+      .where(
+        or(
+          isNull(invoicePrinter.lastSeenAt),
+          lt(
+            invoicePrinter.lastSeenAt,
+            new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS),
+          ),
+        ),
+      );
+    if (!offline.length) return;
+
+    const stuck = await this.db
+      .update(invoicePrintJob)
+      .set({ status: 'unknown' })
+      .where(
+        and(
+          eq(invoicePrintJob.status, 'sent'),
+          inArray(
+            invoicePrintJob.organizationId,
+            offline.map(({ organizationId }) => organizationId),
+          ),
+        ),
+      )
+      .returning({
+        invoiceId: invoicePrintJob.invoiceId,
+        organizationId: invoicePrintJob.organizationId,
+      });
+
+    for (const { invoiceId, organizationId } of stuck)
+      await this.emitOrdersUpdated(organizationId, [invoiceId]);
   }
 
   async registerPrinter(
@@ -336,18 +408,35 @@ export class InvoicePrinterService {
     organizationId: string,
     copy: InvoicePrintCopy,
   ): Promise<InvoicePrintJob | null> {
-    const [job] = await this.db
-      .insert(invoicePrintJob)
-      .values({
-        copy,
-        id: newJobId(),
-        invoiceId,
-        organizationId,
-        sentAt: new Date(),
-        status: 'unknown',
-      })
-      .onConflictDoNothing()
-      .returning();
+    const job = await this.db.transaction(async (tx) => {
+      // 印表機離線時改由瀏覽器印，排隊中的正本要先撤下，否則印表機恢復後會再印一張
+      if (copy === 'original')
+        await tx
+          .update(invoicePrintJob)
+          .set({ finishedAt: new Date(), status: 'cancelled' })
+          .where(
+            and(
+              eq(invoicePrintJob.invoiceId, invoiceId),
+              eq(invoicePrintJob.copy, 'original'),
+              eq(invoicePrintJob.status, 'queued'),
+            ),
+          );
+
+      const [created] = await tx
+        .insert(invoicePrintJob)
+        .values({
+          copy,
+          id: newJobId(),
+          invoiceId,
+          organizationId,
+          sentAt: new Date(),
+          status: 'unknown',
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      return created;
+    });
 
     if (job) await this.emitOrdersUpdated(organizationId, [invoiceId]);
 
@@ -604,6 +693,11 @@ export class InvoicePrinterService {
   async report(printer: InvoicePrinter, responseFile: string): Promise<void> {
     const { organizationId } = printer;
     const changed: string[] = [];
+
+    await this.db
+      .update(invoicePrinter)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(invoicePrinter.id, printer.id));
 
     for (const { code, printJobId, success } of parsePrintResults(
       responseFile,
