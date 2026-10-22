@@ -31,6 +31,7 @@ import {
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
+import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
@@ -55,7 +56,11 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import { toActiveInvoice } from '../common/utils/invoices.js';
+import {
+  IN_FLIGHT_PRINT_JOB_STATUSES,
+  toActiveInvoice,
+  withPrintJob,
+} from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import {
   getMinutesUntilClose,
@@ -232,6 +237,18 @@ const ORDER_RECEIPT_INVOICE_COLUMNS = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+const toAdminOrderWithInvoice = <
+  TOrder extends Omit<OrderResponseDto, 'invoice'> & {
+    invoices: (Invoice & { printJobs: InvoicePrintJob[] })[];
+  },
+>(
+  found: TOrder,
+) => {
+  const { invoice: active, ...rest } = toActiveInvoice(found);
+
+  return toAdminOrder({ ...rest, invoice: active && withPrintJob(active) });
+};
 
 const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
 
@@ -630,13 +647,25 @@ export class OrdersService {
         orderBy,
         limit,
         offset,
-        with: { invoices: true, items: true },
+        with: {
+          invoices: {
+            with: {
+              printJobs: {
+                where: (jobs, { inArray }) =>
+                  inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
+                orderBy: (jobs, { desc }) => desc(jobs.createdAt),
+                limit: 1,
+              },
+            },
+          },
+          items: true,
+        },
       }),
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
     return {
-      data: data.map((found) => toAdminOrder(toActiveInvoice(found))),
+      data: data.map(toAdminOrderWithInvoice),
       total,
     };
   }
@@ -760,9 +789,21 @@ export class OrdersService {
               orderStatus === 'OrderDelivered'
                 ? ADMIN_BOARD_DONE_COLUMN_LIMIT
                 : ADMIN_BOARD_COLUMN_LIMIT,
-            with: { invoices: true, items: true },
+            with: {
+              invoices: {
+                with: {
+                  printJobs: {
+                    where: (jobs, { inArray }) =>
+                      inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
+                    orderBy: (jobs, { desc }) => desc(jobs.createdAt),
+                    limit: 1,
+                  },
+                },
+              },
+              items: true,
+            },
           })
-        ).map((found) => toAdminOrder(toActiveInvoice(found))),
+        ).map(toAdminOrderWithInvoice),
       })),
     );
   }

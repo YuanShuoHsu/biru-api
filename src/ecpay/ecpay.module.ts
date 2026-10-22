@@ -1,9 +1,12 @@
 import { EcpayOrderInvoiceController } from './ecpay-order-invoice.controller.js';
 import { EcpayOrderPaymentNotificationController } from './ecpay-order-payment-notification.controller.js';
 import { EcpayOrderRefundController } from './ecpay-order-refund.controller.js';
-import { EcpayOrganizationInvoiceController } from './ecpay-organization-invoice.controller.js';
 import { EcpayAttentionController } from './ecpay-attention.controller.js';
 import { EcpayController } from './ecpay.controller.js';
+import {
+  InvoicePrinterController,
+  ServerDirectPrintController,
+} from './invoice-printer.controller.js';
 
 import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service.js';
 import { EcpayAllowanceInvoiceService } from './services/ecpay-allowance-invoice.service.js';
@@ -25,6 +28,7 @@ import { EcpayQueryTradeInfoService } from './services/ecpay-query-trade-info.se
 import { EcpaySyncInvoiceWordSettingsService } from './services/ecpay-sync-invoice-word-settings.service.js';
 import { EcpayUnpaidOrderReconcileService } from './services/ecpay-unpaid-order-reconcile.service.js';
 import { EcpayUpdateInvoiceWordStatusService } from './services/ecpay-update-invoice-word-status.service.js';
+import { InvoicePrinterService } from './services/invoice-printer.service.js';
 
 import { CouponsModule } from '../coupons/coupons.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
@@ -50,7 +54,8 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayOrderInvoiceController,
     EcpayOrderPaymentNotificationController,
     EcpayOrderRefundController,
-    EcpayOrganizationInvoiceController,
+    InvoicePrinterController,
+    ServerDirectPrintController,
   ],
   providers: [
     EcpayAllowanceInvoiceService,
@@ -73,6 +78,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayIssueInvoiceService,
     EcpayOrderInvoiceService,
     EcpaySyncInvoiceWordSettingsService,
+    InvoicePrinterService,
   ],
 })
 export class EcpayModule {}

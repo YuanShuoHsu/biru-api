@@ -177,6 +177,7 @@
     "notVoidable": "This invoice is {status} and cannot be voided",
     "orderRefunded": "The order has been fully refunded, so no invoice will be issued",
     "pastVoidablePeriod": "This invoice is outside the filing period, so it can only be credited, not voided",
+    "printJobResolved": "This print job has already been confirmed. Please refresh and try again",
     "printing": "This invoice is being printed. Please try again shortly",
     "status": {
       "issued": "issued",

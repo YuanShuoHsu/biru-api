@@ -177,6 +177,7 @@
     "notVoidable": "此发票目前为{status}，无法作废",
     "orderRefunded": "此订单已全额退款，不再开立发票",
     "pastVoidablePeriod": "此发票已跨税期，只能开立折让，无法作废",
+    "printJobResolved": "这笔打印任务已确认过，请刷新后再试",
     "printing": "这张发票正在打印中，请稍后再试",
     "status": {
       "issued": "已开立",

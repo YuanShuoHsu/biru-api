@@ -1,5 +1,9 @@
 import { OrderInvoiceDto } from '../orders/dto/order-response.dto.js';
 
+import {
+  InvoicePrintJobDto,
+  ResolveInvoicePrintJobDto,
+} from './dto/invoice-printer.dto.js';
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto.js';
 import { ResetInvoicePrintDto } from './dto/reset-invoice-print.dto.js';
 import { VoidInvoiceDto } from './dto/void-invoice.dto.js';
@@ -54,7 +58,7 @@ export class EcpayOrderInvoiceController {
   @ApiCreatedResponse({ type: OrderInvoicePrintDto })
   @ApiOperation({
     summary:
-      '領取發票列印頁（熱感應紙）；未印過時給正本，印完須回報 print/confirmation',
+      '列印發票：有發票印表機時排入印表機佇列，否則領取列印頁（未印過時給正本，印完須回報 print/confirmation）',
   })
   print(
     @Param('organizationSlug') organizationSlug: string,
@@ -80,6 +84,27 @@ export class EcpayOrderInvoiceController {
     return this.ecpayOrderInvoiceService.confirmPrintForOrder(
       organizationSlug,
       orderId,
+    );
+  }
+
+  @Post('print-jobs/:jobId/resolution')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit('invoice', { column: 'orderId', param: 'orderId' })
+  @ApiCreatedResponse({ type: InvoicePrintJobDto })
+  @ApiOperation({
+    summary: '確認列印結果不明的工作：有印出就結案，沒印出就重新排入佇列',
+  })
+  resolvePrintJob(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Param('jobId') jobId: string,
+    @Body() { printed }: ResolveInvoicePrintJobDto,
+  ): Promise<InvoicePrintJobDto> {
+    return this.ecpayOrderInvoiceService.resolvePrintJobForOrder(
+      organizationSlug,
+      orderId,
+      jobId,
+      printed,
     );
   }
 

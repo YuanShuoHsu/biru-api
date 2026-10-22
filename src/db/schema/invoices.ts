@@ -12,6 +12,7 @@ import {
 
 import { timestamps } from './columns.helpers.js';
 import { order } from './orders.js';
+import { organization } from './organizations.js';
 import { refund } from './refunds.js';
 
 export const invoiceTypeEnum = pgEnum('invoice_type', [
@@ -117,13 +118,88 @@ export const invoiceAllowance = pgTable(
 
 export type InvoiceAllowance = typeof invoiceAllowance.$inferSelect;
 
+export const invoicePrinter = pgTable('invoice_printer', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id')
+    .notNull()
+    .unique()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  username: text('username').notNull().unique(),
+  digestHa1: text('digest_ha1').notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+  ...timestamps,
+});
+
+export type InvoicePrinter = typeof invoicePrinter.$inferSelect;
+
+export const invoicePrintCopyEnum = pgEnum('invoice_print_copy', [
+  'original',
+  'reprint',
+]);
+export type InvoicePrintCopy = (typeof invoicePrintCopyEnum.enumValues)[number];
+
+export const invoicePrintJobStatusEnum = pgEnum('invoice_print_job_status', [
+  'queued',
+  'sent',
+  'printed',
+  'unknown',
+  'cancelled',
+]);
+export type InvoicePrintJobStatus =
+  (typeof invoicePrintJobStatusEnum.enumValues)[number];
+
+export const invoicePrintJob = pgTable(
+  'invoice_print_job',
+  {
+    id: text('id').primaryKey(),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    copy: invoicePrintCopyEnum('copy').notNull(),
+    status: invoicePrintJobStatusEnum('status').notNull().default('queued'),
+    errorCode: text('error_code'),
+    sentAt: timestamp('sent_at'),
+    finishedAt: timestamp('finished_at'),
+    ...timestamps,
+  },
+  (table) => [
+    index('invoicePrintJob_invoiceId_idx').on(table.invoiceId),
+    index('invoicePrintJob_organizationId_status_idx').on(
+      table.organizationId,
+      table.status,
+    ),
+    // 同一張發票同時只能有一份正本在途，否則兩份都可能印出來
+    uniqueIndex('invoicePrintJob_inFlightOriginal_idx')
+      .on(table.invoiceId)
+      .where(
+        sql`${table.copy} = 'original' and ${table.status} in ('queued', 'sent', 'unknown')`,
+      ),
+  ],
+);
+
+export type InvoicePrintJob = typeof invoicePrintJob.$inferSelect;
+
 export const invoiceRelations = relations(invoice, ({ many, one }) => ({
   allowances: many(invoiceAllowance),
   order: one(order, {
     fields: [invoice.orderId],
     references: [order.id],
   }),
+  printJobs: many(invoicePrintJob),
 }));
+
+export const invoicePrintJobRelations = relations(
+  invoicePrintJob,
+  ({ one }) => ({
+    invoice: one(invoice, {
+      fields: [invoicePrintJob.invoiceId],
+      references: [invoice.id],
+    }),
+  }),
+);
 
 export const invoiceAllowanceRelations = relations(
   invoiceAllowance,

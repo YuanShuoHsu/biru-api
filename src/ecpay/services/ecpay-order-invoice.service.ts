@@ -1,17 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import {
-  and,
-  asc,
-  eq,
-  gte,
-  isNotNull,
-  isNull,
-  lt,
-  ne,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -23,9 +12,9 @@ import {
   IssueInvoiceEcpayTaxType,
   IssueInvoiceEcpayVatType,
 } from '../dto/issue-invoice-ecpay.dto.js';
+import type { InvoicePrintJobDto } from '../dto/invoice-printer.dto.js';
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto.js';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto.js';
-import { UnprintedInvoiceDto } from '../dto/unprinted-invoice.dto.js';
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -33,8 +22,12 @@ import type { InvoiceStatus } from '../../db/schema/invoices.js';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
-import { platformMidnight } from '../../common/constants/timezone.js';
-import { toActiveInvoice } from '../../common/utils/invoices.js';
+import {
+  isPrintable,
+  type PrintableInvoice,
+  toActiveInvoice,
+  toPrintJobDto,
+} from '../../common/utils/invoices.js';
 
 import {
   fromEcpayDateTime,
@@ -53,6 +46,7 @@ import {
   EcpayInvoiceNotIssuedError,
   EcpayIssueInvoiceService,
 } from './ecpay-issue-invoice.service.js';
+import { InvoicePrinterService } from './invoice-printer.service.js';
 
 import {
   BadGatewayException,
@@ -73,8 +67,6 @@ import { organization } from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import type { InvoicePrintReadyEvent } from '../../events/invoice-print-ready.event.js';
-import { INVOICE_PRINT_READY_EVENT } from '../../events/invoice-print-ready.event.js';
 import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
@@ -132,18 +124,6 @@ const RETRY_BATCH_SIZE = 20;
 // 領取正本後未確認列印的保留時間，逾時視為沒印出來，下次領取仍給正本
 const PRINT_CLAIM_TTL_MS = 5 * 60 * 1000;
 
-type PrintableInvoice = Invoice & {
-  invoiceDate: Date;
-  invoiceNumber: string;
-};
-
-const isPrintable = (data: Invoice): data is PrintableInvoice =>
-  data.status === 'issued' &&
-  !!data.invoiceNumber &&
-  !!data.invoiceDate &&
-  !data.carrierType &&
-  data.type !== 'donate';
-
 @Injectable()
 export class EcpayOrderInvoiceService {
   private readonly logger = new Logger(EcpayOrderInvoiceService.name);
@@ -154,6 +134,7 @@ export class EcpayOrderInvoiceService {
     private readonly ecpayInvoicePrintService: EcpayInvoicePrintService,
     private readonly ecpayGetIssueInvoiceService: EcpayGetIssueInvoiceService,
     private readonly ecpayInvalidInvoiceService: EcpayInvalidInvoiceService,
+    private readonly invoicePrinterService: InvoicePrinterService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
@@ -170,6 +151,7 @@ export class EcpayOrderInvoiceService {
       | 'orderRefunded'
       | 'pastVoidablePeriod'
       | 'printing'
+      | 'printJobResolved'
       | 'voidWriteFailed',
     args?: Record<string, string | number>,
   ): string {
@@ -257,7 +239,7 @@ export class EcpayOrderInvoiceService {
           RelateNumber: relateNumber,
         });
 
-        await this.db
+        const [updated] = await this.db
           .update(invoice)
           .set({
             invoiceDate: fromEcpayDateTime(result.IIS_Create_Date),
@@ -266,9 +248,13 @@ export class EcpayOrderInvoiceService {
             randomNumber: result.IIS_Random_Number,
             status: 'issued',
           })
-          .where(eq(invoice.id, id));
+          .where(eq(invoice.id, id))
+          .returning();
 
         this.emitOrderUpdated(organizationId, orderId);
+
+        if (isPrintable(updated))
+          await this.enqueueOriginalQuietly(id, organizationId);
 
         this.logger.warn(
           `發票 ${id} 在綠界已開立但本機未記錄，已補上 ${result.IIS_Number}`,
@@ -373,13 +359,25 @@ export class EcpayOrderInvoiceService {
     this.emitOrderUpdated(found.sellerId, orderId);
 
     if (isPrintable(updated))
-      this.eventEmitter.emit(INVOICE_PRINT_READY_EVENT, {
-        invoiceNumber: updated.invoiceNumber,
-        orderId,
-        organizationId: found.sellerId,
-      } satisfies InvoicePrintReadyEvent);
+      await this.enqueueOriginalQuietly(updated.id, found.sellerId);
 
     return updated;
+  }
+
+  private async enqueueOriginalQuietly(invoiceId: string, sellerId: string) {
+    try {
+      if (await this.invoicePrinterService.hasPrinter(sellerId))
+        await this.invoicePrinterService.enqueue(
+          invoiceId,
+          sellerId,
+          'original',
+        );
+    } catch (error) {
+      this.logger.error(
+        `發票 ${invoiceId} 已開立但排入列印佇列失敗，需由後台手動列印`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private async issueOrRelease(
@@ -420,9 +418,50 @@ export class EcpayOrderInvoiceService {
     organizationSlug: string,
     orderId: string,
   ): Promise<OrderInvoicePrintDto> {
-    const { data } = await this.findPrintableInvoice(organizationSlug, orderId);
+    const { data, organizationId } = await this.findPrintableInvoice(
+      organizationSlug,
+      orderId,
+    );
 
-    return this.getPrint(data);
+    if (!(await this.invoicePrinterService.hasPrinter(organizationId)))
+      return this.getPrint(data);
+
+    // 有印表機就只能走印表機，否則瀏覽器那條路又會出現按取消也算已印的正本
+    const job = await this.invoicePrinterService.enqueue(
+      data.id,
+      organizationId,
+      data.printedAt ? 'reprint' : 'original',
+    );
+    if (!job) throw new ConflictException(this.tInvoice('printing'));
+
+    return { printJob: toPrintJobDto(job) };
+  }
+
+  async resolvePrintJobForOrder(
+    organizationSlug: string,
+    orderId: string,
+    jobId: string,
+    printed: boolean,
+  ): Promise<InvoicePrintJobDto> {
+    const { data, organizationId } = await this.findPrintableInvoice(
+      organizationSlug,
+      orderId,
+    );
+
+    const job = await this.invoicePrinterService.resolveUnknown(
+      jobId,
+      data.id,
+      printed,
+    );
+    if (!job) throw new ConflictException(this.tInvoice('printJobResolved'));
+
+    this.emitOrderUpdated(organizationId, orderId);
+
+    this.logger.warn(
+      `訂單 ${orderId} 的發票 ${data.invoiceNumber} 列印結果不明，店員確認為${printed ? '已印出' : '未印出並重印'}`,
+    );
+
+    return toPrintJobDto(job);
   }
 
   async confirmPrintForOrder(
@@ -447,33 +486,6 @@ export class EcpayOrderInvoiceService {
       .returning();
 
     if (printed) this.emitOrderUpdated(organizationId, orderId);
-  }
-
-  async listUnprintedToday(
-    organizationSlug: string,
-  ): Promise<UnprintedInvoiceDto[]> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw new NotFoundException('Organization not found');
-
-    return this.db
-      .select({ orderId: invoice.orderId })
-      .from(invoice)
-      .innerJoin(order, eq(order.id, invoice.orderId))
-      .where(
-        and(
-          eq(order.sellerId, org.id),
-          eq(invoice.status, 'issued'),
-          isNull(invoice.printedAt),
-          isNotNull(invoice.invoiceNumber),
-          isNull(invoice.carrierType),
-          ne(invoice.type, 'donate'),
-          gte(invoice.invoiceDate, new Date(platformMidnight(Date.now()))),
-        ),
-      )
-      .orderBy(asc(invoice.invoiceDate));
   }
 
   async resetPrintForOrder(

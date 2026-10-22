@@ -13,11 +13,8 @@ import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
-import { JoinInvoicePrinterDto } from './dto/join-invoice-printer.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
-import type { InvoicePrintReadyEvent } from './invoice-print-ready.event.js';
-import { INVOICE_PRINT_READY_EVENT } from './invoice-print-ready.event.js';
 import type { MenuUpdatedEvent } from './menu-updated.event.js';
 import { MENU_UPDATED_EVENT } from './menu-updated.event.js';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event.js';
@@ -27,7 +24,7 @@ import { ORDER_UPDATED_EVENT } from './order-updated.event.js';
 import type { WaitlistUpdatedEvent } from './waitlist-updated.event.js';
 import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event.js';
 
-import { DefaultEventsMap, Namespace, Socket } from 'socket.io';
+import { Namespace, Socket } from 'socket.io';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
 import { WsRolesGuard } from '../menus/guards/ws-roles.guard.js';
@@ -36,23 +33,10 @@ import { OrdersService } from '../orders/orders.service.js';
 import type { WaitlistStatusResponseDto } from '../waitlist/dto/waitlist-response.dto.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
-interface GatewaySocketData {
-  invoicePrinterDeviceId?: string;
-}
-
-type GatewaySocket = Socket<
-  DefaultEventsMap,
-  DefaultEventsMap,
-  DefaultEventsMap,
-  GatewaySocketData
->;
-
 const organizationRoom = (organizationId: string) => `org:${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
 const ordersBoardRoom = (organizationId: string) =>
   `orders-board:${organizationId}`;
-const invoicePrinterRoom = (organizationId: string) =>
-  `invoice-printer:${organizationId}`;
 const PUBLIC_ORDERS_BOARD_ROOM_PREFIX = 'public-orders-board:';
 const publicOrdersBoardRoom = (organizationId: string) =>
   `${PUBLIC_ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
@@ -73,12 +57,7 @@ const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 })
 export class EventsGateway {
   @WebSocketServer()
-  server: Namespace<
-    DefaultEventsMap,
-    DefaultEventsMap,
-    DefaultEventsMap,
-    GatewaySocketData
-  >;
+  server: Namespace;
 
   constructor(
     private readonly authService: AuthService,
@@ -123,17 +102,6 @@ export class EventsGateway {
     await client.join(orderRoom(orderId));
 
     return true;
-  }
-
-  @OnEvent(INVOICE_PRINT_READY_EVENT)
-  handleInvoicePrintReady({
-    invoiceNumber,
-    orderId,
-    organizationId,
-  }: InvoicePrintReadyEvent) {
-    this.server
-      .to(invoicePrinterRoom(organizationId))
-      .emit('invoicePrintReady', { invoiceNumber, orderId, organizationId });
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
@@ -192,41 +160,6 @@ export class EventsGateway {
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
     await client.leave(ordersBoardRoom(organizationId));
-  }
-
-  @SubscribeMessage('joinInvoicePrinter')
-  @UseGuards(WsRolesGuard)
-  @Roles({ order: ['update'] }, 'organizationId')
-  async joinInvoicePrinter(
-    @ConnectedSocket() client: GatewaySocket,
-    @MessageBody()
-    { deviceId, organizationId, takeover }: JoinInvoicePrinterDto,
-  ) {
-    const room = invoicePrinterRoom(organizationId);
-    const others = (await this.server.in(room).fetchSockets()).filter(
-      (socket) => socket.id !== client.id,
-    );
-    // 斷線重連時同分頁的舊連線可能還沒被判定斷線，不能把它當成別的分頁
-    const otherDevices = others.filter(
-      (socket) => socket.data.invoicePrinterDeviceId !== deviceId,
-    );
-    if (!takeover && otherDevices.length > 0) return false;
-
-    for (const socket of otherDevices)
-      socket.emit('invoicePrinterReplaced', { organizationId });
-    for (const socket of others) socket.leave(room);
-    client.data.invoicePrinterDeviceId = deviceId;
-    await client.join(room);
-
-    return true;
-  }
-
-  @SubscribeMessage('leaveInvoicePrinter')
-  async leaveInvoicePrinter(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() { organizationId }: JoinOrdersBoardDto,
-  ) {
-    await client.leave(invoicePrinterRoom(organizationId));
   }
 
   @OnEvent(WAITLIST_UPDATED_EVENT)

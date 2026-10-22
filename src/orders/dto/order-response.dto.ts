@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
+import { InvoicePrintJobDto } from '../../ecpay/dto/invoice-printer.dto.js';
+
 import {
   invoiceCarrierTypeEnum,
   invoiceStatusEnum,
@@ -122,6 +124,12 @@ export class OrderInvoiceDto {
   @ApiPropertyOptional() printedAt?: Date | null;
   @ApiProperty({ description: '已重設列印的次數' })
   printResetCount: number;
+  @ApiPropertyOptional({
+    description: '送往發票印表機、尚未結案的列印工作',
+    nullable: true,
+    type: InvoicePrintJobDto,
+  })
+  printJob?: InvoicePrintJobDto | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

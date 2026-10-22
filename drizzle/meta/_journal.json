@@ -1562,6 +1562,13 @@
       "when": 1792653098861,
       "tag": "0222_invoice_print_claimed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1792655348148,
+      "tag": "0223_invoice_server_direct_print",
+      "breakpoints": true
     }
   ]
 }
