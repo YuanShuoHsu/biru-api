@@ -44,19 +44,21 @@ async function bootstrap() {
   const adapterHost = app.get(HttpAdapterHost);
   app.useGlobalFilters(new AllExceptionsFilter(adapterHost));
 
-  const config = new DocumentBuilder()
-    .addGlobalResponse({
-      status: 500,
-      description: 'Internal server error',
-    })
-    .setTitle('Biru Coffee NestJS Swagger')
-    .setDescription('Biru Coffee API')
-    .setVersion('1.0')
-    // .addTag('cats')
-    .addBearerAuth()
-    .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .addGlobalResponse({
+        status: 500,
+        description: 'Internal server error',
+      })
+      .setTitle('Biru Coffee NestJS Swagger')
+      .setDescription('Biru Coffee API')
+      .setVersion('1.0')
+      // .addTag('cats')
+      .addBearerAuth()
+      .build();
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, documentFactory);
+  }
 
   // Render 重新部署時送 SIGTERM；不啟用則 onModuleDestroy 不會執行，量化引擎的租約要等過期才會交接
   app.enableShutdownHooks();
