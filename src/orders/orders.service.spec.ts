@@ -168,11 +168,12 @@ describe('OrdersService.createOrder', () => {
     });
 
     it.each([
-      ['沒帶簽章', undefined],
-      ['簽章屬於別桌', dineInTableToken(ORG_ID, 8)],
-      ['簽章屬於別店', dineInTableToken('other-org', 7)],
-    ])('內用%s會被擋', async (_, tableToken) => {
+      ['沒帶簽章', () => undefined],
+      ['簽章屬於別桌', () => dineInTableToken(ORG_ID, 8)],
+      ['簽章屬於別店', () => dineInTableToken('other-org', 7)],
+    ])('內用%s會被擋', async (_, tableTokenOf) => {
       const { db, service } = createService();
+      const tableToken = tableTokenOf();
 
       await expect(
         service.createOrder(
@@ -204,11 +205,12 @@ describe('OrdersService.createOrder', () => {
     });
 
     it.each([
-      ['沒帶簽章', undefined],
-      ['簽章屬於別的模式', orderModeToken(ORG_ID, 'driveThru')],
-      ['簽章屬於別店', orderModeToken('other-org', 'counter')],
-    ])('櫃檯付現金%s會被擋', async (_, modeToken) => {
+      ['沒帶簽章', () => undefined],
+      ['簽章屬於別的模式', () => orderModeToken(ORG_ID, 'driveThru')],
+      ['簽章屬於別店', () => orderModeToken('other-org', 'counter')],
+    ])('櫃檯付現金%s會被擋', async (_, modeTokenOf) => {
       const { db, service } = createService();
+      const modeToken = modeTokenOf();
 
       await expect(
         service.createOrder(

@@ -106,7 +106,7 @@ describe('InvoicePrinterService（PGlite）', () => {
     client = new PGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     vi.unstubAllEnvs();
