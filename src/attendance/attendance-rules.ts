@@ -237,10 +237,17 @@ export const intervalWithinPeriods = (
   return true;
 };
 
+// 雇主聘僱外國人許可及管理辦法：永久居留屬第五類，§57 限期滿前 60 日內申請展延；
+// 其他外國人可能是第一類（§11 期滿前 4 個月起）或第二類（§39 期滿前 2 至 4 個月），取最早的 4 個月；
+// 僑外生屬第四類，無法定申請期間
+export const WORK_PERMIT_RENEWAL_NOTICE_DAYS = {
+  permanentResident: 60,
+  foreignStudent: 30,
+  otherForeigner: 120,
+} satisfies Partial<Record<AttendanceLegalStatus, number>>;
+
 export const workPermitRequired = (legalStatus: AttendanceLegalStatus) =>
-  legalStatus === 'permanentResident' ||
-  legalStatus === 'foreignStudent' ||
-  legalStatus === 'otherForeigner';
+  legalStatus in WORK_PERMIT_RENEWAL_NOTICE_DAYS;
 
 export const exceedsStudentWeeklyLimit = (
   days: { date: string; seconds: number }[],

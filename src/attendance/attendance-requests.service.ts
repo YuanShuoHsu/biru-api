@@ -137,6 +137,7 @@ import {
   assertIndependentReview,
   selfReviewAllowance,
 } from './review-separation.js';
+import { workPermitStatusSql } from './work-permit-status.js';
 
 const CALENDAR_LEAVE_LIMIT = 500;
 
@@ -186,67 +187,84 @@ export class AttendanceRequestsService {
 
   async reviewCounts(actor: AttendanceActor) {
     const selfReview = await selfReviewAllowance(this.db, actor);
-    const [[requests], [parentalReturns], extraWork, holidaySubstitutes] =
-      await Promise.all([
-        isAuthorized(actor.role, { attendanceRequest: ['update'] })
-          ? this.db
-              .select({ count: count() })
-              .from(attendanceRequest)
-              .innerJoin(
-                attendanceEmployee,
-                eq(attendanceEmployee.id, attendanceRequest.employeeId),
-              )
-              .where(
-                and(
-                  eq(attendanceRequest.organizationId, actor.organizationId),
-                  inArray(attendanceRequest.status, [
-                    'pending',
-                    'cancellationPending',
-                  ]),
-                  selfReview.attendanceRequest
-                    ? undefined
-                    : ne(attendanceEmployee.userId, actor.userId),
-                ),
-              )
-          : [{ count: 0 }],
-        isAuthorized(actor.role, { parentalReturn: ['update'] })
-          ? this.db
-              .select({ count: count() })
-              .from(attendanceParentalReturn)
-              .innerJoin(
-                attendanceEmployee,
-                eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
-              )
-              .where(
-                and(
-                  eq(
-                    attendanceParentalReturn.organizationId,
-                    actor.organizationId,
-                  ),
-                  eq(attendanceParentalReturn.status, 'pending'),
-                  selfReview.parentalReturn
-                    ? undefined
-                    : ne(attendanceEmployee.userId, actor.userId),
-                ),
-              )
-          : [{ count: 0 }],
-        isAuthorized(actor.role, { attendanceRequest: ['update'] })
-          ? this.shifts.unreviewedOvertimeShiftIds(
-              actor,
-              selfReview.attendanceRequest
-                ? undefined
-                : ne(attendanceEmployee.userId, actor.userId),
+    const [
+      [requests],
+      [parentalReturns],
+      extraWork,
+      holidaySubstitutes,
+      [workPermits],
+    ] = await Promise.all([
+      isAuthorized(actor.role, { attendanceRequest: ['update'] })
+        ? this.db
+            .select({ count: count() })
+            .from(attendanceRequest)
+            .innerJoin(
+              attendanceEmployee,
+              eq(attendanceEmployee.id, attendanceRequest.employeeId),
             )
-          : [],
-        isAuthorized(actor.role, { shift: ['update'] })
-          ? this.leaves.unresolvedHolidaySubstitutes(actor)
-          : 0,
-      ]);
+            .where(
+              and(
+                eq(attendanceRequest.organizationId, actor.organizationId),
+                inArray(attendanceRequest.status, [
+                  'pending',
+                  'cancellationPending',
+                ]),
+                selfReview.attendanceRequest
+                  ? undefined
+                  : ne(attendanceEmployee.userId, actor.userId),
+              ),
+            )
+        : [{ count: 0 }],
+      isAuthorized(actor.role, { parentalReturn: ['update'] })
+        ? this.db
+            .select({ count: count() })
+            .from(attendanceParentalReturn)
+            .innerJoin(
+              attendanceEmployee,
+              eq(attendanceEmployee.id, attendanceParentalReturn.employeeId),
+            )
+            .where(
+              and(
+                eq(
+                  attendanceParentalReturn.organizationId,
+                  actor.organizationId,
+                ),
+                eq(attendanceParentalReturn.status, 'pending'),
+                selfReview.parentalReturn
+                  ? undefined
+                  : ne(attendanceEmployee.userId, actor.userId),
+              ),
+            )
+        : [{ count: 0 }],
+      isAuthorized(actor.role, { attendanceRequest: ['update'] })
+        ? this.shifts.unreviewedOvertimeShiftIds(
+            actor,
+            selfReview.attendanceRequest
+              ? undefined
+              : ne(attendanceEmployee.userId, actor.userId),
+          )
+        : [],
+      isAuthorized(actor.role, { shift: ['update'] })
+        ? this.leaves.unresolvedHolidaySubstitutes(actor)
+        : 0,
+      isAuthorized(actor.role, { employee: ['update'] })
+        ? this.db
+            .select({ count: count() })
+            .from(attendanceEmployee)
+            .where(
+              and(
+                eq(attendanceEmployee.organizationId, actor.organizationId),
+                inArray(workPermitStatusSql, ['expiring', 'invalid']),
+              ),
+            )
+        : [{ count: 0 }],
+    ]);
     return {
       requests: requests.count,
       parentalReturns: parentalReturns.count,
       extraWork: extraWork.length,
       holidaySubstitutes,
+      workPermits: workPermits.count,
     };
   }
 

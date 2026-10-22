@@ -122,4 +122,6 @@ export class AttendanceReviewCountsResponseDto {
   @ApiProperty() extraWork: number;
   @ApiProperty({ description: '本年度待指定或須撤銷的國定假日補假' })
   holidaySubstitutes: number;
+  @ApiProperty({ description: '工作許可即將到期或已失效的員工' })
+  workPermits: number;
 }

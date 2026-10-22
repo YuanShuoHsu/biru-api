@@ -44,6 +44,15 @@ export const ATTENDANCE_EMPLOYEE_STATUSES = [
 export type AttendanceEmployeeStatus =
   (typeof ATTENDANCE_EMPLOYEE_STATUSES)[number];
 
+export const ATTENDANCE_WORK_PERMIT_STATUSES = [
+  'valid',
+  'expiring',
+  'invalid',
+] as const;
+
+export type AttendanceWorkPermitStatus =
+  (typeof ATTENDANCE_WORK_PERMIT_STATUSES)[number];
+
 export const ATTENDANCE_EMPLOYMENT_TYPES = ['fullTime', 'partTime'] as const;
 
 export type AttendanceEmploymentType =

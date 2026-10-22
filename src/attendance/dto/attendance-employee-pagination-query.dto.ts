@@ -18,6 +18,7 @@ export const ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS = [
   'employmentType',
   'legalStatus',
   'status',
+  'workPermitStatus',
 ] as const;
 
 export const ATTENDANCE_EMPLOYEE_FILTER_FIELDS = [
