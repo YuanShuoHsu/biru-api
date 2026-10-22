@@ -7,10 +7,12 @@ import {
   ATTENDANCE_EMPLOYMENT_TYPES,
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
+  ATTENDANCE_WORK_PERMIT_STATUSES,
   type AttendanceEmployeeStatus,
   type AttendanceEmploymentType,
   type AttendanceLegalStatus,
   type AttendanceTerminationReason,
+  type AttendanceWorkPermitStatus,
 } from '../../db/schema/attendance.js';
 
 export class AttendanceEmploymentResponseDto {
@@ -76,9 +78,23 @@ export class AttendanceEmployeeResponseDto extends AttendanceEmploymentResponseD
   status: AttendanceEmployeeStatus;
 }
 
+export class AttendanceEmployeeSummaryResponseDto extends PickType(
+  AttendanceEmployeeResponseDto,
+  [
+    'id',
+    'name',
+    'email',
+    'employmentType',
+    'regularLeaveWeekday',
+    'employmentInsuranceEligible',
+    'pensionApplicable',
+    'status',
+  ] as const,
+) {}
+
 export class AttendanceEmployeesResponseDto {
-  @ApiProperty({ isArray: true, type: AttendanceEmployeeResponseDto })
-  data: AttendanceEmployeeResponseDto[];
+  @ApiProperty({ isArray: true, type: AttendanceEmployeeSummaryResponseDto })
+  data: AttendanceEmployeeSummaryResponseDto[];
   @ApiProperty() total: number;
 }
 
@@ -110,6 +126,15 @@ export class AttendanceMemberResponseDto {
     enumName: 'AttendanceEmployeeStatus',
   })
   status: AttendanceEmployeeStatus;
+  @ApiProperty({
+    enum: ATTENDANCE_WORK_PERMIT_STATUSES,
+    enumName: 'AttendanceWorkPermitStatus',
+    nullable: true,
+    description: '不需工作許可或已離職為 null',
+  })
+  workPermitStatus: AttendanceWorkPermitStatus | null;
+  @ApiProperty({ type: Number, nullable: true })
+  workPermitDaysLeft: number | null;
   @ApiPropertyOptional({
     nullable: true,
     type: AttendanceMemberEmploymentResponseDto,

@@ -100,6 +100,11 @@ import {
   employeeStatusSql,
 } from './employee-status.js';
 import { selfReviewAllowance } from './review-separation.js';
+import {
+  workPermitDaysLeftSql,
+  workPermitOrderSql,
+  workPermitStatusSql,
+} from './work-permit-status.js';
 
 // 這兩個欄位對使用者是日期，存成非午夜的時刻會讓同一天的班次前後段套到不同工時
 const platformDayStart = (value: string) =>
@@ -204,6 +209,7 @@ export class AttendanceEmployeesService {
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
       legalStatus: attendanceEmployee.legalStatus,
+      workPermitStatus: workPermitStatusSql,
     };
     const where = and(
       eq(attendanceEmployee.organizationId, actor.organizationId),
@@ -235,34 +241,19 @@ export class AttendanceEmployeesService {
     const sortColumn =
       sortBy === 'status'
         ? employeeStatusOrderSql
-        : (fieldMap[sortBy ?? ''] ?? user.name);
+        : sortBy === 'workPermitStatus'
+          ? workPermitOrderSql
+          : (fieldMap[sortBy ?? ''] ?? user.name);
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
           id: attendanceEmployee.id,
-          organizationId: attendanceEmployee.organizationId,
-          userId: attendanceEmployee.userId,
           name: user.name,
           email: user.email,
           employmentType: sql<AttendanceEmploymentType>`${employmentTypeSql}`,
-          birthDate: attendanceEmployee.birthDate,
-          taiwanStaySince: attendanceEmployee.taiwanStaySince,
           legalStatus: attendanceEmployee.legalStatus,
-          studentVacations: attendanceEmployee.studentVacations,
-          workPermits: attendanceEmployee.workPermits,
-          pregnancyPeriods: attendanceEmployee.pregnancyPeriods,
-          nursingPeriods: attendanceEmployee.nursingPeriods,
-          childcareReductionPeriods:
-            attendanceEmployee.childcareReductionPeriods,
-          indigenousHolidays: attendanceEmployee.indigenousHolidays,
           regularLeaveWeekday: attendanceEmployee.regularLeaveWeekday,
-          restDayWeekday: attendanceEmployee.restDayWeekday,
-          hiredAt: attendanceEmployee.hiredAt,
-          terminatedAt: attendanceEmployee.terminatedAt,
-          terminationReason: attendanceEmployee.terminationReason,
-          terminationNoticedAt: attendanceEmployee.terminationNoticedAt,
           status: employeeStatusSql,
-          createdAt: attendanceEmployee.createdAt,
         })
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
@@ -277,10 +268,11 @@ export class AttendanceEmployeesService {
         .where(where),
     ]);
     return {
-      data: data.map((row) => ({
-        ...row,
-        ...legalStatusObligations(row.legalStatus),
-      })),
+      data: data.map(({ legalStatus, ...row }) => {
+        const { employmentInsuranceEligible, pensionApplicable } =
+          legalStatusObligations(legalStatus);
+        return { ...row, employmentInsuranceEligible, pensionApplicable };
+      }),
       total,
     };
   }
@@ -308,6 +300,7 @@ export class AttendanceEmployeesService {
       status: employeeStatusSql,
       employmentType: employmentTypeSql,
       legalStatus: attendanceEmployee.legalStatus,
+      workPermitStatus: workPermitStatusSql,
     };
     const where = and(
       eq(member.organizationId, actor.organizationId),
@@ -339,7 +332,9 @@ export class AttendanceEmployeesService {
     const sortColumn =
       sortBy === 'status'
         ? employeeStatusOrderSql
-        : (fieldMap[sortBy ?? ''] ?? user.name);
+        : sortBy === 'workPermitStatus'
+          ? workPermitOrderSql
+          : (fieldMap[sortBy ?? ''] ?? user.name);
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -355,6 +350,8 @@ export class AttendanceEmployeesService {
           hiredAt: attendanceEmployee.hiredAt,
           terminatedAt: attendanceEmployee.terminatedAt,
           status: employeeStatusSql,
+          workPermitStatus: workPermitStatusSql,
+          workPermitDaysLeft: workPermitDaysLeftSql,
         })
         .from(member)
         .innerJoin(user, eq(user.id, member.userId))
@@ -396,6 +393,8 @@ export class AttendanceEmployeesService {
           status,
           terminatedAt,
           userId,
+          workPermitDaysLeft,
+          workPermitStatus,
           workPermits,
         }) => ({
           deletable,
@@ -404,6 +403,8 @@ export class AttendanceEmployeesService {
           name,
           status,
           userId,
+          workPermitDaysLeft,
+          workPermitStatus,
           employee:
             id === null ||
             hiredAt === null ||
