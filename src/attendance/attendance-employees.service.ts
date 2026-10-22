@@ -709,14 +709,19 @@ export class AttendanceEmployeesService {
                 gt(attendanceShift.endsAt, new Date()),
               ),
             );
+          const permitted = (
+            employee: Pick<typeof dto, 'legalStatus' | 'workPermits'>,
+            shift: (typeof upcoming)[number],
+          ) =>
+            !workPermitRequired(employee.legalStatus) ||
+            intervalWithinPeriods(
+              employee.workPermits,
+              shift.startsAt,
+              shift.endsAt,
+            );
           if (
             upcoming.some(
-              (shift) =>
-                !intervalWithinPeriods(
-                  dto.workPermits,
-                  shift.startsAt,
-                  shift.endsAt,
-                ),
+              (shift) => permitted(current, shift) && !permitted(dto, shift),
             )
           )
             throw conflictError('workPermitRequired');

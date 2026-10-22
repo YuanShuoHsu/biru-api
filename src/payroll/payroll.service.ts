@@ -1124,6 +1124,18 @@ export class PayrollService {
       if (maternalNightWork(counted, maternalProtectionPeriods(employee)))
         blockers.push('maternalNightWork');
       if (
+        workPermitRequired(employee.legalStatus) &&
+        counted.some(
+          (interval) =>
+            !intervalWithinPeriods(
+              employee.workPermits,
+              new Date(interval.start),
+              new Date(interval.end),
+            ),
+        )
+      )
+        blockers.push('workPermitRequired');
+      if (
         leaves.some((leave) =>
           counted.some(
             (interval) =>
@@ -1327,19 +1339,6 @@ export class PayrollService {
       )
     )
       blockers.push('holidayDayKindRequired');
-    if (
-      workPermitRequired(employee.legalStatus) &&
-      shifts.some(
-        (shift) =>
-          relevantShiftIds.has(shift.id) &&
-          !intervalWithinPeriods(
-            employee.workPermits,
-            shift.startsAt,
-            shift.endsAt,
-          ),
-      )
-    )
-      blockers.push('workPermitRequired');
     if (insurance)
       blockers.push(
         ...insuranceViolations(insurance, {
