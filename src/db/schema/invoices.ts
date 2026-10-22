@@ -13,6 +13,7 @@ import {
 import { timestamps } from './columns.helpers.js';
 import { order } from './orders.js';
 import { organization } from './organizations.js';
+import { printCopyEnum, printJobStatusEnum } from './printers.js';
 import { refund } from './refunds.js';
 
 export const invoiceTypeEnum = pgEnum('invoice_type', [
@@ -117,37 +118,6 @@ export const invoiceAllowance = pgTable(
 
 export type InvoiceAllowance = typeof invoiceAllowance.$inferSelect;
 
-export const invoicePrinter = pgTable('invoice_printer', {
-  id: text('id').primaryKey(),
-  organizationId: text('organization_id')
-    .notNull()
-    .unique()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  username: text('username').notNull().unique(),
-  digestHa1: text('digest_ha1').notNull(),
-  lastSeenAt: timestamp('last_seen_at'),
-  pollGapsMs: integer('poll_gaps_ms').array(),
-  ...timestamps,
-});
-
-export type InvoicePrinter = typeof invoicePrinter.$inferSelect;
-
-export const invoicePrintCopyEnum = pgEnum('invoice_print_copy', [
-  'original',
-  'reprint',
-]);
-export type InvoicePrintCopy = (typeof invoicePrintCopyEnum.enumValues)[number];
-
-export const invoicePrintJobStatusEnum = pgEnum('invoice_print_job_status', [
-  'queued',
-  'sent',
-  'printed',
-  'unknown',
-  'cancelled',
-]);
-export type InvoicePrintJobStatus =
-  (typeof invoicePrintJobStatusEnum.enumValues)[number];
-
 export const invoicePrintJob = pgTable(
   'invoice_print_job',
   {
@@ -158,8 +128,8 @@ export const invoicePrintJob = pgTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
-    copy: invoicePrintCopyEnum('copy').notNull(),
-    status: invoicePrintJobStatusEnum('status').notNull().default('queued'),
+    copy: printCopyEnum('copy').notNull(),
+    status: printJobStatusEnum('status').notNull().default('queued'),
     errorCode: text('error_code'),
     sentAt: timestamp('sent_at'),
     finishedAt: timestamp('finished_at'),

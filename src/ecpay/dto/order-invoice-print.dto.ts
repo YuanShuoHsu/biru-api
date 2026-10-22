@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { InvoicePrintJobDto } from './invoice-printer.dto.js';
+import { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 export class OrderInvoicePrintDto {
   @ApiPropertyOptional({
@@ -12,7 +12,7 @@ export class OrderInvoicePrintDto {
 
   @ApiProperty({
     description: '這次列印的工作；瀏覽器列印在回報完成前都是結果不明',
-    type: InvoicePrintJobDto,
+    type: PrintJobDto,
   })
-  printJob: InvoicePrintJobDto;
+  printJob: PrintJobDto;
 }

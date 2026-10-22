@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import type { RefundChannel } from '../../db/schema/refunds.js';
 
+import { OrderTicketJobDto } from './order-ticket.dto.js';
 import { OrderResponseDto } from './order-response.dto.js';
 import { OrderTransitionDto } from './order-transition.dto.js';
 
@@ -22,4 +23,17 @@ export class AdminOrderResponseDto extends OrderResponseDto {
     enumName: 'RefundChannel',
   })
   refundChannel: RefundChannel;
+
+  @ApiProperty({
+    description: '在途（排隊、列印中、結果不明）的工作單與退品單',
+    isArray: true,
+    type: OrderTicketJobDto,
+  })
+  orderTicketJobs: OrderTicketJobDto[];
+
+  @ApiProperty({
+    description:
+      '訂單狀態是否允許重印工作單；店家有沒有工作單印表機要另外看印表機清單',
+  })
+  orderTicketReprintable: boolean;
 }

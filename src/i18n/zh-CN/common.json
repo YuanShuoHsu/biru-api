@@ -194,6 +194,38 @@
     "parentSectionSelf": "分类不能设为自己的上层分类",
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
+  "orderTickets": {
+    "modes": {
+      "counter": "现场外带",
+      "dineIn": "堂食",
+      "driveThru": "猫速通",
+      "pickup": "线上自取"
+    },
+    "noPrinter": "尚未设置工作单打印机",
+    "notReprintable": "只有制作中或可取餐的订单可以重印工作单",
+    "orderedAt": "下单 {time}",
+    "pickupTime": "取餐 {time}",
+    "printJobResolved": "这张工作单已确认过，请刷新后再试",
+    "refund": "退品",
+    "reprint": "补印",
+    "servingTemperatureLevels": {
+      "Hot": "热",
+      "LessIce": "少冰",
+      "LightIce": "微冰",
+      "NoIce": "去冰",
+      "RegularIce": "正常冰",
+      "Warm": "温"
+    },
+    "sweetnessLevels": {
+      "FullSugar": "全糖",
+      "HalfSugar": "半糖",
+      "LessSugar": "少糖",
+      "LightSugar": "微糖",
+      "MinimalSugar": "一分糖",
+      "NoSugar": "无糖"
+    },
+    "tableNumber": "桌号 {tableNumber}"
+  },
   "orders": {
     "cashRequiresInStoreQrCode": "现金付款请扫描店内的二维码点餐",
     "idempotencyConflict": "订单内容已变更，请重新提交。",

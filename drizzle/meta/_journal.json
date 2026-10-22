@@ -1583,6 +1583,13 @@
       "when": 1792662845612,
       "tag": "0225_invoice_printer_poll_gaps",
       "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1792680508262,
+      "tag": "0226_order_ticket_printers",
+      "breakpoints": true
     }
   ]
 }

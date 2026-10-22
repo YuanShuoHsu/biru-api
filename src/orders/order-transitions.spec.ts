@@ -18,6 +18,7 @@ import {
   ORDER_TRANSITIONS,
 } from './order-transitions.js';
 import type { OrderPricingService } from './order-pricing.service.js';
+import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
 
 const available = (orderStatus: OrderStatus, paymentMethod: PaymentMethod) =>
@@ -207,6 +208,7 @@ const createService = ({
 
   const couponsService = { restore: vi.fn() };
   const inventory = { consume: vi.fn(), restoreAll: vi.fn() };
+  const orderTickets = { enqueueOrder: vi.fn(), withdrawOrder: vi.fn() };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
 
@@ -214,11 +216,13 @@ const createService = ({
     couponsService,
     emit,
     inventory,
+    orderTickets,
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
       inventory as unknown as InventoryTransactionsService,
       {} as OrderPricingService,
+      orderTickets as unknown as OrderTicketService,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     ),
@@ -254,8 +258,8 @@ describe('OrdersService.applyTransitions', () => {
     expect(emittedEvents(emit)).toEqual([ORDER_STATUS_UPDATED_EVENT]);
   });
 
-  it('現金收款會送出已付款事件', async () => {
-    const { emit, sets, service } = createService({
+  it('現金收款會送出已付款事件並排工作單', async () => {
+    const { emit, orderTickets, sets, service } = createService({
       current: unpaid,
       updated: [{ ...unpaid, orderStatus: 'OrderProcessing' }],
     });
@@ -268,6 +272,27 @@ describe('OrdersService.applyTransitions', () => {
       ORDER_STATUS_UPDATED_EVENT,
       ORDER_PAID_EVENT,
     ]);
+    expect(orderTickets.enqueueOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+      'org',
+    );
+  });
+
+  it('退回待付款會撤下還沒送出的工作單，不再排新的', async () => {
+    const processing: OrderRow = { ...unpaid, orderStatus: 'OrderProcessing' };
+    const { orderTickets, service } = createService({
+      current: processing,
+      updated: [{ ...processing, orderStatus: 'OrderPaymentDue' }],
+    });
+
+    await service.applyTransitions('slug', ['o1'], 'OrderPaymentDue');
+
+    expect(orderTickets.withdrawOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+    );
+    expect(orderTickets.enqueueOrder).not.toHaveBeenCalled();
   });
 
   it('線上付款的待付款訂單不能手動推進', async () => {
@@ -330,8 +355,8 @@ describe('OrdersService.recordPaymentResult', () => {
     expect(sets).toEqual([]);
   });
 
-  it('付款成功轉製作中並送出已付款事件', async () => {
-    const { emit, service, sets } = createService({
+  it('付款成功轉製作中、送出已付款事件並排工作單', async () => {
+    const { emit, orderTickets, service, sets } = createService({
       current: pending,
       updated: [{ ...pending, orderStatus: 'OrderProcessing' }],
     });
@@ -345,6 +370,11 @@ describe('OrdersService.recordPaymentResult', () => {
       tradeNo: 'tn1',
     });
     expect(emittedEvents(emit)).toContain(ORDER_PAID_EVENT);
+    expect(orderTickets.enqueueOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+      'org',
+    );
   });
 
   it('付款失敗轉異常並還券、還庫存', async () => {

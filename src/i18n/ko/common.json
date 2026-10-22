@@ -194,6 +194,38 @@
     "parentSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다",
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
   },
+  "orderTickets": {
+    "modes": {
+      "counter": "매장 포장",
+      "dineIn": "매장 식사",
+      "driveThru": "냥스루",
+      "pickup": "온라인 픽업"
+    },
+    "noPrinter": "주문서 프린터가 설정되지 않았습니다",
+    "notReprintable": "제조 중이거나 픽업 가능한 주문만 주문서를 재출력할 수 있습니다",
+    "orderedAt": "주문 {time}",
+    "pickupTime": "픽업 {time}",
+    "printJobResolved": "이 주문서는 이미 확인되었습니다. 새로고침 후 다시 시도해 주세요",
+    "refund": "반품",
+    "reprint": "재출력",
+    "servingTemperatureLevels": {
+      "Hot": "뜨겁게",
+      "LessIce": "얼음 적게",
+      "LightIce": "얼음 조금",
+      "NoIce": "얼음 없이",
+      "RegularIce": "얼음 보통",
+      "Warm": "따뜻하게"
+    },
+    "sweetnessLevels": {
+      "FullSugar": "설탕 보통",
+      "HalfSugar": "설탕 절반",
+      "LessSugar": "설탕 적게",
+      "LightSugar": "설탕 조금",
+      "MinimalSugar": "설탕 아주 조금",
+      "NoSugar": "무설탕"
+    },
+    "tableNumber": "테이블 {tableNumber}"
+  },
   "orders": {
     "cashRequiresInStoreQrCode": "현금으로 결제하려면 매장 내 QR 코드를 스캔하여 주문하세요",
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",

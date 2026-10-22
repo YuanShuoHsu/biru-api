@@ -13,6 +13,7 @@ export * from './orders.js';
 export * from './organizations.js';
 export * from './payroll.js';
 export * from './points.js';
+export * from './printers.js';
 export * from './quant.js';
 export * from './refunds.js';
 export * from './users.js';

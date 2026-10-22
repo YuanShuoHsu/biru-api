@@ -83,8 +83,10 @@ import {
   type OrderUpdatedEvent,
 } from '../../events/order-updated.event.js';
 import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
+import { OrderTicketService } from '../../orders/order-ticket.service.js';
 import {
   getRefundChannel,
+  isOrderTicketPrintable,
   isRefundable,
 } from '../../orders/order-transitions.js';
 import { PointsService } from '../../points/points.service.js';
@@ -167,6 +169,7 @@ export class EcpayOrderRefundService {
     private readonly ecpayGetIssueInvoiceService: EcpayGetIssueInvoiceService,
     private readonly couponsService: CouponsService,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
+    private readonly orderTicketService: OrderTicketService,
     private readonly pointsService: PointsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -359,6 +362,21 @@ export class EcpayOrderRefundService {
     }
 
     await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(eq(order.id, claimed.orderId))
+        .for('update');
+
+      // 餐點交出去之後才退款就不必通知吧台
+      if (locked && isOrderTicketPrintable(locked.orderStatus))
+        await this.orderTicketService.enqueueRefund(
+          tx,
+          claimed.id,
+          claimed.orderId,
+          found.sellerId,
+        );
+
       await this.pointsService.revokeForOrder(tx, {
         orderBecomesTerminal: plan.isFull,
         orderId: claimed.orderId,

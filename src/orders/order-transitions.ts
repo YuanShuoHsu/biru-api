@@ -6,6 +6,7 @@ import type { RefundChannel } from '../db/schema/refunds.js';
 
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
 import type { OrderResponseDto } from './dto/order-response.dto.js';
+import type { OrderTicketJobDto } from './dto/order-ticket.dto.js';
 
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
@@ -25,13 +26,24 @@ export interface OrderTransitionRule {
   direction: OrderTransitionDirection;
   extraSet?: () => PgUpdateSetSource<typeof order>;
   fromStatus: OrderStatus;
+  printsOrderTicket?: boolean;
   recordsPayment?: boolean;
   restoresCoupon?: boolean;
   restoresInventory?: boolean;
   toStatus: OrderStatus;
   triggers: readonly OrderTransitionTrigger[];
   where?: () => SQL;
+  withdrawsOrderTicket?: boolean;
 }
+
+// 製作中與可取餐的訂單吧台還在處理，工作單才有意義
+const ORDER_TICKET_STATUSES: OrderStatus[] = [
+  'OrderProcessing',
+  'OrderPickupAvailable',
+];
+
+export const isOrderTicketPrintable = (orderStatus: OrderStatus) =>
+  ORDER_TICKET_STATUSES.includes(orderStatus);
 
 export const CANCEL_UNPAID_ORDER: OrderTransitionRule = {
   direction: 'cancel',
@@ -48,6 +60,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     direction: 'advance',
     extraSet: () => ({ ...POINTS_SNAPSHOT_SET, paymentDate: new Date() }),
     fromStatus: 'OrderPaymentDue',
+    printsOrderTicket: true,
     recordsPayment: true,
     toStatus: 'OrderProcessing',
     triggers: ['admin'],
@@ -75,6 +88,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPaymentDue',
     triggers: ['admin'],
+    withdrawsOrderTicket: true,
   },
   {
     direction: 'revert',
@@ -93,6 +107,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     direction: 'advance',
     extraSet: () => POINTS_SNAPSHOT_SET,
     fromStatus: 'OrderPaymentDue',
+    printsOrderTicket: true,
     recordsPayment: true,
     toStatus: 'OrderProcessing',
     triggers: ['payment'],
@@ -110,6 +125,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     direction: 'advance',
     extraSet: () => POINTS_SNAPSHOT_SET,
     fromStatus: 'OrderProblem',
+    printsOrderTicket: true,
     recordsPayment: true,
     toStatus: 'OrderProcessing',
     triggers: ['payment'],
@@ -157,9 +173,11 @@ export const getAvailableTransitions = (found: {
   );
 
 export const toAdminOrder = (
-  found: OrderResponseDto,
+  found: OrderResponseDto & { orderTicketJobs?: OrderTicketJobDto[] },
 ): AdminOrderResponseDto => ({
   ...found,
+  orderTicketJobs: found.orderTicketJobs ?? [],
+  orderTicketReprintable: isOrderTicketPrintable(found.orderStatus),
   refundable: isRefundable(found),
   refundChannel: getRefundChannel(found.paymentMethod),
   availableTransitions: getAvailableTransitions(found).map(

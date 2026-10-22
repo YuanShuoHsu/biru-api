@@ -12,16 +12,13 @@ import {
   IssueInvoiceEcpayTaxType,
   IssueInvoiceEcpayVatType,
 } from '../dto/issue-invoice-ecpay.dto.js';
-import type { InvoicePrintJobDto } from '../dto/invoice-printer.dto.js';
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto.js';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto.js';
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import type {
-  InvoicePrintCopy,
-  InvoiceStatus,
-} from '../../db/schema/invoices.js';
+import type { InvoiceStatus } from '../../db/schema/invoices.js';
+import type { PrintCopy } from '../../db/schema/printers.js';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
@@ -76,6 +73,7 @@ import {
 } from '../../events/order-updated.event.js';
 import type { OrderPaidEvent } from '../../events/order-paid.event.js';
 import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
+import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
   IssueInvoiceEcpayDecryptedRequestDto,
@@ -445,7 +443,7 @@ export class EcpayOrderInvoiceService {
     orderId: string,
     jobId: string,
     printed: boolean,
-  ): Promise<InvoicePrintJobDto> {
+  ): Promise<PrintJobDto> {
     const { data, organizationId } = await this.findPrintableInvoice(
       organizationSlug,
       orderId,
@@ -672,7 +670,7 @@ export class EcpayOrderInvoiceService {
   private async getPrint(
     data: PrintableInvoice,
     organizationId: string,
-    copy: InvoicePrintCopy,
+    copy: PrintCopy,
   ): Promise<OrderInvoicePrintDto> {
     const job = await this.invoicePrinterService.startBrowserPrint(
       data.id,

@@ -3,10 +3,7 @@ import { EcpayOrderPaymentNotificationController } from './ecpay-order-payment-n
 import { EcpayOrderRefundController } from './ecpay-order-refund.controller.js';
 import { EcpayAttentionController } from './ecpay-attention.controller.js';
 import { EcpayController } from './ecpay.controller.js';
-import {
-  InvoicePrinterController,
-  ServerDirectPrintController,
-} from './invoice-printer.controller.js';
+import { InvoicePrinterController } from './invoice-printer.controller.js';
 
 import { EcpayAddInvoiceWordSettingService } from './services/ecpay-add-invoice-word-setting.service.js';
 import { EcpayAllowanceInvoiceService } from './services/ecpay-allowance-invoice.service.js';
@@ -34,6 +31,7 @@ import { CouponsModule } from '../coupons/coupons.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { PointsModule } from '../points/points.module.js';
+import { PrintersModule } from '../printers/printers.module.js';
 
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
@@ -47,6 +45,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     HttpModule.register({ timeout: ECPAY_HTTP_TIMEOUT_MS }),
     OrdersModule,
     PointsModule,
+    PrintersModule,
   ],
   controllers: [
     EcpayAttentionController,
@@ -55,7 +54,6 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayOrderPaymentNotificationController,
     EcpayOrderRefundController,
     InvoicePrinterController,
-    ServerDirectPrintController,
   ],
   providers: [
     EcpayAllowanceInvoiceService,

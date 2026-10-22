@@ -2,6 +2,8 @@ import QRCode from 'qrcode';
 
 import type { GetIssueInvoiceEcpayDecryptedResponseDto } from '../dto/get-issue-invoice-ecpay.dto.js';
 
+import { escapeXml } from '../../printers/server-direct-print.js';
+
 // 證明聯寬 5.7 公分（±3%）；TM-m30III 換 58mm 紙寬後可印 420 dots（203 dpi）
 const LINE_DOTS = 420;
 // 點陣圖寬度要是 8 的倍數
@@ -161,14 +163,6 @@ const qrPairImage = (left: string, right: string): string => {
 
   return toImageElement(bitmap);
 };
-
-const escapeXml = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 
 const textDots = (value: string): number =>
   Array.from(value).reduce(

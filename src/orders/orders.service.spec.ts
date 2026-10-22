@@ -14,6 +14,7 @@ import type { InventoryTransactionsService } from '../inventory/inventory-transa
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import { dineInTableToken, orderModeToken } from './order-qr-token.js';
 import type { OrderPricingService } from './order-pricing.service.js';
+import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
 
 const ORG_ID = 'org';
@@ -123,6 +124,7 @@ const createService = ({
       couponsService as unknown as CouponsService,
       { consume: vi.fn() } as unknown as InventoryTransactionsService,
       orderPricingService as unknown as OrderPricingService,
+      { enqueueOrder: vi.fn() } as unknown as OrderTicketService,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     ),

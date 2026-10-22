@@ -194,6 +194,38 @@
     "parentSectionSelf": "分類不能設為自己的上層分類",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
+  "orderTickets": {
+    "modes": {
+      "counter": "現場外帶",
+      "dineIn": "內用",
+      "driveThru": "貓速通",
+      "pickup": "線上自取"
+    },
+    "noPrinter": "尚未設定工作單印表機",
+    "notReprintable": "只有製作中或可取餐的訂單可以重印工作單",
+    "orderedAt": "下單 {time}",
+    "pickupTime": "取餐 {time}",
+    "printJobResolved": "這筆工作單已確認過，請重新整理後再試",
+    "refund": "退品",
+    "reprint": "補印",
+    "servingTemperatureLevels": {
+      "Hot": "熱",
+      "LessIce": "少冰",
+      "LightIce": "微冰",
+      "NoIce": "去冰",
+      "RegularIce": "正常冰",
+      "Warm": "溫"
+    },
+    "sweetnessLevels": {
+      "FullSugar": "全糖",
+      "HalfSugar": "半糖",
+      "LessSugar": "少糖",
+      "LightSugar": "微糖",
+      "MinimalSugar": "一分糖",
+      "NoSugar": "無糖"
+    },
+    "tableNumber": "桌號 {tableNumber}"
+  },
   "orders": {
     "cashRequiresInStoreQrCode": "現金付款請掃描店內的 QR code 點餐",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",

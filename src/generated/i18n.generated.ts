@@ -244,6 +244,38 @@ export type I18nTranslations = {
             "parentSectionSelf": string;
             "selectionCountInvalid": string;
         };
+        "orderTickets": {
+            "modes": {
+                "counter": string;
+                "dineIn": string;
+                "driveThru": string;
+                "pickup": string;
+            };
+            "noPrinter": string;
+            "notReprintable": string;
+            "orderedAt": string;
+            "pickupTime": string;
+            "printJobResolved": string;
+            "refund": string;
+            "reprint": string;
+            "servingTemperatureLevels": {
+                "Hot": string;
+                "LessIce": string;
+                "LightIce": string;
+                "NoIce": string;
+                "RegularIce": string;
+                "Warm": string;
+            };
+            "sweetnessLevels": {
+                "FullSugar": string;
+                "HalfSugar": string;
+                "LessSugar": string;
+                "LightSugar": string;
+                "MinimalSugar": string;
+                "NoSugar": string;
+            };
+            "tableNumber": string;
+        };
         "orders": {
             "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;

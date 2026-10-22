@@ -1,9 +1,5 @@
 import { OrderInvoiceDto } from '../orders/dto/order-response.dto.js';
 
-import {
-  InvoicePrintJobDto,
-  ResolveInvoicePrintJobDto,
-} from './dto/invoice-printer.dto.js';
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto.js';
 import { ResetInvoicePrintDto } from './dto/reset-invoice-print.dto.js';
 import { VoidInvoiceDto } from './dto/void-invoice.dto.js';
@@ -30,6 +26,10 @@ import {
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+import {
+  PrintJobDto,
+  ResolvePrintJobDto,
+} from '../printers/dto/printer.dto.js';
 
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/orders/:orderId/invoice')
@@ -92,7 +92,7 @@ export class EcpayOrderInvoiceController {
   @Post('print-jobs/:jobId/resolution')
   @Roles({ order: ['update'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })
-  @ApiCreatedResponse({ type: InvoicePrintJobDto })
+  @ApiCreatedResponse({ type: PrintJobDto })
   @ApiOperation({
     summary: '確認列印結果不明的工作：有印出就結案，沒印出就重新排入佇列',
   })
@@ -100,8 +100,8 @@ export class EcpayOrderInvoiceController {
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
     @Param('jobId') jobId: string,
-    @Body() { printed }: ResolveInvoicePrintJobDto,
-  ): Promise<InvoicePrintJobDto> {
+    @Body() { printed }: ResolvePrintJobDto,
+  ): Promise<PrintJobDto> {
     return this.ecpayOrderInvoiceService.resolvePrintJobForOrder(
       organizationSlug,
       orderId,

@@ -1,54 +1,22 @@
-import type { Request, Response } from 'express';
-
 import {
-  InvoicePrinterCredentialsDto,
   InvoicePrinterSettingDto,
   InvoicePrinterStatusDto,
 } from './dto/invoice-printer.dto.js';
 
-import {
-  InvoicePrinterService,
-  SERVER_DIRECT_PRINT_PATH,
-} from './services/invoice-printer.service.js';
+import { InvoicePrinterService } from './services/invoice-printer.service.js';
 
+import { Controller, Delete, Get, HttpCode, Param, Put } from '@nestjs/common';
 import {
-  digestChallenge,
-  parseDigestAuthorization,
-  verifyDigest,
-} from './utils/digest-auth.js';
-
-import {
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Post,
-  Put,
-  Req,
-  Res,
-} from '@nestjs/common';
-import {
-  ApiExcludeEndpoint,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import {
-  Audit,
-  type AuditTarget,
-} from '../common/decorators/audit.decorator.js';
+import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
-
-const PRINTER_AUDIT: AuditTarget = {
-  resource: 'organization',
-  idSource: { column: 'organizationId', organization: true },
-  via: { table: 'invoicePrinter', ownerColumn: 'organizationId' },
-};
+import { PrinterCredentialsDto } from '../printers/dto/printer.dto.js';
+import { PRINTER_AUDIT } from '../printers/printer-audit.js';
 
 @ApiTags('organizations')
 @Controller('organizations/:organizationSlug/invoice-printer')
@@ -80,13 +48,13 @@ export class InvoicePrinterController {
   @Put()
   @Roles({ organization: ['update'] }, 'organizationSlug')
   @Audit(PRINTER_AUDIT)
-  @ApiOkResponse({ type: InvoicePrinterCredentialsDto })
+  @ApiOkResponse({ type: PrinterCredentialsDto })
   @ApiOperation({
     summary: '設定發票印表機，或重設帳密（舊帳密立即失效）',
   })
   register(
     @Param('organizationSlug') organizationSlug: string,
-  ): Promise<InvoicePrinterCredentialsDto> {
+  ): Promise<PrinterCredentialsDto> {
     return this.invoicePrinterService.registerPrinter(organizationSlug);
   }
 
@@ -98,56 +66,5 @@ export class InvoicePrinterController {
   @ApiOperation({ summary: '移除發票印表機，之後改回瀏覽器列印' })
   remove(@Param('organizationSlug') organizationSlug: string): Promise<void> {
     return this.invoicePrinterService.deletePrinter(organizationSlug);
-  }
-}
-
-@AllowAnonymous()
-@Controller()
-export class ServerDirectPrintController {
-  constructor(private readonly invoicePrinterService: InvoicePrinterService) {}
-
-  @Post(SERVER_DIRECT_PRINT_PATH)
-  @SkipThrottle()
-  @ApiExcludeEndpoint()
-  async handle(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const params = parseDigestAuthorization(req.headers.authorization);
-    const printer = params?.username
-      ? await this.invoicePrinterService.findPrinterByUsername(params.username)
-      : undefined;
-    const verification =
-      params && printer && params.uri === req.originalUrl
-        ? verifyDigest(params, req.method, printer.digestHa1)
-        : 'invalid';
-
-    if (!printer || verification !== 'valid') {
-      res
-        .status(401)
-        .set('WWW-Authenticate', digestChallenge(verification === 'stale'))
-        .end();
-
-      return;
-    }
-
-    const body = req.body as Record<string, string | undefined>;
-
-    switch (body.ConnectionType) {
-      case 'GetRequest':
-        res
-          .status(200)
-          .type('text/xml; charset=utf-8')
-          .send(await this.invoicePrinterService.poll(printer));
-
-        return;
-      case 'SetResponse':
-        await this.invoicePrinterService.report(
-          printer,
-          body.ResponseFile ?? '',
-        );
-        res.status(200).end();
-
-        return;
-      default:
-        res.status(400).end();
-    }
   }
 }

@@ -8,20 +8,18 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { GetIssueInvoiceEcpayDecryptedResponseDto } from '../dto/get-issue-invoice-ecpay.dto.js';
 
 import * as schema from '../../db/schema/index.js';
-import {
-  invoice,
-  invoicePrinter,
-  invoicePrintJob,
-} from '../../db/schema/invoices.js';
+import { invoice, invoicePrintJob } from '../../db/schema/invoices.js';
+import { printer as printerTable } from '../../db/schema/printers.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import {
+  PRINTER_OFFLINE_AFTER_MS,
+  pollIntervalOf,
+  PrintersService,
+} from '../../printers/printers.service.js';
+import { parsePrintResults } from '../../printers/server-direct-print.js';
 
 import type { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
-import {
-  InvoicePrinterService,
-  PRINTER_OFFLINE_AFTER_MS,
-  parsePrintResults,
-  pollIntervalOf,
-} from './invoice-printer.service.js';
+import { InvoicePrinterService } from './invoice-printer.service.js';
 
 const response = (entries: string) =>
   `<?xml version="1.0" encoding="utf-8"?><PrintResponseInfo Version="2.00">${entries}</PrintResponseInfo>`;
@@ -115,7 +113,7 @@ describe('InvoicePrinterService（PGlite）', () => {
 
   beforeEach(async () => {
     await client.exec(
-      'truncate invoice_print_job, invoice_printer, invoice, "order", organization cascade',
+      'truncate invoice_print_job, printer, invoice, "order", organization cascade',
     );
     await client.query(
       `insert into organization (id, name, slug, created_at) values ($1, 'Biru', 'biru', now())`,
@@ -125,16 +123,20 @@ describe('InvoicePrinterService（PGlite）', () => {
 
   const createService = () => {
     const getIssue = vi.fn().mockResolvedValue(issued);
-    const service = new InvoicePrinterService(
+    const printers = new PrintersService(
       db as unknown as DrizzleDB,
-      { getIssue } as unknown as EcpayGetIssueInvoiceService,
-      new EventEmitter2(),
       {
         getOrThrow: () => 'http://api.test',
       } as unknown as ConfigService,
     );
+    const service = new InvoicePrinterService(
+      db as unknown as DrizzleDB,
+      { getIssue } as unknown as EcpayGetIssueInvoiceService,
+      new EventEmitter2(),
+      printers,
+    );
 
-    return { getIssue, service };
+    return { getIssue, printers, service };
   };
 
   const addInvoice = async (
@@ -173,22 +175,25 @@ describe('InvoicePrinterService（PGlite）', () => {
     (await db.query.invoice.findFirst({ where: eq(invoice.id, invoiceId) }))
       ?.printedAt ?? null;
 
+  const findPrinter = (username: string) =>
+    db.query.printer.findFirst({
+      where: eq(printerTable.username, username),
+    });
+
   const register = async (service: InvoicePrinterService) => {
     const credentials = await service.registerPrinter('biru');
-    const printer = (await service.findPrinterByUsername(
-      credentials.username,
-    ))!;
+    const printer = (await findPrinter(credentials.username))!;
 
     return { credentials, printer };
   };
 
   const report = (
-    service: InvoicePrinterService,
-    printer: Parameters<InvoicePrinterService['report']>[0],
+    printers: PrintersService,
+    printer: Parameters<PrintersService['report']>[0],
     jobId: string,
     success: boolean,
     code = '',
-  ) => service.report(printer, response(entry(jobId, String(success), code)));
+  ) => printers.report(printer, response(entry(jobId, String(success), code)));
 
   it('設定印表機時把所有未印的正本排進佇列，載具、捐贈、作廢與已印的不排', async () => {
     const { service } = createService();
@@ -212,19 +217,19 @@ describe('InvoicePrinterService（PGlite）', () => {
   });
 
   it('印表機拉工作後是列印中；沒回報就又來拉，前一批變成結果不明', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
     const [job] = await jobsOf('1');
 
-    const request = await service.poll(printer);
+    const request = await printers.poll(printer);
 
     expect(request).toContain(`<printjobid>${job.id}</printjobid>`);
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ status: 'sent' }),
     ]);
 
-    await expect(service.poll(printer)).resolves.toBe('');
+    await expect(printers.poll(printer)).resolves.toBe('');
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ status: 'unknown' }),
     ]);
@@ -235,13 +240,13 @@ describe('InvoicePrinterService（PGlite）', () => {
     ['確定沒開印', false, 'EX_BADPORT', 'queued', 'EX_BADPORT'],
     ['可能印出半張', false, 'EPTR_REC_EMPTY', 'unknown', 'EPTR_REC_EMPTY'],
   ])('印表機回報%s', async (_, success, code, status, errorCode) => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
+    await printers.poll(printer);
     const [job] = await jobsOf('1');
 
-    await report(service, printer, job.id, success, code);
+    await report(printers, printer, job.id, success, code);
 
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ errorCode, status }),
@@ -250,11 +255,11 @@ describe('InvoicePrinterService（PGlite）', () => {
   });
 
   it('店員判斷沒印出：舊工作作廢、另開新工作；舊工作晚到的成功回報會取消還沒送出的重印', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
-    await service.poll(printer);
+    await printers.poll(printer);
+    await printers.poll(printer);
     const [lost] = await jobsOf('1');
 
     const resolved = await service.resolveUnknown(lost.id, '1', false);
@@ -265,31 +270,31 @@ describe('InvoicePrinterService（PGlite）', () => {
       'queued',
     ]);
 
-    await report(service, printer, lost.id, true);
+    await report(printers, printer, lost.id, true);
 
     expect((await jobsOf('1')).map(({ status }) => status)).toEqual([
       'printed',
       'cancelled',
     ]);
     expect(await printedAtOf('1')).not.toBeNull();
-    await expect(service.poll(printer)).resolves.toBe('');
+    await expect(printers.poll(printer)).resolves.toBe('');
   });
 
   it('重印已經送出後舊工作才回報成功，兩份都記為已印並記錄可能重複', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     const error = vi
       .spyOn(service['logger'], 'error')
       .mockImplementation(() => undefined);
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
-    await service.poll(printer);
+    await printers.poll(printer);
+    await printers.poll(printer);
     const [lost] = await jobsOf('1');
     const resolved = await service.resolveUnknown(lost.id, '1', false);
-    await service.poll(printer);
-    await report(service, printer, resolved!.reprint!.id, true);
+    await printers.poll(printer);
+    await report(printers, printer, resolved!.reprint!.id, true);
 
-    await report(service, printer, lost.id, true);
+    await report(printers, printer, lost.id, true);
 
     expect((await jobsOf('1')).map(({ status }) => status)).toEqual([
       'printed',
@@ -357,10 +362,10 @@ describe('InvoicePrinterService（PGlite）', () => {
   });
 
   it('印表機離線超過門檻，列印中的工作自動轉成結果不明；在線的不動', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
+    await printers.poll(printer);
 
     await service.markOfflineJobsUnknown();
     expect(await jobsOf('1')).toEqual([
@@ -369,9 +374,9 @@ describe('InvoicePrinterService（PGlite）', () => {
     await expect(service.printerOnline(ORG)).resolves.toBe(true);
 
     await db
-      .update(invoicePrinter)
+      .update(printerTable)
       .set({ lastSeenAt: new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1) })
-      .where(eq(invoicePrinter.organizationId, ORG));
+      .where(eq(printerTable.organizationId, ORG));
 
     await service.markOfflineJobsUnknown();
     expect(await jobsOf('1')).toEqual([
@@ -381,22 +386,22 @@ describe('InvoicePrinterService（PGlite）', () => {
   });
 
   it('輪詢時記下距上次聯絡的間隔，只保留最近 5 次', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await register(service);
 
     for (let round = 0; round < 7; round++) {
       await db
-        .update(invoicePrinter)
+        .update(printerTable)
         .set({ lastSeenAt: new Date(Date.now() - 5000) })
-        .where(eq(invoicePrinter.organizationId, ORG));
-      const printer = (await db.query.invoicePrinter.findFirst({
-        where: eq(invoicePrinter.organizationId, ORG),
+        .where(eq(printerTable.organizationId, ORG));
+      const printer = (await db.query.printer.findFirst({
+        where: eq(printerTable.organizationId, ORG),
       }))!;
-      await service.poll(printer);
+      await printers.poll(printer);
     }
 
-    const { pollGapsMs } = (await db.query.invoicePrinter.findFirst({
-      where: eq(invoicePrinter.organizationId, ORG),
+    const { pollGapsMs } = (await db.query.printer.findFirst({
+      where: eq(printerTable.organizationId, ORG),
     }))!;
     expect(pollGapsMs).toHaveLength(5);
     expect(pollIntervalOf(pollGapsMs)).toBeGreaterThanOrEqual(5000);
@@ -404,18 +409,18 @@ describe('InvoicePrinterService（PGlite）', () => {
   });
 
   it('輪詢間隔設得長的印表機，在自己的間隔加 60 秒內都算在線', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
+    await printers.poll(printer);
     const setPrinter = (secondsAgo: number) =>
       db
-        .update(invoicePrinter)
+        .update(printerTable)
         .set({
           lastSeenAt: new Date(Date.now() - secondsAgo * 1000),
           pollGapsMs: [120_000, 120_000, 120_000],
         })
-        .where(eq(invoicePrinter.organizationId, ORG));
+        .where(eq(printerTable.organizationId, ORG));
 
     await setPrinter(150);
     await service.markOfflineJobsUnknown();
@@ -460,14 +465,12 @@ describe('InvoicePrinterService（PGlite）', () => {
     expect(await jobsOf('2')).toEqual([
       expect.objectContaining({ status: 'cancelled' }),
     ]);
-    await expect(
-      service.findPrinterByUsername(credentials.username),
-    ).resolves.toBeUndefined();
+    await expect(findPrinter(credentials.username)).resolves.toBeUndefined();
     expect(printer.username).toBe(credentials.username);
   });
 
   it('排隊期間發票被作廢就取消，不會印出', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
     await db
@@ -475,20 +478,20 @@ describe('InvoicePrinterService（PGlite）', () => {
       .set({ status: 'voided' })
       .where(eq(invoice.id, '1'));
 
-    await expect(service.poll(printer)).resolves.toBe('');
+    await expect(printers.poll(printer)).resolves.toBe('');
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ status: 'cancelled' }),
     ]);
   });
 
   it('綠界沒給條碼內容時留在佇列並標記原因，補上後下一次就送出', async () => {
-    const { getIssue, service } = createService();
+    const { getIssue, printers, service } = createService();
     getIssue.mockResolvedValueOnce({ ...issued, PosBarCode: undefined });
     vi.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
     await addInvoice('1');
     const { printer } = await register(service);
 
-    await expect(service.poll(printer)).resolves.toBe('');
+    await expect(printers.poll(printer)).resolves.toBe('');
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({
         errorCode: 'RECEIPT_CODES_MISSING',
@@ -496,21 +499,21 @@ describe('InvoicePrinterService（PGlite）', () => {
       }),
     ]);
 
-    await expect(service.poll(printer)).resolves.toContain('<printjobid>');
+    await expect(printers.poll(printer)).resolves.toContain('<printjobid>');
     expect(await jobsOf('1')).toEqual([
       expect.objectContaining({ errorCode: null, status: 'sent' }),
     ]);
   });
 
   it('別家店的印表機回報不會動到這家店的工作', async () => {
-    const { service } = createService();
+    const { printers, service } = createService();
     await addInvoice('1');
     const { printer } = await register(service);
-    await service.poll(printer);
+    await printers.poll(printer);
     const [job] = await jobsOf('1');
 
     await report(
-      service,
+      printers,
       { ...printer, organizationId: 'other-org' },
       job.id,
       true,

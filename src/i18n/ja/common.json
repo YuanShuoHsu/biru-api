@@ -194,6 +194,38 @@
     "parentSectionSelf": "カテゴリを自身の親カテゴリに設定できません",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
+  "orderTickets": {
+    "modes": {
+      "counter": "店頭お持ち帰り",
+      "dineIn": "店内",
+      "driveThru": "ニャンスルー",
+      "pickup": "オンライン受取"
+    },
+    "noPrinter": "オーダー伝票プリンターが設定されていません",
+    "notReprintable": "伝票を再印刷できるのは調理中または受取可能な注文のみです",
+    "orderedAt": "注文 {time}",
+    "pickupTime": "受取 {time}",
+    "printJobResolved": "この伝票は確認済みです。再読み込みしてからもう一度お試しください",
+    "refund": "返品",
+    "reprint": "再印刷",
+    "servingTemperatureLevels": {
+      "Hot": "ホット",
+      "LessIce": "氷少なめ",
+      "LightIce": "氷ごく少なめ",
+      "NoIce": "氷なし",
+      "RegularIce": "氷普通",
+      "Warm": "ぬるめ"
+    },
+    "sweetnessLevels": {
+      "FullSugar": "砂糖普通",
+      "HalfSugar": "砂糖半分",
+      "LessSugar": "砂糖少なめ",
+      "LightSugar": "砂糖控えめ",
+      "MinimalSugar": "砂糖ごく少なめ",
+      "NoSugar": "無糖"
+    },
+    "tableNumber": "テーブル {tableNumber}"
+  },
   "orders": {
     "cashRequiresInStoreQrCode": "現金でお支払いの場合は、店内の QR コードを読み取ってご注文ください",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",

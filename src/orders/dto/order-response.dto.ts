@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { InvoicePrintJobDto } from '../../ecpay/dto/invoice-printer.dto.js';
+import { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 import {
   invoiceCarrierTypeEnum,
@@ -127,9 +127,9 @@ export class OrderInvoiceDto {
   @ApiPropertyOptional({
     description: '送往發票印表機、尚未結案的列印工作',
     nullable: true,
-    type: InvoicePrintJobDto,
+    type: PrintJobDto,
   })
-  printJob?: InvoicePrintJobDto | null;
+  printJob?: PrintJobDto | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

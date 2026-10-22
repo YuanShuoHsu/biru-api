@@ -37,6 +37,7 @@ import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
+import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -105,6 +106,11 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
+import {
+  IN_FLIGHT_ORDER_TICKET_STATUSES,
+  OrderTicketService,
+  toOrderTicketJobDto,
+} from './order-ticket.service.js';
 import {
   dineInTableToken,
   isValidDineInTableToken,
@@ -241,13 +247,18 @@ const ORDER_RECEIPT_INVOICE_COLUMNS = {
 const toAdminOrderWithInvoice = <
   TOrder extends Omit<OrderResponseDto, 'invoice'> & {
     invoices: (Invoice & { printJobs: InvoicePrintJob[] })[];
+    orderTicketJobs: (OrderTicketJob & { printer: Pick<Printer, 'name'> })[];
   },
 >(
   found: TOrder,
 ) => {
-  const { invoice: active, ...rest } = toActiveInvoice(found);
+  const { invoice: active, orderTicketJobs, ...rest } = toActiveInvoice(found);
 
-  return toAdminOrder({ ...rest, invoice: active && withPrintJob(active) });
+  return toAdminOrder({
+    ...rest,
+    invoice: active && withPrintJob(active),
+    orderTicketJobs: orderTicketJobs.map(toOrderTicketJobDto),
+  });
 };
 
 const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
@@ -266,6 +277,7 @@ export class OrdersService {
     private readonly couponsService: CouponsService,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
     private readonly orderPricingService: OrderPricingService,
+    private readonly orderTicketService: OrderTicketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
@@ -534,6 +546,9 @@ export class OrdersService {
 
       await this.inventoryTransactionsService.consume(orderId, tx);
 
+      if (created.orderStatus === 'OrderProcessing')
+        await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
+
       const [createdInvoice] =
         total > 0
           ? await tx
@@ -659,6 +674,12 @@ export class OrdersService {
             },
           },
           items: true,
+          orderTicketJobs: {
+            where: (jobs, { inArray }) =>
+              inArray(jobs.status, [...IN_FLIGHT_ORDER_TICKET_STATUSES]),
+            orderBy: (jobs, { asc }) => asc(jobs.createdAt),
+            with: { printer: { columns: { name: true } } },
+          },
         },
       }),
       this.db.select({ total: count() }).from(order).where(where),
@@ -801,6 +822,12 @@ export class OrdersService {
                 },
               },
               items: true,
+              orderTicketJobs: {
+                where: (jobs, { inArray }) =>
+                  inArray(jobs.status, [...IN_FLIGHT_ORDER_TICKET_STATUSES]),
+                orderBy: (jobs, { asc }) => asc(jobs.createdAt),
+                with: { printer: { columns: { name: true } } },
+              },
             },
           })
         ).map(toAdminOrderWithInvoice),
@@ -906,7 +933,13 @@ export class OrdersService {
       )
       .returning();
 
-    for (const { discountCode, id } of updated) {
+    for (const { discountCode, id, sellerId } of updated) {
+      if (rule.printsOrderTicket)
+        await this.orderTicketService.enqueueOrder(tx, id, sellerId);
+
+      if (rule.withdrawsOrderTicket)
+        await this.orderTicketService.withdrawOrder(tx, id);
+
       if (rule.restoresCoupon && discountCode)
         await this.couponsService.restore(tx, {
           code: discountCode,

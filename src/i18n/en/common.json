@@ -194,6 +194,38 @@
     "parentSectionSelf": "A section can't be its own parent",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
+  "orderTickets": {
+    "modes": {
+      "counter": "In-store takeout",
+      "dineIn": "Dine-in",
+      "driveThru": "Meow-thru",
+      "pickup": "Online pickup"
+    },
+    "noPrinter": "No order ticket printer is set up",
+    "notReprintable": "Only orders being prepared or ready for pickup can have their ticket reprinted",
+    "orderedAt": "Ordered {time}",
+    "pickupTime": "Pickup {time}",
+    "printJobResolved": "This ticket has already been confirmed. Please refresh and try again",
+    "refund": "REFUND",
+    "reprint": "REPRINT",
+    "servingTemperatureLevels": {
+      "Hot": "Hot",
+      "LessIce": "Less ice",
+      "LightIce": "Light ice",
+      "NoIce": "No ice",
+      "RegularIce": "Regular ice",
+      "Warm": "Warm"
+    },
+    "sweetnessLevels": {
+      "FullSugar": "Full sugar",
+      "HalfSugar": "Half sugar",
+      "LessSugar": "Less sugar",
+      "LightSugar": "Light sugar",
+      "MinimalSugar": "Minimal sugar",
+      "NoSugar": "No sugar"
+    },
+    "tableNumber": "Table {tableNumber}"
+  },
   "orders": {
     "cashRequiresInStoreQrCode": "To pay in cash, please order by scanning the QR code in store.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
