@@ -98,6 +98,7 @@
     "payrollRuleSetMissing": "尚未載入該月份的投保級距與費率，請聯絡平台管理員。",
     "payrollSourceChanged": "資料已變更，請重新建立薪資草稿。",
     "payrollTermsRequired": "請先建立有效薪資設定。",
+    "payrollViolationsUnacknowledged": "此薪資單有已發生的勞動條件違規，請逐項確認後再覆核。",
     "pendingRequestExists": "此班次已有相同類型的待審申請。",
     "pensionIneligible": "此員工的法定身分不適用勞工退休金，提繳率與月提繳工資須為 0。",
     "pensionRequired": "此員工適用勞工退休金，雇主提繳率不得低於 6%，且須填寫月提繳工資。",

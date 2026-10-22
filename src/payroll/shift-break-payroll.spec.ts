@@ -10,7 +10,7 @@ vi.mock('./payroll-calculation.js', async () => ({
   ...(await vi.importActual<typeof import('./payroll-calculation.js')>(
     './payroll-calculation.js',
   )),
-  calculatePayroll: vi.fn(() => ({ blockers: [] })),
+  calculatePayroll: vi.fn(() => ({ blockers: [], violations: [] })),
 }));
 const at = (hour: string) => new Date(`2026-01-15T${hour}:00+08:00`);
 const scheduledWeeks = (weeklyMinutes: number, before: Date) =>

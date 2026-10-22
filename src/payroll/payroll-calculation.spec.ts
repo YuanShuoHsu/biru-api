@@ -73,9 +73,8 @@ describe('Taiwan general payroll arithmetic', () => {
       [{ seconds: 13 * 3600, dayKind: 'workday' }],
       0,
     );
-    expect(result.blockers).toEqual(
-      expect.arrayContaining(['belowMinimumWage', 'dailyHoursExceeded']),
-    );
+    expect(result.blockers).toContain('belowMinimumWage');
+    expect(result.violations).toContain('dailyHoursExceeded');
   });
 });
 

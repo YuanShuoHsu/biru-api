@@ -98,6 +98,7 @@
     "payrollRuleSetMissing": "Insurance grades and rates for this month are not available yet. Contact the platform administrator.",
     "payrollSourceChanged": "Source data changed; create a new payroll draft.",
     "payrollTermsRequired": "Create effective payroll terms first.",
+    "payrollViolationsUnacknowledged": "This payroll statement records labor-standard violations that already occurred. Acknowledge each one before review.",
     "pendingRequestExists": "A request of this type is already pending for this shift.",
     "pensionIneligible": "Labor pension doesn't apply to this employee's legal status. Contribution rates and contribution wage must be 0.",
     "pensionRequired": "Labor pension applies to this employee. The employer rate must be at least 6% and a contribution wage is required.",

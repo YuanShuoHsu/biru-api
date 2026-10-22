@@ -5,11 +5,13 @@ import {
   PAYROLL_DEDUCTION_LINE_CODES,
   PAYROLL_EARNING_LINE_CODES,
   PAYROLL_EMPLOYER_COST_CODES,
+  PAYROLL_VIOLATIONS,
   type PayrollBlocker,
   type PayrollDeductionLineCode,
   type PayrollEarningLineCode,
   type PayrollEmployerCostCode,
   type PayrollLine,
+  type PayrollViolation,
   type PayrollLineCode,
   type payrollStatement,
 } from '../../db/schema/payroll.js';
@@ -66,6 +68,12 @@ export class PayrollSnapshotResponseDto {
     isArray: true,
   })
   blockers: PayrollBlocker[];
+  @ApiPropertyOptional({
+    enum: PAYROLL_VIOLATIONS,
+    enumName: 'PayrollViolation',
+    isArray: true,
+  })
+  violations?: PayrollViolation[];
   @ApiProperty() sourceFingerprint: string;
 }
 

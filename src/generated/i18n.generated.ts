@@ -148,6 +148,7 @@ export type I18nTranslations = {
             "payrollRuleSetMissing": string;
             "payrollSourceChanged": string;
             "payrollTermsRequired": string;
+            "payrollViolationsUnacknowledged": string;
             "pendingRequestExists": string;
             "pensionIneligible": string;
             "pensionRequired": string;

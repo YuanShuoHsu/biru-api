@@ -10,7 +10,7 @@ vi.mock('./payroll-calculation.js', async () => ({
   ...(await vi.importActual<typeof import('./payroll-calculation.js')>(
     './payroll-calculation.js',
   )),
-  calculatePayroll: vi.fn(() => ({ blockers: [] })),
+  calculatePayroll: vi.fn(() => ({ blockers: [], violations: [] })),
 }));
 vi.mock('../attendance/medical-leave.js', async () => ({
   ...(await vi.importActual<typeof import('../attendance/medical-leave.js')>(

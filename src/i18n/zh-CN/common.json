@@ -98,6 +98,7 @@
     "payrollRuleSetMissing": "尚未加载该月份的投保级距与费率，请联系平台管理员。",
     "payrollSourceChanged": "资料已变更，请重新建立薪资草稿。",
     "payrollTermsRequired": "请先建立有效薪资设置。",
+    "payrollViolationsUnacknowledged": "此薪资单有已发生的劳动条件违规，请逐项确认后再复核。",
     "pendingRequestExists": "此班次已有相同类型的待审申请。",
     "pensionIneligible": "此员工的法定身份不适用劳工退休金，提缴率与月提缴工资须为 0。",
     "pensionRequired": "此员工适用劳工退休金，雇主提缴率不得低于 6%，且须填写月提缴工资。",

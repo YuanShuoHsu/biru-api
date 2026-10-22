@@ -108,6 +108,7 @@ export const attendanceErrorCodes = [
   'payrollRuleSetMissing',
   'payrollSourceChanged',
   'payrollTermsRequired',
+  'payrollViolationsUnacknowledged',
   'pendingRequestExists',
   'pensionIneligible',
   'pensionRequired',

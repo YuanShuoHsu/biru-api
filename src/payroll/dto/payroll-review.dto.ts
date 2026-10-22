@@ -1,15 +1,31 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
 
+import {
+  PAYROLL_VIOLATIONS,
+  type PayrollViolation,
+} from '../../db/schema/payroll.js';
+
 export class PayrollReviewDto {
   @IsOptional() @IsString() @MaxLength(1000) reason?: string;
+  @ApiPropertyOptional({
+    enum: PAYROLL_VIOLATIONS,
+    enumName: 'PayrollViolation',
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(PAYROLL_VIOLATIONS, { each: true })
+  acknowledgedViolations?: PayrollViolation[];
 }
 
 export class PayrollBatchReviewDto extends PayrollReviewDto {

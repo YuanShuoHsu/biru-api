@@ -66,6 +66,8 @@ import {
   type TimeInterval,
   unreviewedOvertime,
   weekStartOfDate,
+  intervalWithinPeriods,
+  workPermitRequired,
 } from '../attendance/attendance-rules.js';
 import {
   averageWeeklyMinutes,
@@ -117,6 +119,7 @@ import {
   payrollStatement,
   payrollTerms,
   type PayrollBlocker,
+  type PayrollViolation,
   type PayrollSnapshot,
   type PayrollTerms,
 } from '../db/schema/payroll.js';
@@ -761,6 +764,7 @@ export class PayrollService {
       ? await loadMedicalLedger(tx, employee)
       : null;
     const blockers: PayrollBlocker[] = [];
+    const violations: PayrollViolation[] = [];
     const ruleSet = await this.ruleSets.resolve(tx, month);
     if (!ruleSet) throw badRequestError('payrollRuleSetMissing');
     const occupationalAccidentRateMicros =
@@ -1120,7 +1124,19 @@ export class PayrollService {
         blockers.push('incompleteAttendance');
       const counted = countedIntervals(effective, shift);
       if (maternalNightWork(counted, maternalProtectionPeriods(employee)))
-        blockers.push('maternalNightWork');
+        violations.push('maternalNightWork');
+      if (
+        workPermitRequired(employee.legalStatus) &&
+        counted.some(
+          (interval) =>
+            !intervalWithinPeriods(
+              employee.workPermits,
+              new Date(interval.start),
+              new Date(interval.end),
+            ),
+        )
+      )
+        violations.push('workPermitRequired');
       if (
         leaves.some((leave) =>
           counted.some(
@@ -1266,9 +1282,9 @@ export class PayrollService {
       ageOn(employee.birthDate, platformDateString(start)) < ADULT_WORKING_AGE
     ) {
       const violation = childLaborViolation(monthWeekShifts);
-      if (violation) blockers.push(violation);
+      if (violation) violations.push(violation);
     }
-    if (lacksWeeklyRest(monthWeekShifts)) blockers.push('weeklyRestRequired');
+    if (lacksWeeklyRest(monthWeekShifts)) violations.push('weeklyRestRequired');
     const agreedHolidays = await loadAgreedHolidays(
       tx,
       [employee],
@@ -1286,14 +1302,14 @@ export class PayrollService {
           date >= platformDateString(start) && date < platformDateString(end),
       )
     )
-      blockers.push('consecutiveWorkdaysExceeded');
+      violations.push('consecutiveWorkdaysExceeded');
     if (
       hasShortRestBetweenShifts(
         adjacentShifts,
         (shift) => shift.startsAt >= start && shift.startsAt < end,
       )
     )
-      blockers.push('shiftRestTooShort');
+      violations.push('shiftRestTooShort');
     // 補假期日由勞雇協商、法無期限（細則 §23-1 II），只有離職後才補不了；逐月擋會逼店家先排下個月的班
     const substitutes =
       employee.terminatedAt &&
@@ -1366,7 +1382,7 @@ export class PayrollService {
         return week >= firstWeek && week <= lastWeek;
       });
       if (exceedsStudentWeeklyLimit(studentDays, employee.studentVacations))
-        blockers.push('studentWeeklyHoursExceeded');
+        violations.push('studentWeeklyHoursExceeded');
     }
     const annualPolicies = leaveTypes.filter(
       (policy) => policy.statutoryKind === 'annual',
@@ -1448,7 +1464,7 @@ export class PayrollService {
         overtimeAgreedFrom,
       )
     )
-      blockers.push('overtimeAgreementRequired');
+      violations.push('overtimeAgreementRequired');
     // 扣繳、補充保費與居住者身分都以給付時點認定，不看薪資月份
     const taxDate = paidOn ?? platformDateString(new Date(end.getTime() - 1));
     const taxYear = Number(taxDate.slice(0, 4));
@@ -1643,11 +1659,12 @@ export class PayrollService {
       terms: profile.terms,
       ruleVersion: ruleSet.ruleVersion,
       blockers: [...new Set([...blockers, ...calculated.blockers])],
+      violations: [...new Set([...violations, ...calculated.violations])],
       sourceFingerprint: createHash('sha256')
         .update(
           JSON.stringify({
             // 改到計算結果就要換版號，否則覆核過的舊草稿會以舊算法通過發布
-            calculationVersion: 'statutory-automation-5',
+            calculationVersion: 'statutory-automation-6',
             overtimeAgreedFrom,
             overtimeExtensionPeriods,
             occupationalAccidentRateMicros,
@@ -1893,9 +1910,11 @@ export class PayrollService {
   transitionBatch(
     actor: AttendanceActor,
     status: 'reviewed' | 'published',
-    { ids, reason }: PayrollBatchReviewDto,
+    { ids, reason, acknowledgedViolations }: PayrollBatchReviewDto,
   ) {
-    return runBatch(ids, (id) => this.transition(actor, id, status, reason));
+    return runBatch(ids, (id) =>
+      this.transition(actor, id, status, reason, acknowledgedViolations),
+    );
   }
 
   async transition(
@@ -1903,6 +1922,7 @@ export class PayrollService {
     id: string,
     status: 'reviewed' | 'published',
     reason = '',
+    acknowledgedViolations: PayrollViolation[] = [],
   ) {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
@@ -1943,6 +1963,14 @@ export class PayrollService {
       )
         throw conflictError('payrollSourceChanged');
       if (current.blockers.length) throw conflictError('payrollBlocked');
+      const violations = current.violations ?? [];
+      if (
+        status === 'reviewed' &&
+        violations.some(
+          (violation) => !acknowledgedViolations.includes(violation),
+        )
+      )
+        throw conflictError('payrollViolationsUnacknowledged');
       const [result] = await tx
         .update(payrollStatement)
         .set(
@@ -1954,6 +1982,8 @@ export class PayrollService {
         .returning();
       await writeAudit(tx, actor, `payroll.${status}`, id, {
         reason: reason.trim(),
+        ...(status === 'reviewed' &&
+          violations.length && { acknowledgedViolations: violations }),
       });
       return result;
     });

@@ -171,6 +171,35 @@ describe('Payroll review and publication', () => {
     ).resolves.toHaveProperty('status', 'reviewed');
     expect(update).toHaveBeenCalledTimes(1);
   });
+  it('requires every recorded violation to be acknowledged at review', async () => {
+    const current = {
+      ...row.snapshot,
+      violations: ['dailyHoursExceeded', 'workPermitRequired'],
+    };
+    const partial = setup([[row], [employee]], current);
+    await expect(
+      partial.service.transition(actor, row.id, 'reviewed', 'review', [
+        'dailyHoursExceeded',
+      ]),
+    ).rejects.toThrow('payrollViolationsUnacknowledged');
+    expect(partial.update).not.toHaveBeenCalled();
+    const full = setup([[row], [employee]], current);
+    await expect(
+      full.service.transition(actor, row.id, 'reviewed', 'review', [
+        'dailyHoursExceeded',
+        'workPermitRequired',
+      ]),
+    ).resolves.toHaveProperty('status', 'reviewed');
+  });
+  it('publishes a reviewed statement without asking again', async () => {
+    const current = { ...row.snapshot, violations: ['maternalNightWork'] };
+    const { service, update } = setup(
+      [[{ ...row, status: 'reviewed' }], [employee]],
+      current,
+    );
+    await service.transition(actor, row.id, 'published', 'review');
+    expect(update).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Payroll terms validation', () => {

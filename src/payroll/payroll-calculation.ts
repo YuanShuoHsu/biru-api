@@ -8,6 +8,7 @@ import {
   type PayrollLine,
   type PayrollLineCode,
   type PayrollTerms,
+  type PayrollViolation,
   type TaiwanRuleSet,
 } from '../db/schema/payroll.js';
 
@@ -139,6 +140,7 @@ export function calculatePayroll(
   const bonus = earningTotal('bonus');
   const lines: PayrollLine[] = [];
   const blockers: PayrollBlocker[] = [];
+  const violations: PayrollViolation[] = [];
   if (
     (terms.salaryType === 'monthly' ? salary + allowance : salary) <
     BigInt(
@@ -161,7 +163,7 @@ export function calculatePayroll(
       day.dayKind !== 'regularLeave' &&
       (day.totalSeconds ?? day.seconds) > 12 * 3600
     )
-      blockers.push('dailyHoursExceeded');
+      violations.push('dailyHoursExceeded');
     paidLeaveSeconds += day.paidLeaveSeconds ?? 0;
     const offset = day.offsetSeconds ?? 0;
     const band = (from: number, to: number) =>
@@ -216,7 +218,7 @@ export function calculatePayroll(
     ordinaryOvertime + restOvertime >
     (fraction.monthlyOvertimeLimitSeconds ?? MAX_MONTHLY_OVERTIME_SECONDS)
   )
-    blockers.push('monthlyOvertimeExceeded');
+    violations.push('monthlyOvertimeExceeded');
   const exactRegular =
     terms.salaryType === 'monthly'
       ? ratio(salary * BigInt(fraction.numerator), BigInt(fraction.denominator))
@@ -453,6 +455,7 @@ export function calculatePayroll(
     workedSeconds: days.reduce((sum, day) => sum + day.seconds, 0),
     annualLeavePayoutCents: annualLeavePayouts.map(String),
     blockers: [...new Set(blockers)],
+    violations: [...new Set(violations)],
   };
 }
 

@@ -71,11 +71,6 @@ export const PAYROLL_BLOCKERS = [
   'belowMinimumWage',
   'birthDateRequired',
   'calendarLeavePayRequired',
-  'childLaborHoursExceeded',
-  'childLaborNightWork',
-  'childLaborRestDay',
-  'consecutiveWorkdaysExceeded',
-  'dailyHoursExceeded',
   'emergencyDetailsRequired',
   'employmentInsuranceExemptionInvalid',
   'employmentInsuranceIneligible',
@@ -95,16 +90,13 @@ export const PAYROLL_BLOCKERS = [
   'laborInsuranceRequired',
   'leavePolicyRequired',
   'legacySeniorityUnsupported',
-  'maternalNightWork',
   'minimumWageUnconfirmed',
-  'monthlyOvertimeExceeded',
   'negativeNetPay',
   'noShifts',
   'occupationalAccidentRateRequired',
   'openingHoursRequired',
   'overlappingLeaveAttendance',
   'parentalReturnPending',
-  'overtimeAgreementRequired',
   'partTimeLadderRequiresPartTime',
   'payrollPeriodOpen',
   'paydayRequired',
@@ -113,19 +105,32 @@ export const PAYROLL_BLOCKERS = [
   'pensionIneligible',
   'pensionRequired',
   'prorationRequired',
-  'shiftRestTooShort',
-  'studentWeeklyHoursExceeded',
   'taiwanStaySinceRequired',
   'terminationReasonRequired',
   'unreviewedOvertime',
   'unsupportedDayKind',
-  'weeklyRestRequired',
   'weeklyScheduleRequiresReview',
   'withholdingTableOutdated',
-  'workPermitRequired',
 ] as const;
 
 export type PayrollBlocker = (typeof PAYROLL_BLOCKERS)[number];
+
+export const PAYROLL_VIOLATIONS = [
+  'childLaborHoursExceeded',
+  'childLaborNightWork',
+  'childLaborRestDay',
+  'consecutiveWorkdaysExceeded',
+  'dailyHoursExceeded',
+  'maternalNightWork',
+  'monthlyOvertimeExceeded',
+  'overtimeAgreementRequired',
+  'shiftRestTooShort',
+  'studentWeeklyHoursExceeded',
+  'weeklyRestRequired',
+  'workPermitRequired',
+] as const;
+
+export type PayrollViolation = (typeof PAYROLL_VIOLATIONS)[number];
 
 export const EMPLOYMENT_INSURANCE_EXEMPTIONS = [
   'publicInsurance',
@@ -254,6 +259,7 @@ export interface PayrollSnapshot {
   employerCosts?: { code: PayrollEmployerCostCode; amountCents: string }[];
   workedSeconds: number;
   blockers: PayrollBlocker[];
+  violations?: PayrollViolation[];
   sourceFingerprint: string;
   retirementIncomeCents?: string;
   nonResident?: boolean;

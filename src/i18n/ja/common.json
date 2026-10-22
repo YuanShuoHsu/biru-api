@@ -98,6 +98,7 @@
     "payrollRuleSetMissing": "この月の保険等級と料率がまだ登録されていません。プラットフォーム管理者にお問い合わせください。",
     "payrollSourceChanged": "元データが変更されました。給与草稿を再作成してください。",
     "payrollTermsRequired": "有効な給与設定を先に登録してください。",
+    "payrollViolationsUnacknowledged": "この給与明細には既に発生した労働条件違反があります。各項目を確認してから承認してください。",
     "pendingRequestExists": "このシフトには同じ種類の未審査申請があります。",
     "pensionIneligible": "この従業員の法的身分は労工退職金の対象外です。拠出率と月額拠出賃金は 0 にしてください。",
     "pensionRequired": "この従業員は労工退職金の対象です。雇用主拠出率は 6% 以上とし、月額拠出賃金を入力してください。",

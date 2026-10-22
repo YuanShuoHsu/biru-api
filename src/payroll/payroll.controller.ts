@@ -190,7 +190,13 @@ export class PayrollController {
     @Body() dto: PayrollReviewDto,
   ): Promise<PayrollStatementResponseDto> {
     return this.payrollService
-      .transition(actor(req, session), id, 'reviewed', dto.reason)
+      .transition(
+        actor(req, session),
+        id,
+        'reviewed',
+        dto.reason,
+        dto.acknowledgedViolations,
+      )
       .then(toPayrollStatementResponse);
   }
 
