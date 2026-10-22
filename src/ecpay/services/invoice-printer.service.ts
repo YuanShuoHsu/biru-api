@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
 
 import type {
@@ -60,8 +60,10 @@ const NOT_STARTED_ERROR_CODES = new Set([
 // 每次都要向綠界查條碼內容；一次給太多，印表機等回應逾時就會把整批當成沒收到
 const MAX_JOBS_PER_POLL = 10;
 
-// 印表機超過這段時間沒來拉工作就視為離線（用戶定案 60 秒）
+// 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線（用戶定案 60 秒）
 export const PRINTER_OFFLINE_AFTER_MS = 60_000;
+
+const POLL_GAP_SAMPLES = 5;
 
 const OFFLINE_SWEEP_MS = 10_000;
 
@@ -74,8 +76,20 @@ type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 
 const newJobId = () => randomUUID().replace(/-/g, '');
 
-const isOnline = (lastSeenAt: Date | null) =>
-  !!lastSeenAt && Date.now() - lastSeenAt.getTime() <= PRINTER_OFFLINE_AFTER_MS;
+/** 印表機實際的輪詢間隔：取中位數，斷線後第一次來的超長間隔不會拉高門檻 */
+export const pollIntervalOf = (gaps: number[] | null): number | null => {
+  if (!gaps?.length) return null;
+
+  return gaps.toSorted((a, b) => a - b)[Math.floor(gaps.length / 2)];
+};
+
+const isOnline = ({
+  lastSeenAt,
+  pollGapsMs,
+}: Pick<InvoicePrinter, 'lastSeenAt' | 'pollGapsMs'>) =>
+  !!lastSeenAt &&
+  Date.now() - lastSeenAt.getTime() <=
+    (pollIntervalOf(pollGapsMs) ?? 0) + PRINTER_OFFLINE_AFTER_MS;
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: '',
@@ -145,6 +159,7 @@ export class InvoicePrinterService {
     return {
       createdAt: printer.createdAt,
       lastSeenAt: printer.lastSeenAt,
+      pollIntervalMs: pollIntervalOf(printer.pollGapsMs),
       url: this.serverDirectPrintUrl,
       username: printer.username,
     };
@@ -202,42 +217,40 @@ export class InvoicePrinterService {
   async printerOnline(organizationId: string): Promise<boolean | null> {
     const printer = await this.db.query.invoicePrinter.findFirst({
       where: eq(invoicePrinter.organizationId, organizationId),
-      columns: { lastSeenAt: true },
+      columns: { lastSeenAt: true, pollGapsMs: true },
     });
     if (!printer) return null;
 
-    return isOnline(printer.lastSeenAt);
+    return isOnline(printer);
   }
 
   async getStatus(organizationSlug: string) {
     const organizationId = await this.findOrganizationId(organizationSlug);
     const printer = await this.db.query.invoicePrinter.findFirst({
       where: eq(invoicePrinter.organizationId, organizationId),
-      columns: { lastSeenAt: true },
+      columns: { lastSeenAt: true, pollGapsMs: true },
     });
 
     return {
       configured: !!printer,
       lastSeenAt: printer?.lastSeenAt ?? null,
-      online: !!printer && isOnline(printer.lastSeenAt),
+      online: !!printer && isOnline(printer),
+      pollIntervalMs: pollIntervalOf(printer?.pollGapsMs ?? null),
     };
   }
 
   // 冪等，多個環境共用資料庫同時跑也無妨，所以不受 CRON_ENABLED 限制
   @Interval(OFFLINE_SWEEP_MS)
   async markOfflineJobsUnknown(): Promise<void> {
-    const offline = await this.db
-      .select({ organizationId: invoicePrinter.organizationId })
-      .from(invoicePrinter)
-      .where(
-        or(
-          isNull(invoicePrinter.lastSeenAt),
-          lt(
-            invoicePrinter.lastSeenAt,
-            new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS),
-          ),
-        ),
-      );
+    const offline = (
+      await this.db
+        .select({
+          lastSeenAt: invoicePrinter.lastSeenAt,
+          organizationId: invoicePrinter.organizationId,
+          pollGapsMs: invoicePrinter.pollGapsMs,
+        })
+        .from(invoicePrinter)
+    ).filter((printer) => !isOnline(printer));
     if (!offline.length) return;
 
     const stuck = await this.db
@@ -281,6 +294,7 @@ export class InvoicePrinterService {
           set: {
             digestHa1: digestHa1(username, password),
             lastSeenAt: null,
+            pollGapsMs: null,
             username,
           },
           target: invoicePrinter.organizationId,
@@ -580,10 +594,20 @@ export class InvoicePrinterService {
 
   async poll(printer: InvoicePrinter): Promise<string> {
     const { organizationId } = printer;
+    const now = new Date();
 
     await this.db
       .update(invoicePrinter)
-      .set({ lastSeenAt: new Date() })
+      .set({
+        lastSeenAt: now,
+        // Epson 的輪詢間隔是從上一次通訊結束起算，所以距上次聯絡的時間就是間隔
+        pollGapsMs: printer.lastSeenAt
+          ? [
+              ...(printer.pollGapsMs ?? []),
+              now.getTime() - printer.lastSeenAt.getTime(),
+            ].slice(-POLL_GAP_SAMPLES)
+          : printer.pollGapsMs,
+      })
       .where(eq(invoicePrinter.id, printer.id));
 
     // 印表機回報完上一批才會再來拉，上一批還在 sent 代表回應沒送到或結果沒回來，可能印了也可能沒印

@@ -16,6 +16,13 @@ export class InvoicePrinterDto {
   url: string;
   @ApiPropertyOptional({ description: '印表機最後一次來拉列印工作的時間' })
   lastSeenAt?: Date | null;
+  @ApiProperty({
+    description:
+      '從印表機實際來拉工作的節奏量出的輪詢間隔（毫秒），還沒量到時為 null',
+    nullable: true,
+    type: Number,
+  })
+  pollIntervalMs: number | null;
   @ApiProperty() createdAt: Date;
 }
 
@@ -64,4 +71,11 @@ export class InvoicePrinterStatusDto {
   online: boolean;
   @ApiPropertyOptional({ description: '印表機最後一次連線的時間' })
   lastSeenAt?: Date | null;
+  @ApiProperty({
+    description:
+      '從印表機實際來拉工作的節奏量出的輪詢間隔（毫秒），還沒量到時為 null',
+    nullable: true,
+    type: Number,
+  })
+  pollIntervalMs: number | null;
 }

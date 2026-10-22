@@ -126,6 +126,7 @@ export const invoicePrinter = pgTable('invoice_printer', {
   username: text('username').notNull().unique(),
   digestHa1: text('digest_ha1').notNull(),
   lastSeenAt: timestamp('last_seen_at'),
+  pollGapsMs: integer('poll_gaps_ms').array(),
   ...timestamps,
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "invoice_printer" ADD COLUMN "poll_gaps_ms" integer[];
