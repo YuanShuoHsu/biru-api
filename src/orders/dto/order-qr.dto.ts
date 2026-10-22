@@ -18,9 +18,15 @@ export class OrderQrQueryDto {
   @Max(999)
   tableNumber?: number;
 
-  @ApiProperty({ description: 'QR code 帶的簽章' })
+  @ApiPropertyOptional({ description: '桌上 QR code 的桌號簽章' })
+  @IsOptional()
   @IsString()
-  token: string;
+  tableToken?: string;
+
+  @ApiPropertyOptional({ description: '櫃台／得來速 QR code 的點餐方式簽章' })
+  @IsOptional()
+  @IsString()
+  modeToken?: string;
 }
 
 export class OrderQrSessionResponseDto {

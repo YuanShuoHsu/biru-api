@@ -1,11 +1,6 @@
 import { randomBytes } from 'crypto';
 
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { eq, or, sql } from 'drizzle-orm';
 
@@ -69,7 +64,7 @@ export class OrderQrService {
 
   async scan(
     organizationSlug: string,
-    { mode, tableNumber, token }: OrderQrQueryDto,
+    { mode, modeToken, tableNumber, tableToken }: OrderQrQueryDto,
   ) {
     // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
     const [org] = await this.db
@@ -96,15 +91,18 @@ export class OrderQrService {
       .limit(1);
     if (!org) return null;
 
+    const token = mode === 'dineIn' ? tableToken : modeToken;
+
     return {
-      issued: isValidQrToken(org.id, org.secret, mode, tableNumber, token)
-        ? issueOrderQrSession(
-            org.id,
-            org.secret,
-            mode,
-            mode === 'dineIn' ? tableNumber! : null,
-          )
-        : null,
+      issued:
+        token && isValidQrToken(org.id, org.secret, mode, tableNumber, token)
+          ? issueOrderQrSession(
+              org.id,
+              org.secret,
+              mode,
+              mode === 'dineIn' ? tableNumber! : null,
+            )
+          : null,
       slug: org.slug,
     };
   }

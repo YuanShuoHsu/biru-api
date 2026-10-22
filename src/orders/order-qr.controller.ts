@@ -8,7 +8,6 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
@@ -43,21 +42,14 @@ const ORDER_PAGE_MODES: Record<QrOrderMode, string> = {
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug')
 export class OrderQrController {
-  private readonly nextUrl: string;
-
-  constructor(
-    private readonly orderQrService: OrderQrService,
-    configService: ConfigService,
-  ) {
-    this.nextUrl = configService.getOrThrow<string>('NEXT_URL');
-  }
+  constructor(private readonly orderQrService: OrderQrService) {}
 
   @Get('order-qr')
   @AllowAnonymous()
   @Redirect()
   @ApiOperation({
     summary:
-      '店內 QR code 的網址：簽章換成短效 cookie 後轉到點餐頁，點餐頁網址不帶簽章',
+      '前台點餐頁帶 QR code 簽章時由 rewrite 轉進來：簽章換成短效 cookie 後轉回不帶簽章的點餐頁',
   })
   async scan(
     @Param('organizationSlug') organizationSlug: string,
@@ -74,14 +66,15 @@ export class OrderQrController {
         secure: process.env.NODE_ENV === 'production',
       });
 
-    const url = new URL(
-      `/order/${ORDER_PAGE_MODES[query.mode]}/${scanned?.slug || organizationSlug}`,
-      this.nextUrl,
-    );
-    if (query.tableNumber)
-      url.searchParams.set('tableNumber', String(query.tableNumber));
+    const search = query.tableNumber
+      ? `?${new URLSearchParams({ tableNumber: String(query.tableNumber) })}`
+      : '';
 
-    return { statusCode: 303, url: url.toString() };
+    // 用相對路徑：cookie 落在使用者掃到的網域，改轉 NEXT_URL 遇到 www／preview 等不同網域就帶不到 cookie
+    return {
+      statusCode: 303,
+      url: `/order/${ORDER_PAGE_MODES[query.mode]}/${encodeURIComponent(scanned?.slug || organizationSlug)}${search}`,
+    };
   }
 
   @Get('order-qr-sessions/current')
