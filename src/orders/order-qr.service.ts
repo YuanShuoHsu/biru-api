@@ -9,6 +9,7 @@ import {
   organizationQrSecret,
   organizationSlugHistory,
 } from '../db/schema/organizations.js';
+import type { OrderMode } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
@@ -105,6 +106,23 @@ export class OrderQrService {
           : null,
       slug: org.slug,
     };
+  }
+
+  async renewSession(
+    organizationSlug: string,
+    value: string | undefined,
+    mode: OrderMode,
+  ) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const session = verifyOrderQrSession(org.id, org.secret, value);
+    if (session?.mode !== mode) return null;
+
+    return issueOrderQrSession(
+      org.id,
+      org.secret,
+      session.mode,
+      session.tableNumber,
+    );
   }
 
   async findSession(organizationSlug: string, value: string | undefined) {

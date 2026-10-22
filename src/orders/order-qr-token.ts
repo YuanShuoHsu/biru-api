@@ -1,5 +1,7 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 
+import type { Response } from 'express';
+
 import type { OrderMode } from '../db/schema/orders.js';
 
 const KEY_BYTES = 32;
@@ -23,11 +25,7 @@ export const qrOrderModes = [
 
 export type QrOrderMode = (typeof qrOrderModes)[number];
 
-const ORDER_QR_SESSION_TTL_MS: Record<QrOrderMode, number> = {
-  counter: 30 * 60 * 1000,
-  dineIn: 2 * 60 * 60 * 1000,
-  driveThru: 30 * 60 * 1000,
-};
+const ORDER_QR_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
 export type OrderQrSession = {
   expiresAt: Date;
@@ -82,13 +80,15 @@ export const isValidQrToken = (
   );
 };
 
+export type IssuedOrderQrSession = { session: OrderQrSession; value: string };
+
 export const issueOrderQrSession = (
   organizationId: string,
   qrSecret: string | null,
   mode: QrOrderMode,
   tableNumber: number | null,
-): { session: OrderQrSession; value: string } => {
-  const expiresAt = new Date(Date.now() + ORDER_QR_SESSION_TTL_MS[mode]);
+): IssuedOrderQrSession => {
+  const expiresAt = new Date(Date.now() + ORDER_QR_SESSION_TTL_MS);
   const payload = Buffer.from(
     JSON.stringify([organizationId, mode, tableNumber, expiresAt.getTime()]),
   ).toString('base64url');
@@ -121,3 +121,15 @@ export const verifyOrderQrSession = (
 
   return { expiresAt: new Date(expiresAt), mode, tableNumber };
 };
+
+export const setOrderQrSessionCookie = (
+  res: Response,
+  { session, value }: IssuedOrderQrSession,
+) =>
+  res.cookie(ORDER_QR_SESSION_COOKIE, value, {
+    expires: session.expiresAt,
+    httpOnly: true,
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });

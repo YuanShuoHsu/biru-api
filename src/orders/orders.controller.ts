@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
@@ -16,7 +17,7 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
@@ -37,14 +38,21 @@ import {
   OrderResponseDto,
 } from './dto/order-response.dto.js';
 import { orderAccessToken } from './order-access-token.js';
-import { ORDER_QR_SESSION_COOKIE } from './order-qr-token.js';
+import {
+  ORDER_QR_SESSION_COOKIE,
+  setOrderQrSessionCookie,
+} from './order-qr-token.js';
+import { OrderQrService } from './order-qr.service.js';
 import { OrdersService } from './orders.service.js';
 
 @AllowAnonymous()
 @ApiTags('orders')
 @Controller('organizations/:organizationSlug/orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly orderQrService: OrderQrService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   @Post()
   @ApiHeader({
@@ -59,14 +67,25 @@ export class OrdersController {
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Session() session: UserSession | null,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<CreateOrderResponseDto> {
+    const qrSessionValue = req.cookies?.[ORDER_QR_SESSION_COOKIE] as
+      string | undefined;
+
     const created = await this.ordersService.createOrder(
       organizationSlug,
       dto,
       session?.user.id || null,
       idempotencyKey || null,
-      req.cookies?.[ORDER_QR_SESSION_COOKIE] as string | undefined,
+      qrSessionValue,
     );
+
+    const renewed = await this.orderQrService.renewSession(
+      organizationSlug,
+      qrSessionValue,
+      dto.mode,
+    );
+    if (renewed) setOrderQrSessionCookie(res, renewed);
 
     return { ...created, accessToken: orderAccessToken(created.id) };
   }

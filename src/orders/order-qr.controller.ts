@@ -23,7 +23,11 @@ import {
   OrderQrSecretResponseDto,
   OrderQrSessionResponseDto,
 } from './dto/order-qr.dto.js';
-import { ORDER_QR_SESSION_COOKIE, type QrOrderMode } from './order-qr-token.js';
+import {
+  ORDER_QR_SESSION_COOKIE,
+  setOrderQrSessionCookie,
+  type QrOrderMode,
+} from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 
 const ORDER_QR_SECRET_AUDIT: AuditTarget = {
@@ -57,14 +61,7 @@ export class OrderQrController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const scanned = await this.orderQrService.scan(organizationSlug, query);
-    if (scanned?.issued)
-      res.cookie(ORDER_QR_SESSION_COOKIE, scanned.issued.value, {
-        expires: scanned.issued.session.expiresAt,
-        httpOnly: true,
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-      });
+    if (scanned?.issued) setOrderQrSessionCookie(res, scanned.issued);
 
     const search = query.tableNumber
       ? `?${new URLSearchParams({ tableNumber: String(query.tableNumber) })}`
