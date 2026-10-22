@@ -196,25 +196,35 @@ export class InvoicePrinterService {
     const username = `biru-${randomBytes(6).toString('hex')}`;
     const password = randomBytes(18).toString('base64url');
 
-    const [printer] = await this.db
-      .insert(invoicePrinter)
-      .values({
-        digestHa1: digestHa1(username, password),
-        id: randomUUID(),
-        organizationId,
-        username,
-      })
-      .onConflictDoUpdate({
-        set: {
+    const { printer, queued } = await this.db.transaction(async (tx) => {
+      const [printer] = await tx
+        .insert(invoicePrinter)
+        .values({
           digestHa1: digestHa1(username, password),
-          lastSeenAt: null,
+          id: randomUUID(),
+          organizationId,
           username,
-        },
-        target: invoicePrinter.organizationId,
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          set: {
+            digestHa1: digestHa1(username, password),
+            lastSeenAt: null,
+            username,
+          },
+          target: invoicePrinter.organizationId,
+        })
+        .returning();
 
-    const queued = await this.enqueueUnprinted(organizationId);
+      return {
+        printer,
+        queued: await this.enqueueUnprinted(tx, organizationId),
+      };
+    });
+
+    await this.emitOrdersUpdated(
+      organizationId,
+      queued.map(({ invoiceId }) => invoiceId),
+    );
 
     return Object.assign(this.toPrinterDto(printer), {
       password,
@@ -222,27 +232,28 @@ export class InvoicePrinterService {
     });
   }
 
-  private async enqueueUnprinted(organizationId: string) {
-    const queued = await this.db
+  // insert … select 的欄位要照資料表定義的順序，否則 Drizzle 拒絕執行
+  private enqueueUnprinted(tx: Tx, organizationId: string) {
+    return tx
       .insert(invoicePrintJob)
       .select(
-        this.db
+        tx
           .select({
-            copy: sql<InvoicePrintCopy>`'original'::invoice_print_copy`.as(
-              'copy',
-            ),
-            createdAt: sql<Date>`now()`.as('created_at'),
-            errorCode: sql<null>`null`.as('error_code'),
-            finishedAt: sql<null>`null`.as('finished_at'),
             id: sql<string>`replace(gen_random_uuid()::text, '-', '')`.as('id'),
             invoiceId: invoice.id,
             organizationId: sql<string>`${organizationId}`.as(
               'organization_id',
             ),
-            sentAt: sql<null>`null`.as('sent_at'),
+            copy: sql<InvoicePrintCopy>`'original'::invoice_print_copy`.as(
+              'copy',
+            ),
             status: sql<'queued'>`'queued'::invoice_print_job_status`.as(
               'status',
             ),
+            errorCode: sql<null>`null`.as('error_code'),
+            sentAt: sql<null>`null`.as('sent_at'),
+            finishedAt: sql<null>`null`.as('finished_at'),
+            createdAt: sql<Date>`now()`.as('created_at'),
             updatedAt: sql<Date>`now()`.as('updated_at'),
           })
           .from(invoice)
@@ -261,13 +272,6 @@ export class InvoicePrinterService {
       )
       .onConflictDoNothing()
       .returning({ invoiceId: invoicePrintJob.invoiceId });
-
-    await this.emitOrdersUpdated(
-      organizationId,
-      queued.map(({ invoiceId }) => invoiceId),
-    );
-
-    return queued;
   }
 
   async deletePrinter(organizationSlug: string): Promise<void> {
