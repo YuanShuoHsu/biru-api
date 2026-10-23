@@ -72,8 +72,7 @@ Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`
 routes live under `users/me/...` (orders, coupons, points).
 
 `DrizzleController` and `TasksController` are empty `nest generate` scaffolds — they register
-routes but expose nothing. Same for the empty `dto/` + `entities/` folders under `drizzle/`,
-`tasks/`, `gcis/`, and `organizations/`.
+routes but expose nothing.
 
 ### Database Schema
 
