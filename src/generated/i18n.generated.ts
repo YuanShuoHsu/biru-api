@@ -529,6 +529,23 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "low_stock_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "item": string;
+            "no_supplier": string;
+            "action": string;
+            "units": {
+                "GRM": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+                "H87": string;
+            };
+            "salutation": string;
+            "trouble_hint": string;
+        };
     };
     "test": {
         "hello": string;

@@ -142,5 +142,22 @@
     },
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}：{count} 项食材低于警示量",
+    "title": "低库存提醒",
+    "intro": "{organizationName} 目前有 {count} 项食材的库存已降到警示量以下，请依供应商安排订货。",
+    "item": "{name}：剩 {level} {unit}（警示量 {threshold} {unit}，缺 {shortage} {unit}）",
+    "no_supplier": "未指定供应商",
+    "action": "查看低库存食材",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "个"
+    },
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }

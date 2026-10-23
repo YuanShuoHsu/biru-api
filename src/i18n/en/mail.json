@@ -142,5 +142,22 @@
     },
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}: {count} ingredients at or below their low-stock level",
+    "title": "Low-stock reminder",
+    "intro": "{organizationName} has {count} ingredients at or below their low-stock level. Plan your orders by supplier below.",
+    "item": "{name}: {level} {unit} left (low-stock level {threshold} {unit}, short {shortage} {unit})",
+    "no_supplier": "No supplier",
+    "action": "View low-stock ingredients",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "pcs"
+    },
+    "salutation": "Thanks,<br>The {productName} team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }
