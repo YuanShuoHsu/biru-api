@@ -236,6 +236,7 @@
     "tableNumber": "桌號 {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "錢櫃尚未開帳，請先開帳再確認現金付款",
     "cashRequiresInStoreQrCode": "現金付款請掃描店內的 QR code 點餐",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",
     "invalidTable": "桌號 QR code 無效，請重新掃描桌上的 QR code",

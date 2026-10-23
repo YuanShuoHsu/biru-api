@@ -286,6 +286,7 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
+            "cashDrawerNotOpen": string;
             "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
             "invalidTable": string;

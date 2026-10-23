@@ -236,6 +236,7 @@
     "tableNumber": "テーブル {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "レジが開いていません。現金の支払いを確定する前にレジを開けてください。",
     "cashRequiresInStoreQrCode": "現金でお支払いの場合は、店内の QR コードを読み取ってご注文ください",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
