@@ -362,8 +362,13 @@ export class InventoryTransactionsService {
   ): Promise<LowStockReachedEvent['ingredients']> {
     if (!entries.length) return [];
 
-    await tx
-      .select({ id: ingredient.id })
+    const locked = await tx
+      .select({
+        id: ingredient.id,
+        inventoryLevel: ingredient.inventoryLevel,
+        lowStockThreshold: ingredient.lowStockThreshold,
+        name: ingredient.name,
+      })
       .from(ingredient)
       .where(
         inArray(
@@ -392,18 +397,17 @@ export class InventoryTransactionsService {
           inventoryLevel: sql`${ingredient.inventoryLevel} + ${quantity}`,
         })
         .where(eq(ingredient.id, ingredientId))
-        .returning({
-          id: ingredient.id,
-          inventoryLevel: ingredient.inventoryLevel,
-          lowStockThreshold: ingredient.lowStockThreshold,
-          name: ingredient.name,
-        });
-      if (!updated || updated.lowStockThreshold === null) continue;
+        .returning({ inventoryLevel: ingredient.inventoryLevel });
 
-      const threshold = Number(updated.lowStockThreshold);
-      const after = Number(updated.inventoryLevel);
-      if (after <= threshold && after - quantity > threshold)
-        lowStock.push({ id: updated.id, name: updated.name });
+      const before = locked.find(({ id }) => id === ingredientId);
+      if (!updated || !before || before.lowStockThreshold === null) continue;
+
+      const threshold = Number(before.lowStockThreshold);
+      if (
+        Number(before.inventoryLevel) > threshold &&
+        Number(updated.inventoryLevel) <= threshold
+      )
+        lowStock.push({ id: before.id, name: before.name });
     }
 
     return lowStock;

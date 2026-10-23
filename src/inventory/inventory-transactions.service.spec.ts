@@ -7,59 +7,46 @@ type Tx = Parameters<InventoryTransactionsService['consume']>[1];
 const createTx = (
   ingredients: {
     id: string;
-    inventoryLevel: string;
+    before: string;
+    after: string;
     lowStockThreshold: string | null;
-    requiredQuantity: string;
   }[],
 ) => {
+  const locked = ingredients.map(({ before, id, lowStockThreshold }) => ({
+    id,
+    inventoryLevel: before,
+    lowStockThreshold,
+    name: { 'zh-TW': id },
+  }));
   const selects: unknown[][] = [
     [{ sellerId: 'org' }],
-    [{ addOns: null, menuItemId: 'latte', orderQuantity: 2 }],
-    [{ id: 'recipe', menuItemId: 'latte', recipeYield: 1 }],
-    ingredients.map(({ id, requiredQuantity }) => ({
+    [{ addOns: null, menuItemId: 'latte', orderQuantity: 1 }],
+    [{ id: 'recipe', menuItemId: 'latte', recipeYield: 3 }],
+    ingredients.map(({ id }) => ({
       ingredientId: id,
       recipeId: 'recipe',
-      requiredQuantity,
+      requiredQuantity: '1',
     })),
   ];
-  const levels = new Map(
-    ingredients.map(({ id, inventoryLevel }) => [id, Number(inventoryLevel)]),
-  );
-  const sets: unknown[] = [];
+  let updates = 0;
 
   const tx = {
     insert: () => ({ values: () => Promise.resolve() }),
     select: () => ({
       from: () => ({
-        where: () => {
-          const rows = selects.shift() ?? [];
-          return Object.assign(Promise.resolve(rows), {
-            orderBy: () => ({ for: () => Promise.resolve(rows) }),
-          });
-        },
+        where: () =>
+          Object.assign(Promise.resolve(selects.shift() ?? []), {
+            orderBy: () => ({ for: () => Promise.resolve(locked) }),
+          }),
       }),
     }),
     update: () => ({
-      set: (values: unknown) => {
-        sets.push(values);
-        return {
-          where: () => ({
-            returning: () => {
-              const { id, lowStockThreshold, requiredQuantity } =
-                ingredients[sets.length - 1];
-              const level = levels.get(id)! - Number(requiredQuantity) * 2;
-              return Promise.resolve([
-                {
-                  id,
-                  inventoryLevel: String(level),
-                  lowStockThreshold,
-                  name: { 'zh-TW': id },
-                },
-              ]);
-            },
-          }),
-        };
-      },
+      set: () => ({
+        where: () => ({
+          returning: () =>
+            Promise.resolve([{ inventoryLevel: ingredients[updates++].after }]),
+        }),
+      }),
     }),
   };
 
@@ -75,27 +62,27 @@ describe('InventoryTransactionsService.consume', () => {
       createTx([
         {
           id: 'crossed',
-          inventoryLevel: '12',
+          before: '10.200',
+          after: '9.867',
           lowStockThreshold: '10',
-          requiredQuantity: '1',
         },
         {
-          id: 'alreadyLow',
-          inventoryLevel: '8',
+          id: 'alreadyAtThreshold',
+          before: '10.000',
+          after: '9.667',
           lowStockThreshold: '10',
-          requiredQuantity: '1',
         },
         {
           id: 'stillAbove',
-          inventoryLevel: '20',
+          before: '20.000',
+          after: '19.667',
           lowStockThreshold: '10',
-          requiredQuantity: '1',
         },
         {
           id: 'noThreshold',
-          inventoryLevel: '1',
+          before: '0.200',
+          after: '-0.133',
           lowStockThreshold: null,
-          requiredQuantity: '1',
         },
       ]),
     );
@@ -103,15 +90,15 @@ describe('InventoryTransactionsService.consume', () => {
     expect(lowStock).toEqual([{ id: 'crossed', name: { 'zh-TW': 'crossed' } }]);
   });
 
-  it('門檻為 0 時剛好扣到 0 才算跌破', async () => {
+  it('門檻為 0 時扣到 0 才算跌破', async () => {
     const lowStock = await service.consume(
       'order',
       createTx([
         {
           id: 'empty',
-          inventoryLevel: '2',
+          before: '0.333',
+          after: '0.000',
           lowStockThreshold: '0',
-          requiredQuantity: '1',
         },
       ]),
     );

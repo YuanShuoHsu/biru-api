@@ -220,6 +220,6 @@ export class EventsGateway {
   handleLowStockReached({ organizationId, ingredients }: LowStockReachedEvent) {
     this.server
       .to(inventoryRoom(organizationId))
-      .emit('lowStockReached', { ingredients });
+      .emit('lowStockReached', { organizationId, ingredients });
   }
 }
