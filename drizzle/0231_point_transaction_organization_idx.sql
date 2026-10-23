@@ -1,0 +1,1 @@
+CREATE INDEX "pointTransaction_organizationId_createdAt_idx" ON "point_transaction" USING btree ("organization_id","created_at");

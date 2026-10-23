@@ -1618,6 +1618,13 @@
       "when": 1792722868981,
       "tag": "0230_dine_in_table_count",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1792758809945,
+      "tag": "0231_point_transaction_organization_idx",
+      "breakpoints": true
     }
   ]
 }
