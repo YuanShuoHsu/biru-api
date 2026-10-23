@@ -34,6 +34,27 @@ export class PointTransactionDto {
   type: PointTransactionType;
 }
 
+export class OrganizationPointTransactionDto {
+  @ApiProperty() id: string;
+  @ApiProperty() createdAt: Date;
+  @ApiPropertyOptional() expiresAt: Date | null;
+  @ApiPropertyOptional() orderId: string | null;
+  @ApiPropertyOptional() orderNumber: string | null;
+  @ApiProperty({ description: 'earn 為正、revoke 為負' }) points: number;
+  @ApiProperty({ description: '尚未被兌換或收回的點數' })
+  remainingPoints: number;
+  @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
+  type: PointTransactionType;
+  @ApiProperty() userEmail: string;
+  @ApiProperty() userName: string;
+}
+
+export class OrganizationPointTransactionListResponseDto {
+  @ApiProperty({ type: [OrganizationPointTransactionDto] })
+  data: OrganizationPointTransactionDto[];
+  @ApiProperty() total: number;
+}
+
 export class MyPointsDto {
   @ApiProperty({ description: '全店家合併餘額' }) balance: number;
   @ApiProperty({ type: [PointsCouponDto] })

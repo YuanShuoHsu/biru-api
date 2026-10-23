@@ -1622,8 +1622,15 @@
     {
       "idx": 231,
       "version": "7",
-      "when": 1792758668045,
-      "tag": "0231_cash_drawer",
+      "when": 1792758809945,
+      "tag": "0231_point_transaction_organization_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1792759330862,
+      "tag": "0232_cash_drawer",
       "breakpoints": true
     }
   ]

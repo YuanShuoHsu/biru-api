@@ -1,5 +1,5 @@
 {
-  "id": "d7d129bd-c0d9-4fc8-af69-72c38c941500",
+  "id": "6a286347-7668-41c1-876c-0a1071ed3c1a",
   "prevId": "3313a0bd-6dff-4906-b3e3-7e42bc32546e",
   "version": "7",
   "dialect": "postgresql",
@@ -2506,376 +2506,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.cash_drawer_movement": {
-      "name": "cash_drawer_movement",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "session_id": {
-          "name": "session_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "cash_drawer_movement_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount": {
-          "name": "amount",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "cashDrawerMovement_sessionId_idx": {
-          "name": "cashDrawerMovement_sessionId_idx",
-          "columns": [
-            {
-              "expression": "session_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "cash_drawer_movement_session_id_cash_drawer_session_id_fk": {
-          "name": "cash_drawer_movement_session_id_cash_drawer_session_id_fk",
-          "tableFrom": "cash_drawer_movement",
-          "tableTo": "cash_drawer_session",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "cash_drawer_movement_amount_positive": {
-          "name": "cash_drawer_movement_amount_positive",
-          "value": "\"cash_drawer_movement\".\"amount\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.cash_drawer_session": {
-      "name": "cash_drawer_session",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "business_date": {
-          "name": "business_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "cash_drawer_session_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'open'"
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "opened_by": {
-          "name": "opened_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "opening_float": {
-          "name": "opening_float",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "closed_at": {
-          "name": "closed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "closed_by": {
-          "name": "closed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "counted_cash": {
-          "name": "counted_cash",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "denominations": {
-          "name": "denominations",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expected_cash": {
-          "name": "expected_cash",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "retained_float": {
-          "name": "retained_float",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "variance_note": {
-          "name": "variance_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_at": {
-          "name": "reviewed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_by": {
-          "name": "reviewed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "review_note": {
-          "name": "review_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "cashDrawerSession_organizationId_businessDate_idx": {
-          "name": "cashDrawerSession_organizationId_businessDate_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "business_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "cash_drawer_session_open_unique": {
-          "name": "cash_drawer_session_open_unique",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"cash_drawer_session\".\"status\" = 'open'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "cash_drawer_session_organization_id_organization_id_fk": {
-          "name": "cash_drawer_session_organization_id_organization_id_fk",
-          "tableFrom": "cash_drawer_session",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "cash_drawer_session_opening_float_non_negative": {
-          "name": "cash_drawer_session_opening_float_non_negative",
-          "value": "\"cash_drawer_session\".\"opening_float\" >= 0"
-        },
-        "cash_drawer_session_counted_cash_non_negative": {
-          "name": "cash_drawer_session_counted_cash_non_negative",
-          "value": "\"cash_drawer_session\".\"counted_cash\" >= 0"
-        },
-        "cash_drawer_session_closed_complete": {
-          "name": "cash_drawer_session_closed_complete",
-          "value": "\"cash_drawer_session\".\"status\" = 'open' or (\"cash_drawer_session\".\"closed_at\" is not null and \"cash_drawer_session\".\"closed_by\" is not null and \"cash_drawer_session\".\"counted_cash\" is not null and \"cash_drawer_session\".\"expected_cash\" is not null and \"cash_drawer_session\".\"retained_float\" is not null)"
-        },
-        "cash_drawer_session_review_complete": {
-          "name": "cash_drawer_session_review_complete",
-          "value": "\"cash_drawer_session\".\"reviewed_at\" is null or (\"cash_drawer_session\".\"status\" = 'closed' and \"cash_drawer_session\".\"reviewed_by\" is not null)"
-        },
-        "cash_drawer_session_retained_float_within_counted": {
-          "name": "cash_drawer_session_retained_float_within_counted",
-          "value": "\"cash_drawer_session\".\"retained_float\" >= 0 and \"cash_drawer_session\".\"retained_float\" <= \"cash_drawer_session\".\"counted_cash\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.cash_drawer_setting": {
-      "name": "cash_drawer_setting",
-      "schema": "",
-      "columns": {
-        "organization_id": {
-          "name": "organization_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "handover_enabled": {
-          "name": "handover_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "variance_tolerance": {
-          "name": "variance_tolerance",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'0'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "cash_drawer_setting_organization_id_organization_id_fk": {
-          "name": "cash_drawer_setting_organization_id_organization_id_fk",
-          "tableFrom": "cash_drawer_setting",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "cash_drawer_setting_variance_tolerance_non_negative": {
-          "name": "cash_drawer_setting_variance_tolerance_non_negative",
-          "value": "\"cash_drawer_setting\".\"variance_tolerance\" >= 0"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.coupon": {
@@ -8106,6 +7736,27 @@
           "method": "btree",
           "with": {}
         },
+        "pointTransaction_organizationId_createdAt_idx": {
+          "name": "pointTransaction_organizationId_createdAt_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "pointTransaction_orderId_earn_unique": {
           "name": "pointTransaction_orderId_earn_unique",
           "columns": [
@@ -11017,22 +10668,6 @@
         "invitation",
         "user",
         "team"
-      ]
-    },
-    "public.cash_drawer_movement_type": {
-      "name": "cash_drawer_movement_type",
-      "schema": "public",
-      "values": [
-        "payIn",
-        "payOut"
-      ]
-    },
-    "public.cash_drawer_session_status": {
-      "name": "cash_drawer_session_status",
-      "schema": "public",
-      "values": [
-        "open",
-        "closed"
       ]
     },
     "public.coupon_discount_type": {

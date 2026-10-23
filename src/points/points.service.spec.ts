@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { eq } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import * as schema from '../db/schema/index.js';
@@ -96,5 +97,132 @@ describe('PointsService.getAllMine', () => {
       transactions: [],
       transactionsTotal: 0,
     });
+  });
+});
+
+describe('PointsService.findAllForOrganization', () => {
+  const ORG = 'org';
+  const OTHER_ORG = 'other';
+
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: PointsService;
+
+  beforeAll(async () => {
+    client = new PGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new PointsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec(
+      'truncate point_transaction, order_item, "order", organization, "user" cascade',
+    );
+    for (const [id, slug] of [
+      [ORG, 'biru'],
+      [OTHER_ORG, 'other'],
+    ])
+      await client.query(
+        `insert into organization (id, name, slug, created_at, amount_per_point, points_enabled_at)
+         values ($1, $2, $2, now(), 10, '2026-01-01')`,
+        [id, slug],
+      );
+    for (const [id, email] of [
+      ['amy', 'amy@example.com'],
+      ['bob', 'bob@example.com'],
+    ])
+      await client.query(
+        `insert into "user" (id, name, email, first_name) values ($1, $1, $2, $1)`,
+        [id, email],
+      );
+  });
+
+  const addPaidOrder = async (
+    id: string,
+    sellerId: string,
+    userId: string | null,
+  ) => {
+    await client.query(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id)
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, '2026-02-01', 'OrderDelivered', $3)`,
+      [id, sellerId, userId],
+    );
+    await client.query(
+      `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
+       values ($1, 'item', '拿鐵', $1, 1, 100)`,
+      [id],
+    );
+  };
+
+  it('列表前先為本店已付款的會員訂單補入點數，不含他店與訪客訂單', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', ORG, null);
+    await addPaidOrder('o3', OTHER_ORG, 'bob');
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.total).toBe(1);
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        orderNumber: 'o1',
+        points: 10,
+        type: 'earn',
+        userEmail: 'amy@example.com',
+      }),
+    ]);
+    expect(await db.select().from(pointTransaction)).toHaveLength(1);
+  });
+
+  it('收回本店已取消訂單的點數，且不列出他店與品牌層的明細', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+    await service.findAllForOrganization('biru');
+    await service.findAllForOrganization('other');
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id in ('o1', 'o2')`,
+    );
+    await db.insert(pointTransaction).values({
+      id: 'redeem',
+      points: -5,
+      type: 'redeem',
+      userId: 'amy',
+    });
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.data).toEqual([]);
+    expect(
+      (await db.select().from(pointTransaction)).map(({ id }) => id),
+    ).toContain('redeem');
+    expect(
+      await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.organizationId, OTHER_ORG)),
+    ).toHaveLength(1);
+  });
+
+  it('依會員 email 篩選', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', ORG, 'bob');
+
+    const result = await service.findAllForOrganization('biru', {
+      filterField: 'userEmail',
+      filterOperator: 'contains',
+      filterValue: 'bob',
+    });
+
+    expect(result.data.map(({ userEmail }) => userEmail)).toEqual([
+      'bob@example.com',
+    ]);
+    expect(result.total).toBe(1);
   });
 });
