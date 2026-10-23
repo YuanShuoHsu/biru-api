@@ -1,5 +1,5 @@
 {
-  "id": "92c51f2e-78b7-487a-adc6-749aca95c609",
+  "id": "d7d129bd-c0d9-4fc8-af69-72c38c941500",
   "prevId": "3313a0bd-6dff-4906-b3e3-7e42bc32546e",
   "version": "7",
   "dialect": "postgresql",
@@ -2801,6 +2801,10 @@
           "name": "cash_drawer_session_closed_complete",
           "value": "\"cash_drawer_session\".\"status\" = 'open' or (\"cash_drawer_session\".\"closed_at\" is not null and \"cash_drawer_session\".\"closed_by\" is not null and \"cash_drawer_session\".\"counted_cash\" is not null and \"cash_drawer_session\".\"expected_cash\" is not null and \"cash_drawer_session\".\"retained_float\" is not null)"
         },
+        "cash_drawer_session_review_complete": {
+          "name": "cash_drawer_session_review_complete",
+          "value": "\"cash_drawer_session\".\"reviewed_at\" is null or (\"cash_drawer_session\".\"status\" = 'closed' and \"cash_drawer_session\".\"reviewed_by\" is not null)"
+        },
         "cash_drawer_session_retained_float_within_counted": {
           "name": "cash_drawer_session_retained_float_within_counted",
           "value": "\"cash_drawer_session\".\"retained_float\" >= 0 and \"cash_drawer_session\".\"retained_float\" <= \"cash_drawer_session\".\"counted_cash\""
@@ -2866,7 +2870,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "cash_drawer_setting_variance_tolerance_non_negative": {
+          "name": "cash_drawer_setting_variance_tolerance_non_negative",
+          "value": "\"cash_drawer_setting\".\"variance_tolerance\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.coupon": {

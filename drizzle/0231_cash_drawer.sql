@@ -35,6 +35,7 @@ CREATE TABLE "cash_drawer_session" (
 	CONSTRAINT "cash_drawer_session_opening_float_non_negative" CHECK ("cash_drawer_session"."opening_float" >= 0),
 	CONSTRAINT "cash_drawer_session_counted_cash_non_negative" CHECK ("cash_drawer_session"."counted_cash" >= 0),
 	CONSTRAINT "cash_drawer_session_closed_complete" CHECK ("cash_drawer_session"."status" = 'open' or ("cash_drawer_session"."closed_at" is not null and "cash_drawer_session"."closed_by" is not null and "cash_drawer_session"."counted_cash" is not null and "cash_drawer_session"."expected_cash" is not null and "cash_drawer_session"."retained_float" is not null)),
+	CONSTRAINT "cash_drawer_session_review_complete" CHECK ("cash_drawer_session"."reviewed_at" is null or ("cash_drawer_session"."status" = 'closed' and "cash_drawer_session"."reviewed_by" is not null)),
 	CONSTRAINT "cash_drawer_session_retained_float_within_counted" CHECK ("cash_drawer_session"."retained_float" >= 0 and "cash_drawer_session"."retained_float" <= "cash_drawer_session"."counted_cash")
 );
 --> statement-breakpoint
@@ -43,7 +44,8 @@ CREATE TABLE "cash_drawer_setting" (
 	"handover_enabled" boolean DEFAULT false NOT NULL,
 	"variance_tolerance" numeric(10, 2) DEFAULT '0' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "cash_drawer_setting_variance_tolerance_non_negative" CHECK ("cash_drawer_setting"."variance_tolerance" >= 0)
 );
 --> statement-breakpoint
 ALTER TABLE "cash_drawer_movement" ADD CONSTRAINT "cash_drawer_movement_session_id_cash_drawer_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."cash_drawer_session"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint

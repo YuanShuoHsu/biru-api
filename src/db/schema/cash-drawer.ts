@@ -30,16 +30,28 @@ export const cashDrawerMovementTypeEnum = pgEnum('cash_drawer_movement_type', [
 export type CashDrawerMovementType =
   (typeof cashDrawerMovementTypeEnum.enumValues)[number];
 
-export const cashDrawerSetting = pgTable('cash_drawer_setting', {
-  organizationId: text('organization_id')
-    .primaryKey()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  handoverEnabled: boolean('handover_enabled').notNull().default(false),
-  varianceTolerance: numeric('variance_tolerance', { precision: 10, scale: 2 })
-    .notNull()
-    .default('0'),
-  ...timestamps,
-});
+export const cashDrawerSetting = pgTable(
+  'cash_drawer_setting',
+  {
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    handoverEnabled: boolean('handover_enabled').notNull().default(false),
+    varianceTolerance: numeric('variance_tolerance', {
+      precision: 10,
+      scale: 2,
+    })
+      .notNull()
+      .default('0'),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'cash_drawer_setting_variance_tolerance_non_negative',
+      sql`${table.varianceTolerance} >= 0`,
+    ),
+  ],
+);
 
 export type CashDrawerSetting = typeof cashDrawerSetting.$inferSelect;
 
@@ -89,6 +101,10 @@ export const cashDrawerSession = pgTable(
     check(
       'cash_drawer_session_closed_complete',
       sql`${table.status} = 'open' or (${table.closedAt} is not null and ${table.closedBy} is not null and ${table.countedCash} is not null and ${table.expectedCash} is not null and ${table.retainedFloat} is not null)`,
+    ),
+    check(
+      'cash_drawer_session_review_complete',
+      sql`${table.reviewedAt} is null or (${table.status} = 'closed' and ${table.reviewedBy} is not null)`,
     ),
     check(
       'cash_drawer_session_retained_float_within_counted',
