@@ -1,5 +1,5 @@
 {
-  "id": "ef078d4c-1065-4c00-afbd-0e4d9ec167f8",
+  "id": "92c51f2e-78b7-487a-adc6-749aca95c609",
   "prevId": "3313a0bd-6dff-4906-b3e3-7e42bc32546e",
   "version": "7",
   "dialect": "postgresql",
@@ -2623,6 +2623,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "business_date": {
+          "name": "business_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
         "status": {
           "name": "status",
           "type": "cash_drawer_session_status",
@@ -2680,8 +2686,32 @@
           "primaryKey": false,
           "notNull": false
         },
+        "retained_float": {
+          "name": "retained_float",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "variance_note": {
           "name": "variance_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_by": {
+          "name": "reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_note": {
+          "name": "review_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2702,8 +2732,8 @@
         }
       },
       "indexes": {
-        "cashDrawerSession_organizationId_openedAt_idx": {
-          "name": "cashDrawerSession_organizationId_openedAt_idx",
+        "cashDrawerSession_organizationId_businessDate_idx": {
+          "name": "cashDrawerSession_organizationId_businessDate_idx",
           "columns": [
             {
               "expression": "organization_id",
@@ -2712,7 +2742,7 @@
               "nulls": "last"
             },
             {
-              "expression": "opened_at",
+              "expression": "business_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2769,9 +2799,74 @@
         },
         "cash_drawer_session_closed_complete": {
           "name": "cash_drawer_session_closed_complete",
-          "value": "\"cash_drawer_session\".\"status\" = 'open' or (\"cash_drawer_session\".\"closed_at\" is not null and \"cash_drawer_session\".\"closed_by\" is not null and \"cash_drawer_session\".\"counted_cash\" is not null and \"cash_drawer_session\".\"expected_cash\" is not null)"
+          "value": "\"cash_drawer_session\".\"status\" = 'open' or (\"cash_drawer_session\".\"closed_at\" is not null and \"cash_drawer_session\".\"closed_by\" is not null and \"cash_drawer_session\".\"counted_cash\" is not null and \"cash_drawer_session\".\"expected_cash\" is not null and \"cash_drawer_session\".\"retained_float\" is not null)"
+        },
+        "cash_drawer_session_retained_float_within_counted": {
+          "name": "cash_drawer_session_retained_float_within_counted",
+          "value": "\"cash_drawer_session\".\"retained_float\" >= 0 and \"cash_drawer_session\".\"retained_float\" <= \"cash_drawer_session\".\"counted_cash\""
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.cash_drawer_setting": {
+      "name": "cash_drawer_setting",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "handover_enabled": {
+          "name": "handover_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "variance_tolerance": {
+          "name": "variance_tolerance",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cash_drawer_setting_organization_id_organization_id_fk": {
+          "name": "cash_drawer_setting_organization_id_organization_id_fk",
+          "tableFrom": "cash_drawer_setting",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.coupon": {

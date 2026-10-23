@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
+  date,
   index,
   jsonb,
   numeric,
@@ -28,6 +30,19 @@ export const cashDrawerMovementTypeEnum = pgEnum('cash_drawer_movement_type', [
 export type CashDrawerMovementType =
   (typeof cashDrawerMovementTypeEnum.enumValues)[number];
 
+export const cashDrawerSetting = pgTable('cash_drawer_setting', {
+  organizationId: text('organization_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  handoverEnabled: boolean('handover_enabled').notNull().default(false),
+  varianceTolerance: numeric('variance_tolerance', { precision: 10, scale: 2 })
+    .notNull()
+    .default('0'),
+  ...timestamps,
+});
+
+export type CashDrawerSetting = typeof cashDrawerSetting.$inferSelect;
+
 export const cashDrawerSession = pgTable(
   'cash_drawer_session',
   {
@@ -35,6 +50,7 @@ export const cashDrawerSession = pgTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
+    businessDate: date('business_date').notNull(),
     status: cashDrawerSessionStatusEnum('status').notNull().default('open'),
     openedAt: timestamp('opened_at').defaultNow().notNull(),
     openedBy: text('opened_by').notNull(),
@@ -47,13 +63,17 @@ export const cashDrawerSession = pgTable(
     countedCash: numeric('counted_cash', { precision: 10, scale: 2 }),
     denominations: jsonb('denominations').$type<Record<string, number>>(),
     expectedCash: numeric('expected_cash', { precision: 10, scale: 2 }),
+    retainedFloat: numeric('retained_float', { precision: 10, scale: 2 }),
     varianceNote: text('variance_note'),
+    reviewedAt: timestamp('reviewed_at'),
+    reviewedBy: text('reviewed_by'),
+    reviewNote: text('review_note'),
     ...timestamps,
   },
   (table) => [
-    index('cashDrawerSession_organizationId_openedAt_idx').on(
+    index('cashDrawerSession_organizationId_businessDate_idx').on(
       table.organizationId,
-      table.openedAt,
+      table.businessDate,
     ),
     uniqueIndex('cash_drawer_session_open_unique')
       .on(table.organizationId)
@@ -68,7 +88,11 @@ export const cashDrawerSession = pgTable(
     ),
     check(
       'cash_drawer_session_closed_complete',
-      sql`${table.status} = 'open' or (${table.closedAt} is not null and ${table.closedBy} is not null and ${table.countedCash} is not null and ${table.expectedCash} is not null)`,
+      sql`${table.status} = 'open' or (${table.closedAt} is not null and ${table.closedBy} is not null and ${table.countedCash} is not null and ${table.expectedCash} is not null and ${table.retainedFloat} is not null)`,
+    ),
+    check(
+      'cash_drawer_session_retained_float_within_counted',
+      sql`${table.retainedFloat} >= 0 and ${table.retainedFloat} <= ${table.countedCash}`,
     ),
   ],
 );

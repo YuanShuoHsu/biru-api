@@ -15,6 +15,7 @@ CREATE TABLE "cash_drawer_movement" (
 CREATE TABLE "cash_drawer_session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
+	"business_date" date NOT NULL,
 	"status" "cash_drawer_session_status" DEFAULT 'open' NOT NULL,
 	"opened_at" timestamp DEFAULT now() NOT NULL,
 	"opened_by" text NOT NULL,
@@ -24,18 +25,33 @@ CREATE TABLE "cash_drawer_session" (
 	"counted_cash" numeric(10, 2),
 	"denominations" jsonb,
 	"expected_cash" numeric(10, 2),
+	"retained_float" numeric(10, 2),
 	"variance_note" text,
+	"reviewed_at" timestamp,
+	"reviewed_by" text,
+	"review_note" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "cash_drawer_session_opening_float_non_negative" CHECK ("cash_drawer_session"."opening_float" >= 0),
 	CONSTRAINT "cash_drawer_session_counted_cash_non_negative" CHECK ("cash_drawer_session"."counted_cash" >= 0),
-	CONSTRAINT "cash_drawer_session_closed_complete" CHECK ("cash_drawer_session"."status" = 'open' or ("cash_drawer_session"."closed_at" is not null and "cash_drawer_session"."closed_by" is not null and "cash_drawer_session"."counted_cash" is not null and "cash_drawer_session"."expected_cash" is not null))
+	CONSTRAINT "cash_drawer_session_closed_complete" CHECK ("cash_drawer_session"."status" = 'open' or ("cash_drawer_session"."closed_at" is not null and "cash_drawer_session"."closed_by" is not null and "cash_drawer_session"."counted_cash" is not null and "cash_drawer_session"."expected_cash" is not null and "cash_drawer_session"."retained_float" is not null)),
+	CONSTRAINT "cash_drawer_session_retained_float_within_counted" CHECK ("cash_drawer_session"."retained_float" >= 0 and "cash_drawer_session"."retained_float" <= "cash_drawer_session"."counted_cash")
+);
+--> statement-breakpoint
+CREATE TABLE "cash_drawer_setting" (
+	"organization_id" text PRIMARY KEY NOT NULL,
+	"handover_enabled" boolean DEFAULT false NOT NULL,
+	"variance_tolerance" numeric(10, 2) DEFAULT '0' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "cash_drawer_movement" ADD CONSTRAINT "cash_drawer_movement_session_id_cash_drawer_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."cash_drawer_session"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "cash_drawer_session" ADD CONSTRAINT "cash_drawer_session_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cash_drawer_setting" ADD CONSTRAINT "cash_drawer_setting_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "cashDrawerMovement_sessionId_idx" ON "cash_drawer_movement" USING btree ("session_id");--> statement-breakpoint
-CREATE INDEX "cashDrawerSession_organizationId_openedAt_idx" ON "cash_drawer_session" USING btree ("organization_id","opened_at");--> statement-breakpoint
+CREATE INDEX "cashDrawerSession_organizationId_businessDate_idx" ON "cash_drawer_session" USING btree ("organization_id","business_date");--> statement-breakpoint
 CREATE UNIQUE INDEX "cash_drawer_session_open_unique" ON "cash_drawer_session" USING btree ("organization_id") WHERE "cash_drawer_session"."status" = 'open';--> statement-breakpoint
+CREATE TRIGGER "record_deleted_row" BEFORE DELETE ON "public"."cash_drawer_setting" FOR EACH ROW EXECUTE FUNCTION "public"."record_deleted_row"();--> statement-breakpoint
 CREATE TRIGGER "record_deleted_row" BEFORE DELETE ON "public"."cash_drawer_session" FOR EACH ROW EXECUTE FUNCTION "public"."record_deleted_row"();--> statement-breakpoint
 CREATE TRIGGER "record_deleted_row" BEFORE DELETE ON "public"."cash_drawer_movement" FOR EACH ROW EXECUTE FUNCTION "public"."record_deleted_row"();
