@@ -444,22 +444,24 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       throw this.toRestoreError(error);
     }
 
-    for (const { root } of batches) {
-      if (SERVICE_RESTORED_TABLES.has(root.tableName)) continue;
+    await Promise.all(
+      batches
+        .filter(({ root }) => !SERVICE_RESTORED_TABLES.has(root.tableName))
+        .map(async ({ root }) => {
+          try {
+            const organizationId = await this.resolveOrganizationId(root);
 
-      const organizationId = await this.resolveOrganizationId(root);
+            if (organizationId && MENU_TABLES.has(root.tableName))
+              this.eventEmitter.emit(MENU_UPDATED_EVENT, {
+                organizationId,
+              } satisfies MenuUpdatedEvent);
 
-      if (organizationId && MENU_TABLES.has(root.tableName))
-        this.eventEmitter.emit(MENU_UPDATED_EVENT, {
-          organizationId,
-        } satisfies MenuUpdatedEvent);
-
-      try {
-        await this.writeRestoreAudit(root, organizationId, actor);
-      } catch (error) {
-        this.logger.error('Failed to write audit log', error);
-      }
-    }
+            await this.writeRestoreAudit(root, organizationId, actor);
+          } catch (error) {
+            this.logger.error('Failed to finish restore follow-up', error);
+          }
+        }),
+    );
   }
 
   private async loadBatch(batchId: number, scope?: RestoreScope) {
