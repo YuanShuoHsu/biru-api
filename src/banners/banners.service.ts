@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   and,
@@ -8,8 +13,12 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
+  isNull,
+  lte,
   max,
+  or,
   sql,
   type Column,
   type SQL,
@@ -36,14 +45,24 @@ import type {
   UpdateBannerDto,
 } from './dto/create-banner.dto.js';
 
+const toTimestamp = (
+  value: string | null | undefined,
+): Date | null | undefined => (value == null ? value : new Date(value));
+
 @Injectable()
 export class BannersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  // 前台輪播:僅啟用的圖,依排序顯示
+  // 前台輪播:僅啟用且在上下架時間內的圖,依排序顯示
   findAllActive(): Promise<BannerResponseDto[]> {
+    const now = new Date();
+
     return this.db.query.banner.findMany({
-      where: eq(banner.isActive, true),
+      where: and(
+        eq(banner.isActive, true),
+        or(isNull(banner.startsAt), lte(banner.startsAt, now)),
+        or(isNull(banner.endsAt), gt(banner.endsAt, now)),
+      ),
       orderBy: [asc(banner.sortOrder), asc(banner.createdAt)],
     });
   }
@@ -65,6 +84,8 @@ export class BannersService {
 
     const bannerFieldMap: Record<string, Column | SQL> = {
       isActive: sql`${banner.isActive}::text`,
+      startsAt: banner.startsAt,
+      endsAt: banner.endsAt,
       createdAt: banner.createdAt,
       updatedAt: banner.updatedAt,
     };
@@ -116,7 +137,11 @@ export class BannersService {
       .values({
         id: randomUUID(),
         image: dto.image,
+        alt: dto.alt,
+        url: dto.url,
         isActive: dto.isActive ?? true,
+        startsAt: toTimestamp(dto.startsAt),
+        endsAt: toTimestamp(dto.endsAt),
         sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
       })
       .returning();
@@ -128,9 +153,28 @@ export class BannersService {
     bannerId: string,
     dto: UpdateBannerDto,
   ): Promise<BannerResponseDto> {
+    const { startsAt, endsAt, ...fields } = dto;
+    if (startsAt !== undefined || endsAt !== undefined) {
+      const current = await this.db.query.banner.findFirst({
+        where: eq(banner.id, bannerId),
+        columns: { startsAt: true, endsAt: true },
+      });
+      if (!current) throw new NotFoundException('Banner not found');
+
+      const from =
+        startsAt === undefined ? current.startsAt : toTimestamp(startsAt);
+      const until = endsAt === undefined ? current.endsAt : toTimestamp(endsAt);
+      if (from && until && from >= until)
+        throw new BadRequestException('startsAt 必須早於 endsAt');
+    }
+
     const [updated] = await this.db
       .update(banner)
-      .set(dto)
+      .set({
+        ...fields,
+        startsAt: toTimestamp(startsAt),
+        endsAt: toTimestamp(endsAt),
+      })
       .where(eq(banner.id, bannerId))
       .returning();
     if (!updated) throw new NotFoundException('Banner not found');
