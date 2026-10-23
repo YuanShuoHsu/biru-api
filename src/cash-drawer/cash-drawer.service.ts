@@ -51,14 +51,7 @@ export class CashDrawerService {
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  private t(
-    key:
-      | 'alreadyClosedToday'
-      | 'alreadyOpen'
-      | 'notOpen'
-      | 'retainedExceedsCounted'
-      | 'varianceNoteRequired',
-  ): string {
+  private t(key: keyof I18nTranslations['common']['cashDrawer']): string {
     return this.i18n.t(`common.cashDrawer.${key}`, {
       lang: I18nContext.current()?.lang,
     });
@@ -119,7 +112,7 @@ export class CashDrawerService {
         .where(
           and(
             eq(order.sellerId, session.organizationId),
-            eq(refund.channel, 'manual'),
+            eq(order.paymentMethod, 'Cash'),
             isConfirmedRefund,
             gte(refund.createdAt, since),
             lt(refund.createdAt, until),
@@ -185,8 +178,11 @@ export class CashDrawerService {
     return found;
   }
 
-  private async lastRetainedFloat(organizationId: string): Promise<string> {
-    const [lastClosed] = await this.db
+  private async lastRetainedFloat(
+    tx: Tx,
+    organizationId: string,
+  ): Promise<string> {
+    const [lastClosed] = await tx
       .select({ retainedFloat: cashDrawerSession.retainedFloat })
       .from(cashDrawerSession)
       .where(
@@ -212,7 +208,7 @@ export class CashDrawerService {
             eq(cashDrawerSession.status, 'open'),
           ),
         ),
-      this.lastRetainedFloat(organizationId),
+      this.lastRetainedFloat(this.db, organizationId),
       this.settingOf(this.db, organizationId),
     ]);
 
@@ -229,38 +225,45 @@ export class CashDrawerService {
     openedBy: string,
   ): Promise<CashDrawerSessionDto> {
     const businessDate = platformDateString(new Date());
-    const setting = await this.settingOf(this.db, organizationId);
-
-    if (!setting.handoverEnabled) {
-      const [closedToday] = await this.db
-        .select({ id: cashDrawerSession.id })
-        .from(cashDrawerSession)
-        .where(
-          and(
-            eq(cashDrawerSession.organizationId, organizationId),
-            eq(cashDrawerSession.businessDate, businessDate),
-            eq(cashDrawerSession.status, 'closed'),
-          ),
-        )
-        .limit(1);
-      if (closedToday)
-        throw new ConflictException(this.t('alreadyClosedToday'));
-    }
 
     try {
-      const [created] = await this.db
-        .insert(cashDrawerSession)
-        .values({
-          id: randomUUID(),
-          businessDate,
-          openedBy,
-          openingFloat:
-            openingFloat ?? (await this.lastRetainedFloat(organizationId)),
-          organizationId,
-        })
-        .returning();
+      return await this.db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${organizationId}))`,
+        );
+        const setting = await this.settingOf(tx, organizationId);
 
-      return await this.describe(this.db, created);
+        if (!setting.handoverEnabled) {
+          const [closedToday] = await tx
+            .select({ id: cashDrawerSession.id })
+            .from(cashDrawerSession)
+            .where(
+              and(
+                eq(cashDrawerSession.organizationId, organizationId),
+                eq(cashDrawerSession.businessDate, businessDate),
+                eq(cashDrawerSession.status, 'closed'),
+              ),
+            )
+            .limit(1);
+          if (closedToday)
+            throw new ConflictException(this.t('alreadyClosedToday'));
+        }
+
+        const [created] = await tx
+          .insert(cashDrawerSession)
+          .values({
+            id: randomUUID(),
+            businessDate,
+            openedBy,
+            openingFloat:
+              openingFloat ??
+              (await this.lastRetainedFloat(tx, organizationId)),
+            organizationId,
+          })
+          .returning();
+
+        return this.describe(tx, created);
+      });
     } catch (error) {
       if ((error as { cause?: { code?: string } }).cause?.code === '23505')
         throw new ConflictException(this.t('alreadyOpen'));
@@ -301,15 +304,15 @@ export class CashDrawerService {
     return this.db.transaction(async (tx) => {
       const session = await this.lockOpenSession(tx, organizationId, sessionId);
       const closedAt = new Date();
-      const [{ summary }, setting] = await Promise.all([
+      const [described, setting] = await Promise.all([
         this.describe(tx, { ...session, closedAt }),
         this.settingOf(tx, organizationId),
       ]);
 
       const variance = Math.abs(
-        toCents(countedCash) - toCents(summary.expectedCash),
+        toCents(countedCash) - toCents(described.summary.expectedCash),
       );
-      const note = varianceNote?.trim() || null;
+      const note = varianceNote?.trim() ?? null;
       if (variance > toCents(setting.varianceTolerance) && !note)
         throw new BadRequestException(this.t('varianceNoteRequired'));
 
@@ -319,7 +322,7 @@ export class CashDrawerService {
           closedAt,
           closedBy,
           countedCash,
-          expectedCash: summary.expectedCash,
+          expectedCash: described.summary.expectedCash,
           retainedFloat,
           status: 'closed',
           updatedAt: closedAt,
@@ -328,7 +331,16 @@ export class CashDrawerService {
         .where(eq(cashDrawerSession.id, session.id))
         .returning();
 
-      return this.describe(tx, closed);
+      return {
+        ...described,
+        closedAt: closed.closedAt,
+        closedBy: closed.closedBy,
+        countedCash: closed.countedCash,
+        expectedCash: closed.expectedCash,
+        retainedFloat: closed.retainedFloat,
+        status: closed.status,
+        varianceNote: closed.varianceNote,
+      };
     });
   }
 }

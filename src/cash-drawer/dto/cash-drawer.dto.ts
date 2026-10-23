@@ -81,7 +81,7 @@ export class CashDrawerMovementDto {
 
 export class CashDrawerSummaryDto {
   @ApiProperty({ description: '期間內現金訂單實收' }) cashSales: string;
-  @ApiProperty({ description: '期間內現金訂單的人工退款' })
+  @ApiProperty({ description: '期間內現金訂單的退款' })
   cashRefunds: string;
   @ApiProperty() payIns: string;
   @ApiProperty() payOuts: string;
@@ -100,19 +100,19 @@ export class CashDrawerSessionDto {
   @ApiProperty() openedAt: Date;
   @ApiProperty() openedBy: string;
   @ApiProperty() openingFloat: string;
-  @ApiPropertyOptional() closedAt: Date | null;
-  @ApiPropertyOptional() closedBy: string | null;
-  @ApiPropertyOptional() countedCash: string | null;
-  @ApiPropertyOptional() expectedCash: string | null;
-  @ApiPropertyOptional() retainedFloat: string | null;
-  @ApiPropertyOptional() varianceNote: string | null;
+  @ApiProperty({ nullable: true }) closedAt: Date | null;
+  @ApiProperty({ nullable: true }) closedBy: string | null;
+  @ApiProperty({ nullable: true }) countedCash: string | null;
+  @ApiProperty({ nullable: true }) expectedCash: string | null;
+  @ApiProperty({ nullable: true }) retainedFloat: string | null;
+  @ApiProperty({ nullable: true }) varianceNote: string | null;
   @ApiProperty({ type: [CashDrawerMovementDto] })
   movements: CashDrawerMovementDto[];
   @ApiProperty({ type: CashDrawerSummaryDto }) summary: CashDrawerSummaryDto;
 }
 
 export class CurrentCashDrawerDto {
-  @ApiPropertyOptional({ type: CashDrawerSessionDto, nullable: true })
+  @ApiProperty({ type: CashDrawerSessionDto, nullable: true })
   session: CashDrawerSessionDto | null;
   @ApiProperty({ description: '下一次開帳預設沿用的零用金' })
   suggestedOpeningFloat: string;

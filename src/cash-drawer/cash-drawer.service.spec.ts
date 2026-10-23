@@ -93,6 +93,7 @@ describe('CashDrawerService', () => {
     await addOrder('before', 'Cash', 999, '2000-01-01');
     await addOrder('cash', 'Cash', 300, new Date().toISOString());
     await addOrder('card', 'Credit', 500, new Date().toISOString());
+    await addOrder('twqr', 'TWQR', 400, new Date().toISOString());
     await addOrder(
       'cancelled',
       'Cash',
@@ -102,6 +103,7 @@ describe('CashDrawerService', () => {
     );
     await addRefund('cash', 50, 'manual');
     await addRefund('card', 100, 'ecpay');
+    await addRefund('twqr', 40, 'manual');
     await service.addMovement(
       ORG,
       session.id,
