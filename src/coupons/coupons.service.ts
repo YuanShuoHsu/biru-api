@@ -833,105 +833,111 @@ export class CouponsService {
     });
     if (autoCoupons.length === 0) return;
 
-    const found = await this.db.query.user.findFirst({
-      where: eq(user.id, userId),
-    });
-    if (!found) return;
-
     const now = new Date();
 
-    await Promise.all(
-      autoCoupons.map(async (c) => {
-        if (c.issueTrigger === 'signup') {
-          await this.db
-            .insert(userCoupon)
-            .values({
-              id: randomUUID(),
-              couponId: c.id,
-              source: 'signup',
-              userId,
-            })
-            .onConflictDoNothing();
-        }
+    // 生日券與消費券沒有唯一索引擋重複，鎖住會員列讓同一人的發券依序執行
+    await this.db.transaction(async (tx) => {
+      const [found] = await tx
+        .select({ birthDate: user.birthDate })
+        .from(user)
+        .where(eq(user.id, userId))
+        .for('update');
+      if (!found) return;
 
-        if (c.issueTrigger === 'birthday') {
-          const taiwanNow = toPlatformTime(now);
-          if (
-            !found.birthDate ||
-            found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
-          )
-            return;
+      await Promise.all(
+        autoCoupons.map(async (c) => {
+          if (c.issueTrigger === 'signup') {
+            await tx
+              .insert(userCoupon)
+              .values({
+                id: randomUUID(),
+                couponId: c.id,
+                source: 'signup',
+                userId,
+              })
+              .onConflictDoNothing();
+          }
 
-          const startOfYear = new Date(
-            Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) - PLATFORM_UTC_OFFSET_MS,
-          );
-          const [{ value: issuedThisYear }] = await this.db
-            .select({ value: count() })
-            .from(userCoupon)
-            .where(
-              and(
-                eq(userCoupon.couponId, c.id),
-                eq(userCoupon.userId, userId),
-                eq(userCoupon.source, 'birthday'),
-                gte(userCoupon.createdAt, startOfYear),
-              ),
+          if (c.issueTrigger === 'birthday') {
+            const taiwanNow = toPlatformTime(now);
+            if (
+              !found.birthDate ||
+              found.birthDate.getUTCMonth() !== taiwanNow.getUTCMonth()
+            )
+              return;
+
+            const startOfYear = new Date(
+              Date.UTC(taiwanNow.getUTCFullYear(), 0, 1) -
+                PLATFORM_UTC_OFFSET_MS,
             );
-          if (issuedThisYear > 0) return;
-
-          await this.db.insert(userCoupon).values({
-            id: randomUUID(),
-            couponId: c.id,
-            source: 'birthday',
-            userId,
-          });
-        }
-
-        if (c.issueTrigger === 'spend') {
-          const [qualified, [{ value: issued }]] = await Promise.all([
-            this.db
-              .select({ id: order.id })
-              .from(order)
-              .innerJoin(orderItem, eq(orderItem.orderId, order.id))
-              .where(
-                and(
-                  ...(c.applicableOrganizationIds
-                    ? [inArray(order.sellerId, c.applicableOrganizationIds)]
-                    : []),
-                  eq(order.userId, userId),
-                  isNotNull(order.paymentDate),
-                  notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
-                ),
-              )
-              .groupBy(order.id, order.discount)
-              .having(
-                sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
-              ),
-            this.db
+            const [{ value: issuedThisYear }] = await tx
               .select({ value: count() })
               .from(userCoupon)
               .where(
                 and(
                   eq(userCoupon.couponId, c.id),
                   eq(userCoupon.userId, userId),
-                  eq(userCoupon.source, 'spend'),
+                  eq(userCoupon.source, 'birthday'),
+                  gte(userCoupon.createdAt, startOfYear),
                 ),
-              ),
-          ]);
+              );
+            if (issuedThisYear > 0) return;
 
-          const deficit = qualified.length - issued;
-          if (deficit > 0) {
-            await this.db.insert(userCoupon).values(
-              Array.from({ length: deficit }, () => ({
-                id: randomUUID(),
-                couponId: c.id,
-                source: 'spend' as const,
-                userId,
-              })),
-            );
+            await tx.insert(userCoupon).values({
+              id: randomUUID(),
+              couponId: c.id,
+              source: 'birthday',
+              userId,
+            });
           }
-        }
-      }),
-    );
+
+          if (c.issueTrigger === 'spend') {
+            const [qualified, [{ value: issued }]] = await Promise.all([
+              tx
+                .select({ id: order.id })
+                .from(order)
+                .innerJoin(orderItem, eq(orderItem.orderId, order.id))
+                .where(
+                  and(
+                    ...(c.applicableOrganizationIds
+                      ? [inArray(order.sellerId, c.applicableOrganizationIds)]
+                      : []),
+                    eq(order.userId, userId),
+                    isNotNull(order.paymentDate),
+                    notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+                  ),
+                )
+                .groupBy(order.id, order.discount)
+                .having(
+                  sql`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0) - COALESCE(${order.discount}, 0) >= ${Number(c.issueMinSpend)}`,
+                ),
+              tx
+                .select({ value: count() })
+                .from(userCoupon)
+                .where(
+                  and(
+                    eq(userCoupon.couponId, c.id),
+                    eq(userCoupon.userId, userId),
+                    eq(userCoupon.source, 'spend'),
+                  ),
+                ),
+            ]);
+
+            const deficit = qualified.length - issued;
+            if (deficit > 0) {
+              await tx.insert(userCoupon).values(
+                Array.from({ length: deficit }, () => ({
+                  id: randomUUID(),
+                  couponId: c.id,
+                  source: 'spend' as const,
+                  userId,
+                })),
+              );
+            }
+          }
+        }),
+      );
+    });
   }
 
   async getAvailable(

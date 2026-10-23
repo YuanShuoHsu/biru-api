@@ -116,3 +116,75 @@ describe('CouponsService.getApplicableCoupon 折扣金額', () => {
     ).rejects.toThrow('common.coupons.notApplicableHere');
   });
 });
+
+describe('CouponsService 自動發券', () => {
+  it('鎖住會員列後才計算消費券缺額並發放', async () => {
+    const calls: string[] = [];
+    const insertValues = vi.fn().mockResolvedValue(undefined);
+    const tx = {
+      insert: vi.fn(() => ({ values: insertValues })),
+      select: vi
+        .fn()
+        .mockReturnValueOnce({
+          from: () => ({
+            where: () => ({
+              for: (strength: string) => {
+                calls.push(`lock:${strength}`);
+                return Promise.resolve([{ birthDate: null }]);
+              },
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: () => ({
+            innerJoin: () => ({
+              where: () => ({
+                groupBy: () => ({
+                  having: () => {
+                    calls.push('qualified');
+                    return Promise.resolve([{ id: 'o1' }, { id: 'o2' }]);
+                  },
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: () => ({
+            where: () => {
+              calls.push('issued');
+              return Promise.resolve([{ value: 1 }]);
+            },
+          }),
+        }),
+    };
+    const db = {
+      query: {
+        coupon: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              ...baseCoupon,
+              issueMinSpend: '100',
+              issueTrigger: 'spend',
+            },
+          ]),
+        },
+      },
+      transaction: vi.fn((callback: (t: typeof tx) => Promise<void>) =>
+        callback(tx),
+      ),
+    };
+    const service = new CouponsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as OrderPricingService,
+    );
+
+    await service['issueEligibleCoupons'](ORG_ID, 'user');
+
+    expect(calls[0]).toBe('lock:update');
+    expect(insertValues).toHaveBeenCalledWith([
+      expect.objectContaining({ couponId: 'coupon', source: 'spend' }),
+    ]);
+  });
+});
