@@ -212,23 +212,24 @@ export class WaitlistService {
   async getPublicStatusByOrganizationId(
     organizationId: string,
   ): Promise<WaitlistStatusResponseDto> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.id, organizationId),
-      columns: { openingHours: true },
-    });
+    const [org, settings, tickets] = await Promise.all([
+      this.db.query.organization.findFirst({
+        where: eq(organization.id, organizationId),
+        columns: { openingHours: true },
+      }),
+      this.getSettings(organizationId),
+      this.db
+        .select({
+          calledAt: waitlistTicket.calledAt,
+          number: waitlistTicket.number,
+          prefix: waitlistTicket.prefix,
+          status: waitlistTicket.status,
+        })
+        .from(waitlistTicket)
+        .where(inTodayQueue(organizationId))
+        .orderBy(desc(waitlistTicket.calledAt)),
+    ]);
     if (!org) throw new NotFoundException('Organization not found');
-
-    const settings = await this.getSettings(organizationId);
-    const tickets = await this.db
-      .select({
-        calledAt: waitlistTicket.calledAt,
-        number: waitlistTicket.number,
-        prefix: waitlistTicket.prefix,
-        status: waitlistTicket.status,
-      })
-      .from(waitlistTicket)
-      .where(inTodayQueue(organizationId))
-      .orderBy(desc(waitlistTicket.calledAt));
 
     return {
       ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
@@ -622,14 +623,16 @@ export class WaitlistService {
 
   async listAdmin(organizationSlug: string): Promise<AdminWaitlistResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
-    const settings = await this.getSettings(org.id);
     const now = new Date();
 
-    const tickets = await this.db
-      .select()
-      .from(waitlistTicket)
-      .where(inTodayQueue(org.id))
-      .orderBy(asc(waitlistTicket.createdAt));
+    const [settings, tickets] = await Promise.all([
+      this.getSettings(org.id),
+      this.db
+        .select()
+        .from(waitlistTicket)
+        .where(inTodayQueue(org.id))
+        .orderBy(asc(waitlistTicket.createdAt)),
+    ]);
 
     const waitingRank = new Map<string, number>();
     const boardTickets = waitlistTicketStatusEnum.enumValues.flatMap(
