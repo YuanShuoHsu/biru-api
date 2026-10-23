@@ -10,12 +10,15 @@ import {
   eq,
   gt,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
   notInArray,
   or,
   sql,
+  type Column,
+  type SQL,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -27,17 +30,32 @@ import {
 } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
+import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
+import {
+  buildFilterCondition,
+  buildQuickFilterCondition,
+  localTimeText,
+} from '../common/utils/data-grid-filters.js';
+import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
+import {
+  POINT_TRANSACTION_DATE_FILTER_FIELDS,
+  POINT_TRANSACTION_ENUM_FILTER_FIELDS,
+  POINT_TRANSACTION_NUMBER_FILTER_FIELDS,
+  POINT_TRANSACTION_STRING_FILTER_FIELDS,
+  type OrganizationPointTransactionQueryDto,
+} from './dto/organization-point-transaction-query.dto.js';
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
 import type {
   MyPointsDto,
+  OrganizationPointTransactionListResponseDto,
   PointsCouponDto,
 } from './dto/points-response.dto.js';
 
@@ -89,7 +107,9 @@ export class PointsService {
   }
 
   // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的未用點數收回
-  private async syncEarned(userId: string): Promise<void> {
+  private async syncEarned(
+    scope: { userId: string } | { organizationId: string },
+  ): Promise<void> {
     // 費率以付款當下的訂單快照為準；早於快照欄位的歷史訂單 fallback 組織現值
     const unrecorded = await this.db
       .select({
@@ -102,6 +122,7 @@ export class PointsService {
           number | null
         >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
         subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        userId: order.userId,
       })
       .from(order)
       .innerJoin(organization, eq(order.sellerId, organization.id))
@@ -115,7 +136,12 @@ export class PointsService {
       )
       .where(
         and(
-          eq(order.userId, userId),
+          'userId' in scope
+            ? eq(order.userId, scope.userId)
+            : and(
+                eq(order.sellerId, scope.organizationId),
+                isNotNull(order.userId),
+              ),
           isNotNull(order.paymentDate),
           notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
           sql`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint}) > 0`,
@@ -140,7 +166,7 @@ export class PointsService {
           points,
           remainingPoints: points,
           type: 'earn' as const,
-          userId,
+          userId: row.userId!,
         },
       ];
     });
@@ -166,7 +192,9 @@ export class PointsService {
       )
       .where(
         and(
-          eq(pointTransaction.userId, userId),
+          'userId' in scope
+            ? eq(pointTransaction.userId, scope.userId)
+            : eq(pointTransaction.organizationId, scope.organizationId),
           eq(pointTransaction.type, 'earn'),
           gt(pointTransaction.remainingPoints, 0),
           isNull(revoked.id),
@@ -347,13 +375,114 @@ export class PointsService {
     );
   }
 
+  async findAllForOrganization(
+    organizationSlug: string,
+    query: OrganizationPointTransactionQueryDto = {},
+  ): Promise<OrganizationPointTransactionListResponseDto> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
+
+    const organizationId = await getOrganizationIdBySlug(
+      this.db,
+      organizationSlug,
+    );
+
+    await this.syncEarned({ organizationId });
+
+    const fieldMap: Record<string, Column | SQL> = {
+      userEmail: user.email,
+      userName: user.name,
+      orderNumber: order.orderNumber,
+      type: sql`${pointTransaction.type}::text`,
+      points: pointTransaction.points,
+      remainingPoints: pointTransaction.remainingPoints,
+      createdAt: pointTransaction.createdAt,
+      expiresAt: pointTransaction.expiresAt,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy = [
+      ...(sortBy ? [dir(fieldMap[sortBy])] : []),
+      desc(pointTransaction.createdAt),
+      desc(pointTransaction.id),
+    ];
+
+    const where = and(
+      eq(pointTransaction.organizationId, organizationId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            POINT_TRANSACTION_STRING_FILTER_FIELDS,
+            POINT_TRANSACTION_DATE_FILTER_FIELDS,
+            POINT_TRANSACTION_ENUM_FILTER_FIELDS,
+            POINT_TRANSACTION_NUMBER_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: POINT_TRANSACTION_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(user.email, `%${value}%`),
+          ilike(user.name, `%${value}%`),
+          ilike(order.orderNumber, `%${value}%`),
+          ilike(localTimeText(pointTransaction.createdAt), `%${value}%`),
+        ],
+      }),
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: pointTransaction.id,
+          createdAt: pointTransaction.createdAt,
+          expiresAt: pointTransaction.expiresAt,
+          orderId: pointTransaction.orderId,
+          orderNumber: order.orderNumber,
+          points: pointTransaction.points,
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+          userEmail: user.email,
+          userName: user.name,
+        })
+        .from(pointTransaction)
+        .innerJoin(user, eq(pointTransaction.userId, user.id))
+        .leftJoin(order, eq(pointTransaction.orderId, order.id))
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(pointTransaction)
+        .innerJoin(user, eq(pointTransaction.userId, user.id))
+        .leftJoin(order, eq(pointTransaction.orderId, order.id))
+        .where(where),
+    ]);
+
+    return { data, total };
+  }
+
   async getAllMine(
     userId: string,
     query: PointsPaginationQueryDto = {},
   ): Promise<MyPointsDto> {
     const { limit = 10, offset = 0 } = query;
 
-    await this.syncEarned(userId);
+    await this.syncEarned({ userId });
 
     const [transactions, [{ balance, transactionsTotal }]] = await Promise.all([
       this.db
@@ -448,7 +577,7 @@ export class PointsService {
     userId: string,
     couponId: string,
   ): Promise<UserCouponResponseDto> {
-    await this.syncEarned(userId);
+    await this.syncEarned({ userId });
 
     const found = await this.db.query.coupon.findFirst({
       where: and(
