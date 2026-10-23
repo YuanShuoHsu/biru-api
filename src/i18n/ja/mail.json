@@ -142,5 +142,22 @@
     },
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}：{count} 件の食材が在庫警告量を下回っています",
+    "title": "在庫不足のお知らせ",
+    "intro": "{organizationName} では {count} 件の食材の在庫が警告量以下になっています。仕入先ごとに発注をご検討ください。",
+    "item": "{name}：残り {level} {unit}（警告量 {threshold} {unit}、不足 {shortage} {unit}）",
+    "no_supplier": "仕入先未指定",
+    "action": "在庫不足の食材を見る",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "個"
+    },
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   }
 }

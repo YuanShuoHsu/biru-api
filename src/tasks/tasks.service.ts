@@ -8,6 +8,7 @@ import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import { DeletedRecordsService } from '../deleted-records/deleted-records.service.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
@@ -30,6 +31,7 @@ export class TasksService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly attendanceNotificationsService: AttendanceNotificationsService,
     private readonly deletedRecordsService: DeletedRecordsService,
+    private readonly inventoryNotificationsService: InventoryNotificationsService,
     private readonly payrollRulesService: PayrollRulesService,
     private readonly waitlistService: WaitlistService,
   ) {}
@@ -96,6 +98,21 @@ export class TasksService {
       if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
     } catch (error) {
       this.logger.error('寄送特休取得通知失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleLowStockDigestCron() {
+    try {
+      const notified =
+        await this.inventoryNotificationsService.notifyLowStockDigest();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封低庫存摘要`);
+    } catch (error) {
+      this.logger.error('寄送低庫存摘要失敗', error);
     }
   }
 

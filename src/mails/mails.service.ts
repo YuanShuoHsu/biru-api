@@ -8,6 +8,7 @@ import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
+import type { UnitCode } from '../db/schema/inventory.js';
 import type { User } from '../db/schema/users.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
 import { UAParser } from 'ua-parser-js';
@@ -591,6 +592,97 @@ export class MailsService {
         title: this.i18n.t('mail.annual_leave_entitlement.title', translate),
         trouble_hint: this.i18n.t(
           'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendLowStockDigest({
+    recipient: { email, lang },
+    organizationName,
+    path,
+    ingredients,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    path: string;
+    ingredients: {
+      name: string;
+      inventoryLevel: string;
+      lowStockThreshold: string;
+      unitCode: UnitCode;
+      supplierId: string | null;
+      supplierName: string | null;
+    }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const translate = {
+      args: { count: ingredients.length, organizationName, productName },
+      lang,
+    };
+    const numberFormat = new Intl.NumberFormat(lang, {
+      maximumFractionDigits: 3,
+    });
+    const groups = new Map<
+      string | null,
+      { supplierName: string | null; items: string[] }
+    >();
+
+    for (const {
+      name,
+      inventoryLevel,
+      lowStockThreshold,
+      unitCode,
+      supplierId,
+      supplierName,
+    } of ingredients) {
+      const unit = this.i18n.t(
+        `mail.low_stock_digest.units.${unitCode}`,
+        options,
+      );
+      const item = this.i18n.t('mail.low_stock_digest.item', {
+        args: {
+          level: numberFormat.format(Number(inventoryLevel)),
+          name,
+          shortage: numberFormat.format(
+            Number(lowStockThreshold) - Number(inventoryLevel),
+          ),
+          threshold: numberFormat.format(Number(lowStockThreshold)),
+          unit,
+        },
+        lang,
+      });
+
+      groups.set(supplierId, {
+        supplierName,
+        items: [...(groups.get(supplierId)?.items ?? []), item],
+      });
+    }
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: this.i18n.t('mail.low_stock_digest.subject', translate),
+      template: 'low-stock-digest',
+      context: {
+        action: this.i18n.t('mail.low_stock_digest.action', options),
+        groups: [...groups.values()].map(({ supplierName, items }) => ({
+          supplier:
+            supplierName ??
+            this.i18n.t('mail.low_stock_digest.no_supplier', options),
+          items,
+        })),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.low_stock_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t('mail.low_stock_digest.salutation', translate),
+        title: this.i18n.t('mail.low_stock_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.low_stock_digest.trouble_hint',
           options,
         ),
         url,
