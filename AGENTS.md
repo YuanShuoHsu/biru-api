@@ -58,6 +58,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
 | CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
 | PointsModule        | `src/points/`        | Loyalty point transactions and redemption                         |
+| CashDrawerModule    | `src/cash-drawer/`   | Daily cash drawer open / pay-in·out / close with expected cash    |
 | BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
 | DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
 | GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |

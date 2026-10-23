@@ -177,6 +177,13 @@ export type I18nTranslations = {
             "withholdingUnitRequired": string;
             "workPermitRequired": string;
         };
+        "cashDrawer": {
+            "alreadyClosedToday": string;
+            "alreadyOpen": string;
+            "notOpen": string;
+            "retainedExceedsCounted": string;
+            "varianceNoteRequired": string;
+        };
         "coupons": {
             "alreadyClaimed": string;
             "codeExists": string;

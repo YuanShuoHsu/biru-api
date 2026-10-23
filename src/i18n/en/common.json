@@ -127,6 +127,13 @@
     "withholdingUnitRequired": "Fill in the withholding unit details first.",
     "workPermitRequired": "This employee's legal status requires a valid work permit, and a shift or workday falls outside the permit period."
   },
+  "cashDrawer": {
+    "alreadyClosedToday": "Today's cash drawer has already been closed. Turn on shift handovers to open it again.",
+    "alreadyOpen": "A cash drawer session is already open",
+    "notOpen": "This cash drawer session is not open",
+    "retainedExceedsCounted": "The float kept in the drawer cannot exceed the counted cash",
+    "varianceNoteRequired": "The difference is over the store's tolerance; please explain it"
+  },
   "coupons": {
     "alreadyClaimed": "You have already claimed this coupon",
     "codeExists": "This promo code already exists",

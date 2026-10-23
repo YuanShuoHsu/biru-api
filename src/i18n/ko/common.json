@@ -127,6 +127,13 @@
     "withholdingUnitRequired": "먼저 신고 단위 정보를 입력하세요.",
     "workPermitRequired": "이 직원의 법적 신분은 유효한 취업 허가가 필요하지만 근무 또는 출근일이 허가 기간 밖입니다."
   },
+  "cashDrawer": {
+    "alreadyClosedToday": "오늘 정산은 이미 완료되었습니다. 다시 열려면 교대 정산을 켜 주세요.",
+    "alreadyOpen": "이미 열려 있는 금전함이 있습니다",
+    "notOpen": "이 금전함은 열려 있지 않습니다",
+    "retainedExceedsCounted": "남길 시재금은 실사 현금을 넘을 수 없습니다",
+    "varianceNoteRequired": "차액이 매장 허용 범위를 넘었습니다. 사유를 입력해 주세요"
+  },
   "coupons": {
     "alreadyClaimed": "이미 받은 쿠폰입니다",
     "codeExists": "이미 존재하는 쿠폰 코드입니다",

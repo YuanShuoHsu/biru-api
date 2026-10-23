@@ -127,6 +127,13 @@
     "withholdingUnitRequired": "先に申告単位情報を入力してください。",
     "workPermitRequired": "この従業員の法的身分では有効な就労許可が必要ですが、シフトまたは出勤日が許可期間外です。"
   },
+  "cashDrawer": {
+    "alreadyClosedToday": "本日のレジ締めは完了しています。再度開ける場合は交代締めを有効にしてください。",
+    "alreadyOpen": "すでに開いているレジがあります",
+    "notOpen": "このレジは開いていません",
+    "retainedExceedsCounted": "残す釣銭準備金は実査現金を超えられません",
+    "varianceNoteRequired": "差額が店舗の許容範囲を超えています。理由を入力してください"
+  },
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
     "codeExists": "このクーポンコードはすでに存在します",
