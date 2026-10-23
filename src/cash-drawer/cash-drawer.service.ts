@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   cashDrawerMovement,
@@ -73,10 +73,26 @@ export class CashDrawerService {
     tx: Tx,
     session: CashDrawerSession,
   ): Promise<CashDrawerSessionDto> {
-    const since = utcTimestampParam(session.openedAt);
+    const [{ previousClosedAt }] = await tx
+      .select({
+        previousClosedAt:
+          sql<Date | null>`MAX(${cashDrawerSession.closedAt})`.mapWith(
+            cashDrawerSession.closedAt,
+          ),
+      })
+      .from(cashDrawerSession)
+      .where(
+        and(
+          eq(cashDrawerSession.organizationId, session.organizationId),
+          eq(cashDrawerSession.status, 'closed'),
+          lte(cashDrawerSession.closedAt, utcTimestampParam(session.openedAt)),
+        ),
+      );
+    const countedSince = previousClosedAt ?? session.openedAt;
+    const since = utcTimestampParam(countedSince);
     const until = utcTimestampParam(session.closedAt ?? new Date());
 
-    const [movements, [{ cashSales }], [{ cashRefunds }]] = await Promise.all([
+    const [movements, [sales], [refunds]] = await Promise.all([
       tx
         .select({
           id: cashDrawerMovement.id,
@@ -92,6 +108,7 @@ export class CashDrawerService {
       tx
         .select({
           cashSales: sql<string>`COALESCE(SUM(${order.total}), 0)`,
+          cashSalesBeforeOpen: sql<string>`COALESCE(SUM(${order.total}) FILTER (WHERE ${COUNTED_AT} < ${utcTimestampParam(session.openedAt)}), 0)`,
         })
         .from(order)
         .where(
@@ -106,6 +123,7 @@ export class CashDrawerService {
       tx
         .select({
           cashRefunds: sql<string>`COALESCE(SUM(${refund.amount}), 0)`,
+          cashRefundsBeforeOpen: sql<string>`COALESCE(SUM(${refund.amount}) FILTER (WHERE ${refund.createdAt} < ${utcTimestampParam(session.openedAt)}), 0)`,
         })
         .from(refund)
         .innerJoin(order, eq(order.id, refund.orderId))
@@ -141,12 +159,17 @@ export class CashDrawerService {
       retainedFloat: session.retainedFloat,
       status: session.status,
       summary: {
-        cashRefunds: fromCents(toCents(cashRefunds)),
-        cashSales: fromCents(toCents(cashSales)),
+        cashRefunds: fromCents(toCents(refunds.cashRefunds)),
+        cashRefundsBeforeOpen: fromCents(
+          toCents(refunds.cashRefundsBeforeOpen),
+        ),
+        cashSales: fromCents(toCents(sales.cashSales)),
+        cashSalesBeforeOpen: fromCents(toCents(sales.cashSalesBeforeOpen)),
+        countedSince,
         expectedCash: fromCents(
           toCents(session.openingFloat) +
-            toCents(cashSales) -
-            toCents(cashRefunds) +
+            toCents(sales.cashSales) -
+            toCents(refunds.cashRefunds) +
             payIns -
             payOuts,
         ),

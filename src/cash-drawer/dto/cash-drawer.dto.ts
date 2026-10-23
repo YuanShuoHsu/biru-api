@@ -80,9 +80,17 @@ export class CashDrawerMovementDto {
 }
 
 export class CashDrawerSummaryDto {
+  @ApiProperty({
+    description: '計算起點：上一次關帳時間，沒有前一次時為開帳時間',
+  })
+  countedSince: Date;
   @ApiProperty({ description: '期間內現金訂單實收' }) cashSales: string;
+  @ApiProperty({ description: '其中在開帳前（上次關帳後）收的現金' })
+  cashSalesBeforeOpen: string;
   @ApiProperty({ description: '期間內現金訂單的退款' })
   cashRefunds: string;
+  @ApiProperty({ description: '其中在開帳前（上次關帳後）的退款' })
+  cashRefundsBeforeOpen: string;
   @ApiProperty() payIns: string;
   @ApiProperty() payOuts: string;
   @ApiProperty({ description: '零用金＋實收−退款＋存入−提出' })

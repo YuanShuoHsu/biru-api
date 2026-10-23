@@ -121,7 +121,10 @@ describe('CashDrawerService', () => {
 
     expect(current?.summary).toEqual({
       cashRefunds: '50.00',
+      cashRefundsBeforeOpen: '0.00',
       cashSales: '300.00',
+      cashSalesBeforeOpen: '0.00',
+      countedSince: session.openedAt,
       expectedCash: '1369.50',
       payIns: '200.00',
       payOuts: '80.50',
@@ -130,6 +133,69 @@ describe('CashDrawerService', () => {
       '換零錢',
       '買牛奶',
     ]);
+  });
+
+  it('下一班從上一班的關帳時間起算，開帳前收的現金另外列出', async () => {
+    await client.query(
+      `insert into cash_drawer_setting (organization_id, handover_enabled) values ($1, true)`,
+      [ORG],
+    );
+    const first = await service.open(ORG, {}, 'amy');
+    await service.close(
+      ORG,
+      first.id,
+      { countedCash: '0', retainedFloat: '0' },
+      'amy',
+    );
+    const [{ closed_at: closedAt }] = (
+      await client.query<{ closed_at: string }>(
+        `update cash_drawer_session set opened_at = now() - interval '3 hours', closed_at = now() - interval '2 hours' where id = $1 returning to_char(closed_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at`,
+        [first.id],
+      )
+    ).rows;
+    await addOrder(
+      'gap',
+      'Cash',
+      120,
+      new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    );
+    await addOrder(
+      'beforeClose',
+      'Cash',
+      999,
+      new Date(Date.now() - 150 * 60 * 1000).toISOString(),
+    );
+
+    await addRefund('gap', 20, 'manual');
+    await client.query(
+      `update refund set created_at = now() - interval '50 minutes'`,
+    );
+
+    const second = await service.open(ORG, {}, 'bob');
+    await client.query(
+      `update cash_drawer_session set opened_at = now() - interval '30 minutes' where id = $1`,
+      [second.id],
+    );
+    await addOrder(
+      'during',
+      'Cash',
+      80,
+      new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    );
+
+    const { session: current } = await service.getCurrent(ORG);
+
+    expect(current?.summary).toEqual(
+      expect.objectContaining({
+        cashRefunds: '20.00',
+        cashRefundsBeforeOpen: '20.00',
+        cashSales: '200.00',
+        cashSalesBeforeOpen: '120.00',
+        countedSince: new Date(closedAt),
+        expectedCash: '180.00',
+      }),
+    );
+    expect(current?.id).toBe(second.id);
   });
 
   it('差額超過門檻要填說明，關帳寫入應有現金快照', async () => {
