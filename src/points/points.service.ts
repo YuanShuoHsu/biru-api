@@ -355,24 +355,38 @@ export class PointsService {
 
     await this.syncEarned(userId);
 
-    const transactions = await this.db
-      .select({
-        confirmationNumber: order.confirmationNumber,
-        couponCode: coupon.code,
-        orderNumber: order.orderNumber,
-        organizationName: organization.name,
-        transaction: pointTransaction,
-      })
-      .from(pointTransaction)
-      .leftJoin(
-        organization,
-        eq(pointTransaction.organizationId, organization.id),
-      )
-      .leftJoin(order, eq(pointTransaction.orderId, order.id))
-      .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
-      .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
-      .where(eq(pointTransaction.userId, userId))
-      .orderBy(desc(pointTransaction.createdAt));
+    const [transactions, [{ balance, transactionsTotal }]] = await Promise.all([
+      this.db
+        .select({
+          confirmationNumber: order.confirmationNumber,
+          couponCode: coupon.code,
+          orderNumber: order.orderNumber,
+          organizationName: organization.name,
+          transaction: pointTransaction,
+        })
+        .from(pointTransaction)
+        .leftJoin(
+          organization,
+          eq(pointTransaction.organizationId, organization.id),
+        )
+        .leftJoin(order, eq(pointTransaction.orderId, order.id))
+        .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
+        .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
+        .where(eq(pointTransaction.userId, userId))
+        .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({
+          balance:
+            sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
+              Number,
+            ),
+          transactionsTotal: count(),
+        })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.userId, userId)),
+    ]);
 
     const redeemables = await this.db.query.coupon.findMany({
       where: and(
@@ -397,16 +411,8 @@ export class PointsService {
     const names = new Map(applicableOrgs.map((row) => [row.id, row.name]));
     const orderedOrgIds = [...names.keys()];
 
-    const now = new Date();
-
     return {
-      balance: transactions.reduce(
-        (sum, t) =>
-          !t.transaction.expiresAt || t.transaction.expiresAt > now
-            ? sum + t.transaction.remainingPoints
-            : sum,
-        0,
-      ),
+      balance,
       redeemableCoupons: redeemables.map((c) => ({
         ...toPointsCoupon(c),
         applicableOrganizationNames: c.applicableOrganizationIds
@@ -415,28 +421,26 @@ export class PointsService {
               .map((id) => names.get(id) || '')
           : null,
       })),
-      transactions: transactions
-        .slice(offset, offset + limit)
-        .map(
-          ({
-            confirmationNumber,
-            couponCode,
-            orderNumber,
-            organizationName,
-            transaction,
-          }) => ({
-            id: transaction.id,
-            confirmationNumber,
-            couponCode,
-            createdAt: transaction.createdAt,
-            expiresAt: transaction.expiresAt,
-            orderNumber,
-            organizationName,
-            points: transaction.points,
-            type: transaction.type,
-          }),
-        ),
-      transactionsTotal: transactions.length,
+      transactions: transactions.map(
+        ({
+          confirmationNumber,
+          couponCode,
+          orderNumber,
+          organizationName,
+          transaction,
+        }) => ({
+          id: transaction.id,
+          confirmationNumber,
+          couponCode,
+          createdAt: transaction.createdAt,
+          expiresAt: transaction.expiresAt,
+          orderNumber,
+          organizationName,
+          points: transaction.points,
+          type: transaction.type,
+        }),
+      ),
+      transactionsTotal,
     };
   }
 
