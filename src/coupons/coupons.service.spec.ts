@@ -182,7 +182,7 @@ describe('CouponsService 自動發券', () => {
 
     await service['issueEligibleCoupons'](ORG_ID, 'user');
 
-    expect(calls[0]).toBe('lock:update');
+    expect(calls).toEqual(['lock:no key update', 'qualified', 'issued']);
     expect(insertValues).toHaveBeenCalledWith([
       expect.objectContaining({ couponId: 'coupon', source: 'spend' }),
     ]);

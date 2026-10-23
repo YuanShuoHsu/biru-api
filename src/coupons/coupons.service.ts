@@ -835,13 +835,13 @@ export class CouponsService {
 
     const now = new Date();
 
-    // 生日券與消費券沒有唯一索引擋重複，鎖住會員列讓同一人的發券依序執行
+    // 生日券與消費券沒有唯一索引擋重複；用 no key update 才不會擋到參照會員的 insert 而與領券互鎖
     await this.db.transaction(async (tx) => {
       const [found] = await tx
         .select({ birthDate: user.birthDate })
         .from(user)
         .where(eq(user.id, userId))
-        .for('update');
+        .for('no key update');
       if (!found) return;
 
       await Promise.all(
