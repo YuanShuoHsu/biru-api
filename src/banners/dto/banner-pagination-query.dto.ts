@@ -11,7 +11,12 @@ import {
 } from '../../common/constants/pagination.js';
 
 export const BANNER_ENUM_FILTER_FIELDS = ['isActive'] as const;
-export const BANNER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
+export const BANNER_DATE_FILTER_FIELDS = [
+  'startsAt',
+  'endsAt',
+  'createdAt',
+  'updatedAt',
+] as const;
 export const BANNER_ALL_FILTER_FIELDS = [
   ...BANNER_ENUM_FILTER_FIELDS,
   ...BANNER_DATE_FILTER_FIELDS,
@@ -21,6 +26,8 @@ export type BannerFilterField = (typeof BANNER_ALL_FILTER_FIELDS)[number];
 
 export const BANNER_SORT_FIELDS = [
   'isActive',
+  'startsAt',
+  'endsAt',
   'createdAt',
   'updatedAt',
 ] as const;
