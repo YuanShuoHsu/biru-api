@@ -159,5 +159,21 @@
     },
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}: {date} sales summary",
+    "title": "Yesterday's sales summary",
+    "intro": "Here is how {organizationName} did on {date}.",
+    "overview": "Overview",
+    "revenue": "Revenue: {revenue} (previous day {previousRevenue})",
+    "orders": "Orders: {orders} (previous day {previousOrders})",
+    "average": "Average order: {average}",
+    "peak_hour": "Busiest hour: {peakHour} ({peakOrders} orders)",
+    "refunds": "Refunded orders: {refundedOrders}",
+    "top_items": "Best sellers",
+    "item": "{name}: {sold} sold",
+    "action": "Open the dashboard",
+    "salutation": "Thanks,<br>The {productName} team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }

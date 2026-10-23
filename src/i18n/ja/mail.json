@@ -159,5 +159,21 @@
     },
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} の営業サマリー",
+    "title": "昨日の営業サマリー",
+    "intro": "{organizationName} の {date} の営業状況です。",
+    "overview": "概要",
+    "revenue": "売上：{revenue}（前日 {previousRevenue}）",
+    "orders": "注文：{orders} 件（前日 {previousOrders} 件）",
+    "average": "客単価：{average}",
+    "peak_hour": "ピーク時間帯：{peakHour}（{peakOrders} 件）",
+    "refunds": "返金：{refundedOrders} 件",
+    "top_items": "売れ筋商品",
+    "item": "{name}：{sold} 点",
+    "action": "ダッシュボードを開く",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   }
 }

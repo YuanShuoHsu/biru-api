@@ -555,6 +555,22 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "daily_sales_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "overview": string;
+            "revenue": string;
+            "orders": string;
+            "average": string;
+            "peak_hour": string;
+            "refunds": string;
+            "top_items": string;
+            "item": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
     };
     "test": {
         "hello": string;

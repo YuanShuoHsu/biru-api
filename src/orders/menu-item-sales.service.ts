@@ -17,16 +17,17 @@ export const getSalesWindowStart = (days: number): Date =>
 export class MenuItemSalesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  private async querySales(
+  async querySales(
     organizationId: string,
     since: Date,
+    until?: Date,
   ): Promise<MenuItemSalesResponseDto[]> {
     const { rows } = await this.db.execute<{
       menuItemId: string;
       menuItemName: string;
       sold: number;
     }>(sql`
-      WITH movements AS (${orderItemMovements(organizationId, since)}),
+      WITH movements AS (${orderItemMovements(organizationId, since, until)}),
       sales AS (
         SELECT entry.menu_item_id, entry.menu_item_name, m.quantity, oi.created_at
         FROM movements m

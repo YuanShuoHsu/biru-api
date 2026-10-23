@@ -159,5 +159,21 @@
     },
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}: {date} 영업 요약",
+    "title": "어제 영업 요약",
+    "intro": "{organizationName}의 {date} 영업 현황입니다.",
+    "overview": "개요",
+    "revenue": "매출: {revenue} (전일 {previousRevenue})",
+    "orders": "주문: {orders}건 (전일 {previousOrders}건)",
+    "average": "객단가: {average}",
+    "peak_hour": "피크 시간대: {peakHour} ({peakOrders}건)",
+    "refunds": "환불: {refundedOrders}건",
+    "top_items": "인기 메뉴",
+    "item": "{name}: {sold}개",
+    "action": "대시보드 열기",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
   }
 }

@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 
 import { CouponsModule } from '../coupons/coupons.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
+import { MailsModule } from '../mails/mails.module.js';
 import { PrintersModule } from '../printers/printers.module.js';
 
 import { DineInTablesController } from './dine-in-tables.controller.js';
 import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
+import { OrderNotificationsService } from './order-notifications.service.js';
 import { OrderPricingModule } from './order-pricing.module.js';
 import { OrderQrController } from './order-qr.controller.js';
 import { OrderQrService } from './order-qr.service.js';
@@ -20,7 +22,13 @@ import { OrdersService } from './orders.service.js';
 import { UserOrdersController } from './user-orders.controller.js';
 
 @Module({
-  imports: [CouponsModule, InventoryModule, OrderPricingModule, PrintersModule],
+  imports: [
+    CouponsModule,
+    InventoryModule,
+    MailsModule,
+    OrderPricingModule,
+    PrintersModule,
+  ],
   controllers: [
     DineInTablesController,
     MenuItemSalesController,
@@ -33,11 +41,17 @@ import { UserOrdersController } from './user-orders.controller.js';
   ],
   providers: [
     MenuItemSalesService,
+    OrderNotificationsService,
     OrderQrService,
     OrderStatsService,
     OrderTicketService,
     OrdersService,
   ],
-  exports: [MenuItemSalesService, OrderTicketService, OrdersService],
+  exports: [
+    MenuItemSalesService,
+    OrderNotificationsService,
+    OrderTicketService,
+    OrdersService,
+  ],
 })
 export class OrdersModule {}
