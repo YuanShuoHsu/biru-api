@@ -10,7 +10,7 @@ import {
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -32,6 +32,10 @@ import {
   resolveAuditLabels,
   resolveChangeLabels,
 } from '../common/utils/audit-resources.js';
+import {
+  buildFilterCondition,
+  buildQuickFilterCondition,
+} from '../common/utils/data-grid-filters.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
@@ -67,9 +71,12 @@ import {
   UNTRACKED_TABLES,
   type RestorableTable,
 } from './deleted-record-tables.js';
-import type {
-  DeletedRecordBatchResponseDto,
-  DeletedRecordPaginationQueryDto,
+import {
+  DELETED_RECORD_DATE_FILTER_FIELDS,
+  DELETED_RECORD_ENUM_FILTER_FIELDS,
+  DELETED_RECORD_STRING_FILTER_FIELDS,
+  type DeletedRecordBatchResponseDto,
+  type DeletedRecordPaginationQueryDto,
 } from './dto/deleted-record-batch.dto.js';
 import {
   isPreDeletedChild,
@@ -277,7 +284,17 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   async list(
-    { limit = 10, offset = 0 }: DeletedRecordPaginationQueryDto,
+    {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+    }: DeletedRecordPaginationQueryDto,
     scope?: RestoreScope,
   ): Promise<{
     data: DeletedRecordBatchResponseDto[];
@@ -311,24 +328,45 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ORDER BY d.batch_id, ${preDeletedChildCondition('d')}, d.id
     `;
 
-    const [{ rows }, { rows: totals }] = await Promise.all([
-      this.db.execute<{
-        batch_id: string;
-        deleted_at: Date;
-        table_name: string;
-        record_id: string | null;
-        data: Row['data'];
-        related_count: number;
-        organization_name: string | null;
-        user_name: string | null;
-        deleted_by: string | null;
-        tables: string[];
-        restores_owner: boolean;
-      }>(sql`
-        WITH roots AS (${roots})
+    const fieldMap: Record<string, SQL> = {
+      organizationName: sql`l.organization_name`,
+      tableName: sql`l.table_name`,
+      deletedAt: sql`l.deleted_at_utc`,
+    };
+
+    const where = and(
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            DELETED_RECORD_STRING_FILTER_FIELDS,
+            DELETED_RECORD_DATE_FILTER_FIELDS,
+            DELETED_RECORD_ENUM_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: DELETED_RECORD_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ...LABEL_COLUMNS.map((column) =>
+            ilike(sql`l.data ->> ${column}`, `%${value}%`),
+          ),
+          ilike(sql`l.user_name`, `%${value}%`),
+          ilike(sql`l.deleted_by`, `%${value}%`),
+        ],
+      }),
+    );
+
+    const listed = sql`
+      WITH roots AS (${roots}), listed AS (
         SELECT
           r.batch_id,
           r.deleted_at AT TIME ZONE 'UTC' AS deleted_at,
+          r.deleted_at AS deleted_at_utc,
           r.table_name,
           r.record_id,
           r.data,
@@ -342,7 +380,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 SELECT trim(role) FROM unnest(string_to_array(m.data ->> 'role', ',')) AS role
               )
           ) AS restores_owner,
-          o.name AS organization_name,
+          COALESCE(
+            o.name,
+            CASE WHEN r.table_name = 'organization' THEN r.data ->> 'name' END
+          ) AS organization_name,
           u.name AS user_name,
           COALESCE(
             (
@@ -375,11 +416,33 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           r.data ->> 'user_id',
           (SELECT e.user_id FROM attendance_employee e WHERE e.id = r.data ->> 'employee_id')
         )
-        ORDER BY r.deleted_at DESC, r.batch_id DESC
+      )
+      SELECT * FROM listed l
+      ${where ? sql`WHERE ${where}` : sql``}
+    `;
+
+    const direction = sql.raw(sortDirection === 'desc' ? 'DESC' : 'ASC');
+
+    const [{ rows }, { rows: totals }] = await Promise.all([
+      this.db.execute<{
+        batch_id: string;
+        deleted_at: Date;
+        table_name: string;
+        record_id: string | null;
+        data: Row['data'];
+        related_count: number;
+        organization_name: string | null;
+        user_name: string | null;
+        deleted_by: string | null;
+        tables: string[];
+        restores_owner: boolean;
+      }>(sql`
+        ${listed}
+        ORDER BY ${sortBy ? sql`${fieldMap[sortBy]} ${direction} NULLS LAST, ` : sql``}l.deleted_at DESC, l.batch_id DESC
         LIMIT ${sql.raw(String(limit))} OFFSET ${sql.raw(String(offset))}
       `),
       this.db.execute<{ total: number }>(
-        sql`SELECT count(*)::int AS total FROM (${roots}) roots`,
+        sql`SELECT count(*)::int AS total FROM (${listed}) filtered`,
       ),
     ]);
 
@@ -393,12 +456,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 tableName: row.table_name,
                 recordId: row.record_id,
                 label: getLabel(row.data) ?? row.user_name,
-                organizationName:
-                  row.organization_name ??
-                  (row.table_name === 'organization' &&
-                  typeof row.data.name === 'string'
-                    ? row.data.name
-                    : null),
+                organizationName: row.organization_name,
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
                 canRestore:

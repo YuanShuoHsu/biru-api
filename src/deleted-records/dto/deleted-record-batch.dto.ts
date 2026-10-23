@@ -1,17 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
-  Max,
-  Min,
 } from 'class-validator';
 
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 import {
@@ -19,19 +18,41 @@ import {
   type RestorableTable,
 } from '../deleted-record-tables.js';
 
-export class DeletedRecordPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
+export const DELETED_RECORD_STRING_FILTER_FIELDS = [
+  'organizationName',
+] as const;
+export const DELETED_RECORD_ENUM_FILTER_FIELDS = ['tableName'] as const;
+export const DELETED_RECORD_DATE_FILTER_FIELDS = ['deletedAt'] as const;
+export const DELETED_RECORD_FILTER_FIELDS = [
+  ...DELETED_RECORD_STRING_FILTER_FIELDS,
+  ...DELETED_RECORD_ENUM_FILTER_FIELDS,
+  ...DELETED_RECORD_DATE_FILTER_FIELDS,
+] as const;
 
+export type DeletedRecordFilterField =
+  (typeof DELETED_RECORD_FILTER_FIELDS)[number];
+
+export const DELETED_RECORD_SORT_FIELDS = DELETED_RECORD_FILTER_FIELDS;
+
+export type DeletedRecordSortField =
+  (typeof DELETED_RECORD_SORT_FIELDS)[number];
+
+export class DeletedRecordPaginationQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: DELETED_RECORD_FILTER_FIELDS,
+    enumName: 'DeletedRecordFilterField',
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number = 0;
+  @IsIn(DELETED_RECORD_FILTER_FIELDS)
+  filterField?: DeletedRecordFilterField;
+
+  @ApiPropertyOptional({
+    enum: DELETED_RECORD_SORT_FIELDS,
+    enumName: 'DeletedRecordSortField',
+  })
+  @IsOptional()
+  @IsIn(DELETED_RECORD_SORT_FIELDS)
+  sortBy?: DeletedRecordSortField;
 }
 
 export class RestoreDeletedRecordsDto {
