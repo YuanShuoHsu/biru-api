@@ -58,4 +58,12 @@ export class IngredientPaginationQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(INGREDIENT_SORT_FIELDS)
   sortBy?: IngredientSortField;
+
+  @ApiPropertyOptional({
+    description: '只列出庫存小於等於低庫存門檻的食材',
+    enum: ['true'],
+  })
+  @IsOptional()
+  @IsIn(['true'])
+  lowStock?: 'true';
 }
