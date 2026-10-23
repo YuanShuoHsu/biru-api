@@ -1611,6 +1611,13 @@
       "when": 1792685549095,
       "tag": "0229_order_qr_secret",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1792722868981,
+      "tag": "0230_dine_in_table_count",
+      "breakpoints": true
     }
   ]
 }

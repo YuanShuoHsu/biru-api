@@ -24,6 +24,7 @@ import type {
 } from './dto/order-qr.dto.js';
 import {
   dineInTableToken,
+  isOpenDineInTable,
   isValidQrToken,
   issueOrderQrSession,
   orderModeToken,
@@ -39,7 +40,11 @@ export class OrderQrService {
 
   private async getOrgBySlug(slug: string) {
     const [org] = await this.db
-      .select({ id: organization.id, secret: organizationQrSecret.secret })
+      .select({
+        dineInTableCount: organization.dineInTableCount,
+        id: organization.id,
+        secret: organizationQrSecret.secret,
+      })
       .from(organization)
       .leftJoin(
         organizationQrSecret,
@@ -59,9 +64,11 @@ export class OrderQrService {
   }
 
   async getDineInTableToken(organizationSlug: string, tableNumber: number) {
-    if (tableNumber < 1 || tableNumber > 999)
-      throw new BadRequestException('Table number must be from 1 to 999');
     const org = await this.getOrgBySlug(organizationSlug);
+    if (!isOpenDineInTable(org.dineInTableCount, tableNumber))
+      throw new BadRequestException(
+        'Table number must be from 1 to the dine-in table count',
+      );
     return { token: dineInTableToken(org.id, org.secret, tableNumber) };
   }
 
@@ -77,6 +84,7 @@ export class OrderQrService {
     // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
     const [org] = await this.db
       .select({
+        dineInTableCount: organization.dineInTableCount,
         id: organization.id,
         secret: organizationQrSecret.secret,
         slug: organization.slug,
@@ -103,7 +111,10 @@ export class OrderQrService {
 
     return {
       issued:
-        token && isValidQrToken(org.id, org.secret, mode, tableNumber, token)
+        token &&
+        (mode !== 'dineIn' ||
+          isOpenDineInTable(org.dineInTableCount, tableNumber)) &&
+        isValidQrToken(org.id, org.secret, mode, tableNumber, token)
           ? issueOrderQrSession(
               org.id,
               org.secret,

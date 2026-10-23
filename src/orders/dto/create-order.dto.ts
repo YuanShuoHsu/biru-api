@@ -23,6 +23,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { DINE_IN_MAX_TABLE_COUNT } from '../../common/constants/dine-in.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
@@ -252,6 +253,6 @@ export class CreateOrderDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(999)
+  @Max(DINE_IN_MAX_TABLE_COUNT)
   tableNumber?: number;
 }

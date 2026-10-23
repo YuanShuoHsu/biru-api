@@ -97,6 +97,7 @@ const createService = ({
           amountPerPoint: '100',
           closedAt,
           currency: 'TWD',
+          dineInTableCount: 12,
           id: ORG_ID,
           pointsValidityYears: 1,
         }),
@@ -222,6 +223,21 @@ describe('OrdersService.createOrder', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('店家把桌數調小後，原本掃過的桌號會被擋', async () => {
+      const { db, service } = createService();
+
+      await expect(
+        service.createOrder(
+          'slug',
+          dtoOf({ mode: 'dineIn', partySize: 2, tableNumber: 13 }),
+          null,
+          null,
+          sessionOf('dineIn', 13),
+        ),
+      ).rejects.toThrow('common.orders.invalidTable');
+      expect(db.transaction).not.toHaveBeenCalled();
     });
 
     it('內用掃過該桌 QR code 可以下單', async () => {

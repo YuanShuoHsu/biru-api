@@ -58,6 +58,12 @@ export const dineInTableToken = (
   tableNumber: number,
 ) => sign(DINE_IN_TABLE_PURPOSE, qrSecret, `${organizationId}:${tableNumber}`);
 
+export const isOpenDineInTable = (
+  dineInTableCount: number | null,
+  tableNumber: number | null | undefined,
+) =>
+  !!tableNumber && tableNumber >= 1 && tableNumber <= (dineInTableCount ?? 0);
+
 export const orderModeToken = (
   organizationId: string,
   qrSecret: string | null,

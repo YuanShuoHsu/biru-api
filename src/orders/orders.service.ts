@@ -112,7 +112,7 @@ import {
   OrderTicketService,
   toOrderTicketJobDto,
 } from './order-ticket.service.js';
-import { verifyOrderQrSession } from './order-qr-token.js';
+import { isOpenDineInTable, verifyOrderQrSession } from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 import {
   CANCEL_UNPAID_ORDER,
@@ -397,7 +397,9 @@ export class OrdersService {
 
     if (
       isDineIn &&
-      (!hasQrSession || qrSession.tableNumber !== dto.tableNumber)
+      (!hasQrSession ||
+        qrSession.tableNumber !== dto.tableNumber ||
+        !isOpenDineInTable(org.dineInTableCount, dto.tableNumber))
     )
       throw new BadRequestException(this.t('invalidTable'));
 

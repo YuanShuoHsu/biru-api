@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
+import { DINE_IN_MAX_TABLE_COUNT } from '../../common/constants/dine-in.js';
 import { qrOrderModes, type QrOrderMode } from '../order-qr-token.js';
 
 export class OrderQrQueryDto {
@@ -15,7 +16,7 @@ export class OrderQrQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(999)
+  @Max(DINE_IN_MAX_TABLE_COUNT)
   tableNumber?: number;
 
   @ApiPropertyOptional({ description: '桌上 QR code 的桌號簽章' })

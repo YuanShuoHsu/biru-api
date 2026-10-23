@@ -67,6 +67,13 @@ export class OrganizationResponseDto {
   pickupCutoffMinutes: number;
 
   @ApiPropertyOptional({
+    description: '內用桌數，桌號為 1 到此數；null 代表不開放內用',
+    nullable: true,
+    type: Number,
+  })
+  dineInTableCount: number | null;
+
+  @ApiPropertyOptional({
     description: '停業時間；營業中為 null',
     nullable: true,
   })

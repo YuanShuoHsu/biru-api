@@ -29,6 +29,7 @@ import { ac, admin, member, owner } from './permissions.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
 
+import { DINE_IN_MAX_TABLE_COUNT } from '../common/constants/dine-in.js';
 import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_MINUTES,
@@ -86,6 +87,18 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
         message: `${field} must be an integer from 0 to ${max}`,
       });
   }
+
+  const { dineInTableCount } = data;
+  if (
+    dineInTableCount != null &&
+    (typeof dineInTableCount !== 'number' ||
+      !Number.isInteger(dineInTableCount) ||
+      dineInTableCount < 1 ||
+      dineInTableCount > DINE_IN_MAX_TABLE_COUNT)
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: `dineInTableCount must be an integer from 1 to ${DINE_IN_MAX_TABLE_COUNT}`,
+    });
 };
 
 const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
@@ -410,6 +423,10 @@ export const createAuth = (
                 required: false,
               },
               pickupCutoffMinutes: {
+                type: 'number',
+                required: false,
+              },
+              dineInTableCount: {
                 type: 'number',
                 required: false,
               },

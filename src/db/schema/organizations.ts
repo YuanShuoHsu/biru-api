@@ -52,6 +52,7 @@ export const organization = pgTable(
       .notNull()
       .default(7),
     pickupCutoffMinutes: integer('pickup_cutoff_minutes').notNull().default(15),
+    dineInTableCount: integer('dine_in_table_count'),
     closedAt: timestamp('closed_at'),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
