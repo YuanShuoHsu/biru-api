@@ -58,6 +58,7 @@ import {
   assertPayrollUnlocked,
   auditChanges,
   lockOrganization,
+  redactAuditFields,
   writeAudit,
   type Transaction,
   type RestoredRecord,
@@ -132,6 +133,17 @@ const employeeDeletableSql = sql<boolean>`${attendanceEmployee.id} IS NOT NULL A
   UNION ALL SELECT 1 FROM payroll_tax_identity WHERE employee_id = ${attendanceEmployee.id}
   UNION ALL SELECT 1 FROM payroll_certificate_request WHERE employee_id = ${attendanceEmployee.id}
 )`;
+
+// 稽核紀錄保存 60 個月且員工刪除後仍在，這些個資只記有無、不記實際值
+const SENSITIVE_AUDIT_FIELDS = new Set([
+  'birthDate',
+  'indigenousHolidays',
+  'nursingPeriods',
+  'pregnancyPeriods',
+]);
+
+const redactSensitive = (record: Record<string, unknown>) =>
+  redactAuditFields(record, SENSITIVE_AUDIT_FIELDS);
 
 const isForeignKeyViolation = (error: unknown): boolean =>
   (error as { code?: string } | null)?.code === '23503' ||
@@ -831,6 +843,7 @@ export class AttendanceEmployeesService {
           set: values,
         })
         .returning();
+      const changes = current ? auditChanges(current, values) : undefined;
       await writeAudit(
         tx,
         actor,
@@ -840,7 +853,12 @@ export class AttendanceEmployeesService {
             ? 'employee.restore'
             : 'employee.create',
         row.id,
-        current ? auditChanges(current, values) : values,
+        changes
+          ? {
+              before: redactSensitive(changes.before),
+              after: redactSensitive(changes.after),
+            }
+          : redactSensitive(values),
       );
       await restored?.finalize(tx);
       return {

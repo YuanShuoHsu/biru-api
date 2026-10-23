@@ -83,7 +83,7 @@ export class AuditLogResponseDto {
       type: 'object',
     },
     description:
-      '欄位名 → 變更前後值；建立的 before 與刪除的 after 為 null。出勤與薪資紀錄只記當下的值時省略另一側',
+      '欄位名 → 變更前後值；建立的 before 與刪除的 after 為 null。出勤與薪資紀錄只記當下的值時省略另一側；敏感個資只記有無，有值時為 { redacted: true }',
     type: 'object',
   })
   changes: AuditLogChanges;

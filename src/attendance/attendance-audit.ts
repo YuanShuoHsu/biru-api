@@ -148,6 +148,24 @@ export const auditChanges = (
   };
 };
 
+const REDACTED_AUDIT_VALUE = { redacted: true };
+
+export const redactAuditFields = (
+  record: Record<string, unknown>,
+  fields: ReadonlySet<string>,
+) =>
+  Object.fromEntries(
+    Object.entries(record).map(([field, value]) => [
+      field,
+      fields.has(field) &&
+      value !== null &&
+      value !== undefined &&
+      !(Array.isArray(value) && !value.length)
+        ? REDACTED_AUDIT_VALUE
+        : value,
+    ]),
+  );
+
 export interface RestoredRecord {
   id: string;
   createdBy: string;
