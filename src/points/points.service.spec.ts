@@ -229,7 +229,7 @@ describe('PointsService.findAllForOrganization', () => {
   it('補點記下原因與操作者，列入本店明細與會員餘額', async () => {
     const created = await service.adjustForOrganization(
       'biru',
-      { email: ' AMY@example.com ', note: ' 客訴補償 ', points: 30 },
+      { email: 'AMY@example.com', note: ' 客訴補償 ', points: 30 },
       'bob',
     );
 
@@ -303,6 +303,31 @@ describe('PointsService.findAllForOrganization', () => {
       { remainingPoints: 10, type: 'earn' },
       { remainingPoints: 10, type: 'earn' },
     ]);
+  });
+
+  it('不能調整自己的點數', async () => {
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'bob@example.com', note: '補償', points: 5 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.points.adjustSelf');
+  });
+
+  it('本店未啟用點數時拒絕調整', async () => {
+    await client.query(
+      `update organization set points_enabled_at = null where id = $1`,
+      [ORG],
+    );
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 5 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.points.notEnabled');
   });
 
   it('找不到 email 對應的會員時回 404', async () => {

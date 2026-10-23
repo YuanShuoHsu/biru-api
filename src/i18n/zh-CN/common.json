@@ -246,7 +246,9 @@
     "statusChanged": "订单状态已变更，请刷新后再试"
   },
   "points": {
+    "adjustSelf": "不能调整自己的点数",
     "insufficient": "点数不足",
+    "notEnabled": "本店尚未启用点数",
     "notRedeemable": "此优惠券无法用点数兑换",
     "perUserLimitReached": "您已兑换过此优惠券"
   },

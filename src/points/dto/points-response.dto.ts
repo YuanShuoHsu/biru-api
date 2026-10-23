@@ -29,7 +29,10 @@ export class PointTransactionDto {
   orderNumber?: string | null;
   @ApiPropertyOptional({ description: '交易發生店家；redeem 屬品牌層為 null' })
   organizationName?: string | null;
-  @ApiProperty({ description: 'earn 為正、redeem 為負' }) points: number;
+  @ApiProperty({
+    description: 'earn 為正；redeem、revoke 為負；adjust 正負皆可',
+  })
+  points: number;
   @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
   type: PointTransactionType;
 }
@@ -44,7 +47,7 @@ export class OrganizationPointTransactionDto {
   note: string | null;
   @ApiProperty({ description: 'earn 為正、revoke 為負，adjust 正負皆可' })
   points: number;
-  @ApiProperty({ description: '尚未被兌換或收回的點數' })
+  @ApiProperty({ description: '尚未被兌換、收回或扣除的點數' })
   remainingPoints: number;
   @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
   type: PointTransactionType;

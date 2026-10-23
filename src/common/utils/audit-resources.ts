@@ -181,7 +181,6 @@ const FK_LABEL_SOURCES: Partial<
   },
   pointTransaction: {
     adjustedBy: { table: user, column: 'name' },
-    orderId: { table: order, column: 'confirmationNumber' },
     userId: { table: user, column: 'name' },
   },
 };

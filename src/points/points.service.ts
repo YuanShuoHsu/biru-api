@@ -100,7 +100,12 @@ export class PointsService {
   ) {}
 
   private t(
-    key: 'insufficient' | 'notRedeemable' | 'perUserLimitReached',
+    key:
+      | 'adjustSelf'
+      | 'insufficient'
+      | 'notEnabled'
+      | 'notRedeemable'
+      | 'perUserLimitReached',
   ): string {
     return this.i18n.t(`common.points.${key}`, {
       lang: I18nContext.current()?.lang,
@@ -493,15 +498,21 @@ export class PointsService {
       this.db,
       organizationSlug,
     );
-    const [{ pointsValidityYears }] = await this.db
-      .select({ pointsValidityYears: organization.pointsValidityYears })
+    const [{ pointsEnabledAt, pointsValidityYears }] = await this.db
+      .select({
+        pointsEnabledAt: organization.pointsEnabledAt,
+        pointsValidityYears: organization.pointsValidityYears,
+      })
       .from(organization)
       .where(eq(organization.id, organizationId));
+    if (!pointsEnabledAt) throw new BadRequestException(this.t('notEnabled'));
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
     });
     if (!target) throw new NotFoundException(this.tCoupons('memberNotFound'));
+    if (target.id === adjustedBy)
+      throw new BadRequestException(this.t('adjustSelf'));
 
     await this.syncEarned({ userId: target.id });
 
