@@ -159,5 +159,21 @@
     },
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} 营业摘要",
+    "title": "昨日营业摘要",
+    "intro": "{organizationName} 在 {date} 的营业概况如下。",
+    "overview": "运营概况",
+    "revenue": "营收：{revenue}（前一日 {previousRevenue}）",
+    "orders": "订单：{orders} 笔（前一日 {previousOrders} 笔）",
+    "average": "客单价：{average}",
+    "peak_hour": "高峰时段：{peakHour}（{peakOrders} 笔）",
+    "refunds": "退款：{refundedOrders} 笔",
+    "top_items": "热销品项",
+    "item": "{name}：{sold} 份",
+    "action": "查看运营仪表板",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }

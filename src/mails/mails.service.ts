@@ -666,11 +666,11 @@ export class MailsService {
     await this.mailerService.sendMail({
       to: email,
       subject: this.i18n.t('mail.low_stock_digest.subject', translate),
-      template: 'low-stock-digest',
+      template: 'digest',
       context: {
         action: this.i18n.t('mail.low_stock_digest.action', options),
         groups: [...groups.values()].map(({ supplierName, items }) => ({
-          supplier:
+          heading:
             supplierName ??
             this.i18n.t('mail.low_stock_digest.no_supplier', options),
           items,
@@ -683,6 +683,106 @@ export class MailsService {
         title: this.i18n.t('mail.low_stock_digest.title', options),
         trouble_hint: this.i18n.t(
           'mail.low_stock_digest.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendDailySalesDigest({
+    recipient: { email, lang },
+    organizationName,
+    currency,
+    date,
+    path,
+    current,
+    previous,
+    peakHour,
+    refundedOrders,
+    topItems,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    currency: string;
+    date: Date;
+    path: string;
+    current: { orders: number; revenue: number };
+    previous: { orders: number; revenue: number };
+    peakHour: { hour: number; orders: number };
+    refundedOrders: number;
+    topItems: { name: string; sold: number }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const money = new Intl.NumberFormat(lang, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    });
+    const args = {
+      average: money.format(
+        current.orders ? current.revenue / current.orders : 0,
+      ),
+      date: new Intl.DateTimeFormat(lang, {
+        dateStyle: 'medium',
+        timeZone: PLATFORM_TIMEZONE,
+      }).format(date),
+      orders: current.orders,
+      organizationName,
+      peakHour: `${String(peakHour.hour).padStart(2, '0')}:00–${String(peakHour.hour + 1).padStart(2, '0')}:00`,
+      peakOrders: peakHour.orders,
+      previousOrders: previous.orders,
+      previousRevenue: money.format(previous.revenue),
+      productName,
+      refundedOrders,
+      revenue: money.format(current.revenue),
+    };
+    const translate = { args, lang };
+    const groups = [
+      {
+        heading: this.i18n.t('mail.daily_sales_digest.overview', options),
+        items: (
+          [
+            'mail.daily_sales_digest.revenue',
+            'mail.daily_sales_digest.orders',
+            'mail.daily_sales_digest.average',
+            'mail.daily_sales_digest.peak_hour',
+            'mail.daily_sales_digest.refunds',
+          ] as const
+        ).map((key) => this.i18n.t(key, translate)),
+      },
+    ];
+    if (topItems.length)
+      groups.push({
+        heading: this.i18n.t('mail.daily_sales_digest.top_items', options),
+        items: topItems.map(({ name, sold }) =>
+          this.i18n.t('mail.daily_sales_digest.item', {
+            args: { name, sold },
+            lang,
+          }),
+        ),
+      });
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: this.i18n.t('mail.daily_sales_digest.subject', translate),
+      template: 'digest',
+      context: {
+        action: this.i18n.t('mail.daily_sales_digest.action', options),
+        groups,
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.daily_sales_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.daily_sales_digest.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.daily_sales_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.daily_sales_digest.trouble_hint',
           options,
         ),
         url,

@@ -159,5 +159,21 @@
     },
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} 營業摘要",
+    "title": "昨日營業摘要",
+    "intro": "{organizationName} 在 {date} 的營業概況如下。",
+    "overview": "營運概況",
+    "revenue": "營收：{revenue}（前一日 {previousRevenue}）",
+    "orders": "訂單：{orders} 筆（前一日 {previousOrders} 筆）",
+    "average": "客單價：{average}",
+    "peak_hour": "尖峰時段：{peakHour}（{peakOrders} 筆）",
+    "refunds": "退款：{refundedOrders} 筆",
+    "top_items": "熱銷品項",
+    "item": "{name}：{sold} 份",
+    "action": "查看營運儀表板",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   }
 }
