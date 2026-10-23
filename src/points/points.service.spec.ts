@@ -61,13 +61,20 @@ describe('PointsService.getAllMine', () => {
       { expiresAt: new Date('2020-01-01T00:00:00Z') },
       { expiresAt: new Date('2999-01-01T00:00:00Z') },
       { points: -6, remainingPoints: 0, type: 'redeem' },
+      { points: -3, remainingPoints: -3, type: 'revoke' },
+      {
+        expiresAt: new Date('2020-01-01T00:00:00Z'),
+        points: -5,
+        remainingPoints: -5,
+        type: 'revoke',
+      },
     ]);
 
     const result = await service.getAllMine(USER, { limit: 2, offset: 1 });
 
-    expect(result.transactions.map(({ id }) => id)).toEqual(['t3', 't2']);
-    expect(result.transactionsTotal).toBe(5);
-    expect(result.balance).toBe(24);
+    expect(result.transactions.map(({ id }) => id)).toEqual(['t5', 't4']);
+    expect(result.transactionsTotal).toBe(7);
+    expect(result.balance).toBe(21);
   });
 
   it('同一時間建立的明細依 id 排序，翻頁不重複也不遺漏', async () => {
