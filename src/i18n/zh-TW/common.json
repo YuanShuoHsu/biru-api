@@ -127,6 +127,13 @@
     "withholdingUnitRequired": "請先填寫申報單位資料。",
     "workPermitRequired": "此員工的法定身分須持有有效工作許可，班次或出勤日期不在工作許可期間內。"
   },
+  "cashDrawer": {
+    "alreadyClosedToday": "今天已經結過帳。如需再次開帳，請先開啟交班對帳。",
+    "alreadyOpen": "已有開啟中的錢櫃",
+    "notOpen": "這個錢櫃目前沒有開啟",
+    "retainedExceedsCounted": "留存零用金不能超過實點現金",
+    "varianceNoteRequired": "差額超過門市設定的門檻，請填寫說明"
+  },
   "coupons": {
     "alreadyClaimed": "您已領取過此優惠券",
     "codeExists": "此優惠碼已存在",

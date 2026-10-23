@@ -26,6 +26,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { runWithAuthHookState } from './auth/hooks.js';
 import { createAuthI18n } from './auth/i18n.js';
 import { BannersModule } from './banners/banners.module.js';
+import { CashDrawerModule } from './cash-drawer/cash-drawer.module.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
@@ -55,6 +56,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     AuditModule,
     AuthModule,
     BannersModule,
+    CashDrawerModule,
     BetterAuthModule.forRootAsync({
       imports: [MailsModule],
       inject: [MailsService, I18nService],
