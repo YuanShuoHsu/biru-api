@@ -246,7 +246,9 @@
     "statusChanged": "The order status has changed. Refresh and try again."
   },
   "points": {
+    "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
+    "notEnabled": "Points are not enabled for this store",
     "notRedeemable": "This coupon cannot be redeemed with points",
     "perUserLimitReached": "You have already redeemed this coupon"
   },

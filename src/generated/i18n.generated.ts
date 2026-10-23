@@ -296,7 +296,9 @@ export type I18nTranslations = {
             "statusChanged": string;
         };
         "points": {
+            "adjustSelf": string;
             "insufficient": string;
+            "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
         };

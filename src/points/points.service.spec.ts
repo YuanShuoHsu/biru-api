@@ -225,4 +225,118 @@ describe('PointsService.findAllForOrganization', () => {
     ]);
     expect(result.total).toBe(1);
   });
+
+  it('補點記下原因與操作者，列入本店明細與會員餘額', async () => {
+    const created = await service.adjustForOrganization(
+      'biru',
+      { email: 'AMY@example.com', note: ' 客訴補償 ', points: 30 },
+      'bob',
+    );
+
+    expect(created).toEqual(
+      expect.objectContaining({
+        note: '客訴補償',
+        points: 30,
+        remainingPoints: 30,
+        type: 'adjust',
+        userEmail: 'amy@example.com',
+      }),
+    );
+    const [row] = await db
+      .select()
+      .from(pointTransaction)
+      .where(eq(pointTransaction.id, created.id));
+    expect(row).toEqual(
+      expect.objectContaining({ adjustedBy: 'bob', organizationId: ORG }),
+    );
+    expect((await service.findAllForOrganization('biru')).data).toEqual([
+      expect.objectContaining({ id: created.id, note: '客訴補償' }),
+    ]);
+    expect((await service.getAllMine('amy')).balance).toBe(30);
+  });
+
+  it('扣點先補入未入點的訂單，只從本店剩餘點數扣', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+
+    const created = await service.adjustForOrganization(
+      'biru',
+      { email: 'amy@example.com', note: '誤發', points: -4 },
+      'bob',
+    );
+
+    expect(created).toEqual(
+      expect.objectContaining({ points: -4, remainingPoints: 0 }),
+    );
+    const earned = await db
+      .select({
+        organizationId: pointTransaction.organizationId,
+        remainingPoints: pointTransaction.remainingPoints,
+      })
+      .from(pointTransaction)
+      .where(eq(pointTransaction.type, 'earn'));
+    expect(earned).toEqual(
+      expect.arrayContaining([
+        { organizationId: ORG, remainingPoints: 6 },
+        { organizationId: OTHER_ORG, remainingPoints: 10 },
+      ]),
+    );
+    expect((await service.getAllMine('amy')).balance).toBe(16);
+  });
+
+  it('扣點超過本店剩餘點數時拒絕，不動任何明細', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '誤發', points: -11 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.points.insufficient');
+    expect(
+      (await db.select().from(pointTransaction)).map(
+        ({ remainingPoints, type }) => ({ remainingPoints, type }),
+      ),
+    ).toEqual([
+      { remainingPoints: 10, type: 'earn' },
+      { remainingPoints: 10, type: 'earn' },
+    ]);
+  });
+
+  it('不能調整自己的點數', async () => {
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'bob@example.com', note: '補償', points: 5 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.points.adjustSelf');
+  });
+
+  it('本店未啟用點數時拒絕調整', async () => {
+    await client.query(
+      `update organization set points_enabled_at = null where id = $1`,
+      [ORG],
+    );
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 5 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.points.notEnabled');
+  });
+
+  it('找不到 email 對應的會員時回 404', async () => {
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'nobody@example.com', note: '補償', points: 5 },
+        'bob',
+      ),
+    ).rejects.toThrow('common.coupons.memberNotFound');
+  });
 });

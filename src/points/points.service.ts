@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   and,
@@ -45,6 +50,7 @@ import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
+import type { AdjustPointsDto } from './dto/adjust-points.dto.js';
 import {
   POINT_TRANSACTION_DATE_FILTER_FIELDS,
   POINT_TRANSACTION_ENUM_FILTER_FIELDS,
@@ -55,6 +61,7 @@ import {
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
 import type {
   MyPointsDto,
+  OrganizationPointTransactionDto,
   OrganizationPointTransactionListResponseDto,
   PointsCouponDto,
 } from './dto/points-response.dto.js';
@@ -93,14 +100,19 @@ export class PointsService {
   ) {}
 
   private t(
-    key: 'insufficient' | 'notRedeemable' | 'perUserLimitReached',
+    key:
+      | 'adjustSelf'
+      | 'insufficient'
+      | 'notEnabled'
+      | 'notRedeemable'
+      | 'perUserLimitReached',
   ): string {
     return this.i18n.t(`common.points.${key}`, {
       lang: I18nContext.current()?.lang,
     });
   }
 
-  private tCoupons(key: 'usedUp'): string {
+  private tCoupons(key: 'memberNotFound' | 'usedUp'): string {
     return this.i18n.t(`common.coupons.${key}`, {
       lang: I18nContext.current()?.lang,
     });
@@ -451,6 +463,7 @@ export class PointsService {
           createdAt: pointTransaction.createdAt,
           expiresAt: pointTransaction.expiresAt,
           orderId: pointTransaction.orderId,
+          note: pointTransaction.note,
           orderNumber: order.orderNumber,
           points: pointTransaction.points,
           remainingPoints: pointTransaction.remainingPoints,
@@ -474,6 +487,112 @@ export class PointsService {
     ]);
 
     return { data, total };
+  }
+
+  async adjustForOrganization(
+    organizationSlug: string,
+    { email, note, points }: AdjustPointsDto,
+    adjustedBy: string,
+  ): Promise<OrganizationPointTransactionDto> {
+    const organizationId = await getOrganizationIdBySlug(
+      this.db,
+      organizationSlug,
+    );
+    const [{ pointsEnabledAt, pointsValidityYears }] = await this.db
+      .select({
+        pointsEnabledAt: organization.pointsEnabledAt,
+        pointsValidityYears: organization.pointsValidityYears,
+      })
+      .from(organization)
+      .where(eq(organization.id, organizationId));
+    if (!pointsEnabledAt) throw new BadRequestException(this.t('notEnabled'));
+
+    const target = await this.db.query.user.findFirst({
+      where: sql`lower(${user.email}) = lower(${email.trim()})`,
+    });
+    if (!target) throw new NotFoundException(this.tCoupons('memberNotFound'));
+    if (target.id === adjustedBy)
+      throw new BadRequestException(this.t('adjustSelf'));
+
+    await this.syncEarned({ userId: target.id });
+
+    const created = await this.db.transaction(async (tx) => {
+      if (points < 0) {
+        const holdings = await tx
+          .select({
+            id: pointTransaction.id,
+            remainingPoints: pointTransaction.remainingPoints,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.userId, target.id),
+              eq(pointTransaction.organizationId, organizationId),
+              inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
+              this.notExpired(),
+            ),
+          )
+          .orderBy(
+            asc(pointTransaction.expiresAt),
+            asc(pointTransaction.createdAt),
+          )
+          .for('update');
+
+        const balance = holdings.reduce(
+          (sum, row) => sum + row.remainingPoints,
+          0,
+        );
+        if (balance < -points)
+          throw new BadRequestException(this.t('insufficient'));
+
+        let deficit = -points;
+        for (const holding of holdings) {
+          if (deficit === 0) break;
+          if (holding.remainingPoints <= 0) continue;
+          const consumed = Math.min(holding.remainingPoints, deficit);
+          await tx
+            .update(pointTransaction)
+            .set({
+              remainingPoints: holding.remainingPoints - consumed,
+              updatedAt: new Date(),
+            })
+            .where(eq(pointTransaction.id, holding.id));
+          deficit -= consumed;
+        }
+      }
+
+      const [row] = await tx
+        .insert(pointTransaction)
+        .values({
+          id: randomUUID(),
+          adjustedBy,
+          expiresAt:
+            points > 0 ? toExpiresAt(new Date(), pointsValidityYears) : null,
+          note: note.trim(),
+          organizationId,
+          points,
+          remainingPoints: Math.max(points, 0),
+          type: 'adjust',
+          userId: target.id,
+        })
+        .returning();
+
+      return row;
+    });
+
+    return {
+      id: created.id,
+      createdAt: created.createdAt,
+      expiresAt: created.expiresAt,
+      note: created.note,
+      orderId: null,
+      orderNumber: null,
+      points: created.points,
+      remainingPoints: created.remainingPoints,
+      type: created.type,
+      userEmail: target.email,
+      userName: target.name,
+    };
   }
 
   async getAllMine(
@@ -633,7 +752,7 @@ export class PointsService {
         .where(
           and(
             eq(pointTransaction.userId, userId),
-            inArray(pointTransaction.type, ['earn', 'revoke']),
+            inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
             this.notExpired(),
           ),
         )

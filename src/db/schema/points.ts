@@ -19,6 +19,7 @@ export const pointTransactionTypeEnum = pgEnum('point_transaction_type', [
   'earn',
   'redeem',
   'revoke',
+  'adjust',
 ]);
 export type PointTransactionType =
   (typeof pointTransactionTypeEnum.enumValues)[number];
@@ -27,6 +28,7 @@ export const pointTransaction = pgTable(
   'point_transaction',
   {
     id: text('id').primaryKey(),
+    adjustedBy: text('adjusted_by'),
     expiresAt: timestamp('expires_at'),
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
@@ -34,6 +36,7 @@ export const pointTransaction = pgTable(
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade',
     }),
+    note: text('note'),
     points: integer('points').notNull(),
     remainingPoints: integer('remaining_points').notNull().default(0),
     type: pointTransactionTypeEnum('type').notNull(),
