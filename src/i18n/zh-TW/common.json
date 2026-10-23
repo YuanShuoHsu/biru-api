@@ -312,6 +312,7 @@
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
     "alreadyRefunded": "此訂單已全額退款",
+    "cashDrawerNotOpen": "錢櫃尚未開帳，請先開帳再退還現金",
     "invalidAmount": "退款金額計算異常，請確認訂單金額",
     "itemNotInOrder": "退款品項不屬於此訂單",
     "noEcpayTransaction": "此訂單沒有可退刷的綠界交易",

@@ -362,6 +362,7 @@ export type I18nTranslations = {
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;
+            "cashDrawerNotOpen": string;
             "invalidAmount": string;
             "itemNotInOrder": string;
             "noEcpayTransaction": string;
