@@ -34,6 +34,7 @@ import {
   organizationQrSecret,
   team,
 } from '../../db/schema/organizations.js';
+import { pointTransaction } from '../../db/schema/points.js';
 import { printer } from '../../db/schema/printers.js';
 import { refund } from '../../db/schema/refunds.js';
 import { user } from '../../db/schema/users.js';
@@ -77,6 +78,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   invitation,
   user,
   team,
+  pointTransaction,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -176,6 +178,11 @@ const FK_LABEL_SOURCES: Partial<
   },
   team: {
     member: { table: user, column: 'name' },
+  },
+  pointTransaction: {
+    adjustedBy: { table: user, column: 'name' },
+    orderId: { table: order, column: 'confirmationNumber' },
+    userId: { table: user, column: 'name' },
   },
 };
 
@@ -364,6 +371,7 @@ export const resolveAuditLabels = async (
             { resourceLabel: asLabel(row.code), ancestorIds: [] },
           ];
         case 'banner':
+        case 'pointTransaction':
           return [resourceId, { resourceLabel: null, ancestorIds: [] }];
         case 'waitlistTicket':
           return [

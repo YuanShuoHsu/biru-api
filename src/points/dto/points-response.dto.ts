@@ -40,7 +40,10 @@ export class OrganizationPointTransactionDto {
   @ApiPropertyOptional() expiresAt: Date | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
-  @ApiProperty({ description: 'earn 為正、revoke 為負' }) points: number;
+  @ApiPropertyOptional({ description: 'adjust 的調整原因' })
+  note: string | null;
+  @ApiProperty({ description: 'earn 為正、revoke 為負，adjust 正負皆可' })
+  points: number;
   @ApiProperty({ description: '尚未被兌換或收回的點數' })
   remainingPoints: number;
   @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
