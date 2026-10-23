@@ -71,9 +71,6 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
 
-`DrizzleController` and `TasksController` are empty `nest generate` scaffolds — they register
-routes but expose nothing.
-
 ### Database Schema
 
 Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
