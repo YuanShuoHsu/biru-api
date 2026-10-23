@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { eq } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import * as schema from '../db/schema/index.js';
@@ -178,6 +179,35 @@ describe('PointsService.findAllForOrganization', () => {
       }),
     ]);
     expect(await db.select().from(pointTransaction)).toHaveLength(1);
+  });
+
+  it('收回本店已取消訂單的點數，且不列出他店與品牌層的明細', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+    await service.findAllForOrganization('biru');
+    await service.findAllForOrganization('other');
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id in ('o1', 'o2')`,
+    );
+    await db.insert(pointTransaction).values({
+      id: 'redeem',
+      points: -5,
+      type: 'redeem',
+      userId: 'amy',
+    });
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.data).toEqual([]);
+    expect(
+      (await db.select().from(pointTransaction)).map(({ id }) => id),
+    ).toContain('redeem');
+    expect(
+      await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.organizationId, OTHER_ORG)),
+    ).toHaveLength(1);
   });
 
   it('依會員 email 篩選', async () => {
