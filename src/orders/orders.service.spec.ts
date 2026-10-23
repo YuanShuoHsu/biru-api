@@ -8,6 +8,7 @@ import { invoice } from '../db/schema/invoices.js';
 import { order } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
 
@@ -53,12 +54,14 @@ const selectChain = (rows: unknown[]) => {
 const createService = ({
   applied = null,
   closedAt = null,
+  lowStock = [],
   qrSecret = QR_SECRET,
   replayed,
   txDuplicate,
 }: {
   applied?: { coupon: { code: string }; discount: number } | null;
   closedAt?: Date | null;
+  lowStock?: { id: string; name: Record<string, string> }[];
   qrSecret?: string | null;
   replayed?: { id: string; idempotencyFingerprint: string | null };
   txDuplicate?: { id: string; orderStatus: string };
@@ -127,7 +130,9 @@ const createService = ({
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
-      { consume: vi.fn() } as unknown as InventoryTransactionsService,
+      {
+        consume: vi.fn().mockResolvedValue(lowStock),
+      } as unknown as InventoryTransactionsService,
       orderPricingService as unknown as OrderPricingService,
       {
         secretOf: vi.fn().mockResolvedValue(qrSecret),
@@ -390,6 +395,18 @@ describe('OrdersService.createOrder', () => {
       expect(inserted.get(order)).not.toHaveProperty('discount');
       expect(inserted.has(invoice)).toBe(true);
       expect(emit).toHaveBeenCalledOnce();
+    });
+
+    it('扣庫存後跌破門檻的食材在交易完成後廣播', async () => {
+      const lowStock = [{ id: 'milk', name: { 'zh-TW': '鮮奶' } }];
+      const { emit, service } = createService({ lowStock });
+
+      await service.createOrder('slug', baseDto, null, null);
+
+      expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
+        organizationId: ORG_ID,
+        ingredients: lowStock,
+      });
     });
 
     it('折扣寫入訂單並核銷優惠券', async () => {

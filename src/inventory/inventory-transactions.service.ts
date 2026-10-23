@@ -31,6 +31,7 @@ import {
 } from '../db/schema/inventory.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { LowStockReachedEvent } from '../events/low-stock-reached.event.js';
 
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import {
@@ -240,12 +241,15 @@ export class InventoryTransactionsService {
     return { ...created, balance, orderNumber: null, reason: 'count' };
   }
 
-  async consume(orderId: string, tx: Tx): Promise<void> {
+  async consume(
+    orderId: string,
+    tx: Tx,
+  ): Promise<LowStockReachedEvent['ingredients']> {
     const [placed] = await tx
       .select({ sellerId: order.sellerId })
       .from(order)
       .where(eq(order.id, orderId));
-    if (!placed?.sellerId) return;
+    if (!placed?.sellerId) return [];
 
     const items = await tx
       .select({
@@ -266,7 +270,7 @@ export class InventoryTransactionsService {
           id,
           (servingsByMenuItemId.get(id) ?? 0) + orderQuantity,
         );
-    if (!servingsByMenuItemId.size) return;
+    if (!servingsByMenuItemId.size) return [];
 
     const recipes = await tx
       .select({
@@ -276,7 +280,7 @@ export class InventoryTransactionsService {
       })
       .from(recipe)
       .where(inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]));
-    if (!recipes.length) return;
+    if (!recipes.length) return [];
 
     const materials = await tx
       .select()
@@ -305,7 +309,7 @@ export class InventoryTransactionsService {
       }
     }
 
-    await this.record(
+    return this.record(
       [...quantities].map(([ingredientId, used]) => ({
         ingredientId,
         quantity: -used,
@@ -355,8 +359,8 @@ export class InventoryTransactionsService {
       organizationId: string;
     },
     tx: Tx,
-  ): Promise<void> {
-    if (!entries.length) return;
+  ): Promise<LowStockReachedEvent['ingredients']> {
+    if (!entries.length) return [];
 
     await tx
       .select({ id: ingredient.id })
@@ -380,13 +384,28 @@ export class InventoryTransactionsService {
       })),
     );
 
+    const lowStock: LowStockReachedEvent['ingredients'] = [];
     for (const { ingredientId, quantity } of entries) {
-      await tx
+      const [updated] = await tx
         .update(ingredient)
         .set({
           inventoryLevel: sql`${ingredient.inventoryLevel} + ${quantity}`,
         })
-        .where(eq(ingredient.id, ingredientId));
+        .where(eq(ingredient.id, ingredientId))
+        .returning({
+          id: ingredient.id,
+          inventoryLevel: ingredient.inventoryLevel,
+          lowStockThreshold: ingredient.lowStockThreshold,
+          name: ingredient.name,
+        });
+      if (!updated || updated.lowStockThreshold === null) continue;
+
+      const threshold = Number(updated.lowStockThreshold);
+      const after = Number(updated.inventoryLevel);
+      if (after <= threshold && after - quantity > threshold)
+        lowStock.push({ id: updated.id, name: updated.name });
     }
+
+    return lowStock;
   }
 }
