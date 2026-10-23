@@ -164,6 +164,37 @@ describe('InventoryNotificationsService.notifyLowStockDigest', () => {
     ]);
   });
 
+  it('不寄給停權中的帳號，停權已到期的照常寄送', async () => {
+    const now = new Date('2026-10-23T00:00:00Z');
+    for (const [id, banExpires] of [
+      ['bannedAdmin', null],
+      ['banLiftedAdmin', '2026-10-22T00:00:00Z'],
+      ['stillBannedAdmin', '2026-10-24T00:00:00Z'],
+    ])
+      await client.query(
+        `insert into "user" (id, name, email, first_name, banned, ban_expires) values ($1, $1, $1 || '@example.com', $1, true, $2)`,
+        [id, banExpires],
+      );
+    await db.insert(member).values(
+      ['bannedAdmin', 'banLiftedAdmin', 'stillBannedAdmin'].map((userId) => ({
+        id: userId,
+        organizationId: 'org',
+        userId,
+        role: 'admin' as const,
+        createdAt: now,
+      })),
+    );
+
+    await service.notifyLowStockDigest(now);
+
+    const emails = sendLowStockDigest.mock.calls.map(
+      ([{ recipient }]) => recipient.email,
+    );
+    expect(emails).toContain('banLiftedAdmin@example.com');
+    expect(emails).not.toContain('bannedAdmin@example.com');
+    expect(emails).not.toContain('stillBannedAdmin@example.com');
+  });
+
   it('沒有低庫存食材時不寄信', async () => {
     await client.exec(`update ingredient set inventory_level = 1000`);
 

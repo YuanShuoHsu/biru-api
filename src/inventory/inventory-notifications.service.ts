@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { and, asc, eq, inArray, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, lte, or } from 'drizzle-orm';
 
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { member, organization } from '../db/schema/organizations.js';
@@ -20,7 +20,7 @@ export class InventoryNotificationsService {
     private readonly mails: MailsService,
   ) {}
 
-  async notifyLowStockDigest(): Promise<number> {
+  async notifyLowStockDigest(now = new Date()): Promise<number> {
     const lowStock = await this.db
       .select({
         organizationId: ingredient.organizationId,
@@ -54,6 +54,11 @@ export class InventoryNotificationsService {
             ...new Set(lowStock.map(({ organizationId }) => organizationId)),
           ]),
           inArray(member.role, ['owner', 'admin']),
+          or(
+            isNull(user.banned),
+            eq(user.banned, false),
+            lt(user.banExpires, now),
+          ),
         ),
       );
 

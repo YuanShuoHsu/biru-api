@@ -86,21 +86,6 @@ export class TasksService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
-    disabled: !CRON_ENABLED,
-    timeZone: PLATFORM_TIMEZONE,
-  })
-  async handleAnnualLeaveEntitlementCron() {
-    try {
-      const notified =
-        await this.attendanceNotificationsService.notifyAnnualLeaveEntitlements();
-
-      if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
-    } catch (error) {
-      this.logger.error('寄送特休取得通知失敗', error);
-    }
-  }
-
   @Cron(CronExpression.EVERY_DAY_AT_8AM, {
     disabled: !CRON_ENABLED,
     timeZone: PLATFORM_TIMEZONE,
@@ -113,6 +98,21 @@ export class TasksService {
       if (notified) this.logger.log(`寄出 ${notified} 封低庫存摘要`);
     } catch (error) {
       this.logger.error('寄送低庫存摘要失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleAnnualLeaveEntitlementCron() {
+    try {
+      const notified =
+        await this.attendanceNotificationsService.notifyAnnualLeaveEntitlements();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
+    } catch (error) {
+      this.logger.error('寄送特休取得通知失敗', error);
     }
   }
 
