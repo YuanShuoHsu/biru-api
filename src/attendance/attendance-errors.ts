@@ -190,7 +190,7 @@ export const runBatch = async (
     message: string;
     reason: AttendanceErrorCode;
   }[] = [];
-  for (const id of [...new Set(ids)]) {
+  for (const id of new Set(ids)) {
     try {
       await run(id);
       succeeded.push(id);
