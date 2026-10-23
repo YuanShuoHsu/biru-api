@@ -71,6 +71,10 @@ import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import {
+  LOW_STOCK_REACHED_EVENT,
+  type LowStockReachedEvent,
+} from '../events/low-stock-reached.event.js';
 import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
 import {
@@ -454,6 +458,7 @@ export class OrdersService {
     const orderId = randomUUID();
     const confirmationNumber = generateConfirmationNumber();
 
+    let lowStock: LowStockReachedEvent['ingredients'] = [];
     const result = await this.db.transaction(async (tx) => {
       await tx
         .select({ id: organization.id })
@@ -546,7 +551,7 @@ export class OrdersService {
         )
         .returning();
 
-      await this.inventoryTransactionsService.consume(orderId, tx);
+      lowStock = await this.inventoryTransactionsService.consume(orderId, tx);
 
       if (created.orderStatus === 'OrderProcessing')
         await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
@@ -579,6 +584,12 @@ export class OrdersService {
         orderStatus: result.orderStatus,
         organizationId: org.id,
       });
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId: org.id,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
 
     return this.findOrderReceipt(org.id, result.id);
   }

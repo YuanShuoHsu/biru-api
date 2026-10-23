@@ -15,6 +15,8 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
+import type { LowStockReachedEvent } from './low-stock-reached.event.js';
+import { LOW_STOCK_REACHED_EVENT } from './low-stock-reached.event.js';
 import type { MenuUpdatedEvent } from './menu-updated.event.js';
 import { MENU_UPDATED_EVENT } from './menu-updated.event.js';
 import type { OrderStatusUpdatedEvent } from './order-status-updated.event.js';
@@ -44,6 +46,8 @@ const publicOrdersBoardRoom = (organizationId: string) =>
 const waitlistRoom = (organizationId: string) => `waitlist:${organizationId}`;
 const publicWaitlistRoom = (organizationId: string) =>
   `public-waitlist:${organizationId}`;
+
+const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
@@ -190,5 +194,32 @@ export class EventsGateway {
     await client.join(waitlistRoom(organizationId));
 
     return true;
+  }
+
+  @SubscribeMessage('joinInventory')
+  @UseGuards(WsRolesGuard)
+  @Roles({ inventory: ['read'] }, 'organizationId')
+  async joinInventory(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.join(inventoryRoom(organizationId));
+
+    return true;
+  }
+
+  @SubscribeMessage('leaveInventory')
+  async leaveInventory(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(inventoryRoom(organizationId));
+  }
+
+  @OnEvent(LOW_STOCK_REACHED_EVENT)
+  handleLowStockReached({ organizationId, ingredients }: LowStockReachedEvent) {
+    this.server
+      .to(inventoryRoom(organizationId))
+      .emit('lowStockReached', { organizationId, ingredients });
   }
 }
