@@ -194,3 +194,62 @@ describe('WaitlistService.confirmTicket', () => {
     expect(db.update).not.toHaveBeenCalled();
   });
 });
+
+describe('WaitlistService.getPublicStatusByOrganizationId', () => {
+  const selectReturning = (rows: unknown[]) =>
+    vi.fn(() => ({
+      from: () => ({ where: () => ({ orderBy: () => Promise.resolve(rows) }) }),
+    }));
+
+  it('shows the latest called number and waiting count per group', async () => {
+    const { db, service } = createService({
+      setting: {
+        enabled: true,
+        groups: [
+          { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
+          { maxPartySize: 4, minPartySize: 3, prefix: 'B' },
+        ],
+        paused: false,
+      },
+    });
+    Object.assign(db, {
+      select: selectReturning([
+        { calledAt: null, number: 5, prefix: 'A', status: 'waiting' },
+        { calledAt: null, number: 6, prefix: 'A', status: 'waiting' },
+        {
+          calledAt: new Date('2026-10-06T04:10:00Z'),
+          number: 4,
+          prefix: 'A',
+          status: 'called',
+        },
+        {
+          calledAt: new Date('2026-10-06T04:00:00Z'),
+          number: 3,
+          prefix: 'A',
+          status: 'seated',
+        },
+      ]),
+    });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('org'),
+    ).resolves.toMatchObject({
+      enabled: true,
+      groups: [
+        { currentTicketNumber: 'A004', prefix: 'A', waitingCount: 2 },
+        { currentTicketNumber: null, prefix: 'B', waitingCount: 0 },
+      ],
+      paused: false,
+    });
+  });
+
+  it('rejects an unknown organization', async () => {
+    const { db, service } = createService({});
+    db.query.organization.findFirst.mockResolvedValue(undefined);
+    Object.assign(db, { select: selectReturning([]) });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('missing'),
+    ).rejects.toThrow('Organization not found');
+  });
+});
