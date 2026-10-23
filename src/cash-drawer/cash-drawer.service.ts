@@ -332,13 +332,19 @@ export class CashDrawerService {
         .returning();
 
       return {
-        ...described,
+        id: closed.id,
+        businessDate: closed.businessDate,
         closedAt: closed.closedAt,
         closedBy: closed.closedBy,
         countedCash: closed.countedCash,
         expectedCash: closed.expectedCash,
+        movements: described.movements,
+        openedAt: closed.openedAt,
+        openedBy: closed.openedBy,
+        openingFloat: closed.openingFloat,
         retainedFloat: closed.retainedFloat,
         status: closed.status,
+        summary: described.summary,
         varianceNote: closed.varianceNote,
       };
     });
