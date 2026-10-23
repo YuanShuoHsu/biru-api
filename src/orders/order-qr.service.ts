@@ -1,6 +1,11 @@
 import { randomBytes } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { eq, or, sql } from 'drizzle-orm';
 
@@ -54,6 +59,8 @@ export class OrderQrService {
   }
 
   async getDineInTableToken(organizationSlug: string, tableNumber: number) {
+    if (tableNumber < 1 || tableNumber > 999)
+      throw new BadRequestException('Table number must be from 1 to 999');
     const org = await this.getOrgBySlug(organizationSlug);
     return { token: dineInTableToken(org.id, org.secret, tableNumber) };
   }
