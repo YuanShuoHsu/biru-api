@@ -14,6 +14,7 @@ import {
   desc,
   eq,
   ilike,
+  lte,
   sql,
   type Column,
   type SQL,
@@ -98,6 +99,7 @@ export class IngredientsService {
       filterField,
       filterOperator,
       filterValue,
+      lowStock,
       quickFilterEnums,
       quickFilterValue,
       sortBy,
@@ -139,6 +141,9 @@ export class IngredientsService {
 
     const where = and(
       eq(ingredient.organizationId, organizationId),
+      lowStock
+        ? lte(ingredient.inventoryLevel, ingredient.lowStockThreshold)
+        : undefined,
       filterField && filterOperator
         ? buildFilterCondition(
             filterField,
