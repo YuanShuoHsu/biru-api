@@ -29,10 +29,10 @@ describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      { restore: vi.fn() } as never,
+      { restoreAll: vi.fn() } as never,
+      { withdrawOrder: vi.fn() } as never,
+      { revokeForOrder: vi.fn() } as never,
       new EventEmitter2(),
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
@@ -77,16 +77,36 @@ describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
     expect((await client.query('select id from refund')).rows).toEqual([]);
   });
 
-  it('錢櫃開帳中可以退還現金', async () => {
-    await client.query(
-      `insert into cash_drawer_session (id, organization_id, business_date, opened_by, opening_float)
-       values ('s1', $1, current_date, 'amy', 0)`,
-      [ORG],
+  const addSession = (id: string, organizationId: string, closed = false) =>
+    client.query(
+      closed
+        ? `insert into cash_drawer_session (id, organization_id, business_date, status, opened_by, opening_float, closed_at, closed_by, counted_cash, expected_cash, retained_float)
+           values ($1, $2, current_date, 'closed', 'amy', 0, now(), 'amy', 0, 0, 0)`
+        : `insert into cash_drawer_session (id, organization_id, business_date, opened_by, opening_float)
+           values ($1, $2, current_date, 'amy', 0)`,
+      [id, organizationId],
     );
 
-    const refunded = await refundOf('cash');
+  it('錢櫃已關帳、或只有別家門市開帳時，都不能退還現金', async () => {
+    await client.query(
+      `insert into organization (id, name, slug, created_at) values ('other', 'other', 'other', now())`,
+    );
+    await addSession('closed', ORG, true);
+    await addSession('other', 'other');
 
-    expect(refunded).toMatchObject({ amount: '100.00', channel: 'manual' });
+    await expect(refundOf('cash')).rejects.toThrow(
+      new ConflictException('common.refunds.cashDrawerNotOpen'),
+    );
+  });
+
+  it('錢櫃開帳中可以退還現金，退款在交易內就是已退款，關帳不會漏算', async () => {
+    await addSession('s1', ORG);
+
+    await refundOf('cash');
+
+    expect(
+      (await client.query('select channel, status, amount from refund')).rows,
+    ).toEqual([{ channel: 'manual', status: 'settled', amount: '100.00' }]);
   });
 
   it('非現金的人工退款不受錢櫃影響', async () => {

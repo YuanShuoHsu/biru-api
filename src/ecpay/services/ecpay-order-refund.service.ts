@@ -282,13 +282,15 @@ export class EcpayOrderRefundService {
           throw new ConflictException(this.tRefunds('cashDrawerNotOpen'));
       }
 
+      const channel =
+        plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual';
       const [created] = await tx
         .insert(refund)
         .values({
           id: randomUUID(),
           amount: String(plan.amount),
-          channel:
-            plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual',
+          channel,
+          status: channel === 'manual' ? 'refunded' : 'pending',
           items: plan.items,
           operatorId,
           orderId,
@@ -340,12 +342,6 @@ export class EcpayOrderRefundService {
 
         throw this.toRefundFailure(error);
       }
-    } else {
-      [refunded] = await this.db
-        .update(refund)
-        .set({ status: 'refunded' })
-        .where(eq(refund.id, created.id))
-        .returning();
     }
 
     await this.settle(refunded, found, plan).catch((error) =>
