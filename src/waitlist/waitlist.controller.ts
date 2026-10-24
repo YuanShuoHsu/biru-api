@@ -143,9 +143,13 @@ export class WaitlistController {
   @ApiOperation({ summary: '候位統計' })
   stats(
     @Param('organizationSlug') organizationSlug: string,
-    @Query() { since }: WaitlistStatsQueryDto,
+    @Query() { since, until }: WaitlistStatsQueryDto,
   ): Promise<WaitlistStatsResponseDto> {
-    return this.waitlistService.getStats(organizationSlug, new Date(since));
+    return this.waitlistService.getStats(
+      organizationSlug,
+      new Date(since),
+      until ? new Date(until) : undefined,
+    );
   }
 
   @Get('tickets/:ticketId')

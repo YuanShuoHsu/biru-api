@@ -107,7 +107,7 @@ export class OrderNotificationsService {
               organizationName: seller.name,
               currency: seller.currency,
               date: since,
-              path: `${DASHBOARD_PAGE}?${new URLSearchParams({ organization: seller.slug, range: '7d' })}`,
+              path: `${DASHBOARD_PAGE}?${new URLSearchParams({ organization: seller.slug, range: 'yesterday' })}`,
               current: {
                 orders: buckets[0].orders,
                 revenue: buckets[0].revenue!,

@@ -147,7 +147,7 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
       organizationName: 'biru',
       currency: 'TWD',
       date: YESTERDAY_START,
-      path: '/dashboard?organization=biru&range=7d',
+      path: '/dashboard?organization=biru&range=yesterday',
       current: { orders: 2, revenue: 300 },
       previous: { orders: 1, revenue: 150 },
       peakHour: { hour: 14, orders: 2 },

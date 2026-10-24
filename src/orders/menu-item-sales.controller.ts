@@ -31,6 +31,7 @@ export class MenuItemSalesController {
       query.since
         ? new Date(query.since)
         : getSalesWindowStart(SALES_WINDOW_DAYS),
+      query.until ? new Date(query.until) : undefined,
     );
   }
 }
