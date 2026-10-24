@@ -253,6 +253,7 @@
     "statusChanged": "The order status has changed. Refresh and try again."
   },
   "points": {
+    "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
     "notEnabled": "Points are not enabled for this store",
