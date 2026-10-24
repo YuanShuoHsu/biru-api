@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import { assertOrganizationDeletable } from './deletion-guards.js';
+import { cancelExpiredInvitations } from './expired-invitations.js';
 import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
 import { ac, admin, member, owner } from './permissions.js';
@@ -259,6 +260,9 @@ export const createAuth = (
                 cause: error,
               });
             }
+          },
+          beforeCreateInvitation: async ({ invitation, organization }) => {
+            await cancelExpiredInvitations(organization.id, invitation.email);
           },
           beforeDeleteOrganization: ({ organization: target }) =>
             assertOrganizationDeletable(target.id),
