@@ -253,3 +253,38 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
     ).rejects.toThrow('Organization not found');
   });
 });
+
+describe('WaitlistService.getTicket', () => {
+  it('combines the hold deadline, queue position and current number', async () => {
+    const { db, service } = createService({
+      setting: { enabled: true, groups, holdMinutes: 10, paused: false },
+      ticket: {
+        calledAt: new Date('2026-10-06T12:00:00Z'),
+        confirmedAt: null,
+        id: 't',
+        number: 3,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+    Object.assign(db, {
+      select: vi.fn(() => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => Promise.resolve([{ number: 4, prefix: 'A' }]),
+            }),
+          }),
+        }),
+      })),
+    });
+
+    await expect(service.getTicket('slug', 't')).resolves.toMatchObject({
+      aheadCount: 0,
+      currentTicketNumber: 'A004',
+      holdUntil: new Date('2026-10-06T12:10:00Z'),
+      ticketNumber: 'A003',
+    });
+  });
+});
