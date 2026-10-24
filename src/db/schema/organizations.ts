@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   numeric,
@@ -142,6 +143,7 @@ export const member = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: memberRoleEnum('role').default('member').notNull(),
+    showcase: boolean('showcase').default(false).notNull(),
     createdAt: timestamp('created_at').notNull(),
   },
   (table) => [

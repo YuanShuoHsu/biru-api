@@ -1,27 +1,37 @@
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
   NotFoundException,
   Param,
+  Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
+import { Audit } from '../common/decorators/audit.decorator.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { asc, isNull } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
 
 import { OrganizationListQueryDto } from './dto/organization-list-query.dto.js';
-import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import {
+  MemberShowcaseResponseDto,
+  OrganizationMemberResponseDto,
+  OrganizationTeamMemberResponseDto,
+} from './dto/organization-member-response.dto.js';
 import { OrganizationResponseDto } from './dto/organization-response.dto.js';
+import { UpdateMemberShowcaseDto } from './dto/update-member-showcase.dto.js';
 import { OrganizationsService } from './organizations.service.js';
 
 @AllowAnonymous()
@@ -54,6 +64,32 @@ export class OrganizationsController {
     if (!org) throw new NotFoundException();
 
     return org;
+  }
+
+  @Get(':slug/team')
+  @ApiOperation({ summary: '查詢組織在官網公開的團隊成員' })
+  @ApiOkResponse({ type: [OrganizationTeamMemberResponseDto] })
+  findTeam(
+    @Param('slug') slug: string,
+  ): Promise<OrganizationTeamMemberResponseDto[]> {
+    return this.organizationsService.organizationTeam(slug);
+  }
+
+  @Patch(':organizationSlug/members/:memberId/showcase')
+  @Roles({ member: ['update'] }, 'organizationSlug')
+  @Audit('member', { param: 'memberId' })
+  @ApiOperation({ summary: '設定成員是否顯示在官網的團隊介紹' })
+  @ApiOkResponse({ type: MemberShowcaseResponseDto })
+  setMemberShowcase(
+    @Param('memberId') memberId: string,
+    @Body() { showcase }: UpdateMemberShowcaseDto,
+    @OrganizationId() organizationId: string,
+  ): Promise<MemberShowcaseResponseDto> {
+    return this.organizationsService.setMemberShowcase(
+      organizationId,
+      memberId,
+      showcase,
+    );
   }
 
   @Get(':id/members')

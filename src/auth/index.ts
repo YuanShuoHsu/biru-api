@@ -348,6 +348,16 @@ export const createAuth = (
         requireEmailVerificationOnInvitation: true,
         roles: { owner, admin, member },
         schema: {
+          member: {
+            additionalFields: {
+              showcase: {
+                type: 'boolean',
+                required: false,
+                defaultValue: false,
+                input: false,
+              },
+            },
+          },
           organization: {
             additionalFields: {
               // https://schema.org/PostalAddress

@@ -332,6 +332,24 @@ export const resolveAuditLabels = async (
   )
     return resolveLinked(db, resource, resolved);
 
+  if (resource === 'member') {
+    const users = await selectByIds(
+      db,
+      user,
+      [...resolved.values()].map(({ userId }) => asId(userId)),
+    );
+
+    return new Map(
+      [...resolved].map(([resourceId, row]) => [
+        resourceId,
+        {
+          resourceLabel: asLabel(users.get(asId(row.userId) ?? '')?.name),
+          ancestorIds: [],
+        },
+      ]),
+    );
+  }
+
   return new Map(
     [...resolved].map(([resourceId, row]) => {
       switch (resource) {

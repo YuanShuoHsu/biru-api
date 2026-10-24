@@ -1646,6 +1646,13 @@
       "when": 1792780150731,
       "tag": "0234_banner_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1792830121212,
+      "tag": "0235_member_showcase",
+      "breakpoints": true
     }
   ]
 }
