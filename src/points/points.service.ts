@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -66,6 +67,8 @@ import type {
   PointsCouponDto,
 } from './dto/points-response.dto.js';
 
+const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
+
 const toExpiresAt = (
   paymentDate: Date,
   validityYears: number | null,
@@ -101,13 +104,16 @@ export class PointsService {
 
   private t(
     key:
+      | 'adjustOwnerOnly'
       | 'adjustSelf'
       | 'insufficient'
       | 'notEnabled'
       | 'notRedeemable'
       | 'perUserLimitReached',
+    args?: Record<string, unknown>,
   ): string {
     return this.i18n.t(`common.points.${key}`, {
+      args,
       lang: I18nContext.current()?.lang,
     });
   }
@@ -493,19 +499,34 @@ export class PointsService {
     organizationSlug: string,
     { email, note, points }: AdjustPointsDto,
     adjustedBy: string,
+    adjusterRole: string,
   ): Promise<OrganizationPointTransactionDto> {
     const organizationId = await getOrganizationIdBySlug(
       this.db,
       organizationSlug,
     );
-    const [{ pointsEnabledAt, pointsValidityYears }] = await this.db
-      .select({
-        pointsEnabledAt: organization.pointsEnabledAt,
-        pointsValidityYears: organization.pointsValidityYears,
-      })
-      .from(organization)
-      .where(eq(organization.id, organizationId));
+    const [{ amountPerPoint, pointsEnabledAt, pointsValidityYears }] =
+      await this.db
+        .select({
+          amountPerPoint: organization.amountPerPoint,
+          pointsEnabledAt: organization.pointsEnabledAt,
+          pointsValidityYears: organization.pointsValidityYears,
+        })
+        .from(organization)
+        .where(eq(organization.id, organizationId));
     if (!pointsEnabledAt) throw new BadRequestException(this.t('notEnabled'));
+
+    const maxNonOwnerPoints =
+      Number(amountPerPoint) > 0
+        ? Math.floor(OWNER_ONLY_ADJUSTMENT_AMOUNT / Number(amountPerPoint))
+        : 0;
+    if (
+      Math.abs(points) > maxNonOwnerPoints &&
+      !adjusterRole.split(',').some((role) => role.trim() === 'owner')
+    )
+      throw new ForbiddenException(
+        this.t('adjustOwnerOnly', { maxPoints: maxNonOwnerPoints }),
+      );
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,

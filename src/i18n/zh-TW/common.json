@@ -253,6 +253,7 @@
     "statusChanged": "訂單狀態已變更，請重新整理後再試"
   },
   "points": {
+    "adjustOwnerOnly": "單筆調整超過 {maxPoints} 點，請由店家 owner 操作",
     "adjustSelf": "不能調整自己的點數",
     "insufficient": "點數不足",
     "notEnabled": "本店尚未啟用點數",

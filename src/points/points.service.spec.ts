@@ -231,6 +231,7 @@ describe('PointsService.findAllForOrganization', () => {
       'biru',
       { email: 'AMY@example.com', note: ' 客訴補償 ', points: 30 },
       'bob',
+      'admin',
     );
 
     expect(created).toEqual(
@@ -263,6 +264,7 @@ describe('PointsService.findAllForOrganization', () => {
       'biru',
       { email: 'amy@example.com', note: '誤發', points: -4 },
       'bob',
+      'admin',
     );
 
     expect(created).toEqual(
@@ -293,6 +295,7 @@ describe('PointsService.findAllForOrganization', () => {
         'biru',
         { email: 'amy@example.com', note: '誤發', points: -11 },
         'bob',
+        'admin',
       ),
     ).rejects.toThrow('common.points.insufficient');
     expect(
@@ -305,12 +308,86 @@ describe('PointsService.findAllForOrganization', () => {
     ]);
   });
 
+  it('單筆超過 NT$3,000 換算點數時只有 owner 能補點或扣點', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 301 },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '誤發', points: -301 },
+        'bob',
+        'member',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    expect(
+      await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 300 },
+        'bob',
+        'admin',
+      ),
+    ).toEqual(expect.objectContaining({ points: 300 }));
+    expect(
+      await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '活動', points: 301 },
+        'bob',
+        'owner',
+      ),
+    ).toEqual(expect.objectContaining({ points: 301 }));
+  });
+
+  it('owner 門檻依本店每點金額換算，金額不大於 0 時只有 owner 能調整', async () => {
+    await client.query(
+      `update organization set amount_per_point = 33.33 where id = $1`,
+      [ORG],
+    );
+    expect(
+      await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 90 },
+        'bob',
+        'admin',
+      ),
+    ).toEqual(expect.objectContaining({ points: 90 }));
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 91 },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+
+    await client.query(
+      `update organization set amount_per_point = 0 where id = $1`,
+      [ORG],
+    );
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 1 },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+  });
+
   it('不能調整自己的點數', async () => {
     await expect(
       service.adjustForOrganization(
         'biru',
         { email: 'bob@example.com', note: '補償', points: 5 },
         'bob',
+        'admin',
       ),
     ).rejects.toThrow('common.points.adjustSelf');
   });
@@ -326,6 +403,7 @@ describe('PointsService.findAllForOrganization', () => {
         'biru',
         { email: 'amy@example.com', note: '補償', points: 5 },
         'bob',
+        'admin',
       ),
     ).rejects.toThrow('common.points.notEnabled');
   });
@@ -336,6 +414,7 @@ describe('PointsService.findAllForOrganization', () => {
         'biru',
         { email: 'nobody@example.com', note: '補償', points: 5 },
         'bob',
+        'admin',
       ),
     ).rejects.toThrow('common.coupons.memberNotFound');
   });

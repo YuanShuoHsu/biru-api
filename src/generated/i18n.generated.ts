@@ -303,6 +303,7 @@ export type I18nTranslations = {
             "statusChanged": string;
         };
         "points": {
+            "adjustOwnerOnly": string;
             "adjustSelf": string;
             "insufficient": string;
             "notEnabled": string;

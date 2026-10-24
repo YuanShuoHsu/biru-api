@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -9,6 +9,7 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
 import { AdjustPointsDto } from './dto/adjust-points.dto.js';
 import { OrganizationPointTransactionQueryDto } from './dto/organization-point-transaction-query.dto.js';
@@ -38,18 +39,21 @@ export class OrganizationPointsController {
   @Roles({ organization: ['update'] }, 'organizationSlug')
   @Audit('pointTransaction', { response: true })
   @ApiOperation({
-    summary: '為會員手動補點或扣點；扣點只扣本店發出且未過期的剩餘點數',
+    summary:
+      '為會員手動補點或扣點；扣點只扣本店發出且未過期的剩餘點數；單筆超過 NT$3,000 換算點數只有 owner 能做',
   })
   @ApiCreatedResponse({ type: OrganizationPointTransactionDto })
   adjust(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: AdjustPointsDto,
     @Session() session: UserSession,
+    @Req() req: AuthRequest,
   ): Promise<OrganizationPointTransactionDto> {
     return this.pointsService.adjustForOrganization(
       organizationSlug,
       dto,
       session.user.id,
+      req.memberRole!,
     );
   }
 }
