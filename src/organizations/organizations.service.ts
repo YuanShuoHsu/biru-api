@@ -1,6 +1,17 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { and, count, desc, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  SQL,
+  sql,
+} from 'drizzle-orm';
 import {
   member,
   Organization,
@@ -25,7 +36,10 @@ import {
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
 
-import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import type {
+  OrganizationMemberResponseDto,
+  OrganizationTeamMemberResponseDto,
+} from './dto/organization-member-response.dto.js';
 import type { MyOrganizationListItemDto } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
 
@@ -51,9 +65,14 @@ export class OrganizationsService {
 
   async organizationMembers(
     organizationId: string,
+    { showcasedOnly = false } = {},
   ): Promise<OrganizationMemberResponseDto[]> {
     const members = await this.db.query.member.findMany({
-      where: eq(member.organizationId, organizationId),
+      where: and(
+        eq(member.organizationId, organizationId),
+        showcasedOnly ? eq(member.showcase, true) : undefined,
+      ),
+      orderBy: [asc(member.createdAt)],
       with: {
         user: {
           with: {
@@ -65,19 +84,63 @@ export class OrganizationsService {
       },
     });
 
-    return members.map(({ id, role, createdAt, user }) => ({
-      id,
-      role,
-      createdAt,
-      userId: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName || null,
-      image: user.image || null,
-      bio: user.bio || null,
-      teams: user.teamMembers
-        .filter(({ team }) => team.organizationId === organizationId)
-        .map(({ team }) => ({ id: team.id, name: team.name })),
-    }));
+    return members
+      .filter(({ user }) => !showcasedOnly || !user.banned)
+      .map(({ id, role, showcase, createdAt, user }) => ({
+        id,
+        role,
+        showcase,
+        createdAt,
+        userId: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName || null,
+        image: user.image || null,
+        bio: user.bio || null,
+        teams: user.teamMembers
+          .filter(({ team }) => team.organizationId === organizationId)
+          .map(({ team }) => ({ id: team.id, name: team.name })),
+      }));
+  }
+
+  async organizationTeam(
+    slug: string,
+  ): Promise<OrganizationTeamMemberResponseDto[]> {
+    const org = await this.organizationBySlug(slug);
+    if (!org) throw new NotFoundException();
+    if (org.closedAt) return [];
+
+    const members = await this.organizationMembers(org.id, {
+      showcasedOnly: true,
+    });
+
+    return members.map(
+      ({ bio, firstName, id, image, lastName, role, teams }) => ({
+        bio,
+        firstName,
+        id,
+        image,
+        lastName,
+        role,
+        teams,
+      }),
+    );
+  }
+
+  async setMemberShowcase(
+    organizationId: string,
+    memberId: string,
+    showcase: boolean,
+  ): Promise<{ id: string; showcase: boolean }> {
+    const [updated] = await this.db
+      .update(member)
+      .set({ showcase })
+      .where(
+        and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
+      )
+      .returning({ id: member.id, showcase: member.showcase });
+    if (!updated) throw new NotFoundException();
+
+    return updated;
   }
 
   async setClosed(
