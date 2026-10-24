@@ -405,18 +405,16 @@ export class WaitlistService {
     ticketId: string,
   ): Promise<WaitlistTicketDetailResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
-    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+    const [{ holdMinutes }, aheadCount, currentTicketNumber] =
+      await Promise.all([
+        this.getSettings(ticket.organizationId),
+        this.countAhead(ticket),
+        this.getCurrentTicketNumber(ticket.organizationId, ticket.prefix),
+      ]);
 
     return {
-      ...this.toTicketResponse(
-        ticket,
-        await this.countAhead(ticket),
-        holdMinutes,
-      ),
-      currentTicketNumber: await this.getCurrentTicketNumber(
-        ticket.organizationId,
-        ticket.prefix,
-      ),
+      ...this.toTicketResponse(ticket, aheadCount, holdMinutes),
+      currentTicketNumber,
     };
   }
 
@@ -515,13 +513,12 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const ticket = await this.findTicket(organizationSlug, ticketId);
     const updated = await this.updateStatus(ticket, status, 'staff');
-    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+    const [{ holdMinutes }, aheadCount] = await Promise.all([
+      this.getSettings(ticket.organizationId),
+      this.countAhead(updated),
+    ]);
 
-    return this.toTicketResponse(
-      updated,
-      await this.countAhead(updated),
-      holdMinutes,
-    );
+    return this.toTicketResponse(updated, aheadCount, holdMinutes);
   }
 
   async updateTicket(
