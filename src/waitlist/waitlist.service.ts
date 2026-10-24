@@ -36,6 +36,7 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import type { Language } from '../db/schema/enums.js';
 import { organization } from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -881,8 +882,12 @@ export class WaitlistService {
   async getStats(
     organizationSlug: string,
     since: Date,
+    until?: Date,
   ): Promise<WaitlistStatsResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
+    const inPeriod = sql`organization_id = ${org.id} AND created_at >= ${utcTimestampParam(since)}${
+      until ? sql` AND created_at < ${utcTimestampParam(until)}` : sql``
+    }`;
 
     const [{ rows: summaryRows }, { rows: hourlyRows }] = await Promise.all([
       this.db.execute<{
@@ -903,14 +908,14 @@ export class WaitlistService {
             ORDER BY EXTRACT(EPOCH FROM ended_at - created_at)
           ) FILTER (WHERE status = 'seated') AS "medianWaitSeconds"
         FROM waitlist_ticket
-        WHERE organization_id = ${org.id} AND created_at >= ${since}
+        WHERE ${inPeriod}
       `),
       this.db.execute<{ count: number; hour: number }>(sql`
         SELECT
           EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})::int AS hour,
           COUNT(*)::int AS count
         FROM waitlist_ticket
-        WHERE organization_id = ${org.id} AND created_at >= ${since}
+        WHERE ${inPeriod}
         GROUP BY hour
       `),
     ]);

@@ -65,12 +65,13 @@ export class MenuItemSalesService {
   async getSalesBySlug(
     organizationSlug: string,
     since: Date,
+    until?: Date,
   ): Promise<MenuItemSalesResponseDto[]> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
     });
     if (!org) throw new NotFoundException('Organization not found');
 
-    return this.querySales(org.id, since);
+    return this.querySales(org.id, since, until);
   }
 }

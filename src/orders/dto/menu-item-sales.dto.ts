@@ -10,6 +10,14 @@ export class MenuItemSalesQueryDto {
   @IsOptional()
   @IsDateString()
   since?: string;
+
+  @ApiPropertyOptional({
+    description: '統計結束時間（不含）；預設為現在',
+    format: 'date-time',
+  })
+  @IsOptional()
+  @IsDateString()
+  until?: string;
 }
 
 export class MenuItemSalesResponseDto {

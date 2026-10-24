@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsDateString } from 'class-validator';
+import { IsDateString, IsOptional } from 'class-validator';
 
 export class WaitlistStatsQueryDto {
   @ApiProperty({
@@ -9,6 +9,14 @@ export class WaitlistStatsQueryDto {
   })
   @IsDateString()
   since: string;
+
+  @ApiPropertyOptional({
+    description: '統計結束時間（不含）；預設為現在',
+    format: 'date-time',
+  })
+  @IsOptional()
+  @IsDateString()
+  until?: string;
 }
 
 export class WaitlistStatsResponseDto {
