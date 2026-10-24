@@ -30,6 +30,7 @@ import {
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { cashDrawerSession } from '../db/schema/cash-drawer.js';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
@@ -907,6 +908,21 @@ export class OrdersService {
     });
 
     const updated = await this.db.transaction(async (tx) => {
+      if (planned.some(({ rule }) => rule.cashOnly)) {
+        const [openDrawer] = await tx
+          .select({ id: cashDrawerSession.id })
+          .from(cashDrawerSession)
+          .where(
+            and(
+              eq(cashDrawerSession.organizationId, org.id),
+              eq(cashDrawerSession.status, 'open'),
+            ),
+          )
+          .for('share');
+        if (!openDrawer)
+          throw new BadRequestException(this.t('cashDrawerNotOpen'));
+      }
+
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {

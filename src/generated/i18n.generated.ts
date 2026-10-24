@@ -286,6 +286,7 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
+            "cashDrawerNotOpen": string;
             "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
             "invalidTable": string;
@@ -362,6 +363,7 @@ export type I18nTranslations = {
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;
+            "cashDrawerNotOpen": string;
             "invalidAmount": string;
             "itemNotInOrder": string;
             "noEcpayTransaction": string;

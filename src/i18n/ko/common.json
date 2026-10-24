@@ -236,6 +236,7 @@
     "tableNumber": "테이블 {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "금전함이 열려 있지 않습니다. 현금 결제를 확인하기 전에 먼저 개시해 주세요.",
     "cashRequiresInStoreQrCode": "현금으로 결제하려면 매장 내 QR 코드를 스캔하여 주문하세요",
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",
     "invalidTable": "테이블 QR 코드가 유효하지 않습니다. 테이블의 QR 코드를 다시 스캔하세요",
@@ -312,6 +313,7 @@
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",
     "alreadyRefunded": "이 주문은 이미 전액 환불되었습니다",
+    "cashDrawerNotOpen": "금전함이 열려 있지 않습니다. 현금을 환불하기 전에 먼저 개시해 주세요.",
     "invalidAmount": "환불 금액을 계산할 수 없습니다. 주문 금액을 확인해 주세요",
     "itemNotInOrder": "환불 품목이 이 주문에 속하지 않습니다",
     "noEcpayTransaction": "이 주문에는 환불할 ECPay 거래가 없습니다",

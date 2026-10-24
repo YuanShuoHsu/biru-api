@@ -236,6 +236,7 @@
     "tableNumber": "桌號 {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "錢櫃尚未開帳，請先開帳再確認現金付款",
     "cashRequiresInStoreQrCode": "現金付款請掃描店內的 QR code 點餐",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",
     "invalidTable": "桌號 QR code 無效，請重新掃描桌上的 QR code",
@@ -312,6 +313,7 @@
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
     "alreadyRefunded": "此訂單已全額退款",
+    "cashDrawerNotOpen": "錢櫃尚未開帳，請先開帳再退還現金",
     "invalidAmount": "退款金額計算異常，請確認訂單金額",
     "itemNotInOrder": "退款品項不屬於此訂單",
     "noEcpayTransaction": "此訂單沒有可退刷的綠界交易",

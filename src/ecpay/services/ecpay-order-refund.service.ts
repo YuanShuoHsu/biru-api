@@ -58,6 +58,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { cashDrawerSession } from '../../db/schema/cash-drawer.js';
 import type { Invoice } from '../../db/schema/invoices.js';
 import { invoice, invoiceAllowance } from '../../db/schema/invoices.js';
 import type { OrderCustomerSnapshot } from '../../db/schema/orders.js';
@@ -184,6 +185,7 @@ export class EcpayOrderRefundService {
   private tRefunds(
     key:
       | 'alreadyRefunded'
+      | 'cashDrawerNotOpen'
       | 'noEcpayTransaction'
       | 'notPaid'
       | 'notRefundable'
@@ -265,13 +267,30 @@ export class EcpayOrderRefundService {
 
       const plan = buildRefundPlan(found, previous, dto.items, this.t);
 
+      if (found.paymentMethod === 'Cash' && plan.amount > 0) {
+        const [openDrawer] = await tx
+          .select({ id: cashDrawerSession.id })
+          .from(cashDrawerSession)
+          .where(
+            and(
+              eq(cashDrawerSession.organizationId, found.sellerId),
+              eq(cashDrawerSession.status, 'open'),
+            ),
+          )
+          .for('share');
+        if (!openDrawer)
+          throw new ConflictException(this.tRefunds('cashDrawerNotOpen'));
+      }
+
+      const channel =
+        plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual';
       const [created] = await tx
         .insert(refund)
         .values({
           id: randomUUID(),
           amount: String(plan.amount),
-          channel:
-            plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual',
+          channel,
+          status: channel === 'manual' ? 'refunded' : 'pending',
           items: plan.items,
           operatorId,
           orderId,
@@ -323,12 +342,6 @@ export class EcpayOrderRefundService {
 
         throw this.toRefundFailure(error);
       }
-    } else {
-      [refunded] = await this.db
-        .update(refund)
-        .set({ status: 'refunded' })
-        .where(eq(refund.id, created.id))
-        .returning();
     }
 
     await this.settle(refunded, found, plan).catch((error) =>
