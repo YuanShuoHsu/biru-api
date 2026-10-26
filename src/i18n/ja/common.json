@@ -252,6 +252,9 @@
     "pickupTooSoon": "この受取時間では準備が間に合いません。別の時間を選択してください",
     "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください"
   },
+  "organizations": {
+    "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。"
+  },
   "points": {
     "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",
     "adjustSelf": "自分のポイントは調整できません",
