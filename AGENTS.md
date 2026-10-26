@@ -7,7 +7,7 @@ This file provides guidance to coding agents (Claude Code, Codex) when working w
 ```bash
 # Development
 pnpm run start:dev       # Start with hot reload
-pnpm run build           # Compile TypeScript to ./dist
+pnpm run build           # Compile TypeScript to ./dist (errors are ANSI-coloured; judge success by the exit code, not by grepping the output)
 pnpm run start:prod      # Run production build
 
 # Testing
@@ -42,6 +42,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 - **Modules**: native ESM (`"type": "module"`); local imports are relative paths ending in `.js`
 - **Auth**: `better-auth` library wrapped in `AuthModule` — handles email/password registration, verification, and Google OAuth
 - **i18n**: `nestjs-i18n` supporting `en`, `ja`, `ko`, `zh-CN`, `zh-TW`; resolved via `lang` query param, `x-lang` header, or `Accept-Language`
+  — `src/generated/i18n.generated.ts` is regenerated only when the app boots, so after adding a key to `src/i18n/*/*.json`, boot the app once before writing the `i18n.t()` call that uses it, or `build` fails on the unknown key
 - **Payments**: ECPay integration (`src/ecpay/`) with AIO checkout and invoice services
 - **Real-time**: Socket.io gateway in `src/events/`
 - **Email**: Nodemailer + Handlebars templates in `src/mails/`
