@@ -3,8 +3,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
+import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+
 export class CreateModifierGroupDto {
   @ApiProperty({
+    ...LOCALIZED_TEXT_SCHEMA,
     description: '群組名稱，如「甜度」「加料」',
     example: { 'zh-TW': '甜度', en: 'Sweetness' },
   })

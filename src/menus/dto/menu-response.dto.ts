@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { LocalizedText } from '../../db/schema/enums.js';
 
+import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+
 export class MenuResponseDto {
   @ApiProperty()
   id: string;
@@ -9,10 +11,10 @@ export class MenuResponseDto {
   @ApiProperty()
   organizationId: string;
 
-  @ApiProperty()
+  @ApiProperty({ ...LOCALIZED_TEXT_SCHEMA })
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
   description: LocalizedText | null;
 
   @ApiPropertyOptional()

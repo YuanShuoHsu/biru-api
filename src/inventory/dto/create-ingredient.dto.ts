@@ -17,10 +17,15 @@ import {
   type BaseUnitCode,
 } from '../../common/constants/units.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
+
+import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class CreateIngredientDto {
-  @ApiProperty({ example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' } })
+  @ApiProperty({
+    ...LOCALIZED_TEXT_SCHEMA,
+    example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' },
+  })
   @IsObject()
   name: LocalizedText;
 

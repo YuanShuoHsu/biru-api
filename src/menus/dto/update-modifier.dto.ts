@@ -8,6 +8,8 @@ import {
   IsOptional,
 } from 'class-validator';
 import type { LocalizedText } from '../../db/schema/enums.js';
+
+import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
 import {
   itemAvailabilityEnum,
   type ItemAvailability,
@@ -15,7 +17,7 @@ import {
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 export class UpdateModifierDto {
-  @ApiPropertyOptional({ description: '選項名稱' })
+  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, description: '選項名稱' })
   @IsOptional()
   @IsObject()
   displayName?: LocalizedText;

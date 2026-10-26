@@ -13,8 +13,13 @@ import {
 
 import type { LocalizedText } from '../../db/schema/enums.js';
 
+import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+
 export class CreateRecipeDto {
-  @ApiProperty({ example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' } })
+  @ApiProperty({
+    ...LOCALIZED_TEXT_SCHEMA,
+    example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' },
+  })
   @IsObject()
   name: LocalizedText;
 
@@ -32,9 +37,9 @@ export class CreateRecipeDto {
   recipeYield?: number;
 
   @ApiPropertyOptional({
+    type: 'array',
+    items: LOCALIZED_TEXT_SCHEMA,
     example: [{ 'zh-TW': '吉利丁片泡冷水軟化，約 5 分鐘。' }],
-    isArray: true,
-    type: Object,
   })
   @IsOptional()
   @IsArray()

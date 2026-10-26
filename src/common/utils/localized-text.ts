@@ -1,3 +1,5 @@
+import type { ApiPropertyOptions } from '@nestjs/swagger';
+
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
@@ -27,3 +29,8 @@ export const isSameLocalizedText = (
     [...left].every(([language, text]) => right.get(language) === text)
   );
 };
+
+export const LOCALIZED_TEXT_SCHEMA = {
+  type: 'object',
+  additionalProperties: { type: 'string' },
+} satisfies ApiPropertyOptions;

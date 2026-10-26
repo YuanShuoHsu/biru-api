@@ -18,7 +18,10 @@ import {
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
-import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
+import {
+  LOCALIZED_TEXT_SCHEMA,
+  emptyLocalizedTextToNull,
+} from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 @ValidatorConstraint({ name: 'isStartsAtBeforeEndsAt' })
@@ -42,6 +45,7 @@ export class CreateBannerDto {
   image: string;
 
   @ApiPropertyOptional({
+    ...LOCALIZED_TEXT_SCHEMA,
     example: { 'zh-TW': '秋季新品上市', en: 'New autumn drinks' },
     nullable: true,
   })
