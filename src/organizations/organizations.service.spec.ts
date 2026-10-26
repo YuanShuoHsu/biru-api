@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -15,19 +15,26 @@ describe('OrganizationsService 團隊介紹', () => {
   let db: DrizzleDB;
   let service: OrganizationsService;
 
+  const owner = { role: 'owner', userId: 'amy' };
+  const bob = { role: 'member', userId: 'bob' };
+  const adminActor = { role: 'admin', userId: 'cat' };
+
   beforeAll(async () => {
     client = new PGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;
-    service = new OrganizationsService(db);
+    service = new OrganizationsService(db, {
+      t: (key: string) => key,
+    } as never);
     await client.exec(`
       insert into organization (id, name, slug, created_at) values
         ('biru', 'Biru', 'biru', now()),
         ('other', 'Other', 'other', now());
       insert into "user" (id, name, email, first_name, last_name, bio) values
         ('amy', 'amy', 'amy@example.com', 'Amy', 'Lin', '咖啡師'),
-        ('bob', 'bob', 'bob@example.com', 'Bob', null, null);
+        ('bob', 'bob', 'bob@example.com', 'Bob', null, null),
+        ('cat', 'cat', 'cat@example.com', 'Cat', null, null);
       insert into team (id, name, organization_id, created_at) values
         ('bar', '吧台', 'biru', now()),
         ('other-bar', '別店吧台', 'other', now());
@@ -37,6 +44,7 @@ describe('OrganizationsService 團隊介紹', () => {
       insert into member (id, organization_id, user_id, role, created_at) values
         ('m-amy', 'biru', 'amy', 'owner', '2026-01-01'),
         ('m-bob', 'biru', 'bob', 'member', '2026-01-02'),
+        ('m-cat', 'biru', 'cat', 'admin', '2026-01-03'),
         ('m-other', 'other', 'amy', 'member', '2026-01-01');
     `);
   }, 60_000);
@@ -54,7 +62,7 @@ describe('OrganizationsService 團隊介紹', () => {
       await service.organizationMembers('biru', { showcasedOnly: true }),
     ).toEqual([]);
 
-    await service.setMemberShowcase('biru', 'm-amy', true);
+    await service.setMemberShowcase('biru', 'm-amy', true, owner);
 
     expect(
       await service.organizationMembers('biru', { showcasedOnly: true }),
@@ -73,8 +81,8 @@ describe('OrganizationsService 團隊介紹', () => {
   });
 
   it('公開的團隊介紹只帶公開欄位，不含停權帳號與停業門市', async () => {
-    await service.setMemberShowcase('biru', 'm-amy', true);
-    await service.setMemberShowcase('biru', 'm-bob', true);
+    await service.setMemberShowcase('biru', 'm-amy', true, owner);
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
     await client.exec(`update "user" set banned = true where id = 'bob'`);
 
     try {
@@ -109,7 +117,7 @@ describe('OrganizationsService 團隊介紹', () => {
   });
 
   it('不帶 showcasedOnly 時列出全部成員，依加入時間排序', async () => {
-    await service.setMemberShowcase('biru', 'm-bob', true);
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
 
     expect(
       (await service.organizationMembers('biru')).map(({ id, showcase }) => ({
@@ -119,16 +127,64 @@ describe('OrganizationsService 團隊介紹', () => {
     ).toEqual([
       { id: 'm-amy', showcase: false },
       { id: 'm-bob', showcase: true },
+      { id: 'm-cat', showcase: false },
     ]);
   });
 
   it('不能設定其他門市的成員', async () => {
     await expect(
-      service.setMemberShowcase('biru', 'm-other', true),
+      service.setMemberShowcase('biru', 'm-other', true, owner),
     ).rejects.toThrow(NotFoundException);
     expect(
       await service.organizationMembers('other', { showcasedOnly: true }),
     ).toEqual([]);
+  });
+
+  it('成員本人可以開啟與關閉自己的公開顯示', async () => {
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([expect.objectContaining({ id: 'm-bob', showcase: true })]);
+
+    await service.setMemberShowcase('biru', 'm-bob', false, bob);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
+  it('owner／admin 不能替其他成員開啟公開顯示', async () => {
+    await expect(
+      service.setMemberShowcase('biru', 'm-bob', true, owner),
+    ).rejects.toThrow(ForbiddenException);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
+  it('owner／admin 可以替其他成員關閉公開顯示', async () => {
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
+    await service.setMemberShowcase('biru', 'm-bob', false, owner);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
+  it('admin 也不能替其他成員開啟、但可以關閉', async () => {
+    await expect(
+      service.setMemberShowcase('biru', 'm-bob', true, adminActor),
+    ).rejects.toThrow(ForbiddenException);
+
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
+    await service.setMemberShowcase('biru', 'm-bob', false, adminActor);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
+  it('一般成員不能更動其他成員的公開顯示', async () => {
+    await expect(
+      service.setMemberShowcase('biru', 'm-amy', false, bob),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('成員異動紀錄以成員的名稱作為標籤', async () => {

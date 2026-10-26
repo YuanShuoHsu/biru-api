@@ -1,4 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
+import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import {
   and,
@@ -28,6 +35,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { getDeletableOrganizationIds } from '../auth/deletion-guards.js';
 import { isAuthorized } from '../auth/permissions.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
@@ -45,7 +53,10 @@ import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.
 
 @Injectable()
 export class OrganizationsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly i18n: I18nService<I18nTranslations>,
+  ) {}
 
   async organizations(params: {
     offset?: number;
@@ -130,7 +141,27 @@ export class OrganizationsService {
     organizationId: string,
     memberId: string,
     showcase: boolean,
+    actor: { role: string; userId: string },
   ): Promise<{ id: string; showcase: boolean }> {
+    const target = await this.db.query.member.findFirst({
+      where: and(
+        eq(member.id, memberId),
+        eq(member.organizationId, organizationId),
+      ),
+      columns: { userId: true },
+    });
+    if (!target) throw new NotFoundException();
+
+    const isSelf = target.userId === actor.userId;
+    if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
+      throw new ForbiddenException();
+    if (showcase && !isSelf)
+      throw new ForbiddenException(
+        this.i18n.t('common.organizations.showcaseOpenSelfOnly', {
+          lang: I18nContext.current()?.lang,
+        }),
+      );
+
     const [updated] = await this.db
       .update(member)
       .set({ showcase })

@@ -252,6 +252,9 @@
     "pickupTooSoon": "This pickup time is too soon to prepare your order. Please choose another time.",
     "statusChanged": "The order status has changed. Refresh and try again."
   },
+  "organizations": {
+    "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section."
+  },
   "points": {
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
