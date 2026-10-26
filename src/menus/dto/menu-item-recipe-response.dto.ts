@@ -1,13 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class MenuItemRecipeResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty({ ...LOCALIZED_TEXT_SCHEMA })
+  @ApiLocalizedTextProperty()
   name: LocalizedText;
 
   @ApiProperty()

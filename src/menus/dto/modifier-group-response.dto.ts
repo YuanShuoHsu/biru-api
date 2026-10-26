@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 import { ModifierResponseDto } from './modifier-response.dto.js';
@@ -12,7 +12,7 @@ export class ModifierGroupResponseDto {
   @ApiProperty()
   menuId: string;
 
-  @ApiProperty({ ...LOCALIZED_TEXT_SCHEMA })
+  @ApiLocalizedTextProperty()
   displayName: LocalizedText;
 
   @ApiProperty({ description: '最少選擇數量；>= 1 代表必選' })

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextPropertyOptional } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class MenuItemAddOnResponseDto {
@@ -13,19 +13,19 @@ export class MenuItemAddOnResponseDto {
   @ApiPropertyOptional()
   addOnMenuItemId: string | null;
 
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   addOnMenuItemName: LocalizedText | null;
 
   @ApiPropertyOptional()
   addOnMenuSectionId: string | null;
 
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   addOnMenuSectionName: LocalizedText | null;
 
   @ApiPropertyOptional()
   addOnMenuItemSectionId: string | null;
 
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   addOnMenuItemSectionName: LocalizedText | null;
 
   @ApiProperty()

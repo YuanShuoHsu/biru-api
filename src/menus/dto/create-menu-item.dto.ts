@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform, Type } from 'class-transformer';
 import {
@@ -13,9 +13,10 @@ import {
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
 import {
-  LOCALIZED_TEXT_SCHEMA,
-  emptyLocalizedTextToNull,
-} from '../../common/utils/localized-text.js';
+  ApiLocalizedTextProperty,
+  ApiLocalizedTextPropertyOptional,
+} from '../../common/decorators/api-localized-text-property.decorator.js';
+import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -44,14 +45,11 @@ const servingTemperatureOrder = (value: ServingTemperature) => {
 };
 
 export class CreateMenuItemDto {
-  @ApiProperty({
-    ...LOCALIZED_TEXT_SCHEMA,
-    example: { 'zh-TW': '拿鐵', en: 'Latte' },
-  })
+  @ApiLocalizedTextProperty({ example: { 'zh-TW': '拿鐵', en: 'Latte' } })
   @IsObject()
   name: LocalizedText;
 
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   @IsOptional()
   @IsObject()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))

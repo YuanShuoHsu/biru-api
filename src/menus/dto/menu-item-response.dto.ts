@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import {
+  ApiLocalizedTextProperty,
+  ApiLocalizedTextPropertyOptional,
+} from '../../common/decorators/api-localized-text-property.decorator.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -39,10 +42,10 @@ export class MenuItemResponseDto {
   })
   orderTicketPrinterId: string | null;
 
-  @ApiProperty({ ...LOCALIZED_TEXT_SCHEMA })
+  @ApiLocalizedTextProperty()
   name: LocalizedText;
 
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   description: LocalizedText | null;
 
   @ApiPropertyOptional()

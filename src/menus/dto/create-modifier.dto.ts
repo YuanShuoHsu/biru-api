@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   IsArray,
@@ -8,7 +8,7 @@ import {
   IsOptional,
 } from 'class-validator';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
   itemAvailabilityEnum,
@@ -17,8 +17,7 @@ import {
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 export class CreateModifierDto {
-  @ApiProperty({
-    ...LOCALIZED_TEXT_SCHEMA,
+  @ApiLocalizedTextProperty({
     description: '選項名稱，如「半糖」「珍珠」',
     example: { 'zh-TW': '半糖', en: 'Half Sugar' },
   })

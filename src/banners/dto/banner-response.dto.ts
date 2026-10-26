@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextPropertyOptional } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class BannerResponseDto {
   @ApiProperty() id: string;
   @ApiProperty({ description: '圖片來源（data URL）' }) image: string;
-  @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, nullable: true })
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
   alt: LocalizedText | null;
   @ApiPropertyOptional({ nullable: true }) url: string | null;
   @ApiProperty() isActive: boolean;

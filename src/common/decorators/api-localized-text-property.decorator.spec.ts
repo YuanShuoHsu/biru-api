@@ -26,7 +26,7 @@ class SchemaController {
   createRecipe() {}
 }
 
-describe('LOCALIZED_TEXT_SCHEMA', () => {
+describe('ApiLocalizedTextProperty', () => {
   it('多語欄位在 OpenAPI 輸出為值為 string 的 map', async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [SchemaController],

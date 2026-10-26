@@ -16,13 +16,12 @@ import {
   UNIT_FACTORS,
   type BaseUnitCode,
 } from '../../common/constants/units.js';
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class CreateIngredientDto {
-  @ApiProperty({
-    ...LOCALIZED_TEXT_SCHEMA,
+  @ApiLocalizedTextProperty({
     example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' },
   })
   @IsObject()

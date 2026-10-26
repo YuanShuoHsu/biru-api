@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
   itemAvailabilityEnum,
@@ -15,7 +15,7 @@ export class ModifierResponseDto {
   @ApiProperty()
   modifierGroupId: string;
 
-  @ApiProperty({ ...LOCALIZED_TEXT_SCHEMA })
+  @ApiLocalizedTextProperty()
   displayName: LocalizedText;
 
   @ApiPropertyOptional({ description: '加價金額；null 代表不影響價格' })
