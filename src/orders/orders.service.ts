@@ -926,7 +926,9 @@ export class OrdersService {
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {
-        const [updated] = await this.runTransition(tx, rule, [current.id]);
+        const {
+          updated: [updated],
+        } = await this.runTransition(tx, rule, [current.id]);
         if (!updated) throw new BadRequestException(this.t('statusChanged'));
 
         results.push(toAdminOrder({ ...current, ...updated }));
@@ -960,6 +962,7 @@ export class OrdersService {
       )
       .returning();
 
+    const lowStock: LowStockReachedEvent[] = [];
     for (const { discountCode, id, sellerId } of updated) {
       if (rule.printsOrderTicket)
         await this.orderTicketService.enqueueOrder(tx, id, sellerId);
@@ -976,16 +979,23 @@ export class OrdersService {
       if (rule.restoresInventory)
         await this.inventoryTransactionsService.restoreAll(id, tx);
 
-      if (rule.consumesInventory)
-        await this.inventoryTransactionsService.consume(id, tx);
+      if (rule.consumesInventory) {
+        const ingredients = await this.inventoryTransactionsService.consume(
+          id,
+          tx,
+        );
+        if (ingredients.length)
+          lowStock.push({ organizationId: sellerId, ingredients });
+      }
     }
 
-    return updated;
+    return { lowStock, updated };
   }
 
   private emitTransitioned(
     rule: OrderTransitionRule,
     orders: { id: string; sellerId: string }[],
+    lowStock: LowStockReachedEvent[] = [],
   ): void {
     for (const { id, sellerId } of orders) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
@@ -997,6 +1007,9 @@ export class OrdersService {
       if (rule.recordsPayment)
         this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: id });
     }
+
+    for (const event of lowStock)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, event);
   }
 
   async updateOrderCustomer(
@@ -1100,7 +1113,10 @@ export class OrdersService {
         current && findTransition('payment', current.orderStatus, toStatus);
       if (!rule) return undefined;
 
-      const [updated] = await this.runTransition(tx, rule, [current.id], {
+      const {
+        lowStock,
+        updated: [updated],
+      } = await this.runTransition(tx, rule, [current.id], {
         set: {
           authorizationNo: body.gwsr || undefined,
           paymentDate: toPaymentDate(body.PaymentDate),
@@ -1113,12 +1129,16 @@ export class OrdersService {
           : undefined,
       });
 
-      return updated && { rule, updated };
+      return updated && { lowStock, rule, updated };
     });
 
     if (!transitioned) return this.classifyUnmatchedPayment(body, succeeded);
 
-    this.emitTransitioned(transitioned.rule, [transitioned.updated]);
+    this.emitTransitioned(
+      transitioned.rule,
+      [transitioned.updated],
+      transitioned.lowStock,
+    );
 
     return 'handled';
   }
@@ -1271,7 +1291,7 @@ export class OrdersService {
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    const cancelled = await this.db.transaction((tx) =>
+    const { updated: cancelled } = await this.db.transaction((tx) =>
       this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
     );
 

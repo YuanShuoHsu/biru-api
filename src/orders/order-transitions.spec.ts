@@ -5,6 +5,7 @@ import type { I18nService } from 'nestjs-i18n';
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
 import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -391,6 +392,38 @@ describe('OrdersService.recordPaymentResult', () => {
       service.recordPaymentResult(paymentBody({ RtnCode: '10100058' })),
     ).resolves.toBe('handled');
     expect(inventory.restoreAll).toHaveBeenCalledWith('o1', expect.anything());
+  });
+
+  it('異常訂單補付款重新扣庫存，跌破門檻的食材在交易後推播', async () => {
+    const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
+    const { emit, inventory, service } = createService({
+      current: problem,
+      updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
+    });
+    const ingredients = [{ id: 'i1', name: { 'zh-TW': '牛奶' } }];
+    inventory.consume.mockResolvedValue(ingredients);
+
+    await expect(service.recordPaymentResult(paymentBody())).resolves.toBe(
+      'handled',
+    );
+    expect(inventory.consume).toHaveBeenCalledWith('o1', expect.anything());
+    expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
+      ingredients,
+      organizationId: 'org',
+    });
+  });
+
+  it('重新扣庫存沒有跌破門檻時不推播', async () => {
+    const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
+    const { emit, inventory, service } = createService({
+      current: problem,
+      updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
+    });
+    inventory.consume.mockResolvedValue([]);
+
+    await service.recordPaymentResult(paymentBody());
+
+    expect(emittedEvents(emit)).not.toContain(LOW_STOCK_REACHED_EVENT);
   });
 
   it('金額不符時不認列', async () => {
