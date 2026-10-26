@@ -169,6 +169,7 @@ export class OrganizationsService {
         and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
       )
       .returning({ id: member.id, showcase: member.showcase });
+    if (!updated) throw new NotFoundException();
 
     return updated;
   }

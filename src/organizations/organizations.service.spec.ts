@@ -17,6 +17,7 @@ describe('OrganizationsService 團隊介紹', () => {
 
   const owner = { role: 'owner', userId: 'amy' };
   const bob = { role: 'member', userId: 'bob' };
+  const adminActor = { role: 'admin', userId: 'cat' };
 
   beforeAll(async () => {
     client = new PGlite();
@@ -32,7 +33,8 @@ describe('OrganizationsService 團隊介紹', () => {
         ('other', 'Other', 'other', now());
       insert into "user" (id, name, email, first_name, last_name, bio) values
         ('amy', 'amy', 'amy@example.com', 'Amy', 'Lin', '咖啡師'),
-        ('bob', 'bob', 'bob@example.com', 'Bob', null, null);
+        ('bob', 'bob', 'bob@example.com', 'Bob', null, null),
+        ('cat', 'cat', 'cat@example.com', 'Cat', null, null);
       insert into team (id, name, organization_id, created_at) values
         ('bar', '吧台', 'biru', now()),
         ('other-bar', '別店吧台', 'other', now());
@@ -42,6 +44,7 @@ describe('OrganizationsService 團隊介紹', () => {
       insert into member (id, organization_id, user_id, role, created_at) values
         ('m-amy', 'biru', 'amy', 'owner', '2026-01-01'),
         ('m-bob', 'biru', 'bob', 'member', '2026-01-02'),
+        ('m-cat', 'biru', 'cat', 'admin', '2026-01-03'),
         ('m-other', 'other', 'amy', 'member', '2026-01-01');
     `);
   }, 60_000);
@@ -124,6 +127,7 @@ describe('OrganizationsService 團隊介紹', () => {
     ).toEqual([
       { id: 'm-amy', showcase: false },
       { id: 'm-bob', showcase: true },
+      { id: 'm-cat', showcase: false },
     ]);
   });
 
@@ -160,6 +164,18 @@ describe('OrganizationsService 團隊介紹', () => {
   it('owner／admin 可以替其他成員關閉公開顯示', async () => {
     await service.setMemberShowcase('biru', 'm-bob', true, bob);
     await service.setMemberShowcase('biru', 'm-bob', false, owner);
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
+  it('admin 也不能替其他成員開啟、但可以關閉', async () => {
+    await expect(
+      service.setMemberShowcase('biru', 'm-bob', true, adminActor),
+    ).rejects.toThrow(ForbiddenException);
+
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
+    await service.setMemberShowcase('biru', 'm-bob', false, adminActor);
     expect(
       await service.organizationMembers('biru', { showcasedOnly: true }),
     ).toEqual([]);
