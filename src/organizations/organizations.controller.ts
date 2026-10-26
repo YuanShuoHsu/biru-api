@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,7 +20,8 @@ import {
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
-import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
+import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
 import { asc, isNull } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
@@ -76,19 +78,25 @@ export class OrganizationsController {
   }
 
   @Patch(':organizationSlug/members/:memberId/showcase')
-  @Roles({ member: ['update'] }, 'organizationSlug')
+  @OrganizationMember('organizationSlug')
   @Audit('member', { param: 'memberId' })
-  @ApiOperation({ summary: '設定成員是否顯示在官網的團隊介紹' })
+  @ApiOperation({
+    summary:
+      '設定成員是否顯示在官網的團隊介紹；只有本人能開啟，owner／admin 只能關閉其他成員',
+  })
   @ApiOkResponse({ type: MemberShowcaseResponseDto })
   setMemberShowcase(
     @Param('memberId') memberId: string,
     @Body() { showcase }: UpdateMemberShowcaseDto,
     @OrganizationId() organizationId: string,
+    @Session() session: UserSession,
+    @Req() req: AuthRequest,
   ): Promise<MemberShowcaseResponseDto> {
     return this.organizationsService.setMemberShowcase(
       organizationId,
       memberId,
       showcase,
+      { role: req.memberRole!, userId: session.user.id },
     );
   }
 

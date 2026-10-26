@@ -252,6 +252,9 @@
     "pickupTooSoon": "这个取餐时间已来不及准备，请重新选择",
     "statusChanged": "订单状态已变更，请刷新后再试"
   },
+  "organizations": {
+    "showcaseOpenSelfOnly": "只有成员本人能开启在团队介绍的公开显示。"
+  },
   "points": {
     "adjustOwnerOnly": "单笔调整超过 {maxPoints} 点，请由门店 owner 操作",
     "adjustSelf": "不能调整自己的点数",

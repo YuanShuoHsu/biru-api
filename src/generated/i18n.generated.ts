@@ -302,6 +302,9 @@ export type I18nTranslations = {
             "pickupTooSoon": string;
             "statusChanged": string;
         };
+        "organizations": {
+            "showcaseOpenSelfOnly": string;
+        };
         "points": {
             "adjustOwnerOnly": string;
             "adjustSelf": string;
