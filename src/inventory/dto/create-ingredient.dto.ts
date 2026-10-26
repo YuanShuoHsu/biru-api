@@ -16,9 +16,8 @@ import {
   UNIT_FACTORS,
   type BaseUnitCode,
 } from '../../common/constants/units.js';
-import type { LocalizedText } from '../../db/schema/enums.js';
-
 import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class CreateIngredientDto {

@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
-
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,

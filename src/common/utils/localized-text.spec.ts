@@ -8,8 +8,8 @@ import {
 import { Test } from '@nestjs/testing';
 
 import { CreateRecipeDto } from '../../inventory/dto/create-recipe.dto.js';
-import { UpdateMenuDto } from '../../menus/dto/update-menu.dto.js';
 import { MenuResponseDto } from '../../menus/dto/menu-response.dto.js';
+import { UpdateMenuDto } from '../../menus/dto/update-menu.dto.js';
 
 @Controller()
 class SchemaController {

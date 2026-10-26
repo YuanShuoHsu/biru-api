@@ -11,9 +11,8 @@ import {
   Min,
 } from 'class-validator';
 
-import type { LocalizedText } from '../../db/schema/enums.js';
-
 import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateRecipeDto {
   @ApiProperty({

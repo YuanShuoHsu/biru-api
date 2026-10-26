@@ -1,9 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
-import type { LocalizedText } from '../../db/schema/enums.js';
-
 import { LOCALIZED_TEXT_SCHEMA } from '../../common/utils/localized-text.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class UpdateModifierGroupDto {
   @ApiPropertyOptional({ ...LOCALIZED_TEXT_SCHEMA, description: '群組名稱' })
