@@ -758,7 +758,14 @@ export class MailsService {
             'mail.daily_sales_digest.peak_hour',
             'mail.daily_sales_digest.refunds',
           ] as const
-        ).map((key) => this.i18n.t(key, translate)),
+        )
+          .filter(
+            (key) =>
+              current.orders > 0 ||
+              (key !== 'mail.daily_sales_digest.average' &&
+                key !== 'mail.daily_sales_digest.peak_hour'),
+          )
+          .map((key) => this.i18n.t(key, translate)),
       },
     ];
     if (topItems.length)
