@@ -172,6 +172,8 @@
     "refunds": "退款：{refundedOrders} 笔",
     "top_items": "热销品项",
     "item": "{name}：{sold} 份",
+    "point_adjustments": "积分人工调整（{count} 笔，合计 {total} 点）",
+    "point_adjustment": "{adjuster} 为 {member} 调整 {points} 点：{reason}",
     "action": "查看运营仪表板",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"

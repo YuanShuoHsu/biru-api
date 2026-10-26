@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import * as schema from '../db/schema/index.js';
 import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
 import { member } from '../db/schema/organizations.js';
+import { pointTransaction } from '../db/schema/points.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { MailsService } from '../mails/mails.service.js';
 
@@ -156,6 +157,92 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
         { name: 'latte', sold: 2 },
         { name: 'mocha', sold: 1 },
       ],
+    });
+  });
+
+  it('昨日的人工補扣點只列在寄給 owner 的摘要裡', async () => {
+    await db.insert(pointTransaction).values([
+      {
+        id: 'adjust-1',
+        adjustedBy: 'admin',
+        createdAt: new Date('2026-10-22T03:00:00Z'),
+        note: '補登漏掉的點數',
+        organizationId: 'org',
+        points: 50,
+        type: 'adjust',
+        userId: 'staff',
+      },
+      {
+        id: 'adjust-2',
+        adjustedBy: 'owner',
+        createdAt: new Date('2026-10-22T05:00:00Z'),
+        note: '誤發收回',
+        organizationId: 'org',
+        points: -20,
+        type: 'adjust',
+        userId: 'staff',
+      },
+      {
+        id: 'adjust-old',
+        adjustedBy: 'admin',
+        createdAt: new Date('2026-10-21T05:00:00Z'),
+        note: '前天',
+        organizationId: 'org',
+        points: 10,
+        type: 'adjust',
+        userId: 'staff',
+      },
+    ]);
+
+    await service.notifyDailySalesDigest(NOW);
+
+    const digests = Object.fromEntries(
+      sendDailySalesDigest.mock.calls.map(([digest]) => [
+        digest.recipient.email,
+        digest,
+      ]),
+    );
+    expect(digests['owner@example.com'].pointAdjustments).toEqual([
+      {
+        adjuster: 'admin',
+        member: 'staff',
+        points: 50,
+        reason: '補登漏掉的點數',
+      },
+      { adjuster: 'owner', member: 'staff', points: -20, reason: '誤發收回' },
+    ]);
+    expect(digests['admin@example.com'].pointAdjustments).toEqual([]);
+  });
+
+  it('昨天沒有訂單但有人工補扣點時，只寄給 owner', async () => {
+    await db.insert(pointTransaction).values({
+      id: 'adjust-other',
+      adjustedBy: 'otherOwner',
+      createdAt: new Date('2026-10-22T03:00:00Z'),
+      note: '活動補點',
+      organizationId: 'other',
+      points: 30,
+      type: 'adjust',
+      userId: 'staff',
+    });
+    await db.insert(member).values({
+      id: 'otherAdmin',
+      organizationId: 'other',
+      userId: 'admin',
+      role: 'admin',
+      createdAt: NOW,
+    });
+
+    await service.notifyDailySalesDigest(NOW);
+
+    const other = sendDailySalesDigest.mock.calls
+      .map(([digest]) => digest)
+      .filter(({ organizationName }) => organizationName === 'other');
+    expect(other).toHaveLength(1);
+    expect(other[0]).toMatchObject({
+      recipient: { email: 'otherOwner@example.com' },
+      current: { orders: 0 },
+      pointAdjustments: [{ adjuster: 'otherOwner', points: 30 }],
     });
   });
 
