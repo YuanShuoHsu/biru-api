@@ -1,62 +1,55 @@
-import { Controller, Get, Post } from '@nestjs/common';
-import {
-  ApiBody,
-  ApiOkResponse,
-  DocumentBuilder,
-  SwaggerModule,
-} from '@nestjs/swagger';
+import { Controller, Get } from '@nestjs/common';
+import { ApiOkResponse, DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 
-import { CreateRecipeDto } from '../../inventory/dto/create-recipe.dto.js';
-import { MenuResponseDto } from '../../menus/dto/menu-response.dto.js';
-import { UpdateMenuDto } from '../../menus/dto/update-menu.dto.js';
+import {
+  ApiLocalizedTextProperty,
+  ApiLocalizedTextPropertyOptional,
+} from './api-localized-text-property.decorator.js';
+
+class LocalizedTextFieldsDto {
+  @ApiLocalizedTextProperty()
+  name: Record<string, string>;
+
+  @ApiLocalizedTextPropertyOptional({ nullable: true })
+  description: Record<string, string> | null;
+
+  @ApiLocalizedTextPropertyOptional({ isArray: true, nullable: true })
+  steps: Record<string, string>[] | null;
+}
 
 @Controller()
-class SchemaController {
+class LocalizedTextFieldsController {
   @Get()
-  @ApiOkResponse({ type: MenuResponseDto })
-  menu() {}
-
-  @Post('menu')
-  @ApiBody({ type: UpdateMenuDto })
-  updateMenu() {}
-
-  @Post('recipe')
-  @ApiBody({ type: CreateRecipeDto })
-  createRecipe() {}
+  @ApiOkResponse({ type: LocalizedTextFieldsDto })
+  find() {}
 }
 
 describe('ApiLocalizedTextProperty', () => {
   it('多語欄位在 OpenAPI 輸出為值為 string 的 map', async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [SchemaController],
+      controllers: [LocalizedTextFieldsController],
     }).compile();
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const { schemas = {} } =
-      SwaggerModule.createDocument(app, new DocumentBuilder().build())
-        .components ?? {};
+    const schema = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder().build(),
+    ).components?.schemas?.LocalizedTextFieldsDto;
+    await app.close();
+
     const localizedText = {
       type: 'object',
       additionalProperties: { type: 'string' },
     };
-
-    expect(schemas.MenuResponseDto).toMatchObject({
+    expect(schema).toMatchObject({
       properties: {
         name: localizedText,
         description: { ...localizedText, nullable: true },
+        steps: { type: 'array', nullable: true, items: localizedText },
       },
+      required: ['name'],
     });
-    expect(schemas.UpdateMenuDto).toMatchObject({
-      properties: { name: localizedText },
-    });
-    expect(schemas.CreateRecipeDto).toMatchObject({
-      properties: {
-        recipeInstructions: { type: 'array', items: localizedText },
-      },
-    });
-
-    await app.close();
   });
 });
