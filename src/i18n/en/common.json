@@ -236,6 +236,7 @@
     "tableNumber": "Table {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "The cash drawer isn't open. Open it before confirming cash payments.",
     "cashRequiresInStoreQrCode": "To pay in cash, please order by scanning the QR code in store.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
@@ -315,6 +316,7 @@
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",
     "alreadyRefunded": "This order has already been fully refunded",
+    "cashDrawerNotOpen": "The cash drawer isn't open. Open it before refunding cash.",
     "invalidAmount": "The refund amount could not be calculated; please check the order total",
     "itemNotInOrder": "The item to refund does not belong to this order",
     "noEcpayTransaction": "This order has no ECPay transaction to refund against",
