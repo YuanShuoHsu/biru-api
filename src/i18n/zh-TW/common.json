@@ -327,6 +327,7 @@
       "waitlistPartySizeUnavailable": "無法受理此用餐人數的候位，請洽現場服務人員。",
       "waitlistPaused": "目前暫停取號，請洽現場服務人員。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中，請勿重複取號。",
+      "waitlistQrRequired": "請掃描門市現場的 QR code 取號。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理頁面。"
     },
     "staff": {
@@ -337,6 +338,7 @@
       "waitlistPartySizeUnavailable": "沒有符合此人數的分組。",
       "waitlistPaused": "目前暫停取號。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中。",
+      "waitlistQrRequired": "顧客須掃描門市現場的 QR code 才能取號。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理。"
     }
   }

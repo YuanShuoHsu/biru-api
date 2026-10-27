@@ -327,6 +327,7 @@
       "waitlistPartySizeUnavailable": "この人数では受付できません。スタッフにお声がけください。",
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
@@ -337,6 +338,7 @@
       "waitlistPartySizeUnavailable": "この人数に該当する区分がありません。",
       "waitlistPaused": "受付を一時停止しています。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

@@ -327,6 +327,7 @@
       "waitlistPartySizeUnavailable": "无法受理此用餐人数的排队，请咨询现场服务人员。",
       "waitlistPaused": "当前暂停取号，请咨询现场服务人员。",
       "waitlistPhoneInQueue": "此电话号码已在排队中，请勿重复取号。",
+      "waitlistQrRequired": "请扫描门店现场的二维码取号。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新页面。"
     },
     "staff": {
@@ -337,6 +338,7 @@
       "waitlistPartySizeUnavailable": "没有符合此人数的分组。",
       "waitlistPaused": "当前暂停取号。",
       "waitlistPhoneInQueue": "此电话号码已在排队中。",
+      "waitlistQrRequired": "顾客须扫描门店现场的二维码才能取号。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新。"
     }
   }

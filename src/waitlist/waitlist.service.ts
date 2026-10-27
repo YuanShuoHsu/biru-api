@@ -38,7 +38,11 @@ import {
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import type { Language } from '../db/schema/enums.js';
-import { organization } from '../db/schema/organizations.js';
+import {
+  organization,
+  organizationQrSecret,
+  organizationSlugHistory,
+} from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
@@ -81,6 +85,12 @@ import {
   conflictError,
   type WaitlistAudience,
 } from './waitlist-errors.js';
+import {
+  isValidWaitlistQrToken,
+  issueWaitlistQrSession,
+  verifyWaitlistQrSession,
+  waitlistQrToken,
+} from './waitlist-qr-token.js';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
@@ -131,6 +141,77 @@ export class WaitlistService {
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
+  }
+
+  private async secretOf(organizationId: string) {
+    const row = await this.db.query.organizationQrSecret.findFirst({
+      where: eq(organizationQrSecret.organizationId, organizationId),
+      columns: { secret: true },
+    });
+    return row?.secret ?? null;
+  }
+
+  private async verifyQrSession(organizationSlug: string, value: unknown) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const secret = await this.secretOf(org.id);
+    return {
+      org,
+      secret,
+      session: verifyWaitlistQrSession(org.id, secret, value),
+    };
+  }
+
+  async scanQr(organizationSlug: string, token: string) {
+    // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+    const [org] = await this.db
+      .select({
+        id: organization.id,
+        secret: organizationQrSecret.secret,
+        slug: organization.slug,
+      })
+      .from(organization)
+      .leftJoin(
+        organizationQrSecret,
+        eq(organizationQrSecret.organizationId, organization.id),
+      )
+      .leftJoin(
+        organizationSlugHistory,
+        eq(organizationSlugHistory.organizationId, organization.id),
+      )
+      .where(
+        or(
+          eq(organization.slug, organizationSlug),
+          eq(organizationSlugHistory.slug, organizationSlug),
+        ),
+      )
+      .limit(1);
+    if (!org) return null;
+
+    return {
+      issued: isValidWaitlistQrToken(org.id, org.secret, token)
+        ? issueWaitlistQrSession(org.id, org.secret)
+        : null,
+      slug: org.slug,
+    };
+  }
+
+  async findQrSession(organizationSlug: string, value: unknown) {
+    const { session } = await this.verifyQrSession(organizationSlug, value);
+    if (!session) throw new NotFoundException('Waitlist QR session not found');
+    return session;
+  }
+
+  async renewQrSession(organizationSlug: string, value: unknown) {
+    const { org, secret, session } = await this.verifyQrSession(
+      organizationSlug,
+      value,
+    );
+    return session ? issueWaitlistQrSession(org.id, secret) : null;
+  }
+
+  async getQrToken(organizationSlug: string) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    return { token: waitlistQrToken(org.id, await this.secretOf(org.id)) };
   }
 
   private async getSettings(
@@ -269,6 +350,7 @@ export class WaitlistService {
     locale: Language,
     idempotencyKey: string | null,
     byStaff: boolean,
+    qrSessionValue?: unknown,
   ): Promise<WaitlistTicketResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -292,6 +374,15 @@ export class WaitlistService {
         settings.holdMinutes,
       );
 
+    if (
+      !byStaff &&
+      !verifyWaitlistQrSession(
+        org.id,
+        await this.secretOf(org.id),
+        qrSessionValue,
+      )
+    )
+      throw badRequestError('waitlistQrRequired', 'guest');
     if (org.closedAt) throw organizationClosedError();
     if (!settings.enabled)
       throw badRequestError('waitlistDisabled', byStaff ? 'staff' : 'guest');
