@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 
@@ -17,7 +17,6 @@ export class SuppliersController {
   @Get()
   @Roles({ purchasing: ['read'] }, 'supplierId')
   @ApiOperation({ summary: '查詢供應商' })
-  @ApiOkResponse({ type: SupplierResponseDto })
   findOne(
     @Param('supplierId') supplierId: string,
   ): Promise<SupplierResponseDto> {

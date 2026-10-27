@@ -35,4 +35,4 @@ export const isSameLocalizedText = (
 };
 
 export const localizedTextSql = (column: Column, lang: Language): SQL =>
-  sql`COALESCE(${column}->>${lang}, ${column}->>${DEFAULT_LANGUAGE})`;
+  sql`COALESCE(${column}->>${lang}, ${column}->>${DEFAULT_LANGUAGE}, ${column}::text)`;
