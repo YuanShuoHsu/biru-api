@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -38,10 +39,10 @@ export class MenuItemResponseDto {
   })
   orderTicketPrinterId: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   description: LocalizedText | null;
 
   @ApiPropertyOptional()

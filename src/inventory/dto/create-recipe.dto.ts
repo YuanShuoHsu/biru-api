@@ -11,10 +11,14 @@ import {
   Min,
 } from 'class-validator';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateRecipeDto {
-  @ApiProperty({ example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' } })
+  @ApiProperty({
+    type: LocalizedTextDto,
+    example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' },
+  })
   @IsObject()
   name: LocalizedText;
 
@@ -32,9 +36,8 @@ export class CreateRecipeDto {
   recipeYield?: number;
 
   @ApiPropertyOptional({
+    type: [LocalizedTextDto],
     example: [{ 'zh-TW': '吉利丁片泡冷水軟化，約 5 分鐘。' }],
-    isArray: true,
-    type: Object,
   })
   @IsOptional()
   @IsArray()

@@ -1,13 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { UNIT_FACTORS } from '../../common/constants/units.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class IngredientResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
-  @ApiProperty() name: LocalizedText;
+  @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
   @ApiPropertyOptional() brand: string | null;
   @ApiPropertyOptional() image: string | null;
   @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })

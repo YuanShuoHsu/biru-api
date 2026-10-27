@@ -1,10 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class UpdateModifierGroupDto {
-  @ApiPropertyOptional({ description: '群組名稱' })
+  @ApiPropertyOptional({ type: LocalizedTextDto, description: '群組名稱' })
   @IsOptional()
   @IsObject()
   displayName?: LocalizedText;

@@ -12,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
   servingTemperatureEnum,
@@ -41,11 +42,14 @@ const servingTemperatureOrder = (value: ServingTemperature) => {
 };
 
 export class CreateMenuItemDto {
-  @ApiProperty({ example: { 'zh-TW': '拿鐵', en: 'Latte' } })
+  @ApiProperty({
+    type: LocalizedTextDto,
+    example: { 'zh-TW': '拿鐵', en: 'Latte' },
+  })
   @IsObject()
   name: LocalizedText;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   @IsOptional()
   @IsObject()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))

@@ -8,6 +8,7 @@ import {
   IsOptional,
 } from 'class-validator';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
   itemAvailabilityEnum,
@@ -17,6 +18,7 @@ import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 export class CreateModifierDto {
   @ApiProperty({
+    type: LocalizedTextDto,
     description: '選項名稱，如「半糖」「珍珠」',
     example: { 'zh-TW': '半糖', en: 'Half Sugar' },
   })
