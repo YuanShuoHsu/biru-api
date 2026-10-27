@@ -43,6 +43,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 - **Auth**: `better-auth` library wrapped in `AuthModule` — handles email/password registration, verification, and Google OAuth
 - **i18n**: `nestjs-i18n` supporting `en`, `ja`, `ko`, `zh-CN`, `zh-TW`; resolved via `lang` query param, `x-lang` header, or `Accept-Language`
   — `src/generated/i18n.generated.ts` is regenerated only when the app boots, so after adding a key to `src/i18n/*/*.json`, boot the app once before writing the `i18n.t()` call that uses it, or `build` fails on the unknown key
+  — the app also watches `dist/i18n` and rewrites that file whenever it changes, so don't run `build` (which empties `dist/`) while the built app is running from the same checkout: it leaves the file almost empty and the next `build` fails on every `i18n.t()` call. Stop the app first, or restore the file with `git checkout`
 - **Payments**: ECPay integration (`src/ecpay/`) with AIO checkout and invoice services
 - **Real-time**: Socket.io gateway in `src/events/`
 - **Email**: Nodemailer + Handlebars templates in `src/mails/`
