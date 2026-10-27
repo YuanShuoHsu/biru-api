@@ -50,25 +50,31 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 ### Module Map
 
-| Module              | Path                 | Purpose                                                           |
-| ------------------- | -------------------- | ----------------------------------------------------------------- |
-| DrizzleModule       | `src/drizzle/`       | **Global** — injects DB instance via `DRIZZLE` token              |
-| AuthModule          | `src/auth/`          | better-auth config, access-control statements, email verification |
-| OrganizationsModule | `src/organizations/` | Organizations (tenants), teams, members                           |
-| UsersModule         | `src/users/`         | User CRUD, admin-only user list with data-grid filters            |
-| MenusModule         | `src/menus/`         | Menus, sections, items, offers, add-ons, modifiers                |
-| OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
-| CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
-| PointsModule        | `src/points/`        | Loyalty point transactions and redemption                         |
-| BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
-| DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
-| GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |
-| EcpayModule         | `src/ecpay/`         | Payment gateway (AIO checkout + invoices)                         |
-| EventsModule        | `src/events/`        | Socket.io gateway (order status / menu updates)                   |
-| MailsModule         | `src/mails/`         | Transactional email sending                                       |
-| AttendanceModule    | `src/attendance/`    | Employees, shifts, punches, leave requests and balances           |
-| PayrollModule       | `src/payroll/`       | Payroll terms, statements, and the official rule-set ingestion    |
-| TasksModule         | `src/tasks/`         | Scheduled jobs: retention purges, notifications, data ingests     |
+| Module               | Path                   | Purpose                                                                 |
+| -------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| DrizzleModule        | `src/drizzle/`         | **Global** — injects DB instance via `DRIZZLE` token                    |
+| AuthModule           | `src/auth/`            | better-auth config, access-control statements, email verification       |
+| OrganizationsModule  | `src/organizations/`   | Organizations (tenants), teams, members                                 |
+| UsersModule          | `src/users/`           | User CRUD, admin-only user list with data-grid filters                  |
+| MenusModule          | `src/menus/`           | Menus, sections, items, offers, add-ons, modifiers                      |
+| OrdersModule         | `src/orders/`          | Order lifecycle, payment recording, menu-item sales reporting           |
+| CouponsModule        | `src/coupons/`         | Coupons, user wallets (`userCoupon`), claim / grant / redeem            |
+| PointsModule         | `src/points/`          | Loyalty point transactions and redemption                               |
+| BannersModule        | `src/banners/`         | Marketing banners (public read + admin CRUD)                            |
+| DonateCodesModule    | `src/donate-codes/`    | Invoice donation code lookup                                            |
+| GcisModule           | `src/gcis/`            | 經濟部商工登記查詢 (business number lookup)                             |
+| EcpayModule          | `src/ecpay/`           | Payment gateway (AIO checkout + invoices)                               |
+| EventsModule         | `src/events/`          | Socket.io gateway (order status / menu updates)                         |
+| MailsModule          | `src/mails/`           | Transactional email sending                                             |
+| AttendanceModule     | `src/attendance/`      | Employees, shifts, punches, leave requests and balances                 |
+| PayrollModule        | `src/payroll/`         | Payroll terms, statements, and the official rule-set ingestion          |
+| TasksModule          | `src/tasks/`           | Scheduled jobs: retention purges, notifications, data ingests           |
+| InventoryModule      | `src/inventory/`       | Suppliers, ingredients, recipes, stock transactions, low-stock alerts   |
+| WaitlistModule       | `src/waitlist/`        | Waitlist settings and tickets                                           |
+| PrintersModule       | `src/printers/`        | Receipt printers and order ticket print jobs (imported by OrdersModule) |
+| AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                   |
+| DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and platform-admin restore           |
+| QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                      |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -88,6 +94,13 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `payroll.ts` — `payrollRuleSet`, `payrollTerms`, `payrollStatement`
 - `banners.ts` — `banner`
 - `invoices.ts` — `invoice`
+- `refunds.ts` — `refund`
+- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt`, `ecpayCallbackLog`
+- `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
+- `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
+- `printers.ts` — `printer`, `orderTicketJob`
+- `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
+- `quant.ts` — `quantBot` and the other `quant*` tables
 - `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
 - `columns.helpers.ts` — shared column builders. Its `timestamps` are `timestamp` **without** time zone;
   the attendance and payroll tables use `withTimezone: true` instead, so don't switch them to the helper.
