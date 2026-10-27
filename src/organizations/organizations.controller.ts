@@ -8,7 +8,6 @@ import {
   Patch,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -18,7 +17,6 @@ import {
 } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
-import { AdminGuard } from '../common/guards/admin.guard.js';
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
 import type { AuthRequest } from '../menus/guards/roles.guard.js';
 import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
@@ -29,7 +27,6 @@ import { organization } from '../db/schema/organizations.js';
 import { OrganizationListQueryDto } from './dto/organization-list-query.dto.js';
 import {
   MemberShowcaseResponseDto,
-  OrganizationMemberResponseDto,
   OrganizationTeamMemberResponseDto,
 } from './dto/organization-member-response.dto.js';
 import { OrganizationResponseDto } from './dto/organization-response.dto.js';
@@ -98,14 +95,5 @@ export class OrganizationsController {
       showcase,
       { role: req.memberRole!, userId: session.user.id },
     );
-  }
-
-  @Get(':id/members')
-  @UseGuards(AdminGuard)
-  @ApiOperation({ summary: '查詢組織成員' })
-  findMembers(
-    @Param('id') id: string,
-  ): Promise<OrganizationMemberResponseDto[]> {
-    return this.organizationsService.organizationMembers(id);
   }
 }
