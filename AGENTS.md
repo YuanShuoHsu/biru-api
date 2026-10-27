@@ -69,7 +69,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | MailsModule         | `src/mails/`         | Transactional email sending                                       |
 | AttendanceModule    | `src/attendance/`    | Employees, shifts, punches, leave requests and balances           |
 | PayrollModule       | `src/payroll/`       | Payroll terms, statements, and the official rule-set ingestion    |
-| TasksModule         | `src/tasks/`         | Cleanup cron (daily 3AM) + payroll rule ingest (daily 4AM)        |
+| TasksModule         | `src/tasks/`         | Scheduled jobs: retention purges, notifications, data ingests     |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -213,9 +213,10 @@ Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes 
 **2. Organization membership** — `member.role`, a pgEnum of `owner | admin | member`
 (`src/db/schema/organizations.ts`). This is the main tenant-scoped mechanism:
 
-- `src/auth/permissions.ts` declares the access-control statements (`coupon`, `menu`, `order`
-  × `create|read|update|delete`) and builds `owner` / `admin` / `member` roles via better-auth's
-  `createAccessControl`. `isAuthorized(role, action)` is the single entry point.
+- `src/auth/permissions.ts` declares one access-control statement per resource (e.g. `menu`,
+  `order`, `cashDrawer`, `revenue`, `payslip`), each listing only the actions it supports, and
+  builds `owner` / `admin` / `member` roles via better-auth's `createAccessControl`.
+  `isAuthorized(role, action)` is the single entry point.
 - `@Roles(action, organizationParam)` (`src/menus/decorators/roles.decorator.ts`) annotates a
   handler, e.g. `@Roles({ order: ['update'] }, 'organizationSlug')`.
 - `RolesGuard` (`src/menus/guards/roles.guard.ts`) is registered **globally** as `APP_GUARD` in
