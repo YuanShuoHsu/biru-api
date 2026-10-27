@@ -125,6 +125,13 @@
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：您 {period} 的班次還沒打下班卡",
+    "title": "請補登下班打卡",
+    "intro": "您在 {organizationName} {period} 的班次有上班打卡，但沒有下班打卡，而且已經超過可以打卡的時間。",
+    "rules": "請送出補打卡申請，填上實際下班時間，以免影響出勤紀錄與薪資計算。",
+    "action": "前往補打卡"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：您的候位號碼 {ticketNumber}",

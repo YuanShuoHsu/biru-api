@@ -125,6 +125,13 @@
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}: {period} 근무의 퇴근 기록이 없습니다",
+    "title": "퇴근 기록을 정정해 주세요",
+    "intro": "{organizationName}에서 {period} 근무의 출근 기록은 있지만 퇴근 기록이 없으며, 기록할 수 있는 시간이 지났습니다.",
+    "rules": "실제 퇴근 시간으로 출퇴근 정정을 신청해 주세요. 근태 기록과 급여 계산에 영향을 줄 수 있습니다.",
+    "action": "출퇴근 정정 신청하기"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}: 대기 번호 {ticketNumber}",

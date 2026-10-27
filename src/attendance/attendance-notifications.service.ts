@@ -1,12 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { and, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import {
   attendanceAnnualLeaveNotice,
   attendanceEmployee,
+  attendanceRequest,
+  attendanceShift,
 } from '../db/schema/attendance.js';
 import { organization } from '../db/schema/organizations.js';
 import { user } from '../db/schema/users.js';
@@ -19,9 +21,12 @@ import {
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
 } from './attendance-notification.events.js';
+import { MAX_DAILY_WORK_SECONDS, punchLeewayMs } from './attendance-rules.js';
+import { AttendanceShiftsService } from './attendance-shifts.service.js';
 import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours.js';
 import { anniversary, annualLeaveLedger } from './leave-rules.js';
 import { reviewerUserIds } from './review-separation.js';
+import { unfinishedShift } from './shift-queries.js';
 
 const REVIEW_PAGES = {
   parentalReturn: '/attendance/leave/parental-returns',
@@ -31,6 +36,8 @@ const REVIEW_PAGES = {
 const MY_REQUESTS_PAGE = '/attendance/mine/requests';
 
 const MY_LEAVE_PAGE = '/attendance/mine/leave';
+
+const MY_SHIFTS_PAGE = '/attendance/mine/shifts';
 
 // 勞基法施行細則 §24 III：取得特休權利之日起 30 日內告知
 const ENTITLEMENT_NOTICE_DAYS = 30;
@@ -42,6 +49,7 @@ export class AttendanceNotificationsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mails: MailsService,
+    private readonly shiftsService: AttendanceShiftsService,
   ) {}
 
   private async context(organizationId: string, employeeId: string) {
@@ -187,6 +195,89 @@ export class AttendanceNotificationsService {
           });
           notified += 1;
         });
+      } catch (error) {
+        this.logger.error(error);
+      }
+    }
+    return notified;
+  }
+
+  async notifyMissingClockOuts(since: Date, now = new Date()) {
+    const scope = and(
+      ne(attendanceShift.status, 'cancelled'),
+      gt(
+        attendanceShift.endsAt,
+        new Date(since.getTime() - MAX_DAILY_WORK_SECONDS * 1000),
+      ),
+      lte(attendanceShift.endsAt, now),
+      unfinishedShift,
+      sql`NOT EXISTS (SELECT 1 FROM ${attendanceRequest} pending
+        WHERE pending.shift_id = ${attendanceShift.id}
+          AND pending.kind = 'correction' AND pending.status = 'pending')`,
+    );
+    const stores = await this.db
+      .selectDistinct({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+      })
+      .from(attendanceShift)
+      .innerJoin(
+        organization,
+        eq(organization.id, attendanceShift.organizationId),
+      )
+      .where(scope);
+
+    let notified = 0;
+    for (const store of stores) {
+      try {
+        const { data } = await this.shiftsService.shifts(
+          { organizationId: store.id, role: 'owner', userId: '' },
+          { limit: 500, sortBy: 'startsAt', sortDirection: 'asc' },
+          false,
+          scope,
+        );
+        const due = data.filter(
+          (shift) =>
+            shift.missingClockOut &&
+            shift.endsAt.getTime() + punchLeewayMs(shift) > since.getTime(),
+        );
+        if (!due.length) continue;
+
+        const recipients = await this.db
+          .select({
+            email: user.email,
+            employeeId: attendanceEmployee.id,
+            lang: user.lang,
+          })
+          .from(attendanceEmployee)
+          .innerJoin(user, eq(user.id, attendanceEmployee.userId))
+          .where(
+            inArray(
+              attendanceEmployee.id,
+              due.map(({ employeeId }) => employeeId),
+            ),
+          );
+
+        for (const shift of due) {
+          const recipient = recipients.find(
+            ({ employeeId }) => employeeId === shift.employeeId,
+          );
+          if (!recipient) continue;
+
+          try {
+            await this.mails.sendMissingClockOut({
+              recipient: { email: recipient.email, lang: recipient.lang },
+              organizationName: store.name,
+              path: `${MY_SHIFTS_PAGE}?organization=${store.slug}`,
+              startsAt: shift.startsAt,
+              endsAt: shift.endsAt,
+            });
+            notified += 1;
+          } catch (error) {
+            this.logger.error(error);
+          }
+        }
       } catch (error) {
         this.logger.error(error);
       }

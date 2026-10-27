@@ -519,6 +519,13 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "missing_clock_out": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "rules": string;
+            "action": string;
+        };
         "waitlist_notification": {
             "joined": {
                 "subject": string;

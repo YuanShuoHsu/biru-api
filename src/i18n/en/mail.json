@@ -125,6 +125,13 @@
     "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}: You haven't clocked out of your {period} shift",
+    "title": "Please submit your clock-out",
+    "intro": "You clocked in for your {period} shift at {organizationName} but never clocked out, and the time to clock out has passed.",
+    "rules": "Please submit a punch correction with the time you actually finished, so your attendance and pay are calculated correctly.",
+    "action": "Submit a punch correction"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}: your waitlist number is {ticketNumber}",

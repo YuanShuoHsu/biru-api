@@ -125,6 +125,13 @@
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：您 {period} 的班次还没打下班卡",
+    "title": "请补登下班打卡",
+    "intro": "您在 {organizationName} {period} 的班次有上班打卡，但没有下班打卡，而且已经超过可以打卡的时间。",
+    "rules": "请提交补打卡申请，填写实际下班时间，以免影响出勤记录与薪资计算。",
+    "action": "前往补打卡"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：您的排队号码 {ticketNumber}",
