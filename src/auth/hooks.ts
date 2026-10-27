@@ -341,6 +341,7 @@ const writeEvent = async (
 const MEMBER_MANAGEMENT_PATHS = new Set([
   '/organization/remove-member',
   '/organization/update-member-role',
+  '/organization/remove-team-member',
 ]);
 
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
@@ -435,12 +436,14 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
       if (MEMBER_MANAGEMENT_PATHS.has(ctx.path)) {
         const session = await getSessionFromCtx(ctx);
         const body = asRow(ctx.body) ?? {};
-        const target =
-          asString(body.memberIdOrEmail) ?? asString(body.memberId);
-        if (session && target)
+        if (session)
           await assertMayManageMember(
-            session.user.role,
-            target,
+            session.user,
+            {
+              memberIdOrEmail:
+                asString(body.memberIdOrEmail) ?? asString(body.memberId),
+              userId: asString(body.userId),
+            },
             asString(body.organizationId) ??
               asString(asRow(session.session)?.activeOrganizationId),
           );

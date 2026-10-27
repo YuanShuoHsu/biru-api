@@ -31,28 +31,38 @@ export const assertKeepsOwner = async (memberId: string) => {
 };
 
 export const assertMayManageMember = async (
-  actorRole: string | null | undefined,
-  memberIdOrEmail: string,
+  actor: { id: string; role?: string | null },
+  target: { memberIdOrEmail?: string; userId?: string },
   organizationId: string | undefined,
 ) => {
-  if (actorRole === 'admin') return;
+  if (actor.role === 'admin' || !organizationId) return;
 
-  const [target] = await authDb()
+  const actorMember = await authDb().query.member.findFirst({
+    where: and(
+      eq(schema.member.organizationId, organizationId),
+      eq(schema.member.userId, actor.id),
+    ),
+    columns: { id: true },
+  });
+  if (!actorMember) return;
+
+  const { memberIdOrEmail, userId } = target;
+  const [found] = await authDb()
     .select({ role: schema.user.role })
     .from(schema.member)
     .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
     .where(
-      memberIdOrEmail.includes('@')
-        ? and(
-            eq(schema.user.email, memberIdOrEmail),
-            organizationId
-              ? eq(schema.member.organizationId, organizationId)
-              : undefined,
-          )
-        : eq(schema.member.id, memberIdOrEmail),
+      and(
+        eq(schema.member.organizationId, organizationId),
+        userId
+          ? eq(schema.member.userId, userId)
+          : memberIdOrEmail?.includes('@')
+            ? eq(schema.user.email, memberIdOrEmail.toLowerCase())
+            : eq(schema.member.id, memberIdOrEmail ?? ''),
+      ),
     )
     .limit(1);
-  if (target?.role === 'admin')
+  if (found?.role === 'admin')
     throw new APIError('FORBIDDEN', {
       message: 'Only a platform admin can remove or change a platform admin',
       code: 'PLATFORM_ADMIN_MEMBER_PROTECTED',

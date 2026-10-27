@@ -94,16 +94,53 @@ describe('assertKeepsOwner', () => {
     await join('m-amy', 'amy', 'owner');
     await join('m-root', 'root', 'owner', true);
 
-    const manage = (actorRole: string, target: string) =>
+    const manage = (
+      actor: { id: string; role: string },
+      target: { memberIdOrEmail?: string; userId?: string },
+      organizationId: string | undefined = 'biru',
+    ) =>
       runInAuthTransaction(db, () =>
-        assertMayManageMember(actorRole, target, 'biru'),
+        assertMayManageMember(actor, target, organizationId),
       );
+    const amy = { id: 'amy', role: 'user' };
 
-    for (const target of ['m-root', 'root@example.com'])
-      await expect(manage('user', target)).rejects.toMatchObject({
+    for (const target of [
+      { memberIdOrEmail: 'm-root' },
+      { memberIdOrEmail: 'ROOT@Example.com' },
+      { userId: 'root' },
+    ])
+      await expect(manage(amy, target)).rejects.toMatchObject({
         body: { code: 'PLATFORM_ADMIN_MEMBER_PROTECTED' },
       });
-    await expect(manage('admin', 'm-root')).resolves.toBeUndefined();
-    await expect(manage('user', 'm-amy')).resolves.toBeUndefined();
+
+    await expect(
+      manage({ id: 'root', role: 'admin' }, { memberIdOrEmail: 'm-root' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      manage(amy, { memberIdOrEmail: 'm-amy' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('不是該店成員或沒有指定門市時交給外掛處理，不透露對方是否為平台管理員', async () => {
+    await join('m-root', 'root', 'owner', true);
+
+    await expect(
+      runInAuthTransaction(db, () =>
+        assertMayManageMember(
+          { id: 'ben', role: 'user' },
+          { memberIdOrEmail: 'm-root' },
+          'biru',
+        ),
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      runInAuthTransaction(db, () =>
+        assertMayManageMember(
+          { id: 'ben', role: 'user' },
+          { memberIdOrEmail: 'm-root' },
+          undefined,
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 });
