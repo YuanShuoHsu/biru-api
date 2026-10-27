@@ -1,6 +1,5 @@
 import {
   DAY_MS,
-  PLATFORM_UTC_OFFSET_MS,
   platformDayNumber,
   toPlatformTime,
 } from '../constants/timezone.js';
@@ -131,7 +130,8 @@ const platformParts = (at: Date) => {
 
 const dayNumberOf = (date: string): number => Date.parse(date) / DAY_MS;
 
-const weekdayOf = (dayNumber: number): Day => DAYS[(dayNumber + 3) % 7];
+const weekdayOf = (dayNumber: number): Day =>
+  DAYS[(((dayNumber + 3) % 7) + 7) % 7];
 
 const isOvernight = ({ startMinutes, endMinutes }: Range): boolean =>
   endMinutes <= startMinutes;
@@ -184,15 +184,9 @@ export interface SpecialOpeningHours {
   validThrough: string;
 }
 
-export interface OpeningSegment {
-  end: Date;
-  start: Date;
-}
-
 export interface OpeningCalendar {
   isOpenAt: (at: Date) => boolean;
   minutesUntilClose: (at: Date) => number;
-  segmentsOn: (date: string) => OpeningSegment[];
 }
 
 export const openingCalendar = (
@@ -235,7 +229,7 @@ export const openingCalendar = (
 
       for (;;) {
         if (
-          platformDayNumber(cursor.getTime()) > lastSpecialDay + 1 &&
+          !(platformDayNumber(cursor.getTime()) <= lastSpecialDay + 1) &&
           hopsPastSpecials++ > weeklyHops
         )
           return Infinity;
@@ -246,23 +240,6 @@ export const openingCalendar = (
         elapsed += minutes;
         cursor = new Date(cursor.getTime() + minutes * 60_000);
       }
-    },
-
-    segmentsOn: (date) => {
-      const dayNumber = dayNumberOf(date);
-      const midnight = dayNumber * DAY_MS - PLATFORM_UTC_OFFSET_MS;
-
-      return schedulesOn(dayNumber)
-        .map((schedule) => ({
-          end: new Date(
-            midnight +
-              (schedule.endMinutes +
-                (isOvernight(schedule) ? MINUTES_PER_DAY : 0)) *
-                60_000,
-          ),
-          start: new Date(midnight + schedule.startMinutes * 60_000),
-        }))
-        .sort((a, b) => a.start.getTime() - b.start.getTime());
     },
   };
 };
