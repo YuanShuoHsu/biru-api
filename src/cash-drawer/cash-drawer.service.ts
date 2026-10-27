@@ -8,7 +8,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { and, asc, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  lt,
+  lte,
+  sql,
+  type Column,
+  type SQL,
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   cashDrawerMovement,
@@ -18,11 +32,16 @@ import {
 } from '../db/schema/cash-drawer.js';
 import { order } from '../db/schema/orders.js';
 import { refund } from '../db/schema/refunds.js';
+import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { platformDateString } from '../common/constants/timezone.js';
+import {
+  buildFilterCondition,
+  buildQuickFilterCondition,
+} from '../common/utils/data-grid-filters.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
 import {
@@ -31,8 +50,17 @@ import {
   isCountedOrder,
 } from '../orders/counted-orders.js';
 
+import {
+  CASH_DRAWER_SESSION_DATE_FILTER_FIELDS,
+  CASH_DRAWER_SESSION_ENUM_FILTER_FIELDS,
+  CASH_DRAWER_SESSION_NUMBER_FILTER_FIELDS,
+  CASH_DRAWER_SESSION_PLAIN_DATE_FILTER_FIELDS,
+  CASH_DRAWER_SESSION_STRING_FILTER_FIELDS,
+  type CashDrawerSessionQueryDto,
+} from './dto/cash-drawer-session-query.dto.js';
 import type {
   CashDrawerSessionDto,
+  CashDrawerSessionListResponseDto,
   CloseCashDrawerDto,
   CreateCashDrawerMovementDto,
   CurrentCashDrawerDto,
@@ -240,6 +268,113 @@ export class CashDrawerService {
       suggestedOpeningFloat,
       varianceTolerance: setting.varianceTolerance,
     };
+  }
+
+  async list(
+    organizationId: string,
+    query: CashDrawerSessionQueryDto = {},
+  ): Promise<CashDrawerSessionListResponseDto> {
+    const {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'desc',
+    } = query;
+
+    const opener = alias(user, 'opener');
+    const closer = alias(user, 'closer');
+    const variance = sql<
+      string | null
+    >`(${cashDrawerSession.countedCash} - ${cashDrawerSession.expectedCash})`;
+
+    const fieldMap: Record<string, Column | SQL> = {
+      openedByName: opener.name,
+      closedByName: closer.name,
+      varianceNote: cashDrawerSession.varianceNote,
+      status: sql`${cashDrawerSession.status}::text`,
+      openingFloat: cashDrawerSession.openingFloat,
+      expectedCash: cashDrawerSession.expectedCash,
+      countedCash: cashDrawerSession.countedCash,
+      variance,
+      retainedFloat: cashDrawerSession.retainedFloat,
+      openedAt: cashDrawerSession.openedAt,
+      closedAt: cashDrawerSession.closedAt,
+      businessDate: cashDrawerSession.businessDate,
+    };
+
+    const dir = sortDirection === 'desc' ? desc : asc;
+    const orderBy = [
+      ...(sortBy ? [dir(fieldMap[sortBy])] : []),
+      desc(cashDrawerSession.openedAt),
+      desc(cashDrawerSession.id),
+    ];
+
+    const where = and(
+      eq(cashDrawerSession.organizationId, organizationId),
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            CASH_DRAWER_SESSION_STRING_FILTER_FIELDS,
+            CASH_DRAWER_SESSION_DATE_FILTER_FIELDS,
+            CASH_DRAWER_SESSION_ENUM_FILTER_FIELDS,
+            CASH_DRAWER_SESSION_NUMBER_FILTER_FIELDS,
+            CASH_DRAWER_SESSION_PLAIN_DATE_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: CASH_DRAWER_SESSION_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ilike(opener.name, `%${value}%`),
+          ilike(closer.name, `%${value}%`),
+          ilike(cashDrawerSession.varianceNote, `%${value}%`),
+        ],
+      }),
+    );
+
+    const [data, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: cashDrawerSession.id,
+          businessDate: cashDrawerSession.businessDate,
+          status: cashDrawerSession.status,
+          openedAt: cashDrawerSession.openedAt,
+          openedByName: opener.name,
+          openingFloat: cashDrawerSession.openingFloat,
+          closedAt: cashDrawerSession.closedAt,
+          closedByName: closer.name,
+          expectedCash: cashDrawerSession.expectedCash,
+          countedCash: cashDrawerSession.countedCash,
+          variance,
+          retainedFloat: cashDrawerSession.retainedFloat,
+          varianceNote: cashDrawerSession.varianceNote,
+        })
+        .from(cashDrawerSession)
+        .leftJoin(opener, eq(opener.id, cashDrawerSession.openedBy))
+        .leftJoin(closer, eq(closer.id, cashDrawerSession.closedBy))
+        .where(where)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(cashDrawerSession)
+        .leftJoin(opener, eq(opener.id, cashDrawerSession.openedBy))
+        .leftJoin(closer, eq(closer.id, cashDrawerSession.closedBy))
+        .where(where),
+    ]);
+
+    return { data, total };
   }
 
   async open(

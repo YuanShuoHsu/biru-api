@@ -127,3 +127,30 @@ export class CurrentCashDrawerDto {
   @ApiProperty({ description: '差額在此金額內可不填說明' })
   varianceTolerance: string;
 }
+
+export class CashDrawerSessionListItemDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ example: '2026-10-23' }) businessDate: string;
+  @ApiProperty({
+    enum: cashDrawerSessionStatusEnum.enumValues,
+    enumName: 'CashDrawerSessionStatus',
+  })
+  status: CashDrawerSessionStatus;
+  @ApiProperty() openedAt: Date;
+  @ApiProperty({ nullable: true }) openedByName: string | null;
+  @ApiProperty() openingFloat: string;
+  @ApiProperty({ nullable: true }) closedAt: Date | null;
+  @ApiProperty({ nullable: true }) closedByName: string | null;
+  @ApiProperty({ nullable: true }) expectedCash: string | null;
+  @ApiProperty({ nullable: true }) countedCash: string | null;
+  @ApiProperty({ nullable: true, description: '實點現金−應有現金' })
+  variance: string | null;
+  @ApiProperty({ nullable: true }) retainedFloat: string | null;
+  @ApiProperty({ nullable: true }) varianceNote: string | null;
+}
+
+export class CashDrawerSessionListResponseDto {
+  @ApiProperty({ type: [CashDrawerSessionListItemDto] })
+  data: CashDrawerSessionListItemDto[];
+  @ApiProperty() total: number;
+}
