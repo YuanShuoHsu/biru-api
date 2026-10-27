@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   HttpException,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
@@ -83,6 +84,7 @@ export const attendanceErrorCodes = [
   'menstrualDayLimit',
   'monthlyOvertimeExceeded',
   'noShifts',
+  'notFound',
   'outsideShiftWindow',
   'occupationalIndustryInvalid',
   'overlappingAttendance',
@@ -166,10 +168,14 @@ export const cancelIrreversibleError = (reason: AttendanceErrorCode) =>
 export const forbiddenError = (code: AttendanceErrorCode) =>
   new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });
 
+export const notFoundError = () =>
+  new NotFoundException({ error: 'Not Found', ...errorBody('notFound') });
+
 export const attendanceErrorCodeOf = (
   error: unknown,
 ): AttendanceErrorCode | undefined => {
-  if (!(error instanceof HttpException)) return undefined;
+  if (!(error instanceof HttpException) || error instanceof NotFoundException)
+    return undefined;
 
   const response = error.getResponse();
   const code =

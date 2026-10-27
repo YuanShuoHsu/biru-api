@@ -73,6 +73,7 @@
     "menstrualDayLimit": "Menstrual leave is limited to one calendar day per month.",
     "monthlyOvertimeExceeded": "This would exceed the monthly overtime limit (46 hours, or 54 hours in an approved extension period).",
     "noShifts": "No shifts exist for this month.",
+    "notFound": "This record was not found. It may have been deleted.",
     "occupationalIndustryInvalid": "This occupational accident insurance industry was not found. Select it again.",
     "outsideShiftWindow": "Clock-in is not available for this shift at this time.",
     "overlappingAttendance": "Another attendance record already covers this period.",

@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -143,7 +144,30 @@ describe('attendance services', () => {
     const { db } = database([[employee], [], [settings], []]);
     await expect(
       new AttendanceShiftsService(db).punch(actor, dto(), '203.0.113.1'),
-    ).rejects.toThrow('Not Found');
+    ).rejects.toThrow('notFound');
+  });
+  it('answers a missing request with a 404 carrying the notFound code', async () => {
+    const { db } = database([[]]);
+    const error: unknown = await requestsService(db)
+      .review({ ...actor, role: 'admin' }, 'missing', {
+        status: 'approved',
+        reason: 'Checked',
+      })
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(NotFoundException);
+    expect((error as NotFoundException).getStatus()).toBe(404);
+    expect((error as NotFoundException).getResponse()).toMatchObject({
+      code: 'notFound',
+    });
+  });
+  it('fails a batch review that names a missing request instead of skipping it', async () => {
+    const { db } = database([[]]);
+    await expect(
+      requestsService(db).reviewBatch(
+        { ...actor, role: 'admin' },
+        { ids: ['missing'], status: 'approved', reason: 'Checked' },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
   it('refuses to end employment before approved leave or a leave case', async () => {
     for (const outside of [

@@ -73,6 +73,7 @@
     "menstrualDayLimit": "생리 휴가는 월 1일로 제한됩니다.",
     "monthlyOvertimeExceeded": "당월 연장 근무 상한(일반 46시간, 동의 기간 54시간)을 초과합니다.",
     "noShifts": "해당 월에 근무 일정이 없습니다.",
+    "notFound": "해당 데이터를 찾을 수 없습니다. 삭제되었을 수 있습니다.",
     "occupationalIndustryInvalid": "이 산재보험 업종을 찾을 수 없습니다. 다시 선택하세요.",
     "outsideShiftWindow": "현재 이 근무의 출근 기록 시간이 아닙니다.",
     "overlappingAttendance": "이 기간에 이미 다른 출근 기록이 있습니다.",
