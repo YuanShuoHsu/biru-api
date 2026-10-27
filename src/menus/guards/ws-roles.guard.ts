@@ -11,6 +11,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Socket } from 'socket.io';
 
+import type { Auth } from '../../auth/index.js';
 import { isAuthorized } from '../../auth/permissions.js';
 import { member } from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
@@ -25,7 +26,7 @@ import {
 export class WsRolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private authService: AuthService,
+    private authService: AuthService<Auth>,
     @Inject(DRIZZLE) private db: DrizzleDB,
   ) {}
 
@@ -51,17 +52,21 @@ export class WsRolesGuard implements CanActivate {
     const userId = session?.user.id;
     if (!userId) throw new WsException('Forbidden');
 
-    const membership = await this.db.query.member.findFirst({
-      where: and(
-        eq(member.organizationId, organizationId),
-        eq(member.userId, userId),
-      ),
-      columns: { role: true },
-    });
+    const role =
+      session.user.role === 'admin'
+        ? ('owner' as const)
+        : (
+            await this.db.query.member.findFirst({
+              where: and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId),
+              ),
+              columns: { role: true },
+            })
+          )?.role;
     if (
-      !membership ||
-      (requiredRoles.action &&
-        !isAuthorized(membership.role, requiredRoles.action))
+      !role ||
+      (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
     )
       throw new WsException('Forbidden');
 

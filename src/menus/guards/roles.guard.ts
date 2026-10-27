@@ -11,6 +11,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
+import type { Auth } from '../../auth/index.js';
 import { isAuthorized } from '../../auth/permissions.js';
 import { organizationReadOnlyError } from '../../common/utils/organization-closure.js';
 import { ingredient, recipe, supplier } from '../../db/schema/inventory.js';
@@ -61,7 +62,7 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private authService: AuthService,
+    private authService: AuthService<Auth>,
     @Inject(DRIZZLE) private db: DrizzleDB,
   ) {}
 
@@ -101,21 +102,23 @@ export class RolesGuard implements CanActivate {
       if (org?.closedAt) throw organizationReadOnlyError(context);
     }
 
-    const membership = await this.db.query.member.findFirst({
-      where: and(
-        eq(member.organizationId, organizationId),
-        eq(member.userId, userId),
-      ),
-      columns: { role: true },
-    });
-    if (!membership) throw new ForbiddenException();
+    const role =
+      session.user.role === 'admin'
+        ? ('owner' as const)
+        : (
+            await this.db.query.member.findFirst({
+              where: and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId),
+              ),
+              columns: { role: true },
+            })
+          )?.role;
+    if (!role) throw new ForbiddenException();
 
-    request.memberRole = membership.role;
+    request.memberRole = role;
 
-    if (
-      requiredRoles.action &&
-      !isAuthorized(membership.role, requiredRoles.action)
-    )
+    if (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
       throw new ForbiddenException();
 
     return true;
