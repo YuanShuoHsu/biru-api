@@ -193,30 +193,34 @@ export class OrganizationsService {
         throw new ForbiddenException();
     }
 
+    const [confirmed] = await this.db
+      .update(member)
+      .set({ joinedAsPlatformAdmin: false })
+      .where(
+        and(
+          eq(member.id, memberId),
+          eq(member.organizationId, organizationId),
+          eq(member.role, 'owner'),
+          eq(member.joinedAsPlatformAdmin, true),
+        ),
+      )
+      .returning();
+    if (confirmed) return confirmed;
+
     const target = await this.db.query.member.findFirst({
       where: and(
         eq(member.id, memberId),
         eq(member.organizationId, organizationId),
       ),
-      columns: { joinedAsPlatformAdmin: true, role: true },
+      columns: { id: true },
     });
     if (!target) throw new NotFoundException();
-    if (target.role !== 'owner' || !target.joinedAsPlatformAdmin)
-      throw new ConflictException(
-        this.i18n.t('common.organizations.notJoinedAsPlatformAdmin', {
-          lang: I18nContext.current()?.lang,
-        }),
-      );
 
-    const [confirmed] = await this.db
-      .update(member)
-      .set({ joinedAsPlatformAdmin: false })
-      .where(
-        and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
-      )
-      .returning();
-
-    return confirmed;
+    throw new ConflictException(
+      this.i18n.t('common.organizations.notJoinedAsPlatformAdmin', {
+        lang: I18nContext.current()?.lang,
+      }),
+    );
   }
 
   async setClosed(

@@ -167,10 +167,10 @@ describe('removeRevokedPlatformAdminMemberships', () => {
     expect(await ids('member')).toEqual(['m-amy', 'm-root-own']);
     expect(await ids('team_member')).toEqual(['tm-amy', 'tm-root-own']);
 
-    const { rows } = await client.query<{ batches: number }>(
-      `select count(distinct batch_id)::int as batches from deleted_record where table_name = 'member'`,
+    const { rows } = await client.query<{ table_name: string }>(
+      `select distinct on (batch_id) table_name from deleted_record order by batch_id, id`,
     );
-    expect(rows[0].batches).toBe(2);
+    expect(rows).toEqual([{ table_name: 'member' }, { table_name: 'member' }]);
   });
 
   it('一般使用者沒有標記的成員資格時什麼都不刪', async () => {

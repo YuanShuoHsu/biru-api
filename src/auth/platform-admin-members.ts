@@ -10,7 +10,7 @@ export const removeRevokedPlatformAdminMemberships = async (userId: string) => {
     where: eq(schema.user.id, userId),
     columns: { role: true },
   });
-  if (!user || user.role?.split(',').includes('admin')) return [];
+  if (!user || user.role === 'admin') return [];
 
   return authDb().transaction(async (tx) => {
     const memberships = await tx.query.member.findMany({
@@ -22,6 +22,7 @@ export const removeRevokedPlatformAdminMemberships = async (userId: string) => {
 
     for (const { id, organizationId } of memberships) {
       await startDeletedRecordBatch(tx);
+      await tx.delete(schema.member).where(eq(schema.member.id, id));
       await tx
         .delete(schema.teamMember)
         .where(
@@ -36,7 +37,6 @@ export const removeRevokedPlatformAdminMemberships = async (userId: string) => {
             ),
           ),
         );
-      await tx.delete(schema.member).where(eq(schema.member.id, id));
     }
 
     return memberships;
