@@ -127,13 +127,6 @@
     "withholdingUnitRequired": "请先填写申报单位资料。",
     "workPermitRequired": "此员工的法定身份须持有有效工作许可，班次或出勤日期不在工作许可期间内。"
   },
-  "cashDrawer": {
-    "alreadyClosedToday": "今天已经结过账。如需再次开账，请先开启交班对账。",
-    "alreadyOpen": "已有开启中的钱柜",
-    "notOpen": "这个钱柜目前没有开启",
-    "retainedExceedsCounted": "留存零用金不能超过实点现金",
-    "varianceNoteRequired": "差额超过门店设置的门槛，请填写说明"
-  },
   "coupons": {
     "alreadyClaimed": "您已领取过此优惠券",
     "codeExists": "此优惠码已存在",
@@ -236,7 +229,6 @@
     "tableNumber": "桌号 {tableNumber}"
   },
   "orders": {
-    "cashDrawerNotOpen": "钱柜尚未开账，请先开账再确认现金付款",
     "cashRequiresInStoreQrCode": "现金付款请扫描店内的二维码点餐",
     "idempotencyConflict": "订单内容已变更，请重新提交。",
     "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
@@ -316,7 +308,6 @@
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
     "alreadyRefunded": "此订单已全额退款",
-    "cashDrawerNotOpen": "钱柜尚未开账，请先开账再退还现金",
     "invalidAmount": "退款金额计算异常，请确认订单金额",
     "itemNotInOrder": "退款品项不属于此订单",
     "noEcpayTransaction": "此订单没有可退刷的绿界交易",

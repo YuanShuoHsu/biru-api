@@ -1667,6 +1667,13 @@
       "when": 1793098989729,
       "tag": "0237_member_joined_as_platform_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1793117389296,
+      "tag": "0238_remove_cash_drawer",
+      "breakpoints": true
     }
   ]
 }

@@ -179,13 +179,6 @@ export type I18nTranslations = {
             "withholdingUnitRequired": string;
             "workPermitRequired": string;
         };
-        "cashDrawer": {
-            "alreadyClosedToday": string;
-            "alreadyOpen": string;
-            "notOpen": string;
-            "retainedExceedsCounted": string;
-            "varianceNoteRequired": string;
-        };
         "coupons": {
             "alreadyClaimed": string;
             "codeExists": string;
@@ -288,7 +281,6 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
-            "cashDrawerNotOpen": string;
             "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
             "invalidTable": string;
@@ -368,7 +360,6 @@ export type I18nTranslations = {
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;
-            "cashDrawerNotOpen": string;
             "invalidAmount": string;
             "itemNotInOrder": string;
             "noEcpayTransaction": string;

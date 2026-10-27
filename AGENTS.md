@@ -60,7 +60,6 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
 | CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
 | PointsModule        | `src/points/`        | Loyalty point transactions and redemption                         |
-| CashDrawerModule    | `src/cash-drawer/`   | Daily cash drawer open / pay-in·out / close with expected cash    |
 | BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
 | DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
 | GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |
@@ -214,7 +213,7 @@ Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes 
 (`src/db/schema/organizations.ts`). This is the main tenant-scoped mechanism:
 
 - `src/auth/permissions.ts` declares one access-control statement per resource (e.g. `menu`,
-  `order`, `cashDrawer`, `revenue`, `payslip`), each listing only the actions it supports, and
+  `order`, `coupon`, `revenue`, `payslip`), each listing only the actions it supports, and
   builds `owner` / `admin` / `member` roles via better-auth's `createAccessControl`.
   `isAuthorized(role, action)` is the single entry point.
 - `@Roles(action, organizationParam)` (`src/menus/decorators/roles.decorator.ts`) annotates a

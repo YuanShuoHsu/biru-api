@@ -1,4 +1,3 @@
-import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -14,7 +13,7 @@ import { EcpayOrderRefundService } from './ecpay-order-refund.service.js';
 
 const ORG = 'org';
 
-describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
+describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   let client: PGlite;
   let service: EcpayOrderRefundService;
 
@@ -44,7 +43,7 @@ describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
 
   beforeEach(async () => {
     await client.exec(
-      'truncate cash_drawer_session, refund, order_item, "order", organization cascade',
+      'truncate refund, order_item, "order", organization cascade',
     );
     await client.query(
       `insert into organization (id, name, slug, created_at) values ($1, 'biru', 'biru', now())`,
@@ -70,38 +69,7 @@ describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
   const refundOf = (orderId: string) =>
     service.refundOrder('biru', orderId, { reasonCode: 'wrongItem' });
 
-  it('錢櫃沒開帳時不能退還現金，也不會留下退款紀錄', async () => {
-    await expect(refundOf('cash')).rejects.toThrow(
-      new ConflictException('common.refunds.cashDrawerNotOpen'),
-    );
-    expect((await client.query('select id from refund')).rows).toEqual([]);
-  });
-
-  const addSession = (id: string, organizationId: string, closed = false) =>
-    client.query(
-      closed
-        ? `insert into cash_drawer_session (id, organization_id, business_date, status, opened_by, opening_float, closed_at, closed_by, counted_cash, expected_cash, retained_float)
-           values ($1, $2, current_date, 'closed', 'amy', 0, now(), 'amy', 0, 0, 0)`
-        : `insert into cash_drawer_session (id, organization_id, business_date, opened_by, opening_float)
-           values ($1, $2, current_date, 'amy', 0)`,
-      [id, organizationId],
-    );
-
-  it('錢櫃已關帳、或只有別家門市開帳時，都不能退還現金', async () => {
-    await client.query(
-      `insert into organization (id, name, slug, created_at) values ('other', 'other', 'other', now())`,
-    );
-    await addSession('closed', ORG, true);
-    await addSession('other', 'other');
-
-    await expect(refundOf('cash')).rejects.toThrow(
-      new ConflictException('common.refunds.cashDrawerNotOpen'),
-    );
-  });
-
-  it('錢櫃開帳中可以退還現金，退款在交易內就是已退款，關帳不會漏算', async () => {
-    await addSession('s1', ORG);
-
+  it('現金的人工退款直接完成退款', async () => {
     await refundOf('cash');
 
     expect(
@@ -109,7 +77,7 @@ describe('EcpayOrderRefundService.refundOrder 現金退款與錢櫃', () => {
     ).toEqual([{ channel: 'manual', status: 'settled', amount: '100.00' }]);
   });
 
-  it('非現金的人工退款不受錢櫃影響', async () => {
+  it('非現金的人工退款也是人工通道', async () => {
     const refunded = await refundOf('twqr');
 
     expect(refunded).toMatchObject({ amount: '100.00', channel: 'manual' });
