@@ -1,23 +1,21 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
 import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
-import {
-  ApiLocalizedTextProperty,
-  ApiLocalizedTextPropertyOptional,
-} from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateMenuDto {
-  @ApiLocalizedTextProperty({
+  @ApiProperty({
+    type: LocalizedTextDto,
     example: { 'zh-TW': '午餐菜單', en: 'Lunch Menu' },
   })
   @IsObject()
   name: LocalizedText;
 
-  @ApiLocalizedTextPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   @IsOptional()
   @IsObject()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))

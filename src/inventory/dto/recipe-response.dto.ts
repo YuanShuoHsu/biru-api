@@ -1,10 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { UNIT_FACTORS } from '../../common/constants/units.js';
-import {
-  ApiLocalizedTextProperty,
-  ApiLocalizedTextPropertyOptional,
-} from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
@@ -12,7 +9,7 @@ export class RecipeIngredientResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() recipeId: string;
   @ApiProperty() ingredientId: string;
-  @ApiLocalizedTextProperty() ingredientName: LocalizedText;
+  @ApiProperty({ type: LocalizedTextDto }) ingredientName: LocalizedText;
   @ApiProperty({ enum: Object.keys(UNIT_FACTORS), enumName: 'UnitCode' })
   unitCode: UnitCode;
   @ApiProperty() requiredQuantity: string;
@@ -31,11 +28,11 @@ export class RecipeResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
   @ApiPropertyOptional() menuItemId: string | null;
-  @ApiLocalizedTextPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   menuItemName: LocalizedText | null;
-  @ApiLocalizedTextProperty() name: LocalizedText;
+  @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
   @ApiProperty() recipeYield: number;
-  @ApiLocalizedTextPropertyOptional({ isArray: true, nullable: true })
+  @ApiPropertyOptional({ type: [LocalizedTextDto], nullable: true })
   recipeInstructions: LocalizedText[] | null;
   @ApiPropertyOptional({
     description:

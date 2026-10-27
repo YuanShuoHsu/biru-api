@@ -18,7 +18,7 @@ import {
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
-import { ApiLocalizedTextPropertyOptional } from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
@@ -42,7 +42,8 @@ export class CreateBannerDto {
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
   image: string;
 
-  @ApiLocalizedTextPropertyOptional({
+  @ApiPropertyOptional({
+    type: LocalizedTextDto,
     example: { 'zh-TW': '秋季新品上市', en: 'New autumn drinks' },
     nullable: true,
   })

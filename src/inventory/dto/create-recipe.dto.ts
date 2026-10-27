@@ -11,14 +11,12 @@ import {
   Min,
 } from 'class-validator';
 
-import {
-  ApiLocalizedTextProperty,
-  ApiLocalizedTextPropertyOptional,
-} from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateRecipeDto {
-  @ApiLocalizedTextProperty({
+  @ApiProperty({
+    type: LocalizedTextDto,
     example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' },
   })
   @IsObject()
@@ -37,8 +35,8 @@ export class CreateRecipeDto {
   @Min(1)
   recipeYield?: number;
 
-  @ApiLocalizedTextPropertyOptional({
-    isArray: true,
+  @ApiPropertyOptional({
+    type: [LocalizedTextDto],
     example: [{ 'zh-TW': '吉利丁片泡冷水軟化，約 5 分鐘。' }],
   })
   @IsOptional()

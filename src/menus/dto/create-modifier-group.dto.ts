@@ -1,11 +1,12 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
-import { ApiLocalizedTextProperty } from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateModifierGroupDto {
-  @ApiLocalizedTextProperty({
+  @ApiProperty({
+    type: LocalizedTextDto,
     description: '群組名稱，如「甜度」「加料」',
     example: { 'zh-TW': '甜度', en: 'Sweetness' },
   })

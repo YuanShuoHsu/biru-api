@@ -1,9 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import {
-  ApiLocalizedTextProperty,
-  ApiLocalizedTextPropertyOptional,
-} from '../../common/decorators/api-localized-text-property.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class MenuSectionResponseDto {
@@ -16,10 +13,10 @@ export class MenuSectionResponseDto {
   @ApiPropertyOptional()
   parentSectionId: string | null;
 
-  @ApiLocalizedTextProperty()
+  @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedText;
 
-  @ApiLocalizedTextPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   description: LocalizedText | null;
 
   @ApiPropertyOptional()
