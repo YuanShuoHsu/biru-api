@@ -247,6 +247,7 @@
     "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください"
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
     "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。"
   },
   "points": {

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -20,6 +21,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import {
+  Member,
   member,
   Organization,
   organization,
@@ -172,6 +174,49 @@ export class OrganizationsService {
     if (!updated) throw new NotFoundException();
 
     return updated;
+  }
+
+  async confirmOwner(
+    organizationId: string,
+    memberId: string,
+    actor: { platformAdmin: boolean; userId: string },
+  ): Promise<Member> {
+    if (!actor.platformAdmin) {
+      const own = await this.db.query.member.findFirst({
+        where: and(
+          eq(member.organizationId, organizationId),
+          eq(member.userId, actor.userId),
+        ),
+        columns: { joinedAsPlatformAdmin: true, role: true },
+      });
+      if (own?.role !== 'owner' || own.joinedAsPlatformAdmin)
+        throw new ForbiddenException();
+    }
+
+    const target = await this.db.query.member.findFirst({
+      where: and(
+        eq(member.id, memberId),
+        eq(member.organizationId, organizationId),
+      ),
+      columns: { joinedAsPlatformAdmin: true, role: true },
+    });
+    if (!target) throw new NotFoundException();
+    if (target.role !== 'owner' || !target.joinedAsPlatformAdmin)
+      throw new ConflictException(
+        this.i18n.t('common.organizations.notJoinedAsPlatformAdmin', {
+          lang: I18nContext.current()?.lang,
+        }),
+      );
+
+    const [confirmed] = await this.db
+      .update(member)
+      .set({ joinedAsPlatformAdmin: false })
+      .where(
+        and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
+      )
+      .returning();
+
+    return confirmed;
   }
 
   async setClosed(

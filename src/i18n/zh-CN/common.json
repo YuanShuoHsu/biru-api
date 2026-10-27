@@ -247,6 +247,7 @@
     "statusChanged": "订单状态已变更，请刷新后再试"
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "这位成员不是以平台管理员身份加入的所有者。",
     "showcaseOpenSelfOnly": "只有成员本人能开启在团队介绍的公开显示。"
   },
   "points": {
