@@ -28,7 +28,7 @@ const MAX_HISTORY_CANDLES = 10_000;
 
 const weightOf = (type: PionexMarketType) => (type === 'PERP' ? 5 : 1);
 
-export const toCandle = (kline: PionexKline): QuantCandleDto => ({
+const toCandle = (kline: PionexKline): QuantCandleDto => ({
   close: Number(kline.close),
   high: Number(kline.high),
   low: Number(kline.low),

@@ -7,7 +7,7 @@ import {
 } from '../pionex/pionex-rest.client.js';
 
 // https://www.pionex.com/docs/api-docs/bot-api/signal
-export interface PionexUserSignal {
+interface PionexUserSignal {
   description?: string;
   signalType: string;
   title: string;
@@ -16,14 +16,14 @@ export interface PionexUserSignal {
 
 // https://www.pionex.com/docs/api-docs/bot-api/smart-copy
 // 文件的回應範例是 snake_case，實際回傳是 camelCase
-export interface PionexSmartCopyCheck {
+interface PionexSmartCopyCheck {
   availableLimit?: string;
   maxInvestment?: string;
   maxLeverage?: string;
   notionalLimit?: string;
 }
 
-export interface PionexSmartCopyPortfolioItem {
+interface PionexSmartCopyPortfolioItem {
   amountLong?: string;
   amountShort?: string;
   fundingFee?: string;
@@ -35,7 +35,7 @@ export interface PionexSmartCopyPortfolioItem {
   totalFeeInQuote?: string;
 }
 
-export interface PionexSmartCopyData {
+interface PionexSmartCopyData {
   currentQuoteAmount?: string;
   fundingFee?: string;
   portfolio?: PionexSmartCopyPortfolioItem[];
@@ -45,7 +45,7 @@ export interface PionexSmartCopyData {
   status: string;
 }
 
-export interface PionexSmartCopyOrder {
+interface PionexSmartCopyOrder {
   buOrderData: PionexSmartCopyData;
   buOrderId: string;
   status: string;
@@ -62,7 +62,7 @@ export interface SmartCopyParams {
   signalType: string;
 }
 
-export interface SignalPush {
+interface SignalPush {
   action: 'buy' | 'sell';
   contracts: string;
   positionSize: string;

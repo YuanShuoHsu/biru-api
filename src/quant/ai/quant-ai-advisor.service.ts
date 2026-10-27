@@ -33,8 +33,8 @@ import {
 } from './ai-model.js';
 import { QuantAiKeyService } from './quant-ai-key.service.js';
 
-export const AI_DECISION_EVENT = 'ai_decision';
-export const AI_REFUSAL_EVENT = 'ai_refusal';
+const AI_DECISION_EVENT = 'ai_decision';
+const AI_REFUSAL_EVENT = 'ai_refusal';
 
 const MAX_TOKENS = 16_000;
 const RECENT_DECISIONS = 8;

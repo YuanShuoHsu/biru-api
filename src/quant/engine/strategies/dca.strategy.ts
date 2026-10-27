@@ -22,7 +22,7 @@ export const safetyDeviation = (
     (_, index) => priceDeviation * stepScale ** index,
   ).reduce((sum, value) => sum + value, 0);
 
-export const safetyAmount = (
+const safetyAmount = (
   { safetyOrderAmount, volumeScale }: DcaConfigDto,
   n: number,
 ) => safetyOrderAmount * volumeScale ** (n - 1);

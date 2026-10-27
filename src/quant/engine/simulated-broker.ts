@@ -4,7 +4,7 @@ import type { PionexMarketType } from '../pionex/pionex.types.js';
 import { PIONEX_FEE_RATES } from './fee-rates.js';
 import type { BotFill, OrderSide } from './types.js';
 
-export interface MarketQuote {
+interface MarketQuote {
   /** 回傳成交均價；沒有報價或深度不足以成交全部數量時回傳 null */
   averagePrice(
     side: OrderSide,

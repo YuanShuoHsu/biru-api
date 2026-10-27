@@ -57,7 +57,7 @@ const directionalStrategy = (
   }
 };
 
-export interface StrategyExtras {
+interface StrategyExtras {
   advisor?: AiAdvisor;
 }
 

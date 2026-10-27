@@ -3,13 +3,13 @@ import { Logger } from '@nestjs/common';
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30 * 1000;
 
-export interface PionexSubscription {
+interface PionexSubscription {
   extra?: Record<string, unknown>;
   symbol?: string;
   topic: string;
 }
 
-export interface PionexSocketMessage {
+interface PionexSocketMessage {
   code?: string;
   data?: unknown;
   op?: string;
