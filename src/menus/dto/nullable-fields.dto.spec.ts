@@ -51,6 +51,12 @@ const schemasOf = async () => {
 };
 
 describe('menu DTO fields cleared with null', () => {
+  let schemas: Awaited<ReturnType<typeof schemasOf>>;
+
+  beforeAll(async () => {
+    schemas = await schemasOf();
+  });
+
   it.each([
     [UpdateMenuDto, { image: null }],
     [UpdateMenuSectionDto, { image: null }],
@@ -82,8 +88,7 @@ describe('menu DTO fields cleared with null', () => {
     [CreateOfferDto, 'priceSpecification'],
     [CreateModifierDto, 'priceAdjustment'],
     [UpdateModifierDto, 'priceAdjustment'],
-  ] as const)('%o.%s is documented as nullable', async (cls, property) => {
-    const schemas = await schemasOf();
+  ] as const)('%o.%s is documented as nullable', (cls, property) => {
     expect(schemas[cls.name].properties[property].nullable).toBe(true);
   });
 });
