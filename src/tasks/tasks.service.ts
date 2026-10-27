@@ -149,6 +149,26 @@ export class TasksService {
     }
   }
 
+  private lastMissingClockOutCheck = new Date();
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { disabled: !CRON_ENABLED })
+  async handleMissingClockOutCron() {
+    const since = this.lastMissingClockOutCheck;
+    this.lastMissingClockOutCheck = new Date();
+
+    try {
+      const notified =
+        await this.attendanceNotificationsService.notifyMissingClockOuts(
+          since,
+          this.lastMissingClockOutCheck,
+        );
+
+      if (notified) this.logger.log(`寄出 ${notified} 封補打下班卡提醒`);
+    } catch (error) {
+      this.logger.error('寄送補打下班卡提醒失敗', error);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
     disabled: !CRON_ENABLED,
     timeZone: PLATFORM_TIMEZONE,

@@ -125,6 +125,13 @@
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：{period} のシフトの退勤打刻がありません",
+    "title": "退勤打刻を修正してください",
+    "intro": "{organizationName} の {period} のシフトで出勤打刻はありますが、退勤打刻がなく、打刻できる時間を過ぎています。",
+    "rules": "実際の退勤時刻で打刻修正を申請してください。勤怠記録と給与計算に影響する場合があります。",
+    "action": "打刻修正を申請する"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：順番待ち番号 {ticketNumber}",

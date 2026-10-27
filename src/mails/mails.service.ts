@@ -599,6 +599,61 @@ export class MailsService {
     });
   }
 
+  public async sendMissingClockOut({
+    recipient: { email, lang },
+    organizationName,
+    path,
+    startsAt,
+    endsAt,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    path: string;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const translate = {
+      args: {
+        organizationName,
+        period: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          hourCycle: 'h23',
+          timeStyle: 'short',
+          timeZone: PLATFORM_TIMEZONE,
+        }).formatRange(startsAt, endsAt),
+        productName,
+      },
+      lang,
+    };
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: this.i18n.t('mail.missing_clock_out.subject', translate),
+      template: 'attendance-notification',
+      context: {
+        action: this.i18n.t('mail.missing_clock_out.action', options),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.missing_clock_out.intro', translate),
+        productName,
+        reason: this.i18n.t('mail.missing_clock_out.rules', options),
+        salutation: this.i18n.t(
+          'mail.attendance_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.missing_clock_out.title', translate),
+        trouble_hint: this.i18n.t(
+          'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
   public async sendLowStockDigest({
     recipient: { email, lang },
     organizationName,
