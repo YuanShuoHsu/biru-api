@@ -82,14 +82,15 @@ describe('RolesGuard', () => {
     expect(request.organizationId).toBe('org');
   });
 
-  it('keeps a platform admin who is a member at their member role', async () => {
-    const { context } = contextFor({ organization: ['update'] });
+  it('lets a platform admin who is a lower-role member act as the owner', async () => {
+    const { context, request } = contextFor({ organization: ['update'] });
 
     await expect(
       guardFor({ userRole: 'admin', memberRole: 'member' }).canActivate(
         context,
       ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).resolves.toBe(true);
+    expect(request.memberRole).toBe('owner');
   });
 
   it('rejects a user who is not a member', async () => {

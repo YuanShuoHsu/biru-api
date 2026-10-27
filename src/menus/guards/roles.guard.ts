@@ -102,16 +102,18 @@ export class RolesGuard implements CanActivate {
       if (org?.closedAt) throw organizationReadOnlyError(context);
     }
 
-    const membership = await this.db.query.member.findFirst({
-      where: and(
-        eq(member.organizationId, organizationId),
-        eq(member.userId, userId),
-      ),
-      columns: { role: true },
-    });
     const role =
-      membership?.role ??
-      (session.user.role === 'admin' ? ('owner' as const) : undefined);
+      session.user.role === 'admin'
+        ? ('owner' as const)
+        : (
+            await this.db.query.member.findFirst({
+              where: and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId),
+              ),
+              columns: { role: true },
+            })
+          )?.role;
     if (!role) throw new ForbiddenException();
 
     request.memberRole = role;

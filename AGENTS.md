@@ -232,7 +232,7 @@ When adding a tenant-scoped route whose param isn't already covered, extend both
 
 **Role hierarchy** — every role holds all features and notifications of the roles below it:
 platform admin ⊇ `owner` ⊇ `admin` ⊇ `member`. A platform admin counts as `owner` in every
-organization without a `member` row. When a feature or notification is limited to a role, also
+organization, whatever their own `member` row says. When a feature or notification is limited to a role, also
 give it to every role above, and never grant a lower role something a higher one lacks.
 `permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`;
 `RolesGuard` and `WsRolesGuard` apply the platform-admin step, the notification recipients don't yet.

@@ -52,16 +52,18 @@ export class WsRolesGuard implements CanActivate {
     const userId = session?.user.id;
     if (!userId) throw new WsException('Forbidden');
 
-    const membership = await this.db.query.member.findFirst({
-      where: and(
-        eq(member.organizationId, organizationId),
-        eq(member.userId, userId),
-      ),
-      columns: { role: true },
-    });
     const role =
-      membership?.role ??
-      (session.user.role === 'admin' ? ('owner' as const) : undefined);
+      session.user.role === 'admin'
+        ? ('owner' as const)
+        : (
+            await this.db.query.member.findFirst({
+              where: and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId),
+              ),
+              columns: { role: true },
+            })
+          )?.role;
     if (
       !role ||
       (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
