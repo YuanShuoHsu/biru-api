@@ -172,6 +172,8 @@
     "refunds": "退款：{refundedOrders} 筆",
     "top_items": "熱銷品項",
     "item": "{name}：{sold} 份",
+    "point_adjustments": "點數人工調整（{count} 筆，合計 {total} 點）",
+    "point_adjustment": "{adjuster} 為 {member} 調整 {points} 點：{reason}",
     "action": "查看營運儀表板",
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"

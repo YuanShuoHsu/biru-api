@@ -1,12 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { and, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { isAuthorized } from '../auth/permissions.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { order } from '../db/schema/orders.js';
 import { member, organization } from '../db/schema/organizations.js';
+import { pointTransaction } from '../db/schema/points.js';
 import { user } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MailsService } from '../mails/mails.service.js';
@@ -33,20 +35,42 @@ export class OrderNotificationsService {
     const until = new Date(platformMidnight(now.getTime()));
     const since = new Date(until.getTime() - DAY_MS);
 
+    const adjustedYesterday = and(
+      eq(pointTransaction.type, 'adjust'),
+      gte(pointTransaction.createdAt, utcTimestampParam(since)),
+      lt(pointTransaction.createdAt, utcTimestampParam(until)),
+    );
+
     const sellers = await this.db
-      .selectDistinct({
+      .select({
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
         currency: organization.currency,
       })
-      .from(order)
-      .innerJoin(organization, eq(organization.id, order.sellerId))
+      .from(organization)
       .where(
-        and(
-          isCountedOrder,
-          gte(COUNTED_AT, utcTimestampParam(since)),
-          lt(COUNTED_AT, utcTimestampParam(until)),
+        or(
+          inArray(
+            organization.id,
+            this.db
+              .select({ id: order.sellerId })
+              .from(order)
+              .where(
+                and(
+                  isCountedOrder,
+                  gte(COUNTED_AT, utcTimestampParam(since)),
+                  lt(COUNTED_AT, utcTimestampParam(until)),
+                ),
+              ),
+          ),
+          inArray(
+            organization.id,
+            this.db
+              .select({ id: pointTransaction.organizationId })
+              .from(pointTransaction)
+              .where(adjustedYesterday),
+          ),
         ),
       );
     if (!sellers.length) return 0;
@@ -74,6 +98,21 @@ export class OrderNotificationsService {
         ),
       );
 
+    const adjuster = alias(user, 'adjuster');
+    const adjustments = await this.db
+      .select({
+        organizationId: pointTransaction.organizationId,
+        adjuster: adjuster.name,
+        member: user.name,
+        points: pointTransaction.points,
+        reason: pointTransaction.note,
+      })
+      .from(pointTransaction)
+      .innerJoin(user, eq(user.id, pointTransaction.userId))
+      .leftJoin(adjuster, eq(adjuster.id, pointTransaction.adjustedBy))
+      .where(adjustedYesterday)
+      .orderBy(asc(pointTransaction.createdAt));
+
     let notified = 0;
     for (const seller of sellers) {
       const recipients = members.filter(
@@ -99,8 +138,19 @@ export class OrderNotificationsService {
             this.menuItemSales.querySales(seller.id, since, until),
           ]);
         const peakOrders = Math.max(...hourlyOrders);
+        const sellerAdjustments = adjustments.flatMap(
+          ({ organizationId, ...adjustment }) =>
+            organizationId === seller.id ? [adjustment] : [],
+        );
 
         for (const recipient of recipients) {
+          const pointAdjustments = recipient.role
+            .split(',')
+            .some((role) => role.trim() === 'owner')
+            ? sellerAdjustments
+            : [];
+          if (!buckets[0].orders && !pointAdjustments.length) continue;
+
           try {
             await this.mails.sendDailySalesDigest({
               recipient,
@@ -120,6 +170,7 @@ export class OrderNotificationsService {
                 hour: hourlyOrders.indexOf(peakOrders),
                 orders: peakOrders,
               },
+              pointAdjustments,
               refundedOrders,
               topItems: sales
                 .filter(({ sold }) => sold > 0)

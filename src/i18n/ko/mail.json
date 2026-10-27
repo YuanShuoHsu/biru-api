@@ -172,6 +172,8 @@
     "refunds": "환불: {refundedOrders}건",
     "top_items": "인기 메뉴",
     "item": "{name}: {sold}개",
+    "point_adjustments": "포인트 수동 조정({count}건, 합계 {total}포인트)",
+    "point_adjustment": "{adjuster}님이 {member}님의 포인트를 {points} 조정: {reason}",
     "action": "대시보드 열기",
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."

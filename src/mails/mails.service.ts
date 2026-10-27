@@ -699,6 +699,7 @@ export class MailsService {
     current,
     previous,
     peakHour,
+    pointAdjustments,
     refundedOrders,
     topItems,
   }: {
@@ -710,6 +711,12 @@ export class MailsService {
     current: { orders: number; revenue: number };
     previous: { orders: number; revenue: number };
     peakHour: { hour: number; orders: number };
+    pointAdjustments: {
+      adjuster: string | null;
+      member: string;
+      points: number;
+      reason: string | null;
+    }[];
     refundedOrders: number;
     topItems: { name: string; sold: number }[];
   }): Promise<void> {
@@ -751,7 +758,14 @@ export class MailsService {
             'mail.daily_sales_digest.peak_hour',
             'mail.daily_sales_digest.refunds',
           ] as const
-        ).map((key) => this.i18n.t(key, translate)),
+        )
+          .filter(
+            (key) =>
+              current.orders > 0 ||
+              (key !== 'mail.daily_sales_digest.average' &&
+                key !== 'mail.daily_sales_digest.peak_hour'),
+          )
+          .map((key) => this.i18n.t(key, translate)),
       },
     ];
     if (topItems.length)
@@ -764,6 +778,31 @@ export class MailsService {
           }),
         ),
       });
+    if (pointAdjustments.length) {
+      const signed = new Intl.NumberFormat(lang, { signDisplay: 'always' });
+      groups.push({
+        heading: this.i18n.t('mail.daily_sales_digest.point_adjustments', {
+          args: {
+            count: pointAdjustments.length,
+            total: signed.format(
+              pointAdjustments.reduce((sum, { points }) => sum + points, 0),
+            ),
+          },
+          lang,
+        }),
+        items: pointAdjustments.map(({ adjuster, member, points, reason }) =>
+          this.i18n.t('mail.daily_sales_digest.point_adjustment', {
+            args: {
+              adjuster: adjuster ?? '—',
+              member,
+              points: signed.format(points),
+              reason: reason ?? '',
+            },
+            lang,
+          }),
+        ),
+      });
+    }
 
     await this.mailerService.sendMail({
       to: email,

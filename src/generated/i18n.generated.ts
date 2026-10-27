@@ -573,6 +573,8 @@ export type I18nTranslations = {
             "refunds": string;
             "top_items": string;
             "item": string;
+            "point_adjustments": string;
+            "point_adjustment": string;
             "action": string;
             "salutation": string;
             "trouble_hint": string;

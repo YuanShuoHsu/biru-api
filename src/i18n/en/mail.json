@@ -172,6 +172,8 @@
     "refunds": "Refunded orders: {refundedOrders}",
     "top_items": "Best sellers",
     "item": "{name}: {sold} sold",
+    "point_adjustments": "Manual point adjustments ({count}, {total} points in total)",
+    "point_adjustment": "{adjuster} adjusted {member} by {points} points: {reason}",
     "action": "Open the dashboard",
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."

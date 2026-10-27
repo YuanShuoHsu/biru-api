@@ -172,6 +172,8 @@
     "refunds": "返金：{refundedOrders} 件",
     "top_items": "売れ筋商品",
     "item": "{name}：{sold} 点",
+    "point_adjustments": "ポイントの手動調整（{count} 件、合計 {total} ポイント）",
+    "point_adjustment": "{adjuster} が {member} のポイントを {points} 調整：{reason}",
     "action": "ダッシュボードを開く",
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
