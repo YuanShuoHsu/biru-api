@@ -23,9 +23,11 @@ export type I18nTranslations = {
         "ORGANIZATION_CLOSED": string;
         "ORGANIZATION_HAS_BUSINESS_RECORDS": string;
         "ORGANIZATION_NOT_FOUND": string;
+        "ORGANIZATION_REQUIRES_AN_OWNER": string;
         "ORGANIZATION_SLUG_ALREADY_TAKEN": string;
         "PASSWORD_TOO_LONG": string;
         "PHONE_NUMBER_ALREADY_EXISTS": string;
+        "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
         "UNAUTHORIZED": string;

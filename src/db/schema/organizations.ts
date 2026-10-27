@@ -144,6 +144,9 @@ export const member = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     role: memberRoleEnum('role').default('member').notNull(),
     showcase: boolean('showcase').default(false).notNull(),
+    joinedAsPlatformAdmin: boolean('joined_as_platform_admin')
+      .default(false)
+      .notNull(),
     createdAt: timestamp('created_at').notNull(),
   },
   (table) => [

@@ -25,6 +25,7 @@ import { assertOrganizationDeletable } from './deletion-guards.js';
 import { cancelExpiredInvitations } from './expired-invitations.js';
 import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
+import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
@@ -282,6 +283,11 @@ export const createAuth = (
               });
             }
           },
+          beforeRemoveMember: ({ member }) => assertKeepsOwner(member.id),
+          beforeUpdateMemberRole: async ({ member, newRole }) => {
+            if (!newRole.split(',').includes('owner'))
+              await assertKeepsOwner(member.id);
+          },
           beforeCreateInvitation: async ({ invitation, organization }) => {
             await cancelExpiredInvitations(organization.id, invitation.email);
           },
@@ -376,6 +382,12 @@ export const createAuth = (
           member: {
             additionalFields: {
               showcase: {
+                type: 'boolean',
+                required: false,
+                defaultValue: false,
+                input: false,
+              },
+              joinedAsPlatformAdmin: {
                 type: 'boolean',
                 required: false,
                 defaultValue: false,
