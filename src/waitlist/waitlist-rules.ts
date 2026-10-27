@@ -1,7 +1,4 @@
-import {
-  getMinutesUntilClose,
-  isWithinOpeningHours,
-} from '../common/utils/opening-hours.js';
+import type { OpeningCalendar } from '../common/utils/opening-hours.js';
 import type {
   WaitlistGroup,
   WaitlistTicket,
@@ -83,14 +80,14 @@ export const formatTicketNumber = (prefix: string, number: number): string =>
   `${prefix}${String(number).padStart(3, '0')}`;
 
 export const getAvailability = (
-  openingHours: string | null,
+  calendar: OpeningCalendar,
   cutoffMinutes: number,
   at: Date,
 ): { cutoff: boolean; open: boolean } => {
-  const open = isWithinOpeningHours(openingHours, at);
+  const open = calendar.isOpenAt(at);
 
   return {
-    cutoff: open && getMinutesUntilClose(openingHours, at) < cutoffMinutes,
+    cutoff: open && calendar.minutesUntilClose(at) < cutoffMinutes,
     open,
   };
 };

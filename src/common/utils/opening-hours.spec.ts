@@ -1,10 +1,13 @@
 import {
-  getMinutesUntilClose,
   isValidOpeningHours,
   isWithinOpeningHours,
+  openingCalendar,
 } from './opening-hours.js';
 
 const at = (local: string) => new Date(`${local}+08:00`);
+
+const getMinutesUntilClose = (value: string | null, time: Date) =>
+  openingCalendar(value, []).minutesUntilClose(time);
 
 describe('opening hours', () => {
   const hours = 'Mo-Fr 09:00-18:00\nSa 10:00-14:00';
@@ -149,5 +152,127 @@ describe('opening hours', () => {
 
     expect(isValidOpeningHours(ranges(100))).toBe(true);
     expect(isValidOpeningHours(ranges(101))).toBe(false);
+  });
+});
+
+describe('opening calendar', () => {
+  const weekly = 'Mo-Fr 09:00-18:00\nSa 10:00-14:00';
+
+  it('follows the week on days without a special entry', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: null,
+        validFrom: '2026-09-02',
+        validThrough: '2026-09-02',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-08-31T09:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-08-31T18:00'))).toBe(false);
+    expect(calendar.minutesUntilClose(at('2026-08-31T09:00'))).toBe(9 * 60);
+    expect(calendar.segmentsOn('2026-09-05')).toEqual([
+      { end: at('2026-09-05T14:00'), start: at('2026-09-05T10:00') },
+    ]);
+  });
+
+  it('closes the whole day for a special entry without hours', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: null,
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-02',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-09-01T10:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-02T10:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-03T10:00'))).toBe(true);
+    expect(calendar.minutesUntilClose(at('2026-09-01T10:00'))).toBe(0);
+    expect(calendar.segmentsOn('2026-09-01')).toEqual([]);
+  });
+
+  it('replaces the week with the special hours', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: 'Mo-Su 10:00-15:00',
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-01',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-09-01T09:30'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-01T14:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-09-01T16:00'))).toBe(false);
+    expect(calendar.minutesUntilClose(at('2026-09-01T14:00'))).toBe(60);
+    expect(calendar.segmentsOn('2026-09-01')).toEqual([
+      { end: at('2026-09-01T15:00'), start: at('2026-09-01T10:00') },
+    ]);
+  });
+
+  it('closes the weekdays a special entry does not list', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: 'Sa-Su 11:00-13:00',
+        validFrom: '2026-09-05',
+        validThrough: '2026-09-08',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-09-05T10:30'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-05T12:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-09-06T12:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-09-07T12:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-08T12:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-09T12:00'))).toBe(true);
+    expect(calendar.segmentsOn('2026-09-07')).toEqual([]);
+  });
+
+  it('runs the overnight tail of the day before into a special day', () => {
+    const calendar = openingCalendar('Mo-Su 22:00-02:00', [
+      {
+        openingHours: null,
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-01',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-09-01T01:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-09-01T23:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-02T01:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-02T23:00'))).toBe(true);
+    expect(calendar.minutesUntilClose(at('2026-08-31T23:00'))).toBe(180);
+    expect(calendar.segmentsOn('2026-08-31')).toEqual([
+      { end: at('2026-09-01T02:00'), start: at('2026-08-31T22:00') },
+    ]);
+  });
+
+  it('stays open all day without weekly hours, except on a closed special day', () => {
+    const calendar = openingCalendar(null, [
+      {
+        openingHours: null,
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-01',
+      },
+    ]);
+
+    expect(calendar.isOpenAt(at('2026-08-31T03:00'))).toBe(true);
+    expect(calendar.isOpenAt(at('2026-09-01T03:00'))).toBe(false);
+    expect(calendar.isOpenAt(at('2026-09-02T00:00'))).toBe(true);
+    expect(calendar.minutesUntilClose(at('2026-08-31T10:00'))).toBe(14 * 60);
+    expect(calendar.minutesUntilClose(at('2026-09-02T00:00'))).toBe(Infinity);
+    expect(calendar.segmentsOn('2026-08-31')).toEqual([
+      { end: at('2026-09-01T00:00'), start: at('2026-08-31T00:00') },
+    ]);
+  });
+
+  it('lists the segments of a day in start order', () => {
+    expect(
+      openingCalendar('Mo 13:00-18:00,09:00-12:00', []).segmentsOn(
+        '2026-08-31',
+      ),
+    ).toEqual([
+      { end: at('2026-08-31T12:00'), start: at('2026-08-31T09:00') },
+      { end: at('2026-08-31T18:00'), start: at('2026-08-31T13:00') },
+    ]);
   });
 });

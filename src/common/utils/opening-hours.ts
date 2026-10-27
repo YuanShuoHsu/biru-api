@@ -1,4 +1,9 @@
-import { PLATFORM_UTC_OFFSET_MS } from '../constants/timezone.js';
+import {
+  DAY_MS,
+  PLATFORM_UTC_OFFSET_MS,
+  platformDayNumber,
+  toPlatformTime,
+} from '../constants/timezone.js';
 
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
 
@@ -116,13 +121,17 @@ export const openingWeekdays = (value: string | null) =>
   );
 
 const platformParts = (at: Date) => {
-  const shifted = new Date(at.getTime() + PLATFORM_UTC_OFFSET_MS);
+  const shifted = toPlatformTime(at);
 
   return {
-    day: DAYS[(shifted.getUTCDay() + 6) % 7],
+    day: platformDayNumber(at.getTime()),
     minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
   };
 };
+
+const dayNumberOf = (date: string): number => Date.parse(date) / DAY_MS;
+
+const weekdayOf = (dayNumber: number): Day => DAYS[(dayNumber + 3) % 7];
 
 const isOvernight = ({ startMinutes, endMinutes }: Range): boolean =>
   endMinutes <= startMinutes;
@@ -140,13 +149,15 @@ const indexByDay = (schedules: Schedule[]): SchedulesByDay => {
   return byDay;
 };
 
+type SchedulesOn = (dayNumber: number) => Schedule[];
+
 const minutesUntilSegmentEnd = (
-  byDay: SchedulesByDay,
+  schedulesOn: SchedulesOn,
   at: Date,
 ): number | null => {
   const { day, minutes } = platformParts(at);
 
-  const current = byDay[day].find((schedule) =>
+  const current = schedulesOn(day).find((schedule) =>
     isOvernight(schedule)
       ? minutes >= schedule.startMinutes
       : minutes >= schedule.startMinutes && minutes < schedule.endMinutes,
@@ -158,46 +169,103 @@ const minutesUntilSegmentEnd = (
       minutes
     );
 
-  const previous = byDay[DAYS[(DAYS.indexOf(day) + 6) % 7]].find(
+  const previous = schedulesOn(day - 1).find(
     (schedule) => isOvernight(schedule) && minutes < schedule.endMinutes,
   );
 
   return previous ? previous.endMinutes - minutes : null;
 };
 
-export const isWithinOpeningHours = (
-  value: string | null,
-  at: Date,
-): boolean => {
-  const schedules = schedulesOf(value);
-  if (schedules.length === 0) return true;
+const ALL_DAY: Schedule = { days: [...DAYS], endMinutes: 0, startMinutes: 0 };
 
-  return minutesUntilSegmentEnd(indexByDay(schedules), at) !== null;
-};
+export interface SpecialOpeningHours {
+  openingHours: string | null;
+  validFrom: string;
+  validThrough: string;
+}
 
-export const getMinutesUntilClose = (
-  value: string | null,
-  at: Date,
-): number => {
-  const schedules = schedulesOf(value);
-  if (schedules.length === 0) return Infinity;
+export interface OpeningSegment {
+  end: Date;
+  start: Date;
+}
 
-  const byDay = indexByDay(schedules);
-  const maxHops = schedules.reduce(
-    (total, schedule) => total + schedule.days.length,
+export interface OpeningCalendar {
+  isOpenAt: (at: Date) => boolean;
+  minutesUntilClose: (at: Date) => number;
+  segmentsOn: (date: string) => OpeningSegment[];
+}
+
+export const openingCalendar = (
+  weekly: string | null,
+  specials: SpecialOpeningHours[],
+): OpeningCalendar => {
+  const weeklySchedules = schedulesOf(weekly);
+  const weeklyByDay = indexByDay(
+    weeklySchedules.length ? weeklySchedules : [ALL_DAY],
+  );
+  const weeklyHops = Object.values(weeklyByDay).reduce(
+    (total, schedules) => total + schedules.length,
     0,
   );
 
-  let cursor = at;
-  let elapsed = 0;
+  const specialDays = specials.map((special) => ({
+    byDay: indexByDay(
+      special.openingHours === null ? [] : schedulesOf(special.openingHours),
+    ),
+    from: dayNumberOf(special.validFrom),
+    through: dayNumberOf(special.validThrough),
+  }));
+  const lastSpecialDay = Math.max(
+    -Infinity,
+    ...specialDays.map(({ through }) => through),
+  );
 
-  for (let hops = 0; hops <= maxHops; hops++) {
-    const minutes = minutesUntilSegmentEnd(byDay, cursor);
-    if (minutes === null) return elapsed;
+  const schedulesOn: SchedulesOn = (dayNumber) =>
+    (specialDays.find(
+      ({ from, through }) => from <= dayNumber && dayNumber <= through,
+    )?.byDay ?? weeklyByDay)[weekdayOf(dayNumber)];
 
-    elapsed += minutes;
-    cursor = new Date(cursor.getTime() + minutes * 60_000);
-  }
+  return {
+    isOpenAt: (at) => minutesUntilSegmentEnd(schedulesOn, at) !== null,
 
-  return Infinity;
+    minutesUntilClose: (at) => {
+      let cursor = at;
+      let elapsed = 0;
+      let hopsPastSpecials = 0;
+
+      for (;;) {
+        if (
+          platformDayNumber(cursor.getTime()) > lastSpecialDay + 1 &&
+          hopsPastSpecials++ > weeklyHops
+        )
+          return Infinity;
+
+        const minutes = minutesUntilSegmentEnd(schedulesOn, cursor);
+        if (minutes === null) return elapsed;
+
+        elapsed += minutes;
+        cursor = new Date(cursor.getTime() + minutes * 60_000);
+      }
+    },
+
+    segmentsOn: (date) => {
+      const dayNumber = dayNumberOf(date);
+      const midnight = dayNumber * DAY_MS - PLATFORM_UTC_OFFSET_MS;
+
+      return schedulesOn(dayNumber)
+        .map((schedule) => ({
+          end: new Date(
+            midnight +
+              (schedule.endMinutes +
+                (isOvernight(schedule) ? MINUTES_PER_DAY : 0)) *
+                60_000,
+          ),
+          start: new Date(midnight + schedule.startMinutes * 60_000),
+        }))
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
+    },
+  };
 };
+
+export const isWithinOpeningHours = (value: string | null, at: Date): boolean =>
+  openingCalendar(value, []).isOpenAt(at);

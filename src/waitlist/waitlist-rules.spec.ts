@@ -1,8 +1,10 @@
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import {
   canTransition,
   findGroup,
   formatTicketNumber,
   getAutoNoShowAt,
+  getAvailability,
   getHoldUntil,
   isOverdue,
   isRevert,
@@ -117,5 +119,29 @@ describe('waitlist rules', () => {
       new Date('2026-10-07T05:20:00Z'),
     );
     expect(getAutoNoShowAt(ticket, 10, 0)).toBeNull();
+  });
+
+  it('stops taking numbers before closing and on a closed special day', () => {
+    const calendar = openingCalendar('Mo-Su 10:00-20:00', [
+      {
+        openingHours: null,
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-01',
+      },
+    ]);
+    const at = (local: string) => new Date(`${local}+08:00`);
+
+    expect(getAvailability(calendar, 60, at('2026-08-31T18:00'))).toEqual({
+      cutoff: false,
+      open: true,
+    });
+    expect(getAvailability(calendar, 60, at('2026-08-31T19:30'))).toEqual({
+      cutoff: true,
+      open: true,
+    });
+    expect(getAvailability(calendar, 60, at('2026-09-01T12:00'))).toEqual({
+      cutoff: false,
+      open: false,
+    });
   });
 });
