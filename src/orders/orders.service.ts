@@ -946,15 +946,18 @@ export class OrdersService {
       return { current, rule };
     });
 
+    const changedOfferStock = new Set<string>();
     const updated = await this.db.transaction(async (tx) => {
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {
         const {
+          offerStockChanged,
           updated: [updated],
         } = await this.runTransition(tx, rule, [current.id]);
         if (!updated) throw new BadRequestException(this.t('statusChanged'));
 
+        if (offerStockChanged.size) changedOfferStock.add(current.id);
         results.push(toAdminOrder({ ...current, ...updated }));
       }
 
@@ -962,7 +965,12 @@ export class OrdersService {
     });
 
     for (const { current, rule } of planned)
-      this.emitTransitioned(rule, [{ id: current.id, sellerId: org.id }]);
+      this.emitTransitioned(
+        rule,
+        [{ id: current.id, sellerId: org.id }],
+        [],
+        changedOfferStock.has(current.id) ? new Set([org.id]) : undefined,
+      );
 
     return updated;
   }
@@ -987,6 +995,13 @@ export class OrdersService {
       .returning();
 
     const lowStock: LowStockReachedEvent[] = [];
+    const offerStockChanged = new Set<string>();
+    if (rule.restoresInventory && updated.length > 1)
+      await this.inventoryTransactionsService.lockHeldOfferStock(
+        updated.map(({ id }) => id),
+        tx,
+      );
+
     for (const { discountCode, id, sellerId } of updated) {
       if (rule.printsOrderTicket)
         await this.orderTicketService.enqueueOrder(tx, id, sellerId);
@@ -1000,24 +1015,34 @@ export class OrdersService {
           orderId: id,
         });
 
-      if (rule.restoresInventory)
-        await this.inventoryTransactionsService.restoreAll(id, tx);
+      if (
+        rule.restoresInventory &&
+        (await this.inventoryTransactionsService.restoreAll(id, tx))
+      )
+        offerStockChanged.add(sellerId);
 
       if (rule.consumesInventory) {
-        const { lowStock: ingredients } =
-          await this.inventoryTransactionsService.consume(id, tx);
-        if (ingredients.length)
-          lowStock.push({ organizationId: sellerId, ingredients });
+        const consumed = await this.inventoryTransactionsService.consume(
+          id,
+          tx,
+        );
+        if (consumed.offerStockChanged) offerStockChanged.add(sellerId);
+        if (consumed.lowStock.length)
+          lowStock.push({
+            organizationId: sellerId,
+            ingredients: consumed.lowStock,
+          });
       }
     }
 
-    return { lowStock, updated };
+    return { lowStock, offerStockChanged, updated };
   }
 
   private emitTransitioned(
     rule: OrderTransitionRule,
     orders: { id: string; sellerId: string }[],
     lowStock: LowStockReachedEvent[] = [],
+    offerStockChanged = new Set<string>(),
   ): void {
     for (const { id, sellerId } of orders) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
@@ -1035,7 +1060,10 @@ export class OrdersService {
 
     if (rule.consumesInventory || rule.restoresInventory)
       for (const sellerId of new Set(orders.map(({ sellerId }) => sellerId)))
-        void this.menuStockService.refresh(sellerId, true);
+        void this.menuStockService.refresh(
+          sellerId,
+          offerStockChanged.has(sellerId),
+        );
   }
 
   async updateOrderCustomer(
@@ -1141,6 +1169,7 @@ export class OrdersService {
 
       const {
         lowStock,
+        offerStockChanged,
         updated: [updated],
       } = await this.runTransition(tx, rule, [current.id], {
         set: {
@@ -1155,7 +1184,7 @@ export class OrdersService {
           : undefined,
       });
 
-      return updated && { lowStock, rule, updated };
+      return updated && { lowStock, offerStockChanged, rule, updated };
     });
 
     if (!transitioned) return this.classifyUnmatchedPayment(body, succeeded);
@@ -1164,6 +1193,7 @@ export class OrdersService {
       transitioned.rule,
       [transitioned.updated],
       transitioned.lowStock,
+      transitioned.offerStockChanged,
     );
 
     return 'handled';
@@ -1317,11 +1347,16 @@ export class OrdersService {
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    const { updated: cancelled } = await this.db.transaction((tx) =>
-      this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
+    const { offerStockChanged, updated: cancelled } = await this.db.transaction(
+      (tx) => this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
     );
 
-    this.emitTransitioned(CANCEL_UNPAID_ORDER, cancelled);
+    this.emitTransitioned(
+      CANCEL_UNPAID_ORDER,
+      cancelled,
+      [],
+      offerStockChanged,
+    );
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);

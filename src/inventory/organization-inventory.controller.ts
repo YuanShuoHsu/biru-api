@@ -17,7 +17,6 @@ import { IdsDto } from '../common/dto/ids.dto.js';
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
-import { MenuEventsInterceptor } from '../menus/interceptors/menu-events.interceptor.js';
 import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { CreateIngredientDto } from './dto/create-ingredient.dto.js';
@@ -30,11 +29,12 @@ import { RecipeResponseDto } from './dto/recipe-response.dto.js';
 import { SupplierPaginationQueryDto } from './dto/supplier-pagination-query.dto.js';
 import { SupplierResponseDto } from './dto/supplier-response.dto.js';
 import { IngredientsService } from './ingredients.service.js';
+import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 import { RecipesService } from './recipes.service.js';
 import { SuppliersService } from './suppliers.service.js';
 
 @ApiTags('inventory')
-@UseInterceptors(MenuEventsInterceptor)
+@UseInterceptors(MenuStockInterceptor)
 @Controller('organizations/:organizationSlug')
 export class OrganizationInventoryController {
   constructor(

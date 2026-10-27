@@ -359,6 +359,7 @@ export class EcpayOrderRefundService {
         .where(eq(refund.id, claimed.id));
     }
 
+    let offerStockChanged = false;
     await this.db.transaction(async (tx) => {
       const [locked] = await tx
         .select({ orderStatus: order.orderStatus })
@@ -388,7 +389,10 @@ export class EcpayOrderRefundService {
         });
 
       if (plan.isFull) {
-        await this.inventoryTransactionsService.restoreAll(claimed.orderId, tx);
+        offerStockChanged = await this.inventoryTransactionsService.restoreAll(
+          claimed.orderId,
+          tx,
+        );
 
         await tx
           .update(order)
@@ -408,7 +412,7 @@ export class EcpayOrderRefundService {
         orderStatus: 'OrderReturned',
         organizationId: found.sellerId,
       });
-      void this.menuStockService.refresh(found.sellerId, true);
+      void this.menuStockService.refresh(found.sellerId, offerStockChanged);
     } else
       this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
         orderId: claimed.orderId,

@@ -15,7 +15,6 @@ import { Audit } from '../common/decorators/audit.decorator.js';
 
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
-import { MenuEventsInterceptor } from '../menus/interceptors/menu-events.interceptor.js';
 
 import { UpdateIngredientDto } from './dto/create-ingredient.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
@@ -24,9 +23,10 @@ import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transact
 import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto.js';
 import { IngredientsService } from './ingredients.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 
 @ApiTags('inventory')
-@UseInterceptors(MenuEventsInterceptor)
+@UseInterceptors(MenuStockInterceptor)
 @Controller('ingredients/:ingredientId')
 export class IngredientsController {
   constructor(

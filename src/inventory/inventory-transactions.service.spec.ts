@@ -1,10 +1,12 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
+import { offer } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MENU_UPDATED_EVENT } from '../events/menu-updated.event.js';
 
@@ -12,7 +14,7 @@ import {
   InsufficientStockError,
   InventoryTransactionsService,
 } from './inventory-transactions.service.js';
-import { MenuStockService } from './menu-stock.service.js';
+import { MenuStockService, keepAutoSoldOut } from './menu-stock.service.js';
 
 const ORG = 'org';
 
@@ -368,6 +370,17 @@ describe('庫存扣除、還原與自動售完', () => {
       emit.mockRestore();
     });
 
+    it('剩餘數量不到一份也算售完', async () => {
+      await addItem('cake', { remaining: 0.5 });
+
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
     it('賣到剩餘數量為 0 後自動售完，取消訂單還回來後自動恢復', async () => {
       await addItem('cake', { remaining: 1 });
       await addOrder('o1', [{ menuItemId: 'cake', quantity: 1 }]);
@@ -386,5 +399,66 @@ describe('庫存扣除、還原與自動售完', () => {
         availability: 'InStock',
       });
     });
+  });
+
+  describe('keepAutoSoldOut', () => {
+    const save = (availability?: 'InStock' | 'SoldOut') =>
+      db
+        .update(offer)
+        .set({
+          ...(availability && { availability }),
+          ...keepAutoSoldOut(availability),
+          price: '120',
+        })
+        .where(eq(offer.menuItemId, 'cake'));
+
+    beforeEach(async () => {
+      await addItem('cake', { autoSoldOut: true, availability: 'SoldOut' });
+    });
+
+    it('送出與目前相同的供應狀態時保留自動售完', async () => {
+      await save('SoldOut');
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('店員改了供應狀態就不再算自動售完', async () => {
+      await save('InStock');
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('沒有送供應狀態時不動', async () => {
+      await save();
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+  });
+
+  it('批次還原前依 id 順序鎖住所有訂單扣過的定價', async () => {
+    await addItem('cake', { remaining: 5 });
+    await addItem('cream', { remaining: 5 });
+    await addOrder('o1', [{ menuItemId: 'cream', quantity: 1 }]);
+    await addOrder('o2', [{ menuItemId: 'cake', quantity: 1 }]);
+    await consume('o1', true);
+    await consume('o2', true);
+
+    await db.transaction(async (tx) => {
+      await service.lockHeldOfferStock(['o1', 'o2'], tx);
+      await service.restoreAll('o1', tx);
+      await service.restoreAll('o2', tx);
+    });
+
+    expect(await remainingOf('cake')).toBe(5);
+    expect(await remainingOf('cream')).toBe(5);
   });
 });

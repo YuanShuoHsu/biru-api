@@ -18,7 +18,6 @@ import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
-import { MenuEventsInterceptor } from '../menus/interceptors/menu-events.interceptor.js';
 
 import {
   CreateRecipeIngredientDto,
@@ -30,10 +29,11 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
+import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 import { RecipesService } from './recipes.service.js';
 
 @ApiTags('inventory')
-@UseInterceptors(MenuEventsInterceptor)
+@UseInterceptors(MenuStockInterceptor)
 @Controller('recipes/:recipeId')
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}

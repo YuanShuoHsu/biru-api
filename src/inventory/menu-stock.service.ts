@@ -1,18 +1,33 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { and, asc, eq, gt, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, sql } from 'drizzle-orm';
 
 import {
   ingredient,
   recipe,
   recipeIngredient,
 } from '../db/schema/inventory.js';
-import { menu, menuItem, offer } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  offer,
+  type ItemAvailability,
+} from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MENU_UPDATED_EVENT } from '../events/menu-updated.event.js';
 
 // 庫存只存到小數第三位，每份用量四捨五入後會差半個最小單位
 export const QUANTITY_TOLERANCE = 0.0005;
+
+// 店員送出與目前相同的供應狀態（例如只改價格）時保留自動售完，補貨後仍會自動恢復
+export const keepAutoSoldOut = (
+  availability: ItemAvailability | null | undefined,
+) =>
+  availability === undefined
+    ? {}
+    : {
+        autoSoldOut: sql<boolean>`${offer.autoSoldOut} and ${offer.availability} is not distinct from ${availability}::item_availability`,
+      };
 
 @Injectable()
 export class MenuStockService {
@@ -87,7 +102,9 @@ export class MenuStockService {
         inventoryLevel,
         menuItemId,
       }: (typeof offers)[number]) =>
-        inventoryLevel?.value === 0 || shortOfIngredients.has(menuItemId);
+        (typeof inventoryLevel?.value === 'number' &&
+          inventoryLevel.value < 1) ||
+        shortOfIngredients.has(menuItemId);
 
       const toSoldOut = offers
         .filter(

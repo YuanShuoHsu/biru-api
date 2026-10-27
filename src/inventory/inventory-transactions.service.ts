@@ -382,6 +382,28 @@ export class InventoryTransactionsService {
     return offerStockChanged;
   }
 
+  async lockHeldOfferStock(orderIds: string[], tx: Tx): Promise<void> {
+    const orders = await tx
+      .select({ heldOfferStock: order.heldOfferStock })
+      .from(order)
+      .where(inArray(order.id, orderIds));
+    const offerIds = [
+      ...new Set(
+        orders.flatMap(({ heldOfferStock }) =>
+          Object.keys(heldOfferStock ?? {}),
+        ),
+      ),
+    ];
+    if (!offerIds.length) return;
+
+    await tx
+      .select({ id: offer.id })
+      .from(offer)
+      .where(inArray(offer.id, offerIds))
+      .orderBy(asc(offer.id))
+      .for('update');
+  }
+
   private async holdOfferStock(
     orderId: string,
     servingsByMenuItemId: Map<string, number>,

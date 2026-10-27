@@ -31,7 +31,6 @@ import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
-  ItemAvailability,
   Menu,
   MenuItem,
   MenuItemAddOn,
@@ -58,6 +57,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
+import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
 import { RecipesService } from '../inventory/recipes.service.js';
 import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
@@ -204,14 +204,6 @@ const withCurrency = (
   row: Offer | null | undefined,
   priceCurrency: string,
 ): OfferWithCurrency | null => (row ? { ...row, priceCurrency } : null);
-
-// 店員送出與目前相同的供應狀態（例如只改價格）時保留自動售完，補貨後仍會自動恢復
-const keepAutoSoldOut = (availability: ItemAvailability | null | undefined) =>
-  availability === undefined
-    ? {}
-    : {
-        autoSoldOut: sql<boolean>`${offer.autoSoldOut} and ${offer.availability} is not distinct from ${availability}`,
-      };
 
 @Injectable()
 export class MenusService {
