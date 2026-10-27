@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -123,6 +124,8 @@ const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
 
 @Injectable()
 export class CouponsService {
+  private readonly logger = new Logger(CouponsService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -821,22 +824,65 @@ export class CouponsService {
     });
   }
 
-  private async issueEligibleCoupons(
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
-    const autoCoupons = await this.db.query.coupon.findMany({
+  private findAutoCoupons(where: SQL | undefined): Promise<Coupon[]> {
+    return this.db.query.coupon.findMany({
       where: and(
-        applicableToOrganization(organizationId),
+        where,
         eq(coupon.isActive, true),
         isNotNull(coupon.issueTrigger),
         notPointsRedeem(),
         withinValidity(),
       ),
     });
-    if (autoCoupons.length === 0) return;
+  }
 
-    const now = new Date();
+  private async issueEligibleCoupons(
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.issueAutoCoupons(
+      userId,
+      await this.findAutoCoupons(applicableToOrganization(organizationId)),
+    );
+  }
+
+  async issueSignupCoupons(userId: string): Promise<void> {
+    await this.issueAutoCoupons(
+      userId,
+      await this.findAutoCoupons(eq(coupon.issueTrigger, 'signup')),
+    );
+  }
+
+  async issueBirthdayCoupons(now = new Date()): Promise<number> {
+    const birthdayCoupons = await this.findAutoCoupons(
+      eq(coupon.issueTrigger, 'birthday'),
+    );
+    if (birthdayCoupons.length === 0) return 0;
+
+    const members = await this.db
+      .select({ id: user.id })
+      .from(user)
+      .where(
+        sql`extract(month from ${user.birthDate}) = ${toPlatformTime(now).getUTCMonth() + 1}`,
+      );
+
+    for (const { id } of members) {
+      try {
+        await this.issueAutoCoupons(id, birthdayCoupons, now);
+      } catch (error) {
+        this.logger.error(`發放會員 ${id} 的生日券失敗`, error);
+      }
+    }
+
+    return members.length;
+  }
+
+  private async issueAutoCoupons(
+    userId: string,
+    autoCoupons: Coupon[],
+    now = new Date(),
+  ): Promise<void> {
+    if (autoCoupons.length === 0) return;
 
     // 生日券與消費券沒有唯一索引擋重複；用 no key update 才不會擋到參照會員的 insert 而與領券互鎖
     await this.db.transaction(async (tx) => {

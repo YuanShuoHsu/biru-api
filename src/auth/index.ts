@@ -40,9 +40,11 @@ import { isValidCurrency } from '../common/utils/currency.js';
 import { isValidOpeningHours } from '../common/utils/opening-hours.js';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import type { CouponsService } from '../coupons/coupons.service.js';
 import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
+const signupCouponLogger = new Logger('SignupCoupons');
 
 const getInitialOrganization = async (userId: string) => {
   const membership = await authDb().query.member.findFirst({
@@ -119,8 +121,20 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
 export const authDatabase = (database: typeof db | Transaction) =>
   drizzleAdapter(database, { provider: 'pg', schema });
 
+const issueSignupCoupons = async (
+  couponsService: CouponsService,
+  userId: string,
+) => {
+  try {
+    await couponsService.issueSignupCoupons(userId);
+  } catch (error) {
+    signupCouponLogger.error(error);
+  }
+};
+
 export const createAuth = (
   mailsService: MailsService,
+  couponsService: CouponsService,
   authI18n: ReturnType<typeof createAuthI18n>,
 ) =>
   betterAuth({
@@ -155,6 +169,12 @@ export const createAuth = (
         },
       },
       user: {
+        create: {
+          after: async (user) => {
+            if (user.emailVerified)
+              await issueSignupCoupons(couponsService, user.id);
+          },
+        },
         update: {
           before: async (user, context) => {
             if (!('phoneNumber' in user)) return;
@@ -213,6 +233,7 @@ export const createAuth = (
     },
     emailVerification: {
       afterEmailVerification: async (user, request) => {
+        await issueSignupCoupons(couponsService, user.id);
         await mailsService.afterEmailVerification(
           {
             user,

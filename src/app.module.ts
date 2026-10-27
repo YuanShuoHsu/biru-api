@@ -29,6 +29,7 @@ import { BannersModule } from './banners/banners.module.js';
 import { CashDrawerModule } from './cash-drawer/cash-drawer.module.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { CouponsModule } from './coupons/coupons.module.js';
+import { CouponsService } from './coupons/coupons.service.js';
 import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
 import { DeletedRecordsModule } from './deleted-records/deleted-records.module.js';
 import { DrizzleModule } from './drizzle/drizzle.module.js';
@@ -58,13 +59,18 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     BannersModule,
     CashDrawerModule,
     BetterAuthModule.forRootAsync({
-      imports: [MailsModule],
-      inject: [MailsService, I18nService],
+      imports: [CouponsModule, MailsModule],
+      inject: [MailsService, CouponsService, I18nService],
       useFactory: (
         mailsService: MailsService,
+        couponsService: CouponsService,
         i18nService: I18nService<I18nTranslations>,
       ) => ({
-        auth: createAuth(mailsService, createAuthI18n(i18nService)),
+        auth: createAuth(
+          mailsService,
+          couponsService,
+          createAuthI18n(i18nService),
+        ),
         bodyParser: { json: { limit: '2mb' } },
         middleware: (_req, _res, next) => runWithAuthHookState(next),
       }),
