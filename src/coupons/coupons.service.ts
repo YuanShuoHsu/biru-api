@@ -758,7 +758,8 @@ export class CouponsService {
         issueTrigger: pointsRedeem ? null : dto.issueTrigger,
         menuItemIds: dto.menuItemIds,
         menuSectionIds: dto.menuSectionIds,
-        minSubtotal: dto.minSubtotal?.toFixed(2),
+        minSubtotal:
+          dto.minSubtotal === null ? null : dto.minSubtotal?.toFixed(2),
         perUserLimit: dto.perUserLimit,
         pointsCost: dto.pointsCost,
         scope: dto.scope,
