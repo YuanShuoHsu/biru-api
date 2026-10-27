@@ -28,10 +28,12 @@ export class CreateModifierDto {
   @ApiPropertyOptional({
     description: '加價金額；省略代表不影響價格',
     example: '10.00',
+    nullable: true,
+    type: String,
   })
   @IsOptional()
   @IsNumberString()
-  priceAdjustment?: string;
+  priceAdjustment?: string | null;
 
   @ApiPropertyOptional({
     enum: itemAvailabilityEnum.enumValues,

@@ -101,33 +101,38 @@ export class CreateOfferDto {
   @ApiPropertyOptional({
     description:
       '可供應時段，格式同組織營業時間（如 "Mo-Fr 07:00-11:00"）；null 代表全時段供應',
+    nullable: true,
+    type: String,
   })
   @IsOptional()
   @IsString()
   @Validate(IsOpeningHours)
-  availableHours?: string;
+  availableHours?: string | null;
 
   @ApiPropertyOptional({
     description: '預計準備時間（分鐘）',
     example: 15,
+    nullable: true,
+    type: Number,
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  deliveryLeadTimeMinutes?: number;
+  deliveryLeadTimeMinutes?: number | null;
 
   @ApiPropertyOptional({
     type: QuantitativeValueDto,
     description: '當日剩餘庫存數量',
+    nullable: true,
   })
   @IsOptional()
   @Type(() => QuantitativeValueDto)
   @ValidateNested()
-  inventoryLevel?: QuantitativeValueDto;
+  inventoryLevel?: QuantitativeValueDto | null;
 
-  @ApiPropertyOptional({ type: PriceSpecificationDto })
+  @ApiPropertyOptional({ type: PriceSpecificationDto, nullable: true })
   @IsOptional()
   @Type(() => PriceSpecificationDto)
   @ValidateNested()
-  priceSpecification?: PriceSpecificationDto;
+  priceSpecification?: PriceSpecificationDto | null;
 }
