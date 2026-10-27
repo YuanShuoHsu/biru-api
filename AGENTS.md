@@ -59,7 +59,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | MenusModule         | `src/menus/`         | Menus, sections, items, offers, add-ons, modifiers                |
 | OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
 | CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
-| PointsModule        | `src/points/`        | Loyalty point transactions and redemption                         |
+| PointsModule        | `src/points/`        | Loyalty point transactions, redemption, brand-wide point rules    |
 | BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
 | DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
 | GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |
@@ -207,7 +207,8 @@ layers** — don't confuse them:
 **1. Platform admin** — `user.role` (plain `text` column on `user`, set to `'user'` on signup).
 Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes for
 `role === 'admin'`. Used for cross-tenant endpoints: `UsersController`, `AdminBannersController`,
-`AdminCouponsController`, `AdminPayrollRulesController`, ECPay invoice management.
+`AdminCouponsController`, `AdminPayrollRulesController`, `AdminPointSettingsController`,
+ECPay invoice management.
 
 **2. Organization membership** — `member.role`, a pgEnum of `owner | admin | member`
 (`src/db/schema/organizations.ts`). This is the main tenant-scoped mechanism:

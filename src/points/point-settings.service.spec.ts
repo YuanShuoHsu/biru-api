@@ -4,6 +4,7 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { eq } from 'drizzle-orm';
+import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
 import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
@@ -11,6 +12,7 @@ import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
 import { order } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
 
 import { AdminPointSettingsController } from './admin-point-settings.controller.js';
@@ -25,7 +27,10 @@ describe('PointSettingsService', () => {
     client = new PGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new PointSettingsService(db as unknown as DrizzleDB);
+    service = new PointSettingsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -77,6 +82,32 @@ describe('PointSettingsService', () => {
       amountPerPoint: null,
       pointsEnabledAt: null,
       pointsValidityYears: null,
+    });
+  });
+
+  it('點數停用時設定有效年限回 400，不改任何欄位', async () => {
+    await expect(service.update({ pointsValidityYears: 2 })).rejects.toThrow(
+      'common.points.validityRequiresEnabled',
+    );
+    await expect(
+      service.update({ amountPerPoint: null, pointsValidityYears: 2 }),
+    ).rejects.toThrow('common.points.validityRequiresEnabled');
+    await expect(service.get()).resolves.toMatchObject({
+      amountPerPoint: null,
+      pointsValidityYears: null,
+    });
+
+    await service.update({ amountPerPoint: 50 });
+    await expect(
+      service.update({ pointsValidityYears: 2 }),
+    ).resolves.toMatchObject({
+      amountPerPoint: '50.00',
+      pointsValidityYears: 2,
+    });
+    await expect(service.update({})).resolves.toMatchObject({
+      amountPerPoint: '50.00',
+      pointsEnabledAt: expect.any(Date),
+      pointsValidityYears: 2,
     });
   });
 

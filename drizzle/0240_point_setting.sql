@@ -22,6 +22,20 @@ FROM (
 	WHERE "points_enabled_at" IS NOT NULL AND "amount_per_point" IS NOT NULL
 ) AS "enabled";--> statement-breakpoint
 UPDATE "order"
+SET "amount_per_point" = NULL,
+	"points_validity_years" = NULL
+FROM "organization"
+WHERE "order"."seller_id" = "organization"."id"
+	AND "order"."user_id" IS NOT NULL
+	AND "order"."payment_date" IS NOT NULL
+	AND "order"."amount_per_point" IS NOT NULL
+	AND "order"."order_status" NOT IN ('OrderCancelled', 'OrderProblem', 'OrderReturned')
+	AND ("organization"."points_enabled_at" IS NULL OR "organization"."points_enabled_at" > "order"."payment_date")
+	AND NOT EXISTS (
+		SELECT 1 FROM "point_transaction"
+		WHERE "point_transaction"."order_id" = "order"."id" AND "point_transaction"."type" = 'earn'
+	);--> statement-breakpoint
+UPDATE "order"
 SET "amount_per_point" = "organization"."amount_per_point",
 	"points_validity_years" = "organization"."points_validity_years"
 FROM "organization"
