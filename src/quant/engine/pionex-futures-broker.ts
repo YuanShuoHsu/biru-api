@@ -20,7 +20,7 @@ import type { BotFill, SymbolSpec } from './types.js';
 const FILL_POLL_ATTEMPTS = 10;
 const FILL_POLL_MS = 500;
 
-export interface FuturesPositionSetting {
+interface FuturesPositionSetting {
   direction: 'long' | 'short';
   mode: PionexPositionMode;
 }

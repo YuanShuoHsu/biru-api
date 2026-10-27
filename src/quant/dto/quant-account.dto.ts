@@ -265,7 +265,7 @@ export class QuantTransferPageDto {
   nextEndTime: number | null;
 }
 
-export class QuantAssetCategoryDto {
+class QuantAssetCategoryDto {
   @ApiProperty({ description: 'Pionex 的分類代碼' }) type: string;
   @ApiProperty({ description: 'Pionex 依語系翻譯的分類名稱' }) title: string;
   @ApiProperty() totalInUsdt: number;

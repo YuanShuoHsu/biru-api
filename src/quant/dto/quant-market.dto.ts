@@ -12,7 +12,7 @@ import {
   type PionexOrderSide,
 } from '../pionex/pionex.types.js';
 
-export class QuantPerpSpecDto {
+class QuantPerpSpecDto {
   @ApiProperty({ description: '最高槓桿（第一級風險限額）' })
   maxLeverage: number;
   @ApiProperty({ description: '市價單最小數量（基礎幣）' })
@@ -55,7 +55,7 @@ export class QuantMarketsQueryDto {
   type: PionexMarketType = 'SPOT';
 }
 
-export class QuantRiskTierDto {
+class QuantRiskTierDto {
   @ApiProperty({ description: '此級距的名目價值上限（計價幣）' })
   notionalLimit: number;
   @ApiProperty() maxLeverage: number;

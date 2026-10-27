@@ -40,7 +40,7 @@ export interface FuturesBacktestMarket {
   riskTiers: RiskTier[];
 }
 
-export interface BacktestInput extends BacktestCommonInput {
+interface BacktestInput extends BacktestCommonInput {
   /** AI 策略的判斷來源；回測時必須是 inline */
   aiAdvisor?: AiAdvisor;
   /** 撮合週期以外的歷史 K 線，策略只拿得到當下已收盤的 */

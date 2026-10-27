@@ -44,11 +44,11 @@ export const QUANT_BOT_TYPES = [
   'signal',
   'ai',
 ] as const;
-export const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
+const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
 /** 可以設單筆金額上限的自建策略；AI 的上限在自己的設定裡，網格的每格金額由投入決定 */
 export const ORDER_LIMIT_BOT_TYPES = ['dca', 'indicator', 'webhook'] as const;
-export const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
-export const QUANT_BOT_MODES = ['paper', 'live'] as const;
+const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
+const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
 export const GRID_STOP_TYPES = [
@@ -61,7 +61,7 @@ export const FUTURES_GRID_STOP_TYPES = [
   'price_limit',
 ] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
-export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
+const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
 export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
 export const FUTURES_DIRECTIONS = ['long', 'short'] as const;
 export const INDICATOR_KINDS = [
@@ -77,13 +77,12 @@ export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-export const AI_SOURCES = ['claude_api', 'claude_code'] as const;
-export type AiSource = (typeof AI_SOURCES)[number];
+const AI_SOURCES = ['claude_api', 'claude_code'] as const;
+type AiSource = (typeof AI_SOURCES)[number];
 export const AI_LOCALES = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
-export type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
-export type SpotBotType = Exclude<QuantBotType, FuturesBotType>;
+type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
 
 export const isFuturesBotType = (type: QuantBotType): type is FuturesBotType =>
   (FUTURES_BOT_TYPES as readonly string[]).includes(type);
@@ -114,8 +113,8 @@ export const futuresMarginOf = ({ config, type }: BotShape) => {
     leverage,
   };
 };
-export type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
-export type QuantBotExecutor = (typeof QUANT_BOT_EXECUTORS)[number];
+type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
+type QuantBotExecutor = (typeof QUANT_BOT_EXECUTORS)[number];
 
 /** 實盤的網格、合約網格、訊號機器人交給 Pionex 執行，其餘由本系統的引擎執行 */
 export const executorOf = ({
@@ -170,7 +169,7 @@ export class FuturesGridStopDto {
   limitPrice?: number;
 }
 
-export class TriggerDto {
+class TriggerDto {
   @ApiProperty() @IsNumber() @IsPositive() price: number;
 
   @ApiProperty({
@@ -985,12 +984,12 @@ export type BacktestDto =
   | DcaBacktestDto
   | IndicatorBacktestDto;
 
-export class BacktestPointDto {
+class BacktestPointDto {
   @ApiProperty() time: number;
   @ApiProperty() value: number;
 }
 
-export class BacktestTradeDto {
+class BacktestTradeDto {
   @ApiProperty({ enum: ['BUY', 'SELL'], enumName: 'QuantOrderSide' })
   side: 'BUY' | 'SELL';
   @ApiProperty() price: number;
@@ -1149,7 +1148,7 @@ export class SendSignalDto {
   positionSize: number;
 }
 
-export const FUTURES_GRID_OPERATIONS = [
+const FUTURES_GRID_OPERATIONS = [
   'invest',
   'range',
   'reinvest',
@@ -1162,7 +1161,7 @@ export const FUTURES_GRID_OPERATIONS = [
 ] as const;
 export const FUTURES_GRID_PAUSE_MODES = ['immediate', 'conditional'] as const;
 
-export type FuturesGridOperation = (typeof FUTURES_GRID_OPERATIONS)[number];
+type FuturesGridOperation = (typeof FUTURES_GRID_OPERATIONS)[number];
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
 export class FuturesGridOperationDto {
@@ -1510,19 +1509,19 @@ export const QUANT_BOT_ENUM_FILTER_FIELDS = [
 ] as const;
 export const QUANT_BOT_NUMBER_FILTER_FIELDS = ['investment'] as const;
 export const QUANT_BOT_DATE_FILTER_FIELDS = ['startedAt'] as const;
-export const QUANT_BOT_ALL_FILTER_FIELDS = [
+const QUANT_BOT_ALL_FILTER_FIELDS = [
   ...QUANT_BOT_STRING_FILTER_FIELDS,
   ...QUANT_BOT_ENUM_FILTER_FIELDS,
   ...QUANT_BOT_NUMBER_FILTER_FIELDS,
   ...QUANT_BOT_DATE_FILTER_FIELDS,
 ] as const;
 
-export type QuantBotFilterField = (typeof QUANT_BOT_ALL_FILTER_FIELDS)[number];
+type QuantBotFilterField = (typeof QUANT_BOT_ALL_FILTER_FIELDS)[number];
 
 // 損益要即時算，不在資料庫裡，無法排序或篩選
-export const QUANT_BOT_SORT_FIELDS = QUANT_BOT_ALL_FILTER_FIELDS;
+const QUANT_BOT_SORT_FIELDS = QUANT_BOT_ALL_FILTER_FIELDS;
 
-export type QuantBotSortField = (typeof QUANT_BOT_SORT_FIELDS)[number];
+type QuantBotSortField = (typeof QUANT_BOT_SORT_FIELDS)[number];
 
 export class QuantBotPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
