@@ -30,7 +30,7 @@ import {
 } from './closure-guards.js';
 import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
-import { assertKeepsOwner } from './owner-guards.js';
+import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 
 import type {
   AuditAction,
@@ -338,6 +338,11 @@ const writeEvent = async (
   });
 };
 
+const MEMBER_MANAGEMENT_PATHS = new Set([
+  '/organization/remove-member',
+  '/organization/update-member-role',
+]);
+
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
 const REVOKE_SESSION_PATHS = new Set([
@@ -425,6 +430,20 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
             parent: { table: 'organization', id: organizationId },
             sinceId: await latestDeletedRecordId(),
           };
+      }
+
+      if (MEMBER_MANAGEMENT_PATHS.has(ctx.path)) {
+        const session = await getSessionFromCtx(ctx);
+        const body = asRow(ctx.body) ?? {};
+        const target =
+          asString(body.memberIdOrEmail) ?? asString(body.memberId);
+        if (session && target)
+          await assertMayManageMember(
+            session.user.role,
+            target,
+            asString(body.organizationId) ??
+              asString(asRow(session.session)?.activeOrganizationId),
+          );
       }
 
       if (ctx.path === '/organization/leave') {

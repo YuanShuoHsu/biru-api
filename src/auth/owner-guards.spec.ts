@@ -7,7 +7,7 @@ import * as schema from '../db/schema/index.js';
 
 import { runInAuthTransaction } from './auth-transaction.js';
 import { assertUserDeletable } from './deletion-guards.js';
-import { assertKeepsOwner } from './owner-guards.js';
+import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 
 describe('assertKeepsOwner', () => {
   let client: PGlite;
@@ -23,6 +23,7 @@ describe('assertKeepsOwner', () => {
         ('amy', 'amy', 'amy@example.com', 'amy'),
         ('ben', 'ben', 'ben@example.com', 'ben'),
         ('root', 'root', 'root@example.com', 'root');
+      update "user" set role = 'admin' where id = 'root';
       insert into organization (id, name, slug, created_at) values ('biru', 'Biru', 'biru', now());
     `);
   }, 60_000);
@@ -87,5 +88,22 @@ describe('assertKeepsOwner', () => {
     await expect(
       runInAuthTransaction(db, () => assertUserDeletable('root')),
     ).resolves.toBeUndefined();
+  });
+
+  it('只有平台管理員能移除或改動平台管理員成員', async () => {
+    await join('m-amy', 'amy', 'owner');
+    await join('m-root', 'root', 'owner', true);
+
+    const manage = (actorRole: string, target: string) =>
+      runInAuthTransaction(db, () =>
+        assertMayManageMember(actorRole, target, 'biru'),
+      );
+
+    for (const target of ['m-root', 'root@example.com'])
+      await expect(manage('user', target)).rejects.toMatchObject({
+        body: { code: 'PLATFORM_ADMIN_MEMBER_PROTECTED' },
+      });
+    await expect(manage('admin', 'm-root')).resolves.toBeUndefined();
+    await expect(manage('user', 'm-amy')).resolves.toBeUndefined();
   });
 });
