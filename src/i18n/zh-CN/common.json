@@ -236,6 +236,7 @@
     "tableNumber": "桌号 {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "钱柜尚未开账，请先开账再确认现金付款",
     "cashRequiresInStoreQrCode": "现金付款请扫描店内的二维码点餐",
     "idempotencyConflict": "订单内容已变更，请重新提交。",
     "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
@@ -315,6 +316,7 @@
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
     "alreadyRefunded": "此订单已全额退款",
+    "cashDrawerNotOpen": "钱柜尚未开账，请先开账再退还现金",
     "invalidAmount": "退款金额计算异常，请确认订单金额",
     "itemNotInOrder": "退款品项不属于此订单",
     "noEcpayTransaction": "此订单没有可退刷的绿界交易",

@@ -236,6 +236,7 @@
     "tableNumber": "テーブル {tableNumber}"
   },
   "orders": {
+    "cashDrawerNotOpen": "レジが開いていません。現金の支払いを確定する前にレジを開けてください。",
     "cashRequiresInStoreQrCode": "現金でお支払いの場合は、店内の QR コードを読み取ってご注文ください",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
@@ -315,6 +316,7 @@
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",
     "alreadyRefunded": "この注文はすでに全額返金済みです",
+    "cashDrawerNotOpen": "レジが開いていません。現金を返金する前にレジを開けてください。",
     "invalidAmount": "返金額を算出できません。注文金額をご確認ください",
     "itemNotInOrder": "返金対象の商品はこの注文に含まれていません",
     "noEcpayTransaction": "この注文には返金できる ECPay 取引がありません",
