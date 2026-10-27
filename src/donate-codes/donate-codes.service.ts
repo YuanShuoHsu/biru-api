@@ -4,11 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 
-export interface DonateCode {
-  donateNm: string;
-  donateCode: string;
-  donateShortNm?: string;
-}
+import type { DonateCodeResponseDto } from './dto/donate-code-response.dto.js';
 
 const API_URL =
   'https://dataset.einvoice.nat.gov.tw/ods/portal/api/v1/DonateCodeList';
@@ -17,7 +13,7 @@ const PAGE_SIZE = 500;
 @Injectable()
 export class DonateCodesService implements OnModuleInit {
   private readonly logger = new Logger(DonateCodesService.name);
-  private donateCodes: DonateCode[] = [];
+  private donateCodes: DonateCodeResponseDto[] = [];
 
   async onModuleInit() {
     await this.refresh();
@@ -29,7 +25,7 @@ export class DonateCodesService implements OnModuleInit {
   })
   async refresh() {
     try {
-      const entries: DonateCode[] = [];
+      const entries: DonateCodeResponseDto[] = [];
       let offset = 0;
 
       while (true) {
@@ -40,7 +36,7 @@ export class DonateCodesService implements OnModuleInit {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const page: DonateCode[] = await res.json();
+        const page: DonateCodeResponseDto[] = await res.json();
         entries.push(...page);
 
         if (page.length < PAGE_SIZE) break;
@@ -54,7 +50,7 @@ export class DonateCodesService implements OnModuleInit {
     }
   }
 
-  getAll(): DonateCode[] {
+  getAll(): DonateCodeResponseDto[] {
     return this.donateCodes;
   }
 }
