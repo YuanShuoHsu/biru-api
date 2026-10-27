@@ -231,17 +231,25 @@ export class AttendanceNotificationsService {
     let notified = 0;
     for (const store of stores) {
       try {
-        const { data } = await this.shiftsService.shifts(
+        const { data, total } = await this.shiftsService.shifts(
           { organizationId: store.id, role: 'owner', userId: '' },
           { limit: 500, sortBy: 'startsAt', sortDirection: 'asc' },
           false,
           scope,
         );
-        const due = data.filter(
-          (shift) =>
+        if (total > data.length)
+          this.logger.warn(
+            `Organization ${store.id} has ${total} shifts to check for a missing clock-out; only ${data.length} were checked`,
+          );
+
+        const due = data.filter((shift) => {
+          const punchClosesAt = shift.endsAt.getTime() + punchLeewayMs(shift);
+          return (
             shift.missingClockOut &&
-            shift.endsAt.getTime() + punchLeewayMs(shift) > since.getTime(),
-        );
+            punchClosesAt > since.getTime() &&
+            punchClosesAt <= now.getTime()
+          );
+        });
         if (!due.length) continue;
 
         const recipients = await this.db

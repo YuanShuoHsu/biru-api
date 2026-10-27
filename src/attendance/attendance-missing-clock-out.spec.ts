@@ -100,6 +100,20 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
     ).resolves.toBe(0);
   });
 
+  it('打卡時限晚於這一輪的時間點時留給下一輪，不會寄兩次', async () => {
+    const { startsAt } = await addShift('justClosed', 4 + 1 / 60);
+    await punch('justClosed', 'clockIn', startsAt);
+    const earlier = new Date(now.getTime() - 2 * 60 * 1000);
+
+    await expect(
+      service.notifyMissingClockOuts(
+        new Date(earlier.getTime() - 10 * 60 * 1000),
+        earlier,
+      ),
+    ).resolves.toBe(0);
+    await expect(service.notifyMissingClockOuts(earlier, now)).resolves.toBe(1);
+  });
+
   it('還在可以打卡的時間內不通知', async () => {
     const { startsAt } = await addShift('stillOpen', 1);
     await punch('stillOpen', 'clockIn', startsAt);
