@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-export interface BusinessInfo {
-  name: string;
-  address: string;
-  representativeName: string;
-}
+import type { BusinessInfoResponseDto } from './dto/business-info-response.dto.js';
 
 interface GcisCompany {
   Business_Accounting_NO: string;
@@ -22,7 +18,9 @@ const GCIS_API_URL =
 
 @Injectable()
 export class GcisService {
-  async findByBusinessNo(businessNo: string): Promise<BusinessInfo | null> {
+  async findByBusinessNo(
+    businessNo: string,
+  ): Promise<BusinessInfoResponseDto | null> {
     const filter = encodeURIComponent(
       `Business_Accounting_NO eq ${businessNo}`,
     );

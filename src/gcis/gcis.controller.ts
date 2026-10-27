@@ -6,13 +6,18 @@ import {
   Param,
 } from '@nestjs/common';
 
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
-import type { BusinessInfo } from './gcis.service.js';
+import { BusinessInfoResponseDto } from './dto/business-info-response.dto.js';
 import { GcisService } from './gcis.service.js';
 
 @AllowAnonymous()
@@ -27,9 +32,10 @@ export class GcisController {
   @Get(':businessNo')
   @ApiOperation({ summary: '依統一編號查詢公司名稱、地址與負責人' })
   @ApiParam({ name: 'businessNo', description: '統一編號（8位數字）' })
+  @ApiOkResponse({ type: BusinessInfoResponseDto })
   async findOne(
     @Param('businessNo') businessNo: string,
-  ): Promise<BusinessInfo> {
+  ): Promise<BusinessInfoResponseDto> {
     if (!/^\d{8}$/.test(businessNo))
       throw new BadRequestException(
         this.i18n.t('common.gcis.invalidBusinessNo', {
