@@ -253,7 +253,7 @@
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
-    "notEnabled": "Points are not enabled for this store",
+    "notEnabled": "Points are not enabled yet",
     "notRedeemable": "This coupon cannot be redeemed with points",
     "perUserLimitReached": "You have already redeemed this coupon"
   },

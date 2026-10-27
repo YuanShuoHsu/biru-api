@@ -132,6 +132,7 @@ import {
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -547,8 +548,7 @@ export class OrdersService {
             ...(total <= 0 && {
               orderStatus: 'OrderProcessing' as const,
               paymentDate: new Date(),
-              amountPerPoint: org.amountPerPoint,
-              pointsValidityYears: org.pointsValidityYears,
+              ...POINTS_SNAPSHOT_SET,
             }),
           })
           .returning();

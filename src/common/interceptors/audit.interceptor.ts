@@ -105,6 +105,8 @@ const idsFromRequest = (
   idSource: AuditIdSource,
   request: AuditRequest,
 ): string[] => {
+  if ('id' in idSource) return [idSource.id];
+
   if ('param' in idSource) {
     const value = request.params[idSource.param];
 

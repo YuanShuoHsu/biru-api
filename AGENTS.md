@@ -82,7 +82,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
 - `orders.ts` — `order`, `orderItem`
 - `coupons.ts` — `coupon`, `userCoupon`
-- `points.ts` — `pointTransaction`
+- `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules)
 - `attendance.ts` — `attendanceEmployee`, `attendanceShift`, `attendanceEvent`, `attendanceRequest`,
   `attendanceLeaveType`, `attendanceLeaveCase`, `attendanceAudit`, settings and templates
 - `payroll.ts` — `payrollRuleSet`, `payrollTerms`, `payrollStatement`

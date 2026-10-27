@@ -22,6 +22,7 @@ import type { OrderQrService } from './order-qr.service.js';
 import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const ORG_ID = 'org';
 const QR_SECRET = 'qr-secret';
@@ -499,7 +500,7 @@ describe('OrdersService.createOrder', () => {
       );
 
       expect(inserted.get(order)).toMatchObject({
-        amountPerPoint: '100',
+        ...POINTS_SNAPSHOT_SET,
         orderStatus: 'OrderProcessing',
         paymentDate: expect.any(Date),
       });
