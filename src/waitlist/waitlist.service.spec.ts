@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
 import {
   issueWaitlistQrSession,
@@ -53,6 +54,7 @@ const createService = ({
     service: new WaitlistService(
       db as unknown as DrizzleDB,
       new EventEmitter2(),
+      new OrderQrService(db as unknown as DrizzleDB),
     ),
   };
 };
@@ -85,14 +87,17 @@ describe('WaitlistService.createTicket', () => {
     ['waitlistPaused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
     ['waitlistClosed', { enabled: true, groups, paused: false }, NEVER_OPEN],
     ['waitlistCutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
-  ])('rejects with %s', async (code, setting, openingHours) => {
-    const { db, service } = createService({ openingHours, setting });
+  ])(
+    'rejects with %s before asking for a QR session',
+    async (code, setting, openingHours) => {
+      const { db, service } = createService({ openingHours, setting });
 
-    await expect(
-      service.createTicket('slug', dto, null, 'zh-TW', null, false, qrSession),
-    ).rejects.toThrow(code);
-    expect(db.transaction).not.toHaveBeenCalled();
-  });
+      await expect(
+        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+      ).rejects.toThrow(code);
+      expect(db.transaction).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([0, 30])(
     'lets customers in when the cutoff is %i minutes',
@@ -442,6 +447,15 @@ describe('WaitlistService.scanQr', () => {
     await expect(
       service.scanQr('shop', waitlistQrToken('org', null)),
     ).resolves.toEqual({ issued: null, slug: 'shop' });
+  });
+
+  it('redirects without a session when the token is missing', async () => {
+    const service = withOrgRows([{ id: 'org', secret: null, slug: 'shop' }]);
+
+    await expect(service.scanQr('shop', undefined)).resolves.toEqual({
+      issued: null,
+      slug: 'shop',
+    });
   });
 
   it('returns null for an unknown organization', async () => {

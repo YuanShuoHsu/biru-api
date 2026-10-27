@@ -38,11 +38,7 @@ import {
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import type { Language } from '../db/schema/enums.js';
-import {
-  organization,
-  organizationQrSecret,
-  organizationSlugHistory,
-} from '../db/schema/organizations.js';
+import { organization } from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
@@ -58,6 +54,7 @@ import {
   WAITLIST_UPDATED_EVENT,
   type WaitlistUpdatedEvent,
 } from '../events/waitlist-updated.event.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
 import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import type {
@@ -132,6 +129,7 @@ export class WaitlistService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly eventEmitter: EventEmitter2,
+    private readonly orderQrService: OrderQrService,
   ) {}
 
   private async getOrgBySlug(slug: string) {
@@ -143,17 +141,9 @@ export class WaitlistService {
     return org;
   }
 
-  private async secretOf(organizationId: string) {
-    const row = await this.db.query.organizationQrSecret.findFirst({
-      where: eq(organizationQrSecret.organizationId, organizationId),
-      columns: { secret: true },
-    });
-    return row?.secret ?? null;
-  }
-
   private async verifyQrSession(organizationSlug: string, value: unknown) {
     const org = await this.getOrgBySlug(organizationSlug);
-    const secret = await this.secretOf(org.id);
+    const secret = await this.orderQrService.secretOf(org.id);
     return {
       org,
       secret,
@@ -161,36 +151,15 @@ export class WaitlistService {
     };
   }
 
-  async scanQr(organizationSlug: string, token: string) {
-    // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
-    const [org] = await this.db
-      .select({
-        id: organization.id,
-        secret: organizationQrSecret.secret,
-        slug: organization.slug,
-      })
-      .from(organization)
-      .leftJoin(
-        organizationQrSecret,
-        eq(organizationQrSecret.organizationId, organization.id),
-      )
-      .leftJoin(
-        organizationSlugHistory,
-        eq(organizationSlugHistory.organizationId, organization.id),
-      )
-      .where(
-        or(
-          eq(organization.slug, organizationSlug),
-          eq(organizationSlugHistory.slug, organizationSlug),
-        ),
-      )
-      .limit(1);
+  async scanQr(organizationSlug: string, token: string | undefined) {
+    const org = await this.orderQrService.findBySlugOrHistory(organizationSlug);
     if (!org) return null;
 
     return {
-      issued: isValidWaitlistQrToken(org.id, org.secret, token)
-        ? issueWaitlistQrSession(org.id, org.secret)
-        : null,
+      issued:
+        token && isValidWaitlistQrToken(org.id, org.secret, token)
+          ? issueWaitlistQrSession(org.id, org.secret)
+          : null,
       slug: org.slug,
     };
   }
@@ -211,7 +180,12 @@ export class WaitlistService {
 
   async getQrToken(organizationSlug: string) {
     const org = await this.getOrgBySlug(organizationSlug);
-    return { token: waitlistQrToken(org.id, await this.secretOf(org.id)) };
+    return {
+      token: waitlistQrToken(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+      ),
+    };
   }
 
   private async getSettings(
@@ -374,15 +348,6 @@ export class WaitlistService {
         settings.holdMinutes,
       );
 
-    if (
-      !byStaff &&
-      !verifyWaitlistQrSession(
-        org.id,
-        await this.secretOf(org.id),
-        qrSessionValue,
-      )
-    )
-      throw badRequestError('waitlistQrRequired', 'guest');
     if (org.closedAt) throw organizationClosedError();
     if (!settings.enabled)
       throw badRequestError('waitlistDisabled', byStaff ? 'staff' : 'guest');
@@ -396,6 +361,15 @@ export class WaitlistService {
     );
     if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
     if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    if (
+      !byStaff &&
+      !verifyWaitlistQrSession(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+        qrSessionValue,
+      )
+    )
+      throw badRequestError('waitlistQrRequired', 'guest');
 
     const group = findGroup(settings.groups, dto.partySize);
     if (!group)

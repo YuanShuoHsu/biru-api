@@ -10,7 +10,10 @@ export const WAITLIST_QR_SESSION_COOKIE = 'biru_waitlist_qr_session';
 
 export type WaitlistQrSession = { expiresAt: Date };
 
-export type IssuedWaitlistQrSession = WaitlistQrSession & { value: string };
+export type IssuedWaitlistQrSession = {
+  session: WaitlistQrSession;
+  value: string;
+};
 
 export const waitlistQrToken = (
   organizationId: string,
@@ -33,7 +36,7 @@ export const issueWaitlistQrSession = (
   ).toString('base64url');
 
   return {
-    expiresAt,
+    session: { expiresAt },
     value: `${payload}.${sign(WAITLIST_QR_SESSION_PURPOSE, qrSecret, payload)}`,
   };
 };
@@ -69,10 +72,10 @@ export const verifyWaitlistQrSession = (
 
 export const setWaitlistQrSessionCookie = (
   res: Response,
-  { expiresAt, value }: IssuedWaitlistQrSession,
+  { session, value }: IssuedWaitlistQrSession,
 ) =>
   res.cookie(WAITLIST_QR_SESSION_COOKIE, value, {
-    expires: expiresAt,
+    expires: session.expiresAt,
     httpOnly: true,
     path: '/',
     sameSite: 'lax',

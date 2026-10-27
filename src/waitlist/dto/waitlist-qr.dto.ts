@@ -1,11 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class WaitlistQrQueryDto {
-  @ApiProperty({ description: '門市現場候位 QR code 的簽章' })
+  @ApiPropertyOptional({ description: '門市現場候位 QR code 的簽章' })
+  @IsOptional()
   @IsString()
-  token: string;
+  token?: string;
 }
 
 export class WaitlistQrSessionResponseDto {

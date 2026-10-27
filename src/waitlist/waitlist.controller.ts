@@ -94,7 +94,6 @@ export class WaitlistController {
     const scanned = await this.waitlistService.scanQr(organizationSlug, token);
     if (scanned?.issued) setWaitlistQrSessionCookie(res, scanned.issued);
 
-    // 用相對路徑：cookie 落在使用者掃到的網域，改轉 NEXT_URL 遇到 www／preview 等不同網域就帶不到 cookie
     return {
       statusCode: 303,
       url: `/waitlist/${encodeURIComponent(scanned?.slug || organizationSlug)}`,

@@ -32,11 +32,11 @@ describe('waitlist QR token', () => {
 
   it('verifies an issued session until it expires', () => {
     vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
-    const { expiresAt, value } = issueWaitlistQrSession('org', null);
+    const { session, value } = issueWaitlistQrSession('org', null);
 
-    expect(verifyWaitlistQrSession('org', null, value)).toEqual({ expiresAt });
+    expect(verifyWaitlistQrSession('org', null, value)).toEqual(session);
 
-    vi.setSystemTime(expiresAt);
+    vi.setSystemTime(session.expiresAt);
     expect(verifyWaitlistQrSession('org', null, value)).toBeNull();
   });
 
