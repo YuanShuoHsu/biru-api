@@ -69,7 +69,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   const refundOf = (orderId: string) =>
     service.refundOrder('biru', orderId, { reasonCode: 'wrongItem' });
 
-  it('現金的人工退款直接完成結算', async () => {
+  it('現金的人工退款直接完成退款', async () => {
     await refundOf('cash');
 
     expect(
