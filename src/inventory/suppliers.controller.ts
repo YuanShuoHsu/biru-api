@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
@@ -13,6 +13,15 @@ import { SuppliersService } from './suppliers.service.js';
 @Controller('suppliers/:supplierId')
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
+
+  @Get()
+  @Roles({ purchasing: ['read'] }, 'supplierId')
+  @ApiOperation({ summary: '查詢供應商' })
+  findOne(
+    @Param('supplierId') supplierId: string,
+  ): Promise<SupplierResponseDto> {
+    return this.suppliersService.findOne(supplierId);
+  }
 
   @Patch()
   @Roles({ purchasing: ['update'] }, 'supplierId')

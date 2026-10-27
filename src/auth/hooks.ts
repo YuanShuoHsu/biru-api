@@ -7,7 +7,7 @@ import {
   getSessionFromCtx,
   isAPIError,
 } from 'better-auth/api';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -30,6 +30,7 @@ import {
 } from './closure-guards.js';
 import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
+import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 
 import type {
   AuditAction,
@@ -337,6 +338,12 @@ const writeEvent = async (
   });
 };
 
+const MEMBER_MANAGEMENT_PATHS = new Set([
+  '/organization/remove-member',
+  '/organization/update-member-role',
+  '/organization/remove-team-member',
+]);
+
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
 const REVOKE_SESSION_PATHS = new Set([
@@ -424,6 +431,38 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
             parent: { table: 'organization', id: organizationId },
             sinceId: await latestDeletedRecordId(),
           };
+      }
+
+      if (MEMBER_MANAGEMENT_PATHS.has(ctx.path)) {
+        const session = await getSessionFromCtx(ctx);
+        const body = asRow(ctx.body) ?? {};
+        if (session)
+          await assertMayManageMember(
+            session.user,
+            {
+              memberIdOrEmail:
+                asString(body.memberIdOrEmail) ?? asString(body.memberId),
+              userId: asString(body.userId),
+            },
+            asString(body.organizationId) ??
+              asString(asRow(session.session)?.activeOrganizationId),
+          );
+      }
+
+      if (ctx.path === '/organization/leave') {
+        const session = await getSessionFromCtx(ctx);
+        const organizationId = asString(asRow(ctx.body)?.organizationId);
+        const leaving =
+          session && organizationId
+            ? await authDb().query.member.findFirst({
+                where: and(
+                  eq(schema.member.organizationId, organizationId),
+                  eq(schema.member.userId, session.user.id),
+                ),
+                columns: { id: true },
+              })
+            : undefined;
+        if (leaving) await assertKeepsOwner(leaving.id);
       }
 
       if (ctx.path === '/organization/remove-team') {

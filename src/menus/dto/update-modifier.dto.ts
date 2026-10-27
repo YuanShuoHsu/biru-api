@@ -21,10 +21,15 @@ export class UpdateModifierDto {
   @IsObject()
   displayName?: LocalizedText;
 
-  @ApiPropertyOptional({ description: '加價金額', example: '10.00' })
+  @ApiPropertyOptional({
+    description: '加價金額',
+    example: '10.00',
+    nullable: true,
+    type: String,
+  })
   @IsOptional()
   @IsNumberString()
-  priceAdjustment?: string;
+  priceAdjustment?: string | null;
 
   @ApiPropertyOptional({
     enum: itemAvailabilityEnum.enumValues,
