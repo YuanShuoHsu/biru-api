@@ -1653,6 +1653,13 @@
       "when": 1792830121212,
       "tag": "0235_member_showcase",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1793079246942,
+      "tag": "0236_user_coupon_indexes",
+      "breakpoints": true
     }
   ]
 }

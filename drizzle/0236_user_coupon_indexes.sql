@@ -1,0 +1,2 @@
+CREATE INDEX "userCoupon_couponId_createdAt_idx" ON "user_coupon" USING btree ("coupon_id","created_at");--> statement-breakpoint
+CREATE INDEX "userCoupon_orderId_idx" ON "user_coupon" USING btree ("order_id");
