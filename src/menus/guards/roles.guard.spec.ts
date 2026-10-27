@@ -113,6 +113,6 @@ describe('RolesGuard', () => {
 
     await expect(
       guardFor({ userRole: 'admin', closed: true }).canActivate(context),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/read-only/);
   });
 });
