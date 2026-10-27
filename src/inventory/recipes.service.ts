@@ -28,6 +28,8 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
@@ -117,10 +119,14 @@ export class RecipesService {
       updatedAt: recipe.updatedAt,
     };
 
+    const localizedName = localizedTextSql(
+      recipe.name,
+      toLanguage(I18nContext.current()?.lang),
+    );
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy])]
-      : [asc(sql`${recipe.name}::text`)];
+      ? [dir(sortBy === 'name' ? localizedName : fieldMap[sortBy])]
+      : [asc(localizedName)];
 
     const where = and(
       eq(recipe.organizationId, organizationId),
@@ -310,7 +316,16 @@ export class RecipesService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy])]
+      ? [
+          dir(
+            sortBy === 'ingredientName'
+              ? localizedTextSql(
+                  ingredient.name,
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : fieldMap[sortBy],
+          ),
+        ]
       : [asc(recipeIngredient.sortOrder), asc(recipeIngredient.createdAt)];
 
     const where = and(

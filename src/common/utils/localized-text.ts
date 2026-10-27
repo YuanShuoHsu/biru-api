@@ -1,4 +1,10 @@
-import type { LocalizedText } from '../../db/schema/enums.js';
+import { sql, type Column, type SQL } from 'drizzle-orm';
+
+import {
+  DEFAULT_LANGUAGE,
+  type Language,
+  type LocalizedText,
+} from '../../db/schema/enums.js';
 
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   typeof value === 'object' &&
@@ -27,3 +33,6 @@ export const isSameLocalizedText = (
     [...left].every(([language, text]) => right.get(language) === text)
   );
 };
+
+export const localizedTextSql = (column: Column, lang: Language): SQL =>
+  sql`COALESCE(${column}->>${lang}, ${column}->>${DEFAULT_LANGUAGE})`;
