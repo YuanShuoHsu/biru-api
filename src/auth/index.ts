@@ -23,9 +23,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import { assertOrganizationDeletable } from './deletion-guards.js';
 import { cancelExpiredInvitations } from './expired-invitations.js';
-import { assertKeepsOwner } from './owner-guards.js';
 import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
+import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';

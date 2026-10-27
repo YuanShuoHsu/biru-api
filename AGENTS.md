@@ -236,6 +236,9 @@ organization without a `member` row. When a feature or notification is limited t
 give it to every role above, and never grant a lower role something a higher one lacks.
 `permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`; the
 platform-admin step is not wired into `RolesGuard` or the notification recipients yet.
+A platform admin who joins a store gets `owner` with `member.joined_as_platform_admin` set; every
+store must keep an owner without that flag, which `assertKeepsOwner` (`src/auth/owner-guards.ts`)
+enforces on member removal, demotion and leave.
 
 Controllers often carry a class-level `@AllowAnonymous()` (from `@thallesp/nestjs-better-auth`)
 while individual handlers add `@Roles(...)` or `@UseGuards(AdminGuard)` — the guards run
