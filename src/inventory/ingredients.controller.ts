@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -14,6 +15,7 @@ import { Audit } from '../common/decorators/audit.decorator.js';
 
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+import { MenuEventsInterceptor } from '../menus/interceptors/menu-events.interceptor.js';
 
 import { UpdateIngredientDto } from './dto/create-ingredient.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
@@ -24,6 +26,7 @@ import { IngredientsService } from './ingredients.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 
 @ApiTags('inventory')
+@UseInterceptors(MenuEventsInterceptor)
 @Controller('ingredients/:ingredientId')
 export class IngredientsController {
   constructor(

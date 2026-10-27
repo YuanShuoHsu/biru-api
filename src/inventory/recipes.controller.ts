@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -17,6 +18,7 @@ import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+import { MenuEventsInterceptor } from '../menus/interceptors/menu-events.interceptor.js';
 
 import {
   CreateRecipeIngredientDto,
@@ -31,6 +33,7 @@ import {
 import { RecipesService } from './recipes.service.js';
 
 @ApiTags('inventory')
+@UseInterceptors(MenuEventsInterceptor)
 @Controller('recipes/:recipeId')
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}

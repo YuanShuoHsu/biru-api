@@ -83,6 +83,7 @@ import {
   type OrderUpdatedEvent,
 } from '../../events/order-updated.event.js';
 import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
+import { MenuStockService } from '../../inventory/menu-stock.service.js';
 import { OrderTicketService } from '../../orders/order-ticket.service.js';
 import {
   getRefundChannel,
@@ -173,6 +174,7 @@ export class EcpayOrderRefundService {
     private readonly pointsService: PointsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
+    private readonly menuStockService: MenuStockService,
   ) {}
 
   private readonly t: RefundPlanTranslate = (key, args) =>
@@ -400,13 +402,14 @@ export class EcpayOrderRefundService {
         .where(eq(refund.id, claimed.id));
     });
 
-    if (plan.isFull)
+    if (plan.isFull) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
         orderId: claimed.orderId,
         orderStatus: 'OrderReturned',
         organizationId: found.sellerId,
       });
-    else
+      void this.menuStockService.refresh(found.sellerId, true);
+    } else
       this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
         orderId: claimed.orderId,
         organizationId: found.sellerId,

@@ -284,6 +284,7 @@ export type I18nTranslations = {
             "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
             "invalidTable": string;
+            "menuItemInsufficientStock": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;

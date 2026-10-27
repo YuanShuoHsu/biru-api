@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
@@ -10,7 +10,11 @@ import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
-import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import {
+  InsufficientStockError,
+  type InventoryTransactionsService,
+} from '../inventory/inventory-transactions.service.js';
+import type { MenuStockService } from '../inventory/menu-stock.service.js';
 
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import { issueOrderQrSession } from './order-qr-token.js';
@@ -54,14 +58,18 @@ const selectChain = (rows: unknown[]) => {
 const createService = ({
   applied = null,
   closedAt = null,
+  consumeError,
   lowStock = [],
+  offerStockChanged = false,
   qrSecret = QR_SECRET,
   replayed,
   txDuplicate,
 }: {
   applied?: { coupon: { code: string }; discount: number } | null;
   closedAt?: Date | null;
+  consumeError?: Error;
   lowStock?: { id: string; name: Record<string, string> }[];
+  offerStockChanged?: boolean;
   qrSecret?: string | null;
   replayed?: { id: string; idempotencyFingerprint: string | null };
   txDuplicate?: { id: string; orderStatus: string };
@@ -106,8 +114,14 @@ const createService = ({
         }),
       },
     },
+    select: vi.fn(() => selectChain([{ name: { 'zh-TW': '蛋糕' } }])),
     transaction: vi.fn((callback: (t: typeof tx) => unknown) => callback(tx)),
   };
+
+  const consume = consumeError
+    ? vi.fn().mockRejectedValue(consumeError)
+    : vi.fn().mockResolvedValue({ lowStock, offerStockChanged });
+  const menuStock = { refresh: vi.fn() };
 
   const couponsService = {
     getApplicableCoupon: vi
@@ -130,17 +144,21 @@ const createService = ({
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
-      {
-        consume: vi.fn().mockResolvedValue(lowStock),
-      } as unknown as InventoryTransactionsService,
+      { consume } as unknown as InventoryTransactionsService,
       orderPricingService as unknown as OrderPricingService,
       {
         secretOf: vi.fn().mockResolvedValue(qrSecret),
       } as unknown as OrderQrService,
       { enqueueOrder: vi.fn() } as unknown as OrderTicketService,
       eventEmitter,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {
+        t: (key: string, options?: { args?: { name?: string } }) =>
+          options?.args?.name ? `${key}:${options.args.name}` : key,
+      } as unknown as I18nService<I18nTranslations>,
+      menuStock as unknown as MenuStockService,
     ),
+    consume,
+    menuStock,
     tx,
   };
 };
@@ -407,6 +425,36 @@ describe('OrdersService.createOrder', () => {
         organizationId: ORG_ID,
         ingredients: lowStock,
       });
+    });
+
+    it('建單時檢查剩餘數量，交易完成後同步售完狀態', async () => {
+      const { consume, menuStock, service } = createService({
+        offerStockChanged: true,
+      });
+
+      await service.createOrder('slug', baseDto, null, null);
+
+      expect(consume).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.anything(),
+        {
+          enforceStock: true,
+        },
+      );
+      expect(menuStock.refresh).toHaveBeenCalledWith(ORG_ID, true);
+    });
+
+    it('剩餘數量不足時回傳品項名稱，不同步售完狀態', async () => {
+      const { menuStock, service } = createService({
+        consumeError: new InsufficientStockError('cake'),
+      });
+
+      await expect(
+        service.createOrder('slug', baseDto, null, null),
+      ).rejects.toThrow(
+        new BadRequestException('common.orders.menuItemInsufficientStock:蛋糕'),
+      );
+      expect(menuStock.refresh).not.toHaveBeenCalled();
     });
 
     it('折扣寫入訂單並核銷優惠券', async () => {

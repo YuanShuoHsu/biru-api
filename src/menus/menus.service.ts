@@ -31,6 +31,7 @@ import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
+  ItemAvailability,
   Menu,
   MenuItem,
   MenuItemAddOn,
@@ -203,6 +204,14 @@ const withCurrency = (
   row: Offer | null | undefined,
   priceCurrency: string,
 ): OfferWithCurrency | null => (row ? { ...row, priceCurrency } : null);
+
+// 店員送出與目前相同的供應狀態（例如只改價格）時保留自動售完，補貨後仍會自動恢復
+const keepAutoSoldOut = (availability: ItemAvailability | null | undefined) =>
+  availability === undefined
+    ? {}
+    : {
+        autoSoldOut: sql<boolean>`${offer.autoSoldOut} and ${offer.availability} is not distinct from ${availability}`,
+      };
 
 @Injectable()
 export class MenusService {
@@ -931,7 +940,11 @@ export class MenusService {
       if (existingOffer) {
         const [updatedOffer] = await tx
           .update(offer)
-          .set({ ...offerData, updatedAt: new Date() })
+          .set({
+            ...offerData,
+            ...keepAutoSoldOut(offerData.availability),
+            updatedAt: new Date(),
+          })
           .where(eq(offer.id, existingOffer.id))
           .returning();
         resultOffer = updatedOffer;
@@ -1025,7 +1038,11 @@ export class MenusService {
   }): Promise<OfferWithCurrency> {
     const [updated] = await this.db
       .update(offer)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        ...keepAutoSoldOut(params.data.availability),
+        updatedAt: new Date(),
+      })
       .where(eq(offer.id, params.where.id))
       .returning();
     if (!updated) throw new NotFoundException('Offer not found');
@@ -1071,6 +1088,7 @@ export class MenusService {
       .update(offer)
       .set({
         ...availability,
+        ...keepAutoSoldOut(availability.availability),
         ...(nextInventoryLevel !== undefined && {
           inventoryLevel: nextInventoryLevel,
         }),

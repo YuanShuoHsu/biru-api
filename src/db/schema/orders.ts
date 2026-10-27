@@ -122,6 +122,8 @@ export const order = pgTable(
     pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
     idempotencyFingerprint: text('idempotency_fingerprint'),
+    // 建單時從各定價剩餘數量扣掉的份數（offerId → 份數）；還原時照這份歸還並清空，避免重複歸還
+    heldOfferStock: jsonb('held_offer_stock').$type<Record<string, number>>(),
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
     tableNumber: integer('table_number'),
