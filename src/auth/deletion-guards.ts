@@ -15,10 +15,12 @@ const findSoleOwnerIds = async (userIds: string[]) => {
       sql`, `,
     )})
       AND owned.role = 'owner'
+      AND NOT owned.joined_as_platform_admin
       AND NOT EXISTS (
         SELECT 1 FROM ${schema.member} other
         WHERE other.organization_id = owned.organization_id
           AND other.role = 'owner'
+          AND NOT other.joined_as_platform_admin
           AND other.user_id <> owned.user_id
       )
   `);
