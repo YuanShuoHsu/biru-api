@@ -28,6 +28,8 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import {
   getOrganizationBySlug,
   getOrganizationCurrency,
@@ -134,10 +136,14 @@ export class IngredientsService {
       unitPrice: unitPriceSql,
     };
 
+    const localizedName = localizedTextSql(
+      ingredient.name,
+      toLanguage(I18nContext.current()?.lang),
+    );
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy])]
-      : [asc(ingredient.sortOrder), asc(sql`${ingredient.name}::text`)];
+      ? [dir(sortBy === 'name' ? localizedName : fieldMap[sortBy])]
+      : [asc(ingredient.sortOrder), asc(localizedName)];
 
     const where = and(
       eq(ingredient.organizationId, organizationId),

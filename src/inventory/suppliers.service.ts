@@ -12,10 +12,10 @@ import {
   ne,
   notInArray,
   or,
-  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
@@ -23,6 +23,8 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -135,7 +137,14 @@ export class SuppliersService {
       })
       .from(ingredient)
       .where(inArray(ingredient.supplierId, supplierIds))
-      .orderBy(asc(sql`${ingredient.name}::text`));
+      .orderBy(
+        asc(
+          localizedTextSql(
+            ingredient.name,
+            toLanguage(I18nContext.current()?.lang),
+          ),
+        ),
+      );
 
     const ingredients = new Map<string, SupplierIngredientResponseDto[]>();
     for (const { supplierId, ...row } of rows) {
@@ -148,6 +157,15 @@ export class SuppliersService {
     }
 
     return ingredients;
+  }
+
+  async findOne(supplierId: string): Promise<SupplierResponseDto> {
+    const row = await this.db.query.supplier.findFirst({
+      where: eq(supplier.id, supplierId),
+    });
+    if (!row) throw new NotFoundException('Supplier not found');
+
+    return this.withIngredients(row);
   }
 
   async create(
