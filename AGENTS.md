@@ -224,7 +224,7 @@ Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes 
   looks up the caller's `member` row, and calls `isAuthorized`. It also stashes the resolved
   `organizationId` on the request. Handlers **without** `@Roles` are passed through untouched.
 - `@OrganizationMember(organizationParam)` (same file) runs the same guard without an action: any
-  `member` of the organization passes. Use it for self-service routes (punching, own requests, own
+  `member` of the organization (or a platform admin) passes. Use it for self-service routes (punching, own requests, own
   payslips) and scope the data to the caller's own employee row in the service.
 
 When adding a tenant-scoped route whose param isn't already covered, extend both the
@@ -234,8 +234,8 @@ When adding a tenant-scoped route whose param isn't already covered, extend both
 platform admin ⊇ `owner` ⊇ `admin` ⊇ `member`. A platform admin counts as `owner` in every
 organization without a `member` row. When a feature or notification is limited to a role, also
 give it to every role above, and never grant a lower role something a higher one lacks.
-`permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`; the
-platform-admin step is not wired into `RolesGuard` or the notification recipients yet.
+`permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`;
+`RolesGuard` and `WsRolesGuard` apply the platform-admin step, the notification recipients don't yet.
 
 Controllers often carry a class-level `@AllowAnonymous()` (from `@thallesp/nestjs-better-auth`)
 while individual handlers add `@Roles(...)` or `@UseGuards(AdminGuard)` — the guards run
