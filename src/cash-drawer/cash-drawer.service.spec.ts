@@ -284,6 +284,7 @@ describe('CashDrawerService', () => {
       ),
     ).rejects.toThrow('common.cashDrawer.notOpen');
   });
+
   it('列出開關帳紀錄，附開帳與關帳人姓名、差額，可依狀態篩選', async () => {
     await client.query(
       `insert into "user" (id, name, email, email_verified, created_at, updated_at, first_name)
@@ -325,6 +326,24 @@ describe('CashDrawerService', () => {
       filterValue: 'closed',
     });
     expect(closed.data.map(({ id }) => id)).toEqual([first.id]);
+
+    const short = await service.list(ORG, {
+      filterField: 'variance',
+      filterOperator: '<',
+      filterValue: '0',
+    });
+    expect(short.data.map(({ id }) => id)).toEqual([first.id]);
+    expect(short.total).toBe(1);
+
+    const onDate = await service.list(ORG, {
+      filterField: 'businessDate',
+      filterOperator: 'is',
+      filterValue: '2000-01-01',
+    });
+    expect(onDate.data.map(({ id }) => id)).toEqual([first.id]);
+
+    const searched = await service.list(ORG, { quickFilterValue: '少找' });
+    expect(searched.data.map(({ id }) => id)).toEqual([first.id]);
 
     expect((await service.list('other')).total).toBe(0);
   });

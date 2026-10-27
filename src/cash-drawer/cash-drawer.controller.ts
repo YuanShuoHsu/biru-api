@@ -37,7 +37,7 @@ export class CashDrawerController {
   }
 
   @Get('sessions')
-  @Roles({ cashDrawer: ['read'] }, 'organizationSlug')
+  @Roles({ cashDrawer: ['read'], revenue: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '錢櫃開關帳紀錄' })
   @ApiOkResponse({ type: CashDrawerSessionListResponseDto })
   list(
