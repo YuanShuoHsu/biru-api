@@ -403,12 +403,8 @@ export class OrdersService {
     )
       throw new BadRequestException(this.t('invalidTable'));
 
-    if (
-      (dto.mode === 'counter' || dto.mode === 'driveThru') &&
-      dto.payment === 'Cash' &&
-      !hasQrSession
-    )
-      throw new BadRequestException(this.t('cashRequiresInStoreQrCode'));
+    if ((dto.mode === 'counter' || dto.mode === 'driveThru') && !hasQrSession)
+      throw new BadRequestException(this.t('inStoreQrCodeRequired'));
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')

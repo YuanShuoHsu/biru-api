@@ -229,8 +229,8 @@
     "tableNumber": "桌号 {tableNumber}"
   },
   "orders": {
-    "cashRequiresInStoreQrCode": "现金付款请扫描店内的二维码点餐",
     "idempotencyConflict": "订单内容已变更，请重新提交。",
+    "inStoreQrCodeRequired": "请扫描店内的二维码点餐",
     "invalidTable": "桌号二维码无效，请重新扫描桌上的二维码",
     "menuItemUnavailable": "「{name}」目前无法供应",
     "menuItemUnavailableAtTime": "「{name}」在所选取餐时间不供应",

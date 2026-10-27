@@ -229,8 +229,8 @@
     "tableNumber": "Table {tableNumber}"
   },
   "orders": {
-    "cashRequiresInStoreQrCode": "To pay in cash, please order by scanning the QR code in store.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
+    "inStoreQrCodeRequired": "Please order by scanning the QR code in store.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
     "menuItemUnavailableAtTime": "\"{name}\" isn't available at the selected pickup time",
