@@ -5,6 +5,7 @@ import { lt, sql } from 'drizzle-orm';
 import { AttendanceNotificationsService } from '../attendance/attendance-notifications.service.js';
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { CouponsService } from '../coupons/coupons.service.js';
 import * as schema from '../db/schema/index.js';
 import { DeletedRecordsService } from '../deleted-records/deleted-records.service.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -31,6 +32,7 @@ export class TasksService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly attendanceNotificationsService: AttendanceNotificationsService,
+    private readonly couponsService: CouponsService,
     private readonly deletedRecordsService: DeletedRecordsService,
     private readonly inventoryNotificationsService: InventoryNotificationsService,
     private readonly orderNotificationsService: OrderNotificationsService,
@@ -62,6 +64,20 @@ export class TasksService {
       if (expired) this.logger.log(`作廢 ${expired} 張逾時候位號碼牌`);
     } catch (error) {
       this.logger.error('作廢逾時候位號碼牌失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleBirthdayCouponsCron() {
+    try {
+      const members = await this.couponsService.issueBirthdayCoupons();
+
+      if (members) this.logger.log(`為 ${members} 位當月壽星發放生日券`);
+    } catch (error) {
+      this.logger.error('發放生日券失敗', error);
     }
   }
 
