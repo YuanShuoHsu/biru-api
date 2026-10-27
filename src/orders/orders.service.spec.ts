@@ -22,8 +22,20 @@ const ORG_ID = 'org';
 const QR_SECRET = 'qr-secret';
 
 const resolvedItems = [
-  { id: 'i1', menuItemId: 'm1', orderQuantity: 2, unitPrice: '60.00' },
-  { id: 'i2', menuItemId: 'm2', orderQuantity: 1, unitPrice: '35.50' },
+  {
+    id: 'i1',
+    leadTimeMinutes: 0,
+    menuItemId: 'm1',
+    orderQuantity: 2,
+    unitPrice: '60.00',
+  },
+  {
+    id: 'i2',
+    leadTimeMinutes: 0,
+    menuItemId: 'm2',
+    orderQuantity: 1,
+    unitPrice: '35.50',
+  },
 ];
 
 const dtoOf = (overrides: Partial<CreateOrderDto> = {}) =>
@@ -99,6 +111,10 @@ const createService = ({
           currency: 'TWD',
           dineInTableCount: 12,
           id: ORG_ID,
+          openingHours: null,
+          pickupCutoffMinutes: 15,
+          pickupLeadMinutes: 15,
+          pickupMaxAdvanceDays: 7,
           pointsValidityYears: 1,
         }),
       },
@@ -307,6 +323,58 @@ describe('OrdersService.createOrder', () => {
       await service.createOrder('slug', baseDto, null, null);
 
       expect(db.transaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('自取取餐時間', () => {
+    const NOW = new Date('2026-10-28T10:00:00+08:00');
+    const pickupAt = (minutes: number) =>
+      new Date(NOW.getTime() + minutes * 60 * 1000).toISOString();
+    const pickupDto = (minutes: number) =>
+      dtoOf({ mode: 'pickup', pickupTime: pickupAt(minutes) });
+
+    beforeEach(() => {
+      vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('品項備餐時間比門市長時，太早的取餐時間會被擋', async () => {
+      const { db, orderPricingService, service } = createService();
+      orderPricingService.resolveOrderItems.mockResolvedValue([
+        resolvedItems[0],
+        { ...resolvedItems[1], leadTimeMinutes: 40 },
+      ]);
+
+      await expect(
+        service.createOrder('slug', pickupDto(30), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('取餐時間留足品項備餐時間可以下單', async () => {
+      const { inserted, orderPricingService, service } = createService();
+      orderPricingService.resolveOrderItems.mockResolvedValue([
+        { ...resolvedItems[0], leadTimeMinutes: 40 },
+      ]);
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
+    it('品項備餐時間比門市短時，仍以門市備餐時間為準', async () => {
+      const { inserted, service } = createService();
+
+      await service.createOrder('slug', pickupDto(15), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(15)),
+      });
     });
   });
 
