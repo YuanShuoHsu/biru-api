@@ -68,7 +68,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | MailsModule         | `src/mails/`         | Transactional email sending                                       |
 | AttendanceModule    | `src/attendance/`    | Employees, shifts, punches, leave requests and balances           |
 | PayrollModule       | `src/payroll/`       | Payroll terms, statements, and the official rule-set ingestion    |
-| TasksModule         | `src/tasks/`         | Retention purges, digests, coupon, waitlist and payroll crons     |
+| TasksModule         | `src/tasks/`         | Scheduled jobs: retention purges, notifications, data ingests     |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
