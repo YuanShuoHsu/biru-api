@@ -230,6 +230,13 @@ Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes 
 When adding a tenant-scoped route whose param isn't already covered, extend both the
 `OrganizationParam` union and the `resolveOrganizationId` switch.
 
+**Role hierarchy** — every role holds all features and notifications of the roles below it:
+platform admin ⊇ `owner` ⊇ `admin` ⊇ `member`. A platform admin counts as `owner` in every
+organization without a `member` row. When a feature or notification is limited to a role, also
+give it to every role above, and never grant a lower role something a higher one lacks.
+`permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`; the
+platform-admin step is not wired into `RolesGuard` or the notification recipients yet.
+
 Controllers often carry a class-level `@AllowAnonymous()` (from `@thallesp/nestjs-better-auth`)
 while individual handlers add `@Roles(...)` or `@UseGuards(AdminGuard)` — the guards run
 independently of `@AllowAnonymous`, so this combination is intentional, not a hole.
