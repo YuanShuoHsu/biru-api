@@ -21,9 +21,9 @@ export class CreateMenuDto {
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   description?: LocalizedText | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
-  image?: string;
+  image?: string | null;
 }
