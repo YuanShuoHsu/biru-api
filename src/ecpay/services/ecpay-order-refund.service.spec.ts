@@ -34,6 +34,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
       { revokeForOrder: vi.fn() } as never,
       new EventEmitter2(),
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      { refresh: vi.fn() } as never,
     );
   }, 60_000);
 

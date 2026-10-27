@@ -29,6 +29,7 @@ import {
   recipe,
   recipeIngredient,
 } from '../db/schema/inventory.js';
+import { offer } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { LowStockReachedEvent } from '../events/low-stock-reached.event.js';
@@ -45,9 +46,16 @@ import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto.js';
+import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
 import { unitPriceOf } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
+
+export class InsufficientStockError extends Error {
+  constructor(readonly menuItemId: string) {
+    super(`Insufficient stock for MenuItem ${menuItemId}`);
+  }
+}
 
 @Injectable()
 export class InventoryTransactionsService {
@@ -244,12 +252,16 @@ export class InventoryTransactionsService {
   async consume(
     orderId: string,
     tx: Tx,
-  ): Promise<LowStockReachedEvent['ingredients']> {
+    { enforceStock = false }: { enforceStock?: boolean } = {},
+  ): Promise<{
+    lowStock: LowStockReachedEvent['ingredients'];
+    offerStockChanged: boolean;
+  }> {
     const [placed] = await tx
       .select({ sellerId: order.sellerId })
       .from(order)
       .where(eq(order.id, orderId));
-    if (!placed?.sellerId) return [];
+    if (!placed?.sellerId) return { lowStock: [], offerStockChanged: false };
 
     const items = await tx
       .select({
@@ -270,7 +282,15 @@ export class InventoryTransactionsService {
           id,
           (servingsByMenuItemId.get(id) ?? 0) + orderQuantity,
         );
-    if (!servingsByMenuItemId.size) return [];
+    if (!servingsByMenuItemId.size)
+      return { lowStock: [], offerStockChanged: false };
+
+    const offerStockChanged = await this.holdOfferStock(
+      orderId,
+      servingsByMenuItemId,
+      enforceStock,
+      tx,
+    );
 
     const recipes = await tx
       .select({
@@ -280,7 +300,7 @@ export class InventoryTransactionsService {
       })
       .from(recipe)
       .where(inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]));
-    if (!recipes.length) return [];
+    if (!recipes.length) return { lowStock: [], offerStockChanged };
 
     const materials = await tx
       .select()
@@ -293,6 +313,7 @@ export class InventoryTransactionsService {
       );
 
     const quantities = new Map<string, number>();
+    const menuItemIdByIngredientId = new Map<string, string>();
     for (const { id, menuItemId, recipeYield } of recipes) {
       const servings =
         (menuItemId && servingsByMenuItemId.get(menuItemId)) || 0;
@@ -306,20 +327,30 @@ export class InventoryTransactionsService {
           material.ingredientId,
           (quantities.get(material.ingredientId) ?? 0) + used,
         );
+        if (menuItemId && !menuItemIdByIngredientId.has(material.ingredientId))
+          menuItemIdByIngredientId.set(material.ingredientId, menuItemId);
       }
     }
 
-    return this.record(
+    const lowStock = await this.record(
       [...quantities].map(([ingredientId, used]) => ({
         ingredientId,
         quantity: -used,
       })),
-      { orderId, organizationId: placed.sellerId },
+      {
+        ...(enforceStock && { menuItemIdByIngredientId }),
+        orderId,
+        organizationId: placed.sellerId,
+      },
       tx,
     );
+
+    return { lowStock, offerStockChanged };
   }
 
-  async restoreAll(orderId: string, tx: Tx): Promise<void> {
+  async restoreAll(orderId: string, tx: Tx): Promise<boolean> {
+    const offerStockChanged = await this.releaseOfferStock(orderId, tx);
+
     const rows = await tx
       .select({
         ingredientId: inventoryTransaction.ingredientId,
@@ -340,21 +371,151 @@ export class InventoryTransactionsService {
         ingredientId,
         quantity: -quantity,
       }));
-    if (!entries.length) return;
+    if (!entries.length) return offerStockChanged;
 
     await this.record(
       entries,
       { orderId, organizationId: rows[0].organizationId },
       tx,
     );
+
+    return offerStockChanged;
+  }
+
+  async lockHeldOfferStock(orderIds: string[], tx: Tx): Promise<void> {
+    const orders = await tx
+      .select({ heldOfferStock: order.heldOfferStock })
+      .from(order)
+      .where(inArray(order.id, orderIds));
+    const offerIds = [
+      ...new Set(
+        orders.flatMap(({ heldOfferStock }) =>
+          Object.keys(heldOfferStock ?? {}),
+        ),
+      ),
+    ];
+    if (!offerIds.length) return;
+
+    await tx
+      .select({ id: offer.id })
+      .from(offer)
+      .where(inArray(offer.id, offerIds))
+      .orderBy(asc(offer.id))
+      .for('update');
+  }
+
+  private async holdOfferStock(
+    orderId: string,
+    servingsByMenuItemId: Map<string, number>,
+    enforceStock: boolean,
+    tx: Tx,
+  ): Promise<boolean> {
+    const offers = await tx
+      .select({ id: offer.id, menuItemId: offer.menuItemId })
+      .from(offer)
+      .where(inArray(offer.menuItemId, [...servingsByMenuItemId.keys()]))
+      .orderBy(asc(offer.createdAt));
+
+    const offerIdByMenuItemId = new Map<string, string>();
+    for (const { id, menuItemId } of offers)
+      if (menuItemId && !offerIdByMenuItemId.has(menuItemId))
+        offerIdByMenuItemId.set(menuItemId, id);
+    if (!offerIdByMenuItemId.size) return false;
+
+    const locked = await tx
+      .select({ id: offer.id, inventoryLevel: offer.inventoryLevel })
+      .from(offer)
+      .where(inArray(offer.id, [...offerIdByMenuItemId.values()]))
+      .orderBy(asc(offer.id))
+      .for('update');
+
+    const held: Record<string, number> = {};
+    for (const [menuItemId, offerId] of offerIdByMenuItemId) {
+      const inventoryLevel = locked.find(
+        ({ id }) => id === offerId,
+      )?.inventoryLevel;
+      const remaining = inventoryLevel?.value;
+      if (typeof remaining !== 'number') continue;
+
+      const servings = servingsByMenuItemId.get(menuItemId) ?? 0;
+      if (enforceStock && remaining < servings)
+        throw new InsufficientStockError(menuItemId);
+
+      const taken = Math.min(remaining, servings);
+      if (taken <= 0) continue;
+
+      await tx
+        .update(offer)
+        .set({
+          inventoryLevel: { ...inventoryLevel, value: remaining - taken },
+          updatedAt: new Date(),
+        })
+        .where(eq(offer.id, offerId));
+      held[offerId] = taken;
+    }
+    if (!Object.keys(held).length) return false;
+
+    await tx
+      .update(order)
+      .set({ heldOfferStock: held })
+      .where(eq(order.id, orderId));
+
+    return true;
+  }
+
+  private async releaseOfferStock(orderId: string, tx: Tx): Promise<boolean> {
+    const [found] = await tx
+      .select({ heldOfferStock: order.heldOfferStock })
+      .from(order)
+      .where(eq(order.id, orderId))
+      .for('update');
+    const held = Object.entries(found?.heldOfferStock ?? {});
+    if (!held.length) return false;
+
+    const locked = await tx
+      .select({ id: offer.id, inventoryLevel: offer.inventoryLevel })
+      .from(offer)
+      .where(
+        inArray(
+          offer.id,
+          held.map(([offerId]) => offerId),
+        ),
+      )
+      .orderBy(asc(offer.id))
+      .for('update');
+
+    for (const { id, inventoryLevel } of locked) {
+      const remaining = inventoryLevel?.value;
+      if (typeof remaining !== 'number') continue;
+
+      await tx
+        .update(offer)
+        .set({
+          inventoryLevel: {
+            ...inventoryLevel,
+            value: remaining + (found?.heldOfferStock?.[id] ?? 0),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(offer.id, id));
+    }
+
+    await tx
+      .update(order)
+      .set({ heldOfferStock: null })
+      .where(eq(order.id, orderId));
+
+    return true;
   }
 
   private async record(
     entries: { ingredientId: string; quantity: number }[],
     {
+      menuItemIdByIngredientId,
       orderId,
       organizationId,
     }: {
+      menuItemIdByIngredientId?: Map<string, string>;
       orderId: string;
       organizationId: string;
     },
@@ -378,6 +539,18 @@ export class InventoryTransactionsService {
       )
       .orderBy(asc(ingredient.id))
       .for('update');
+
+    if (menuItemIdByIngredientId)
+      for (const { ingredientId, quantity } of entries) {
+        const before = locked.find(({ id }) => id === ingredientId);
+        const menuItemId = menuItemIdByIngredientId.get(ingredientId);
+        if (
+          before &&
+          menuItemId &&
+          Number(before.inventoryLevel) + quantity < -QUANTITY_TOLERANCE
+        )
+          throw new InsufficientStockError(menuItemId);
+      }
 
     await tx.insert(inventoryTransaction).values(
       entries.map(({ ingredientId, quantity }) => ({

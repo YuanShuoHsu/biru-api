@@ -38,6 +38,7 @@ import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
+import { menuItem } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -52,6 +53,7 @@ import {
 } from '../common/constants/timezone.js';
 
 import { isAuthorized } from '../auth/permissions.js';
+import { toLanguage } from '../common/utils/language.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -81,7 +83,12 @@ import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
 } from '../events/order-updated.event.js';
-import { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import {
+  InsufficientStockError,
+  InventoryTransactionsService,
+} from '../inventory/inventory-transactions.service.js';
+import { MenuStockService } from '../inventory/menu-stock.service.js';
+import { localize } from '../menus/menus-public.service.js';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
@@ -287,12 +294,32 @@ export class OrdersService {
     private readonly orderTicketService: OrderTicketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
+    private readonly menuStockService: MenuStockService,
   ) {}
 
-  private t(key: keyof I18nTranslations['common']['orders']): string {
+  private t(
+    key: keyof I18nTranslations['common']['orders'],
+    args?: Record<string, unknown>,
+  ): string {
     return this.i18n.t(`common.orders.${key}`, {
+      args,
       lang: I18nContext.current()?.lang,
     });
+  }
+
+  private async insufficientStockError(
+    menuItemId: string,
+  ): Promise<BadRequestException> {
+    const [found] = await this.db
+      .select({ name: menuItem.name })
+      .from(menuItem)
+      .where(eq(menuItem.id, menuItemId));
+
+    return new BadRequestException(
+      this.t('menuItemInsufficientStock', {
+        name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
+      }),
+    );
   }
 
   private async getOrgBySlug(slug: string) {
@@ -459,131 +486,144 @@ export class OrdersService {
     const confirmationNumber = generateConfirmationNumber();
 
     let lowStock: LowStockReachedEvent['ingredients'] = [];
-    const result = await this.db.transaction(async (tx) => {
-      await tx
-        .select({ id: organization.id })
-        .from(organization)
-        .where(eq(organization.id, org.id))
-        .for('update');
+    let offerStockChanged = false;
+    const result = await this.db
+      .transaction(async (tx) => {
+        await tx
+          .select({ id: organization.id })
+          .from(organization)
+          .where(eq(organization.id, org.id))
+          .for('update');
 
-      const duplicate =
-        idempotencyKey && idempotencyFingerprint
-          ? await this.findOrderByIdempotencyKey(
-              tx,
-              org.id,
-              idempotencyKey,
-              idempotencyFingerprint,
-            )
-          : null;
-      if (duplicate) return duplicate;
+        const duplicate =
+          idempotencyKey && idempotencyFingerprint
+            ? await this.findOrderByIdempotencyKey(
+                tx,
+                org.id,
+                idempotencyKey,
+                idempotencyFingerprint,
+              )
+            : null;
+        if (duplicate) return duplicate;
 
-      const pickupDayStart = startOfDay(pickupTime ?? undefined);
-      const [{ value: pickupDayCount }] = await tx
-        .select({ value: count() })
-        .from(order)
-        .where(
-          and(
-            eq(order.sellerId, org.id),
-            gte(BOARD_AT, utcTimestampParam(pickupDayStart)),
-            lt(
-              BOARD_AT,
-              utcTimestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+        const pickupDayStart = startOfDay(pickupTime ?? undefined);
+        const [{ value: pickupDayCount }] = await tx
+          .select({ value: count() })
+          .from(order)
+          .where(
+            and(
+              eq(order.sellerId, org.id),
+              gte(BOARD_AT, utcTimestampParam(pickupDayStart)),
+              lt(
+                BOARD_AT,
+                utcTimestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+              ),
             ),
-          ),
-        );
+          );
 
-      const [created] = await tx
-        .insert(order)
-        .values({
-          id: orderId,
-          sellerId: org.id,
-          idempotencyKey,
-          idempotencyFingerprint,
-          mode: dto.mode,
-          orderNumber: String(pickupDayCount + 1),
-          customer: dto.customer,
-          paymentMethod: dto.payment,
-          orderStatus: 'OrderPaymentDue',
-          confirmationNumber,
-          subtotal: subtotal.toFixed(2),
-          userId,
-          partySize: isDineIn ? dto.partySize : null,
-          pickupTime,
-          tableNumber: isDineIn ? dto.tableNumber : null,
-          ...(applied && {
-            discount: applied.discount.toFixed(2),
-            discountCode: applied.coupon.code,
-            discountCurrency: org.currency,
-          }),
-          ...(total <= 0 && {
-            orderStatus: 'OrderProcessing' as const,
-            paymentDate: new Date(),
-            amountPerPoint: org.amountPerPoint,
-            pointsValidityYears: org.pointsValidityYears,
-          }),
-        })
-        .returning();
+        const [created] = await tx
+          .insert(order)
+          .values({
+            id: orderId,
+            sellerId: org.id,
+            idempotencyKey,
+            idempotencyFingerprint,
+            mode: dto.mode,
+            orderNumber: String(pickupDayCount + 1),
+            customer: dto.customer,
+            paymentMethod: dto.payment,
+            orderStatus: 'OrderPaymentDue',
+            confirmationNumber,
+            subtotal: subtotal.toFixed(2),
+            userId,
+            partySize: isDineIn ? dto.partySize : null,
+            pickupTime,
+            tableNumber: isDineIn ? dto.tableNumber : null,
+            ...(applied && {
+              discount: applied.discount.toFixed(2),
+              discountCode: applied.coupon.code,
+              discountCurrency: org.currency,
+            }),
+            ...(total <= 0 && {
+              orderStatus: 'OrderProcessing' as const,
+              paymentDate: new Date(),
+              amountPerPoint: org.amountPerPoint,
+              pointsValidityYears: org.pointsValidityYears,
+            }),
+          })
+          .returning();
 
-      if (applied)
-        await this.couponsService.redeem(tx, {
-          coupon: applied.coupon,
-          orderId,
-          userCouponId: applied.userCouponId,
-          userId,
-        });
-
-      const items = await tx
-        .insert(orderItem)
-        .values(
-          orderItemsData.map((i) => ({
-            id: i.id,
-            addOns: i.addOns,
-            menuItemId: i.menuItemId,
-            menuItemName: i.menuItemName,
-            modifiers: i.modifiers,
+        if (applied)
+          await this.couponsService.redeem(tx, {
+            coupon: applied.coupon,
             orderId,
-            orderQuantity: i.orderQuantity,
-            priceCurrency: i.priceCurrency,
-            servingTemperatureLevel: i.servingTemperatureLevel,
-            sweetnessLevel: i.sweetnessLevel,
-            unitPrice: i.unitPrice,
-          })),
-        )
-        .returning();
+            userCouponId: applied.userCouponId,
+            userId,
+          });
 
-      lowStock = await this.inventoryTransactionsService.consume(orderId, tx);
+        const items = await tx
+          .insert(orderItem)
+          .values(
+            orderItemsData.map((i) => ({
+              id: i.id,
+              addOns: i.addOns,
+              menuItemId: i.menuItemId,
+              menuItemName: i.menuItemName,
+              modifiers: i.modifiers,
+              orderId,
+              orderQuantity: i.orderQuantity,
+              priceCurrency: i.priceCurrency,
+              servingTemperatureLevel: i.servingTemperatureLevel,
+              sweetnessLevel: i.sweetnessLevel,
+              unitPrice: i.unitPrice,
+            })),
+          )
+          .returning();
 
-      if (created.orderStatus === 'OrderProcessing')
-        await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
+        ({ lowStock, offerStockChanged } =
+          await this.inventoryTransactionsService.consume(orderId, tx, {
+            enforceStock: true,
+          }));
 
-      const [createdInvoice] =
-        total > 0
-          ? await tx
-              .insert(invoice)
-              .values({
-                id: randomUUID(),
-                orderId,
-                type: dto.invoice.type,
-                carrierType: dto.invoice.carrierType,
-                carrierNum: dto.invoice.carrierNum,
-                email: dto.invoice.email,
-                customerIdentifier: dto.invoice.customerIdentifier,
-                customerName: dto.invoice.customerName,
-                customerAddr: dto.invoice.customerAddr,
-                donateCode: dto.invoice.donateCode,
-              })
-              .returning()
-          : [null];
+        if (created.orderStatus === 'OrderProcessing')
+          await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
 
-      return { ...created, invoice: createdInvoice, items };
-    });
+        const [createdInvoice] =
+          total > 0
+            ? await tx
+                .insert(invoice)
+                .values({
+                  id: randomUUID(),
+                  orderId,
+                  type: dto.invoice.type,
+                  carrierType: dto.invoice.carrierType,
+                  carrierNum: dto.invoice.carrierNum,
+                  email: dto.invoice.email,
+                  customerIdentifier: dto.invoice.customerIdentifier,
+                  customerName: dto.invoice.customerName,
+                  customerAddr: dto.invoice.customerAddr,
+                  donateCode: dto.invoice.donateCode,
+                })
+                .returning()
+            : [null];
 
-    if (result.id === orderId)
+        return { ...created, invoice: createdInvoice, items };
+      })
+      .catch(async (error: unknown) => {
+        if (error instanceof InsufficientStockError)
+          throw await this.insufficientStockError(error.menuItemId);
+        throw error;
+      });
+
+    if (result.id === orderId) {
+      void this.menuStockService.refresh(org.id, offerStockChanged);
+
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
         orderId: result.id,
         orderStatus: result.orderStatus,
         organizationId: org.id,
       });
+    }
 
     if (lowStock.length)
       this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
@@ -906,15 +946,18 @@ export class OrdersService {
       return { current, rule };
     });
 
+    const changedOfferStock = new Set<string>();
     const updated = await this.db.transaction(async (tx) => {
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {
         const {
+          offerStockChanged,
           updated: [updated],
         } = await this.runTransition(tx, rule, [current.id]);
         if (!updated) throw new BadRequestException(this.t('statusChanged'));
 
+        if (offerStockChanged.size) changedOfferStock.add(current.id);
         results.push(toAdminOrder({ ...current, ...updated }));
       }
 
@@ -922,7 +965,12 @@ export class OrdersService {
     });
 
     for (const { current, rule } of planned)
-      this.emitTransitioned(rule, [{ id: current.id, sellerId: org.id }]);
+      this.emitTransitioned(
+        rule,
+        [{ id: current.id, sellerId: org.id }],
+        [],
+        changedOfferStock.has(current.id) ? new Set([org.id]) : undefined,
+      );
 
     return updated;
   }
@@ -947,6 +995,13 @@ export class OrdersService {
       .returning();
 
     const lowStock: LowStockReachedEvent[] = [];
+    const offerStockChanged = new Set<string>();
+    if (rule.restoresInventory && updated.length > 1)
+      await this.inventoryTransactionsService.lockHeldOfferStock(
+        updated.map(({ id }) => id),
+        tx,
+      );
+
     for (const { discountCode, id, sellerId } of updated) {
       if (rule.printsOrderTicket)
         await this.orderTicketService.enqueueOrder(tx, id, sellerId);
@@ -960,26 +1015,34 @@ export class OrdersService {
           orderId: id,
         });
 
-      if (rule.restoresInventory)
-        await this.inventoryTransactionsService.restoreAll(id, tx);
+      if (
+        rule.restoresInventory &&
+        (await this.inventoryTransactionsService.restoreAll(id, tx))
+      )
+        offerStockChanged.add(sellerId);
 
       if (rule.consumesInventory) {
-        const ingredients = await this.inventoryTransactionsService.consume(
+        const consumed = await this.inventoryTransactionsService.consume(
           id,
           tx,
         );
-        if (ingredients.length)
-          lowStock.push({ organizationId: sellerId, ingredients });
+        if (consumed.offerStockChanged) offerStockChanged.add(sellerId);
+        if (consumed.lowStock.length)
+          lowStock.push({
+            organizationId: sellerId,
+            ingredients: consumed.lowStock,
+          });
       }
     }
 
-    return { lowStock, updated };
+    return { lowStock, offerStockChanged, updated };
   }
 
   private emitTransitioned(
     rule: OrderTransitionRule,
     orders: { id: string; sellerId: string }[],
     lowStock: LowStockReachedEvent[] = [],
+    offerStockChanged = new Set<string>(),
   ): void {
     for (const { id, sellerId } of orders) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
@@ -994,6 +1057,13 @@ export class OrdersService {
 
     for (const event of lowStock)
       this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, event);
+
+    if (rule.consumesInventory || rule.restoresInventory)
+      for (const sellerId of new Set(orders.map(({ sellerId }) => sellerId)))
+        void this.menuStockService.refresh(
+          sellerId,
+          offerStockChanged.has(sellerId),
+        );
   }
 
   async updateOrderCustomer(
@@ -1099,6 +1169,7 @@ export class OrdersService {
 
       const {
         lowStock,
+        offerStockChanged,
         updated: [updated],
       } = await this.runTransition(tx, rule, [current.id], {
         set: {
@@ -1113,7 +1184,7 @@ export class OrdersService {
           : undefined,
       });
 
-      return updated && { lowStock, rule, updated };
+      return updated && { lowStock, offerStockChanged, rule, updated };
     });
 
     if (!transitioned) return this.classifyUnmatchedPayment(body, succeeded);
@@ -1122,6 +1193,7 @@ export class OrdersService {
       transitioned.rule,
       [transitioned.updated],
       transitioned.lowStock,
+      transitioned.offerStockChanged,
     );
 
     return 'handled';
@@ -1275,11 +1347,16 @@ export class OrdersService {
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    const { updated: cancelled } = await this.db.transaction((tx) =>
-      this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
+    const { offerStockChanged, updated: cancelled } = await this.db.transaction(
+      (tx) => this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
     );
 
-    this.emitTransitioned(CANCEL_UNPAID_ORDER, cancelled);
+    this.emitTransitioned(
+      CANCEL_UNPAID_ORDER,
+      cancelled,
+      [],
+      offerStockChanged,
+    );
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);

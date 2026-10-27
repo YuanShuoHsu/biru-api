@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -22,8 +23,10 @@ import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transact
 import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto.js';
 import { IngredientsService } from './ingredients.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 
 @ApiTags('inventory')
+@UseInterceptors(MenuStockInterceptor)
 @Controller('ingredients/:ingredientId')
 export class IngredientsController {
   constructor(

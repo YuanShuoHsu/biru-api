@@ -122,6 +122,7 @@ export const order = pgTable(
     pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
     idempotencyFingerprint: text('idempotency_fingerprint'),
+    heldOfferStock: jsonb('held_offer_stock').$type<Record<string, number>>(),
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
     tableNumber: integer('table_number'),

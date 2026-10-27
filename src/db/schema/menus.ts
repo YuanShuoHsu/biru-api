@@ -7,6 +7,7 @@
 import { relations, sql } from 'drizzle-orm';
 import {
   AnyPgColumn,
+  boolean,
   check,
   index,
   integer,
@@ -216,6 +217,8 @@ export const offer = pgTable(
     }),
     price: numeric('price', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
+    // 系統因剩餘數量歸零或食材不足而改成售完；補貨後只會自動恢復這種，不動店員手動設的售完
+    autoSoldOut: boolean('auto_sold_out').notNull().default(false),
     availableHours: text('available_hours'),
     deliveryLeadTimeMinutes: integer('delivery_lead_time_minutes'),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),

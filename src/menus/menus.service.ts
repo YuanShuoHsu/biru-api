@@ -57,6 +57,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
+import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
 import { RecipesService } from '../inventory/recipes.service.js';
 import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
@@ -931,7 +932,11 @@ export class MenusService {
       if (existingOffer) {
         const [updatedOffer] = await tx
           .update(offer)
-          .set({ ...offerData, updatedAt: new Date() })
+          .set({
+            ...offerData,
+            ...keepAutoSoldOut(offerData.availability),
+            updatedAt: new Date(),
+          })
           .where(eq(offer.id, existingOffer.id))
           .returning();
         resultOffer = updatedOffer;
@@ -1025,7 +1030,11 @@ export class MenusService {
   }): Promise<OfferWithCurrency> {
     const [updated] = await this.db
       .update(offer)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        ...keepAutoSoldOut(params.data.availability),
+        updatedAt: new Date(),
+      })
       .where(eq(offer.id, params.where.id))
       .returning();
     if (!updated) throw new NotFoundException('Offer not found');
@@ -1071,6 +1080,7 @@ export class MenusService {
       .update(offer)
       .set({
         ...availability,
+        ...keepAutoSoldOut(availability.availability),
         ...(nextInventoryLevel !== undefined && {
           inventoryLevel: nextInventoryLevel,
         }),

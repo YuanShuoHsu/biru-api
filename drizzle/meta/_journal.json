@@ -1674,6 +1674,13 @@
       "when": 1793117389296,
       "tag": "0238_remove_cash_drawer",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1793122763582,
+      "tag": "0239_offer_auto_sold_out",
+      "breakpoints": true
     }
   ]
 }

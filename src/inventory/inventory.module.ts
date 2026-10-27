@@ -6,6 +6,7 @@ import { IngredientsController } from './ingredients.controller.js';
 import { IngredientsService } from './ingredients.service.js';
 import { InventoryNotificationsService } from './inventory-notifications.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
+import { MenuStockService } from './menu-stock.service.js';
 import { MenuItemInventoryController } from './menu-item-inventory.controller.js';
 import { OrganizationInventoryController } from './organization-inventory.controller.js';
 import { RecipesController } from './recipes.controller.js';
@@ -26,12 +27,14 @@ import { SuppliersService } from './suppliers.service.js';
     IngredientsService,
     InventoryNotificationsService,
     InventoryTransactionsService,
+    MenuStockService,
     RecipesService,
     SuppliersService,
   ],
   exports: [
     InventoryNotificationsService,
     InventoryTransactionsService,
+    MenuStockService,
     RecipesService,
   ],
 })

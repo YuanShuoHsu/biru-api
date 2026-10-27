@@ -10,6 +10,7 @@ import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import type { MenuStockService } from '../inventory/menu-stock.service.js';
 
 import {
   findTransition,
@@ -210,6 +211,7 @@ const createService = ({
 
   const couponsService = { restore: vi.fn() };
   const inventory = { consume: vi.fn(), restoreAll: vi.fn() };
+  const menuStock = { refresh: vi.fn() };
   const orderTickets = { enqueueOrder: vi.fn(), withdrawOrder: vi.fn() };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
@@ -228,6 +230,7 @@ const createService = ({
       orderTickets as unknown as OrderTicketService,
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      menuStock as unknown as MenuStockService,
     ),
     sets,
   };
@@ -401,7 +404,10 @@ describe('OrdersService.recordPaymentResult', () => {
       updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
     });
     const ingredients = [{ id: 'i1', name: { 'zh-TW': '牛奶' } }];
-    inventory.consume.mockResolvedValue(ingredients);
+    inventory.consume.mockResolvedValue({
+      lowStock: ingredients,
+      offerStockChanged: false,
+    });
 
     await expect(service.recordPaymentResult(paymentBody())).resolves.toBe(
       'handled',
@@ -419,7 +425,10 @@ describe('OrdersService.recordPaymentResult', () => {
       current: problem,
       updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
     });
-    inventory.consume.mockResolvedValue([]);
+    inventory.consume.mockResolvedValue({
+      lowStock: [],
+      offerStockChanged: false,
+    });
 
     await service.recordPaymentResult(paymentBody());
 

@@ -32,6 +32,12 @@ export class OfferResponseDto {
   })
   availability: ItemAvailability | null;
 
+  @ApiProperty({
+    description:
+      'true 代表系統因剩餘數量歸零或食材不足而自動售完，補貨後會自動恢復供應',
+  })
+  autoSoldOut: boolean;
+
   @ApiPropertyOptional({ description: '可供應時段；null 代表全時段供應' })
   availableHours: string | null;
 
