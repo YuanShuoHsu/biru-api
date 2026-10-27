@@ -110,17 +110,17 @@ export class CreateCouponDto {
   @IsString({ each: true })
   menuSectionIds?: string[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  minSubtotal?: number;
+  minSubtotal?: number | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()
   @Min(1)
-  perUserLimit?: number;
+  perUserLimit?: number | null;
 
   @ApiPropertyOptional({
     description: '兌換所需點數；null = 不可用點數兌換',
@@ -139,11 +139,11 @@ export class CreateCouponDto {
   @IsEnum(couponScopeEnum.enumValues)
   scope?: CouponScope;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()
   @Min(1)
-  totalLimit?: number;
+  totalLimit?: number | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()

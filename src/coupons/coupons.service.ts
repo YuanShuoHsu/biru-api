@@ -265,8 +265,9 @@ export class CouponsService {
       await this.normalizeApplicableOrganizationIds(
         dto.applicableOrganizationIds,
       );
+    const scope = dto.scope ?? 'order';
     this.assertScopeTargets(
-      dto.scope ?? 'order',
+      scope,
       dto.menuItemIds,
       dto.menuSectionIds,
       applicableOrganizationIds,
@@ -295,12 +296,12 @@ export class CouponsService {
         isPublic: pointsRedeem ? false : (dto.isPublic ?? false),
         issueMinSpend: issueMinSpend?.toFixed(2),
         issueTrigger,
-        menuItemIds: dto.menuItemIds,
-        menuSectionIds: dto.menuSectionIds,
+        menuItemIds: scope === 'item' ? dto.menuItemIds : null,
+        menuSectionIds: scope === 'item' ? dto.menuSectionIds : null,
         minSubtotal: dto.minSubtotal?.toFixed(2),
         perUserLimit: dto.perUserLimit,
         pointsCost: dto.pointsCost,
-        scope: dto.scope ?? 'order',
+        scope,
         totalLimit: dto.totalLimit,
         validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
         validThrough: dto.validThrough ? new Date(dto.validThrough) : undefined,
@@ -723,8 +724,9 @@ export class CouponsService {
       applicableOrganizationIds === undefined
         ? found.applicableOrganizationIds
         : applicableOrganizationIds;
+    const scope = dto.scope ?? found.scope;
     this.assertScopeTargets(
-      dto.scope ?? found.scope,
+      scope,
       dto.menuItemIds ?? found.menuItemIds,
       dto.menuSectionIds ?? found.menuSectionIds,
       effectiveOrganizationIds,
@@ -756,9 +758,10 @@ export class CouponsService {
         isPublic: pointsRedeem ? false : dto.isPublic,
         issueMinSpend: pointsRedeem ? null : dto.issueMinSpend?.toFixed(2),
         issueTrigger: pointsRedeem ? null : dto.issueTrigger,
-        menuItemIds: dto.menuItemIds,
-        menuSectionIds: dto.menuSectionIds,
-        minSubtotal: dto.minSubtotal?.toFixed(2),
+        menuItemIds: scope === 'item' ? dto.menuItemIds : null,
+        menuSectionIds: scope === 'item' ? dto.menuSectionIds : null,
+        minSubtotal:
+          dto.minSubtotal === null ? null : dto.minSubtotal?.toFixed(2),
         perUserLimit: dto.perUserLimit,
         pointsCost: dto.pointsCost,
         scope: dto.scope,
