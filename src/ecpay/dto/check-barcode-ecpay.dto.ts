@@ -37,32 +37,6 @@ export class CheckBarcodeEcpayResponseDto {
   isExist: boolean;
 }
 
-export class CheckBarcodeEcpayDecryptedRequestDto {
-  @ApiProperty({
-    description: '特店編號（必填）',
-    example: '2000132',
-    maxLength: 10,
-    minLength: 1,
-  })
-  @IsDefined()
-  @IsNotEmpty()
-  @IsString()
-  @Length(1, 10)
-  MerchantID: string;
-
-  @ApiProperty({
-    description: '手機條碼（必填）',
-    example: '/AB12345',
-    maxLength: 8,
-    minLength: 8,
-  })
-  @IsDefined()
-  @IsNotEmpty()
-  @IsString()
-  @Length(8, 8)
-  BarCode: string;
-}
-
 export class CheckBarcodeEcpayEncryptedResponseDto {
   @ApiProperty({
     description: `回傳代碼

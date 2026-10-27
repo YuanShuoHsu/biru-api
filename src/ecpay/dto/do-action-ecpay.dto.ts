@@ -6,8 +6,6 @@ export const ECPAY_DO_ACTION = {
   Cancel: 'E',
   Abandon: 'N',
 } as const;
-export type EcpayDoAction =
-  (typeof ECPAY_DO_ACTION)[keyof typeof ECPAY_DO_ACTION];
 
 export interface DoActionEcpayResponseDto {
   MerchantID: string;
