@@ -30,7 +30,7 @@ describe('CouponsService.update', () => {
   });
 
   beforeEach(async () => {
-    await client.exec('truncate coupon cascade');
+    await client.exec('truncate coupon, organization cascade');
   });
 
   it('送 null 會清除最低消費、總量上限、每人上限與效期', async () => {
@@ -60,6 +60,30 @@ describe('CouponsService.update', () => {
       totalLimit: null,
       validFrom: null,
       validThrough: null,
+    });
+  });
+
+  it('改回整單券時清除原本指定的品項與分類', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at) values ('org', 'org', 'org', now())`,
+    );
+    const { id } = await service.create({
+      applicableOrganizationIds: ['org'],
+      code: 'ITEM',
+      discountType: 'fixed',
+      discountValue: 20,
+      discountCurrency: 'TWD',
+      menuItemIds: ['latte'],
+      menuSectionIds: ['coffee'],
+      scope: 'item',
+    });
+
+    const updated = await service.update(id, { scope: 'order' });
+
+    expect(updated).toMatchObject({
+      menuItemIds: null,
+      menuSectionIds: null,
+      scope: 'order',
     });
   });
 
