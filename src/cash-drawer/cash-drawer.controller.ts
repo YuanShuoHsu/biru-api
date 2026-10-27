@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -11,8 +11,10 @@ import { OrganizationId } from '../menus/decorators/organization-id.decorator.js
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { CashDrawerService } from './cash-drawer.service.js';
+import { CashDrawerSessionQueryDto } from './dto/cash-drawer-session-query.dto.js';
 import {
   CashDrawerSessionDto,
+  CashDrawerSessionListResponseDto,
   CloseCashDrawerDto,
   CreateCashDrawerMovementDto,
   CurrentCashDrawerDto,
@@ -32,6 +34,17 @@ export class CashDrawerController {
     @OrganizationId() organizationId: string,
   ): Promise<CurrentCashDrawerDto> {
     return this.cashDrawerService.getCurrent(organizationId);
+  }
+
+  @Get('sessions')
+  @Roles({ cashDrawer: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '錢櫃開關帳紀錄' })
+  @ApiOkResponse({ type: CashDrawerSessionListResponseDto })
+  list(
+    @OrganizationId() organizationId: string,
+    @Query() query: CashDrawerSessionQueryDto,
+  ): Promise<CashDrawerSessionListResponseDto> {
+    return this.cashDrawerService.list(organizationId, query);
   }
 
   @Post('sessions')
