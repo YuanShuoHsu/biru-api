@@ -266,7 +266,7 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 - Port: `PORT` env var (default 3001)
 - `bodyParser: false` at the Nest factory — better-auth's module owns body parsing
 - Global pipes: `I18nValidationPipe` with `transform`, `whitelist`, `forbidNonWhitelisted`
-- Global filters: `AllExceptionsFilter` (i18n-aware; handles both HTTP and WS contexts)
+- Global filters: `AllExceptionsFilter` (i18n-aware, HTTP only — `useGlobalFilters` does not reach WebSocket gateways, so any exception in a `@SubscribeMessage` handler (guard, pipe or the handler itself) goes to Nest's default `WsExceptionsHandler`, which emits an `exception` event and never calls the ack)
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
 - Rate limiting: 100 req / 60s globally
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
