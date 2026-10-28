@@ -125,6 +125,7 @@ export const order = pgTable(
     heldOfferStock: jsonb('held_offer_stock').$type<Record<string, number>>(),
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
+    readyAt: timestamp('ready_at'),
     tableNumber: integer('table_number'),
     merchantTradeNo: text('merchant_trade_no'),
     tradeNo: text('trade_no'),
@@ -151,6 +152,7 @@ export const order = pgTable(
       table.sellerId,
       sql`COALESCE(${table.pickupTime}, ${table.createdAt})`,
     ),
+    index('order_sellerId_readyAt_idx').on(table.sellerId, table.readyAt),
     index('order_paymentDue_createdAt_idx')
       .on(table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),

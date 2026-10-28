@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type SQL, and, asc, eq, gte, inArray } from 'drizzle-orm';
+import { type SQL, and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
@@ -13,12 +13,18 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { PrepEstimateResponseDto } from './dto/prep-estimate-response.dto.js';
 import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import {
+  type ObservedPace,
   type QueuedOrder,
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
+  observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
+
+const OBSERVED_WINDOW_MS = 30 * 60 * 1000;
+
+const OBSERVED_ORDERS_LIMIT = 20;
 
 type PrepEstimateOrganization = Pick<Organization, 'id' | 'pickupLeadMinutes'>;
 
@@ -43,12 +49,12 @@ export class PrepEstimateService {
     ownPrepMinutes: number,
   ): Promise<number> {
     const now = new Date();
+    const [queue, pace] = await Promise.all([
+      this.queueOf(org, now),
+      this.paceOf(org.id, now),
+    ]);
 
-    return estimatePrepMinutes(
-      await this.queueOf(org, now),
-      ownPrepMinutes,
-      now,
-    ).minutes;
+    return estimatePrepMinutes(queue, ownPrepMinutes, now, pace).minutes;
   }
 
   async existingOrganizationIds(organizationIds: string[]): Promise<string[]> {
@@ -70,17 +76,52 @@ export class PrepEstimateService {
     if (!org) return null;
 
     const now = new Date();
+    const [queue, pace] = await Promise.all([
+      this.queueOf(org, now),
+      this.paceOf(org.id, now),
+    ]);
     const { minutes, queuedOrders } = estimatePrepMinutes(
-      await this.queueOf(org, now),
+      queue,
       orderPrepMinutes(org.pickupLeadMinutes, []),
       now,
+      pace,
     );
 
     return {
-      basis: 'leadTime',
+      basis: pace === null ? 'leadTime' : 'observed',
       estimatedMinutes: displayPrepMinutes(minutes),
       queuedOrders,
     };
+  }
+
+  private async paceOf(
+    organizationId: string,
+    now: Date,
+  ): Promise<ObservedPace | null> {
+    const ready = await this.db
+      .select({
+        readyAt: order.readyAt,
+        startedAt:
+          sql`COALESCE(${order.paymentDate}, ${order.orderDate})`.mapWith(
+            order.orderDate,
+          ),
+      })
+      .from(order)
+      .where(
+        and(
+          eq(order.sellerId, organizationId),
+          gte(
+            order.readyAt,
+            utcTimestampParam(new Date(now.getTime() - OBSERVED_WINDOW_MS)),
+          ),
+        ),
+      )
+      .orderBy(desc(order.readyAt))
+      .limit(OBSERVED_ORDERS_LIMIT);
+
+    return observedPace(
+      ready.map(({ readyAt, startedAt }) => ({ readyAt: readyAt!, startedAt })),
+    );
   }
 
   private async queueOf(

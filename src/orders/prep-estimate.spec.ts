@@ -2,12 +2,18 @@ import {
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
+  observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
 
 const NOW = new Date('2026-10-28T10:00:00+08:00');
 const inMinutes = (minutes: number) =>
   new Date(NOW.getTime() + minutes * 60 * 1000);
+const readyEvery = (minutes: number[], startedOffset = -60) =>
+  minutes.map((at) => ({
+    readyAt: inMinutes(at),
+    startedAt: inMinutes(startedOffset),
+  }));
 
 describe('prep estimate', () => {
   it('品項與加購取備餐時間最長的一項', () => {
@@ -88,5 +94,70 @@ describe('prep estimate', () => {
     expect(displayPrepMinutes(0)).toBe(0);
     expect(displayPrepMinutes(11)).toBe(15);
     expect(displayPrepMinutes(15)).toBe(15);
+  });
+
+  it('出餐速率以連續出餐的間隔平均', () => {
+    expect(observedPace(readyEvery([-20, -16, -12, -8, -4]))).toEqual({
+      busyMs: 16 * 60 * 1000,
+      intervals: 4,
+    });
+  });
+
+  it('離峰空檔不拉低出餐速率', () => {
+    expect(
+      observedPace([
+        ...readyEvery([-29, -27, -25]),
+        { readyAt: inMinutes(-4), startedAt: inMinutes(-6) },
+        { readyAt: inMinutes(-2), startedAt: inMinutes(-6) },
+      ]),
+    ).toEqual({ busyMs: 8 * 60 * 1000, intervals: 4 });
+  });
+
+  it('出餐順序不依輸入順序', () => {
+    expect(observedPace(readyEvery([-4, -20, -8, -16, -12]))).toEqual({
+      busyMs: 16 * 60 * 1000,
+      intervals: 4,
+    });
+  });
+
+  it('出餐少於 5 張時改用備餐時間估算', () => {
+    expect(observedPace(readyEvery([-20, -15, -10, -5]))).toBeNull();
+  });
+
+  it('忙碌時間合計不到 1 分鐘時改用備餐時間估算', () => {
+    expect(observedPace(readyEvery([-1, -0.8, -0.6, -0.4, -0.2]))).toBeNull();
+  });
+
+  it('有出餐速率時每張排隊訂單以速率計，預約單同樣依估算完成時間計入', () => {
+    expect(
+      estimatePrepMinutes(
+        [
+          { pickupTime: null, prepMinutes: 30 },
+          { pickupTime: null, prepMinutes: 30 },
+          { pickupTime: inMinutes(15), prepMinutes: 30 },
+          { pickupTime: inMinutes(30), prepMinutes: 30 },
+        ],
+        10,
+        NOW,
+        { busyMs: 12 * 60 * 1000, intervals: 4 },
+      ),
+    ).toEqual({ minutes: 19, queuedOrders: 3 });
+    expect(displayPrepMinutes(19)).toBe(20);
+  });
+
+  it('速率除不盡時，剛好落在 5 分鐘的估算值不多進位一格', () => {
+    const { minutes } = estimatePrepMinutes(
+      [
+        { pickupTime: null, prepMinutes: 30 },
+        { pickupTime: null, prepMinutes: 30 },
+        { pickupTime: null, prepMinutes: 30 },
+      ],
+      5,
+      NOW,
+      { busyMs: 10 * 60 * 1000, intervals: 3 },
+    );
+
+    expect(minutes).toBe(15);
+    expect(displayPrepMinutes(minutes)).toBe(15);
   });
 });
