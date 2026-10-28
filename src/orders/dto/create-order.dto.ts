@@ -207,6 +207,7 @@ export class CreateOrderDto {
   mode: OrderMode;
 
   @ApiProperty({ type: CreateOrderCustomerDto })
+  @IsDefined()
   @ValidateNested()
   @Type(() => CreateOrderCustomerDto)
   customer: CreateOrderCustomerDto;
