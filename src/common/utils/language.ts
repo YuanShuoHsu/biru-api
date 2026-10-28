@@ -23,6 +23,9 @@ const supportedLanguageOf = (tag: string) => {
   }
 };
 
+export const isLanguage = (value: unknown): value is Language =>
+  languagesEnum.enumValues.includes(value as Language);
+
 export const pickLanguage = (
   acceptLanguage?: string | null,
 ): Language | undefined =>

@@ -27,6 +27,7 @@ import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
 import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
+import { signUpLanguage } from './sign-up-language.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
@@ -189,6 +190,11 @@ export const createAuth = (
       },
       user: {
         create: {
+          before: async (user, context) => {
+            const lang = await signUpLanguage(context);
+
+            return lang ? { data: { ...user, lang } } : undefined;
+          },
           after: async (user) => {
             if (user.emailVerified)
               await issueSignupCoupons(couponsService, user.id);
