@@ -4,7 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { I18nMiddleware, I18nValidationPipe } from 'nestjs-i18n';
+import { I18nValidationPipe } from 'nestjs-i18n';
 import { join } from 'node:path';
 
 import { AppModule } from './app.module.js';
@@ -24,7 +24,6 @@ async function bootstrap() {
 
   app.use(cookieParser());
   app.use(helmet());
-  app.use(I18nMiddleware);
 
   app.enableCors({
     credentials: true,
