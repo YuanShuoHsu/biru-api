@@ -1,6 +1,8 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import type { Auth } from '../auth/index.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { SendTestEmailDto } from './dto/send-test-email.dto.js';
@@ -13,7 +15,10 @@ export class MailsController {
 
   @Post('test')
   @ApiOperation({ summary: '測試 SMTP 設定' })
-  async test(@Body() sendTestEmailDto: SendTestEmailDto) {
-    return this.mailsService.sendTestEmail(sendTestEmailDto);
+  async test(
+    @Body() sendTestEmailDto: SendTestEmailDto,
+    @Session() { user }: UserSession<Auth>,
+  ) {
+    return this.mailsService.sendTestEmail(sendTestEmailDto, user.lang);
   }
 }

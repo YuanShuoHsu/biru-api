@@ -160,6 +160,7 @@
     "organizationClosed": "This store is closed.",
     "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
+    "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
     "tooManyRequests": "Too many requests"
   },
   "gcis": {

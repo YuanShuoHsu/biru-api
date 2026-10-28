@@ -1,9 +1,15 @@
-import { MailerService } from '@nestjs-modules/mailer';
-import { Inject, Injectable } from '@nestjs/common';
+import { MailerService, type ISendMailOptions } from '@nestjs-modules/mailer';
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { sql } from 'drizzle-orm';
-import { I18nService } from 'nestjs-i18n';
+import { I18nContext, I18nService } from 'nestjs-i18n';
+import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
 import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
@@ -17,8 +23,13 @@ import { UAParser } from 'ua-parser-js';
 
 import { SendTestEmailDto } from './dto/send-test-email.dto.js';
 
+const maskEmails = (text: string) =>
+  text.replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
+
 @Injectable()
 export class MailsService {
+  private readonly logger = new Logger(MailsService.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly i18n: I18nService<I18nTranslations>,
@@ -36,6 +47,18 @@ export class MailsService {
       pickLanguage(request?.headers.get('accept-language')) ??
       this.configService.getOrThrow<Language>('FALLBACK_LANGUAGE')
     );
+  }
+
+  private async send(
+    options: ISendMailOptions & { to: string; template: string },
+  ): Promise<void> {
+    await this.mailerService.sendMail(options).catch((error: Error) => {
+      this.logger.error(
+        maskEmails(
+          `Failed to send ${options.template} email to ${options.to}: ${error.message}`,
+        ),
+      );
+    });
   }
 
   public async afterEmailVerification(
@@ -59,27 +82,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.after_email_verification.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'after-email-verification',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: home_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.after_email_verification.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'after-email-verification',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: home_url,
+      },
+    });
   }
 
   public async onExistingUserSignUp(
@@ -104,27 +124,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'on-existing-user-sign-up',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          sign_in_url,
-          support_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'on-existing-user-sign-up',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        sign_in_url,
+        support_url,
+      },
+    });
   }
 
   public async onPasswordReset(
@@ -149,27 +166,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.on_password_reset.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'on-password-reset',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          sign_in_url,
-          support_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.on_password_reset.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'on-password-reset',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        sign_in_url,
+        support_url,
+      },
+    });
   }
 
   public async sendChangeEmailConfirmation(
@@ -208,28 +222,25 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'send-change-email-confirmation',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          newEmail,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-change-email-confirmation',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        newEmail,
+        operating_system,
+        productName,
+        support_url,
+        url: verifyEmailUrl,
+      },
+    });
   }
 
   public async sendDeleteAccountVerification(
@@ -266,27 +277,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_delete_account_verification.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'send-delete-account-verification',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: deleteAccountUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_delete_account_verification.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-delete-account-verification',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: deleteAccountUrl,
+      },
+    });
   }
 
   public async sendInvitationEmail(
@@ -321,27 +329,24 @@ export class MailsService {
     const inviteParams = new URLSearchParams({ email, id });
     const invite_url = `${baseUrl}/${lang}/auth/accept-invitation?${inviteParams.toString()}`;
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.organization_invitation.subject', {
-          args: { organizationName, productName },
-          lang,
-        }),
-        template: 'organization-invitation',
-        context: {
-          home_url,
-          i18nLang: lang,
-          inviterName,
-          organizationName,
-          productName,
-          role,
-          support_url,
-          url: invite_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.organization_invitation.subject', {
+        args: { organizationName, productName },
+        lang,
+      }),
+      template: 'organization-invitation',
+      context: {
+        home_url,
+        i18nLang: lang,
+        inviterName,
+        organizationName,
+        productName,
+        role,
+        support_url,
+        url: invite_url,
+      },
+    });
   }
 
   public async sendResetPassword(
@@ -378,39 +383,52 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_reset_password.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'send-reset-password',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: resetPasswordUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_reset_password.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-reset-password',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: resetPasswordUrl,
+      },
+    });
   }
 
-  public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
+  public async sendTestEmail(
+    { email }: SendTestEmailDto,
+    recipientLang: Language | undefined,
+  ): Promise<void> {
+    const lang = this.languageFor(recipientLang);
+    const text = this.i18n.t('mail.smtp_test.text', { lang });
+
     await this.mailerService
       .sendMail({
         to: email,
-        subject: 'Biru Coffee SMTP Test',
-        text: 'If you receive this email, your SMTP configuration is correct!',
-        html: '<b>If you receive this email, your SMTP configuration is correct!</b>',
+        subject: this.i18n.t('mail.smtp_test.subject', {
+          args: { productName: PRODUCT_NAME },
+          lang,
+        }),
+        text,
+        html: `<b>${text}</b>`,
       })
-      .then(() => {})
-      .catch(() => {});
+      .catch(({ code, responseCode }: NodemailerError) => {
+        throw new BadGatewayException({
+          error: 'Bad Gateway',
+          message: this.i18n.t('common.exceptions.smtpTestFailed', {
+            lang: I18nContext.current()?.lang,
+          }),
+          smtp: { code, responseCode },
+        });
+      });
   }
 
   public async sendVerificationEmail(
@@ -447,27 +465,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_verification_email.subject', {
-          args: { productName },
-          lang,
-        }),
-        template: 'send-verification-email',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_verification_email.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-verification-email',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: verifyEmailUrl,
+      },
+    });
   }
 
   public async sendAttendanceNotification({
@@ -520,49 +535,46 @@ export class MailsService {
     };
     const translate = { args, lang };
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t(
-          `mail.attendance_notification.${direction}.subject`,
+    await this.send({
+      to: email,
+      subject: this.i18n.t(
+        `mail.attendance_notification.${direction}.subject`,
+        translate,
+      ),
+      template: 'attendance-notification',
+      context: {
+        action: this.i18n.t(
+          `mail.attendance_notification.${direction}.action`,
+          options,
+        ),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t(
+          `mail.attendance_notification.${direction}.intro`,
           translate,
         ),
-        template: 'attendance-notification',
-        context: {
-          action: this.i18n.t(
-            `mail.attendance_notification.${direction}.action`,
-            options,
-          ),
-          home_url: url,
-          i18nLang: lang,
-          intro: this.i18n.t(
-            `mail.attendance_notification.${direction}.intro`,
-            translate,
-          ),
-          productName,
-          reason:
-            reason &&
-            this.i18n.t('mail.attendance_notification.reason', {
-              args: { reason },
-              lang,
-            }),
-          salutation: this.i18n.t(
-            'mail.attendance_notification.salutation',
-            translate,
-          ),
-          title: this.i18n.t(
-            `mail.attendance_notification.${direction}.title`,
-            translate,
-          ),
-          trouble_hint: this.i18n.t(
-            'mail.attendance_notification.trouble_hint',
-            options,
-          ),
-          url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+        productName,
+        reason:
+          reason &&
+          this.i18n.t('mail.attendance_notification.reason', {
+            args: { reason },
+            lang,
+          }),
+        salutation: this.i18n.t(
+          'mail.attendance_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t(
+          `mail.attendance_notification.${direction}.title`,
+          translate,
+        ),
+        trouble_hint: this.i18n.t(
+          'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
   }
 
   public async sendAnnualLeaveEntitlement({
@@ -1066,46 +1078,43 @@ export class MailsService {
       lang,
     };
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t(
-          `mail.waitlist_notification.${kind}.subject`,
+    await this.send({
+      to: email,
+      subject: this.i18n.t(
+        `mail.waitlist_notification.${kind}.subject`,
+        translate,
+      ),
+      template: 'waitlist-notification',
+      context: {
+        action: this.i18n.t(
+          `mail.waitlist_notification.${kind}.action`,
+          options,
+        ),
+        detail: this.i18n.t(
+          `mail.waitlist_notification.${kind}.detail`,
           translate,
         ),
-        template: 'waitlist-notification',
-        context: {
-          action: this.i18n.t(
-            `mail.waitlist_notification.${kind}.action`,
-            options,
-          ),
-          detail: this.i18n.t(
-            `mail.waitlist_notification.${kind}.detail`,
-            translate,
-          ),
-          home_url: url,
-          i18nLang: lang,
-          intro: this.i18n.t(
-            `mail.waitlist_notification.${kind}.intro`,
-            translate,
-          ),
-          productName,
-          salutation: this.i18n.t(
-            'mail.waitlist_notification.salutation',
-            translate,
-          ),
-          title: this.i18n.t(
-            `mail.waitlist_notification.${kind}.title`,
-            translate,
-          ),
-          trouble_hint: this.i18n.t(
-            'mail.waitlist_notification.trouble_hint',
-            options,
-          ),
-          url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t(
+          `mail.waitlist_notification.${kind}.intro`,
+          translate,
+        ),
+        productName,
+        salutation: this.i18n.t(
+          'mail.waitlist_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t(
+          `mail.waitlist_notification.${kind}.title`,
+          translate,
+        ),
+        trouble_hint: this.i18n.t(
+          'mail.waitlist_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
   }
 }

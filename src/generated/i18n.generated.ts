@@ -212,6 +212,7 @@ export type I18nTranslations = {
             "organizationClosed": string;
             "organizationHasOpenWork": string;
             "organizationReadOnly": string;
+            "smtpTestFailed": string;
             "tooManyRequests": string;
         };
         "gcis": {
@@ -604,6 +605,10 @@ export type I18nTranslations = {
             "action": string;
             "salutation": string;
             "trouble_hint": string;
+        };
+        "smtp_test": {
+            "subject": string;
+            "text": string;
         };
     };
     "test": {
