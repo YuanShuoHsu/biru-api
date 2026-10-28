@@ -5,6 +5,7 @@ import { ConflictException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { banner } from '../db/schema/banners.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';
@@ -18,7 +19,7 @@ describe('DeletedRecordsService.restore', () => {
   let service: DeletedRecordsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new DeletedRecordsService(
@@ -89,7 +90,7 @@ describe('DeletedRecordsService.list', () => {
   let service: DeletedRecordsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new DeletedRecordsService(

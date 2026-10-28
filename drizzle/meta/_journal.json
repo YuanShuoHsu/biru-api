@@ -1692,8 +1692,15 @@
     {
       "idx": 241,
       "version": "7",
-      "when": 1793165042144,
-      "tag": "0241_organization_address_required",
+      "when": 1793165292738,
+      "tag": "0241_organization_special_hours",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1793172540017,
+      "tag": "0242_organization_address_required",
       "breakpoints": true
     }
   ]

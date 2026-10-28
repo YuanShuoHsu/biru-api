@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext, type I18nService } from 'nestjs-i18n';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -19,7 +20,7 @@ describe('IngredientsService.findAll lowStock', () => {
   let service: IngredientsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new IngredientsService(
@@ -75,7 +76,7 @@ describe('IngredientsService.findAll name sort', () => {
   let service: IngredientsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new IngredientsService(

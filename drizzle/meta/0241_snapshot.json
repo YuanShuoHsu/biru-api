@@ -1,5 +1,5 @@
 {
-  "id": "121b2ec5-1074-4535-aa39-3042f8c85733",
+  "id": "2fd668f1-5813-473f-aa96-93d56ba5b22a",
   "prevId": "261a2b7b-698d-4c97-a353-0575acc72a2a",
   "version": "7",
   "dialect": "postgresql",
@@ -6357,19 +6357,19 @@
           "name": "address_country",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "address_locality": {
           "name": "address_locality",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "address_region": {
           "name": "address_region",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "extended_address": {
           "name": "extended_address",
@@ -6387,7 +6387,7 @@
           "name": "street_address",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "has_map": {
           "name": "has_map",
@@ -6495,12 +6495,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "organization_address_not_blank": {
-          "name": "organization_address_not_blank",
-          "value": "btrim(\"organization\".\"address_country\") <> '' and btrim(\"organization\".\"address_locality\") <> '' and btrim(\"organization\".\"address_region\") <> '' and btrim(\"organization\".\"street_address\") <> ''"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.organization_qr_secret": {
@@ -6636,6 +6631,88 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.organization_special_hours": {
+      "name": "organization_special_hours",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_through": {
+          "name": "valid_through",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opening_hours": {
+          "name": "opening_hours",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "organization_special_hours_organization_id_organization_id_fk": {
+          "name": "organization_special_hours_organization_id_organization_id_fk",
+          "tableFrom": "organization_special_hours",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "organization_special_hours_valid_range": {
+          "name": "organization_special_hours_valid_range",
+          "value": "\"organization_special_hours\".\"valid_from\" <= \"organization_special_hours\".\"valid_through\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.team": {
@@ -10579,6 +10656,13 @@
           "notNull": true,
           "default": "'waiting'"
         },
+        "cancel_reason": {
+          "name": "cancel_reason",
+          "type": "cancel_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "idempotency_key": {
           "name": "idempotency_key",
           "type": "text",
@@ -10883,6 +10967,13 @@
         "return",
         "result",
         "query"
+      ]
+    },
+    "public.cancel_reason": {
+      "name": "cancel_reason",
+      "schema": "public",
+      "values": [
+        "storeClosed"
       ]
     },
     "public.genders": {
@@ -11207,6 +11298,7 @@
         "longWait",
         "customerMistake",
         "customerCancelled",
+        "storeClosed",
         "other"
       ]
     },

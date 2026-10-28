@@ -4,6 +4,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
@@ -15,7 +16,7 @@ describe('WaitlistService.getStats', () => {
   let service: WaitlistService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new WaitlistService(

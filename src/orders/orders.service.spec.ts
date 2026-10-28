@@ -23,6 +23,7 @@ import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
+import type { PrepEstimateService } from './prep-estimate.service.js';
 
 const ORG_ID = 'org';
 const QR_SECRET = 'qr-secret';
@@ -82,6 +83,7 @@ const createService = ({
   lowStock = [],
   offerStockChanged = false,
   qrSecret = QR_SECRET,
+  queuedPrepMinutes = 0,
   replayed,
   txDuplicate,
 }: {
@@ -91,6 +93,7 @@ const createService = ({
   lowStock?: { id: string; name: Record<string, string> }[];
   offerStockChanged?: boolean;
   qrSecret?: string | null;
+  queuedPrepMinutes?: number;
   replayed?: { id: string; idempotencyFingerprint: string | null };
   txDuplicate?: { id: string; orderStatus: string };
 } = {}) => {
@@ -180,6 +183,10 @@ const createService = ({
           options?.args?.name ? `${key}:${options.args.name}` : key,
       } as unknown as I18nService<I18nTranslations>,
       menuStock as unknown as MenuStockService,
+      {
+        prepMinutesWith: (_: unknown, ownPrepMinutes: number) =>
+          Promise.resolve(queuedPrepMinutes + ownPrepMinutes),
+      } as unknown as PrepEstimateService,
     ),
     consume,
     menuStock,
@@ -392,6 +399,34 @@ describe('OrdersService.createOrder', () => {
       orderPricingService.resolveOrderItems.mockResolvedValue([
         { ...resolvedItems[0], leadTimeMinutes: 40 },
       ]);
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
+    it('早於門市備餐時間的取餐時間會被擋', async () => {
+      const { db, service } = createService();
+
+      await expect(
+        service.createOrder('slug', pickupDto(0), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('製作中的訂單把最早可取餐時間往後推', async () => {
+      const { db, service } = createService({ queuedPrepMinutes: 20 });
+
+      await expect(
+        service.createOrder('slug', pickupDto(30), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('取餐時間留足佇列與本單製作時間可以下單', async () => {
+      const { inserted, service } = createService({ queuedPrepMinutes: 20 });
 
       await service.createOrder('slug', pickupDto(45), null, null);
 

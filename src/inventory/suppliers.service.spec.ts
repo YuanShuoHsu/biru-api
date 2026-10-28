@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext } from 'nestjs-i18n';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -18,7 +19,7 @@ describe('SuppliersService.findOne', () => {
   let service: SuppliersService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new SuppliersService(db as unknown as DrizzleDB);

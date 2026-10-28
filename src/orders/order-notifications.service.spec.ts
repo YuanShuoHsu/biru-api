@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient } from '../db/schema/inventory.js';
 import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
@@ -60,7 +61,7 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
   };
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     const drizzleDb = db as unknown as DrizzleDB;
@@ -295,7 +296,7 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
   let service: OrderNotificationsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     const drizzleDb = db as unknown as DrizzleDB;

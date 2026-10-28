@@ -42,6 +42,7 @@ import type {
   CreateOrderItemAddOnDto,
   CreateOrderItemDto,
 } from './dto/create-order.dto.js';
+import { itemLeadTimeMinutes } from './prep-estimate.js';
 
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
@@ -381,9 +382,10 @@ export class OrderPricingService {
 
       return {
         id: randomUUID(),
-        leadTimeMinutes: Math.max(
-          leadTimeOf(item.id),
-          ...cartItem.addOns.map((addOn) => leadTimeOf(addOn.menuItemId)),
+        leadTimeMinutes: itemLeadTimeMinutes(
+          leadTimeOf,
+          item.id,
+          cartItem.addOns,
         ),
         menuItemId: item.id,
         menuItemName: getName(item.name),

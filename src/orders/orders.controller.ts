@@ -32,6 +32,7 @@ import {
 } from './dto/create-order.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
+import { PrepEstimateResponseDto } from './dto/prep-estimate-response.dto.js';
 import {
   CreateOrderResponseDto,
   OrderReceiptResponseDto,
@@ -44,6 +45,7 @@ import {
 } from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 import { OrdersService } from './orders.service.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
 
 @AllowAnonymous()
 @ApiTags('orders')
@@ -52,6 +54,7 @@ export class OrdersController {
   constructor(
     private readonly orderQrService: OrderQrService,
     private readonly ordersService: OrdersService,
+    private readonly prepEstimateService: PrepEstimateService,
   ) {}
 
   @Post()
@@ -115,6 +118,14 @@ export class OrdersController {
     @Param('organizationSlug') organizationSlug: string,
   ): Promise<AdminOrderBoardColumnDto[]> {
     return this.ordersService.listAdminBoard(organizationSlug);
+  }
+
+  @Get('prep-estimate')
+  @ApiOperation({ summary: '查詢目前出餐約需幾分鐘（公開）' })
+  findPrepEstimate(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<PrepEstimateResponseDto> {
+    return this.prepEstimateService.findBySlug(organizationSlug);
   }
 
   @Get(':orderId')

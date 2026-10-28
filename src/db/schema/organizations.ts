@@ -2,6 +2,7 @@ import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   numeric,
@@ -19,6 +20,7 @@ export const memberRoleEnum = pgEnum('member_role', [
 ]);
 export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
+import { timestamps } from './columns.helpers.js';
 import { user } from './users.js';
 
 export const organization = pgTable(
@@ -95,6 +97,31 @@ export const organizationQrSecret = pgTable('organization_qr_secret', {
   previousSecret: text('previous_secret'),
   rotatedAt: timestamp('rotated_at').notNull().defaultNow(),
 });
+
+// 同一門市的區間不可重疊：EXCLUDE 約束手寫在 migration，drizzle schema 表達不出來
+export const organizationSpecialHours = pgTable(
+  'organization_special_hours',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    validFrom: date('valid_from').notNull(),
+    validThrough: date('valid_through').notNull(),
+    openingHours: text('opening_hours'),
+    note: text('note'),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'organization_special_hours_valid_range',
+      sql`${table.validFrom} <= ${table.validThrough}`,
+    ),
+  ],
+);
+
+export type OrganizationSpecialHours =
+  typeof organizationSpecialHours.$inferSelect;
 
 export const team = pgTable(
   'team',
