@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -63,7 +63,11 @@ import {
   type Transaction,
   type RestoredRecord,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import {
   ageOn,
   hasOverlappingOvertimeExtensions,
@@ -454,7 +458,7 @@ export class AttendanceEmployeesService {
           eq(attendanceEmployee.organizationId, actor.organizationId),
         ),
       );
-    if (!employee) throw new NotFoundException();
+    if (!employee) throw notFoundError();
     return {
       ...employee,
       ...legalStatusObligations(employee.legalStatus),
@@ -895,7 +899,7 @@ export class AttendanceEmployeesService {
                 eq(attendanceEmployee.organizationId, actor.organizationId),
               ),
             );
-          if (!row) throw new NotFoundException();
+          if (!row) throw notFoundError();
           await writeAudit(tx, actor, 'employee.delete', id, {
             userId: row.userId,
           });
@@ -916,7 +920,7 @@ export class AttendanceEmployeesService {
       .select()
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, actor.organizationId));
-    if (!row) throw new NotFoundException();
+    if (!row) throw notFoundError();
     return row;
   }
 

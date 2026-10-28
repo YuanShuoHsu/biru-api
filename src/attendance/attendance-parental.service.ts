@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -43,7 +43,11 @@ import {
   type Transaction,
   writeAudit,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import { countedRequestStatuses } from './attendance-rules.js';
 import {
   ATTENDANCE_REQUEST_REVIEWED_EVENT,
@@ -199,7 +203,7 @@ export class AttendanceParentalService {
             eq(attendanceEmployee.organizationId, actor.organizationId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       await assertIndependentReview(tx, actor, 'parentalChild', [
         employee.userId,
       ]);
@@ -391,7 +395,7 @@ export class AttendanceParentalService {
           eq(attendanceParentalChild.organizationId, actor.organizationId),
         ),
       );
-    if (!row) throw new NotFoundException();
+    if (!row) throw notFoundError();
     await assertIndependentReview(tx, actor, 'parentalChild', [row.userId]);
     return row.child;
   }
@@ -424,7 +428,7 @@ export class AttendanceParentalService {
             eq(attendanceLeaveCase.organizationId, actor.organizationId),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'leaveCase', [
         row.employee.userId,
       ]);
@@ -580,7 +584,7 @@ export class AttendanceParentalService {
             eq(attendanceRequest.employeeId, employee.id),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       const returnsAt = new Date(dto.returnsAt),
         request = row.request;
       if (
@@ -657,7 +661,7 @@ export class AttendanceParentalService {
             eq(attendanceParentalReturn.organizationId, actor.organizationId),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'parentalReturn', [row.userId]);
       if (row.change.status !== 'pending')
         throw conflictError('requestAlreadyReviewed');
@@ -733,7 +737,7 @@ export class AttendanceParentalService {
             eq(attendanceParentalReturn.employeeId, employee.id),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       if (row.status !== 'pending')
         throw conflictError('requestAlreadyReviewed');
       const [result] = await tx

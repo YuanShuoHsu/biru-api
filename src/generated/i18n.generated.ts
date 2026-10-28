@@ -125,6 +125,7 @@ export type I18nTranslations = {
             "menstrualDayLimit": string;
             "monthlyOvertimeExceeded": string;
             "noShifts": string;
+            "notFound": string;
             "occupationalIndustryInvalid": string;
             "outsideShiftWindow": string;
             "overlappingAttendance": string;

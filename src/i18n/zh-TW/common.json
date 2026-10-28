@@ -73,6 +73,7 @@
     "menstrualDayLimit": "生理假每月限一個曆日，請確認日期。",
     "monthlyOvertimeExceeded": "加班時數將超過當月上限（一般 46 小時，同意延長期間 54 小時）。",
     "noShifts": "此月份沒有班表。",
+    "notFound": "找不到這筆資料，可能已被刪除。",
     "occupationalIndustryInvalid": "找不到這個職災保險行業別，請重新選擇。",
     "outsideShiftWindow": "目前不在此班次可上班打卡的時間內。",
     "overlappingAttendance": "這段時間已有其他出勤記錄。",

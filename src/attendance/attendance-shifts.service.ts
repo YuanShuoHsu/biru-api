@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -62,6 +62,7 @@ import {
   cancelIrreversibleError,
   conflictError,
   forbiddenError,
+  notFoundError,
   attendanceErrorCodeOf,
 } from './attendance-errors.js';
 import {
@@ -906,7 +907,7 @@ export class AttendanceShiftsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       await assertShiftWithoutRecords(tx, shift);
       await assertPayrollUnlocked(
         tx,
@@ -1419,7 +1420,7 @@ export class AttendanceShiftsService {
             eq(attendanceShift.organizationId, actor.organizationId),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       if (shift.status === 'cancelled') return { id };
       const reason = rawReason.trim();
       if (shift.startsAt <= new Date() && !reason)
@@ -1484,7 +1485,7 @@ export class AttendanceShiftsService {
             eq(attendanceShift.organizationId, actor.organizationId),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       if (shift.status !== 'cancelled') return { id };
       const [{ breaks, dayKind }] = await this.prepareRestore(tx, actor, shift);
       await tx
@@ -1570,7 +1571,7 @@ export class AttendanceShiftsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       const events = await tx
         .select()
         .from(attendanceEvent)

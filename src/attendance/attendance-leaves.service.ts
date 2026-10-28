@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -56,7 +56,11 @@ import {
   type RestoredRecord,
   type Transaction,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import { countedRequestStatuses } from './attendance-rules.js';
 import {
   ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
@@ -758,7 +762,7 @@ export class AttendanceLeavesService {
             eq(attendanceLeaveCase.organizationId, actor.organizationId),
           ),
         );
-      if (!current) throw new NotFoundException();
+      if (!current) throw notFoundError();
       const { policy, values } = await this.resolveLeaveCase(
         tx,
         actor,
@@ -874,7 +878,7 @@ export class AttendanceLeavesService {
               eq(attendanceLeaveCase.organizationId, actor.organizationId),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         await assertIndependentReview(tx, actor, 'leaveCase', [
           row.employee.userId,
         ]);
@@ -995,7 +999,7 @@ export class AttendanceLeavesService {
               ),
             )
         : [];
-      if (id && !current) throw new NotFoundException();
+      if (id && !current) throw notFoundError();
       const statutoryKind = current?.statutoryKind ?? 'custom';
       if (statutoryKind === 'custom' && dto.paidPercent == null)
         throw badRequestError('leavePolicyRulesRequired');
@@ -1072,7 +1076,7 @@ export class AttendanceLeavesService {
               eq(attendanceLeaveType.organizationId, actor.organizationId),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         if (row.statutoryKind !== 'custom')
           throw conflictError('statutoryLeaveTypeLocked');
         const [request] = await tx
@@ -1287,7 +1291,7 @@ export class AttendanceLeavesService {
             eq(attendanceLeaveType.organizationId, actor.organizationId),
           ),
         );
-      if (!employee || !policy) throw new NotFoundException();
+      if (!employee || !policy) throw notFoundError();
       if (policy.statutoryKind !== 'custom')
         throw badRequestError('statutoryBalanceAutomatic');
       const [previous] = await tx
@@ -1540,7 +1544,7 @@ export class AttendanceLeavesService {
             eq(attendanceEmployee.organizationId, actor.organizationId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       const periodStart = new Date(dto.periodStart);
       const period = annualLeaveLedger(
         employee.hiredAt,
@@ -1617,7 +1621,7 @@ export class AttendanceLeavesService {
               ),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         const { deferral, employee } = row;
         const annualIds = new Set(
           (
@@ -1809,7 +1813,7 @@ export class AttendanceLeavesService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!employee || !shift) throw new NotFoundException();
+      if (!employee || !shift) throw notFoundError();
       const { owed } = await loadHolidaySubstitutes(
         tx,
         [employee],
@@ -1901,7 +1905,7 @@ export class AttendanceLeavesService {
               ),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         const { substitute, shiftStartsAt, terminatedAt } = row;
         // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
         for (const at of terminatedAt

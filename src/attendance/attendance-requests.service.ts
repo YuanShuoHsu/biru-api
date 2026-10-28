@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -54,6 +54,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
   runBatch,
 } from './attendance-errors.js';
 import { AttendanceLeavesService } from './attendance-leaves.service.js';
@@ -567,7 +568,7 @@ export class AttendanceRequestsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       await this.assertRequestPayrollUnlocked(tx, {
         kind: dto.kind,
         organizationId: actor.organizationId,
@@ -662,7 +663,7 @@ export class AttendanceRequestsService {
             eq(attendanceRequest.organizationId, actor.organizationId),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'attendanceRequest', [
         row.userId,
       ]);
@@ -757,7 +758,7 @@ export class AttendanceRequestsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'attendanceRequest', [
         row.userId,
       ]);
@@ -1058,7 +1059,7 @@ export class AttendanceRequestsService {
           eq(attendanceShift.employeeId, request.employeeId),
         ),
       );
-    if (!shift) throw new NotFoundException();
+    if (!shift) throw notFoundError();
     if (shift.dayKind !== 'regularLeave') {
       if (dto.emergency) throw badRequestError('invalidEmergencyDetails');
       return;
@@ -1548,7 +1549,7 @@ export class AttendanceRequestsService {
             eq(attendanceRequest.employeeId, employee.id),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertNoParentalReturn(tx, row.id);
       if (
         row.status !== 'pending' &&

@@ -73,6 +73,7 @@
     "menstrualDayLimit": "生理休暇は月に 1 暦日までです。",
     "monthlyOvertimeExceeded": "当月の残業上限（通常 46 時間、延長期間は 54 時間）を超えます。",
     "noShifts": "対象月にシフトがありません。",
+    "notFound": "該当するデータが見つかりません。削除された可能性があります。",
     "occupationalIndustryInvalid": "この職災保険の業種が見つかりません。選び直してください。",
     "outsideShiftWindow": "現在このシフトに出勤打刻できません。",
     "overlappingAttendance": "この期間には既に別の出勤記録があります。",

@@ -1,4 +1,9 @@
-import { conflictError, runBatch } from './attendance-errors.js';
+import {
+  attendanceErrorCodeOf,
+  conflictError,
+  notFoundError,
+  runBatch,
+} from './attendance-errors.js';
 
 describe('runBatch', () => {
   it('runs each id once, in first-seen order', async () => {
@@ -35,5 +40,21 @@ describe('runBatch', () => {
     const run = vi.fn().mockRejectedValue(new Error('boom'));
 
     await expect(runBatch(['a'], run)).rejects.toThrow('boom');
+  });
+
+  it('rethrows a missing record instead of skipping it', async () => {
+    const error = notFoundError();
+    const run = vi.fn((id: string) =>
+      id === 'b' ? Promise.reject(error) : Promise.resolve(),
+    );
+
+    await expect(runBatch(['a', 'b', 'c'], run)).rejects.toBe(error);
+    expect(run.mock.calls.map(([id]) => id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('attendanceErrorCodeOf', () => {
+  it('does not treat a missing record as an attendance error code', () => {
+    expect(attendanceErrorCodeOf(notFoundError())).toBeUndefined();
   });
 });
