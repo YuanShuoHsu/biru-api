@@ -1,4 +1,4 @@
-import { Logger, UseGuards } from '@nestjs/common';
+import { Inject, Logger, UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import {
@@ -27,8 +27,12 @@ import type { WaitlistUpdatedEvent } from './waitlist-updated.event.js';
 import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event.js';
 
 import { Namespace, Socket } from 'socket.io';
+import { isAuthorized } from '../auth/permissions.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
+import { findOrganizationRoles } from '../menus/guards/organization-roles.js';
 import { WsRolesGuard } from '../menus/guards/ws-roles.guard.js';
 import { PublicMenusService } from '../menus/menus-public.service.js';
 import type { PrepEstimateResponseDto } from '../orders/dto/prep-estimate-response.dto.js';
@@ -62,6 +66,8 @@ const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
+type AuthorizedSocketData = { userId?: string };
+
 @AllowAnonymous()
 @WebSocketGateway({
   namespace: '/menus',
@@ -85,6 +91,7 @@ export class EventsGateway {
     private readonly ordersService: OrdersService,
     private readonly prepEstimateService: PrepEstimateService,
     private readonly waitlistService: WaitlistService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
   @SubscribeMessage('orderMenu')
@@ -96,6 +103,14 @@ export class EventsGateway {
     await client.join(organizationRoom(organizationId));
 
     ack?.(await this.publicMenusService.findOrderMenu(organizationId, lang));
+  }
+
+  @SubscribeMessage('leaveOrderMenu')
+  async leaveOrderMenu(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(organizationRoom(organizationId));
   }
 
   @OnEvent(MENU_UPDATED_EVENT)
@@ -125,6 +140,14 @@ export class EventsGateway {
     return true;
   }
 
+  @SubscribeMessage('leaveOrder')
+  async leaveOrder(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { orderId }: JoinOrderDto,
+  ) {
+    await client.leave(orderRoom(orderId));
+  }
+
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
   handleOrderStatusUpdated({
     orderId,
@@ -134,7 +157,12 @@ export class EventsGateway {
     this.server.to(orderRoom(orderId)).emit('orderStatusUpdated', {
       orderStatus,
     });
-    this.server.to(ordersBoardRoom(organizationId)).emit('orderUpdated');
+    void this.emitToAuthorized(
+      ordersBoardRoom(organizationId),
+      organizationId,
+      { order: ['read'] },
+      'orderUpdated',
+    );
     this.server
       .to(publicOrdersBoardRoom(organizationId))
       .emit('orderBoardUpdated');
@@ -150,7 +178,12 @@ export class EventsGateway {
   @OnEvent(ORDER_UPDATED_EVENT)
   handleOrderUpdated({ orderId, organizationId }: OrderUpdatedEvent) {
     this.server.to(orderRoom(orderId)).emit('orderUpdated');
-    this.server.to(ordersBoardRoom(organizationId)).emit('orderUpdated');
+    void this.emitToAuthorized(
+      ordersBoardRoom(organizationId),
+      organizationId,
+      { order: ['read'] },
+      'orderUpdated',
+    );
   }
 
   @SubscribeMessage('joinPublicOrdersBoard')
@@ -161,6 +194,14 @@ export class EventsGateway {
     await client.join(publicOrdersBoardRoom(organizationId));
 
     return this.ordersService.listPublicBoardByOrganizationId(organizationId);
+  }
+
+  @SubscribeMessage('leavePublicOrdersBoard')
+  async leavePublicOrdersBoard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(publicOrdersBoardRoom(organizationId));
   }
 
   @Interval(PUBLIC_BOARD_REFRESH_MS)
@@ -255,7 +296,12 @@ export class EventsGateway {
 
   @OnEvent(WAITLIST_UPDATED_EVENT)
   handleWaitlistUpdated({ organizationId }: WaitlistUpdatedEvent) {
-    this.server.to(waitlistRoom(organizationId)).emit('waitlistUpdated');
+    void this.emitToAuthorized(
+      waitlistRoom(organizationId),
+      organizationId,
+      { waitlist: ['read'] },
+      'waitlistUpdated',
+    );
     this.server
       .to(publicWaitlistRoom(organizationId))
       .emit('publicWaitlistUpdated');
@@ -271,6 +317,14 @@ export class EventsGateway {
     return this.waitlistService.getPublicStatusByOrganizationId(organizationId);
   }
 
+  @SubscribeMessage('leavePublicWaitlist')
+  async leavePublicWaitlist(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(publicWaitlistRoom(organizationId));
+  }
+
   @SubscribeMessage('joinWaitlist')
   @UseGuards(WsRolesGuard)
   @Roles({ waitlist: ['read'] }, 'organizationId')
@@ -281,6 +335,14 @@ export class EventsGateway {
     await client.join(waitlistRoom(organizationId));
 
     return true;
+  }
+
+  @SubscribeMessage('leaveWaitlist')
+  async leaveWaitlist(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await client.leave(waitlistRoom(organizationId));
   }
 
   @SubscribeMessage('joinInventory')
@@ -305,8 +367,42 @@ export class EventsGateway {
 
   @OnEvent(LOW_STOCK_REACHED_EVENT)
   handleLowStockReached({ organizationId, ingredients }: LowStockReachedEvent) {
-    this.server
-      .to(inventoryRoom(organizationId))
-      .emit('lowStockReached', { organizationId, ingredients });
+    void this.emitToAuthorized(
+      inventoryRoom(organizationId),
+      organizationId,
+      { inventory: ['read'] },
+      'lowStockReached',
+      { organizationId, ingredients },
+    );
+  }
+
+  private async emitToAuthorized(
+    room: string,
+    organizationId: string,
+    action: Record<string, string[]>,
+    event: string,
+    ...args: unknown[]
+  ) {
+    try {
+      const sockets = await this.server.in(room).fetchSockets();
+      if (!sockets.length) return;
+
+      const userIds = sockets.map(
+        ({ data }) => (data as AuthorizedSocketData).userId,
+      );
+      const roles = await findOrganizationRoles(this.db, organizationId, [
+        ...new Set(userIds.filter((userId) => userId !== undefined)),
+      ]);
+      const authorized: string[] = [];
+      sockets.forEach((socket, index) => {
+        const role = roles.get(userIds[index] ?? '');
+        if (role && isAuthorized(role, action)) authorized.push(socket.id);
+        else socket.leave(room);
+      });
+
+      if (authorized.length) this.server.to(authorized).emit(event, ...args);
+    } catch (error) {
+      this.logger.error(`推播失敗：${room} ${event}`, error);
+    }
   }
 }

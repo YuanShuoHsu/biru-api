@@ -11,22 +11,31 @@ import { WsRolesGuard } from './ws-roles.guard.js';
 const canActivate = (
   userRole: string,
   memberRole?: 'owner' | 'admin' | 'member',
+  banned = false,
+  client: { handshake: { headers: object }; data: Record<string, unknown> } = {
+    handshake: { headers: {} },
+    data: {},
+  },
 ) => {
   const guard = new WsRolesGuard(
     new Reflector(),
     {
       api: {
-        getSession: vi
-          .fn()
-          .mockResolvedValue({ user: { id: 'user', role: userRole } }),
+        getSession: vi.fn().mockResolvedValue({ user: { id: 'user' } }),
       },
     } as unknown as AuthService<Auth>,
     {
       query: {
-        member: {
-          findFirst: vi
-            .fn()
-            .mockResolvedValue(memberRole ? { role: memberRole } : undefined),
+        user: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: 'user',
+              role: userRole,
+              banned,
+              banExpires: null,
+              members: memberRole ? [{ role: memberRole }] : [],
+            },
+          ]),
         },
       },
     } as unknown as DrizzleDB,
@@ -45,7 +54,7 @@ const canActivate = (
     getClass: () => class {},
     getHandler: () => handler,
     switchToWs: () => ({
-      getClient: () => ({ handshake: { headers: {} } }),
+      getClient: () => client,
       getData: () => ({ organizationId: 'org' }),
     }),
   } as unknown as ExecutionContext);
@@ -68,5 +77,19 @@ describe('WsRolesGuard', () => {
 
   it('rejects a user who is not a member', async () => {
     await expect(canActivate('user')).rejects.toBeInstanceOf(WsException);
+  });
+
+  it('rejects a banned owner', async () => {
+    await expect(canActivate('user', 'owner', true)).rejects.toBeInstanceOf(
+      WsException,
+    );
+  });
+
+  it('records the authorized user on the socket', async () => {
+    const client = { handshake: { headers: {} }, data: {} };
+
+    await canActivate('user', 'owner', false, client);
+
+    expect(client.data).toEqual({ userId: 'user' });
   });
 });
