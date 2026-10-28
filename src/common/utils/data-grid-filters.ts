@@ -67,7 +67,7 @@ const NEGATED_STRING_OPERATORS: Record<string, string> = {
 };
 
 export const buildLocalizedTextFilterCondition = (
-  column: Column,
+  column: Column | SQL,
   operator: string,
   value: string | undefined,
 ): SQL | undefined => {

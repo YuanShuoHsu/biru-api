@@ -26,7 +26,11 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
-import { isSameLocalizedText } from '../common/utils/localized-text.js';
+import { toLanguage } from '../common/utils/language.js';
+import {
+  isSameLocalizedText,
+  localizedTextSql,
+} from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
@@ -64,8 +68,8 @@ import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto
 import {
   buildArrayOverlapCondition,
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
-  buildStringFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 
@@ -376,36 +380,59 @@ export class MenusService {
       sortDirection = 'desc',
     } = query;
 
+    const localizedFields: Record<string, Column> = {
+      name: menuSection.name,
+      description: menuSection.description,
+    };
+
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
-      ? [dir(menuSection[sortBy])]
+      ? [
+          dir(
+            localizedFields[sortBy]
+              ? localizedTextSql(
+                  localizedFields[sortBy],
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : menuSection[sortBy],
+          ),
+        ]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
     const sectionFieldMap: Record<string, Column | SQL> = {
-      name: sql`${menuSection.name}::text`,
-      description: sql`${menuSection.description}::text`,
       createdAt: menuSection.createdAt,
       updatedAt: menuSection.updatedAt,
     };
 
     const where = and(
       eq(menuSection.menuId, menuId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            sectionFieldMap,
-            MENU_SECTION_STRING_FILTER_FIELDS,
-            MENU_SECTION_DATE_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              sectionFieldMap,
+              MENU_SECTION_STRING_FILTER_FIELDS,
+              MENU_SECTION_DATE_FILTER_FIELDS,
+            )
+          : undefined,
       quickFilterValue
         ? or(
-            ilike(sql`${menuSection.name}::text`, `%${quickFilterValue}%`),
-            ilike(
-              sql`${menuSection.description}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              menuSection.name,
+              'contains',
+              quickFilterValue,
+            ),
+            buildLocalizedTextFilterCondition(
+              menuSection.description,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               localTimeText(menuSection.createdAt),
@@ -418,8 +445,8 @@ export class MenusService {
           )
         : undefined,
       searchField && searchOperator && searchValue
-        ? buildStringFilterCondition(
-            sectionFieldMap[searchField],
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[searchField],
             searchOperator,
             searchValue,
           )
@@ -646,12 +673,13 @@ export class MenusService {
     const offerValue = (column: Column | SQL): SQL =>
       sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc limit 1)`;
 
-    const recipeName = sql`(select ${recipe.name}::text from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`;
+    const localizedFields: Record<string, Column | SQL> = {
+      name: menuItem.name,
+      description: menuItem.description,
+      recipe: sql`(select ${recipe.name} from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`,
+    };
 
     const itemFieldMap: Record<string, Column | SQL> = {
-      name: sql`${menuItem.name}::text`,
-      recipe: recipeName,
-      description: sql`${menuItem.description}::text`,
       price: offerValue(sql`${offer.price}::numeric`),
       availability: offerValue(sql`${offer.availability}::text`),
       availableModes: menuItem.availableModes,
@@ -674,28 +702,41 @@ export class MenusService {
       updatedAt: menuItem.updatedAt,
     };
 
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const sortColumn =
+      sortBy === 'recipe'
+        ? sql`(select ${localizedTextSql(recipe.name, lang)} from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`
+        : sortBy && localizedFields[sortBy]
+          ? localizedTextSql(localizedFields[sortBy], lang)
+          : sortBy && itemFieldMap[sortBy];
+
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] =
-      sortBy && itemFieldMap[sortBy]
-        ? [dir(itemFieldMap[sortBy])]
-        : [asc(menuItem.sortOrder), asc(menuItem.id)];
+    const orderBy: SQL[] = sortColumn
+      ? [dir(sortColumn)]
+      : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
       eq(menuItem.menuSectionId, sectionId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            itemFieldMap,
-            MENU_ITEM_STRING_FILTER_FIELDS,
-            MENU_ITEM_DATE_FILTER_FIELDS,
-            MENU_ITEM_ENUM_FILTER_FIELDS,
-            MENU_ITEM_NUMBER_FILTER_FIELDS,
-            MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
-            MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              itemFieldMap,
+              MENU_ITEM_STRING_FILTER_FIELDS,
+              MENU_ITEM_DATE_FILTER_FIELDS,
+              MENU_ITEM_ENUM_FILTER_FIELDS,
+              MENU_ITEM_NUMBER_FILTER_FIELDS,
+              MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
+              MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         customConditions: {
           availableModes: (value) =>
@@ -708,22 +749,22 @@ export class MenusService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${menuItem.name}::text`, `%${value}%`),
-          ilike(sql`${menuItem.description}::text`, `%${value}%`),
+          ...Object.values(localizedFields).map((column) =>
+            buildLocalizedTextFilterCondition(column, 'contains', value),
+          ),
           ilike(
             offerValue(
               sql`concat_ws(' ', ${offer.price}::text, ${offer.inventoryLevel}->>'value', ${offer.inventoryLevel}->>'unitText', ${offer.deliveryLeadTimeMinutes}::text, ${offer.priceSpecification}->>'price', ${offer.priceSpecification}->>'validFrom', ${offer.priceSpecification}->>'validThrough')`,
             ),
             `%${value}%`,
           ),
-          ilike(recipeName, `%${value}%`),
           ilike(localTimeText(menuItem.createdAt), `%${value}%`),
           ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
         ],
       }),
       searchField && searchOperator && searchValue
-        ? buildStringFilterCondition(
-            itemFieldMap[searchField],
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[searchField],
             searchOperator,
             searchValue,
           )
@@ -1262,43 +1303,61 @@ export class MenusService {
       sortDirection = 'asc',
     } = query;
 
+    const localizedFields: Record<string, Column | SQL> = {
+      addOnMenuSectionName: sql`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
+      addOnMenuItemName: addOnMenuItem.name,
+    };
+
     const addOnFieldMap: Record<string, SQL> = {
-      addOnMenuSectionName: sql<
-        string | null
-      >`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
-      addOnMenuItemName: sql`${addOnMenuItem.name}::text`,
       createdAt: sql`${menuItemAddOn.createdAt}`,
       updatedAt: sql`${menuItemAddOn.updatedAt}`,
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            addOnFieldMap,
-            ADD_ON_STRING_FILTER_FIELDS,
-            ADD_ON_DATE_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              addOnFieldMap,
+              ADD_ON_STRING_FILTER_FIELDS,
+              ADD_ON_DATE_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && addOnFieldMap[sortBy]
-        ? [dir(addOnFieldMap[sortBy])]
-        : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
+      sortBy && localizedFields[sortBy]
+        ? [
+            dir(
+              localizedTextSql(
+                localizedFields[sortBy],
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && addOnFieldMap[sortBy]
+          ? [dir(addOnFieldMap[sortBy])]
+          : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
 
     const where = and(
       eq(menuItemAddOn.menuItemId, menuItemId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
-              `%${quickFilterValue}%`,
+            ...Object.values(localizedFields).map((column) =>
+              buildLocalizedTextFilterCondition(
+                column,
+                'contains',
+                quickFilterValue,
+              ),
             ),
-            ilike(sql`${addOnMenuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(
               localTimeText(menuItemAddOn.createdAt),
               `%${quickFilterValue}%`,
@@ -1487,7 +1546,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: modifierGroup.createdAt,
@@ -1495,33 +1553,49 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifierGroup.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_GROUP_STRING_FILTER_FIELDS,
-            MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
-            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_GROUP_STRING_FILTER_FIELDS,
+              MODIFIER_GROUP_DATE_FILTER_FIELDS,
+              [],
+              MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifierGroup.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
 
     const where = and(
       eq(modifierGroup.menuId, menuId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`${modifierGroup.displayName}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              modifierGroup.displayName,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
@@ -1679,7 +1753,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifier.displayName}::text`,
       priceAdjustment: modifier.priceAdjustment,
       availability: sql`${modifier.availability}::text`,
       availableModes: modifier.availableModes,
@@ -1688,26 +1761,41 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifier.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_STRING_FILTER_FIELDS,
-            MODIFIER_DATE_FILTER_FIELDS,
-            MODIFIER_ENUM_FILTER_FIELDS,
-            MODIFIER_NUMBER_FILTER_FIELDS,
-            [],
-            MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_STRING_FILTER_FIELDS,
+              MODIFIER_DATE_FILTER_FIELDS,
+              MODIFIER_ENUM_FILTER_FIELDS,
+              MODIFIER_NUMBER_FILTER_FIELDS,
+              [],
+              MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(modifier.sortOrder), asc(modifier.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifier.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [asc(modifier.sortOrder), asc(modifier.id)];
 
     const where = and(
       eq(modifier.modifierGroupId, modifierGroupId),
@@ -1722,7 +1810,11 @@ export class MenusService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${modifier.displayName}::text`, `%${value}%`),
+          buildLocalizedTextFilterCondition(
+            modifier.displayName,
+            'contains',
+            value,
+          ),
           ilike(sql`${modifier.priceAdjustment}::text`, `%${value}%`),
           ilike(localTimeText(modifier.createdAt), `%${value}%`),
           ilike(localTimeText(modifier.updatedAt), `%${value}%`),
@@ -1880,7 +1972,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: menuItemModifierGroup.createdAt,
@@ -1888,33 +1979,52 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifierGroup.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_GROUP_STRING_FILTER_FIELDS,
-            MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
-            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_GROUP_STRING_FILTER_FIELDS,
+              MODIFIER_GROUP_DATE_FILTER_FIELDS,
+              [],
+              MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(menuItemModifierGroup.sortOrder), asc(menuItemModifierGroup.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifierGroup.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [
+              asc(menuItemModifierGroup.sortOrder),
+              asc(menuItemModifierGroup.id),
+            ];
 
     const where = and(
       eq(menuItemModifierGroup.menuItemId, menuItemId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`${modifierGroup.displayName}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              modifierGroup.displayName,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
