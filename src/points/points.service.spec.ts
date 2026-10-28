@@ -131,10 +131,12 @@ describe('PointsService.findAllForOrganization', () => {
       [OTHER_ORG, 'other'],
     ])
       await client.query(
-        `insert into organization (id, name, slug, created_at, amount_per_point, points_enabled_at)
-         values ($1, $2, $2, now(), 10, '2026-01-01')`,
+        `insert into organization (id, name, slug, created_at) values ($1, $2, $2, now())`,
         [id, slug],
       );
+    await client.exec(
+      `update point_setting set amount_per_point = 10, points_enabled_at = '2026-01-01', points_validity_years = null`,
+    );
     for (const [id, email] of [
       ['amy', 'amy@example.com'],
       ['bob', 'bob@example.com'],
@@ -149,11 +151,12 @@ describe('PointsService.findAllForOrganization', () => {
     id: string,
     sellerId: string,
     userId: string | null,
+    { amountPerPoint = null as string | null, paymentDate = '2026-02-01' } = {},
   ) => {
     await client.query(
-      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id)
-       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, '2026-02-01', 'OrderDelivered', $3)`,
-      [id, sellerId, userId],
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id, amount_per_point)
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, $4, 'OrderDelivered', $3, $5)`,
+      [id, sellerId, userId, paymentDate, amountPerPoint],
     );
     await client.query(
       `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
@@ -179,6 +182,29 @@ describe('PointsService.findAllForOrganization', () => {
       }),
     ]);
     expect(await db.select().from(pointTransaction)).toHaveLength(1);
+  });
+
+  it('啟用前付款且沒有快照的訂單不入點，有快照的訂單照快照入點', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { paymentDate: '2025-12-01' });
+    await addPaidOrder('o2', ORG, 'amy', {
+      amountPerPoint: '20',
+      paymentDate: '2025-12-01',
+    });
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.data).toEqual([
+      expect.objectContaining({ orderNumber: 'o2', points: 5 }),
+    ]);
+  });
+
+  it('點數停用時，沒有快照的訂單不入點', async () => {
+    await client.exec(
+      `update point_setting set amount_per_point = null, points_enabled_at = null`,
+    );
+    await addPaidOrder('o1', ORG, 'amy');
+
+    expect((await service.findAllForOrganization('biru')).total).toBe(0);
   });
 
   it('收回本店已取消訂單的點數，且不列出他店與品牌層的明細', async () => {
@@ -345,11 +371,8 @@ describe('PointsService.findAllForOrganization', () => {
     ).toEqual(expect.objectContaining({ points: 301 }));
   });
 
-  it('owner 門檻依本店每點金額換算，金額不大於 0 時只有 owner 能調整', async () => {
-    await client.query(
-      `update organization set amount_per_point = 33.33 where id = $1`,
-      [ORG],
-    );
+  it('owner 門檻依全品牌每點金額換算，金額不大於 0 時只有 owner 能調整', async () => {
+    await client.exec(`update point_setting set amount_per_point = 33.33`);
     expect(
       await service.adjustForOrganization(
         'biru',
@@ -367,10 +390,7 @@ describe('PointsService.findAllForOrganization', () => {
       ),
     ).rejects.toThrow('common.points.adjustOwnerOnly');
 
-    await client.query(
-      `update organization set amount_per_point = 0 where id = $1`,
-      [ORG],
-    );
+    await client.exec(`update point_setting set amount_per_point = 0`);
     await expect(
       service.adjustForOrganization(
         'biru',
@@ -392,11 +412,8 @@ describe('PointsService.findAllForOrganization', () => {
     ).rejects.toThrow('common.points.adjustSelf');
   });
 
-  it('本店未啟用點數時拒絕調整', async () => {
-    await client.query(
-      `update organization set points_enabled_at = null where id = $1`,
-      [ORG],
-    );
+  it('點數未啟用時拒絕調整', async () => {
+    await client.exec(`update point_setting set points_enabled_at = null`);
 
     await expect(
       service.adjustForOrganization(

@@ -1,7 +1,9 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -64,6 +66,26 @@ export const pointTransaction = pgTable(
 );
 
 export type PointTransaction = typeof pointTransaction.$inferSelect;
+
+export const POINT_SETTING_ID = 'brand';
+
+export const pointSetting = pgTable(
+  'point_setting',
+  {
+    id: text('id').primaryKey().default(POINT_SETTING_ID),
+    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
+    pointsValidityYears: integer('points_validity_years'),
+    pointsEnabledAt: timestamp('points_enabled_at'),
+    accountingValuePerPoint: numeric('accounting_value_per_point', {
+      precision: 10,
+      scale: 2,
+    }),
+    ...timestamps,
+  },
+  (table) => [check('point_setting_single_row', sql`${table.id} = 'brand'`)],
+);
+
+export type PointSetting = typeof pointSetting.$inferSelect;
 
 export const pointTransactionRelations = relations(
   pointTransaction,

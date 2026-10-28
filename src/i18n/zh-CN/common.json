@@ -253,9 +253,10 @@
     "adjustOwnerOnly": "单笔调整超过 {maxPoints} 点，请由门店 owner 操作",
     "adjustSelf": "不能调整自己的点数",
     "insufficient": "点数不足",
-    "notEnabled": "本店尚未启用点数",
+    "notEnabled": "点数功能尚未启用",
     "notRedeemable": "此优惠券无法用点数兑换",
-    "perUserLimitReached": "您已兑换过此优惠券"
+    "perUserLimitReached": "您已兑换过此优惠券",
+    "validityRequiresEnabled": "点数功能停用时不能设置有效年限"
   },
   "quant": {
     "aiKeyInvalid": "Claude API key 验证失败：{message}",

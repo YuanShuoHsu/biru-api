@@ -253,9 +253,10 @@
     "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",
     "adjustSelf": "自分のポイントは調整できません",
     "insufficient": "ポイントが不足しています",
-    "notEnabled": "この店舗ではポイントが有効になっていません",
+    "notEnabled": "ポイント機能はまだ有効になっていません",
     "notRedeemable": "このクーポンはポイントと交換できません",
-    "perUserLimitReached": "このクーポンは既に交換済みです"
+    "perUserLimitReached": "このクーポンは既に交換済みです",
+    "validityRequiresEnabled": "ポイント機能が無効の間は有効期限を設定できません"
   },
   "quant": {
     "aiKeyInvalid": "Claude API キーの検証に失敗しました：{message}",
