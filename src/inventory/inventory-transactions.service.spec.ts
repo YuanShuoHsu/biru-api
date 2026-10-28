@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -26,7 +27,7 @@ describe('庫存扣除、還原與自動售完', () => {
   let eventEmitter: EventEmitter2;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;

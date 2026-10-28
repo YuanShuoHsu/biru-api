@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { I18nService } from 'nestjs-i18n';
@@ -18,7 +19,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   let service: EcpayOrderRefundService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new EcpayOrderRefundService(

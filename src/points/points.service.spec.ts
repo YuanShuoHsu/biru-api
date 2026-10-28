@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { eq } from 'drizzle-orm';
@@ -19,7 +20,7 @@ describe('PointsService.getAllMine', () => {
   let service: PointsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PointsService(
@@ -109,7 +110,7 @@ describe('PointsService.findAllForOrganization', () => {
   let service: PointsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PointsService(

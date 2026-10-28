@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../../test/pglite.js';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { eq } from 'drizzle-orm';
@@ -102,7 +103,7 @@ describe('InvoicePrinterService（PGlite）', () => {
 
   beforeAll(async () => {
     vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
   }, 60_000);

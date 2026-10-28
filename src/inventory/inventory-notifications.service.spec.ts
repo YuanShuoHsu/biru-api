@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -17,7 +18,7 @@ describe('InventoryNotificationsService.notifyLowStockDigest', () => {
   let service: InventoryNotificationsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new InventoryNotificationsService(

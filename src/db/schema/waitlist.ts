@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
-import { languagesEnum } from './enums.js';
+import { cancelReasonEnum, languagesEnum } from './enums.js';
 import { organization } from './organizations.js';
 import { user } from './users.js';
 
@@ -69,6 +69,7 @@ export const waitlistTicket = pgTable(
     email: text('email'),
     locale: languagesEnum('locale').notNull(),
     status: waitlistTicketStatusEnum('status').notNull().default('waiting'),
+    cancelReason: cancelReasonEnum('cancel_reason'),
     idempotencyKey: text('idempotency_key'),
     calledAt: timestamp('called_at'),
     confirmedAt: timestamp('confirmed_at'),

@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -18,7 +19,7 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
   const sendMissingClockOut = vi.fn();
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new AttendanceNotificationsService(

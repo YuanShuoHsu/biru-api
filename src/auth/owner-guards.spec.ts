@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -14,7 +15,7 @@ describe('assertKeepsOwner', () => {
   let db: Transaction;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as Transaction;

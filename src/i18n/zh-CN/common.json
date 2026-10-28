@@ -252,7 +252,10 @@
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "这位成员不是以平台管理员身份加入的所有者。",
-    "showcaseOpenSelfOnly": "只有成员本人能开启在团队介绍的公开显示。"
+    "showcaseOpenSelfOnly": "只有成员本人能开启在团队介绍的公开显示。",
+    "specialHoursEnded": "不能新增或改成已经结束的特殊营业日。",
+    "specialHoursInvalidRange": "特殊营业日的开始日期不能晚于结束日期。",
+    "specialHoursOverlap": "这段期间与已设置的特殊营业日（{validFrom}～{validThrough}）重叠。"
   },
   "points": {
     "adjustOwnerOnly": "单笔调整超过 {maxPoints} 点，请由门店 owner 操作",

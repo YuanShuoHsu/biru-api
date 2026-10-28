@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { NotFoundException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -18,7 +19,7 @@ describe('SuppliersService.findOne', () => {
   let service: SuppliersService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new SuppliersService(db as unknown as DrizzleDB);

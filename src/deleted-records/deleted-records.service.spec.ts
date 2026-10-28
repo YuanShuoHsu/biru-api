@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
@@ -17,7 +18,7 @@ describe('DeletedRecordsService.restore', () => {
   let service: DeletedRecordsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new DeletedRecordsService(
@@ -64,7 +65,7 @@ describe('DeletedRecordsService.list', () => {
   let service: DeletedRecordsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new DeletedRecordsService(

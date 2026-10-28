@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { Reflector } from '@nestjs/core';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -24,7 +25,7 @@ describe('PointSettingsService', () => {
   let service: PointSettingsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PointSettingsService(

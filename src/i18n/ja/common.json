@@ -252,7 +252,10 @@
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
-    "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。"
+    "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。",
+    "specialHoursEnded": "すでに終了した期間の特別営業日は追加・変更できません。",
+    "specialHoursInvalidRange": "特別営業日の開始日は終了日より後にできません。",
+    "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。"
   },
   "points": {
     "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",

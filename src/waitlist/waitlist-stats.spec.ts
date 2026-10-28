@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -15,7 +16,7 @@ describe('WaitlistService.getStats', () => {
   let service: WaitlistService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new WaitlistService(

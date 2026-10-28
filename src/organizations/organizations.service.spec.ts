@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { PGlite } from '@electric-sql/pglite';
+import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -24,7 +25,7 @@ describe('OrganizationsService 團隊介紹', () => {
   const adminActor = { role: 'admin', userId: 'cat' };
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;
@@ -210,7 +211,7 @@ describe('OrganizationsService 轉為真正店主', () => {
   let service: OrganizationsService;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     service = new OrganizationsService(

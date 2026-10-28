@@ -252,7 +252,10 @@
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",
-    "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section."
+    "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section.",
+    "specialHoursEnded": "Special hours cannot be added or changed to a period that has already ended.",
+    "specialHoursInvalidRange": "The start date of special hours cannot be later than the end date.",
+    "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
   },
   "points": {
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
