@@ -38,6 +38,7 @@ import {
 import { pointSetting, pointTransaction } from '../../db/schema/points.js';
 import { printer } from '../../db/schema/printers.js';
 import { refund } from '../../db/schema/refunds.js';
+import { storePhoto } from '../../db/schema/store-photos.js';
 import { user } from '../../db/schema/users.js';
 import { waitlistSetting, waitlistTicket } from '../../db/schema/waitlist.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
@@ -81,6 +82,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   team,
   pointTransaction,
   pointSetting,
+  storePhoto,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -393,6 +395,11 @@ export const resolveAuditLabels = async (
         case 'banner':
         case 'pointTransaction':
           return [resourceId, { resourceLabel: null, ancestorIds: [] }];
+        case 'storePhoto':
+          return [
+            resourceId,
+            { resourceLabel: asLabel(row.alt), ancestorIds: [] },
+          ];
         case 'waitlistTicket':
           return [
             resourceId,
