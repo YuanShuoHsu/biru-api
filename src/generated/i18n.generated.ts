@@ -281,8 +281,8 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
-            "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
+            "inStoreQrCodeRequired": string;
             "invalidTable": string;
             "menuItemInsufficientStock": string;
             "menuItemUnavailable": string;

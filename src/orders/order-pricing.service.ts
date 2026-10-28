@@ -68,6 +68,7 @@ const sumModifierAdjustments = (
 export interface ResolvedOrderItem {
   id: string;
   addOns: OrderItemAddOnSnapshot[];
+  leadTimeMinutes: number;
   menuItemId: string;
   menuItemName: string;
   menuSectionIds: string[];
@@ -221,6 +222,9 @@ export class OrderPricingService {
         );
       return item;
     };
+
+    const leadTimeOf = (menuItemId: string) =>
+      offerMap.get(menuItemId)?.deliveryLeadTimeMinutes ?? 0;
 
     const orderedAt = new Date();
 
@@ -396,6 +400,10 @@ export class OrderPricingService {
 
       return {
         id: randomUUID(),
+        leadTimeMinutes: Math.max(
+          leadTimeOf(item.id),
+          ...cartItem.addOns.map((addOn) => leadTimeOf(addOn.menuItemId)),
+        ),
         menuItemId: item.id,
         menuItemName: getName(item.name),
         menuSectionIds: [
