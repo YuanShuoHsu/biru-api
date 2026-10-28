@@ -13,6 +13,7 @@ vi.hoisted(() => {
   Object.assign(process.env, {
     BETTER_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret',
     BETTER_AUTH_URL: 'http://localhost:3001',
+    DATABASE_URL: 'postgres://e2e.invalid:5432/e2e',
     ECPAY_BASE_HASH_IV: 'e2e',
     ECPAY_BASE_HASH_KEY: 'e2e',
     ECPAY_BASE_MERCHANT_ID: 'e2e',
