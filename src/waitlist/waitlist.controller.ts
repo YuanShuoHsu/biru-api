@@ -19,6 +19,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
@@ -27,6 +28,7 @@ import {
 import type { Request, Response } from 'express';
 
 import { I18nLang } from 'nestjs-i18n';
+import { ANONYMOUS_THROTTLER } from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { toLanguage } from '../common/utils/language.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -122,6 +124,7 @@ export class WaitlistController {
   }
 
   @Post('tickets')
+  @Throttle({ [ANONYMOUS_THROTTLER]: { limit: 5, ttl: minutes(1) } })
   @ApiHeader({
     description: '同一次取號重試請帶同一把鍵，重送會回傳既有號碼牌',
     name: 'Idempotency-Key',

@@ -12,9 +12,11 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { minutes, Throttle } from '@nestjs/throttler';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
+import { ANONYMOUS_THROTTLER } from '../common/constants/throttle.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { BusinessInfoResponseDto } from './dto/business-info-response.dto.js';
@@ -30,6 +32,7 @@ export class GcisController {
   ) {}
 
   @Get(':businessNo')
+  @Throttle({ [ANONYMOUS_THROTTLER]: { limit: 20, ttl: minutes(1) } })
   @ApiOperation({ summary: '依統一編號查詢公司名稱、地址與負責人' })
   @ApiParam({ name: 'businessNo', description: '統一編號（8位數字）' })
   @ApiOkResponse({ type: BusinessInfoResponseDto })

@@ -1,10 +1,16 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { hours, minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 
 import { CouponsService } from './coupons.service.js';
 import {
@@ -24,6 +30,10 @@ export class CouponsController {
 
   @Post('validate')
   @AllowAnonymous()
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 10, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 50, ttl: hours(1) },
+  })
   @ApiOperation({ summary: '驗證優惠碼' })
   validate(
     @Param('organizationSlug') organizationSlug: string,
