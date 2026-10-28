@@ -25,6 +25,7 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
@@ -113,7 +114,6 @@ export class RecipesService {
     );
 
     const fieldMap: Record<string, Column | SQL> = {
-      name: sql`${recipe.name}::text`,
       recipeYield: recipe.recipeYield,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
@@ -130,24 +130,30 @@ export class RecipesService {
 
     const where = and(
       eq(recipe.organizationId, organizationId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'name' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            recipe.name,
             filterOperator,
             filterValue,
-            fieldMap,
-            RECIPE_STRING_FILTER_FIELDS,
-            RECIPE_DATE_FILTER_FIELDS,
-            [],
-            RECIPE_NUMBER_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              RECIPE_STRING_FILTER_FIELDS,
+              RECIPE_DATE_FILTER_FIELDS,
+              [],
+              RECIPE_NUMBER_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${recipe.name}::text`, `%${value}%`),
+          buildLocalizedTextFilterCondition(recipe.name, 'contains', value),
           ilike(localTimeText(recipe.createdAt), `%${value}%`),
           ilike(localTimeText(recipe.updatedAt), `%${value}%`),
         ],
@@ -306,7 +312,6 @@ export class RecipesService {
       throw new ForbiddenException();
 
     const fieldMap: Record<string, Column | SQL> = {
-      ingredientName: sql`${ingredient.name}::text`,
       requiredQuantity: recipeIngredient.requiredQuantity,
       createdAt: recipeIngredient.createdAt,
       updatedAt: recipeIngredient.updatedAt,
@@ -330,24 +335,30 @@ export class RecipesService {
 
     const where = and(
       eq(recipeIngredient.recipeId, recipeId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'ingredientName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            ingredient.name,
             filterOperator,
             filterValue,
-            fieldMap,
-            RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
-            RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
-            undefined,
-            RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
+              RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
+              undefined,
+              RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${ingredient.name}::text`, `%${value}%`),
+          buildLocalizedTextFilterCondition(ingredient.name, 'contains', value),
           ilike(sql`${recipeIngredient.requiredQuantity}::text`, `%${value}%`),
           ilike(localTimeText(recipeIngredient.createdAt), `%${value}%`),
           ilike(localTimeText(recipeIngredient.updatedAt), `%${value}%`),

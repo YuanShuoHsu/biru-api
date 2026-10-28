@@ -25,6 +25,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
@@ -122,7 +123,6 @@ export class IngredientsService {
     const supplierName = sql`(select ${supplier.name} from ${supplier} where ${supplier.id} = ${ingredient.supplierId})`;
 
     const fieldMap: Record<string, Column | SQL> = {
-      name: sql`${ingredient.name}::text`,
       brand: ingredient.brand,
       supplierName,
       note: ingredient.note,
@@ -150,25 +150,31 @@ export class IngredientsService {
       lowStock
         ? lte(ingredient.inventoryLevel, ingredient.lowStockThreshold)
         : undefined,
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'name' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            ingredient.name,
             filterOperator,
             filterValue,
-            fieldMap,
-            INGREDIENT_STRING_FILTER_FIELDS,
-            INGREDIENT_DATE_FILTER_FIELDS,
-            INGREDIENT_ENUM_FILTER_FIELDS,
-            INGREDIENT_NUMBER_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              INGREDIENT_STRING_FILTER_FIELDS,
+              INGREDIENT_DATE_FILTER_FIELDS,
+              INGREDIENT_ENUM_FILTER_FIELDS,
+              INGREDIENT_NUMBER_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         enumFields: INGREDIENT_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${ingredient.name}::text`, `%${value}%`),
+          buildLocalizedTextFilterCondition(ingredient.name, 'contains', value),
           ilike(ingredient.brand, `%${value}%`),
           ...(canReadPurchasing
             ? [
