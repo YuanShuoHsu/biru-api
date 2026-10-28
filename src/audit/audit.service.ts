@@ -190,21 +190,14 @@ export class AuditService {
       [...attendanceLogs].map(({ changes }) => changes),
     );
 
-    return {
-      data: logs.map((log) =>
-        attendanceLogs.has(log)
-          ? {
-              ...log,
-              changeLabels: Object.fromEntries(
-                Object.keys(log.changes).flatMap((field) =>
-                  labels[field] ? [[field, labels[field]]] : [],
-                ),
-              ),
-            }
-          : log,
-      ),
-      total: totals[0]?.total ?? 0,
-    };
+    for (const log of attendanceLogs)
+      log.changeLabels = Object.fromEntries(
+        Object.keys(log.changes).flatMap((field) =>
+          labels[field] ? [[field, labels[field]]] : [],
+        ),
+      );
+
+    return { data: logs, total: totals[0]?.total ?? 0 };
   }
 
   private entries(scope?: { organizationId: string; role: string }): SQL {
