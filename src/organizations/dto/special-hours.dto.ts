@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   Validate,
   ValidateIf,
 } from 'class-validator';
@@ -40,13 +41,21 @@ export class CreateSpecialHoursDto {
   @Validate(IsOpeningHours)
   openingHours: string | null;
 
-  @ApiPropertyOptional({ nullable: true, type: String, example: '颱風停業' })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    example: '颱風停業',
+    maxLength: 50,
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   note?: string | null;
 }
 
-export class UpdateSpecialHoursDto extends PartialType(CreateSpecialHoursDto) {}
+export class UpdateSpecialHoursDto extends PartialType(CreateSpecialHoursDto, {
+  skipNullProperties: false,
+}) {}
 
 export class SpecialHoursDto {
   @ApiProperty() id: string;

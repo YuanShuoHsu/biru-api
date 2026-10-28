@@ -1,5 +1,4 @@
 import { PGlite } from '@electric-sql/pglite';
-import { createPGlite } from '../../test/pglite.js';
 import { Reflector } from '@nestjs/core';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -8,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
+import { createPGlite } from '../../test/pglite.js';
 import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
 import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';

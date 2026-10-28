@@ -1,10 +1,10 @@
 import { PGlite } from '@electric-sql/pglite';
-import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { banner } from '../db/schema/banners.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';

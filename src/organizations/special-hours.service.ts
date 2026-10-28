@@ -49,7 +49,7 @@ export class SpecialHoursService {
 
   async create(
     organizationSlug: string,
-    { ...dto }: CreateSpecialHoursDto,
+    dto: CreateSpecialHoursDto,
   ): Promise<SpecialHoursDto> {
     const organizationId = await getOrganizationIdBySlug(
       this.db,
@@ -71,7 +71,7 @@ export class SpecialHoursService {
   async update(
     organizationSlug: string,
     id: string,
-    { ...dto }: UpdateSpecialHoursDto,
+    dto: UpdateSpecialHoursDto,
   ): Promise<SpecialHoursDto> {
     const organizationId = await getOrganizationIdBySlug(
       this.db,
@@ -129,7 +129,7 @@ export class SpecialHoursService {
   }): void {
     const lang = I18nContext.current()?.lang;
 
-    if (!validFrom || !validThrough || validFrom > validThrough)
+    if (validFrom > validThrough)
       throw new BadRequestException(
         this.i18n.t('common.organizations.specialHoursInvalidRange', { lang }),
       );
@@ -163,6 +163,7 @@ export class SpecialHoursService {
           range.id ? ne(organizationSpecialHours.id, range.id) : undefined,
         ),
       });
+      if (!conflict) throw error;
 
       throw new ConflictException({
         error: 'Conflict',

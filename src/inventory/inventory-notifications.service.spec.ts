@@ -1,8 +1,8 @@
 import { PGlite } from '@electric-sql/pglite';
-import { createPGlite } from '../../test/pglite.js';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { member } from '../db/schema/organizations.js';
