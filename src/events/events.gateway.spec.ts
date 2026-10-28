@@ -374,12 +374,16 @@ describe('EventsGateway room joins', () => {
   ) => {
     const session = deferred<{ user: { id: string } } | null>();
     const canRead = deferred<boolean>();
+    const canReadOrderById = vi.fn(
+      (_orderId: string, _user: unknown, _accessToken: string | null) =>
+        canRead.promise,
+    );
     const gateway = new EventsGateway(
       {
         api: { getSession: () => session.promise },
       } as unknown as AuthService,
       {} as PublicMenusService,
-      { canReadOrderById: () => canRead.promise } as unknown as OrdersService,
+      { canReadOrderById } as unknown as OrdersService,
       {} as PrepEstimateService,
       {} as WaitlistService,
       {
@@ -403,9 +407,9 @@ describe('EventsGateway room joins', () => {
     );
 
     const rooms = new Set<string>();
-    let onAny: (event: string, body: object) => void = () => {};
+    let onAny: (event: unknown, body: unknown) => void = () => {};
     const client = {
-      data: {} as { userId?: string },
+      data: {} as { userId?: string; requestedRooms?: Map<string, string> },
       handshake: { headers: {} },
       join: (room: string) => void rooms.add(room),
       leave: (room: string) => void rooms.delete(room),
@@ -415,7 +419,7 @@ describe('EventsGateway room joins', () => {
     };
     gateway.handleConnection(client as unknown as Socket);
 
-    const arrive = (event: string, body: object) => onAny(event, body);
+    const arrive = (event: unknown, body: unknown) => onAny(event, body);
     const handle = (event: string, body: object) =>
       (
         gateway[event as keyof EventsGateway] as (
@@ -428,7 +432,16 @@ describe('EventsGateway room joins', () => {
       return handle(event, body);
     };
 
-    return { arrive, canRead, client, handle, rooms, send, session };
+    return {
+      arrive,
+      canRead,
+      canReadOrderById,
+      client,
+      handle,
+      rooms,
+      send,
+      session,
+    };
   };
 
   const joins = [
@@ -540,5 +553,84 @@ describe('EventsGateway room joins', () => {
     await Promise.all([first, second]);
 
     expect(context.rooms.has('waitlist:org')).toBe(true);
+  });
+
+  it.each([
+    ['joinOrder', { orderId: { toString: 1 } }],
+    ['joinOrder', { orderId: 'o1', accessToken: { toString: 1 } }],
+    ['joinWaitlist', { organizationId: { toString: 1 } }],
+    ['joinInventory', { organizationId: 5 }],
+    ['leaveOrdersBoard', null],
+    ['joinOrdersBoard', 'org'],
+    [{ toString: 1 }, { organizationId: 'org' }],
+  ])('不合法的 %s 訊息不拋出也不記錄', (event, body) => {
+    const { arrive, client } = setup();
+
+    expect(() => arrive(event, body)).not.toThrow();
+    expect(client.data.requestedRooms?.size ?? 0).toBe(0);
+  });
+
+  it.each(storeJoins)(
+    'join%s 被拒後清掉該 room 的加入意圖',
+    async (name, body) => {
+      const context = setup([{ id: 'staff' }]);
+      authorize(context);
+
+      await context.send(`join${name}`, body);
+
+      expect(context.client.data.requestedRooms?.size).toBe(0);
+    },
+  );
+
+  it('有效的 join 較晚完成時，不因之後無效的 join 而加入', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    const valid = deferred<boolean>();
+    context.canReadOrderById.mockImplementation((_, __, accessToken) =>
+      accessToken === 'valid' ? valid.promise : Promise.resolve(false),
+    );
+
+    const first = context.send('joinOrder', {
+      orderId: 'o1',
+      accessToken: 'valid',
+    });
+    await context.send('leaveOrder', { orderId: 'o1' });
+    await expect(
+      context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
+    ).resolves.toBe(false);
+    valid.resolve(true);
+    await first;
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+    expect(context.client.data.requestedRooms?.size).toBe(0);
+  });
+
+  it('已加入後收到 leave 與無效的 join，最後不在 room', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    context.canReadOrderById.mockImplementation((_, __, accessToken) =>
+      Promise.resolve(accessToken === 'valid'),
+    );
+
+    await context.send('joinOrder', { orderId: 'o1', accessToken: 'valid' });
+    context.arrive('leaveOrder', { orderId: 'o1' });
+    await context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' });
+    await context.handle('leaveOrder', { orderId: 'o1' });
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it('每個 socket 最多記錄 100 個 room 的加入意圖', async () => {
+    const context = setup();
+    authorize(context);
+
+    for (let i = 0; i < 100; i++)
+      context.arrive('joinOrder', { orderId: `o${i}` });
+    await context.send('joinOrder', { orderId: 'extra' });
+    await context.send('joinOrder', { orderId: 'o0' });
+
+    expect(context.client.data.requestedRooms?.size).toBe(100);
+    expect(context.rooms.has('order:extra')).toBe(false);
+    expect(context.rooms.has('order:o0')).toBe(true);
   });
 });

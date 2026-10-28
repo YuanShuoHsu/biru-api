@@ -65,22 +65,40 @@ const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
-type GatewaySocketData = { userId?: string; requestedRooms?: Set<string> };
+const MAX_REQUESTED_ROOMS = 100;
 
-type RoomRequestBody = { orderId?: unknown; organizationId?: unknown };
+type GatewaySocketData = {
+  userId?: string;
+  requestedRooms?: Map<string, string>;
+};
 
-const ROOM_REQUESTS = new Map<string, (body: RoomRequestBody) => string>([
-  ['Order', ({ orderId }) => orderRoom(String(orderId))],
+type RoomRequest = { room: string; accessToken: string };
+
+const byOrganization =
+  (toRoom: (organizationId: string) => string) =>
+  ({ organizationId }: Record<string, unknown>): RoomRequest | undefined =>
+    typeof organizationId === 'string'
+      ? { room: toRoom(organizationId), accessToken: '' }
+      : undefined;
+
+const ROOM_REQUESTS = new Map<
+  string,
+  (body: Record<string, unknown>) => RoomRequest | undefined
+>([
   [
-    'OrdersBoard',
-    ({ organizationId }) => ordersBoardRoom(String(organizationId)),
+    'Order',
+    ({ orderId, accessToken = '' }) =>
+      typeof orderId === 'string' && typeof accessToken === 'string'
+        ? { room: orderRoom(orderId), accessToken }
+        : undefined,
   ],
-  ['Waitlist', ({ organizationId }) => waitlistRoom(String(organizationId))],
-  ['Inventory', ({ organizationId }) => inventoryRoom(String(organizationId))],
+  ['OrdersBoard', byOrganization(ordersBoardRoom)],
+  ['Waitlist', byOrganization(waitlistRoom)],
+  ['Inventory', byOrganization(inventoryRoom)],
 ]);
 
 const requestedRooms = (client: Socket) =>
-  ((client.data as GatewaySocketData).requestedRooms ??= new Set());
+  ((client.data as GatewaySocketData).requestedRooms ??= new Map());
 
 @AllowAnonymous()
 @WebSocketGateway({
@@ -109,13 +127,21 @@ export class EventsGateway implements OnGatewayConnection {
   ) {}
 
   handleConnection(client: Socket) {
-    client.onAny((event: unknown, body?: RoomRequestBody) => {
-      const [, verb, target] = /^(join|leave)(\w+)$/.exec(String(event)) ?? [];
-      const room = ROOM_REQUESTS.get(target ?? '')?.(body ?? {});
-      if (!room) return;
+    client.onAny((event: unknown, body: unknown) => {
+      if (typeof event !== 'string' || typeof body !== 'object' || !body)
+        return;
+      const [, verb, target] = /^(join|leave)(\w+)$/.exec(event) ?? [];
+      const request =
+        target && ROOM_REQUESTS.get(target)?.(body as Record<string, unknown>);
+      if (!request) return;
 
-      if (verb === 'join') requestedRooms(client).add(room);
-      else requestedRooms(client).delete(room);
+      const requested = requestedRooms(client);
+      if (verb === 'leave') requested.delete(request.room);
+      else if (
+        requested.has(request.room) ||
+        requested.size < MAX_REQUESTED_ROOMS
+      )
+        requested.set(request.room, request.accessToken);
     });
   }
 
@@ -151,18 +177,14 @@ export class EventsGateway implements OnGatewayConnection {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
     });
-    if (
-      !(await this.ordersService.canReadOrderById(
-        orderId,
-        session?.user ?? null,
-        accessToken ?? null,
-      ))
-    )
-      return false;
+    const canRead = await this.ordersService.canReadOrderById(
+      orderId,
+      session?.user ?? null,
+      accessToken ?? null,
+    );
+    await this.settleJoin(client, orderRoom(orderId), canRead, accessToken);
 
-    await this.joinIfStillRequested(client, orderRoom(orderId));
-
-    return true;
+    return canRead;
   }
 
   @SubscribeMessage('leaveOrder')
@@ -417,21 +439,31 @@ export class EventsGateway implements OnGatewayConnection {
       headers: fromNodeHeaders(client.handshake.headers),
     });
     const userId = session?.user.id;
-    if (!userId) return false;
+    const role =
+      userId &&
+      (await findOrganizationRoles(this.db, organizationId, [userId])).get(
+        userId,
+      );
+    const authorized = !!role && isAuthorized(role, action);
+    if (authorized) (client.data as GatewaySocketData).userId = userId;
+    await this.settleJoin(client, room, authorized);
 
-    const role = (
-      await findOrganizationRoles(this.db, organizationId, [userId])
-    ).get(userId);
-    if (!role || !isAuthorized(role, action)) return false;
-
-    (client.data as GatewaySocketData).userId = userId;
-    await this.joinIfStillRequested(client, room);
-
-    return true;
+    return authorized;
   }
 
-  private async joinIfStillRequested(client: Socket, room: string) {
-    if (requestedRooms(client).has(room)) await client.join(room);
+  private async settleJoin(
+    client: Socket,
+    room: string,
+    authorized: boolean,
+    accessToken = '',
+  ) {
+    const requested = requestedRooms(client);
+    if (requested.get(room) !== accessToken) return;
+
+    if (authorized) return client.join(room);
+
+    requested.delete(room);
+    await client.leave(room);
   }
 
   private async leaveUnlessRequestedAgain(client: Socket, room: string) {
