@@ -63,7 +63,25 @@ const PICKUP_FIELD_MAXIMUMS = {
   pickupCutoffMinutes: PICKUP_MAX_MINUTES,
 };
 
+const REQUIRED_ADDRESS_FIELDS = [
+  'addressCountry',
+  'addressLocality',
+  'addressRegion',
+  'streetAddress',
+] as const;
+
 const assertValidOrganizationInput = (data: Record<string, unknown>) => {
+  for (const field of REQUIRED_ADDRESS_FIELDS) {
+    const value = data[field];
+    if (
+      Object.hasOwn(data, field) &&
+      (typeof value !== 'string' || !value.trim())
+    )
+      throw new APIError('BAD_REQUEST', {
+        message: `${field} is required`,
+      });
+  }
+
   if (
     typeof data.openingHours === 'string' &&
     !isValidOpeningHours(data.openingHours)
@@ -400,15 +418,15 @@ export const createAuth = (
               // https://schema.org/PostalAddress
               addressCountry: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               addressLocality: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               addressRegion: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               extendedAddress: {
                 type: 'string',
@@ -420,7 +438,7 @@ export const createAuth = (
               },
               streetAddress: {
                 type: 'string',
-                required: false,
+                required: true,
               },
 
               // https://schema.org/LocalBusiness

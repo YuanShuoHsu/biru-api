@@ -22,9 +22,9 @@ describe('cancelExpiredInvitations', () => {
     db = pglite as unknown as Transaction;
     await client.exec(`
       insert into "user" (id, name, email, first_name) values ('owner', 'owner', 'owner@example.com', 'owner');
-      insert into organization (id, name, slug, created_at) values
-        ('biru', 'Biru', 'biru', now()),
-        ('other', 'Other', 'other', now());
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
     `);
   }, 60_000);
 

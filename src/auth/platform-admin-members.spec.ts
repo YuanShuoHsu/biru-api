@@ -37,7 +37,7 @@ describe('以平台管理員身分加入門市', () => {
       insert into "user" (id, name, email, first_name, role) values
         ('amy', 'amy', 'amy@example.com', 'amy', 'user'),
         ('root', 'root', 'root@example.com', 'root', 'admin');
-      insert into organization (id, name, slug, created_at) values ('biru', 'Biru', 'biru', now());
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
     `);
   }, 60_000);
 
@@ -111,10 +111,10 @@ describe('removeRevokedPlatformAdminMemberships', () => {
       insert into "user" (id, name, email, first_name, role) values
         ('amy', 'amy', 'amy@example.com', 'amy', 'user'),
         ('root', 'root', 'root@example.com', 'root', 'admin');
-      insert into organization (id, name, slug, created_at) values
-        ('biru', 'Biru', 'biru', now()),
-        ('cafe', 'Cafe', 'cafe', now()),
-        ('own', 'Own', 'own', now());
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('cafe', 'Cafe', 'cafe', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('own', 'Own', 'own', now(), 'TW', '桃園市', '大園區', '中正東路一段');
       insert into team (id, name, organization_id, created_at) values
         ('biru-bar', 'bar', 'biru', now()),
         ('own-bar', 'bar', 'own', now());

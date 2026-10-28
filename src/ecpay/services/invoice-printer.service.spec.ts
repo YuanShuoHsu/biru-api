@@ -118,7 +118,7 @@ describe('InvoicePrinterService（PGlite）', () => {
       'truncate invoice_print_job, printer, invoice, "order", organization cascade',
     );
     await client.query(
-      `insert into organization (id, name, slug, created_at) values ($1, 'Biru', 'biru', now())`,
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
       [ORG],
     );
   });

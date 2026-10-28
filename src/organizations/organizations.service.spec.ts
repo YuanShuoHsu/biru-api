@@ -33,9 +33,9 @@ describe('OrganizationsService 團隊介紹', () => {
       t: (key: string) => key,
     } as never);
     await client.exec(`
-      insert into organization (id, name, slug, created_at) values
-        ('biru', 'Biru', 'biru', now()),
-        ('other', 'Other', 'other', now());
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
       insert into "user" (id, name, email, first_name, last_name, bio) values
         ('amy', 'amy', 'amy@example.com', 'Amy', 'Lin', '咖啡師'),
         ('bob', 'bob', 'bob@example.com', 'Bob', null, null),
@@ -221,9 +221,9 @@ describe('OrganizationsService 轉為真正店主', () => {
       } as never,
     );
     await client.exec(`
-      insert into organization (id, name, slug, created_at) values
-        ('biru', 'Biru', 'biru', now()),
-        ('other', 'Other', 'other', now());
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
       insert into "user" (id, name, email, first_name) values
         ('amy', 'amy', 'amy@example.com', 'Amy'),
         ('cat', 'cat', 'cat@example.com', 'Cat'),

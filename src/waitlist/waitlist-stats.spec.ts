@@ -25,7 +25,7 @@ describe('WaitlistService.getStats', () => {
       new OrderQrService(db as unknown as DrizzleDB),
     );
     await client.query(
-      `insert into organization (id, name, slug, created_at) values ('org', 'Biru', 'biru', now())`,
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
     );
     for (const [number, status, createdAt] of [
       [1, 'seated', '2026-10-22T15:59:00Z'],

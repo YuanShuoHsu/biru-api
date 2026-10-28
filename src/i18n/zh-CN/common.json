@@ -152,7 +152,8 @@
   },
   "deletedRecords": {
     "restoreConflict": "无法还原：系统中已有相同的数据（例如店家代称、优惠码、电子邮件重复，或该成员已在店内）。",
-    "restoreMissingReference": "无法还原：它所属的上层数据已不存在，请先还原上层数据。"
+    "restoreMissingReference": "无法还原：它所属的上层数据已不存在，请先还原上层数据。",
+    "restoreInvalid": "无法还原：这笔数据不符合目前的必填规则（例如没有地址的门店），请改为重新建立。"
   },
   "exceptions": {
     "internalServerError": "内部服务器错误",

@@ -20,14 +20,14 @@ export class OrganizationResponseDto {
   metadata: string | null;
 
   // https://schema.org/PostalAddress
-  @ApiPropertyOptional()
-  addressCountry: string | null;
+  @ApiProperty()
+  addressCountry: string;
 
-  @ApiPropertyOptional()
-  addressLocality: string | null;
+  @ApiProperty()
+  addressLocality: string;
 
-  @ApiPropertyOptional()
-  addressRegion: string | null;
+  @ApiProperty()
+  addressRegion: string;
 
   @ApiPropertyOptional()
   extendedAddress: string | null;
@@ -35,8 +35,8 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   postalCode: string | null;
 
-  @ApiPropertyOptional()
-  streetAddress: string | null;
+  @ApiProperty()
+  streetAddress: string;
 
   // https://schema.org/LocalBusiness
   @ApiPropertyOptional()

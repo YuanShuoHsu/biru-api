@@ -1,12 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
+import { createPGlite } from '../../test/pglite.js';
 import { PrepEstimateService } from './prep-estimate.service.js';
 
 describe('PrepEstimateService', () => {
@@ -48,15 +49,15 @@ describe('PrepEstimateService', () => {
   };
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PrepEstimateService(db as unknown as DrizzleDB);
 
     await client.exec(
-      `insert into organization (id, name, slug, pickup_lead_minutes, created_at) values
-         ('org', 'Biru', 'biru', 8, now()),
-         ('other', 'Other', 'other', 8, now());
+      `insert into organization (id, name, slug, pickup_lead_minutes, created_at, address_country, address_locality, address_region, street_address) values
+         ('org', 'Biru', 'biru', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('other', 'Other', 'other', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into menu (id, organization_id, name) values ('menu', 'org', '{"zh-TW":"菜單"}');
        insert into menu_item (id, menu_id, name) values
          ('latte', 'menu', '{"zh-TW":"拿鐵"}'),

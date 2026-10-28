@@ -85,7 +85,7 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
       ['other', 'other'],
     ])
       await client.query(
-        `insert into organization (id, name, slug, created_at) values ($1, $2, $2, now())`,
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, $2, $2, now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
         [id, slug],
       );
     for (const [id, lang] of [
@@ -323,7 +323,7 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
       ['quiet', 'quiet'],
     ])
       await client.query(
-        `insert into organization (id, name, slug, created_at) values ($1, $2, $2, now())`,
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, $2, $2, now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
         [id, slug],
       );
     for (const [id, role, banned, banExpires] of [

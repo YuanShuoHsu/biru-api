@@ -115,7 +115,7 @@ describe('PointSettingsService', () => {
   it('付款時的訂單快照取全品牌設定', async () => {
     await service.update({ amountPerPoint: 25, pointsValidityYears: 3 });
     await client.exec(
-      `insert into organization (id, name, slug, created_at) values ('org', 'biru', 'biru', now());
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status)
        values ('o1', '{"name":"客人"}', 'pickup', '1', 'Cash', 'org', 100, 'OrderPaymentDue')`,
     );
