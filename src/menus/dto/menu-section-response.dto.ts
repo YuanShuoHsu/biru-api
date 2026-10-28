@@ -36,3 +36,9 @@ export class MenuSectionResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class MenuSectionListResponseDto {
+  @ApiProperty({ type: [MenuSectionResponseDto] })
+  data: MenuSectionResponseDto[];
+  @ApiProperty() total: number;
+}

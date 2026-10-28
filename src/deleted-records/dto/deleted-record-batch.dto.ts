@@ -107,3 +107,9 @@ export class DeletedRecordPermissionDto {
   @ApiProperty({ description: '目前成員是否能還原本店任何一種資料' })
   canRestore: boolean;
 }
+
+export class DeletedRecordBatchListResponseDto {
+  @ApiProperty({ type: [DeletedRecordBatchResponseDto] })
+  data: DeletedRecordBatchResponseDto[];
+  @ApiProperty() total: number;
+}

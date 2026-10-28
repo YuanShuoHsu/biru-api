@@ -11,3 +11,8 @@ export class StorePhotoResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class StorePhotoListResponseDto {
+  @ApiProperty({ type: [StorePhotoResponseDto] }) data: StorePhotoResponseDto[];
+  @ApiProperty() total: number;
+}

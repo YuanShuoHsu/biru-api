@@ -9,7 +9,7 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -23,11 +23,20 @@ import { CreateIngredientDto } from './dto/create-ingredient.dto.js';
 import { CreateRecipeDto } from './dto/create-recipe.dto.js';
 import { CreateSupplierDto } from './dto/create-supplier.dto.js';
 import { IngredientPaginationQueryDto } from './dto/ingredient-pagination-query.dto.js';
-import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import {
+  IngredientListResponseDto,
+  IngredientResponseDto,
+} from './dto/ingredient-response.dto.js';
 import { RecipePaginationQueryDto } from './dto/recipe-pagination-query.dto.js';
-import { RecipeResponseDto } from './dto/recipe-response.dto.js';
+import {
+  RecipeListResponseDto,
+  RecipeResponseDto,
+} from './dto/recipe-response.dto.js';
 import { SupplierPaginationQueryDto } from './dto/supplier-pagination-query.dto.js';
-import { SupplierResponseDto } from './dto/supplier-response.dto.js';
+import {
+  SupplierListResponseDto,
+  SupplierResponseDto,
+} from './dto/supplier-response.dto.js';
 import { IngredientsService } from './ingredients.service.js';
 import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 import { RecipesService } from './recipes.service.js';
@@ -46,11 +55,12 @@ export class OrganizationInventoryController {
   @Get('ingredients')
   @Roles({ inventory: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢食材列表' })
+  @ApiOkResponse({ type: IngredientListResponseDto })
   findAllIngredients(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: IngredientPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
-  ): Promise<{ data: IngredientResponseDto[]; total: number }> {
+  ): Promise<IngredientListResponseDto> {
     return this.ingredientsService.findAll(
       organizationSlug,
       query,
@@ -94,10 +104,11 @@ export class OrganizationInventoryController {
   @Get('suppliers')
   @Roles({ purchasing: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢供應商列表' })
+  @ApiOkResponse({ type: SupplierListResponseDto })
   findAllSuppliers(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: SupplierPaginationQueryDto,
-  ): Promise<{ data: SupplierResponseDto[]; total: number }> {
+  ): Promise<SupplierListResponseDto> {
     return this.suppliersService.findAll(organizationSlug, query);
   }
 
@@ -135,11 +146,12 @@ export class OrganizationInventoryController {
   @Get('recipes')
   @Roles({ inventory: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢食譜列表' })
+  @ApiOkResponse({ type: RecipeListResponseDto })
   findAllRecipes(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: RecipePaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
-  ): Promise<{ data: RecipeResponseDto[]; total: number }> {
+  ): Promise<RecipeListResponseDto> {
     return this.recipesService.findAll(
       organizationSlug,
       query,
