@@ -8,6 +8,8 @@ import {
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
+const AUTH_TAG_BYTES = 16;
+const LEGACY_VERSION = 'legacy';
 
 // 各用途各自推導金鑰；purpose 改了舊密文就解不開
 const FIELD_ENCRYPTION_PURPOSES = {
@@ -23,15 +25,19 @@ const invalidKeyEntry = (index: number, reason: string) =>
 
 export const fieldEncryptionKeys = (
   value: string | undefined = process.env.FIELD_ENCRYPTION_KEYS,
-): Map<string, Buffer> | null => {
+): Map<string, Buffer | null> | null => {
   if (!value?.trim()) return null;
-  const keys = new Map<string, Buffer>();
+  const keys = new Map<string, Buffer | null>();
   value.split(',').forEach((entry, index) => {
     const [version, encoded, ...rest] = entry.trim().split(':');
-    if (!/^v\d+$/.test(version) || encoded === undefined || rest.length)
-      throw invalidKeyEntry(index, '不是 v<數字>:<base64> 格式');
     if (keys.has(version))
       throw invalidKeyEntry(index, `的版本 ${version} 重複`);
+    if (version === LEGACY_VERSION && encoded === undefined) {
+      keys.set(version, null);
+      return;
+    }
+    if (!/^v[1-9]\d*$/.test(version) || encoded === undefined || rest.length)
+      throw invalidKeyEntry(index, '不是 legacy 或 v<數字>:<base64> 格式');
     const key = Buffer.from(encoded, 'base64');
     if (key.length !== KEY_BYTES || key.toString('base64') !== encoded)
       throw invalidKeyEntry(index, `不是 ${KEY_BYTES} bytes 的 base64`);
@@ -56,11 +62,15 @@ export const encryptField = (
   purpose: FieldEncryptionPurpose = 'payroll',
 ) => {
   const [current] = fieldEncryptionKeys() ?? [];
+  const versioned = current?.[1]
+    ? { version: current[0], key: current[1] }
+    : null;
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(
     ALGORITHM,
-    current ? derive(current[1], purpose) : legacyEncryptionKey(purpose),
+    versioned ? derive(versioned.key, purpose) : legacyEncryptionKey(purpose),
     iv,
+    { authTagLength: AUTH_TAG_BYTES },
   );
   const encrypted = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
@@ -69,7 +79,7 @@ export const encryptField = (
   const parts = [iv, cipher.getAuthTag(), encrypted].map((part) =>
     part.toString('base64'),
   );
-  return (current ? [current[0], ...parts] : parts).join('.');
+  return (versioned ? [versioned.version, ...parts] : parts).join('.');
 };
 
 const decryptionKey = (
@@ -87,12 +97,15 @@ export const decryptField = (
   purpose: FieldEncryptionPurpose = 'payroll',
 ) => {
   const parts = payload.split('.');
+  if (parts.length !== 3 && parts.length !== 4)
+    throw new Error('加密欄位格式錯誤');
   const version = parts.length === 4 ? parts.shift() : undefined;
   const [iv, tag, encrypted] = parts.map((part) => Buffer.from(part, 'base64'));
   const decipher = createDecipheriv(
     ALGORITHM,
     decryptionKey(version, purpose),
     iv,
+    { authTagLength: AUTH_TAG_BYTES },
   );
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(

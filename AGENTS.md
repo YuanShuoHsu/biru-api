@@ -315,10 +315,15 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
-- `FIELD_ENCRYPTION_KEYS` — `v2:<base64 32 bytes>,v1:<...>` master keys for `src/common/utils/field-encryption.ts`;
-  the first encrypts, the rest only decrypt. A malformed value stops the app at boot. Unset keeps
-  the legacy key derived from `BETTER_AUTH_SECRET` (logged at boot). Legacy ciphertext still needs
-  `BETTER_AUTH_SECRET` until the re-encryption script has rewritten it
+- `FIELD_ENCRYPTION_KEYS` — `v3:<base64 32 bytes>,v2:<...>,legacy` keys for `src/common/utils/field-encryption.ts`;
+  the first encrypts, the rest only decrypt. `legacy` (no key) is the key derived from `BETTER_AUTH_SECRET`,
+  which writes the unprefixed `iv.tag.ciphertext` format; it is unrelated to the `-v1` in the purpose info
+  strings. Unset behaves as `legacy` alone (logged at boot); a malformed value stops the app at boot.
+  Local, stage and production share one database, so a key may be first only once every environment can
+  decrypt it: (1) set `legacy,v2:…` everywhere; (2) once all are deployed, switch to `v2:…,legacy`. Rotate
+  the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
+  never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
+  until it is re-encrypted; a later PR provides that script
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
