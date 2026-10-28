@@ -86,7 +86,8 @@ describe('SalesReportService', () => {
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
+         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('cents', 'Cents', 'cents', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
     );
 
     await addOrder('before-midnight', {
@@ -128,6 +129,20 @@ describe('SalesReportService', () => {
       'pending',
     );
     await addRefund('other-refund', 'other-store', 500, '2026-10-02T03:00:00Z');
+
+    await addOrder('cents-credit', {
+      paymentMethod: 'Credit',
+      sellerId: 'cents',
+      subtotal: 0.3,
+    });
+    await addOrder('cents-cash', { sellerId: 'cents', subtotal: 0.1 });
+    await addRefund(
+      'cents-refund',
+      'cents-credit',
+      0.1,
+      '2026-10-02T03:00:00Z',
+      'settled',
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -209,6 +224,45 @@ describe('SalesReportService', () => {
         net: 140,
       },
     ]);
+  });
+
+  it('依點餐方式分組', async () => {
+    const { rows } = await service.getSalesReport('biru', {
+      ...range,
+      groupBy: 'mode',
+    });
+
+    expect(rows.map(({ key, net, orders }) => [key, orders, net])).toEqual([
+      ['pickup', 1, 150],
+      ['counter', 2, 140],
+    ]);
+  });
+
+  it('已結算的退款也計入，金額沒有浮點誤差', async () => {
+    await expect(
+      service.getSalesReport('cents', { ...range, groupBy: 'paymentMethod' }),
+    ).resolves.toEqual({
+      groupBy: 'paymentMethod',
+      rows: [
+        {
+          key: 'Credit',
+          orders: 1,
+          revenue: 0.3,
+          discount: 0,
+          refunded: 0.1,
+          net: 0.2,
+        },
+        {
+          key: 'Cash',
+          orders: 1,
+          revenue: 0.1,
+          discount: 0,
+          refunded: 0,
+          net: 0.1,
+        },
+      ],
+      totals: { orders: 2, revenue: 0.4, discount: 0, refunded: 0.1, net: 0.3 },
+    });
   });
 
   it('結束時間不晚於起始時間時拒絕', async () => {

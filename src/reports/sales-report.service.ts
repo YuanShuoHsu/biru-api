@@ -42,6 +42,8 @@ import type {
 
 const MAX_RANGE_DAYS = 366;
 
+const roundMoney = (amount: number) => Math.round(amount * 100) / 100;
+
 const localTime = (at: SQL | Column) =>
   sql`${at} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}`;
 
@@ -141,7 +143,7 @@ export class SalesReportService {
     for (const { key, refunded } of refundRows) rowOf(key).refunded = refunded;
 
     const rows = [...rowsByKey.values()];
-    for (const row of rows) row.net = row.revenue - row.refunded;
+    for (const row of rows) row.net = roundMoney(row.revenue - row.refunded);
     rows.sort((a, b) => {
       switch (groupBy) {
         case 'day':
@@ -156,10 +158,10 @@ export class SalesReportService {
     const totals = rows.reduce<SalesReportTotalsDto>(
       (sum, row) => ({
         orders: sum.orders + row.orders,
-        revenue: sum.revenue + row.revenue,
-        discount: sum.discount + row.discount,
-        refunded: sum.refunded + row.refunded,
-        net: sum.net + row.net,
+        revenue: roundMoney(sum.revenue + row.revenue),
+        discount: roundMoney(sum.discount + row.discount),
+        refunded: roundMoney(sum.refunded + row.refunded),
+        net: roundMoney(sum.net + row.net),
       }),
       { orders: 0, revenue: 0, discount: 0, refunded: 0, net: 0 },
     );

@@ -76,6 +76,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
+| ReportsModule        | `src/reports/`         | Sales report (later inventory report and CSV exports)                                                  |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
