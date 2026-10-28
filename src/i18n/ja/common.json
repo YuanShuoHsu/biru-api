@@ -156,6 +156,8 @@
     "restoreInvalid": "復元できません：現在の必須項目の条件を満たしていません（例：住所のない店舗）。新しく作成し直してください。"
   },
   "exceptions": {
+    "badRequest": "リクエストが正しくありません",
+    "forbidden": "このデータにアクセスする権限がありません",
     "internalServerError": "内部サーバーエラー",
     "organizationClosed": "この店舗は営業を終了しました",
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",

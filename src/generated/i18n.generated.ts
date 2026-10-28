@@ -208,6 +208,8 @@ export type I18nTranslations = {
             "restoreInvalid": string;
         };
         "exceptions": {
+            "badRequest": string;
+            "forbidden": string;
             "internalServerError": string;
             "organizationClosed": string;
             "organizationHasOpenWork": string;

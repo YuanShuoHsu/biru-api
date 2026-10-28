@@ -1,7 +1,9 @@
-import { Logger } from '@nestjs/common';
+import { ForbiddenException, Logger } from '@nestjs/common';
+import { EXCEPTION_FILTERS_METADATA } from '@nestjs/common/constants';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
 import type { Namespace, Socket } from 'socket.io';
 
+import { AllWsExceptionsFilter } from '../common/filters/all-ws-exceptions.filter.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { PublicMenusService } from '../menus/menus-public.service.js';
@@ -12,6 +14,14 @@ import type { WaitlistService } from '../waitlist/waitlist.service.js';
 import { EventsGateway } from './events.gateway.js';
 
 const nextTick = () => new Promise((resolve) => setImmediate(resolve));
+
+describe('EventsGateway exception filter', () => {
+  it('整個 gateway 掛上 AllWsExceptionsFilter', () => {
+    expect(
+      Reflect.getMetadata(EXCEPTION_FILTERS_METADATA, EventsGateway),
+    ).toEqual([AllWsExceptionsFilter]);
+  });
+});
 
 describe('EventsGateway prepEstimateUpdated', () => {
   const setup = (rooms: string[]) => {
@@ -425,8 +435,11 @@ describe('EventsGateway room joins', () => {
         gateway[event as keyof EventsGateway] as (
           client: Socket,
           body: object,
+          i18n: { t: (key: string) => string },
         ) => Promise<unknown>
-      ).call(gateway, client as unknown as Socket, body);
+      ).call(gateway, client as unknown as Socket, body, {
+        t: (key) => `translated:${key}`,
+      });
     const send = (event: string, body: object) => {
       arrive(event, body);
       return handle(event, body);
@@ -487,6 +500,10 @@ describe('EventsGateway room joins', () => {
 
   const storeJoins = joins.slice(1);
 
+  const forbidden = new ForbiddenException(
+    'translated:common.exceptions.forbidden',
+  );
+
   it.each(storeJoins)(
     'join%s 通過時回 true、加入 room 並記下使用者',
     async (name, body, room) => {
@@ -502,22 +519,24 @@ describe('EventsGateway room joins', () => {
   it.each([
     ['不是成員', [{ id: 'staff' }]],
     ['停權的成員', [{ id: 'staff', memberRole: 'owner', banned: true }]],
-  ] as const)('%s加入受保護的 room 時回 false', async (_, users) => {
+  ] as const)('%s加入受保護的 room 時丟出已翻譯的 403', async (_, users) => {
     for (const [name, body, room] of storeJoins) {
       const context = setup([...users]);
       authorize(context);
 
-      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      await expect(context.send(`join${name}`, body)).rejects.toThrow(
+        forbidden,
+      );
       expect(context.rooms.has(room)).toBe(false);
       expect(context.client.data.userId).toBeUndefined();
     }
   });
 
-  it.each(storeJoins)('沒登入時 join%s 回 false', async (name, body, room) => {
+  it.each(storeJoins)('沒登入時 join%s 丟出 403', async (name, body, room) => {
     const context = setup();
     context.session.resolve(null);
 
-    await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+    await expect(context.send(`join${name}`, body)).rejects.toThrow(forbidden);
     expect(context.rooms.has(room)).toBe(false);
   });
 
@@ -532,13 +551,13 @@ describe('EventsGateway room joins', () => {
     },
   );
 
-  it('無法讀取的訂單回 false 且不加入 room', async () => {
+  it('無法讀取的訂單丟出 403 且不加入 room', async () => {
     const context = setup();
     context.session.resolve(null);
     context.canRead.resolve(false);
 
-    await expect(context.send('joinOrder', { orderId: 'o1' })).resolves.toBe(
-      false,
+    await expect(context.send('joinOrder', { orderId: 'o1' })).rejects.toThrow(
+      forbidden,
     );
     expect(context.rooms.has('order:o1')).toBe(false);
   });
@@ -579,7 +598,9 @@ describe('EventsGateway room joins', () => {
       const context = setup([{ id: 'staff' }]);
       authorize(context);
 
-      await context.send(`join${name}`, body);
+      await expect(context.send(`join${name}`, body)).rejects.toThrow(
+        forbidden,
+      );
 
       expect(context.client.data.requestedRooms?.size).toBe(0);
     },
@@ -600,7 +621,7 @@ describe('EventsGateway room joins', () => {
     await context.send('leaveOrder', { orderId: 'o1' });
     await expect(
       context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
-    ).resolves.toBe(false);
+    ).rejects.toThrow(forbidden);
     valid.resolve(true);
     await first;
 
@@ -617,7 +638,9 @@ describe('EventsGateway room joins', () => {
 
     await context.send('joinOrder', { orderId: 'o1', accessToken: 'valid' });
     context.arrive('leaveOrder', { orderId: 'o1' });
-    await context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' });
+    await expect(
+      context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
+    ).rejects.toThrow(forbidden);
     await context.handle('leaveOrder', { orderId: 'o1' });
 
     expect(context.rooms.has('order:o1')).toBe(false);
@@ -666,19 +689,16 @@ describe('EventsGateway room joins', () => {
   });
 
   it.each(joins)(
-    'join%s 驗證拋出時回 false、記錄錯誤且清掉意圖',
+    'join%s 驗證拋出時先清掉意圖再拋出原錯誤',
     async (name, body, room) => {
       const context = setup();
-      const logError = vi
-        .spyOn(Logger.prototype, 'error')
-        .mockImplementation(() => undefined);
       context.session.resolve(Promise.reject(new Error('db down')) as never);
 
-      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      await expect(context.send(`join${name}`, body)).rejects.toThrow(
+        'db down',
+      );
       expect(context.rooms.has(room)).toBe(false);
       expect(context.client.data.requestedRooms?.size).toBe(0);
-      expect(logError).toHaveBeenCalledOnce();
-      logError.mockRestore();
     },
   );
 });

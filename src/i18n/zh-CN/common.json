@@ -156,6 +156,8 @@
     "restoreInvalid": "无法还原：这笔数据不符合目前的必填规则（例如没有地址的门店），请改为重新建立。"
   },
   "exceptions": {
+    "badRequest": "请求格式不正确",
+    "forbidden": "你没有权限访问此数据",
     "internalServerError": "内部服务器错误",
     "organizationClosed": "此门店已停止营业",
     "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",

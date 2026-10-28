@@ -1,6 +1,6 @@
 // https://nestjs-i18n.com/guides/resolvers
 
-import { type ExecutionContext, Injectable } from '@nestjs/common';
+import { type ArgumentsHost, Injectable } from '@nestjs/common';
 
 import type { I18nResolver } from 'nestjs-i18n';
 
@@ -12,7 +12,7 @@ type LanguageSource = {
   query?: Record<string, unknown>;
 };
 
-const sourceOf = (context: ExecutionContext): LanguageSource | undefined => {
+const sourceOf = (context: ArgumentsHost): LanguageSource | undefined => {
   switch (context.getType()) {
     case 'http':
       return context.switchToHttp().getRequest<LanguageSource>();
@@ -34,7 +34,7 @@ const firstString = (value: unknown) => {
 // 讓 API 回應和信件、Better Auth 錯誤訊息用同一套比對（zh-HK → zh-TW、依 q 值排序）
 @Injectable()
 export class LanguageResolver implements I18nResolver {
-  resolve(context: ExecutionContext): Language | undefined {
+  resolve(context: ArgumentsHost): Language | undefined {
     const source = sourceOf(context);
 
     return [

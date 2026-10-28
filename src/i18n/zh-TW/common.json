@@ -156,6 +156,8 @@
     "restoreInvalid": "無法還原：這筆資料不符合目前的必填規則（例如沒有地址的門市），請改為重新建立。"
   },
   "exceptions": {
+    "badRequest": "請求格式不正確",
+    "forbidden": "你沒有權限存取此資料",
     "internalServerError": "內部伺服器錯誤",
     "organizationClosed": "此門市已停止營業",
     "organizationHasOpenWork": "尚有 {orders} 筆未完成的訂單、{tickets} 張候位中的號碼牌，請先完成或取消後再停業",

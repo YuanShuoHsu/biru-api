@@ -1,4 +1,4 @@
-import { Inject, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Logger, UseFilters } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@nestjs/websockets';
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
+import { I18n, I18nContext } from 'nestjs-i18n';
 
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
@@ -29,8 +30,10 @@ import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event.js';
 
 import { Namespace, Socket } from 'socket.io';
 import { isAuthorized } from '../auth/permissions.js';
+import { AllWsExceptionsFilter } from '../common/filters/all-ws-exceptions.filter.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
 import { findOrganizationRoles } from '../menus/guards/organization-roles.js';
 import { PublicMenusService } from '../menus/menus-public.service.js';
@@ -107,6 +110,7 @@ const requestedRooms = (client: Socket) =>
   ((client.data as GatewaySocketData).requestedRooms ??= new Map());
 
 @AllowAnonymous()
+@UseFilters(AllWsExceptionsFilter)
 @WebSocketGateway({
   namespace: '/menus',
   cors: {
@@ -179,10 +183,12 @@ export class EventsGateway implements OnGatewayConnection {
   async joinOrder(
     @ConnectedSocket() client: Socket,
     @MessageBody() { accessToken, orderId }: JoinOrderDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
     return this.settleJoin(
       client,
       orderRoom(orderId),
+      i18n,
       async () => {
         const session = await this.authService.api.getSession({
           headers: fromNodeHeaders(client.handshake.headers),
@@ -335,12 +341,14 @@ export class EventsGateway implements OnGatewayConnection {
   joinOrdersBoard(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
     return this.joinStoreRoom(
       client,
       organizationId,
       ordersBoardRoom(organizationId),
       { order: ['read'] },
+      i18n,
     );
   }
 
@@ -390,12 +398,14 @@ export class EventsGateway implements OnGatewayConnection {
   joinWaitlist(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
     return this.joinStoreRoom(
       client,
       organizationId,
       waitlistRoom(organizationId),
       { waitlist: ['read'] },
+      i18n,
     );
   }
 
@@ -411,12 +421,14 @@ export class EventsGateway implements OnGatewayConnection {
   joinInventory(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
     return this.joinStoreRoom(
       client,
       organizationId,
       inventoryRoom(organizationId),
       { inventory: ['read'] },
+      i18n,
     );
   }
 
@@ -444,8 +456,9 @@ export class EventsGateway implements OnGatewayConnection {
     organizationId: string,
     room: string,
     action: Record<string, string[]>,
+    i18n: I18nContext<I18nTranslations>,
   ) {
-    return this.settleJoin(client, room, async () => {
+    return this.settleJoin(client, room, i18n, async () => {
       const session = await this.authService.api.getSession({
         headers: fromNodeHeaders(client.handshake.headers),
       });
@@ -465,26 +478,29 @@ export class EventsGateway implements OnGatewayConnection {
   private async settleJoin(
     client: Socket,
     room: string,
+    i18n: I18nContext<I18nTranslations>,
     authorize: () => Promise<boolean>,
     accessToken = '',
   ) {
-    let authorized = false;
-    try {
-      authorized = await authorize();
-    } catch (error) {
-      this.logger.error(`加入 room 失敗：${room}`, error);
-    }
+    const result = await authorize().then(
+      (authorized) => ({ authorized }),
+      (error: unknown) => ({ authorized: false, error }),
+    );
 
     const requested = requestedRooms(client);
-    if (requested.get(room) !== accessToken) return authorized;
-
-    if (authorized) await client.join(room);
-    else {
-      requested.delete(room);
-      await client.leave(room);
+    if (requested.get(room) === accessToken) {
+      if (result.authorized) await client.join(room);
+      else {
+        requested.delete(room);
+        await client.leave(room);
+      }
     }
 
-    return authorized;
+    if ('error' in result) throw result.error;
+    if (!result.authorized)
+      throw new ForbiddenException(i18n.t('common.exceptions.forbidden'));
+
+    return true;
   }
 
   private async leaveUnlessRequestedAgain(client: Socket, room: string) {
