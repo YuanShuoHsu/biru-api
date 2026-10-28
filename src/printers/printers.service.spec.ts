@@ -37,8 +37,9 @@ describe('PrintersService.findOrganizationId（PGlite）', () => {
   });
 
   it('找不到門市時回 404', async () => {
-    await expect(service.findOrganizationId('missing')).rejects.toThrow(
-      new NotFoundException('Organization not found'),
-    );
+    const lookup = service.findOrganizationId('missing');
+
+    await expect(lookup).rejects.toBeInstanceOf(NotFoundException);
+    await expect(lookup).rejects.toThrow('Organization not found');
   });
 });
