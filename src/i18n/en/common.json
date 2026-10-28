@@ -156,6 +156,8 @@
     "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead."
   },
   "exceptions": {
+    "badRequest": "Invalid request",
+    "forbidden": "You do not have permission to access this",
     "internalServerError": "Internal server error",
     "organizationClosed": "This store is closed.",
     "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",

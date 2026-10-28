@@ -156,6 +156,8 @@
     "restoreInvalid": "복원할 수 없습니다: 현재 필수 항목 규칙을 충족하지 않습니다(예: 주소가 없는 매장). 새로 만들어 주세요."
   },
   "exceptions": {
+    "badRequest": "잘못된 요청입니다",
+    "forbidden": "이 데이터에 접근할 권한이 없습니다",
     "internalServerError": "내부 서버 오류",
     "organizationClosed": "이 매장은 영업을 종료했습니다",
     "organizationHasOpenWork": "완료되지 않은 주문 {orders}건과 대기 중인 번호표 {tickets}장이 있습니다. 완료하거나 취소한 후 폐점하세요",
