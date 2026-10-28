@@ -8,13 +8,7 @@ import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
-import {
-  AcceptLanguageResolver,
-  HeaderResolver,
-  I18nModule,
-  I18nService,
-  QueryResolver,
-} from 'nestjs-i18n';
+import { I18nModule, I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 
 import { AppController } from './app.controller.js';
@@ -27,6 +21,7 @@ import { runWithAuthHookState } from './auth/hooks.js';
 import { createAuthI18n } from './auth/i18n.js';
 import { BannersModule } from './banners/banners.module.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
+import { LanguageResolver } from './common/resolvers/language.resolver.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { CouponsService } from './coupons/coupons.service.js';
 import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
@@ -105,11 +100,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
           '../src/generated/i18n.generated.ts',
         ),
       }),
-      resolvers: [
-        { use: QueryResolver, options: ['lang'] },
-        AcceptLanguageResolver,
-        new HeaderResolver(['x-lang']),
-      ],
+      resolvers: [LanguageResolver],
       inject: [ConfigService],
     }),
     InventoryModule,

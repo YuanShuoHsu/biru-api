@@ -1,4 +1,4 @@
-import { pickLanguage, toLanguage } from './language.js';
+import { isLanguage, pickLanguage, toLanguage } from './language.js';
 
 describe('pickLanguage', () => {
   it.each([
@@ -63,4 +63,17 @@ describe('toLanguage', () => {
     expect(toLanguage(undefined)).toBe('zh-TW');
     expect(toLanguage('fr')).toBe('zh-TW');
   });
+});
+
+describe('isLanguage', () => {
+  it.each(['en', 'ja', 'ko', 'zh-CN', 'zh-TW'])('%s 是支援的語系', (value) => {
+    expect(isLanguage(value)).toBe(true);
+  });
+
+  it.each([undefined, null, '', 'fr', 'zh-HK', 'en-US', 1])(
+    '%s 不是支援的語系',
+    (value) => {
+      expect(isLanguage(value)).toBe(false);
+    },
+  );
 });

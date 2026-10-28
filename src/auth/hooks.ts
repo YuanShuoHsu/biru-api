@@ -32,6 +32,7 @@ import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
 import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
 import { removeRevokedPlatformAdminMemberships } from './platform-admin-members.js';
+import { rememberSignInLanguage } from './sign-up-language.js';
 
 import type {
   AuditAction,
@@ -405,6 +406,8 @@ export const authHookState = () => {
 export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
   before: createAuthMiddleware(async (ctx) => {
     try {
+      if (ctx.path === '/sign-in/social') await rememberSignInLanguage(ctx);
+
       if (
         ctx.path === '/admin/remove-user' ||
         SELF_DELETE_PATHS.has(ctx.path)

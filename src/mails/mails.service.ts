@@ -7,7 +7,7 @@ import { I18nService } from 'nestjs-i18n';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
 import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
-import { pickLanguage } from '../common/utils/language.js';
+import { isLanguage, pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
 import { user, type User } from '../db/schema/users.js';
@@ -30,8 +30,9 @@ export class MailsService {
     recipientLang: Language | undefined,
     request?: Request,
   ): Language {
+    if (isLanguage(recipientLang)) return recipientLang;
+
     return (
-      pickLanguage(recipientLang) ??
       pickLanguage(request?.headers.get('accept-language')) ??
       this.configService.getOrThrow<Language>('FALLBACK_LANGUAGE')
     );
