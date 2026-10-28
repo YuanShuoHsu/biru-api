@@ -89,6 +89,17 @@ describe('order.ready_at 從異動紀錄回填', () => {
 
     await addOrder('no-audit', 'OrderDelivered');
 
+    await addOrder('already-stamped', 'OrderDelivered');
+    await client.query(
+      `update "order" set ready_at = '2026-10-01 13:10:00' where id = 'already-stamped'`,
+    );
+    await addStatusChange(
+      'already-stamped',
+      'OrderProcessing',
+      'OrderPickupAvailable',
+      '2026-10-01 13:00:00',
+    );
+
     await client.exec(backfill);
   }, 60_000);
 
@@ -96,12 +107,13 @@ describe('order.ready_at 從異動紀錄回填', () => {
     await client.close();
   });
 
-  it('只回填可取餐或已取餐的訂單，取最後一次由製作中轉可取餐的時間', async () => {
+  it('只回填尚無出餐時間的可取餐或已取餐訂單，取最後一次由製作中轉可取餐的時間', async () => {
     const { rows } = await client.query<{ id: string; ready_at: string }>(
       `select id, to_char(ready_at, 'YYYY-MM-DD HH24:MI') as ready_at from "order" order by id`,
     );
 
     expect(rows).toEqual([
+      { id: 'already-stamped', ready_at: '2026-10-01 13:10' },
       { id: 'back-to-processing', ready_at: null },
       { id: 'delivered', ready_at: '2026-10-01 11:00' },
       { id: 'no-audit', ready_at: null },

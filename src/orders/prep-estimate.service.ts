@@ -13,11 +13,12 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { PrepEstimateResponseDto } from './dto/prep-estimate-response.dto.js';
 import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import {
+  type ObservedPace,
   type QueuedOrder,
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
-  observedMinutesPerOrder,
+  observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
 
@@ -48,13 +49,12 @@ export class PrepEstimateService {
     ownPrepMinutes: number,
   ): Promise<number> {
     const now = new Date();
-    const [queue, minutesPerOrder] = await Promise.all([
+    const [queue, pace] = await Promise.all([
       this.queueOf(org, now),
-      this.minutesPerOrderOf(org.id, now),
+      this.paceOf(org.id, now),
     ]);
 
-    return estimatePrepMinutes(queue, ownPrepMinutes, now, minutesPerOrder)
-      .minutes;
+    return estimatePrepMinutes(queue, ownPrepMinutes, now, pace).minutes;
   }
 
   async existingOrganizationIds(organizationIds: string[]): Promise<string[]> {
@@ -76,28 +76,28 @@ export class PrepEstimateService {
     if (!org) return null;
 
     const now = new Date();
-    const [queue, minutesPerOrder] = await Promise.all([
+    const [queue, pace] = await Promise.all([
       this.queueOf(org, now),
-      this.minutesPerOrderOf(org.id, now),
+      this.paceOf(org.id, now),
     ]);
     const { minutes, queuedOrders } = estimatePrepMinutes(
       queue,
       orderPrepMinutes(org.pickupLeadMinutes, []),
       now,
-      minutesPerOrder,
+      pace,
     );
 
     return {
-      basis: minutesPerOrder === null ? 'leadTime' : 'observed',
+      basis: pace === null ? 'leadTime' : 'observed',
       estimatedMinutes: displayPrepMinutes(minutes),
       queuedOrders,
     };
   }
 
-  private async minutesPerOrderOf(
+  private async paceOf(
     organizationId: string,
     now: Date,
-  ): Promise<number | null> {
+  ): Promise<ObservedPace | null> {
     const ready = await this.db
       .select({
         readyAt: order.readyAt,
@@ -119,7 +119,7 @@ export class PrepEstimateService {
       .orderBy(desc(order.readyAt))
       .limit(OBSERVED_ORDERS_LIMIT);
 
-    return observedMinutesPerOrder(
+    return observedPace(
       ready.map(({ readyAt, startedAt }) => ({ readyAt: readyAt!, startedAt })),
     );
   }

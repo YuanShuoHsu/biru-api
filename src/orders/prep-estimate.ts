@@ -14,7 +14,12 @@ export interface ReadyOrder {
   startedAt: Date;
 }
 
-export const observedMinutesPerOrder = (ready: ReadyOrder[]): number | null => {
+export interface ObservedPace {
+  busyMs: number;
+  intervals: number;
+}
+
+export const observedPace = (ready: ReadyOrder[]): ObservedPace | null => {
   if (ready.length < MIN_OBSERVED_ORDERS) return null;
 
   const sorted = [...ready].sort(
@@ -32,7 +37,7 @@ export const observedMinutesPerOrder = (ready: ReadyOrder[]): number | null => {
     );
   if (busyMs < MINUTE_MS) return null;
 
-  return busyMs / MINUTE_MS / (sorted.length - 1);
+  return { busyMs, intervals: sorted.length - 1 };
 };
 
 export const itemLeadTimeMinutes = (
@@ -54,7 +59,7 @@ export const estimatePrepMinutes = (
   queue: QueuedOrder[],
   ownPrepMinutes: number,
   now: Date,
-  minutesPerOrder: number | null = null,
+  pace: ObservedPace | null = null,
 ): { minutes: number; queuedOrders: number } => {
   const asSoonAsReady = queue.filter((queued) => !queued.pickupTime);
   const scheduled = queue
@@ -70,8 +75,11 @@ export const estimatePrepMinutes = (
     )
       break;
 
-    minutes += minutesPerOrder ?? queued.prepMinutes;
     queuedOrders++;
+    minutes = pace
+      ? ownPrepMinutes +
+        (queuedOrders * pace.busyMs) / (pace.intervals * MINUTE_MS)
+      : minutes + queued.prepMinutes;
   }
 
   return { minutes, queuedOrders };

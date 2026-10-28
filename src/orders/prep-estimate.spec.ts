@@ -2,7 +2,7 @@ import {
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
-  observedMinutesPerOrder,
+  observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
 
@@ -97,35 +97,35 @@ describe('prep estimate', () => {
   });
 
   it('出餐速率以連續出餐的間隔平均', () => {
-    expect(observedMinutesPerOrder(readyEvery([-20, -16, -12, -8, -4]))).toBe(
-      4,
-    );
+    expect(observedPace(readyEvery([-20, -16, -12, -8, -4]))).toEqual({
+      busyMs: 16 * 60 * 1000,
+      intervals: 4,
+    });
   });
 
   it('離峰空檔不拉低出餐速率', () => {
     expect(
-      observedMinutesPerOrder([
+      observedPace([
         ...readyEvery([-29, -27, -25]),
         { readyAt: inMinutes(-4), startedAt: inMinutes(-6) },
         { readyAt: inMinutes(-2), startedAt: inMinutes(-6) },
       ]),
-    ).toBe(2);
+    ).toEqual({ busyMs: 8 * 60 * 1000, intervals: 4 });
   });
 
   it('出餐順序不依輸入順序', () => {
-    expect(observedMinutesPerOrder(readyEvery([-4, -20, -8, -16, -12]))).toBe(
-      4,
-    );
+    expect(observedPace(readyEvery([-4, -20, -8, -16, -12]))).toEqual({
+      busyMs: 16 * 60 * 1000,
+      intervals: 4,
+    });
   });
 
   it('出餐少於 5 張時改用備餐時間估算', () => {
-    expect(observedMinutesPerOrder(readyEvery([-20, -15, -10, -5]))).toBeNull();
+    expect(observedPace(readyEvery([-20, -15, -10, -5]))).toBeNull();
   });
 
   it('忙碌時間合計不到 1 分鐘時改用備餐時間估算', () => {
-    expect(
-      observedMinutesPerOrder(readyEvery([-1, -0.8, -0.6, -0.4, -0.2])),
-    ).toBeNull();
+    expect(observedPace(readyEvery([-1, -0.8, -0.6, -0.4, -0.2]))).toBeNull();
   });
 
   it('有出餐速率時每張排隊訂單以速率計，預約單同樣依估算完成時間計入', () => {
@@ -139,9 +139,25 @@ describe('prep estimate', () => {
         ],
         10,
         NOW,
-        3,
+        { busyMs: 12 * 60 * 1000, intervals: 4 },
       ),
     ).toEqual({ minutes: 19, queuedOrders: 3 });
     expect(displayPrepMinutes(19)).toBe(20);
+  });
+
+  it('速率除不盡時，剛好落在 5 分鐘的估算值不多進位一格', () => {
+    const { minutes } = estimatePrepMinutes(
+      [
+        { pickupTime: null, prepMinutes: 30 },
+        { pickupTime: null, prepMinutes: 30 },
+        { pickupTime: null, prepMinutes: 30 },
+      ],
+      5,
+      NOW,
+      { busyMs: 10 * 60 * 1000, intervals: 3 },
+    );
+
+    expect(minutes).toBe(15);
+    expect(displayPrepMinutes(minutes)).toBe(15);
   });
 });

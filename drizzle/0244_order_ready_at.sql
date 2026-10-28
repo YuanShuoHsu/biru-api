@@ -11,4 +11,5 @@ FROM (
   GROUP BY "resource_id"
 ) AS "ready"
 WHERE "order"."id" = "ready"."resource_id"
-  AND "order"."order_status" IN ('OrderPickupAvailable', 'OrderDelivered');
+  AND "order"."order_status" IN ('OrderPickupAvailable', 'OrderDelivered')
+  AND "order"."ready_at" IS NULL;

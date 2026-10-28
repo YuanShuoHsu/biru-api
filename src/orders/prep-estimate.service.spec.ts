@@ -57,7 +57,8 @@ describe('PrepEstimateService', () => {
     await client.exec(
       `insert into organization (id, name, slug, pickup_lead_minutes, created_at, address_country, address_locality, address_region, street_address) values
          ('org', 'Biru', 'biru', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('other', 'Other', 'other', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段');
+         ('other', 'Other', 'other', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('busy', 'Busy', 'busy', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into menu (id, organization_id, name) values ('menu', 'org', '{"zh-TW":"菜單"}');
        insert into menu_item (id, menu_id, name) values
          ('latte', 'menu', '{"zh-TW":"拿鐵"}'),
@@ -129,6 +130,27 @@ describe('PrepEstimateService', () => {
     await expect(
       service.prepMinutesWith({ id: 'other', pickupLeadMinutes: 8 }, 30),
     ).resolves.toBeCloseTo(34);
+  });
+
+  it('出餐速率只取最近 20 張出餐的訂單', async () => {
+    await addOrder('busy-making', 'OrderProcessing', [], { sellerId: 'busy' });
+    for (const minutesAgo of [
+      29,
+      ...Array.from({ length: 20 }, (_, i) => i + 1),
+    ])
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, payment_date, ready_at)
+         values ($1, '{"name":"客人"}', 'counter', '1', 'OrderDelivered', 'Cash', 'busy', 100, $2, $3)`,
+        [
+          `busy-ready-${minutesAgo}`,
+          new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+          new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+        ],
+      );
+
+    await expect(
+      service.prepMinutesWith({ id: 'busy', pickupLeadMinutes: 8 }, 30),
+    ).resolves.toBeCloseTo(31);
   });
 
   it('找不到門市時回 404', async () => {
