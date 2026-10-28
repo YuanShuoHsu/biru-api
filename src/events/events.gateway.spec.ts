@@ -560,6 +560,9 @@ describe('EventsGateway room joins', () => {
     ['joinOrder', { orderId: 'o1', accessToken: { toString: 1 } }],
     ['joinWaitlist', { organizationId: { toString: 1 } }],
     ['joinInventory', { organizationId: 5 }],
+    ['joinOrder', { orderId: 'o'.repeat(65) }],
+    ['joinOrder', { orderId: 'o1', accessToken: 't'.repeat(65) }],
+    ['joinWaitlist', { organizationId: 'o'.repeat(65) }],
     ['leaveOrdersBoard', null],
     ['joinOrdersBoard', 'org'],
     [{ toString: 1 }, { organizationId: 'org' }],
@@ -633,4 +636,49 @@ describe('EventsGateway room joins', () => {
     expect(context.rooms.has('order:extra')).toBe(false);
     expect(context.rooms.has('order:o0')).toBe(true);
   });
+
+  it.each([null, undefined])(
+    'accessToken 為 %s 的 joinOrder 通過時加入 room',
+    async (accessToken) => {
+      const context = setup();
+      authorize(context);
+
+      await expect(
+        context.send('joinOrder', { orderId: 'o1', accessToken }),
+      ).resolves.toBe(true);
+      expect(context.rooms.has('order:o1')).toBe(true);
+      expect(context.canReadOrderById).toHaveBeenCalledWith(
+        'o1',
+        { id: 'staff' },
+        null,
+      );
+    },
+  );
+
+  it('accessToken 為 null 時加入後送 leave，最後不在 room', async () => {
+    const context = setup();
+    authorize(context);
+
+    await context.send('joinOrder', { orderId: 'o1', accessToken: null });
+    await context.send('leaveOrder', { orderId: 'o1', accessToken: null });
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it.each(joins)(
+    'join%s 驗證拋出時回 false、記錄錯誤且清掉意圖',
+    async (name, body, room) => {
+      const context = setup();
+      const logError = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      context.session.resolve(Promise.reject(new Error('db down')) as never);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      expect(context.rooms.has(room)).toBe(false);
+      expect(context.client.data.requestedRooms?.size).toBe(0);
+      expect(logError).toHaveBeenCalledOnce();
+      logError.mockRestore();
+    },
+  );
 });

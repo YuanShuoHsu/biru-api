@@ -66,6 +66,10 @@ const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
 const MAX_REQUESTED_ROOMS = 100;
+const MAX_ROOM_REQUEST_FIELD_LENGTH = 64;
+
+const isRoomRequestField = (value: unknown): value is string =>
+  typeof value === 'string' && value.length <= MAX_ROOM_REQUEST_FIELD_LENGTH;
 
 type GatewaySocketData = {
   userId?: string;
@@ -77,7 +81,7 @@ type RoomRequest = { room: string; accessToken: string };
 const byOrganization =
   (toRoom: (organizationId: string) => string) =>
   ({ organizationId }: Record<string, unknown>): RoomRequest | undefined =>
-    typeof organizationId === 'string'
+    isRoomRequestField(organizationId)
       ? { room: toRoom(organizationId), accessToken: '' }
       : undefined;
 
@@ -87,10 +91,12 @@ const ROOM_REQUESTS = new Map<
 >([
   [
     'Order',
-    ({ orderId, accessToken = '' }) =>
-      typeof orderId === 'string' && typeof accessToken === 'string'
-        ? { room: orderRoom(orderId), accessToken }
-        : undefined,
+    ({ orderId, accessToken }) => {
+      const token = accessToken ?? '';
+      return isRoomRequestField(orderId) && isRoomRequestField(token)
+        ? { room: orderRoom(orderId), accessToken: token }
+        : undefined;
+    },
   ],
   ['OrdersBoard', byOrganization(ordersBoardRoom)],
   ['Waitlist', byOrganization(waitlistRoom)],
@@ -174,17 +180,21 @@ export class EventsGateway implements OnGatewayConnection {
     @ConnectedSocket() client: Socket,
     @MessageBody() { accessToken, orderId }: JoinOrderDto,
   ) {
-    const session = await this.authService.api.getSession({
-      headers: fromNodeHeaders(client.handshake.headers),
-    });
-    const canRead = await this.ordersService.canReadOrderById(
-      orderId,
-      session?.user ?? null,
-      accessToken ?? null,
+    return this.settleJoin(
+      client,
+      orderRoom(orderId),
+      async () => {
+        const session = await this.authService.api.getSession({
+          headers: fromNodeHeaders(client.handshake.headers),
+        });
+        return this.ordersService.canReadOrderById(
+          orderId,
+          session?.user ?? null,
+          accessToken ?? null,
+        );
+      },
+      accessToken ?? '',
     );
-    await this.settleJoin(client, orderRoom(orderId), canRead, accessToken);
-
-    return canRead;
   }
 
   @SubscribeMessage('leaveOrder')
@@ -435,35 +445,46 @@ export class EventsGateway implements OnGatewayConnection {
     room: string,
     action: Record<string, string[]>,
   ) {
-    const session = await this.authService.api.getSession({
-      headers: fromNodeHeaders(client.handshake.headers),
-    });
-    const userId = session?.user.id;
-    const role =
-      userId &&
-      (await findOrganizationRoles(this.db, organizationId, [userId])).get(
-        userId,
-      );
-    const authorized = !!role && isAuthorized(role, action);
-    if (authorized) (client.data as GatewaySocketData).userId = userId;
-    await this.settleJoin(client, room, authorized);
+    return this.settleJoin(client, room, async () => {
+      const session = await this.authService.api.getSession({
+        headers: fromNodeHeaders(client.handshake.headers),
+      });
+      const userId = session?.user.id;
+      if (!userId) return false;
 
-    return authorized;
+      const role = (
+        await findOrganizationRoles(this.db, organizationId, [userId])
+      ).get(userId);
+      if (!role || !isAuthorized(role, action)) return false;
+
+      (client.data as GatewaySocketData).userId = userId;
+      return true;
+    });
   }
 
   private async settleJoin(
     client: Socket,
     room: string,
-    authorized: boolean,
+    authorize: () => Promise<boolean>,
     accessToken = '',
   ) {
+    let authorized = false;
+    try {
+      authorized = await authorize();
+    } catch (error) {
+      this.logger.error(`加入 room 失敗：${room}`, error);
+    }
+
     const requested = requestedRooms(client);
-    if (requested.get(room) !== accessToken) return;
+    if (requested.get(room) !== accessToken) return authorized;
 
-    if (authorized) return client.join(room);
+    if (authorized) await client.join(room);
+    else {
+      requested.delete(room);
+      await client.leave(room);
+    }
 
-    requested.delete(room);
-    await client.leave(room);
+    return authorized;
   }
 
   private async leaveUnlessRequestedAgain(client: Socket, room: string) {
