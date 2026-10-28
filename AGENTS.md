@@ -73,10 +73,10 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | InventoryModule      | `src/inventory/`       | Suppliers, ingredients, recipes, stock transactions, low-stock alerts                                  |
 | WaitlistModule       | `src/waitlist/`        | Waitlist settings and tickets                                                                          |
 | PrintersModule       | `src/printers/`        | Receipt printers and order ticket print jobs (imported by OrdersModule and EcpayModule, not AppModule) |
+| StoreLayoutModule    | `src/store-layout/`    | Per-store 3D floor plan: equipment items, dine-in tables and seats (platform admin)                    |
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
-| StoreLayoutModule    | `src/store-layout/`    | Per-store 3D floor plan: equipment items, dine-in tables and seats (platform admin)                    |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
