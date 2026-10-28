@@ -118,9 +118,10 @@ and `rates_carried_from`. `PayrollService.snapshot` resolves the row in force fo
 month, so re-drafting an old month always uses that month's rates; a month with no row at all
 raises `payrollRuleSetMissing`.
 
-`PayrollRulesService.ingest()` refreshes the ladders from the official open-data APIs — 勞保
-分級表 (`data.gov.tw/dataset/6258`) and 健保投保金額分級表 (`data.gov.tw/dataset/20251`), both
-discovered through `data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. Rates
+`PayrollRulesService.ingest()` refreshes the rule sets from the official open-data datasets listed in
+`src/payroll/rule-source.ts` — 勞保分級表 (`6258`), 職災保險投保薪資分級表 (`170557`), 勞退月提繳分級表 (`6274`),
+健保投保金額分級表 (`20251`), 最低工資 (`6281`) and 職災保險費率 (`6262`) — each discovered through
+`data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. Rates
 are carried forward from the previous period rather than guessed, because they are statutory
 (勞保 11.5% + 就保 1%, 健保 5.17%, 薪資 5% 就源扣繳) and change only by announcement. An ingested ladder
 whose floor or ceiling moves down, or more than doubles, is rejected as a source change and the
@@ -128,12 +129,13 @@ previous ladder is kept. The withholding floor is `各類所得扣繳率標準` 
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
 
-最低工資 has no official API. The monthly figure is taken from the 一般勞工 ladder's first grade, which
-the 分級表 ties to it. The hourly figure cannot be derived, so when the monthly one moves the period
-gets `unconfirmed: ['minimumHourlyWageCents']` and hourly drafts carry `minimumWageUnconfirmed` until
-a platform admin sets the announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
+最低工資 comes from dataset `6281`. When the 一般勞工 ladder's first grade (which the 分級表 ties to the
+monthly 最低工資) has moved above the latest figure there, the dataset is lagging: the monthly figure is
+taken from that first grade, and since the hourly one cannot be derived the period gets
+`unconfirmed: ['minimumHourlyWageCents']` and hourly drafts carry `minimumWageUnconfirmed` until the
+dataset catches up or a platform admin sets the announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
 
-An ingest that fetched both ladders and rejected none stamps `checked_at` on the latest period. A draft whose rule set is
+An ingest that fetched every dataset and rejected nothing stamps `checked_at` on the latest period. A draft whose rule set is
 the latest and was not checked on or after the start of the payroll month carries
 `payrollRuleSetStale` — a failed January fetch must not silently bill last year's ladder. After deploying
 `checked_at`, run one ingest or every draft is held.
