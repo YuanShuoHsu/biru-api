@@ -112,16 +112,17 @@ Every business table has a `record_deleted_row` BEFORE DELETE trigger that copie
 
 ### Payroll Rule Sets
 
-Insurance rates, 投保級距 and 基本工資 are **not** constants in code. `payroll_rule_set` holds one row per
+Insurance rates, 投保級距 and 最低工資 are **not** constants in code. `payroll_rule_set` holds one row per
 effective period (`effective_from`, `YYYY-MM`) with the rates, the 級距 ladders, the source URLs,
 and `rates_carried_from`. `PayrollService.snapshot` resolves the row in force for the statement's
 month, so re-drafting an old month always uses that month's rates; a month with no row at all
 raises `payrollRuleSetMissing`.
 
-`PayrollRulesService.ingest()` refreshes the rule sets from the official open-data datasets listed in
+`PayrollRulesService.ingest()` refreshes the rule sets from six of the official open-data datasets listed in
 `src/payroll/rule-source.ts` — 勞保分級表 (`6258`), 職災保險投保薪資分級表 (`170557`), 勞退月提繳分級表 (`6274`),
 健保投保金額分級表 (`20251`), 最低工資 (`6281`) and 職災保險費率 (`6262`) — each discovered through
-`data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. Rates
+`data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. 職災 industry and
+commuting rates come from `6262`; the other rates
 are carried forward from the previous period rather than guessed, because they are statutory
 (勞保 11.5% + 就保 1%, 健保 5.17%, 薪資 5% 就源扣繳) and change only by announcement. An ingested ladder
 whose floor or ceiling moves down, or more than doubles, is rejected as a source change and the
@@ -129,11 +130,12 @@ previous ladder is kept. The withholding floor is `各類所得扣繳率標準` 
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
 
-最低工資 comes from dataset `6281`. When the 一般勞工 ladder's first grade (which the 分級表 ties to the
-monthly 最低工資) has moved above the latest figure there, the dataset is lagging: the monthly figure is
-taken from that first grade, and since the hourly one cannot be derived the period gets
-`unconfirmed: ['minimumHourlyWageCents']` and hourly drafts carry `minimumWageUnconfirmed` until the
-dataset catches up or a platform admin sets the announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
+最低工資 comes from dataset `6281`. When it has no usable figure for the period — unreachable, rejected for
+showing a decrease, or below the 一般勞工 ladder's first grade (which the 分級表 ties to the monthly 最低工資) —
+the monthly figure is taken from that first grade and the hourly one is carried from the previous period. If
+that changes the monthly figure, the period gets `unconfirmed: ['minimumHourlyWageCents']` and hourly drafts
+carry `minimumWageUnconfirmed` until a later ingest finds the figure in `6281` or a platform admin sets the
+announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
 
 An ingest that fetched every dataset and rejected nothing stamps `checked_at` on the latest period. A draft whose rule set is
 the latest and was not checked on or after the start of the payroll month carries
@@ -146,20 +148,20 @@ draft for an employee whose `weeklyMinutes` later reached 2400 carries `partTime
 健保 has no part-time ladder — its floor stays 分級表第一級.
 
 If an employee's stored `laborBasis` / `healthBasis` is not a grade in that month's ladder — what
-happens every January when 基本工資 moves the floor — the draft carries an
+happens every January when 最低工資 moves the floor — the draft carries an
 `insuranceBasisOutdated` blocker instead of billing the stale grade.
 
 ### Published Payslips
 
 A month with a `published` statement is closed for that employee. Anything that changes what its snapshot
 reads — approving a request or a leave cancellation, creating or cancelling a shift, saving terms,
-parental returns, moving `hiredAt` / `terminatedAt`, drafting another version — must call
+parental returns, moving `hiredAt` / `terminatedAt`, re-drafting the month — must call
 `assertPayrollUnlocked` (`src/attendance/attendance-audit.ts`) first and fails with `payrollLocked`.
 Leave approvals lock every month from the leave start onward, because medical and annual leave ledgers
 carry into later months.
 
-`PayrollService.reopen` stamps `reopened_at` on a published statement, which drops it out of the lock
-so the month can be corrected and re-drafted; publishing the new version closes the month again.
+There is no reopen: `payroll_statement` holds one statement per employee and month
+(`payroll_statement_month_uidx`, migration `0157`), so a published month stays closed.
 
 ### Attendance Audit
 
