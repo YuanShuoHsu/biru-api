@@ -93,6 +93,9 @@ describe('OrdersService.listAdminBoard', () => {
 
     await addOrder('due-cash', 'OrderPaymentDue', { paymentMethod: 'Cash' });
     await addOrder('due-credit', 'OrderPaymentDue');
+    await addOrder('yesterday-evening', 'OrderProcessing', {
+      createdAt: at(-23 * HOUR_MS),
+    });
     await addOrder('walk-in', 'OrderProcessing', {
       createdAt: at(-2 * HOUR_MS),
     });
@@ -115,7 +118,12 @@ describe('OrdersService.listAdminBoard', () => {
     });
     await addOrder('ready', 'OrderPickupAvailable');
     await addOrder('delivered', 'OrderDelivered');
+    await addOrder('delivered-long-ago', 'OrderDelivered', {
+      createdAt: at(-25 * HOUR_MS),
+      updatedAt: at(0),
+    });
     await addOrder('cancelled', 'OrderCancelled');
+    await addOrder('problem', 'OrderProblem');
     await addOrder('other-store', 'OrderProcessing', { sellerId: 'other' });
 
     await client.exec(
@@ -140,7 +148,7 @@ describe('OrdersService.listAdminBoard', () => {
     );
     for (let n = 0; n <= ADMIN_BOARD_DONE_COLUMN_LIMIT; n += 1)
       await addOrder(`busy-done-${n}`, 'OrderDelivered', {
-        createdAt: at(-2 * HOUR_MS - n * 60 * 1000),
+        createdAt: at(-2 * HOUR_MS + ((n * 4) % 11) * 60 * 1000),
         sellerId: 'busy',
         updatedAt: at(-n * 60 * 1000),
       });
@@ -150,15 +158,25 @@ describe('OrdersService.listAdminBoard', () => {
     await client.close();
   });
 
-  it('依流程狀態各回一欄，取消的單不在任何一欄', async () => {
+  it('依流程狀態各回一欄，取消與異常等終止狀態的單不上看板', async () => {
     const board = await service.listAdminBoard('biru');
 
     expect(board.map(({ orderStatus }) => orderStatus)).toEqual([
       ...ORDER_FLOW_STATUSES,
     ]);
     expect(
-      board.flatMap(({ orders }) => orders.map(({ id }) => id)),
-    ).not.toContain('cancelled');
+      board.flatMap(({ orders }) => orders.map(({ id }) => id)).sort(),
+    ).toEqual(
+      [
+        'delivered',
+        'due-cash',
+        'placed-yesterday',
+        'ready',
+        'scheduled-today',
+        'walk-in',
+        'yesterday-evening',
+      ].sort(),
+    );
   });
 
   it('待付款欄只收現金單', async () => {
@@ -169,6 +187,7 @@ describe('OrdersService.listAdminBoard', () => {
 
   it('只收過去 24 小時內與未來 24 小時內預約的本店訂單，依取餐或建立時間排序', async () => {
     await expect(idsIn('biru', 'OrderProcessing')).resolves.toEqual([
+      'yesterday-evening',
       'walk-in',
       'placed-yesterday',
       'scheduled-today',
@@ -199,7 +218,9 @@ describe('OrdersService.listAdminBoard', () => {
   });
 
   it('工作單只列進行中的，補印印表機排除已取消的工作單', async () => {
-    const [walkIn] = await column('biru', 'OrderProcessing');
+    const walkIn = (await column('biru', 'OrderProcessing')).find(
+      ({ id }) => id === 'walk-in',
+    )!;
 
     expect(walkIn.orderTicketJobs).toEqual([
       expect.objectContaining({
@@ -212,7 +233,9 @@ describe('OrdersService.listAdminBoard', () => {
   });
 
   it('發票取未作廢的一張，列印工作只帶最新一筆進行中的', async () => {
-    const [walkIn] = await column('biru', 'OrderProcessing');
+    const walkIn = (await column('biru', 'OrderProcessing')).find(
+      ({ id }) => id === 'walk-in',
+    )!;
 
     expect(walkIn.invoice).toMatchObject({
       id: 'active-invoice',
