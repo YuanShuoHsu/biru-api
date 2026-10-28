@@ -12,6 +12,7 @@ import {
   lt,
   lte,
   ne,
+  not,
   notIlike,
   or,
   sql,
@@ -57,6 +58,32 @@ export const buildStringFilterCondition = (
         : inArray(colSql, values);
     }
   }
+};
+
+const NEGATED_STRING_OPERATORS: Record<string, string> = {
+  doesNotContain: 'contains',
+  doesNotEqual: 'equals',
+  isEmpty: 'isNotEmpty',
+};
+
+export const buildLocalizedTextFilterCondition = (
+  column: Column,
+  operator: string,
+  value: string | undefined,
+): SQL | undefined => {
+  if (!value && !NO_VALUE_OPERATORS.includes(operator)) return undefined;
+
+  const matchOperator = NEGATED_STRING_OPERATORS[operator] ?? operator;
+  const valueMatches = buildStringFilterCondition(
+    sql`entry.value`,
+    matchOperator,
+    value || '',
+  );
+  if (!valueMatches) return undefined;
+
+  const anyValueMatches = sql`exists (select 1 from jsonb_each_text(${column}) as entry where ${valueMatches})`;
+
+  return matchOperator === operator ? anyValueMatches : not(anyValueMatches);
 };
 
 export const buildDateFilterCondition = (
