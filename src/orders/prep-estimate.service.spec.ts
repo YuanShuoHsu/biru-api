@@ -78,6 +78,14 @@ describe('PrepEstimateService', () => {
     await addOrder('later', 'OrderProcessing', [{ menuItemId: 'cake' }], {
       pickupTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
     });
+    await addOrder('stale', 'OrderProcessing', [{ menuItemId: 'cake' }], {
+      pickupTime: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+    await client.query(
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at)
+       values ('stale-walk-in', '{"name":"客人"}', 'counter', '1', 'OrderProcessing', 'Cash', 'org', 100, $1)`,
+      [new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()],
+    );
     await addOrder('other-store', 'OrderProcessing', [{ menuItemId: 'cake' }], {
       sellerId: 'other',
     });
@@ -87,7 +95,7 @@ describe('PrepEstimateService', () => {
     await client.close();
   });
 
-  it('只計入本店製作中、取餐時間已近的訂單，並進位到 5 分鐘', async () => {
+  it('只計入本店看板時間窗內製作中、取餐時間已近的訂單，並進位到 5 分鐘', async () => {
     await expect(service.findBySlug('biru')).resolves.toEqual({
       basis: 'leadTime',
       estimatedMinutes: 40,

@@ -129,6 +129,7 @@ import {
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 import { orderPrepMinutes } from './prep-estimate.js';
@@ -274,10 +275,6 @@ const toAdminOrderWithInvoice = <
     orderTicketPrinterIds: orderTicketPrinterIdsOf(orderTicketJobs),
   });
 };
-
-const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
-
-const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;

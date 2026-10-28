@@ -77,6 +77,7 @@ export class EventsGateway {
   private readonly logger = new Logger(EventsGateway.name);
   private readonly pushedPrepEstimates = new Map<string, string>();
   private readonly duePrepEstimates = new Set<string>();
+  private readonly prepEstimateRuns = new Map<string, number>();
 
   constructor(
     private readonly authService: AuthService,
@@ -170,17 +171,27 @@ export class EventsGateway {
   }
 
   @Interval(PUBLIC_BOARD_REFRESH_MS)
-  refreshPrepEstimates() {
+  async refreshPrepEstimates() {
     const subscribed = new Set<string>();
     for (const room of this.server.adapter.rooms.keys())
       for (const prefix of PREP_ESTIMATE_ROOM_PREFIXES)
         if (room.startsWith(prefix)) subscribed.add(room.slice(prefix.length));
 
-    for (const organizationId of this.pushedPrepEstimates.keys())
-      if (!subscribed.has(organizationId))
+    for (const organizationId of this.prepEstimateRuns.keys())
+      if (!subscribed.has(organizationId)) {
         this.pushedPrepEstimates.delete(organizationId);
-    for (const organizationId of subscribed)
-      this.schedulePrepEstimate(organizationId);
+        this.prepEstimateRuns.delete(organizationId);
+      }
+
+    try {
+      const existing = await this.prepEstimateService.existingOrganizationIds([
+        ...subscribed,
+      ]);
+      for (const organizationId of existing)
+        this.schedulePrepEstimate(organizationId);
+    } catch (error) {
+      this.logger.error('出餐時間估算失敗', error);
+    }
   }
 
   private schedulePrepEstimate(organizationId: string) {
@@ -189,9 +200,15 @@ export class EventsGateway {
 
     setImmediate(() => {
       this.duePrepEstimates.delete(organizationId);
+      const run = (this.prepEstimateRuns.get(organizationId) ?? 0) + 1;
+      this.prepEstimateRuns.set(organizationId, run);
+
       this.prepEstimateService
         .findByOrganizationId(organizationId)
-        .then((estimate) => this.pushPrepEstimate(organizationId, estimate))
+        .then((estimate) => {
+          if (this.prepEstimateRuns.get(organizationId) === run)
+            this.pushPrepEstimate(organizationId, estimate);
+        })
         .catch((error: unknown) =>
           this.logger.error(`出餐時間估算失敗：${organizationId}`, error),
         );

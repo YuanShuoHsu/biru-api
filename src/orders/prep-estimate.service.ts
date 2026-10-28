@@ -1,6 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type SQL, and, asc, eq, inArray } from 'drizzle-orm';
+import { type SQL, and, asc, eq, gte, inArray } from 'drizzle-orm';
+
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
 import { offer } from '../db/schema/menus.js';
 import { order } from '../db/schema/orders.js';
@@ -9,6 +11,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type { PrepEstimateResponseDto } from './dto/prep-estimate-response.dto.js';
+import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
 import {
   type QueuedOrder,
   displayPrepMinutes,
@@ -39,11 +42,24 @@ export class PrepEstimateService {
     org: PrepEstimateOrganization,
     ownPrepMinutes: number,
   ): Promise<number> {
+    const now = new Date();
+
     return estimatePrepMinutes(
-      await this.queueOf(org),
+      await this.queueOf(org, now),
       ownPrepMinutes,
-      new Date(),
+      now,
     ).minutes;
+  }
+
+  async existingOrganizationIds(organizationIds: string[]): Promise<string[]> {
+    if (!organizationIds.length) return [];
+
+    const rows = await this.db
+      .select({ id: organization.id })
+      .from(organization)
+      .where(inArray(organization.id, organizationIds));
+
+    return rows.map(({ id }) => id);
   }
 
   private async findWhere(where: SQL): Promise<PrepEstimateResponseDto | null> {
@@ -53,10 +69,11 @@ export class PrepEstimateService {
     });
     if (!org) return null;
 
+    const now = new Date();
     const { minutes, queuedOrders } = estimatePrepMinutes(
-      await this.queueOf(org),
+      await this.queueOf(org, now),
       orderPrepMinutes(org.pickupLeadMinutes, []),
-      new Date(),
+      now,
     );
 
     return {
@@ -66,12 +83,19 @@ export class PrepEstimateService {
     };
   }
 
-  private async queueOf(org: PrepEstimateOrganization): Promise<QueuedOrder[]> {
+  private async queueOf(
+    org: PrepEstimateOrganization,
+    now: Date,
+  ): Promise<QueuedOrder[]> {
     const processing = await this.db.query.order.findMany({
       columns: { pickupTime: true },
       where: and(
         eq(order.sellerId, org.id),
         eq(order.orderStatus, 'OrderProcessing'),
+        gte(
+          BOARD_AT,
+          utcTimestampParam(new Date(now.getTime() - BOARD_WINDOW_MS)),
+        ),
       ),
       with: { items: { columns: { addOns: true, menuItemId: true } } },
     });
