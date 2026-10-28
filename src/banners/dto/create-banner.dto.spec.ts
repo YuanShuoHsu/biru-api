@@ -56,3 +56,28 @@ describe('CreateBannerDto', () => {
     ).toBeNull();
   });
 });
+
+describe('UpdateBannerDto', () => {
+  const updateErrorsOf = async (fields: Record<string, unknown>) =>
+    (await validate(plainToInstance(UpdateBannerDto, fields))).map(
+      ({ property }) => property,
+    );
+
+  it.each(['image', 'isActive', 'sortOrder'])(
+    'rejects null %s',
+    async (field) => {
+      expect(await updateErrorsOf({ [field]: null })).toEqual([field]);
+    },
+  );
+
+  it.each(['alt', 'url', 'startsAt', 'endsAt'])(
+    'accepts null %s',
+    async (field) => {
+      expect(await updateErrorsOf({ [field]: null })).toEqual([]);
+    },
+  );
+
+  it('accepts a partial update', async () => {
+    expect(await updateErrorsOf({ isActive: false })).toEqual([]);
+  });
+});

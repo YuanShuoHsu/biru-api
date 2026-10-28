@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
   Validate,
+  ValidateIf,
   ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
@@ -64,7 +65,7 @@ export class CreateBannerDto {
   url?: string | null;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
 
@@ -80,10 +81,12 @@ export class CreateBannerDto {
   endsAt?: string | null;
 
   @ApiPropertyOptional({ description: '未帶時排在最後' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
   sortOrder?: number;
 }
 
-export class UpdateBannerDto extends PartialType(CreateBannerDto) {}
+export class UpdateBannerDto extends PartialType(CreateBannerDto, {
+  skipNullProperties: false,
+}) {}
