@@ -114,7 +114,7 @@ export class EventsGateway {
     if (
       !(await this.ordersService.canReadOrderById(
         orderId,
-        session?.user.id ?? null,
+        session?.user ?? null,
         accessToken ?? null,
       ))
     )

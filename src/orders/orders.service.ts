@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import {
   Column,
@@ -193,6 +194,8 @@ const paymentDeadlineOf = (
 };
 
 export type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
+
+type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
 const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -782,14 +785,14 @@ export class OrdersService {
   async getOrder(
     organizationSlug: string,
     orderId: string,
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<OrderReceiptResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
     const receipt = await this.findOrderReceipt(org.id, orderId);
 
-    if (!(await this.canReadOrderById(orderId, userId, accessToken)))
+    if (!(await this.canReadOrderById(orderId, viewer, accessToken)))
       throw new ForbiddenException();
 
     return receipt;
@@ -797,7 +800,7 @@ export class OrdersService {
 
   async canReadOrderById(
     orderId: string,
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<boolean> {
     const found = await this.db.query.order.findFirst({
@@ -805,7 +808,7 @@ export class OrdersService {
       columns: { id: true, sellerId: true, userId: true },
     });
 
-    return !!found && (await this.canReadOrder(found, userId, accessToken));
+    return !!found && (await this.canReadOrder(found, viewer, accessToken));
   }
 
   private async canReadOrder(
@@ -814,17 +817,17 @@ export class OrdersService {
       sellerId,
       userId: ownerId,
     }: { id: string; sellerId: string; userId: string | null },
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<boolean> {
     if (isValidOrderAccessToken(id, accessToken)) return true;
-    if (!userId) return false;
-    if (ownerId === userId) return true;
+    if (!viewer) return false;
+    if (ownerId === viewer.id || viewer.role === 'admin') return true;
 
     const membership = await this.db.query.member.findFirst({
       where: and(
         eq(member.organizationId, sellerId),
-        eq(member.userId, userId),
+        eq(member.userId, viewer.id),
       ),
       columns: { role: true },
     });
