@@ -370,7 +370,7 @@ export class OrdersService {
   }
 
   private resolvePickupTime(org: Organization, value?: string): Date {
-    if (!value) throw new BadRequestException('pickupTime is required');
+    if (!value) throw new BadRequestException(this.t('pickupTimeInvalid'));
 
     const now = Date.now();
     const leadMs = Math.max(org.pickupLeadMinutes, 0) * 60 * 1000;
@@ -378,7 +378,7 @@ export class OrdersService {
     const pickupTime = new Date(value);
 
     if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
-      throw new BadRequestException('pickupTime is not on the pickup interval');
+      throw new BadRequestException(this.t('pickupTimeInvalid'));
 
     if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
       throw new BadRequestException(this.t('pickupTooSoon'));

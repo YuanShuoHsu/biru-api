@@ -284,7 +284,9 @@ export type I18nTranslations = {
             "idempotencyConflict": string;
             "inStoreQrCodeRequired": string;
             "invalidTable": string;
+            "menuChanged": string;
             "menuItemInsufficientStock": string;
+            "menuItemOptionsInvalid": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;
@@ -293,6 +295,7 @@ export type I18nTranslations = {
             "notAwaitingPayment": string;
             "orderTotalTooLarge": string;
             "pickupOutsideOpeningHours": string;
+            "pickupTimeInvalid": string;
             "pickupTooCloseToClosing": string;
             "pickupTooFarAhead": string;
             "pickupTooSoon": string;
