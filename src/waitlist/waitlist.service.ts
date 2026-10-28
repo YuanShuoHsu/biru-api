@@ -112,6 +112,7 @@ import {
 
 const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
 const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const PUBLIC_CALLED_TICKET_LIMIT = 5;
 
 const inTodayQueue = (organizationId: string) =>
   and(
@@ -339,6 +340,10 @@ export class WaitlistService {
 
         return {
           ...group,
+          calledTicketNumbers: groupTickets
+            .filter(({ status }) => status === 'called')
+            .slice(0, PUBLIC_CALLED_TICKET_LIMIT)
+            .map((ticket) => formatTicketNumber(ticket.prefix, ticket.number)),
           currentTicketNumber: current
             ? formatTicketNumber(current.prefix, current.number)
             : null,
