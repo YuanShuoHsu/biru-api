@@ -128,6 +128,35 @@ describe('訂單狀態轉換規則表', () => {
     });
   });
 
+  it('製作完成記下出餐時間，退回製作中清除，從已取餐退回保留原值', () => {
+    expect(
+      findTransition(
+        'admin',
+        'OrderProcessing',
+        'OrderPickupAvailable',
+      )?.extraSet?.(),
+    ).toEqual({ readyAt: expect.any(Date) });
+    expect(
+      findTransition(
+        'admin',
+        'OrderPickupAvailable',
+        'OrderProcessing',
+      )?.extraSet?.(),
+    ).toEqual({ readyAt: null });
+    expect(
+      findTransition('admin', 'OrderDelivered', 'OrderPickupAvailable')
+        ?.extraSet,
+    ).toBeUndefined();
+  });
+
+  it('只有製作完成會寫入出餐時間', () => {
+    expect(
+      ORDER_TRANSITIONS.filter(
+        (rule) => rule.extraSet?.().readyAt instanceof Date,
+      ).map(({ fromStatus, toStatus }) => [fromStatus, toStatus]),
+    ).toEqual([['OrderProcessing', 'OrderPickupAvailable']]);
+  });
+
   it('凡是會還券的規則也會還庫存', () => {
     for (const rule of ORDER_TRANSITIONS.filter(
       ({ restoresCoupon }) => restoresCoupon,
@@ -301,6 +330,25 @@ describe('OrdersService.applyTransitions', () => {
       'o1',
     );
     expect(orderTickets.enqueueOrder).not.toHaveBeenCalled();
+  });
+
+  it('店員標為可取餐時寫入出餐時間', async () => {
+    const processing: OrderRow = {
+      ...unpaid,
+      orderStatus: 'OrderProcessing',
+      paymentMethod: 'Credit',
+    };
+    const { sets, service } = createService({
+      current: processing,
+      updated: [{ ...processing, orderStatus: 'OrderPickupAvailable' }],
+    });
+
+    await service.applyTransitions('slug', ['o1'], 'OrderPickupAvailable');
+
+    expect(sets[0]).toEqual({
+      orderStatus: 'OrderPickupAvailable',
+      readyAt: expect.any(Date),
+    });
   });
 
   it('線上付款的待付款訂單不能手動推進', async () => {

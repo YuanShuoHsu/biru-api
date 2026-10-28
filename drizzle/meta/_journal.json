@@ -1709,6 +1709,13 @@
       "when": 1793173280934,
       "tag": "0243_organization_address_required",
       "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1793179482575,
+      "tag": "0244_order_ready_at",
+      "breakpoints": true
     }
   ]
 }

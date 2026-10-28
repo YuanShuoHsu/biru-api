@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type SQL, and, asc, eq, gte, inArray } from 'drizzle-orm';
+import { type SQL, and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
@@ -17,8 +17,13 @@ import {
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
+  observedMinutesPerOrder,
   orderPrepMinutes,
 } from './prep-estimate.js';
+
+const OBSERVED_WINDOW_MS = 30 * 60 * 1000;
+
+const OBSERVED_ORDERS_LIMIT = 20;
 
 type PrepEstimateOrganization = Pick<Organization, 'id' | 'pickupLeadMinutes'>;
 
@@ -43,12 +48,13 @@ export class PrepEstimateService {
     ownPrepMinutes: number,
   ): Promise<number> {
     const now = new Date();
+    const [queue, minutesPerOrder] = await Promise.all([
+      this.queueOf(org, now),
+      this.minutesPerOrderOf(org.id, now),
+    ]);
 
-    return estimatePrepMinutes(
-      await this.queueOf(org, now),
-      ownPrepMinutes,
-      now,
-    ).minutes;
+    return estimatePrepMinutes(queue, ownPrepMinutes, now, minutesPerOrder)
+      .minutes;
   }
 
   async existingOrganizationIds(organizationIds: string[]): Promise<string[]> {
@@ -70,17 +76,52 @@ export class PrepEstimateService {
     if (!org) return null;
 
     const now = new Date();
+    const [queue, minutesPerOrder] = await Promise.all([
+      this.queueOf(org, now),
+      this.minutesPerOrderOf(org.id, now),
+    ]);
     const { minutes, queuedOrders } = estimatePrepMinutes(
-      await this.queueOf(org, now),
+      queue,
       orderPrepMinutes(org.pickupLeadMinutes, []),
       now,
+      minutesPerOrder,
     );
 
     return {
-      basis: 'leadTime',
+      basis: minutesPerOrder === null ? 'leadTime' : 'observed',
       estimatedMinutes: displayPrepMinutes(minutes),
       queuedOrders,
     };
+  }
+
+  private async minutesPerOrderOf(
+    organizationId: string,
+    now: Date,
+  ): Promise<number | null> {
+    const ready = await this.db
+      .select({
+        readyAt: order.readyAt,
+        startedAt:
+          sql`COALESCE(${order.paymentDate}, ${order.orderDate})`.mapWith(
+            order.orderDate,
+          ),
+      })
+      .from(order)
+      .where(
+        and(
+          eq(order.sellerId, organizationId),
+          gte(
+            order.readyAt,
+            utcTimestampParam(new Date(now.getTime() - OBSERVED_WINDOW_MS)),
+          ),
+        ),
+      )
+      .orderBy(desc(order.readyAt))
+      .limit(OBSERVED_ORDERS_LIMIT);
+
+    return observedMinutesPerOrder(
+      ready.map(({ readyAt, startedAt }) => ({ readyAt: readyAt!, startedAt })),
+    );
   }
 
   private async queueOf(
