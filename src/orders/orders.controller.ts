@@ -12,6 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
@@ -61,6 +62,7 @@ export class OrdersController {
   ) {}
 
   @Post()
+  @Throttle({ default: { limit: 10, ttl: minutes(1) } })
   @ApiHeader({
     description: '同一次結帳重試請帶同一把鍵，重送會回傳既有訂單',
     name: 'Idempotency-Key',
