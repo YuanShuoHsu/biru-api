@@ -18,9 +18,17 @@ const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
 const ATTENDANCE_AUDIT_RETENTION_MONTHS = 60;
 
-const monthsAgo = (months: number): Date => {
+export const monthsAgo = (months: number): Date => {
   const cutoff = new Date();
+  const day = cutoff.getDate();
+  cutoff.setDate(1);
   cutoff.setMonth(cutoff.getMonth() - months);
+  const lastDay = new Date(
+    cutoff.getFullYear(),
+    cutoff.getMonth() + 1,
+    0,
+  ).getDate();
+  cutoff.setDate(Math.min(day, lastDay));
 
   return cutoff;
 };
