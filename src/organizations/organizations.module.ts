@@ -6,6 +6,7 @@ import { MyOrganizationStatsController } from './my-organization-stats.controlle
 import { MyOrganizationsController } from './my-organizations.controller.js';
 import { OrganizationBatchController } from './organization-batch.controller.js';
 import { OrganizationClosureController } from './organization-closure.controller.js';
+import { OrganizationPlatformAdminController } from './organization-platform-admin.controller.js';
 import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
 
@@ -15,6 +16,7 @@ import { OrganizationsService } from './organizations.service.js';
     MyOrganizationsController,
     OrganizationBatchController,
     OrganizationClosureController,
+    OrganizationPlatformAdminController,
     OrganizationsController,
   ],
   providers: [AuthBatchService, OrganizationsService],

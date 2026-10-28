@@ -247,6 +247,7 @@
     "statusChanged": "訂單狀態已變更，請重新整理後再試"
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "這位成員不是以平台管理員身分加入的擁有者。",
     "showcaseOpenSelfOnly": "只有成員本人能開啟在團隊介紹的公開顯示。"
   },
   "points": {

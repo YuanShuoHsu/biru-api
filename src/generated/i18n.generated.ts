@@ -299,6 +299,7 @@ export type I18nTranslations = {
             "statusChanged": string;
         };
         "organizations": {
+            "notJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;
         };
         "points": {

@@ -247,6 +247,7 @@
     "statusChanged": "The order status has changed. Refresh and try again."
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",
     "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section."
   },
   "points": {
