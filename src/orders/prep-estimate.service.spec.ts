@@ -153,6 +153,94 @@ describe('PrepEstimateService', () => {
     ).resolves.toBeCloseTo(31);
   });
 
+  it('各品項回估算採用的備餐時間，與近 14 天本店非預約已出餐訂單的製作時間中位數', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, pickup_lead_minutes, created_at, address_country, address_locality, address_region, street_address) values
+         ('timed', 'Timed', 'timed', 8, now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into menu (id, organization_id, name) values ('timed-menu', 'timed', '{"zh-TW":"菜單"}');
+       insert into menu_item (id, menu_id, name, created_at) values
+         ('mocha', 'timed-menu', '{"zh-TW":"摩卡"}', now() - interval '3 minutes'),
+         ('scone', 'timed-menu', '{"zh-TW":"司康"}', now() - interval '2 minutes'),
+         ('tea', 'timed-menu', '{"zh-TW":"紅茶"}', now() - interval '1 minute');
+       insert into offer (id, menu_item_id, price, delivery_lead_time_minutes, created_at) values
+         ('mocha-offer', 'mocha', 100, 12, now());`,
+    );
+    const addReady = async (
+      id: string,
+      menuItemIds: string[],
+      {
+        daysAgo = 1,
+        minutes = 10,
+        reserved = false,
+        readyAt = true,
+        sellerId = 'timed',
+      } = {},
+    ) => {
+      const ready = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, payment_date, pickup_time, ready_at)
+         values ($1, '{"name":"客人"}', 'counter', '1', 'OrderDelivered', 'Cash', $2, 100, $3, $4, $5)`,
+        [
+          id,
+          sellerId,
+          new Date(ready.getTime() - minutes * 60 * 1000).toISOString(),
+          reserved ? ready.toISOString() : null,
+          readyAt ? ready.toISOString() : null,
+        ],
+      );
+      for (const [index, menuItemId] of menuItemIds.entries())
+        await client.query(
+          `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price)
+           values ($1, $2, $3, $3, 1, 100)`,
+          [`${id}-${index}`, id, menuItemId],
+        );
+    };
+    for (const [index, minutes] of [10, 12, 14, 16, 18].entries())
+      await addReady(`timed-${index}`, ['mocha', 'scone'], {
+        daysAgo: index + 1,
+        minutes,
+      });
+    await addReady('timed-scone', ['scone', 'scone'], { minutes: 20 });
+    await addReady('timed-tea', ['tea'], { minutes: 3 });
+    await addReady('timed-old', ['mocha', 'tea'], { daysAgo: 15, minutes: 90 });
+    await addReady('timed-unready', ['mocha', 'tea'], { readyAt: false });
+    await addReady('timed-reserved', ['mocha', 'tea'], {
+      minutes: 90,
+      reserved: true,
+    });
+    await addReady('timed-elsewhere', ['mocha', 'tea'], {
+      minutes: 90,
+      sellerId: 'other',
+    });
+
+    await expect(service.findPrepTimesBySlug('timed')).resolves.toEqual([
+      {
+        leadTimeMinutes: 12,
+        medianMinutes: 14,
+        menuItemId: 'mocha',
+        name: { 'zh-TW': '摩卡' },
+        sampleSize: 5,
+      },
+      {
+        leadTimeMinutes: 8,
+        medianMinutes: 15,
+        menuItemId: 'scone',
+        name: { 'zh-TW': '司康' },
+        sampleSize: 6,
+      },
+      {
+        leadTimeMinutes: 8,
+        medianMinutes: null,
+        menuItemId: 'tea',
+        name: { 'zh-TW': '紅茶' },
+        sampleSize: 1,
+      },
+    ]);
+    await expect(service.findPrepTimesBySlug('missing')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
   it('找不到門市時回 404', async () => {
     await expect(service.findBySlug('missing')).rejects.toThrow(
       NotFoundException,

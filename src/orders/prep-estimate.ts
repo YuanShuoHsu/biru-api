@@ -14,6 +14,10 @@ export interface ReadyOrder {
   startedAt: Date;
 }
 
+export interface ReadyOrderItems extends ReadyOrder {
+  menuItemIds: string[];
+}
+
 export interface ObservedPace {
   busyMs: number;
   intervals: number;
@@ -38,6 +42,37 @@ export const observedPace = (ready: ReadyOrder[]): ObservedPace | null => {
   if (busyMs < MINUTE_MS) return null;
 
   return { busyMs, intervals: sorted.length - 1 };
+};
+
+export const observedItemPrepMinutes = (orders: ReadyOrderItems[]) => {
+  const samples = new Map<string, number[]>();
+  for (const { menuItemIds, readyAt, startedAt } of orders) {
+    const minutes =
+      Math.max(0, readyAt.getTime() - startedAt.getTime()) / MINUTE_MS;
+    for (const menuItemId of new Set(menuItemIds)) {
+      const itemSamples = samples.get(menuItemId);
+      if (itemSamples) itemSamples.push(minutes);
+      else samples.set(menuItemId, [minutes]);
+    }
+  }
+
+  return (
+    menuItemId: string,
+  ): { medianMinutes: number | null; sampleSize: number } => {
+    const minutes = [...(samples.get(menuItemId) ?? [])].sort((a, b) => a - b);
+    const middle = Math.floor(minutes.length / 2);
+    return {
+      medianMinutes:
+        minutes.length < MIN_OBSERVED_ORDERS
+          ? null
+          : Math.round(
+              minutes.length % 2
+                ? minutes[middle]
+                : (minutes[middle - 1] + minutes[middle]) / 2,
+            ),
+      sampleSize: minutes.length,
+    };
+  };
 };
 
 export const itemLeadTimeMinutes = (
