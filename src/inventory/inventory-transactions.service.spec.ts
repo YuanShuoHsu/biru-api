@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { offer } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -26,7 +27,7 @@ describe('庫存扣除、還原與自動售完', () => {
   let eventEmitter: EventEmitter2;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;

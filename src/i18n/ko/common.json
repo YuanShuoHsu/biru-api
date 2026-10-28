@@ -252,7 +252,10 @@
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "이 구성원은 플랫폼 관리자로 참여한 소유자가 아닙니다.",
-    "showcaseOpenSelfOnly": "구성원 본인만 팀 소개에 공개로 설정할 수 있습니다."
+    "showcaseOpenSelfOnly": "구성원 본인만 팀 소개에 공개로 설정할 수 있습니다.",
+    "specialHoursEnded": "이미 종료된 기간으로 특별 영업일을 추가하거나 변경할 수 없습니다.",
+    "specialHoursInvalidRange": "특별 영업일의 시작일은 종료일보다 늦을 수 없습니다.",
+    "specialHoursOverlap": "이 기간은 이미 설정된 특별 영업일({validFrom}~{validThrough})과 겹칩니다."
   },
   "points": {
     "adjustOwnerOnly": "한 번에 {maxPoints}포인트를 초과하는 조정은 소유자만 할 수 있습니다",

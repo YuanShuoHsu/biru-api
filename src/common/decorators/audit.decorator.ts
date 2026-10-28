@@ -20,6 +20,7 @@ export type AuditSubTable =
   | 'printer'
   | 'recipeIngredient'
   | 'refund'
+  | 'specialHours'
   | 'waitlistSetting';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };

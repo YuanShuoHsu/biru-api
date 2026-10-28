@@ -38,7 +38,7 @@ class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
 }
 
 @ValidatorConstraint({ name: 'isOpeningHours' })
-class IsOpeningHours implements ValidatorConstraintInterface {
+export class IsOpeningHours implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     return typeof value === 'string' && isValidOpeningHours(value);
   }

@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../test/pglite.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
 import * as schema from '../db/schema/index.js';
 
@@ -15,7 +16,7 @@ describe('cancelExpiredInvitations', () => {
   let db: Transaction;
 
   beforeAll(async () => {
-    client = new PGlite();
+    client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as Transaction;

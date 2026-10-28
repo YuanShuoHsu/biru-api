@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
+import { createPGlite } from '../../../test/pglite.js';
 import type { GetIssueInvoiceEcpayDecryptedResponseDto } from '../dto/get-issue-invoice-ecpay.dto.js';
 import { EcpayRejectedError } from '../utils/ecpay.js';
 
@@ -102,7 +103,7 @@ describe('InvoicePrinterService（PGlite）', () => {
 
   beforeAll(async () => {
     vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
-    client = new PGlite();
+    client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
   }, 60_000);

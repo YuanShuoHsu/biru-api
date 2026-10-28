@@ -32,6 +32,7 @@ import {
   member,
   organization,
   organizationQrSecret,
+  organizationSpecialHours,
   team,
 } from '../../db/schema/organizations.js';
 import { pointSetting, pointTransaction } from '../../db/schema/points.js';
@@ -88,6 +89,7 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   printer,
   recipeIngredient,
   refund,
+  specialHours: organizationSpecialHours,
   waitlistSetting,
 };
 

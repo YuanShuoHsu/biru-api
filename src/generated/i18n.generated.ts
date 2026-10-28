@@ -305,6 +305,9 @@ export type I18nTranslations = {
         "organizations": {
             "notJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;
+            "specialHoursEnded": string;
+            "specialHoursInvalidRange": string;
+            "specialHoursOverlap": string;
         };
         "points": {
             "adjustOwnerOnly": string;
