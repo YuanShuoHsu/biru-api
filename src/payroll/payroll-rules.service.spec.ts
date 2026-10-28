@@ -89,6 +89,42 @@ describe('Payroll rule set resolution', () => {
   });
 });
 
+describe('Rule set listing', () => {
+  const older = { ...seed, id: 'older', effectiveFrom: '2025-01' };
+  const list = async (latest: typeof seed) => {
+    const { service } = setup([[latest, older]]);
+    return service.list();
+  };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-28T04:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('is not stale when the latest period was checked this platform month', async () => {
+    const [latest] = await list({
+      ...seed,
+      checkedAt: new Date('2026-09-30T16:00:00Z'),
+    });
+    expect(latest.stale).toBe(false);
+  });
+  it('is stale when the latest period was last checked before this platform month', async () => {
+    const [latest] = await list({
+      ...seed,
+      checkedAt: new Date('2026-09-30T15:59:59Z'),
+    });
+    expect(latest.stale).toBe(true);
+  });
+  it('is stale when the latest period was never checked', async () => {
+    const [latest] = await list(seed);
+    expect(latest.stale).toBe(true);
+  });
+  it('never marks an older period stale', async () => {
+    const [, previous] = await list(seed);
+    expect(previous.stale).toBe(false);
+  });
+});
+
 describe('Official grade ingestion', () => {
   const fetchOk = (body: string) =>
     Promise.resolve({
@@ -459,6 +495,14 @@ describe('Minimum wage confirmation', () => {
       label: dto.sourceLabel,
       url: dto.sourceUrl,
     });
+  });
+  it('reports the confirmed period as stale only while it is the latest unchecked one', async () => {
+    const confirm = async (successor: unknown[]) => {
+      const { service } = setup([[pending], [], successor]);
+      return service.confirm('2026-01', dto);
+    };
+    expect((await confirm([]))?.stale).toBe(true);
+    expect((await confirm([{ id: 'next' }]))?.stale).toBe(false);
   });
   it('refuses an hourly wage below the previous period', async () => {
     const { service, update } = setup([
