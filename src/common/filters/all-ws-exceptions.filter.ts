@@ -35,11 +35,17 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
   }
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    const ws = host.switchToWs();
+    const pattern = ws.getPattern();
+
     if (
       !(exception instanceof IntrinsicException) &&
       !(exception instanceof WsException)
     )
-      AllWsExceptionsFilter.logger.error(exception);
+      AllWsExceptionsFilter.logger.error(
+        `WebSocket 訊息處理失敗：${pattern}`,
+        exception,
+      );
 
     const lang =
       I18nContext.current(host)?.lang ?? languageResolver.resolve(host);
@@ -77,14 +83,13 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
                         : String(exception),
                   };
 
-    const ws = host.switchToWs();
     const client = ws.getClient<Socket>();
 
     const payload = {
       ...(typeof error === 'string' ? { message: error } : error),
       statusCode,
       status: 'error',
-      cause: this.options.causeFactory?.(ws.getPattern(), ws.getData()),
+      cause: this.options.causeFactory?.(pattern, ws.getData()),
     };
 
     try {

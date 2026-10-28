@@ -271,9 +271,11 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 - Global filters: `AllExceptionsFilter` (i18n-aware, HTTP only — `useGlobalFilters` does not reach WebSocket gateways).
   A gateway binds `AllWsExceptionsFilter` (`src/common/filters/`) with class-level `@UseFilters`: any exception in a
   `@SubscribeMessage` handler (guard, pipe or the handler itself) is emitted as an `exception` event
-  `{ status: 'error', message, statusCode?, ...response fields such as code, cause: { pattern, data } }`, translated like
-  `AllExceptionsFilter` except that validation errors become `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`;
-  the ack is never called. Throw a translated `HttpException` / `WsException` to reject a message, never return `false`
+  `{ status: 'error', message, statusCode?, ...response fields such as code, cause: { pattern, data } }` (no HTTP
+  `path` / `success` / `timestamp`; a `WsException` or `HttpException` built from an object is spread as is, so `message`
+  is only there if that object has one), translated like `AllExceptionsFilter` except that validation errors become
+  `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
+  `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
 - Rate limiting: 100 req / 60s globally
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated

@@ -1,7 +1,9 @@
 import { ForbiddenException, Logger } from '@nestjs/common';
+import { EXCEPTION_FILTERS_METADATA } from '@nestjs/common/constants';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
 import type { Namespace, Socket } from 'socket.io';
 
+import { AllWsExceptionsFilter } from '../common/filters/all-ws-exceptions.filter.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { PublicMenusService } from '../menus/menus-public.service.js';
@@ -12,6 +14,14 @@ import type { WaitlistService } from '../waitlist/waitlist.service.js';
 import { EventsGateway } from './events.gateway.js';
 
 const nextTick = () => new Promise((resolve) => setImmediate(resolve));
+
+describe('EventsGateway exception filter', () => {
+  it('整個 gateway 掛上 AllWsExceptionsFilter', () => {
+    expect(
+      Reflect.getMetadata(EXCEPTION_FILTERS_METADATA, EventsGateway),
+    ).toEqual([AllWsExceptionsFilter]);
+  });
+});
 
 describe('EventsGateway prepEstimateUpdated', () => {
   const setup = (rooms: string[]) => {

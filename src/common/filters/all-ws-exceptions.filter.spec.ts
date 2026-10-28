@@ -125,7 +125,10 @@ describe('AllWsExceptionsFilter', () => {
       status: 'error',
       cause,
     });
-    expect(logError).toHaveBeenCalledWith(error);
+    expect(logError).toHaveBeenCalledWith(
+      'WebSocket 訊息處理失敗：joinWaitlist',
+      error,
+    );
   });
 
   it('未知錯誤在非 production 帶原訊息與 stack', () => {
