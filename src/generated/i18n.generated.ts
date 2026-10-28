@@ -221,9 +221,14 @@ export type I18nTranslations = {
             "invalidBusinessNo": string;
         };
         "inventory": {
+            "ingredientNotFound": string;
+            "menuItemNotFound": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;
+            "recipeIngredientNotFound": string;
+            "recipeNotFound": string;
+            "supplierNotFound": string;
         };
         "invoices": {
             "allowanceIssued": string;
@@ -247,9 +252,18 @@ export type I18nTranslations = {
             "voidWriteFailed": string;
         };
         "menus": {
+            "addOnMenuSectionNotFound": string;
             "addOnSelf": string;
+            "fixedSweetnessLevelRequired": string;
+            "menuItemNotFound": string;
+            "menuSectionNotFound": string;
+            "modifierGroupNotFound": string;
+            "modifierNotFound": string;
+            "offerNotFound": string;
             "parentSectionDescendant": string;
+            "parentSectionNotFound": string;
             "parentSectionSelf": string;
+            "printerNotFound": string;
             "selectionCountInvalid": string;
         };
         "orderTickets": {

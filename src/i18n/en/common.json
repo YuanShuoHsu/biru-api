@@ -169,9 +169,14 @@
     "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
   },
   "inventory": {
+    "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
+    "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
-    "recipeIngredientExists": "This ingredient has already been added"
+    "recipeIngredientExists": "This ingredient has already been added",
+    "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
+    "recipeNotFound": "The recipe wasn't found. It may have been deleted",
+    "supplierNotFound": "The supplier wasn't found. It may have been deleted"
   },
   "invoices": {
     "allowanceIssued": "This invoice already has a credit note and cannot be voided",
@@ -195,9 +200,18 @@
     "voidWriteFailed": "Invoice {invoiceNumber} was voided at ECPay but could not be recorded locally. Verify it and fix the record manually"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "The add-on section wasn't found. It may have been deleted",
     "addOnSelf": "An add-on can't be the item itself",
+    "fixedSweetnessLevelRequired": "Please choose a fixed sweetness level when sweetness is fixed",
+    "menuItemNotFound": "The item wasn't found. It may have been deleted",
+    "menuSectionNotFound": "The section wasn't found. It may have been deleted",
+    "modifierGroupNotFound": "The option group wasn't found. It may have been deleted",
+    "modifierNotFound": "The option wasn't found. It may have been deleted",
+    "offerNotFound": "The item's price wasn't found. It may have been deleted",
     "parentSectionDescendant": "A section can't be moved under its own subsection",
+    "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
+    "printerNotFound": "The printer wasn't found. It may have been removed",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orderTickets": {
