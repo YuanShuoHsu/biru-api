@@ -14,6 +14,9 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { Language } from '../db/schema/enums.js';
 import { storePhoto } from '../db/schema/store-photos.js';
@@ -23,6 +26,7 @@ import { localize } from '../menus/menus-public.service.js';
 
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
@@ -73,7 +77,6 @@ export class StorePhotosService {
     } = query;
 
     const storePhotoFieldMap: Record<string, Column | SQL> = {
-      alt: sql`${storePhoto.alt}::text`,
       isActive: sql`${storePhoto.isActive}::text`,
       createdAt: storePhoto.createdAt,
       updatedAt: storePhoto.updatedAt,
@@ -81,28 +84,44 @@ export class StorePhotosService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(storePhotoFieldMap[sortBy]), asc(storePhoto.createdAt)]
+      ? [
+          dir(
+            sortBy === 'alt'
+              ? localizedTextSql(
+                  storePhoto.alt,
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : storePhotoFieldMap[sortBy],
+          ),
+          asc(storePhoto.createdAt),
+        ]
       : [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)];
 
     const where = and(
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'alt' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            storePhoto.alt,
             filterOperator,
             filterValue,
-            storePhotoFieldMap,
-            STORE_PHOTO_STRING_FILTER_FIELDS,
-            STORE_PHOTO_DATE_FILTER_FIELDS,
-            STORE_PHOTO_ENUM_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              storePhotoFieldMap,
+              STORE_PHOTO_STRING_FILTER_FIELDS,
+              STORE_PHOTO_DATE_FILTER_FIELDS,
+              STORE_PHOTO_ENUM_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         enumFields: STORE_PHOTO_ENUM_FILTER_FIELDS,
         fieldMap: storePhotoFieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${storePhoto.alt}::text`, `%${value}%`),
+          buildLocalizedTextFilterCondition(storePhoto.alt, 'contains', value),
           ilike(localTimeText(storePhoto.createdAt), `%${value}%`),
           ilike(localTimeText(storePhoto.updatedAt), `%${value}%`),
         ],
