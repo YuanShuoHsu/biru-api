@@ -1,5 +1,5 @@
 {
-  "id": "8063cbd8-49da-4a7d-8d1d-1545c630b6c2",
+  "id": "59f2d65f-91d6-4c85-bade-046f7ff0ff24",
   "prevId": "2fd668f1-5813-473f-aa96-93d56ba5b22a",
   "version": "7",
   "dialect": "postgresql",
@@ -6357,19 +6357,19 @@
           "name": "address_country",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "address_locality": {
           "name": "address_locality",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "address_region": {
           "name": "address_region",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "extended_address": {
           "name": "extended_address",
@@ -6387,7 +6387,7 @@
           "name": "street_address",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "has_map": {
           "name": "has_map",
@@ -6495,12 +6495,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "organization_address_not_blank": {
-          "name": "organization_address_not_blank",
-          "value": "btrim(\"organization\".\"address_country\") <> '' and btrim(\"organization\".\"address_locality\") <> '' and btrim(\"organization\".\"address_region\") <> '' and btrim(\"organization\".\"street_address\") <> ''"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.organization_qr_secret": {
@@ -10042,6 +10037,65 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.store_photo": {
+      "name": "store_photo",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alt": {
+          "name": "alt",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.account": {
       "name": "account",
       "schema": "",
@@ -10925,7 +10979,8 @@
         "user",
         "team",
         "pointTransaction",
-        "pointSetting"
+        "pointSetting",
+        "storePhoto"
       ]
     },
     "public.coupon_discount_type": {

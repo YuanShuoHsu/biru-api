@@ -46,6 +46,7 @@ export const RESTORABLE_TABLES = [
   'menu_item_modifier_group',
   'coupon',
   'banner',
+  'store_photo',
   'supplier',
   'ingredient',
   'recipe',
@@ -68,6 +69,7 @@ export const LABEL_COLUMNS = [
   'code',
   'email',
   'reference',
+  'alt',
 ] as const;
 
 // 還原等於重新建立，店內成員須具備各表建立端點所要求的權限；不在表內的只有平台管理員能還原（例如優惠券定義只由平台建立）

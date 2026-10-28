@@ -16,5 +16,6 @@ export * from './points.js';
 export * from './printers.js';
 export * from './quant.js';
 export * from './refunds.js';
+export * from './store-photos.js';
 export * from './users.js';
 export * from './waitlist.js';

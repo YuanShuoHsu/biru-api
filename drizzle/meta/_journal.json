@@ -1699,8 +1699,15 @@
     {
       "idx": 242,
       "version": "7",
-      "when": 1793172540017,
-      "tag": "0242_organization_address_required",
+      "when": 1793171156406,
+      "tag": "0242_store_photos",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1793173280934,
+      "tag": "0243_organization_address_required",
       "breakpoints": true
     }
   ]

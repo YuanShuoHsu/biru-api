@@ -148,6 +148,7 @@ const AUDIT_TARGETS: Partial<
   >
 > = {
   banner: { resource: 'banner' },
+  store_photo: { resource: 'storePhoto' },
   coupon: { resource: 'coupon' },
   ingredient: { resource: 'ingredient' },
   invitation: { resource: 'invitation' },
