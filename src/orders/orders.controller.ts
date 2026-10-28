@@ -20,6 +20,7 @@ import {
 } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
+import { ANONYMOUS_THROTTLER } from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -62,7 +63,7 @@ export class OrdersController {
   ) {}
 
   @Post()
-  @Throttle({ default: { limit: 10, ttl: minutes(1) } })
+  @Throttle({ [ANONYMOUS_THROTTLER]: { limit: 10, ttl: minutes(1) } })
   @ApiHeader({
     description: '同一次結帳重試請帶同一把鍵，重送會回傳既有訂單',
     name: 'Idempotency-Key',

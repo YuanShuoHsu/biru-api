@@ -23,6 +23,13 @@ class RejectAfterThrottle implements CanActivate {
   }
 }
 
+const ANONYMOUS_ROUTES = [
+  ['post', '/organizations/shop/orders', 10],
+  ['post', '/organizations/shop/waitlist/tickets', 5],
+  ['post', '/organizations/shop/coupons/validate', 10],
+  ['get', '/gcis/12345678', 20],
+] as const;
+
 describe('THROTTLERS', () => {
   let app: INestApplication<App>;
 
@@ -51,6 +58,7 @@ describe('THROTTLERS', () => {
   afterEach(async () => {
     await app.close();
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   const send = (method: 'get' | 'post', path: string) =>
@@ -65,42 +73,60 @@ describe('THROTTLERS', () => {
     await send(method, path).expect(429);
   };
 
-  it.each([
-    ['post', '/organizations/shop/orders', 10],
-    ['post', '/organizations/shop/waitlist/tickets', 5],
-    ['post', '/organizations/shop/coupons/validate', 10],
-    ['get', '/gcis/12345678', 20],
-  ] as const)('%s %s 每分鐘 %i 次', async (method, path, limit) => {
-    await expectLimit(method, path, limit);
+  describe('設定 TRUSTED_PROXIES 時', () => {
+    beforeEach(() => {
+      vi.stubEnv('TRUSTED_PROXIES', 'loopback');
+    });
 
-    vi.advanceTimersByTime(61_000);
-    await send(method, path).expect(403);
-  });
+    it.each(ANONYMOUS_ROUTES)(
+      '%s %s 每分鐘 %i 次',
+      async (method, path, limit) => {
+        await expectLimit(method, path, limit);
 
-  it('驗優惠碼每小時 50 次', async () => {
-    const path = '/organizations/shop/coupons/validate';
-    for (let minute = 0; minute < 5; minute++) {
-      for (let i = 0; i < 10; i++) await send('post', path).expect(403);
+        vi.advanceTimersByTime(61_000);
+        await send(method, path).expect(403);
+      },
+    );
+
+    it('驗優惠碼每小時 50 次', async () => {
+      const path = '/organizations/shop/coupons/validate';
+      for (let minute = 0; minute < 5; minute++) {
+        for (let i = 0; i < 10; i++) await send('post', path).expect(403);
+        vi.advanceTimersByTime(61_000);
+      }
+
+      await send('post', path).expect(429);
       vi.advanceTimersByTime(61_000);
-    }
+      await send('post', path).expect(429);
 
-    await send('post', path).expect(429);
-    vi.advanceTimersByTime(61_000);
-    await send('post', path).expect(429);
+      vi.advanceTimersByTime(60 * 60_000);
+      await send('post', path).expect(403);
+    });
 
-    vi.advanceTimersByTime(60 * 60_000);
-    await send('post', path).expect(403);
+    it('沒有 @Throttle 的路由維持每分鐘 100 次，也沒有具名 throttler 的標頭', async () => {
+      const path = '/organizations/shop/coupons/available';
+      const first = await send('get', path).expect(403);
+      expect(first.headers['x-ratelimit-limit']).toBe('100');
+      expect(first.headers['x-ratelimit-limit-anonymous']).toBeUndefined();
+      expect(first.headers['x-ratelimit-limit-hourly']).toBeUndefined();
+
+      await expectLimit('get', path, 99);
+
+      vi.advanceTimersByTime(61_000);
+      await expectLimit('get', path, 100);
+    });
   });
 
-  it('沒有 @Throttle 的路由維持每分鐘 100 次，也不受每小時上限影響', async () => {
-    const path = '/organizations/shop/coupons/available';
-    const first = await send('get', path).expect(403);
-    expect(first.headers['x-ratelimit-limit']).toBe('100');
-    expect(first.headers['x-ratelimit-limit-hourly']).toBeUndefined();
+  describe('沒設 TRUSTED_PROXIES 時', () => {
+    beforeEach(() => {
+      vi.stubEnv('TRUSTED_PROXIES', '');
+    });
 
-    await expectLimit('get', path, 99);
-
-    vi.advanceTimersByTime(61_000);
-    await expectLimit('get', path, 100);
+    it.each(ANONYMOUS_ROUTES)(
+      '%s %s 維持每分鐘 100 次',
+      async (method, path) => {
+        await expectLimit(method, path, 100);
+      },
+    );
   });
 });
