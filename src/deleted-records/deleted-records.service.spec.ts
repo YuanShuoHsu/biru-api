@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { ConflictException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
@@ -27,7 +28,7 @@ describe('DeletedRecordsService.restore', () => {
       {} as never,
       {} as never,
       { emit: vi.fn() } as unknown as EventEmitter2,
-      {} as I18nService,
+      { t: (key: string) => key } as unknown as I18nService,
       {} as never,
     );
   }, 60_000);
@@ -55,6 +56,30 @@ describe('DeletedRecordsService.restore', () => {
     expect(await db.select({ id: banner.id }).from(banner)).toEqual([
       { id: 'b1' },
     ]);
+  });
+
+  it('不符合目前必填規則的門市無法還原，回 409 而不是 500', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 99,
+      tableName: 'organization',
+      recordId: 'old',
+      data: {
+        id: 'old',
+        name: '舊門市',
+        slug: 'old',
+        created_at: '2026-01-01T00:00:00',
+      },
+    });
+
+    await expect(
+      service.restore([99], {
+        id: 'admin',
+        name: 'admin',
+        email: 'admin@example.com',
+      }),
+    ).rejects.toEqual(
+      new ConflictException('common.deletedRecords.restoreInvalid'),
+    );
   });
 });
 

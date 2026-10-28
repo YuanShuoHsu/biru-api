@@ -65,7 +65,7 @@ describe('CouponsService.update', () => {
 
   it('改回整單券時清除原本指定的品項與分類', async () => {
     await client.exec(
-      `insert into organization (id, name, slug, created_at) values ('org', 'org', 'org', now())`,
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'org', 'org', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
     );
     const { id } = await service.create({
       applicableOrganizationIds: ['org'],

@@ -152,7 +152,8 @@
   },
   "deletedRecords": {
     "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email, or the member is already in the store).",
-    "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first."
+    "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first.",
+    "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead."
   },
   "exceptions": {
     "internalServerError": "Internal server error",

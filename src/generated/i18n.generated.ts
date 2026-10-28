@@ -205,6 +205,7 @@ export type I18nTranslations = {
         "deletedRecords": {
             "restoreConflict": string;
             "restoreMissingReference": string;
+            "restoreInvalid": string;
         };
         "exceptions": {
             "internalServerError": string;

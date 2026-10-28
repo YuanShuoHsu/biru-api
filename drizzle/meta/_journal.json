@@ -1688,6 +1688,13 @@
       "when": 1793129106825,
       "tag": "0240_point_setting",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1793165042144,
+      "tag": "0241_organization_address_required",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,7 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
       'truncate attendance_request, attendance_event, attendance_shift, attendance_employee, organization, "user" cascade',
     );
     await client.exec(
-      `insert into organization (id, name, slug, created_at) values ('${ORG}', '碧露', 'biru', now());
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('${ORG}', '碧露', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "user" (id, name, first_name, email, lang) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW');
        insert into attendance_employee (id, organization_id, user_id, hired_at) values ('emp', '${ORG}', 'amy', now() - interval '1 year');`,
     );

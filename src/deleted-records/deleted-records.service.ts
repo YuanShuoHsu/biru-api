@@ -248,7 +248,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     private readonly payrollEarnings: PayrollEarningsService,
   ) {}
 
-  private t(key: 'restoreConflict' | 'restoreMissingReference'): string {
+  private t(
+    key: 'restoreConflict' | 'restoreMissingReference' | 'restoreInvalid',
+  ): string {
     return this.i18n.t(`common.deletedRecords.${key}`, {
       lang: I18nContext.current()?.lang,
     });
@@ -561,6 +563,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       return new ConflictException(this.t('restoreConflict'));
     if (code === '23503')
       return new ConflictException(this.t('restoreMissingReference'));
+    if (code === '23502' || code === '23514')
+      return new ConflictException(this.t('restoreInvalid'));
 
     return error;
   }

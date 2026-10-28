@@ -1,6 +1,7 @@
 import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   integer,
   numeric,
@@ -31,12 +32,12 @@ export const organization = pgTable(
     metadata: text('metadata'),
     // additional fields
     // https://schema.org/PostalAddress
-    addressCountry: text('address_country'),
-    addressLocality: text('address_locality'),
-    addressRegion: text('address_region'),
+    addressCountry: text('address_country').notNull(),
+    addressLocality: text('address_locality').notNull(),
+    addressRegion: text('address_region').notNull(),
     extendedAddress: text('extended_address'),
     postalCode: text('postal_code'),
-    streetAddress: text('street_address'),
+    streetAddress: text('street_address').notNull(),
 
     // https://schema.org/LocalBusiness
     hasMap: text('has_map'),
@@ -56,7 +57,13 @@ export const organization = pgTable(
     dineInTableCount: integer('dine_in_table_count'),
     closedAt: timestamp('closed_at'),
   },
-  (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
+  (table) => [
+    uniqueIndex('organization_slug_uidx').on(table.slug),
+    check(
+      'organization_address_not_blank',
+      sql`btrim(${table.addressCountry}) <> '' and btrim(${table.addressLocality}) <> '' and btrim(${table.addressRegion}) <> '' and btrim(${table.streetAddress}) <> ''`,
+    ),
+  ],
 );
 
 export type Organization = typeof organization.$inferSelect;
