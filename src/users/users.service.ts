@@ -21,6 +21,7 @@ import {
   buildQuickFilterCondition,
   buildStringFilterCondition,
   localTimeText,
+  NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
@@ -61,8 +62,6 @@ import {
 } from './dto/user-session-pagination-query.dto.js';
 import type { UserSessionListResponseDto } from './dto/user-session-response.dto.js';
 import type { UserStatsResponseDto } from './dto/user-stats.dto.js';
-
-const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
 const buildEnumFilterCondition = (
   field: typeof user.role,
