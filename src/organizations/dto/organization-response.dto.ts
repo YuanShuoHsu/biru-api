@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { PICKUP_MAX_ADVANCE_DAYS } from '../../common/constants/pickup.js';
+
+import { PublicSpecialHoursDto } from './special-hours.dto.js';
+
 export class OrganizationResponseDto {
   @ApiProperty()
   id: string;
@@ -78,6 +82,14 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   closedAt: Date | null;
+}
+
+export class OrganizationDetailResponseDto extends OrganizationResponseDto {
+  @ApiProperty({
+    type: [PublicSpecialHoursDto],
+    description: `與今天到 ${PICKUP_MAX_ADVANCE_DAYS} 天後（含兩端）重疊的特殊營業日，不隨店家的自取預約天數設定變動`,
+  })
+  specialHours: PublicSpecialHoursDto[];
 }
 
 export class MyOrganizationListItemDto extends OrganizationResponseDto {

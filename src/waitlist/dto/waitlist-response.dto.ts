@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
+import { PublicSpecialHoursDto } from '../../organizations/dto/special-hours.dto.js';
 import {
   waitlistTicketStatusEnum,
   type WaitlistTicketStatus,
@@ -33,6 +34,12 @@ export class WaitlistStatusResponseDto {
   groups: WaitlistGroupStatusDto[];
   @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
   @ApiProperty() paused: boolean;
+  @ApiProperty({
+    type: [PublicSpecialHoursDto],
+    description:
+      '日期範圍涵蓋今天的特殊營業日（最多一筆）；open 與 cutoff 另外也套用了前一天特殊營業日延到今天凌晨的跨夜時段，該筆不列在這裡',
+  })
+  specialHours: PublicSpecialHoursDto[];
 }
 
 export class WaitlistTicketResponseDto {
@@ -103,6 +110,12 @@ export class AdminWaitlistResponseDto {
   @ApiProperty() holdMinutes: number;
   @ApiProperty({ description: '是否在營業時間內' }) open: boolean;
   @ApiProperty() paused: boolean;
+  @ApiProperty({
+    type: [PublicSpecialHoursDto],
+    description:
+      '日期範圍涵蓋今天的特殊營業日（最多一筆）；open 與 cutoff 另外也套用了前一天特殊營業日延到今天凌晨的跨夜時段，該筆不列在這裡',
+  })
+  specialHours: PublicSpecialHoursDto[];
   @ApiProperty({
     type: [AdminWaitlistTicketDto],
     description: '進行中的號碼牌與今日已結束的號碼牌',

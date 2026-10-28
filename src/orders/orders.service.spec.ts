@@ -4,6 +4,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
+import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import { invoice } from '../db/schema/invoices.js';
 import { order } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
@@ -82,9 +83,11 @@ const createService = ({
   consumeError,
   lowStock = [],
   offerStockChanged = false,
+  openingHours = null,
   qrSecret = QR_SECRET,
   queuedPrepMinutes = 0,
   replayed,
+  specialHours = [],
   txDuplicate,
 }: {
   applied?: { coupon: { code: string }; discount: number } | null;
@@ -92,9 +95,11 @@ const createService = ({
   consumeError?: Error;
   lowStock?: { id: string; name: Record<string, string> }[];
   offerStockChanged?: boolean;
+  openingHours?: string | null;
   qrSecret?: string | null;
   queuedPrepMinutes?: number;
   replayed?: { id: string; idempotencyFingerprint: string | null };
+  specialHours?: SpecialOpeningHours[];
   txDuplicate?: { id: string; orderStatus: string };
 } = {}) => {
   const inserted = new Map<unknown, unknown>();
@@ -133,12 +138,15 @@ const createService = ({
           currency: 'TWD',
           dineInTableCount: 12,
           id: ORG_ID,
-          openingHours: null,
+          openingHours,
           pickupCutoffMinutes: 15,
           pickupLeadMinutes: 15,
           pickupMaxAdvanceDays: 7,
           pointsValidityYears: 1,
         }),
+      },
+      organizationSpecialHours: {
+        findMany: vi.fn().mockResolvedValue(specialHours),
       },
     },
     select: vi.fn(() => selectChain([{ name: { 'zh-TW': '蛋糕' } }])),
@@ -443,6 +451,80 @@ describe('OrdersService.createOrder', () => {
       expect(inserted.get(order)).toMatchObject({
         pickupTime: new Date(pickupAt(15)),
       });
+    });
+
+    it('特殊營業日整天公休時拒絕自取', async () => {
+      const { db, service } = createService({
+        specialHours: [
+          {
+            openingHours: null,
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await expect(
+        service.createOrder('slug', pickupDto(45), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('特殊營業日的時段內可以自取，即使每週營業時間沒開', async () => {
+      const { inserted, service } = createService({
+        openingHours: 'Mo 09:00-18:00',
+        specialHours: [
+          {
+            openingHours: 'We 10:00-18:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
+    it('前一天特殊營業日的跨夜時段延到今天凌晨，可以在凌晨自取', async () => {
+      const { inserted, service } = createService({
+        openingHours: 'Mo 09:00-18:00',
+        specialHours: [
+          {
+            openingHours: 'We 20:00-02:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await service.createOrder('slug', pickupDto(15 * 60), null, null);
+      await expect(
+        service.createOrder('slug', pickupDto(16 * 60 + 30), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(15 * 60)),
+      });
+    });
+
+    it('取餐時間在特殊營業日的時段外會被擋', async () => {
+      const { service } = createService({
+        specialHours: [
+          {
+            openingHours: 'We 14:00-18:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await expect(
+        service.createOrder('slug', pickupDto(45), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
     });
   });
 

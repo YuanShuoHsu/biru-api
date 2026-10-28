@@ -9,6 +9,8 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
+import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
+import { DAY_MS, platformDateString } from '../common/constants/timezone.js';
 import { resolveAuditLabels } from '../common/utils/audit-resources.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -318,5 +320,64 @@ describe('OrganizationsService 轉為真正店主', () => {
     await expect(service.confirmOwner('biru', 'm-sue', root)).rejects.toThrow(
       NotFoundException,
     );
+  });
+});
+
+describe('OrganizationsService.upcomingSpecialHours', () => {
+  let client: PGlite;
+  let service: OrganizationsService;
+
+  const day = (offset: number) =>
+    platformDateString(new Date(Date.now() + offset * DAY_MS));
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    service = new OrganizationsService(
+      pglite as unknown as DrizzleDB,
+      { t: (key: string) => key } as never,
+    );
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+      insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours, note) values
+        ('ended', 'biru', '${day(-4)}', '${day(-2)}', null, null),
+        ('ongoing', 'biru', '${day(-1)}', '${day(0)}', null, '颱風停業'),
+        ('last', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', 'Mo-Su 10:00-15:00', null),
+        ('beyond', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', null, null),
+        ('other-yesterday', 'other', '${day(-2)}', '${day(-1)}', null, null),
+        ('other', 'other', '${day(1)}', '${day(1)}', null, null);
+    `);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('從今天到可預約自取的最遠日期，只回這家店的特殊營業日', async () => {
+    await expect(service.upcomingSpecialHours('biru')).resolves.toEqual([
+      {
+        id: 'ongoing',
+        note: '颱風停業',
+        openingHours: null,
+        validFrom: day(-1),
+        validThrough: day(0),
+      },
+      {
+        id: 'last',
+        note: null,
+        openingHours: 'Mo-Su 10:00-15:00',
+        validFrom: day(PICKUP_MAX_ADVANCE_DAYS),
+        validThrough: day(PICKUP_MAX_ADVANCE_DAYS + 2),
+      },
+    ]);
+  });
+
+  it('昨天結束的特殊營業日不列出', async () => {
+    const specialHours = await service.upcomingSpecialHours('other');
+
+    expect(specialHours.map(({ id }) => id)).toEqual(['other']);
   });
 });
