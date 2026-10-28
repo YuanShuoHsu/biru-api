@@ -383,6 +383,10 @@ export type I18nTranslations = {
             "quantityExceeded": string;
             "resultUnknown": string;
         };
+        "reports": {
+            "rangeInvalid": string;
+            "rangeTooLong": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;

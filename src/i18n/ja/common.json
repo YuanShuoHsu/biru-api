@@ -331,6 +331,10 @@
     "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます",
     "resultUnknown": "返金を送信しましたが、ECPay からの結果がまだ届いていません。再操作はしないでください。システムが自動的に照合し、確認後にこの返金の状態を更新します。"
   },
+  "reports": {
+    "rangeInvalid": "終了日時は開始日時より後にしてください。",
+    "rangeTooLong": "レポートの期間は最大 366 日です。"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "営業時間外のため、受付を停止しています。",
