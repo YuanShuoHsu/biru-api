@@ -17,6 +17,12 @@ import {
 import { WaitlistGroupDto } from './waitlist-group.dto.js';
 
 export class WaitlistGroupStatusDto extends WaitlistGroupDto {
+  @ApiProperty({
+    type: [String],
+    description: '叫號中尚未入座、過號或取消的號碼，最近叫號的在前，最多 5 筆',
+    example: ['A008', 'A007'],
+  })
+  calledTicketNumbers: string[];
   @ApiPropertyOptional({
     description:
       '最近一次叫號的號碼（之後入座、過號或取消仍保留），尚未叫號為 null',

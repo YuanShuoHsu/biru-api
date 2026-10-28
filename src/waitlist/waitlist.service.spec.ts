@@ -383,6 +383,49 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
     });
   });
 
+  it('lists up to five numbers still on call per group, latest first', async () => {
+    const { db, service } = createService({
+      setting: {
+        enabled: true,
+        groups: [
+          { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
+          { maxPartySize: 4, minPartySize: 3, prefix: 'B' },
+        ],
+        paused: false,
+      },
+    });
+    const calledAt = (minute: number) =>
+      new Date(`2026-10-06T04:${String(minute).padStart(2, '0')}:00Z`);
+    Object.assign(db, {
+      select: selectReturning([
+        { calledAt: calledAt(50), number: 14, prefix: 'A', status: 'seated' },
+        { calledAt: calledAt(45), number: 13, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(40), number: 12, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(35), number: 11, prefix: 'A', status: 'noShow' },
+        { calledAt: calledAt(30), number: 10, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(25), number: 9, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(20), number: 8, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(15), number: 7, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(10), number: 1, prefix: 'B', status: 'seated' },
+        { calledAt: null, number: 15, prefix: 'A', status: 'waiting' },
+        { calledAt: null, number: 2, prefix: 'B', status: 'waiting' },
+      ]),
+    });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('org'),
+    ).resolves.toMatchObject({
+      groups: [
+        {
+          calledTicketNumbers: ['A013', 'A012', 'A010', 'A009', 'A008'],
+          currentTicketNumber: 'A014',
+          prefix: 'A',
+        },
+        { calledTicketNumbers: [], currentTicketNumber: 'B001', prefix: 'B' },
+      ],
+    });
+  });
+
   it("applies and returns today's special hours only", async () => {
     vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
     const today = {
