@@ -42,7 +42,7 @@ export class CreateAttendanceRequestDto {
   @IsDateString() startsAt: string;
   @IsDateString() endsAt: string;
   @IsString() @MinLength(1) @MaxLength(1000) reason: string;
-  @IsOptional() @IsString() leaveTypeId?: string;
+  @IsOptional() @IsUUID() leaveTypeId?: string;
   @IsOptional()
   @IsArray()
   @ArrayMinSize(2)
