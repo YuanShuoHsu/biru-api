@@ -355,6 +355,27 @@ export const resolveAuditLabels = async (
     );
   }
 
+  if (resource === 'recipe') {
+    const menuItems = await selectByIds(
+      db,
+      menuItem,
+      [...resolved.values()].map(({ menuItemId }) => asId(menuItemId)),
+    );
+
+    return new Map(
+      [...resolved].map(([resourceId, row]) => [
+        resourceId,
+        {
+          resourceLabel: asLabel(row.name),
+          ancestorIds: compact(
+            asId(menuItems.get(asId(row.menuItemId) ?? '')?.menuSectionId),
+            asId(row.menuItemId),
+          ),
+        },
+      ]),
+    );
+  }
+
   return new Map(
     [...resolved].map(([resourceId, row]) => {
       switch (resource) {
