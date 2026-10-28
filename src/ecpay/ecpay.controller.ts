@@ -160,7 +160,7 @@ export class EcpayController {
     if (
       !(await this.ordersService.canReadOrderById(
         orderId,
-        session?.user.id ?? null,
+        session?.user ?? null,
         accessToken ?? null,
       ))
     )

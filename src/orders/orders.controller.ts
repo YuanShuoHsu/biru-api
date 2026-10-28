@@ -140,7 +140,7 @@ export class OrdersController {
     return this.ordersService.getOrder(
       organizationSlug,
       orderId,
-      session?.user.id || null,
+      session?.user ?? null,
       accessToken || null,
     );
   }

@@ -670,3 +670,50 @@ describe('OrdersService.createOrder', () => {
     });
   });
 });
+
+describe('OrdersService.canReadOrderById', () => {
+  const serviceWith = (role: string | null) => {
+    const { db, service } = createService();
+    const findMember = vi.fn().mockResolvedValue(role && { role });
+    Object.assign(db.query, {
+      member: { findFirst: findMember },
+      order: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'o1',
+          sellerId: ORG_ID,
+          userId: 'customer',
+        }),
+      },
+    });
+    return { findMember, service };
+  };
+
+  it('沒有成員資格的平台管理員可以讀', async () => {
+    const { findMember, service } = serviceWith(null);
+
+    await expect(
+      service.canReadOrderById('o1', { id: 'platform', role: 'admin' }, null),
+    ).resolves.toBe(true);
+    expect(findMember).not.toHaveBeenCalled();
+  });
+
+  it('沒有成員資格的一般使用者不能讀', async () => {
+    await expect(
+      serviceWith(null).service.canReadOrderById(
+        'o1',
+        { id: 'stranger', role: 'user' },
+        null,
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it('門市成員可以讀', async () => {
+    await expect(
+      serviceWith('member').service.canReadOrderById(
+        'o1',
+        { id: 'staff', role: 'user' },
+        null,
+      ),
+    ).resolves.toBe(true);
+  });
+});
