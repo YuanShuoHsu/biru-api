@@ -2,6 +2,7 @@ import {
   displayPrepMinutes,
   estimatePrepMinutes,
   itemLeadTimeMinutes,
+  observedItemPrepMinutes,
   observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
@@ -16,6 +17,20 @@ const readyEvery = (minutes: number[], startedOffset = -60) =>
   }));
 
 describe('prep estimate', () => {
+  it('品項實際平均：多品項訂單計入單內每個品項，同單重複只算一筆，不足 5 筆回 null', () => {
+    const observedOf = observedItemPrepMinutes(
+      [6, 8, 10, 12, 14].map((minutes, index) => ({
+        menuItemIds: index ? ['latte', 'cake'] : ['latte', 'latte'],
+        readyAt: NOW,
+        startedAt: inMinutes(-minutes),
+      })),
+    );
+
+    expect(observedOf('latte')).toEqual({ averageMinutes: 10, sampleSize: 5 });
+    expect(observedOf('cake')).toEqual({ averageMinutes: null, sampleSize: 4 });
+    expect(observedOf('tea')).toEqual({ averageMinutes: null, sampleSize: 0 });
+  });
+
   it('品項與加購取備餐時間最長的一項', () => {
     const leadTimes: Record<string, number> = { latte: 5, cake: 12 };
 

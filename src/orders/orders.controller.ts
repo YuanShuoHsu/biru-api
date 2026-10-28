@@ -32,7 +32,10 @@ import {
 } from './dto/create-order.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
-import { PrepEstimateResponseDto } from './dto/prep-estimate-response.dto.js';
+import {
+  PrepEstimateResponseDto,
+  PrepTimeResponseDto,
+} from './dto/prep-estimate-response.dto.js';
 import {
   CreateOrderResponseDto,
   OrderReceiptResponseDto,
@@ -126,6 +129,15 @@ export class OrdersController {
     @Param('organizationSlug') organizationSlug: string,
   ): Promise<PrepEstimateResponseDto> {
     return this.prepEstimateService.findBySlug(organizationSlug);
+  }
+
+  @Get('prep-times')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '查詢各品項設定的備餐時間與近 14 天實際平均' })
+  findPrepTimes(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<PrepTimeResponseDto[]> {
+    return this.prepEstimateService.findPrepTimesBySlug(organizationSlug);
   }
 
   @Get(':orderId')
