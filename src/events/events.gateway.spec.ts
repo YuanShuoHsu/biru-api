@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
 import type { Namespace, Socket } from 'socket.io';
 
@@ -161,7 +162,9 @@ describe('EventsGateway protected rooms', () => {
       {} as AuthService,
       {} as PublicMenusService,
       {} as OrdersService,
-      {} as PrepEstimateService,
+      {
+        findByOrganizationId: () => Promise.resolve(null),
+      } as unknown as PrepEstimateService,
       {} as WaitlistService,
       { query: { user: { findMany } } } as unknown as DrizzleDB,
     );
@@ -245,7 +248,7 @@ describe('EventsGateway protected rooms', () => {
     ]);
     connect('a', 'waitlist:org', 'staff');
 
-    gateway.handleWaitlistUpdated({ organizationId: 'org' });
+    gateway.handleWaitlistUpdated({ organizationId: 'org', ticket: null });
     await nextTick();
 
     expect(receivedBy('a')).toEqual([['waitlistUpdated']]);
@@ -257,7 +260,7 @@ describe('EventsGateway protected rooms', () => {
     ]);
     connect('a', 'waitlist:org', 'platform');
 
-    gateway.handleWaitlistUpdated({ organizationId: 'org' });
+    gateway.handleWaitlistUpdated({ organizationId: 'org', ticket: null });
     await nextTick();
 
     expect(receivedBy('a')).toEqual([['waitlistUpdated']]);
@@ -272,6 +275,55 @@ describe('EventsGateway protected rooms', () => {
 
     expect(receivedBy('a')).toEqual([]);
     expect(rooms.get('orders-board:org')!.size).toBe(0);
+  });
+
+  it('訂單狀態變更時移出門市的成員收不到看板更新，訂單 room 與公開看板照常', async () => {
+    const { connect, gateway, receivedBy, rooms } = setup([
+      { id: 'removed' },
+      { id: 'staff', memberRole: 'member' },
+    ]);
+    connect('a', 'orders-board:org', 'removed');
+    connect('b', 'orders-board:org', 'staff');
+    connect('guest', 'order:o1');
+    connect('screen', 'public-orders-board:org');
+
+    gateway.handleOrderStatusUpdated({
+      orderId: 'o1',
+      orderStatus: 'OrderPickupAvailable',
+      organizationId: 'org',
+    });
+    await nextTick();
+
+    expect(receivedBy('a')).toEqual([]);
+    expect(receivedBy('b')).toEqual([['orderUpdated']]);
+    expect(receivedBy('guest')).toEqual([
+      ['orderStatusUpdated', { orderStatus: 'OrderPickupAvailable' }],
+    ]);
+    expect(receivedBy('screen')).toEqual([['orderBoardUpdated']]);
+    expect([...rooms.get('orders-board:org')!]).toEqual(['b']);
+  });
+
+  it('權限查詢失敗時只記錄錯誤，不推播也不拋出', async () => {
+    const { connect, findMany, gateway, receivedBy } = setup([
+      { id: 'staff', memberRole: 'member' },
+    ]);
+    const logError = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    findMany.mockRejectedValueOnce(new Error('db down'));
+    connect('a', 'inventory:org', 'staff');
+
+    expect(() =>
+      gateway.handleLowStockReached({
+        organizationId: 'org',
+        ingredients: [],
+      } as never),
+    ).not.toThrow();
+    await nextTick();
+
+    expect(receivedBy('a')).toEqual([]);
+    expect(logError).toHaveBeenCalledOnce();
+    logError.mockRestore();
   });
 
   it('room 沒人時不查詢權限', async () => {

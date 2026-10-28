@@ -15,7 +15,6 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
-import { LeaveOrderDto } from './dto/leave-order.dto.js';
 import type { LowStockReachedEvent } from './low-stock-reached.event.js';
 import { LOW_STOCK_REACHED_EVENT } from './low-stock-reached.event.js';
 import type { MenuUpdatedEvent } from './menu-updated.event.js';
@@ -144,7 +143,7 @@ export class EventsGateway {
   @SubscribeMessage('leaveOrder')
   async leaveOrder(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { orderId }: LeaveOrderDto,
+    @MessageBody() { orderId }: JoinOrderDto,
   ) {
     await client.leave(orderRoom(orderId));
   }
