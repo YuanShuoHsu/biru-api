@@ -31,6 +31,7 @@ import {
 import { assertUserDeletable } from './deletion-guards.js';
 import type { LocalizeAuthError } from './i18n.js';
 import { assertKeepsOwner, assertMayManageMember } from './owner-guards.js';
+import { removeRevokedPlatformAdminMemberships } from './platform-admin-members.js';
 
 import type {
   AuditAction,
@@ -346,6 +347,8 @@ const MEMBER_MANAGEMENT_PATHS = new Set([
 
 const SELF_DELETE_PATHS = new Set(['/delete-user', '/delete-user/callback']);
 
+const PLATFORM_ROLE_PATHS = new Set(['/admin/set-role', '/admin/update-user']);
+
 const REVOKE_SESSION_PATHS = new Set([
   '/admin/revoke-user-session',
   '/admin/revoke-user-sessions',
@@ -541,10 +544,24 @@ export const createAuthHooks = (localizeError: LocalizeAuthError) => ({
         logger.error('Failed to erase deleted account copies', error);
       }
 
+    const roleTargetId = asString(asRow(ctx.body)?.userId);
+    const removedMembers =
+      PLATFORM_ROLE_PATHS.has(ctx.path) &&
+      roleTargetId &&
+      !isAPIError(ctx.context.returned)
+        ? await removeRevokedPlatformAdminMemberships(roleTargetId)
+        : [];
+
     const returned = asRow(ctx.context.returned);
     if (!returned || isAPIError(returned)) return;
 
-    const events = toEvents(ctx.path, asRow(ctx.body) ?? {}, returned, before);
+    const events = [
+      ...toEvents(ctx.path, asRow(ctx.body) ?? {}, returned, before),
+      ...removedMembers.map((row): Event => ({
+        target: { resource: 'member', id: row.id },
+        before: row,
+      })),
+    ];
     if (!events.length) return;
 
     try {

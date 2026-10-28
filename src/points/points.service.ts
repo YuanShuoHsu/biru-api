@@ -15,7 +15,6 @@ import {
   desc,
   eq,
   gt,
-  gte,
   ilike,
   inArray,
   isNotNull,
@@ -35,7 +34,11 @@ import {
   orderItem,
 } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
-import { pointTransaction } from '../db/schema/points.js';
+import {
+  POINT_SETTING_ID,
+  pointSetting,
+  pointTransaction,
+} from '../db/schema/points.js';
 import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -68,6 +71,20 @@ import type {
 } from './dto/points-response.dto.js';
 
 const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
+
+// 沒有快照的訂單只認啟用點數之後付款的，避免回溯補發整段歷史
+const earnedFromSnapshotOr = <T>(snapshot: Column, current: Column) =>
+  sql<T>`CASE WHEN ${order.amountPerPoint} IS NOT NULL THEN ${snapshot} WHEN ${order.paymentDate} >= ${pointSetting.pointsEnabledAt} THEN ${current} END`;
+
+const EARN_AMOUNT_PER_POINT = earnedFromSnapshotOr<string | null>(
+  order.amountPerPoint,
+  pointSetting.amountPerPoint,
+);
+
+const EARN_VALIDITY_YEARS = earnedFromSnapshotOr<number | null>(
+  order.pointsValidityYears,
+  pointSetting.pointsValidityYears,
+);
 
 const toExpiresAt = (
   paymentDate: Date,
@@ -128,22 +145,19 @@ export class PointsService {
   private async syncEarned(
     scope: { userId: string } | { organizationId: string },
   ): Promise<void> {
-    // 費率以付款當下的訂單快照為準；早於快照欄位的歷史訂單 fallback 組織現值
     const unrecorded = await this.db
       .select({
-        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
+        amountPerPoint: EARN_AMOUNT_PER_POINT,
         discount: order.discount,
         orderId: order.id,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: sql<
-          number | null
-        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
+        pointsValidityYears: EARN_VALIDITY_YEARS,
         subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
         userId: order.userId,
       })
       .from(order)
-      .innerJoin(organization, eq(order.sellerId, organization.id))
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
       .leftJoin(orderItem, eq(orderItem.orderId, order.id))
       .leftJoin(
         pointTransaction,
@@ -162,13 +176,11 @@ export class PointsService {
               ),
           isNotNull(order.paymentDate),
           notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
-          sql`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint}) > 0`,
-          // 僅累計啟用點數之後付款的訂單，避免回溯補發整段歷史
-          gte(order.paymentDate, organization.pointsEnabledAt),
+          sql`${EARN_AMOUNT_PER_POINT} > 0`,
           isNull(pointTransaction.id),
         ),
       )
-      .groupBy(order.id, organization.id);
+      .groupBy(order.id, pointSetting.id);
 
     const earns = unrecorded.flatMap((row) => {
       const total = Number(row.subtotal) - Number(row.discount || 0);
@@ -353,21 +365,19 @@ export class PointsService {
   } | null> {
     const [found] = await tx
       .select({
-        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
+        amountPerPoint: EARN_AMOUNT_PER_POINT,
         discount: order.discount,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: sql<
-          number | null
-        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
+        pointsValidityYears: EARN_VALIDITY_YEARS,
         subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
         userId: order.userId,
       })
       .from(order)
-      .innerJoin(organization, eq(order.sellerId, organization.id))
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
       .leftJoin(orderItem, eq(orderItem.orderId, order.id))
       .where(eq(order.id, orderId))
-      .groupBy(order.id, organization.id);
+      .groupBy(order.id, pointSetting.id);
 
     if (!found?.userId) return null;
 
@@ -505,16 +515,10 @@ export class PointsService {
       this.db,
       organizationSlug,
     );
-    const [{ amountPerPoint, pointsEnabledAt, pointsValidityYears }] =
-      await this.db
-        .select({
-          amountPerPoint: organization.amountPerPoint,
-          pointsEnabledAt: organization.pointsEnabledAt,
-          pointsValidityYears: organization.pointsValidityYears,
-        })
-        .from(organization)
-        .where(eq(organization.id, organizationId));
-    if (!pointsEnabledAt) throw new BadRequestException(this.t('notEnabled'));
+    const setting = await this.db.query.pointSetting.findFirst();
+    if (!setting?.pointsEnabledAt)
+      throw new BadRequestException(this.t('notEnabled'));
+    const { amountPerPoint, pointsValidityYears } = setting;
 
     const maxNonOwnerPoints =
       Number(amountPerPoint) > 0

@@ -5,6 +5,7 @@ import type { AuditAction, AuditResource } from '../../db/schema/audit.js';
 export const AUDIT_KEY = 'audit';
 
 export type AuditIdSource =
+  | { id: string }
   | { param: string }
   | { body: string }
   | { response: true }

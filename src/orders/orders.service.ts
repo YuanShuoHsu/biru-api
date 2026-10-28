@@ -65,10 +65,7 @@ import {
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
-import {
-  getMinutesUntilClose,
-  isWithinOpeningHours,
-} from '../common/utils/opening-hours.js';
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
@@ -132,6 +129,8 @@ import {
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { pickupHoursError } from './pickup-hours.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -369,7 +368,7 @@ export class OrdersService {
   }
 
   private resolvePickupTime(org: Organization, value?: string): Date {
-    if (!value) throw new BadRequestException('pickupTime is required');
+    if (!value) throw new BadRequestException(this.t('pickupTimeInvalid'));
 
     const now = Date.now();
     const leadMs = Math.max(org.pickupLeadMinutes, 0) * 60 * 1000;
@@ -377,7 +376,7 @@ export class OrdersService {
     const pickupTime = new Date(value);
 
     if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
-      throw new BadRequestException('pickupTime is not on the pickup interval');
+      throw new BadRequestException(this.t('pickupTimeInvalid'));
 
     if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
       throw new BadRequestException(this.t('pickupTooSoon'));
@@ -387,14 +386,12 @@ export class OrdersService {
     if (pickupTime.getTime() >= advanceLimit)
       throw new BadRequestException(this.t('pickupTooFarAhead'));
 
-    if (!isWithinOpeningHours(org.openingHours, pickupTime))
-      throw new BadRequestException(this.t('pickupOutsideOpeningHours'));
-
-    if (
-      getMinutesUntilClose(org.openingHours, pickupTime) <
-      Math.max(org.pickupCutoffMinutes, 0)
-    )
-      throw new BadRequestException(this.t('pickupTooCloseToClosing'));
+    const hoursError = pickupHoursError(
+      openingCalendar(org.openingHours, []),
+      org.pickupCutoffMinutes,
+      pickupTime,
+    );
+    if (hoursError) throw new BadRequestException(this.t(hoursError));
 
     return pickupTime;
   }
@@ -434,12 +431,8 @@ export class OrdersService {
     )
       throw new BadRequestException(this.t('invalidTable'));
 
-    if (
-      (dto.mode === 'counter' || dto.mode === 'driveThru') &&
-      dto.payment === 'Cash' &&
-      !hasQrSession
-    )
-      throw new BadRequestException(this.t('cashRequiresInStoreQrCode'));
+    if ((dto.mode === 'counter' || dto.mode === 'driveThru') && !hasQrSession)
+      throw new BadRequestException(this.t('inStoreQrCodeRequired'));
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
@@ -468,6 +461,14 @@ export class OrdersService {
       dto.mode,
       pickupTime ?? new Date(),
     );
+
+    const itemLeadMs =
+      Math.max(0, ...orderItemsData.map((i) => i.leadTimeMinutes)) * 60 * 1000;
+    if (
+      pickupTime &&
+      pickupTime.getTime() < Date.now() + itemLeadMs - PICKUP_LEAD_TOLERANCE_MS
+    )
+      throw new BadRequestException(this.t('pickupTooSoon'));
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
     if (subtotal > MAX_ORDER_AMOUNT)
@@ -547,8 +548,7 @@ export class OrdersService {
             ...(total <= 0 && {
               orderStatus: 'OrderProcessing' as const,
               paymentDate: new Date(),
-              amountPerPoint: org.amountPerPoint,
-              pointsValidityYears: org.pointsValidityYears,
+              ...POINTS_SNAPSHOT_SET,
             }),
           })
           .returning();

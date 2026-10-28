@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import { order } from '../db/schema/orders.js';
+import type { order } from '../db/schema/orders.js';
+import { pointSetting } from '../db/schema/points.js';
 
 export const POINTS_SNAPSHOT_SET = {
-  amountPerPoint: sql`(SELECT o.amount_per_point FROM organization o WHERE o.id = ${order.sellerId})`,
-  pointsValidityYears: sql`(SELECT o.points_validity_years FROM organization o WHERE o.id = ${order.sellerId})`,
+  amountPerPoint: sql`(SELECT ${pointSetting.amountPerPoint} FROM ${pointSetting})`,
+  pointsValidityYears: sql`(SELECT ${pointSetting.pointsValidityYears} FROM ${pointSetting})`,
 } satisfies PgUpdateSetSource<typeof order>;

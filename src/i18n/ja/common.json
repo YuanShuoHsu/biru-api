@@ -229,10 +229,12 @@
     "tableNumber": "テーブル {tableNumber}"
   },
   "orders": {
-    "cashRequiresInStoreQrCode": "現金でお支払いの場合は、店内の QR コードを読み取ってご注文ください",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
+    "inStoreQrCodeRequired": "店内の QR コードを読み取ってご注文ください",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
+    "menuChanged": "メニューが更新されました。カートの内容をご確認ください",
     "menuItemInsufficientStock": "「{name}」の残りが足りません。数量を減らすか、別の品目をお選びください",
+    "menuItemOptionsInvalid": "「{name}」のオプションをもう一度ご確認ください",
     "menuItemUnavailable": "「{name}」は現在ご提供できません",
     "menuItemUnavailableAtTime": "「{name}」は選択した受取時間にはご提供できません",
     "menuItemUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
@@ -241,21 +243,24 @@
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
+    "pickupTimeInvalid": "有効な受取時間を選択してください",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",
     "pickupTooFarAhead": "この受取時間は予約可能な範囲を超えています。別の時間を選択してください",
     "pickupTooSoon": "この受取時間では準備が間に合いません。別の時間を選択してください",
     "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください"
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
     "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。"
   },
   "points": {
     "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",
     "adjustSelf": "自分のポイントは調整できません",
     "insufficient": "ポイントが不足しています",
-    "notEnabled": "この店舗ではポイントが有効になっていません",
+    "notEnabled": "ポイント機能はまだ有効になっていません",
     "notRedeemable": "このクーポンはポイントと交換できません",
-    "perUserLimitReached": "このクーポンは既に交換済みです"
+    "perUserLimitReached": "このクーポンは既に交換済みです",
+    "validityRequiresEnabled": "ポイント機能が無効の間は有効期限を設定できません"
   },
   "quant": {
     "aiKeyInvalid": "Claude API キーの検証に失敗しました：{message}",
@@ -327,6 +332,7 @@
       "waitlistPartySizeUnavailable": "この人数では受付できません。スタッフにお声がけください。",
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
@@ -337,6 +343,7 @@
       "waitlistPartySizeUnavailable": "この人数に該当する区分がありません。",
       "waitlistPaused": "受付を一時停止しています。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

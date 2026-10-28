@@ -1,7 +1,13 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
+import {
+  issueWaitlistQrSession,
+  verifyWaitlistQrSession,
+  waitlistQrToken,
+} from './waitlist-qr-token.js';
 import { WaitlistService } from './waitlist.service.js';
 
 const ALWAYS_OPEN = null;
@@ -11,10 +17,12 @@ const CLOSING_SOON = 'Tu 09:00-12:30';
 
 const createService = ({
   openingHours = ALWAYS_OPEN,
+  qrSecret = null,
   setting,
   ticket,
 }: {
   openingHours?: string | null;
+  qrSecret?: string | null;
   setting?: {
     enabled: boolean;
     groups: unknown[];
@@ -29,6 +37,11 @@ const createService = ({
       organization: {
         findFirst: vi.fn().mockResolvedValue({ id: 'org', openingHours }),
       },
+      organizationQrSecret: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue(qrSecret ? { secret: qrSecret } : undefined),
+      },
       waitlistSetting: { findFirst: vi.fn().mockResolvedValue(setting) },
       waitlistTicket: { findFirst: vi.fn().mockResolvedValue(ticket) },
     },
@@ -41,6 +54,7 @@ const createService = ({
     service: new WaitlistService(
       db as unknown as DrizzleDB,
       new EventEmitter2(),
+      new OrderQrService(db as unknown as DrizzleDB),
     ),
   };
 };
@@ -48,13 +62,20 @@ const createService = ({
 const dto = { name: '王小明', partySize: 2, phoneNumber: '+886912345678' };
 const groups = [{ maxPartySize: 4, minPartySize: 1, prefix: 'A' }];
 
+const openSetting = { enabled: true, groups, paused: false };
+
 describe('WaitlistService.createTicket', () => {
+  let qrSession: string;
+
   beforeAll(() => {
     vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
+    qrSession = issueWaitlistQrSession('org', null).value;
   });
 
   afterAll(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it.each([
@@ -66,14 +87,17 @@ describe('WaitlistService.createTicket', () => {
     ['waitlistPaused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
     ['waitlistClosed', { enabled: true, groups, paused: false }, NEVER_OPEN],
     ['waitlistCutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
-  ])('rejects with %s', async (code, setting, openingHours) => {
-    const { db, service } = createService({ openingHours, setting });
+  ])(
+    'rejects with %s before asking for a QR session',
+    async (code, setting, openingHours) => {
+      const { db, service } = createService({ openingHours, setting });
 
-    await expect(
-      service.createTicket('slug', dto, null, 'zh-TW', null, false),
-    ).rejects.toThrow(code);
-    expect(db.transaction).not.toHaveBeenCalled();
-  });
+      await expect(
+        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+      ).rejects.toThrow(code);
+      expect(db.transaction).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([0, 30])(
     'lets customers in when the cutoff is %i minutes',
@@ -85,7 +109,15 @@ describe('WaitlistService.createTicket', () => {
       db.transaction.mockRejectedValue(new Error('reached transaction'));
 
       await expect(
-        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+        service.createTicket(
+          'slug',
+          dto,
+          null,
+          'zh-TW',
+          null,
+          false,
+          qrSession,
+        ),
       ).rejects.toThrow('reached transaction');
     },
   );
@@ -103,8 +135,81 @@ describe('WaitlistService.createTicket', () => {
         'zh-TW',
         null,
         false,
+        qrSession,
       ),
     ).rejects.toThrow('waitlistPartySizeUnavailable');
+  });
+
+  it.each([
+    ['no session', null, () => undefined],
+    ['a tampered session', null, () => `${qrSession.split('.')[0]}.forged`],
+    [
+      "another organization's session",
+      null,
+      () => issueWaitlistQrSession('other-org', null).value,
+    ],
+    [
+      'an expired session',
+      null,
+      () => {
+        vi.setSystemTime(new Date('2026-10-06T01:59:00Z'));
+        const value = issueWaitlistQrSession('org', null).value;
+        vi.setSystemTime(new Date('2026-10-06T04:00:00Z'));
+        return value;
+      },
+    ],
+    [
+      'a session signed before the secret was rotated',
+      'rotated-secret',
+      () => qrSession,
+    ],
+  ])('rejects a guest with %s', async (_, qrSecret, value) => {
+    const { db, service } = createService({ qrSecret, setting: openSetting });
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, false, value()),
+    ).rejects.toThrow('waitlistQrRequired');
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts a session signed with the rotated secret', async () => {
+    const { db, service } = createService({
+      qrSecret: 'rotated-secret',
+      setting: openSetting,
+    });
+    db.transaction.mockRejectedValue(new Error('reached transaction'));
+
+    await expect(
+      service.createTicket(
+        'slug',
+        dto,
+        null,
+        'zh-TW',
+        null,
+        false,
+        issueWaitlistQrSession('org', 'rotated-secret').value,
+      ),
+    ).rejects.toThrow('reached transaction');
+  });
+
+  it('replays an existing ticket without a session', async () => {
+    const { db, service } = createService({
+      setting: openSetting,
+      ticket: {
+        calledAt: null,
+        confirmedAt: null,
+        id: 't',
+        number: 1,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', 'key', false),
+    ).resolves.toMatchObject({ id: 't', ticketNumber: 'A001' });
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -132,6 +237,16 @@ describe('WaitlistService.createTicket by staff', () => {
       ).rejects.toThrow('reached transaction');
     },
   );
+
+  it('does not require a QR session', async () => {
+    const { db, service } = createService({ setting: openSetting });
+    db.transaction.mockRejectedValue(new Error('reached transaction'));
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, true),
+    ).rejects.toThrow('reached transaction');
+    expect(db.query.organizationQrSecret.findFirst).not.toHaveBeenCalled();
+  });
 
   it('still rejects when the waitlist is disabled', async () => {
     const { service } = createService({
@@ -286,5 +401,64 @@ describe('WaitlistService.getTicket', () => {
       holdUntil: new Date('2026-10-06T12:10:00Z'),
       ticketNumber: 'A003',
     });
+  });
+});
+
+describe('WaitlistService.scanQr', () => {
+  beforeEach(() => {
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const withOrgRows = (rows: unknown[]) => {
+    const { db, service } = createService({});
+    const query = {
+      from: () => query,
+      leftJoin: () => query,
+      limit: () => Promise.resolve(rows),
+      where: () => query,
+    };
+    Object.assign(db, { select: vi.fn(() => query) });
+    return service;
+  };
+
+  it('issues a session and redirects an old slug to the current one', async () => {
+    const service = withOrgRows([{ id: 'org', secret: null, slug: 'shop' }]);
+
+    const scanned = await service.scanQr(
+      'old-shop',
+      waitlistQrToken('org', null),
+    );
+
+    expect(scanned?.slug).toBe('shop');
+    expect(
+      verifyWaitlistQrSession('org', null, scanned?.issued?.value),
+    ).not.toBeNull();
+  });
+
+  it('refuses a token signed with a rotated-out secret', async () => {
+    const service = withOrgRows([
+      { id: 'org', secret: 'new-secret', slug: 'shop' },
+    ]);
+
+    await expect(
+      service.scanQr('shop', waitlistQrToken('org', null)),
+    ).resolves.toEqual({ issued: null, slug: 'shop' });
+  });
+
+  it('redirects without a session when the token is missing', async () => {
+    const service = withOrgRows([{ id: 'org', secret: null, slug: 'shop' }]);
+
+    await expect(service.scanQr('shop', undefined)).resolves.toEqual({
+      issued: null,
+      slug: 'shop',
+    });
+  });
+
+  it('returns null for an unknown organization', async () => {
+    await expect(withOrgRows([]).scanQr('missing', 'x')).resolves.toBeNull();
   });
 });

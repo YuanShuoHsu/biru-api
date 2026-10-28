@@ -35,6 +35,7 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'user',
   'team',
   'pointTransaction',
+  'pointSetting',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 

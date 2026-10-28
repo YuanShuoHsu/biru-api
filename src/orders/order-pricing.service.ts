@@ -68,6 +68,7 @@ const sumModifierAdjustments = (
 export interface ResolvedOrderItem {
   id: string;
   addOns: OrderItemAddOnSnapshot[];
+  leadTimeMinutes: number;
   menuItemId: string;
   menuItemName: string;
   menuSectionIds: string[];
@@ -159,7 +160,7 @@ export class OrderPricingService {
         ),
       }),
     ]);
-    if (!orgMenu) throw new NotFoundException('Menu not found');
+    if (!orgMenu) throw new NotFoundException(this.t('menuChanged'));
 
     const priceCurrency = orgMenu.organization.currency;
 
@@ -200,8 +201,7 @@ export class OrderPricingService {
 
     const getMenuItem = (menuItemId: string) => {
       const item = menuItemMap.get(menuItemId);
-      if (!item)
-        throw new BadRequestException(`MenuItem ${menuItemId} not found`);
+      if (!item) throw new BadRequestException(this.t('menuChanged'));
       if (!item.availableModes.includes(mode))
         throw new BadRequestException(
           this.t('menuItemUnavailableForMode', {
@@ -222,16 +222,22 @@ export class OrderPricingService {
       return item;
     };
 
+    const leadTimeOf = (menuItemId: string) =>
+      offerMap.get(menuItemId)?.deliveryLeadTimeMinutes ?? 0;
+
     const orderedAt = new Date();
 
-    const getOfferPrice = (menuItemId: string): string => {
-      const offerRow = offerMap.get(menuItemId);
+    const optionsInvalid = (item: ReturnType<typeof getMenuItem>) =>
+      this.t('menuItemOptionsInvalid', { name: this.localName(item.name) });
+
+    const getOfferPrice = (item: ReturnType<typeof getMenuItem>): string => {
+      const offerRow = offerMap.get(item.id);
       const price =
         activePromoPrice(offerRow?.priceSpecification, orderedAt) ??
         offerRow?.price;
       if (!price)
         throw new BadRequestException(
-          `MenuItem ${menuItemId} has no offer price`,
+          this.t('menuItemUnavailable', { name: this.localName(item.name) }),
         );
       return price;
     };
@@ -241,22 +247,14 @@ export class OrderPricingService {
       level: ServingTemperatureLevel | null | undefined,
     ): ServingTemperatureLevel | null => {
       if (item.servingTemperatures.length === 0) {
-        if (level)
-          throw new BadRequestException(
-            `MenuItem ${item.id} has no serving temperatures`,
-          );
+        if (level) throw new BadRequestException(optionsInvalid(item));
         return null;
       }
-      if (!level)
-        throw new BadRequestException(
-          `MenuItem ${item.id} requires a serving temperature level`,
-        );
+      if (!level) throw new BadRequestException(optionsInvalid(item));
       if (
         !item.servingTemperatures.includes(SERVING_TEMPERATURE_OF_LEVEL[level])
       )
-        throw new BadRequestException(
-          `MenuItem ${item.id} does not offer ${level}`,
-        );
+        throw new BadRequestException(optionsInvalid(item));
       return level;
     };
 
@@ -266,10 +264,7 @@ export class OrderPricingService {
       level: SweetnessLevel | null | undefined,
     ): SweetnessLevel | null => {
       if (item.sweetness !== 'Adjustable') return item.fixedSweetnessLevel;
-      if (!level)
-        throw new BadRequestException(
-          `MenuItem ${item.id} requires a sweetness level`,
-        );
+      if (!level) throw new BadRequestException(optionsInvalid(item));
       return level;
     };
 
@@ -282,13 +277,9 @@ export class OrderPricingService {
       for (const [groupId, modIds] of Object.entries(modifiersInput)) {
         if (modIds.length === 0) continue;
         if (!groups.some(({ id }) => id === groupId))
-          throw new BadRequestException(
-            `ModifierGroup ${groupId} is unavailable for MenuItem ${item.id}`,
-          );
+          throw new BadRequestException(optionsInvalid(item));
         if (new Set(modIds).size !== modIds.length)
-          throw new BadRequestException(
-            `ModifierGroup ${groupId} has duplicate modifiers`,
-          );
+          throw new BadRequestException(optionsInvalid(item));
       }
 
       for (const { id, maxSelectionCount, minSelectionCount } of groups) {
@@ -297,18 +288,14 @@ export class OrderPricingService {
           count < minSelectionCount ||
           (maxSelectionCount != null && count > maxSelectionCount)
         )
-          throw new BadRequestException(
-            `ModifierGroup ${id} selection count ${count} is out of range`,
-          );
+          throw new BadRequestException(optionsInvalid(item));
       }
 
       return Object.entries(modifiersInput).flatMap(([groupId, modIds]) =>
         modIds.map((modId) => {
           const mod = modifierMap.get(modId);
           if (!mod || mod.modifierGroupId !== groupId)
-            throw new BadRequestException(
-              `Modifier ${modId} not found in ModifierGroup ${groupId}`,
-            );
+            throw new BadRequestException(optionsInvalid(item));
           if (!mod.availableModes.includes(mode))
             throw new BadRequestException(
               this.t('modifierUnavailableForMode', {
@@ -350,9 +337,7 @@ export class OrderPricingService {
                 link.addOnMenuSectionId === item.menuSectionId)),
         )
       )
-        throw new BadRequestException(
-          `MenuItem ${item.id} is not an add-on of MenuItem ${parent.id}`,
-        );
+        throw new BadRequestException(optionsInvalid(parent));
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
         addOn.servingTemperatureLevel,
@@ -361,7 +346,7 @@ export class OrderPricingService {
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        unitPrice: getOfferPrice(addOn.menuItemId),
+        unitPrice: getOfferPrice(item),
         modifiers: resolveModifierSnapshots(item, addOn.modifiers),
         servingTemperatureLevel,
         sweetnessLevel,
@@ -384,7 +369,7 @@ export class OrderPricingService {
       );
 
       const unitPrice =
-        Number(getOfferPrice(cartItem.menuItemId)) +
+        Number(getOfferPrice(item)) +
         sumModifierAdjustments(itemModifiers) +
         addOns.reduce(
           (sum, addOn) =>
@@ -396,6 +381,10 @@ export class OrderPricingService {
 
       return {
         id: randomUUID(),
+        leadTimeMinutes: Math.max(
+          leadTimeOf(item.id),
+          ...cartItem.addOns.map((addOn) => leadTimeOf(addOn.menuItemId)),
+        ),
         menuItemId: item.id,
         menuItemName: getName(item.name),
         menuSectionIds: [

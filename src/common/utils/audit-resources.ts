@@ -34,7 +34,7 @@ import {
   organizationQrSecret,
   team,
 } from '../../db/schema/organizations.js';
-import { pointTransaction } from '../../db/schema/points.js';
+import { pointSetting, pointTransaction } from '../../db/schema/points.js';
 import { printer } from '../../db/schema/printers.js';
 import { refund } from '../../db/schema/refunds.js';
 import { user } from '../../db/schema/users.js';
@@ -79,6 +79,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   user,
   team,
   pointTransaction,
+  pointSetting,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {

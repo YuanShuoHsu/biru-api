@@ -281,10 +281,12 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
-            "cashRequiresInStoreQrCode": string;
             "idempotencyConflict": string;
+            "inStoreQrCodeRequired": string;
             "invalidTable": string;
+            "menuChanged": string;
             "menuItemInsufficientStock": string;
+            "menuItemOptionsInvalid": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;
@@ -293,12 +295,14 @@ export type I18nTranslations = {
             "notAwaitingPayment": string;
             "orderTotalTooLarge": string;
             "pickupOutsideOpeningHours": string;
+            "pickupTimeInvalid": string;
             "pickupTooCloseToClosing": string;
             "pickupTooFarAhead": string;
             "pickupTooSoon": string;
             "statusChanged": string;
         };
         "organizations": {
+            "notJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;
         };
         "points": {
@@ -308,6 +312,7 @@ export type I18nTranslations = {
             "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
+            "validityRequiresEnabled": string;
         };
         "quant": {
             "aiKeyInvalid": string;
@@ -379,6 +384,7 @@ export type I18nTranslations = {
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
@@ -389,6 +395,7 @@ export type I18nTranslations = {
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
                 "waitlistTransitionInvalid": string;
             };
         };
