@@ -270,6 +270,7 @@ describe('WaitlistService.createTicket by staff', () => {
       service.createTicket('slug', dto, null, 'zh-TW', null, true),
     ).rejects.toThrow('reached transaction');
     expect(db.query.organizationQrSecret.findFirst).not.toHaveBeenCalled();
+    expect(db.query.organizationSpecialHours.findMany).not.toHaveBeenCalled();
   });
 
   it('still rejects when the waitlist is disabled', async () => {

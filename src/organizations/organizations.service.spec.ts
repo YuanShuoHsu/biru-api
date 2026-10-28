@@ -347,6 +347,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
         ('ongoing', 'biru', '${day(-1)}', '${day(0)}', null, '颱風停業'),
         ('last', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', 'Mo-Su 10:00-15:00', null),
         ('beyond', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', null, null),
+        ('other-yesterday', 'other', '${day(-2)}', '${day(-1)}', null, null),
         ('other', 'other', '${day(1)}', '${day(1)}', null, null);
     `);
   }, 60_000);
@@ -372,5 +373,11 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
         validThrough: day(PICKUP_MAX_ADVANCE_DAYS + 2),
       },
     ]);
+  });
+
+  it('昨天結束的特殊營業日不列出', async () => {
+    const specialHours = await service.upcomingSpecialHours('other');
+
+    expect(specialHours.map(({ id }) => id)).toEqual(['other']);
   });
 });

@@ -489,6 +489,28 @@ describe('OrdersService.createOrder', () => {
       });
     });
 
+    it('前一天特殊營業日的跨夜時段延到今天凌晨，可以在凌晨自取', async () => {
+      const { inserted, service } = createService({
+        openingHours: 'Mo 09:00-18:00',
+        specialHours: [
+          {
+            openingHours: 'We 20:00-02:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await service.createOrder('slug', pickupDto(15 * 60), null, null);
+      await expect(
+        service.createOrder('slug', pickupDto(16 * 60 + 30), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(15 * 60)),
+      });
+    });
+
     it('取餐時間在特殊營業日的時段外會被擋', async () => {
       const { service } = createService({
         specialHours: [

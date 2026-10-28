@@ -36,7 +36,8 @@ export class WaitlistStatusResponseDto {
   @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [PublicSpecialHoursDto],
-    description: '涵蓋今天的特殊營業日，已套用在 open 與 cutoff',
+    description:
+      '日期範圍涵蓋今天的特殊營業日（最多一筆）；open 與 cutoff 另外也套用了前一天特殊營業日延到今天凌晨的跨夜時段，該筆不列在這裡',
   })
   specialHours: PublicSpecialHoursDto[];
 }
@@ -111,7 +112,8 @@ export class AdminWaitlistResponseDto {
   @ApiProperty() paused: boolean;
   @ApiProperty({
     type: [PublicSpecialHoursDto],
-    description: '涵蓋今天的特殊營業日，已套用在 open 與 cutoff',
+    description:
+      '日期範圍涵蓋今天的特殊營業日（最多一筆）；open 與 cutoff 另外也套用了前一天特殊營業日延到今天凌晨的跨夜時段，該筆不列在這裡',
   })
   specialHours: PublicSpecialHoursDto[];
   @ApiProperty({

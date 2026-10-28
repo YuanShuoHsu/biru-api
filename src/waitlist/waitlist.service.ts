@@ -58,6 +58,7 @@ import {
   type WaitlistUpdatedEvent,
 } from '../events/waitlist-updated.event.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
+import type { PublicSpecialHoursDto } from '../organizations/dto/special-hours.dto.js';
 
 import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import type {
@@ -258,19 +259,22 @@ export class WaitlistService {
     };
   }
 
-  private async availabilityNow(
-    organizationId: string,
-    openingHours: string | null,
-    cutoffMinutes: number,
-  ) {
-    const now = new Date();
-    const today = platformDateString(now);
-    const specialHours = await findSpecialHours(
+  private specialHoursAround(organizationId: string, now: Date) {
+    return findSpecialHours(
       this.db,
       organizationId,
       new Date(now.getTime() - DAY_MS),
       new Date(now.getTime() + DAY_MS),
     );
+  }
+
+  private availabilityAt(
+    openingHours: string | null,
+    specialHours: PublicSpecialHoursDto[],
+    cutoffMinutes: number,
+    now: Date,
+  ) {
+    const today = platformDateString(now);
 
     return {
       ...getAvailability(
@@ -298,7 +302,8 @@ export class WaitlistService {
   async getPublicStatusByOrganizationId(
     organizationId: string,
   ): Promise<WaitlistStatusResponseDto> {
-    const [org, settings, tickets] = await Promise.all([
+    const now = new Date();
+    const [org, settings, tickets, specialHours] = await Promise.all([
       this.db.query.organization.findFirst({
         where: eq(organization.id, organizationId),
         columns: { openingHours: true },
@@ -314,15 +319,17 @@ export class WaitlistService {
         .from(waitlistTicket)
         .where(inTodayQueue(organizationId))
         .orderBy(desc(waitlistTicket.calledAt)),
+      this.specialHoursAround(organizationId, now),
     ]);
     if (!org) throw new NotFoundException('Organization not found');
 
     return {
-      ...(await this.availabilityNow(
-        organizationId,
+      ...this.availabilityAt(
         org.openingHours,
+        specialHours,
         settings.cutoffMinutes,
-      )),
+        now,
+      ),
       enabled: settings.enabled,
       groups: settings.groups.map((group) => {
         const groupTickets = tickets.filter(
@@ -388,13 +395,17 @@ export class WaitlistService {
     // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused)
       throw badRequestError('waitlistPaused', 'guest');
-    const { cutoff, open } = await this.availabilityNow(
-      org.id,
-      org.openingHours,
-      settings.cutoffMinutes,
-    );
-    if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
-    if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    if (!byStaff) {
+      const now = new Date();
+      const { cutoff, open } = this.availabilityAt(
+        org.openingHours,
+        await this.specialHoursAround(org.id, now),
+        settings.cutoffMinutes,
+        now,
+      );
+      if (!open) throw badRequestError('waitlistClosed', 'guest');
+      if (cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    }
     if (
       !byStaff &&
       !verifyWaitlistQrSession(
@@ -722,13 +733,14 @@ export class WaitlistService {
     const org = await this.getOrgBySlug(organizationSlug);
     const now = new Date();
 
-    const [settings, tickets] = await Promise.all([
+    const [settings, tickets, specialHours] = await Promise.all([
       this.getSettings(org.id),
       this.db
         .select()
         .from(waitlistTicket)
         .where(inTodayQueue(org.id))
         .orderBy(asc(waitlistTicket.createdAt)),
+      this.specialHoursAround(org.id, now),
     ]);
 
     const waitingRank = new Map<string, number>();
@@ -751,11 +763,12 @@ export class WaitlistService {
 
     return {
       ...settings,
-      ...(await this.availabilityNow(
-        org.id,
+      ...this.availabilityAt(
         org.openingHours,
+        specialHours,
         settings.cutoffMinutes,
-      )),
+        now,
+      ),
       tickets: boardTickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')
