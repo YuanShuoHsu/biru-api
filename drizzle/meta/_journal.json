@@ -1681,6 +1681,13 @@
       "when": 1793122763582,
       "tag": "0239_offer_auto_sold_out",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1793129106825,
+      "tag": "0240_point_setting",
+      "breakpoints": true
     }
   ]
 }

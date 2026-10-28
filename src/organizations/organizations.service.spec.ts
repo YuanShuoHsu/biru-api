@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -198,5 +202,120 @@ describe('OrganizationsService 團隊介紹', () => {
       resourceLabel: 'amy',
       ancestorIds: [],
     });
+  });
+});
+
+describe('OrganizationsService 轉為真正店主', () => {
+  let client: PGlite;
+  let service: OrganizationsService;
+
+  beforeAll(async () => {
+    client = new PGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    service = new OrganizationsService(
+      pglite as unknown as DrizzleDB,
+      {
+        t: (key: string) => key,
+      } as never,
+    );
+    await client.exec(`
+      insert into organization (id, name, slug, created_at) values
+        ('biru', 'Biru', 'biru', now()),
+        ('other', 'Other', 'other', now());
+      insert into "user" (id, name, email, first_name) values
+        ('amy', 'amy', 'amy@example.com', 'Amy'),
+        ('cat', 'cat', 'cat@example.com', 'Cat'),
+        ('root', 'root', 'root@example.com', 'Root'),
+        ('sue', 'sue', 'sue@example.com', 'Sue');
+      update "user" set role = 'admin' where id in ('root', 'sue');
+    `);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec(`
+      truncate member;
+      insert into member (id, organization_id, user_id, role, joined_as_platform_admin, created_at) values
+        ('m-amy', 'biru', 'amy', 'owner', false, now()),
+        ('m-cat', 'biru', 'cat', 'admin', false, now()),
+        ('m-root', 'biru', 'root', 'owner', true, now()),
+        ('m-sue', 'other', 'sue', 'owner', true, now());
+    `);
+  });
+
+  const flagOf = async (id: string) =>
+    (
+      await client.query<{ joined_as_platform_admin: boolean }>(
+        'select joined_as_platform_admin from member where id = $1',
+        [id],
+      )
+    ).rows[0]?.joined_as_platform_admin;
+
+  it('真正的店主可以把以平台管理員身分加入的成員轉為真正店主', async () => {
+    await expect(
+      service.confirmOwner('biru', 'm-root', {
+        platformAdmin: false,
+        userId: 'amy',
+      }),
+    ).resolves.toMatchObject({
+      id: 'm-root',
+      joinedAsPlatformAdmin: false,
+      role: 'owner',
+    });
+    expect(await flagOf('m-root')).toBe(false);
+  });
+
+  it('平台管理員不是該店成員也可以轉正', async () => {
+    await service.confirmOwner('other', 'm-sue', {
+      platformAdmin: true,
+      userId: 'root',
+    });
+
+    expect(await flagOf('m-sue')).toBe(false);
+  });
+
+  it('以平台管理員身分加入的 owner 失去平台角色後不能替自己轉正', async () => {
+    await expect(
+      service.confirmOwner('biru', 'm-root', {
+        platformAdmin: false,
+        userId: 'root',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(await flagOf('m-root')).toBe(true);
+  });
+
+  it('店內管理員與非成員都不能轉正', async () => {
+    await expect(
+      service.confirmOwner('biru', 'm-root', {
+        platformAdmin: false,
+        userId: 'cat',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.confirmOwner('other', 'm-sue', {
+        platformAdmin: false,
+        userId: 'amy',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(await flagOf('m-root')).toBe(true);
+    expect(await flagOf('m-sue')).toBe(true);
+  });
+
+  it('對象不是以平台管理員身分加入的 owner 時回 409，別店成員回 404', async () => {
+    const root = { platformAdmin: true, userId: 'root' };
+
+    await expect(service.confirmOwner('biru', 'm-amy', root)).rejects.toThrow(
+      ConflictException,
+    );
+    await expect(service.confirmOwner('biru', 'm-cat', root)).rejects.toThrow(
+      ConflictException,
+    );
+    await expect(service.confirmOwner('biru', 'm-sue', root)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

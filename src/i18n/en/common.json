@@ -229,8 +229,8 @@
     "tableNumber": "Table {tableNumber}"
   },
   "orders": {
-    "cashRequiresInStoreQrCode": "To pay in cash, please order by scanning the QR code in store.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
+    "inStoreQrCodeRequired": "Please order by scanning the QR code in store.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
     "menuItemInsufficientStock": "Not enough \"{name}\" left. Please order fewer or choose another item",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
@@ -247,15 +247,17 @@
     "statusChanged": "The order status has changed. Refresh and try again."
   },
   "organizations": {
+    "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",
     "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section."
   },
   "points": {
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
-    "notEnabled": "Points are not enabled for this store",
+    "notEnabled": "Points are not enabled yet",
     "notRedeemable": "This coupon cannot be redeemed with points",
-    "perUserLimitReached": "You have already redeemed this coupon"
+    "perUserLimitReached": "You have already redeemed this coupon",
+    "validityRequiresEnabled": "Set an amount per point before setting the points validity"
   },
   "quant": {
     "aiKeyInvalid": "Claude API key verification failed: {message}",
@@ -327,6 +329,7 @@
       "waitlistPartySizeUnavailable": "We can't take this party size on the waitlist. Please ask a member of staff.",
       "waitlistPaused": "The waitlist is paused. Please ask a member of staff.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },
     "staff": {
@@ -337,6 +340,7 @@
       "waitlistPartySizeUnavailable": "No group covers this party size.",
       "waitlistPaused": "The waitlist is paused.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Guests must scan the QR code in the store to take a number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh."
     }
   }

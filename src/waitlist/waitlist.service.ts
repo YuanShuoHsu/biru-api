@@ -55,6 +55,7 @@ import {
   WAITLIST_UPDATED_EVENT,
   type WaitlistUpdatedEvent,
 } from '../events/waitlist-updated.event.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
 import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import type {
@@ -82,6 +83,12 @@ import {
   conflictError,
   type WaitlistAudience,
 } from './waitlist-errors.js';
+import {
+  isValidWaitlistQrToken,
+  issueWaitlistQrSession,
+  verifyWaitlistQrSession,
+  waitlistQrToken,
+} from './waitlist-qr-token.js';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
@@ -123,6 +130,7 @@ export class WaitlistService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly eventEmitter: EventEmitter2,
+    private readonly orderQrService: OrderQrService,
   ) {}
 
   private async getOrgBySlug(slug: string) {
@@ -132,6 +140,53 @@ export class WaitlistService {
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org;
+  }
+
+  private async verifyQrSession(organizationSlug: string, value: unknown) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const secret = await this.orderQrService.secretOf(org.id);
+    return {
+      org,
+      secret,
+      session: verifyWaitlistQrSession(org.id, secret, value),
+    };
+  }
+
+  async scanQr(organizationSlug: string, token: string | undefined) {
+    const org = await this.orderQrService.findBySlugOrHistory(organizationSlug);
+    if (!org) return null;
+
+    return {
+      issued:
+        token && isValidWaitlistQrToken(org.id, org.secret, token)
+          ? issueWaitlistQrSession(org.id, org.secret)
+          : null,
+      slug: org.slug,
+    };
+  }
+
+  async findQrSession(organizationSlug: string, value: unknown) {
+    const { session } = await this.verifyQrSession(organizationSlug, value);
+    if (!session) throw new NotFoundException('Waitlist QR session not found');
+    return session;
+  }
+
+  async renewQrSession(organizationSlug: string, value: unknown) {
+    const { org, secret, session } = await this.verifyQrSession(
+      organizationSlug,
+      value,
+    );
+    return session ? issueWaitlistQrSession(org.id, secret) : null;
+  }
+
+  async getQrToken(organizationSlug: string) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    return {
+      token: waitlistQrToken(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+      ),
+    };
   }
 
   private async getSettings(
@@ -274,6 +329,7 @@ export class WaitlistService {
     locale: Language,
     idempotencyKey: string | null,
     byStaff: boolean,
+    qrSessionValue?: unknown,
   ): Promise<WaitlistTicketResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -310,6 +366,15 @@ export class WaitlistService {
     );
     if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
     if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    if (
+      !byStaff &&
+      !verifyWaitlistQrSession(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+        qrSessionValue,
+      )
+    )
+      throw badRequestError('waitlistQrRequired', 'guest');
 
     const group = findGroup(settings.groups, dto.partySize);
     if (!group)

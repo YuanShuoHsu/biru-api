@@ -22,13 +22,26 @@ import type { OrderQrService } from './order-qr.service.js';
 import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const ORG_ID = 'org';
 const QR_SECRET = 'qr-secret';
 
 const resolvedItems = [
-  { id: 'i1', menuItemId: 'm1', orderQuantity: 2, unitPrice: '60.00' },
-  { id: 'i2', menuItemId: 'm2', orderQuantity: 1, unitPrice: '35.50' },
+  {
+    id: 'i1',
+    leadTimeMinutes: 0,
+    menuItemId: 'm1',
+    orderQuantity: 2,
+    unitPrice: '60.00',
+  },
+  {
+    id: 'i2',
+    leadTimeMinutes: 0,
+    menuItemId: 'm2',
+    orderQuantity: 1,
+    unitPrice: '35.50',
+  },
 ];
 
 const dtoOf = (overrides: Partial<CreateOrderDto> = {}) =>
@@ -42,6 +55,13 @@ const dtoOf = (overrides: Partial<CreateOrderDto> = {}) =>
   }) as CreateOrderDto;
 
 const baseDto = dtoOf();
+
+const sessionOf = (
+  mode: 'counter' | 'dineIn' | 'driveThru',
+  tableNumber: number | null = null,
+  organizationId = ORG_ID,
+  qrSecret: string | null = QR_SECRET,
+) => issueOrderQrSession(organizationId, qrSecret, mode, tableNumber).value;
 
 const fingerprintOf = (dto: CreateOrderDto) =>
   createHash('sha256').update(JSON.stringify(dto)).digest('hex');
@@ -110,6 +130,10 @@ const createService = ({
           currency: 'TWD',
           dineInTableCount: 12,
           id: ORG_ID,
+          openingHours: null,
+          pickupCutoffMinutes: 15,
+          pickupLeadMinutes: 15,
+          pickupMaxAdvanceDays: 7,
           pointsValidityYears: 1,
         }),
       },
@@ -200,13 +224,6 @@ describe('OrdersService.createOrder', () => {
       ).rejects.toThrow('pickupTime is unavailable');
     });
 
-    const sessionOf = (
-      mode: 'counter' | 'dineIn' | 'driveThru',
-      tableNumber: number | null = null,
-      organizationId = ORG_ID,
-      qrSecret: string | null = QR_SECRET,
-    ) => issueOrderQrSession(organizationId, qrSecret, mode, tableNumber).value;
-
     it.each([
       ['沒掃過桌上 QR code', () => undefined],
       ['掃的是別桌', () => sessionOf('dineIn', 8)],
@@ -291,45 +308,106 @@ describe('OrdersService.createOrder', () => {
       expect(inserted.get(order)).toMatchObject({ tableNumber: 7 });
     });
 
-    it.each([
-      ['沒掃過店內 QR code', () => undefined],
-      ['掃的是得來速', () => sessionOf('driveThru')],
-      ['掃的是別店', () => sessionOf('counter', null, 'other-org')],
-    ])('櫃檯付現金%s會被擋', async (_, qrSessionOf) => {
+    it.each<
+      [
+        'counter' | 'driveThru',
+        'Cash' | 'Credit',
+        string,
+        Parameters<typeof sessionOf> | null,
+      ]
+    >([
+      ['counter', 'Cash', '沒掃過店內 QR code', null],
+      ['counter', 'Credit', '沒掃過店內 QR code', null],
+      ['counter', 'Cash', '掃的是得來速', ['driveThru']],
+      ['counter', 'Credit', '掃的是別店', ['counter', null, 'other-org']],
+      ['driveThru', 'Credit', '沒掃過店內 QR code', null],
+      ['driveThru', 'Credit', '掃的是櫃台', ['counter']],
+    ])('%s 付 %s %s會被擋', async (mode, payment, _, scanned) => {
       const { db, service } = createService();
 
       await expect(
         service.createOrder(
           'slug',
-          dtoOf({ payment: 'Cash' }),
+          dtoOf({ mode, payment }),
           null,
           null,
-          qrSessionOf(),
+          scanned ? sessionOf(...scanned) : undefined,
         ),
-      ).rejects.toThrow('common.orders.cashRequiresInStoreQrCode');
+      ).rejects.toThrow('common.orders.inStoreQrCodeRequired');
       expect(db.transaction).not.toHaveBeenCalled();
     });
 
-    it('櫃檯付現金掃過店內 QR code 可以下單', async () => {
+    it.each([
+      ['counter', 'Cash'],
+      ['counter', 'Credit'],
+      ['driveThru', 'Credit'],
+    ] as const)('%s 付 %s 掃過店內 QR code 可以下單', async (mode, payment) => {
       const { inserted, service } = createService();
 
       await service.createOrder(
         'slug',
-        dtoOf({ payment: 'Cash' }),
+        dtoOf({ mode, payment }),
         null,
         null,
-        sessionOf('counter'),
+        sessionOf(mode),
       );
 
-      expect(inserted.get(order)).toMatchObject({ paymentMethod: 'Cash' });
+      expect(inserted.get(order)).toMatchObject({
+        mode,
+        paymentMethod: payment,
+      });
+    });
+  });
+
+  describe('自取取餐時間', () => {
+    const NOW = new Date('2026-10-28T10:00:00+08:00');
+    const pickupAt = (minutes: number) =>
+      new Date(NOW.getTime() + minutes * 60 * 1000).toISOString();
+    const pickupDto = (minutes: number) =>
+      dtoOf({ mode: 'pickup', pickupTime: pickupAt(minutes) });
+
+    beforeEach(() => {
+      vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
     });
 
-    it('櫃檯線上付款不需要簽章', async () => {
-      const { db, service } = createService();
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-      await service.createOrder('slug', baseDto, null, null);
+    it('品項備餐時間比門市長時，太早的取餐時間會被擋', async () => {
+      const { db, orderPricingService, service } = createService();
+      orderPricingService.resolveOrderItems.mockResolvedValue([
+        resolvedItems[0],
+        { ...resolvedItems[1], leadTimeMinutes: 40 },
+      ]);
 
-      expect(db.transaction).toHaveBeenCalled();
+      await expect(
+        service.createOrder('slug', pickupDto(30), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('取餐時間留足品項備餐時間可以下單', async () => {
+      const { inserted, orderPricingService, service } = createService();
+      orderPricingService.resolveOrderItems.mockResolvedValue([
+        { ...resolvedItems[0], leadTimeMinutes: 40 },
+      ]);
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
+    it('品項備餐時間比門市短時，仍以門市備餐時間為準', async () => {
+      const { inserted, service } = createService();
+
+      await service.createOrder('slug', pickupDto(15), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(15)),
+      });
     });
   });
 
@@ -342,7 +420,13 @@ describe('OrdersService.createOrder', () => {
         },
       });
 
-      await service.createOrder('slug', baseDto, null, 'key');
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        'key',
+        sessionOf('counter'),
+      );
 
       expect(db.transaction).not.toHaveBeenCalled();
       expect(db.query.order.findFirst).toHaveBeenLastCalledWith(
@@ -360,7 +444,7 @@ describe('OrdersService.createOrder', () => {
       });
 
       await expect(
-        service.createOrder('slug', baseDto, null, 'key'),
+        service.createOrder('slug', baseDto, null, 'key', sessionOf('counter')),
       ).resolves.toBeDefined();
       expect(db.transaction).not.toHaveBeenCalled();
     });
@@ -371,7 +455,7 @@ describe('OrdersService.createOrder', () => {
       });
 
       await expect(
-        service.createOrder('slug', baseDto, null, 'key'),
+        service.createOrder('slug', baseDto, null, 'key', sessionOf('counter')),
       ).rejects.toThrow(ConflictException);
       expect(db.transaction).not.toHaveBeenCalled();
     });
@@ -381,7 +465,13 @@ describe('OrdersService.createOrder', () => {
         txDuplicate: { id: 'existing', orderStatus: 'OrderPaymentDue' },
       });
 
-      await service.createOrder('slug', baseDto, null, 'key');
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        'key',
+        sessionOf('counter'),
+      );
 
       expect(tx.insert).not.toHaveBeenCalled();
       expect(emit).not.toHaveBeenCalled();
@@ -390,7 +480,13 @@ describe('OrdersService.createOrder', () => {
     it('寫入的指紋就是重送時比對的指紋', async () => {
       const { inserted, service } = createService();
 
-      await service.createOrder('slug', baseDto, null, 'key');
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        'key',
+        sessionOf('counter'),
+      );
 
       expect(inserted.get(order)).toMatchObject({
         idempotencyFingerprint: fingerprintOf(baseDto),
@@ -403,7 +499,13 @@ describe('OrdersService.createOrder', () => {
     it('沒用券時小計取品項加總並開發票', async () => {
       const { emit, inserted, service } = createService();
 
-      await service.createOrder('slug', baseDto, null, null);
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
 
       expect(inserted.get(order)).toMatchObject({
         orderNumber: '5',
@@ -419,7 +521,13 @@ describe('OrdersService.createOrder', () => {
       const lowStock = [{ id: 'milk', name: { 'zh-TW': '鮮奶' } }];
       const { emit, service } = createService({ lowStock });
 
-      await service.createOrder('slug', baseDto, null, null);
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
 
       expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
         organizationId: ORG_ID,
@@ -432,7 +540,13 @@ describe('OrdersService.createOrder', () => {
         offerStockChanged: true,
       });
 
-      await service.createOrder('slug', baseDto, null, null);
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
 
       expect(consume).toHaveBeenCalledWith(
         expect.any(String),
@@ -450,7 +564,7 @@ describe('OrdersService.createOrder', () => {
       });
 
       await expect(
-        service.createOrder('slug', baseDto, null, null),
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
       ).rejects.toThrow(
         new BadRequestException('common.orders.menuItemInsufficientStock:蛋糕'),
       );
@@ -467,6 +581,7 @@ describe('OrdersService.createOrder', () => {
         dtoOf({ discountCode: 'save30' }),
         'user',
         null,
+        sessionOf('counter'),
       );
 
       expect(couponsService.getApplicableCoupon).toHaveBeenCalledWith(
@@ -496,10 +611,11 @@ describe('OrdersService.createOrder', () => {
         dtoOf({ discountCode: 'FREE' }),
         'user',
         null,
+        sessionOf('counter'),
       );
 
       expect(inserted.get(order)).toMatchObject({
-        amountPerPoint: '100',
+        ...POINTS_SNAPSHOT_SET,
         orderStatus: 'OrderProcessing',
         paymentDate: expect.any(Date),
       });
@@ -513,7 +629,7 @@ describe('OrdersService.createOrder', () => {
       ]);
 
       await expect(
-        service.createOrder('slug', baseDto, null, null),
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
       ).rejects.toThrow('common.orders.orderTotalTooLarge');
       expect(db.transaction).not.toHaveBeenCalled();
     });

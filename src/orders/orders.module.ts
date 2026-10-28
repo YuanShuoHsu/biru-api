@@ -50,6 +50,7 @@ import { UserOrdersController } from './user-orders.controller.js';
   exports: [
     MenuItemSalesService,
     OrderNotificationsService,
+    OrderQrService,
     OrderTicketService,
     OrdersService,
   ],

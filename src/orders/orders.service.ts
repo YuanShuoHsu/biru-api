@@ -130,6 +130,7 @@ import {
   toAdminOrder,
 } from './order-transitions.js';
 import { pickupHoursError } from './pickup-hours.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -430,12 +431,8 @@ export class OrdersService {
     )
       throw new BadRequestException(this.t('invalidTable'));
 
-    if (
-      (dto.mode === 'counter' || dto.mode === 'driveThru') &&
-      dto.payment === 'Cash' &&
-      !hasQrSession
-    )
-      throw new BadRequestException(this.t('cashRequiresInStoreQrCode'));
+    if ((dto.mode === 'counter' || dto.mode === 'driveThru') && !hasQrSession)
+      throw new BadRequestException(this.t('inStoreQrCodeRequired'));
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
@@ -464,6 +461,14 @@ export class OrdersService {
       dto.mode,
       pickupTime ?? new Date(),
     );
+
+    const itemLeadMs =
+      Math.max(0, ...orderItemsData.map((i) => i.leadTimeMinutes)) * 60 * 1000;
+    if (
+      pickupTime &&
+      pickupTime.getTime() < Date.now() + itemLeadMs - PICKUP_LEAD_TOLERANCE_MS
+    )
+      throw new BadRequestException(this.t('pickupTooSoon'));
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
     if (subtotal > MAX_ORDER_AMOUNT)
@@ -543,8 +548,7 @@ export class OrdersService {
             ...(total <= 0 && {
               orderStatus: 'OrderProcessing' as const,
               paymentDate: new Date(),
-              amountPerPoint: org.amountPerPoint,
-              pointsValidityYears: org.pointsValidityYears,
+              ...POINTS_SNAPSHOT_SET,
             }),
           })
           .returning();

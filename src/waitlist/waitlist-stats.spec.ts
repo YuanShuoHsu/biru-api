@@ -6,6 +6,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
 import { WaitlistService } from './waitlist.service.js';
 
@@ -20,6 +21,7 @@ describe('WaitlistService.getStats', () => {
     service = new WaitlistService(
       db as unknown as DrizzleDB,
       new EventEmitter2(),
+      new OrderQrService(db as unknown as DrizzleDB),
     );
     await client.query(
       `insert into organization (id, name, slug, created_at) values ('org', 'Biru', 'biru', now())`,
