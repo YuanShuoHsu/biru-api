@@ -402,6 +402,66 @@ describe('PointsService.findAllForOrganization', () => {
     ).rejects.toThrow('common.points.adjustOwnerOnly');
   });
 
+  it('補扣點上限依每點金額以分精確換算，點數未啟用時 enabled 為 false', async () => {
+    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+      enabled: true,
+      ownerOnlyAbovePoints: 300,
+    });
+
+    for (const [amountPerPoint, ownerOnlyAbovePoints] of [
+      ['30', 100],
+      ['1.1', 2727],
+      ['0.07', 42857],
+      ['0', 0],
+    ] as const) {
+      await client.query(`update point_setting set amount_per_point = $1`, [
+        amountPerPoint,
+      ]);
+      await expect(service.getAdjustmentLimit()).resolves.toEqual({
+        enabled: true,
+        ownerOnlyAbovePoints,
+      });
+    }
+
+    await client.exec(
+      `update point_setting set amount_per_point = 30, points_enabled_at = null`,
+    );
+    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+      enabled: false,
+      ownerOnlyAbovePoints: 100,
+    });
+  });
+
+  it('非 owner 可補扣到上限為止，超過上限拒絕', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1.1`);
+    const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit();
+
+    expect(
+      await service.adjustForOrganization(
+        'biru',
+        {
+          email: 'amy@example.com',
+          note: '補償',
+          points: ownerOnlyAbovePoints,
+        },
+        'bob',
+        'admin',
+      ),
+    ).toEqual(expect.objectContaining({ points: ownerOnlyAbovePoints }));
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        {
+          email: 'amy@example.com',
+          note: '補償',
+          points: ownerOnlyAbovePoints + 1,
+        },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+  });
+
   it('不能調整自己的點數', async () => {
     await expect(
       service.adjustForOrganization(
