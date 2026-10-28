@@ -77,11 +77,8 @@ export class OrderQrService {
     return { token: orderModeToken(org.id, org.secret, mode) };
   }
 
-  async scan(
-    organizationSlug: string,
-    { mode, modeToken, tableNumber, tableToken }: OrderQrQueryDto,
-  ) {
-    // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+  // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+  async findBySlugOrHistory(organizationSlug: string) {
     const [org] = await this.db
       .select({
         dineInTableCount: organization.dineInTableCount,
@@ -105,6 +102,14 @@ export class OrderQrService {
         ),
       )
       .limit(1);
+    return org ?? null;
+  }
+
+  async scan(
+    organizationSlug: string,
+    { mode, modeToken, tableNumber, tableToken }: OrderQrQueryDto,
+  ) {
+    const org = await this.findBySlugOrHistory(organizationSlug);
     if (!org) return null;
 
     const token = mode === 'dineIn' ? tableToken : modeToken;

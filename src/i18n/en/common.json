@@ -327,6 +327,7 @@
       "waitlistPartySizeUnavailable": "We can't take this party size on the waitlist. Please ask a member of staff.",
       "waitlistPaused": "The waitlist is paused. Please ask a member of staff.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },
     "staff": {
@@ -337,6 +338,7 @@
       "waitlistPartySizeUnavailable": "No group covers this party size.",
       "waitlistPaused": "The waitlist is paused.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Guests must scan the QR code in the store to take a number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh."
     }
   }

@@ -379,6 +379,7 @@ export type I18nTranslations = {
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
@@ -389,6 +390,7 @@ export type I18nTranslations = {
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
                 "waitlistTransitionInvalid": string;
             };
         };

@@ -12,6 +12,7 @@ export const waitlistErrorCodes = [
   'waitlistPartySizeUnavailable',
   'waitlistPaused',
   'waitlistPhoneInQueue',
+  'waitlistQrRequired',
   'waitlistTransitionInvalid',
 ] as const;
 
