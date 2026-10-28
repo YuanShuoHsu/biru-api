@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { MailsModule } from './mails.module.js';
+import { MailsService } from './mails.service.js';
 
 const SECURITY_NOTICE_TEMPLATES = [
   'after-email-verification',
@@ -39,6 +40,8 @@ describe('mail templates', () => {
       ],
     })
       .overrideGuard(AdminGuard)
+      .useValue({})
+      .overrideProvider(MailsService)
       .useValue({})
       .compile();
     options = moduleRef.get(MAILER_OPTIONS);
