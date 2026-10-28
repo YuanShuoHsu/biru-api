@@ -352,10 +352,193 @@ describe('EventsGateway protected rooms', () => {
     const leave = vi.fn();
 
     await (gateway[handler] as (client: Socket, body: object) => Promise<void>)(
-      { leave } as unknown as Socket,
+      { data: {}, leave } as unknown as Socket,
       body,
     );
 
     expect(leave).toHaveBeenCalledExactlyOnceWith(room);
+  });
+});
+
+describe('EventsGateway room joins', () => {
+  const deferred = <T>() => {
+    let resolve: (value: T) => void = () => {};
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+
+  const setup = (
+    users: FakeUser[] = [{ id: 'staff', memberRole: 'member' }],
+  ) => {
+    const session = deferred<{ user: { id: string } } | null>();
+    const canRead = deferred<boolean>();
+    const gateway = new EventsGateway(
+      {
+        api: { getSession: () => session.promise },
+      } as unknown as AuthService,
+      {} as PublicMenusService,
+      { canReadOrderById: () => canRead.promise } as unknown as OrdersService,
+      {} as PrepEstimateService,
+      {} as WaitlistService,
+      {
+        query: {
+          user: {
+            findMany: () =>
+              Promise.resolve(
+                users.map(
+                  ({ id, role = 'user', banned = false, memberRole }) => ({
+                    id,
+                    role,
+                    banned,
+                    banExpires: null,
+                    members: memberRole ? [{ role: memberRole }] : [],
+                  }),
+                ),
+              ),
+          },
+        },
+      } as unknown as DrizzleDB,
+    );
+
+    const rooms = new Set<string>();
+    let onAny: (event: string, body: object) => void = () => {};
+    const client = {
+      data: {} as { userId?: string },
+      handshake: { headers: {} },
+      join: (room: string) => void rooms.add(room),
+      leave: (room: string) => void rooms.delete(room),
+      onAny: (listener: typeof onAny) => {
+        onAny = listener;
+      },
+    };
+    gateway.handleConnection(client as unknown as Socket);
+
+    const arrive = (event: string, body: object) => onAny(event, body);
+    const handle = (event: string, body: object) =>
+      (
+        gateway[event as keyof EventsGateway] as (
+          client: Socket,
+          body: object,
+        ) => Promise<unknown>
+      ).call(gateway, client as unknown as Socket, body);
+    const send = (event: string, body: object) => {
+      arrive(event, body);
+      return handle(event, body);
+    };
+
+    return { arrive, canRead, client, handle, rooms, send, session };
+  };
+
+  const joins = [
+    ['Order', { orderId: 'o1' }, 'order:o1'],
+    ['OrdersBoard', { organizationId: 'org' }, 'orders-board:org'],
+    ['Waitlist', { organizationId: 'org' }, 'waitlist:org'],
+    ['Inventory', { organizationId: 'org' }, 'inventory:org'],
+  ] as const;
+
+  const authorize = ({ canRead, session }: ReturnType<typeof setup>) => {
+    session.resolve({ user: { id: 'staff' } });
+    canRead.resolve(true);
+  };
+
+  it.each(joins)(
+    'join%s 驗證期間收到 leave 時最後不在 room',
+    async (name, body, room) => {
+      const context = setup();
+
+      const joined = context.send(`join${name}`, body);
+      await context.send(`leave${name}`, body);
+      authorize(context);
+
+      await expect(joined).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(false);
+    },
+  );
+
+  it.each(joins)(
+    'leave%s 比之後才到的 join 晚處理時仍留在 room',
+    async (name, body, room) => {
+      const context = setup();
+      authorize(context);
+
+      context.arrive(`leave${name}`, body);
+      context.arrive(`join${name}`, body);
+      await context.handle(`join${name}`, body);
+      await context.handle(`leave${name}`, body);
+
+      expect(context.rooms.has(room)).toBe(true);
+    },
+  );
+
+  const storeJoins = joins.slice(1);
+
+  it.each(storeJoins)(
+    'join%s 通過時回 true、加入 room 並記下使用者',
+    async (name, body, room) => {
+      const context = setup();
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(true);
+      expect(context.client.data.userId).toBe('staff');
+    },
+  );
+
+  it.each([
+    ['不是成員', [{ id: 'staff' }]],
+    ['停權的成員', [{ id: 'staff', memberRole: 'owner', banned: true }]],
+  ] as const)('%s加入受保護的 room 時回 false', async (_, users) => {
+    for (const [name, body, room] of storeJoins) {
+      const context = setup([...users]);
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      expect(context.rooms.has(room)).toBe(false);
+      expect(context.client.data.userId).toBeUndefined();
+    }
+  });
+
+  it.each(storeJoins)('沒登入時 join%s 回 false', async (name, body, room) => {
+    const context = setup();
+    context.session.resolve(null);
+
+    await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+    expect(context.rooms.has(room)).toBe(false);
+  });
+
+  it.each(storeJoins)(
+    '不是成員的平台管理員可以 join%s',
+    async (name, body, room) => {
+      const context = setup([{ id: 'staff', role: 'admin' }]);
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(true);
+    },
+  );
+
+  it('無法讀取的訂單回 false 且不加入 room', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    context.canRead.resolve(false);
+
+    await expect(context.send('joinOrder', { orderId: 'o1' })).resolves.toBe(
+      false,
+    );
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it('離開後再加入時以最後的 join 為準', async () => {
+    const context = setup();
+
+    const first = context.send('joinWaitlist', { organizationId: 'org' });
+    await context.send('leaveWaitlist', { organizationId: 'org' });
+    const second = context.send('joinWaitlist', { organizationId: 'org' });
+    authorize(context);
+    await Promise.all([first, second]);
+
+    expect(context.rooms.has('waitlist:org')).toBe(true);
   });
 });
