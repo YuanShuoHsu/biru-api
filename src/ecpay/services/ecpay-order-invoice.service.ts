@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -193,8 +193,10 @@ export class EcpayOrderInvoiceService {
           eq(invoice.status, 'pending'),
           lt(invoice.updatedAt, staleBefore),
           isNotNull(order.paymentDate),
+          ne(order.orderStatus, 'OrderReturned'),
         ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [index, { orderId }] of candidates.entries()) {
