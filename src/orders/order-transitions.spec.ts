@@ -23,6 +23,7 @@ import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderQrService } from './order-qr.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
+import type { PrepEstimateService } from './prep-estimate.service.js';
 
 const available = (orderStatus: OrderStatus, paymentMethod: PaymentMethod) =>
   getAvailableTransitions({ orderStatus, paymentMethod }).map(
@@ -231,6 +232,7 @@ const createService = ({
       eventEmitter,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       menuStock as unknown as MenuStockService,
+      {} as PrepEstimateService,
     ),
     sets,
   };
