@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { lt, sql } from 'drizzle-orm';
 import { AttendanceNotificationsService } from '../attendance/attendance-notifications.service.js';
+import { anniversary } from '../attendance/leave-rules.js';
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { CouponsService } from '../coupons/coupons.service.js';
@@ -17,21 +18,6 @@ import { WaitlistService } from '../waitlist/waitlist.service.js';
 const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
 const ATTENDANCE_AUDIT_RETENTION_MONTHS = 60;
-
-export const monthsAgo = (months: number): Date => {
-  const cutoff = new Date();
-  const day = cutoff.getDate();
-  cutoff.setDate(1);
-  cutoff.setMonth(cutoff.getMonth() - months);
-  const lastDay = new Date(
-    cutoff.getFullYear(),
-    cutoff.getMonth() + 1,
-    0,
-  ).getDate();
-  cutoff.setDate(Math.min(day, lastDay));
-
-  return cutoff;
-};
 
 @Injectable()
 export class TasksService {
@@ -258,7 +244,7 @@ export class TasksService {
     await this.purge(
       '異動紀錄',
       schema.auditLog,
-      monthsAgo(AUDIT_LOG_RETENTION_MONTHS),
+      anniversary(new Date(), -AUDIT_LOG_RETENTION_MONTHS),
     );
   }
 
@@ -270,7 +256,7 @@ export class TasksService {
     await this.purge(
       '綠界回調紀錄',
       schema.ecpayCallbackLog,
-      monthsAgo(ECPAY_CALLBACK_LOG_RETENTION_MONTHS),
+      anniversary(new Date(), -ECPAY_CALLBACK_LOG_RETENTION_MONTHS),
     );
   }
 
@@ -282,7 +268,7 @@ export class TasksService {
     await this.purge(
       '出勤稽核紀錄',
       schema.attendanceAudit,
-      monthsAgo(ATTENDANCE_AUDIT_RETENTION_MONTHS),
+      anniversary(new Date(), -ATTENDANCE_AUDIT_RETENTION_MONTHS),
     );
   }
 

@@ -44,6 +44,17 @@ describe('Taiwan statutory leave periods', () => {
       )?.minutes,
     ).toBe(7 * 240);
   });
+  it.each([
+    ['2026-08-31T03:00:00+08:00', -6, '2026-02-27T16:00:00.000Z'],
+    ['2026-03-31T03:00:00+08:00', -1, '2026-02-27T16:00:00.000Z'],
+    ['2028-02-29T03:00:00+08:00', -12, '2027-02-27T16:00:00.000Z'],
+    ['2028-02-29T03:00:00+08:00', -60, '2023-02-27T16:00:00.000Z'],
+  ])(
+    'clamps %s %i months to Taipei midnight of the month end',
+    (at, months, cutoff) => {
+      expect(anniversary(new Date(at), months).toISOString()).toBe(cutoff);
+    },
+  );
   it('keeps monthly menstrual limits separate from annual family-care limits', () => {
     const at = new Date('2026-02-05');
     expect(
