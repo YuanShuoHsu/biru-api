@@ -437,3 +437,55 @@ describe('PointsService.findAllForOrganization', () => {
     ).rejects.toThrow('common.coupons.memberNotFound');
   });
 });
+
+describe('PointsService.redeem', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: PointsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new PointsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec('truncate point_transaction, coupon, "user" cascade');
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ($1, '王小明', 'a@example.com', '小明')`,
+      [USER],
+    );
+    await client.exec(
+      `insert into coupon (id, code, discount_type, discount_value, points_cost, per_user_limit) values ('c1', 'LATTE', 'fixed', 10, 5, 1)`,
+    );
+    await db.insert(pointTransaction).values({
+      id: 'earn',
+      points: 20,
+      remainingPoints: 20,
+      type: 'earn',
+      userId: USER,
+    });
+  });
+
+  it('已達每人兌換上限時拒絕再兌換，不扣點也不發券', async () => {
+    await service.redeem(USER, 'c1');
+
+    await expect(service.redeem(USER, 'c1')).rejects.toThrow(
+      'common.points.perUserLimitReached',
+    );
+    expect(await db.select().from(schema.userCoupon)).toHaveLength(1);
+    const [earn] = await db
+      .select()
+      .from(pointTransaction)
+      .where(eq(pointTransaction.id, 'earn'));
+    expect(earn.remainingPoints).toBe(15);
+  });
+});

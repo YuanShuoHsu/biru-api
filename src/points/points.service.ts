@@ -753,21 +753,6 @@ export class PointsService {
           throw new BadRequestException(this.tCoupons('usedUp'));
       }
 
-      if (found.perUserLimit !== null) {
-        const [{ value: redeemed }] = await tx
-          .select({ value: count() })
-          .from(userCoupon)
-          .where(
-            and(
-              eq(userCoupon.couponId, found.id),
-              eq(userCoupon.userId, userId),
-              eq(userCoupon.source, 'redeemed'),
-            ),
-          );
-        if (redeemed >= found.perUserLimit)
-          throw new BadRequestException(this.t('perUserLimitReached'));
-      }
-
       const earns = await tx
         .select({
           id: pointTransaction.id,
@@ -786,6 +771,22 @@ export class PointsService {
           asc(pointTransaction.createdAt),
         )
         .for('update');
+
+      // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
+      if (found.perUserLimit !== null) {
+        const [{ value: redeemed }] = await tx
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(
+              eq(userCoupon.couponId, found.id),
+              eq(userCoupon.userId, userId),
+              eq(userCoupon.source, 'redeemed'),
+            ),
+          );
+        if (redeemed >= found.perUserLimit)
+          throw new BadRequestException(this.t('perUserLimitReached'));
+      }
 
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);
       if (balance < pointsCost)
