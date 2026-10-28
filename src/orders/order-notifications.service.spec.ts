@@ -3,9 +3,11 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
+import { ingredient } from '../db/schema/inventory.js';
 import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
 import { member } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
+import { refund } from '../db/schema/refunds.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { MailsService } from '../mails/mails.service.js';
 
@@ -282,5 +284,197 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
 
     expect(notified).toBe(0);
     expect(sendDailySalesDigest).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  const sendPlatformDailyDigest = vi.fn();
+  let orderStats: OrderStatsService;
+  let service: OrderNotificationsService;
+
+  beforeAll(async () => {
+    client = new PGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    const drizzleDb = db as unknown as DrizzleDB;
+    orderStats = new OrderStatsService(drizzleDb);
+    service = new OrderNotificationsService(
+      drizzleDb,
+      { sendPlatformDailyDigest } as unknown as MailsService,
+      new MenuItemSalesService(drizzleDb),
+      orderStats,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    vi.restoreAllMocks();
+    sendPlatformDailyDigest.mockReset().mockResolvedValue(undefined);
+    await client.exec('truncate "order", organization, "user" cascade');
+    for (const [id, slug] of [
+      ['org', 'biru'],
+      ['other', 'other'],
+      ['quiet', 'quiet'],
+    ])
+      await client.query(
+        `insert into organization (id, name, slug, created_at) values ($1, $2, $2, now())`,
+        [id, slug],
+      );
+    for (const [id, role, banned, banExpires] of [
+      ['root', 'admin', false, null],
+      ['bannedRoot', 'admin', true, null],
+      ['unbannedRoot', 'admin', true, '2026-10-22T00:00:00Z'],
+      ['owner', 'user', false, null],
+    ] as const)
+      await client.query(
+        `insert into "user" (id, name, email, first_name, lang, role, banned, ban_expires) values ($1, $1, $1 || '@example.com', $1, 'zh-TW', $2, $3, $4)`,
+        [id, role, banned, banExpires],
+      );
+    await db.insert(member).values({
+      id: 'owner',
+      organizationId: 'org',
+      userId: 'owner',
+      role: 'owner',
+      createdAt: NOW,
+    });
+    await db.insert(order).values(
+      [
+        ['o1', '2026-10-22T06:30:00Z', '200'],
+        ['o2', '2026-10-22T06:50:00Z', '100'],
+        ['older', '2026-10-21T05:00:00Z', '150'],
+      ].map(([id, paymentDate, subtotal]) => ({
+        id,
+        customer: { name: id },
+        mode: 'counter' as const,
+        orderNumber: id,
+        orderStatus: 'OrderDelivered' as const,
+        paymentDate: new Date(paymentDate),
+        paymentMethod: 'Cash' as const,
+        sellerId: 'org',
+        subtotal,
+      })),
+    );
+    await db.insert(refund).values({
+      id: 'refund-o2',
+      orderId: 'o2',
+      amount: '100',
+      scope: 'full',
+      channel: 'manual',
+      status: 'refunded',
+      createdAt: new Date('2026-10-22T08:00:00Z'),
+    });
+    await db.insert(pointTransaction).values(
+      [
+        ['adjust-1', 50],
+        ['adjust-2', -20],
+      ].map(([id, points]) => ({
+        id: String(id),
+        adjustedBy: 'owner',
+        createdAt: new Date('2026-10-22T03:00:00Z'),
+        organizationId: 'org',
+        points: Number(points),
+        type: 'adjust' as const,
+        userId: 'owner',
+      })),
+    );
+    await db.insert(ingredient).values(
+      [
+        ['milk', 'other', '100'],
+        ['beans', 'other', '900'],
+        ['quietBeans', 'quiet', '900'],
+      ].map(([id, organizationId, inventoryLevel]) => ({
+        id,
+        inventoryLevel,
+        lowStockThreshold: '500',
+        name: { 'zh-TW': id },
+        organizationId,
+        unitCode: 'GRM' as const,
+      })),
+    );
+  });
+
+  it('每位未停權的平台管理員收到一封含所有有資料門市的總覽', async () => {
+    const notified = await service.notifyPlatformDailyDigest(NOW);
+
+    expect(notified).toBe(2);
+    expect(
+      sendPlatformDailyDigest.mock.calls
+        .map(([{ recipient }]) => recipient.email)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['root@example.com', 'unbannedRoot@example.com']);
+    expect(
+      sendPlatformDailyDigest.mock.calls.find(
+        ([{ recipient }]) => recipient.email === 'root@example.com',
+      )![0],
+    ).toEqual({
+      recipient: { email: 'root@example.com', lang: 'zh-TW' },
+      date: YESTERDAY_START,
+      path: '/organizations',
+      stores: [
+        {
+          organizationName: 'biru',
+          currency: 'TWD',
+          path: '/dashboard?organization=biru&range=yesterday',
+          orders: 2,
+          revenue: 200,
+          refundedOrders: 1,
+          pointAdjustments: { count: 2, total: 30 },
+          lowStock: 0,
+        },
+        {
+          organizationName: 'other',
+          currency: 'TWD',
+          path: '/dashboard?organization=other&range=yesterday',
+          orders: 0,
+          revenue: 0,
+          refundedOrders: 0,
+          pointAdjustments: { count: 0, total: 0 },
+          lowStock: 1,
+        },
+      ],
+    });
+  });
+
+  it('單一門市統計失敗時，其他門市照常列入', async () => {
+    const getStats = orderStats.getStats.bind(orderStats);
+    vi.spyOn(orderStats, 'getStats').mockImplementation((slug, ...rest) =>
+      slug === 'biru'
+        ? Promise.reject(new Error('stats'))
+        : getStats(slug, ...rest),
+    );
+
+    await service.notifyPlatformDailyDigest(NOW);
+
+    expect(
+      sendPlatformDailyDigest.mock.calls[0][0].stores.map(
+        ({ organizationName }: { organizationName: string }) =>
+          organizationName,
+      ),
+    ).toEqual(['other']);
+  });
+
+  it('沒有任何門市有資料時不寄信', async () => {
+    await client.exec(
+      'truncate "order", point_transaction, ingredient cascade',
+    );
+
+    const notified = await service.notifyPlatformDailyDigest(NOW);
+
+    expect(notified).toBe(0);
+    expect(sendPlatformDailyDigest).not.toHaveBeenCalled();
+  });
+
+  it('沒有平台管理員時不寄信', async () => {
+    await client.exec(`update "user" set role = 'user' where role = 'admin'`);
+
+    const notified = await service.notifyPlatformDailyDigest(NOW);
+
+    expect(notified).toBe(0);
+    expect(sendPlatformDailyDigest).not.toHaveBeenCalled();
   });
 });

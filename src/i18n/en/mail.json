@@ -184,5 +184,18 @@
     "action": "Open the dashboard",
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "platform_daily_digest": {
+    "subject": "{date} platform overview",
+    "title": "Yesterday across all stores",
+    "intro": "Stores with sales or point adjustments on {date}, or with low stock right now: {count}. Select a store name to open its dashboard.",
+    "revenue": "Revenue: {revenue}",
+    "orders": "Orders: {orders}",
+    "refunds": "Refunded orders: {refundedOrders}",
+    "point_adjustments": "Manual point adjustments: {adjustments}, {points} points in total",
+    "low_stock": "Currently low-stock ingredients: {lowStock}",
+    "action": "View all stores",
+    "salutation": "Thanks,<br>The {productName} team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   }
 }
