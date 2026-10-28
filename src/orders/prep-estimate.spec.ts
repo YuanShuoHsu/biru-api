@@ -17,7 +17,7 @@ const readyEvery = (minutes: number[], startedOffset = -60) =>
   }));
 
 describe('prep estimate', () => {
-  it('品項實際平均：多品項訂單計入單內每個品項，同單重複只算一筆，不足 5 筆回 null', () => {
+  it('品項實際中位數：多品項訂單計入單內每個品項，同單重複只算一筆，不足 5 筆回 null', () => {
     const observedOf = observedItemPrepMinutes(
       [6, 8, 10, 12, 14].map((minutes, index) => ({
         menuItemIds: index ? ['latte', 'cake'] : ['latte', 'latte'],
@@ -26,9 +26,21 @@ describe('prep estimate', () => {
       })),
     );
 
-    expect(observedOf('latte')).toEqual({ averageMinutes: 10, sampleSize: 5 });
-    expect(observedOf('cake')).toEqual({ averageMinutes: null, sampleSize: 4 });
-    expect(observedOf('tea')).toEqual({ averageMinutes: null, sampleSize: 0 });
+    expect(observedOf('latte')).toEqual({ medianMinutes: 10, sampleSize: 5 });
+    expect(observedOf('cake')).toEqual({ medianMinutes: null, sampleSize: 4 });
+    expect(observedOf('tea')).toEqual({ medianMinutes: null, sampleSize: 0 });
+  });
+
+  it('品項實際中位數不受離群值影響，偶數筆取中間兩筆平均後四捨五入', () => {
+    const observedOf = observedItemPrepMinutes(
+      [9, 6, 8, 10, 12, 720].map((minutes) => ({
+        menuItemIds: ['latte'],
+        readyAt: NOW,
+        startedAt: inMinutes(-minutes),
+      })),
+    );
+
+    expect(observedOf('latte')).toEqual({ medianMinutes: 10, sampleSize: 6 });
   });
 
   it('品項與加購取備餐時間最長的一項', () => {

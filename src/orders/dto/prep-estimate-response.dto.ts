@@ -17,14 +17,20 @@ export class PrepTimeResponseDto {
   menuItemId: string;
   @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedText;
-  @ApiProperty({ description: '設定的備餐時間（分鐘）' })
+  @ApiProperty({
+    description:
+      '估算採用的備餐分鐘數：門市備餐時間與此品項設定的備餐時間取大者，不含加購',
+  })
   leadTimeMinutes: number;
   @ApiProperty({
-    description: '近 14 天含此品項訂單的平均製作分鐘數；樣本不足 5 筆時為 null',
+    description:
+      '近 14 天含此品項、非預約的已出餐訂單，從付款（未付款則下單）到可取餐的整張單分鐘數中位數，含同單其他品項與排隊等待；樣本不足 5 筆時為 null',
     nullable: true,
     type: Number,
   })
-  averageMinutes: number | null;
-  @ApiProperty({ description: '近 14 天含此品項且已出餐的訂單數' })
+  medianMinutes: number | null;
+  @ApiProperty({
+    description: '近 14 天含此品項、非預約的已出餐訂單數',
+  })
   sampleSize: number;
 }

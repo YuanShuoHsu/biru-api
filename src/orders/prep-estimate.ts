@@ -49,19 +49,27 @@ export const observedItemPrepMinutes = (orders: ReadyOrderItems[]) => {
   for (const { menuItemIds, readyAt, startedAt } of orders) {
     const minutes =
       Math.max(0, readyAt.getTime() - startedAt.getTime()) / MINUTE_MS;
-    for (const menuItemId of new Set(menuItemIds))
-      samples.set(menuItemId, [...(samples.get(menuItemId) ?? []), minutes]);
+    for (const menuItemId of new Set(menuItemIds)) {
+      const itemSamples = samples.get(menuItemId);
+      if (itemSamples) itemSamples.push(minutes);
+      else samples.set(menuItemId, [minutes]);
+    }
   }
 
   return (
     menuItemId: string,
-  ): { averageMinutes: number | null; sampleSize: number } => {
-    const minutes = samples.get(menuItemId) ?? [];
+  ): { medianMinutes: number | null; sampleSize: number } => {
+    const minutes = [...(samples.get(menuItemId) ?? [])].sort((a, b) => a - b);
+    const middle = Math.floor(minutes.length / 2);
     return {
-      averageMinutes:
+      medianMinutes:
         minutes.length < MIN_OBSERVED_ORDERS
           ? null
-          : Math.round(minutes.reduce((sum, m) => sum + m, 0) / minutes.length),
+          : Math.round(
+              minutes.length % 2
+                ? minutes[middle]
+                : (minutes[middle - 1] + minutes[middle]) / 2,
+            ),
       sampleSize: minutes.length,
     };
   };

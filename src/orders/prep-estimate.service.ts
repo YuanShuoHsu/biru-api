@@ -1,6 +1,16 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type SQL, and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import {
+  type SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  sql,
+} from 'drizzle-orm';
 
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
@@ -65,7 +75,7 @@ export class PrepEstimateService {
 
   async findPrepTimesBySlug(slug: string): Promise<PrepTimeResponseDto[]> {
     const org = await this.db.query.organization.findFirst({
-      columns: { id: true },
+      columns: { id: true, pickupLeadMinutes: true },
       where: eq(organization.slug, slug),
     });
     if (!org) throw new NotFoundException('Organization not found');
@@ -81,6 +91,7 @@ export class PrepEstimateService {
         columns: { orderDate: true, paymentDate: true, readyAt: true },
         where: and(
           eq(order.sellerId, org.id),
+          isNull(order.pickupTime),
           gte(
             order.readyAt,
             utcTimestampParam(new Date(Date.now() - ITEM_OBSERVED_WINDOW_MS)),
@@ -106,7 +117,9 @@ export class PrepEstimateService {
     return items.map(({ menuItemId, name }) => ({
       menuItemId,
       name,
-      leadTimeMinutes: leadTimeOf(menuItemId),
+      leadTimeMinutes: orderPrepMinutes(org.pickupLeadMinutes, [
+        leadTimeOf(menuItemId),
+      ]),
       ...observedOf(menuItemId),
     }));
   }
