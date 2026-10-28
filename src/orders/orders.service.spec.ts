@@ -520,7 +520,13 @@ describe('OrdersService.createOrder', () => {
       const lowStock = [{ id: 'milk', name: { 'zh-TW': '鮮奶' } }];
       const { emit, service } = createService({ lowStock });
 
-      await service.createOrder('slug', baseDto, null, null);
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
 
       expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
         organizationId: ORG_ID,
@@ -533,7 +539,13 @@ describe('OrdersService.createOrder', () => {
         offerStockChanged: true,
       });
 
-      await service.createOrder('slug', baseDto, null, null);
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
 
       expect(consume).toHaveBeenCalledWith(
         expect.any(String),
@@ -551,7 +563,7 @@ describe('OrdersService.createOrder', () => {
       });
 
       await expect(
-        service.createOrder('slug', baseDto, null, null),
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
       ).rejects.toThrow(
         new BadRequestException('common.orders.menuItemInsufficientStock:蛋糕'),
       );
