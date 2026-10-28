@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import { createPGlite } from '../../test/pglite.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import { type Language } from '../db/schema/enums.js';
 import * as schema from '../db/schema/index.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
@@ -74,7 +75,7 @@ describe('MailsService 語系', () => {
             (error?: unknown) => {
               if (error) return reject(error);
               sent.push({ subject: data.subject!, html: mail.data.html! });
-              resolve({});
+              resolve({} as Awaited<ReturnType<MailerService['sendMail']>>);
             },
             options,
           );
@@ -105,7 +106,7 @@ describe('MailsService 語系', () => {
     });
 
   const sendVerificationEmail = (
-    lang: string | undefined,
+    lang: Language | undefined,
     acceptLanguage?: string,
   ) =>
     service.sendVerificationEmail(
@@ -135,7 +136,7 @@ describe('MailsService 語系', () => {
     expect(sent[0].subject).toBe('Welcome to Biru Coffee! Confirm your Email');
     expect(sent[0].html).toContain('Welcome, Ann!');
 
-    await sendVerificationEmail('fr', 'zh-Hant-HK');
+    await sendVerificationEmail('fr' as Language, 'zh-Hant-HK');
 
     expect(sent[1].subject).toBe('歡迎來到 Biru Coffee！請確認您的電子郵件');
   });

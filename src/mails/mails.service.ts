@@ -27,7 +27,7 @@ export class MailsService {
   ) {}
 
   private languageFor(
-    recipientLang: string | undefined,
+    recipientLang: Language | undefined,
     request?: Request,
   ): Language {
     return (
@@ -41,7 +41,7 @@ export class MailsService {
     {
       user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
@@ -85,7 +85,7 @@ export class MailsService {
     {
       user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
@@ -130,7 +130,7 @@ export class MailsService {
     {
       user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
@@ -178,7 +178,7 @@ export class MailsService {
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       newEmail: string;
       url: string;
       token: string;
@@ -237,7 +237,7 @@ export class MailsService {
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },
@@ -349,7 +349,7 @@ export class MailsService {
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },
@@ -418,7 +418,7 @@ export class MailsService {
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'> & { lang?: string };
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },

@@ -15,7 +15,9 @@ const languagesByScript = new Map(
 
 const supportedLanguageOf = (tag: string) => {
   try {
-    return languagesByScript.get(scriptOf(tag));
+    return !new Intl.Locale(tag).language
+      ? undefined
+      : languagesByScript.get(scriptOf(tag));
   } catch {
     return undefined;
   }
@@ -28,10 +30,10 @@ export const pickLanguage = (
     ?.split(',')
     .map((entry) => {
       const [tag, ...params] = entry.split(';').map((part) => part.trim());
-      const quality = params.find((param) => param.startsWith('q='));
+      const quality = params.find((param) => /^q=/i.test(param));
       return { tag, quality: quality ? Number(quality.slice(2)) : 1 };
     })
-    .filter(({ quality }) => quality > 0)
+    .filter(({ quality }) => quality > 0 && quality <= 1)
     .sort((a, b) => b.quality - a.quality)
     .map(({ tag }) => supportedLanguageOf(tag))
     .find((language) => language !== undefined);
