@@ -14,7 +14,7 @@ pnpm run start:prod      # Run production build
 pnpm run test            # Run unit tests
 pnpm run test:watch      # Watch mode
 pnpm run test:cov        # Coverage report
-pnpm run test:e2e        # End-to-end tests
+pnpm run test:e2e        # End-to-end tests: boots AppModule on in-memory PGlite with `drizzle/` migrations; fake env vars are set in the spec, no .env or DB needed
 
 # Code Quality
 pnpm run lint            # oxlint (type-aware)

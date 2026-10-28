@@ -11,8 +11,6 @@ import { ClsModule } from 'nestjs-cls';
 import { I18nModule, I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AttendanceModule } from './attendance/attendance.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { createAuth } from './auth/index.js';
@@ -125,9 +123,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     UsersModule,
     WaitlistModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
