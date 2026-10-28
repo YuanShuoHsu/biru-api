@@ -50,25 +50,31 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 ### Module Map
 
-| Module              | Path                 | Purpose                                                           |
-| ------------------- | -------------------- | ----------------------------------------------------------------- |
-| DrizzleModule       | `src/drizzle/`       | **Global** — injects DB instance via `DRIZZLE` token              |
-| AuthModule          | `src/auth/`          | better-auth config, access-control statements, email verification |
-| OrganizationsModule | `src/organizations/` | Organizations (tenants), teams, members                           |
-| UsersModule         | `src/users/`         | User CRUD, admin-only user list with data-grid filters            |
-| MenusModule         | `src/menus/`         | Menus, sections, items, offers, add-ons, modifiers                |
-| OrdersModule        | `src/orders/`        | Order lifecycle, payment recording, menu-item sales reporting     |
-| CouponsModule       | `src/coupons/`       | Coupons, user wallets (`userCoupon`), claim / grant / redeem      |
-| PointsModule        | `src/points/`        | Loyalty point transactions, redemption, brand-wide point rules    |
-| BannersModule       | `src/banners/`       | Marketing banners (public read + admin CRUD)                      |
-| DonateCodesModule   | `src/donate-codes/`  | Invoice donation code lookup                                      |
-| GcisModule          | `src/gcis/`          | 經濟部商工登記查詢 (business number lookup)                       |
-| EcpayModule         | `src/ecpay/`         | Payment gateway (AIO checkout + invoices)                         |
-| EventsModule        | `src/events/`        | Socket.io gateway (order status / menu updates)                   |
-| MailsModule         | `src/mails/`         | Transactional email sending                                       |
-| AttendanceModule    | `src/attendance/`    | Employees, shifts, punches, leave requests and balances           |
-| PayrollModule       | `src/payroll/`       | Payroll terms, statements, and the official rule-set ingestion    |
-| TasksModule         | `src/tasks/`         | Scheduled jobs: retention purges, notifications, data ingests     |
+| Module               | Path                   | Purpose                                                                                                |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| DrizzleModule        | `src/drizzle/`         | **Global** — injects DB instance via `DRIZZLE` token                                                   |
+| AuthModule           | `src/auth/`            | better-auth config, access-control statements, email verification                                      |
+| OrganizationsModule  | `src/organizations/`   | Organizations (tenants), teams, members                                                                |
+| UsersModule          | `src/users/`           | User CRUD, admin-only user list with data-grid filters                                                 |
+| MenusModule          | `src/menus/`           | Menus, sections, items, offers, add-ons, modifiers                                                     |
+| OrdersModule         | `src/orders/`          | Order lifecycle, payment recording, menu-item sales reporting                                          |
+| CouponsModule        | `src/coupons/`         | Coupons, user wallets (`userCoupon`), claim / grant / redeem                                           |
+| PointsModule         | `src/points/`          | Loyalty point transactions, redemption, brand-wide point rules                                         |
+| BannersModule        | `src/banners/`         | Marketing banners (public read + admin CRUD)                                                           |
+| DonateCodesModule    | `src/donate-codes/`    | Invoice donation code lookup                                                                           |
+| GcisModule           | `src/gcis/`            | 經濟部商工登記查詢 (business number lookup)                                                            |
+| EcpayModule          | `src/ecpay/`           | Payment gateway (AIO checkout + invoices)                                                              |
+| EventsModule         | `src/events/`          | Socket.io gateway (order status / menu updates)                                                        |
+| MailsModule          | `src/mails/`           | Transactional email sending                                                                            |
+| AttendanceModule     | `src/attendance/`      | Employees, shifts, punches, leave requests and balances                                                |
+| PayrollModule        | `src/payroll/`         | Payroll terms, statements, and the official rule-set ingestion                                         |
+| TasksModule          | `src/tasks/`           | Scheduled jobs: retention purges, notifications, data ingests                                          |
+| InventoryModule      | `src/inventory/`       | Suppliers, ingredients, recipes, stock transactions, low-stock alerts                                  |
+| WaitlistModule       | `src/waitlist/`        | Waitlist settings and tickets                                                                          |
+| PrintersModule       | `src/printers/`        | Receipt printers and order ticket print jobs (imported by OrdersModule and EcpayModule, not AppModule) |
+| AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
+| DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
+| QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -78,23 +84,30 @@ routes live under `users/me/...` (orders, coupons, points).
 Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 
 - `users.ts` — `user`, `session`, `account`, `verification` (managed by better-auth)
-- `organizations.ts` — `organization`, `team`, `teamMember`, `member`, `invitation`
+- `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `team`, `teamMember`, `member`, `invitation`
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
 - `orders.ts` — `order`, `orderItem`
 - `coupons.ts` — `coupon`, `userCoupon`
 - `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules)
 - `attendance.ts` — `attendanceEmployee`, `attendanceShift`, `attendanceEvent`, `attendanceRequest`,
   `attendanceLeaveType`, `attendanceLeaveCase`, `attendanceAudit`, settings and templates
-- `payroll.ts` — `payrollRuleSet`, `payrollTerms`, `payrollStatement`
+- `payroll.ts` — `payrollRuleSet`, `payrollTerms`, `payrollStatement`, `payrollEarningType`, `payrollEarning`, `payrollWithholdingUnit`, `payrollTaxIdentity`, `payrollCertificateRequest`
 - `banners.ts` — `banner`
-- `invoices.ts` — `invoice`
+- `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
+- `refunds.ts` — `refund`
+- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt`, `ecpayCallbackLog`
+- `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
+- `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
+- `printers.ts` — `printer`, `orderTicketJob`
+- `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
+- `quant.ts` — `quantBot` and the other `quant*` tables
 - `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
 - `columns.helpers.ts` — shared column builders. Its `timestamps` are `timestamp` **without** time zone;
   the attendance and payroll tables use `withTimezone: true` instead, so don't switch them to the helper.
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
 
-Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; platform admins restore batches whose root table is in `RESTORABLE_TABLES`. Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
+Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; batches whose root table is in `RESTORABLE_TABLES` can be restored by platform admins, or by store members whose role holds that table's `RESTORE_PERMISSIONS` action (restoring an owner member or invitation needs `owner`). Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
 
 ### Payroll Rule Sets
 
