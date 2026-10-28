@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { PublicSpecialHoursDto } from './special-hours.dto.js';
+
 export class OrganizationResponseDto {
   @ApiProperty()
   id: string;
@@ -78,6 +80,14 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   closedAt: Date | null;
+}
+
+export class OrganizationDetailResponseDto extends OrganizationResponseDto {
+  @ApiProperty({
+    type: [PublicSpecialHoursDto],
+    description: '今天起到可預約自取的最遠日期之間的特殊營業日',
+  })
+  specialHours: PublicSpecialHoursDto[];
 }
 
 export class MyOrganizationListItemDto extends OrganizationResponseDto {

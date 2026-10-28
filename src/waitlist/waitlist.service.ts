@@ -26,6 +26,7 @@ import {
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
 import {
+  DAY_MS,
   PLATFORM_TIMEZONE,
   platformDateString,
   platformMidnight,
@@ -37,6 +38,7 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { openingCalendar } from '../common/utils/opening-hours.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
+import { findSpecialHours } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import type { Language } from '../db/schema/enums.js';
 import { organization } from '../db/schema/organizations.js';
@@ -256,6 +258,33 @@ export class WaitlistService {
     };
   }
 
+  private async availabilityNow(
+    organizationId: string,
+    openingHours: string | null,
+    cutoffMinutes: number,
+  ) {
+    const now = new Date();
+    const today = platformDateString(now);
+    const specialHours = await findSpecialHours(
+      this.db,
+      organizationId,
+      new Date(now.getTime() - DAY_MS),
+      new Date(now.getTime() + DAY_MS),
+    );
+
+    return {
+      ...getAvailability(
+        openingCalendar(openingHours, specialHours),
+        cutoffMinutes,
+        now,
+      ),
+      specialHours: specialHours.filter(
+        ({ validFrom, validThrough }) =>
+          validFrom <= today && today <= validThrough,
+      ),
+    };
+  }
+
   private emitUpdated(
     organizationId: string,
     ticket: WaitlistUpdatedEvent['ticket'],
@@ -289,11 +318,11 @@ export class WaitlistService {
     if (!org) throw new NotFoundException('Organization not found');
 
     return {
-      ...getAvailability(
-        openingCalendar(org.openingHours, []),
+      ...(await this.availabilityNow(
+        organizationId,
+        org.openingHours,
         settings.cutoffMinutes,
-        new Date(),
-      ),
+      )),
       enabled: settings.enabled,
       groups: settings.groups.map((group) => {
         const groupTickets = tickets.filter(
@@ -359,10 +388,10 @@ export class WaitlistService {
     // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused)
       throw badRequestError('waitlistPaused', 'guest');
-    const { cutoff, open } = getAvailability(
-      openingCalendar(org.openingHours, []),
+    const { cutoff, open } = await this.availabilityNow(
+      org.id,
+      org.openingHours,
       settings.cutoffMinutes,
-      new Date(),
     );
     if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
     if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
@@ -722,11 +751,11 @@ export class WaitlistService {
 
     return {
       ...settings,
-      ...getAvailability(
-        openingCalendar(org.openingHours, []),
+      ...(await this.availabilityNow(
+        org.id,
+        org.openingHours,
         settings.cutoffMinutes,
-        new Date(),
-      ),
+      )),
       tickets: boardTickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')

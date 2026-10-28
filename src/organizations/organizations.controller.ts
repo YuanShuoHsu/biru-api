@@ -29,7 +29,10 @@ import {
   MemberShowcaseResponseDto,
   OrganizationTeamMemberResponseDto,
 } from './dto/organization-member-response.dto.js';
-import { OrganizationResponseDto } from './dto/organization-response.dto.js';
+import {
+  OrganizationDetailResponseDto,
+  OrganizationResponseDto,
+} from './dto/organization-response.dto.js';
 import { UpdateMemberShowcaseDto } from './dto/update-member-showcase.dto.js';
 import { OrganizationsService } from './organizations.service.js';
 
@@ -58,11 +61,19 @@ export class OrganizationsController {
 
   @Get(':slug')
   @ApiOperation({ summary: '查詢組織；舊 slug 也查得到，回傳的 slug 為現行值' })
-  async findOne(@Param('slug') slug: string): Promise<OrganizationResponseDto> {
+  @ApiOkResponse({ type: OrganizationDetailResponseDto })
+  async findOne(
+    @Param('slug') slug: string,
+  ): Promise<OrganizationDetailResponseDto> {
     const org = await this.organizationsService.organizationBySlug(slug);
     if (!org) throw new NotFoundException();
 
-    return org;
+    return {
+      ...org,
+      specialHours: await this.organizationsService.upcomingSpecialHours(
+        org.id,
+      ),
+    };
   }
 
   @Get(':slug/team')

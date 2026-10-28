@@ -1,5 +1,6 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
 
@@ -19,10 +20,12 @@ const createService = ({
   openingHours = ALWAYS_OPEN,
   qrSecret = null,
   setting,
+  specialHours = [],
   ticket,
 }: {
   openingHours?: string | null;
   qrSecret?: string | null;
+  specialHours?: SpecialOpeningHours[];
   setting?: {
     enabled: boolean;
     groups: unknown[];
@@ -41,6 +44,9 @@ const createService = ({
         findFirst: vi
           .fn()
           .mockResolvedValue(qrSecret ? { secret: qrSecret } : undefined),
+      },
+      organizationSpecialHours: {
+        findMany: vi.fn().mockResolvedValue(specialHours),
       },
       waitlistSetting: { findFirst: vi.fn().mockResolvedValue(setting) },
       waitlistTicket: { findFirst: vi.fn().mockResolvedValue(ticket) },
@@ -98,6 +104,24 @@ describe('WaitlistService.createTicket', () => {
       expect(db.transaction).not.toHaveBeenCalled();
     },
   );
+
+  it('rejects with waitlistClosed on a closed special day', async () => {
+    const { db, service } = createService({
+      setting: { enabled: true, groups, paused: false },
+      specialHours: [
+        {
+          openingHours: null,
+          validFrom: '2026-10-06',
+          validThrough: '2026-10-06',
+        },
+      ],
+    });
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, false, qrSession),
+    ).rejects.toThrow('waitlistClosed');
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
 
   it.each([0, 30])(
     'lets customers in when the cutoff is %i minutes',
@@ -356,6 +380,36 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
       ],
       paused: false,
     });
+  });
+
+  it("applies and returns today's special hours only", async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    const today = {
+      id: 'today',
+      note: '颱風停業',
+      openingHours: null,
+      validFrom: '2026-10-06',
+      validThrough: '2026-10-06',
+    };
+    const { db, service } = createService({
+      setting: { enabled: true, groups: [], paused: false },
+      specialHours: [
+        {
+          id: 'yesterday',
+          note: null,
+          openingHours: null,
+          validFrom: '2026-10-05',
+          validThrough: '2026-10-05',
+        },
+        today,
+      ] as SpecialOpeningHours[],
+    });
+    Object.assign(db, { select: selectReturning([]) });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('org'),
+    ).resolves.toMatchObject({ open: false, specialHours: [today] });
+    vi.useRealTimers();
   });
 
   it('rejects an unknown organization', async () => {

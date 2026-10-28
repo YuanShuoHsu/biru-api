@@ -65,6 +65,7 @@ import {
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
+import { findSpecialHours } from '../common/utils/organizations.js';
 import { openingCalendar } from '../common/utils/opening-hours.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
@@ -367,7 +368,10 @@ export class OrdersService {
     return toActiveInvoice(found);
   }
 
-  private resolvePickupTime(org: Organization, value?: string): Date {
+  private async resolvePickupTime(
+    org: Organization,
+    value?: string,
+  ): Promise<Date> {
     if (!value) throw new BadRequestException(this.t('pickupTimeInvalid'));
 
     const pickupTime = new Date(value);
@@ -380,8 +384,19 @@ export class OrdersService {
     if (pickupTime.getTime() >= advanceLimit)
       throw new BadRequestException(this.t('pickupTooFarAhead'));
 
+    const specialHours = await findSpecialHours(
+      this.db,
+      org.id,
+      new Date(pickupTime.getTime() - DAY_MS),
+      new Date(
+        pickupTime.getTime() +
+          Math.max(org.pickupCutoffMinutes, 0) * 60_000 +
+          DAY_MS,
+      ),
+    );
+
     const hoursError = pickupHoursError(
-      openingCalendar(org.openingHours, []),
+      openingCalendar(org.openingHours, specialHours),
       org.pickupCutoffMinutes,
       pickupTime,
     );
@@ -446,7 +461,7 @@ export class OrdersService {
     if (org.closedAt) throw organizationClosedError();
 
     const pickupTime = isPickup
-      ? this.resolvePickupTime(org, dto.pickupTime)
+      ? await this.resolvePickupTime(org, dto.pickupTime)
       : null;
 
     const orderItemsData = await this.orderPricingService.resolveOrderItems(

@@ -36,6 +36,9 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { getDeletableOrganizationIds } from '../auth/deletion-guards.js';
+import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
+import { DAY_MS } from '../common/constants/timezone.js';
+import { findSpecialHours } from '../common/utils/organizations.js';
 import { isAuthorized } from '../auth/permissions.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
@@ -313,6 +316,17 @@ export class OrganizationsService {
     });
 
     return previous ? this.organization({ id: previous.organizationId }) : null;
+  }
+
+  upcomingSpecialHours(organizationId: string) {
+    const now = new Date();
+
+    return findSpecialHours(
+      this.db,
+      organizationId,
+      now,
+      new Date(now.getTime() + PICKUP_MAX_ADVANCE_DAYS * DAY_MS),
+    );
   }
 
   async getStats(

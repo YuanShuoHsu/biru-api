@@ -1,8 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, gte, lte } from 'drizzle-orm';
 
-import { organization } from '../../db/schema/organizations.js';
+import {
+  organization,
+  organizationSpecialHours,
+} from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { platformDateString } from '../constants/timezone.js';
 
 export const getOrganizationBySlug = async (
   db: DrizzleDB,
@@ -34,3 +38,25 @@ export const getOrganizationCurrency = async (
 
   return row.currency;
 };
+
+export const findSpecialHours = (
+  db: DrizzleDB,
+  organizationId: string,
+  from: Date,
+  through: Date,
+) =>
+  db.query.organizationSpecialHours.findMany({
+    where: and(
+      eq(organizationSpecialHours.organizationId, organizationId),
+      lte(organizationSpecialHours.validFrom, platformDateString(through)),
+      gte(organizationSpecialHours.validThrough, platformDateString(from)),
+    ),
+    columns: {
+      id: true,
+      note: true,
+      openingHours: true,
+      validFrom: true,
+      validThrough: true,
+    },
+    orderBy: asc(organizationSpecialHours.validFrom),
+  });

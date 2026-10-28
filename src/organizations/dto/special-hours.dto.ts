@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+  PickType,
+} from '@nestjs/swagger';
 
 import {
   IsISO8601,
@@ -67,3 +72,11 @@ export class SpecialHoursDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class PublicSpecialHoursDto extends PickType(SpecialHoursDto, [
+  'id',
+  'note',
+  'openingHours',
+  'validFrom',
+  'validThrough',
+] as const) {}
