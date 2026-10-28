@@ -35,6 +35,7 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import type { Language } from '../db/schema/enums.js';
@@ -288,7 +289,11 @@ export class WaitlistService {
     if (!org) throw new NotFoundException('Organization not found');
 
     return {
-      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
+      ...getAvailability(
+        openingCalendar(org.openingHours, []),
+        settings.cutoffMinutes,
+        new Date(),
+      ),
       enabled: settings.enabled,
       groups: settings.groups.map((group) => {
         const groupTickets = tickets.filter(
@@ -355,7 +360,7 @@ export class WaitlistService {
     if (!byStaff && settings.paused)
       throw badRequestError('waitlistPaused', 'guest');
     const { cutoff, open } = getAvailability(
-      org.openingHours,
+      openingCalendar(org.openingHours, []),
       settings.cutoffMinutes,
       new Date(),
     );
@@ -717,7 +722,11 @@ export class WaitlistService {
 
     return {
       ...settings,
-      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
+      ...getAvailability(
+        openingCalendar(org.openingHours, []),
+        settings.cutoffMinutes,
+        new Date(),
+      ),
       tickets: boardTickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')

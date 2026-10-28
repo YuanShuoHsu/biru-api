@@ -65,10 +65,7 @@ import {
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
-import {
-  getMinutesUntilClose,
-  isWithinOpeningHours,
-} from '../common/utils/opening-hours.js';
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
@@ -132,6 +129,7 @@ import {
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 
 const dateStamp = (at: Date = new Date()): string =>
@@ -388,14 +386,12 @@ export class OrdersService {
     if (pickupTime.getTime() >= advanceLimit)
       throw new BadRequestException(this.t('pickupTooFarAhead'));
 
-    if (!isWithinOpeningHours(org.openingHours, pickupTime))
-      throw new BadRequestException(this.t('pickupOutsideOpeningHours'));
-
-    if (
-      getMinutesUntilClose(org.openingHours, pickupTime) <
-      Math.max(org.pickupCutoffMinutes, 0)
-    )
-      throw new BadRequestException(this.t('pickupTooCloseToClosing'));
+    const hoursError = pickupHoursError(
+      openingCalendar(org.openingHours, []),
+      org.pickupCutoffMinutes,
+      pickupTime,
+    );
+    if (hoursError) throw new BadRequestException(this.t(hoursError));
 
     return pickupTime;
   }
