@@ -702,20 +702,18 @@ export class MenusService {
       updatedAt: menuItem.updatedAt,
     };
 
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const sortColumn =
+      sortBy === 'recipe'
+        ? sql`(select ${localizedTextSql(recipe.name, lang)} from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`
+        : sortBy && localizedFields[sortBy]
+          ? localizedTextSql(localizedFields[sortBy], lang)
+          : sortBy && itemFieldMap[sortBy];
+
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] =
-      sortBy && localizedFields[sortBy]
-        ? [
-            dir(
-              localizedTextSql(
-                localizedFields[sortBy],
-                toLanguage(I18nContext.current()?.lang),
-              ),
-            ),
-          ]
-        : sortBy && itemFieldMap[sortBy]
-          ? [dir(itemFieldMap[sortBy])]
-          : [asc(menuItem.sortOrder), asc(menuItem.id)];
+    const orderBy: SQL[] = sortColumn
+      ? [dir(sortColumn)]
+      : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
       eq(menuItem.menuSectionId, sectionId),

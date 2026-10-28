@@ -83,12 +83,20 @@ describe('MenusService localized text filters and sorting', () => {
         sortOrder: index,
       })),
     );
-    await db.insert(recipe).values({
-      id: 'house-latte',
-      name: { en: 'House Latte', 'zh-TW': '招牌拿鐵' },
-      organizationId: ORG,
-      menuItemId: 'latte',
-    });
+    await db.insert(recipe).values([
+      {
+        id: 'house-latte',
+        name: { en: 'House Latte', 'zh-TW': '招牌拿鐵' },
+        organizationId: ORG,
+        menuItemId: 'latte',
+      },
+      {
+        id: 'black-coffee',
+        name: { en: 'Black Coffee', 'zh-TW': '黑咖啡' },
+        organizationId: ORG,
+        menuItemId: 'americano',
+      },
+    ]);
     await db.insert(menuItemAddOn).values([
       {
         id: 'with-americano',
@@ -264,6 +272,13 @@ describe('MenusService localized text filters and sorting', () => {
           filterField: 'recipe',
           filterOperator: 'isEmpty',
         }),
+      ).toEqual(['mocha']);
+      expect(
+        await itemIds({
+          filterField: 'recipe',
+          filterOperator: 'doesNotContain',
+          filterValue: 'Latte',
+        }),
       ).toEqual(['americano', 'mocha']);
       expect(
         await itemIds({
@@ -286,9 +301,22 @@ describe('MenusService localized text filters and sorting', () => {
         'latte',
         'mocha',
       ]);
+    });
+
+    it('依食譜名稱排序時取目前語系的名稱，沒有食譜的品項在降冪時排最前', async () => {
+      expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
+        ['latte', 'americano', 'mocha'],
+      );
       expect(
-        (await itemIds({ sortBy: 'recipe', sortDirection: 'asc' }))[0],
-      ).toBe('latte');
+        await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
+      ).toEqual(['mocha', 'americano', 'latte']);
+      inEnglish();
+      expect(await itemIds({ sortBy: 'recipe', sortDirection: 'asc' })).toEqual(
+        ['americano', 'latte', 'mocha'],
+      );
+      expect(
+        await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
+      ).toEqual(['mocha', 'latte', 'americano']);
     });
   });
 
@@ -327,6 +355,13 @@ describe('MenusService localized text filters and sorting', () => {
         await addOnIds({
           filterField: 'addOnMenuItemName',
           filterOperator: 'isEmpty',
+        }),
+      ).toEqual(['with-toppings']);
+      expect(
+        await addOnIds({
+          filterField: 'addOnMenuItemName',
+          filterOperator: 'doesNotContain',
+          filterValue: 'Americano',
         }),
       ).toEqual(['with-toppings']);
     });
