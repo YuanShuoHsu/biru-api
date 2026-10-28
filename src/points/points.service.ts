@@ -98,6 +98,20 @@ const toExpiresAt = (
       )
     : null;
 
+const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
+
+const earnedPoints = (
+  subtotal: string,
+  discount: string | null,
+  amountPerPoint: string | null,
+): number => {
+  const centsPerPoint = toCents(amountPerPoint);
+
+  return centsPerPoint > 0
+    ? Math.floor((toCents(subtotal) - toCents(discount)) / centsPerPoint)
+    : 0;
+};
+
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   id: found.id,
   code: found.code,
@@ -183,8 +197,11 @@ export class PointsService {
       .groupBy(order.id, pointSetting.id);
 
     const earns = unrecorded.flatMap((row) => {
-      const total = Number(row.subtotal) - Number(row.discount || 0);
-      const points = Math.floor(total / Number(row.amountPerPoint));
+      const points = earnedPoints(
+        row.subtotal,
+        row.discount,
+        row.amountPerPoint,
+      );
       if (points <= 0) return [];
 
       return [
@@ -381,17 +398,18 @@ export class PointsService {
 
     if (!found?.userId) return null;
 
-    const amountPerPoint = Number(found.amountPerPoint);
-    if (!amountPerPoint) return null;
-
-    const total = Number(found.subtotal) - Number(found.discount || 0);
+    if (!Number(found.amountPerPoint)) return null;
 
     return {
       expiresAt: found.paymentDate
         ? toExpiresAt(found.paymentDate, found.pointsValidityYears)
         : null,
       organizationId: found.organizationId,
-      points: Math.floor(total / amountPerPoint),
+      points: earnedPoints(
+        found.subtotal,
+        found.discount,
+        found.amountPerPoint,
+      ),
       userId: found.userId,
     };
   }

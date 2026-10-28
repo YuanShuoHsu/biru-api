@@ -152,17 +152,21 @@ describe('PointsService.findAllForOrganization', () => {
     id: string,
     sellerId: string,
     userId: string | null,
-    { amountPerPoint = null as string | null, paymentDate = '2026-02-01' } = {},
+    {
+      amountPerPoint = null as string | null,
+      paymentDate = '2026-02-01',
+      unitPrice = '100',
+    } = {},
   ) => {
     await client.query(
       `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id, amount_per_point)
-       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, $4, 'OrderDelivered', $3, $5)`,
-      [id, sellerId, userId, paymentDate, amountPerPoint],
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, $6, $4, 'OrderDelivered', $3, $5)`,
+      [id, sellerId, userId, paymentDate, amountPerPoint, unitPrice],
     );
     await client.query(
       `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
-       values ($1, 'item', '拿鐵', $1, 1, 100)`,
-      [id],
+       values ($1, 'item', '拿鐵', $1, 1, $2)`,
+      [id, unitPrice],
     );
   };
 
@@ -196,6 +200,43 @@ describe('PointsService.findAllForOrganization', () => {
 
     expect(result.data).toEqual([
       expect.objectContaining({ orderNumber: 'o2', points: 5 }),
+    ]);
+  });
+
+  it('每點金額有小數時以整數分計算，不因浮點誤差少給一點', async () => {
+    await addPaidOrder('o1', ORG, 'amy', {
+      amountPerPoint: '1.1',
+      unitPrice: '33',
+    });
+    await addPaidOrder('o2', ORG, 'amy', {
+      amountPerPoint: '0.07',
+      unitPrice: '7',
+    });
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ orderNumber: 'o1', points: 30 }),
+        expect.objectContaining({ orderNumber: 'o2', points: 100 }),
+      ]),
+    );
+  });
+
+  it('尚未入點的訂單部分退款時，以整數分算出應得點數再收回', async () => {
+    await addPaidOrder('o1', ORG, 'amy', {
+      amountPerPoint: '1.1',
+      unitPrice: '33',
+    });
+
+    await service.revokeForOrder(db as unknown as DrizzleDB, {
+      orderBecomesTerminal: false,
+      orderId: 'o1',
+      ratio: 1,
+    });
+
+    expect(await db.select().from(pointTransaction)).toEqual([
+      expect.objectContaining({ points: -30, type: 'revoke' }),
     ]);
   });
 
