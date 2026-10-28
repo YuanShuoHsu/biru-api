@@ -184,5 +184,18 @@
     "action": "대시보드 열기",
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 전체 매장 요약",
+    "title": "어제 전체 매장 요약",
+    "intro": "{date}에 매출 또는 포인트 조정이 있었거나 현재 재고가 부족한 매장은 {count}곳입니다. 매장 이름을 누르면 해당 매장의 대시보드가 열립니다.",
+    "revenue": "매출: {revenue}",
+    "orders": "주문: {orders}건",
+    "refunds": "환불: {refundedOrders}건",
+    "point_adjustments": "포인트 수동 조정: {adjustments}건, 합계 {points}포인트",
+    "low_stock": "현재 재고 부족 식재료: {lowStock}개",
+    "action": "전체 매장 보기",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
   }
 }

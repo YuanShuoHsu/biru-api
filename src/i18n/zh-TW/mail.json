@@ -184,5 +184,18 @@
     "action": "查看營運儀表板",
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 全平台營業總覽",
+    "title": "昨日全平台總覽",
+    "intro": "{date} 共有 {count} 家門市有營業或點數調整，或目前有低庫存食材，各門市概況如下；點門市名稱可開啟該店的儀表板。",
+    "revenue": "營收：{revenue}",
+    "orders": "訂單：{orders} 筆",
+    "refunds": "退款：{refundedOrders} 筆",
+    "point_adjustments": "點數人工調整：{adjustments} 筆，合計 {points} 點",
+    "low_stock": "目前低庫存食材：{lowStock} 項",
+    "action": "查看所有門市",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   }
 }

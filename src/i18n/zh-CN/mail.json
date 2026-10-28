@@ -184,5 +184,18 @@
     "action": "查看运营仪表板",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 全平台营业总览",
+    "title": "昨日全平台总览",
+    "intro": "{date} 共有 {count} 家门店有营业或积分调整，或目前有低库存食材，各门店概况如下；点击门店名称可打开该店的仪表板。",
+    "revenue": "营收：{revenue}",
+    "orders": "订单：{orders} 笔",
+    "refunds": "退款：{refundedOrders} 笔",
+    "point_adjustments": "积分人工调整：{adjustments} 笔，合计 {points} 点",
+    "low_stock": "目前低库存食材：{lowStock} 项",
+    "action": "查看所有门店",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   }
 }

@@ -61,7 +61,13 @@
                         <h1>{{title}}</h1>
                         <p>{{intro}}</p>
                         {{#each groups}}
-                          <h2>{{heading}}</h2>
+                          <h2>
+                            {{#if url}}
+                              <a href='{{url}}' target='_blank'>{{heading}}</a>
+                            {{else}}
+                              {{heading}}
+                            {{/if}}
+                          </h2>
                           <ul>
                             {{#each items}}
                               <li>{{this}}</li>

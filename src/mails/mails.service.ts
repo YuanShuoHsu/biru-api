@@ -884,6 +884,121 @@ export class MailsService {
     });
   }
 
+  public async sendPlatformDailyDigest({
+    recipient: { email, lang },
+    date,
+    path,
+    stores,
+  }: {
+    recipient: { email: string; lang: Language };
+    date: Date;
+    path: string;
+    stores: {
+      organizationName: string;
+      currency: string;
+      path: string;
+      orders: number;
+      revenue: number;
+      refundedOrders: number;
+      pointAdjustments: { count: number; total: number };
+      lowStock: number;
+    }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const adminUrl = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}`;
+    const url = `${adminUrl}${path}`;
+    const options = { lang };
+    const signed = new Intl.NumberFormat(lang, { signDisplay: 'always' });
+    const translate = {
+      args: {
+        count: stores.length,
+        date: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          timeZone: PLATFORM_TIMEZONE,
+        }).format(date),
+        productName,
+      },
+      lang,
+    };
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: this.i18n.t('mail.platform_daily_digest.subject', translate),
+      template: 'digest',
+      context: {
+        action: this.i18n.t('mail.platform_daily_digest.action', options),
+        groups: stores.map(
+          ({
+            organizationName,
+            currency,
+            path: storePath,
+            pointAdjustments,
+            ...store
+          }) => {
+            const args = {
+              ...store,
+              revenue: new Intl.NumberFormat(lang, {
+                style: 'currency',
+                currency,
+                maximumFractionDigits: 0,
+              }).format(store.revenue),
+              adjustments: pointAdjustments.count,
+              points: signed.format(pointAdjustments.total),
+            };
+            return {
+              heading: organizationName,
+              url: `${adminUrl}${storePath}`,
+              items: [
+                this.i18n.t('mail.platform_daily_digest.revenue', {
+                  args,
+                  lang,
+                }),
+                this.i18n.t('mail.platform_daily_digest.orders', {
+                  args,
+                  lang,
+                }),
+                this.i18n.t('mail.platform_daily_digest.refunds', {
+                  args,
+                  lang,
+                }),
+                ...(pointAdjustments.count
+                  ? [
+                      this.i18n.t(
+                        'mail.platform_daily_digest.point_adjustments',
+                        { args, lang },
+                      ),
+                    ]
+                  : []),
+                ...(store.lowStock
+                  ? [
+                      this.i18n.t('mail.platform_daily_digest.low_stock', {
+                        args,
+                        lang,
+                      }),
+                    ]
+                  : []),
+              ],
+            };
+          },
+        ),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.platform_daily_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.platform_daily_digest.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.platform_daily_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.platform_daily_digest.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
   public async sendWaitlistNotification({
     email,
     holdUntil,

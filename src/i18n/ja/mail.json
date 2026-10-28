@@ -184,5 +184,18 @@
     "action": "ダッシュボードを開く",
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} の全店舗サマリー",
+    "title": "昨日の全店舗サマリー",
+    "intro": "{date} に売上・ポイント調整があった店舗、または現在在庫不足の店舗は {count} 店です。店舗名から各店のダッシュボードを開けます。",
+    "revenue": "売上：{revenue}",
+    "orders": "注文：{orders} 件",
+    "refunds": "返金：{refundedOrders} 件",
+    "point_adjustments": "ポイントの手動調整：{adjustments} 件、合計 {points} ポイント",
+    "low_stock": "現在在庫不足の食材：{lowStock} 品目",
+    "action": "すべての店舗を見る",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   }
 }

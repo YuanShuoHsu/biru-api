@@ -588,6 +588,19 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "platform_daily_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "revenue": string;
+            "orders": string;
+            "refunds": string;
+            "point_adjustments": string;
+            "low_stock": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
     };
     "test": {
         "hello": string;

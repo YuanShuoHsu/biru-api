@@ -134,6 +134,21 @@ export class TasksService {
     }
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handlePlatformDailyDigestCron() {
+    try {
+      const notified =
+        await this.orderNotificationsService.notifyPlatformDailyDigest();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封全平台每日總覽`);
+    } catch (error) {
+      this.logger.error('寄送全平台每日總覽失敗', error);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_9AM, {
     disabled: !CRON_ENABLED,
     timeZone: PLATFORM_TIMEZONE,
