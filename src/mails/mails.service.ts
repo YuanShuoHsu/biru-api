@@ -23,8 +23,10 @@ import { UAParser } from 'ua-parser-js';
 
 import { SendTestEmailDto } from './dto/send-test-email.dto.js';
 
-const maskEmails = (text: string) =>
-  text.replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
+const redact = (text: string) =>
+  text
+    .replace(/https?:\/\/\S+/g, '[url]')
+    .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
 
 @Injectable()
 export class MailsService {
@@ -52,10 +54,10 @@ export class MailsService {
   private async send(
     options: ISendMailOptions & { to: string; template: string },
   ): Promise<void> {
-    await this.mailerService.sendMail(options).catch((error: Error) => {
+    await this.mailerService.sendMail(options).catch((error: unknown) => {
       this.logger.error(
-        maskEmails(
-          `Failed to send ${options.template} email to ${options.to}: ${error.message}`,
+        redact(
+          `Failed to send ${options.template} email to ${options.to}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
     });
@@ -420,7 +422,9 @@ export class MailsService {
         text,
         html: `<b>${text}</b>`,
       })
-      .catch(({ code, responseCode }: NodemailerError) => {
+      .catch((error: unknown) => {
+        const { code, responseCode }: Partial<NodemailerError> =
+          error instanceof Error ? error : {};
         throw new BadGatewayException({
           error: 'Bad Gateway',
           message: this.i18n.t('common.exceptions.smtpTestFailed', {

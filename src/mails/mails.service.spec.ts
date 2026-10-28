@@ -178,6 +178,14 @@ describe('MailsService 語系', () => {
     expect(sent[0].html).toContain('invited');
   });
 
+  const spyLoggerError = () => {
+    const error = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => error.mockRestore());
+    return error;
+  };
+
   const smtpError = () =>
     Object.assign(
       new Error(
@@ -191,9 +199,7 @@ describe('MailsService 語系', () => {
     );
 
   it('寄信失敗時記錄種類與遮罩後的收件人，不往外丟', async () => {
-    const error = vi
-      .spyOn(Logger.prototype, 'error')
-      .mockImplementation(() => {});
+    const error = spyLoggerError();
     vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
 
     await expect(sendVerificationEmail('ja')).resolves.toBeUndefined();
@@ -204,7 +210,30 @@ describe('MailsService 語系', () => {
     expect(message).toContain('a***@example.com');
     expect(message).toContain('all recipients were rejected');
     expect(message).not.toContain('ann@example.com');
-    error.mockRestore();
+  });
+
+  it('寄信失敗的 log 遮掉 SMTP 回應帶出的網址', async () => {
+    const error = spyLoggerError();
+    vi.mocked(sendMail).mockRejectedValueOnce(
+      new Error(
+        '554 5.7.1 Message rejected: http://localhost:3000/ja/auth/reset-password?token=secret blocked',
+      ),
+    );
+
+    await sendVerificationEmail('ja');
+
+    const [message] = error.mock.calls[0] as [string];
+    expect(message).toContain('554 5.7.1 Message rejected: [url] blocked');
+    expect(message).not.toMatch(/localhost|secret/);
+  });
+
+  it('非 Error 的寄信失敗也記 log 且不往外丟', async () => {
+    const error = spyLoggerError();
+    vi.mocked(sendMail).mockRejectedValueOnce('socket closed');
+
+    await expect(sendVerificationEmail('ja')).resolves.toBeUndefined();
+
+    expect(error.mock.calls[0][0]).toContain('socket closed');
   });
 
   it('測試信寄送失敗時回 502，只附 SMTP 錯誤碼', async () => {
@@ -222,6 +251,17 @@ describe('MailsService 語系', () => {
       smtp: { code: 'EENVELOPE', responseCode: 550 },
     });
     expect(JSON.stringify(response)).not.toMatch(/ann@example\.com|smtp-user/);
+  });
+
+  it('測試信寄送因非 Error 失敗時仍回 502', async () => {
+    vi.mocked(sendMail).mockRejectedValueOnce('socket closed');
+
+    const error = await service
+      .sendTestEmail({ email: 'ann@example.com' }, 'en')
+      .catch((error: unknown) => error);
+
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as BadGatewayException).getStatus()).toBe(502);
   });
 
   it('測試信用請求者的 lang', async () => {
