@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext, type I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
+import type { FilterOperator } from '../common/constants/pagination.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -179,7 +180,10 @@ describe('IngredientsService.findAll name filter', () => {
       ({ id }) => id,
     );
 
-  const filterName = async (filterOperator: string, filterValue?: string) =>
+  const filterName = async (
+    filterOperator: FilterOperator,
+    filterValue?: string,
+  ) =>
     (
       await service.findAll('biru', {
         filterField: 'name',
