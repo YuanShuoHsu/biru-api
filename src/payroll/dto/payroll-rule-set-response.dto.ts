@@ -73,8 +73,7 @@ export class PayrollRuleSetResponseDto {
   @ApiPropertyOptional() fetchedAt: Date | null;
   @ApiPropertyOptional() checkedAt: Date | null;
   @ApiProperty({
-    description:
-      '最新一期且本月（平台時區）尚未確認官方來源；薪資草稿會因此帶 payrollRuleSetStale',
+    description: '最新一期且本月（平台時區）尚未成功確認官方來源',
   })
   stale: boolean;
   @ApiProperty({ enum: ['minimumHourlyWageCents'], isArray: true })
