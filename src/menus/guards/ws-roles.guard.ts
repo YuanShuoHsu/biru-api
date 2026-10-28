@@ -8,12 +8,10 @@ import { Reflector } from '@nestjs/core';
 import { WsException } from '@nestjs/websockets';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
-import { and, eq } from 'drizzle-orm';
 import { Socket } from 'socket.io';
 
 import type { Auth } from '../../auth/index.js';
 import { isAuthorized } from '../../auth/permissions.js';
-import { member } from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
@@ -21,6 +19,7 @@ import {
   ROLES_KEY,
   type OrganizationParam,
 } from '../decorators/roles.decorator.js';
+import { findOrganizationRoles } from './organization-roles.js';
 
 @Injectable()
 export class WsRolesGuard implements CanActivate {
@@ -52,23 +51,16 @@ export class WsRolesGuard implements CanActivate {
     const userId = session?.user.id;
     if (!userId) throw new WsException('Forbidden');
 
-    const role =
-      session.user.role === 'admin'
-        ? ('owner' as const)
-        : (
-            await this.db.query.member.findFirst({
-              where: and(
-                eq(member.organizationId, organizationId),
-                eq(member.userId, userId),
-              ),
-              columns: { role: true },
-            })
-          )?.role;
+    const role = (
+      await findOrganizationRoles(this.db, organizationId, [userId])
+    ).get(userId);
     if (
       !role ||
       (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
     )
       throw new WsException('Forbidden');
+
+    client.data.userId = userId;
 
     return true;
   }
