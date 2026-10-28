@@ -1,15 +1,17 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { sql } from 'drizzle-orm';
 import { I18nService } from 'nestjs-i18n';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
 import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
-import { toLanguage } from '../common/utils/language.js';
+import { pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
-import type { User } from '../db/schema/users.js';
+import { user, type User } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
 import { UAParser } from 'ua-parser-js';
 
@@ -21,20 +23,32 @@ export class MailsService {
     private readonly configService: ConfigService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
+
+  private languageFor(
+    recipientLang: string | undefined,
+    request?: Request,
+  ): Language {
+    return (
+      pickLanguage(recipientLang) ??
+      pickLanguage(request?.headers.get('accept-language')) ??
+      this.configService.getOrThrow<Language>('FALLBACK_LANGUAGE')
+    );
+  }
 
   public async afterEmailVerification(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -49,6 +63,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.after_email_verification.subject', {
           args: { productName },
+          lang,
         }),
         template: 'after-email-verification',
         context: {
@@ -68,16 +83,16 @@ export class MailsService {
 
   public async onExistingUserSignUp(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -93,6 +108,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
           args: { productName },
+          lang,
         }),
         template: 'on-existing-user-sign-up',
         context: {
@@ -112,16 +128,16 @@ export class MailsService {
 
   public async onPasswordReset(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -137,6 +153,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.on_password_reset.subject', {
           args: { productName },
+          lang,
         }),
         template: 'on-password-reset',
         context: {
@@ -156,12 +173,12 @@ export class MailsService {
 
   public async sendChangeEmailConfirmation(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       newEmail,
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
       newEmail: string;
       url: string;
       token: string;
@@ -171,7 +188,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -195,6 +212,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
           args: { productName },
+          lang,
         }),
         template: 'send-change-email-confirmation',
         context: {
@@ -215,11 +233,11 @@ export class MailsService {
 
   public async sendDeleteAccountVerification(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
       url: string;
       token: string;
     },
@@ -228,7 +246,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -252,6 +270,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.send_delete_account_verification.subject', {
           args: { productName },
+          lang,
         }),
         template: 'send-delete-account-verification',
         context: {
@@ -290,7 +309,11 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const invitee = await this.db.query.user.findFirst({
+      columns: { lang: true },
+      where: sql`lower(${user.email}) = lower(${email})`,
+    });
+    const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -302,6 +325,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.organization_invitation.subject', {
           args: { organizationName, productName },
+          lang,
         }),
         template: 'organization-invitation',
         context: {
@@ -321,11 +345,11 @@ export class MailsService {
 
   public async sendResetPassword(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
       url: string;
       token: string;
     },
@@ -334,7 +358,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -358,6 +382,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.send_reset_password.subject', {
           args: { productName },
+          lang,
         }),
         template: 'send-reset-password',
         context: {
@@ -389,11 +414,11 @@ export class MailsService {
 
   public async sendVerificationEmail(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & { lang?: string };
       url: string;
       token: string;
     },
@@ -402,7 +427,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -426,6 +451,7 @@ export class MailsService {
         to: email,
         subject: this.i18n.t('mail.send_verification_email.subject', {
           args: { productName },
+          lang,
         }),
         template: 'send-verification-email',
         context: {
