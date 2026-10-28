@@ -162,6 +162,7 @@
     "organizationClosed": "此门店已停止营业",
     "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
+    "smtpTestFailed": "测试邮件发送失败，请检查 SMTP 设置后再试",
     "tooManyRequests": "请求过多"
   },
   "gcis": {

@@ -197,5 +197,9 @@
     "action": "查看所有門市",
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 測試",
+    "text": "如果您收到這封郵件，代表 SMTP 設定正確。"
   }
 }

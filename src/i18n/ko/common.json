@@ -162,6 +162,7 @@
     "organizationClosed": "이 매장은 영업을 종료했습니다",
     "organizationHasOpenWork": "완료되지 않은 주문 {orders}건과 대기 중인 번호표 {tickets}장이 있습니다. 완료하거나 취소한 후 폐점하세요",
     "organizationReadOnly": "이 매장은 폐점되었습니다. 메뉴, 재고, 쿠폰, 대기, 매장 설정은 조회만 가능합니다",
+    "smtpTestFailed": "테스트 이메일을 보내지 못했습니다. SMTP 설정을 확인한 후 다시 시도해 주세요",
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "gcis": {

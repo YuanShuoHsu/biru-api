@@ -162,6 +162,7 @@
     "organizationClosed": "この店舗は営業を終了しました",
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
+    "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {

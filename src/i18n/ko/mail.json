@@ -197,5 +197,9 @@
     "action": "전체 매장 보기",
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 테스트",
+    "text": "이 이메일을 받으셨다면 SMTP 설정이 올바르게 되어 있습니다."
   }
 }

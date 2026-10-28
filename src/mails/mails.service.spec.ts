@@ -4,7 +4,7 @@ import {
   type ISendMailOptions,
   type MailerOptions,
 } from '@nestjs-modules/mailer';
-import { Global, Module } from '@nestjs/common';
+import { BadGatewayException, Global, Logger, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
@@ -27,6 +27,7 @@ describe('MailsService 語系', () => {
   let client: PGlite;
   let service: MailsService;
   let sent: { subject: string; html: string }[];
+  let sendMail: MailerService['sendMail'];
 
   beforeAll(async () => {
     client = createPGlite();
@@ -66,21 +67,21 @@ describe('MailsService 語系', () => {
       .compile();
 
     const options = moduleRef.get<MailerOptions>(MAILER_OPTIONS);
-    vi.spyOn(moduleRef.get(MailerService), 'sendMail').mockImplementation(
-      (data: ISendMailOptions) =>
-        new Promise((resolve, reject) => {
-          const mail = { data: { ...data } as { html?: string } };
-          options.template!.adapter!.compile(
-            mail,
-            (error?: unknown) => {
+    sendMail = vi
+      .spyOn(moduleRef.get(MailerService), 'sendMail')
+      .mockImplementation(
+        (data: ISendMailOptions) =>
+          new Promise((resolve, reject) => {
+            const mail = { data: { ...data } as { html?: string } };
+            const done = (error?: unknown) => {
               if (error) return reject(error);
               sent.push({ subject: data.subject!, html: mail.data.html! });
               resolve({} as Awaited<ReturnType<MailerService['sendMail']>>);
-            },
-            options,
-          );
-        }),
-    );
+            };
+            if (mail.data.html) return done();
+            options.template!.adapter!.compile(mail, done, options);
+          }),
+      );
     service = moduleRef.get(MailsService);
 
     await db.insert(schema.user).values({
@@ -175,5 +176,102 @@ describe('MailsService 語系', () => {
 
     expect(sent[0].subject).toBe("You're invited to join Biru on Biru Coffee");
     expect(sent[0].html).toContain('invited');
+  });
+
+  const spyLoggerError = () => {
+    const error = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => error.mockRestore());
+    return error;
+  };
+
+  const smtpError = () =>
+    Object.assign(
+      new Error(
+        "Can't send mail - all recipients were rejected: 550 <ann@example.com>",
+      ),
+      {
+        code: 'EENVELOPE',
+        response: '550 5.1.1 <ann@example.com> unknown user, auth smtp-user',
+        responseCode: 550,
+      },
+    );
+
+  it('寄信失敗時記錄種類與遮罩後的收件人，不往外丟', async () => {
+    const error = spyLoggerError();
+    vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
+
+    await expect(sendVerificationEmail('ja')).resolves.toBeUndefined();
+
+    expect(error).toHaveBeenCalledOnce();
+    const [message] = error.mock.calls[0] as [string];
+    expect(message).toContain('send-verification-email');
+    expect(message).toContain('a***@example.com');
+    expect(message).toContain('all recipients were rejected');
+    expect(message).not.toContain('ann@example.com');
+  });
+
+  it('寄信失敗的 log 遮掉 SMTP 回應帶出的網址', async () => {
+    const error = spyLoggerError();
+    vi.mocked(sendMail).mockRejectedValueOnce(
+      new Error(
+        '554 5.7.1 Message rejected: http://localhost:3000/ja/auth/reset-password?token=secret blocked',
+      ),
+    );
+
+    await sendVerificationEmail('ja');
+
+    const [message] = error.mock.calls[0] as [string];
+    expect(message).toContain('554 5.7.1 Message rejected: [url] blocked');
+    expect(message).not.toMatch(/localhost|secret/);
+  });
+
+  it('非 Error 的寄信失敗也記 log 且不往外丟', async () => {
+    const error = spyLoggerError();
+    vi.mocked(sendMail).mockRejectedValueOnce('socket closed');
+
+    await expect(sendVerificationEmail('ja')).resolves.toBeUndefined();
+
+    expect(error.mock.calls[0][0]).toContain('socket closed');
+  });
+
+  it('測試信寄送失敗時回 502，只附 SMTP 錯誤碼', async () => {
+    vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
+
+    const error = await service
+      .sendTestEmail({ email: 'ann@example.com' }, 'en')
+      .catch((error: unknown) => error);
+
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as BadGatewayException).getStatus()).toBe(502);
+    const response = (error as BadGatewayException).getResponse();
+    expect(response).toMatchObject({
+      error: 'Bad Gateway',
+      smtp: { code: 'EENVELOPE', responseCode: 550 },
+    });
+    expect(JSON.stringify(response)).not.toMatch(/ann@example\.com|smtp-user/);
+  });
+
+  it('測試信寄送因非 Error 失敗時仍回 502', async () => {
+    vi.mocked(sendMail).mockRejectedValueOnce('socket closed');
+
+    const error = await service
+      .sendTestEmail({ email: 'ann@example.com' }, 'en')
+      .catch((error: unknown) => error);
+
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as BadGatewayException).getStatus()).toBe(502);
+  });
+
+  it('測試信用請求者的 lang', async () => {
+    await service.sendTestEmail({ email: 'ann@example.com' }, 'ja');
+    await service.sendTestEmail({ email: 'ann@example.com' }, undefined);
+
+    expect(sent.map(({ subject }) => subject)).toEqual([
+      'Biru Coffee SMTP テスト',
+      'Biru Coffee SMTP 測試',
+    ]);
+    expect(sent[0].html).toContain('SMTP の設定は正しく行われています');
   });
 });

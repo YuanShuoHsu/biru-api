@@ -197,5 +197,9 @@
     "action": "查看所有门店",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 测试",
+    "text": "如果您收到这封邮件，说明 SMTP 设置正确。"
   }
 }

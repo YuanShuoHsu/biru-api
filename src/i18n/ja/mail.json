@@ -197,5 +197,9 @@
     "action": "すべての店舗を見る",
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP テスト",
+    "text": "このメールが届いていれば、SMTP の設定は正しく行われています。"
   }
 }

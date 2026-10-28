@@ -162,6 +162,7 @@
     "organizationClosed": "此門市已停止營業",
     "organizationHasOpenWork": "尚有 {orders} 筆未完成的訂單、{tickets} 張候位中的號碼牌，請先完成或取消後再停業",
     "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
+    "smtpTestFailed": "測試郵件寄送失敗，請檢查 SMTP 設定後再試一次",
     "tooManyRequests": "請求過多"
   },
   "gcis": {
