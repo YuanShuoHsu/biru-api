@@ -18,36 +18,82 @@ const FIELD_ENCRYPTION_PURPOSES = {
 
 type FieldEncryptionPurpose = keyof typeof FIELD_ENCRYPTION_PURPOSES;
 
-const encryptionKey = (purpose: FieldEncryptionPurpose) => {
-  const secret = process.env.BETTER_AUTH_SECRET;
-  if (!secret) throw new Error('BETTER_AUTH_SECRET is required');
+const invalidKeyEntry = (index: number, reason: string) =>
+  new Error(`FIELD_ENCRYPTION_KEYS 第 ${index + 1} 項${reason}`);
+
+export const fieldEncryptionKeys = (
+  value: string | undefined = process.env.FIELD_ENCRYPTION_KEYS,
+): Map<string, Buffer> | null => {
+  if (!value?.trim()) return null;
+  const keys = new Map<string, Buffer>();
+  value.split(',').forEach((entry, index) => {
+    const [version, encoded, ...rest] = entry.trim().split(':');
+    if (!/^v\d+$/.test(version) || encoded === undefined || rest.length)
+      throw invalidKeyEntry(index, '不是 v<數字>:<base64> 格式');
+    if (keys.has(version))
+      throw invalidKeyEntry(index, `的版本 ${version} 重複`);
+    const key = Buffer.from(encoded, 'base64');
+    if (key.length !== KEY_BYTES || key.toString('base64') !== encoded)
+      throw invalidKeyEntry(index, `不是 ${KEY_BYTES} bytes 的 base64`);
+    keys.set(version, key);
+  });
+  return keys;
+};
+
+const derive = (secret: Buffer | string, purpose: FieldEncryptionPurpose) => {
   const info = FIELD_ENCRYPTION_PURPOSES[purpose];
   return Buffer.from(hkdfSync('sha256', secret, info, info, KEY_BYTES));
+};
+
+const legacyEncryptionKey = (purpose: FieldEncryptionPurpose) => {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('BETTER_AUTH_SECRET is required');
+  return derive(secret, purpose);
 };
 
 export const encryptField = (
   plaintext: string,
   purpose: FieldEncryptionPurpose = 'payroll',
 ) => {
+  const [current] = fieldEncryptionKeys() ?? [];
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv(ALGORITHM, encryptionKey(purpose), iv);
+  const cipher = createCipheriv(
+    ALGORITHM,
+    current ? derive(current[1], purpose) : legacyEncryptionKey(purpose),
+    iv,
+  );
   const encrypted = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
     cipher.final(),
   ]);
-  return [iv, cipher.getAuthTag(), encrypted]
-    .map((part) => part.toString('base64'))
-    .join('.');
+  const parts = [iv, cipher.getAuthTag(), encrypted].map((part) =>
+    part.toString('base64'),
+  );
+  return (current ? [current[0], ...parts] : parts).join('.');
+};
+
+const decryptionKey = (
+  version: string | undefined,
+  purpose: FieldEncryptionPurpose,
+) => {
+  if (version === undefined) return legacyEncryptionKey(purpose);
+  const key = fieldEncryptionKeys()?.get(version);
+  if (!key) throw new Error(`FIELD_ENCRYPTION_KEYS 沒有 ${version} 金鑰`);
+  return derive(key, purpose);
 };
 
 export const decryptField = (
   payload: string,
   purpose: FieldEncryptionPurpose = 'payroll',
 ) => {
-  const [iv, tag, encrypted] = payload
-    .split('.')
-    .map((part) => Buffer.from(part, 'base64'));
-  const decipher = createDecipheriv(ALGORITHM, encryptionKey(purpose), iv);
+  const parts = payload.split('.');
+  const version = parts.length === 4 ? parts.shift() : undefined;
+  const [iv, tag, encrypted] = parts.map((part) => Buffer.from(part, 'base64'));
+  const decipher = createDecipheriv(
+    ALGORITHM,
+    decryptionKey(version, purpose),
+    iv,
+  );
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
     'utf8',

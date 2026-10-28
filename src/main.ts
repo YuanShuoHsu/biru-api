@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -10,6 +11,7 @@ import { join } from 'node:path';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { trustedProxies } from './common/trusted-proxy.js';
+import { fieldEncryptionKeys } from './common/utils/field-encryption.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -21,6 +23,11 @@ async function bootstrap() {
   app.setViewEngine('hbs');
 
   app.set('trust proxy', trustedProxies());
+
+  if (!fieldEncryptionKeys())
+    new Logger('FieldEncryption').warn(
+      'FIELD_ENCRYPTION_KEYS 未設定，欄位加密沿用 BETTER_AUTH_SECRET 推導的金鑰',
+    );
 
   app.use(cookieParser());
   app.use(helmet());
