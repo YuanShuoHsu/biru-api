@@ -281,8 +281,11 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   together) until the real proxy range is configured and verified with forged headers against the
   public API, Next.js rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
-- Also applied: `helmet`, `cookieParser`, `I18nMiddleware`, hbs view engine, CORS restricted to
+- Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
+- `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
+  `app.use(I18nMiddleware)` here — Express receives the class, treats it as an error handler
+  (constructor arity > 3) and never runs it on normal requests
 
 ### Environment Variables
 
