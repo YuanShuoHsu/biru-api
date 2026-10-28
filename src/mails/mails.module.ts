@@ -3,6 +3,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import Handlebars from 'handlebars';
 import { I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 import { PRODUCT_NAME } from '../common/constants/product.js';
@@ -40,6 +41,19 @@ import { MailsService } from './mails.service.js';
             dir: join(process.cwd(), 'views', 'mail'),
             adapter: new HandlebarsAdapter({
               t: i18n.hbsHelper,
+              tHtml: (key: string, args: object, options: object) =>
+                i18n.hbsHelper(
+                  key,
+                  Object.fromEntries(
+                    Object.entries(args).map(([name, value]) => [
+                      name,
+                      typeof value === 'string'
+                        ? Handlebars.Utils.escapeExpression(value)
+                        : value,
+                    ]),
+                  ),
+                  options,
+                ),
             }),
             options: {
               strict: true,

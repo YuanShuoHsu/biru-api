@@ -61,7 +61,7 @@
                     <td class='content-cell'>
                       <div class='f-fallback'>
                         <h1>{{t 'mail.send_change_email_confirmation.title' this}}</h1>
-                        <p>{{{t 'mail.send_change_email_confirmation.intro' this}}}</p>
+                        <p>{{{tHtml 'mail.send_change_email_confirmation.intro' this}}}</p>
                         <!-- Action -->
                         <table
                           class='body-action'
@@ -93,8 +93,8 @@
                             </td>
                           </tr>
                         </table>
-                        <p>{{{t 'mail.send_change_email_confirmation.security_notice' this}}}</p>
-                        <p>{{{t 'mail.send_change_email_confirmation.salutation' this}}}</p>
+                        <p>{{{tHtml 'mail.send_change_email_confirmation.security_notice' this}}}</p>
+                        <p>{{{tHtml 'mail.send_change_email_confirmation.salutation' this}}}</p>
                         <!-- Sub copy -->
                         <table class='body-sub' role='presentation'>
                           <tr>
@@ -125,7 +125,7 @@
                   <tr>
                     <td class='content-cell' align='center'>
                       <p class='f-fallback sub align-center'>
-                        {{{t 'mail.send_change_email_confirmation.address' this}}}
+                        {{{tHtml 'mail.send_change_email_confirmation.address' this}}}
                       </p>
                     </td>
                   </tr>
