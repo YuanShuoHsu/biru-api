@@ -1,10 +1,11 @@
-import { Inject, Logger, UseGuards } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import {
   Ack,
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -30,10 +31,8 @@ import { Namespace, Socket } from 'socket.io';
 import { isAuthorized } from '../auth/permissions.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { Roles } from '../menus/decorators/roles.decorator.js';
 import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
 import { findOrganizationRoles } from '../menus/guards/organization-roles.js';
-import { WsRolesGuard } from '../menus/guards/ws-roles.guard.js';
 import { PublicMenusService } from '../menus/menus-public.service.js';
 import type { PrepEstimateResponseDto } from '../orders/dto/prep-estimate-response.dto.js';
 import { OrdersService } from '../orders/orders.service.js';
@@ -66,7 +65,46 @@ const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
-type AuthorizedSocketData = { userId?: string };
+const MAX_REQUESTED_ROOMS = 100;
+const MAX_ROOM_REQUEST_FIELD_LENGTH = 64;
+
+const isRoomRequestField = (value: unknown): value is string =>
+  typeof value === 'string' && value.length <= MAX_ROOM_REQUEST_FIELD_LENGTH;
+
+type GatewaySocketData = {
+  userId?: string;
+  requestedRooms?: Map<string, string>;
+};
+
+type RoomRequest = { room: string; accessToken: string };
+
+const byOrganization =
+  (toRoom: (organizationId: string) => string) =>
+  ({ organizationId }: Record<string, unknown>): RoomRequest | undefined =>
+    isRoomRequestField(organizationId)
+      ? { room: toRoom(organizationId), accessToken: '' }
+      : undefined;
+
+const ROOM_REQUESTS = new Map<
+  string,
+  (body: Record<string, unknown>) => RoomRequest | undefined
+>([
+  [
+    'Order',
+    ({ orderId, accessToken }) => {
+      const token = accessToken ?? '';
+      return isRoomRequestField(orderId) && isRoomRequestField(token)
+        ? { room: orderRoom(orderId), accessToken: token }
+        : undefined;
+    },
+  ],
+  ['OrdersBoard', byOrganization(ordersBoardRoom)],
+  ['Waitlist', byOrganization(waitlistRoom)],
+  ['Inventory', byOrganization(inventoryRoom)],
+]);
+
+const requestedRooms = (client: Socket) =>
+  ((client.data as GatewaySocketData).requestedRooms ??= new Map());
 
 @AllowAnonymous()
 @WebSocketGateway({
@@ -76,7 +114,7 @@ type AuthorizedSocketData = { userId?: string };
     credentials: true,
   },
 })
-export class EventsGateway {
+export class EventsGateway implements OnGatewayConnection {
   @WebSocketServer()
   server: Namespace;
 
@@ -93,6 +131,25 @@ export class EventsGateway {
     private readonly waitlistService: WaitlistService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
+
+  handleConnection(client: Socket) {
+    client.onAny((event: unknown, body: unknown) => {
+      if (typeof event !== 'string' || typeof body !== 'object' || !body)
+        return;
+      const [, verb, target] = /^(join|leave)(\w+)$/.exec(event) ?? [];
+      const request =
+        target && ROOM_REQUESTS.get(target)?.(body as Record<string, unknown>);
+      if (!request) return;
+
+      const requested = requestedRooms(client);
+      if (verb === 'leave') requested.delete(request.room);
+      else if (
+        requested.has(request.room) ||
+        requested.size < MAX_REQUESTED_ROOMS
+      )
+        requested.set(request.room, request.accessToken);
+    });
+  }
 
   @SubscribeMessage('orderMenu')
   async findOrderMenu(
@@ -123,21 +180,21 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { accessToken, orderId }: JoinOrderDto,
   ) {
-    const session = await this.authService.api.getSession({
-      headers: fromNodeHeaders(client.handshake.headers),
-    });
-    if (
-      !(await this.ordersService.canReadOrderById(
-        orderId,
-        session?.user ?? null,
-        accessToken ?? null,
-      ))
-    )
-      return false;
-
-    await client.join(orderRoom(orderId));
-
-    return true;
+    return this.settleJoin(
+      client,
+      orderRoom(orderId),
+      async () => {
+        const session = await this.authService.api.getSession({
+          headers: fromNodeHeaders(client.handshake.headers),
+        });
+        return this.ordersService.canReadOrderById(
+          orderId,
+          session?.user ?? null,
+          accessToken ?? null,
+        );
+      },
+      accessToken ?? '',
+    );
   }
 
   @SubscribeMessage('leaveOrder')
@@ -145,7 +202,7 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { orderId }: JoinOrderDto,
   ) {
-    await client.leave(orderRoom(orderId));
+    await this.leaveUnlessRequestedAgain(client, orderRoom(orderId));
   }
 
   @OnEvent(ORDER_STATUS_UPDATED_EVENT)
@@ -275,15 +332,16 @@ export class EventsGateway {
   }
 
   @SubscribeMessage('joinOrdersBoard')
-  @UseGuards(WsRolesGuard)
-  @Roles({ order: ['read'] }, 'organizationId')
-  async joinOrdersBoard(
+  joinOrdersBoard(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.join(ordersBoardRoom(organizationId));
-
-    return true;
+    return this.joinStoreRoom(
+      client,
+      organizationId,
+      ordersBoardRoom(organizationId),
+      { order: ['read'] },
+    );
   }
 
   @SubscribeMessage('leaveOrdersBoard')
@@ -291,7 +349,10 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.leave(ordersBoardRoom(organizationId));
+    await this.leaveUnlessRequestedAgain(
+      client,
+      ordersBoardRoom(organizationId),
+    );
   }
 
   @OnEvent(WAITLIST_UPDATED_EVENT)
@@ -326,15 +387,16 @@ export class EventsGateway {
   }
 
   @SubscribeMessage('joinWaitlist')
-  @UseGuards(WsRolesGuard)
-  @Roles({ waitlist: ['read'] }, 'organizationId')
-  async joinWaitlist(
+  joinWaitlist(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.join(waitlistRoom(organizationId));
-
-    return true;
+    return this.joinStoreRoom(
+      client,
+      organizationId,
+      waitlistRoom(organizationId),
+      { waitlist: ['read'] },
+    );
   }
 
   @SubscribeMessage('leaveWaitlist')
@@ -342,19 +404,20 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.leave(waitlistRoom(organizationId));
+    await this.leaveUnlessRequestedAgain(client, waitlistRoom(organizationId));
   }
 
   @SubscribeMessage('joinInventory')
-  @UseGuards(WsRolesGuard)
-  @Roles({ inventory: ['read'] }, 'organizationId')
-  async joinInventory(
+  joinInventory(
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.join(inventoryRoom(organizationId));
-
-    return true;
+    return this.joinStoreRoom(
+      client,
+      organizationId,
+      inventoryRoom(organizationId),
+      { inventory: ['read'] },
+    );
   }
 
   @SubscribeMessage('leaveInventory')
@@ -362,7 +425,7 @@ export class EventsGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() { organizationId }: JoinOrdersBoardDto,
   ) {
-    await client.leave(inventoryRoom(organizationId));
+    await this.leaveUnlessRequestedAgain(client, inventoryRoom(organizationId));
   }
 
   @OnEvent(LOW_STOCK_REACHED_EVENT)
@@ -374,6 +437,58 @@ export class EventsGateway {
       'lowStockReached',
       { organizationId, ingredients },
     );
+  }
+
+  private async joinStoreRoom(
+    client: Socket,
+    organizationId: string,
+    room: string,
+    action: Record<string, string[]>,
+  ) {
+    return this.settleJoin(client, room, async () => {
+      const session = await this.authService.api.getSession({
+        headers: fromNodeHeaders(client.handshake.headers),
+      });
+      const userId = session?.user.id;
+      if (!userId) return false;
+
+      const role = (
+        await findOrganizationRoles(this.db, organizationId, [userId])
+      ).get(userId);
+      if (!role || !isAuthorized(role, action)) return false;
+
+      (client.data as GatewaySocketData).userId = userId;
+      return true;
+    });
+  }
+
+  private async settleJoin(
+    client: Socket,
+    room: string,
+    authorize: () => Promise<boolean>,
+    accessToken = '',
+  ) {
+    let authorized = false;
+    try {
+      authorized = await authorize();
+    } catch (error) {
+      this.logger.error(`加入 room 失敗：${room}`, error);
+    }
+
+    const requested = requestedRooms(client);
+    if (requested.get(room) !== accessToken) return authorized;
+
+    if (authorized) await client.join(room);
+    else {
+      requested.delete(room);
+      await client.leave(room);
+    }
+
+    return authorized;
+  }
+
+  private async leaveUnlessRequestedAgain(client: Socket, room: string) {
+    if (!requestedRooms(client).has(room)) await client.leave(room);
   }
 
   private async emitToAuthorized(
@@ -388,7 +503,7 @@ export class EventsGateway {
       if (!sockets.length) return;
 
       const userIds = sockets.map(
-        ({ data }) => (data as AuthorizedSocketData).userId,
+        ({ data }) => (data as GatewaySocketData).userId,
       );
       const roles = await findOrganizationRoles(this.db, organizationId, [
         ...new Set(userIds.filter((userId) => userId !== undefined)),

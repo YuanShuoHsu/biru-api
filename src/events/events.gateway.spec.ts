@@ -352,10 +352,333 @@ describe('EventsGateway protected rooms', () => {
     const leave = vi.fn();
 
     await (gateway[handler] as (client: Socket, body: object) => Promise<void>)(
-      { leave } as unknown as Socket,
+      { data: {}, leave } as unknown as Socket,
       body,
     );
 
     expect(leave).toHaveBeenCalledExactlyOnceWith(room);
   });
+});
+
+describe('EventsGateway room joins', () => {
+  const deferred = <T>() => {
+    let resolve: (value: T) => void = () => {};
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+
+  const setup = (
+    users: FakeUser[] = [{ id: 'staff', memberRole: 'member' }],
+  ) => {
+    const session = deferred<{ user: { id: string } } | null>();
+    const canRead = deferred<boolean>();
+    const canReadOrderById = vi.fn(
+      (_orderId: string, _user: unknown, _accessToken: string | null) =>
+        canRead.promise,
+    );
+    const gateway = new EventsGateway(
+      {
+        api: { getSession: () => session.promise },
+      } as unknown as AuthService,
+      {} as PublicMenusService,
+      { canReadOrderById } as unknown as OrdersService,
+      {} as PrepEstimateService,
+      {} as WaitlistService,
+      {
+        query: {
+          user: {
+            findMany: () =>
+              Promise.resolve(
+                users.map(
+                  ({ id, role = 'user', banned = false, memberRole }) => ({
+                    id,
+                    role,
+                    banned,
+                    banExpires: null,
+                    members: memberRole ? [{ role: memberRole }] : [],
+                  }),
+                ),
+              ),
+          },
+        },
+      } as unknown as DrizzleDB,
+    );
+
+    const rooms = new Set<string>();
+    let onAny: (event: unknown, body: unknown) => void = () => {};
+    const client = {
+      data: {} as { userId?: string; requestedRooms?: Map<string, string> },
+      handshake: { headers: {} },
+      join: (room: string) => void rooms.add(room),
+      leave: (room: string) => void rooms.delete(room),
+      onAny: (listener: typeof onAny) => {
+        onAny = listener;
+      },
+    };
+    gateway.handleConnection(client as unknown as Socket);
+
+    const arrive = (event: unknown, body: unknown) => onAny(event, body);
+    const handle = (event: string, body: object) =>
+      (
+        gateway[event as keyof EventsGateway] as (
+          client: Socket,
+          body: object,
+        ) => Promise<unknown>
+      ).call(gateway, client as unknown as Socket, body);
+    const send = (event: string, body: object) => {
+      arrive(event, body);
+      return handle(event, body);
+    };
+
+    return {
+      arrive,
+      canRead,
+      canReadOrderById,
+      client,
+      handle,
+      rooms,
+      send,
+      session,
+    };
+  };
+
+  const joins = [
+    ['Order', { orderId: 'o1' }, 'order:o1'],
+    ['OrdersBoard', { organizationId: 'org' }, 'orders-board:org'],
+    ['Waitlist', { organizationId: 'org' }, 'waitlist:org'],
+    ['Inventory', { organizationId: 'org' }, 'inventory:org'],
+  ] as const;
+
+  const authorize = ({ canRead, session }: ReturnType<typeof setup>) => {
+    session.resolve({ user: { id: 'staff' } });
+    canRead.resolve(true);
+  };
+
+  it.each(joins)(
+    'join%s 驗證期間收到 leave 時最後不在 room',
+    async (name, body, room) => {
+      const context = setup();
+
+      const joined = context.send(`join${name}`, body);
+      await context.send(`leave${name}`, body);
+      authorize(context);
+
+      await expect(joined).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(false);
+    },
+  );
+
+  it.each(joins)(
+    'leave%s 比之後才到的 join 晚處理時仍留在 room',
+    async (name, body, room) => {
+      const context = setup();
+      authorize(context);
+
+      context.arrive(`leave${name}`, body);
+      context.arrive(`join${name}`, body);
+      await context.handle(`join${name}`, body);
+      await context.handle(`leave${name}`, body);
+
+      expect(context.rooms.has(room)).toBe(true);
+    },
+  );
+
+  const storeJoins = joins.slice(1);
+
+  it.each(storeJoins)(
+    'join%s 通過時回 true、加入 room 並記下使用者',
+    async (name, body, room) => {
+      const context = setup();
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(true);
+      expect(context.client.data.userId).toBe('staff');
+    },
+  );
+
+  it.each([
+    ['不是成員', [{ id: 'staff' }]],
+    ['停權的成員', [{ id: 'staff', memberRole: 'owner', banned: true }]],
+  ] as const)('%s加入受保護的 room 時回 false', async (_, users) => {
+    for (const [name, body, room] of storeJoins) {
+      const context = setup([...users]);
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      expect(context.rooms.has(room)).toBe(false);
+      expect(context.client.data.userId).toBeUndefined();
+    }
+  });
+
+  it.each(storeJoins)('沒登入時 join%s 回 false', async (name, body, room) => {
+    const context = setup();
+    context.session.resolve(null);
+
+    await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+    expect(context.rooms.has(room)).toBe(false);
+  });
+
+  it.each(storeJoins)(
+    '不是成員的平台管理員可以 join%s',
+    async (name, body, room) => {
+      const context = setup([{ id: 'staff', role: 'admin' }]);
+      authorize(context);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(true);
+      expect(context.rooms.has(room)).toBe(true);
+    },
+  );
+
+  it('無法讀取的訂單回 false 且不加入 room', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    context.canRead.resolve(false);
+
+    await expect(context.send('joinOrder', { orderId: 'o1' })).resolves.toBe(
+      false,
+    );
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it('離開後再加入時以最後的 join 為準', async () => {
+    const context = setup();
+
+    const first = context.send('joinWaitlist', { organizationId: 'org' });
+    await context.send('leaveWaitlist', { organizationId: 'org' });
+    const second = context.send('joinWaitlist', { organizationId: 'org' });
+    authorize(context);
+    await Promise.all([first, second]);
+
+    expect(context.rooms.has('waitlist:org')).toBe(true);
+  });
+
+  it.each([
+    ['joinOrder', { orderId: { toString: 1 } }],
+    ['joinOrder', { orderId: 'o1', accessToken: { toString: 1 } }],
+    ['joinWaitlist', { organizationId: { toString: 1 } }],
+    ['joinInventory', { organizationId: 5 }],
+    ['joinOrder', { orderId: 'o'.repeat(65) }],
+    ['joinOrder', { orderId: 'o1', accessToken: 't'.repeat(65) }],
+    ['joinWaitlist', { organizationId: 'o'.repeat(65) }],
+    ['leaveOrdersBoard', null],
+    ['joinOrdersBoard', 'org'],
+    [{ toString: 1 }, { organizationId: 'org' }],
+  ])('不合法的 %s 訊息不拋出也不記錄', (event, body) => {
+    const { arrive, client } = setup();
+
+    expect(() => arrive(event, body)).not.toThrow();
+    expect(client.data.requestedRooms?.size ?? 0).toBe(0);
+  });
+
+  it.each(storeJoins)(
+    'join%s 被拒後清掉該 room 的加入意圖',
+    async (name, body) => {
+      const context = setup([{ id: 'staff' }]);
+      authorize(context);
+
+      await context.send(`join${name}`, body);
+
+      expect(context.client.data.requestedRooms?.size).toBe(0);
+    },
+  );
+
+  it('有效的 join 較晚完成時，不因之後無效的 join 而加入', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    const valid = deferred<boolean>();
+    context.canReadOrderById.mockImplementation((_, __, accessToken) =>
+      accessToken === 'valid' ? valid.promise : Promise.resolve(false),
+    );
+
+    const first = context.send('joinOrder', {
+      orderId: 'o1',
+      accessToken: 'valid',
+    });
+    await context.send('leaveOrder', { orderId: 'o1' });
+    await expect(
+      context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
+    ).resolves.toBe(false);
+    valid.resolve(true);
+    await first;
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+    expect(context.client.data.requestedRooms?.size).toBe(0);
+  });
+
+  it('已加入後收到 leave 與無效的 join，最後不在 room', async () => {
+    const context = setup();
+    context.session.resolve(null);
+    context.canReadOrderById.mockImplementation((_, __, accessToken) =>
+      Promise.resolve(accessToken === 'valid'),
+    );
+
+    await context.send('joinOrder', { orderId: 'o1', accessToken: 'valid' });
+    context.arrive('leaveOrder', { orderId: 'o1' });
+    await context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' });
+    await context.handle('leaveOrder', { orderId: 'o1' });
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it('每個 socket 最多記錄 100 個 room 的加入意圖', async () => {
+    const context = setup();
+    authorize(context);
+
+    for (let i = 0; i < 100; i++)
+      context.arrive('joinOrder', { orderId: `o${i}` });
+    await context.send('joinOrder', { orderId: 'extra' });
+    await context.send('joinOrder', { orderId: 'o0' });
+
+    expect(context.client.data.requestedRooms?.size).toBe(100);
+    expect(context.rooms.has('order:extra')).toBe(false);
+    expect(context.rooms.has('order:o0')).toBe(true);
+  });
+
+  it.each([null, undefined])(
+    'accessToken 為 %s 的 joinOrder 通過時加入 room',
+    async (accessToken) => {
+      const context = setup();
+      authorize(context);
+
+      await expect(
+        context.send('joinOrder', { orderId: 'o1', accessToken }),
+      ).resolves.toBe(true);
+      expect(context.rooms.has('order:o1')).toBe(true);
+      expect(context.canReadOrderById).toHaveBeenCalledWith(
+        'o1',
+        { id: 'staff' },
+        null,
+      );
+    },
+  );
+
+  it('accessToken 為 null 時加入後送 leave，最後不在 room', async () => {
+    const context = setup();
+    authorize(context);
+
+    await context.send('joinOrder', { orderId: 'o1', accessToken: null });
+    await context.send('leaveOrder', { orderId: 'o1', accessToken: null });
+
+    expect(context.rooms.has('order:o1')).toBe(false);
+  });
+
+  it.each(joins)(
+    'join%s 驗證拋出時回 false、記錄錯誤且清掉意圖',
+    async (name, body, room) => {
+      const context = setup();
+      const logError = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      context.session.resolve(Promise.reject(new Error('db down')) as never);
+
+      await expect(context.send(`join${name}`, body)).resolves.toBe(false);
+      expect(context.rooms.has(room)).toBe(false);
+      expect(context.client.data.requestedRooms?.size).toBe(0);
+      expect(logError).toHaveBeenCalledOnce();
+      logError.mockRestore();
+    },
+  );
 });

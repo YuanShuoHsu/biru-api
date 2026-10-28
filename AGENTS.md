@@ -251,7 +251,8 @@ platform admin ⊇ `owner` ⊇ `admin` ⊇ `member`. A platform admin counts as 
 organization, whatever their own `member` row says. When a feature or notification is limited to a role, also
 give it to every role above, and never grant a lower role something a higher one lacks.
 `permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`;
-`RolesGuard` and `WsRolesGuard` apply the platform-admin step, the notification recipients don't yet.
+`RolesGuard` and `findOrganizationRoles` (which the events gateway uses for its store-room joins and pushes) apply the
+platform-admin step, the notification recipients don't yet.
 A platform admin who joins a store gets `owner` with `member.joined_as_platform_admin` set; every
 store must keep an owner without that flag, which `assertKeepsOwner` (`src/auth/owner-guards.ts`)
 enforces on member removal, demotion and leave.
