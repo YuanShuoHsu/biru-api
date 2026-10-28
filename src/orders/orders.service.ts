@@ -131,6 +131,8 @@ import {
 } from './order-transitions.js';
 import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
+import { orderPrepMinutes } from './prep-estimate.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -294,6 +296,7 @@ export class OrdersService {
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly menuStockService: MenuStockService,
+    private readonly prepEstimateService: PrepEstimateService,
   ) {}
 
   private t(
@@ -370,16 +373,10 @@ export class OrdersService {
   private resolvePickupTime(org: Organization, value?: string): Date {
     if (!value) throw new BadRequestException(this.t('pickupTimeInvalid'));
 
-    const now = Date.now();
-    const leadMs = Math.max(org.pickupLeadMinutes, 0) * 60 * 1000;
-
     const pickupTime = new Date(value);
 
     if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
       throw new BadRequestException(this.t('pickupTimeInvalid'));
-
-    if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
-      throw new BadRequestException(this.t('pickupTooSoon'));
 
     const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
     const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
@@ -462,13 +459,20 @@ export class OrdersService {
       pickupTime ?? new Date(),
     );
 
-    const itemLeadMs =
-      Math.max(0, ...orderItemsData.map((i) => i.leadTimeMinutes)) * 60 * 1000;
-    if (
-      pickupTime &&
-      pickupTime.getTime() < Date.now() + itemLeadMs - PICKUP_LEAD_TOLERANCE_MS
-    )
-      throw new BadRequestException(this.t('pickupTooSoon'));
+    if (pickupTime) {
+      const prepMinutes = await this.prepEstimateService.prepMinutesWith(
+        org,
+        orderPrepMinutes(
+          org.pickupLeadMinutes,
+          orderItemsData.map((i) => i.leadTimeMinutes),
+        ),
+      );
+      if (
+        pickupTime.getTime() <
+        Date.now() + prepMinutes * 60 * 1000 - PICKUP_LEAD_TOLERANCE_MS
+      )
+        throw new BadRequestException(this.t('pickupTooSoon'));
+    }
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
     if (subtotal > MAX_ORDER_AMOUNT)

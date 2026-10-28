@@ -1,4 +1,4 @@
-import { UseGuards } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import {
@@ -31,17 +31,28 @@ import { Roles } from '../menus/decorators/roles.decorator.js';
 import type { OrderMenuResponseDto } from '../menus/dto/order-menu-response.dto.js';
 import { WsRolesGuard } from '../menus/guards/ws-roles.guard.js';
 import { PublicMenusService } from '../menus/menus-public.service.js';
+import type { PrepEstimateResponseDto } from '../orders/dto/prep-estimate-response.dto.js';
 import { OrdersService } from '../orders/orders.service.js';
+import { PrepEstimateService } from '../orders/prep-estimate.service.js';
 import type { WaitlistStatusResponseDto } from '../waitlist/dto/waitlist-response.dto.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
-const organizationRoom = (organizationId: string) => `org:${organizationId}`;
+const ORGANIZATION_ROOM_PREFIX = 'org:';
+const organizationRoom = (organizationId: string) =>
+  `${ORGANIZATION_ROOM_PREFIX}${organizationId}`;
 const orderRoom = (orderId: string) => `order:${orderId}`;
+const ORDERS_BOARD_ROOM_PREFIX = 'orders-board:';
 const ordersBoardRoom = (organizationId: string) =>
-  `orders-board:${organizationId}`;
+  `${ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
 const PUBLIC_ORDERS_BOARD_ROOM_PREFIX = 'public-orders-board:';
 const publicOrdersBoardRoom = (organizationId: string) =>
   `${PUBLIC_ORDERS_BOARD_ROOM_PREFIX}${organizationId}`;
+
+const PREP_ESTIMATE_ROOM_PREFIXES = [
+  ORGANIZATION_ROOM_PREFIX,
+  ORDERS_BOARD_ROOM_PREFIX,
+  PUBLIC_ORDERS_BOARD_ROOM_PREFIX,
+];
 
 const waitlistRoom = (organizationId: string) => `waitlist:${organizationId}`;
 const publicWaitlistRoom = (organizationId: string) =>
@@ -63,10 +74,15 @@ export class EventsGateway {
   @WebSocketServer()
   server: Namespace;
 
+  private readonly logger = new Logger(EventsGateway.name);
+  private readonly pushedPrepEstimates = new Map<string, string>();
+  private readonly duePrepEstimates = new Set<string>();
+
   constructor(
     private readonly authService: AuthService,
     private readonly publicMenusService: PublicMenusService,
     private readonly ordersService: OrdersService,
+    private readonly prepEstimateService: PrepEstimateService,
     private readonly waitlistService: WaitlistService,
   ) {}
 
@@ -121,6 +137,13 @@ export class EventsGateway {
     this.server
       .to(publicOrdersBoardRoom(organizationId))
       .emit('orderBoardUpdated');
+
+    if (
+      PREP_ESTIMATE_ROOM_PREFIXES.some((prefix) =>
+        this.server.adapter.rooms.has(`${prefix}${organizationId}`),
+      )
+    )
+      this.schedulePrepEstimate(organizationId);
   }
 
   @OnEvent(ORDER_UPDATED_EVENT)
@@ -144,6 +167,53 @@ export class EventsGateway {
     for (const room of this.server.adapter.rooms.keys())
       if (room.startsWith(PUBLIC_ORDERS_BOARD_ROOM_PREFIX))
         this.server.to(room).emit('orderBoardUpdated');
+  }
+
+  @Interval(PUBLIC_BOARD_REFRESH_MS)
+  refreshPrepEstimates() {
+    const subscribed = new Set<string>();
+    for (const room of this.server.adapter.rooms.keys())
+      for (const prefix of PREP_ESTIMATE_ROOM_PREFIXES)
+        if (room.startsWith(prefix)) subscribed.add(room.slice(prefix.length));
+
+    for (const organizationId of this.pushedPrepEstimates.keys())
+      if (!subscribed.has(organizationId))
+        this.pushedPrepEstimates.delete(organizationId);
+    for (const organizationId of subscribed)
+      this.schedulePrepEstimate(organizationId);
+  }
+
+  private schedulePrepEstimate(organizationId: string) {
+    if (this.duePrepEstimates.has(organizationId)) return;
+    this.duePrepEstimates.add(organizationId);
+
+    setImmediate(() => {
+      this.duePrepEstimates.delete(organizationId);
+      this.prepEstimateService
+        .findByOrganizationId(organizationId)
+        .then((estimate) => this.pushPrepEstimate(organizationId, estimate))
+        .catch((error: unknown) =>
+          this.logger.error(`出餐時間估算失敗：${organizationId}`, error),
+        );
+    });
+  }
+
+  private pushPrepEstimate(
+    organizationId: string,
+    estimate: PrepEstimateResponseDto | null,
+  ) {
+    const value = JSON.stringify(estimate);
+    if (!estimate || this.pushedPrepEstimates.get(organizationId) === value)
+      return;
+    this.pushedPrepEstimates.set(organizationId, value);
+
+    this.server
+      .to([
+        organizationRoom(organizationId),
+        ordersBoardRoom(organizationId),
+        publicOrdersBoardRoom(organizationId),
+      ])
+      .emit('prepEstimateUpdated', estimate);
   }
 
   @SubscribeMessage('joinOrdersBoard')

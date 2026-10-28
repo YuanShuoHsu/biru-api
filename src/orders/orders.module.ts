@@ -19,6 +19,7 @@ import { OrderTicketPrintersController } from './order-ticket-printers.controlle
 import { OrderTicketService } from './order-ticket.service.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
 import { UserOrdersController } from './user-orders.controller.js';
 
 @Module({
@@ -46,6 +47,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     OrderStatsService,
     OrderTicketService,
     OrdersService,
+    PrepEstimateService,
   ],
   exports: [
     MenuItemSalesService,
@@ -53,6 +55,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     OrderQrService,
     OrderTicketService,
     OrdersService,
+    PrepEstimateService,
   ],
 })
 export class OrdersModule {}
