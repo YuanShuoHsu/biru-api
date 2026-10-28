@@ -42,6 +42,7 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { PointsModule } from './points/points.module.js';
 import { QuantModule } from './quant/quant.module.js';
+import { StoreLayoutModule } from './store-layout/store-layout.module.js';
 import { StorePhotosModule } from './store-photos/store-photos.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -113,6 +114,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     PointsModule,
     QuantModule,
     ScheduleModule.forRoot(),
+    StoreLayoutModule,
     StorePhotosModule,
     TasksModule,
     ThrottlerModule.forRoot({ throttlers: THROTTLERS }),

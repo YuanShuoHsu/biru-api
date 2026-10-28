@@ -331,6 +331,10 @@
     "quantityExceeded": "'{name}'은(는) {remaining}개만 환불할 수 있습니다",
     "resultUnknown": "환불을 전송했지만 ECPay의 결과가 아직 도착하지 않았습니다. 다시 시도하지 마세요. 시스템이 자동으로 대조한 뒤 확인되면 이 환불의 상태를 갱신합니다."
   },
+  "storeLayout": {
+    "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",
+    "notFound": "이 매장에는 아직 평면도가 없습니다."
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "지금은 영업시간이 아니라 대기 등록을 받지 않습니다.",

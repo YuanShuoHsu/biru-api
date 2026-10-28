@@ -383,6 +383,10 @@ export type I18nTranslations = {
             "quantityExceeded": string;
             "resultUnknown": string;
         };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;

@@ -331,6 +331,10 @@
     "quantityExceeded": "“{name}”只剩 {remaining} 份可退",
     "resultUnknown": "退款已送出但绿界尚未回复结果，请勿重复操作。系统会自动核对，确认后这笔退款会更新状态。"
   },
+  "storeLayout": {
+    "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
+    "notFound": "这家门店还没有平面图。"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "当前非营业时间，暂不开放取号。",
