@@ -41,6 +41,7 @@ import {
   type OrderMode,
   type PaymentMethod,
 } from '../../db/schema/orders.js';
+import { trim } from '../../common/utils/trim.js';
 
 @ValidatorConstraint({ name: 'isModifierSelections' })
 class IsModifierSelections implements ValidatorConstraintInterface {
@@ -67,7 +68,9 @@ export class CreateOrderCustomerDto {
   email?: string;
 
   @ApiProperty()
+  @Transform(trim)
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiPropertyOptional()
@@ -85,9 +88,6 @@ const CARRIER_NUM_PATTERNS = {
   certificate: /^[A-Z]{2}\d{14}$/,
   mobile: /^\/[A-Z0-9+\-.]{7}$/,
 } as const;
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 const isInvoiceType =
   (type: CreateOrderInvoiceDto['type']) =>

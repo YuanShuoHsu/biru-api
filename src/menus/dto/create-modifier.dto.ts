@@ -2,7 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsArray, IsEnum, IsNumberString, IsOptional } from 'class-validator';
 
-import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
+import {
+  IsLocalizedText,
+  IsRequiredLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
@@ -18,6 +21,7 @@ export class CreateModifierDto {
     example: { 'zh-TW': '半糖', en: 'Half Sugar' },
   })
   @IsLocalizedText()
+  @IsRequiredLocalizedText()
   displayName: LocalizedText;
 
   @ApiPropertyOptional({

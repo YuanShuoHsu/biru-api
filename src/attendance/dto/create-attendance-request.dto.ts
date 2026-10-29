@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -19,6 +19,7 @@ import {
   ATTENDANCE_EVENT_ACTIONS,
   type AttendanceEventAction,
 } from '../../db/schema/attendance.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class CorrectedEventDto {
   @ApiProperty({
@@ -41,7 +42,7 @@ export class CreateAttendanceRequestDto {
   @IsOptional() @IsUUID() shiftId?: string;
   @IsDateString() startsAt: string;
   @IsDateString() endsAt: string;
-  @IsString() @MinLength(1) @MaxLength(1000) reason: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason: string;
   @IsOptional() @IsUUID() leaveTypeId?: string;
   @IsOptional()
   @IsArray()
