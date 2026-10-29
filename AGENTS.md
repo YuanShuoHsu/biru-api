@@ -205,7 +205,8 @@ A shift without a break keeps its whole span as working time.
 
 Menu entities (menus, sections, items, modifiers) store localized copy as `jsonb` typed with
 `LocalizedText` — `Partial<Record<Language, string>>`, i.e. `{ en, ja, ko, "zh-CN", "zh-TW" }`,
-defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` with `@IsObject()` (see
+defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` with `@IsLocalizedText()`
+(`src/common/decorators/`, which only accepts the five language keys with string values; see
 `src/menus/dto/create-menu.dto.ts`), and every DTO documents them with `type: LocalizedTextDto`
 (`src/common/dto/`) so codegen does not emit `Record<string, never>`.
 
