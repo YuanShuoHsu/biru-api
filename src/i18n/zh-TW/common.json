@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
+    "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
     "pickupTimeInvalid": "請選擇有效的取餐時間",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
