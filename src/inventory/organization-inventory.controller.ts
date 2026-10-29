@@ -47,7 +47,7 @@ import { RecipesService } from './recipes.service.js';
 import { SuppliersService } from './suppliers.service.js';
 
 @ApiTags('inventory')
-@ApiParam({ name: 'organizationSlug' })
+@ApiParam({ name: 'organizationSlug', type: String })
 @UseInterceptors(MenuStockInterceptor)
 @Controller('organizations/:organizationSlug')
 export class OrganizationInventoryController {
