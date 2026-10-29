@@ -46,18 +46,18 @@ const expectBalanced = ({ Items, SalesAmount }: Payload) => {
 describe('EcpayOrderInvoiceService 開立發票品項', () => {
   it('整數單價的發票內容維持不變', () => {
     expect(
-      JSON.stringify(
-        buildPayload(
-          [
-            { menuItemName: 'A', orderQuantity: 3, unitPrice: '120.00' },
-            { menuItemName: 'B', orderQuantity: 2, unitPrice: '76.00' },
-            { menuItemName: 'C', orderQuantity: 1, unitPrice: '333.00' },
-          ],
-          '700.00',
-        ),
+      buildPayload(
+        [
+          { menuItemName: 'A', orderQuantity: 3, unitPrice: '120.00' },
+          { menuItemName: 'B', orderQuantity: 2, unitPrice: '76.00' },
+          { menuItemName: 'C', orderQuantity: 1, unitPrice: '333.00' },
+        ],
+        '700.00',
       ),
-    ).toBe(
-      '{"CustomerName":"客人","Items":[{"ItemAmount":360,"ItemCount":3,"ItemName":"A","ItemPrice":120,"ItemSeq":1,"ItemWord":"份"},{"ItemAmount":152,"ItemCount":2,"ItemName":"B","ItemPrice":76,"ItemSeq":2,"ItemWord":"份"},{"ItemAmount":333,"ItemCount":1,"ItemName":"C","ItemPrice":333,"ItemSeq":3,"ItemWord":"份"},{"ItemAmount":-145,"ItemCount":1,"ItemName":"折扣","ItemPrice":-145,"ItemSeq":4,"ItemWord":"份"}],"InvType":"07","SalesAmount":700,"TaxType":"1","vat":"1","CarrierType":"","CustomerAddr":"桃園市大園區中正東路一段","CustomerIdentifier":"12345678","Donation":"0","Print":"1"}',
+    ).toEqual(
+      JSON.parse(
+        '{"CustomerName":"客人","Items":[{"ItemAmount":360,"ItemCount":3,"ItemName":"A","ItemPrice":120,"ItemSeq":1,"ItemWord":"份"},{"ItemAmount":152,"ItemCount":2,"ItemName":"B","ItemPrice":76,"ItemSeq":2,"ItemWord":"份"},{"ItemAmount":333,"ItemCount":1,"ItemName":"C","ItemPrice":333,"ItemSeq":3,"ItemWord":"份"},{"ItemAmount":-145,"ItemCount":1,"ItemName":"折扣","ItemPrice":-145,"ItemSeq":4,"ItemWord":"份"}],"InvType":"07","SalesAmount":700,"TaxType":"1","vat":"1","CarrierType":"","CustomerAddr":"桃園市大園區中正東路一段","CustomerIdentifier":"12345678","Donation":"0","Print":"1"}',
+      ),
     );
   });
 
