@@ -9,6 +9,7 @@
 
 import { Logger } from '@nestjs/common';
 
+import type { GenericEndpointContext } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
@@ -48,6 +49,11 @@ import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
 const signupCouponLogger = new Logger('SignupCoupons');
+
+const updatedUserId = (context: GenericEndpointContext | null) =>
+  context?.path === '/admin/update-user'
+    ? (context.body as { userId?: string } | undefined)?.userId
+    : context?.context.session?.user.id;
 
 const getInitialOrganization = async (userId: string) => {
   const membership = await authDb().query.member.findFirst({
@@ -195,7 +201,10 @@ export const createAuth = (
             const lang = await signUpLanguage(context);
 
             return {
-              data: normalizeUserFields(lang ? { ...user, lang } : user),
+              data: normalizeUserFields(
+                lang ? { ...user, lang } : user,
+                'create',
+              ),
             };
           },
           after: async (user) => {
@@ -205,8 +214,8 @@ export const createAuth = (
         },
         update: {
           before: async (input, context) => {
-            const user = normalizeUserFields(input);
-            if (!('phoneNumber' in user)) return { data: user };
+            const user = normalizeUserFields(input, 'update');
+            if (user.phoneNumber === undefined) return { data: user };
 
             const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
@@ -214,7 +223,7 @@ export const createAuth = (
                 where: eq(schema.user.phoneNumber, phoneNumber),
               });
 
-              if (owner && owner.id !== context?.context.session?.user.id)
+              if (owner && owner.id !== updatedUserId(context))
                 throw new APIError('BAD_REQUEST', {
                   code: 'PHONE_NUMBER_ALREADY_EXISTS',
                   message: 'Phone number already exists',
@@ -224,7 +233,7 @@ export const createAuth = (
             return {
               data: {
                 ...user,
-                ...(!('phoneNumberVerified' in user) && {
+                ...(user.phoneNumberVerified === undefined && {
                   phoneNumberVerified: false,
                 }),
               },

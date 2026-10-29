@@ -9,6 +9,7 @@ import type { Transaction } from '../attendance/attendance-audit.js';
 import * as schema from '../db/schema/index.js';
 
 import { runInAuthTransaction } from './auth-transaction.js';
+import { runWithAuthHookState } from './hooks.js';
 import { createAuthI18n } from './i18n.js';
 import { authDatabase, createAuth } from './index.js';
 import { normalizeUserFields } from './user-fields.js';
@@ -17,34 +18,55 @@ const BASE_URL = 'http://localhost:3001';
 
 describe('normalizeUserFields', () => {
   it('不碰沒有傳的欄位', () => {
-    expect(normalizeUserFields({ name: 'Ann' })).toEqual({ name: 'Ann' });
+    expect(normalizeUserFields({ name: 'Ann' }, 'update')).toEqual({
+      name: 'Ann',
+    });
+  });
+
+  it('值是 undefined 的欄位視為沒有傳，不會被清空', () => {
+    expect(
+      normalizeUserFields(
+        { firstName: undefined, lastName: undefined, phoneNumber: undefined },
+        'update',
+      ),
+    ).toEqual({
+      firstName: undefined,
+      lastName: undefined,
+      phoneNumber: undefined,
+    });
+  });
+
+  it('建立時沒有名就擋下', () => {
+    expect(() => normalizeUserFields({ name: 'Ann' }, 'create')).toThrow(
+      'firstName is required',
+    );
   });
 
   it('去掉名的前後空白', () => {
-    expect(normalizeUserFields({ firstName: ' Ann ' })).toEqual({
+    expect(normalizeUserFields({ firstName: ' Ann ' }, 'update')).toEqual({
       firstName: 'Ann',
     });
   });
 
   it.each([[''], ['  '], [null], [123]])('名是 %j 時擋下', (firstName) => {
-    expect(() => normalizeUserFields({ firstName })).toThrow(
+    expect(() => normalizeUserFields({ firstName }, 'update')).toThrow(
       'firstName is required',
     );
   });
 
   it.each([[''], ['  '], [null]])('姓與電話是 %j 時清空成 null', (value) => {
     expect(
-      normalizeUserFields({ lastName: value, phoneNumber: value }),
+      normalizeUserFields({ lastName: value, phoneNumber: value }, 'update'),
     ).toEqual({ lastName: null, phoneNumber: null });
   });
 
   it('姓與電話不是字串時擋下', () => {
-    expect(() => normalizeUserFields({ lastName: 123 })).toThrow(
+    expect(() => normalizeUserFields({ lastName: 123 }, 'update')).toThrow(
       'lastName must be a string',
     );
-    expect(() => normalizeUserFields({ phoneNumber: 886912345678 })).toThrow(
-      'phoneNumber must be a string',
-    );
+    expect(() =>
+      normalizeUserFields({ phoneNumber: 886912345678 }, 'update'),
+    ).toThrow('phoneNumber must be a string');
   });
 });
 
@@ -122,8 +144,15 @@ describe('經由 Better Auth 更新使用者', () => {
       password: 'password-1234',
     });
     expect(signUp.status).toBe(200);
+    const bo = await request('/sign-up/email', {
+      email: 'bo@example.com',
+      firstName: 'Bo',
+      name: 'Bo',
+      password: 'password-1234',
+    });
+    expect(bo.status).toBe(200);
     await client.query(
-      `update "user" set email_verified = true where email = 'ann@example.com'`,
+      `update "user" set email_verified = true, role = 'admin' where email = 'ann@example.com'`,
     );
 
     const signIn = await request('/sign-in/email', {
@@ -141,18 +170,20 @@ describe('經由 Better Auth 更新使用者', () => {
   });
 
   const request = (path: string, body: unknown) =>
-    runInAuthTransaction(db, () =>
-      auth.handler(
-        new Request(`${BASE_URL}/api/auth${path}`, {
-          method: 'POST',
-          headers: {
-            'accept-language': 'zh-TW',
-            'content-type': 'application/json',
-            origin: BASE_URL,
-            ...(cookie && { cookie }),
-          },
-          body: JSON.stringify(body),
-        }),
+    runWithAuthHookState(() =>
+      runInAuthTransaction(db, () =>
+        auth.handler(
+          new Request(`${BASE_URL}/api/auth${path}`, {
+            method: 'POST',
+            headers: {
+              'accept-language': 'zh-TW',
+              'content-type': 'application/json',
+              origin: BASE_URL,
+              ...(cookie && { cookie }),
+            },
+            body: JSON.stringify(body),
+          }),
+        ),
       ),
     );
 
@@ -178,9 +209,9 @@ describe('經由 Better Auth 更新使用者', () => {
 
   it('註冊時名是空白就擋下並回傳使用者語系的訊息', async () => {
     const response = await request('/sign-up/email', {
-      email: 'bo@example.com',
+      email: 'cy@example.com',
       firstName: '  ',
-      name: 'Bo',
+      name: 'Cy',
       password: 'password-1234',
     });
 
@@ -218,5 +249,58 @@ describe('經由 Better Auth 更新使用者', () => {
 
     expect(response.status).toBe(400);
     expect(await columns()).toMatchObject({ first_name: 'Ann' });
+  });
+
+  describe('電話重複', () => {
+    const setPhone = (email: string, phoneNumber: string | null) =>
+      client.query(`update "user" set phone_number = $2 where email = $1`, [
+        email,
+        phoneNumber,
+      ]);
+    const userId = async (email: string) =>
+      (
+        await client.query<{ id: string }>(
+          `select id from "user" where email = $1`,
+          [email],
+        )
+      ).rows[0].id;
+
+    beforeEach(async () => {
+      await setPhone('ann@example.com', '+886911111111');
+      await setPhone('bo@example.com', '+886922222222');
+    });
+
+    it('不能改成別人的電話', async () => {
+      const response = await request('/update-user', {
+        phoneNumber: '+886922222222',
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        code: 'PHONE_NUMBER_ALREADY_EXISTS',
+        message: '此電話號碼已被註冊',
+      });
+    });
+
+    it('平台管理員把使用者的電話存成他原本的號碼時不算重複', async () => {
+      const response = await request('/admin/update-user', {
+        userId: await userId('bo@example.com'),
+        data: { phoneNumber: '+886922222222' },
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('平台管理員不能把使用者的電話改成別人的號碼，包含管理員自己的', async () => {
+      const response = await request('/admin/update-user', {
+        userId: await userId('bo@example.com'),
+        data: { phoneNumber: '+886911111111' },
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        code: 'PHONE_NUMBER_ALREADY_EXISTS',
+      });
+    });
   });
 });

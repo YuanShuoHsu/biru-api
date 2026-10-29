@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+
+import { I18nContext } from 'nestjs-i18n';
 
 import {
   SQL,
@@ -34,6 +36,7 @@ import * as schema from '../db/schema/index.js';
 import type { CreateUser, User, UserRole } from '../db/schema/users.js';
 import { user, userRoles } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type {
@@ -398,7 +401,22 @@ export class UsersService {
         }),
       })
       .where(eq(schema.user.id, where.id))
-      .returning();
+      .returning()
+      .catch((error: unknown) => {
+        if (
+          (error as { cause?: { constraint?: string } }).cause?.constraint ===
+          'user_phone_number_unique'
+        )
+          throw new BadRequestException({
+            error: 'Bad Request',
+            code: 'PHONE_NUMBER_ALREADY_EXISTS',
+            message:
+              I18nContext.current<I18nTranslations>()?.t(
+                'auth.PHONE_NUMBER_ALREADY_EXISTS',
+              ) ?? 'Phone number already exists',
+          });
+        throw error;
+      });
 
     return user;
   }
