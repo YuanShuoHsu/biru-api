@@ -447,6 +447,26 @@ describe('OrdersService.recordPaymentResult', () => {
     expect(inventory.restoreAll).toHaveBeenCalledWith('o1', expect.anything());
   });
 
+  it('付款失敗只記下綠界交易編號，不寫入付款憑據', async () => {
+    const { service, sets } = createService({
+      current: pending,
+      updated: [{ ...pending, orderStatus: 'OrderProblem' }],
+    });
+
+    await service.recordPaymentResult(
+      paymentBody({ RtnCode: '10100058', card4no: '4242', gwsr: '123' }),
+    );
+
+    expect(sets[0]).toMatchObject({
+      merchantTradeNo: 'mtn1',
+      orderStatus: 'OrderProblem',
+      tradeNo: 'tn1',
+    });
+    expect(sets[0]).not.toHaveProperty('paymentDate');
+    expect(sets[0]).not.toHaveProperty('authorizationNo');
+    expect(sets[0]).not.toHaveProperty('paymentMethodId');
+  });
+
   it('異常訂單補付款重新扣庫存，跌破門檻的食材在交易後推播', async () => {
     const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
     const { emit, inventory, service } = createService({

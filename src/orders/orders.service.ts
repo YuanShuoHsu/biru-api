@@ -1192,11 +1192,13 @@ export class OrdersService {
         updated: [updated],
       } = await this.runTransition(tx, rule, [current.id], {
         set: {
-          authorizationNo: body.gwsr || undefined,
-          paymentDate: toPaymentDate(body.PaymentDate),
           merchantTradeNo: body.MerchantTradeNo,
-          paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
+          ...(succeeded && {
+            authorizationNo: body.gwsr || undefined,
+            paymentDate: toPaymentDate(body.PaymentDate),
+            paymentMethodId: body.card4no || undefined,
+          }),
         },
         where: succeeded
           ? sql`${order.total} = ${Number(body.TradeAmt)}`
