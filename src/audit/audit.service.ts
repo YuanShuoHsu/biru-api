@@ -4,6 +4,7 @@ import { and, ilike, sql, type SQL } from 'drizzle-orm';
 
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
@@ -61,6 +62,7 @@ export class AuditService {
     const {
       limit = 10,
       offset = 0,
+      actorId,
       ancestorId,
       resource,
       resourceId,
@@ -72,6 +74,9 @@ export class AuditService {
       sortBy,
       sortDirection = 'desc',
     } = query;
+
+    const label = entry('"resourceLabel"');
+    const resourceLabel = sql`CASE jsonb_typeof(${label}) WHEN 'object' THEN ${label} WHEN 'string' THEN jsonb_build_object('', ${label}) END`;
 
     const fieldMap: Record<string, SQL> = {
       actorName: entry('"actorName"'),
@@ -86,6 +91,7 @@ export class AuditService {
     const where = and(
       resource ? sql`${fieldMap.resource} = ${resource}` : undefined,
       resourceId ? sql`${fieldMap.resourceId} = ${resourceId}` : undefined,
+      actorId ? sql`${entry('"actorId"')} = ${actorId}` : undefined,
       ancestorId
         ? sql`${ancestorId} = ANY(${entry('"ancestorIds"')})`
         : undefined,
@@ -110,6 +116,8 @@ export class AuditService {
           ilike(fieldMap.actorEmail, `%${value}%`),
           ilike(fieldMap.resourceId, `%${value}%`),
           ilike(localTimeText(fieldMap.createdAt), `%${value}%`),
+          buildLocalizedTextFilterCondition(resourceLabel, 'contains', value),
+          ilike(entry('"targetEmployeeName"'), `%${value}%`),
         ],
       }),
     );
@@ -120,7 +128,20 @@ export class AuditService {
       ? sql`${fieldMap[sortBy]} ${direction}, ${newestFirst}`
       : newestFirst;
 
-    const entries = this.entries(scope);
+    const entries = sql`
+      SELECT
+        entry.*,
+        CASE WHEN entry.source = 'attendance' THEN (
+          SELECT u.name FROM attendance_employee e
+          JOIN "user" u ON u.id = e.user_id
+          WHERE e.id = COALESCE(
+            ${attendanceEmployeeId(entry('resource'), entry('"resourceId"'))},
+            entry.changes ->> 'employeeId',
+            entry.changes -> 'after' ->> 'employeeId'
+          )
+        ) END AS "targetEmployeeName"
+      FROM (${this.entries(scope)}) entry
+    `;
     const filtered = sql`FROM (${entries}) entry ${where ? sql`WHERE ${where}` : sql``}`;
 
     const [{ rows }, { rows: totals }] = await Promise.all([
@@ -140,15 +161,7 @@ export class AuditService {
           entry.changes,
           entry."changeLabels",
           ${fieldMap.createdAt} AT TIME ZONE 'UTC' AS "createdAt",
-          CASE WHEN entry.source = 'attendance' THEN (
-            SELECT u.name FROM attendance_employee e
-            JOIN "user" u ON u.id = e.user_id
-            WHERE e.id = COALESCE(
-              ${attendanceEmployeeId(entry('resource'), entry('"resourceId"'))},
-              entry.changes ->> 'employeeId',
-              entry.changes -> 'after' ->> 'employeeId'
-            )
-          ) END AS "targetEmployeeName"
+          entry."targetEmployeeName"
         ${filtered}
         ORDER BY ${orderBy}
         LIMIT ${limit} OFFSET ${offset}
