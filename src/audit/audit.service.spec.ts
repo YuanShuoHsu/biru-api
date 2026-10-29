@@ -1,3 +1,9 @@
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+
+import { createPGlite } from '../../test/pglite.js';
+import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { AuditService } from './audit.service.js';
@@ -141,4 +147,54 @@ describe('AuditService.listAll', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(data[0]).toMatchObject({ id: 'audit-1', changeLabels: null });
   });
+});
+
+describe('AuditService.listForOrganization paging', () => {
+  let client: PGlite;
+  let service: AuditService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new AuditService(db as unknown as DrizzleDB);
+
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', '碧露', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into "user" (id, name, first_name, email, lang) values ('owner', 'Owner', 'Owner', 'owner@example.com', 'zh-TW');
+       insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at)
+         select 'audit-' || n, 'owner', 'Owner', 'owner@example.com', 'org', 'order', 'order-' || n, 'update', '{}', '2026-10-28 08:00:00'
+         from generate_series(1, 12) n;
+       insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at)
+         select 'attendance-' || n, 'org', 'owner', 'employee.update', 'employee-' || n, '{}', '2026-10-28 08:00:00+00'
+         from generate_series(1, 12) n;`,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it.each([
+    {},
+    { sortBy: 'actorName', sortDirection: 'asc' },
+    { sortBy: 'action', sortDirection: 'desc' },
+  ] as const)(
+    'returns every entry written in one transaction exactly once across pages (%o)',
+    async (sort) => {
+      const ids: string[] = [];
+      for (let offset = 0; offset < 24; offset += 5) {
+        const { data, total } = await service.listForOrganization(
+          'org',
+          'owner',
+          { ...sort, limit: 5, offset },
+        );
+        expect(total).toBe(24);
+        ids.push(...data.map(({ id }) => id));
+      }
+
+      expect(ids).toHaveLength(24);
+      expect(new Set(ids).size).toBe(24);
+    },
+  );
 });
