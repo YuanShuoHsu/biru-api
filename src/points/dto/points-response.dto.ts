@@ -64,14 +64,18 @@ export class OrganizationPointTransactionListResponseDto {
 export class ExpiringPointsDto {
   @ApiProperty({ description: '當天（台灣時間）最早到期的時間' })
   expiresAt: Date;
-  @ApiProperty({ description: '當天（台灣時間）到期的剩餘點數' })
+  @ApiProperty({
+    description:
+      '當天（台灣時間）到期的剩餘點數，已扣除同日收回的點數，合計不超過餘額',
+  })
   points: number;
 }
 
 export class MyPointsDto {
   @ApiProperty({ description: '全店家合併餘額' }) balance: number;
   @ApiProperty({
-    description: '30 天內到期的剩餘點數，依到期日分組，由近到遠',
+    description:
+      '今天起 30 天內（台灣日期）到期的剩餘點數，依到期日分組，由近到遠',
     type: [ExpiringPointsDto],
   })
   expiringSoon: ExpiringPointsDto[];

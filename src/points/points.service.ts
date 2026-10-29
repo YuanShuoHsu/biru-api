@@ -19,7 +19,8 @@ import {
   inArray,
   isNotNull,
   isNull,
-  lte,
+  lt,
+  ne,
   notInArray,
   or,
   sql,
@@ -45,7 +46,11 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
-import { DAY_MS, platformDayNumber } from '../common/constants/timezone.js';
+import {
+  DAY_MS,
+  platformDayNumber,
+  platformMidnight,
+} from '../common/constants/timezone.js';
 import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
@@ -118,18 +123,25 @@ const toExpiresAt = (
       )
     : null;
 
-const groupByPlatformDay = (
-  lots: { expiresAt: Date | null; remainingPoints: number }[],
+const expiringByPlatformDay = (
+  lots: { expiresAt: Date; remainingPoints: number }[],
+  balance: number,
 ): ExpiringPointsDto[] => {
-  const groups = new Map<number, ExpiringPointsDto>();
+  const days = new Map<number, ExpiringPointsDto>();
   for (const { expiresAt, remainingPoints } of lots) {
-    const day = platformDayNumber(expiresAt!.getTime());
-    const group = groups.get(day);
-    if (group) group.points += remainingPoints;
-    else groups.set(day, { expiresAt: expiresAt!, points: remainingPoints });
+    const day = platformDayNumber(expiresAt.getTime());
+    const group = days.get(day) ?? { expiresAt, points: 0 };
+    group.points += remainingPoints;
+    days.set(day, group);
   }
 
-  return [...groups.values()];
+  let available = Math.max(balance, 0);
+  return [...days.values()].flatMap(({ expiresAt, points }) => {
+    const shown = Math.min(points, available);
+    if (shown <= 0) return [];
+    available -= shown;
+    return [{ expiresAt, points: shown }];
+  });
 };
 
 const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
@@ -717,57 +729,65 @@ export class PointsService {
 
     await this.syncEarned({ userId });
 
-    const [transactions, [{ balance, transactionsTotal }]] = await Promise.all([
-      this.db
-        .select({
-          confirmationNumber: order.confirmationNumber,
-          couponCode: coupon.code,
-          orderNumber: order.orderNumber,
-          organizationName: organization.name,
-          transaction: pointTransaction,
-        })
-        .from(pointTransaction)
-        .leftJoin(
-          organization,
-          eq(pointTransaction.organizationId, organization.id),
-        )
-        .leftJoin(order, eq(pointTransaction.orderId, order.id))
-        .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
-        .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
-        .where(eq(pointTransaction.userId, userId))
-        .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
-        .limit(limit)
-        .offset(offset),
-      this.db
-        .select({
-          balance:
-            sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
-              Number,
+    const [transactions, [{ balance, transactionsTotal }], expiringLots] =
+      await Promise.all([
+        this.db
+          .select({
+            confirmationNumber: order.confirmationNumber,
+            couponCode: coupon.code,
+            orderNumber: order.orderNumber,
+            organizationName: organization.name,
+            transaction: pointTransaction,
+          })
+          .from(pointTransaction)
+          .leftJoin(
+            organization,
+            eq(pointTransaction.organizationId, organization.id),
+          )
+          .leftJoin(order, eq(pointTransaction.orderId, order.id))
+          .leftJoin(
+            userCoupon,
+            eq(pointTransaction.userCouponId, userCoupon.id),
+          )
+          .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
+          .where(eq(pointTransaction.userId, userId))
+          .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({
+            balance:
+              sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
+                Number,
+              ),
+            transactionsTotal: count(),
+          })
+          .from(pointTransaction)
+          .where(eq(pointTransaction.userId, userId)),
+        this.db
+          .select({
+            expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+              pointTransaction.expiresAt,
             ),
-          transactionsTotal: count(),
-        })
-        .from(pointTransaction)
-        .where(eq(pointTransaction.userId, userId)),
-    ]);
-
-    const expiringLots = await this.db
-      .select({
-        expiresAt: pointTransaction.expiresAt,
-        remainingPoints: pointTransaction.remainingPoints,
-      })
-      .from(pointTransaction)
-      .where(
-        and(
-          eq(pointTransaction.userId, userId),
-          gt(pointTransaction.remainingPoints, 0),
-          this.notExpired(),
-          lte(
-            pointTransaction.expiresAt,
-            new Date(Date.now() + EXPIRING_SOON_DAYS * DAY_MS),
-          ),
-        ),
-      )
-      .orderBy(asc(pointTransaction.expiresAt));
+            remainingPoints: pointTransaction.remainingPoints,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.userId, userId),
+              ne(pointTransaction.remainingPoints, 0),
+              this.notExpired(),
+              lt(
+                pointTransaction.expiresAt,
+                new Date(
+                  platformMidnight(Date.now()) +
+                    (EXPIRING_SOON_DAYS + 1) * DAY_MS,
+                ),
+              ),
+            ),
+          )
+          .orderBy(asc(pointTransaction.expiresAt)),
+      ]);
 
     const redeemables = await this.db.query.coupon.findMany({
       where: and(
@@ -794,7 +814,7 @@ export class PointsService {
 
     return {
       balance,
-      expiringSoon: groupByPlatformDay(expiringLots),
+      expiringSoon: expiringByPlatformDay(expiringLots, balance),
       redeemableCoupons: redeemables.map((c) => ({
         ...toPointsCoupon(c),
         applicableOrganizationNames: c.applicableOrganizationIds
