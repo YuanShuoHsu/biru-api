@@ -46,13 +46,13 @@ export class SalesReportQueryDto {
 
 export class SalesReportTotalsDto {
   @ApiProperty({ description: '計入時間落在區間內的計入訂單數' })
-  orders: number;
+  declare orders: number;
 
   @ApiProperty({ description: '上述訂單的總額合計' })
-  revenue: number;
+  declare revenue: number;
 
   @ApiProperty({ description: '上述訂單的折扣合計' })
-  discount: number;
+  declare discount: number;
 
   @ApiProperty({
     description:
@@ -67,13 +67,31 @@ export class SalesReportTotalsDto {
 export class SalesReportRowDto extends SalesReportTotalsDto {
   @ApiProperty({
     description:
+      '計入時間落在區間內的計入訂單數；menuItem／category 為含該品項或分類的訂單數，同一訂單會計入多列',
+  })
+  declare orders: number;
+
+  @ApiProperty({
+    description:
+      '上述訂單的總額合計；menuItem／category 為訂單總額依品項小計分攤到該列的金額',
+  })
+  declare revenue: number;
+
+  @ApiProperty({
+    description:
+      '上述訂單的折扣合計；menuItem／category 為整單折扣依品項小計分攤到該列的金額',
+  })
+  declare discount: number;
+
+  @ApiProperty({
+    description:
       'day：店家時區日期 YYYY-MM-DD；hour：店家時區小時 0–23；paymentMethod／mode：該列舉值；menuItem：品項 id；category：品項目前所屬菜單分類 id，品項已刪除或未分類為 uncategorized',
   })
   key: string;
 
   @ApiPropertyOptional({
     description:
-      '僅 menuItem／category：目前的品項或分類名稱；品項已刪除時為最近一次訂單快照的預設語系名稱，未分類為 null',
+      '僅 menuItem／category：目前的品項或分類名稱；品項已刪除時為最近一次訂單快照的名稱（以預設語系為 key 存放，快照當時未必是該語系的文字），未分類為 null',
     type: LocalizedTextDto,
     nullable: true,
   })
@@ -99,7 +117,7 @@ export class SalesReportResponseDto {
 
   @ApiProperty({
     description:
-      '只列有訂單或退款的組；day／hour 依 key 由小到大，其餘依 revenue 由大到小。menuItem／category 的金額依品項小計分攤整單折扣、依退款明細分攤退款，加購計入加購品項，四捨五入到分，總和可能與 totals 差幾分',
+      '只列有訂單或退款的組；day／hour 依 key 由小到大，其餘依 revenue 由大到小。menuItem／category 的金額依品項小計分攤整單折扣、依退款明細分攤退款，加購計入加購品項，四捨五入到分，加總可能與 totals 差幾分；沒有退款明細（refund.items 為空）的退款無法歸到品項，只計入 totals，此時 rows 加總會少整筆退款',
     type: [SalesReportRowDto],
   })
   rows: SalesReportRowDto[];
