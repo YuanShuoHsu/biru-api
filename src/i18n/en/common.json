@@ -351,7 +351,7 @@
       "waitlistPaused": "The waitlist is paused. Please ask a member of staff.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
       "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
-      "waitlistQrSessionNotFound": "Your QR code session has expired. Please scan the QR code in the store again.",
+      "waitlistQrSessionNotFound": "Please scan the QR code in the store to take a number.",
       "waitlistTicketNotFound": "We couldn't find this ticket. Please take a new number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },

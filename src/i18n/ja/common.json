@@ -351,7 +351,7 @@
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
       "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
-      "waitlistQrSessionNotFound": "受付の有効期限が切れました。店内のQRコードをもう一度読み取ってください。",
+      "waitlistQrSessionNotFound": "店内のQRコードを読み取ってから番号札をお取りください。",
       "waitlistTicketNotFound": "この整理券が見つかりません。もう一度番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },

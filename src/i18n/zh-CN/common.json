@@ -134,7 +134,7 @@
   },
   "coupons": {
     "alreadyClaimed": "您已领取过此优惠券",
-    "applicableOrganizationNotFound": "找不到部分所选门店，可能已被删除",
+    "applicableOrganizationNotFound": "找不到部分所选店家，可能已被删除",
     "codeExists": "此优惠码已存在",
     "couponNotFound": "找不到这张优惠券，可能已被删除",
     "expired": "优惠码已过期",
@@ -351,7 +351,7 @@
       "waitlistPaused": "当前暂停取号，请咨询现场服务人员。",
       "waitlistPhoneInQueue": "此电话号码已在排队中，请勿重复取号。",
       "waitlistQrRequired": "请扫描门店现场的二维码取号。",
-      "waitlistQrSessionNotFound": "取号会话已过期，请重新扫描店内的二维码。",
+      "waitlistQrSessionNotFound": "请先扫描店内的二维码再取号。",
       "waitlistTicketNotFound": "找不到这张号码牌，请重新取号。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新页面。"
     },
