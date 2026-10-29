@@ -30,7 +30,6 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -93,7 +92,7 @@ export class RecipesService {
   }
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: RecipePaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: RecipeResponseDto[]; total: number }> {
@@ -108,10 +107,6 @@ export class RecipesService {
       sortBy,
       sortDirection = 'asc',
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
       recipeYield: recipe.recipeYield,
@@ -212,13 +207,9 @@ export class RecipesService {
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     dto: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
     await this.assertMenuItemInOrganization(organizationId, dto.menuItemId);
 
     const created = await this.db.transaction(async (tx) => {

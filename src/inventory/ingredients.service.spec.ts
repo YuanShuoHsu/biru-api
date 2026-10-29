@@ -58,14 +58,14 @@ describe('IngredientsService.findAll lowStock', () => {
   });
 
   it('只回傳庫存小於等於門檻的食材，未設門檻者不列入', async () => {
-    const result = await service.findAll('biru', { lowStock: 'true' });
+    const result = await service.findAll(ORG, { lowStock: 'true' });
 
     expect(result.data.map(({ id }) => id)).toEqual(['below', 'equal']);
     expect(result.total).toBe(2);
   });
 
   it('未帶 lowStock 時列出全部食材', async () => {
-    const result = await service.findAll('biru');
+    const result = await service.findAll(ORG);
 
     expect(result.total).toBe(4);
   });
@@ -112,7 +112,7 @@ describe('IngredientsService.findAll name sort', () => {
   });
 
   it('依名稱排序時取目前語系的名稱', async () => {
-    const result = await service.findAll('biru', { sortBy: 'name' });
+    const result = await service.findAll(ORG, { sortBy: 'name' });
 
     expect(result.data.map(({ id }) => id)).toEqual([
       'zebra',
@@ -126,7 +126,7 @@ describe('IngredientsService.findAll name sort', () => {
       lang: 'en',
     } as I18nContext);
 
-    const result = await service.findAll('biru', {
+    const result = await service.findAll(ORG, {
       sortBy: 'name',
       sortDirection: 'desc',
     });
@@ -176,16 +176,14 @@ describe('IngredientsService.findAll name filter', () => {
   });
 
   const quickSearch = async (quickFilterValue: string) =>
-    (await service.findAll('biru', { quickFilterValue })).data.map(
-      ({ id }) => id,
-    );
+    (await service.findAll(ORG, { quickFilterValue })).data.map(({ id }) => id);
 
   const filterName = async (
     filterOperator: FilterOperator,
     filterValue?: string,
   ) =>
     (
-      await service.findAll('biru', {
+      await service.findAll(ORG, {
         filterField: 'name',
         filterOperator,
         filterValue,

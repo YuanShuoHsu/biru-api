@@ -76,7 +76,7 @@ describe('RecipesService name filter', () => {
   });
 
   const recipeIds = async (query: Parameters<RecipesService['findAll']>[1]) =>
-    (await service.findAll('biru', query)).data.map(({ id }) => id);
+    (await service.findAll(ORG, query)).data.map(({ id }) => id);
 
   const materialIds = async (
     query: Parameters<RecipesService['findAllIngredients']>[1],
