@@ -29,7 +29,7 @@ const STAFF_REFUND_REASON_CODES = refundReasonCodeEnum.enumValues.filter(
   (code) => code !== 'storeClosed',
 );
 
-export class RefundItemInputDto {
+class RefundItemInputDto {
   @ApiProperty({ description: '訂單品項 ID' })
   @IsDefined()
   @IsString()
@@ -42,7 +42,7 @@ export class RefundItemInputDto {
   quantity: number;
 }
 
-export class RefundItemSnapshotDto {
+class RefundItemSnapshotDto {
   @ApiProperty({ description: '訂單品項 ID' })
   orderItemId: string;
 

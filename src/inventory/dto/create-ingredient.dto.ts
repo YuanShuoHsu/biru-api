@@ -3,7 +3,6 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsIn,
   IsNumberString,
-  IsObject,
   IsOptional,
   IsString,
   IsUrl,
@@ -16,6 +15,7 @@ import {
   UNIT_FACTORS,
   type BaseUnitCode,
 } from '../../common/constants/units.js';
+import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
@@ -25,7 +25,7 @@ export class CreateIngredientDto {
     type: LocalizedTextDto,
     example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' },
   })
-  @IsObject()
+  @IsLocalizedText()
   name: LocalizedText;
 
   @ApiPropertyOptional({ example: '森半宇治抹茶粉 PCT-2 茗（無糖）' })

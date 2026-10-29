@@ -79,7 +79,6 @@ export const conditionMet = (
   }
 };
 
-/** 指標暖機需要的 K 線數量 */
 export const requiredCandles = (conditions: IndicatorConditionDto[]) =>
   Math.max(
     50,

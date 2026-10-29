@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
-    "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "recipeIngredientExists": "This ingredient has already been added",
@@ -348,6 +347,10 @@
   "reports": {
     "rangeInvalid": "The end time must be later than the start time.",
     "rangeTooLong": "The report can cover at most 366 days."
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
+    "notFound": "This store has no floor plan yet."
   },
   "waitlist": {
     "guest": {

@@ -22,7 +22,7 @@ import { printer as printerTable } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
-// 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線（用戶定案 60 秒）
+// 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線
 export const PRINTER_OFFLINE_AFTER_MS = 60_000;
 
 const POLL_GAP_SAMPLES = 5;

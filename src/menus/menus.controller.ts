@@ -82,8 +82,6 @@ import { MenusService } from './menus.service.js';
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 
-  // ── Menu ──────────────────────────────────────────────────────────
-
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
   @ApiOperation({ summary: '取得組織所有菜單' })
@@ -116,8 +114,6 @@ export class MenusController {
       data: updateMenuDto,
     });
   }
-
-  // ── MenuSection ───────────────────────────────────────────────────
 
   @Post('menus/:menuId/menu-sections')
   @Roles({ menu: ['create'] }, 'menuId')
@@ -207,8 +203,6 @@ export class MenusController {
   ): Promise<MenuSectionResponseDto> {
     return this.menusService.deleteMenuSection({ id: sectionId });
   }
-
-  // ── MenuItem ──────────────────────────────────────────────────────
 
   @Post('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['create'] }, 'sectionId')
@@ -326,8 +320,6 @@ export class MenusController {
     return this.menusService.deleteMenuItem({ id: menuItemId });
   }
 
-  // ── Offer ─────────────────────────────────────────────────────────
-
   @Post('menu-items/:menuItemId/offers')
   @Roles({ menu: ['create'] }, 'menuItemId')
   @Audit({
@@ -413,8 +405,6 @@ export class MenusController {
     return this.menusService.deleteOffer({ id: offerId, organizationId });
   }
 
-  // ── MenuItemAddOn ─────────────────────────────────────────────────
-
   @Post('menu-items/:menuItemId/add-ons')
   @Roles({ menu: ['create'] }, 'menuItemId')
   @Audit('menuItemAddOn', { response: true })
@@ -487,8 +477,6 @@ export class MenusController {
   ): Promise<MenuItemAddOnResponseDto> {
     return this.menusService.deleteMenuItemAddOn({ id: addOnId, menuItemId });
   }
-
-  // ── ModifierGroup ─────────────────────────────────────────────────
 
   @Post('menus/:menuId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuId')
@@ -572,8 +560,6 @@ export class MenusController {
   ): Promise<ModifierGroupResponseDto> {
     return this.menusService.deleteModifierGroup({ id: groupId });
   }
-
-  // ── Modifier ──────────────────────────────────────────────────────
 
   @Post('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['create'] }, 'groupId')
@@ -667,8 +653,6 @@ export class MenusController {
   ): Promise<ModifierResponseDto> {
     return this.menusService.deleteModifier({ id: modifierId, organizationId });
   }
-
-  // ── MenuItemModifierGroup ─────────────────────────────────────────
 
   @Post('menu-items/:menuItemId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuItemId')

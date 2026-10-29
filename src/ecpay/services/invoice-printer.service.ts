@@ -113,7 +113,6 @@ export class InvoicePrinterService implements PrintJobSource {
     return !!(await this.findPrinter(organizationId));
   }
 
-  /** null 代表沒有設定印表機 */
   async printerOnline(organizationId: string): Promise<boolean | null> {
     const printer = await this.findPrinter(organizationId);
     if (!printer) return null;

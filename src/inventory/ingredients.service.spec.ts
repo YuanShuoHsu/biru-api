@@ -1,14 +1,13 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { I18nContext, type I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { FilterOperator } from '../common/constants/pagination.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { IngredientsService } from './ingredients.service.js';
 import type { InventoryTransactionsService } from './inventory-transactions.service.js';
@@ -27,7 +26,6 @@ describe('IngredientsService.findAll lowStock', () => {
     service = new IngredientsService(
       db as unknown as DrizzleDB,
       {} as InventoryTransactionsService,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
   }, 60_000);
 
@@ -58,14 +56,14 @@ describe('IngredientsService.findAll lowStock', () => {
   });
 
   it('只回傳庫存小於等於門檻的食材，未設門檻者不列入', async () => {
-    const result = await service.findAll('biru', { lowStock: 'true' });
+    const result = await service.findAll(ORG, { lowStock: 'true' });
 
     expect(result.data.map(({ id }) => id)).toEqual(['below', 'equal']);
     expect(result.total).toBe(2);
   });
 
   it('未帶 lowStock 時列出全部食材', async () => {
-    const result = await service.findAll('biru');
+    const result = await service.findAll(ORG);
 
     expect(result.total).toBe(4);
   });
@@ -83,7 +81,6 @@ describe('IngredientsService.findAll name sort', () => {
     service = new IngredientsService(
       db as unknown as DrizzleDB,
       {} as InventoryTransactionsService,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -112,7 +109,7 @@ describe('IngredientsService.findAll name sort', () => {
   });
 
   it('依名稱排序時取目前語系的名稱', async () => {
-    const result = await service.findAll('biru', { sortBy: 'name' });
+    const result = await service.findAll(ORG, { sortBy: 'name' });
 
     expect(result.data.map(({ id }) => id)).toEqual([
       'zebra',
@@ -126,7 +123,7 @@ describe('IngredientsService.findAll name sort', () => {
       lang: 'en',
     } as I18nContext);
 
-    const result = await service.findAll('biru', {
+    const result = await service.findAll(ORG, {
       sortBy: 'name',
       sortDirection: 'desc',
     });
@@ -151,7 +148,6 @@ describe('IngredientsService.findAll name filter', () => {
     service = new IngredientsService(
       db as unknown as DrizzleDB,
       {} as InventoryTransactionsService,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -176,16 +172,14 @@ describe('IngredientsService.findAll name filter', () => {
   });
 
   const quickSearch = async (quickFilterValue: string) =>
-    (await service.findAll('biru', { quickFilterValue })).data.map(
-      ({ id }) => id,
-    );
+    (await service.findAll(ORG, { quickFilterValue })).data.map(({ id }) => id);
 
   const filterName = async (
     filterOperator: FilterOperator,
     filterValue?: string,
   ) =>
     (
-      await service.findAll('biru', {
+      await service.findAll(ORG, {
         filterField: 'name',
         filterOperator,
         filterValue,

@@ -8,7 +8,6 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import { Request } from 'express';
 
-// 平台管理員（better-auth admin plugin 的 user.role）
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(private authService: AuthService) {}

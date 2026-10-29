@@ -222,7 +222,6 @@ export type I18nTranslations = {
         };
         "inventory": {
             "ingredientNotFound": string;
-            "menuItemNotFound": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;
@@ -400,6 +399,10 @@ export type I18nTranslations = {
         "reports": {
             "rangeInvalid": string;
             "rangeTooLong": string;
+        };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
         };
         "waitlist": {
             "guest": {

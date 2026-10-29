@@ -68,7 +68,6 @@ export const buildRefundPlan = (
     : found.items
         .map((item) => ({
           orderItemId: item.id,
-          // 先前已部分退過時，這裡要退的是剩下的數量
           quantity: item.orderQuantity - (refundedQuantities.get(item.id) ?? 0),
         }))
         .filter((item) => item.quantity > 0);

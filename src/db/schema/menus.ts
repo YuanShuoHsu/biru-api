@@ -96,7 +96,6 @@ export const menuSection = pgTable(
       (): AnyPgColumn => printer.id,
       { onDelete: 'set null' },
     ),
-    // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
@@ -151,7 +150,6 @@ export const menuItem = pgTable(
     recommendedServingTemperatureLevel: servingTemperatureLevelEnum(
       'recommended_serving_temperature_level',
     ),
-    // 甜度：不適用（如餐點）、固定（如預調飲）、可調
     sweetness: sweetnessEnum('sweetness').notNull().default('NotApplicable'),
     // 甜度固定時的等級；其他情況為 null
     fixedSweetnessLevel: sweetnessLevelEnum('fixed_sweetness_level'),
@@ -159,7 +157,6 @@ export const menuItem = pgTable(
     recommendedSweetnessLevel: sweetnessLevelEnum(
       'recommended_sweetness_level',
     ),
-    // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
       .notNull()
@@ -170,7 +167,6 @@ export const menuItem = pgTable(
       (): AnyPgColumn => printer.id,
       { onDelete: 'set null' },
     ),
-    // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
@@ -292,7 +288,6 @@ export const modifier = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
-    // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
       .notNull()
