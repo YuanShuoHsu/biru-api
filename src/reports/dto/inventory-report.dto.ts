@@ -20,7 +20,10 @@ export class InventoryReportRowDto {
   @ApiProperty({ description: '期初：since 當下的帳上數量' })
   opening: string;
 
-  @ApiProperty({ description: '入庫：區間內盤點調增的數量合計' })
+  @ApiProperty({
+    description:
+      '入庫：區間內盤點調增的數量合計；異動沒有進貨或更正之分，調增一律算入庫',
+  })
   received: string;
 
   @ApiProperty({
@@ -38,7 +41,7 @@ export class InventoryReportRowDto {
 
   @ApiProperty({
     description:
-      '理論耗用：區間內售出份數（含加購，扣除退款份數，口徑同銷售報表）乘以品項目前的配方用量',
+      '理論耗用：區間內扣庫存的訂單份數（含加購）減去區間內回補的訂單份數，乘以品項目前的配方用量；部分退款不回補，不扣份數',
   })
   theoreticalConsumption: string;
 
@@ -48,7 +51,8 @@ export class InventoryReportRowDto {
   actualConsumption: string;
 
   @ApiProperty({
-    description: '差異：實際耗用減理論耗用，正數表示用得比配方多',
+    description:
+      '差異：實際耗用減理論耗用，正數表示用得比目前配方多；盤點調增算入庫，不會抵銷差異',
   })
   variance: string;
 }

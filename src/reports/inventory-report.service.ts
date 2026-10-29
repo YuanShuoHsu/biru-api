@@ -3,11 +3,13 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { type SQL, and, eq, gte, lt, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
+import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
   inventoryTransaction,
   recipe,
   recipeIngredient,
+  type UnitCode,
 } from '../db/schema/inventory.js';
 import { orderItem } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
@@ -18,12 +20,8 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
-import { orderItemMovements } from '../orders/counted-orders.js';
 
-import type {
-  InventoryReportResponseDto,
-  InventoryReportRowDto,
-} from './dto/inventory-report.dto.js';
+import type { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
 import type { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import { parseReportRange } from './report-range.js';
 
@@ -53,17 +51,31 @@ export class InventoryReportService {
     const isCount = sql`${inventoryTransaction.orderId} IS NULL`;
     const quantity = inventoryTransaction.quantity;
 
-    const amount = (value: SQL) => sql<string>`ROUND(${value}, 3)::text`;
+    const round = (value: SQL) => sql`ROUND(${value}, 3)`;
     const movement = (column: string) =>
       sql`COALESCE(movement.${sql.raw(column)}, 0)`;
     const opening = sql`${ingredient.inventoryLevel} - ${movement('since_now')}`;
     const closing = sql`${ingredient.inventoryLevel} - ${movement('until_now')}`;
-    const actualConsumption = sql`${movement('consumed')} - ${movement('adjusted')}`;
-    const theoreticalConsumption = sql`COALESCE(theoretical.consumption, 0)`;
+    const actualConsumption = round(
+      sql`${movement('consumed')} - ${movement('adjusted')}`,
+    );
+    const theoreticalConsumption = round(
+      sql`COALESCE(theoretical.consumption, 0)`,
+    );
 
-    const { rows } = await this.db.execute<
-      Pick<InventoryReportRowDto, keyof InventoryReportRowDto>
-    >(sql`
+    const { rows } = await this.db.execute<{
+      ingredientId: string;
+      name: LocalizedText;
+      unitCode: UnitCode;
+      opening: string;
+      received: string;
+      consumed: string;
+      adjusted: string;
+      closing: string;
+      theoreticalConsumption: string;
+      actualConsumption: string;
+      variance: string;
+    }>(sql`
       WITH movement AS (
         SELECT
           ${inventoryTransaction.ingredientId} AS ingredient_id,
@@ -79,10 +91,27 @@ export class InventoryReportService {
         )}
         GROUP BY 1
       ),
+      deduction AS (
+        SELECT order_id, MAX(deductions) - MAX(restores) AS times
+        FROM (
+          SELECT
+            ${inventoryTransaction.orderId} AS order_id,
+            COUNT(*) FILTER (WHERE ${quantity} < 0) AS deductions,
+            COUNT(*) FILTER (WHERE ${quantity} > 0) AS restores
+          FROM ${inventoryTransaction}
+          WHERE ${and(
+            eq(inventoryTransaction.organizationId, org.id),
+            inPeriod,
+            sql`NOT ${isCount}`,
+          )}
+          GROUP BY 1, ${inventoryTransaction.ingredientId}
+        ) AS per_ingredient
+        GROUP BY 1
+      ),
       sold AS (
-        SELECT entry.menu_item_id, SUM(movements.quantity) AS servings
-        FROM (${orderItemMovements(org.id, since, until)}) AS movements
-        JOIN ${orderItem} ON ${orderItem.id} = movements.order_item_id
+        SELECT entry.menu_item_id, SUM(${orderItem.orderQuantity} * deduction.times) AS servings
+        FROM deduction
+        JOIN ${orderItem} ON ${orderItem.orderId} = deduction.order_id
         CROSS JOIN LATERAL (
           SELECT ${orderItem.menuItemId}
           UNION ALL
@@ -105,14 +134,14 @@ export class InventoryReportService {
         ${ingredient.id} AS "ingredientId",
         ${ingredient.name} AS name,
         ${ingredient.unitCode} AS "unitCode",
-        ${amount(opening)} AS opening,
-        ${amount(movement('received'))} AS received,
-        ${amount(movement('consumed'))} AS consumed,
-        ${amount(movement('adjusted'))} AS adjusted,
-        ${amount(closing)} AS closing,
-        ${amount(theoreticalConsumption)} AS "theoreticalConsumption",
-        ${amount(actualConsumption)} AS "actualConsumption",
-        ${amount(sql`${actualConsumption} - ${theoreticalConsumption}`)} AS variance
+        ${round(opening)}::text AS opening,
+        ${round(movement('received'))}::text AS received,
+        ${round(movement('consumed'))}::text AS consumed,
+        ${round(movement('adjusted'))}::text AS adjusted,
+        ${round(closing)}::text AS closing,
+        ${theoreticalConsumption}::text AS "theoreticalConsumption",
+        ${actualConsumption}::text AS "actualConsumption",
+        (${actualConsumption} - ${theoreticalConsumption})::text AS variance
       FROM ${ingredient}
       LEFT JOIN movement ON movement.ingredient_id = ${ingredient.id}
       LEFT JOIN theoretical ON theoretical.ingredient_id = ${ingredient.id}
