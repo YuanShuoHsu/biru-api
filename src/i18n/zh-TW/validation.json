@@ -1,4 +1,8 @@
 {
+  "invoiceCertificate": "必須是 2 個大寫英文字母加 14 位數字",
+  "invoiceCustomerIdentifier": "必須是 8 位數字的統一編號",
+  "invoiceDonateCode": "必須是 3 至 7 位數字的捐贈碼",
+  "invoiceMobileBarcode": "必須是 / 加 7 個數字、大寫英文字母或 + - .",
   "isEmail": "必須是有效的電子郵件地址",
   "isNotEmpty": "此欄位不得為空",
   "isNumber": "必須是數字",

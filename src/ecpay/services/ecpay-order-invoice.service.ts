@@ -26,6 +26,7 @@ import {
   isPrintable,
   type PrintableInvoice,
   toActiveInvoice,
+  toInvoiceBuyer,
   toPrintJobDto,
 } from '../../common/utils/invoices.js';
 
@@ -50,6 +51,7 @@ import { InvoicePrinterService } from './invoice-printer.service.js';
 
 import {
   BadGatewayException,
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -141,6 +143,7 @@ export class EcpayOrderInvoiceService {
     key:
       | 'allowanceIssued'
       | 'alreadyIssuing'
+      | 'customerNameRequiresIdentifier'
       | 'notIssued'
       | 'notPaid'
       | 'notPending'
@@ -569,6 +572,10 @@ export class EcpayOrderInvoiceService {
       throw new ConflictException(this.tInvoice('allowanceIssued'));
     if (data.invoiceDate < earliestVoidableInvoiceDate(new Date()))
       throw new ConflictException(this.tInvoice('pastVoidablePeriod'));
+    if (customerName && !customerIdentifier && data.type !== 'company')
+      throw new BadRequestException(
+        this.tInvoice('customerNameRequiresIdentifier'),
+      );
 
     await this.ecpayInvalidInvoiceService.invalidInvoice({
       InvoiceDate: toInvoiceDateText(data.invoiceDate),
@@ -590,15 +597,14 @@ export class EcpayOrderInvoiceService {
           .values({
             id: randomUUID(),
             orderId,
-            // 開統編就是公司戶，載具與捐贈碼不能並存
-            type: customerIdentifier ? 'company' : data.type,
-            carrierType: customerIdentifier ? null : data.carrierType,
-            carrierNum: customerIdentifier ? null : data.carrierNum,
-            donateCode: customerIdentifier ? null : data.donateCode,
             email: data.email,
-            customerIdentifier: customerIdentifier ?? data.customerIdentifier,
-            customerName: customerName ?? data.customerName,
-            customerAddr: data.customerAddr,
+            ...toInvoiceBuyer({
+              ...data,
+              // 開統編就是公司戶，載具與捐贈碼不能並存
+              type: customerIdentifier ? 'company' : data.type,
+              customerIdentifier: customerIdentifier ?? data.customerIdentifier,
+              customerName: customerName ?? data.customerName,
+            }),
           })
           .returning();
 
@@ -750,7 +756,6 @@ export class EcpayOrderInvoiceService {
 
     return {
       CustomerEmail: data.email || customer.email || undefined,
-      CustomerName: data.customerName || customer.name,
       CustomerPhone: toLocalPhoneNumber(customer.telephone),
       Items: [
         ...items.map((item, index) => ({
@@ -778,12 +783,13 @@ export class EcpayOrderInvoiceService {
       SalesAmount: salesAmount,
       TaxType: IssueInvoiceEcpayTaxType.Taxable,
       vat: IssueInvoiceEcpayVatType.TaxIncluded,
-      ...this.buildRecipient(data, seller),
+      ...this.buildRecipient(data, customer.name, seller),
     };
   }
 
   private buildRecipient(
     data: Invoice,
+    customerName: string,
     seller: SellerAddress,
   ): Pick<
     IssuePayload,
@@ -791,6 +797,7 @@ export class EcpayOrderInvoiceService {
     | 'CarrierType'
     | 'CustomerAddr'
     | 'CustomerIdentifier'
+    | 'CustomerName'
     | 'Donation'
     | 'LoveCode'
     | 'Print'
@@ -801,12 +808,14 @@ export class EcpayOrderInvoiceService {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
           CustomerAddr: data.customerAddr ?? undefined,
           CustomerIdentifier: data.customerIdentifier ?? undefined,
+          CustomerName: data.customerName || customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.Yes,
         };
       case 'donate':
         return {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.Yes,
           LoveCode: data.donateCode ?? undefined,
           Print: IssueInvoiceEcpayPrint.No,
@@ -818,6 +827,7 @@ export class EcpayOrderInvoiceService {
           return {
             CarrierType: IssueInvoiceEcpayCarrierType.None,
             CustomerAddr: toAddressText(seller),
+            CustomerName: customerName,
             Donation: IssueInvoiceEcpayDonation.No,
             Print: IssueInvoiceEcpayPrint.Yes,
           };
@@ -828,6 +838,7 @@ export class EcpayOrderInvoiceService {
               ? ''
               : (data.carrierNum ?? undefined),
           CarrierType: CARRIER_TYPE[data.carrierType],
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.No,
         };

@@ -232,6 +232,7 @@ export type I18nTranslations = {
         "invoices": {
             "allowanceIssued": string;
             "alreadyIssuing": string;
+            "customerNameRequiresIdentifier": string;
             "notIssued": string;
             "notPaid": string;
             "notPending": string;
@@ -635,6 +636,10 @@ export type I18nTranslations = {
         };
     };
     "validation": {
+        "invoiceCertificate": string;
+        "invoiceCustomerIdentifier": string;
+        "invoiceDonateCode": string;
+        "invoiceMobileBarcode": string;
         "isEmail": string;
         "isNotEmpty": string;
         "isNumber": string;

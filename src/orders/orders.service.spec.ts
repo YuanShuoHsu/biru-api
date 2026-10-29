@@ -772,6 +772,88 @@ describe('OrdersService.createOrder', () => {
       expect(db.transaction).not.toHaveBeenCalled();
     });
   });
+
+  describe('發票買受人', () => {
+    const stray = {
+      carrierNum: '/ABC1234',
+      carrierType: 'mobile',
+      customerAddr: '台北市信義區',
+      customerIdentifier: '12345678',
+      customerName: '比如股份有限公司',
+      donateCode: '168',
+      email: 'amy@example.com',
+    } as const;
+
+    const insertedInvoiceOf = async (
+      type: 'company' | 'donate' | 'personal',
+    ) => {
+      const { inserted, service } = createService();
+
+      await service.createOrder(
+        'slug',
+        dtoOf({ invoice: { ...stray, type } }),
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      return inserted.get(invoice);
+    };
+
+    it('個人發票只留載具，丟掉公司抬頭與捐贈碼', async () => {
+      expect(await insertedInvoiceOf('personal')).toMatchObject({
+        carrierNum: '/ABC1234',
+        carrierType: 'mobile',
+        customerAddr: null,
+        customerIdentifier: null,
+        customerName: null,
+        donateCode: null,
+        email: 'amy@example.com',
+        type: 'personal',
+      });
+    });
+
+    it('捐贈發票只留捐贈碼', async () => {
+      expect(await insertedInvoiceOf('donate')).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+        customerAddr: null,
+        customerIdentifier: null,
+        customerName: null,
+        donateCode: '168',
+        type: 'donate',
+      });
+    });
+
+    it('公司發票只留統編、抬頭與地址', async () => {
+      expect(await insertedInvoiceOf('company')).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+        customerAddr: '台北市信義區',
+        customerIdentifier: '12345678',
+        customerName: '比如股份有限公司',
+        donateCode: null,
+        type: 'company',
+      });
+    });
+
+    it('個人發票沒選載具時不留載具號碼', async () => {
+      const { inserted, service } = createService();
+
+      await service.createOrder(
+        'slug',
+        dtoOf({ invoice: { carrierNum: '/ABC1234', type: 'personal' } }),
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(inserted.get(invoice)).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+      });
+    });
+  });
 });
 
 describe('OrdersService.canReadOrderById', () => {

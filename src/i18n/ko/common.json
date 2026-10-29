@@ -180,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "이 세금계산서는 에누리가 발행되어 취소할 수 없습니다",
     "alreadyIssuing": "이 세금계산서는 발행 처리 중입니다. 잠시 후 다시 시도하세요",
+    "customerNameRequiresIdentifier": "개인 또는 기부 세금계산서는 사업자 번호와 함께 입력해야 구매자 상호를 정정할 수 있습니다",
     "notIssued": "이 세금계산서는 아직 발행되지 않았습니다",
     "notPaid": "주문이 결제되지 않아 세금계산서를 발행할 수 없습니다",
     "notPending": "이 세금계산서는 {status} 상태여서 발행할 수 없습니다",

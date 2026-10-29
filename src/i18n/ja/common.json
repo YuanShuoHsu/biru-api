@@ -180,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
     "alreadyIssuing": "このインボイスは発行処理中です。しばらくしてからお試しください",
+    "customerNameRequiresIdentifier": "個人・寄付のインボイスでは、買い手の名称は統一編号と一緒に入力した場合のみ訂正できます",
     "notIssued": "このインボイスはまだ発行されていません",
     "notPaid": "注文が未払いのため、インボイスを発行できません",
     "notPending": "このインボイスは{status}のため、発行できません",
