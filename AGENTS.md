@@ -32,6 +32,8 @@ To run a single test file:
 pnpm vitest run src/payroll/payroll.service.spec.ts
 ```
 
+Branch from `develop` and open every PR against `develop`. GitHub's default branch is `master`, so set the base explicitly (`gh pr create --base develop`): a PR merged only into `master` never reaches `develop`, so work branched from `develop` misses it and conflicts when `master` is merged back.
+
 ## Architecture
 
 **Biru Coffee** is a multi-language coffee shop management API (NestJS 12, TypeScript, PostgreSQL).
