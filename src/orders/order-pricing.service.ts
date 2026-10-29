@@ -25,6 +25,7 @@ import {
   menuItem,
   menuItemAddOn,
   menuItemModifierGroup,
+  menuSection,
   modifier,
   offer,
 } from '../db/schema/menus.js';
@@ -162,6 +163,24 @@ export class OrderPricingService {
       }),
     ]);
     if (!orgMenu) throw new NotFoundException(this.t('menuChanged'));
+
+    const sections = await this.db.query.menuSection.findMany({
+      columns: { id: true, parentSectionId: true },
+      where: eq(menuSection.menuId, orgMenu.id),
+    });
+    const parentSectionIdOf = new Map(
+      sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
+    );
+    const sectionAncestry = (sectionId: string | null): string[] => {
+      const ids: string[] = [];
+      for (
+        let id = sectionId;
+        id && !ids.includes(id);
+        id = parentSectionIdOf.get(id) ?? null
+      )
+        ids.push(id);
+      return ids;
+    };
 
     const priceCurrency = orgMenu.organization.currency;
 
@@ -389,10 +408,7 @@ export class OrderPricingService {
         ),
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        menuSectionIds: [
-          item.menuSectionId,
-          item.menuSection?.parentSectionId,
-        ].filter((id): id is string => !!id),
+        menuSectionIds: sectionAncestry(item.menuSectionId),
         unitPrice: unitPrice.toFixed(2),
         // 訂單成立當下的幣別快照；店家日後改幣別不影響已成立的訂單
         priceCurrency,
