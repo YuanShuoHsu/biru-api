@@ -169,7 +169,15 @@ export class OrderReceiptResponseDto extends OmitType(OrderResponseDto, [
   'customer',
   'sellerId',
   'userId',
-] as const) {}
+] as const) {
+  @ApiProperty({
+    description:
+      '這張單付款後可得的點數，與實際入點同一算法；訪客訂單、已取消或點數未啟用時為 null',
+    nullable: true,
+    type: Number,
+  })
+  expectedPoints: number | null;
+}
 
 export class CreateOrderResponseDto extends OrderReceiptResponseDto {
   @ApiProperty({

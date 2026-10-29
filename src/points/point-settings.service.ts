@@ -18,6 +18,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
+import type { PublicPointSettingResponseDto } from './dto/point-setting-response.dto.js';
 import type { UpdatePointSettingDto } from './dto/update-point-setting.dto.js';
 
 const toNumeric = (value: number | null | undefined) =>
@@ -35,6 +36,13 @@ export class PointSettingsService {
     if (!found) throw new NotFoundException();
 
     return found;
+  }
+
+  async getPublic(): Promise<PublicPointSettingResponseDto> {
+    const { amountPerPoint, pointsEnabledAt, pointsValidityYears } =
+      await this.get();
+
+    return { amountPerPoint, enabled: !!pointsEnabledAt, pointsValidityYears };
   }
 
   async update(dto: UpdatePointSettingDto): Promise<PointSetting> {

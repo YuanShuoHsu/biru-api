@@ -88,6 +88,7 @@ import {
 } from '../inventory/inventory-transactions.service.js';
 import { MenuStockService } from '../inventory/menu-stock.service.js';
 import { localize } from '../menus/menus-public.service.js';
+import { PointsService } from '../points/points.service.js';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
@@ -298,6 +299,7 @@ export class OrdersService {
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly menuStockService: MenuStockService,
     private readonly prepEstimateService: PrepEstimateService,
+    private readonly pointsService: PointsService,
   ) {}
 
   private t(
@@ -368,7 +370,12 @@ export class OrdersService {
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    return toActiveInvoice(found);
+    const expectedPoints = await this.pointsService.expectedPoints([found.id]);
+
+    return {
+      ...toActiveInvoice(found),
+      expectedPoints: expectedPoints.get(found.id) ?? null,
+    };
   }
 
   private async resolvePickupTime(
@@ -794,7 +801,17 @@ export class OrdersService {
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data: data.map(toActiveInvoice), total };
+    const expectedPoints = await this.pointsService.expectedPoints(
+      data.map(({ id }) => id),
+    );
+
+    return {
+      data: data.map((found) => ({
+        ...toActiveInvoice(found),
+        expectedPoints: expectedPoints.get(found.id) ?? null,
+      })),
+      total,
+    };
   }
 
   async getOrder(
