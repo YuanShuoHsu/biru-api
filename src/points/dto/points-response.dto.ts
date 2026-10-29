@@ -69,3 +69,13 @@ export class MyPointsDto {
   transactions: PointTransactionDto[];
   @ApiProperty({ description: '明細總筆數' }) transactionsTotal: number;
 }
+
+export class PointAdjustmentLimitDto {
+  @ApiProperty({ description: '點數是否已啟用；未啟用時無法補點或扣點' })
+  enabled: boolean;
+  @ApiProperty({
+    description:
+      '非 owner 單筆可補扣的最大點數（NT$3,000 依每點金額換算）；超過只有 owner 能做，0 = 只有 owner 能調整',
+  })
+  ownerOnlyAbovePoints: number;
+}

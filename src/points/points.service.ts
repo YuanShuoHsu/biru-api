@@ -67,10 +67,18 @@ import type {
   MyPointsDto,
   OrganizationPointTransactionDto,
   OrganizationPointTransactionListResponseDto,
+  PointAdjustmentLimitDto,
   PointsCouponDto,
 } from './dto/points-response.dto.js';
 
 const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
+
+const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
+  const centsPerPoint = Math.round(Number(amountPerPoint) * 100);
+  return centsPerPoint > 0
+    ? Math.floor((OWNER_ONLY_ADJUSTMENT_AMOUNT * 100) / centsPerPoint)
+    : 0;
+};
 
 // 沒有快照的訂單只認啟用點數之後付款的，避免回溯補發整段歷史
 const earnedFromSnapshotOr = <T>(snapshot: Column, current: Column) =>
@@ -505,6 +513,14 @@ export class PointsService {
     return { data, total };
   }
 
+  async getAdjustmentLimit(): Promise<PointAdjustmentLimitDto> {
+    const setting = await this.db.query.pointSetting.findFirst();
+    return {
+      enabled: !!setting?.pointsEnabledAt,
+      ownerOnlyAbovePoints: maxNonOwnerAdjustPoints(setting?.amountPerPoint),
+    };
+  }
+
   async adjustForOrganization(
     organizationSlug: string,
     { email, note, points }: AdjustPointsDto,
@@ -520,10 +536,7 @@ export class PointsService {
       throw new BadRequestException(this.t('notEnabled'));
     const { amountPerPoint, pointsValidityYears } = setting;
 
-    const maxNonOwnerPoints =
-      Number(amountPerPoint) > 0
-        ? Math.floor(OWNER_ONLY_ADJUSTMENT_AMOUNT / Number(amountPerPoint))
-        : 0;
+    const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
     if (
       Math.abs(points) > maxNonOwnerPoints &&
       !adjusterRole.split(',').some((role) => role.trim() === 'owner')

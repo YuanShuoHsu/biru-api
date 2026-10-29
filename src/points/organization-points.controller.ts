@@ -16,6 +16,7 @@ import { OrganizationPointTransactionQueryDto } from './dto/organization-point-t
 import {
   OrganizationPointTransactionDto,
   OrganizationPointTransactionListResponseDto,
+  PointAdjustmentLimitDto,
 } from './dto/points-response.dto.js';
 import { PointsService } from './points.service.js';
 
@@ -33,6 +34,14 @@ export class OrganizationPointsController {
     @Query() query: OrganizationPointTransactionQueryDto,
   ): Promise<OrganizationPointTransactionListResponseDto> {
     return this.pointsService.findAllForOrganization(organizationSlug, query);
+  }
+
+  @Get('adjustment-limit')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '查詢本店非 owner 單筆可補點或扣點的上限' })
+  @ApiOkResponse({ type: PointAdjustmentLimitDto })
+  getAdjustmentLimit(): Promise<PointAdjustmentLimitDto> {
+    return this.pointsService.getAdjustmentLimit();
   }
 
   @Post('adjustments')
