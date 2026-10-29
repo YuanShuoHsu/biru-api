@@ -25,7 +25,6 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -51,7 +50,7 @@ export class SuppliersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: SupplierPaginationQueryDto = {},
   ): Promise<{ data: SupplierResponseDto[]; total: number }> {
     const {
@@ -65,10 +64,6 @@ export class SuppliersService {
       sortBy,
       sortDirection = 'asc',
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
       name: supplier.name,
@@ -170,14 +165,9 @@ export class SuppliersService {
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     { ingredientIds, ...dto }: CreateSupplierDto,
   ): Promise<SupplierResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-
     await this.assertIngredientsInOrganization(ingredientIds, organizationId);
 
     const created = await this.db.transaction(async (tx) => {
