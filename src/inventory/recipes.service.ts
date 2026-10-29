@@ -185,7 +185,9 @@ export class RecipesService {
       materials,
     );
 
-    return { ...response, recipeIngredients: materials.get(found.id) ?? [] };
+    return Object.assign(response, {
+      recipeIngredients: materials.get(found.id) ?? [],
+    });
   }
 
   async findOne(
@@ -213,29 +215,29 @@ export class RecipesService {
 
   async create(
     organizationSlug: string,
-    dto: CreateRecipeDto,
+    { menuItemId, ...dto }: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
     const organizationId = await getOrganizationIdBySlug(
       this.db,
       organizationSlug,
     );
-    await this.assertMenuItemInOrganization(organizationId, dto.menuItemId);
+    await this.assertMenuItemInOrganization(organizationId, menuItemId);
 
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(recipe)
-        .values({ ...dto, id: randomUUID(), organizationId })
+        .values({ ...dto, id: randomUUID(), menuItemId, organizationId })
         .returning();
 
-      if (dto.menuItemId !== undefined) return row;
+      if (menuItemId !== undefined) return row;
 
-      const menuItemId = await bindMenuItemByRecipeName(tx, {
+      const boundMenuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
         organizationId,
         recipeId: row.id,
       });
 
-      return { ...row, menuItemId };
+      return { ...row, menuItemId: boundMenuItemId };
     });
 
     const [response] = await this.toResponse([created], true);
@@ -453,7 +455,7 @@ export class RecipesService {
 
   async createIngredient(
     recipeId: string,
-    dto: CreateRecipeIngredientDto,
+    { sortOrder, ...dto }: CreateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(recipeId, dto.ingredientId);
@@ -470,7 +472,7 @@ export class RecipesService {
           ...dto,
           id: randomUUID(),
           recipeId,
-          sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
+          sortOrder: sortOrder ?? (maxSortOrder ?? -1) + 1,
         })
         .returning(),
     );

@@ -198,7 +198,9 @@ export class InventoryTransactionsService {
           this.write(ingredientId, dto, opened),
         );
 
-    return canReadPurchasing ? created : { ...created, unitCost: undefined };
+    return canReadPurchasing
+      ? created
+      : Object.assign(created, { unitCost: undefined });
   }
 
   private async write(

@@ -116,4 +116,45 @@ describe('RecipesService name filter', () => {
       }),
     ).toEqual(['milk']);
   });
+
+  it('建立食譜時寫入送出的欄位，指定不綁品項時不自動綁定', async () => {
+    const created = await service.create('biru', {
+      menuItemId: null,
+      name: { 'zh-TW': '焙茶拿鐵' },
+      recipeInstructions: [{ 'zh-TW': '茶葉沖泡 3 分鐘' }],
+      recipeYield: 2,
+    });
+
+    expect(created).toMatchObject({
+      menuItemId: null,
+      name: { 'zh-TW': '焙茶拿鐵' },
+      organizationId: ORG,
+      recipeInstructions: [{ 'zh-TW': '茶葉沖泡 3 分鐘' }],
+      recipeYield: 2,
+    });
+  });
+
+  it('新增材料沒給排序時排在最後，給了就照給的；詳細資料帶出全部材料', async () => {
+    const appended = await service.createIngredient('mocha', {
+      ingredientId: 'milk',
+      requiredQuantity: '150',
+    });
+    const placed = await service.createIngredient('mocha', {
+      ingredientId: 'beans',
+      requiredQuantity: '18',
+      sortOrder: 5,
+    });
+
+    expect(appended).toMatchObject({
+      ingredientId: 'milk',
+      requiredQuantity: '150.000',
+      sortOrder: 0,
+    });
+    expect(placed).toMatchObject({ ingredientId: 'beans', sortOrder: 5 });
+    expect(
+      (await service.findOne('mocha')).recipeIngredients?.map(
+        ({ ingredientId }) => ingredientId,
+      ),
+    ).toEqual(['milk', 'beans']);
+  });
 });
