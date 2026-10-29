@@ -32,7 +32,6 @@ export const organization = pgTable(
     logo: text('logo'),
     createdAt: timestamp('created_at').notNull(),
     metadata: text('metadata'),
-    // additional fields
     // https://schema.org/PostalAddress
     addressCountry: text('address_country').notNull(),
     addressLocality: text('address_locality').notNull(),
