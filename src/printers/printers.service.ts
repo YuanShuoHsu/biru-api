@@ -16,7 +16,7 @@ import { digestHa1, nonceIssuedAt } from './utils/digest-auth.js';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { organization } from '../db/schema/organizations.js';
+import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import type { Printer, PrinterPurpose } from '../db/schema/printers.js';
 import { printer as printerTable } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -84,14 +84,8 @@ export class PrintersService {
     };
   }
 
-  async findOrganizationId(organizationSlug: string): Promise<string> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw new NotFoundException('Organization not found');
-
-    return org.id;
+  findOrganizationId(organizationSlug: string): Promise<string> {
+    return getOrganizationIdBySlug(this.db, organizationSlug);
   }
 
   list(
