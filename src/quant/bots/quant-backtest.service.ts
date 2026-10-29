@@ -23,6 +23,7 @@ import {
   runBacktest,
 } from '../engine/backtest.js';
 import { botSymbolSpec, toRiskTiers } from '../engine/symbol-spec.js';
+import { isConditionComplete } from '../engine/strategies/indicator-conditions.js';
 import { QuantMarketService } from '../market/quant-market.service.js';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 
@@ -62,6 +63,19 @@ export class QuantBacktestService {
     type: Exclude<QuantBotType, 'webhook'>,
     { candleCount, config, interval, investment, symbol }: BacktestDto,
   ): Promise<BacktestResultDto> {
+    if (
+      type === 'indicator' &&
+      ![
+        ...(config as IndicatorConfigDto).entry,
+        ...(config as IndicatorConfigDto).exit,
+      ].every(isConditionComplete)
+    )
+      throw new BadRequestException(
+        this.i18n.t('common.quant.indicatorConditionIncomplete', {
+          lang: I18nContext.current()?.lang,
+        }),
+      );
+
     const spec = await botSymbolSpec(this.symbols, { config, symbol, type });
     const isFutures =
       isFuturesBot({ config, type }) ||
