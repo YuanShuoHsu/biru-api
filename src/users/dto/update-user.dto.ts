@@ -34,7 +34,7 @@ export class UpdateUserDto {
     example: true,
   })
   @IsBoolean()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   emailSubscribed?: boolean;
 
   @ApiPropertyOptional({ description: '名', example: 'Coffee' })

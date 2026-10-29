@@ -39,6 +39,7 @@ describe('UpdateUserDto', () => {
     [{ firstName: '' }, 'firstName'],
     [{ firstName: '  ' }, 'firstName'],
     [{ firstName: null }, 'firstName'],
+    [{ emailSubscribed: null }, 'emailSubscribed'],
     [{ lastName: 123 }, 'lastName'],
     [{ phoneNumber: 886912345678 }, 'phoneNumber'],
   ])('rejects %j', async (body, property) => {
