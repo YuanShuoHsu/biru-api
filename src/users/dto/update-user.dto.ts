@@ -19,15 +19,16 @@ import {
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
-    description: '生日',
+    description: '生日；送 null 清除',
     example: '2024-04-04',
     format: 'date',
+    nullable: true,
   })
   @IsDate()
   @IsNotEmpty()
   @IsOptional()
   @Type(() => Date)
-  birthDate?: Date;
+  birthDate?: Date | null;
 
   @ApiPropertyOptional({
     description: '是否訂閱電子報',
@@ -55,24 +56,30 @@ export class UpdateUserDto {
   gender?: Gender;
 
   @ApiPropertyOptional({
-    description: '頭像 URL',
+    description: '頭像 URL；送 null 清除',
     example: 'https://example.com/avatar.png',
+    nullable: true,
   })
   @IsNotEmpty()
   @IsOptional()
   @IsUrl()
-  image?: string;
-
-  @ApiPropertyOptional({ description: '姓', example: 'Biru' })
-  @IsOptional()
-  @IsString()
-  lastName?: string;
+  image?: string | null;
 
   @ApiPropertyOptional({
-    description: '聯絡電話（E.164 格式）',
-    example: '+886912345678',
+    description: '姓；送空字串或 null 清除',
+    example: 'Biru',
+    nullable: true,
   })
   @IsOptional()
   @IsString()
-  phoneNumber?: string;
+  lastName?: string | null;
+
+  @ApiPropertyOptional({
+    description: '聯絡電話（E.164 格式）；送空字串或 null 清除',
+    example: '+886912345678',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string | null;
 }

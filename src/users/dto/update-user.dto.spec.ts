@@ -27,6 +27,15 @@ describe('UpdateUserDto', () => {
     ).toEqual([]);
   });
 
+  it.each([
+    { birthDate: null },
+    { image: null },
+    { lastName: null },
+    { phoneNumber: null },
+  ])('accepts clearing a nullable field %j', async (body) => {
+    expect(await invalidProperties(body)).toEqual([]);
+  });
+
   it.each([{ lastName: '' }, { phoneNumber: '' }])(
     'accepts clearing an optional sign-up field %j',
     async (body) => {
