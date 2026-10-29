@@ -260,22 +260,6 @@ export class OrganizationsService {
     return updated;
   }
 
-  async organization(
-    where: Partial<Organization>,
-  ): Promise<Organization | null> {
-    const result = await this.db.query.organization.findFirst({
-      where: (organization) => {
-        const conditions = Object.entries(where)
-          .filter(([, value]) => value !== undefined)
-          .map(([key, value]) =>
-            eq(organization[key as keyof Organization], value!),
-          );
-        return and(...conditions);
-      },
-    });
-    return result || null;
-  }
-
   async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {
     const rows = await this.db
       .select({ organization, role: member.role })
@@ -298,7 +282,9 @@ export class OrganizationsService {
   }
 
   async organizationBySlug(slug: string): Promise<Organization | null> {
-    const current = await this.organization({ slug });
+    const current = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, slug),
+    });
     if (current) return current;
 
     const previous = await this.db.query.organizationSlugHistory.findFirst({
@@ -306,7 +292,13 @@ export class OrganizationsService {
       columns: { organizationId: true },
     });
 
-    return previous ? this.organization({ id: previous.organizationId }) : null;
+    if (!previous) return null;
+
+    return (
+      (await this.db.query.organization.findFirst({
+        where: eq(organization.id, previous.organizationId),
+      })) ?? null
+    );
   }
 
   upcomingSpecialHours(organizationId: string) {
