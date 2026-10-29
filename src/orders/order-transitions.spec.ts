@@ -469,7 +469,7 @@ describe('OrdersService.recordPaymentResult', () => {
 
   it('異常訂單補付款重新扣庫存，跌破門檻的食材在交易後推播', async () => {
     const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
-    const { emit, inventory, service } = createService({
+    const { emit, inventory, service, sets } = createService({
       current: problem,
       updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
     });
@@ -479,9 +479,17 @@ describe('OrdersService.recordPaymentResult', () => {
       offerStockChanged: false,
     });
 
-    await expect(service.recordPaymentResult(paymentBody())).resolves.toBe(
-      'handled',
-    );
+    await expect(
+      service.recordPaymentResult(
+        paymentBody({ card4no: '4242', gwsr: '123' }),
+      ),
+    ).resolves.toBe('handled');
+    expect(sets[0]).toMatchObject({
+      authorizationNo: '123',
+      orderStatus: 'OrderProcessing',
+      paymentDate: expect.any(Date),
+      paymentMethodId: '4242',
+    });
     expect(inventory.consume).toHaveBeenCalledWith('o1', expect.anything());
     expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
       ingredients,
