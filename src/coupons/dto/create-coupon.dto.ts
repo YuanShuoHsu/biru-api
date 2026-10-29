@@ -14,6 +14,7 @@ import {
   MaxLength,
   Min,
   IsNotEmpty,
+  ValidateIf,
 } from 'class-validator';
 import { CURRENCY_REGEX } from '../../common/utils/currency.js';
 import {
@@ -48,7 +49,7 @@ export class CreateCouponDto {
     description:
       '幣別（ISO 4217）；限定單一店家時一律採用該店設定，此欄只對跨店與全平台券生效',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @Matches(CURRENCY_REGEX)
   discountCurrency?: string;
@@ -68,17 +69,17 @@ export class CreateCouponDto {
   discountValue: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
 
   @ApiPropertyOptional({ description: '會員可於店家頁領取進錢包' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isClaimable?: boolean;
 
   @ApiPropertyOptional({ description: '結帳頁對所有人（含訪客）顯示' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isPublic?: boolean;
 
@@ -104,13 +105,13 @@ export class CreateCouponDto {
   issueTrigger?: CouponIssueTrigger | null;
 
   @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   menuItemIds?: string[];
 
   @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   menuSectionIds?: string[];
@@ -140,7 +141,7 @@ export class CreateCouponDto {
     enum: couponScopeEnum.enumValues,
     enumName: 'CouponScope',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(couponScopeEnum.enumValues)
   scope?: CouponScope;
 
@@ -161,4 +162,6 @@ export class CreateCouponDto {
   validThrough?: string | null;
 }
 
-export class UpdateCouponDto extends PartialType(CreateCouponDto) {}
+export class UpdateCouponDto extends PartialType(CreateCouponDto, {
+  skipNullProperties: false,
+}) {}

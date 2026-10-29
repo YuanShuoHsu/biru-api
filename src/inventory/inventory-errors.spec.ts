@@ -45,7 +45,6 @@ describe('inventory errors', () => {
 
   it.each([
     ['recipeNotFound', notFoundError, NotFoundException, 'Not Found'],
-    ['packageRequired', badRequestError, BadRequestException, 'Bad Request'],
     ['recipeIngredientExists', conflictError, ConflictException, 'Conflict'],
   ] as const)(
     '%s 回應帶代碼與目前語系的訊息',
