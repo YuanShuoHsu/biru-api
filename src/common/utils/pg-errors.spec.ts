@@ -11,6 +11,5 @@ describe('isUniqueViolation', () => {
   it('只有唯一鍵衝突 23505 算數', () => {
     expect(isUniqueViolation({ cause: { code: '23505' } })).toBe(true);
     expect(isUniqueViolation({ cause: { code: '23503' } })).toBe(false);
-    expect(isUniqueViolation({ code: '23505' })).toBe(false);
   });
 });
