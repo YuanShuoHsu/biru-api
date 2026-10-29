@@ -231,6 +231,7 @@ describe('AuditService.listForOrganization search', () => {
        insert into attendance_employee (id, organization_id, user_id, hired_at) values ('employee-wang', 'org', 'barista', '2026-01-01');
        insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, resource_label, action, changes, created_at) values
          ('menu-latte', 'owner', 'Owner', 'owner@example.com', 'org', 'menuItem', 'item-1', '{"zh-TW": "拿鐵", "ja": "ラテ", "en": "Caffe Latte"}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('member-wang', 'owner', 'Owner', 'owner@example.com', 'org', 'member', 'member-1', '"Wang Xiaoming"', 'create', '{}', '2026-10-28 08:00:00'),
          ('order-label', 'manager', 'Manager', 'manager@example.com', 'org', 'order', 'order-1', '"A001"', 'update', '{}', '2026-10-28 08:00:00');
        insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at) values
          ('att-employee', 'org', 'owner', 'employee.update', 'employee-wang', '{}', '2026-10-28 08:00:00+00'),
@@ -260,11 +261,14 @@ describe('AuditService.listForOrganization search', () => {
     expect(await ids('owner', { quickFilterValue: 'xiaoming' })).toEqual([
       'att-employee',
       'att-shift',
+      'member-wang',
     ]);
   });
 
-  it('keeps entries the member cannot read out of the search', async () => {
-    expect(await ids('member', { quickFilterValue: 'xiaoming' })).toEqual([]);
+  it('keeps entries the member cannot read out of the search but finds the ones they can', async () => {
+    expect(await ids('member', { quickFilterValue: 'xiaoming' })).toEqual([
+      'member-wang',
+    ]);
   });
 
   it('filters by actor across both sources', async () => {
@@ -282,7 +286,7 @@ describe('AuditService.listForOrganization search', () => {
   it('still labels attendance entries with the target employee name', async () => {
     const { data, total } = await service.listForOrganization('org', 'owner');
 
-    expect(total).toBe(5);
+    expect(total).toBe(6);
     expect(
       Object.fromEntries(
         data.map(({ id, resourceLabel }) => [id, resourceLabel]),
@@ -290,6 +294,7 @@ describe('AuditService.listForOrganization search', () => {
     ).toEqual({
       'menu-latte': { 'zh-TW': '拿鐵', ja: 'ラテ', en: 'Caffe Latte' },
       'order-label': 'A001',
+      'member-wang': 'Wang Xiaoming',
       'att-employee': 'Wang Xiaoming',
       'att-shift': 'Wang Xiaoming',
       'att-leave-type': null,

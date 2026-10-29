@@ -50,7 +50,7 @@ export class AuditLogPaginationQueryDto extends PaginationQueryDto {
   @IsString()
   resourceId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: '只列出此操作者的紀錄' })
   @IsOptional()
   @IsString()
   actorId?: string;
