@@ -27,12 +27,19 @@ describe('UpdateUserDto', () => {
     ).toEqual([]);
   });
 
+  it.each([{ lastName: '' }, { phoneNumber: '' }])(
+    'accepts clearing an optional sign-up field %j',
+    async (body) => {
+      expect(await invalidProperties(body)).toEqual([]);
+    },
+  );
+
   it.each([
     [{ firstName: 123 }, 'firstName'],
     [{ firstName: '' }, 'firstName'],
+    [{ firstName: null }, 'firstName'],
     [{ lastName: 123 }, 'lastName'],
     [{ phoneNumber: 886912345678 }, 'phoneNumber'],
-    [{ phoneNumber: '' }, 'phoneNumber'],
   ])('rejects %j', async (body, property) => {
     expect(await invalidProperties(body)).toEqual([property]);
   });

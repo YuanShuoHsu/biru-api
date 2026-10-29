@@ -382,18 +382,20 @@ export class UsersService {
     where: { id: string };
     data: UpdateUserDto;
   }): Promise<User> {
-    const { where, data } = params;
+    const {
+      where,
+      data: { lastName, phoneNumber, ...data },
+    } = params;
     const [user] = await this.db
       .update(schema.user)
-      .set(
-        data.phoneNumber === undefined
-          ? data
-          : {
-              ...data,
-              phoneNumber: data.phoneNumber || null,
-              phoneNumberVerified: false,
-            },
-      )
+      .set({
+        ...data,
+        ...(lastName !== undefined && { lastName: lastName || null }),
+        ...(phoneNumber !== undefined && {
+          phoneNumber: phoneNumber || null,
+          phoneNumberVerified: false,
+        }),
+      })
       .where(eq(schema.user.id, where.id))
       .returning();
 

@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  ValidateIf,
 } from 'class-validator';
 import {
   DEFAULT_GENDER,
@@ -36,10 +37,11 @@ export class UpdateUserDto {
   @IsOptional()
   emailSubscribed?: boolean;
 
+  // 註冊時必填，不能清空（null 也擋）
   @ApiPropertyOptional({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
-  @IsOptional()
   @IsString()
+  @ValidateIf((_, value) => value !== undefined)
   firstName?: string;
 
   @ApiPropertyOptional({
@@ -61,16 +63,17 @@ export class UpdateUserDto {
   @IsUrl()
   image?: string;
 
+  // 註冊時選填，空字串清空成 null
   @ApiPropertyOptional({ description: '姓', example: 'Biru' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
+  // 註冊時選填，空字串清空成 null
   @ApiPropertyOptional({
     description: '聯絡電話（E.164 格式）',
     example: '+886912345678',
   })
-  @IsNotEmpty()
   @IsOptional()
   @IsString()
   phoneNumber?: string;
