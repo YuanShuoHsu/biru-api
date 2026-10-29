@@ -34,3 +34,9 @@ export class MenuItemAddOnResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class MenuItemAddOnListResponseDto {
+  @ApiProperty({ type: [MenuItemAddOnResponseDto] })
+  data: MenuItemAddOnResponseDto[];
+  @ApiProperty() total: number;
+}
