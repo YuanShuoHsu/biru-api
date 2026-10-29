@@ -334,6 +334,8 @@ before better-auth.
 
 The test: delete it. Would a competent editor now make a wrong change? If the honest answer is only "會比較難懂", leave it deleted.
 
+**Official documentation links are wanted.** When code follows a specific page of the official docs — a library (Next.js, MUI, better-auth, Drizzle, NestJS, …), an external API spec (ECPay, data.gov.tw, …) or a regulation (law.moj.gov.tw) — put a `// https://…` link to that page above the code, or at the top of the file when the whole file follows it, pointing at the installed version when the site versions its docs. Keep existing links; when the code no longer follows the linked page, fix or delete the link in the same change. Links don't count toward the one-or-two-comments signal below.
+
 Never write:
 
 - a restatement of the next line, or of a field/constant name (`// 綠界折讓單號` on `allowanceNo`)
