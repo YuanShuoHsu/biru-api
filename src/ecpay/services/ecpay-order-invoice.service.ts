@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, lt, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -215,27 +215,24 @@ export class EcpayOrderInvoiceService {
       .from(invoice)
       .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
-        and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
+        and(
+          eq(invoice.status, 'issuing'),
+          lt(invoice.updatedAt, staleBefore),
+          isNotNull(invoice.relateNumber),
+        ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [
       index,
       { id, orderId, organizationId, relateNumber },
     ] of stuck.entries()) {
-      if (!relateNumber) {
-        this.logger.error(
-          `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
-        );
-
-        continue;
-      }
-
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         const result = await this.ecpayGetIssueInvoiceService.getIssue({
-          RelateNumber: relateNumber,
+          RelateNumber: relateNumber!,
         });
 
         const [updated] = await this.db
@@ -263,6 +260,11 @@ export class EcpayOrderInvoiceService {
           `發票 ${id} 查證失敗，維持開立中待人工確認`,
           error instanceof Error ? error.stack : String(error),
         );
+
+        await this.db
+          .update(invoice)
+          .set({ updatedAt: new Date() })
+          .where(and(eq(invoice.id, id), eq(invoice.status, 'issuing')));
       }
     }
   }
