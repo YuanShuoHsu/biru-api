@@ -16,8 +16,8 @@ import {
   eq,
   gte,
   inArray,
+  isNull,
   lt,
-  SQL,
   sql,
 } from 'drizzle-orm';
 import {
@@ -63,19 +63,10 @@ export class OrganizationsService {
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  async organizations(params: {
-    offset?: number;
-    limit?: number;
-    where?: SQL;
-    orderBy?: SQL | SQL[];
-  }): Promise<Organization[]> {
-    const { offset, limit, where, orderBy } = params;
-
-    return await this.db.query.organization.findMany({
-      where,
-      orderBy,
-      limit,
-      offset,
+  organizations(includeClosed?: boolean): Promise<Organization[]> {
+    return this.db.query.organization.findMany({
+      where: includeClosed ? undefined : isNull(organization.closedAt),
+      orderBy: [asc(organization.createdAt)],
     });
   }
 
