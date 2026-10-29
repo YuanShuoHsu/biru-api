@@ -123,6 +123,27 @@ describe('OrganizationsService 團隊介紹', () => {
     );
   });
 
+  it('門市列表預設不含停業門市，includeClosed 時全部列出，依建立時間排序', async () => {
+    await client.exec(`
+      update organization set created_at = '2026-01-02' where id = 'biru';
+      update organization set created_at = '2026-01-01', closed_at = now() where id = 'other';
+    `);
+
+    try {
+      expect((await service.organizations()).map(({ id }) => id)).toEqual([
+        'biru',
+      ]);
+      expect((await service.organizations(true)).map(({ id }) => id)).toEqual([
+        'other',
+        'biru',
+      ]);
+    } finally {
+      await client.exec(
+        `update organization set created_at = now(), closed_at = null where id in ('biru', 'other')`,
+      );
+    }
+  });
+
   it('不帶 showcasedOnly 時列出全部成員，依加入時間排序', async () => {
     await service.setMemberShowcase('biru', 'm-bob', true, bob);
 
