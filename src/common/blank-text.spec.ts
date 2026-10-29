@@ -8,8 +8,10 @@ import { CreateAttendanceLeaveCaseDto } from '../attendance/dto/create-attendanc
 import { CreateAttendanceParentalChildDto } from '../attendance/dto/create-attendance-parental-child.dto.js';
 import { CreateAttendanceParentalReturnDto } from '../attendance/dto/create-attendance-parental-return.dto.js';
 import { CreateAttendanceRequestDto } from '../attendance/dto/create-attendance-request.dto.js';
+import { ReviewLeaveCaseDto } from '../attendance/dto/review-attendance-request.dto.js';
 import { SaveAttendanceLeaveTypeDto } from '../attendance/dto/save-attendance-leave-type.dto.js';
 import { CreateCouponDto } from '../coupons/dto/create-coupon.dto.js';
+import { languagesEnum } from '../db/schema/enums.js';
 import { CreateIngredientDto } from '../inventory/dto/create-ingredient.dto.js';
 import { CreateRecipeDto } from '../inventory/dto/create-recipe.dto.js';
 import { CreateSupplierDto } from '../inventory/dto/create-supplier.dto.js';
@@ -29,6 +31,7 @@ import {
   PayrollTaxIdentityDto,
   PayrollWithholdingUnitDto,
 } from '../payroll/dto/payroll-withholding.dto.js';
+import { CreateStorePhotoDto } from '../store-photos/dto/create-store-photo.dto.js';
 import { CreateWaitlistTicketDto } from '../waitlist/dto/create-waitlist-ticket.dto.js';
 
 type Dto = new () => object;
@@ -90,7 +93,12 @@ describe('特殊營業日的營業時間', () => {
   });
 });
 
-const localizedNameFields: [Dto, string][] = [
+const fullText = (text: string) =>
+  Object.fromEntries(
+    languagesEnum.enumValues.map((language) => [language, text]),
+  );
+
+const completeLocalizedFields: [Dto, string][] = [
   [CreateMenuDto, 'name'],
   [CreateMenuSectionDto, 'name'],
   [CreateMenuItemDto, 'name'],
@@ -99,24 +107,80 @@ const localizedNameFields: [Dto, string][] = [
   [CreateModifierGroupDto, 'displayName'],
   [UpdateModifierGroupDto, 'displayName'],
   [CreateIngredientDto, 'name'],
-  [CreateRecipeDto, 'name'],
+  [CreateStorePhotoDto, 'alt'],
 ];
 
-describe('必填多語系名稱', () => {
-  it.each(localizedNameFields)(
-    '%o 的 %s 每個語系都空白時擋下',
+describe('五個語系都必填的多語系欄位', () => {
+  it.each(completeLocalizedFields)(
+    '%o 的 %s 有任一語系空白就擋下',
     async (dto, field) => {
-      for (const value of [{}, { 'zh-TW': '  ' }, { en: '', 'zh-TW': ' ' }])
+      for (const value of [
+        {},
+        { 'zh-TW': '  ' },
+        { ...fullText('拿鐵'), en: ' ' },
+        { 'zh-TW': '拿鐵' },
+      ])
         expect(await errorFields(dto, { [field]: value })).toContain(field);
     },
   );
 
-  it.each(localizedNameFields)(
-    '%o 的 %s 至少一個語系有字就通過',
+  it.each(completeLocalizedFields)(
+    '%o 的 %s 每個語系都有字就通過',
     async (dto, field) => {
       expect(
-        await errorFields(dto, { [field]: { en: '', 'zh-TW': '拿鐵' } }),
+        await errorFields(dto, { [field]: fullText('拿鐵') }),
       ).not.toContain(field);
     },
   );
+});
+
+describe('選填的多語系說明：全部不填或全部填', () => {
+  const dtos: Dto[] = [CreateMenuDto, CreateMenuSectionDto, CreateMenuItemDto];
+
+  it.each(dtos)('%o 的 description 全部空白時視為不填', async (dto) => {
+    const instance = plainToInstance(dto, {
+      description: { en: '', 'zh-TW': ' ' },
+    }) as { description?: unknown };
+
+    expect(instance.description).toBeNull();
+    expect(
+      (await validate(instance)).map(({ property }) => property),
+    ).not.toContain('description');
+  });
+
+  it.each(dtos)('%o 的 description 只填部分語系時擋下', async (dto) => {
+    expect(
+      await errorFields(dto, { description: { 'zh-TW': '招牌' } }),
+    ).toContain('description');
+  });
+
+  it.each(dtos)('%o 的 description 每個語系都有字就通過', async (dto) => {
+    expect(
+      await errorFields(dto, { description: fullText('招牌') }),
+    ).not.toContain('description');
+  });
+});
+
+describe('食譜名稱沿用品項名稱，至少要有一個語系', () => {
+  it('每個語系都空白時擋下，有一個語系有字就通過', async () => {
+    expect(
+      await errorFields(CreateRecipeDto, { name: { 'zh-TW': ' ' } }),
+    ).toContain('name');
+    expect(
+      await errorFields(CreateRecipeDto, { name: { 'zh-TW': '拿鐵' } }),
+    ).not.toContain('name');
+  });
+});
+
+describe('核准事件假時的事件識別', () => {
+  it('只有空白時擋下，前後空白會去掉', async () => {
+    expect(
+      await errorFields(ReviewLeaveCaseDto, { reference: '  ' }),
+    ).toContain('reference');
+
+    const instance = plainToInstance(ReviewLeaveCaseDto, {
+      reference: ' 婚禮 ',
+    });
+    expect(instance.reference).toBe('婚禮');
+  });
 });

@@ -4,7 +4,7 @@ import { IsArray, IsEnum, IsNumberString, IsOptional } from 'class-validator';
 
 import {
   IsLocalizedText,
-  IsRequiredLocalizedText,
+  IsCompleteLocalizedText,
 } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
@@ -21,7 +21,7 @@ export class CreateModifierDto {
     example: { 'zh-TW': '半糖', en: 'Half Sugar' },
   })
   @IsLocalizedText()
-  @IsRequiredLocalizedText()
+  @IsCompleteLocalizedText()
   displayName: LocalizedText;
 
   @ApiPropertyOptional({

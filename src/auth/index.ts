@@ -288,7 +288,12 @@ export const createAuth = (
                   .values({
                     id: uuidv4(),
                     organizationId: organization.id,
-                    name: { 'zh-TW': organization.name },
+                    name: Object.fromEntries(
+                      schema.languagesEnum.enumValues.map((language) => [
+                        language,
+                        organization.name,
+                      ]),
+                    ),
                   })
                   .onConflictDoNothing();
                 await tx

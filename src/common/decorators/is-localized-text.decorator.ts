@@ -5,7 +5,11 @@ import {
 } from 'class-validator';
 
 import { languagesEnum } from '../../db/schema/enums.js';
-import { hasLocalizedText, isLocalizedText } from '../utils/localized-text.js';
+import {
+  hasLocalizedText,
+  isCompleteLocalizedText,
+  isLocalizedText,
+} from '../utils/localized-text.js';
 
 export const IsLocalizedText = (validationOptions?: ValidationOptions) =>
   ValidateBy(
@@ -34,6 +38,24 @@ export const IsRequiredLocalizedText = (
         defaultMessage: buildMessage(
           (eachPrefix) =>
             `${eachPrefix}$property must have at least one non-blank translation`,
+          validationOptions,
+        ),
+      },
+    },
+    validationOptions,
+  );
+
+export const IsCompleteLocalizedText = (
+  validationOptions?: ValidationOptions,
+) =>
+  ValidateBy(
+    {
+      name: 'isCompleteLocalizedText',
+      validator: {
+        validate: isCompleteLocalizedText,
+        defaultMessage: buildMessage(
+          (eachPrefix) =>
+            `${eachPrefix}$property must have non-blank text for every language (${languagesEnum.enumValues.join(', ')})`,
           validationOptions,
         ),
       },

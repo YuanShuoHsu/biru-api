@@ -17,7 +17,7 @@ import {
 } from '../../common/constants/units.js';
 import {
   IsLocalizedText,
-  IsRequiredLocalizedText,
+  IsCompleteLocalizedText,
 } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
@@ -29,7 +29,7 @@ export class CreateIngredientDto {
     example: { 'zh-TW': '抹茶粉', en: 'Matcha Powder' },
   })
   @IsLocalizedText()
-  @IsRequiredLocalizedText()
+  @IsCompleteLocalizedText()
   name: LocalizedText;
 
   @ApiPropertyOptional({ example: '森半宇治抹茶粉 PCT-2 茗（無糖）' })
