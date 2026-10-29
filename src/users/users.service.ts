@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   SQL,
@@ -396,6 +396,7 @@ export class UsersService {
       )
       .where(eq(schema.user.id, where.id))
       .returning();
+    if (!user) throw new NotFoundException();
 
     return user;
   }
@@ -405,6 +406,7 @@ export class UsersService {
       .delete(schema.user)
       .where(eq(schema.user.id, where.id))
       .returning();
+    if (!user) throw new NotFoundException();
 
     return user;
   }
