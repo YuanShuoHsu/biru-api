@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
-    "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "recipeIngredientExists": "This ingredient has already been added",

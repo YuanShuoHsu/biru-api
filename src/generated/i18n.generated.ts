@@ -222,7 +222,6 @@ export type I18nTranslations = {
         };
         "inventory": {
             "ingredientNotFound": string;
-            "menuItemNotFound": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;

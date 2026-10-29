@@ -1,4 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -6,7 +10,9 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const inventoryErrorCodes = [
   'ingredientNotFound',
-  'menuItemNotFound',
+  'packageRequired',
+  'packageUnitIncompatible',
+  'recipeIngredientExists',
   'recipeIngredientNotFound',
   'recipeNotFound',
   'supplierNotFound',
@@ -14,11 +20,18 @@ export const inventoryErrorCodes = [
 
 export type InventoryErrorCode = (typeof inventoryErrorCodes)[number];
 
-export const notFoundError = (code: InventoryErrorCode) =>
-  new NotFoundException({
-    error: 'Not Found',
+const errorBody = (code: InventoryErrorCode) => ({
+  code,
+  message:
+    I18nContext.current<I18nTranslations>()?.t(`common.inventory.${code}`) ??
     code,
-    message:
-      I18nContext.current<I18nTranslations>()?.t(`common.inventory.${code}`) ??
-      code,
-  });
+});
+
+export const badRequestError = (code: InventoryErrorCode) =>
+  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+
+export const conflictError = (code: InventoryErrorCode) =>
+  new ConflictException({ error: 'Conflict', ...errorBody(code) });
+
+export const notFoundError = (code: InventoryErrorCode) =>
+  new NotFoundException({ error: 'Not Found', ...errorBody(code) });
