@@ -14,7 +14,7 @@ pnpm run start:prod      # Run production build
 pnpm run test            # Run unit tests
 pnpm run test:watch      # Watch mode
 pnpm run test:cov        # Coverage report
-pnpm run test:e2e        # End-to-end tests
+pnpm run test:e2e        # End-to-end tests: AppModule on in-memory PGlite (db module mocked); a local .env still fills vars the spec leaves unset
 
 # Code Quality
 pnpm run lint            # oxlint (type-aware)

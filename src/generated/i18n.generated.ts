@@ -613,9 +613,6 @@ export type I18nTranslations = {
             "text": string;
         };
     };
-    "test": {
-        "hello": string;
-    };
     "validation": {
         "isEmail": string;
         "isNotEmpty": string;
