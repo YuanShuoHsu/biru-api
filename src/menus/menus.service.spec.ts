@@ -19,6 +19,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
+import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
 import { MenusService } from './menus.service.js';
 
 const ORG = 'org';
@@ -448,6 +449,45 @@ describe('MenusService localized text filters and sorting', () => {
       expect(await modifierIds(sorted)).toEqual(['jelly', 'boba']);
       inEnglish();
       expect(await modifierIds(sorted)).toEqual(['boba', 'jelly']);
+    });
+  });
+
+  describe('missing records', () => {
+    const inTranslation = () =>
+      vi.spyOn(I18nContext, 'current').mockReturnValue({
+        t: (key: string) => `translated:${key}`,
+      } as unknown as I18nContext);
+
+    it('品項不存在時回 404，帶代碼與翻譯後的訊息', async () => {
+      inTranslation();
+
+      await expect(
+        service.createMenuItemModifierGroup('missing', {
+          modifierGroupId: 'extras',
+        } as CreateMenuItemModifierGroupDto),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'menuItemNotFound',
+          message: 'translated:common.menus.menuItemNotFound',
+        },
+        status: 404,
+      });
+    });
+
+    it('選項群組不在品項的菜單時回 404，帶代碼與翻譯後的訊息', async () => {
+      inTranslation();
+
+      await expect(
+        service.createMenuItemModifierGroup('latte', {
+          modifierGroupId: 'missing',
+        } as CreateMenuItemModifierGroupDto),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'modifierGroupNotFound',
+          message: 'translated:common.menus.modifierGroupNotFound',
+        },
+        status: 404,
+      });
     });
   });
 });

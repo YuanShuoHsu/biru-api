@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
@@ -57,6 +56,7 @@ import {
   IngredientPaginationQueryDto,
 } from './dto/ingredient-pagination-query.dto.js';
 import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import { notFoundError } from './inventory-errors.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing.js';
 
@@ -263,7 +263,7 @@ export class IngredientsService {
     const found = await this.db.query.ingredient.findFirst({
       where: eq(ingredient.id, ingredientId),
     });
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
 
     const [supplierName, priceCurrency] = await Promise.all([
       this.supplierNameOf(found.supplierId),
@@ -329,7 +329,7 @@ export class IngredientsService {
       .from(ingredient)
       .innerJoin(organization, eq(organization.id, ingredient.organizationId))
       .where(eq(ingredient.id, ingredientId));
-    if (!existing) throw new NotFoundException('Ingredient not found');
+    if (!existing) throw notFoundError('ingredientNotFound');
 
     this.assertCompatibleUnitCode({ ...existing, ...dto });
     this.assertPackageNotCleared(dto);
@@ -350,7 +350,7 @@ export class IngredientsService {
             .from(ingredient)
             .where(eq(ingredient.id, ingredientId))
             .for('update');
-      if (!row) throw new NotFoundException('Ingredient not found');
+      if (!row) throw notFoundError('ingredientNotFound');
 
       // 帳上數量要拿交易內鎖定的值比，交易外讀到的可能已被出餐扣庫存蓋過
       if (
@@ -381,7 +381,7 @@ export class IngredientsService {
       .delete(ingredient)
       .where(eq(ingredient.id, ingredientId))
       .returning({ id: ingredient.id });
-    if (!deleted.length) throw new NotFoundException('Ingredient not found');
+    if (!deleted.length) throw notFoundError('ingredientNotFound');
   }
 
   async removeMany(organizationId: string, ids: string[]): Promise<void> {
@@ -397,8 +397,7 @@ export class IngredientsService {
             ),
           )
           .returning({ id: ingredient.id });
-        if (!deleted.length)
-          throw new NotFoundException('Ingredient not found');
+        if (!deleted.length) throw notFoundError('ingredientNotFound');
       }
     });
   }
@@ -418,7 +417,7 @@ export class IngredientsService {
           eq(supplier.organizationId, organizationId),
         ),
       );
-    if (!found) throw new NotFoundException('Supplier not found');
+    if (!found) throw notFoundError('supplierNotFound');
   }
 
   // PartialType 讓每個欄位都吃 @IsOptional，null 會跳過驗證直接清掉包裝規格

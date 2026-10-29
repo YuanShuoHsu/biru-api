@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
@@ -67,6 +66,7 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
+import { notFoundError } from './inventory-errors.js';
 import { unitPriceOf, unitPriceSql } from './pricing.js';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding.js';
 
@@ -195,7 +195,7 @@ export class RecipesService {
     const found = await this.db.query.recipe.findFirst({
       where: eq(recipe.id, recipeId),
     });
-    if (!found) throw new NotFoundException('Recipe not found');
+    if (!found) throw notFoundError('recipeNotFound');
 
     return this.detailOf(found, canReadPurchasing);
   }
@@ -252,7 +252,7 @@ export class RecipesService {
         .select({ organizationId: recipe.organizationId })
         .from(recipe)
         .where(eq(recipe.id, recipeId));
-      if (!current) throw new NotFoundException('Recipe not found');
+      if (!current) throw notFoundError('recipeNotFound');
       await this.assertMenuItemInOrganization(
         current.organizationId,
         dto.menuItemId,
@@ -265,7 +265,7 @@ export class RecipesService {
         .set(dto)
         .where(eq(recipe.id, recipeId))
         .returning();
-      if (!row) throw new NotFoundException('Recipe not found');
+      if (!row) throw notFoundError('recipeNotFound');
 
       if (dto.menuItemId !== undefined || row.menuItemId) return row;
 
@@ -288,7 +288,7 @@ export class RecipesService {
       .delete(recipe)
       .where(eq(recipe.id, recipeId))
       .returning({ id: recipe.id });
-    if (!deleted.length) throw new NotFoundException('Recipe not found');
+    if (!deleted.length) throw notFoundError('recipeNotFound');
   }
 
   async findAllIngredients(
@@ -401,7 +401,7 @@ export class RecipesService {
           eq(menu.organizationId, organizationId),
         ),
       );
-    if (!found) throw new NotFoundException('Menu item not found');
+    if (!found) throw notFoundError('menuItemNotFound');
   }
 
   private async assertIngredientInRecipeOrganization(
@@ -415,7 +415,7 @@ export class RecipesService {
       .from(ingredient)
       .innerJoin(recipe, eq(recipe.organizationId, ingredient.organizationId))
       .where(and(eq(ingredient.id, ingredientId), eq(recipe.id, recipeId)));
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
   }
 
   // 同一食材重複成兩列時，consume() 會依每一列各扣一次庫存
@@ -502,7 +502,7 @@ export class RecipesService {
         )
         .returning(),
     );
-    if (!updated) throw new NotFoundException('Recipe ingredient not found');
+    if (!updated) throw notFoundError('recipeIngredientNotFound');
 
     return this.toMaterial(updated.id);
   }
@@ -520,8 +520,7 @@ export class RecipesService {
         ),
       )
       .returning({ id: recipeIngredient.id });
-    if (!deleted.length)
-      throw new NotFoundException('Recipe ingredient not found');
+    if (!deleted.length) throw notFoundError('recipeIngredientNotFound');
   }
 
   async removeIngredients(recipeId: string, ids: string[]): Promise<void> {
@@ -537,8 +536,7 @@ export class RecipesService {
             ),
           )
           .returning({ id: recipeIngredient.id });
-        if (!deleted.length)
-          throw new NotFoundException('Recipe ingredient not found');
+        if (!deleted.length) throw notFoundError('recipeIngredientNotFound');
       }
     });
   }
@@ -575,7 +573,7 @@ export class RecipesService {
     const material = materials
       .get(row.recipeId)
       ?.find(({ id }) => id === recipeIngredientId);
-    if (!material) throw new NotFoundException('Recipe ingredient not found');
+    if (!material) throw notFoundError('recipeIngredientNotFound');
 
     return material;
   }

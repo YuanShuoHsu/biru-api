@@ -169,9 +169,14 @@
     "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください"
   },
   "inventory": {
+    "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
+    "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "packageRequired": "内容量、内容量の単位、価格、在庫単位はすべて入力が必要で、空にできません",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
-    "recipeIngredientExists": "この材料はすでに追加されています"
+    "recipeIngredientExists": "この材料はすでに追加されています",
+    "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
+    "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
+    "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"
   },
   "invoices": {
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
@@ -195,9 +200,18 @@
     "voidWriteFailed": "インボイス {invoiceNumber} は ECPay で無効化されましたが、システムに記録できませんでした。照会機能で確認のうえ手動で修正してください"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "追加セクションが見つかりません。削除された可能性があります",
     "addOnSelf": "追加購入商品に商品自身は指定できません",
+    "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
+    "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
+    "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
+    "modifierGroupNotFound": "オプショングループが見つかりません。削除された可能性があります",
+    "modifierNotFound": "オプションが見つかりません。削除された可能性があります",
+    "offerNotFound": "品目の価格が見つかりません。削除された可能性があります",
     "parentSectionDescendant": "カテゴリを自身のサブカテゴリの下に移動できません",
+    "parentSectionNotFound": "親セクションが見つかりません。削除された可能性があります",
     "parentSectionSelf": "カテゴリを自身の親カテゴリに設定できません",
+    "printerNotFound": "プリンターが見つかりません。削除された可能性があります",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
   "orderTickets": {
