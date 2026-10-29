@@ -172,7 +172,7 @@ export class OrderReceiptResponseDto extends OmitType(OrderResponseDto, [
 ] as const) {
   @ApiProperty({
     description:
-      '這張單付款後可得的點數，與實際入點同一算法；訪客訂單、已取消或點數未啟用時為 null',
+      '這張單可得的點數，與實際入點同一算法；未付款訂單依目前點數設定、已付款訂單依付款時的快照計算。訪客訂單、終止狀態（取消／異常／退貨）或未付款且點數未啟用時為 null',
     nullable: true,
     type: Number,
   })
