@@ -6,6 +6,12 @@ import { STORE_UTC_OFFSET } from '../../common/constants/timezone.js';
 
 const round = (value: number): number => Math.round(value);
 
+export const lineAmountCents = (unitPrice: string, quantity: number): number =>
+  Math.round(Number(unitPrice) * 100) * quantity;
+
+const lineAmount = (unitPrice: string, quantity: number): number =>
+  round(lineAmountCents(unitPrice, quantity) / 100);
+
 export type RefundPlanErrorKey =
   'invalidAmount' | 'itemNotInOrder' | 'nothingToRefund' | 'quantityExceeded';
 
@@ -86,12 +92,10 @@ export const buildRefundPlan = (
         t('quantityExceeded', { name: source.menuItemName, remaining }),
       );
 
-    const unitPrice = Number(source.unitPrice);
-
     return {
       amount: String(
-        round(unitPrice * (refunded + input.quantity)) -
-          round(unitPrice * refunded),
+        lineAmount(source.unitPrice, refunded + input.quantity) -
+          lineAmount(source.unitPrice, refunded),
       ),
       menuItemName: source.menuItemName,
       orderItemId: source.id,
@@ -103,7 +107,7 @@ export const buildRefundPlan = (
   if (!items.length) throw new BadRequestException(t('nothingToRefund'));
 
   const itemTotal = found.items.reduce(
-    (sum, item) => sum + round(Number(item.unitPrice) * item.orderQuantity),
+    (sum, item) => sum + lineAmount(item.unitPrice, item.orderQuantity),
     0,
   );
   const salesAmount = round(Number(found.total));
