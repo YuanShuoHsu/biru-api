@@ -349,6 +349,10 @@
     "rangeInvalid": "The end time must be later than the start time.",
     "rangeTooLong": "The report can cover at most 366 days."
   },
+  "storeLayout": {
+    "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
+    "notFound": "This store has no floor plan yet."
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "We're closed right now, so the waitlist isn't open.",

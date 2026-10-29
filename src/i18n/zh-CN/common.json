@@ -349,6 +349,10 @@
     "rangeInvalid": "结束时间必须晚于开始时间。",
     "rangeTooLong": "报表区间最多 366 天。"
   },
+  "storeLayout": {
+    "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
+    "notFound": "这家门店还没有平面图。"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "当前非营业时间，暂不开放取号。",

@@ -401,6 +401,10 @@ export type I18nTranslations = {
             "rangeInvalid": string;
             "rangeTooLong": string;
         };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;

@@ -73,6 +73,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | InventoryModule      | `src/inventory/`       | Suppliers, ingredients, recipes, stock transactions, low-stock alerts                                  |
 | WaitlistModule       | `src/waitlist/`        | Waitlist settings and tickets                                                                          |
 | PrintersModule       | `src/printers/`        | Receipt printers and order ticket print jobs (imported by OrdersModule and EcpayModule, not AppModule) |
+| StoreLayoutModule    | `src/store-layout/`    | Per-store 3D floor plan: equipment items, dine-in tables and seats (platform admin)                    |
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
@@ -101,6 +102,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
+- `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables
 - `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
