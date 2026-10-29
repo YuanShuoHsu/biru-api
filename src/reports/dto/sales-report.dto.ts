@@ -1,12 +1,26 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { IsDateString, IsIn } from 'class-validator';
 
-export const SALES_REPORT_GROUP_BYS = [
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
+
+const ORDER_SALES_REPORT_GROUP_BYS = [
   'day',
   'hour',
   'paymentMethod',
   'mode',
+] as const;
+export type OrderSalesReportGroupBy =
+  (typeof ORDER_SALES_REPORT_GROUP_BYS)[number];
+
+const ITEM_SALES_REPORT_GROUP_BYS = ['menuItem', 'category'] as const;
+export type ItemSalesReportGroupBy =
+  (typeof ITEM_SALES_REPORT_GROUP_BYS)[number];
+
+export const SALES_REPORT_GROUP_BYS = [
+  ...ORDER_SALES_REPORT_GROUP_BYS,
+  ...ITEM_SALES_REPORT_GROUP_BYS,
 ] as const;
 export type SalesReportGroupBy = (typeof SALES_REPORT_GROUP_BYS)[number];
 
@@ -42,7 +56,7 @@ export class SalesReportTotalsDto {
 
   @ApiProperty({
     description:
-      '退款時間落在區間內的確認退款金額；日／小時依退款時間歸組，付款方式／點餐方式依原訂單歸組',
+      '退款時間落在區間內的確認退款金額；日／小時依退款時間歸組，付款方式／點餐方式依原訂單歸組，品項／分類依退款明細歸組',
   })
   refunded: number;
 
@@ -53,9 +67,27 @@ export class SalesReportTotalsDto {
 export class SalesReportRowDto extends SalesReportTotalsDto {
   @ApiProperty({
     description:
-      'day：店家時區日期 YYYY-MM-DD；hour：店家時區小時 0–23；paymentMethod／mode：該列舉值',
+      'day：店家時區日期 YYYY-MM-DD；hour：店家時區小時 0–23；paymentMethod／mode：該列舉值；menuItem：品項 id；category：品項目前所屬菜單分類 id，品項已刪除或未分類為 uncategorized',
   })
   key: string;
+
+  @ApiPropertyOptional({
+    description:
+      '僅 menuItem／category：目前的品項或分類名稱；品項已刪除時為最近一次訂單快照的預設語系名稱，未分類為 null',
+    type: LocalizedTextDto,
+    nullable: true,
+  })
+  name?: LocalizedText | null;
+
+  @ApiPropertyOptional({
+    description: '僅 menuItem／category：售出份數，含被加購的次數',
+  })
+  quantity?: number;
+
+  @ApiPropertyOptional({
+    description: '僅 menuItem／category：退款時間落在區間內的退款份數',
+  })
+  refundedQuantity?: number;
 }
 
 export class SalesReportResponseDto {
@@ -67,7 +99,7 @@ export class SalesReportResponseDto {
 
   @ApiProperty({
     description:
-      '只列有訂單或退款的組；day／hour 依 key 由小到大，paymentMethod／mode 依 revenue 由大到小',
+      '只列有訂單或退款的組；day／hour 依 key 由小到大，其餘依 revenue 由大到小。menuItem／category 的金額依品項小計分攤整單折扣、依退款明細分攤退款，加購計入加購品項，四捨五入到分，總和可能與 totals 差幾分',
     type: [SalesReportRowDto],
   })
   rows: SalesReportRowDto[];
