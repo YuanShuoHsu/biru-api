@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -86,6 +86,9 @@ const CARRIER_NUM_PATTERNS = {
   mobile: /^\/[A-Z0-9+\-.]{7}$/,
 } as const;
 
+const trim = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
 const isInvoiceType =
   (type: CreateOrderInvoiceDto['type']) =>
   (invoice: CreateOrderInvoiceDto): boolean =>
@@ -132,7 +135,9 @@ export class CreateOrderInvoiceDto {
   })
   @ValidateIf(
     (invoice: CreateOrderInvoiceDto) =>
-      invoice.type === 'personal' && !!invoice.carrierType,
+      invoice.type === 'personal' &&
+      typeof invoice.carrierType === 'string' &&
+      Object.hasOwn(CARRIER_NUM_PATTERNS, invoice.carrierType),
   )
   @Validate(IsCarrierNum)
   carrierNum?: string;
@@ -151,6 +156,7 @@ export class CreateOrderInvoiceDto {
 
   @ApiPropertyOptional({ description: '公司發票必填', maxLength: 60 })
   @ValidateIf(isInvoiceType('company'))
+  @Transform(trim)
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   @MaxLength(60, { message: i18nValidationMessage('validation.maxLength') })
@@ -158,6 +164,7 @@ export class CreateOrderInvoiceDto {
 
   @ApiPropertyOptional({ description: '公司發票必填', maxLength: 100 })
   @ValidateIf(isInvoiceType('company'))
+  @Transform(trim)
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   @MaxLength(100, { message: i18nValidationMessage('validation.maxLength') })

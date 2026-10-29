@@ -181,6 +181,7 @@
   "invoices": {
     "allowanceIssued": "This invoice already has a credit note and cannot be voided",
     "alreadyIssuing": "This invoice is currently being issued. Please try again shortly",
+    "customerNameRequiresIdentifier": "A buyer name can only be corrected together with a tax ID number on a personal or donated invoice",
     "notIssued": "This invoice has not been issued yet",
     "notPaid": "The order has not been paid, so no invoice can be issued",
     "notPending": "This invoice is {status} and cannot be issued",

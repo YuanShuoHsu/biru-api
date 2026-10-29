@@ -181,6 +181,7 @@
   "invoices": {
     "allowanceIssued": "此发票已开立折让，无法作废",
     "alreadyIssuing": "这张发票正在开立中，请稍后再试",
+    "customerNameRequiresIdentifier": "个人或捐赠发票须同时填写统一编号，才能更正买受人抬头",
     "notIssued": "此发票尚未开立",
     "notPaid": "订单尚未付款，无法开立发票",
     "notPending": "此发票目前为{status}，无法开立",

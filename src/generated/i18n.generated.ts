@@ -233,6 +233,7 @@ export type I18nTranslations = {
         "invoices": {
             "allowanceIssued": string;
             "alreadyIssuing": string;
+            "customerNameRequiresIdentifier": string;
             "notIssued": string;
             "notPaid": string;
             "notPending": string;

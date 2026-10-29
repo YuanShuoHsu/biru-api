@@ -51,6 +51,7 @@ import { InvoicePrinterService } from './invoice-printer.service.js';
 
 import {
   BadGatewayException,
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -142,6 +143,7 @@ export class EcpayOrderInvoiceService {
     key:
       | 'allowanceIssued'
       | 'alreadyIssuing'
+      | 'customerNameRequiresIdentifier'
       | 'notIssued'
       | 'notPaid'
       | 'notPending'
@@ -568,6 +570,10 @@ export class EcpayOrderInvoiceService {
       throw new ConflictException(this.tInvoice('allowanceIssued'));
     if (data.invoiceDate < earliestVoidableInvoiceDate(new Date()))
       throw new ConflictException(this.tInvoice('pastVoidablePeriod'));
+    if (customerName && !customerIdentifier && data.type !== 'company')
+      throw new BadRequestException(
+        this.tInvoice('customerNameRequiresIdentifier'),
+      );
 
     await this.ecpayInvalidInvoiceService.invalidInvoice({
       InvoiceDate: toInvoiceDateText(data.invoiceDate),

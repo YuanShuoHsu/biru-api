@@ -181,6 +181,7 @@
   "invoices": {
     "allowanceIssued": "此發票已開立折讓，無法作廢",
     "alreadyIssuing": "這張發票正在開立中，請稍候再試",
+    "customerNameRequiresIdentifier": "個人或捐贈發票須同時填寫統一編號，才能更正買受人抬頭",
     "notIssued": "此發票尚未開立",
     "notPaid": "訂單尚未付款，無法開立發票",
     "notPending": "此發票目前為{status}，無法開立",

@@ -141,6 +141,64 @@ describe('CreateOrderDto invoice', () => {
     ]);
   });
 
+  it.each(['individual', 'constructor', '__proto__'])(
+    'rejects carrier type %j without checking the carrier number',
+    async (carrierType) => {
+      expect(
+        await invoiceErrorsOf({
+          carrierNum: '/ABC1234',
+          carrierType,
+          type: 'personal',
+        }),
+      ).toEqual([
+        {
+          constraints: { isEnum: expect.any(String) },
+          property: 'carrierType',
+        },
+      ]);
+    },
+  );
+
+  it('rejects a whitespace-only company name and address', async () => {
+    const errors = await invoiceErrorsOf({
+      customerAddr: '   ',
+      customerIdentifier: '12345678',
+      customerName: ' \t',
+      type: 'company',
+    });
+
+    expect(errors).toEqual([
+      {
+        constraints: {
+          isNotEmpty: expect.stringMatching(/^validation\.isNotEmpty\|/),
+        },
+        property: 'customerName',
+      },
+      {
+        constraints: {
+          isNotEmpty: expect.stringMatching(/^validation\.isNotEmpty\|/),
+        },
+        property: 'customerAddr',
+      },
+    ]);
+  });
+
+  it('trims the company name and address', async () => {
+    const dto = plainToInstance(CreateOrderDto, {
+      invoice: {
+        customerAddr: ' 台北市信義區 ',
+        customerIdentifier: '12345678',
+        customerName: ' 比如股份有限公司 ',
+        type: 'company',
+      },
+    });
+
+    expect(dto.invoice).toMatchObject({
+      customerAddr: '台北市信義區',
+      customerName: '比如股份有限公司',
+    });
+  });
+
   it('requires the tax id, name and address on a company invoice', async () => {
     const errors = await invoiceErrorsOf({
       customerIdentifier: '1234567',

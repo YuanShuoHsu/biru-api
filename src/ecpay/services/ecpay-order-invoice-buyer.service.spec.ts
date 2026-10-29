@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { I18nService } from 'nestjs-i18n';
 
@@ -5,6 +6,7 @@ import type { Invoice } from '../../db/schema/invoices.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
+import type { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
 import type { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service.js';
 import { EcpayOrderInvoiceService } from './ecpay-order-invoice.service.js';
 import type { InvoicePrinterService } from './invoice-printer.service.js';
@@ -106,5 +108,76 @@ describe('EcpayOrderInvoiceService 開立的買受人', () => {
     const payload = await issuedPayloadOf({ type: 'personal' });
 
     expect(payload.LoveCode).toBeUndefined();
+  });
+});
+
+describe('EcpayOrderInvoiceService.voidForOrder 更正買受人抬頭', () => {
+  const voidWith = async (
+    type: Invoice['type'],
+    dto: { customerIdentifier?: string; customerName?: string },
+  ) => {
+    const invalidInvoice = vi.fn().mockRejectedValue(new Error('voided'));
+    const db = {
+      query: {
+        order: {
+          findFirst: vi.fn().mockResolvedValue({
+            invoices: [
+              {
+                ...stored,
+                allowances: [],
+                invoiceDate: new Date(),
+                invoiceNumber: 'AB12345678',
+                status: 'issued',
+                type,
+              },
+            ],
+          }),
+        },
+        organization: { findFirst: vi.fn().mockResolvedValue({ id: 'org' }) },
+      },
+    };
+
+    const result = new EcpayOrderInvoiceService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      { invalidInvoice } as unknown as EcpayInvalidInvoiceService,
+      {} as never,
+      new EventEmitter2(),
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+    ).voidForOrder('biru', 'order', { ...dto, reason: '抬頭錯誤' });
+
+    return { invalidInvoice, result };
+  };
+
+  it.each(['personal', 'donate'] as const)(
+    '%s 發票只改抬頭不帶統編時拒絕，不作廢',
+    async (type) => {
+      const { invalidInvoice, result } = await voidWith(type, {
+        customerName: '比如股份有限公司',
+      });
+
+      await expect(result).rejects.toThrow(
+        new BadRequestException(
+          'common.invoices.customerNameRequiresIdentifier',
+        ),
+      );
+      expect(invalidInvoice).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['company', { customerName: '比如股份有限公司' }],
+    [
+      'personal',
+      { customerIdentifier: '12345678', customerName: '比如股份有限公司' },
+    ],
+    ['personal', {}],
+  ] as const)('%s 發票 %j 照常作廢', async (type, dto) => {
+    const { invalidInvoice, result } = await voidWith(type, dto);
+
+    await expect(result).rejects.toThrow('voided');
+    expect(invalidInvoice).toHaveBeenCalledOnce();
   });
 });
