@@ -17,7 +17,7 @@ import { RecipesService } from './recipes.service.js';
 
 const ORG = 'org';
 
-describe('RecipesService name filter', () => {
+describe('RecipesService', () => {
   let client: PGlite;
   let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: RecipesService;
@@ -134,12 +134,24 @@ describe('RecipesService name filter', () => {
     });
   });
 
+  it('建立食譜沒指定品項時依名稱綁定，找不到同名品項就不綁', async () => {
+    const created = await service.create('biru', {
+      name: { 'zh-TW': '冷萃' },
+    });
+
+    expect(created.menuItemId).toBeNull();
+  });
+
   it('新增材料沒給排序時排在最後，給了就照給的；詳細資料帶出全部材料', async () => {
-    const appended = await service.createIngredient('mocha', {
+    const { id: recipeId } = await service.create('biru', {
+      menuItemId: null,
+      name: { 'zh-TW': '黑糖拿鐵' },
+    });
+    const appended = await service.createIngredient(recipeId, {
       ingredientId: 'milk',
       requiredQuantity: '150',
     });
-    const placed = await service.createIngredient('mocha', {
+    const placed = await service.createIngredient(recipeId, {
       ingredientId: 'beans',
       requiredQuantity: '18',
       sortOrder: 5,
@@ -152,7 +164,7 @@ describe('RecipesService name filter', () => {
     });
     expect(placed).toMatchObject({ ingredientId: 'beans', sortOrder: 5 });
     expect(
-      (await service.findOne('mocha')).recipeIngredients?.map(
+      (await service.findOne(recipeId)).recipeIngredients?.map(
         ({ ingredientId }) => ingredientId,
       ),
     ).toEqual(['milk', 'beans']);

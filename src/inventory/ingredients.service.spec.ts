@@ -139,7 +139,7 @@ describe('IngredientsService.findAll name sort', () => {
   });
 });
 
-describe('IngredientsService.findAll name filter', () => {
+describe('IngredientsService name filter and purchasing fields', () => {
   let client: PGlite;
   let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: IngredientsService;
@@ -228,5 +228,28 @@ describe('IngredientsService.findAll name filter', () => {
       'sugar',
     ]);
     expect(await filterName('doesNotEqual', '砂糖')).toEqual(['milk', 'beans']);
+  });
+
+  it('沒有採購權限時查詢單一食材不帶採購欄位', async () => {
+    await client.query(
+      `update ingredient set price = 100, eligible_quantity = 1000, eligible_quantity_unit_code = 'GRM', url = 'https://example.com' where id = 'milk'`,
+    );
+
+    const visible = await service.findOne('milk');
+    const hidden = await service.findOne('milk', false);
+
+    expect(visible).toMatchObject({
+      price: '100.00',
+      url: 'https://example.com',
+    });
+    for (const field of [
+      'price',
+      'supplierId',
+      'supplierName',
+      'unitPrice',
+      'url',
+    ])
+      expect(hidden[field as keyof typeof hidden], field).toBeUndefined();
+    expect(hidden).toMatchObject({ id: 'milk', priceCurrency: 'TWD' });
   });
 });
