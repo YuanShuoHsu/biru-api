@@ -1720,8 +1720,15 @@
     {
       "idx": 245,
       "version": "7",
-      "when": 1793280968846,
-      "tag": "0245_user_name_phone_not_blank",
+      "when": 1793222190636,
+      "tag": "0245_store_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1793286982740,
+      "tag": "0246_user_name_phone_not_blank",
       "breakpoints": true
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "id": "376957d3-178e-4836-9915-eaca198a1945",
+  "id": "6adac366-3704-44dd-81e7-f2ea3bc5554b",
   "prevId": "4f68bcbb-580e-491e-8c52-981f57b5170d",
   "version": "7",
   "dialect": "postgresql",
@@ -10069,6 +10069,66 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.store_layout": {
+      "name": "store_layout",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "schema_version": {
+          "name": "schema_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "data": {
+          "name": "data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "store_layout_organization_id_organization_id_fk": {
+          "name": "store_layout_organization_id_organization_id_fk",
+          "tableFrom": "store_layout",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.store_photo": {
       "name": "store_photo",
       "schema": "",
@@ -10515,12 +10575,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "user_name_phone_not_blank": {
-          "name": "user_name_phone_not_blank",
-          "value": "btrim(\"user\".\"first_name\") <> '' and btrim(\"user\".\"last_name\") <> '' and btrim(\"user\".\"phone_number\") <> ''"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.verification": {

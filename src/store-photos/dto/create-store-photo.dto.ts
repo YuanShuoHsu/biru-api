@@ -4,7 +4,6 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
-  IsObject,
   IsString,
   MaxLength,
   Min,
@@ -12,6 +11,7 @@ import {
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
@@ -25,7 +25,7 @@ export class CreateStorePhotoDto {
     description: '替代文字',
     example: { 'zh-TW': '門市外觀', en: 'Storefront' },
   })
-  @IsObject()
+  @IsLocalizedText()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   alt: LocalizedText;
 

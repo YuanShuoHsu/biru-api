@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -417,6 +422,7 @@ export class UsersService {
           });
         throw error;
       });
+    if (!user) throw new NotFoundException();
 
     return user;
   }
@@ -426,6 +432,7 @@ export class UsersService {
       .delete(schema.user)
       .where(eq(schema.user.id, where.id))
       .returning();
+    if (!user) throw new NotFoundException();
 
     return user;
   }

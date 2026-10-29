@@ -21,7 +21,6 @@ interface PionexSocketMessage {
 const subscriptionKey = ({ symbol, topic }: PionexSubscription) =>
   `${topic}:${symbol ?? ''}`;
 
-// 一條 Pionex WS 連線：依訂閱引用計數、斷線指數退避重連、重連後重送訂閱
 export class PionexSocket {
   private readonly logger: Logger;
   private readonly subscriptions = new Map<

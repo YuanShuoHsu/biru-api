@@ -250,7 +250,6 @@ export class QuantMarketService {
     return candles;
   }
 
-  // 週、月 K 由日 K 合成
   private async aggregateFromDaily(
     symbol: string,
     interval: Exclude<PionexKlineInterval, NativeKlineInterval>,

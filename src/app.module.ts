@@ -11,8 +11,6 @@ import { ClsModule } from 'nestjs-cls';
 import { I18nModule, I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AttendanceModule } from './attendance/attendance.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { createAuth } from './auth/index.js';
@@ -42,6 +40,8 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { PointsModule } from './points/points.module.js';
 import { QuantModule } from './quant/quant.module.js';
+import { ReportsModule } from './reports/reports.module.js';
+import { StoreLayoutModule } from './store-layout/store-layout.module.js';
 import { StorePhotosModule } from './store-photos/store-photos.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -112,16 +112,16 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     PayrollModule,
     PointsModule,
     QuantModule,
+    ReportsModule,
     ScheduleModule.forRoot(),
+    StoreLayoutModule,
     StorePhotosModule,
     TasksModule,
     ThrottlerModule.forRoot({ throttlers: THROTTLERS }),
     UsersModule,
     WaitlistModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: RolesGuard,

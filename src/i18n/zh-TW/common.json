@@ -169,13 +169,18 @@
     "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字"
   },
   "inventory": {
+    "ingredientNotFound": "找不到這項食材，可能已被刪除",
     "packageRequired": "內容量、內容量單位、價格與庫存單位須一併填寫，不能清空",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
-    "recipeIngredientExists": "這項材料已經加入過了"
+    "recipeIngredientExists": "這項材料已經加入過了",
+    "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
+    "recipeNotFound": "找不到這份食譜，可能已被刪除",
+    "supplierNotFound": "找不到這個供應商，可能已被刪除"
   },
   "invoices": {
     "allowanceIssued": "此發票已開立折讓，無法作廢",
     "alreadyIssuing": "這張發票正在開立中，請稍候再試",
+    "customerNameRequiresIdentifier": "個人或捐贈發票須同時填寫統一編號，才能更正買受人抬頭",
     "notIssued": "此發票尚未開立",
     "notPaid": "訂單尚未付款，無法開立發票",
     "notPending": "此發票目前為{status}，無法開立",
@@ -195,9 +200,18 @@
     "voidWriteFailed": "發票 {invoiceNumber} 已於綠界作廢，但本機未寫入，請以查證功能確認後人工補正"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "找不到這個加購分組，可能已被刪除",
     "addOnSelf": "加購品項不能是品項本身",
+    "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
+    "menuItemNotFound": "找不到這個品項，可能已被刪除",
+    "menuSectionNotFound": "找不到這個分類，可能已被刪除",
+    "modifierGroupNotFound": "找不到這個選項群組，可能已被刪除",
+    "modifierNotFound": "找不到這個選項，可能已被刪除",
+    "offerNotFound": "找不到這個品項價格，可能已被刪除",
     "parentSectionDescendant": "分類不能移到自己的子分類底下",
+    "parentSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentSectionSelf": "分類不能設為自己的上層分類",
+    "printerNotFound": "找不到這台印表機，可能已被移除",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
   "orderTickets": {
@@ -247,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
+    "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
     "pickupTimeInvalid": "請選擇有效的取餐時間",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
@@ -330,6 +345,14 @@
     "nothingToRefund": "沒有可退款的品項",
     "quantityExceeded": "「{name}」只剩 {remaining} 份可退",
     "resultUnknown": "退款已送出但綠界尚未回覆結果，請勿重複操作。系統會自動核對，確認後這筆退款會更新狀態。"
+  },
+  "reports": {
+    "rangeInvalid": "結束時間必須晚於開始時間。",
+    "rangeTooLong": "報表區間最多 366 天。"
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "桌號 {tableNumber} 重複了。",
+    "notFound": "這家門市還沒有平面圖。"
   },
   "waitlist": {
     "guest": {

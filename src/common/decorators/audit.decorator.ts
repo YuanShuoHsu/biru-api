@@ -21,6 +21,7 @@ export type AuditSubTable =
   | 'recipeIngredient'
   | 'refund'
   | 'specialHours'
+  | 'storeLayout'
   | 'waitlistSetting';
 
 export type AuditVia = { table: AuditSubTable; ownerColumn: string };

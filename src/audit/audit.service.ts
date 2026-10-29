@@ -115,9 +115,10 @@ export class AuditService {
     );
 
     const direction = sql.raw(sortDirection === 'desc' ? 'DESC' : 'ASC');
+    const newestFirst = sql`${fieldMap.createdAt} DESC, ${entry('source')}, ${entry('id')}`;
     const orderBy = sortBy
-      ? sql`${fieldMap[sortBy]} ${direction}, ${fieldMap.createdAt} DESC`
-      : sql`${fieldMap.createdAt} DESC`;
+      ? sql`${fieldMap[sortBy]} ${direction}, ${newestFirst}`
+      : newestFirst;
 
     const entries = this.entries(scope);
     const filtered = sql`FROM (${entries}) entry ${where ? sql`WHERE ${where}` : sql``}`;

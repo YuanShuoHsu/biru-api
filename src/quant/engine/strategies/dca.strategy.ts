@@ -99,7 +99,6 @@ export class DcaStrategy implements Strategy {
     if (!opened) await this.context.stop('dca_base_order_failed');
   }
 
-  // 每次加倉成交後：停利單依新均價重掛，並掛下一筆加碼
   private async rearm(cycle: number, step: string) {
     for (const order of this.context.openOrders())
       if (parseTag(order.tag)?.cycle === cycle)

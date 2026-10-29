@@ -34,9 +34,13 @@ const cartItemOf = (
   ...overrides,
 });
 
-const createService = (menuItems: object[]) => {
+const createService = (
+  menuItems: object[],
+  menuSections: { id: string; parentSectionId: string | null }[] = [],
+) => {
   const db = {
     query: {
+      menuSection: { findMany: vi.fn().mockResolvedValue(menuSections) },
       menu: {
         findFirst: vi.fn().mockResolvedValue({
           id: MENU_ID,
@@ -100,5 +104,24 @@ describe('OrderPricingService.resolveOrderItems', () => {
         'counter',
       ),
     ).rejects.toThrow('common.orders.menuItemOptionsInvalid:拿鐵');
+  });
+
+  it('品項的分類清單包含所有上層分類，讓最上層分類的優惠券也套得到', async () => {
+    const service = createService(
+      [{ ...latte, menuSectionId: 'oolong' }],
+      [
+        { id: 'drinks', parentSectionId: null },
+        { id: 'tea', parentSectionId: 'drinks' },
+        { id: 'oolong', parentSectionId: 'tea' },
+      ],
+    );
+
+    const [item] = await service.resolveOrderItems(
+      'org',
+      [cartItemOf()],
+      'counter',
+    );
+
+    expect(item.menuSectionIds).toEqual(['oolong', 'tea', 'drinks']);
   });
 });

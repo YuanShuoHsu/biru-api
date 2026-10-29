@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import {
@@ -19,7 +13,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
@@ -31,11 +25,7 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import {
-  getOrganizationBySlug,
-  getOrganizationCurrency,
-  getOrganizationIdBySlug,
-} from '../common/utils/organizations.js';
+import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import {
   ingredient,
   supplier,
@@ -43,7 +33,6 @@ import {
 } from '../db/schema/inventory.js';
 import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   CreateIngredientDto,
@@ -57,6 +46,7 @@ import {
   IngredientPaginationQueryDto,
 } from './dto/ingredient-pagination-query.dto.js';
 import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
+import { badRequestError, notFoundError } from './inventory-errors.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing.js';
 
@@ -82,17 +72,10 @@ export class IngredientsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
-    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  private t(key: keyof I18nTranslations['common']['inventory']): string {
-    return this.i18n.t(`common.inventory.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: IngredientPaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: IngredientResponseDto[]; total: number }> {
@@ -117,8 +100,10 @@ export class IngredientsService {
     )
       throw new ForbiddenException();
 
-    const { id: organizationId, currency: priceCurrency } =
-      await getOrganizationBySlug(this.db, organizationSlug);
+    const priceCurrency = await getOrganizationCurrency(
+      this.db,
+      organizationId,
+    );
 
     const supplierName = sql`(select ${supplier.name} from ${supplier} where ${supplier.id} = ${ingredient.supplierId})`;
 
@@ -219,15 +204,10 @@ export class IngredientsService {
   }
 
   async reorder(
-    organizationSlug: string,
+    organizationId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-
     await this.db.transaction(async (tx) => {
       for (const [i, id] of ids.entries()) {
         await tx
@@ -263,7 +243,7 @@ export class IngredientsService {
     const found = await this.db.query.ingredient.findFirst({
       where: eq(ingredient.id, ingredientId),
     });
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
 
     const [supplierName, priceCurrency] = await Promise.all([
       this.supplierNameOf(found.supplierId),
@@ -276,11 +256,13 @@ export class IngredientsService {
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
   ): Promise<IngredientResponseDto> {
-    const { id: organizationId, currency: priceCurrency } =
-      await getOrganizationBySlug(this.db, organizationSlug);
+    const priceCurrency = await getOrganizationCurrency(
+      this.db,
+      organizationId,
+    );
 
     this.assertCompatibleUnitCode(dto);
     await this.assertSupplierInOrganization(dto.supplierId, organizationId);
@@ -329,7 +311,7 @@ export class IngredientsService {
       .from(ingredient)
       .innerJoin(organization, eq(organization.id, ingredient.organizationId))
       .where(eq(ingredient.id, ingredientId));
-    if (!existing) throw new NotFoundException('Ingredient not found');
+    if (!existing) throw notFoundError('ingredientNotFound');
 
     this.assertCompatibleUnitCode({ ...existing, ...dto });
     this.assertPackageNotCleared(dto);
@@ -350,7 +332,7 @@ export class IngredientsService {
             .from(ingredient)
             .where(eq(ingredient.id, ingredientId))
             .for('update');
-      if (!row) throw new NotFoundException('Ingredient not found');
+      if (!row) throw notFoundError('ingredientNotFound');
 
       // 帳上數量要拿交易內鎖定的值比，交易外讀到的可能已被出餐扣庫存蓋過
       if (
@@ -381,7 +363,7 @@ export class IngredientsService {
       .delete(ingredient)
       .where(eq(ingredient.id, ingredientId))
       .returning({ id: ingredient.id });
-    if (!deleted.length) throw new NotFoundException('Ingredient not found');
+    if (!deleted.length) throw notFoundError('ingredientNotFound');
   }
 
   async removeMany(organizationId: string, ids: string[]): Promise<void> {
@@ -397,8 +379,7 @@ export class IngredientsService {
             ),
           )
           .returning({ id: ingredient.id });
-        if (!deleted.length)
-          throw new NotFoundException('Ingredient not found');
+        if (!deleted.length) throw notFoundError('ingredientNotFound');
       }
     });
   }
@@ -418,7 +399,7 @@ export class IngredientsService {
           eq(supplier.organizationId, organizationId),
         ),
       );
-    if (!found) throw new NotFoundException('Supplier not found');
+    if (!found) throw notFoundError('supplierNotFound');
   }
 
   // PartialType 讓每個欄位都吃 @IsOptional，null 會跳過驗證直接清掉包裝規格
@@ -435,7 +416,7 @@ export class IngredientsService {
     )
       return;
 
-    throw new BadRequestException(this.t('packageRequired'));
+    throw badRequestError('packageRequired');
   }
 
   private assertCompatibleUnitCode({
@@ -445,7 +426,7 @@ export class IngredientsService {
     if (!eligibleQuantityUnitCode || !unitCode) return;
 
     if (!COMPATIBLE_UNIT_CODES[unitCode].includes(eligibleQuantityUnitCode)) {
-      throw new BadRequestException(this.t('packageUnitIncompatible'));
+      throw badRequestError('packageUnitIncompatible');
     }
   }
 }
