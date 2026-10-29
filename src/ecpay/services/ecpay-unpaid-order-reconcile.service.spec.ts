@@ -121,6 +121,46 @@ describe('EcpayUnpaidOrderReconcileService', () => {
     expect(cancelled(1)).toEqual([]);
   });
 
+  it('付款嘗試超過每輪額度的訂單分輪接著查較舊的，查到最舊那筆付了款', async () => {
+    const { cancelled, ordersService, queryTradeInfo, service } = setup(
+      [candidateOf('a', 25)],
+      ['a-24'],
+    );
+
+    await service.reconcileExpiredUnpaidOrders();
+    expect(queryTradeInfo).toHaveBeenCalledTimes(20);
+    expect(cancelled(0)).toEqual([]);
+
+    queryTradeInfo.mockClear();
+    await service.reconcileExpiredUnpaidOrders();
+
+    expect(queryTradeInfo.mock.calls.map(([no]) => no)).toEqual([
+      'a-20',
+      'a-21',
+      'a-22',
+      'a-23',
+      'a-24',
+    ]);
+    expect(ordersService.recordPaymentResult).toHaveBeenCalledWith(
+      expect.objectContaining({ MerchantTradeNo: 'a-24' }),
+    );
+    expect(cancelled(1)).toEqual([]);
+  });
+
+  it('付款嘗試超過每輪額度的訂單全部查過都沒付款才取消', async () => {
+    const { cancelled, queryTradeInfo, service } = setup([
+      candidateOf('a', 25),
+    ]);
+
+    await service.reconcileExpiredUnpaidOrders();
+    expect(cancelled(0)).toEqual([]);
+
+    await service.reconcileExpiredUnpaidOrders();
+    expect(cancelled(1)).toEqual(['a']);
+    expect(new Set(queryTradeInfo.mock.calls.map(([no]) => no)).size).toBe(25);
+    expect(queryTradeInfo).toHaveBeenCalledTimes(25);
+  });
+
   it('付款嘗試從新到舊查，查到已付款就停', async () => {
     const { queryTradeInfo, service } = setup([candidateOf('a', 5)], ['a-0']);
 

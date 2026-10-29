@@ -261,7 +261,7 @@
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
-    "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please place a new order or contact the store.",
+    "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
     "pickupTimeInvalid": "Please choose a valid pickup time",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",

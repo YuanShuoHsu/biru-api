@@ -32,6 +32,10 @@ export class EcpayUnpaidOrderReconcileService {
   private rateLimitedUntil = 0;
   private readonly failureCounts = new Map<string, number>();
   private readonly lastQueriedAt = new Map<string, number>();
+  private readonly checkedAttempts = new Map<
+    string,
+    Map<string, { logId: string; tradeStatus: string }>
+  >();
 
   constructor(
     private readonly ordersService: OrdersService,
@@ -62,6 +66,8 @@ export class EcpayUnpaidOrderReconcileService {
       if (!candidateIds.has(id)) this.failureCounts.delete(id);
     for (const id of this.lastQueriedAt.keys())
       if (!candidateIds.has(id)) this.lastQueriedAt.delete(id);
+    for (const id of this.checkedAttempts.keys())
+      if (!candidateIds.has(id)) this.checkedAttempts.delete(id);
 
     if (!candidates.length) return;
 
@@ -124,14 +130,15 @@ export class EcpayUnpaidOrderReconcileService {
     } of pendingQuery) {
       const budget = QUERY_LIMIT_PER_RUN - queried;
       if (budget <= 0) break;
-      if (queried > 0 && merchantTradeNos.length > budget) continue;
+      const checked = this.checkedAttempts.get(id) ?? new Map();
+      const unchecked = merchantTradeNos.filter((no) => !checked.has(no));
+      if (queried > 0 && unchecked.length > budget) continue;
 
-      const tradeNosToQuery = merchantTradeNos.slice(0, budget);
+      const tradeNosToQuery = unchecked.slice(0, budget);
+      this.checkedAttempts.set(id, checked);
       this.lastQueriedAt.set(id, Date.now());
 
       try {
-        const logIds: string[] = [];
-        const tradeStatuses: string[] = [];
         let recovered = false;
 
         // 新到舊逐筆查，任一次嘗試付了款就以那筆認列
@@ -152,6 +159,8 @@ export class EcpayUnpaidOrderReconcileService {
           });
 
           if (result.TradeStatus === ECPAY_TRADE_STATUS.Paid) {
+            this.checkedAttempts.delete(id);
+
             if (await this.recoverPaidOrder(result))
               await this.ecpayCallbackLogService.markHandled(logId);
 
@@ -160,16 +169,23 @@ export class EcpayUnpaidOrderReconcileService {
             break;
           }
 
-          logIds.push(logId);
-          tradeStatuses.push(result.TradeStatus);
+          checked.set(merchantTradeNo, {
+            logId,
+            tradeStatus: result.TradeStatus,
+          });
         }
 
         this.failureCounts.delete(id);
 
-        if (recovered) continue;
+        if (recovered || checked.size < merchantTradeNos.length) continue;
+
+        this.checkedAttempts.delete(id);
+        const logIds = [...checked.values()].map(({ logId }) => logId);
+        const tradeStatuses = [...checked.values()].map(
+          ({ tradeStatus }) => tradeStatus,
+        );
 
         if (
-          tradeNosToQuery.length === merchantTradeNos.length &&
           tradeStatuses.every((tradeStatus) =>
             this.shouldCancel(tradeStatus, paymentDeadline),
           )

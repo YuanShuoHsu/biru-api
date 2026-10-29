@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -15,6 +15,7 @@ import {
 
 describe('OrdersService.createPaymentAttempt', () => {
   let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: OrdersService;
 
   const attemptCount = async (orderId: string) =>
@@ -27,7 +28,7 @@ describe('OrdersService.createPaymentAttempt', () => {
 
   beforeAll(async () => {
     client = createPGlite();
-    const db = drizzle(client, { schema });
+    db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new OrdersService(
       db as unknown as DrizzleDB,
@@ -47,7 +48,8 @@ describe('OrdersService.createPaymentAttempt', () => {
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "order" (id, customer, mode, order_number, order_status, payment_method, confirmation_number, seller_id, subtotal, created_at) values
          ('o1', '{"name":"客人"}', 'counter', '1', 'OrderPaymentDue', 'Credit', 'c1', 'org', 100, now()),
-         ('o2', '{"name":"客人"}', 'counter', '2', 'OrderPaymentDue', 'Credit', 'c2', 'org', 100, now());`,
+         ('o2', '{"name":"客人"}', 'counter', '2', 'OrderPaymentDue', 'Credit', 'c2', 'org', 100, now()),
+         ('o3', '{"name":"客人"}', 'counter', '3', 'OrderPaymentDue', 'Credit', 'c3', 'org', 100, now());`,
     );
   }, 60_000);
 
@@ -68,5 +70,24 @@ describe('OrdersService.createPaymentAttempt', () => {
       service.createPaymentAttempt('o2', null),
     ).resolves.toMatchObject({ confirmationNumber: 'c2' });
     expect(await attemptCount('o2')).toBe(1);
+  });
+
+  it('讀到訂單後才被付款通知改成已付款時，不建立付款嘗試', async () => {
+    const findFirst = db.query.order.findFirst.bind(db.query.order);
+    const spy = vi
+      .spyOn(db.query.order, 'findFirst')
+      .mockImplementationOnce(async (config) => {
+        const found = await findFirst(config);
+        await client.query(
+          `update "order" set order_status = 'OrderProcessing' where id = 'o3'`,
+        );
+        return found;
+      });
+
+    await expect(service.createPaymentAttempt('o3', null)).rejects.toThrow(
+      new BadRequestException('common.orders.notAwaitingPayment'),
+    );
+    expect(await attemptCount('o3')).toBe(0);
+    spy.mockRestore();
   });
 });

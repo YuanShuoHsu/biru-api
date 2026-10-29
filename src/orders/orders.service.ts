@@ -1135,20 +1135,20 @@ export class OrdersService {
       found.pickupTime,
       found.seller.pickupLeadMinutes,
     );
-    if (
-      found.orderStatus !== 'OrderPaymentDue' ||
-      Date.now() > deadline.getTime()
-    )
-      throw new BadRequestException(this.t('notAwaitingPayment'));
 
     const merchantTradeNo = generateMerchantTradeNo();
 
     await this.db.transaction(async (tx) => {
-      await tx
-        .select({ id: order.id })
+      const [locked] = await tx
+        .select({ orderStatus: order.orderStatus })
         .from(order)
         .where(eq(order.id, orderId))
         .for('update');
+      if (
+        locked?.orderStatus !== 'OrderPaymentDue' ||
+        Date.now() > deadline.getTime()
+      )
+        throw new BadRequestException(this.t('notAwaitingPayment'));
 
       const [{ attempts }] = await tx
         .select({ attempts: count() })
