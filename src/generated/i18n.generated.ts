@@ -253,6 +253,7 @@ export type I18nTranslations = {
         "menus": {
             "addOnMenuSectionNotFound": string;
             "addOnSelf": string;
+            "addOnTargetRequired": string;
             "fixedSweetnessLevelRequired": string;
             "menuItemNotFound": string;
             "menuSectionNotFound": string;
