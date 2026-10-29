@@ -632,6 +632,10 @@ export type I18nTranslations = {
         };
     };
     "validation": {
+        "invoiceCertificate": string;
+        "invoiceCustomerIdentifier": string;
+        "invoiceDonateCode": string;
+        "invoiceMobileBarcode": string;
         "isEmail": string;
         "isNotEmpty": string;
         "isNumber": string;

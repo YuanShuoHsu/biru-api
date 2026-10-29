@@ -63,6 +63,7 @@ import {
 import {
   IN_FLIGHT_PRINT_JOB_STATUSES,
   toActiveInvoice,
+  toInvoiceBuyer,
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
@@ -614,14 +615,8 @@ export class OrdersService {
                 .values({
                   id: randomUUID(),
                   orderId,
-                  type: dto.invoice.type,
-                  carrierType: dto.invoice.carrierType,
-                  carrierNum: dto.invoice.carrierNum,
                   email: dto.invoice.email,
-                  customerIdentifier: dto.invoice.customerIdentifier,
-                  customerName: dto.invoice.customerName,
-                  customerAddr: dto.invoice.customerAddr,
-                  donateCode: dto.invoice.donateCode,
+                  ...toInvoiceBuyer(dto.invoice),
                 })
                 .returning()
             : [null];
