@@ -201,6 +201,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "The add-on section wasn't found. It may have been deleted",
     "addOnSelf": "An add-on can't be the item itself",
+    "addOnTargetRequired": "An add-on needs exactly one item or one category",
     "fixedSweetnessLevelRequired": "Please choose a fixed sweetness level when sweetness is fixed",
     "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "menuSectionNotFound": "The section wasn't found. It may have been deleted",

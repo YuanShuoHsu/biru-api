@@ -201,6 +201,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "追加セクションが見つかりません。削除された可能性があります",
     "addOnSelf": "追加購入商品に商品自身は指定できません",
+    "addOnTargetRequired": "追加購入には商品かカテゴリをどちらか一つだけ指定してください",
     "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",

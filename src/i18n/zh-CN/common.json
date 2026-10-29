@@ -201,6 +201,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "找不到这个加购分组，可能已被删除",
     "addOnSelf": "加购品项不能是品项本身",
+    "addOnTargetRequired": "加购要指定一个品项或一个分类，只能择一",
     "fixedSweetnessLevelRequired": "甜度设为固定时，请选择固定甜度",
     "menuItemNotFound": "找不到这个品项，可能已被删除",
     "menuSectionNotFound": "找不到这个分类，可能已被删除",

@@ -571,7 +571,10 @@ export class AiConfigDto {
   @ApiPropertyOptional({
     description: 'claude_api 必填：每月 AI 費用上限（美元），超過就停止機器人',
   })
-  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
+  @ValidateIf(
+    (config: AiConfigDto, value) =>
+      config.source === 'claude_api' || value !== undefined,
+  )
   @IsNumber()
   @IsPositive()
   monthlyCostLimit?: number;
