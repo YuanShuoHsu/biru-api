@@ -74,7 +74,6 @@ import {
   type GridCheckResultDto,
   type GridConfigDto,
   type GridOperationDto,
-  type IndicatorConditionDto,
   type IndicatorConfigDto,
   futuresMarginOf,
   type FuturesPositionConfigDto,
@@ -108,6 +107,7 @@ import {
   type WebhookSignalDto,
 } from '../dto/quant-bot.dto.js';
 import { SpotAccount } from '../engine/account.js';
+import { isConditionComplete } from '../engine/strategies/indicator-conditions.js';
 import { FUNDING_EVENT, toBotFill } from '../engine/bot-store.js';
 import { FuturesAccount } from '../engine/futures-account.js';
 import { toDecimalString } from '../engine/precision.js';
@@ -1932,7 +1932,7 @@ export class QuantBotsService {
         if (config.orderAmount > investment * leverage)
           this.invalid('orderAmountAboveInvestment');
         for (const condition of [...config.entry, ...config.exit])
-          if (!this.conditionComplete(condition))
+          if (!isConditionComplete(condition))
             this.invalid('indicatorConditionIncomplete');
         return;
       }
@@ -1944,27 +1944,6 @@ export class QuantBotsService {
           this.invalid('orderAmountAboveInvestment');
         return;
       }
-    }
-  }
-
-  private conditionComplete(condition: IndicatorConditionDto) {
-    switch (condition.kind) {
-      case 'rsi':
-        return (
-          condition.operator !== undefined && condition.value !== undefined
-        );
-      case 'maCross':
-      case 'emaCross':
-        return (
-          condition.fast !== undefined &&
-          condition.slow !== undefined &&
-          condition.fast < condition.slow &&
-          condition.direction !== undefined
-        );
-      case 'macdCross':
-        return condition.direction !== undefined;
-      case 'bollinger':
-        return condition.band !== undefined;
     }
   }
 
