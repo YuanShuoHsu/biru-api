@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { asc, eq, inArray, isNull } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type Language,
@@ -121,7 +121,6 @@ export class PublicMenusService {
         with: {
           organization: { columns: { currency: true } },
           menuSections: {
-            where: isNull(menuSection.parentSectionId),
             orderBy: [asc(menuSection.sortOrder)],
             with: {
               menuItems: {
