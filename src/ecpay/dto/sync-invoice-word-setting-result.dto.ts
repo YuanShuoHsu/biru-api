@@ -15,7 +15,7 @@ export const toInvoiceTerm = (value: number): InvoiceTerm => {
   return found;
 };
 
-export const SYNC_INVOICE_WORD_SETTING_OUTCOMES = [
+const SYNC_INVOICE_WORD_SETTING_OUTCOMES = [
   'added',
   'enabled',
   'failed',

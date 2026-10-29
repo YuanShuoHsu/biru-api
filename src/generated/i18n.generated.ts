@@ -222,7 +222,6 @@ export type I18nTranslations = {
         };
         "inventory": {
             "ingredientNotFound": string;
-            "menuItemNotFound": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;
@@ -233,6 +232,7 @@ export type I18nTranslations = {
         "invoices": {
             "allowanceIssued": string;
             "alreadyIssuing": string;
+            "customerNameRequiresIdentifier": string;
             "notIssued": string;
             "notPaid": string;
             "notPending": string;
@@ -313,6 +313,7 @@ export type I18nTranslations = {
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
             "orderTotalTooLarge": string;
+            "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
             "pickupTimeInvalid": string;
             "pickupTooCloseToClosing": string;
@@ -400,6 +401,10 @@ export type I18nTranslations = {
         "reports": {
             "rangeInvalid": string;
             "rangeTooLong": string;
+        };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
         };
         "waitlist": {
             "guest": {
@@ -632,6 +637,10 @@ export type I18nTranslations = {
         };
     };
     "validation": {
+        "invoiceCertificate": string;
+        "invoiceCustomerIdentifier": string;
+        "invoiceDonateCode": string;
+        "invoiceMobileBarcode": string;
         "isEmail": string;
         "isNotEmpty": string;
         "isNumber": string;

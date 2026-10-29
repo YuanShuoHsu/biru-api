@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import {
@@ -19,7 +14,7 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
@@ -30,7 +25,6 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -42,7 +36,7 @@ import {
 } from '../db/schema/inventory.js';
 import { menu, menuItem, offer } from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
 
 import {
   CreateRecipeDto,
@@ -66,7 +60,7 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
-import { notFoundError } from './inventory-errors.js';
+import { conflictError, notFoundError } from './inventory-errors.js';
 import { unitPriceOf, unitPriceSql } from './pricing.js';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding.js';
 
@@ -81,19 +75,10 @@ const PURCHASING_FIELDS: string[] = ['unitPrice', 'cost'];
 
 @Injectable()
 export class RecipesService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
-
-  private t(key: keyof I18nTranslations['common']['inventory']): string {
-    return this.i18n.t(`common.inventory.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: RecipePaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: RecipeResponseDto[]; total: number }> {
@@ -108,10 +93,6 @@ export class RecipesService {
       sortBy,
       sortDirection = 'asc',
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
       recipeYield: recipe.recipeYield,
@@ -212,13 +193,9 @@ export class RecipesService {
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     dto: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
     await this.assertMenuItemInOrganization(organizationId, dto.menuItemId);
 
     const created = await this.db.transaction(async (tx) => {
@@ -401,7 +378,7 @@ export class RecipesService {
           eq(menu.organizationId, organizationId),
         ),
       );
-    if (!found) throw notFoundError('menuItemNotFound');
+    if (!found) throw menuNotFoundError('menuItemNotFound');
   }
 
   private async assertIngredientInRecipeOrganization(
@@ -437,7 +414,7 @@ export class RecipesService {
       );
 
     if (duplicates.some(({ id }) => id !== exceptId)) {
-      throw new ConflictException(this.t('recipeIngredientExists'));
+      throw conflictError('recipeIngredientExists');
     }
   }
 
@@ -446,7 +423,7 @@ export class RecipesService {
       return await write();
     } catch (error) {
       if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-        throw new ConflictException(this.t('recipeIngredientExists'));
+        throw conflictError('recipeIngredientExists');
       throw error;
     }
   }

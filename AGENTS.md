@@ -32,6 +32,8 @@ To run a single test file:
 pnpm vitest run src/payroll/payroll.service.spec.ts
 ```
 
+Branch from `develop` and open every PR against `develop`. GitHub's default branch is `master`, so set the base explicitly (`gh pr create --base develop`): a PR merged only into `master` never reaches `develop`, so work branched from `develop` misses it and conflicts when `master` is merged back.
+
 ## Architecture
 
 **Biru Coffee** is a multi-language coffee shop management API (NestJS 12, TypeScript, PostgreSQL).
@@ -73,6 +75,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | InventoryModule      | `src/inventory/`       | Suppliers, ingredients, recipes, stock transactions, low-stock alerts                                  |
 | WaitlistModule       | `src/waitlist/`        | Waitlist settings and tickets                                                                          |
 | PrintersModule       | `src/printers/`        | Receipt printers and order ticket print jobs (imported by OrdersModule and EcpayModule, not AppModule) |
+| StoreLayoutModule    | `src/store-layout/`    | Per-store 3D floor plan: equipment items, dine-in tables and seats (platform admin)                    |
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
@@ -101,6 +104,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
+- `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables
 - `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
@@ -205,7 +209,8 @@ A shift without a break keeps its whole span as working time.
 
 Menu entities (menus, sections, items, modifiers) store localized copy as `jsonb` typed with
 `LocalizedText` — `Partial<Record<Language, string>>`, i.e. `{ en, ja, ko, "zh-CN", "zh-TW" }`,
-defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` with `@IsObject()` (see
+defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` with `@IsLocalizedText()`
+(`src/common/decorators/`, which only accepts the five language keys with string values; see
 `src/menus/dto/create-menu.dto.ts`), and every DTO documents them with `type: LocalizedTextDto`
 (`src/common/dto/`) so codegen does not emit `Record<string, never>`.
 
@@ -283,10 +288,10 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
 - Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous order,
-  waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle` on the named
-  `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it every caller
-  shares one bucket, so those limits would throttle the whole platform. The named throttlers are unlimited unless a
-  route overrides them, and their `skipIf` also drops the route's override
+  ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle`
+  on the named `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it
+  every caller shares one bucket, so those limits would throttle the whole platform. The named throttlers are
+  unlimited unless a route overrides them, and their `skipIf` also drops the route's override
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
   list of proxy addresses/CIDRs or proxy-addr presets. **Never `true` or a hop count.** `true`
   makes `req.ip` the leftmost `X-Forwarded-For` entry, i.e. whatever the caller claims, so any
@@ -347,6 +352,8 @@ before better-auth.
 - `// drizzle 會把 pg 錯誤包成 DrizzleQueryError，原始錯誤碼在 cause` (framework trap)
 
 The test: delete it. Would a competent editor now make a wrong change? If the honest answer is only "會比較難懂", leave it deleted.
+
+**Exception: official documentation links are wanted.** When code follows a specific page of the official docs — a library (Next.js, MUI, better-auth, Drizzle, NestJS, …), an external API spec (ECPay, data.gov.tw, …) or a regulation (law.moj.gov.tw) — put a `// https://…` link to that page above the code, or at the top of the file when the whole file follows it, pointing at the installed version when the site versions its docs. Keep existing links (unless the user removed that link); when the code no longer follows the linked page, fix or delete the link in the same change. Links don't count toward the one-or-two-comments signal below.
 
 Never write:
 

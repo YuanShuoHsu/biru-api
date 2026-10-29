@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "식자재를 찾을 수 없습니다. 삭제되었을 수 있습니다",
-    "menuItemNotFound": "품목을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "packageRequired": "내용량, 내용량 단위, 가격, 재고 단위는 모두 입력해야 하며 비울 수 없습니다",
     "packageUnitIncompatible": "내용량 단위와 재고 단위가 호환되지 않습니다",
     "recipeIngredientExists": "이미 추가된 재료입니다",
@@ -181,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "이 세금계산서는 에누리가 발행되어 취소할 수 없습니다",
     "alreadyIssuing": "이 세금계산서는 발행 처리 중입니다. 잠시 후 다시 시도하세요",
+    "customerNameRequiresIdentifier": "개인 또는 기부 세금계산서는 사업자 번호와 함께 입력해야 구매자 상호를 정정할 수 있습니다",
     "notIssued": "이 세금계산서는 아직 발행되지 않았습니다",
     "notPaid": "주문이 결제되지 않아 세금계산서를 발행할 수 없습니다",
     "notPending": "이 세금계산서는 {status} 상태여서 발행할 수 없습니다",
@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "notAwaitingPayment": "결제 기한이 지났거나 상태가 변경되어 이 주문은 결제할 수 없습니다",
     "orderTotalTooLarge": "주문 금액이 한도를 초과했습니다. 품목을 줄이거나 주문을 나눠 주세요",
+    "paymentAttemptsExhausted": "이 주문은 결제 시도 횟수 한도에 도달했습니다. 매장에 문의하시거나 결제 기한이 지나 주문이 자동 취소될 때까지 기다려 주세요",
     "pickupOutsideOpeningHours": "이 픽업 시간은 매장 영업시간이 아닙니다. 다른 시간을 선택하세요",
     "pickupTimeInvalid": "유효한 픽업 시간을 선택하세요",
     "pickupTooCloseToClosing": "이 픽업 시간은 마감 시간에 너무 가깝습니다. 다른 시간을 선택하세요",
@@ -348,6 +349,10 @@
   "reports": {
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
     "rangeTooLong": "보고서 기간은 최대 366일입니다."
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",
+    "notFound": "이 매장에는 아직 평면도가 없습니다."
   },
   "waitlist": {
     "guest": {

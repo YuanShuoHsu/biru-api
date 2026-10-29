@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "找不到这项食材，可能已被删除",
-    "menuItemNotFound": "找不到这个品项，可能已被删除",
     "packageRequired": "内容量、内容量单位、价格与库存单位须一并填写，不能清空",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
     "recipeIngredientExists": "这项材料已经加入过了",
@@ -181,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "此发票已开立折让，无法作废",
     "alreadyIssuing": "这张发票正在开立中，请稍后再试",
+    "customerNameRequiresIdentifier": "个人或捐赠发票须同时填写统一编号，才能更正买受人抬头",
     "notIssued": "此发票尚未开立",
     "notPaid": "订单尚未付款，无法开立发票",
     "notPending": "此发票目前为{status}，无法开立",
@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」不适用此点餐方式",
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
     "orderTotalTooLarge": "订单金额超过上限，请减少品项或分开下单",
+    "paymentAttemptsExhausted": "这张订单的付款次数已达上限，请咨询门店，或等待订单超时自动取消",
     "pickupOutsideOpeningHours": "这个取餐时间不在门店营业时间内，请重新选择",
     "pickupTimeInvalid": "请选择有效的取餐时间",
     "pickupTooCloseToClosing": "这个取餐时间太接近打烊，请重新选择",
@@ -348,6 +349,10 @@
   "reports": {
     "rangeInvalid": "结束时间必须晚于开始时间。",
     "rangeTooLong": "报表区间最多 366 天。"
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
+    "notFound": "这家门店还没有平面图。"
   },
   "waitlist": {
     "guest": {

@@ -94,6 +94,13 @@ const EARN_VALIDITY_YEARS = earnedFromSnapshotOr<number | null>(
   pointSetting.pointsValidityYears,
 );
 
+// 未付款訂單付款時才快照目前設定，所以預估用目前設定
+const EXPECTED_AMOUNT_PER_POINT = sql<
+  string | null
+>`CASE WHEN ${order.paymentDate} IS NULL THEN ${pointSetting.amountPerPoint} ELSE ${EARN_AMOUNT_PER_POINT} END`;
+
+const EARN_SUBTOTAL = sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`;
+
 const toExpiresAt = (
   paymentDate: Date,
   validityYears: number | null,
@@ -175,7 +182,7 @@ export class PointsService {
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
         pointsValidityYears: EARN_VALIDITY_YEARS,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
@@ -395,7 +402,7 @@ export class PointsService {
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
         pointsValidityYears: EARN_VALIDITY_YEARS,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
@@ -420,6 +427,38 @@ export class PointsService {
       ),
       userId: found.userId,
     };
+  }
+
+  async expectedPoints(orderIds: string[]): Promise<Map<string, number>> {
+    if (orderIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        amountPerPoint: EXPECTED_AMOUNT_PER_POINT,
+        discount: order.discount,
+        orderId: order.id,
+        subtotal: EARN_SUBTOTAL,
+      })
+      .from(order)
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
+      .leftJoin(orderItem, eq(orderItem.orderId, order.id))
+      .where(
+        and(
+          inArray(order.id, orderIds),
+          isNotNull(order.userId),
+          notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+        ),
+      )
+      .groupBy(order.id, pointSetting.id);
+
+    return new Map(
+      rows
+        .filter((row) => Number(row.amountPerPoint) > 0)
+        .map((row) => [
+          row.orderId,
+          earnedPoints(row.subtotal, row.discount, row.amountPerPoint),
+        ]),
+    );
   }
 
   private notExpired() {

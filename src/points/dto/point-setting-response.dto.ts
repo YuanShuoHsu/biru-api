@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 
 export class PointSettingResponseDto {
   @ApiProperty() id: string;
@@ -9,4 +9,11 @@ export class PointSettingResponseDto {
   @ApiProperty({ nullable: true, type: String })
   accountingValuePerPoint: string | null;
   @ApiProperty() updatedAt: Date;
+}
+
+export class PublicPointSettingResponseDto extends PickType(
+  PointSettingResponseDto,
+  ['amountPerPoint', 'pointsValidityYears'] as const,
+) {
+  @ApiProperty() enabled: boolean;
 }

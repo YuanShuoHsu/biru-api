@@ -11,6 +11,7 @@ import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
 import type { MenuStockService } from '../inventory/menu-stock.service.js';
+import type { PointsService } from '../points/points.service.js';
 
 import {
   findTransition,
@@ -262,6 +263,7 @@ const createService = ({
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       menuStock as unknown as MenuStockService,
       {} as PrepEstimateService,
+      {} as PointsService,
     ),
     sets,
   };

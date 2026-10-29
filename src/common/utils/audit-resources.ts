@@ -38,6 +38,7 @@ import {
 import { pointSetting, pointTransaction } from '../../db/schema/points.js';
 import { printer } from '../../db/schema/printers.js';
 import { refund } from '../../db/schema/refunds.js';
+import { storeLayout } from '../../db/schema/store-layout.js';
 import { storePhoto } from '../../db/schema/store-photos.js';
 import { user } from '../../db/schema/users.js';
 import { waitlistSetting, waitlistTicket } from '../../db/schema/waitlist.js';
@@ -92,11 +93,13 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   recipeIngredient,
   refund,
   specialHours: organizationSpecialHours,
+  storeLayout,
   waitlistSetting,
 };
 
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
   orderQrSecret: 'organizationId',
+  storeLayout: 'organizationId',
   waitlistSetting: 'organizationId',
 };
 

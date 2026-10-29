@@ -1,12 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import {
-  IsArray,
-  IsEnum,
-  IsNumberString,
-  IsObject,
-  IsOptional,
-} from 'class-validator';
+import { IsArray, IsEnum, IsNumberString, IsOptional } from 'class-validator';
+import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
@@ -18,7 +13,7 @@ import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 export class UpdateModifierDto {
   @ApiPropertyOptional({ type: LocalizedTextDto, description: '選項名稱' })
   @IsOptional()
-  @IsObject()
+  @IsLocalizedText()
   displayName?: LocalizedText;
 
   @ApiPropertyOptional({

@@ -1716,6 +1716,13 @@
       "when": 1793179482575,
       "tag": "0244_order_ready_at",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1793222190636,
+      "tag": "0245_store_layout",
+      "breakpoints": true
     }
   ]
 }

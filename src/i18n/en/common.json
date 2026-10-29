@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
-    "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "recipeIngredientExists": "This ingredient has already been added",
@@ -181,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "This invoice already has a credit note and cannot be voided",
     "alreadyIssuing": "This invoice is currently being issued. Please try again shortly",
+    "customerNameRequiresIdentifier": "A buyer name can only be corrected together with a tax ID number on a personal or donated invoice",
     "notIssued": "This invoice has not been issued yet",
     "notPaid": "The order has not been paid, so no invoice can be issued",
     "notPending": "This invoice is {status} and cannot be issued",
@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
+    "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
     "pickupTimeInvalid": "Please choose a valid pickup time",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",
@@ -348,6 +349,10 @@
   "reports": {
     "rangeInvalid": "The end time must be later than the start time.",
     "rangeTooLong": "The report can cover at most 366 days."
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
+    "notFound": "This store has no floor plan yet."
   },
   "waitlist": {
     "guest": {

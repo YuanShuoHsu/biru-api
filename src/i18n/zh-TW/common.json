@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
-    "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "packageRequired": "內容量、內容量單位、價格與庫存單位須一併填寫，不能清空",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "recipeIngredientExists": "這項材料已經加入過了",
@@ -181,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "此發票已開立折讓，無法作廢",
     "alreadyIssuing": "這張發票正在開立中，請稍候再試",
+    "customerNameRequiresIdentifier": "個人或捐贈發票須同時填寫統一編號，才能更正買受人抬頭",
     "notIssued": "此發票尚未開立",
     "notPaid": "訂單尚未付款，無法開立發票",
     "notPending": "此發票目前為{status}，無法開立",
@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
+    "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
     "pickupTimeInvalid": "請選擇有效的取餐時間",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
@@ -348,6 +349,10 @@
   "reports": {
     "rangeInvalid": "結束時間必須晚於開始時間。",
     "rangeTooLong": "報表區間最多 366 天。"
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "桌號 {tableNumber} 重複了。",
+    "notFound": "這家門市還沒有平面圖。"
   },
   "waitlist": {
     "guest": {
