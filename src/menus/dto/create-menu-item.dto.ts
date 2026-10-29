@@ -12,7 +12,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
-import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
+import {
+  IsLocalizedText,
+  IsCompleteLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
@@ -48,11 +51,13 @@ export class CreateMenuItemDto {
     example: { 'zh-TW': '拿鐵', en: 'Latte' },
   })
   @IsLocalizedText()
+  @IsCompleteLocalizedText()
   name: LocalizedText;
 
   @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   @IsOptional()
   @IsLocalizedText()
+  @IsCompleteLocalizedText()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   description?: LocalizedText | null;
 

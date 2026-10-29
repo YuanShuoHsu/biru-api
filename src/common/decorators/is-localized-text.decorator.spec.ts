@@ -5,9 +5,15 @@ import {
   CreateRecipeDto,
   UpdateRecipeDto,
 } from '../../inventory/dto/create-recipe.dto.js';
+import { languagesEnum } from '../../db/schema/enums.js';
 import { CreateMenuDto } from '../../menus/dto/create-menu.dto.js';
 
 const validationOptions = { forbidNonWhitelisted: true, whitelist: true };
+
+const fullText = (text: string) =>
+  Object.fromEntries(
+    languagesEnum.enumValues.map((language) => [language, text]),
+  );
 
 const errorsOf = async (
   dto: typeof CreateMenuDto | typeof CreateRecipeDto,
@@ -20,7 +26,7 @@ const errorsOf = async (
 describe('IsLocalizedText', () => {
   it('接受只填部分語系的字串物件，值保持原本的物件', async () => {
     const name = { en: 'Lunch', 'zh-TW': '午餐' };
-    const dto = plainToInstance(CreateMenuDto, { name });
+    const dto = plainToInstance(CreateRecipeDto, { name });
 
     expect(await validate(dto, validationOptions)).toEqual([]);
     expect(dto.name).toEqual(name);
@@ -42,7 +48,7 @@ describe('IsLocalizedText', () => {
   it('選填欄位全空時轉成 null 並通過', async () => {
     const dto = plainToInstance(CreateMenuDto, {
       description: { en: '', 'zh-TW': ' ' },
-      name: { 'zh-TW': '午餐' },
+      name: fullText('午餐'),
     });
 
     expect(dto.description).toBeNull();
@@ -82,13 +88,13 @@ describe('IsLocalizedText', () => {
     expect(
       await errorsOf(CreateMenuDto, {
         description: { fr: '' },
-        name: { 'zh-TW': '午餐' },
+        name: fullText('午餐'),
       }),
     ).toEqual(['description']);
     expect(
       await errorsOf(CreateMenuDto, {
         description: { 'zh-TW': null },
-        name: { 'zh-TW': '午餐' },
+        name: fullText('午餐'),
       }),
     ).toEqual(['description']);
   });

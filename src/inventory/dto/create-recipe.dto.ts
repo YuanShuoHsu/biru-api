@@ -10,7 +10,10 @@ import {
   Min,
 } from 'class-validator';
 
-import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
+import {
+  IsLocalizedText,
+  IsRequiredLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
@@ -20,6 +23,7 @@ export class CreateRecipeDto {
     example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' },
   })
   @IsLocalizedText()
+  @IsRequiredLocalizedText()
   name: LocalizedText;
 
   @ApiPropertyOptional({

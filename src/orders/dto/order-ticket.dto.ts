@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
@@ -13,6 +14,7 @@ import {
   type OrderTicketKind,
 } from '../../db/schema/printers.js';
 import { PrintJobDto, PrinterDto } from '../../printers/dto/printer.dto.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class OrderTicketJobDto extends PrintJobDto {
   @ApiProperty({
@@ -34,6 +36,7 @@ export class CreateOrderTicketPrinterDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @Transform(trim)
   name: string;
 }
 

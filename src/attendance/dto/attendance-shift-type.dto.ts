@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
@@ -10,6 +11,7 @@ import {
 } from 'class-validator';
 
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
+import { trim } from '../../common/utils/trim.js';
 
 export const ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS = [
   'name',
@@ -46,7 +48,7 @@ export class AttendanceShiftTypePaginationQueryDto extends PaginationQueryDto {
 const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export class SaveAttendanceShiftTypeDto {
-  @IsString() @MinLength(1) @MaxLength(50) name: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(50) name: string;
   @ApiProperty({ description: '店家時區的 HH:mm', example: '09:00' })
   @Matches(TIME_OF_DAY)
   startTime: string;

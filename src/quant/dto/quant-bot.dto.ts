@@ -34,6 +34,7 @@ import {
   PIONEX_KLINE_INTERVALS,
   type PionexKlineInterval,
 } from '../pionex/pionex.types.js';
+import { trim } from '../../common/utils/trim.js';
 
 export const QUANT_BOT_TYPES = [
   'grid',
@@ -128,9 +129,6 @@ export const executorOf = ({
   (type === 'grid' || type === 'futures_grid' || type === 'signal')
     ? 'pionex'
     : 'engine';
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class GridStopDto {
   @ApiProperty({ enum: GRID_STOP_TYPES, enumName: 'QuantGridStopType' })
