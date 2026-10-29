@@ -5,17 +5,7 @@ import {
 } from 'class-validator';
 
 import { languagesEnum } from '../../db/schema/enums.js';
-
-const languages: readonly string[] = languagesEnum.enumValues;
-
-export const isLocalizedText = (value: unknown): boolean =>
-  typeof value === 'object' &&
-  value !== null &&
-  !Array.isArray(value) &&
-  Object.entries(value).every(
-    ([language, text]) =>
-      languages.includes(language) && typeof text === 'string',
-  );
+import { isLocalizedText } from '../utils/localized-text.js';
 
 export const IsLocalizedText = (validationOptions?: ValidationOptions) =>
   ValidateBy(
@@ -25,7 +15,7 @@ export const IsLocalizedText = (validationOptions?: ValidationOptions) =>
         validate: isLocalizedText,
         defaultMessage: buildMessage(
           (eachPrefix) =>
-            `${eachPrefix}$property must map language codes (${languages.join(', ')}) to strings`,
+            `${eachPrefix}$property must map language codes (${languagesEnum.enumValues.join(', ')}) to strings`,
           validationOptions,
         ),
       },

@@ -1,7 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
-import { CreateRecipeDto } from '../../inventory/dto/create-recipe.dto.js';
+import {
+  CreateRecipeDto,
+  UpdateRecipeDto,
+} from '../../inventory/dto/create-recipe.dto.js';
 import { CreateMenuDto } from '../../menus/dto/create-menu.dto.js';
 
 const validationOptions = { forbidNonWhitelisted: true, whitelist: true };
@@ -59,5 +62,34 @@ describe('IsLocalizedText', () => {
         recipeInstructions: [{ 'zh-TW': '泡軟' }, '攪拌', { ja: 5 }],
       }),
     ).toEqual(['recipeInstructions']);
+  });
+
+  it.each([[['泡軟']], [[1]], [[null]], [[['泡軟']]], [[{ fr: '泡軟' }]]])(
+    '陣列裡任一項不是語系字串物件就拒絕：%j',
+    async (recipeInstructions) => {
+      const name = { 'zh-TW': '抹茶奶酪' };
+
+      expect(
+        await errorsOf(CreateRecipeDto, { name, recipeInstructions }),
+      ).toEqual(['recipeInstructions']);
+      expect(await errorsOf(UpdateRecipeDto, { recipeInstructions })).toEqual([
+        'recipeInstructions',
+      ]);
+    },
+  );
+
+  it('選填欄位只有合法的空白語系物件才轉成 null，其他空值照樣拒絕', async () => {
+    expect(
+      await errorsOf(CreateMenuDto, {
+        description: { fr: '' },
+        name: { 'zh-TW': '午餐' },
+      }),
+    ).toEqual(['description']);
+    expect(
+      await errorsOf(CreateMenuDto, {
+        description: { 'zh-TW': null },
+        name: { 'zh-TW': '午餐' },
+      }),
+    ).toEqual(['description']);
   });
 });
