@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
-    "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "packageRequired": "内容量、内容量の単位、価格、在庫単位はすべて入力が必要で、空にできません",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "recipeIngredientExists": "この材料はすでに追加されています",

@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
-    "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "packageRequired": "內容量、內容量單位、價格與庫存單位須一併填寫，不能清空",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "recipeIngredientExists": "這項材料已經加入過了",

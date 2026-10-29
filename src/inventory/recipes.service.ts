@@ -37,6 +37,7 @@ import {
 } from '../db/schema/inventory.js';
 import { menu, menuItem, offer } from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
 
 import {
   CreateRecipeDto,
@@ -386,7 +387,7 @@ export class RecipesService {
           eq(menu.organizationId, organizationId),
         ),
       );
-    if (!found) throw notFoundError('menuItemNotFound');
+    if (!found) throw menuNotFoundError('menuItemNotFound');
   }
 
   private async assertIngredientInRecipeOrganization(
