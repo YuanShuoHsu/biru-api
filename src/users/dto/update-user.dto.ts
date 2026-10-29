@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
@@ -7,6 +7,7 @@ import {
   IsEnum,
   IsNotEmpty,
   IsOptional,
+  IsString,
   IsUrl,
 } from 'class-validator';
 import {
@@ -16,7 +17,7 @@ import {
 } from '../../db/schema/enums.js';
 
 export class UpdateUserDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '生日',
     example: '2024-04-04',
     format: 'date',
@@ -27,7 +28,7 @@ export class UpdateUserDto {
   @Type(() => Date)
   birthDate?: Date;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '是否訂閱電子報',
     example: true,
   })
@@ -35,12 +36,13 @@ export class UpdateUserDto {
   @IsOptional()
   emailSubscribed?: boolean;
 
-  @ApiProperty({ description: '名', example: 'Coffee' })
+  @ApiPropertyOptional({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
   @IsOptional()
+  @IsString()
   firstName?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '性別',
     enum: gendersEnum.enumValues,
     example: DEFAULT_GENDER,
@@ -50,7 +52,7 @@ export class UpdateUserDto {
   @IsOptional()
   gender?: Gender;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '頭像 URL',
     example: 'https://example.com/avatar.png',
   })
@@ -59,15 +61,17 @@ export class UpdateUserDto {
   @IsUrl()
   image?: string;
 
-  @ApiProperty({ description: '姓', example: 'Biru' })
+  @ApiPropertyOptional({ description: '姓', example: 'Biru' })
   @IsOptional()
+  @IsString()
   lastName?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '聯絡電話（E.164 格式）',
     example: '+886912345678',
   })
   @IsNotEmpty()
   @IsOptional()
+  @IsString()
   phoneNumber?: string;
 }
