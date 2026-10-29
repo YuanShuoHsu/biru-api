@@ -11,6 +11,7 @@ export type I18nTranslations = {
         "EMAIL_ALREADY_VERIFIED": string;
         "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
+        "FIRST_NAME_REQUIRED": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
         "INVALID_PASSWORD": string;
         "INVALID_SESSION_TOKEN": string;

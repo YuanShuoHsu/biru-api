@@ -13,7 +13,10 @@ export const normalizeUserFields = <T extends Record<string, unknown>>(
   if ('firstName' in data) {
     const { firstName } = data;
     if (typeof firstName !== 'string' || !firstName.trim())
-      throw new APIError('BAD_REQUEST', { message: 'firstName is required' });
+      throw new APIError('BAD_REQUEST', {
+        code: 'FIRST_NAME_REQUIRED',
+        message: 'firstName is required',
+      });
 
     data.firstName = firstName.trim();
   }
