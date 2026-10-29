@@ -345,6 +345,10 @@
     "quantityExceeded": "「{name}」只剩 {remaining} 份可退",
     "resultUnknown": "退款已送出但綠界尚未回覆結果，請勿重複操作。系統會自動核對，確認後這筆退款會更新狀態。"
   },
+  "reports": {
+    "rangeInvalid": "結束時間必須晚於開始時間。",
+    "rangeTooLong": "報表區間最多 366 天。"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "目前非營業時間，暫不開放取號。",

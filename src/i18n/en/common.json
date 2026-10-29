@@ -345,6 +345,10 @@
     "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded",
     "resultUnknown": "The refund was submitted but ECPay has not confirmed the result. Do not retry — the system will reconcile it automatically and update this refund once confirmed."
   },
+  "reports": {
+    "rangeInvalid": "The end time must be later than the start time.",
+    "rangeTooLong": "The report can cover at most 366 days."
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "We're closed right now, so the waitlist isn't open.",
