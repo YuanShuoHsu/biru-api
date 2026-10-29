@@ -37,7 +37,10 @@ import {
   toGetIssueQuery,
   toInvoiceDateText,
 } from '../utils/ecpay.js';
-import { earliestVoidableInvoiceDate } from '../utils/refund-plan.js';
+import {
+  earliestVoidableInvoiceDate,
+  lineAmountCents,
+} from '../utils/refund-plan.js';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
 import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
@@ -731,12 +734,12 @@ export class EcpayOrderInvoiceService {
   }): IssuePayload {
     const { customer, invoice: data, items, seller } = found;
 
-    const itemAmounts = items.map(
-      (item) =>
-        Math.round(Number(item.unitPrice) * item.orderQuantity * 100) / 100,
+    const itemCents = items.map((item) =>
+      lineAmountCents(item.unitPrice, item.orderQuantity),
     );
+    const itemAmounts = itemCents.map((cents) => cents / 100);
     const itemTotal = Math.round(
-      itemAmounts.reduce((sum, amount) => sum + amount, 0),
+      itemCents.reduce((sum, cents) => sum + cents, 0) / 100,
     );
     const salesAmount = Math.round(Number(found.total));
     const discount = itemTotal - salesAmount;
