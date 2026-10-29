@@ -64,7 +64,9 @@ const PICKUP_FIELD_MAXIMUMS = {
   pickupCutoffMinutes: PICKUP_MAX_MINUTES,
 };
 
-const REQUIRED_ADDRESS_FIELDS = [
+const REQUIRED_TEXT_FIELDS = [
+  'name',
+  'slug',
   'addressCountry',
   'addressLocality',
   'addressRegion',
@@ -72,7 +74,7 @@ const REQUIRED_ADDRESS_FIELDS = [
 ] as const;
 
 const assertValidOrganizationInput = (data: Record<string, unknown>) => {
-  for (const field of REQUIRED_ADDRESS_FIELDS) {
+  for (const field of REQUIRED_TEXT_FIELDS) {
     const value = data[field];
     if (
       Object.hasOwn(data, field) &&
@@ -122,6 +124,11 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
     throw new APIError('BAD_REQUEST', {
       message: `dineInTableCount must be an integer from 1 to ${DINE_IN_MAX_TABLE_COUNT}`,
     });
+};
+
+const assertTeamNameNotBlank = (name: unknown) => {
+  if (typeof name !== 'string' || !name.trim())
+    throw new APIError('BAD_REQUEST', { message: 'name is required' });
 };
 
 const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
@@ -314,6 +321,13 @@ export const createAuth = (
           },
           beforeCreateInvitation: async ({ invitation, organization }) => {
             await cancelExpiredInvitations(organization.id, invitation.email);
+          },
+          beforeCreateTeam: async ({ team }) => {
+            assertTeamNameNotBlank(team.name);
+          },
+          beforeUpdateTeam: async ({ updates }) => {
+            if (updates.name !== undefined)
+              assertTeamNameNotBlank(updates.name);
           },
           beforeDeleteOrganization: ({ organization: target }) =>
             assertOrganizationDeletable(target.id),
