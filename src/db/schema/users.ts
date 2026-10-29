@@ -3,8 +3,15 @@
 // https://www.better-auth.com/docs/concepts/database
 // https://www.better-auth.com/docs/plugins/phone-number
 
-import { relations } from 'drizzle-orm';
-import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
+import {
+  boolean,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 import { DEFAULT_LANGUAGE, languagesEnum } from './enums.js';
 import { invitation, member, teamMember } from './organizations.js';
@@ -12,34 +19,43 @@ import { invitation, member, teamMember } from './organizations.js';
 export const userRoles = ['admin', 'user'] as const;
 export type UserRole = (typeof userRoles)[number];
 
-export const user = pgTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').default(false).notNull(),
-  image: text('image'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-  role: text('role', { enum: userRoles }),
-  banned: boolean('banned').default(false),
-  banReason: text('ban_reason'),
-  banExpires: timestamp('ban_expires'),
-  // additional fields
-  bio: text('bio'),
-  birthDate: timestamp('birth_date'),
-  emailSubscribed: boolean('email_subscribed').default(true).notNull(),
-  firstName: text('first_name').notNull(),
-  // gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
-  lang: languagesEnum().default(DEFAULT_LANGUAGE).notNull(),
-  lastName: text('last_name'),
-  phoneNumber: text('phone_number').unique(),
-  phoneNumberVerified: boolean('phone_number_verified')
-    .default(false)
-    .notNull(),
-});
+export const user = pgTable(
+  'user',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').default(false).notNull(),
+    image: text('image'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    role: text('role', { enum: userRoles }),
+    banned: boolean('banned').default(false),
+    banReason: text('ban_reason'),
+    banExpires: timestamp('ban_expires'),
+    // additional fields
+    bio: text('bio'),
+    birthDate: timestamp('birth_date'),
+    emailSubscribed: boolean('email_subscribed').default(true).notNull(),
+    firstName: text('first_name').notNull(),
+    // gender: gendersEnum().default(DEFAULT_GENDER).notNull(),
+    lang: languagesEnum().default(DEFAULT_LANGUAGE).notNull(),
+    lastName: text('last_name'),
+    phoneNumber: text('phone_number').unique(),
+    phoneNumberVerified: boolean('phone_number_verified')
+      .default(false)
+      .notNull(),
+  },
+  (table) => [
+    check(
+      'user_name_phone_not_blank',
+      sql`btrim(${table.firstName}) <> '' and btrim(${table.lastName}) <> '' and btrim(${table.phoneNumber}) <> ''`,
+    ),
+  ],
+);
 
 export type User = typeof user.$inferSelect;
 export type CreateUser = typeof user.$inferInsert;

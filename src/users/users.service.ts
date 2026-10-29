@@ -24,6 +24,7 @@ import {
   NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
+import { blankToNull } from '../auth/user-fields.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
   getStatsWindow,
@@ -390,9 +391,9 @@ export class UsersService {
       .update(schema.user)
       .set({
         ...data,
-        ...(lastName !== undefined && { lastName: lastName || null }),
+        ...(lastName !== undefined && { lastName: blankToNull(lastName) }),
         ...(phoneNumber !== undefined && {
-          phoneNumber: phoneNumber || null,
+          phoneNumber: blankToNull(phoneNumber),
           phoneNumberVerified: false,
         }),
       })

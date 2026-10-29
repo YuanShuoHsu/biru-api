@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
@@ -37,10 +37,10 @@ export class UpdateUserDto {
   @IsOptional()
   emailSubscribed?: boolean;
 
-  // 註冊時必填，不能清空（null 也擋）
   @ApiPropertyOptional({ description: '名', example: 'Coffee' })
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @ValidateIf((_, value) => value !== undefined)
   firstName?: string;
 
@@ -63,13 +63,11 @@ export class UpdateUserDto {
   @IsUrl()
   image?: string;
 
-  // 註冊時選填，空字串清空成 null
   @ApiPropertyOptional({ description: '姓', example: 'Biru' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
-  // 註冊時選填，空字串清空成 null
   @ApiPropertyOptional({
     description: '聯絡電話（E.164 格式）',
     example: '+886912345678',

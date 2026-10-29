@@ -28,6 +28,7 @@ import type { createAuthI18n } from './i18n.js';
 import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
 import { signUpLanguage } from './sign-up-language.js';
+import { normalizeUserFields } from './user-fields.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
@@ -193,7 +194,9 @@ export const createAuth = (
           before: async (user, context) => {
             const lang = await signUpLanguage(context);
 
-            return lang ? { data: { ...user, lang } } : undefined;
+            return {
+              data: normalizeUserFields(lang ? { ...user, lang } : user),
+            };
           },
           after: async (user) => {
             if (user.emailVerified)
@@ -201,13 +204,11 @@ export const createAuth = (
           },
         },
         update: {
-          before: async (user, context) => {
-            if (!('phoneNumber' in user)) return;
+          before: async (input, context) => {
+            const user = normalizeUserFields(input);
+            if (!('phoneNumber' in user)) return { data: user };
 
-            const phoneNumber =
-              typeof user.phoneNumber === 'string' && user.phoneNumber
-                ? user.phoneNumber
-                : null;
+            const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
               const owner = await authDb().query.user.findFirst({
                 where: eq(schema.user.phoneNumber, phoneNumber),
@@ -223,7 +224,6 @@ export const createAuth = (
             return {
               data: {
                 ...user,
-                phoneNumber,
                 ...(!('phoneNumberVerified' in user) && {
                   phoneNumberVerified: false,
                 }),

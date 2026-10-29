@@ -37,6 +37,7 @@ describe('UpdateUserDto', () => {
   it.each([
     [{ firstName: 123 }, 'firstName'],
     [{ firstName: '' }, 'firstName'],
+    [{ firstName: '  ' }, 'firstName'],
     [{ firstName: null }, 'firstName'],
     [{ lastName: 123 }, 'lastName'],
     [{ phoneNumber: 886912345678 }, 'phoneNumber'],
