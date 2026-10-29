@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
+import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import { order } from '../db/schema/orders.js';
 import { pointTransaction } from '../db/schema/points.js';
@@ -99,6 +100,56 @@ describe('PointsService.getAllMine', () => {
       balance: 0,
       transactions: [],
       transactionsTotal: 0,
+      expiringSoon: [],
+    });
+  });
+
+  describe('expiringSoon', () => {
+    const inPlatformDays = (days: number, hours: number) =>
+      new Date(platformMidnight(Date.now()) + days * DAY_MS + hours * 3600_000);
+
+    it('30 天內到期的剩餘點數依台灣日期分組，取當天最早到期時間，由近到遠排列', async () => {
+      await addTransactions([
+        { expiresAt: inPlatformDays(12, 9), remainingPoints: 7 },
+        { expiresAt: inPlatformDays(5, 18), remainingPoints: 4 },
+        { expiresAt: inPlatformDays(5, 2) },
+        {
+          expiresAt: inPlatformDays(5, 3),
+          points: 6,
+          remainingPoints: 6,
+          type: 'adjust',
+        },
+      ]);
+
+      const { expiringSoon } = await service.getAllMine(USER);
+
+      expect(expiringSoon).toEqual([
+        { expiresAt: inPlatformDays(5, 2), points: 20 },
+        { expiresAt: inPlatformDays(12, 9), points: 7 },
+      ]);
+    });
+
+    it('不含 31 天後、已過期、不會過期、已用完、收回與其他會員的點數', async () => {
+      await client.query(
+        `insert into "user" (id, name, email, first_name) values ('other', '陳小華', 'b@example.com', '小華')`,
+      );
+      await addTransactions([
+        { expiresAt: new Date(Date.now() + 31 * DAY_MS) },
+        { expiresAt: new Date(Date.now() - 60_000) },
+        { expiresAt: null },
+        { expiresAt: inPlatformDays(5, 4), remainingPoints: 0 },
+        {
+          expiresAt: inPlatformDays(5, 5),
+          points: -3,
+          remainingPoints: -3,
+          type: 'revoke',
+        },
+        { expiresAt: inPlatformDays(5, 6), userId: 'other' },
+      ]);
+
+      const { expiringSoon } = await service.getAllMine(USER);
+
+      expect(expiringSoon).toEqual([]);
     });
   });
 });
