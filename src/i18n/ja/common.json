@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
+    "paymentAttemptsExhausted": "この注文はお支払いの試行回数が上限に達しました。改めてご注文いただくか、店舗にお問い合わせください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
     "pickupTimeInvalid": "有効な受取時間を選択してください",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",

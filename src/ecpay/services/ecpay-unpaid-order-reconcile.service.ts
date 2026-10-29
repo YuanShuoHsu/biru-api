@@ -31,6 +31,7 @@ export class EcpayUnpaidOrderReconcileService {
   private running = false;
   private rateLimitedUntil = 0;
   private readonly failureCounts = new Map<string, number>();
+  private readonly lastQueriedAt = new Map<string, number>();
 
   constructor(
     private readonly ordersService: OrdersService,
@@ -59,6 +60,8 @@ export class EcpayUnpaidOrderReconcileService {
     const candidateIds = new Set(candidates.map(({ id }) => id));
     for (const id of this.failureCounts.keys())
       if (!candidateIds.has(id)) this.failureCounts.delete(id);
+    for (const id of this.lastQueriedAt.keys())
+      if (!candidateIds.has(id)) this.lastQueriedAt.delete(id);
 
     if (!candidates.length) return;
 
@@ -105,7 +108,9 @@ export class EcpayUnpaidOrderReconcileService {
     pendingQuery.sort(
       (a, b) =>
         (this.failureCounts.get(a.id) ?? 0) -
-        (this.failureCounts.get(b.id) ?? 0),
+          (this.failureCounts.get(b.id) ?? 0) ||
+        (this.lastQueriedAt.get(a.id) ?? 0) -
+          (this.lastQueriedAt.get(b.id) ?? 0),
     );
 
     let queried = 0;
@@ -116,14 +121,21 @@ export class EcpayUnpaidOrderReconcileService {
       id,
       merchantTradeNos,
       paymentDeadline,
-    } of pendingQuery.slice(0, QUERY_LIMIT_PER_RUN)) {
+    } of pendingQuery) {
+      const budget = QUERY_LIMIT_PER_RUN - queried;
+      if (budget <= 0) break;
+      if (queried > 0 && merchantTradeNos.length > budget) continue;
+
+      const tradeNosToQuery = merchantTradeNos.slice(0, budget);
+      this.lastQueriedAt.set(id, Date.now());
+
       try {
         const logIds: string[] = [];
         const tradeStatuses: string[] = [];
         let recovered = false;
 
         // 新到舊逐筆查，任一次嘗試付了款就以那筆認列
-        for (const merchantTradeNo of merchantTradeNos) {
+        for (const merchantTradeNo of tradeNosToQuery) {
           if (queried > 0) await sleep(QUERY_INTERVAL_MS);
           queried += 1;
 
@@ -157,6 +169,7 @@ export class EcpayUnpaidOrderReconcileService {
         if (recovered) continue;
 
         if (
+          tradeNosToQuery.length === merchantTradeNos.length &&
           tradeStatuses.every((tradeStatus) =>
             this.shouldCancel(tradeStatus, paymentDeadline),
           )

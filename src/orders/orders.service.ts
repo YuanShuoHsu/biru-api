@@ -167,6 +167,8 @@ export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
 
+export const MAX_PAYMENT_ATTEMPTS_PER_ORDER = 10;
+
 // 金額欄位是 numeric(10,2)，超過會在寫入時變成 500
 const MAX_ORDER_AMOUNT = 99_999_999.99;
 
@@ -1141,9 +1143,24 @@ export class OrdersService {
 
     const merchantTradeNo = generateMerchantTradeNo();
 
-    await this.db
-      .insert(ecpayPaymentAttempt)
-      .values({ merchantTradeNo, orderId, returnUrl });
+    await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: order.id })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('update');
+
+      const [{ attempts }] = await tx
+        .select({ attempts: count() })
+        .from(ecpayPaymentAttempt)
+        .where(eq(ecpayPaymentAttempt.orderId, orderId));
+      if (attempts >= MAX_PAYMENT_ATTEMPTS_PER_ORDER)
+        throw new ConflictException(this.t('paymentAttemptsExhausted'));
+
+      await tx
+        .insert(ecpayPaymentAttempt)
+        .values({ merchantTradeNo, orderId, returnUrl });
+    });
 
     return { ...found, confirmationNumber, merchantTradeNo };
   }

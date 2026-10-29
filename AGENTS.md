@@ -283,10 +283,10 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
 - Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous order,
-  waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle` on the named
-  `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it every caller
-  shares one bucket, so those limits would throttle the whole platform. The named throttlers are unlimited unless a
-  route overrides them, and their `skipIf` also drops the route's override
+  ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle`
+  on the named `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it
+  every caller shares one bucket, so those limits would throttle the whole platform. The named throttlers are
+  unlimited unless a route overrides them, and their `skipIf` also drops the route's override
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
   list of proxy addresses/CIDRs or proxy-addr presets. **Never `true` or a hop count.** `true`
   makes `req.ip` the leftmost `X-Forwarded-For` entry, i.e. whatever the caller claims, so any

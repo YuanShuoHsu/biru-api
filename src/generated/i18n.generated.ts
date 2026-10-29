@@ -313,6 +313,7 @@ export type I18nTranslations = {
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
             "orderTotalTooLarge": string;
+            "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
             "pickupTimeInvalid": string;
             "pickupTooCloseToClosing": string;

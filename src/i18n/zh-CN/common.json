@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」不适用此点餐方式",
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
     "orderTotalTooLarge": "订单金额超过上限，请减少品项或分开下单",
+    "paymentAttemptsExhausted": "这张订单的付款次数已达上限，请重新下单或咨询门店",
     "pickupOutsideOpeningHours": "这个取餐时间不在门店营业时间内，请重新选择",
     "pickupTimeInvalid": "请选择有效的取餐时间",
     "pickupTooCloseToClosing": "这个取餐时间太接近打烊，请重新选择",
