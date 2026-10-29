@@ -113,3 +113,8 @@ export class MenuItemResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class MenuItemListResponseDto {
+  @ApiProperty({ type: [MenuItemResponseDto] }) data: MenuItemResponseDto[];
+  @ApiProperty() total: number;
+}

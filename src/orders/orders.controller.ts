@@ -11,7 +11,13 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiHeader,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
@@ -26,7 +32,10 @@ import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
-import { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
+import {
+  AdminOrderListResponseDto,
+  AdminOrderResponseDto,
+} from './dto/admin-order-response.dto.js';
 import { ApplyTransitionsDto } from './dto/apply-transitions.dto.js';
 import {
   CreateOrderCustomerDto,
@@ -102,10 +111,11 @@ export class OrdersController {
   @Get()
   @Roles({ order: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢訂單列表' })
+  @ApiOkResponse({ type: AdminOrderListResponseDto })
   findAll(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: OrderPaginationQueryDto,
-  ): Promise<{ data: AdminOrderResponseDto[]; total: number }> {
+  ): Promise<AdminOrderListResponseDto> {
     return this.ordersService.listOrders(organizationSlug, query);
   }
 

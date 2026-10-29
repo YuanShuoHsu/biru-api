@@ -47,3 +47,8 @@ export class ModifierResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class ModifierListResponseDto {
+  @ApiProperty({ type: [ModifierResponseDto] }) data: ModifierResponseDto[];
+  @ApiProperty() total: number;
+}

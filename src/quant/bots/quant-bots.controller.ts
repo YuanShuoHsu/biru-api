@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiExtraModels,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -44,13 +44,14 @@ import {
   IndicatorBacktestDto,
   QuantBotDto,
   QuantBotEquityPointDto,
-  QuantBotEventDto,
+  QuantBotEventListResponseDto,
   QuantBotEventPaginationQueryDto,
-  QuantBotFillDto,
+  QuantBotFillListResponseDto,
   QuantBotFillMarkerDto,
   QuantBotFillMarkerQueryDto,
   QuantBotFillPaginationQueryDto,
-  QuantBotOrderDto,
+  QuantBotListResponseDto,
+  QuantBotOrderListResponseDto,
   QuantBotOrderPaginationQueryDto,
   QuantBotPaginationQueryDto,
   SendSignalDto,
@@ -65,7 +66,6 @@ import { QuantBotsService } from './quant-bots.service.js';
 // 機器人只屬於建立者本人，平台管理員彼此也看不到
 @ApiTags('quant')
 @ApiBearerAuth()
-@ApiExtraModels(QuantBotEventDto, QuantBotFillDto, QuantBotOrderDto)
 @UseGuards(AdminGuard)
 @Controller('quant')
 export class QuantBotsController {
@@ -76,10 +76,11 @@ export class QuantBotsController {
 
   @Get('bots')
   @ApiOperation({ summary: '列出自己的機器人（不含已封存）' })
+  @ApiOkResponse({ type: QuantBotListResponseDto })
   findAll(
     @Query() query: QuantBotPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<{ data: QuantBotDto[]; total: number }> {
+  ): Promise<QuantBotListResponseDto> {
     return this.bots.list(user.id, query);
   }
 
@@ -283,21 +284,23 @@ export class QuantBotsController {
 
   @Get('bots/:id/orders')
   @ApiOperation({ summary: '機器人的委託' })
+  @ApiOkResponse({ type: QuantBotOrderListResponseDto })
   findOrders(
     @Param('id') id: string,
     @Query() query: QuantBotOrderPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<{ data: QuantBotOrderDto[]; total: number }> {
+  ): Promise<QuantBotOrderListResponseDto> {
     return this.bots.listOrders(user.id, id, query);
   }
 
   @Get('bots/:id/fills')
   @ApiOperation({ summary: '機器人的成交' })
+  @ApiOkResponse({ type: QuantBotFillListResponseDto })
   findFills(
     @Param('id') id: string,
     @Query() query: QuantBotFillPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<{ data: QuantBotFillDto[]; total: number }> {
+  ): Promise<QuantBotFillListResponseDto> {
     return this.bots.listFills(user.id, id, query);
   }
 
@@ -322,11 +325,12 @@ export class QuantBotsController {
 
   @Get('bots/:id/events')
   @ApiOperation({ summary: '機器人的事件紀錄' })
+  @ApiOkResponse({ type: QuantBotEventListResponseDto })
   findEvents(
     @Param('id') id: string,
     @Query() query: QuantBotEventPaginationQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<{ data: QuantBotEventDto[]; total: number }> {
+  ): Promise<QuantBotEventListResponseDto> {
     return this.bots.listEvents(user.id, id, query);
   }
 

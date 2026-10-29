@@ -16,6 +16,7 @@ import {
 import {
   ApiExtraModels,
   ApiHeader,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -39,7 +40,7 @@ import {
   WaitlistErrorResponseDto,
   WaitlistStatusResponseDto,
   WaitlistTicketDetailResponseDto,
-  WaitlistTicketListItemDto,
+  WaitlistTicketListResponseDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto.js';
 import {
@@ -69,7 +70,7 @@ import { WaitlistService } from './waitlist.service.js';
 
 @AllowAnonymous()
 @ApiTags('waitlist')
-@ApiExtraModels(WaitlistErrorResponseDto, WaitlistTicketListItemDto)
+@ApiExtraModels(WaitlistErrorResponseDto)
 @Controller('organizations/:organizationSlug/waitlist')
 export class WaitlistController {
   constructor(private readonly waitlistService: WaitlistService) {}
@@ -200,10 +201,11 @@ export class WaitlistController {
   @Get('tickets/list')
   @Roles({ waitlist: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '後台號碼牌歷史列表' })
+  @ApiOkResponse({ type: WaitlistTicketListResponseDto })
   listTickets(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: WaitlistTicketPaginationQueryDto,
-  ): Promise<{ data: WaitlistTicketListItemDto[]; total: number }> {
+  ): Promise<WaitlistTicketListResponseDto> {
     return this.waitlistService.listTickets(organizationSlug, query);
   }
 

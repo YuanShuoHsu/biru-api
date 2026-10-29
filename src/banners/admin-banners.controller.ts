@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -17,7 +17,10 @@ import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { BannersService } from './banners.service.js';
 import { BannerPaginationQueryDto } from './dto/banner-pagination-query.dto.js';
-import { BannerResponseDto } from './dto/banner-response.dto.js';
+import {
+  BannerListResponseDto,
+  BannerResponseDto,
+} from './dto/banner-response.dto.js';
 import { CreateBannerDto, UpdateBannerDto } from './dto/create-banner.dto.js';
 import { ReorderBannersDto } from './dto/reorder-banners.dto.js';
 
@@ -36,9 +39,10 @@ export class AdminBannersController {
 
   @Get()
   @ApiOperation({ summary: '查詢輪播圖列表' })
+  @ApiOkResponse({ type: BannerListResponseDto })
   findAll(
     @Query() query: BannerPaginationQueryDto,
-  ): Promise<{ data: BannerResponseDto[]; total: number }> {
+  ): Promise<BannerListResponseDto> {
     return this.bannersService.findAll(query);
   }
 

@@ -53,3 +53,8 @@ export class IngredientResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class IngredientListResponseDto {
+  @ApiProperty({ type: [IngredientResponseDto] }) data: IngredientResponseDto[];
+  @ApiProperty() total: number;
+}

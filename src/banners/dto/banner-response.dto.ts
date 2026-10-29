@@ -16,3 +16,8 @@ export class BannerResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class BannerListResponseDto {
+  @ApiProperty({ type: [BannerResponseDto] }) data: BannerResponseDto[];
+  @ApiProperty() total: number;
+}

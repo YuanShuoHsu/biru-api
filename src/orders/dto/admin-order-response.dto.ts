@@ -44,3 +44,8 @@ export class AdminOrderResponseDto extends OrderResponseDto {
   })
   orderTicketReprintable: boolean;
 }
+
+export class AdminOrderListResponseDto {
+  @ApiProperty({ type: [AdminOrderResponseDto] }) data: AdminOrderResponseDto[];
+  @ApiProperty() total: number;
+}
