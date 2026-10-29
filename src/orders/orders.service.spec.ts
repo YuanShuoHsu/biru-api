@@ -16,6 +16,7 @@ import {
   type InventoryTransactionsService,
 } from '../inventory/inventory-transactions.service.js';
 import type { MenuStockService } from '../inventory/menu-stock.service.js';
+import type { PointsService } from '../points/points.service.js';
 
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import { issueOrderQrSession } from './order-qr-token.js';
@@ -169,6 +170,9 @@ const createService = ({
   };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
+  const pointsService = {
+    expectedPoints: vi.fn().mockResolvedValue(new Map([['receipt', 12]])),
+  };
 
   return {
     couponsService,
@@ -176,6 +180,7 @@ const createService = ({
     emit,
     inserted,
     orderPricingService,
+    pointsService,
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
@@ -195,6 +200,7 @@ const createService = ({
         prepMinutesWith: (_: unknown, ownPrepMinutes: number) =>
           Promise.resolve(queuedPrepMinutes + ownPrepMinutes),
       } as unknown as PrepEstimateService,
+      pointsService as unknown as PointsService,
     ),
     consume,
     menuStock,
@@ -632,6 +638,21 @@ describe('OrdersService.createOrder', () => {
       expect(inserted.get(order)).not.toHaveProperty('discount');
       expect(inserted.has(invoice)).toBe(true);
       expect(emit).toHaveBeenCalledOnce();
+    });
+
+    it('回傳的收據帶上這張單付款後可得的點數', async () => {
+      const { pointsService, service } = createService();
+
+      await expect(
+        service.createOrder(
+          'slug',
+          baseDto,
+          'member',
+          null,
+          sessionOf('counter'),
+        ),
+      ).resolves.toMatchObject({ expectedPoints: 12 });
+      expect(pointsService.expectedPoints).toHaveBeenCalledWith(['receipt']);
     });
 
     it('扣庫存後跌破門檻的食材在交易完成後廣播', async () => {

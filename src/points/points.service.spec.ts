@@ -6,9 +6,11 @@ import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
+import { order } from '../db/schema/orders.js';
 import { pointTransaction } from '../db/schema/points.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
 
 import { PointsService } from './points.service.js';
 
@@ -154,14 +156,25 @@ describe('PointsService.findAllForOrganization', () => {
     userId: string | null,
     {
       amountPerPoint = null as string | null,
-      paymentDate = '2026-02-01',
+      discount = null as string | null,
+      orderStatus = 'OrderDelivered',
+      paymentDate = '2026-02-01' as string | null,
       unitPrice = '100',
     } = {},
   ) => {
     await client.query(
-      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id, amount_per_point)
-       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, $6, $4, 'OrderDelivered', $3, $5)`,
-      [id, sellerId, userId, paymentDate, amountPerPoint, unitPrice],
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id, amount_per_point, discount)
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, $6, $4, $7, $3, $5, $8)`,
+      [
+        id,
+        sellerId,
+        userId,
+        paymentDate,
+        amountPerPoint,
+        unitPrice,
+        orderStatus,
+        discount,
+      ],
     );
     await client.query(
       `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
@@ -247,6 +260,67 @@ describe('PointsService.findAllForOrganization', () => {
     await addPaidOrder('o1', ORG, 'amy');
 
     expect((await service.findAllForOrganization('biru')).total).toBe(0);
+  });
+
+  it('預估點數與實際入點同一算法：未付款用目前設定，已付款用快照', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1.1`);
+    await addPaidOrder('unpaid', ORG, 'amy', {
+      discount: '3',
+      orderStatus: 'OrderPaymentDue',
+      paymentDate: null,
+      unitPrice: '36',
+    });
+    await addPaidOrder('paid', ORG, 'amy', {
+      amountPerPoint: '0.07',
+      unitPrice: '7',
+    });
+
+    const expected = await service.expectedPoints(['unpaid', 'paid']);
+
+    expect(expected).toEqual(
+      new Map([
+        ['unpaid', 30],
+        ['paid', 100],
+      ]),
+    );
+    await db
+      .update(order)
+      .set({
+        ...POINTS_SNAPSHOT_SET,
+        orderStatus: 'OrderProcessing',
+        paymentDate: new Date('2026-02-02T00:00:00Z'),
+      })
+      .where(eq(order.id, 'unpaid'));
+    await service.findAllForOrganization('biru');
+
+    const earned = await db.select().from(pointTransaction);
+    expect(earned).toHaveLength(2);
+    expect(earned).toEqual(
+      expect.arrayContaining(
+        [...expected].map(([orderId, points]) =>
+          expect.objectContaining({ orderId, points }),
+        ),
+      ),
+    );
+  });
+
+  it('訪客、已取消與點數停用時的未付款訂單沒有預估點數', async () => {
+    await addPaidOrder('guest', ORG, null);
+    await addPaidOrder('cancelled', ORG, 'amy', {
+      orderStatus: 'OrderCancelled',
+    });
+
+    expect(await service.expectedPoints(['guest', 'cancelled'])).toEqual(
+      new Map(),
+    );
+
+    await client.exec(`update point_setting set amount_per_point = null`);
+    await addPaidOrder('unpaid', ORG, 'amy', {
+      orderStatus: 'OrderPaymentDue',
+      paymentDate: null,
+    });
+
+    expect(await service.expectedPoints(['unpaid'])).toEqual(new Map());
   });
 
   it('收回本店已取消訂單的點數，且不列出他店與品牌層的明細', async () => {

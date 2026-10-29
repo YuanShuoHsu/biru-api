@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { CouponsModule } from '../coupons/coupons.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { MailsModule } from '../mails/mails.module.js';
+import { PointsModule } from '../points/points.module.js';
 import { PrintersModule } from '../printers/printers.module.js';
 
 import { DineInTablesController } from './dine-in-tables.controller.js';
@@ -28,6 +29,7 @@ import { UserOrdersController } from './user-orders.controller.js';
     InventoryModule,
     MailsModule,
     OrderPricingModule,
+    PointsModule,
     PrintersModule,
   ],
   controllers: [
