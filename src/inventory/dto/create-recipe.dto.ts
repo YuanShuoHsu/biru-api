@@ -4,13 +4,13 @@ import {
   IsArray,
   IsInt,
   IsNumberString,
-  IsObject,
   IsOptional,
   IsString,
   Matches,
   Min,
 } from 'class-validator';
 
+import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
@@ -19,7 +19,7 @@ export class CreateRecipeDto {
     type: LocalizedTextDto,
     example: { 'zh-TW': '抹茶奶酪', en: 'Matcha Panna Cotta' },
   })
-  @IsObject()
+  @IsLocalizedText()
   name: LocalizedText;
 
   @ApiPropertyOptional({
@@ -41,6 +41,7 @@ export class CreateRecipeDto {
   })
   @IsOptional()
   @IsArray()
+  @IsLocalizedText({ each: true })
   recipeInstructions?: LocalizedText[];
 }
 

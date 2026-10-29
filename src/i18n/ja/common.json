@@ -170,7 +170,6 @@
   },
   "inventory": {
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
-    "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "packageRequired": "内容量、内容量の単位、価格、在庫単位はすべて入力が必要で、空にできません",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "recipeIngredientExists": "この材料はすでに追加されています",
@@ -181,6 +180,7 @@
   "invoices": {
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
     "alreadyIssuing": "このインボイスは発行処理中です。しばらくしてからお試しください",
+    "customerNameRequiresIdentifier": "個人・寄付のインボイスでは、買い手の名称は統一編号と一緒に入力した場合のみ訂正できます",
     "notIssued": "このインボイスはまだ発行されていません",
     "notPaid": "注文が未払いのため、インボイスを発行できません",
     "notPending": "このインボイスは{status}のため、発行できません",
@@ -261,6 +261,7 @@
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
+    "paymentAttemptsExhausted": "この注文はお支払いの試行回数が上限に達しました。店舗にお問い合わせいただくか、お支払い期限を過ぎて注文が自動キャンセルされるまでお待ちください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
     "pickupTimeInvalid": "有効な受取時間を選択してください",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",
@@ -348,6 +349,10 @@
   "reports": {
     "rangeInvalid": "終了日時は開始日時より後にしてください。",
     "rangeTooLong": "レポートの期間は最大 366 日です。"
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
+    "notFound": "この店舗のフロアプランはまだありません。"
   },
   "waitlist": {
     "guest": {

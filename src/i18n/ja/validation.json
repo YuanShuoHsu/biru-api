@@ -1,4 +1,8 @@
 {
+  "invoiceCertificate": "英大文字 2 文字と数字 14 桁で入力してください",
+  "invoiceCustomerIdentifier": "8 桁の統一編号を入力してください",
+  "invoiceDonateCode": "3〜7 桁の寄付コードを入力してください",
+  "invoiceMobileBarcode": "/ に続けて数字・英大文字・+ - . を 7 文字入力してください",
   "isEmail": "有効なメールアドレスを入力してください",
   "isNotEmpty": "必須項目です",
   "isNumber": "数値である必要があります",

@@ -1,11 +1,20 @@
 import { readFileSync } from 'node:fs';
 
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
 import { languagesEnum } from '../db/schema/enums.js';
 
-import { inventoryErrorCodes, notFoundError } from './inventory-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  inventoryErrorCodes,
+  notFoundError,
+} from './inventory-errors.js';
 
 const inventoryMessagesOf = (language: string): Record<string, unknown> =>
   (
@@ -23,23 +32,32 @@ describe('inventoryErrorCodes', () => {
   });
 });
 
-describe('notFoundError', () => {
+describe('inventory errors', () => {
+  beforeEach(() => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('回應帶代碼與目前語系的訊息', () => {
-    vi.spyOn(I18nContext, 'current').mockReturnValue({
-      t: (key: string) => `translated:${key}`,
-    } as unknown as I18nContext);
+  it.each([
+    ['recipeNotFound', notFoundError, NotFoundException, 'Not Found'],
+    ['packageRequired', badRequestError, BadRequestException, 'Bad Request'],
+    ['recipeIngredientExists', conflictError, ConflictException, 'Conflict'],
+  ] as const)(
+    '%s 回應帶代碼與目前語系的訊息',
+    (code, build, exception, error) => {
+      const thrown = build(code);
 
-    const error = notFoundError('recipeNotFound');
-
-    expect(error).toBeInstanceOf(NotFoundException);
-    expect(error.getResponse()).toEqual({
-      code: 'recipeNotFound',
-      error: 'Not Found',
-      message: 'translated:common.inventory.recipeNotFound',
-    });
-  });
+      expect(thrown).toBeInstanceOf(exception);
+      expect(thrown.getResponse()).toEqual({
+        code,
+        error,
+        message: `translated:common.inventory.${code}`,
+      });
+    },
+  );
 });

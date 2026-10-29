@@ -1,4 +1,8 @@
 {
+  "invoiceCertificate": "必须是 2 个大写英文字母加 14 位数字",
+  "invoiceCustomerIdentifier": "必须是 8 位数字的统一编号",
+  "invoiceDonateCode": "必须是 3 至 7 位数字的捐赠码",
+  "invoiceMobileBarcode": "必须是 / 加 7 个数字、大写英文字母或 + - .",
   "isEmail": "必须是有效的电子邮件地址",
   "isNotEmpty": "此项不能为空",
   "isNumber": "必须是数字",

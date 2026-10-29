@@ -1,7 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -11,7 +10,6 @@ import {
   recipeIngredient,
 } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { RecipesService } from './recipes.service.js';
 
@@ -26,10 +24,7 @@ describe('RecipesService name filter', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new RecipesService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new RecipesService(db as unknown as DrizzleDB);
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
       [ORG],
@@ -76,7 +71,7 @@ describe('RecipesService name filter', () => {
   });
 
   const recipeIds = async (query: Parameters<RecipesService['findAll']>[1]) =>
-    (await service.findAll('biru', query)).data.map(({ id }) => id);
+    (await service.findAll(ORG, query)).data.map(({ id }) => id);
 
   const materialIds = async (
     query: Parameters<RecipesService['findAllIngredients']>[1],

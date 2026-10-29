@@ -140,7 +140,6 @@ export class QuantAiAgentService {
     return token;
   }
 
-  /** 代理沒有可用的 token 時發起：使用者在後台核准代碼後，代理輪詢取得新 token */
   // 後端跑在本機時已經自己呼叫 Claude Code，代理再判斷一次只會重複消耗額度
   assertAgentNeeded() {
     if (isClaudeCodeLocal())
@@ -203,7 +202,6 @@ export class QuantAiAgentService {
     return row.userId;
   }
 
-  /** 代理要回答的請求：執行中的 claude_code 機器人與 claude_code 回測 */
   async pending(userId: string): Promise<QuantAgentRequestDto[]> {
     await this.expireStale(userId);
 
