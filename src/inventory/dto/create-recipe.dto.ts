@@ -41,6 +41,7 @@ export class CreateRecipeDto {
   })
   @IsOptional()
   @IsArray()
+  @IsObject({ each: true })
   recipeInstructions?: LocalizedText[];
 }
 
