@@ -10,7 +10,10 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { createPGlite } from '../../test/pglite.js';
-import { SalesReportService } from './sales-report.service.js';
+import {
+  SalesReportService,
+  UNCATEGORIZED_KEY,
+} from './sales-report.service.js';
 
 describe('SalesReportService', () => {
   let client: PGlite;
@@ -65,11 +68,35 @@ describe('SalesReportService', () => {
     amount: number,
     createdAt: string,
     status = 'refunded',
+    items: unknown[] | null = null,
   ) =>
     client.query(
-      `insert into refund (id, order_id, amount, scope, channel, status, created_at)
-       values ($1, $2, $3, 'partial', 'manual', $4, $5::timestamptz at time zone 'UTC')`,
-      [id, orderId, amount, status, createdAt],
+      `insert into refund (id, order_id, amount, scope, channel, status, created_at, items)
+       values ($1, $2, $3, 'partial', 'manual', $4, $5::timestamptz at time zone 'UTC', $6)`,
+      [id, orderId, amount, status, createdAt, items && JSON.stringify(items)],
+    );
+
+  const addOrderItem = (
+    id: string,
+    orderId: string,
+    menuItemId: string,
+    menuItemName: string,
+    orderQuantity: number,
+    unitPrice: number,
+    addOns: unknown[] = [],
+  ) =>
+    client.query(
+      `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons)
+       values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        id,
+        orderId,
+        menuItemId,
+        menuItemName,
+        orderQuantity,
+        unitPrice,
+        JSON.stringify(addOns),
+      ],
     );
 
   beforeAll(async () => {
@@ -87,7 +114,16 @@ describe('SalesReportService', () => {
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('cents', 'Cents', 'cents', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
+         ('cents', 'Cents', 'cents', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('items', 'Items', 'items', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into menu (id, organization_id, name) values ('menu', 'items', '{"zh-TW":"菜單"}');
+       insert into menu_section (id, menu_id, parent_section_id, name) values
+         ('coffee', 'menu', null, '{"zh-TW":"咖啡"}'),
+         ('extras', 'menu', 'coffee', '{"zh-TW":"加料"}');
+       insert into menu_item (id, menu_id, menu_section_id, name) values
+         ('latte', 'menu', 'coffee', '{"zh-TW":"拿鐵","en":"Latte"}'),
+         ('oat', 'menu', 'extras', '{"zh-TW":"燕麥奶"}'),
+         ('cake', 'menu', null, '{"zh-TW":"蛋糕"}');`,
     );
 
     await addOrder('before-midnight', {
@@ -142,6 +178,39 @@ describe('SalesReportService', () => {
       0.1,
       '2026-10-02T03:00:00Z',
       'settled',
+    );
+
+    await addOrder('items-a', {
+      discount: 30,
+      sellerId: 'items',
+      subtotal: 300,
+    });
+    await addOrderItem('items-a-latte', 'items-a', 'latte', '拿鐵', 2, 120, [
+      {
+        menuItemId: 'oat',
+        menuItemName: '燕麥奶',
+        unitPrice: '15.00',
+        modifiers: [{ priceAdjustment: '5.00' }],
+      },
+    ]);
+    await addOrderItem('items-a-cake', 'items-a', 'cake', '蛋糕', 1, 60);
+    await addOrder('items-b', { sellerId: 'items', subtotal: 50 });
+    await addOrderItem('items-b-gone', 'items-b', 'gone', '已下架', 1, 50);
+    await addRefund(
+      'items-refund',
+      'items-a',
+      108,
+      '2026-10-02T03:00:00Z',
+      'refunded',
+      [{ orderItemId: 'items-a-latte', quantity: 1, amount: '120' }],
+    );
+    await addRefund(
+      'items-pending-refund',
+      'items-a',
+      54,
+      '2026-10-02T03:00:00Z',
+      'pending',
+      [{ orderItemId: 'items-a-cake', quantity: 1, amount: '60' }],
     );
   }, 60_000);
 
@@ -263,6 +332,88 @@ describe('SalesReportService', () => {
       ],
       totals: { orders: 2, revenue: 0.4, discount: 0, refunded: 0.1, net: 0.3 },
     });
+  });
+
+  it('依品項分組時整單折扣依小計分攤、退款依退款明細分攤，加購計入加購品項', async () => {
+    await expect(
+      service.getSalesReport('items', { ...range, groupBy: 'menuItem' }),
+    ).resolves.toEqual({
+      groupBy: 'menuItem',
+      rows: [
+        {
+          key: 'latte',
+          name: { 'zh-TW': '拿鐵', en: 'Latte' },
+          orders: 1,
+          quantity: 2,
+          refundedQuantity: 1,
+          revenue: 180,
+          discount: 20,
+          refunded: 90,
+          net: 90,
+        },
+        {
+          key: 'cake',
+          name: { 'zh-TW': '蛋糕' },
+          orders: 1,
+          quantity: 1,
+          refundedQuantity: 0,
+          revenue: 54,
+          discount: 6,
+          refunded: 0,
+          net: 54,
+        },
+        {
+          key: 'gone',
+          name: { 'zh-TW': '已下架' },
+          orders: 1,
+          quantity: 1,
+          refundedQuantity: 0,
+          revenue: 50,
+          discount: 0,
+          refunded: 0,
+          net: 50,
+        },
+        {
+          key: 'oat',
+          name: { 'zh-TW': '燕麥奶' },
+          orders: 1,
+          quantity: 2,
+          refundedQuantity: 1,
+          revenue: 36,
+          discount: 4,
+          refunded: 18,
+          net: 18,
+        },
+      ],
+      totals: {
+        orders: 2,
+        revenue: 320,
+        discount: 30,
+        refunded: 108,
+        net: 212,
+      },
+    });
+  });
+
+  it('依品項目前所屬的菜單分類分組，找不到分類的歸為未分類', async () => {
+    const { rows } = await service.getSalesReport('items', {
+      ...range,
+      groupBy: 'category',
+    });
+
+    expect(
+      rows.map(({ key, name, orders, quantity, net }) => [
+        key,
+        name,
+        orders,
+        quantity,
+        net,
+      ]),
+    ).toEqual([
+      ['coffee', { 'zh-TW': '咖啡' }, 1, 2, 90],
+      [UNCATEGORIZED_KEY, null, 2, 2, 104],
+      ['extras', { 'zh-TW': '加料' }, 1, 2, 18],
+    ]);
   });
 
   it('結束時間不晚於起始時間時拒絕', async () => {
