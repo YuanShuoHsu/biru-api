@@ -258,7 +258,6 @@ export class QuantAiBacktestService {
     this.futuresMarkets.delete(id);
   }
 
-  /** 本機 Claude Code 或伺服器取得判斷後呼叫，記下判斷並往下一根推進 */
   async answer(requestId: string, decision: AiDecisionDto) {
     const [request] = await this.db
       .update(quantAiRequest)

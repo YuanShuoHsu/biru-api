@@ -69,7 +69,6 @@ export class MarketCacheService {
     this.markPrices.set(symbol, { at: Date.now(), price: Number(markPrice) });
   }
 
-  /** 推播快取的前幾檔；還沒收到推播時回頭打 REST */
   async topLevels(symbol: string, levels: number) {
     const cached = this.depths.get(symbol);
     const depth = cached ?? (await this.market.findDepth(symbol, levels));

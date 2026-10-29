@@ -30,11 +30,7 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import {
-  getOrganizationBySlug,
-  getOrganizationCurrency,
-  getOrganizationIdBySlug,
-} from '../common/utils/organizations.js';
+import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import {
   ingredient,
   supplier,
@@ -92,7 +88,7 @@ export class IngredientsService {
   }
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: IngredientPaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: IngredientResponseDto[]; total: number }> {
@@ -117,8 +113,10 @@ export class IngredientsService {
     )
       throw new ForbiddenException();
 
-    const { id: organizationId, currency: priceCurrency } =
-      await getOrganizationBySlug(this.db, organizationSlug);
+    const priceCurrency = await getOrganizationCurrency(
+      this.db,
+      organizationId,
+    );
 
     const supplierName = sql`(select ${supplier.name} from ${supplier} where ${supplier.id} = ${ingredient.supplierId})`;
 
@@ -219,15 +217,10 @@ export class IngredientsService {
   }
 
   async reorder(
-    organizationSlug: string,
+    organizationId: string,
     ids: string[],
     offset: number,
   ): Promise<void> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-
     await this.db.transaction(async (tx) => {
       for (const [i, id] of ids.entries()) {
         await tx
@@ -276,11 +269,13 @@ export class IngredientsService {
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
   ): Promise<IngredientResponseDto> {
-    const { id: organizationId, currency: priceCurrency } =
-      await getOrganizationBySlug(this.db, organizationSlug);
+    const priceCurrency = await getOrganizationCurrency(
+      this.db,
+      organizationId,
+    );
 
     this.assertCompatibleUnitCode(dto);
     await this.assertSupplierInOrganization(dto.supplierId, organizationId);

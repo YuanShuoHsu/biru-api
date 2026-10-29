@@ -76,7 +76,7 @@ describe('RecipesService', () => {
   });
 
   const recipeIds = async (query: Parameters<RecipesService['findAll']>[1]) =>
-    (await service.findAll('biru', query)).data.map(({ id }) => id);
+    (await service.findAll(ORG, query)).data.map(({ id }) => id);
 
   const materialIds = async (
     query: Parameters<RecipesService['findAllIngredients']>[1],
@@ -118,7 +118,7 @@ describe('RecipesService', () => {
   });
 
   it('建立食譜時寫入送出的欄位，指定不綁品項時不自動綁定', async () => {
-    const created = await service.create('biru', {
+    const created = await service.create(ORG, {
       menuItemId: null,
       name: { 'zh-TW': '焙茶拿鐵' },
       recipeInstructions: [{ 'zh-TW': '茶葉沖泡 3 分鐘' }],
@@ -135,7 +135,7 @@ describe('RecipesService', () => {
   });
 
   it('建立食譜沒指定品項時依名稱綁定，找不到同名品項就不綁', async () => {
-    const created = await service.create('biru', {
+    const created = await service.create(ORG, {
       name: { 'zh-TW': '冷萃' },
     });
 
@@ -143,7 +143,7 @@ describe('RecipesService', () => {
   });
 
   it('新增材料沒給排序時排在最後，給了就照給的；詳細資料帶出全部材料', async () => {
-    const { id: recipeId } = await service.create('biru', {
+    const { id: recipeId } = await service.create(ORG, {
       menuItemId: null,
       name: { 'zh-TW': '黑糖拿鐵' },
     });
