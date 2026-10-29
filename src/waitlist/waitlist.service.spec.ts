@@ -1,4 +1,5 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -463,7 +464,10 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
 
     await expect(
       service.getPublicStatusByOrganizationId('missing'),
-    ).rejects.toThrow('Organization not found');
+    ).rejects.toMatchObject({
+      response: { code: 'organizationNotFound' },
+      status: 404,
+    });
   });
 });
 
@@ -499,6 +503,29 @@ describe('WaitlistService.getTicket', () => {
       holdUntil: new Date('2026-10-06T12:10:00Z'),
       ticketNumber: 'A003',
     });
+  });
+
+  it('rejects a missing ticket with a coded, translated 404', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+    const { service } = createService({});
+
+    await expect(service.getTicket('slug', 'missing')).rejects.toMatchObject({
+      response: {
+        code: 'waitlistTicketNotFound',
+        message: 'translated:common.waitlist.guest.waitlistTicketNotFound',
+      },
+      status: 404,
+    });
+    await expect(
+      service.transitionTicket('slug', 'missing', 'seated'),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'translated:common.waitlist.staff.waitlistTicketNotFound',
+      },
+    });
+    vi.restoreAllMocks();
   });
 });
 

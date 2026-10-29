@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "先に申告単位情報を入力してください。",
     "workPermitRequired": "この従業員の法的身分では有効な就労許可が必要ですが、シフトまたは出勤日が許可期間外です。"
   },
+  "banners": {
+    "bannerNotFound": "バナーが見つかりません。削除された可能性があります",
+    "scheduleInvalid": "開始日時は終了日時より前にしてください"
+  },
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
+    "applicableOrganizationNotFound": "選択した店舗の一部が見つかりません。削除された可能性があります",
     "codeExists": "このクーポンコードはすでに存在します",
+    "couponNotFound": "クーポンが見つかりません。削除された可能性があります",
     "expired": "クーポンコードの有効期限が切れています",
     "inUse": "このクーポンはすでにお客様が受け取っているため削除できません。無効化してください。",
     "issueMinSpendRequired": "金額達成特典には達成金額の設定が必要です",
@@ -161,6 +167,7 @@
     "internalServerError": "内部サーバーエラー",
     "organizationClosed": "この店舗は営業を終了しました",
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
+    "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
     "tooManyRequests": "リクエストが多すぎます"
@@ -331,6 +338,9 @@
     "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます",
     "resultUnknown": "返金を送信しましたが、ECPay からの結果がまだ届いていません。再操作はしないでください。システムが自動的に照合し、確認後にこの返金の状態を更新します。"
   },
+  "storePhotos": {
+    "storePhotoNotFound": "店舗写真が見つかりません。削除された可能性があります"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "営業時間外のため、受付を停止しています。",
@@ -341,6 +351,8 @@
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
       "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
+      "waitlistQrSessionNotFound": "受付の有効期限が切れました。店内のQRコードをもう一度読み取ってください。",
+      "waitlistTicketNotFound": "この整理券が見つかりません。もう一度番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
@@ -352,6 +364,8 @@
       "waitlistPaused": "受付を一時停止しています。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
       "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
+      "waitlistQrSessionNotFound": "QRコードの受付が見つからないか、有効期限が切れています。",
+      "waitlistTicketNotFound": "整理券が見つかりません。再読み込みしてください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

@@ -180,9 +180,15 @@ export type I18nTranslations = {
             "withholdingUnitRequired": string;
             "workPermitRequired": string;
         };
+        "banners": {
+            "bannerNotFound": string;
+            "scheduleInvalid": string;
+        };
         "coupons": {
             "alreadyClaimed": string;
+            "applicableOrganizationNotFound": string;
             "codeExists": string;
+            "couponNotFound": string;
             "expired": string;
             "inUse": string;
             "issueMinSpendRequired": string;
@@ -213,6 +219,7 @@ export type I18nTranslations = {
             "internalServerError": string;
             "organizationClosed": string;
             "organizationHasOpenWork": string;
+            "organizationNotFound": string;
             "organizationReadOnly": string;
             "smtpTestFailed": string;
             "tooManyRequests": string;
@@ -383,6 +390,9 @@ export type I18nTranslations = {
             "quantityExceeded": string;
             "resultUnknown": string;
         };
+        "storePhotos": {
+            "storePhotoNotFound": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;
@@ -393,6 +403,8 @@ export type I18nTranslations = {
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
@@ -404,6 +416,8 @@ export type I18nTranslations = {
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
         };

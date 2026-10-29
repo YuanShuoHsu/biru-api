@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "먼저 신고 단위 정보를 입력하세요.",
     "workPermitRequired": "이 직원의 법적 신분은 유효한 취업 허가가 필요하지만 근무 또는 출근일이 허가 기간 밖입니다."
   },
+  "banners": {
+    "bannerNotFound": "배너를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다"
+  },
   "coupons": {
     "alreadyClaimed": "이미 받은 쿠폰입니다",
+    "applicableOrganizationNotFound": "선택한 매장 중 일부를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "codeExists": "이미 존재하는 쿠폰 코드입니다",
+    "couponNotFound": "쿠폰을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "expired": "쿠폰 코드가 만료되었습니다",
     "inUse": "이미 고객이 받은 쿠폰이라 삭제할 수 없습니다. 대신 비활성화하세요.",
     "issueMinSpendRequired": "금액 달성 보상에는 달성 금액을 설정해야 합니다",
@@ -161,6 +167,7 @@
     "internalServerError": "내부 서버 오류",
     "organizationClosed": "이 매장은 영업을 종료했습니다",
     "organizationHasOpenWork": "완료되지 않은 주문 {orders}건과 대기 중인 번호표 {tickets}장이 있습니다. 완료하거나 취소한 후 폐점하세요",
+    "organizationNotFound": "매장을 찾을 수 없습니다.",
     "organizationReadOnly": "이 매장은 폐점되었습니다. 메뉴, 재고, 쿠폰, 대기, 매장 설정은 조회만 가능합니다",
     "smtpTestFailed": "테스트 이메일을 보내지 못했습니다. SMTP 설정을 확인한 후 다시 시도해 주세요",
     "tooManyRequests": "요청이 너무 많습니다"
@@ -331,6 +338,9 @@
     "quantityExceeded": "'{name}'은(는) {remaining}개만 환불할 수 있습니다",
     "resultUnknown": "환불을 전송했지만 ECPay의 결과가 아직 도착하지 않았습니다. 다시 시도하지 마세요. 시스템이 자동으로 대조한 뒤 확인되면 이 환불의 상태를 갱신합니다."
   },
+  "storePhotos": {
+    "storePhotoNotFound": "매장 사진을 찾을 수 없습니다. 삭제되었을 수 있습니다"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "지금은 영업시간이 아니라 대기 등록을 받지 않습니다.",
@@ -341,6 +351,8 @@
       "waitlistPaused": "현재 대기 등록이 일시 중지되었습니다. 직원에게 문의해 주세요.",
       "waitlistPhoneInQueue": "이 전화번호는 이미 대기 중입니다.",
       "waitlistQrRequired": "매장 내 QR 코드를 스캔하여 번호표를 받아 주세요.",
+      "waitlistQrSessionNotFound": "번호표 발급 세션이 만료되었습니다. 매장 내 QR 코드를 다시 스캔해 주세요.",
+      "waitlistTicketNotFound": "이 번호표를 찾을 수 없습니다. 번호표를 다시 받아 주세요.",
       "waitlistTransitionInvalid": "번호표 상태가 변경되었습니다. 페이지를 새로고침해 주세요."
     },
     "staff": {
@@ -352,6 +364,8 @@
       "waitlistPaused": "대기 등록이 일시 중지되었습니다.",
       "waitlistPhoneInQueue": "이 전화번호는 이미 대기 중입니다.",
       "waitlistQrRequired": "고객은 매장 내 QR 코드를 스캔해야 번호표를 받을 수 있습니다.",
+      "waitlistQrSessionNotFound": "QR 코드 세션을 찾을 수 없거나 만료되었습니다.",
+      "waitlistTicketNotFound": "번호표를 찾을 수 없습니다. 새로고침해 주세요.",
       "waitlistTransitionInvalid": "번호표 상태가 변경되었습니다. 새로고침해 주세요."
     }
   }

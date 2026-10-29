@@ -1,11 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -39,6 +34,7 @@ import {
   BANNER_ENUM_FILTER_FIELDS,
   type BannerPaginationQueryDto,
 } from './dto/banner-pagination-query.dto.js';
+import { badRequestError, notFoundError } from './banner-errors.js';
 import type { BannerResponseDto } from './dto/banner-response.dto.js';
 import type {
   CreateBannerDto,
@@ -159,13 +155,13 @@ export class BannersService {
         where: eq(banner.id, bannerId),
         columns: { startsAt: true, endsAt: true },
       });
-      if (!current) throw new NotFoundException('Banner not found');
+      if (!current) throw notFoundError('bannerNotFound');
 
       const from =
         startsAt === undefined ? current.startsAt : toTimestamp(startsAt);
       const until = endsAt === undefined ? current.endsAt : toTimestamp(endsAt);
       if (from && until && from >= until)
-        throw new BadRequestException('startsAt 必須早於 endsAt');
+        throw badRequestError('scheduleInvalid');
     }
 
     const [updated] = await this.db
@@ -177,7 +173,7 @@ export class BannersService {
       })
       .where(eq(banner.id, bannerId))
       .returning();
-    if (!updated) throw new NotFoundException('Banner not found');
+    if (!updated) throw notFoundError('bannerNotFound');
 
     return updated;
   }
@@ -187,7 +183,7 @@ export class BannersService {
       .delete(banner)
       .where(eq(banner.id, bannerId))
       .returning({ id: banner.id });
-    if (deleted.length === 0) throw new NotFoundException('Banner not found');
+    if (deleted.length === 0) throw notFoundError('bannerNotFound');
   }
 
   async removeMany(ids: string[]): Promise<void> {
@@ -198,7 +194,7 @@ export class BannersService {
           .delete(banner)
           .where(eq(banner.id, id))
           .returning({ id: banner.id });
-        if (!deleted.length) throw new NotFoundException('Banner not found');
+        if (!deleted.length) throw notFoundError('bannerNotFound');
       }
     });
   }

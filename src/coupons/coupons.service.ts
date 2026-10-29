@@ -70,7 +70,10 @@ import {
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
-import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import {
+  getOrganizationCurrency,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
@@ -108,6 +111,7 @@ import type {
   ValidateCouponDto,
   ValidateCouponResponseDto,
 } from './dto/validate-coupon.dto.js';
+import { badRequestError, notFoundError } from './coupon-errors.js';
 
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,
@@ -166,7 +170,7 @@ export class CouponsService {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, slug),
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
   }
 
@@ -183,7 +187,7 @@ export class CouponsService {
       .from(organization)
       .where(inArray(organization.id, unique));
     if (found.length !== unique.length)
-      throw new BadRequestException('Organization not found');
+      throw badRequestError('applicableOrganizationNotFound');
     if (found.some(({ id, closedAt }) => closedAt && !currentIds?.includes(id)))
       throw new BadRequestException(this.t('organizationClosed'));
     return unique;
@@ -495,7 +499,7 @@ export class CouponsService {
     const found = await this.db.query.coupon.findFirst({
       where: eq(coupon.id, couponId),
     });
-    if (!found) throw new NotFoundException('Coupon not found');
+    if (!found) throw notFoundError('couponNotFound');
 
     return found;
   }
@@ -697,7 +701,7 @@ export class CouponsService {
     const found = await this.db.query.coupon.findFirst({
       where: eq(coupon.id, couponId),
     });
-    if (!found) throw new NotFoundException('Coupon not found');
+    if (!found) throw notFoundError('couponNotFound');
 
     const pointsRedeem =
       (dto.pointsCost === undefined ? found.pointsCost : dto.pointsCost) !=
@@ -801,7 +805,7 @@ export class CouponsService {
       .delete(coupon)
       .where(eq(coupon.id, couponId))
       .returning({ id: coupon.id });
-    if (deleted.length === 0) throw new NotFoundException('Coupon not found');
+    if (deleted.length === 0) throw notFoundError('couponNotFound');
   }
 
   async removeMany(ids: string[]): Promise<void> {
@@ -819,7 +823,7 @@ export class CouponsService {
           .delete(coupon)
           .where(eq(coupon.id, id))
           .returning({ id: coupon.id });
-        if (!deleted.length) throw new NotFoundException('Coupon not found');
+        if (!deleted.length) throw notFoundError('couponNotFound');
       }
     });
   }
@@ -1151,7 +1155,7 @@ export class CouponsService {
     const found = await this.db.query.coupon.findFirst({
       where: eq(coupon.id, couponId),
     });
-    if (!found) throw new NotFoundException('Coupon not found');
+    if (!found) throw notFoundError('couponNotFound');
 
     if (
       organizationId &&
