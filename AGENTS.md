@@ -14,7 +14,7 @@ pnpm run start:prod      # Run production build
 pnpm run test            # Run unit tests
 pnpm run test:watch      # Watch mode
 pnpm run test:cov        # Coverage report
-pnpm run test:e2e        # End-to-end tests
+pnpm run test:e2e        # End-to-end tests: AppModule on in-memory PGlite (db module mocked); a local .env still fills vars the spec leaves unset
 
 # Code Quality
 pnpm run lint            # oxlint (type-aware)
@@ -77,6 +77,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
+| ReportsModule        | `src/reports/`         | Sales report (later inventory report and CSV exports)                                                  |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -114,15 +115,17 @@ Every business table has a `record_deleted_row` BEFORE DELETE trigger that copie
 
 ### Payroll Rule Sets
 
-Insurance rates, 投保級距 and 基本工資 are **not** constants in code. `payroll_rule_set` holds one row per
+Insurance rates, 投保級距 and 最低工資 are **not** constants in code. `payroll_rule_set` holds one row per
 effective period (`effective_from`, `YYYY-MM`) with the rates, the 級距 ladders, the source URLs,
 and `rates_carried_from`. `PayrollService.snapshot` resolves the row in force for the statement's
 month, so re-drafting an old month always uses that month's rates; a month with no row at all
 raises `payrollRuleSetMissing`.
 
-`PayrollRulesService.ingest()` refreshes the ladders from the official open-data APIs — 勞保
-分級表 (`data.gov.tw/dataset/6258`) and 健保投保金額分級表 (`data.gov.tw/dataset/20251`), both
-discovered through `data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. Rates
+`PayrollRulesService.ingest()` refreshes the rule sets from six of the official open-data datasets listed in
+`src/payroll/rule-source.ts` — 勞保分級表 (`6258`), 職災保險投保薪資分級表 (`170557`), 勞退月提繳分級表 (`6274`),
+健保投保金額分級表 (`20251`), 最低工資 (`6281`) and 職災保險費率 (`6262`) — each discovered through
+`data.gov.tw/api/v2/rest/dataset/{id}` so new years need no code change. 職災 industry and
+commuting rates come from `6262`; the other rates
 are carried forward from the previous period rather than guessed, because they are statutory
 (勞保 11.5% + 就保 1%, 健保 5.17%, 薪資 5% 就源扣繳) and change only by announcement. An ingested ladder
 whose floor or ceiling moves down, or more than doubles, is rejected as a source change and the
@@ -130,12 +133,14 @@ previous ladder is kept. The withholding floor is `各類所得扣繳率標準` 
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
 
-最低工資 has no official API. The monthly figure is taken from the 一般勞工 ladder's first grade, which
-the 分級表 ties to it. The hourly figure cannot be derived, so when the monthly one moves the period
-gets `unconfirmed: ['minimumHourlyWageCents']` and hourly drafts carry `minimumWageUnconfirmed` until
-a platform admin sets the announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
+最低工資 comes from dataset `6281`. When it has no usable figure for the period — unreachable, rejected for
+showing a decrease, or below the 一般勞工 ladder's first grade (which the 分級表 ties to the monthly 最低工資) —
+the monthly figure is taken from that first grade and the hourly one is carried from the previous period. If
+that changes the monthly figure, the period gets `unconfirmed: ['minimumHourlyWageCents']` and hourly drafts
+carry `minimumWageUnconfirmed` until a later ingest finds the figure in `6281` or a platform admin sets the
+announced value via `PATCH /api/payroll/rule-sets/:effectiveFrom`.
 
-An ingest that fetched both ladders and rejected none stamps `checked_at` on the latest period. A draft whose rule set is
+An ingest that fetched every dataset and rejected nothing stamps `checked_at` on the latest period. A draft whose rule set is
 the latest and was not checked on or after the start of the payroll month carries
 `payrollRuleSetStale` — a failed January fetch must not silently bill last year's ladder. After deploying
 `checked_at`, run one ingest or every draft is held.
@@ -146,20 +151,20 @@ draft for an employee whose `weeklyMinutes` later reached 2400 carries `partTime
 健保 has no part-time ladder — its floor stays 分級表第一級.
 
 If an employee's stored `laborBasis` / `healthBasis` is not a grade in that month's ladder — what
-happens every January when 基本工資 moves the floor — the draft carries an
+happens every January when 最低工資 moves the floor — the draft carries an
 `insuranceBasisOutdated` blocker instead of billing the stale grade.
 
 ### Published Payslips
 
 A month with a `published` statement is closed for that employee. Anything that changes what its snapshot
 reads — approving a request or a leave cancellation, creating or cancelling a shift, saving terms,
-parental returns, moving `hiredAt` / `terminatedAt`, drafting another version — must call
+parental returns, moving `hiredAt` / `terminatedAt`, re-drafting the month — must call
 `assertPayrollUnlocked` (`src/attendance/attendance-audit.ts`) first and fails with `payrollLocked`.
 Leave approvals lock every month from the leave start onward, because medical and annual leave ledgers
 carry into later months.
 
-`PayrollService.reopen` stamps `reopened_at` on a published statement, which drops it out of the lock
-so the month can be corrected and re-drafted; publishing the new version closes the month again.
+There is no reopen: `payroll_statement` holds one statement per employee and month
+(`payroll_statement_month_uidx`, migration `0157`), so a published month stays closed.
 
 ### Attendance Audit
 
@@ -321,6 +326,15 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
+- `FIELD_ENCRYPTION_KEYS` — `v3:<base64 32 bytes>,v2:<...>,legacy` keys for `src/common/utils/field-encryption.ts`;
+  the first encrypts, the rest only decrypt. `legacy` (no key) is the key derived from `BETTER_AUTH_SECRET`,
+  which writes the unprefixed `iv.tag.ciphertext` format; it is unrelated to the `-v1` in the purpose info
+  strings. Unset behaves as `legacy` alone (logged at boot); a malformed value stops the app at boot.
+  Local, stage and production share one database, so a key may be first only once every environment can
+  decrypt it: (1) set `legacy,v2:…` everywhere; (2) once all are deployed, switch to `v2:…,legacy`. Rotate
+  the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
+  never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
+  until it is re-encrypted; a later PR provides that script
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,

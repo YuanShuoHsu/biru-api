@@ -1635,3 +1635,23 @@ export class QuantBotEquityPointDto {
   @ApiProperty({ description: '權益（計價幣）' }) equity: number;
   @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
 }
+
+export class QuantBotListResponseDto {
+  @ApiProperty({ type: [QuantBotDto] }) data: QuantBotDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotOrderListResponseDto {
+  @ApiProperty({ type: [QuantBotOrderDto] }) data: QuantBotOrderDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotFillListResponseDto {
+  @ApiProperty({ type: [QuantBotFillDto] }) data: QuantBotFillDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotEventListResponseDto {
+  @ApiProperty({ type: [QuantBotEventDto] }) data: QuantBotEventDto[];
+  @ApiProperty() total: number;
+}

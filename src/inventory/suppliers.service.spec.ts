@@ -86,4 +86,17 @@ describe('SuppliersService.findOne', () => {
       NotFoundException,
     );
   });
+
+  it('找不到供應商時帶代碼與目前語系的訊息', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+
+    await expect(service.findOne('missing')).rejects.toMatchObject({
+      response: {
+        code: 'supplierNotFound',
+        message: 'translated:common.inventory.supplierNotFound',
+      },
+    });
+  });
 });

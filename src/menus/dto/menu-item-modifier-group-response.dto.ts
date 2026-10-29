@@ -27,3 +27,9 @@ export class MenuItemModifierGroupResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class MenuItemModifierGroupListResponseDto {
+  @ApiProperty({ type: [MenuItemModifierGroupResponseDto] })
+  data: MenuItemModifierGroupResponseDto[];
+  @ApiProperty() total: number;
+}

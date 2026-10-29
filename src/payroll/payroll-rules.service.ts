@@ -87,6 +87,21 @@ const plausibleLadder = (next: number[], base: number[]) => {
   );
 };
 
+const staleRuleSet = (
+  checkedAt: Date | null,
+  latest: boolean,
+  month: string,
+) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+
+  return (
+    latest &&
+    (!checkedAt || checkedAt < platformMonthStart(year, monthNumber - 1))
+  );
+};
+
+const platformMonth = () => platformDateString(new Date()).slice(0, 7);
+
 export async function currentOccupationalIndustryRates(
   tx: DrizzleDB | Transaction,
 ) {
@@ -96,10 +111,7 @@ export async function currentOccupationalIndustryRates(
     .where(
       and(
         eq(payrollRuleSet.jurisdiction, JURISDICTION),
-        lte(
-          payrollRuleSet.effectiveFrom,
-          platformDateString(new Date()).slice(0, 7),
-        ),
+        lte(payrollRuleSet.effectiveFrom, platformMonth()),
       ),
     )
     .orderBy(desc(payrollRuleSet.effectiveFrom))
@@ -127,25 +139,33 @@ export class PayrollRulesService {
       .orderBy(desc(payrollRuleSet.effectiveFrom))
       .limit(1);
     if (!row) return null;
+
+    return {
+      ...row,
+      stale: staleRuleSet(
+        row.checkedAt,
+        !(await this.hasSuccessor(tx, row.effectiveFrom)),
+        month,
+      ),
+    };
+  }
+
+  private async hasSuccessor(
+    tx: DrizzleDB | Transaction,
+    effectiveFrom: string,
+  ) {
     const [successor] = await tx
       .select({ id: payrollRuleSet.id })
       .from(payrollRuleSet)
       .where(
         and(
           eq(payrollRuleSet.jurisdiction, JURISDICTION),
-          gt(payrollRuleSet.effectiveFrom, row.effectiveFrom),
+          gt(payrollRuleSet.effectiveFrom, effectiveFrom),
         ),
       )
       .limit(1);
-    const [year, monthNumber] = month.split('-').map(Number);
 
-    return {
-      ...row,
-      stale:
-        !successor &&
-        (!row.checkedAt ||
-          row.checkedAt < platformMonthStart(year, monthNumber - 1)),
-    };
+    return !!successor;
   }
 
   async confirm(effectiveFrom: string, dto: ConfirmRuleSetDto) {
@@ -196,16 +216,29 @@ export class PayrollRulesService {
         .where(eq(payrollRuleSet.id, row.id))
         .returning();
 
-      return updated;
+      return {
+        ...updated,
+        stale: staleRuleSet(
+          updated.checkedAt,
+          !(await this.hasSuccessor(tx, effectiveFrom)),
+          platformMonth(),
+        ),
+      };
     });
   }
 
-  list() {
-    return this.db
+  async list() {
+    const rows = await this.db
       .select()
       .from(payrollRuleSet)
       .where(eq(payrollRuleSet.jurisdiction, JURISDICTION))
       .orderBy(desc(payrollRuleSet.effectiveFrom));
+    const month = platformMonth();
+
+    return rows.map((row, index) => ({
+      ...row,
+      stale: staleRuleSet(row.checkedAt, index === 0, month),
+    }));
   }
 
   async ingest() {

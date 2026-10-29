@@ -123,6 +123,7 @@ import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js'
 import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
 import type { UpdateOfferDto } from './dto/update-offer.dto.js';
+import { badRequestError, notFoundError } from './menu-errors.js';
 
 type RecipeSummary = {
   id: string;
@@ -186,9 +187,7 @@ const resolveDrinkOptions = (
   const fixedSweetnessLevel =
     sweetness === 'Fixed' ? next('fixedSweetnessLevel') : null;
   if (sweetness === 'Fixed' && !fixedSweetnessLevel)
-    throw new BadRequestException(
-      'fixedSweetnessLevel is required when sweetness is Fixed',
-    );
+    throw badRequestError('fixedSweetnessLevelRequired');
 
   return {
     recommendedServingTemperatureLevel:
@@ -297,7 +296,7 @@ export class MenusService {
     `);
 
     if (ancestors.find(({ id }) => id === parentSectionId)?.menu_id !== menuId)
-      throw new NotFoundException('Parent section not found');
+      throw notFoundError('parentSectionNotFound');
     if (sectionId && ancestors.some(({ id }) => id === sectionId))
       throw new BadRequestException(this.t('parentSectionDescendant'));
   }
@@ -320,7 +319,7 @@ export class MenusService {
           eq(printer.purpose, 'orderTicket'),
         ),
       );
-    if (!found) throw new NotFoundException('Printer not found');
+    if (!found) throw notFoundError('printerNotFound');
   }
 
   orderTicketPrinters(menuId: string): Promise<OrderTicketPrinterOptionDto[]> {
@@ -499,7 +498,7 @@ export class MenusService {
         .select({ menuId: menuSection.menuId })
         .from(menuSection)
         .where(eq(menuSection.id, params.where.id));
-      if (!current) throw new NotFoundException('Menu section not found');
+      if (!current) throw notFoundError('menuSectionNotFound');
       await this.validateParentSection(
         tx,
         current.menuId,
@@ -558,7 +557,7 @@ export class MenusService {
       columns: { menuId: true },
       with: { menu: { columns: { organizationId: true } } },
     });
-    if (!section) throw new NotFoundException('Menu section not found');
+    if (!section) throw notFoundError('menuSectionNotFound');
 
     const result = await this.db.transaction(async (tx) => {
       await this.validateOrderTicketPrinter(
@@ -877,7 +876,7 @@ export class MenusService {
           .select({ menuId: menuItem.menuId })
           .from(menuItem)
           .where(eq(menuItem.id, params.where.id));
-        if (!current) throw new NotFoundException('Menu item not found');
+        if (!current) throw notFoundError('menuItemNotFound');
 
         await this.validateOrderTicketPrinter(
           tx,
@@ -922,7 +921,7 @@ export class MenusService {
           .orderBy(asc(offer.createdAt))
           .limit(1),
       ]);
-      if (!updated) throw new NotFoundException('Menu item not found');
+      if (!updated) throw notFoundError('menuItemNotFound');
 
       const renamed =
         !!itemData.name &&
@@ -1078,7 +1077,7 @@ export class MenusService {
       })
       .where(eq(offer.id, params.where.id))
       .returning();
-    if (!updated) throw new NotFoundException('Offer not found');
+    if (!updated) throw notFoundError('offerNotFound');
 
     return {
       ...updated,
@@ -1102,7 +1101,7 @@ export class MenusService {
         .select({ inventoryLevel: offer.inventoryLevel })
         .from(offer)
         .where(eq(offer.id, params.where.id));
-      if (!current) throw new NotFoundException('Offer not found');
+      if (!current) throw notFoundError('offerNotFound');
 
       // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
       const unitText = current.inventoryLevel?.unitText;
@@ -1147,7 +1146,7 @@ export class MenusService {
       .delete(offer)
       .where(eq(offer.id, where.id))
       .returning();
-    if (!deleted) throw new NotFoundException('Offer not found');
+    if (!deleted) throw notFoundError('offerNotFound');
 
     return {
       ...deleted,
@@ -1209,7 +1208,7 @@ export class MenusService {
       .select({ menuId: menuItem.menuId })
       .from(menuItem)
       .where(eq(menuItem.id, menuItemId));
-    if (!row) throw new NotFoundException('Menu item not found');
+    if (!row) throw notFoundError('menuItemNotFound');
 
     return row.menuId;
   }
@@ -1231,7 +1230,7 @@ export class MenusService {
       addOnMenuItemId &&
       (await this.menuIdOfItem(addOnMenuItemId)) !== menuId
     )
-      throw new NotFoundException('Menu item not found');
+      throw notFoundError('menuItemNotFound');
 
     if (addOnMenuSectionId) {
       const [target] = await this.db
@@ -1243,7 +1242,7 @@ export class MenusService {
             eq(menuSection.menuId, menuId),
           ),
         );
-      if (!target) throw new NotFoundException('Add-on menu section not found');
+      if (!target) throw notFoundError('addOnMenuSectionNotFound');
     }
   }
 
@@ -1870,7 +1869,7 @@ export class MenusService {
       .set({ ...params.data, updatedAt: new Date() })
       .where(eq(modifier.id, params.where.id))
       .returning();
-    if (!updated) throw new NotFoundException('Modifier not found');
+    if (!updated) throw notFoundError('modifierNotFound');
 
     return {
       ...updated,
@@ -1889,7 +1888,7 @@ export class MenusService {
       .delete(modifier)
       .where(eq(modifier.id, where.id))
       .returning();
-    if (!deleted) throw new NotFoundException('Modifier not found');
+    if (!deleted) throw notFoundError('modifierNotFound');
 
     return {
       ...deleted,
@@ -1931,7 +1930,7 @@ export class MenusService {
           eq(modifierGroup.menuId, menuId),
         ),
       );
-    if (!group) throw new NotFoundException('Modifier group not found');
+    if (!group) throw notFoundError('modifierGroupNotFound');
 
     return this.db.transaction(async (tx) => {
       await tx

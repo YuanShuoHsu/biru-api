@@ -10,7 +10,12 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -27,17 +32,35 @@ import { CreateMenuSectionDto } from './dto/create-menu-section.dto.js';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto.js';
 import { CreateModifierDto } from './dto/create-modifier.dto.js';
 import { CreateOfferDto } from './dto/create-offer.dto.js';
-import { MenuItemAddOnResponseDto } from './dto/menu-item-add-on-response.dto.js';
-import { MenuItemModifierGroupResponseDto } from './dto/menu-item-modifier-group-response.dto.js';
+import {
+  MenuItemAddOnListResponseDto,
+  MenuItemAddOnResponseDto,
+} from './dto/menu-item-add-on-response.dto.js';
+import {
+  MenuItemModifierGroupListResponseDto,
+  MenuItemModifierGroupResponseDto,
+} from './dto/menu-item-modifier-group-response.dto.js';
 import { MenuItemPaginationQueryDto } from './dto/menu-item-pagination-query.dto.js';
-import { MenuItemResponseDto } from './dto/menu-item-response.dto.js';
+import {
+  MenuItemListResponseDto,
+  MenuItemResponseDto,
+} from './dto/menu-item-response.dto.js';
 import { MenuResponseDto } from './dto/menu-response.dto.js';
 import { MenuSectionPaginationQueryDto } from './dto/menu-section-pagination-query.dto.js';
-import { MenuSectionResponseDto } from './dto/menu-section-response.dto.js';
+import {
+  MenuSectionListResponseDto,
+  MenuSectionResponseDto,
+} from './dto/menu-section-response.dto.js';
 import { ModifierGroupPaginationQueryDto } from './dto/modifier-group-pagination-query.dto.js';
-import { ModifierGroupResponseDto } from './dto/modifier-group-response.dto.js';
+import {
+  ModifierGroupListResponseDto,
+  ModifierGroupResponseDto,
+} from './dto/modifier-group-response.dto.js';
 import { ModifierPaginationQueryDto } from './dto/modifier-pagination-query.dto.js';
-import { ModifierResponseDto } from './dto/modifier-response.dto.js';
+import {
+  ModifierListResponseDto,
+  ModifierResponseDto,
+} from './dto/modifier-response.dto.js';
 import { OfferResponseDto } from './dto/offer-response.dto.js';
 import { ReorderDto } from './dto/reorder.dto.js';
 import { UpdateItemAvailabilityDto } from './dto/update-item-availability.dto.js';
@@ -110,10 +133,11 @@ export class MenusController {
   @Get('menus/:menuId/menu-sections')
   @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有分類' })
+  @ApiOkResponse({ type: MenuSectionListResponseDto })
   findAllMenuSections(
     @Param('menuId') menuId: string,
     @Query() query: MenuSectionPaginationQueryDto,
-  ): Promise<{ data: MenuSectionResponseDto[]; total: number }> {
+  ): Promise<MenuSectionListResponseDto> {
     return this.menusService.menuSections(menuId, query);
   }
 
@@ -213,12 +237,13 @@ export class MenusController {
   @Get('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['read'] }, 'sectionId')
   @ApiOperation({ summary: '取得分類所有品項' })
+  @ApiOkResponse({ type: MenuItemListResponseDto })
   findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
     @Query() query: MenuItemPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
     @OrganizationId() organizationId: string,
-  ): Promise<{ data: MenuItemResponseDto[]; total: number }> {
+  ): Promise<MenuItemListResponseDto> {
     return this.menusService.menuSectionItems(
       sectionId,
       organizationId,
@@ -407,10 +432,11 @@ export class MenusController {
   @Get('menu-items/:menuItemId/add-ons')
   @Roles({ menu: ['read'] }, 'menuItemId')
   @ApiOperation({ summary: '取得品項所有加購' })
+  @ApiOkResponse({ type: MenuItemAddOnListResponseDto })
   findAllMenuItemAddOns(
     @Param('menuItemId') menuItemId: string,
     @Query() query: AddOnPaginationQueryDto,
-  ): Promise<{ data: MenuItemAddOnResponseDto[]; total: number }> {
+  ): Promise<MenuItemAddOnListResponseDto> {
     return this.menusService.menuItemAddOns(menuItemId, query);
   }
 
@@ -481,10 +507,11 @@ export class MenusController {
   @Get('menus/:menuId/modifier-groups')
   @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有選項群組' })
+  @ApiOkResponse({ type: ModifierGroupListResponseDto })
   findAllModifierGroups(
     @Param('menuId') menuId: string,
     @Query() query: ModifierGroupPaginationQueryDto,
-  ): Promise<{ data: ModifierGroupResponseDto[]; total: number }> {
+  ): Promise<ModifierGroupListResponseDto> {
     return this.menusService.modifierGroups(menuId, query);
   }
 
@@ -567,11 +594,12 @@ export class MenusController {
   @Get('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['read'] }, 'groupId')
   @ApiOperation({ summary: '取得群組所有選項' })
+  @ApiOkResponse({ type: ModifierListResponseDto })
   findAllModifiers(
     @Param('groupId') groupId: string,
     @Query() query: ModifierPaginationQueryDto,
     @OrganizationId() organizationId: string,
-  ): Promise<{ data: ModifierResponseDto[]; total: number }> {
+  ): Promise<ModifierListResponseDto> {
     return this.menusService.modifiers(groupId, organizationId, query);
   }
 
@@ -659,10 +687,11 @@ export class MenusController {
   @Get('menu-items/:menuItemId/modifier-groups')
   @Roles({ menu: ['read'] }, 'menuItemId')
   @ApiOperation({ summary: '取得品項已掛上的選項群組' })
+  @ApiOkResponse({ type: MenuItemModifierGroupListResponseDto })
   findAllMenuItemModifierGroups(
     @Param('menuItemId') menuItemId: string,
     @Query() query: ModifierGroupPaginationQueryDto,
-  ): Promise<{ data: MenuItemModifierGroupResponseDto[]; total: number }> {
+  ): Promise<MenuItemModifierGroupListResponseDto> {
     return this.menusService.menuItemModifierGroups(menuItemId, query);
   }
 

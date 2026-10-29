@@ -36,3 +36,9 @@ export class ModifierGroupResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+
+export class ModifierGroupListResponseDto {
+  @ApiProperty({ type: [ModifierGroupResponseDto] })
+  data: ModifierGroupResponseDto[];
+  @ApiProperty() total: number;
+}

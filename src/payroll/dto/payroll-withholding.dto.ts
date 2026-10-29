@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Matches,
@@ -71,7 +72,9 @@ export class PayrollTaxIdentityDto {
 }
 
 export class PayrollNonResidentFileQueryDto {
-  @Matches(/^20\d{2}-\d{2}-\d{2}$/) paymentDate: string;
+  @Matches(/^20\d{2}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
+  paymentDate: string;
 }
 
 export class PayrollWithholdingYearQueryDto {

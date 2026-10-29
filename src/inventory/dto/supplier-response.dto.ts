@@ -24,3 +24,8 @@ export class SupplierResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class SupplierListResponseDto {
+  @ApiProperty({ type: [SupplierResponseDto] }) data: SupplierResponseDto[];
+  @ApiProperty() total: number;
+}

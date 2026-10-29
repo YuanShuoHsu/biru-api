@@ -152,17 +152,21 @@ describe('PointsService.findAllForOrganization', () => {
     id: string,
     sellerId: string,
     userId: string | null,
-    { amountPerPoint = null as string | null, paymentDate = '2026-02-01' } = {},
+    {
+      amountPerPoint = null as string | null,
+      paymentDate = '2026-02-01',
+      unitPrice = '100',
+    } = {},
   ) => {
     await client.query(
       `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id, amount_per_point)
-       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, $4, 'OrderDelivered', $3, $5)`,
-      [id, sellerId, userId, paymentDate, amountPerPoint],
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, $6, $4, 'OrderDelivered', $3, $5)`,
+      [id, sellerId, userId, paymentDate, amountPerPoint, unitPrice],
     );
     await client.query(
       `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
-       values ($1, 'item', '拿鐵', $1, 1, 100)`,
-      [id],
+       values ($1, 'item', '拿鐵', $1, 1, $2)`,
+      [id, unitPrice],
     );
   };
 
@@ -196,6 +200,43 @@ describe('PointsService.findAllForOrganization', () => {
 
     expect(result.data).toEqual([
       expect.objectContaining({ orderNumber: 'o2', points: 5 }),
+    ]);
+  });
+
+  it('每點金額有小數時以整數分計算，不因浮點誤差少給一點', async () => {
+    await addPaidOrder('o1', ORG, 'amy', {
+      amountPerPoint: '1.1',
+      unitPrice: '33',
+    });
+    await addPaidOrder('o2', ORG, 'amy', {
+      amountPerPoint: '0.07',
+      unitPrice: '7',
+    });
+
+    const result = await service.findAllForOrganization('biru');
+
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ orderNumber: 'o1', points: 30 }),
+        expect.objectContaining({ orderNumber: 'o2', points: 100 }),
+      ]),
+    );
+  });
+
+  it('尚未入點的訂單部分退款時，以整數分算出應得點數再收回', async () => {
+    await addPaidOrder('o1', ORG, 'amy', {
+      amountPerPoint: '1.1',
+      unitPrice: '33',
+    });
+
+    await service.revokeForOrder(db as unknown as DrizzleDB, {
+      orderBecomesTerminal: false,
+      orderId: 'o1',
+      ratio: 1,
+    });
+
+    expect(await db.select().from(pointTransaction)).toEqual([
+      expect.objectContaining({ points: -30, type: 'revoke' }),
     ]);
   });
 
@@ -402,6 +443,66 @@ describe('PointsService.findAllForOrganization', () => {
     ).rejects.toThrow('common.points.adjustOwnerOnly');
   });
 
+  it('補扣點上限依每點金額以分精確換算，點數未啟用時 enabled 為 false', async () => {
+    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+      enabled: true,
+      ownerOnlyAbovePoints: 300,
+    });
+
+    for (const [amountPerPoint, ownerOnlyAbovePoints] of [
+      ['30', 100],
+      ['1.1', 2727],
+      ['0.07', 42857],
+      ['0', 0],
+    ] as const) {
+      await client.query(`update point_setting set amount_per_point = $1`, [
+        amountPerPoint,
+      ]);
+      await expect(service.getAdjustmentLimit()).resolves.toEqual({
+        enabled: true,
+        ownerOnlyAbovePoints,
+      });
+    }
+
+    await client.exec(
+      `update point_setting set amount_per_point = 30, points_enabled_at = null`,
+    );
+    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+      enabled: false,
+      ownerOnlyAbovePoints: 100,
+    });
+  });
+
+  it('非 owner 可補扣到上限為止，超過上限拒絕', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1.1`);
+    const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit();
+
+    expect(
+      await service.adjustForOrganization(
+        'biru',
+        {
+          email: 'amy@example.com',
+          note: '補償',
+          points: ownerOnlyAbovePoints,
+        },
+        'bob',
+        'admin',
+      ),
+    ).toEqual(expect.objectContaining({ points: ownerOnlyAbovePoints }));
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        {
+          email: 'amy@example.com',
+          note: '補償',
+          points: ownerOnlyAbovePoints + 1,
+        },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toThrow('common.points.adjustOwnerOnly');
+  });
+
   it('不能調整自己的點數', async () => {
     await expect(
       service.adjustForOrganization(
@@ -435,5 +536,57 @@ describe('PointsService.findAllForOrganization', () => {
         'admin',
       ),
     ).rejects.toThrow('common.coupons.memberNotFound');
+  });
+});
+
+describe('PointsService.redeem', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: PointsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new PointsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec('truncate point_transaction, coupon, "user" cascade');
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ($1, '王小明', 'a@example.com', '小明')`,
+      [USER],
+    );
+    await client.exec(
+      `insert into coupon (id, code, discount_type, discount_value, points_cost, per_user_limit) values ('c1', 'LATTE', 'fixed', 10, 5, 1)`,
+    );
+    await db.insert(pointTransaction).values({
+      id: 'earn',
+      points: 20,
+      remainingPoints: 20,
+      type: 'earn',
+      userId: USER,
+    });
+  });
+
+  it('已達每人兌換上限時拒絕再兌換，不扣點也不發券', async () => {
+    await service.redeem(USER, 'c1');
+
+    await expect(service.redeem(USER, 'c1')).rejects.toThrow(
+      'common.points.perUserLimitReached',
+    );
+    expect(await db.select().from(schema.userCoupon)).toHaveLength(1);
+    const [earn] = await db
+      .select()
+      .from(pointTransaction)
+      .where(eq(pointTransaction.id, 'earn'));
+    expect(earn.remainingPoints).toBe(15);
   });
 });

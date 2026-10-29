@@ -123,6 +123,46 @@ describe('OrganizationsService 團隊介紹', () => {
     );
   });
 
+  it('依現行 slug 或舊 slug 找到門市，找不到時回 null', async () => {
+    await client.exec(`
+      insert into organization_slug_history (id, slug, organization_id) values
+        ('h1', 'old-biru', 'biru'),
+        ('h2', 'other', 'biru');
+    `);
+
+    try {
+      expect((await service.organizationBySlug('biru'))?.id).toBe('biru');
+      expect((await service.organizationBySlug('old-biru'))?.id).toBe('biru');
+      expect((await service.organizationBySlug('other'))?.id).toBe('other');
+      expect(await service.organizationBySlug('nope')).toBeNull();
+    } finally {
+      await client.exec(
+        "delete from organization_slug_history where id in ('h1', 'h2')",
+      );
+    }
+  });
+
+  it('門市列表預設不含停業門市，includeClosed 時全部列出，依建立時間排序', async () => {
+    await client.exec(`
+      update organization set created_at = '2026-01-02' where id = 'biru';
+      update organization set created_at = '2026-01-01', closed_at = now() where id = 'other';
+    `);
+
+    try {
+      expect((await service.organizations()).map(({ id }) => id)).toEqual([
+        'biru',
+      ]);
+      expect((await service.organizations(true)).map(({ id }) => id)).toEqual([
+        'other',
+        'biru',
+      ]);
+    } finally {
+      await client.exec(
+        `update organization set created_at = now(), closed_at = null where id in ('biru', 'other')`,
+      );
+    }
+  });
+
   it('不帶 showcasedOnly 時列出全部成員，依加入時間排序', async () => {
     await service.setMemberShowcase('biru', 'm-bob', true, bob);
 
