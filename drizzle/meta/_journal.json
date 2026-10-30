@@ -1723,6 +1723,13 @@
       "when": 1793222190636,
       "tag": "0245_store_layout",
       "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1793286275069,
+      "tag": "0246_organization_team_name_not_blank",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ describe('AuditLogPaginationQueryDto', () => {
 
   it('accepts a full audit log query string', async () => {
     const query = parse({
+      actorId: 'user-1',
       ancestorId: 'coupon-1',
       filterField: 'createdAt',
       filterOperator: 'after',
@@ -48,6 +49,7 @@ describe('AuditLogPaginationQueryDto', () => {
     [{ resource: 'unknown' }, 'resource'],
     [{ filterField: 'changes' }, 'filterField'],
     [{ sortBy: 'resourceId' }, 'sortBy'],
+    [{ actorId: ['user-1', 'user-2'] }, 'actorId'],
   ])('rejects %j', async (query, property) => {
     expect(await invalidProperties(query)).toEqual([property]);
   });

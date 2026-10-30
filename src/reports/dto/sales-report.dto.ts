@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsDateString, IsIn } from 'class-validator';
+import { IsIn } from 'class-validator';
 
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
+
+import { ReportRangeQueryDto } from './report-range-query.dto.js';
 
 const ORDER_SALES_REPORT_GROUP_BYS = [
   'day',
@@ -24,18 +26,7 @@ export const SALES_REPORT_GROUP_BYS = [
 ] as const;
 export type SalesReportGroupBy = (typeof SALES_REPORT_GROUP_BYS)[number];
 
-export class SalesReportQueryDto {
-  @ApiProperty({ description: '統計起始時間', format: 'date-time' })
-  @IsDateString()
-  since: string;
-
-  @ApiProperty({
-    description: '統計結束時間（不含）；須晚於 since，區間最多 366 天',
-    format: 'date-time',
-  })
-  @IsDateString()
-  until: string;
-
+export class SalesReportQueryDto extends ReportRangeQueryDto {
   @ApiProperty({
     enum: SALES_REPORT_GROUP_BYS,
     enumName: 'SalesReportGroupBy',

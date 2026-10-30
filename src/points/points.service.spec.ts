@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
+import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import { order } from '../db/schema/orders.js';
 import { pointTransaction } from '../db/schema/points.js';
@@ -99,6 +100,85 @@ describe('PointsService.getAllMine', () => {
       balance: 0,
       transactions: [],
       transactionsTotal: 0,
+      expiringSoon: [],
+    });
+  });
+
+  describe('expiringSoon', () => {
+    const inPlatformDays = (days: number, hours: number) =>
+      new Date(platformMidnight(Date.now()) + days * DAY_MS + hours * 3600_000);
+
+    it('30 天內到期的剩餘點數依台灣日期分組，取當天最早到期時間，由近到遠排列', async () => {
+      await addTransactions([
+        { expiresAt: inPlatformDays(12, 9), remainingPoints: 7 },
+        { expiresAt: inPlatformDays(5, 18), remainingPoints: 4 },
+        { expiresAt: inPlatformDays(5, 2) },
+        {
+          expiresAt: inPlatformDays(5, 3),
+          points: 6,
+          remainingPoints: 6,
+          type: 'adjust',
+        },
+        { expiresAt: inPlatformDays(30, 23), remainingPoints: 2 },
+      ]);
+
+      const { expiringSoon } = await service.getAllMine(USER);
+
+      expect(expiringSoon).toEqual([
+        { expiresAt: inPlatformDays(5, 2), points: 20 },
+        { expiresAt: inPlatformDays(12, 9), points: 7 },
+        { expiresAt: inPlatformDays(30, 23), points: 2 },
+      ]);
+    });
+
+    it('同一天到期的收回點數從當天扣除', async () => {
+      const expiresAt = inPlatformDays(5, 2);
+      await addTransactions([
+        { expiresAt },
+        { expiresAt, points: -3, remainingPoints: -3, type: 'revoke' },
+      ]);
+
+      const { expiringSoon } = await service.getAllMine(USER);
+
+      expect(expiringSoon).toEqual([{ expiresAt, points: 7 }]);
+    });
+
+    it('收回造成的欠點使合計超過餘額時，從最近到期的日期起只列到餘額為止', async () => {
+      await addTransactions([
+        { expiresAt: inPlatformDays(3, 2), points: 20, remainingPoints: 20 },
+        { expiresAt: inPlatformDays(8, 2) },
+        { expiresAt: null, points: -15, remainingPoints: -15, type: 'revoke' },
+      ]);
+
+      const { balance, expiringSoon } = await service.getAllMine(USER);
+
+      expect(balance).toBe(15);
+      expect(expiringSoon).toEqual([
+        { expiresAt: inPlatformDays(3, 2), points: 15 },
+      ]);
+    });
+
+    it('不含第 31 天起、已過期、不會過期、已用完、只有收回與其他會員的點數', async () => {
+      await client.query(
+        `insert into "user" (id, name, email, first_name) values ('other', '陳小華', 'b@example.com', '小華')`,
+      );
+      await addTransactions([
+        { expiresAt: inPlatformDays(31, 0) },
+        { expiresAt: new Date(Date.now() - 60_000) },
+        { expiresAt: null },
+        { expiresAt: inPlatformDays(5, 4), remainingPoints: 0 },
+        {
+          expiresAt: inPlatformDays(5, 5),
+          points: -3,
+          remainingPoints: -3,
+          type: 'revoke',
+        },
+        { expiresAt: inPlatformDays(5, 6), userId: 'other' },
+      ]);
+
+      const { expiringSoon } = await service.getAllMine(USER);
+
+      expect(expiringSoon).toEqual([]);
     });
   });
 });

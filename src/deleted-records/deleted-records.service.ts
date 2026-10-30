@@ -36,6 +36,7 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
 } from '../common/utils/data-grid-filters.js';
+import { pgErrorCode } from '../common/utils/pg-errors.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
@@ -206,9 +207,6 @@ const getLabel = (data: Row['data']): string | LocalizedText | null => {
 
   return null;
 };
-
-const pgErrorCode = (error: unknown) =>
-  (error as { cause?: { code?: string } }).cause?.code;
 
 const organizationIdOf = (tableName: SQL, recordId: SQL, data: SQL) => sql`
   COALESCE(

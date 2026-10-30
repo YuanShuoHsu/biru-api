@@ -58,14 +58,14 @@ const PURCHASING_FIELDS = [
   'url',
 ];
 
-const omitPurchasing = (dto: IngredientResponseDto): IngredientResponseDto => ({
-  ...dto,
-  price: undefined,
-  supplierId: undefined,
-  supplierName: undefined,
-  unitPrice: undefined,
-  url: undefined,
-});
+const omitPurchasing = (dto: IngredientResponseDto): IngredientResponseDto =>
+  Object.assign(dto, {
+    price: undefined,
+    supplierId: undefined,
+    supplierName: undefined,
+    unitPrice: undefined,
+    url: undefined,
+  });
 
 @Injectable()
 export class IngredientsService {
