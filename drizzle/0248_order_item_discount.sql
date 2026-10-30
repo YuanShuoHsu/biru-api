@@ -1,0 +1,1 @@
+ALTER TABLE "order_item" ADD COLUMN "discount" numeric(10, 2);
