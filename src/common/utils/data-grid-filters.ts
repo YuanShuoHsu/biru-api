@@ -87,7 +87,7 @@ export const buildLocalizedTextFilterCondition = (
   return matchOperator === operator ? anyValueMatches : not(anyValueMatches);
 };
 
-const isCalendarDate = (value: string) =>
+export const isCalendarDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) && isISO8601(value, { strict: true });
 
 export const buildDateFilterCondition = (
@@ -120,6 +120,8 @@ export const buildDateFilterCondition = (
   }
 };
 
+const asNumeric = (value: number) => sql`${value}::numeric`;
+
 export const buildNumberFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -133,8 +135,10 @@ export const buildNumberFilterCondition = (
   if (operator === 'isAnyOf') {
     const values = value
       .split(',')
+      .filter(Boolean)
       .map(Number)
-      .filter((v) => !Number.isNaN(v));
+      .filter(Number.isFinite)
+      .map(asNumeric);
     if (values.length === 0) return undefined;
 
     return values.length === 1
@@ -143,21 +147,23 @@ export const buildNumberFilterCondition = (
   }
 
   const num = Number(value);
-  if (!value || Number.isNaN(num)) return undefined;
+  if (!value || !Number.isFinite(num)) return undefined;
+
+  const target = asNumeric(num);
 
   switch (operator) {
     case '=':
-      return eq(colSql, num);
+      return eq(colSql, target);
     case '!=':
-      return ne(colSql, num);
+      return ne(colSql, target);
     case '>':
-      return gt(colSql, num);
+      return gt(colSql, target);
     case '>=':
-      return gte(colSql, num);
+      return gte(colSql, target);
     case '<':
-      return lt(colSql, num);
+      return lt(colSql, target);
     case '<=':
-      return lte(colSql, num);
+      return lte(colSql, target);
   }
 };
 
