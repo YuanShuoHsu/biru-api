@@ -12,7 +12,7 @@ describe('allocateDiscount', () => {
     expect(allocateDiscount(50, [0, 100])).toEqual([0, 50]);
   });
 
-  it('never gives a line more than its own total when the discount covers everything', () => {
+  it('gives each line its whole total when the discount equals the eligible total', () => {
     expect(allocateDiscount(7, [3, 3, 1])).toEqual([3, 3, 1]);
   });
 
