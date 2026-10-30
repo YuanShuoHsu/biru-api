@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsDateString,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -20,6 +21,7 @@ import {
   type AttendanceErrorCode,
   badRequestError,
 } from '../attendance-errors.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class EmergencyWorkDto {
   @ApiProperty({
@@ -34,7 +36,7 @@ export class EmergencyWorkDto {
 }
 
 export class ReviewLeaveCaseDto {
-  @IsString() @MaxLength(100) reference: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(100) reference: string;
   @IsDateString() eventDate: string;
   @IsDateString() startsAt: string;
   @ApiPropertyOptional({

@@ -2,6 +2,7 @@ import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import { menu, menuItem } from '../db/schema/menus.js';
@@ -50,8 +51,7 @@ const claim = async (
 
     return true;
   } catch (error) {
-    if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-      return false;
+    if (isUniqueViolation(error)) return false;
     throw error;
   }
 };

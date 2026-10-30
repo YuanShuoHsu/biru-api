@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
@@ -10,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateWaitlistTicketDto {
   @ApiPropertyOptional()
@@ -21,6 +23,7 @@ export class CreateWaitlistTicketDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @Transform(trim)
   name: string;
 
   @ApiProperty()

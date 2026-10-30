@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   type Column,
@@ -15,7 +10,7 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nService } from 'nestjs-i18n';
 
 import { DEFAULT_LANGUAGE, type LocalizedText } from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
@@ -26,7 +21,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
-import { DAY_MS, PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import {
   COUNTED_AT,
@@ -42,8 +37,7 @@ import type {
   SalesReportRowDto,
   SalesReportTotalsDto,
 } from './dto/sales-report.dto.js';
-
-const MAX_RANGE_DAYS = 366;
+import { parseReportRange } from './report-range.js';
 
 export const UNCATEGORIZED_KEY = 'uncategorized';
 
@@ -72,21 +66,11 @@ export class SalesReportService {
     private readonly i18n: I18nService<I18nTranslations>,
   ) {}
 
-  private t(key: keyof I18nTranslations['common']['reports']): string {
-    return this.i18n.t(`common.reports.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
   async getSalesReport(
     organizationSlug: string,
     { groupBy, ...range }: SalesReportQueryDto,
   ): Promise<SalesReportResponseDto> {
-    const since = new Date(range.since);
-    const until = new Date(range.until);
-    if (until <= since) throw new BadRequestException(this.t('rangeInvalid'));
-    if (until.getTime() - since.getTime() > MAX_RANGE_DAYS * DAY_MS)
-      throw new BadRequestException(this.t('rangeTooLong'));
+    const { since, until } = parseReportRange(range, this.i18n);
 
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
@@ -9,6 +10,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateAttendanceLeaveCaseDto {
   @IsOptional() @IsUUID() childId?: string;
@@ -35,6 +37,6 @@ export class CreateAttendanceLeaveCaseDto {
   @IsOptional()
   @IsDateString()
   endsAt?: string;
-  @IsString() @MinLength(1) @MaxLength(1000) reason: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason: string;
   @IsOptional() @IsBoolean() extensionAgreed?: boolean;
 }

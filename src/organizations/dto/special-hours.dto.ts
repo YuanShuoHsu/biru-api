@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   ApiProperty,
   ApiPropertyOptional,
@@ -17,6 +18,7 @@ import {
 } from 'class-validator';
 
 import { IsOpeningHours } from '../../menus/dto/create-offer.dto.js';
+import { trim } from '../../common/utils/trim.js';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -44,6 +46,7 @@ export class CreateSpecialHoursDto {
   @IsString()
   @IsNotEmpty()
   @Validate(IsOpeningHours)
+  @Transform(trim)
   openingHours: string | null;
 
   @ApiPropertyOptional({

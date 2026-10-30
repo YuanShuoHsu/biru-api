@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
@@ -24,6 +24,7 @@ import {
   RESIDENCE_COUNTRY_CODES,
   type ResidenceCountryCode,
 } from '../residence-countries.js';
+import { trim } from '../../common/utils/trim.js';
 
 export const WITHHOLDING_ID_TYPES = ['0', '3', '7'] as const;
 
@@ -37,11 +38,15 @@ export class PayrollWithholdingUnitDto {
   @ApiProperty({ description: '扣繳單位稅籍編號' })
   @Matches(/^\d{4}[0-9FGHP]\d{4}$/)
   taxRegistrationNumber: string;
-  @IsString() @MinLength(1) @MaxLength(50) name: string;
-  @IsString() @MinLength(1) @MaxLength(26) address: string;
-  @IsString() @MinLength(1) @MaxLength(50) agentName: string;
-  @IsString() @MinLength(1) @MaxLength(20) representativeName: string;
-  @IsString() @MinLength(1) @MaxLength(20) contactName: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(50) name: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(26) address: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(50) agentName: string;
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  representativeName: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(20) contactName: string;
   @Matches(/^[\d-]{1,15}$/) contactPhone: string;
   @IsEmail() @MaxLength(30) contactEmail: string;
 }
@@ -54,6 +59,7 @@ export class PayrollTaxIdentityDto {
   @Matches(/^([A-Z][12A-D89]\d{8}|\d{8}[A-Z]{2})$/)
   taxId: string;
   @ApiProperty({ description: '戶籍地址；外籍無中文地址者填雇主地址' })
+  @Transform(trim)
   @IsString()
   @MinLength(1)
   @MaxLength(100)

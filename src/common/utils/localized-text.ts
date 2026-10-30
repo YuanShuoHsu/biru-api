@@ -18,6 +18,13 @@ export const isLocalizedText = (value: unknown): value is LocalizedText =>
       languages.includes(language) && typeof text === 'string',
   );
 
+export const hasLocalizedText = (value: unknown): boolean =>
+  isLocalizedText(value) && Object.values(value).some((text) => text.trim());
+
+export const isCompleteLocalizedText = (value: unknown): boolean =>
+  isLocalizedText(value) &&
+  languages.every((language) => value[language as Language]?.trim());
+
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   isLocalizedText(value) && Object.values(value).every((text) => !text.trim())
     ? null

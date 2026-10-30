@@ -62,6 +62,10 @@ export const organization = pgTable(
   (table) => [
     uniqueIndex('organization_slug_uidx').on(table.slug),
     check(
+      'organization_name_slug_not_blank',
+      sql`btrim(${table.name}) <> '' and btrim(${table.slug}) <> ''`,
+    ),
+    check(
       'organization_address_not_blank',
       sql`btrim(${table.addressCountry}) <> '' and btrim(${table.addressLocality}) <> '' and btrim(${table.addressRegion}) <> '' and btrim(${table.streetAddress}) <> ''`,
     ),
@@ -135,7 +139,10 @@ export const team = pgTable(
     createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').$onUpdate(() => new Date()),
   },
-  (table) => [index('team_organizationId_idx').on(table.organizationId)],
+  (table) => [
+    index('team_organizationId_idx').on(table.organizationId),
+    check('team_name_not_blank', sql`btrim(${table.name}) <> ''`),
+  ],
 );
 
 export type Team = typeof team.$inferSelect;

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsString,
@@ -5,10 +6,11 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateAttendanceParentalChildDto {
   @IsUUID() employeeId: string;
-  @IsString() @MinLength(1) @MaxLength(100) reference: string;
-  @IsString() @MinLength(1) @MaxLength(100) label: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(100) reference: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(100) label: string;
   @IsDateString() birthDate: string;
 }

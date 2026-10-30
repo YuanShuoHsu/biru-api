@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
@@ -12,6 +13,7 @@ import {
   Matches,
   MaxLength,
   Min,
+  IsNotEmpty,
 } from 'class-validator';
 import { CURRENCY_REGEX } from '../../common/utils/currency.js';
 import {
@@ -22,6 +24,7 @@ import {
   type CouponIssueTrigger,
   type CouponScope,
 } from '../../db/schema/coupons.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateCouponDto {
   @ApiPropertyOptional({
@@ -37,6 +40,8 @@ export class CreateCouponDto {
   @ApiProperty()
   @IsString()
   @MaxLength(64)
+  @Transform(trim)
+  @IsNotEmpty()
   code: string;
 
   @ApiPropertyOptional({

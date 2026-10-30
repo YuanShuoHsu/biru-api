@@ -1,5 +1,5 @@
 {
-  "id": "ed888cef-104b-4da9-954a-3e422c34d846",
+  "id": "a314f086-fe79-4777-aacc-1caff87b0e20",
   "prevId": "6adac366-3704-44dd-81e7-f2ea3bc5554b",
   "version": "7",
   "dialect": "postgresql",
@@ -6523,6 +6523,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "organization_name_slug_not_blank": {
+          "name": "organization_name_slug_not_blank",
+          "value": "btrim(\"organization\".\"name\") <> '' and btrim(\"organization\".\"slug\") <> ''"
+        },
         "organization_address_not_blank": {
           "name": "organization_address_not_blank",
           "value": "btrim(\"organization\".\"address_country\") <> '' and btrim(\"organization\".\"address_locality\") <> '' and btrim(\"organization\".\"address_region\") <> '' and btrim(\"organization\".\"street_address\") <> ''"
@@ -6824,7 +6828,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "team_name_not_blank": {
+          "name": "team_name_not_blank",
+          "value": "btrim(\"team\".\"name\") <> ''"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.team_member": {
@@ -10575,12 +10584,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "user_name_phone_not_blank": {
-          "name": "user_name_phone_not_blank",
-          "value": "btrim(\"user\".\"first_name\") <> '' and btrim(\"user\".\"last_name\") <> '' and btrim(\"user\".\"phone_number\") <> ''"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.verification": {

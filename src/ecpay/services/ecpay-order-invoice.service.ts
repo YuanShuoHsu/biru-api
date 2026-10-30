@@ -78,6 +78,10 @@ import {
 } from '../../events/order-updated.event.js';
 import type { OrderPaidEvent } from '../../events/order-paid.event.js';
 import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
+import {
+  COUNTED_ORDER_STATUSES,
+  isCountedOrder,
+} from '../../orders/counted-orders.js';
 import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
@@ -199,6 +203,7 @@ export class EcpayOrderInvoiceService {
           eq(invoice.status, 'pending'),
           lt(invoice.updatedAt, staleBefore),
           isNotNull(order.paymentDate),
+          isCountedOrder,
           ne(order.orderStatus, 'OrderReturned'),
         ),
       )
@@ -223,27 +228,24 @@ export class EcpayOrderInvoiceService {
       .from(invoice)
       .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
-        and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
+        and(
+          eq(invoice.status, 'issuing'),
+          lt(invoice.updatedAt, staleBefore),
+          isNotNull(invoice.relateNumber),
+        ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [
       index,
       { id, orderId, organizationId, relateNumber },
     ] of stuck.entries()) {
-      if (!relateNumber) {
-        this.logger.error(
-          `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
-        );
-
-        continue;
-      }
-
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         const result = await this.ecpayGetIssueInvoiceService.getIssue({
-          RelateNumber: relateNumber,
+          RelateNumber: relateNumber!,
         });
 
         const [updated] = await this.db
@@ -271,6 +273,11 @@ export class EcpayOrderInvoiceService {
           `發票 ${id} 查證失敗，維持開立中待人工確認`,
           error instanceof Error ? error.stack : String(error),
         );
+
+        await this.db
+          .update(invoice)
+          .set({ updatedAt: new Date() })
+          .where(and(eq(invoice.id, id), eq(invoice.status, 'issuing')));
       }
     }
   }
@@ -323,7 +330,11 @@ export class EcpayOrderInvoiceService {
     });
 
     if (!row) throw new NotFoundException('Order not found');
-    if (!row.paymentDate) throw new ConflictException(this.tInvoice('notPaid'));
+    if (
+      !row.paymentDate ||
+      !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
+    )
+      throw new ConflictException(this.tInvoice('notPaid'));
     if (row.orderStatus === 'OrderReturned')
       throw new ConflictException(this.tInvoice('orderRefunded'));
 
