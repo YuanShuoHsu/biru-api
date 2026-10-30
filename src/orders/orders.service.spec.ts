@@ -6,7 +6,7 @@ import type { I18nService } from 'nestjs-i18n';
 
 import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import { invoice } from '../db/schema/invoices.js';
-import { order } from '../db/schema/orders.js';
+import { order, orderItem } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
@@ -91,7 +91,11 @@ const createService = ({
   specialHours = [],
   txDuplicate,
 }: {
-  applied?: { coupon: { code: string }; discount: number } | null;
+  applied?: {
+    coupon: { code: string };
+    discount: number;
+    itemDiscounts: number[];
+  } | null;
   closedAt?: Date | null;
   consumeError?: Error;
   lowStock?: { id: string; name: Record<string, string> }[];
@@ -711,7 +715,11 @@ describe('OrdersService.createOrder', () => {
 
     it('折扣寫入訂單並核銷優惠券', async () => {
       const { couponsService, inserted, service } = createService({
-        applied: { coupon: { code: 'SAVE30' }, discount: 30 },
+        applied: {
+          coupon: { code: 'SAVE30' },
+          discount: 30,
+          itemDiscounts: [30, 0],
+        },
       });
 
       await service.createOrder(
@@ -735,13 +743,21 @@ describe('OrdersService.createOrder', () => {
         orderStatus: 'OrderPaymentDue',
         subtotal: '156.00',
       });
+      expect(inserted.get(orderItem)).toMatchObject([
+        { discount: '30.00', id: 'i1' },
+        { discount: '0.00', id: 'i2' },
+      ]);
       expect(couponsService.redeem).toHaveBeenCalledOnce();
       expect(inserted.has(invoice)).toBe(true);
     });
 
     it('全額折抵直接成立且不開發票', async () => {
       const { inserted, service } = createService({
-        applied: { coupon: { code: 'FREE' }, discount: 156 },
+        applied: {
+          coupon: { code: 'FREE' },
+          discount: 156,
+          itemDiscounts: [120, 36],
+        },
       });
 
       await service.createOrder(

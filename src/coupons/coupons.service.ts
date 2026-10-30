@@ -69,7 +69,10 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import { sumOrderItems } from '../common/utils/order-items.js';
+import {
+  allocateDiscount,
+  sumOrderItems,
+} from '../common/utils/order-items.js';
 import {
   getOrganizationCurrency,
   organizationNotFoundError,
@@ -1365,6 +1368,7 @@ export class CouponsService {
   ): Promise<{
     coupon: Coupon;
     discount: number;
+    itemDiscounts: number[];
     userCouponId: string | null;
   }> {
     const matches = await this.db.query.coupon.findMany({
@@ -1427,18 +1431,11 @@ export class CouponsService {
         }),
       );
 
-    const eligibleSubtotal =
-      found.scope === 'order'
-        ? subtotal
-        : sumOrderItems(
-            items.filter(
-              (item) =>
-                found.menuItemIds?.includes(item.menuItemId) ||
-                item.menuSectionIds.some((id) =>
-                  found.menuSectionIds?.includes(id),
-                ),
-            ),
-          );
+    const isEligible = (item: ResolvedOrderItem) =>
+      found.scope === 'order' ||
+      !!found.menuItemIds?.includes(item.menuItemId) ||
+      item.menuSectionIds.some((id) => found.menuSectionIds?.includes(id));
+    const eligibleSubtotal = sumOrderItems(items.filter(isEligible));
 
     const discount =
       found.discountType === 'percentage'
@@ -1449,7 +1446,15 @@ export class CouponsService {
           );
     if (discount <= 0) throw new BadRequestException(this.t('notApplicable'));
 
-    return { coupon: found, discount, userCouponId: voucher?.id || null };
+    return {
+      coupon: found,
+      discount,
+      itemDiscounts: allocateDiscount(
+        discount,
+        items.map((item) => (isEligible(item) ? sumOrderItems([item]) : 0)),
+      ),
+      userCouponId: voucher?.id || null,
+    };
   }
 
   private async countUserCouponOrders(
