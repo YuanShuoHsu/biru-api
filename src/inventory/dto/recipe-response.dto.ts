@@ -50,3 +50,14 @@ export class MenuItemRecipeDetailResponseDto {
   @ApiProperty({ nullable: true, type: RecipeResponseDto })
   recipe: RecipeResponseDto | null;
 }
+
+export class RecipeIngredientListResponseDto {
+  @ApiProperty({ type: [RecipeIngredientResponseDto] })
+  data: RecipeIngredientResponseDto[];
+  @ApiProperty() total: number;
+}
+
+export class RecipeListResponseDto {
+  @ApiProperty({ type: [RecipeResponseDto] }) data: RecipeResponseDto[];
+  @ApiProperty() total: number;
+}

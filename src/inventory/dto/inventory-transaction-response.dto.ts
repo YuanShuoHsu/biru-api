@@ -28,3 +28,9 @@ export class InventoryTransactionResponseDto {
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }
+
+export class InventoryTransactionListResponseDto {
+  @ApiProperty({ type: [InventoryTransactionResponseDto] })
+  data: InventoryTransactionResponseDto[];
+  @ApiProperty() total: number;
+}

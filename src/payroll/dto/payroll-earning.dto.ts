@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
@@ -15,6 +16,7 @@ import {
   PAYROLL_EARNING_CATEGORIES,
   type PayrollEarningCategory,
 } from '../../db/schema/payroll.js';
+import { trim } from '../../common/utils/trim.js';
 
 export const PAYROLL_EARNING_TYPE_STRING_FILTER_FIELDS = ['name'] as const;
 
@@ -52,7 +54,7 @@ export class PayrollEarningTypePaginationQueryDto extends PaginationQueryDto {
 }
 
 export class RenamePayrollEarningTypeDto {
-  @IsString() @MinLength(1) @MaxLength(50) name: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(50) name: string;
 }
 
 export class CreatePayrollEarningTypeDto extends RenamePayrollEarningTypeDto {

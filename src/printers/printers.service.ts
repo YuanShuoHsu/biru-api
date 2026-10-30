@@ -16,13 +16,13 @@ import { digestHa1, nonceIssuedAt } from './utils/digest-auth.js';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { organization } from '../db/schema/organizations.js';
+import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import type { Printer, PrinterPurpose } from '../db/schema/printers.js';
 import { printer as printerTable } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
-// 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線（用戶定案 60 秒）
+// 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線
 export const PRINTER_OFFLINE_AFTER_MS = 60_000;
 
 const POLL_GAP_SAMPLES = 5;
@@ -84,14 +84,8 @@ export class PrintersService {
     };
   }
 
-  async findOrganizationId(organizationSlug: string): Promise<string> {
-    const org = await this.db.query.organization.findFirst({
-      where: eq(organization.slug, organizationSlug),
-      columns: { id: true },
-    });
-    if (!org) throw new NotFoundException('Organization not found');
-
-    return org.id;
+  findOrganizationId(organizationSlug: string): Promise<string> {
+    return getOrganizationIdBySlug(this.db, organizationSlug);
   }
 
   list(

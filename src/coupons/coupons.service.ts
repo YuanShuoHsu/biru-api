@@ -74,6 +74,7 @@ import {
   getOrganizationCurrency,
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
@@ -1132,7 +1133,7 @@ export class CouponsService {
         return row;
       });
     } catch (error) {
-      if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+      if (isUniqueViolation(error))
         throw new BadRequestException(this.t('alreadyClaimed'));
       throw error;
     }

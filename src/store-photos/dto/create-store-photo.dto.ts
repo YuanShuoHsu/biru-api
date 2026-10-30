@@ -1,10 +1,8 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
-import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
-  IsObject,
   IsString,
   MaxLength,
   Min,
@@ -12,7 +10,10 @@ import {
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
-import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
+import {
+  IsCompleteLocalizedText,
+  IsLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateStorePhotoDto {
@@ -25,8 +26,8 @@ export class CreateStorePhotoDto {
     description: '替代文字',
     example: { 'zh-TW': '門市外觀', en: 'Storefront' },
   })
-  @IsObject()
-  @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   alt: LocalizedText;
 
   @ApiPropertyOptional()

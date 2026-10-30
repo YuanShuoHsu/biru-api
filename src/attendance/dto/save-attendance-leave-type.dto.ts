@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
@@ -10,9 +11,10 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class SaveAttendanceLeaveTypeDto {
-  @IsString() @MinLength(1) @MaxLength(100) name: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(100) name: string;
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()

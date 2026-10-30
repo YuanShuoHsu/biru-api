@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -25,7 +25,6 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -42,6 +41,7 @@ import {
   SupplierIngredientResponseDto,
   SupplierResponseDto,
 } from './dto/supplier-response.dto.js';
+import { notFoundError } from './inventory-errors.js';
 
 type Tx = Pick<DrizzleDB, 'update'>;
 
@@ -50,7 +50,7 @@ export class SuppliersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: SupplierPaginationQueryDto = {},
   ): Promise<{ data: SupplierResponseDto[]; total: number }> {
     const {
@@ -64,10 +64,6 @@ export class SuppliersService {
       sortBy,
       sortDirection = 'asc',
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
       name: supplier.name,
@@ -163,20 +159,15 @@ export class SuppliersService {
     const row = await this.db.query.supplier.findFirst({
       where: eq(supplier.id, supplierId),
     });
-    if (!row) throw new NotFoundException('Supplier not found');
+    if (!row) throw notFoundError('supplierNotFound');
 
     return this.withIngredients(row);
   }
 
   async create(
-    organizationSlug: string,
+    organizationId: string,
     { ingredientIds, ...dto }: CreateSupplierDto,
   ): Promise<SupplierResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-
     await this.assertIngredientsInOrganization(ingredientIds, organizationId);
 
     const created = await this.db.transaction(async (tx) => {
@@ -201,7 +192,7 @@ export class SuppliersService {
       .select({ organizationId: supplier.organizationId })
       .from(supplier)
       .where(eq(supplier.id, supplierId));
-    if (!existing) throw new NotFoundException('Supplier not found');
+    if (!existing) throw notFoundError('supplierNotFound');
 
     await this.assertIngredientsInOrganization(
       ingredientIds,
@@ -217,7 +208,7 @@ export class SuppliersService {
               .where(eq(supplier.id, supplierId))
               .returning()
           : await tx.select().from(supplier).where(eq(supplier.id, supplierId));
-      if (!row) throw new NotFoundException('Supplier not found');
+      if (!row) throw notFoundError('supplierNotFound');
 
       if (ingredientIds)
         await this.bindIngredients(tx, supplierId, ingredientIds);
@@ -253,7 +244,7 @@ export class SuppliersService {
         ),
       );
     if (found.length !== unique.length)
-      throw new NotFoundException('Ingredient not found');
+      throw notFoundError('ingredientNotFound');
   }
 
   private async bindIngredients(
@@ -294,7 +285,7 @@ export class SuppliersService {
       .delete(supplier)
       .where(eq(supplier.id, supplierId))
       .returning({ id: supplier.id });
-    if (!deleted.length) throw new NotFoundException('Supplier not found');
+    if (!deleted.length) throw notFoundError('supplierNotFound');
   }
 
   async removeMany(organizationId: string, ids: string[]): Promise<void> {
@@ -310,7 +301,7 @@ export class SuppliersService {
             ),
           )
           .returning({ id: supplier.id });
-        if (!deleted.length) throw new NotFoundException('Supplier not found');
+        if (!deleted.length) throw notFoundError('supplierNotFound');
       }
     });
   }

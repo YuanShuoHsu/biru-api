@@ -176,13 +176,18 @@
     "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
   },
   "inventory": {
+    "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
     "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
-    "recipeIngredientExists": "This ingredient has already been added"
+    "recipeIngredientExists": "This ingredient has already been added",
+    "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
+    "recipeNotFound": "The recipe wasn't found. It may have been deleted",
+    "supplierNotFound": "The supplier wasn't found. It may have been deleted"
   },
   "invoices": {
     "allowanceIssued": "This invoice already has a credit note and cannot be voided",
     "alreadyIssuing": "This invoice is currently being issued. Please try again shortly",
+    "customerNameRequiresIdentifier": "A buyer name can only be corrected together with a tax ID number on a personal or donated invoice",
     "notIssued": "This invoice has not been issued yet",
     "notPaid": "The order has not been paid, so no invoice can be issued",
     "notPending": "This invoice is {status} and cannot be issued",
@@ -202,9 +207,18 @@
     "voidWriteFailed": "Invoice {invoiceNumber} was voided at ECPay but could not be recorded locally. Verify it and fix the record manually"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "The add-on section wasn't found. It may have been deleted",
     "addOnSelf": "An add-on can't be the item itself",
+    "fixedSweetnessLevelRequired": "Please choose a fixed sweetness level when sweetness is fixed",
+    "menuItemNotFound": "The item wasn't found. It may have been deleted",
+    "menuSectionNotFound": "The section wasn't found. It may have been deleted",
+    "modifierGroupNotFound": "The option group wasn't found. It may have been deleted",
+    "modifierNotFound": "The option wasn't found. It may have been deleted",
+    "offerNotFound": "The item's price wasn't found. It may have been deleted",
     "parentSectionDescendant": "A section can't be moved under its own subsection",
+    "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
+    "printerNotFound": "The printer wasn't found. It may have been removed",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orderTickets": {
@@ -254,6 +268,7 @@
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
+    "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
     "pickupTimeInvalid": "Please choose a valid pickup time",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",
@@ -337,6 +352,14 @@
     "nothingToRefund": "There is nothing left to refund",
     "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded",
     "resultUnknown": "The refund was submitted but ECPay has not confirmed the result. Do not retry — the system will reconcile it automatically and update this refund once confirmed."
+  },
+  "reports": {
+    "rangeInvalid": "The end time must be later than the start time.",
+    "rangeTooLong": "The report can cover at most 366 days."
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
+    "notFound": "This store has no floor plan yet."
   },
   "storePhotos": {
     "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"

@@ -25,6 +25,7 @@ import { organization } from '../../db/schema/organizations.js';
 import { refund } from '../../db/schema/refunds.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import { isCountedOrder } from '../../orders/counted-orders.js';
 
 const SETTLE_GRACE_MS = 30 * 60 * 1000;
 const ISSUE_GRACE_MS = 60 * 60 * 1000;
@@ -93,7 +94,10 @@ export class EcpayAttentionService {
             eq(order.sellerId, org.id),
             isNotNull(order.paymentDate),
             lt(invoice.createdAt, issueStale),
-            or(eq(invoice.status, 'issuing'), eq(invoice.status, 'pending')),
+            or(
+              eq(invoice.status, 'issuing'),
+              and(eq(invoice.status, 'pending'), isCountedOrder),
+            ),
           ),
         )
         .orderBy(desc(invoice.createdAt))

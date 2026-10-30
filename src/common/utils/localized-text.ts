@@ -2,15 +2,31 @@ import { sql, type Column, type SQL } from 'drizzle-orm';
 
 import {
   DEFAULT_LANGUAGE,
+  languagesEnum,
   type Language,
   type LocalizedText,
 } from '../../db/schema/enums.js';
 
-export const emptyLocalizedTextToNull = (value: unknown): unknown =>
+const languages: readonly string[] = languagesEnum.enumValues;
+
+export const isLocalizedText = (value: unknown): value is LocalizedText =>
   typeof value === 'object' &&
   value !== null &&
   !Array.isArray(value) &&
-  Object.values(value).every((text) => !String(text ?? '').trim())
+  Object.entries(value).every(
+    ([language, text]) =>
+      languages.includes(language) && typeof text === 'string',
+  );
+
+export const hasLocalizedText = (value: unknown): boolean =>
+  isLocalizedText(value) && Object.values(value).some((text) => text.trim());
+
+export const isCompleteLocalizedText = (value: unknown): boolean =>
+  isLocalizedText(value) &&
+  languages.every((language) => value[language as Language]?.trim());
+
+export const emptyLocalizedTextToNull = (value: unknown): unknown =>
+  isLocalizedText(value) && Object.values(value).every((text) => !text.trim())
     ? null
     : value;
 

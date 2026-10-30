@@ -138,3 +138,9 @@ export class WaitlistErrorResponseDto {
   @ApiProperty() success: boolean;
   @ApiProperty() timestamp: string;
 }
+
+export class WaitlistTicketListResponseDto {
+  @ApiProperty({ type: [WaitlistTicketListItemDto] })
+  data: WaitlistTicketListItemDto[];
+  @ApiProperty() total: number;
+}

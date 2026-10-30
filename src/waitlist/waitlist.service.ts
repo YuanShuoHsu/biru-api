@@ -43,6 +43,7 @@ import {
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { Language } from '../db/schema/enums.js';
 import { organization } from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -571,7 +572,7 @@ export class WaitlistService {
       )
       .returning()
       .catch((error: unknown) => {
-        if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+        if (isUniqueViolation(error))
           throw conflictError('waitlistPhoneInQueue', audience);
         throw error;
       });
@@ -719,7 +720,7 @@ export class WaitlistService {
         )
         .returning()
         .catch((error: unknown) => {
-          if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+          if (isUniqueViolation(error))
             throw conflictError('waitlistPhoneInQueue', 'staff');
           throw error;
         });

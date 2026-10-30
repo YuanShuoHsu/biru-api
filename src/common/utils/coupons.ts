@@ -4,7 +4,6 @@ import { coupon, userCoupon } from '../../db/schema/coupons.js';
 // 排除點數兌換券：僅能以點數兌換取得，不參與輸碼／領取／自動發放
 export const notPointsRedeem = () => isNull(coupon.pointsCost);
 
-// 適用店家：null = 全部店家通用
 export const applicableToOrganization = (organizationId: string) =>
   or(
     isNull(coupon.applicableOrganizationIds),
@@ -19,7 +18,6 @@ export const withinCapacity = () =>
     sql`${coupon.usedCount} + (SELECT COUNT(*) FROM ${userCoupon} AS "uc" WHERE "uc"."coupon_id" = ${coupon.id} AND "uc"."used_at" IS NULL) < ${coupon.totalLimit}`,
   );
 
-// 效期內：validFrom / validThrough 為 null 表示不限
 export const withinValidity = () => {
   const now = new Date();
   return and(

@@ -228,13 +228,18 @@ export type I18nTranslations = {
             "invalidBusinessNo": string;
         };
         "inventory": {
+            "ingredientNotFound": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;
+            "recipeIngredientNotFound": string;
+            "recipeNotFound": string;
+            "supplierNotFound": string;
         };
         "invoices": {
             "allowanceIssued": string;
             "alreadyIssuing": string;
+            "customerNameRequiresIdentifier": string;
             "notIssued": string;
             "notPaid": string;
             "notPending": string;
@@ -254,9 +259,18 @@ export type I18nTranslations = {
             "voidWriteFailed": string;
         };
         "menus": {
+            "addOnMenuSectionNotFound": string;
             "addOnSelf": string;
+            "fixedSweetnessLevelRequired": string;
+            "menuItemNotFound": string;
+            "menuSectionNotFound": string;
+            "modifierGroupNotFound": string;
+            "modifierNotFound": string;
+            "offerNotFound": string;
             "parentSectionDescendant": string;
+            "parentSectionNotFound": string;
             "parentSectionSelf": string;
+            "printerNotFound": string;
             "selectionCountInvalid": string;
         };
         "orderTickets": {
@@ -306,6 +320,7 @@ export type I18nTranslations = {
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
             "orderTotalTooLarge": string;
+            "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
             "pickupTimeInvalid": string;
             "pickupTooCloseToClosing": string;
@@ -389,6 +404,14 @@ export type I18nTranslations = {
             "nothingToRefund": string;
             "quantityExceeded": string;
             "resultUnknown": string;
+        };
+        "reports": {
+            "rangeInvalid": string;
+            "rangeTooLong": string;
+        };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
         };
         "storePhotos": {
             "storePhotoNotFound": string;
@@ -627,10 +650,11 @@ export type I18nTranslations = {
             "text": string;
         };
     };
-    "test": {
-        "hello": string;
-    };
     "validation": {
+        "invoiceCertificate": string;
+        "invoiceCustomerIdentifier": string;
+        "invoiceDonateCode": string;
+        "invoiceMobileBarcode": string;
         "isEmail": string;
         "isNotEmpty": string;
         "isNumber": string;

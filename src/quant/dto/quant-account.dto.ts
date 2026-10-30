@@ -28,14 +28,12 @@ import {
   type PionexTransferAccount,
   type PionexTransferStatus,
 } from '../pionex/pionex.types.js';
+import { trim } from '../../common/utils/trim.js';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
 const FILL_ROLES = ['MAKER', 'TAKER'] as const;
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class QuantCredentialDto {
   @ApiProperty() id: string;

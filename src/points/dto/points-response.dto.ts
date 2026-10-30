@@ -61,11 +61,37 @@ export class OrganizationPointTransactionListResponseDto {
   @ApiProperty() total: number;
 }
 
+export class ExpiringPointsDto {
+  @ApiProperty({ description: '當天（台灣時間）最早到期的時間' })
+  expiresAt: Date;
+  @ApiProperty({
+    description:
+      '當天（台灣時間）到期的剩餘點數，已扣除同日收回的點數，合計不超過餘額',
+  })
+  points: number;
+}
+
 export class MyPointsDto {
   @ApiProperty({ description: '全店家合併餘額' }) balance: number;
+  @ApiProperty({
+    description:
+      '今天起 30 天內（台灣日期）到期的剩餘點數，依到期日分組，由近到遠',
+    type: [ExpiringPointsDto],
+  })
+  expiringSoon: ExpiringPointsDto[];
   @ApiProperty({ type: [PointsCouponDto] })
   redeemableCoupons: PointsCouponDto[];
   @ApiProperty({ type: [PointTransactionDto] })
   transactions: PointTransactionDto[];
   @ApiProperty({ description: '明細總筆數' }) transactionsTotal: number;
+}
+
+export class PointAdjustmentLimitDto {
+  @ApiProperty({ description: '點數是否已啟用；未啟用時無法補點或扣點' })
+  enabled: boolean;
+  @ApiProperty({
+    description:
+      '非 owner 單筆可補扣的最大點數（NT$3,000 依每點金額換算）；超過只有 owner 能做，0 = 只有 owner 能調整',
+  })
+  ownerOnlyAbovePoints: number;
 }

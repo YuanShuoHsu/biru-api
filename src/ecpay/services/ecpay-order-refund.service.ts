@@ -1142,11 +1142,11 @@ export class EcpayOrderRefundService {
       }),
     );
 
-    if (plan.allocatedDiscount > 0)
+    if (plan.allocatedDiscount !== 0)
       items.push({
         ItemAmount: -plan.allocatedDiscount,
         ItemCount: 1,
-        ItemName: '折扣',
+        ItemName: plan.allocatedDiscount > 0 ? '折扣' : '尾差',
         ItemPrice: -plan.allocatedDiscount,
         ItemSeq: items.length + 1,
         ItemWord: ITEM_WORD,

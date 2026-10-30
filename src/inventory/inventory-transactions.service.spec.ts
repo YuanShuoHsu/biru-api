@@ -251,6 +251,24 @@ describe('庫存扣除、還原與自動售完', () => {
   });
 
   describe('食材', () => {
+    it('盤點回應只在有採購權限時帶進價', async () => {
+      await addIngredient('milk', '0.000');
+      await client.query(
+        `update ingredient set price = 100, eligible_quantity = 1000, eligible_quantity_unit_code = 'MLT' where id = 'milk'`,
+      );
+
+      const visible = await service.create('milk', { inventoryLevel: '500' });
+      const hidden = await service.create(
+        'milk',
+        { inventoryLevel: '1000' },
+        { canReadPurchasing: false },
+      );
+
+      expect(visible.unitCost).toEqual(expect.any(String));
+      expect(hidden.unitCost).toBeUndefined();
+      expect(hidden).toMatchObject({ balance: '1000.000', reason: 'count' });
+    });
+
     it('只回傳這次從高於門檻跌到門檻以下的食材', async () => {
       await addItem('latte');
       await addIngredient('crossed', '10.200', '10');

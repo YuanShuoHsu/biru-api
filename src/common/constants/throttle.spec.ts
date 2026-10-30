@@ -3,6 +3,7 @@ import {
   type CanActivate,
   type INestApplication,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -11,6 +12,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 
 import { CouponsController } from '../../coupons/coupons.controller.js';
+import { EcpayController } from '../../ecpay/ecpay.controller.js';
 import { GcisController } from '../../gcis/gcis.controller.js';
 import { OrdersController } from '../../orders/orders.controller.js';
 import { WaitlistController } from '../../waitlist/waitlist.controller.js';
@@ -28,6 +30,7 @@ const ANONYMOUS_ROUTES = [
   ['post', '/organizations/shop/waitlist/tickets', 5],
   ['post', '/organizations/shop/coupons/validate', 10],
   ['get', '/gcis/12345678', 20],
+  ['post', '/ecpay', 10],
 ] as const;
 
 describe('THROTTLERS', () => {
@@ -39,6 +42,7 @@ describe('THROTTLERS', () => {
       imports: [ThrottlerModule.forRoot({ throttlers: THROTTLERS })],
       controllers: [
         CouponsController,
+        EcpayController,
         GcisController,
         OrdersController,
         WaitlistController,
@@ -46,6 +50,10 @@ describe('THROTTLERS', () => {
       providers: [
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: RejectAfterThrottle },
+        {
+          provide: ConfigService,
+          useValue: { getOrThrow: () => 'http://localhost:3000' },
+        },
       ],
     })
       .useMocker(() => ({}))

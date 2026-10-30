@@ -113,7 +113,6 @@ export const order = pgTable(
     sellerId: text('seller_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
-    // additional fields
     subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
     total: numeric('total', { precision: 10, scale: 2 })
       .notNull()

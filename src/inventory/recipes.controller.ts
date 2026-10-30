@@ -9,7 +9,7 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -26,6 +26,7 @@ import {
 } from './dto/create-recipe.dto.js';
 import { RecipeIngredientPaginationQueryDto } from './dto/recipe-ingredient-pagination-query.dto.js';
 import {
+  RecipeIngredientListResponseDto,
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
@@ -70,11 +71,12 @@ export class RecipesController {
   @Get('recipe-ingredients')
   @Roles({ inventory: ['read'] }, 'recipeId')
   @ApiOperation({ summary: '查詢食譜材料' })
+  @ApiOkResponse({ type: RecipeIngredientListResponseDto })
   findAllIngredients(
     @Param('recipeId') recipeId: string,
     @Query() query: RecipeIngredientPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
-  ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
+  ): Promise<RecipeIngredientListResponseDto> {
     return this.recipesService.findAllIngredients(
       recipeId,
       query,

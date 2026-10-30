@@ -1,7 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -11,13 +10,12 @@ import {
   recipeIngredient,
 } from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { RecipesService } from './recipes.service.js';
 
 const ORG = 'org';
 
-describe('RecipesService name filter', () => {
+describe('RecipesService', () => {
   let client: PGlite;
   let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: RecipesService;
@@ -26,10 +24,7 @@ describe('RecipesService name filter', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new RecipesService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new RecipesService(db as unknown as DrizzleDB);
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
       [ORG],
@@ -76,7 +71,7 @@ describe('RecipesService name filter', () => {
   });
 
   const recipeIds = async (query: Parameters<RecipesService['findAll']>[1]) =>
-    (await service.findAll('biru', query)).data.map(({ id }) => id);
+    (await service.findAll(ORG, query)).data.map(({ id }) => id);
 
   const materialIds = async (
     query: Parameters<RecipesService['findAllIngredients']>[1],
@@ -115,5 +110,58 @@ describe('RecipesService name filter', () => {
         filterValue: 'whole',
       }),
     ).toEqual(['milk']);
+  });
+
+  it('建立食譜時寫入送出的欄位，指定不綁品項時不自動綁定', async () => {
+    const created = await service.create(ORG, {
+      menuItemId: null,
+      name: { 'zh-TW': '焙茶拿鐵' },
+      recipeInstructions: [{ 'zh-TW': '茶葉沖泡 3 分鐘' }],
+      recipeYield: 2,
+    });
+
+    expect(created).toMatchObject({
+      menuItemId: null,
+      name: { 'zh-TW': '焙茶拿鐵' },
+      organizationId: ORG,
+      recipeInstructions: [{ 'zh-TW': '茶葉沖泡 3 分鐘' }],
+      recipeYield: 2,
+    });
+  });
+
+  it('建立食譜沒指定品項時依名稱綁定，找不到同名品項就不綁', async () => {
+    const created = await service.create(ORG, {
+      name: { 'zh-TW': '冷萃' },
+    });
+
+    expect(created.menuItemId).toBeNull();
+  });
+
+  it('新增材料沒給排序時排在最後，給了就照給的；詳細資料帶出全部材料', async () => {
+    const { id: recipeId } = await service.create(ORG, {
+      menuItemId: null,
+      name: { 'zh-TW': '黑糖拿鐵' },
+    });
+    const appended = await service.createIngredient(recipeId, {
+      ingredientId: 'milk',
+      requiredQuantity: '150',
+    });
+    const placed = await service.createIngredient(recipeId, {
+      ingredientId: 'beans',
+      requiredQuantity: '18',
+      sortOrder: 5,
+    });
+
+    expect(appended).toMatchObject({
+      ingredientId: 'milk',
+      requiredQuantity: '150.000',
+      sortOrder: 0,
+    });
+    expect(placed).toMatchObject({ ingredientId: 'beans', sortOrder: 5 });
+    expect(
+      (await service.findOne(recipeId)).recipeIngredients?.map(
+        ({ ingredientId }) => ingredientId,
+      ),
+    ).toEqual(['milk', 'beans']);
   });
 });

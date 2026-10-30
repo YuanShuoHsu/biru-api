@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -11,18 +11,23 @@ import {
   IsEnum,
   IsInt,
   IsISO8601,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   isObject,
   Matches,
   Max,
+  MaxLength,
   Min,
   Validate,
+  ValidateIf,
   ValidateNested,
+  type ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { i18nValidationMessage } from 'nestjs-i18n';
 import { DINE_IN_MAX_TABLE_COUNT } from '../../common/constants/dine-in.js';
 import {
   servingTemperatureLevelEnum,
@@ -36,6 +41,7 @@ import {
   type OrderMode,
   type PaymentMethod,
 } from '../../db/schema/orders.js';
+import { trim } from '../../common/utils/trim.js';
 
 @ValidatorConstraint({ name: 'isModifierSelections' })
 class IsModifierSelections implements ValidatorConstraintInterface {
@@ -62,7 +68,9 @@ export class CreateOrderCustomerDto {
   email?: string;
 
   @ApiProperty()
+  @Transform(trim)
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiPropertyOptional()
@@ -76,19 +84,62 @@ export class CreateOrderCustomerDto {
   telephone?: string;
 }
 
+const CARRIER_NUM_PATTERNS = {
+  certificate: /^[A-Z]{2}\d{14}$/,
+  mobile: /^\/[A-Z0-9+\-.]{7}$/,
+} as const;
+
+const isInvoiceType =
+  (type: CreateOrderInvoiceDto['type']) =>
+  (invoice: CreateOrderInvoiceDto): boolean =>
+    invoice.type === type;
+
+@ValidatorConstraint({ name: 'isCarrierNum' })
+class IsCarrierNum implements ValidatorConstraintInterface {
+  validate(value: unknown, { object }: ValidationArguments): boolean {
+    const { carrierType } = object as CreateOrderInvoiceDto;
+    return (
+      !!carrierType &&
+      typeof value === 'string' &&
+      CARRIER_NUM_PATTERNS[carrierType].test(value)
+    );
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    const { carrierType } = args.object as CreateOrderInvoiceDto;
+    return i18nValidationMessage(
+      carrierType === 'certificate'
+        ? 'validation.invoiceCertificate'
+        : 'validation.invoiceMobileBarcode',
+    )(args);
+  }
+}
+
 export class CreateOrderInvoiceDto {
   @ApiProperty({ enum: ['personal', 'company', 'donate'] })
   @IsEnum(['personal', 'company', 'donate'])
   type: 'personal' | 'company' | 'donate';
 
-  @ApiPropertyOptional({ enum: ['mobile', 'certificate'] })
+  @ApiPropertyOptional({
+    description: '僅個人發票使用；未帶則開紙本',
+    enum: ['mobile', 'certificate'],
+  })
+  @ValidateIf(isInvoiceType('personal'))
   @IsOptional()
   @IsEnum(['mobile', 'certificate'])
   carrierType?: 'mobile' | 'certificate';
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({
+    description:
+      '個人發票帶載具時必填：手機條碼為 / 加 7 碼，自然人憑證為 2 碼大寫英文加 14 碼數字',
+  })
+  @ValidateIf(
+    (invoice: CreateOrderInvoiceDto) =>
+      invoice.type === 'personal' &&
+      typeof invoice.carrierType === 'string' &&
+      Object.hasOwn(CARRIER_NUM_PATTERNS, invoice.carrierType),
+  )
+  @Validate(IsCarrierNum)
   carrierNum?: string;
 
   @ApiPropertyOptional()
@@ -96,24 +147,34 @@ export class CreateOrderInvoiceDto {
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ description: '公司發票必填，8 碼數字' })
+  @ValidateIf(isInvoiceType('company'))
+  @Matches(/^\d{8}$/, {
+    message: i18nValidationMessage('validation.invoiceCustomerIdentifier'),
+  })
   customerIdentifier?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ description: '公司發票必填', maxLength: 60 })
+  @ValidateIf(isInvoiceType('company'))
+  @Transform(trim)
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
+  @MaxLength(60, { message: i18nValidationMessage('validation.maxLength') })
   customerName?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ description: '公司發票必填', maxLength: 100 })
+  @ValidateIf(isInvoiceType('company'))
+  @Transform(trim)
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
+  @MaxLength(100, { message: i18nValidationMessage('validation.maxLength') })
   customerAddr?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ description: '捐贈發票必填，3 至 7 碼數字' })
+  @ValidateIf(isInvoiceType('donate'))
+  @Matches(/^\d{3,7}$/, {
+    message: i18nValidationMessage('validation.invoiceDonateCode'),
+  })
   donateCode?: string;
 }
 

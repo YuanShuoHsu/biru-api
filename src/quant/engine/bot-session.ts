@@ -51,7 +51,6 @@ export interface SessionStore {
   updateOrder(order: SubmittedOrder): Promise<void>;
 }
 
-/** 合約帳才有強平與資金費 */
 export interface FuturesHooks {
   addFunding(amount: number): void;
   fundingAmount(rate: number, mark: number): number;
@@ -73,7 +72,6 @@ export interface SessionOptions<L = Ledger> {
   maxOrderAmount?: number;
   now: () => number;
   orders: SubmittedOrder[];
-  /** 重啟前的暫停原因 */
   pausedReason?: string;
   spec: SymbolSpec;
   store: SessionStore;

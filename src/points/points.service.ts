@@ -19,6 +19,8 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lt,
+  ne,
   notInArray,
   or,
   sql,
@@ -44,6 +46,11 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
+import {
+  DAY_MS,
+  platformDayNumber,
+  platformMidnight,
+} from '../common/constants/timezone.js';
 import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
@@ -64,13 +71,24 @@ import {
 } from './dto/organization-point-transaction-query.dto.js';
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
 import type {
+  ExpiringPointsDto,
   MyPointsDto,
   OrganizationPointTransactionDto,
   OrganizationPointTransactionListResponseDto,
+  PointAdjustmentLimitDto,
   PointsCouponDto,
 } from './dto/points-response.dto.js';
 
 const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
+
+const EXPIRING_SOON_DAYS = 30;
+
+const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
+  const centsPerPoint = Math.round(Number(amountPerPoint) * 100);
+  return centsPerPoint > 0
+    ? Math.floor((OWNER_ONLY_ADJUSTMENT_AMOUNT * 100) / centsPerPoint)
+    : 0;
+};
 
 // 沒有快照的訂單只認啟用點數之後付款的，避免回溯補發整段歷史
 const earnedFromSnapshotOr = <T>(snapshot: Column, current: Column) =>
@@ -86,6 +104,13 @@ const EARN_VALIDITY_YEARS = earnedFromSnapshotOr<number | null>(
   pointSetting.pointsValidityYears,
 );
 
+// 未付款訂單付款時才快照目前設定，所以預估用目前設定
+const EXPECTED_AMOUNT_PER_POINT = sql<
+  string | null
+>`CASE WHEN ${order.paymentDate} IS NULL THEN ${pointSetting.amountPerPoint} ELSE ${EARN_AMOUNT_PER_POINT} END`;
+
+const EARN_SUBTOTAL = sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`;
+
 const toExpiresAt = (
   paymentDate: Date,
   validityYears: number | null,
@@ -97,6 +122,41 @@ const toExpiresAt = (
         ),
       )
     : null;
+
+const expiringByPlatformDay = (
+  lots: { expiresAt: Date; remainingPoints: number }[],
+  balance: number,
+): ExpiringPointsDto[] => {
+  const days = new Map<number, ExpiringPointsDto>();
+  for (const { expiresAt, remainingPoints } of lots) {
+    const day = platformDayNumber(expiresAt.getTime());
+    const group = days.get(day) ?? { expiresAt, points: 0 };
+    group.points += remainingPoints;
+    days.set(day, group);
+  }
+
+  let available = Math.max(balance, 0);
+  return [...days.values()].flatMap(({ expiresAt, points }) => {
+    const shown = Math.min(points, available);
+    if (shown <= 0) return [];
+    available -= shown;
+    return [{ expiresAt, points: shown }];
+  });
+};
+
+const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
+
+const earnedPoints = (
+  subtotal: string,
+  discount: string | null,
+  amountPerPoint: string | null,
+): number => {
+  const centsPerPoint = toCents(amountPerPoint);
+
+  return centsPerPoint > 0
+    ? Math.floor((toCents(subtotal) - toCents(discount)) / centsPerPoint)
+    : 0;
+};
 
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   id: found.id,
@@ -153,7 +213,7 @@ export class PointsService {
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
         pointsValidityYears: EARN_VALIDITY_YEARS,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
@@ -183,8 +243,11 @@ export class PointsService {
       .groupBy(order.id, pointSetting.id);
 
     const earns = unrecorded.flatMap((row) => {
-      const total = Number(row.subtotal) - Number(row.discount || 0);
-      const points = Math.floor(total / Number(row.amountPerPoint));
+      const points = earnedPoints(
+        row.subtotal,
+        row.discount,
+        row.amountPerPoint,
+      );
       if (points <= 0) return [];
 
       return [
@@ -370,7 +433,7 @@ export class PointsService {
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
         pointsValidityYears: EARN_VALIDITY_YEARS,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
@@ -381,19 +444,52 @@ export class PointsService {
 
     if (!found?.userId) return null;
 
-    const amountPerPoint = Number(found.amountPerPoint);
-    if (!amountPerPoint) return null;
-
-    const total = Number(found.subtotal) - Number(found.discount || 0);
+    if (!Number(found.amountPerPoint)) return null;
 
     return {
       expiresAt: found.paymentDate
         ? toExpiresAt(found.paymentDate, found.pointsValidityYears)
         : null,
       organizationId: found.organizationId,
-      points: Math.floor(total / amountPerPoint),
+      points: earnedPoints(
+        found.subtotal,
+        found.discount,
+        found.amountPerPoint,
+      ),
       userId: found.userId,
     };
+  }
+
+  async expectedPoints(orderIds: string[]): Promise<Map<string, number>> {
+    if (orderIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        amountPerPoint: EXPECTED_AMOUNT_PER_POINT,
+        discount: order.discount,
+        orderId: order.id,
+        subtotal: EARN_SUBTOTAL,
+      })
+      .from(order)
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
+      .leftJoin(orderItem, eq(orderItem.orderId, order.id))
+      .where(
+        and(
+          inArray(order.id, orderIds),
+          isNotNull(order.userId),
+          notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+        ),
+      )
+      .groupBy(order.id, pointSetting.id);
+
+    return new Map(
+      rows
+        .filter((row) => Number(row.amountPerPoint) > 0)
+        .map((row) => [
+          row.orderId,
+          earnedPoints(row.subtotal, row.discount, row.amountPerPoint),
+        ]),
+    );
   }
 
   private notExpired() {
@@ -505,6 +601,14 @@ export class PointsService {
     return { data, total };
   }
 
+  async getAdjustmentLimit(): Promise<PointAdjustmentLimitDto> {
+    const setting = await this.db.query.pointSetting.findFirst();
+    return {
+      enabled: !!setting?.pointsEnabledAt,
+      ownerOnlyAbovePoints: maxNonOwnerAdjustPoints(setting?.amountPerPoint),
+    };
+  }
+
   async adjustForOrganization(
     organizationSlug: string,
     { email, note, points }: AdjustPointsDto,
@@ -520,10 +624,7 @@ export class PointsService {
       throw new BadRequestException(this.t('notEnabled'));
     const { amountPerPoint, pointsValidityYears } = setting;
 
-    const maxNonOwnerPoints =
-      Number(amountPerPoint) > 0
-        ? Math.floor(OWNER_ONLY_ADJUSTMENT_AMOUNT / Number(amountPerPoint))
-        : 0;
+    const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
     if (
       Math.abs(points) > maxNonOwnerPoints &&
       !adjusterRole.split(',').some((role) => role.trim() === 'owner')
@@ -628,38 +729,65 @@ export class PointsService {
 
     await this.syncEarned({ userId });
 
-    const [transactions, [{ balance, transactionsTotal }]] = await Promise.all([
-      this.db
-        .select({
-          confirmationNumber: order.confirmationNumber,
-          couponCode: coupon.code,
-          orderNumber: order.orderNumber,
-          organizationName: organization.name,
-          transaction: pointTransaction,
-        })
-        .from(pointTransaction)
-        .leftJoin(
-          organization,
-          eq(pointTransaction.organizationId, organization.id),
-        )
-        .leftJoin(order, eq(pointTransaction.orderId, order.id))
-        .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
-        .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
-        .where(eq(pointTransaction.userId, userId))
-        .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
-        .limit(limit)
-        .offset(offset),
-      this.db
-        .select({
-          balance:
-            sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
-              Number,
+    const [transactions, [{ balance, transactionsTotal }], expiringLots] =
+      await Promise.all([
+        this.db
+          .select({
+            confirmationNumber: order.confirmationNumber,
+            couponCode: coupon.code,
+            orderNumber: order.orderNumber,
+            organizationName: organization.name,
+            transaction: pointTransaction,
+          })
+          .from(pointTransaction)
+          .leftJoin(
+            organization,
+            eq(pointTransaction.organizationId, organization.id),
+          )
+          .leftJoin(order, eq(pointTransaction.orderId, order.id))
+          .leftJoin(
+            userCoupon,
+            eq(pointTransaction.userCouponId, userCoupon.id),
+          )
+          .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
+          .where(eq(pointTransaction.userId, userId))
+          .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({
+            balance:
+              sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
+                Number,
+              ),
+            transactionsTotal: count(),
+          })
+          .from(pointTransaction)
+          .where(eq(pointTransaction.userId, userId)),
+        this.db
+          .select({
+            expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+              pointTransaction.expiresAt,
             ),
-          transactionsTotal: count(),
-        })
-        .from(pointTransaction)
-        .where(eq(pointTransaction.userId, userId)),
-    ]);
+            remainingPoints: pointTransaction.remainingPoints,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.userId, userId),
+              ne(pointTransaction.remainingPoints, 0),
+              this.notExpired(),
+              lt(
+                pointTransaction.expiresAt,
+                new Date(
+                  platformMidnight(Date.now()) +
+                    (EXPIRING_SOON_DAYS + 1) * DAY_MS,
+                ),
+              ),
+            ),
+          )
+          .orderBy(asc(pointTransaction.expiresAt)),
+      ]);
 
     const redeemables = await this.db.query.coupon.findMany({
       where: and(
@@ -686,6 +814,7 @@ export class PointsService {
 
     return {
       balance,
+      expiringSoon: expiringByPlatformDay(expiringLots, balance),
       redeemableCoupons: redeemables.map((c) => ({
         ...toPointsCoupon(c),
         applicableOrganizationNames: c.applicableOrganizationIds
@@ -753,21 +882,6 @@ export class PointsService {
           throw new BadRequestException(this.tCoupons('usedUp'));
       }
 
-      if (found.perUserLimit !== null) {
-        const [{ value: redeemed }] = await tx
-          .select({ value: count() })
-          .from(userCoupon)
-          .where(
-            and(
-              eq(userCoupon.couponId, found.id),
-              eq(userCoupon.userId, userId),
-              eq(userCoupon.source, 'redeemed'),
-            ),
-          );
-        if (redeemed >= found.perUserLimit)
-          throw new BadRequestException(this.t('perUserLimitReached'));
-      }
-
       const earns = await tx
         .select({
           id: pointTransaction.id,
@@ -786,6 +900,22 @@ export class PointsService {
           asc(pointTransaction.createdAt),
         )
         .for('update');
+
+      // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
+      if (found.perUserLimit !== null) {
+        const [{ value: redeemed }] = await tx
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(
+              eq(userCoupon.couponId, found.id),
+              eq(userCoupon.userId, userId),
+              eq(userCoupon.source, 'redeemed'),
+            ),
+          );
+        if (redeemed >= found.perUserLimit)
+          throw new BadRequestException(this.t('perUserLimitReached'));
+      }
 
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);
       if (balance < pointsCost)

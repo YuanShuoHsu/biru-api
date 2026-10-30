@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -46,6 +41,7 @@ import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto.js';
+import { notFoundError } from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
 import { unitPriceOf } from './pricing.js';
 
@@ -202,7 +198,9 @@ export class InventoryTransactionsService {
           this.write(ingredientId, dto, opened),
         );
 
-    return canReadPurchasing ? created : { ...created, unitCost: undefined };
+    const { unitCost, ...rest } = created;
+
+    return { ...rest, ...(canReadPurchasing && { unitCost }) };
   }
 
   private async write(
@@ -221,7 +219,7 @@ export class InventoryTransactionsService {
       .from(ingredient)
       .where(eq(ingredient.id, ingredientId))
       .for('update');
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
 
     const inventoryLevel = Number(dto.inventoryLevel);
     const quantity = inventoryLevel - Number(found.inventoryLevel);

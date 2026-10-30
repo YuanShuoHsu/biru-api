@@ -63,6 +63,7 @@ import {
 import {
   IN_FLIGHT_PRINT_JOB_STATUSES,
   toActiveInvoice,
+  toInvoiceBuyer,
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
@@ -88,6 +89,7 @@ import {
 } from '../inventory/inventory-transactions.service.js';
 import { MenuStockService } from '../inventory/menu-stock.service.js';
 import { localize } from '../menus/menus-public.service.js';
+import { PointsService } from '../points/points.service.js';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
@@ -166,6 +168,8 @@ const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
 export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
+
+export const MAX_PAYMENT_ATTEMPTS_PER_ORDER = 10;
 
 // 金額欄位是 numeric(10,2)，超過會在寫入時變成 500
 const MAX_ORDER_AMOUNT = 99_999_999.99;
@@ -298,6 +302,7 @@ export class OrdersService {
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly menuStockService: MenuStockService,
     private readonly prepEstimateService: PrepEstimateService,
+    private readonly pointsService: PointsService,
   ) {}
 
   private t(
@@ -368,7 +373,12 @@ export class OrdersService {
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    return toActiveInvoice(found);
+    const expectedPoints = await this.pointsService.expectedPoints([found.id]);
+
+    return {
+      ...toActiveInvoice(found),
+      expectedPoints: expectedPoints.get(found.id) ?? null,
+    };
   }
 
   private async resolvePickupTime(
@@ -614,14 +624,8 @@ export class OrdersService {
                 .values({
                   id: randomUUID(),
                   orderId,
-                  type: dto.invoice.type,
-                  carrierType: dto.invoice.carrierType,
-                  carrierNum: dto.invoice.carrierNum,
                   email: dto.invoice.email,
-                  customerIdentifier: dto.invoice.customerIdentifier,
-                  customerName: dto.invoice.customerName,
-                  customerAddr: dto.invoice.customerAddr,
-                  donateCode: dto.invoice.donateCode,
+                  ...toInvoiceBuyer(dto.invoice),
                 })
                 .returning()
             : [null];
@@ -794,7 +798,17 @@ export class OrdersService {
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data: data.map(toActiveInvoice), total };
+    const expectedPoints = await this.pointsService.expectedPoints(
+      data.map(({ id }) => id),
+    );
+
+    return {
+      data: data.map((found) => ({
+        ...toActiveInvoice(found),
+        expectedPoints: expectedPoints.get(found.id) ?? null,
+      })),
+      total,
+    };
   }
 
   async getOrder(
@@ -1133,17 +1147,32 @@ export class OrdersService {
       found.pickupTime,
       found.seller.pickupLeadMinutes,
     );
-    if (
-      found.orderStatus !== 'OrderPaymentDue' ||
-      Date.now() > deadline.getTime()
-    )
-      throw new BadRequestException(this.t('notAwaitingPayment'));
 
     const merchantTradeNo = generateMerchantTradeNo();
 
-    await this.db
-      .insert(ecpayPaymentAttempt)
-      .values({ merchantTradeNo, orderId, returnUrl });
+    await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('update');
+      if (
+        locked?.orderStatus !== 'OrderPaymentDue' ||
+        Date.now() > deadline.getTime()
+      )
+        throw new BadRequestException(this.t('notAwaitingPayment'));
+
+      const [{ attempts }] = await tx
+        .select({ attempts: count() })
+        .from(ecpayPaymentAttempt)
+        .where(eq(ecpayPaymentAttempt.orderId, orderId));
+      if (attempts >= MAX_PAYMENT_ATTEMPTS_PER_ORDER)
+        throw new ConflictException(this.t('paymentAttemptsExhausted'));
+
+      await tx
+        .insert(ecpayPaymentAttempt)
+        .values({ merchantTradeNo, orderId, returnUrl });
+    });
 
     return { ...found, confirmationNumber, merchantTradeNo };
   }
@@ -1192,11 +1221,13 @@ export class OrdersService {
         updated: [updated],
       } = await this.runTransition(tx, rule, [current.id], {
         set: {
-          authorizationNo: body.gwsr || undefined,
-          paymentDate: toPaymentDate(body.PaymentDate),
           merchantTradeNo: body.MerchantTradeNo,
-          paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
+          ...(succeeded && {
+            authorizationNo: body.gwsr || undefined,
+            paymentDate: toPaymentDate(body.PaymentDate),
+            paymentMethodId: body.card4no || undefined,
+          }),
         },
         where: succeeded
           ? sql`${order.total} = ${Number(body.TradeAmt)}`

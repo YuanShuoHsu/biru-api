@@ -21,9 +21,6 @@ import { OrganizationId } from '../menus/decorators/organization-id.decorator.js
 import type { AuthRequest } from '../menus/guards/roles.guard.js';
 import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
-import { asc, isNull } from 'drizzle-orm';
-import { organization } from '../db/schema/organizations.js';
-
 import { OrganizationListQueryDto } from './dto/organization-list-query.dto.js';
 import {
   MemberShowcaseResponseDto,
@@ -53,10 +50,7 @@ export class OrganizationsController {
     if (includeClosed && session?.user.role !== 'admin')
       throw new ForbiddenException();
 
-    return this.organizationsService.organizations({
-      where: includeClosed ? undefined : isNull(organization.closedAt),
-      orderBy: [asc(organization.createdAt)],
-    });
+    return this.organizationsService.organizations(includeClosed);
   }
 
   @Get(':slug')

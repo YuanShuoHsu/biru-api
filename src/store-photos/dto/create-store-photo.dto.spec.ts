@@ -6,6 +6,8 @@ import {
   UpdateStorePhotoDto,
 } from './create-store-photo.dto.js';
 
+import { languagesEnum } from '../../db/schema/enums.js';
+
 const errorsOf = async (
   cls: new () => object,
   fields: Record<string, unknown>,
@@ -16,24 +18,27 @@ const errorsOf = async (
 
 const image = 'data:image/png;base64,';
 
+const fullAlt = Object.fromEntries(
+  languagesEnum.enumValues.map((language) => [language, '門市外觀']),
+);
+
 describe('CreateStorePhotoDto', () => {
-  it('accepts an alt with text', async () => {
+  it('accepts an alt filled in every language', async () => {
     expect(
-      await errorsOf(CreateStorePhotoDto, {
-        image,
-        alt: { 'zh-TW': '門市外觀', en: '' },
-      }),
+      await errorsOf(CreateStorePhotoDto, { image, alt: fullAlt }),
     ).toEqual([]);
   });
 
-  it.each([{}, { en: '  ' }, { en: '', 'zh-TW': ' ' }])(
-    'rejects alt %j',
-    async (alt) => {
-      expect(await errorsOf(CreateStorePhotoDto, { image, alt })).toEqual([
-        'alt',
-      ]);
-    },
-  );
+  it.each([
+    {},
+    { en: '  ' },
+    { en: '', 'zh-TW': ' ' },
+    { 'zh-TW': '門市外觀', en: '' },
+  ])('rejects alt %j', async (alt) => {
+    expect(await errorsOf(CreateStorePhotoDto, { image, alt })).toEqual([
+      'alt',
+    ]);
+  });
 });
 
 describe('UpdateStorePhotoDto', () => {

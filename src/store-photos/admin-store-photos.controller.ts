@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -21,7 +21,10 @@ import {
 } from './dto/create-store-photo.dto.js';
 import { ReorderStorePhotosDto } from './dto/reorder-store-photos.dto.js';
 import { StorePhotoPaginationQueryDto } from './dto/store-photo-pagination-query.dto.js';
-import { StorePhotoResponseDto } from './dto/store-photo-response.dto.js';
+import {
+  StorePhotoListResponseDto,
+  StorePhotoResponseDto,
+} from './dto/store-photo-response.dto.js';
 import { StorePhotosService } from './store-photos.service.js';
 
 @ApiTags('store-photos')
@@ -39,9 +42,10 @@ export class AdminStorePhotosController {
 
   @Get()
   @ApiOperation({ summary: '查詢門市照片列表' })
+  @ApiOkResponse({ type: StorePhotoListResponseDto })
   findAll(
     @Query() query: StorePhotoPaginationQueryDto,
-  ): Promise<{ data: StorePhotoResponseDto[]; total: number }> {
+  ): Promise<StorePhotoListResponseDto> {
     return this.storePhotosService.findAll(query);
   }
 

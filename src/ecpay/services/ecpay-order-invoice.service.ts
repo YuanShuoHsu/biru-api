@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -26,6 +26,7 @@ import {
   isPrintable,
   type PrintableInvoice,
   toActiveInvoice,
+  toInvoiceBuyer,
   toPrintJobDto,
 } from '../../common/utils/invoices.js';
 
@@ -37,7 +38,10 @@ import {
   toGetIssueQuery,
   toInvoiceDateText,
 } from '../utils/ecpay.js';
-import { earliestVoidableInvoiceDate } from '../utils/refund-plan.js';
+import {
+  earliestVoidableInvoiceDate,
+  lineAmountCents,
+} from '../utils/refund-plan.js';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
 import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
@@ -50,6 +54,7 @@ import { InvoicePrinterService } from './invoice-printer.service.js';
 
 import {
   BadGatewayException,
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -73,6 +78,10 @@ import {
 } from '../../events/order-updated.event.js';
 import type { OrderPaidEvent } from '../../events/order-paid.event.js';
 import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
+import {
+  COUNTED_ORDER_STATUSES,
+  isCountedOrder,
+} from '../../orders/counted-orders.js';
 import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
@@ -141,6 +150,7 @@ export class EcpayOrderInvoiceService {
     key:
       | 'allowanceIssued'
       | 'alreadyIssuing'
+      | 'customerNameRequiresIdentifier'
       | 'notIssued'
       | 'notPaid'
       | 'notPending'
@@ -193,8 +203,11 @@ export class EcpayOrderInvoiceService {
           eq(invoice.status, 'pending'),
           lt(invoice.updatedAt, staleBefore),
           isNotNull(order.paymentDate),
+          isCountedOrder,
+          ne(order.orderStatus, 'OrderReturned'),
         ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [index, { orderId }] of candidates.entries()) {
@@ -215,27 +228,24 @@ export class EcpayOrderInvoiceService {
       .from(invoice)
       .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
-        and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
+        and(
+          eq(invoice.status, 'issuing'),
+          lt(invoice.updatedAt, staleBefore),
+          isNotNull(invoice.relateNumber),
+        ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [
       index,
       { id, orderId, organizationId, relateNumber },
     ] of stuck.entries()) {
-      if (!relateNumber) {
-        this.logger.error(
-          `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
-        );
-
-        continue;
-      }
-
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         const result = await this.ecpayGetIssueInvoiceService.getIssue({
-          RelateNumber: relateNumber,
+          RelateNumber: relateNumber!,
         });
 
         const [updated] = await this.db
@@ -263,6 +273,11 @@ export class EcpayOrderInvoiceService {
           `發票 ${id} 查證失敗，維持開立中待人工確認`,
           error instanceof Error ? error.stack : String(error),
         );
+
+        await this.db
+          .update(invoice)
+          .set({ updatedAt: new Date() })
+          .where(and(eq(invoice.id, id), eq(invoice.status, 'issuing')));
       }
     }
   }
@@ -315,7 +330,11 @@ export class EcpayOrderInvoiceService {
     });
 
     if (!row) throw new NotFoundException('Order not found');
-    if (!row.paymentDate) throw new ConflictException(this.tInvoice('notPaid'));
+    if (
+      !row.paymentDate ||
+      !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
+    )
+      throw new ConflictException(this.tInvoice('notPaid'));
     if (row.orderStatus === 'OrderReturned')
       throw new ConflictException(this.tInvoice('orderRefunded'));
 
@@ -567,6 +586,10 @@ export class EcpayOrderInvoiceService {
       throw new ConflictException(this.tInvoice('allowanceIssued'));
     if (data.invoiceDate < earliestVoidableInvoiceDate(new Date()))
       throw new ConflictException(this.tInvoice('pastVoidablePeriod'));
+    if (customerName && !customerIdentifier && data.type !== 'company')
+      throw new BadRequestException(
+        this.tInvoice('customerNameRequiresIdentifier'),
+      );
 
     await this.ecpayInvalidInvoiceService.invalidInvoice({
       InvoiceDate: toInvoiceDateText(data.invoiceDate),
@@ -588,15 +611,14 @@ export class EcpayOrderInvoiceService {
           .values({
             id: randomUUID(),
             orderId,
-            // 開統編就是公司戶，載具與捐贈碼不能並存
-            type: customerIdentifier ? 'company' : data.type,
-            carrierType: customerIdentifier ? null : data.carrierType,
-            carrierNum: customerIdentifier ? null : data.carrierNum,
-            donateCode: customerIdentifier ? null : data.donateCode,
             email: data.email,
-            customerIdentifier: customerIdentifier ?? data.customerIdentifier,
-            customerName: customerName ?? data.customerName,
-            customerAddr: data.customerAddr,
+            ...toInvoiceBuyer({
+              ...data,
+              // 開統編就是公司戶，載具與捐贈碼不能並存
+              type: customerIdentifier ? 'company' : data.type,
+              customerIdentifier: customerIdentifier ?? data.customerIdentifier,
+              customerName: customerName ?? data.customerName,
+            }),
           })
           .returning();
 
@@ -731,12 +753,12 @@ export class EcpayOrderInvoiceService {
   }): IssuePayload {
     const { customer, invoice: data, items, seller } = found;
 
-    const itemAmounts = items.map(
-      (item) =>
-        Math.round(Number(item.unitPrice) * item.orderQuantity * 100) / 100,
+    const itemCents = items.map((item) =>
+      lineAmountCents(item.unitPrice, item.orderQuantity),
     );
+    const itemAmounts = itemCents.map((cents) => cents / 100);
     const itemTotal = Math.round(
-      itemAmounts.reduce((sum, amount) => sum + amount, 0),
+      itemCents.reduce((sum, cents) => sum + cents, 0) / 100,
     );
     const salesAmount = Math.round(Number(found.total));
     const discount = itemTotal - salesAmount;
@@ -748,7 +770,6 @@ export class EcpayOrderInvoiceService {
 
     return {
       CustomerEmail: data.email || customer.email || undefined,
-      CustomerName: data.customerName || customer.name,
       CustomerPhone: toLocalPhoneNumber(customer.telephone),
       Items: [
         ...items.map((item, index) => ({
@@ -776,12 +797,13 @@ export class EcpayOrderInvoiceService {
       SalesAmount: salesAmount,
       TaxType: IssueInvoiceEcpayTaxType.Taxable,
       vat: IssueInvoiceEcpayVatType.TaxIncluded,
-      ...this.buildRecipient(data, seller),
+      ...this.buildRecipient(data, customer.name, seller),
     };
   }
 
   private buildRecipient(
     data: Invoice,
+    customerName: string,
     seller: SellerAddress,
   ): Pick<
     IssuePayload,
@@ -789,6 +811,7 @@ export class EcpayOrderInvoiceService {
     | 'CarrierType'
     | 'CustomerAddr'
     | 'CustomerIdentifier'
+    | 'CustomerName'
     | 'Donation'
     | 'LoveCode'
     | 'Print'
@@ -799,12 +822,14 @@ export class EcpayOrderInvoiceService {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
           CustomerAddr: data.customerAddr ?? undefined,
           CustomerIdentifier: data.customerIdentifier ?? undefined,
+          CustomerName: data.customerName || customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.Yes,
         };
       case 'donate':
         return {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.Yes,
           LoveCode: data.donateCode ?? undefined,
           Print: IssueInvoiceEcpayPrint.No,
@@ -816,6 +841,7 @@ export class EcpayOrderInvoiceService {
           return {
             CarrierType: IssueInvoiceEcpayCarrierType.None,
             CustomerAddr: toAddressText(seller),
+            CustomerName: customerName,
             Donation: IssueInvoiceEcpayDonation.No,
             Print: IssueInvoiceEcpayPrint.Yes,
           };
@@ -826,6 +852,7 @@ export class EcpayOrderInvoiceService {
               ? ''
               : (data.carrierNum ?? undefined),
           CarrierType: CARRIER_TYPE[data.carrierType],
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.No,
         };

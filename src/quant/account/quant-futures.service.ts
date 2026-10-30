@@ -34,6 +34,7 @@ import type {
   PionexFuturesBalance,
   PionexFuturesFill,
   PionexFuturesOrder,
+  PionexFuturesOrderType,
   PionexHistoryPosition,
   PionexMarginMode,
   PionexPosition,
@@ -456,6 +457,8 @@ export class QuantFuturesService {
     id: string,
     { price: limitPrice, size: sizeText, symbol, type }: PreviewFuturesOrderDto,
   ): Promise<QuantFuturesOrderPreviewDto> {
+    this.assertLimitPrice(type, limitPrice);
+
     const [perp, riskTiers, markPrice, symbolSettings, detail] =
       await Promise.all([
         this.symbols.getPerp(symbol),
@@ -530,6 +533,11 @@ export class QuantFuturesService {
     };
   }
 
+  private assertLimitPrice(type: PionexFuturesOrderType, price?: string) {
+    if (type !== 'MARKET_QTY' && !(Number(price) > 0))
+      throw new BadRequestException(this.t('orderFieldsFuturesLimit'));
+  }
+
   private async submitOrder(
     userId: string,
     id: string,
@@ -543,8 +551,7 @@ export class QuantFuturesService {
       type,
     }: PlaceFuturesOrderDto,
   ): Promise<PlaceQuantOrderResponseDto> {
-    if (type !== 'MARKET_QTY' && !price)
-      throw new BadRequestException(this.t('orderFieldsFuturesLimit'));
+    this.assertLimitPrice(type, price);
 
     await this.symbols.getPerp(symbol);
 
