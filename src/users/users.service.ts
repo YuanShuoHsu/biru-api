@@ -1,4 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
+import { I18nContext } from 'nestjs-i18n';
 
 import {
   SQL,
@@ -24,6 +31,7 @@ import {
   NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
+import { blankToNull } from '../auth/user-fields.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
   getStatsWindow,
@@ -33,6 +41,7 @@ import * as schema from '../db/schema/index.js';
 import type { CreateUser, User, UserRole } from '../db/schema/users.js';
 import { user, userRoles } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type {
@@ -382,20 +391,37 @@ export class UsersService {
     where: { id: string };
     data: UpdateUserDto;
   }): Promise<User> {
-    const { where, data } = params;
+    const {
+      where,
+      data: { lastName, phoneNumber, ...data },
+    } = params;
     const [user] = await this.db
       .update(schema.user)
-      .set(
-        data.phoneNumber === undefined
-          ? data
-          : {
-              ...data,
-              phoneNumber: data.phoneNumber || null,
-              phoneNumberVerified: false,
-            },
-      )
+      .set({
+        ...data,
+        ...(lastName !== undefined && { lastName: blankToNull(lastName) }),
+        ...(phoneNumber !== undefined && {
+          phoneNumber: blankToNull(phoneNumber),
+          phoneNumberVerified: false,
+        }),
+      })
       .where(eq(schema.user.id, where.id))
-      .returning();
+      .returning()
+      .catch((error: unknown) => {
+        if (
+          (error as { cause?: { constraint?: string } }).cause?.constraint ===
+          'user_phone_number_unique'
+        )
+          throw new BadRequestException({
+            error: 'Bad Request',
+            code: 'PHONE_NUMBER_ALREADY_EXISTS',
+            message:
+              I18nContext.current<I18nTranslations>()?.t(
+                'auth.PHONE_NUMBER_ALREADY_EXISTS',
+              ) ?? 'Phone number already exists',
+          });
+        throw error;
+      });
     if (!user) throw new NotFoundException();
 
     return user;
