@@ -17,6 +17,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { isISO8601 } from 'class-validator';
 
 import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
@@ -86,6 +87,9 @@ export const buildLocalizedTextFilterCondition = (
   return matchOperator === operator ? anyValueMatches : not(anyValueMatches);
 };
 
+const isCalendarDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && isISO8601(value, { strict: true });
+
 export const buildDateFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -95,7 +99,7 @@ export const buildDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const localDate = sql`DATE(${colSql} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})`;
   const targetDate = sql`${value}::date`;
@@ -208,7 +212,7 @@ export const buildPlainDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const targetDate = sql`${value}::date`;
 
