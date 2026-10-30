@@ -78,6 +78,10 @@ import {
 } from '../../events/order-updated.event.js';
 import type { OrderPaidEvent } from '../../events/order-paid.event.js';
 import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
+import {
+  COUNTED_ORDER_STATUSES,
+  isCountedOrder,
+} from '../../orders/counted-orders.js';
 import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
@@ -199,6 +203,7 @@ export class EcpayOrderInvoiceService {
           eq(invoice.status, 'pending'),
           lt(invoice.updatedAt, staleBefore),
           isNotNull(order.paymentDate),
+          isCountedOrder,
           ne(order.orderStatus, 'OrderReturned'),
         ),
       )
@@ -323,7 +328,11 @@ export class EcpayOrderInvoiceService {
     });
 
     if (!row) throw new NotFoundException('Order not found');
-    if (!row.paymentDate) throw new ConflictException(this.tInvoice('notPaid'));
+    if (
+      !row.paymentDate ||
+      !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
+    )
+      throw new ConflictException(this.tInvoice('notPaid'));
     if (row.orderStatus === 'OrderReturned')
       throw new ConflictException(this.tInvoice('orderRefunded'));
 
