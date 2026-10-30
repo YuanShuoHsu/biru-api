@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -38,7 +38,10 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { openingCalendar } from '../common/utils/opening-hours.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
-import { findSpecialHours } from '../common/utils/organizations.js';
+import {
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { Language } from '../db/schema/enums.js';
@@ -85,6 +88,7 @@ import type {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
   type WaitlistAudience,
 } from './waitlist-errors.js';
 import {
@@ -143,7 +147,7 @@ export class WaitlistService {
       where: eq(organization.slug, slug),
       columns: { closedAt: true, id: true, openingHours: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
   }
 
@@ -172,7 +176,7 @@ export class WaitlistService {
 
   async findQrSession(organizationSlug: string, value: unknown) {
     const { session } = await this.verifyQrSession(organizationSlug, value);
-    if (!session) throw new NotFoundException('Waitlist QR session not found');
+    if (!session) throw notFoundError('waitlistQrSessionNotFound', 'guest');
     return session;
   }
 
@@ -211,7 +215,11 @@ export class WaitlistService {
     };
   }
 
-  private async findTicket(organizationSlug: string, ticketId: string) {
+  private async findTicket(
+    organizationSlug: string,
+    ticketId: string,
+    audience: WaitlistAudience,
+  ) {
     const org = await this.getOrgBySlug(organizationSlug);
     const ticket = await this.db.query.waitlistTicket.findFirst({
       where: and(
@@ -219,7 +227,7 @@ export class WaitlistService {
         eq(waitlistTicket.organizationId, org.id),
       ),
     });
-    if (!ticket) throw new NotFoundException('Waitlist ticket not found');
+    if (!ticket) throw notFoundError('waitlistTicketNotFound', audience);
     return ticket;
   }
 
@@ -323,7 +331,7 @@ export class WaitlistService {
         .orderBy(desc(waitlistTicket.calledAt)),
       this.specialHoursAround(organizationId, now),
     ]);
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return {
       ...this.availabilityAt(
@@ -521,7 +529,7 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketDetailResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
     const [{ holdMinutes }, aheadCount, currentTicketNumber] =
       await Promise.all([
         this.getSettings(ticket.organizationId),
@@ -583,7 +591,7 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
     if (!isActive(ticket.status))
       throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
@@ -599,7 +607,7 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
     if (ticket.status !== 'called')
       throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
@@ -628,7 +636,7 @@ export class WaitlistService {
     ticketId: string,
     status: StaffTransitionStatus,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'staff');
     const updated = await this.updateStatus(ticket, status, 'staff');
     const [{ holdMinutes }, aheadCount] = await Promise.all([
       this.getSettings(ticket.organizationId),
@@ -643,7 +651,7 @@ export class WaitlistService {
     ticketId: string,
     dto: CreateWaitlistTicketDto,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'staff');
     if (!isActive(ticket.status))
       throw badRequestError('waitlistTransitionInvalid', 'staff');
 

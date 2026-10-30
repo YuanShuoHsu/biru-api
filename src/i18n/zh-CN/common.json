@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "请先填写申报单位资料。",
     "workPermitRequired": "此员工的法定身份须持有有效工作许可，班次或出勤日期不在工作许可期间内。"
   },
+  "banners": {
+    "bannerNotFound": "找不到这则横幅，可能已被删除",
+    "scheduleInvalid": "开始时间必须早于结束时间"
+  },
   "coupons": {
     "alreadyClaimed": "您已领取过此优惠券",
+    "applicableOrganizationNotFound": "找不到部分所选店家，可能已被删除",
     "codeExists": "此优惠码已存在",
+    "couponNotFound": "找不到这张优惠券，可能已被删除",
     "expired": "优惠码已过期",
     "inUse": "已有顾客领取此优惠券，无法删除，请改为停用。",
     "issueMinSpendRequired": "满额回馈须设定满额门槛",
@@ -161,6 +167,7 @@
     "internalServerError": "内部服务器错误",
     "organizationClosed": "此门店已停止营业",
     "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",
+    "organizationNotFound": "找不到此门店。",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
     "smtpTestFailed": "测试邮件发送失败，请检查 SMTP 设置后再试",
     "tooManyRequests": "请求过多"
@@ -354,6 +361,9 @@
     "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
     "notFound": "这家门店还没有平面图。"
   },
+  "storePhotos": {
+    "storePhotoNotFound": "找不到这张门店照片，可能已被删除"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "当前非营业时间，暂不开放取号。",
@@ -364,6 +374,8 @@
       "waitlistPaused": "当前暂停取号，请咨询现场服务人员。",
       "waitlistPhoneInQueue": "此电话号码已在排队中，请勿重复取号。",
       "waitlistQrRequired": "请扫描门店现场的二维码取号。",
+      "waitlistQrSessionNotFound": "请先扫描店内的二维码再取号。",
+      "waitlistTicketNotFound": "找不到这张号码牌，请重新取号。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新页面。"
     },
     "staff": {
@@ -375,6 +387,8 @@
       "waitlistPaused": "当前暂停取号。",
       "waitlistPhoneInQueue": "此电话号码已在排队中。",
       "waitlistQrRequired": "顾客须扫描门店现场的二维码才能取号。",
+      "waitlistQrSessionNotFound": "找不到取号会话或已过期。",
+      "waitlistTicketNotFound": "找不到这张号码牌，请刷新。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新。"
     }
   }

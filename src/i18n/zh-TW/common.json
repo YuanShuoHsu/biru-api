@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "請先填寫申報單位資料。",
     "workPermitRequired": "此員工的法定身分須持有有效工作許可，班次或出勤日期不在工作許可期間內。"
   },
+  "banners": {
+    "bannerNotFound": "找不到這則橫幅，可能已被刪除",
+    "scheduleInvalid": "開始時間必須早於結束時間"
+  },
   "coupons": {
     "alreadyClaimed": "您已領取過此優惠券",
+    "applicableOrganizationNotFound": "找不到部分所選店家，可能已被刪除",
     "codeExists": "此優惠碼已存在",
+    "couponNotFound": "找不到這張優惠券，可能已被刪除",
     "expired": "優惠碼已過期",
     "inUse": "已有顧客領取此優惠券，無法刪除，請改為停用。",
     "issueMinSpendRequired": "滿額回饋須設定滿額門檻",
@@ -161,6 +167,7 @@
     "internalServerError": "內部伺服器錯誤",
     "organizationClosed": "此門市已停止營業",
     "organizationHasOpenWork": "尚有 {orders} 筆未完成的訂單、{tickets} 張候位中的號碼牌，請先完成或取消後再停業",
+    "organizationNotFound": "找不到此門市。",
     "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
     "smtpTestFailed": "測試郵件寄送失敗，請檢查 SMTP 設定後再試一次",
     "tooManyRequests": "請求過多"
@@ -354,6 +361,9 @@
     "duplicateTableNumber": "桌號 {tableNumber} 重複了。",
     "notFound": "這家門市還沒有平面圖。"
   },
+  "storePhotos": {
+    "storePhotoNotFound": "找不到這張門市照片，可能已被刪除"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "目前非營業時間，暫不開放取號。",
@@ -364,6 +374,8 @@
       "waitlistPaused": "目前暫停取號，請洽現場服務人員。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中，請勿重複取號。",
       "waitlistQrRequired": "請掃描門市現場的 QR code 取號。",
+      "waitlistQrSessionNotFound": "請先掃描門市現場的 QR code 再取號。",
+      "waitlistTicketNotFound": "找不到這張號碼牌，請重新取號。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理頁面。"
     },
     "staff": {
@@ -375,6 +387,8 @@
       "waitlistPaused": "目前暫停取號。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中。",
       "waitlistQrRequired": "顧客須掃描門市現場的 QR code 才能取號。",
+      "waitlistQrSessionNotFound": "找不到取號連線或已逾時。",
+      "waitlistTicketNotFound": "找不到這張號碼牌，請重新整理。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理。"
     }
   }
