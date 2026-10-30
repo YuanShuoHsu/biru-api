@@ -198,3 +198,58 @@ describe('AuditService.listForOrganization paging', () => {
     },
   );
 });
+
+describe('AuditService.listAll sorting', () => {
+  let client: PGlite;
+  let service: AuditService;
+
+  const ids = async (
+    sortBy: 'organizationId' | 'actorEmail',
+    sortDirection: 'asc' | 'desc',
+  ) => {
+    const { data } = await service.listAll({ sortBy, sortDirection });
+    return data.map(({ id }) => id);
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new AuditService(db as unknown as DrizzleDB);
+
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+         ('z-org', 'Alpha', 'alpha', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('a-org', 'Beta', 'beta', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at) values
+         ('alpha', null, 'Owner', 'b@example.com', 'z-org', 'order', 'order-1', 'update', '{}', '2026-10-28 08:00:00'),
+         ('beta', null, 'Owner', 'c@example.com', 'a-org', 'order', 'order-2', 'update', '{}', '2026-10-28 08:01:00'),
+         ('platform', null, 'Admin', 'a@example.com', null, 'banner', 'banner-1', 'update', '{}', '2026-10-28 08:02:00');`,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('sorts organizations by name rather than id', async () => {
+    expect(await ids('organizationId', 'asc')).toEqual([
+      'alpha',
+      'beta',
+      'platform',
+    ]);
+    expect(await ids('organizationId', 'desc')).toEqual([
+      'platform',
+      'beta',
+      'alpha',
+    ]);
+  });
+
+  it('sorts by actor email', async () => {
+    expect(await ids('actorEmail', 'asc')).toEqual([
+      'platform',
+      'alpha',
+      'beta',
+    ]);
+  });
+});
