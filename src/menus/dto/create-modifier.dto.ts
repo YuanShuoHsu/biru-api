@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsArray, IsEnum, IsNumberString, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumberString,
+  IsOptional,
+  ValidateIf,
+} from 'class-validator';
 
 import {
   IsLocalizedText,
@@ -38,7 +44,7 @@ export class CreateModifierDto {
     enum: itemAvailabilityEnum.enumValues,
     enumName: 'ItemAvailability',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
 
@@ -48,7 +54,7 @@ export class CreateModifierDto {
     enumName: 'OrderMode',
     isArray: true,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsEnum(orderModeEnum.enumValues, { each: true })
   availableModes?: OrderMode[];

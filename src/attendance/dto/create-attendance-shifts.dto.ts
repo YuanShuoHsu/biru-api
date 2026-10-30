@@ -13,6 +13,7 @@ import {
   IsUUID,
   MaxLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -95,7 +96,7 @@ export class CancelAttendanceShiftDto {
   @IsBoolean()
   irreversible?: boolean;
   @ApiPropertyOptional({ description: '班次已開始後取消時必填，寫入稽核紀錄' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MaxLength(1000)
   reason?: string;

@@ -177,7 +177,6 @@
   },
   "inventory": {
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
-    "packageRequired": "內容量、內容量單位、價格與庫存單位須一併填寫，不能清空",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
@@ -209,6 +208,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "找不到這個加購分組，可能已被刪除",
     "addOnSelf": "加購品項不能是品項本身",
+    "addOnTargetRequired": "加購要指定一個品項或一個分類，只能擇一",
     "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
     "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "menuSectionNotFound": "找不到這個分類，可能已被刪除",

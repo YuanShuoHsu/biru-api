@@ -107,4 +107,6 @@ export class CreateIngredientDto {
   transactionNote?: string | null;
 }
 
-export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {}
+export class UpdateIngredientDto extends PartialType(CreateIngredientDto, {
+  skipNullProperties: false,
+}) {}

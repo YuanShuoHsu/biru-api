@@ -43,4 +43,6 @@ export class CreateSupplierDto {
   ingredientIds?: string[];
 }
 
-export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {}
+export class UpdateSupplierDto extends PartialType(CreateSupplierDto, {
+  skipNullProperties: false,
+}) {}
