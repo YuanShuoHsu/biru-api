@@ -1,9 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsInt, IsString, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class ReorderBannersDto {
   @ApiProperty({ type: [String] })
   @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
   @IsString({ each: true })
   ids: string[];
 
