@@ -490,4 +490,40 @@ describe('MenusService localized text filters and sorting', () => {
       });
     });
   });
+  describe('加購對象', () => {
+    const rejected = {
+      response: { message: 'common.menus.addOnTargetRequired' },
+      status: 400,
+    };
+
+    it.each([
+      {},
+      { addOnMenuItemId: null, addOnMenuSectionId: null },
+      { addOnMenuItemId: 'americano', addOnMenuSectionId: 'toppings' },
+    ])('建立時要剛好指定一個品項或分類：%j', async (data) => {
+      await expect(
+        service.createMenuItemAddOn('latte', data as never),
+      ).rejects.toMatchObject(rejected);
+    });
+
+    it('更新時把唯一的對象清掉會擋下，另指定一個品項才通過', async () => {
+      const where = { id: 'with-toppings', menuItemId: 'latte' };
+
+      await expect(
+        service.updateMenuItemAddOn(where, { addOnMenuSectionId: null }),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        service.updateMenuItemAddOn(where, { addOnMenuItemId: 'americano' }),
+      ).rejects.toMatchObject(rejected);
+      await expect(
+        service.updateMenuItemAddOn(where, {
+          addOnMenuItemId: 'americano',
+          addOnMenuSectionId: null,
+        }),
+      ).resolves.toMatchObject({
+        addOnMenuItemId: 'americano',
+        addOnMenuSectionId: null,
+      });
+    });
+  });
 });

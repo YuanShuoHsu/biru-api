@@ -9,6 +9,7 @@
 
 import { Logger } from '@nestjs/common';
 
+import type { GenericEndpointContext } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
@@ -28,6 +29,7 @@ import type { createAuthI18n } from './i18n.js';
 import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
 import { signUpLanguage } from './sign-up-language.js';
+import { normalizeUserFields } from './user-fields.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
@@ -47,6 +49,11 @@ import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
 const signupCouponLogger = new Logger('SignupCoupons');
+
+const updatedUserId = (context: GenericEndpointContext | null) =>
+  context?.path === '/admin/update-user'
+    ? (context.body as { userId?: string } | undefined)?.userId
+    : context?.context.session?.user.id;
 
 const getInitialOrganization = async (userId: string) => {
   const membership = await authDb().query.member.findFirst({
@@ -200,7 +207,12 @@ export const createAuth = (
           before: async (user, context) => {
             const lang = await signUpLanguage(context);
 
-            return lang ? { data: { ...user, lang } } : undefined;
+            return {
+              data: normalizeUserFields(
+                lang ? { ...user, lang } : user,
+                'create',
+              ),
+            };
           },
           after: async (user) => {
             if (user.emailVerified)
@@ -208,19 +220,17 @@ export const createAuth = (
           },
         },
         update: {
-          before: async (user, context) => {
-            if (!('phoneNumber' in user)) return;
+          before: async (input, context) => {
+            const user = normalizeUserFields(input, 'update');
+            if (user.phoneNumber === undefined) return { data: user };
 
-            const phoneNumber =
-              typeof user.phoneNumber === 'string' && user.phoneNumber
-                ? user.phoneNumber
-                : null;
+            const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
               const owner = await authDb().query.user.findFirst({
                 where: eq(schema.user.phoneNumber, phoneNumber),
               });
 
-              if (owner && owner.id !== context?.context.session?.user.id)
+              if (owner && owner.id !== updatedUserId(context))
                 throw new APIError('BAD_REQUEST', {
                   code: 'PHONE_NUMBER_ALREADY_EXISTS',
                   message: 'Phone number already exists',
@@ -230,8 +240,7 @@ export const createAuth = (
             return {
               data: {
                 ...user,
-                phoneNumber,
-                ...(!('phoneNumberVerified' in user) && {
+                ...(user.phoneNumberVerified === undefined && {
                   phoneNumberVerified: false,
                 }),
               },

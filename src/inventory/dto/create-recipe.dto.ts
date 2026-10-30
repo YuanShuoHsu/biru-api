@@ -8,6 +8,7 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -34,7 +35,7 @@ export class CreateRecipeDto {
   menuItemId?: string | null;
 
   @ApiPropertyOptional({ default: 1, description: '份量' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(1)
   recipeYield?: number;
@@ -49,7 +50,9 @@ export class CreateRecipeDto {
   recipeInstructions?: LocalizedText[];
 }
 
-export class UpdateRecipeDto extends PartialType(CreateRecipeDto) {}
+export class UpdateRecipeDto extends PartialType(CreateRecipeDto, {
+  skipNullProperties: false,
+}) {}
 
 export class CreateRecipeIngredientDto {
   @ApiProperty()
@@ -62,7 +65,7 @@ export class CreateRecipeIngredientDto {
   requiredQuantity: string;
 
   @ApiPropertyOptional({ description: '未帶時排在最後' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
   sortOrder?: number;
@@ -70,4 +73,5 @@ export class CreateRecipeIngredientDto {
 
 export class UpdateRecipeIngredientDto extends PartialType(
   CreateRecipeIngredientDto,
+  { skipNullProperties: false },
 ) {}

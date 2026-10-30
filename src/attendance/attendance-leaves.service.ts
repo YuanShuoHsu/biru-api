@@ -26,6 +26,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  isCalendarDate,
   localTimeText,
   parseQuickFilterEnums,
 } from '../common/utils/data-grid-filters.js';
@@ -190,7 +191,8 @@ const memoryDateMatch = (
 ): boolean => {
   if (operator === 'isEmpty') return raw == null;
   if (operator === 'isNotEmpty') return raw != null;
-  if (raw == null || !value) return false;
+  if (!isCalendarDate(value)) return true;
+  if (raw == null) return false;
 
   const current = platformDateString(new Date(raw as string | Date));
 
@@ -219,19 +221,22 @@ const memoryNumberMatch = (
 ): boolean => {
   if (operator === 'isEmpty') return raw == null;
   if (operator === 'isNotEmpty') return raw != null;
+
+  if (operator === 'isAnyOf') {
+    const targets = value
+      .split(',')
+      .filter(Boolean)
+      .map(Number)
+      .filter(Number.isFinite);
+
+    return !targets.length || (raw != null && targets.includes(Number(raw)));
+  }
+
+  const target = Number(value);
+  if (!value || !Number.isFinite(target)) return true;
   if (raw == null) return false;
 
   const current = Number(raw);
-
-  if (operator === 'isAnyOf')
-    return value
-      .split(',')
-      .map(Number)
-      .filter((entry) => !Number.isNaN(entry))
-      .includes(current);
-
-  const target = Number(value);
-  if (!value || Number.isNaN(target)) return true;
 
   switch (operator) {
     case '=':
@@ -283,7 +288,7 @@ const compareValues = (first: unknown, second: unknown): number => {
   return scalarText(first).localeCompare(scalarText(second));
 };
 
-const pageInMemory = <Row extends Record<string, unknown>>(
+export const pageInMemory = <Row extends Record<string, unknown>>(
   rows: Row[],
   query: PaginationQueryDto & { filterField?: string; sortBy?: string },
   {

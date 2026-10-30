@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { trim } from '../../common/utils/trim.js';
 
@@ -21,9 +22,9 @@ export class SaveAttendanceLeaveTypeDto {
   @Min(0)
   @Max(100)
   paidPercent?: number | null;
-  @ApiPropertyOptional({ nullable: true })
-  @IsOptional()
+  @ApiPropertyOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
-  requiresBalance?: boolean | null;
+  requiresBalance?: boolean;
   @IsBoolean() enabled: boolean;
 }

@@ -1,12 +1,24 @@
 import { NotFoundException } from '@nestjs/common';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
 
 import {
   organization,
   organizationSpecialHours,
 } from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import { platformDateString } from '../constants/timezone.js';
+
+export const organizationNotFoundError = () =>
+  new NotFoundException({
+    error: 'Not Found',
+    code: 'organizationNotFound',
+    message:
+      I18nContext.current<I18nTranslations>()?.t(
+        'common.exceptions.organizationNotFound',
+      ) ?? 'organizationNotFound',
+  });
 
 export const getOrganizationBySlug = async (
   db: DrizzleDB,

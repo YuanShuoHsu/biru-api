@@ -11,6 +11,7 @@ export type I18nTranslations = {
         "EMAIL_ALREADY_VERIFIED": string;
         "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
+        "FIRST_NAME_REQUIRED": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
         "INVALID_PASSWORD": string;
         "INVALID_SESSION_TOKEN": string;
@@ -180,9 +181,15 @@ export type I18nTranslations = {
             "withholdingUnitRequired": string;
             "workPermitRequired": string;
         };
+        "banners": {
+            "bannerNotFound": string;
+            "scheduleInvalid": string;
+        };
         "coupons": {
             "alreadyClaimed": string;
+            "applicableOrganizationNotFound": string;
             "codeExists": string;
+            "couponNotFound": string;
             "expired": string;
             "inUse": string;
             "issueMinSpendRequired": string;
@@ -213,6 +220,7 @@ export type I18nTranslations = {
             "internalServerError": string;
             "organizationClosed": string;
             "organizationHasOpenWork": string;
+            "organizationNotFound": string;
             "organizationReadOnly": string;
             "smtpTestFailed": string;
             "tooManyRequests": string;
@@ -222,7 +230,6 @@ export type I18nTranslations = {
         };
         "inventory": {
             "ingredientNotFound": string;
-            "packageRequired": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
@@ -254,6 +261,7 @@ export type I18nTranslations = {
         "menus": {
             "addOnMenuSectionNotFound": string;
             "addOnSelf": string;
+            "addOnTargetRequired": string;
             "fixedSweetnessLevelRequired": string;
             "menuItemNotFound": string;
             "menuSectionNotFound": string;
@@ -406,6 +414,9 @@ export type I18nTranslations = {
             "duplicateTableNumber": string;
             "notFound": string;
         };
+        "storePhotos": {
+            "storePhotoNotFound": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;
@@ -416,6 +427,8 @@ export type I18nTranslations = {
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
@@ -427,6 +440,8 @@ export type I18nTranslations = {
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
                 "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
         };

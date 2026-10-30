@@ -314,7 +314,6 @@ export class IngredientsService {
     if (!existing) throw notFoundError('ingredientNotFound');
 
     this.assertCompatibleUnitCode({ ...existing, ...dto });
-    this.assertPackageNotCleared(dto);
     await this.assertSupplierInOrganization(
       dto.supplierId,
       existing.organizationId,
@@ -400,23 +399,6 @@ export class IngredientsService {
         ),
       );
     if (!found) throw notFoundError('supplierNotFound');
-  }
-
-  // PartialType 讓每個欄位都吃 @IsOptional，null 會跳過驗證直接清掉包裝規格
-  private assertPackageNotCleared({
-    eligibleQuantity,
-    eligibleQuantityUnitCode,
-    price,
-    unitCode,
-  }: UpdateIngredientDto): void {
-    if (
-      [eligibleQuantity, eligibleQuantityUnitCode, price, unitCode].every(
-        (value) => value === undefined || value,
-      )
-    )
-      return;
-
-    throw badRequestError('packageRequired');
   }
 
   private assertCompatibleUnitCode({

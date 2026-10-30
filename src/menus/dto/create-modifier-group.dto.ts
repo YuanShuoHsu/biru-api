@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
 import {
   IsLocalizedText,
   IsCompleteLocalizedText,
@@ -22,7 +22,7 @@ export class CreateModifierGroupDto {
     default: 0,
     description: '最少選擇數量；>= 1 代表必選',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
   minSelectionCount?: number;

@@ -674,7 +674,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           {
             name: asString(data.name) ?? '',
             paidPercent: asNumber(data.paidPercent),
-            requiresBalance: asBoolean(data.requiresBalance),
+            requiresBalance: asBoolean(data.requiresBalance) ?? undefined,
             enabled: asBoolean(data.enabled) ?? true,
           },
           undefined,

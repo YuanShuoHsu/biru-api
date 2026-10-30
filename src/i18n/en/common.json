@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "Fill in the withholding unit details first.",
     "workPermitRequired": "This employee's legal status requires a valid work permit, and a shift or workday falls outside the permit period."
   },
+  "banners": {
+    "bannerNotFound": "The banner wasn't found. It may have been deleted",
+    "scheduleInvalid": "The start time must be earlier than the end time"
+  },
   "coupons": {
     "alreadyClaimed": "You have already claimed this coupon",
+    "applicableOrganizationNotFound": "One of the selected stores wasn't found. It may have been deleted",
     "codeExists": "This promo code already exists",
+    "couponNotFound": "The coupon wasn't found. It may have been deleted",
     "expired": "This promo code has expired",
     "inUse": "Customers have already claimed this coupon, so it can't be deleted. Deactivate it instead.",
     "issueMinSpendRequired": "A minimum spend is required for spend rewards",
@@ -161,6 +167,7 @@
     "internalServerError": "Internal server error",
     "organizationClosed": "This store is closed.",
     "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
+    "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
     "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
     "tooManyRequests": "Too many requests"
@@ -170,7 +177,6 @@
   },
   "inventory": {
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
-    "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "recipeIngredientExists": "This ingredient has already been added",
     "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
@@ -202,6 +208,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "The add-on section wasn't found. It may have been deleted",
     "addOnSelf": "An add-on can't be the item itself",
+    "addOnTargetRequired": "An add-on needs exactly one item or one category",
     "fixedSweetnessLevelRequired": "Please choose a fixed sweetness level when sweetness is fixed",
     "menuItemNotFound": "The item wasn't found. It may have been deleted",
     "menuSectionNotFound": "The section wasn't found. It may have been deleted",
@@ -354,6 +361,9 @@
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
     "notFound": "This store has no floor plan yet."
   },
+  "storePhotos": {
+    "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "We're closed right now, so the waitlist isn't open.",
@@ -364,6 +374,8 @@
       "waitlistPaused": "The waitlist is paused. Please ask a member of staff.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
       "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
+      "waitlistQrSessionNotFound": "Please scan the QR code in the store to take a number.",
+      "waitlistTicketNotFound": "We couldn't find this ticket. Please take a new number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },
     "staff": {
@@ -375,6 +387,8 @@
       "waitlistPaused": "The waitlist is paused.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
       "waitlistQrRequired": "Guests must scan the QR code in the store to take a number.",
+      "waitlistQrSessionNotFound": "The QR code session wasn't found or has expired.",
+      "waitlistTicketNotFound": "The ticket wasn't found. Please refresh.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh."
     }
   }

@@ -16,6 +16,7 @@ import {
   ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
+  ValidateIf,
 } from 'class-validator';
 import { isValidOpeningHours } from '../../common/utils/opening-hours.js';
 import {
@@ -95,7 +96,7 @@ export class CreateOfferDto {
     enum: itemAvailabilityEnum.enumValues,
     enumName: 'ItemAvailability',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
 

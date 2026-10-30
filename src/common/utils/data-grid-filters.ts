@@ -17,6 +17,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { isISO8601 } from 'class-validator';
 
 import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
@@ -86,6 +87,9 @@ export const buildLocalizedTextFilterCondition = (
   return matchOperator === operator ? anyValueMatches : not(anyValueMatches);
 };
 
+export const isCalendarDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && isISO8601(value, { strict: true });
+
 export const buildDateFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -95,7 +99,7 @@ export const buildDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const localDate = sql`DATE(${colSql} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})`;
   const targetDate = sql`${value}::date`;
@@ -116,6 +120,8 @@ export const buildDateFilterCondition = (
   }
 };
 
+const asNumeric = (value: number) => sql`${value}::numeric`;
+
 export const buildNumberFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -129,8 +135,10 @@ export const buildNumberFilterCondition = (
   if (operator === 'isAnyOf') {
     const values = value
       .split(',')
+      .filter(Boolean)
       .map(Number)
-      .filter((v) => !Number.isNaN(v));
+      .filter(Number.isFinite)
+      .map(asNumeric);
     if (values.length === 0) return undefined;
 
     return values.length === 1
@@ -139,21 +147,23 @@ export const buildNumberFilterCondition = (
   }
 
   const num = Number(value);
-  if (!value || Number.isNaN(num)) return undefined;
+  if (!value || !Number.isFinite(num)) return undefined;
+
+  const target = asNumeric(num);
 
   switch (operator) {
     case '=':
-      return eq(colSql, num);
+      return eq(colSql, target);
     case '!=':
-      return ne(colSql, num);
+      return ne(colSql, target);
     case '>':
-      return gt(colSql, num);
+      return gt(colSql, target);
     case '>=':
-      return gte(colSql, num);
+      return gte(colSql, target);
     case '<':
-      return lt(colSql, num);
+      return lt(colSql, target);
     case '<=':
-      return lte(colSql, num);
+      return lte(colSql, target);
   }
 };
 
@@ -208,7 +218,7 @@ export const buildPlainDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const targetDate = sql`${value}::date`;
 

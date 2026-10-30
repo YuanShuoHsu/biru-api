@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -44,6 +44,7 @@ import {
 } from './dto/store-photo-pagination-query.dto.js';
 import type { PublicStorePhotoResponseDto } from './dto/public-store-photo-response.dto.js';
 import type { StorePhotoResponseDto } from './dto/store-photo-response.dto.js';
+import { notFoundError } from './store-photo-errors.js';
 
 @Injectable()
 export class StorePhotosService {
@@ -165,7 +166,7 @@ export class StorePhotosService {
       .set(dto)
       .where(eq(storePhoto.id, storePhotoId))
       .returning();
-    if (!updated) throw new NotFoundException('Store photo not found');
+    if (!updated) throw notFoundError('storePhotoNotFound');
 
     return updated;
   }
@@ -175,8 +176,7 @@ export class StorePhotosService {
       .delete(storePhoto)
       .where(eq(storePhoto.id, storePhotoId))
       .returning({ id: storePhoto.id });
-    if (deleted.length === 0)
-      throw new NotFoundException('Store photo not found');
+    if (deleted.length === 0) throw notFoundError('storePhotoNotFound');
   }
 
   async removeMany(ids: string[]): Promise<void> {
@@ -187,8 +187,7 @@ export class StorePhotosService {
           .delete(storePhoto)
           .where(eq(storePhoto.id, id))
           .returning({ id: storePhoto.id });
-        if (!deleted.length)
-          throw new NotFoundException('Store photo not found');
+        if (!deleted.length) throw notFoundError('storePhotoNotFound');
       }
     });
   }

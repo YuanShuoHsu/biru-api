@@ -14,6 +14,7 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -342,7 +343,7 @@ export class PreviewFuturesOrderDto {
   size: string;
 
   @ApiPropertyOptional({ description: '市價單以外必填' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @Matches(DECIMAL_PATTERN)
   price?: string;
 }

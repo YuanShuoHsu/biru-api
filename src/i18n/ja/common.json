@@ -128,9 +128,15 @@
     "withholdingUnitRequired": "先に申告単位情報を入力してください。",
     "workPermitRequired": "この従業員の法的身分では有効な就労許可が必要ですが、シフトまたは出勤日が許可期間外です。"
   },
+  "banners": {
+    "bannerNotFound": "バナーが見つかりません。削除された可能性があります",
+    "scheduleInvalid": "開始日時は終了日時より前にしてください"
+  },
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
+    "applicableOrganizationNotFound": "選択した店舗の一部が見つかりません。削除された可能性があります",
     "codeExists": "このクーポンコードはすでに存在します",
+    "couponNotFound": "クーポンが見つかりません。削除された可能性があります",
     "expired": "クーポンコードの有効期限が切れています",
     "inUse": "このクーポンはすでにお客様が受け取っているため削除できません。無効化してください。",
     "issueMinSpendRequired": "金額達成特典には達成金額の設定が必要です",
@@ -161,6 +167,7 @@
     "internalServerError": "内部サーバーエラー",
     "organizationClosed": "この店舗は営業を終了しました",
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
+    "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
     "tooManyRequests": "リクエストが多すぎます"
@@ -170,7 +177,6 @@
   },
   "inventory": {
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
-    "packageRequired": "内容量、内容量の単位、価格、在庫単位はすべて入力が必要で、空にできません",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
@@ -202,6 +208,7 @@
   "menus": {
     "addOnMenuSectionNotFound": "追加セクションが見つかりません。削除された可能性があります",
     "addOnSelf": "追加購入商品に商品自身は指定できません",
+    "addOnTargetRequired": "追加購入には商品かカテゴリをどちらか一つだけ指定してください",
     "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
@@ -354,6 +361,9 @@
     "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
     "notFound": "この店舗のフロアプランはまだありません。"
   },
+  "storePhotos": {
+    "storePhotoNotFound": "店舗写真が見つかりません。削除された可能性があります"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "営業時間外のため、受付を停止しています。",
@@ -364,6 +374,8 @@
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
       "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
+      "waitlistQrSessionNotFound": "店内のQRコードを読み取ってから番号札をお取りください。",
+      "waitlistTicketNotFound": "この整理券が見つかりません。もう一度番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
@@ -375,6 +387,8 @@
       "waitlistPaused": "受付を一時停止しています。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
       "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
+      "waitlistQrSessionNotFound": "QRコードの受付が見つからないか、有効期限が切れています。",
+      "waitlistTicketNotFound": "整理券が見つかりません。再読み込みしてください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

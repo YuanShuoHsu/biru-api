@@ -52,6 +52,11 @@ export class AuditLogPaginationQueryDto extends PaginationQueryDto {
   @IsString()
   resourceId?: string;
 
+  @ApiPropertyOptional({ description: '只列出此操作者的紀錄' })
+  @IsOptional()
+  @IsString()
+  actorId?: string;
+
   @ApiPropertyOptional({
     description: '篩出祖先含此 id 的紀錄,例如某張券的所有發放',
   })

@@ -161,7 +161,7 @@ export class FuturesGridStopDto {
   value: number;
 
   @ApiPropertyOptional({ description: 'price_limit：觸發後掛限價單平倉的價格' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   limitPrice?: number;
@@ -226,7 +226,7 @@ export class GridConfigDto {
     description:
       '實盤：初始買入價格最多高於下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   slippage?: number;
@@ -266,7 +266,7 @@ export class FuturesGridConfigDto {
   @ApiPropertyOptional({
     description: '額外保證金（計價幣），不參與網格交易、只用來拉遠強平價',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   extraMargin?: number;
@@ -281,7 +281,7 @@ export class FuturesGridConfigDto {
   lossStop?: FuturesGridStopDto;
 
   @ApiPropertyOptional({ description: '中性網格的上方停損價' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   lossStopHigh?: number;
@@ -289,7 +289,7 @@ export class FuturesGridConfigDto {
   @ApiPropertyOptional({
     description: '中性網格的上方停損限價，停損方式為 price_limit 時使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   lossStopLimitHigh?: number;
@@ -314,7 +314,7 @@ export class FuturesGridConfigDto {
     description:
       '實盤：開倉成交價最多偏離下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   slippage?: number;
@@ -328,14 +328,14 @@ export class SignalBotConfigDto {
   leverage: number;
 
   @ApiPropertyOptional({ description: '停利（%，相對投入），由 Pionex 執行' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(10000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對投入），由 Pionex 執行' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -400,7 +400,7 @@ export class DcaConfigDto {
   takeProfit: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -421,21 +421,21 @@ export class IndicatorConditionDto {
   kind: (typeof INDICATOR_KINDS)[number];
 
   @ApiPropertyOptional({ description: 'RSI／布林通道週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(500)
   period?: number;
 
   @ApiPropertyOptional({ description: '均線交叉的快線週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(1)
   @Max(500)
   fast?: number;
 
   @ApiPropertyOptional({ description: '均線交叉的慢線週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(500)
@@ -446,12 +446,12 @@ export class IndicatorConditionDto {
     enumName: 'QuantConditionOperator',
     description: 'RSI 高於／低於門檻；布林通道為收盤價突破上軌／跌破下軌',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(CONDITION_OPERATORS)
   operator?: (typeof CONDITION_OPERATORS)[number];
 
   @ApiPropertyOptional({ description: 'RSI 門檻' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -461,12 +461,12 @@ export class IndicatorConditionDto {
     enum: CROSS_DIRECTIONS,
     enumName: 'QuantCrossDirection',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(CROSS_DIRECTIONS)
   direction?: (typeof CROSS_DIRECTIONS)[number];
 
   @ApiPropertyOptional({ description: '布林通道標準差倍數' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(10)
@@ -476,7 +476,7 @@ export class IndicatorConditionDto {
     enum: BOLLINGER_BANDS,
     enumName: 'QuantBollingerBand',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(BOLLINGER_BANDS)
   band?: (typeof BOLLINGER_BANDS)[number];
 }
@@ -513,14 +513,14 @@ export class IndicatorConfigDto {
   orderAmount: number;
 
   @ApiPropertyOptional({ description: '停利（%，相對進場均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(1000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對進場均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -571,7 +571,10 @@ export class AiConfigDto {
   @ApiPropertyOptional({
     description: 'claude_api 必填：每月 AI 費用上限（美元），超過就停止機器人',
   })
-  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
+  @ValidateIf(
+    (config: AiConfigDto, value) =>
+      config.source === 'claude_api' || value !== undefined,
+  )
   @IsNumber()
   @IsPositive()
   monthlyCostLimit?: number;
@@ -603,14 +606,14 @@ export class AiConfigDto {
   locale: (typeof AI_LOCALES)[number];
 
   @ApiPropertyOptional({ description: '停利（%，相對持倉均價），由系統強制' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(1000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對持倉均價），由系統強制' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -851,7 +854,7 @@ export class StopQuantBotDto {
     description:
       '現貨網格省略時依建立時的設定；現貨 DCA／指標／Webhook／AI 傳 TO_QUOTE 會市價平倉，省略時保留倉位；合約一律平倉',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(GRID_CLOSE_MODELS)
   closeModel?: (typeof GRID_CLOSE_MODELS)[number];
 }
@@ -913,7 +916,7 @@ export class WebhookSignalDto {
   action: (typeof WEBHOOK_ACTIONS)[number];
 
   @ApiPropertyOptional({ description: '買入金額（計價幣），省略則用預設' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   amount?: number;
@@ -1096,13 +1099,13 @@ export class GridOperationDto {
   amount?: number;
 
   @ApiPropertyOptional({ description: 'range：新上界' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   top?: number;
 
   @ApiPropertyOptional({ description: 'range：新下界' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   bottom?: number;
@@ -1112,7 +1115,7 @@ export class GridOperationDto {
     minimum: 2,
     maximum: 200,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(200)
@@ -1461,7 +1464,7 @@ export class ResumeAiBacktestDto {
     description:
       'claude_api：調整這次回測的費用上限（美元），已花費用達到上限時必須調高',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   monthlyCostLimit?: number;

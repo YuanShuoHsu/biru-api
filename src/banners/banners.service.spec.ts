@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { I18nContext } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -87,5 +88,20 @@ describe('BannersService', () => {
     await expect(
       service.update(id, { endsAt: '2026-09-01T00:00:00Z' }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('找不到橫幅時回 404，帶代碼與翻譯後的訊息', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+
+    await expect(service.remove('missing')).rejects.toMatchObject({
+      response: {
+        code: 'bannerNotFound',
+        message: 'translated:common.banners.bannerNotFound',
+      },
+      status: 404,
+    });
+    vi.restoreAllMocks();
   });
 });

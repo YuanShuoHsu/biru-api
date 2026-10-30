@@ -1220,6 +1220,9 @@ export class MenusService {
       addOnMenuSectionId,
     }: CreateMenuItemAddOnDto | UpdateMenuItemAddOnDto,
   ): Promise<void> {
+    if (!addOnMenuItemId === !addOnMenuSectionId)
+      throw new BadRequestException(this.t('addOnTargetRequired'));
+
     if (addOnMenuItemId === menuItemId) {
       throw new BadRequestException(this.t('addOnSelf'));
     }
@@ -1449,7 +1452,16 @@ export class MenusService {
   > {
     const found = await this.findMenuItemAddOnById(where.id);
     if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
-    await this.validateAddOnTargets(where.menuItemId, data);
+    await this.validateAddOnTargets(where.menuItemId, {
+      addOnMenuItemId:
+        data.addOnMenuItemId === undefined
+          ? found.addOnMenuItemId
+          : data.addOnMenuItemId,
+      addOnMenuSectionId:
+        data.addOnMenuSectionId === undefined
+          ? found.addOnMenuSectionId
+          : data.addOnMenuSectionId,
+    });
 
     await this.db
       .update(menuItemAddOn)
