@@ -12,6 +12,7 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { platformDateString } from '../common/constants/timezone.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import { pgErrorCode } from '../common/utils/pg-errors.js';
 import { organizationSpecialHours } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -152,8 +153,7 @@ export class SpecialHoursService {
     try {
       return await write;
     } catch (error) {
-      if ((error as { cause?: { code?: string } }).cause?.code !== '23P01')
-        throw error;
+      if (pgErrorCode(error) !== '23P01') throw error;
 
       const conflict = await this.db.query.organizationSpecialHours.findFirst({
         where: and(

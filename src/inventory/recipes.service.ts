@@ -25,6 +25,7 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -424,7 +425,7 @@ export class RecipesService {
     try {
       return await write();
     } catch (error) {
-      if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+      if (isUniqueViolation(error))
         throw conflictError('recipeIngredientExists');
       throw error;
     }
