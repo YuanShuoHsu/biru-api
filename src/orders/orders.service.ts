@@ -593,9 +593,10 @@ export class OrdersService {
         const items = await tx
           .insert(orderItem)
           .values(
-            orderItemsData.map((i) => ({
+            orderItemsData.map((i, index) => ({
               id: i.id,
               addOns: i.addOns,
+              discount: (applied?.itemDiscounts[index] ?? 0).toFixed(2),
               menuItemId: i.menuItemId,
               menuItemName: i.menuItemName,
               modifiers: i.modifiers,

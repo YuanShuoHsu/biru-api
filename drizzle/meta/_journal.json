@@ -1737,6 +1737,13 @@
       "when": 1793344047962,
       "tag": "0247_user_name_phone_not_blank",
       "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1793367598575,
+      "tag": "0248_order_item_discount",
+      "breakpoints": true
     }
   ]
 }

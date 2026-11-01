@@ -46,7 +46,7 @@ const baseCoupon: Partial<Coupon> = {
   validThrough: null,
 };
 
-const discountOf = (coupon: Partial<Coupon>) => {
+const applicableOf = (coupon: Partial<Coupon>) => {
   const db = {
     query: {
       coupon: {
@@ -60,10 +60,11 @@ const discountOf = (coupon: Partial<Coupon>) => {
     {} as OrderPricingService,
   );
 
-  return service
-    .getApplicableCoupon(ORG_ID, 'code', items, null)
-    .then(({ discount }) => discount);
+  return service.getApplicableCoupon(ORG_ID, 'code', items, null);
 };
+
+const discountOf = (coupon: Partial<Coupon>) =>
+  applicableOf(coupon).then(({ discount }) => discount);
 
 describe('CouponsService.getApplicableCoupon 折扣金額', () => {
   it('百分比折扣四捨五入到整數', async () => {
@@ -186,5 +187,25 @@ describe('CouponsService 自動發券', () => {
     expect(insertValues).toHaveBeenCalledWith([
       expect.objectContaining({ couponId: 'coupon', source: 'spend' }),
     ]);
+  });
+});
+
+describe('CouponsService.getApplicableCoupon 每行折扣', () => {
+  it('整單折扣依各行小計分攤，加總等於折扣', async () => {
+    const { itemDiscounts } = await applicableOf({ discountValue: '50' });
+
+    // 130 : 89.5
+    expect(itemDiscounts).toEqual([29.61, 20.39]);
+  });
+
+  it('指定品項的折扣只落在符合的行', async () => {
+    const { itemDiscounts } = await applicableOf({
+      discountType: 'percentage',
+      discountValue: '50',
+      menuSectionIds: ['dessert'],
+      scope: 'item',
+    });
+
+    expect(itemDiscounts).toEqual([0, 45]);
   });
 });
