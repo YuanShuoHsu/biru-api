@@ -598,7 +598,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('補扣點上限依每點金額以分精確換算，點數未啟用時 enabled 為 false', async () => {
-    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+    await expect(service.getAdjustmentLimit('admin')).resolves.toEqual({
       enabled: true,
       ownerOnlyAbovePoints: 300,
     });
@@ -612,7 +612,7 @@ describe('PointsService.findAllForOrganization', () => {
       await client.query(`update point_setting set amount_per_point = $1`, [
         amountPerPoint,
       ]);
-      await expect(service.getAdjustmentLimit()).resolves.toEqual({
+      await expect(service.getAdjustmentLimit('admin')).resolves.toEqual({
         enabled: true,
         ownerOnlyAbovePoints,
       });
@@ -621,15 +621,24 @@ describe('PointsService.findAllForOrganization', () => {
     await client.exec(
       `update point_setting set amount_per_point = 30, points_enabled_at = null`,
     );
-    await expect(service.getAdjustmentLimit()).resolves.toEqual({
+    await expect(service.getAdjustmentLimit('admin')).resolves.toEqual({
       enabled: false,
       ownerOnlyAbovePoints: 100,
     });
   });
 
+  it('owner 不受補扣點上限限制，上限回傳 null', async () => {
+    for (const role of ['owner', 'admin,owner']) {
+      await expect(service.getAdjustmentLimit(role)).resolves.toEqual({
+        enabled: true,
+        ownerOnlyAbovePoints: null,
+      });
+    }
+  });
+
   it('非 owner 可補扣到上限為止，超過上限拒絕', async () => {
     await client.exec(`update point_setting set amount_per_point = 1.1`);
-    const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit();
+    const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit('admin');
 
     expect(
       await service.adjustForOrganization(

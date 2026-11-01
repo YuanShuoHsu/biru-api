@@ -91,7 +91,9 @@ export class PointAdjustmentLimitDto {
   enabled: boolean;
   @ApiProperty({
     description:
-      '非 owner 單筆可補扣的最大點數（NT$3,000 依每點金額換算）；超過只有 owner 能做，0 = 只有 owner 能調整',
+      '非 owner 單筆可補扣的最大點數（NT$3,000 依每點金額換算）；超過只有 owner 能做，0 = 只有 owner 能調整；呼叫者是 owner（含平台管理員）時為 null，不受上限限制',
+    nullable: true,
+    type: Number,
   })
-  ownerOnlyAbovePoints: number;
+  ownerOnlyAbovePoints: number | null;
 }
