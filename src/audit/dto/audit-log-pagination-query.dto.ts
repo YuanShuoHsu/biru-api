@@ -31,7 +31,9 @@ export const AUDIT_LOG_ALL_FILTER_FIELDS = [
 export type AuditLogFilterField = (typeof AUDIT_LOG_ALL_FILTER_FIELDS)[number];
 
 export const AUDIT_LOG_SORT_FIELDS = [
+  'organizationId',
   'actorName',
+  'actorEmail',
   'resource',
   'action',
   'createdAt',
