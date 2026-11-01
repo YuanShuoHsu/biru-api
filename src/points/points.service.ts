@@ -90,6 +90,9 @@ const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
     : 0;
 };
 
+const isOwnerRole = (memberRole: string) =>
+  memberRole.split(',').some((role) => role.trim() === 'owner');
+
 // 沒有快照的訂單只認啟用點數之後付款的，避免回溯補發整段歷史
 const earnedFromSnapshotOr = <T>(snapshot: Column, current: Column) =>
   sql<T>`CASE WHEN ${order.amountPerPoint} IS NOT NULL THEN ${snapshot} WHEN ${order.paymentDate} >= ${pointSetting.pointsEnabledAt} THEN ${current} END`;
@@ -601,11 +604,15 @@ export class PointsService {
     return { data, total };
   }
 
-  async getAdjustmentLimit(): Promise<PointAdjustmentLimitDto> {
+  async getAdjustmentLimit(
+    memberRole: string,
+  ): Promise<PointAdjustmentLimitDto> {
     const setting = await this.db.query.pointSetting.findFirst();
     return {
       enabled: !!setting?.pointsEnabledAt,
-      ownerOnlyAbovePoints: maxNonOwnerAdjustPoints(setting?.amountPerPoint),
+      ownerOnlyAbovePoints: isOwnerRole(memberRole)
+        ? null
+        : maxNonOwnerAdjustPoints(setting?.amountPerPoint),
     };
   }
 
@@ -625,10 +632,7 @@ export class PointsService {
     const { amountPerPoint, pointsValidityYears } = setting;
 
     const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
-    if (
-      Math.abs(points) > maxNonOwnerPoints &&
-      !adjusterRole.split(',').some((role) => role.trim() === 'owner')
-    )
+    if (Math.abs(points) > maxNonOwnerPoints && !isOwnerRole(adjusterRole))
       throw new ForbiddenException(
         this.t('adjustOwnerOnly', { maxPoints: maxNonOwnerPoints }),
       );

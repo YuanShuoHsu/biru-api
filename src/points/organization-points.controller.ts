@@ -3,6 +3,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -38,10 +39,13 @@ export class OrganizationPointsController {
 
   @Get('adjustment-limit')
   @Roles({ organization: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '查詢本店非 owner 單筆可補點或扣點的上限' })
+  @ApiOperation({ summary: '查詢目前使用者在本店單筆可補點或扣點的上限' })
+  @ApiParam({ name: 'organizationSlug', type: String })
   @ApiOkResponse({ type: PointAdjustmentLimitDto })
-  getAdjustmentLimit(): Promise<PointAdjustmentLimitDto> {
-    return this.pointsService.getAdjustmentLimit();
+  getAdjustmentLimit(
+    @Req() req: AuthRequest,
+  ): Promise<PointAdjustmentLimitDto> {
+    return this.pointsService.getAdjustmentLimit(req.memberRole!);
   }
 
   @Post('adjustments')
