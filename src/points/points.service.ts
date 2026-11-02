@@ -495,6 +495,18 @@ export class PointsService {
     );
   }
 
+  async estimatePoints(
+    subtotal: number,
+    discount: number,
+  ): Promise<number | null> {
+    const setting = await this.db.query.pointSetting.findFirst();
+    const amountPerPoint = setting?.amountPerPoint ?? null;
+
+    return Number(amountPerPoint) > 0
+      ? earnedPoints(subtotal.toFixed(2), discount.toFixed(2), amountPerPoint)
+      : null;
+  }
+
   private notExpired() {
     return or(
       isNull(pointTransaction.expiresAt),
