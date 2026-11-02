@@ -418,6 +418,19 @@ describe('PointsService.findAllForOrganization', () => {
     expect(await service.estimatePoints(36, 0)).toBe(32);
   });
 
+  it('優惠券折扣取整後超過小計時預估為 0 點而不是負數', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1`);
+    await addPaidOrder('unpaid', ORG, 'amy', {
+      discount: '36',
+      orderStatus: 'OrderPaymentDue',
+      paymentDate: null,
+      unitPrice: '35.50',
+    });
+
+    expect((await service.expectedPoints(['unpaid'])).get('unpaid')).toBe(0);
+    expect(await service.estimatePoints(35.5, 36)).toBe(0);
+  });
+
   it('點數未啟用時下單前預估為 null', async () => {
     await client.exec(
       `update point_setting set amount_per_point = null, points_enabled_at = null`,
