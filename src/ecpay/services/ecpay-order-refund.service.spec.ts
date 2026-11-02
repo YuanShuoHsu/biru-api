@@ -276,6 +276,33 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       [[{ orderItemId: 'a', quantity: 5 }], undefined],
     ],
     [
+      '只折部分品項的優惠券分次退款',
+      {
+        items: [
+          {
+            discount: '0.00',
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '100.00',
+          },
+          {
+            discount: '50.00',
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
+        ],
+        total: '150.00',
+      },
+      [
+        [{ orderItemId: 'b', quantity: 1 }],
+        [{ orderItemId: 'a', quantity: 1 }],
+        undefined,
+      ],
+    ],
+    [
       '小數單價加優惠券折扣分次退款',
       {
         items: [

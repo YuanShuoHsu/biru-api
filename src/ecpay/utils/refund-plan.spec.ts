@@ -162,31 +162,74 @@ describe('buildRefundPlan', () => {
         return plan;
       });
 
-      expect(plans.map((plan) => plan.amount)).toEqual([83, 83, 100, 84]);
+      expect(plans.map((plan) => plan.amount)).toEqual([83, 84, 100, 83]);
       expect(plans.at(-1)?.isFull).toBe(true);
     });
 
-    it('折扣取整後超過該行金額時，該行最多退到 0', () => {
+    it('先退有折扣的品項，最後只退沒折扣的品項時不被加上尾差', () => {
+      const tenPercentOrder = {
+        items: ['a', 'b', 'c'].map((id, index) => ({
+          discount: index < 2 ? '5.67' : '5.66',
+          id,
+          menuItemName: id,
+          orderQuantity: 1,
+          unitPrice: '55.00',
+        })),
+        total: '153.00',
+      };
+      tenPercentOrder.items.push({
+        discount: '0.00',
+        id: 'x',
+        menuItemName: 'x',
+        orderQuantity: 1,
+        unitPrice: '5.00',
+      });
+
+      const previous: { amount: string; items: RefundItemSnapshot[] }[] = [];
+      const amounts = ['a', 'b', 'c', 'x'].map((orderItemId) => {
+        const plan = buildRefundPlan(
+          tenPercentOrder,
+          previous,
+          [{ orderItemId, quantity: 1 }],
+          t,
+        );
+        previous.push({ amount: String(plan.amount), items: plan.items });
+        return plan.amount;
+      });
+
+      expect(amounts).toEqual([49, 50, 49, 5]);
+    });
+
+    it('折扣超過品項取整後的金額時，該行最多退到 0', () => {
+      const fullCouponOrder = {
+        items: [
+          {
+            discount: '10.50',
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: '10.50',
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: '0.00',
+            id: 'c',
+            menuItemName: 'C',
+            orderQuantity: 1,
+            unitPrice: '50.00',
+          },
+        ],
+        total: '50.00',
+      };
+
       const plan = buildRefundPlan(
-        {
-          items: [
-            {
-              discount: '10.50',
-              id: 'a',
-              menuItemName: 'A',
-              orderQuantity: 1,
-              unitPrice: '10.00',
-            },
-            {
-              discount: '0.00',
-              id: 'b',
-              menuItemName: 'B',
-              orderQuantity: 1,
-              unitPrice: '100.00',
-            },
-          ],
-          total: '99.50',
-        },
+        fullCouponOrder,
         [],
         [{ orderItemId: 'a', quantity: 1 }],
         t,
