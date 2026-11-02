@@ -54,7 +54,7 @@ export class EcpayOrderRefundController {
   }
 
   @Post()
-  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Roles({ refund: ['create'] }, 'organizationSlug')
   @Audit(
     { resource: 'order', idSource: { param: 'orderId' } },
     {
