@@ -105,11 +105,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
     order: Parameters<typeof buildRefundPlan>[0],
     steps: ({ orderItemId: string; quantity: number }[] | undefined)[],
   ) => {
-    const previous: { items: ReturnType<typeof buildRefundPlan>['items'] }[] =
-      [];
+    const previous: {
+      amount: string;
+      items: ReturnType<typeof buildRefundPlan>['items'];
+    }[] = [];
     return steps.map((requested) => {
       const plan = buildRefundPlan(order, previous, requested, t);
-      previous.push({ items: plan.items });
+      previous.push({ amount: String(plan.amount), items: plan.items });
       return plan;
     });
   };
@@ -131,9 +133,27 @@ describe('EcpayOrderRefundService 折讓品項', () => {
 
   const integerOrder = {
     items: [
-      { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '120.00' },
-      { id: 'b', menuItemName: 'B', orderQuantity: 2, unitPrice: '76.00' },
-      { id: 'c', menuItemName: 'C', orderQuantity: 1, unitPrice: '333.00' },
+      {
+        discount: null,
+        id: 'a',
+        menuItemName: 'A',
+        orderQuantity: 3,
+        unitPrice: '120.00',
+      },
+      {
+        discount: null,
+        id: 'b',
+        menuItemName: 'B',
+        orderQuantity: 2,
+        unitPrice: '76.00',
+      },
+      {
+        discount: null,
+        id: 'c',
+        menuItemName: 'C',
+        orderQuantity: 1,
+        unitPrice: '333.00',
+      },
     ],
     total: '700.00',
   };
@@ -158,7 +178,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
     const [plan] = refundInSteps(
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 15, unitPrice: '4.10' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 15,
+            unitPrice: '4.10',
+          },
         ],
         total: '61.00',
       },
@@ -175,7 +201,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '小數單價全額退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '33.33' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
         ],
         total: '100.00',
       },
@@ -185,8 +217,20 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '每項都捨去時全額退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 1, unitPrice: '10.40' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 1, unitPrice: '10.40' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
         ],
         total: '21.00',
       },
@@ -196,8 +240,20 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '每項都捨去時分次退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 1, unitPrice: '10.40' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 1, unitPrice: '10.40' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
         ],
         total: '21.00',
       },
@@ -207,7 +263,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '浮點誤差會捨錯的單價',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 15, unitPrice: '4.10' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 15,
+            unitPrice: '4.10',
+          },
         ],
         total: '61.00',
       },
@@ -217,8 +279,20 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '小數單價加優惠券折扣分次退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '33.33' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 2, unitPrice: '12.50' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 2,
+            unitPrice: '12.50',
+          },
         ],
         total: '105.00',
       },

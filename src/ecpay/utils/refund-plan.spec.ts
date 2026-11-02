@@ -2,13 +2,33 @@ import { buildRefundPlan } from './refund-plan.js';
 
 import { BadRequestException } from '@nestjs/common';
 
+import type { RefundItemSnapshot } from '../../db/schema/refunds.js';
+
 const t = ((key: string) => key) as never;
 
 const order = {
   items: [
-    { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '120.00' },
-    { id: 'b', menuItemName: 'B', orderQuantity: 2, unitPrice: '76.00' },
-    { id: 'c', menuItemName: 'C', orderQuantity: 1, unitPrice: '333.00' },
+    {
+      discount: null,
+      id: 'a',
+      menuItemName: 'A',
+      orderQuantity: 3,
+      unitPrice: '120.00',
+    },
+    {
+      discount: null,
+      id: 'b',
+      menuItemName: 'B',
+      orderQuantity: 2,
+      unitPrice: '76.00',
+    },
+    {
+      discount: null,
+      id: 'c',
+      menuItemName: 'C',
+      orderQuantity: 1,
+      unitPrice: '333.00',
+    },
   ],
   total: '700.00',
 };
@@ -23,13 +43,16 @@ describe('buildRefundPlan', () => {
     );
     const second = buildRefundPlan(
       order,
-      [{ items: first.items }],
+      [{ amount: String(first.amount), items: first.items }],
       [{ orderItemId: 'b', quantity: 1 }],
       t,
     );
     const last = buildRefundPlan(
       order,
-      [{ items: first.items }, { items: second.items }],
+      [
+        { amount: String(first.amount), items: first.items },
+        { amount: String(second.amount), items: second.items },
+      ],
       undefined,
       t,
     );
@@ -45,7 +68,12 @@ describe('buildRefundPlan', () => {
       [{ orderItemId: 'a', quantity: 1 }],
       t,
     );
-    const rest = buildRefundPlan(order, [{ items: first.items }], undefined, t);
+    const rest = buildRefundPlan(
+      order,
+      [{ amount: String(first.amount), items: first.items }],
+      undefined,
+      t,
+    );
 
     expect(
       rest.items.find(({ orderItemId }) => orderItemId === 'a')?.quantity,
@@ -64,7 +92,7 @@ describe('buildRefundPlan', () => {
     expect(() =>
       buildRefundPlan(
         order,
-        [{ items: first.items }],
+        [{ amount: String(first.amount), items: first.items }],
         [{ orderItemId: 'c', quantity: 1 }],
         t,
       ),
@@ -75,5 +103,96 @@ describe('buildRefundPlan', () => {
     const freeOrder = { items: order.items, total: '0.00' };
 
     expect(buildRefundPlan(freeOrder, [], undefined, t).amount).toBe(0);
+  });
+  describe('每行有記錄折扣時照該行折扣退', () => {
+    const itemCouponOrder = {
+      items: [
+        {
+          discount: '0.00',
+          id: 'a',
+          menuItemName: 'A',
+          orderQuantity: 1,
+          unitPrice: '100.00',
+        },
+        {
+          discount: '50.00',
+          id: 'b',
+          menuItemName: 'B',
+          orderQuantity: 3,
+          unitPrice: '100.00',
+        },
+      ],
+      total: '350.00',
+    };
+
+    it('只退沒折扣的品項時全額退回', () => {
+      const plan = buildRefundPlan(
+        itemCouponOrder,
+        [],
+        [{ orderItemId: 'a', quantity: 1 }],
+        t,
+      );
+
+      expect(plan.allocatedDiscount).toBe(0);
+      expect(plan.amount).toBe(100);
+    });
+
+    it('只退有折扣的品項時扣回該行的折扣', () => {
+      const plan = buildRefundPlan(
+        itemCouponOrder,
+        [],
+        [{ orderItemId: 'b', quantity: 3 }],
+        t,
+      );
+
+      expect(plan.allocatedDiscount).toBe(50);
+      expect(plan.amount).toBe(250);
+    });
+
+    it('分次退完的金額總和剛好等於實收金額', () => {
+      const previous: { amount: string; items: RefundItemSnapshot[] }[] = [];
+      const plans = [
+        [{ orderItemId: 'b', quantity: 1 }],
+        [{ orderItemId: 'b', quantity: 1 }],
+        [{ orderItemId: 'a', quantity: 1 }],
+        undefined,
+      ].map((requested) => {
+        const plan = buildRefundPlan(itemCouponOrder, previous, requested, t);
+        previous.push({ amount: String(plan.amount), items: plan.items });
+        return plan;
+      });
+
+      expect(plans.map((plan) => plan.amount)).toEqual([83, 83, 100, 84]);
+      expect(plans.at(-1)?.isFull).toBe(true);
+    });
+
+    it('折扣取整後超過該行金額時，該行最多退到 0', () => {
+      const plan = buildRefundPlan(
+        {
+          items: [
+            {
+              discount: '10.50',
+              id: 'a',
+              menuItemName: 'A',
+              orderQuantity: 1,
+              unitPrice: '10.00',
+            },
+            {
+              discount: '0.00',
+              id: 'b',
+              menuItemName: 'B',
+              orderQuantity: 1,
+              unitPrice: '100.00',
+            },
+          ],
+          total: '99.50',
+        },
+        [],
+        [{ orderItemId: 'a', quantity: 1 }],
+        t,
+      );
+
+      expect(plan.amount).toBe(0);
+    });
   });
 });

@@ -204,7 +204,7 @@ export class EcpayOrderRefundService {
     const found = await this.findRefundableOrder(organizationSlug, orderId);
 
     const previous = await this.db
-      .select({ items: refund.items })
+      .select({ amount: refund.amount, items: refund.items })
       .from(refund)
       .where(eq(refund.orderId, orderId));
 
@@ -261,7 +261,7 @@ export class EcpayOrderRefundService {
         throw new ConflictException(this.tRefunds('notRefundable'));
 
       const previous = await tx
-        .select({ items: refund.items })
+        .select({ amount: refund.amount, items: refund.items })
         .from(refund)
         .where(eq(refund.orderId, orderId));
 
