@@ -47,6 +47,8 @@ export const auditActionEnum = pgEnum('audit_action', [
 ]);
 export type AuditAction = (typeof auditActionEnum.enumValues)[number];
 
+export const AUDIT_LOG_RETENTION_MONTHS = 12;
+
 export type AuditChanges = Record<string, { before: unknown; after: unknown }>;
 
 export type AuditResourceLabel = LocalizedText | string;

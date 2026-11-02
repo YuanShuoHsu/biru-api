@@ -231,7 +231,21 @@ export class EcpayOrderRefundService {
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    return toActiveInvoice(found);
+    const inferred = found.items.some((item) => item.discount === null)
+      ? await this.couponsService.inferItemDiscounts(found)
+      : null;
+
+    return toActiveInvoice(
+      inferred
+        ? {
+            ...found,
+            items: found.items.map((item, index) => ({
+              ...item,
+              discount: inferred[index].toFixed(2),
+            })),
+          }
+        : found,
+    );
   }
 
   async refundOrder(

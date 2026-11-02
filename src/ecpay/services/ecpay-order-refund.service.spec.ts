@@ -19,6 +19,7 @@ const ORG = 'org';
 describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   let client: PGlite;
   let service: EcpayOrderRefundService;
+  const inferItemDiscounts = vi.fn();
 
   beforeAll(async () => {
     client = createPGlite();
@@ -31,7 +32,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
       {} as never,
       {} as never,
       {} as never,
-      { restore: vi.fn() } as never,
+      { inferItemDiscounts, restore: vi.fn() } as never,
       { restoreAll: vi.fn() } as never,
       { withdrawOrder: vi.fn() } as never,
       { revokeForOrder: vi.fn() } as never,
@@ -46,6 +47,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   });
 
   beforeEach(async () => {
+    inferItemDiscounts.mockReset().mockResolvedValue(null);
     await client.exec(
       'truncate refund, order_item, "order", organization cascade',
     );
@@ -85,6 +87,49 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
     const refunded = await refundOf('twqr');
 
     expect(refunded).toMatchObject({ amount: '100.00', channel: 'manual' });
+  });
+
+  describe('舊訂單沒有每行折扣', () => {
+    beforeEach(async () => {
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, discount, discount_code, payment_date, order_status)
+         values ('coupon', '{"name":"客人"}', 'dineIn', 'coupon', 'Cash', $1, 220, 65, 'CODE', now(), 'OrderDelivered')`,
+        [ORG],
+      );
+      await client.query(
+        `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
+         values ('latte', 'latte', '拿鐵', 'coupon', 2, 65), ('cake', 'cake', '蛋糕', 'coupon', 1, 90)`,
+      );
+    });
+
+    const previewCake = () =>
+      service.previewRefund('biru', 'coupon', {
+        items: [{ orderItemId: 'cake', quantity: 1 }],
+      });
+
+    it('推算得出每行折扣時照每行折扣退', async () => {
+      inferItemDiscounts.mockImplementation(
+        ({ items }: { items: { id: string }[] }) =>
+          Promise.resolve(items.map(({ id }) => (id === 'latte' ? 65 : 0))),
+      );
+
+      await expect(previewCake()).resolves.toEqual({
+        allocatedDiscount: 0,
+        amount: 90,
+        isFull: false,
+      });
+    });
+
+    it('推算不出時照原價比例分攤', async () => {
+      await expect(previewCake()).resolves.toEqual({
+        allocatedDiscount: 27,
+        amount: 63,
+        isFull: false,
+      });
+      expect(inferItemDiscounts).toHaveBeenCalledWith(
+        expect.objectContaining({ discountCode: 'CODE', sellerId: ORG }),
+      );
+    });
   });
 });
 
