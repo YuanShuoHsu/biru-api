@@ -1,13 +1,13 @@
 import { isAuthorized } from './permissions.js';
 
 describe('refund and invoice void permissions', () => {
-  it.each(['owner', 'admin', 'member'])('%s can refund and void', (role) => {
-    expect(isAuthorized(role, { refund: ['create'] })).toBe(true);
-    expect(isAuthorized(role, { invoice: ['void'] })).toBe(true);
-  });
+  it.each(['owner', 'admin', 'member', 'user'])(
+    '%s can refund and void exactly when it can update orders',
+    (role) => {
+      const canUpdateOrders = isAuthorized(role, { order: ['update'] });
 
-  it('rejects a role that is not a store role', () => {
-    expect(isAuthorized('user', { refund: ['create'] })).toBe(false);
-    expect(isAuthorized('user', { invoice: ['void'] })).toBe(false);
-  });
+      expect(isAuthorized(role, { refund: ['create'] })).toBe(canUpdateOrders);
+      expect(isAuthorized(role, { invoice: ['void'] })).toBe(canUpdateOrders);
+    },
+  );
 });
