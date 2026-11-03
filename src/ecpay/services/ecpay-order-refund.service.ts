@@ -348,6 +348,7 @@ export class EcpayOrderRefundService {
 
     if (claimed.invoiceAction === null) {
       const invoiceResult = await this.settleInvoiceReconciled(found, plan, {
+        operatorId: claimed.operatorId ?? undefined,
         reason: claimed.reason ?? undefined,
         reconcile: created.status === 'settling',
         refundId: claimed.id,
@@ -625,6 +626,7 @@ export class EcpayOrderRefundService {
       found,
       this.toSettlement(claimed, found),
       {
+        operatorId: claimed.operatorId ?? undefined,
         reason: claimed.reason ?? undefined,
         reconcile: true,
         refundId: claimed.id,
@@ -643,10 +645,16 @@ export class EcpayOrderRefundService {
     found: SettlementOrder,
     plan: RefundSettlement,
     {
+      operatorId,
       reason,
       reconcile,
       refundId,
-    }: { reason?: string; reconcile: boolean; refundId: string },
+    }: {
+      operatorId?: string;
+      reason?: string;
+      reconcile: boolean;
+      refundId: string;
+    },
   ): Promise<InvoiceSettlement> {
     const issued = await this.allowanceForRefund(refundId);
     if (issued)
@@ -683,6 +691,7 @@ export class EcpayOrderRefundService {
         latest,
         notifyEmail:
           reconciled.data?.email || found.customer.email || undefined,
+        operatorId,
         reason,
         refundId,
       });
@@ -953,12 +962,14 @@ export class EcpayOrderRefundService {
       allowance,
       latest,
       notifyEmail,
+      operatorId,
       reason,
       refundId,
     }: {
       allowance?: AllowanceState;
       latest: { remainingAmount: string } | undefined;
       notifyEmail?: string;
+      operatorId?: string;
       reason?: string;
       refundId: string;
     },
@@ -986,20 +997,27 @@ export class EcpayOrderRefundService {
 
     try {
       if (voidable) {
+        const voidReason = (reason || DEFAULT_INVOICE_REASON).slice(
+          0,
+          INVALID_REASON_MAX_LENGTH,
+        );
+
         try {
           await this.ecpayInvalidInvoiceService.invalidInvoice({
             InvoiceDate: invoiceDateText,
             InvoiceNo: data.invoiceNumber,
-            Reason: (reason || DEFAULT_INVOICE_REASON).slice(
-              0,
-              INVALID_REASON_MAX_LENGTH,
-            ),
+            Reason: voidReason,
           });
 
           try {
             await this.db
               .update(invoice)
-              .set({ status: 'voided', voidedAt: new Date() })
+              .set({
+                status: 'voided',
+                voidedAt: new Date(),
+                voidedBy: operatorId,
+                voidReason,
+              })
               .where(eq(invoice.id, data.id));
           } catch (writeError) {
             this.logger.error(

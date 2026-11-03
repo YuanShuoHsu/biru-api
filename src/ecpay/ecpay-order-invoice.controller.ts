@@ -23,6 +23,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -154,11 +155,13 @@ export class EcpayOrderInvoiceController {
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
     @Body() dto: VoidInvoiceDto,
+    @Session() session: UserSession | null,
   ): Promise<OrderInvoiceDto> {
     return this.ecpayOrderInvoiceService.voidForOrder(
       organizationSlug,
       orderId,
       dto,
+      session?.user.id,
     );
   }
 
