@@ -426,6 +426,11 @@ export const attendanceAudit = pgTable(
   },
   (t) => [
     index('attendance_audit_org_idx').on(t.organizationId, t.createdAt),
+    index('attendance_audit_org_resource_idx').on(
+      t.organizationId,
+      t.resourceId,
+      t.createdAt,
+    ),
     index('attendance_audit_created_idx').on(t.createdAt),
   ],
 );

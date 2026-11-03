@@ -356,3 +356,59 @@ describe('AuditService.listAll sorting', () => {
     ]);
   });
 });
+
+describe('AuditService.listForOrganization ancestor filter', () => {
+  let client: PGlite;
+  let service: AuditService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new AuditService(db as unknown as DrizzleDB);
+
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+         ('org', '碧露', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, ancestor_ids, action, changes, created_at) values
+         ('modifier', null, 'Owner', 'owner@example.com', 'org', 'modifier', 'modifier-1', '{section-1,item-1}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('add-on', null, 'Owner', 'owner@example.com', 'org', 'menuItemAddOn', 'add-on-1', '{item-1}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('other-section', null, 'Owner', 'owner@example.com', 'org', 'menuItem', 'item-2', '{section-2}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('null-element', null, 'Owner', 'owner@example.com', 'org', 'menuItem', 'item-3', '{NULL,section-1}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('no-ancestors', null, 'Owner', 'owner@example.com', 'org', 'menu', 'menu-1', '{}', 'update', '{}', '2026-10-28 08:00:00'),
+         ('null-ancestors', null, 'Owner', 'owner@example.com', 'org', 'order', 'order-1', null, 'update', '{}', '2026-10-28 08:00:00'),
+         ('other-org', null, 'Owner', 'owner@example.com', 'other', 'modifier', 'modifier-2', '{section-1}', 'update', '{}', '2026-10-28 08:00:00');
+       insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at) values
+         ('att-employee', 'org', null, 'employee.update', 'section-1', '{}', '2026-10-28 08:00:00+00');`,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it.each([
+    ['section-1', ['modifier', 'null-element']],
+    ['item-1', ['add-on', 'modifier']],
+    ['section-2', ['other-section']],
+    ['missing', []],
+  ])('lists only entries under %s', async (ancestorId, expected) => {
+    const { data, total } = await service.listForOrganization('org', 'owner', {
+      ancestorId,
+    });
+
+    expect(data.map(({ id }) => id).sort()).toEqual(expected);
+    expect(total).toBe(expected.length);
+  });
+
+  it('matches across organizations for platform admins', async () => {
+    const { data } = await service.listAll({ ancestorId: 'section-1' });
+
+    expect(data.map(({ id }) => id).sort()).toEqual([
+      'modifier',
+      'null-element',
+      'other-org',
+    ]);
+  });
+});

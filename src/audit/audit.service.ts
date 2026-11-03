@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, ilike, sql, type SQL } from 'drizzle-orm';
+import { and, arrayContains, ilike, sql, type SQL } from 'drizzle-orm';
 
 import {
   buildFilterCondition,
@@ -93,7 +93,10 @@ export class AuditService {
       resourceId ? sql`${fieldMap.resourceId} = ${resourceId}` : undefined,
       actorId ? sql`${entry('"actorId"')} = ${actorId}` : undefined,
       ancestorId
-        ? sql`${ancestorId} = ANY(${entry('"ancestorIds"')})`
+        ? arrayContains(
+            entry('"ancestorIds"'),
+            sql`ARRAY[${ancestorId}]::text[]`,
+          )
         : undefined,
       filterField && filterOperator
         ? buildFilterCondition(
