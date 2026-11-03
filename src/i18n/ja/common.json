@@ -355,6 +355,33 @@
     "resultUnknown": "返金を送信しましたが、ECPay からの結果がまだ届いていません。再操作はしないでください。システムが自動的に照合し、確認後にこの返金の状態を更新します。"
   },
   "reports": {
+    "csv": {
+      "actualConsumption": "実消費量",
+      "adjusted": "調整",
+      "category": "カテゴリ",
+      "closing": "期末在庫",
+      "consumed": "消費",
+      "day": "日付",
+      "discount": "割引",
+      "hour": "時間帯",
+      "ingredient": "食材",
+      "menuItem": "商品",
+      "mode": "注文方法",
+      "net": "純売上",
+      "opening": "期首在庫",
+      "orders": "注文数",
+      "paymentMethod": "支払方法",
+      "quantity": "数量",
+      "received": "入庫",
+      "refunded": "返金",
+      "refundedQuantity": "返金数量",
+      "revenue": "売上",
+      "theoreticalConsumption": "理論消費量",
+      "total": "合計",
+      "uncategorized": "未分類",
+      "unit": "単位",
+      "variance": "差異"
+    },
     "rangeInvalid": "終了日時は開始日時より後にしてください。",
     "rangeTooLong": "レポートの期間は最大 366 日です。"
   },

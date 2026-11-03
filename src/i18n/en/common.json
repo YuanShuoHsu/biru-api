@@ -355,6 +355,33 @@
     "resultUnknown": "The refund was submitted but ECPay has not confirmed the result. Do not retry — the system will reconcile it automatically and update this refund once confirmed."
   },
   "reports": {
+    "csv": {
+      "actualConsumption": "Actual consumption",
+      "adjusted": "Adjusted",
+      "category": "Category",
+      "closing": "Closing",
+      "consumed": "Consumed",
+      "day": "Date",
+      "discount": "Discount",
+      "hour": "Hour",
+      "ingredient": "Ingredient",
+      "menuItem": "Item",
+      "mode": "Order mode",
+      "net": "Net",
+      "opening": "Opening",
+      "orders": "Orders",
+      "paymentMethod": "Payment method",
+      "quantity": "Quantity",
+      "received": "Received",
+      "refunded": "Refunded",
+      "refundedQuantity": "Refunded quantity",
+      "revenue": "Revenue",
+      "theoreticalConsumption": "Theoretical consumption",
+      "total": "Total",
+      "uncategorized": "Uncategorized",
+      "unit": "Unit",
+      "variance": "Variance"
+    },
     "rangeInvalid": "The end time must be later than the start time.",
     "rangeTooLong": "The report can cover at most 366 days."
   },

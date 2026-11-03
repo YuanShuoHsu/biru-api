@@ -41,7 +41,7 @@ import { parseReportRange } from './report-range.js';
 
 export const UNCATEGORIZED_KEY = 'uncategorized';
 
-const isItemGroupBy = (
+export const isItemGroupBy = (
   groupBy: SalesReportQueryDto['groupBy'],
 ): groupBy is ItemSalesReportGroupBy =>
   groupBy === 'menuItem' || groupBy === 'category';

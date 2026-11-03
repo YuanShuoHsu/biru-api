@@ -355,6 +355,33 @@
     "resultUnknown": "환불을 전송했지만 ECPay의 결과가 아직 도착하지 않았습니다. 다시 시도하지 마세요. 시스템이 자동으로 대조한 뒤 확인되면 이 환불의 상태를 갱신합니다."
   },
   "reports": {
+    "csv": {
+      "actualConsumption": "실제 소모량",
+      "adjusted": "조정",
+      "category": "카테고리",
+      "closing": "기말 재고",
+      "consumed": "소모",
+      "day": "날짜",
+      "discount": "할인",
+      "hour": "시간대",
+      "ingredient": "식자재",
+      "menuItem": "품목",
+      "mode": "주문 방식",
+      "net": "순매출",
+      "opening": "기초 재고",
+      "orders": "주문 수",
+      "paymentMethod": "결제 수단",
+      "quantity": "수량",
+      "received": "입고",
+      "refunded": "환불",
+      "refundedQuantity": "환불 수량",
+      "revenue": "매출",
+      "theoreticalConsumption": "이론 소모량",
+      "total": "합계",
+      "uncategorized": "미분류",
+      "unit": "단위",
+      "variance": "차이"
+    },
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
     "rangeTooLong": "보고서 기간은 최대 366일입니다."
   },
