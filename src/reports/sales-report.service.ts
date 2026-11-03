@@ -236,14 +236,14 @@ export class SalesReportService {
           ${refund.amount} AS amount,
           refunded_item.value ->> 'orderItemId' AS order_item_id,
           (refunded_item.value ->> 'quantity')::int AS quantity,
-          (refunded_item.value ->> 'amount')::numeric - CASE
+          GREATEST((refunded_item.value ->> 'amount')::numeric - CASE
             WHEN NOT EXISTS (
               SELECT 1 FROM ${orderItem} AS sibling
               WHERE sibling.order_id = ${refund.orderId} AND sibling.discount IS NULL
             )
             THEN ${orderItem.discount} * (refunded_item.value ->> 'quantity')::int / ${orderItem.orderQuantity}
             ELSE 0
-          END AS weight
+          END, 0) AS weight
         FROM ${refund}
         JOIN ${order} ON ${order.id} = ${refund.orderId}
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(${refund.items}, '[]'::jsonb)) AS refunded_item
