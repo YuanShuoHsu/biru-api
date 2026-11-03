@@ -301,11 +301,13 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
-- Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous order,
-  ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle`
-  on the named `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it
-  every caller shares one bucket, so those limits would throttle the whole platform. The named throttlers are
-  unlimited unless a route overrides them, and their `skipIf` also drops the route's override
+- Rate limiting: 100 req / 60s per IP globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous
+  order, ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with
+  `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler, the global one included, only takes
+  effect once `TRUSTED_PROXIES` is set — without it `req.ip` is the proxy's address, so every caller would share one
+  bucket and any limit would throttle the whole platform. The named throttlers are unlimited unless a route overrides
+  them, and their `skipIf` also drops the route's override. The expected-points route is deliberately not on the named
+  throttlers: it treats an inapplicable coupon as no discount instead of rejecting it, so it can't be used to guess codes
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
   list of proxy addresses/CIDRs or proxy-addr presets. **Never `true` or a hop count.** `true`
   makes `req.ip` the leftmost `X-Forwarded-For` entry, i.e. whatever the caller claims, so any
@@ -313,9 +315,9 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   attendance allowlist; a hop count breaks whenever the chain length differs between the public
   API and the Next.js rewrite. Trusting by address is chain-length independent and makes a forged
   entry become `req.ip` itself, which the allowlist then rejects. Unset means `false` — `req.ip`
-  is the socket peer, so the allowlist fails closed (and `ThrottlerGuard` buckets every caller
-  together) until the real proxy range is configured and verified with forged headers against the
-  public API, Next.js rewrite, custom-domain and onrender.com paths.
+  is the socket peer, so the allowlist fails closed and every throttler is skipped until the real
+  proxy range is configured and verified with forged headers against the public API, Next.js
+  rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
