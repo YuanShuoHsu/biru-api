@@ -271,7 +271,7 @@
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "onlinePaymentNotRequired": "這筆訂單不需要線上付款",
-    "orderNotFound": "找不到這筆訂單，可能已被刪除",
+    "orderNotFound": "找不到這筆訂單",
     "orderQrSecretNeverRotated": "QR code 尚未更換過，沒有可還原的舊版",
     "orderQrSessionNotFound": "點餐連線已失效，請重新掃描 QR code",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",

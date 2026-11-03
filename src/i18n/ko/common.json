@@ -271,7 +271,7 @@
     "modifierUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "notAwaitingPayment": "결제 기한이 지났거나 상태가 변경되어 이 주문은 결제할 수 없습니다",
     "onlinePaymentNotRequired": "이 주문은 온라인 결제가 필요하지 않습니다",
-    "orderNotFound": "이 주문을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "orderNotFound": "이 주문을 찾을 수 없습니다",
     "orderQrSecretNeverRotated": "QR 코드를 재발급한 적이 없어 되돌릴 이전 버전이 없습니다",
     "orderQrSessionNotFound": "주문 세션이 만료되었습니다. QR 코드를 다시 스캔해 주세요",
     "orderTotalTooLarge": "주문 금액이 한도를 초과했습니다. 품목을 줄이거나 주문을 나눠 주세요",
