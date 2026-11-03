@@ -2,7 +2,6 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -29,7 +28,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
@@ -41,7 +40,6 @@ import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
 import { menuItem } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
@@ -144,7 +142,11 @@ import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 import { orderPrepMinutes } from './prep-estimate.js';
 import { PrepEstimateService } from './prep-estimate.service.js';
-import { badRequestError, notFoundError } from './order-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './order-errors.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -306,21 +308,10 @@ export class OrdersService {
     private readonly orderQrService: OrderQrService,
     private readonly orderTicketService: OrderTicketService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly menuStockService: MenuStockService,
     private readonly prepEstimateService: PrepEstimateService,
     private readonly pointsService: PointsService,
   ) {}
-
-  private t(
-    key: keyof I18nTranslations['common']['orders'],
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.orders.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private async insufficientStockError(
     menuItemId: string,
@@ -330,11 +321,9 @@ export class OrdersService {
       .from(menuItem)
       .where(eq(menuItem.id, menuItemId));
 
-    return new BadRequestException(
-      this.t('menuItemInsufficientStock', {
-        name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
-      }),
-    );
+    return badRequestError('menuItemInsufficientStock', {
+      name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
+    });
   }
 
   private async getOrgBySlug(slug: string) {
@@ -362,7 +351,7 @@ export class OrdersService {
       existing?.idempotencyFingerprint &&
       existing.idempotencyFingerprint !== fingerprint
     )
-      throw new ConflictException(this.t('idempotencyConflict'));
+      throw conflictError('idempotencyConflict');
     return existing;
   }
 
@@ -421,17 +410,17 @@ export class OrdersService {
     org: Organization,
     value?: string,
   ): Promise<Date> {
-    if (!value) throw new BadRequestException(this.t('pickupTimeInvalid'));
+    if (!value) throw badRequestError('pickupTimeInvalid');
 
     const pickupTime = new Date(value);
 
     if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
-      throw new BadRequestException(this.t('pickupTimeInvalid'));
+      throw badRequestError('pickupTimeInvalid');
 
     const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
     const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
     if (pickupTime.getTime() >= advanceLimit)
-      throw new BadRequestException(this.t('pickupTooFarAhead'));
+      throw badRequestError('pickupTooFarAhead');
 
     const specialHours = await findSpecialHours(
       this.db,
@@ -449,7 +438,7 @@ export class OrdersService {
       org.pickupCutoffMinutes,
       pickupTime,
     );
-    if (hoursError) throw new BadRequestException(this.t(hoursError));
+    if (hoursError) throw badRequestError(hoursError);
 
     return pickupTime;
   }
@@ -485,10 +474,10 @@ export class OrdersService {
         qrSession.tableNumber !== dto.tableNumber ||
         !isOpenDineInTable(org.dineInTableCount, dto.tableNumber))
     )
-      throw new BadRequestException(this.t('invalidTable'));
+      throw badRequestError('invalidTable');
 
     if ((dto.mode === 'counter' || dto.mode === 'driveThru') && !hasQrSession)
-      throw new BadRequestException(this.t('inStoreQrCodeRequired'));
+      throw badRequestError('inStoreQrCodeRequired');
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
@@ -530,12 +519,12 @@ export class OrdersService {
         pickupTime.getTime() <
         Date.now() + prepMinutes * 60 * 1000 - PICKUP_LEAD_TOLERANCE_MS
       )
-        throw new BadRequestException(this.t('pickupTooSoon'));
+        throw badRequestError('pickupTooSoon');
     }
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
     if (subtotal > MAX_ORDER_AMOUNT)
-      throw new BadRequestException(this.t('orderTotalTooLarge'));
+      throw badRequestError('orderTotalTooLarge');
     const applied = dto.discountCode
       ? await this.couponsService.getApplicableCoupon(
           org.id,
@@ -1008,7 +997,7 @@ export class OrdersService {
       const rule = getAvailableTransitions(current).find(
         (available) => available.toStatus === toStatus,
       );
-      if (!rule) throw new BadRequestException(this.t('statusChanged'));
+      if (!rule) throw badRequestError('statusChanged');
 
       return { current, rule };
     });
@@ -1022,7 +1011,7 @@ export class OrdersService {
           offerStockChanged,
           updated: [updated],
         } = await this.runTransition(tx, rule, [current.id]);
-        if (!updated) throw new BadRequestException(this.t('statusChanged'));
+        if (!updated) throw badRequestError('statusChanged');
 
         if (offerStockChanged.size) changedOfferStock.add(current.id);
         results.push(toAdminOrder({ ...current, ...updated }));
@@ -1194,14 +1183,14 @@ export class OrdersService {
         locked?.orderStatus !== 'OrderPaymentDue' ||
         Date.now() > deadline.getTime()
       )
-        throw new BadRequestException(this.t('notAwaitingPayment'));
+        throw badRequestError('notAwaitingPayment');
 
       const [{ attempts }] = await tx
         .select({ attempts: count() })
         .from(ecpayPaymentAttempt)
         .where(eq(ecpayPaymentAttempt.orderId, orderId));
       if (attempts >= MAX_PAYMENT_ATTEMPTS_PER_ORDER)
-        throw new ConflictException(this.t('paymentAttemptsExhausted'));
+        throw conflictError('paymentAttemptsExhausted');
 
       await tx
         .insert(ecpayPaymentAttempt)

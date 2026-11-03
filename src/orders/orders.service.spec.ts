@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import { invoice } from '../db/schema/invoices.js';
@@ -10,7 +10,6 @@ import { order, orderItem } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import {
   InsufficientStockError,
   type InventoryTransactionsService,
@@ -178,6 +177,10 @@ const createService = ({
     estimatePoints: vi.fn().mockResolvedValue(155),
     expectedPoints: vi.fn().mockResolvedValue(new Map([['receipt', 12]])),
   };
+  vi.spyOn(I18nContext, 'current').mockReturnValue({
+    t: (key: string, options?: { args?: { name?: string } }) =>
+      options?.args?.name ? `${key}:${options.args.name}` : key,
+  } as unknown as I18nContext);
 
   return {
     couponsService,
@@ -196,10 +199,6 @@ const createService = ({
       } as unknown as OrderQrService,
       { enqueueOrder: vi.fn() } as unknown as OrderTicketService,
       eventEmitter,
-      {
-        t: (key: string, options?: { args?: { name?: string } }) =>
-          options?.args?.name ? `${key}:${options.args.name}` : key,
-      } as unknown as I18nService<I18nTranslations>,
       menuStock as unknown as MenuStockService,
       {
         prepMinutesWith: (_: unknown, ownPrepMinutes: number) =>
@@ -708,9 +707,12 @@ describe('OrdersService.createOrder', () => {
 
       await expect(
         service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
-      ).rejects.toThrow(
-        new BadRequestException('common.orders.menuItemInsufficientStock:蛋糕'),
-      );
+      ).rejects.toMatchObject({
+        response: {
+          code: 'menuItemInsufficientStock',
+          message: 'common.orders.menuItemInsufficientStock:蛋糕',
+        },
+      });
       expect(menuStock.refresh).not.toHaveBeenCalled();
     });
 

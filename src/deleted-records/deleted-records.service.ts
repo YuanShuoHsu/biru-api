@@ -1,17 +1,14 @@
 import {
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { and, asc, eq, ilike, inArray, lt, sql, type SQL } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AttendanceActor } from '../attendance/attendance-actor.js';
@@ -52,7 +49,6 @@ import {
   MENU_UPDATED_EVENT,
   type MenuUpdatedEvent,
 } from '../events/menu-updated.event.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { CLOSED_WRITABLE_RESOURCES } from '../menus/guards/roles.guard.js';
 import { PayrollEarningsService } from '../payroll/payroll-earnings.service.js';
 import {
@@ -79,6 +75,7 @@ import {
   type DeletedRecordBatchResponseDto,
   type DeletedRecordPaginationQueryDto,
 } from './dto/deleted-record-batch.dto.js';
+import { conflictError, notFoundError } from './deleted-record-errors.js';
 import {
   isPreDeletedChild,
   preDeletedChildCondition,
@@ -243,15 +240,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     private readonly attendanceParental: AttendanceParentalService,
     private readonly attendanceShiftTypes: AttendanceShiftTypesService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly payrollEarnings: PayrollEarningsService,
   ) {}
-
-  private t(key: keyof I18nTranslations['common']['deletedRecords']): string {
-    return this.i18n.t(`common.deletedRecords.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   async onApplicationBootstrap() {
     try {
@@ -533,11 +523,11 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ({ tableName }) =>
         isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
     );
-    if (!root) throw new NotFoundException(this.t('batchNotFound'));
+    if (!root) throw notFoundError('batchNotFound');
 
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
-        throw new NotFoundException(this.t('batchNotFound'));
+        throw notFoundError('batchNotFound');
       if (!canRestoreTables([...batchTables], scope, grantsOwner(batch)))
         throw new ForbiddenException();
     }
@@ -556,12 +546,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
 
   private toRestoreError(error: unknown) {
     const code = pgErrorCode(error);
-    if (code === '23505')
-      return new ConflictException(this.t('restoreConflict'));
-    if (code === '23503')
-      return new ConflictException(this.t('restoreMissingReference'));
+    if (code === '23505') return conflictError('restoreConflict');
+    if (code === '23503') return conflictError('restoreMissingReference');
     if (code === '23502' || code === '23514')
-      return new ConflictException(this.t('restoreInvalid'));
+      return conflictError('restoreInvalid');
 
     return error;
   }
@@ -574,8 +562,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   ) {
     const data = toCamelRow(root.tableName, root.data);
     const organizationId = asString(data.organizationId);
-    if (!organizationId || !root.recordId)
-      throw new NotFoundException(this.t('batchNotFound'));
+    if (!organizationId || !root.recordId) throw notFoundError('batchNotFound');
 
     const [membership] = await tx
       .select({ role: member.role })
@@ -615,7 +602,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
               eq(attendanceEmployee.userId, userId),
             ),
           );
-        if (current) throw new ConflictException(this.t('restoreConflict'));
+        if (current) throw conflictError('restoreConflict');
 
         const toDay = (value: unknown) => {
           const text = asString(value);

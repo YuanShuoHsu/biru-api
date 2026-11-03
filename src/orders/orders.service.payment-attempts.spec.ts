@@ -1,5 +1,3 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
-
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -8,6 +6,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
+import { badRequestError, conflictError } from './order-errors.js';
 import {
   MAX_PAYMENT_ATTEMPTS_PER_ORDER,
   OrdersService,
@@ -38,7 +37,7 @@ describe('OrdersService.createPaymentAttempt', () => {
       {} as never,
       {} as never,
       {} as never,
-      { t: (key: string) => key } as never,
+      {} as never,
       {} as never,
       {} as never,
     );
@@ -62,7 +61,7 @@ describe('OrdersService.createPaymentAttempt', () => {
       await service.createPaymentAttempt('o1', null);
 
     await expect(service.createPaymentAttempt('o1', null)).rejects.toThrow(
-      new ConflictException('common.orders.paymentAttemptsExhausted'),
+      conflictError('paymentAttemptsExhausted'),
     );
     expect(await attemptCount('o1')).toBe(MAX_PAYMENT_ATTEMPTS_PER_ORDER);
 
@@ -85,7 +84,7 @@ describe('OrdersService.createPaymentAttempt', () => {
       });
 
     await expect(service.createPaymentAttempt('o3', null)).rejects.toThrow(
-      new BadRequestException('common.orders.notAwaitingPayment'),
+      badRequestError('notAwaitingPayment'),
     );
     expect(await attemptCount('o3')).toBe(0);
     spy.mockRestore();

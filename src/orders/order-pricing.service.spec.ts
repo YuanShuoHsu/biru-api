@@ -1,8 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import type { I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { CreateOrderItemDto } from './dto/create-order.dto.js';
 import { OrderPricingService } from './order-pricing.service.js';
@@ -63,13 +62,12 @@ const createService = (
     },
   };
 
-  return new OrderPricingService(
-    db as unknown as DrizzleDB,
-    {
-      t: (key: string, options?: { args?: { name?: string } }) =>
-        options?.args?.name ? `${key}:${options.args.name}` : key,
-    } as unknown as I18nService<I18nTranslations>,
-  );
+  vi.spyOn(I18nContext, 'current').mockReturnValue({
+    t: (key: string, options?: { args?: { name?: string } }) =>
+      options?.args?.name ? `${key}:${options.args.name}` : key,
+  } as unknown as I18nContext);
+
+  return new OrderPricingService(db as unknown as DrizzleDB);
 };
 
 describe('OrderPricingService.resolveOrderItems', () => {
