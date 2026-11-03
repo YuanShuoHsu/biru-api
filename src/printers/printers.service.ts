@@ -13,7 +13,7 @@ import {
 } from './server-direct-print.js';
 import { digestHa1, nonceIssuedAt } from './utils/digest-auth.js';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
@@ -21,6 +21,7 @@ import type { Printer, PrinterPurpose } from '../db/schema/printers.js';
 import { printer as printerTable } from '../db/schema/printers.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { notFoundError } from '../menus/menu-errors.js';
 
 // 比印表機自己的輪詢間隔再晚這麼久還沒來，就視為離線
 export const PRINTER_OFFLINE_AFTER_MS = 60_000;
@@ -174,7 +175,7 @@ export class PrintersService {
           ),
         )
         .returning();
-      if (!reset) throw new NotFoundException('Printer not found');
+      if (!reset) throw notFoundError('printerNotFound');
 
       return { password, printer: reset };
     }

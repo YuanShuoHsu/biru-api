@@ -233,7 +233,7 @@ describe('OrdersService.createOrder', () => {
           null,
           null,
         ),
-      ).rejects.toThrow('Cash is unavailable');
+      ).rejects.toThrow('cashUnavailableForMode');
       expect(db.query.organization.findFirst).not.toHaveBeenCalled();
     });
 
@@ -247,7 +247,7 @@ describe('OrdersService.createOrder', () => {
           null,
           null,
         ),
-      ).rejects.toThrow('pickupTime is unavailable');
+      ).rejects.toThrow('pickupTimeUnavailableForMode');
     });
 
     it.each([

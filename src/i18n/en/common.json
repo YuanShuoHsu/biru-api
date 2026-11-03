@@ -159,7 +159,8 @@
   "deletedRecords": {
     "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email, or the member is already in the store).",
     "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first.",
-    "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead."
+    "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead.",
+    "batchNotFound": "This deleted record could not be found. It may be past its retention period."
   },
   "exceptions": {
     "badRequest": "Invalid request",
@@ -256,6 +257,7 @@
     "tableNumber": "Table {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "Cash payment isn't available for this ordering method.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
     "inStoreQrCodeRequired": "Please order by scanning the QR code in store.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
@@ -268,14 +270,20 @@
     "modifierUnavailable": "\"{name}\" is currently unavailable",
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
+    "onlinePaymentNotRequired": "This order does not need to be paid online.",
+    "orderNotFound": "This order could not be found.",
+    "orderQrSecretNeverRotated": "The QR codes have never been regenerated, so there is no previous version to restore.",
+    "orderQrSessionNotFound": "Your ordering session has expired. Please scan the QR code again.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
     "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
     "pickupTimeInvalid": "Please choose a valid pickup time",
+    "pickupTimeUnavailableForMode": "A pickup time can only be set for pickup orders.",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",
     "pickupTooFarAhead": "This pickup time is too far in advance. Please choose another time.",
     "pickupTooSoon": "This pickup time is too soon to prepare your order. Please choose another time.",
-    "statusChanged": "The order status has changed. Refresh and try again."
+    "statusChanged": "The order status has changed. Refresh and try again.",
+    "tableNumberOutOfRange": "The table number must be between 1 and the number of dine-in tables."
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",

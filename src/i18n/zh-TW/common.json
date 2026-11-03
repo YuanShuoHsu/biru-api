@@ -159,7 +159,8 @@
   "deletedRecords": {
     "restoreConflict": "無法還原：系統中已有相同的資料（例如店家代稱、優惠碼、電子郵件重複，或該成員已在店內）。",
     "restoreMissingReference": "無法還原：它所屬的上層資料已不存在，請先還原上層資料。",
-    "restoreInvalid": "無法還原：這筆資料不符合目前的必填規則（例如沒有地址的門市），請改為重新建立。"
+    "restoreInvalid": "無法還原：這筆資料不符合目前的必填規則（例如沒有地址的門市），請改為重新建立。",
+    "batchNotFound": "找不到這筆刪除紀錄，可能已超過保留期限。"
   },
   "exceptions": {
     "badRequest": "請求格式不正確",
@@ -256,6 +257,7 @@
     "tableNumber": "桌號 {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "此點餐方式無法使用現金付款",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",
     "inStoreQrCodeRequired": "請掃描店內的 QR code 點餐",
     "invalidTable": "桌號 QR code 無效，請重新掃描桌上的 QR code",
@@ -268,14 +270,20 @@
     "modifierUnavailable": "「{name}」目前無法供應",
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
+    "onlinePaymentNotRequired": "這筆訂單不需要線上付款",
+    "orderNotFound": "找不到這筆訂單",
+    "orderQrSecretNeverRotated": "QR code 尚未更換過，沒有可還原的舊版",
+    "orderQrSessionNotFound": "點餐連線已失效，請重新掃描 QR code",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
     "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
     "pickupTimeInvalid": "請選擇有效的取餐時間",
+    "pickupTimeUnavailableForMode": "只有自取訂單可以指定取餐時間",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
     "pickupTooFarAhead": "這個取餐時間超出可預訂的範圍，請重新選擇",
     "pickupTooSoon": "這個取餐時間已來不及準備，請重新選擇",
-    "statusChanged": "訂單狀態已變更，請重新整理後再試"
+    "statusChanged": "訂單狀態已變更，請重新整理後再試",
+    "tableNumberOutOfRange": "桌號必須介於 1 到門市內用桌數之間"
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "這位成員不是以平台管理員身分加入的擁有者。",

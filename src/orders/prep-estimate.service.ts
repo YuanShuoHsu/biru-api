@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   type SQL,
@@ -35,6 +35,7 @@ import {
   observedPace,
   orderPrepMinutes,
 } from './prep-estimate.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 const OBSERVED_WINDOW_MS = 30 * 60 * 1000;
 
@@ -50,7 +51,7 @@ export class PrepEstimateService {
 
   async findBySlug(slug: string): Promise<PrepEstimateResponseDto> {
     const estimate = await this.findWhere(eq(organization.slug, slug));
-    if (!estimate) throw new NotFoundException('Organization not found');
+    if (!estimate) throw organizationNotFoundError();
     return estimate;
   }
 
@@ -78,7 +79,7 @@ export class PrepEstimateService {
       columns: { id: true, pickupLeadMinutes: true },
       where: eq(organization.slug, slug),
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const [items, ready] = await Promise.all([
       this.db

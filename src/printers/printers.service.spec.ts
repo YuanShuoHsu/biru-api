@@ -40,6 +40,6 @@ describe('PrintersService.findOrganizationId（PGlite）', () => {
     const lookup = service.findOrganizationId('missing');
 
     await expect(lookup).rejects.toBeInstanceOf(NotFoundException);
-    await expect(lookup).rejects.toThrow('Organization not found');
+    await expect(lookup).rejects.toThrow('organizationNotFound');
   });
 });

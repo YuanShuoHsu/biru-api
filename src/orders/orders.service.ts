@@ -7,7 +7,6 @@ import {
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -67,7 +66,10 @@ import {
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
-import { findSpecialHours } from '../common/utils/organizations.js';
+import {
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import { openingCalendar } from '../common/utils/opening-hours.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
@@ -142,6 +144,7 @@ import { pickupHoursError } from './pickup-hours.js';
 import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
 import { orderPrepMinutes } from './prep-estimate.js';
 import { PrepEstimateService } from './prep-estimate.service.js';
+import { badRequestError, notFoundError } from './order-errors.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -338,7 +341,7 @@ export class OrdersService {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, slug),
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
   }
 
@@ -375,7 +378,7 @@ export class OrdersService {
         items: true,
       },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const expectedPoints = await this.pointsService.expectedPoints([found.id]);
 
@@ -458,15 +461,13 @@ export class OrdersService {
     qrSessionValue?: string,
   ): Promise<OrderReceiptResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
-      throw new BadRequestException('Cash is unavailable for this order mode');
+      throw badRequestError('cashUnavailableForMode');
 
     const isDineIn = dto.mode === 'dineIn';
     const isPickup = dto.mode === 'pickup';
 
     if (!isPickup && dto.pickupTime)
-      throw new BadRequestException(
-        'pickupTime is unavailable for this order mode',
-      );
+      throw badRequestError('pickupTimeUnavailableForMode');
 
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -1000,8 +1001,7 @@ export class OrdersService {
       where: and(inArray(order.id, orderIds), eq(order.sellerId, org.id)),
       with: { items: true },
     });
-    if (found.length !== orderIds.length)
-      throw new NotFoundException('Order not found');
+    if (found.length !== orderIds.length) throw notFoundError('orderNotFound');
 
     const planned = found.map((current) => {
       const rule = getAvailableTransitions(current).find(
@@ -1143,7 +1143,7 @@ export class OrdersService {
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
       with: { items: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const [updated] = await this.db
       .update(order)
@@ -1169,11 +1169,11 @@ export class OrdersService {
       where: eq(order.id, orderId),
       with: { items: true, seller: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const { confirmationNumber } = found;
     if (found.paymentMethod === 'Cash' || !confirmationNumber)
-      throw new BadRequestException('Order does not require online payment');
+      throw badRequestError('onlinePaymentNotRequired');
 
     const deadline = paymentDeadlineOf(
       found.createdAt,

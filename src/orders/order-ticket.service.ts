@@ -26,7 +26,6 @@ import {
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
@@ -73,6 +72,8 @@ import {
   type PrintEntry,
   type PrintResult,
 } from '../printers/server-direct-print.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
+import { notFoundError } from './order-errors.js';
 
 export const IN_FLIGHT_ORDER_TICKET_STATUSES = [
   'queued',
@@ -328,7 +329,7 @@ export class OrderTicketService implements PrintJobSource {
           ),
         )
         .returning();
-      if (!updated) throw new NotFoundException('Printer not found');
+      if (!updated) throw menuNotFoundError('printerNotFound');
 
       return updated;
     });
@@ -359,7 +360,7 @@ export class OrderTicketService implements PrintJobSource {
           ),
         )
         .for('update');
-      if (!deleted) throw new NotFoundException('Printer not found');
+      if (!deleted) throw menuNotFoundError('printerNotFound');
 
       const stranded = await tx
         .update(orderTicketJob)
@@ -665,7 +666,7 @@ export class OrderTicketService implements PrintJobSource {
       where: and(eq(order.id, orderId), eq(order.sellerId, organizationId)),
       columns: { orderStatus: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
     if (!isOrderTicketPrintable(found.orderStatus))
       throw new BadRequestException(this.t('notReprintable'));
 
@@ -705,7 +706,7 @@ export class OrderTicketService implements PrintJobSource {
         : [];
     });
     if (printers.length !== new Set(printerIds).size)
-      throw new NotFoundException('Printer not found');
+      throw menuNotFoundError('printerNotFound');
 
     const created = await this.db
       .insert(orderTicketJob)

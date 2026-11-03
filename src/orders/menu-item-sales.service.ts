@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { eq, sql } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
@@ -7,6 +7,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { orderItemMovements } from './counted-orders.js';
 import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 export const SALES_WINDOW_DAYS = 30;
 
@@ -70,7 +71,7 @@ export class MenuItemSalesService {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return this.querySales(org.id, since, until);
   }
