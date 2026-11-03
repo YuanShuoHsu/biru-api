@@ -71,6 +71,13 @@ describe('EcpayOrderInvoiceService.findVoidedForOrder（PGlite）', () => {
         voidedAt: new Date('2026-11-03T01:00:00Z'),
       },
       {
+        id: 'legacy',
+        orderId: 'order',
+        type: 'personal',
+        status: 'voided',
+        invoiceNumber: 'AB00000000',
+      },
+      {
         id: 'active',
         orderId: 'order',
         type: 'company',
@@ -113,7 +120,19 @@ describe('EcpayOrderInvoiceService.findVoidedForOrder（PGlite）', () => {
         operatorName: '小明',
         operatorDeleted: false,
       },
+      {
+        id: 'legacy',
+        reason: null,
+        operatorName: null,
+        operatorDeleted: false,
+      },
     ]);
+  });
+
+  it('門市不存在時回 404', async () => {
+    await expect(
+      service.findVoidedForOrder('missing', 'order'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('其他門市的訂單回 404', async () => {

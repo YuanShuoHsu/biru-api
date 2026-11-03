@@ -722,7 +722,10 @@ export class EcpayOrderInvoiceService {
       .from(invoice)
       .leftJoin(user, eq(user.id, invoice.voidedBy))
       .where(and(eq(invoice.orderId, orderId), eq(invoice.status, 'voided')))
-      .orderBy(desc(invoice.voidedAt));
+      .orderBy(
+        sql`${invoice.voidedAt} desc nulls last`,
+        desc(invoice.createdAt),
+      );
   }
 
   private async findPrintableInvoice(
