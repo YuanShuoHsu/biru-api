@@ -144,7 +144,7 @@ export class EcpayOrderInvoiceController {
   }
 
   @Post('void')
-  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Roles({ invoice: ['void'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })
   @ApiCreatedResponse({ type: OrderInvoiceDto })
   @ApiOperation({

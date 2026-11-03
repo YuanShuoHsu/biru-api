@@ -46,6 +46,7 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
   'attendanceRequest',
   'attendanceSetting',
   'employee',
+  'invoice',
   'leaveBalance',
   'leaveCase',
   'leaveType',
@@ -54,6 +55,7 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
   'parentalReturn',
   'payrollTerm',
   'payslip',
+  'refund',
   'shift',
   'shiftType',
 ]);
