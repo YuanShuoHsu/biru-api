@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -54,14 +55,17 @@ export class CreateIngredientDto {
 
   @ApiPropertyOptional({ example: '100.000', description: '低於此量顯示警示' })
   @IsOptional()
+  @Matches(/^\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   lowStockThreshold?: string | null;
 
   @ApiProperty({ example: '950.00', description: '一個包裝的價錢' })
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/)
   @IsNumberString()
   price: string;
 
   @ApiProperty({ example: '100.000', description: '一個包裝的量' })
+  @Matches(/^(?!0+(\.0+)?$)\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   eligibleQuantity: string;
 
@@ -88,6 +92,7 @@ export class CreateIngredientDto {
     description: '開帳數量；系統會一併寫入盤點帳本',
   })
   @IsOptional()
+  @Matches(/^-?\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   inventoryLevel?: string | null;
 
