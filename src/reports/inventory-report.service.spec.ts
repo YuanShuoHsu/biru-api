@@ -246,4 +246,13 @@ describe('InventoryReportService', () => {
       }),
     ).rejects.toThrow(new BadRequestException('common.reports.rangeTooLong'));
   });
+
+  it('門市不存在時回 404 並帶 organizationNotFound', async () => {
+    await expect(
+      service.getInventoryReport('missing', range),
+    ).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'organizationNotFound' },
+    });
+  });
 });
