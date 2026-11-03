@@ -408,6 +408,33 @@ export type I18nTranslations = {
             "resultUnknown": string;
         };
         "reports": {
+            "csv": {
+                "actualConsumption": string;
+                "adjusted": string;
+                "category": string;
+                "closing": string;
+                "consumed": string;
+                "day": string;
+                "discount": string;
+                "hour": string;
+                "ingredient": string;
+                "menuItem": string;
+                "mode": string;
+                "net": string;
+                "opening": string;
+                "orders": string;
+                "paymentMethod": string;
+                "quantity": string;
+                "received": string;
+                "refunded": string;
+                "refundedQuantity": string;
+                "revenue": string;
+                "theoreticalConsumption": string;
+                "total": string;
+                "uncategorized": string;
+                "unit": string;
+                "variance": string;
+            };
             "rangeInvalid": string;
             "rangeTooLong": string;
         };

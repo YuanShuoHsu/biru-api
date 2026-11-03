@@ -355,6 +355,33 @@
     "resultUnknown": "退款已送出但绿界尚未回复结果，请勿重复操作。系统会自动核对，确认后这笔退款会更新状态。"
   },
   "reports": {
+    "csv": {
+      "actualConsumption": "实际耗用",
+      "adjusted": "调整",
+      "category": "分类",
+      "closing": "期末",
+      "consumed": "耗用",
+      "day": "日期",
+      "discount": "折扣",
+      "hour": "小时",
+      "ingredient": "食材",
+      "menuItem": "品项",
+      "mode": "点餐方式",
+      "net": "净额",
+      "opening": "期初",
+      "orders": "订单数",
+      "paymentMethod": "付款方式",
+      "quantity": "份数",
+      "received": "入库",
+      "refunded": "退款",
+      "refundedQuantity": "退款份数",
+      "revenue": "营收",
+      "theoreticalConsumption": "理论耗用",
+      "total": "合计",
+      "uncategorized": "未分类",
+      "unit": "单位",
+      "variance": "差异"
+    },
     "rangeInvalid": "结束时间必须晚于开始时间。",
     "rangeTooLong": "报表区间最多 366 天。"
   },

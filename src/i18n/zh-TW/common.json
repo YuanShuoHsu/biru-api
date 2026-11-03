@@ -355,6 +355,33 @@
     "resultUnknown": "退款已送出但綠界尚未回覆結果，請勿重複操作。系統會自動核對，確認後這筆退款會更新狀態。"
   },
   "reports": {
+    "csv": {
+      "actualConsumption": "實際耗用",
+      "adjusted": "調整",
+      "category": "分類",
+      "closing": "期末",
+      "consumed": "耗用",
+      "day": "日期",
+      "discount": "折扣",
+      "hour": "小時",
+      "ingredient": "食材",
+      "menuItem": "品項",
+      "mode": "點餐方式",
+      "net": "淨額",
+      "opening": "期初",
+      "orders": "訂單數",
+      "paymentMethod": "付款方式",
+      "quantity": "份數",
+      "received": "入庫",
+      "refunded": "退款",
+      "refundedQuantity": "退款份數",
+      "revenue": "營收",
+      "theoreticalConsumption": "理論耗用",
+      "total": "合計",
+      "uncategorized": "未分類",
+      "unit": "單位",
+      "variance": "差異"
+    },
     "rangeInvalid": "結束時間必須晚於開始時間。",
     "rangeTooLong": "報表區間最多 366 天。"
   },
