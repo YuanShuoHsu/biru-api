@@ -22,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   ne,
   notInArray,
   or,
@@ -31,7 +32,9 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { anniversary } from '../attendance/leave-rules.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { AUDIT_LOG_RETENTION_MONTHS, auditLog } from '../db/schema/audit.js';
 import {
   coupon,
   couponIssueTriggerEnum,
@@ -41,7 +44,7 @@ import {
   type UserCoupon,
 } from '../db/schema/coupons.js';
 import { DEFAULT_LANGUAGE } from '../db/schema/enums.js';
-import { menuItem, menuSection } from '../db/schema/menus.js';
+import { menu, menuItem, menuSection } from '../db/schema/menus.js';
 import {
   ORDER_TERMINAL_STATUSES,
   order,
@@ -81,7 +84,10 @@ import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
-import { OrderPricingService } from '../orders/order-pricing.service.js';
+import {
+  OrderPricingService,
+  sectionAncestry,
+} from '../orders/order-pricing.service.js';
 
 import {
   COUPON_DATE_FILTER_FIELDS,
@@ -129,6 +135,36 @@ const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   validThrough: found.validThrough,
   isActive: found.isActive,
 });
+
+const AUDIT_CLOCK_SKEW_MS = 60_000;
+
+const COUPON_SCOPE_COLUMNS = [
+  'applicableOrganizationIds',
+  'code',
+  'discountType',
+  'discountValue',
+  'menuItemIds',
+  'menuSectionIds',
+  'scope',
+] satisfies (keyof Coupon)[];
+
+const isEligibleFor =
+  (found: Pick<Coupon, 'menuItemIds' | 'menuSectionIds' | 'scope'>) =>
+  (item: { menuItemId: string; menuSectionIds: string[] }) =>
+    found.scope === 'order' ||
+    !!found.menuItemIds?.includes(item.menuItemId) ||
+    item.menuSectionIds.some((id) => found.menuSectionIds?.includes(id));
+
+const couponDiscount = (
+  found: Pick<Coupon, 'discountType' | 'discountValue'>,
+  eligibleSubtotal: number,
+): number =>
+  found.discountType === 'percentage'
+    ? Math.round((eligibleSubtotal * Number(found.discountValue)) / 100)
+    : Math.min(
+        Math.round(Number(found.discountValue)),
+        Math.round(eligibleSubtotal),
+      );
 
 @Injectable()
 export class CouponsService {
@@ -1371,13 +1407,9 @@ export class CouponsService {
     itemDiscounts: number[];
     userCouponId: string | null;
   }> {
-    const matches = await this.db.query.coupon.findMany({
-      where: sql`lower(${coupon.code}) = lower(${code.trim()})`,
-    });
-    const found = matches.find(
-      (c) =>
-        !c.applicableOrganizationIds ||
-        c.applicableOrganizationIds.includes(organizationId),
+    const { found, matches } = await this.findCouponByCode(
+      organizationId,
+      code,
     );
     if (!found && matches.some((c) => c.isActive))
       throw new BadRequestException(this.t('notApplicableHere'));
@@ -1431,19 +1463,11 @@ export class CouponsService {
         }),
       );
 
-    const isEligible = (item: ResolvedOrderItem) =>
-      found.scope === 'order' ||
-      !!found.menuItemIds?.includes(item.menuItemId) ||
-      item.menuSectionIds.some((id) => found.menuSectionIds?.includes(id));
-    const eligibleSubtotal = sumOrderItems(items.filter(isEligible));
-
-    const discount =
-      found.discountType === 'percentage'
-        ? Math.round((eligibleSubtotal * Number(found.discountValue)) / 100)
-        : Math.min(
-            Math.round(Number(found.discountValue)),
-            Math.round(eligibleSubtotal),
-          );
+    const isEligible = isEligibleFor(found);
+    const discount = couponDiscount(
+      found,
+      sumOrderItems(items.filter(isEligible)),
+    );
     if (discount <= 0) throw new BadRequestException(this.t('notApplicable'));
 
     return {
@@ -1455,6 +1479,153 @@ export class CouponsService {
       ),
       userCouponId: voucher?.id || null,
     };
+  }
+
+  async inferItemDiscounts(placed: {
+    createdAt: Date;
+    discount: string | null;
+    discountCode: string | null;
+    items: {
+      discount: string | null;
+      menuItemId: string;
+      orderQuantity: number;
+      unitPrice: string;
+    }[];
+    sellerId: string;
+  }): Promise<number[] | null> {
+    if (
+      !placed.discountCode ||
+      !(Number(placed.discount) > 0) ||
+      placed.items.some((item) => item.discount !== null) ||
+      placed.createdAt <= anniversary(new Date(), -AUDIT_LOG_RETENTION_MONTHS)
+    )
+      return null;
+
+    const { found } = await this.findCouponByCode(
+      placed.sellerId,
+      placed.discountCode,
+    );
+    if (!found || found.createdAt > placed.createdAt) return null;
+
+    const menuItemIds = placed.items.map((item) => item.menuItemId);
+    const usesSections =
+      found.scope === 'item' && !!found.menuSectionIds?.length;
+    const sectionsOf = new Map<string, string[]>();
+    if (usesSections) {
+      const [menuItems, sections] = await Promise.all([
+        this.db.query.menuItem.findMany({
+          columns: { id: true, menuSectionId: true },
+          where: inArray(menuItem.id, menuItemIds),
+        }),
+        this.db
+          .select({
+            id: menuSection.id,
+            parentSectionId: menuSection.parentSectionId,
+          })
+          .from(menuSection)
+          .innerJoin(menu, eq(menu.id, menuSection.menuId))
+          .where(eq(menu.organizationId, placed.sellerId)),
+      ]);
+      const parentSectionIdOf = new Map(
+        sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
+      );
+      for (const item of menuItems)
+        sectionsOf.set(
+          item.id,
+          sectionAncestry(parentSectionIdOf, item.menuSectionId),
+        );
+      if (menuItemIds.some((id) => !sectionsOf.has(id))) return null;
+    }
+
+    const auditRow = (condition: SQL | undefined) =>
+      sql<boolean>`exists (select 1 from ${auditLog} where ${condition})`;
+    const auditedResources = usesSections
+      ? (['coupon', 'menuItem', 'menuSection'] as const)
+      : (['coupon'] as const);
+    const changedSince = gte(
+      auditLog.createdAt,
+      new Date(placed.createdAt.getTime() - AUDIT_CLOCK_SKEW_MS),
+    );
+    const {
+      rows: [audit],
+    } = await this.db.execute<{ changed: boolean; covered: boolean }>(sql`
+      select
+        ${and(
+          ...auditedResources.map((resource) =>
+            auditRow(
+              and(
+                eq(auditLog.resource, resource),
+                lte(auditLog.createdAt, placed.createdAt),
+              ),
+            ),
+          ),
+        )} as covered,
+        ${or(
+          auditRow(
+            and(
+              eq(auditLog.resource, 'coupon'),
+              eq(auditLog.resourceId, found.id),
+              changedSince,
+              sql`${auditLog.changes} ?| array[${sql.join(
+                COUPON_SCOPE_COLUMNS.map((column) => sql`${column}`),
+                sql`, `,
+              )}]::text[]`,
+            ),
+          ),
+          ...(usesSections
+            ? [
+                auditRow(
+                  and(
+                    eq(auditLog.resource, 'menuItem'),
+                    inArray(auditLog.resourceId, [...sectionsOf.keys()]),
+                    changedSince,
+                    sql`${auditLog.changes} ? ${'menuSectionId'}`,
+                  ),
+                ),
+                auditRow(
+                  and(
+                    eq(auditLog.resource, 'menuSection'),
+                    inArray(auditLog.resourceId, [
+                      ...new Set([...sectionsOf.values()].flat()),
+                    ]),
+                    changedSince,
+                    sql`${auditLog.changes} ? ${'parentSectionId'}`,
+                  ),
+                ),
+              ]
+            : []),
+        )} as changed
+    `);
+    if (!audit.covered || audit.changed) return null;
+
+    const isEligible = isEligibleFor(found);
+    const lines = placed.items.map((item) => ({
+      ...item,
+      menuSectionIds: sectionsOf.get(item.menuItemId) ?? [],
+    }));
+    const discount = couponDiscount(
+      found,
+      sumOrderItems(lines.filter(isEligible)),
+    );
+    if (discount !== Number(placed.discount)) return null;
+
+    return allocateDiscount(
+      discount,
+      lines.map((line) => (isEligible(line) ? sumOrderItems([line]) : 0)),
+    );
+  }
+
+  private async findCouponByCode(organizationId: string, code: string) {
+    const matches = await this.db.query.coupon.findMany({
+      where: sql`lower(${coupon.code}) = lower(${code.trim()})`,
+    });
+    const found = matches.find(
+      (c) =>
+        !c.applicableOrganizationIds ||
+        c.applicableOrganizationIds.includes(organizationId),
+    );
+
+    return { found, matches };
   }
 
   private async countUserCouponOrders(

@@ -30,6 +30,7 @@ export interface RefundPlan {
 
 export interface RefundableOrder {
   items: {
+    discount: string | null;
     id: string;
     menuItemName: string;
     orderQuantity: number;
@@ -46,11 +47,11 @@ const allocate = (discount: number, part: number, total: number): number =>
 
 /**
  * 折讓明細的金額必須精準等於折讓總額，且原發票把優惠券折扣開成一筆負數品項，
- * 所以部分退款要把折扣按原價比例分攤回去，否則多次折讓的總和會超出發票金額。
+ * 所以部分退款要把折扣分攤回去，否則多次折讓的總和會超出發票金額。
  */
 export const buildRefundPlan = (
   found: RefundableOrder,
-  previous: { items: RefundItemSnapshot[] | null }[],
+  previous: { amount: string; items: RefundItemSnapshot[] | null }[],
   requestedItems: { orderItemId: string; quantity: number }[] | undefined,
   t: RefundPlanTranslate,
 ): RefundPlan => {
@@ -122,13 +123,28 @@ export const buildRefundPlan = (
 
   // 退到最後一筆時把折扣的取整餘數一次補齊，總和才會剛好等於實收金額
   const previouslyAllocated = previous.reduce(
-    (sum, row) =>
-      sum + allocate(discount, sumRefundItems(row.items ?? []), itemTotal),
+    (sum, row) => sum + sumRefundItems(row.items ?? []) - Number(row.amount),
     0,
   );
   const allocatedDiscount = isFull
     ? discount - previouslyAllocated
-    : allocate(discount, sumRefundItems(items), itemTotal);
+    : found.items.every((item) => item.discount !== null)
+      ? round(
+          found.items.reduce((sum, item) => {
+            const quantity =
+              (refundedQuantities.get(item.id) ?? 0) +
+              (items.find((i) => i.orderItemId === item.id)?.quantity ?? 0);
+            const cents = round(
+              (Math.round(Number(item.discount) * 100) * quantity) /
+                item.orderQuantity,
+            );
+
+            return (
+              sum + Math.min(cents, lineAmount(item.unitPrice, quantity) * 100)
+            );
+          }, 0) / 100,
+        ) - previouslyAllocated
+      : allocate(discount, sumRefundItems(items), itemTotal);
 
   const amount = sumRefundItems(items) - allocatedDiscount;
   if (!Number.isFinite(amount) || amount < 0)

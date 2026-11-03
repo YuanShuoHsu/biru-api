@@ -45,6 +45,20 @@ import type {
 } from './dto/create-order.dto.js';
 import { itemLeadTimeMinutes } from './prep-estimate.js';
 
+export const sectionAncestry = (
+  parentSectionIdOf: Map<string, string | null>,
+  sectionId: string | null,
+): string[] => {
+  const ids: string[] = [];
+  for (
+    let id = sectionId;
+    id && !ids.includes(id);
+    id = parentSectionIdOf.get(id) ?? null
+  )
+    ids.push(id);
+  return ids;
+};
+
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
 
@@ -171,16 +185,6 @@ export class OrderPricingService {
     const parentSectionIdOf = new Map(
       sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
     );
-    const sectionAncestry = (sectionId: string | null): string[] => {
-      const ids: string[] = [];
-      for (
-        let id = sectionId;
-        id && !ids.includes(id);
-        id = parentSectionIdOf.get(id) ?? null
-      )
-        ids.push(id);
-      return ids;
-    };
 
     const priceCurrency = orgMenu.organization.currency;
 
@@ -408,7 +412,7 @@ export class OrderPricingService {
         ),
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        menuSectionIds: sectionAncestry(item.menuSectionId),
+        menuSectionIds: sectionAncestry(parentSectionIdOf, item.menuSectionId),
         unitPrice: unitPrice.toFixed(2),
         // 訂單成立當下的幣別快照；店家日後改幣別不影響已成立的訂單
         priceCurrency,

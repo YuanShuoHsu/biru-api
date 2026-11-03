@@ -7,6 +7,7 @@ import { anniversary } from '../attendance/leave-rules.js';
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { CouponsService } from '../coupons/coupons.service.js';
+import { AUDIT_LOG_RETENTION_MONTHS } from '../db/schema/audit.js';
 import * as schema from '../db/schema/index.js';
 import { DeletedRecordsService } from '../deleted-records/deleted-records.service.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -15,7 +16,6 @@ import { OrderNotificationsService } from '../orders/order-notifications.service
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
-const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
 const ATTENDANCE_AUDIT_RETENTION_MONTHS = 60;
 
