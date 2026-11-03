@@ -182,8 +182,13 @@ must be added there (the `writeAudit` signature enforces it), and a new resource
 `READ_PERMISSIONS` (`src/audit/attendance-audit-entries.ts`) so members without that data's read permission
 never see its history.
 
-The attendance record tables and `payroll_*` reference `organization` with `ON DELETE restrict` (like
-`order`), so an organization holding them cannot be deleted; don't switch them back to cascade.
+The attendance and payroll record tables (employees, shifts, events, requests, leave cases and balances,
+parental records, payroll terms, statements, earnings, tax identities, certificate requests) reference
+`organization` with `ON DELETE restrict` (like `order`), so an organization holding them cannot be deleted;
+don't switch them back to cascade. The per-store settings and lookup tables — `attendance_settings`,
+`attendance_shift_type`, `attendance_leave_type`, `payroll_earning_type`, `payroll_withholding_unit` — and
+`attendance_audit` cascade with the organization: the deletion can only happen once no
+restricted record is left, and the cascaded rows are captured in `deleted_record` like any other deletion.
 
 ### Weekly Hours
 
