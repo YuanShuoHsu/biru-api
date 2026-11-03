@@ -403,6 +403,42 @@ describe('PointsService.findAllForOrganization', () => {
     expect(await service.expectedPoints(['unpaid'])).toEqual(new Map());
   });
 
+  it('下單前預估點數與未付款訂單的預估一致', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1.1`);
+    await addPaidOrder('unpaid', ORG, 'amy', {
+      discount: '3',
+      orderStatus: 'OrderPaymentDue',
+      paymentDate: null,
+      unitPrice: '36',
+    });
+
+    const expected = await service.expectedPoints(['unpaid']);
+
+    expect(await service.estimatePoints(36, 3)).toBe(expected.get('unpaid'));
+    expect(await service.estimatePoints(36, 0)).toBe(32);
+  });
+
+  it('優惠券折扣取整後超過小計時預估為 0 點而不是負數', async () => {
+    await client.exec(`update point_setting set amount_per_point = 1`);
+    await addPaidOrder('unpaid', ORG, 'amy', {
+      discount: '36',
+      orderStatus: 'OrderPaymentDue',
+      paymentDate: null,
+      unitPrice: '35.50',
+    });
+
+    expect((await service.expectedPoints(['unpaid'])).get('unpaid')).toBe(0);
+    expect(await service.estimatePoints(35.5, 36)).toBe(0);
+  });
+
+  it('點數未啟用時下單前預估為 null', async () => {
+    await client.exec(
+      `update point_setting set amount_per_point = null, points_enabled_at = null`,
+    );
+
+    expect(await service.estimatePoints(36, 0)).toBeNull();
+  });
+
   it('收回本店已取消訂單的點數，且不列出他店與品牌層的明細', async () => {
     await addPaidOrder('o1', ORG, 'amy');
     await addPaidOrder('o2', OTHER_ORG, 'amy');

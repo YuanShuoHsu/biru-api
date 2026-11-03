@@ -161,6 +161,15 @@ const earnedPoints = (
     : 0;
 };
 
+const expectedPointsFor = (
+  subtotal: string,
+  discount: string | null,
+  amountPerPoint: string | null,
+): number | null =>
+  Number(amountPerPoint) > 0
+    ? Math.max(earnedPoints(subtotal, discount, amountPerPoint), 0)
+    : null;
+
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
   id: found.id,
   code: found.code,
@@ -486,12 +495,28 @@ export class PointsService {
       .groupBy(order.id, pointSetting.id);
 
     return new Map(
-      rows
-        .filter((row) => Number(row.amountPerPoint) > 0)
-        .map((row) => [
-          row.orderId,
-          earnedPoints(row.subtotal, row.discount, row.amountPerPoint),
-        ]),
+      rows.flatMap((row) => {
+        const points = expectedPointsFor(
+          row.subtotal,
+          row.discount,
+          row.amountPerPoint,
+        );
+
+        return points === null ? [] : [[row.orderId, points] as const];
+      }),
+    );
+  }
+
+  async estimatePoints(
+    subtotal: number,
+    discount: number,
+  ): Promise<number | null> {
+    const setting = await this.db.query.pointSetting.findFirst();
+
+    return expectedPointsFor(
+      subtotal.toFixed(2),
+      discount.toFixed(2),
+      setting?.amountPerPoint ?? null,
     );
   }
 
