@@ -175,6 +175,7 @@ const createService = ({
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
   const pointsService = {
+    estimatePoints: vi.fn().mockResolvedValue(155),
     expectedPoints: vi.fn().mockResolvedValue(new Map([['receipt', 12]])),
   };
 
@@ -869,6 +870,65 @@ describe('OrdersService.createOrder', () => {
         carrierType: null,
       });
     });
+  });
+});
+
+describe('OrdersService.estimatePoints', () => {
+  const dto = { items: [], mode: 'pickup' as const };
+
+  it('沒帶優惠碼時以品項小計估點', async () => {
+    const { couponsService, pointsService, service } = createService();
+
+    await expect(service.estimatePoints('slug', dto, null)).resolves.toEqual({
+      expectedPoints: 155,
+    });
+    expect(couponsService.getApplicableCoupon).not.toHaveBeenCalled();
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 0);
+  });
+
+  it('部分品項優惠碼以折扣後金額估點', async () => {
+    const { couponsService, pointsService, service } = createService({
+      applied: {
+        coupon: { code: 'LATTE' },
+        discount: 36,
+        itemDiscounts: [0, 36],
+      },
+    });
+
+    await service.estimatePoints(
+      'slug',
+      { ...dto, discountCode: 'latte' },
+      'user',
+    );
+
+    expect(couponsService.getApplicableCoupon).toHaveBeenCalledWith(
+      ORG_ID,
+      'latte',
+      resolvedItems,
+      'user',
+    );
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 36);
+  });
+
+  it('點數未啟用時回 null', async () => {
+    const { pointsService, service } = createService();
+    pointsService.estimatePoints.mockResolvedValue(null);
+
+    await expect(service.estimatePoints('slug', dto, null)).resolves.toEqual({
+      expectedPoints: null,
+    });
+  });
+
+  it('優惠碼無效時照驗證優惠碼回 400', async () => {
+    const { couponsService, pointsService, service } = createService();
+    couponsService.getApplicableCoupon.mockRejectedValue(
+      new BadRequestException('notFound'),
+    );
+
+    await expect(
+      service.estimatePoints('slug', { ...dto, discountCode: 'nope' }, null),
+    ).rejects.toThrow(BadRequestException);
+    expect(pointsService.estimatePoints).not.toHaveBeenCalled();
   });
 });
 

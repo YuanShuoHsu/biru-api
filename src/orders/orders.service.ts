@@ -97,6 +97,10 @@ import type {
   CreateOrderCustomerDto,
   CreateOrderDto,
 } from './dto/create-order.dto.js';
+import type {
+  ExpectedPointsDto,
+  ExpectedPointsResponseDto,
+} from './dto/expected-points.dto.js';
 import {
   ORDER_BOARD_STATUSES,
   type OrderBoardItemDto,
@@ -378,6 +382,34 @@ export class OrdersService {
     return {
       ...toActiveInvoice(found),
       expectedPoints: expectedPoints.get(found.id) ?? null,
+    };
+  }
+
+  async estimatePoints(
+    organizationSlug: string,
+    dto: ExpectedPointsDto,
+    userId: string | null,
+  ): Promise<ExpectedPointsResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const items = await this.orderPricingService.resolveOrderItems(
+      org.id,
+      dto.items,
+      dto.mode,
+    );
+    const applied = dto.discountCode
+      ? await this.couponsService.getApplicableCoupon(
+          org.id,
+          dto.discountCode,
+          items,
+          userId,
+        )
+      : null;
+
+    return {
+      expectedPoints: await this.pointsService.estimatePoints(
+        sumOrderItems(items),
+        applied?.discount ?? 0,
+      ),
     };
   }
 

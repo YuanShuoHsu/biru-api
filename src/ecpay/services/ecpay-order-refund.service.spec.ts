@@ -20,6 +20,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   let client: PGlite;
   let service: EcpayOrderRefundService;
   const invalidInvoice = vi.fn();
+  const inferItemDiscounts = vi.fn();
 
   beforeAll(async () => {
     client = createPGlite();
@@ -32,7 +33,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
       {} as never,
       {} as never,
       {} as never,
-      { restore: vi.fn() } as never,
+      { inferItemDiscounts, restore: vi.fn() } as never,
       { restoreAll: vi.fn() } as never,
       { withdrawOrder: vi.fn() } as never,
       { revokeForOrder: vi.fn() } as never,
@@ -47,6 +48,7 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   });
 
   beforeEach(async () => {
+    inferItemDiscounts.mockReset().mockResolvedValue(null);
     await client.exec(
       'truncate refund, order_item, "order", organization cascade',
     );
@@ -114,6 +116,78 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
       { status: 'voided', voided_by: 'staff', void_reason: '客人取消' },
     ]);
   });
+
+  describe('舊訂單沒有每行折扣', () => {
+    beforeEach(async () => {
+      await client.query(
+        `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, discount, discount_code, payment_date, order_status)
+         values ('coupon', '{"name":"客人"}', 'dineIn', 'coupon', 'Cash', $1, 220, 65, 'CODE', now(), 'OrderDelivered')`,
+        [ORG],
+      );
+      await client.query(
+        `insert into order_item (id, menu_item_id, menu_item_name, order_id, order_quantity, unit_price)
+         values ('latte', 'latte', '拿鐵', 'coupon', 2, 65), ('cake', 'cake', '蛋糕', 'coupon', 1, 90)`,
+      );
+    });
+
+    const previewCake = () =>
+      service.previewRefund('biru', 'coupon', {
+        items: [{ orderItemId: 'cake', quantity: 1 }],
+      });
+
+    it('推算得出每行折扣時照每行折扣退', async () => {
+      inferItemDiscounts.mockImplementation(
+        ({ items }: { items: { id: string }[] }) =>
+          Promise.resolve(items.map(({ id }) => (id === 'latte' ? 65 : 0))),
+      );
+
+      await expect(previewCake()).resolves.toEqual({
+        allocatedDiscount: 0,
+        amount: 90,
+        isFull: false,
+      });
+    });
+
+    it('已經照比例退過款的舊訂單不推算，避免下一筆退超過品項原價', async () => {
+      inferItemDiscounts.mockImplementation(
+        ({ items }: { items: { id: string }[] }) =>
+          Promise.resolve(items.map(({ id }) => (id === 'latte' ? 65 : 0))),
+      );
+      await client.query(
+        `insert into refund (id, amount, channel, status, items, order_id, reason_code, scope)
+         values ('earlier', '63', 'manual', 'settled', $1, 'coupon', 'wrongItem', 'partial')`,
+        [
+          JSON.stringify([
+            {
+              amount: '90',
+              menuItemName: '蛋糕',
+              orderItemId: 'cake',
+              quantity: 1,
+              unitPrice: '90.00',
+            },
+          ]),
+        ],
+      );
+
+      await expect(
+        service.previewRefund('biru', 'coupon', {
+          items: [{ orderItemId: 'latte', quantity: 1 }],
+        }),
+      ).resolves.toMatchObject({ isFull: false });
+      expect(inferItemDiscounts).not.toHaveBeenCalled();
+    });
+
+    it('推算不出時照原價比例分攤', async () => {
+      await expect(previewCake()).resolves.toEqual({
+        allocatedDiscount: 27,
+        amount: 63,
+        isFull: false,
+      });
+      expect(inferItemDiscounts).toHaveBeenCalledWith(
+        expect.objectContaining({ discountCode: 'CODE', sellerId: ORG }),
+      );
+    });
+  });
 });
 
 describe('EcpayOrderRefundService 折讓品項', () => {
@@ -133,11 +207,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
     order: Parameters<typeof buildRefundPlan>[0],
     steps: ({ orderItemId: string; quantity: number }[] | undefined)[],
   ) => {
-    const previous: { items: ReturnType<typeof buildRefundPlan>['items'] }[] =
-      [];
+    const previous: {
+      amount: string;
+      items: ReturnType<typeof buildRefundPlan>['items'];
+    }[] = [];
     return steps.map((requested) => {
       const plan = buildRefundPlan(order, previous, requested, t);
-      previous.push({ items: plan.items });
+      previous.push({ amount: String(plan.amount), items: plan.items });
       return plan;
     });
   };
@@ -159,9 +235,27 @@ describe('EcpayOrderRefundService 折讓品項', () => {
 
   const integerOrder = {
     items: [
-      { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '120.00' },
-      { id: 'b', menuItemName: 'B', orderQuantity: 2, unitPrice: '76.00' },
-      { id: 'c', menuItemName: 'C', orderQuantity: 1, unitPrice: '333.00' },
+      {
+        discount: null,
+        id: 'a',
+        menuItemName: 'A',
+        orderQuantity: 3,
+        unitPrice: '120.00',
+      },
+      {
+        discount: null,
+        id: 'b',
+        menuItemName: 'B',
+        orderQuantity: 2,
+        unitPrice: '76.00',
+      },
+      {
+        discount: null,
+        id: 'c',
+        menuItemName: 'C',
+        orderQuantity: 1,
+        unitPrice: '333.00',
+      },
     ],
     total: '700.00',
   };
@@ -186,7 +280,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
     const [plan] = refundInSteps(
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 15, unitPrice: '4.10' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 15,
+            unitPrice: '4.10',
+          },
         ],
         total: '61.00',
       },
@@ -203,7 +303,13 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '小數單價全額退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '33.33' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
         ],
         total: '100.00',
       },
@@ -213,8 +319,20 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '每項都捨去時全額退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 1, unitPrice: '10.40' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 1, unitPrice: '10.40' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
         ],
         total: '21.00',
       },
@@ -224,8 +342,20 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '每項都捨去時分次退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 1, unitPrice: '10.40' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 1, unitPrice: '10.40' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 1,
+            unitPrice: '10.40',
+          },
         ],
         total: '21.00',
       },
@@ -235,18 +365,63 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       '浮點誤差會捨錯的單價',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 15, unitPrice: '4.10' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 15,
+            unitPrice: '4.10',
+          },
         ],
         total: '61.00',
       },
       [[{ orderItemId: 'a', quantity: 5 }], undefined],
     ],
     [
+      '只折部分品項的優惠券分次退款',
+      {
+        items: [
+          {
+            discount: '0.00',
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 1,
+            unitPrice: '100.00',
+          },
+          {
+            discount: '50.00',
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
+        ],
+        total: '150.00',
+      },
+      [
+        [{ orderItemId: 'b', quantity: 1 }],
+        [{ orderItemId: 'a', quantity: 1 }],
+        undefined,
+      ],
+    ],
+    [
       '小數單價加優惠券折扣分次退款',
       {
         items: [
-          { id: 'a', menuItemName: 'A', orderQuantity: 3, unitPrice: '33.33' },
-          { id: 'b', menuItemName: 'B', orderQuantity: 2, unitPrice: '12.50' },
+          {
+            discount: null,
+            id: 'a',
+            menuItemName: 'A',
+            orderQuantity: 3,
+            unitPrice: '33.33',
+          },
+          {
+            discount: null,
+            id: 'b',
+            menuItemName: 'B',
+            orderQuantity: 2,
+            unitPrice: '12.50',
+          },
         ],
         total: '105.00',
       },

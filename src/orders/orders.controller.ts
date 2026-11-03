@@ -18,7 +18,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { minutes, Throttle } from '@nestjs/throttler';
+import { hours, minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
@@ -26,7 +26,10 @@ import {
 } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
-import { ANONYMOUS_THROTTLER } from '../common/constants/throttle.js';
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -41,6 +44,10 @@ import {
   CreateOrderCustomerDto,
   CreateOrderDto,
 } from './dto/create-order.dto.js';
+import {
+  ExpectedPointsDto,
+  ExpectedPointsResponseDto,
+} from './dto/expected-points.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
 import {
@@ -106,6 +113,24 @@ export class OrdersController {
     if (renewed) setOrderQrSessionCookie(res, renewed);
 
     return { ...created, accessToken: orderAccessToken(created.id) };
+  }
+
+  @Post('expected-points')
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 10, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 50, ttl: hours(1) },
+  })
+  @ApiOperation({ summary: '預估這張單登入會員可得的點數' })
+  estimatePoints(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() dto: ExpectedPointsDto,
+    @Session() session: UserSession | null,
+  ): Promise<ExpectedPointsResponseDto> {
+    return this.ordersService.estimatePoints(
+      organizationSlug,
+      dto,
+      session?.user.id || null,
+    );
   }
 
   @Get()

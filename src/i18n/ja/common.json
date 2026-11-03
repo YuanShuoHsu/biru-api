@@ -176,6 +176,7 @@
     "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください"
   },
   "inventory": {
+    "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "recipeIngredientExists": "この材料はすでに追加されています",

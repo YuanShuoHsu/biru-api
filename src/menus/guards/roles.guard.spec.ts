@@ -109,6 +109,21 @@ describe('RolesGuard', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it.each([{ refund: ['create'] }, { invoice: ['void'] }])(
+    'still lets a closed organization refund and void invoices (%o)',
+    async (action) => {
+      const { context } = contextFor(action, 'POST');
+
+      await expect(
+        guardFor({
+          userRole: 'user',
+          memberRole: 'member',
+          closed: true,
+        }).canActivate(context),
+      ).resolves.toBe(true);
+    },
+  );
+
   it('keeps a closed organization read-only for a platform admin', async () => {
     const { context } = contextFor({ menu: ['update'] }, 'PATCH');
 
