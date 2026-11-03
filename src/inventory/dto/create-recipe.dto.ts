@@ -60,7 +60,7 @@ export class CreateRecipeIngredientDto {
   ingredientId: string;
 
   @ApiProperty({ example: '4.000', description: '基準單位用量' })
-  @Matches(/^\d+(\.\d+)?$/)
+  @Matches(/^\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   requiredQuantity: string;
 
