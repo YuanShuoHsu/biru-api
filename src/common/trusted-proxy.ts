@@ -1,3 +1,5 @@
+import type { Request } from 'express';
+import { isIP } from 'node:net';
 import { compile } from 'proxy-addr';
 
 const invalid = (entry: string) =>
@@ -20,4 +22,18 @@ export const trustedProxies = (
     }
   }
   return entries;
+};
+
+export const clientIpHeader = () =>
+  process.env.CLIENT_IP_HEADER?.trim() || undefined;
+
+export const clientIp = (
+  req: Pick<Request, 'headers' | 'ip'>,
+): string | undefined => {
+  const header = clientIpHeader();
+  if (!header) return req.ip;
+  const value = req.headers[header.toLowerCase()];
+  return typeof value === 'string' && !value.includes('%') && isIP(value)
+    ? value
+    : undefined;
 };

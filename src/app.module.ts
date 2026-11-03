@@ -4,7 +4,10 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
+import {
+  AuthModule as BetterAuthModule,
+  AuthService,
+} from '@thallesp/nestjs-better-auth';
 
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
@@ -13,12 +16,12 @@ import { join } from 'node:path';
 
 import { AttendanceModule } from './attendance/attendance.module.js';
 import { AuditModule } from './audit/audit.module.js';
-import { createAuth } from './auth/index.js';
+import { createAuth, type Auth } from './auth/index.js';
 import { AuthModule } from './auth/auth.module.js';
 import { runWithAuthHookState } from './auth/hooks.js';
 import { createAuthI18n } from './auth/i18n.js';
 import { BannersModule } from './banners/banners.module.js';
-import { THROTTLERS } from './common/constants/throttle.js';
+import { throttleTracker, THROTTLERS } from './common/constants/throttle.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { LanguageResolver } from './common/resolvers/language.resolver.js';
 import { CouponsModule } from './coupons/coupons.module.js';
@@ -117,7 +120,13 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     StoreLayoutModule,
     StorePhotosModule,
     TasksModule,
-    ThrottlerModule.forRoot({ throttlers: THROTTLERS }),
+    ThrottlerModule.forRootAsync({
+      inject: [AuthService],
+      useFactory: (auth: AuthService<Auth>) => ({
+        throttlers: THROTTLERS,
+        getTracker: throttleTracker(auth),
+      }),
+    }),
     UsersModule,
     WaitlistModule,
   ],

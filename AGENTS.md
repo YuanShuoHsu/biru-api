@@ -301,11 +301,14 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
-- Rate limiting: 100 req / 60s per IP globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous
-  order, ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with
-  `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler, the global one included, only takes
-  effect once `TRUSTED_PROXIES` is set — without it `req.ip` is the proxy's address, so every caller would share one
-  bucket and any limit would throttle the whole platform. The named throttlers are unlimited unless a route overrides
+- Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). `throttleTracker` buckets
+  signed-in requests by user id and the rest by `clientIp`; requests without a usable IP share one `ip:missing`
+  bucket. It looks the session up itself because `AppModule`'s guards run before better-auth's `AuthGuard`, so
+  `req.user` is not set yet. The anonymous order, ECPay checkout, waitlist ticket, coupon check and company lookup
+  routes add 30 / min and 150 / hour with `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler,
+  the global one included, only takes effect once `CLIENT_IP_HEADER` or `TRUSTED_PROXIES` is set — without either
+  `req.ip` is the proxy's address, so every caller would share one bucket and any limit would throttle the whole
+  platform. The named throttlers are unlimited unless a route overrides
   them, and their `skipIf` also drops the route's override. The expected-points route is deliberately not on the named
   throttlers: it treats an inapplicable coupon as no discount instead of rejecting it, so it can't be used to guess codes
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
@@ -319,6 +322,13 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   proxy range is configured and verified with forged headers against the public API, Next.js
   rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
+- Client IP — `clientIp` (`src/common/trusted-proxy.ts`) is what the throttler and the punch allowlist read. With
+  `CLIENT_IP_HEADER` set it returns that header only when it holds a single IP, otherwise nothing (never `req.ip` or
+  `X-Forwarded-For`), so the punch is rejected; unset, it returns `req.ip`. Set it only when every request reaches the
+  API through Cloudflare (`CF-Connecting-IP`): any path that bypasses Cloudflare, the onrender.com subdomain included,
+  lets the caller forge the header, so that subdomain must be disabled or unreachable first. Once it is set, server-side
+  calls from the Next apps arrive with the Next server's egress IP (or, calling onrender.com directly, without the
+  header, i.e. `ip:missing`), so their anonymous traffic shares one bucket. The throttlers skip WebSocket messages.
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
@@ -345,6 +355,8 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
+- `CLIENT_IP_HEADER` — Header holding the client IP, e.g. `CF-Connecting-IP`; takes precedence over `req.ip`. Only set
+  it when every request reaches the API through Cloudflare (onrender.com disabled), otherwise the header can be forged
 - `FIELD_ENCRYPTION_KEYS` — `v3:<base64 32 bytes>,v2:<...>,legacy` keys for `src/common/utils/field-encryption.ts`;
   the first encrypts, the rest only decrypt. `legacy` (no key) is the key derived from `BETTER_AUTH_SECRET`,
   which writes the unprefixed `iv.tag.ciphertext` format; it is unrelated to the `-v1` in the purpose info
