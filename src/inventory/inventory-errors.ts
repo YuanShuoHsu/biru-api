@@ -9,6 +9,7 @@ import { I18nContext } from 'nestjs-i18n';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const inventoryErrorCodes = [
+  'ingredientInUse',
   'ingredientNotFound',
   'packageUnitIncompatible',
   'recipeIngredientExists',

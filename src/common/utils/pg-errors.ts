@@ -3,3 +3,6 @@ export const pgErrorCode = (error: unknown) =>
 
 export const isUniqueViolation = (error: unknown) =>
   pgErrorCode(error) === '23505';
+
+export const isForeignKeyViolation = (error: unknown) =>
+  pgErrorCode(error) === '23503';

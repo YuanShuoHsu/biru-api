@@ -176,6 +176,7 @@
     "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
   },
   "inventory": {
+    "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "recipeIngredientExists": "This ingredient has already been added",

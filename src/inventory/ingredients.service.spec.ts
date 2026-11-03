@@ -6,7 +6,11 @@ import { I18nContext } from 'nestjs-i18n';
 import { createPGlite } from '../../test/pglite.js';
 import type { FilterOperator } from '../common/constants/pagination.js';
 import * as schema from '../db/schema/index.js';
-import { ingredient } from '../db/schema/inventory.js';
+import {
+  ingredient,
+  recipe,
+  recipeIngredient,
+} from '../db/schema/inventory.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { IngredientsService } from './ingredients.service.js';
@@ -245,5 +249,66 @@ describe('IngredientsService name filter and purchasing fields', () => {
     ])
       expect(hidden[field as keyof typeof hidden], field).toBeUndefined();
     expect(hidden).toMatchObject({ id: 'milk', priceCurrency: 'TWD' });
+  });
+});
+
+describe('IngredientsService remove', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: IngredientsService;
+
+  const inUse = {
+    response: { code: 'ingredientInUse' },
+    status: 409,
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new IngredientsService(
+      db as unknown as DrizzleDB,
+      {} as InventoryTransactionsService,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec('truncate ingredient, recipe, organization cascade');
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      [ORG],
+    );
+    await db.insert(ingredient).values(
+      ['milk', 'sugar'].map((id, index) => ({
+        id,
+        name: { 'zh-TW': id },
+        organizationId: ORG,
+        sortOrder: index,
+        unitCode: 'GRM' as const,
+      })),
+    );
+    await db
+      .insert(recipe)
+      .values({ id: 'latte', name: { 'zh-TW': '拿鐵' }, organizationId: ORG });
+    await db.insert(recipeIngredient).values({
+      id: 'latteMilk',
+      recipeId: 'latte',
+      ingredientId: 'milk',
+      requiredQuantity: '200',
+    });
+  });
+
+  it('刪除仍被食譜使用的食材回 409 ingredientInUse', async () => {
+    await expect(service.remove('milk')).rejects.toMatchObject(inUse);
+  });
+
+  it('批次刪除含仍被食譜使用的食材時回 409 ingredientInUse', async () => {
+    await expect(
+      service.removeMany(ORG, ['sugar', 'milk']),
+    ).rejects.toMatchObject(inUse);
   });
 });
