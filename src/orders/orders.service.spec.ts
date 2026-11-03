@@ -919,7 +919,7 @@ describe('OrdersService.estimatePoints', () => {
     });
   });
 
-  it('優惠碼無效時照驗證優惠碼回 400', async () => {
+  it('優惠碼無效時當作沒折扣估點', async () => {
     const { couponsService, pointsService, service } = createService();
     couponsService.getApplicableCoupon.mockRejectedValue(
       new BadRequestException('notFound'),
@@ -927,7 +927,17 @@ describe('OrdersService.estimatePoints', () => {
 
     await expect(
       service.estimatePoints('slug', { ...dto, discountCode: 'nope' }, null),
-    ).rejects.toThrow(BadRequestException);
+    ).resolves.toEqual({ expectedPoints: 155 });
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 0);
+  });
+
+  it('優惠碼檢查出其他錯誤時照樣拋出', async () => {
+    const { couponsService, pointsService, service } = createService();
+    couponsService.getApplicableCoupon.mockRejectedValue(new Error('db'));
+
+    await expect(
+      service.estimatePoints('slug', { ...dto, discountCode: 'nope' }, null),
+    ).rejects.toThrow('db');
     expect(pointsService.estimatePoints).not.toHaveBeenCalled();
   });
 });
