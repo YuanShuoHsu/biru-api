@@ -1751,6 +1751,13 @@
       "when": 1793609802861,
       "tag": "0249_audit_lookup_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1793689618576,
+      "tag": "0250_invoice_void_operator",
+      "breakpoints": true
     }
   ]
 }

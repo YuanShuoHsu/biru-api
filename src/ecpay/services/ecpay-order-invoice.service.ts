@@ -562,6 +562,7 @@ export class EcpayOrderInvoiceService {
     organizationSlug: string,
     orderId: string,
     { customerIdentifier, customerName, reason }: VoidInvoiceDto,
+    operatorId?: string,
   ): Promise<Invoice> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
@@ -603,7 +604,12 @@ export class EcpayOrderInvoiceService {
       reissued = await this.db.transaction(async (tx) => {
         await tx
           .update(invoice)
-          .set({ status: 'voided', voidedAt: new Date() })
+          .set({
+            status: 'voided',
+            voidedAt: new Date(),
+            voidedBy: operatorId,
+            voidReason: reason,
+          })
           .where(eq(invoice.id, data.id));
 
         const [created] = await tx

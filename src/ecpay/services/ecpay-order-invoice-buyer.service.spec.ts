@@ -181,3 +181,60 @@ describe('EcpayOrderInvoiceService.voidForOrder 更正買受人抬頭', () => {
     expect(invalidInvoice).toHaveBeenCalledOnce();
   });
 });
+
+describe('EcpayOrderInvoiceService.voidForOrder 作廢紀錄', () => {
+  it('作廢時記錄操作者與送給綠界的原因', async () => {
+    const set = vi.fn().mockReturnValue({ where: vi.fn() });
+    const tx = {
+      insert: vi.fn().mockImplementation(() => {
+        throw new Error('stop');
+      }),
+      update: vi.fn().mockReturnValue({ set }),
+    };
+    const db = {
+      query: {
+        order: {
+          findFirst: vi.fn().mockResolvedValue({
+            invoices: [
+              {
+                ...stored,
+                allowances: [],
+                invoiceDate: new Date(),
+                invoiceNumber: 'AB12345678',
+                status: 'issued',
+                type: 'company',
+              },
+            ],
+          }),
+        },
+        organization: { findFirst: vi.fn().mockResolvedValue({ id: 'org' }) },
+      },
+      transaction: (fn: (t: typeof tx) => unknown) => fn(tx),
+    };
+    const invalidInvoice = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      new EcpayOrderInvoiceService(
+        db as unknown as DrizzleDB,
+        {} as never,
+        {} as never,
+        {} as never,
+        { invalidInvoice } as unknown as EcpayInvalidInvoiceService,
+        {} as never,
+        new EventEmitter2(),
+        { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      ).voidForOrder('biru', 'order', { reason: '抬頭錯誤' }, 'staff'),
+    ).rejects.toThrow();
+
+    expect(invalidInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({ Reason: '抬頭錯誤' }),
+    );
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'voided',
+        voidReason: '抬頭錯誤',
+        voidedBy: 'staff',
+      }),
+    );
+  });
+});

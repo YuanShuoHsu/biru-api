@@ -19,6 +19,8 @@ const ORG = 'org';
 describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
   let client: PGlite;
   let service: EcpayOrderRefundService;
+  const invalidInvoice = vi.fn();
+  const getIssue = vi.fn();
   const inferItemDiscounts = vi.fn();
 
   beforeAll(async () => {
@@ -28,10 +30,10 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
     service = new EcpayOrderRefundService(
       db as unknown as DrizzleDB,
       {} as never,
+      { invalidInvoice } as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      { getIssue } as never,
       { inferItemDiscounts, restore: vi.fn() } as never,
       { restoreAll: vi.fn() } as never,
       { withdrawOrder: vi.fn() } as never,
@@ -87,6 +89,68 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
     const refunded = await refundOf('twqr');
 
     expect(refunded).toMatchObject({ amount: '100.00', channel: 'manual' });
+  });
+
+  it('全額退款作廢發票時記錄退款的操作者與原因', async () => {
+    await client.query(
+      `insert into invoice (id, order_id, type, status, invoice_number, invoice_date, created_at, updated_at)
+       values ('inv', 'cash', 'personal', 'issued', 'AB12345678', now(), now(), now())`,
+    );
+
+    await service.refundOrder(
+      'biru',
+      'cash',
+      { reason: '客人取消', reasonCode: 'wrongItem' },
+      'staff',
+    );
+
+    expect(invalidInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({ Reason: '客人取消' }),
+    );
+    expect(
+      (
+        await client.query(
+          `select status, voided_by, void_reason from invoice where id = 'inv'`,
+        )
+      ).rows,
+    ).toEqual([
+      { status: 'voided', voided_by: 'staff', void_reason: '客人取消' },
+    ]);
+  });
+
+  it('作廢發票失敗後由排程補作廢時也記錄退款的操作者與原因', async () => {
+    await client.query(
+      `insert into invoice (id, order_id, type, status, invoice_number, invoice_date, created_at, updated_at)
+       values ('inv', 'cash', 'personal', 'issued', 'AB12345678', now(), now(), now())`,
+    );
+    invalidInvoice.mockRejectedValueOnce(new Error('timeout'));
+
+    await service.refundOrder(
+      'biru',
+      'cash',
+      { reason: '客人取消', reasonCode: 'wrongItem' },
+      'staff',
+    );
+    await client.query(
+      `update refund set invoice_retry_at = now() - interval '1 minute'`,
+    );
+    getIssue.mockResolvedValue({
+      IIS_Invalid_Status: '0',
+      IIS_Remain_Allowance_Amt: '100',
+      IIS_Sales_Amount: '100',
+    });
+
+    await service.repairInterruptedRefunds();
+
+    expect(
+      (
+        await client.query(
+          `select status, voided_by, void_reason from invoice where id = 'inv'`,
+        )
+      ).rows,
+    ).toEqual([
+      { status: 'voided', voided_by: 'staff', void_reason: '客人取消' },
+    ]);
   });
 
   describe('舊訂單沒有每行折扣', () => {
