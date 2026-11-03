@@ -210,17 +210,17 @@ export class SalesReportService {
       discount: number;
       refunded: number;
     }>(sql`
-      WITH line AS (
+      WITH sold AS (
         SELECT
           ${orderItem.id} AS order_item_id,
           ${order.id} AS order_id,
           ${orderItem.orderQuantity} AS quantity,
-          0 AS refunded_quantity,
           ${orderItem.unitPrice} * ${orderItem.orderQuantity}
             / NULLIF(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}) OVER (PARTITION BY ${order.id}), 0) AS share,
-          ${order.total} AS revenue,
-          COALESCE(${order.discount}, 0) AS discount,
-          0 AS refunded
+          ${order.total} + COALESCE(${order.discount}, 0) AS gross,
+          COALESCE(${order.discount}, 0) AS order_discount,
+          CASE WHEN bool_and(${orderItem.discount} IS NOT NULL) OVER (PARTITION BY ${order.id})
+            THEN ${orderItem.discount} END AS line_discount
         FROM ${orderItem}
         JOIN ${order} ON ${order.id} = ${orderItem.orderId}
         WHERE ${and(
@@ -229,17 +229,30 @@ export class SalesReportService {
           gte(COUNTED_AT, utcTimestampParam(since)),
           lt(COUNTED_AT, utcTimestampParam(until)),
         )}
+      ),
+      line AS (
+        SELECT
+          order_item_id,
+          order_id,
+          quantity,
+          0 AS refunded_quantity,
+          share * gross - discount AS revenue,
+          discount,
+          0 AS refunded
+        FROM sold
+        CROSS JOIN LATERAL (
+          SELECT COALESCE(line_discount, share * order_discount) AS discount
+        ) AS allocated
         UNION ALL
         SELECT
           refunded_item.value ->> 'orderItemId',
           NULL,
           0,
           (refunded_item.value ->> 'quantity')::int,
-          (refunded_item.value ->> 'amount')::numeric
-            / NULLIF(SUM((refunded_item.value ->> 'amount')::numeric) OVER (PARTITION BY ${refund.id}), 0),
           0,
           0,
-          ${refund.amount}
+          ${refund.amount} * (refunded_item.value ->> 'amount')::numeric
+            / NULLIF(SUM((refunded_item.value ->> 'amount')::numeric) OVER (PARTITION BY ${refund.id}), 0)
         FROM ${refund}
         JOIN ${order} ON ${order.id} = ${refund.orderId}
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(${refund.items}, '[]'::jsonb)) AS refunded_item
@@ -256,9 +269,9 @@ export class SalesReportService {
         COUNT(DISTINCT line.order_id)::int AS orders,
         SUM(line.quantity)::int AS quantity,
         SUM(line.refunded_quantity)::int AS "refundedQuantity",
-        ROUND(COALESCE(SUM(line.share * part.share * line.revenue), 0), 2)::float8 AS revenue,
-        ROUND(COALESCE(SUM(line.share * part.share * line.discount), 0), 2)::float8 AS discount,
-        ROUND(COALESCE(SUM(line.share * part.share * line.refunded), 0), 2)::float8 AS refunded
+        ROUND(COALESCE(SUM(part.share * line.revenue), 0), 2)::float8 AS revenue,
+        ROUND(COALESCE(SUM(part.share * line.discount), 0), 2)::float8 AS discount,
+        ROUND(COALESCE(SUM(part.share * line.refunded), 0), 2)::float8 AS refunded
       FROM line
       JOIN ${orderItem} ON ${orderItem.id} = line.order_item_id
       CROSS JOIN LATERAL (

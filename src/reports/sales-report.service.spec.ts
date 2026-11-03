@@ -84,10 +84,11 @@ describe('SalesReportService', () => {
     orderQuantity: number,
     unitPrice: number,
     addOns: unknown[] = [],
+    discount: number | null = null,
   ) =>
     client.query(
-      `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons)
-       values ($1, $2, $3, $4, $5, $6, $7)`,
+      `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons, discount)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         id,
         orderId,
@@ -96,6 +97,7 @@ describe('SalesReportService', () => {
         orderQuantity,
         unitPrice,
         JSON.stringify(addOns),
+        discount,
       ],
     );
 
@@ -115,7 +117,8 @@ describe('SalesReportService', () => {
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('cents', 'Cents', 'cents', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('items', 'Items', 'items', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+         ('items', 'Items', 'items', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('lines', 'Lines', 'lines', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into menu (id, organization_id, name) values ('menu', 'items', '{"zh-TW":"菜單"}');
        insert into menu_section (id, menu_id, parent_section_id, name) values
          ('coffee', 'menu', null, '{"zh-TW":"咖啡"}'),
@@ -212,6 +215,46 @@ describe('SalesReportService', () => {
       'pending',
       [{ orderItemId: 'items-a-cake', quantity: 1, amount: '60' }],
     );
+
+    await addOrder('lines-a', {
+      discount: 30,
+      sellerId: 'lines',
+      subtotal: 300,
+    });
+    await addOrderItem(
+      'lines-a-latte',
+      'lines-a',
+      'latte',
+      '拿鐵',
+      2,
+      120,
+      [
+        {
+          menuItemId: 'oat',
+          menuItemName: '燕麥奶',
+          unitPrice: '15.00',
+          modifiers: [{ priceAdjustment: '5.00' }],
+        },
+      ],
+      0,
+    );
+    await addOrderItem(
+      'lines-a-cake',
+      'lines-a',
+      'cake',
+      '蛋糕',
+      1,
+      60,
+      [],
+      30,
+    );
+    await addOrder('lines-old', {
+      discount: 10,
+      sellerId: 'lines',
+      subtotal: 100,
+    });
+    await addOrderItem('lines-old-latte', 'lines-old', 'latte', '拿鐵', 1, 50);
+    await addOrderItem('lines-old-cake', 'lines-old', 'cake', '蛋糕', 1, 50);
   }, 60_000);
 
   afterAll(async () => {
@@ -413,6 +456,35 @@ describe('SalesReportService', () => {
       ['coffee', { 'zh-TW': '咖啡' }, 1, 2, 90],
       [UNCATEGORIZED_KEY, null, 2, 2, 104],
       ['extras', { 'zh-TW': '加料' }, 1, 2, 18],
+    ]);
+  });
+
+  it('每行都有記錄折扣的訂單依各行折扣歸屬，舊訂單仍依小計分攤', async () => {
+    const { rows, totals } = await service.getSalesReport('lines', {
+      ...range,
+      groupBy: 'menuItem',
+    });
+
+    expect(
+      rows.map(({ key, revenue, discount }) => [key, revenue, discount]),
+    ).toEqual([
+      ['latte', 245, 5],
+      ['cake', 75, 35],
+      ['oat', 40, 0],
+    ]);
+    expect(totals).toMatchObject({ revenue: 360, discount: 40 });
+
+    const { rows: categories } = await service.getSalesReport('lines', {
+      ...range,
+      groupBy: 'category',
+    });
+
+    expect(
+      categories.map(({ key, revenue, discount }) => [key, revenue, discount]),
+    ).toEqual([
+      ['coffee', 245, 5],
+      [UNCATEGORIZED_KEY, 75, 35],
+      ['extras', 40, 0],
     ]);
   });
 
