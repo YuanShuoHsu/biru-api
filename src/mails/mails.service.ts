@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
@@ -27,6 +27,11 @@ const redact = (text: string) =>
   text
     .replace(/https?:\/\/\S+/g, '[url]')
     .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
+
+const sendFailure = (template: string, to: string, error: unknown) =>
+  redact(
+    `Failed to send ${template} email to ${to}: ${error instanceof Error ? error.message : String(error)}`,
+  );
 
 @Injectable()
 export class MailsService {
@@ -55,11 +60,7 @@ export class MailsService {
     options: ISendMailOptions & { to: string; template: string },
   ): Promise<void> {
     await this.mailerService.sendMail(options).catch((error: unknown) => {
-      this.logger.error(
-        redact(
-          `Failed to send ${options.template} email to ${options.to}: ${error instanceof Error ? error.message : String(error)}`,
-        ),
-      );
+      this.logger.error(sendFailure(options.template, options.to, error));
     });
   }
 
@@ -72,35 +73,47 @@ export class MailsService {
     },
   ): Promise<boolean> {
     const member = await this.db.query.user.findFirst({
-      columns: { email: true, emailSubscribed: true, lang: true },
-      where: eq(user.id, userId),
+      columns: { email: true, lang: true },
+      where: and(
+        eq(user.id, userId),
+        eq(user.emailSubscribed, true),
+        or(
+          isNull(user.banned),
+          eq(user.banned, false),
+          lt(user.banExpires, new Date()),
+        ),
+      ),
     });
-    if (!member?.emailSubscribed) return false;
+    if (!member) return false;
 
     const lang = this.languageFor(member.lang);
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const options = build(lang);
     const translate = { lang };
 
-    await this.mailerService.sendMail({
-      ...options,
-      to: member.email,
-      context: {
-        ...options.context,
-        home_url: `${baseUrl}/${lang}`,
-        i18nLang: lang,
-        productName: PRODUCT_NAME,
-        unsubscribe_action: this.i18n.t(
-          'mail.email_subscription.unsubscribe_action',
-          translate,
-        ),
-        unsubscribe_hint: this.i18n.t(
-          'mail.email_subscription.unsubscribe_hint',
-          translate,
-        ),
-        unsubscribe_url: `${baseUrl}/${lang}/auth/settings`,
-      },
-    });
+    await this.mailerService
+      .sendMail({
+        ...options,
+        to: member.email,
+        context: {
+          ...options.context,
+          home_url: `${baseUrl}/${lang}`,
+          i18nLang: lang,
+          productName: PRODUCT_NAME,
+          unsubscribe_action: this.i18n.t(
+            'mail.email_subscription.unsubscribe_action',
+            translate,
+          ),
+          unsubscribe_hint: this.i18n.t(
+            'mail.email_subscription.unsubscribe_hint',
+            translate,
+          ),
+          unsubscribe_url: `${baseUrl}/${lang}/auth/settings/account`,
+        },
+      })
+      .catch((error: unknown) => {
+        throw new Error(sendFailure(options.template, member.email, error));
+      });
 
     return true;
   }
@@ -142,7 +155,7 @@ export class MailsService {
             'mail.points_expiry_reminder.trouble_hint',
             translate,
           ),
-          url: `${this.configService.get<string>('NEXT_URL')}/${lang}/auth/points`,
+          url: `${this.configService.get<string>('NEXT_URL')}/${lang}/auth/points/transactions`,
         },
       };
     });

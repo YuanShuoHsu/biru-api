@@ -86,6 +86,8 @@ const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
 
 const EXPIRING_SOON_DAYS = 30;
 
+const EXPIRY_REMINDER_FIRST_DAY = 24;
+
 const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
   const centsPerPoint = Math.round(Number(amountPerPoint) * 100);
   return centsPerPoint > 0
@@ -894,25 +896,42 @@ export class PointsService {
       .select({ id: organization.id })
       .from(organization);
     for (const { id } of organizations)
-      await this.syncEarned({ organizationId: id });
+      await this.syncEarned({ organizationId: id }).catch((error: unknown) =>
+        this.logger.error(error),
+      );
 
-    const reminderStart =
-      platformMidnight(Date.now()) + EXPIRING_SOON_DAYS * DAY_MS;
-    const reminderDay = platformDayNumber(reminderStart);
+    const today = platformMidnight(Date.now());
     const due = await this.db
-      .selectDistinct({ userId: pointTransaction.userId })
+      .select({
+        expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+          pointTransaction.expiresAt,
+        ),
+        userId: pointTransaction.userId,
+      })
       .from(pointTransaction)
       .where(
         and(
           gt(pointTransaction.remainingPoints, 0),
           isNull(pointTransaction.expiryRemindedAt),
-          gte(pointTransaction.expiresAt, new Date(reminderStart)),
-          lt(pointTransaction.expiresAt, new Date(reminderStart + DAY_MS)),
+          gte(
+            pointTransaction.expiresAt,
+            new Date(today + EXPIRY_REMINDER_FIRST_DAY * DAY_MS),
+          ),
+          lt(
+            pointTransaction.expiresAt,
+            new Date(today + (EXPIRING_SOON_DAYS + 1) * DAY_MS),
+          ),
         ),
       );
     if (!due.length) return 0;
 
-    const userIds = due.map(({ userId }) => userId);
+    const dueDays = new Set(
+      due.map(
+        ({ expiresAt, userId }) =>
+          `${userId}:${platformDayNumber(expiresAt.getTime())}`,
+      ),
+    );
+    const userIds = [...new Set(due.map(({ userId }) => userId))];
     const [lots, balances] = await Promise.all([
       this.expiringLots(userIds),
       this.db
@@ -925,40 +944,39 @@ export class PointsService {
     let notified = 0;
     for (const { userId, balance } of balances) {
       const userLots = lots.filter((lot) => lot.userId === userId);
-      const expiring = expiringByPlatformDay(userLots, balance).find(
-        ({ expiresAt }) =>
-          platformDayNumber(expiresAt.getTime()) === reminderDay,
-      );
-      if (!expiring) continue;
+      for (const { expiresAt, points } of expiringByPlatformDay(
+        userLots,
+        balance,
+      )) {
+        const day = platformDayNumber(expiresAt.getTime());
+        if (!dueDays.has(`${userId}:${day}`)) continue;
 
-      const lotIds = userLots
-        .filter(
-          ({ expiresAt }) =>
-            platformDayNumber(expiresAt.getTime()) === reminderDay,
-        )
-        .map(({ id }) => id);
-      try {
-        await this.db.transaction(async (tx) => {
-          const marked = await tx
-            .update(pointTransaction)
-            .set({ expiryRemindedAt: new Date() })
-            .where(
-              and(
-                inArray(pointTransaction.id, lotIds),
-                isNull(pointTransaction.expiryRemindedAt),
-              ),
-            )
-            .returning({ id: pointTransaction.id });
-          if (!marked.length) return;
-          const sent = await this.mails.sendPointsExpiryReminder({
-            userId,
-            expiresAt: expiring.expiresAt,
-            points: expiring.points,
+        const lotIds = userLots
+          .filter((lot) => platformDayNumber(lot.expiresAt.getTime()) === day)
+          .map(({ id }) => id);
+        try {
+          await this.db.transaction(async (tx) => {
+            const marked = await tx
+              .update(pointTransaction)
+              .set({ expiryRemindedAt: new Date() })
+              .where(
+                and(
+                  inArray(pointTransaction.id, lotIds),
+                  isNull(pointTransaction.expiryRemindedAt),
+                ),
+              )
+              .returning({ id: pointTransaction.id });
+            if (!marked.length) return;
+            const sent = await this.mails.sendPointsExpiryReminder({
+              userId,
+              expiresAt,
+              points,
+            });
+            if (sent) notified += 1;
           });
-          if (sent) notified += 1;
-        });
-      } catch (error) {
-        this.logger.error(error);
+        } catch (error) {
+          this.logger.error(error);
+        }
       }
     }
     return notified;

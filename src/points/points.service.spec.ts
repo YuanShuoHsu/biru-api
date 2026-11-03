@@ -244,22 +244,22 @@ describe('PointsService.notifyExpiringPoints', () => {
         .orderBy(pointTransaction.id)
     ).map(({ id }) => id);
 
-  it('只提醒第 30 個台灣日到期的點數，依當天加總、取當天最早到期時間', async () => {
+  it('提醒第 24～30 個台灣日到期的點數，一個到期日一封，依當天加總、取當天最早到期時間', async () => {
     await addTransactions([
-      { expiresAt: inPlatformDays(29, 23) },
+      { expiresAt: inPlatformDays(23, 23) },
+      { expiresAt: inPlatformDays(24, 0) },
       { expiresAt: inPlatformDays(30, 20), remainingPoints: 4 },
       { expiresAt: inPlatformDays(30, 1) },
       { expiresAt: inPlatformDays(31, 0) },
     ]);
 
-    await expect(service.notifyExpiringPoints()).resolves.toBe(1);
+    await expect(service.notifyExpiringPoints()).resolves.toBe(2);
 
-    expect(sendPointsExpiryReminder).toHaveBeenCalledExactlyOnceWith({
-      userId: USER,
-      expiresAt: inPlatformDays(30, 1),
-      points: 14,
-    });
-    expect(await remindedIds()).toEqual(['t1', 't2']);
+    expect(sendPointsExpiryReminder.mock.calls).toEqual([
+      [{ userId: USER, expiresAt: inPlatformDays(24, 0), points: 10 }],
+      [{ userId: USER, expiresAt: inPlatformDays(30, 1), points: 14 }],
+    ]);
+    expect(await remindedIds()).toEqual(['t1', 't2', 't3']);
   });
 
   it('已提醒過的點數再跑一次不再寄', async () => {
@@ -303,18 +303,28 @@ describe('PointsService.notifyExpiringPoints', () => {
     );
   });
 
-  it('寄送失敗時不標記，下次重跑會再寄', async () => {
+  it('寄送失敗時不標記，隔天重跑會補寄原本的到期日', async () => {
     const error = vi
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
     onTestFinished(() => error.mockRestore());
-    await addTransactions([{ expiresAt: inPlatformDays(30, 1) }]);
+    const expiresAt = inPlatformDays(30, 1);
+    await addTransactions([{ expiresAt }]);
     sendPointsExpiryReminder.mockRejectedValueOnce(new Error('smtp down'));
 
     await expect(service.notifyExpiringPoints()).resolves.toBe(0);
     expect(await remindedIds()).toEqual([]);
 
+    vi.useFakeTimers({ toFake: ['Date'] });
+    onTestFinished(() => vi.useRealTimers());
+    vi.setSystemTime(Date.now() + DAY_MS);
+
     await expect(service.notifyExpiringPoints()).resolves.toBe(1);
+    expect(sendPointsExpiryReminder).toHaveBeenLastCalledWith({
+      userId: USER,
+      expiresAt,
+      points: 10,
+    });
     expect(await remindedIds()).toEqual(['t0']);
   });
 });

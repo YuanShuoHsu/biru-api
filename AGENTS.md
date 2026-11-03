@@ -222,7 +222,7 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
-storefront profile settings. Only the points expiry reminder honours it; whether a mail type honours it is decided per type.
+storefront profile settings. Whether a mail type honours it is decided per type.
 A mail type that honours it must skip members with `emailSubscribed = false` and link to the profile
 settings page so the member can opt out (個資法 §20,
 [law.moj.gov.tw](https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=I0050021&flno=20)), and goes

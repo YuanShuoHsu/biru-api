@@ -269,13 +269,30 @@ describe('MailsService 語系', () => {
     const expiresAt = new Date('2026-12-03T15:59:00Z');
 
     beforeAll(async () => {
-      await db.insert(schema.user).values({
-        id: 'unsubscribed',
-        email: 'unsubscribed@example.com',
-        emailSubscribed: false,
-        firstName: 'Bob',
-        name: 'Bob',
-      });
+      await db.insert(schema.user).values([
+        {
+          id: 'unsubscribed',
+          email: 'unsubscribed@example.com',
+          emailSubscribed: false,
+          firstName: 'Bob',
+          name: 'Bob',
+        },
+        {
+          id: 'banned',
+          email: 'banned@example.com',
+          banned: true,
+          firstName: 'Cid',
+          name: 'Cid',
+        },
+        {
+          id: 'unbanned',
+          email: 'unbanned@example.com',
+          banned: true,
+          banExpires: new Date(Date.now() - 60_000),
+          firstName: 'Dee',
+          name: 'Dee',
+        },
+      ]);
     });
 
     it('用會員的 lang，附我的點數與取消訂閱的個人設定連結', async () => {
@@ -291,22 +308,24 @@ describe('MailsService 語系', () => {
         expect.objectContaining({ to: 'invitee@example.com' }),
       );
       expect(sent[0].subject).toBe('1,200 ポイントが 2026/12/03 に失効します');
-      expect(sent[0].html).toContain('http://localhost:3000/ja/auth/points');
       expect(sent[0].html).toContain(
-        'href="http://localhost:3000/ja/auth/settings"',
+        'href="http://localhost:3000/ja/auth/points/transactions"',
+      );
+      expect(sent[0].html).toContain(
+        'href="http://localhost:3000/ja/auth/settings/account"',
       );
     });
 
-    it('emailSubscribed 為 false 的會員不寄', async () => {
-      await expect(
-        service.sendPointsExpiryReminder({
-          userId: 'unsubscribed',
-          points: 10,
-          expiresAt,
-        }),
-      ).resolves.toBe(false);
+    it('emailSubscribed 為 false 或停權中的會員不寄，停權到期的照寄', async () => {
+      const remind = (userId: string) =>
+        service.sendPointsExpiryReminder({ userId, points: 10, expiresAt });
 
+      await expect(remind('unsubscribed')).resolves.toBe(false);
+      await expect(remind('banned')).resolves.toBe(false);
       expect(sent).toEqual([]);
+
+      await expect(remind('unbanned')).resolves.toBe(true);
+      expect(sent).toHaveLength(1);
     });
 
     it('寄送失敗時往外丟，讓呼叫端不標記已提醒', async () => {
@@ -318,7 +337,9 @@ describe('MailsService 語系', () => {
           points: 10,
           expiresAt,
         }),
-      ).rejects.toThrow('all recipients were rejected');
+      ).rejects.toThrow(
+        "Failed to send points-expiry-reminder email to i***@example.com: Can't send mail - all recipients were rejected: 550 <a***@example.com>",
+      );
     });
   });
 
