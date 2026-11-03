@@ -206,10 +206,6 @@
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
-  "email_subscription": {
-    "unsubscribe_hint": "Don't want these emails?",
-    "unsubscribe_action": "Unsubscribe in your profile settings"
-  },
   "smtp_test": {
     "subject": "{productName} SMTP test",
     "text": "If you receive this email, your SMTP configuration is correct!"

@@ -690,10 +690,6 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
-        "email_subscription": {
-            "unsubscribe_hint": string;
-            "unsubscribe_action": string;
-        };
         "smtp_test": {
             "subject": string;
             "text": string;

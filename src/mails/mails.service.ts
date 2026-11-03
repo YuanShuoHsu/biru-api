@@ -64,60 +64,6 @@ export class MailsService {
     });
   }
 
-  // https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=I0050021&flno=20
-  private async sendToSubscribedMember(
-    userId: string,
-    build: (lang: Language) => ISendMailOptions & {
-      context: Record<string, unknown>;
-      template: string;
-    },
-  ): Promise<boolean> {
-    const member = await this.db.query.user.findFirst({
-      columns: { email: true, lang: true },
-      where: and(
-        eq(user.id, userId),
-        eq(user.emailSubscribed, true),
-        or(
-          isNull(user.banned),
-          eq(user.banned, false),
-          lt(user.banExpires, new Date()),
-        ),
-      ),
-    });
-    if (!member) return false;
-
-    const lang = this.languageFor(member.lang);
-    const baseUrl = this.configService.get<string>('NEXT_URL');
-    const options = build(lang);
-    const translate = { lang };
-
-    await this.mailerService
-      .sendMail({
-        ...options,
-        to: member.email,
-        context: {
-          ...options.context,
-          home_url: `${baseUrl}/${lang}`,
-          i18nLang: lang,
-          productName: PRODUCT_NAME,
-          unsubscribe_action: this.i18n.t(
-            'mail.email_subscription.unsubscribe_action',
-            translate,
-          ),
-          unsubscribe_hint: this.i18n.t(
-            'mail.email_subscription.unsubscribe_hint',
-            translate,
-          ),
-          unsubscribe_url: `${baseUrl}/${lang}/auth/settings/account`,
-        },
-      })
-      .catch((error: unknown) => {
-        throw new Error(sendFailure(options.template, member.email, error));
-      });
-
-    return true;
-  }
-
   public async sendPointsExpiryReminder({
     userId,
     points,
@@ -127,38 +73,65 @@ export class MailsService {
     points: number;
     expiresAt: Date;
   }): Promise<boolean> {
-    return this.sendToSubscribedMember(userId, (lang) => {
-      const translate = {
-        args: {
-          date: new Intl.DateTimeFormat(lang, {
-            dateStyle: 'medium',
-            timeZone: PLATFORM_TIMEZONE,
-          }).format(expiresAt),
-          points: new Intl.NumberFormat(lang).format(points),
-          productName: PRODUCT_NAME,
-        },
-        lang,
-      };
+    const member = await this.db.query.user.findFirst({
+      columns: { email: true, lang: true },
+      where: and(
+        eq(user.id, userId),
+        or(
+          isNull(user.banned),
+          eq(user.banned, false),
+          lt(user.banExpires, new Date()),
+        ),
+      ),
+    });
+    if (!member) return false;
 
-      return {
+    const productName = PRODUCT_NAME;
+    const template = 'points-expiry-reminder';
+    const lang = this.languageFor(member.lang);
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const url = `${baseUrl}/${lang}/auth/points/transactions`;
+    const options = { lang };
+    const translate = {
+      args: {
+        date: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          timeZone: PLATFORM_TIMEZONE,
+        }).format(expiresAt),
+        points: new Intl.NumberFormat(lang).format(points),
+        productName,
+      },
+      lang,
+    };
+
+    await this.mailerService
+      .sendMail({
+        to: member.email,
         subject: this.i18n.t('mail.points_expiry_reminder.subject', translate),
-        template: 'points-expiry-reminder',
+        template,
         context: {
-          action: this.i18n.t('mail.points_expiry_reminder.action', translate),
+          action: this.i18n.t('mail.points_expiry_reminder.action', options),
+          home_url: `${baseUrl}/${lang}`,
+          i18nLang: lang,
           intro: this.i18n.t('mail.points_expiry_reminder.intro', translate),
+          productName,
           salutation: this.i18n.t(
             'mail.points_expiry_reminder.salutation',
             translate,
           ),
-          title: this.i18n.t('mail.points_expiry_reminder.title', translate),
+          title: this.i18n.t('mail.points_expiry_reminder.title', options),
           trouble_hint: this.i18n.t(
             'mail.points_expiry_reminder.trouble_hint',
-            translate,
+            options,
           ),
-          url: `${this.configService.get<string>('NEXT_URL')}/${lang}/auth/points/transactions`,
+          url,
         },
-      };
-    });
+      })
+      .catch((error: unknown) => {
+        throw new Error(sendFailure(template, member.email, error));
+      });
+
+    return true;
   }
 
   public async afterEmailVerification(

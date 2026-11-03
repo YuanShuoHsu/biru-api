@@ -295,7 +295,7 @@ describe('MailsService 語系', () => {
       ]);
     });
 
-    it('用會員的 lang，附我的點數與取消訂閱的個人設定連結', async () => {
+    it('用會員的 lang，附我的點數連結，不附取消訂閱', async () => {
       await expect(
         service.sendPointsExpiryReminder({
           userId: 'invitee',
@@ -311,21 +311,19 @@ describe('MailsService 語系', () => {
       expect(sent[0].html).toContain(
         'href="http://localhost:3000/ja/auth/points/transactions"',
       );
-      expect(sent[0].html).toContain(
-        'href="http://localhost:3000/ja/auth/settings/account"',
-      );
+      expect(sent[0].html).not.toContain('auth/settings');
     });
 
-    it('emailSubscribed 為 false 或停權中的會員不寄，停權到期的照寄', async () => {
+    it('停權中的會員不寄；停權到期或 emailSubscribed 為 false 的照寄', async () => {
       const remind = (userId: string) =>
         service.sendPointsExpiryReminder({ userId, points: 10, expiresAt });
 
-      await expect(remind('unsubscribed')).resolves.toBe(false);
       await expect(remind('banned')).resolves.toBe(false);
       expect(sent).toEqual([]);
 
       await expect(remind('unbanned')).resolves.toBe(true);
-      expect(sent).toHaveLength(1);
+      await expect(remind('unsubscribed')).resolves.toBe(true);
+      expect(sent).toHaveLength(2);
     });
 
     it('寄送失敗時往外丟，讓呼叫端不標記已提醒', async () => {
