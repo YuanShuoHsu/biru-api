@@ -192,16 +192,19 @@ restricted record is left, and the cascaded rows are captured in `deleted_record
 
 ### Weekly Hours
 
-`attendanceEmployee.weeklyMinutesHistory` is the effective-dated record of the employee's contracted
-hours; the `weekly_minutes` column is only a copy taken at the last save, so it goes stale once a
-future-dated change takes effect. Never read or prorate from that column —
-resolve the hours for the date that governs the entitlement with `weeklyMinutesAt` /`weeklyMinutesOf`
-(`src/attendance/employee-hours.ts`). 特別休假 and the yearly 事假 / 家庭照顧假 / 病假 quotas are granted
-at the period start (勞基法 §38: the right vests when the period is reached), so `annualLeavePeriod` and
-`statutoryLeavePeriod` resolve the hours at `period.start` and a later change cannot shrink leave already
-granted. Medical-leave day conversion resolves per day, event leave at the case start, the part-time
-ladder at the payroll month. Changing the hours needs `weeklyMinutesFrom`, which cannot precede `hiredAt`
-and locks like any other payroll-affecting change.
+An employee's weekly hours are not stored (`0144` dropped `weekly_minutes` and `weekly_minutes_history`); they
+are derived from the schedule. `weeklyMinutesAt` (`src/attendance/employee-hours.ts`) averages the employee's
+non-cancelled `workday` shifts over the 12 months before the date — from `hiredAt` or the first such shift if
+later — counting each shift's `scheduledWorkSeconds` capped at 480 minutes, and falls back to
+`FULL_TIME_WEEKLY_MINUTES` (2400) when there is no such shift. `averageWeeklyMinutesSql` / `employmentTypeSql`
+are the SQL form for lists and average up to `now()`. Under 2400 is part-time.
+Resolve the hours for the date that governs the entitlement with `weeklyMinutesAt` / `weeklyMinutesOf`.
+特別休假 and the yearly 事假 / 家庭照顧假 / 病假 quotas are granted at the period start (勞基法 §38: the right
+vests when the period is reached), so `annualLeavePeriod` and `statutoryLeavePeriod` resolve the hours at
+`period.start` and shifts scheduled later cannot shrink leave already granted. Medical-leave day conversion
+resolves per day, event leave at the case start, the part-time ladder at the payroll month. Because the hours
+follow the shifts, creating or cancelling a shift is the payroll-affecting change that locks
+(see Published Payslips).
 
 ### Scheduled Breaks
 
