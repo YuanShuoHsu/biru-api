@@ -62,13 +62,19 @@ const createService = (
     },
   };
 
+  return new OrderPricingService(db as unknown as DrizzleDB);
+};
+
+beforeEach(() => {
   vi.spyOn(I18nContext, 'current').mockReturnValue({
     t: (key: string, options?: { args?: { name?: string } }) =>
       options?.args?.name ? `${key}:${options.args.name}` : key,
   } as unknown as I18nContext);
+});
 
-  return new OrderPricingService(db as unknown as DrizzleDB);
-};
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('OrderPricingService.resolveOrderItems', () => {
   it('購物車裡的品項已被店家刪除時提示菜單已更新', async () => {

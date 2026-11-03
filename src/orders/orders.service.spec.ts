@@ -177,10 +177,6 @@ const createService = ({
     estimatePoints: vi.fn().mockResolvedValue(155),
     expectedPoints: vi.fn().mockResolvedValue(new Map([['receipt', 12]])),
   };
-  vi.spyOn(I18nContext, 'current').mockReturnValue({
-    t: (key: string, options?: { args?: { name?: string } }) =>
-      options?.args?.name ? `${key}:${options.args.name}` : key,
-  } as unknown as I18nContext);
 
   return {
     couponsService,
@@ -211,6 +207,17 @@ const createService = ({
     tx,
   };
 };
+
+beforeEach(() => {
+  vi.spyOn(I18nContext, 'current').mockReturnValue({
+    t: (key: string, options?: { args?: { name?: string } }) =>
+      options?.args?.name ? `${key}:${options.args.name}` : key,
+  } as unknown as I18nContext);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('OrdersService.createOrder', () => {
   beforeAll(() => {
@@ -708,6 +715,7 @@ describe('OrdersService.createOrder', () => {
       await expect(
         service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
       ).rejects.toMatchObject({
+        status: 400,
         response: {
           code: 'menuItemInsufficientStock',
           message: 'common.orders.menuItemInsufficientStock:蛋糕',

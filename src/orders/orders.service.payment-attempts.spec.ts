@@ -6,7 +6,6 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
-import { badRequestError, conflictError } from './order-errors.js';
 import {
   MAX_PAYMENT_ATTEMPTS_PER_ORDER,
   OrdersService,
@@ -60,9 +59,12 @@ describe('OrdersService.createPaymentAttempt', () => {
     for (let i = 0; i < MAX_PAYMENT_ATTEMPTS_PER_ORDER; i++)
       await service.createPaymentAttempt('o1', null);
 
-    await expect(service.createPaymentAttempt('o1', null)).rejects.toThrow(
-      conflictError('paymentAttemptsExhausted'),
-    );
+    await expect(
+      service.createPaymentAttempt('o1', null),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: { code: 'paymentAttemptsExhausted' },
+    });
     expect(await attemptCount('o1')).toBe(MAX_PAYMENT_ATTEMPTS_PER_ORDER);
 
     await expect(
@@ -83,9 +85,12 @@ describe('OrdersService.createPaymentAttempt', () => {
         return found;
       });
 
-    await expect(service.createPaymentAttempt('o3', null)).rejects.toThrow(
-      badRequestError('notAwaitingPayment'),
-    );
+    await expect(
+      service.createPaymentAttempt('o3', null),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'notAwaitingPayment' },
+    });
     expect(await attemptCount('o3')).toBe(0);
     spy.mockRestore();
   });

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
@@ -21,6 +21,20 @@ describe('deletedRecordErrorCodes', () => {
 
     for (const code of deletedRecordErrorCodes)
       expect(messages[code], code).toEqual(expect.stringMatching(/\S/));
+  });
+});
+
+describe('翻譯過的錯誤都帶代碼', () => {
+  it('src/deleted-records 不再直接以翻譯訊息建立例外', () => {
+    const offenders = readdirSync('src/deleted-records')
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
+      .filter((file) =>
+        /Exception\(\s*this\.(i18n\.)?t\(/.test(
+          readFileSync(`src/deleted-records/${file}`, 'utf8'),
+        ),
+      );
+
+    expect(offenders).toEqual([]);
   });
 });
 

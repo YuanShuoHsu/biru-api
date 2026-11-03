@@ -41,20 +41,17 @@ describe('orderErrorCodes', () => {
 });
 
 describe('翻譯過的錯誤都帶代碼', () => {
-  it.each(['src/orders', 'src/deleted-records'])(
-    '%s 不再直接以翻譯訊息建立例外',
-    (dir) => {
-      const offenders = readdirSync(dir)
-        .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
-        .filter((file) =>
-          /Exception\(\s*this\.t\(/.test(
-            readFileSync(`${dir}/${file}`, 'utf8'),
-          ),
-        );
+  it('src/orders 不再直接以翻譯訊息建立例外', () => {
+    const offenders = readdirSync('src/orders')
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
+      .filter((file) =>
+        /Exception\(\s*this\.(i18n\.)?t\(/.test(
+          readFileSync(`src/orders/${file}`, 'utf8'),
+        ),
+      );
 
-      expect(offenders).toEqual([]);
-    },
-  );
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('order error helpers', () => {
