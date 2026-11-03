@@ -25,8 +25,8 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import {
   ingredient,
   supplier,

@@ -310,5 +310,8 @@ describe('IngredientsService remove', () => {
     await expect(
       service.removeMany(ORG, ['sugar', 'milk']),
     ).rejects.toMatchObject(inUse);
+    expect(
+      (await client.query('select id from ingredient order by id')).rows,
+    ).toEqual([{ id: 'milk' }, { id: 'sugar' }]);
   });
 });
