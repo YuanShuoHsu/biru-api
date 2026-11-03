@@ -118,7 +118,8 @@ describe('SalesReportService', () => {
          ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('cents', 'Cents', 'cents', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
          ('items', 'Items', 'items', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('lines', 'Lines', 'lines', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+         ('lines', 'Lines', 'lines', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('refunds', 'Refunds', 'refunds', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into menu (id, organization_id, name) values ('menu', 'items', '{"zh-TW":"菜單"}');
        insert into menu_section (id, menu_id, parent_section_id, name) values
          ('coffee', 'menu', null, '{"zh-TW":"咖啡"}'),
@@ -216,38 +217,28 @@ describe('SalesReportService', () => {
       [{ orderItemId: 'items-a-cake', quantity: 1, amount: '60' }],
     );
 
-    await addOrder('lines-a', {
-      discount: 30,
-      sellerId: 'lines',
-      subtotal: 300,
-    });
-    await addOrderItem(
-      'lines-a-latte',
-      'lines-a',
-      'latte',
-      '拿鐵',
-      2,
-      120,
-      [
-        {
-          menuItemId: 'oat',
-          menuItemName: '燕麥奶',
-          unitPrice: '15.00',
-          modifiers: [{ priceAdjustment: '5.00' }],
-        },
-      ],
-      0,
-    );
-    await addOrderItem(
-      'lines-a-cake',
-      'lines-a',
-      'cake',
-      '蛋糕',
-      1,
-      60,
-      [],
-      30,
-    );
+    const addLineDiscountOrder = async (id: string, sellerId: string) => {
+      await addOrder(id, { discount: 30, sellerId, subtotal: 300 });
+      await addOrderItem(
+        `${id}-latte`,
+        id,
+        'latte',
+        '拿鐵',
+        2,
+        120,
+        [
+          {
+            menuItemId: 'oat',
+            menuItemName: '燕麥奶',
+            unitPrice: '15.00',
+            modifiers: [{ priceAdjustment: '5.00' }],
+          },
+        ],
+        0,
+      );
+      await addOrderItem(`${id}-cake`, id, 'cake', '蛋糕', 1, 60, [], 30);
+    };
+    await addLineDiscountOrder('lines-a', 'lines');
     await addOrder('lines-old', {
       discount: 10,
       sellerId: 'lines',
@@ -255,6 +246,51 @@ describe('SalesReportService', () => {
     });
     await addOrderItem('lines-old-latte', 'lines-old', 'latte', '拿鐵', 1, 50);
     await addOrderItem('lines-old-cake', 'lines-old', 'cake', '蛋糕', 1, 50);
+    await addOrder('lines-mixed', {
+      discount: 10,
+      sellerId: 'lines',
+      subtotal: 100,
+    });
+    await addOrderItem(
+      'lines-mixed-latte',
+      'lines-mixed',
+      'latte',
+      '拿鐵',
+      1,
+      50,
+      [],
+      3,
+    );
+    await addOrderItem(
+      'lines-mixed-cake',
+      'lines-mixed',
+      'cake',
+      '蛋糕',
+      1,
+      50,
+    );
+
+    await addLineDiscountOrder('refunds-full', 'refunds');
+    await addRefund(
+      'refunds-full-refund',
+      'refunds-full',
+      270,
+      '2026-10-02T03:00:00Z',
+      'refunded',
+      [
+        { orderItemId: 'refunds-full-latte', quantity: 2, amount: '240' },
+        { orderItemId: 'refunds-full-cake', quantity: 1, amount: '60' },
+      ],
+    );
+    await addLineDiscountOrder('refunds-cake', 'refunds');
+    await addRefund(
+      'refunds-cake-refund',
+      'refunds-cake',
+      30,
+      '2026-10-02T03:00:00Z',
+      'refunded',
+      [{ orderItemId: 'refunds-cake-cake', quantity: 1, amount: '60' }],
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -459,7 +495,7 @@ describe('SalesReportService', () => {
     ]);
   });
 
-  it('每行都有記錄折扣的訂單依各行折扣歸屬，舊訂單仍依小計分攤', async () => {
+  it('每行都有記錄折扣的訂單依各行折扣歸屬，有任一行沒記錄的訂單仍依小計分攤', async () => {
     const { rows, totals } = await service.getSalesReport('lines', {
       ...range,
       groupBy: 'menuItem',
@@ -468,11 +504,11 @@ describe('SalesReportService', () => {
     expect(
       rows.map(({ key, revenue, discount }) => [key, revenue, discount]),
     ).toEqual([
-      ['latte', 245, 5],
-      ['cake', 75, 35],
+      ['latte', 290, 10],
+      ['cake', 120, 40],
       ['oat', 40, 0],
     ]);
-    expect(totals).toMatchObject({ revenue: 360, discount: 40 });
+    expect(totals).toMatchObject({ revenue: 450, discount: 50 });
 
     const { rows: categories } = await service.getSalesReport('lines', {
       ...range,
@@ -482,10 +518,38 @@ describe('SalesReportService', () => {
     expect(
       categories.map(({ key, revenue, discount }) => [key, revenue, discount]),
     ).toEqual([
-      ['coffee', 245, 5],
-      [UNCATEGORIZED_KEY, 75, 35],
+      ['coffee', 290, 10],
+      [UNCATEGORIZED_KEY, 120, 40],
       ['extras', 40, 0],
     ]);
+  });
+
+  it('每行都有記錄折扣的訂單，退款依各行扣掉自身折扣後的金額分攤', async () => {
+    const { rows, totals } = await service.getSalesReport('refunds', {
+      ...range,
+      groupBy: 'menuItem',
+    });
+
+    expect(
+      rows.map(({ key, revenue, discount, refunded, net }) => [
+        key,
+        revenue,
+        discount,
+        refunded,
+        net,
+      ]),
+    ).toEqual([
+      ['latte', 400, 0, 200, 200],
+      ['oat', 80, 0, 40, 40],
+      ['cake', 60, 60, 60, 0],
+    ]);
+    expect(totals).toEqual({
+      orders: 2,
+      revenue: 540,
+      discount: 60,
+      refunded: 300,
+      net: 240,
+    });
   });
 
   it('結束時間不晚於起始時間時拒絕', async () => {
