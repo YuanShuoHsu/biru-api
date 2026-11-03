@@ -43,7 +43,10 @@ import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import { DAY_MS } from '../common/constants/timezone.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
-import { findSpecialHours } from '../common/utils/organizations.js';
+import {
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import {
   getStatsWindow,
   utcTimestampParam,
@@ -255,7 +258,7 @@ export class OrganizationsService {
       .set({ closedAt: closed ? new Date() : null })
       .where(eq(organization.id, organizationId))
       .returning();
-    if (!updated) throw new NotFoundException('Organization not found');
+    if (!updated) throw organizationNotFoundError();
 
     return updated;
   }

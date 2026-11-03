@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { type SQL, and, eq, gte, lt, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -19,6 +19,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
 import type { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
@@ -42,7 +43,7 @@ export class InventoryReportService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const inPeriod = and(
       gte(inventoryTransaction.createdAt, utcTimestampParam(since)),
