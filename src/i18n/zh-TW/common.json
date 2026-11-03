@@ -176,6 +176,7 @@
     "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字"
   },
   "inventory": {
+    "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "recipeIngredientExists": "這項材料已經加入過了",

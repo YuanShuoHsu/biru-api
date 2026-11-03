@@ -26,6 +26,7 @@ import {
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import {
   ingredient,
   supplier,
@@ -46,7 +47,11 @@ import {
   IngredientPaginationQueryDto,
 } from './dto/ingredient-pagination-query.dto.js';
 import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
-import { badRequestError, notFoundError } from './inventory-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './inventory-errors.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing.js';
 
@@ -358,10 +363,12 @@ export class IngredientsService {
   }
 
   async remove(ingredientId: string): Promise<void> {
-    const deleted = await this.db
-      .delete(ingredient)
-      .where(eq(ingredient.id, ingredientId))
-      .returning({ id: ingredient.id });
+    const deleted = await this.guardInUse(() =>
+      this.db
+        .delete(ingredient)
+        .where(eq(ingredient.id, ingredientId))
+        .returning({ id: ingredient.id }),
+    );
     if (!deleted.length) throw notFoundError('ingredientNotFound');
   }
 
@@ -369,18 +376,29 @@ export class IngredientsService {
     await this.db.transaction(async (tx) => {
       for (const id of ids) {
         await startDeletedRecordBatch(tx);
-        const deleted = await tx
-          .delete(ingredient)
-          .where(
-            and(
-              eq(ingredient.organizationId, organizationId),
-              eq(ingredient.id, id),
-            ),
-          )
-          .returning({ id: ingredient.id });
+        const deleted = await this.guardInUse(() =>
+          tx
+            .delete(ingredient)
+            .where(
+              and(
+                eq(ingredient.organizationId, organizationId),
+                eq(ingredient.id, id),
+              ),
+            )
+            .returning({ id: ingredient.id }),
+        );
         if (!deleted.length) throw notFoundError('ingredientNotFound');
       }
     });
+  }
+
+  private async guardInUse<T>(write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (isForeignKeyViolation(error)) throw conflictError('ingredientInUse');
+      throw error;
+    }
   }
 
   private async assertSupplierInOrganization(

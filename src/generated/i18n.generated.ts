@@ -229,6 +229,7 @@ export type I18nTranslations = {
             "invalidBusinessNo": string;
         };
         "inventory": {
+            "ingredientInUse": string;
             "ingredientNotFound": string;
             "packageUnitIncompatible": string;
             "recipeIngredientExists": string;

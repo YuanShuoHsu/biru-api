@@ -176,6 +176,7 @@
     "invalidBusinessNo": "统一编号格式错误，需为 8 位数字"
   },
   "inventory": {
+    "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",
     "ingredientNotFound": "找不到这项食材，可能已被删除",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
     "recipeIngredientExists": "这项材料已经加入过了",
