@@ -198,6 +198,18 @@
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "points_expiry_reminder": {
+    "subject": "{points} 点将于 {date} 到期",
+    "title": "积分即将到期",
+    "intro": "您有 {points} 点将于 {date} 到期，到期后将无法使用，请在到期前兑换。",
+    "action": "查看我的积分",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "email_subscription": {
+    "unsubscribe_hint": "不想再收到这类通知吗？",
+    "unsubscribe_action": "前往个人设置取消订阅"
+  },
   "smtp_test": {
     "subject": "{productName} SMTP 测试",
     "text": "如果您收到这封邮件，说明 SMTP 设置正确。"

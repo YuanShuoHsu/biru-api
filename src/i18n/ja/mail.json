@@ -198,6 +198,18 @@
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   },
+  "points_expiry_reminder": {
+    "subject": "{points} ポイントが {date} に失効します",
+    "title": "ポイントの有効期限が近づいています",
+    "intro": "{points} ポイントが {date} に失効し、それ以降はご利用いただけません。有効期限までに交換してください。",
+    "action": "マイポイントを見る",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "email_subscription": {
+    "unsubscribe_hint": "このようなお知らせが不要な場合は、",
+    "unsubscribe_action": "プロフィール設定から配信を停止できます"
+  },
   "smtp_test": {
     "subject": "{productName} SMTP テスト",
     "text": "このメールが届いていれば、SMTP の設定は正しく行われています。"

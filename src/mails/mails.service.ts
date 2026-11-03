@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
@@ -60,6 +60,91 @@ export class MailsService {
           `Failed to send ${options.template} email to ${options.to}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
+    });
+  }
+
+  // https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=I0050021&flno=20
+  private async sendToSubscribedMember(
+    userId: string,
+    build: (lang: Language) => ISendMailOptions & {
+      context: Record<string, unknown>;
+      template: string;
+    },
+  ): Promise<boolean> {
+    const member = await this.db.query.user.findFirst({
+      columns: { email: true, emailSubscribed: true, lang: true },
+      where: eq(user.id, userId),
+    });
+    if (!member?.emailSubscribed) return false;
+
+    const lang = this.languageFor(member.lang);
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const options = build(lang);
+    const translate = { lang };
+
+    await this.mailerService.sendMail({
+      ...options,
+      to: member.email,
+      context: {
+        ...options.context,
+        home_url: `${baseUrl}/${lang}`,
+        i18nLang: lang,
+        productName: PRODUCT_NAME,
+        unsubscribe_action: this.i18n.t(
+          'mail.email_subscription.unsubscribe_action',
+          translate,
+        ),
+        unsubscribe_hint: this.i18n.t(
+          'mail.email_subscription.unsubscribe_hint',
+          translate,
+        ),
+        unsubscribe_url: `${baseUrl}/${lang}/auth/settings`,
+      },
+    });
+
+    return true;
+  }
+
+  public async sendPointsExpiryReminder({
+    userId,
+    points,
+    expiresAt,
+  }: {
+    userId: string;
+    points: number;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    return this.sendToSubscribedMember(userId, (lang) => {
+      const translate = {
+        args: {
+          date: new Intl.DateTimeFormat(lang, {
+            dateStyle: 'medium',
+            timeZone: PLATFORM_TIMEZONE,
+          }).format(expiresAt),
+          points: new Intl.NumberFormat(lang).format(points),
+          productName: PRODUCT_NAME,
+        },
+        lang,
+      };
+
+      return {
+        subject: this.i18n.t('mail.points_expiry_reminder.subject', translate),
+        template: 'points-expiry-reminder',
+        context: {
+          action: this.i18n.t('mail.points_expiry_reminder.action', translate),
+          intro: this.i18n.t('mail.points_expiry_reminder.intro', translate),
+          salutation: this.i18n.t(
+            'mail.points_expiry_reminder.salutation',
+            translate,
+          ),
+          title: this.i18n.t('mail.points_expiry_reminder.title', translate),
+          trouble_hint: this.i18n.t(
+            'mail.points_expiry_reminder.trouble_hint',
+            translate,
+          ),
+          url: `${this.configService.get<string>('NEXT_URL')}/${lang}/auth/points`,
+        },
+      };
     });
   }
 

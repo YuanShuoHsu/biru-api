@@ -25,13 +25,14 @@ import { MailsService } from './mails.service.js';
 
 describe('MailsService 語系', () => {
   let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: MailsService;
   let sent: { subject: string; html: string }[];
   let sendMail: MailerService['sendMail'];
 
   beforeAll(async () => {
     client = createPGlite();
-    const db = drizzle(client, { schema });
+    db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
 
     @Global()
@@ -262,6 +263,63 @@ describe('MailsService 語系', () => {
 
     expect(error).toBeInstanceOf(BadGatewayException);
     expect((error as BadGatewayException).getStatus()).toBe(502);
+  });
+
+  describe('sendPointsExpiryReminder', () => {
+    const expiresAt = new Date('2026-12-03T15:59:00Z');
+
+    beforeAll(async () => {
+      await db.insert(schema.user).values({
+        id: 'unsubscribed',
+        email: 'unsubscribed@example.com',
+        emailSubscribed: false,
+        firstName: 'Bob',
+        name: 'Bob',
+      });
+    });
+
+    it('用會員的 lang，附我的點數與取消訂閱的個人設定連結', async () => {
+      await expect(
+        service.sendPointsExpiryReminder({
+          userId: 'invitee',
+          points: 1200,
+          expiresAt,
+        }),
+      ).resolves.toBe(true);
+
+      expect(sendMail).toHaveBeenLastCalledWith(
+        expect.objectContaining({ to: 'invitee@example.com' }),
+      );
+      expect(sent[0].subject).toBe('1,200 ポイントが 2026/12/03 に失効します');
+      expect(sent[0].html).toContain('http://localhost:3000/ja/auth/points');
+      expect(sent[0].html).toContain(
+        'href="http://localhost:3000/ja/auth/settings"',
+      );
+    });
+
+    it('emailSubscribed 為 false 的會員不寄', async () => {
+      await expect(
+        service.sendPointsExpiryReminder({
+          userId: 'unsubscribed',
+          points: 10,
+          expiresAt,
+        }),
+      ).resolves.toBe(false);
+
+      expect(sent).toEqual([]);
+    });
+
+    it('寄送失敗時往外丟，讓呼叫端不標記已提醒', async () => {
+      vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
+
+      await expect(
+        service.sendPointsExpiryReminder({
+          userId: 'invitee',
+          points: 10,
+          expiresAt,
+        }),
+      ).rejects.toThrow('all recipients were rejected');
+    });
   });
 
   it('測試信用請求者的 lang', async () => {

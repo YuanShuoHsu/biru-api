@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -15,6 +16,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   ilike,
   inArray,
   isNotNull,
@@ -45,6 +47,7 @@ import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { MailsService } from '../mails/mails.service.js';
 
 import {
   DAY_MS,
@@ -186,9 +189,12 @@ const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
 
 @Injectable()
 export class PointsService {
+  private readonly logger = new Logger(PointsService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly i18n: I18nService<I18nTranslations>,
+    private readonly mails: MailsService,
   ) {}
 
   private t(
@@ -527,6 +533,39 @@ export class PointsService {
     );
   }
 
+  private balance() {
+    return sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
+      Number,
+    );
+  }
+
+  private expiringLots(userIds: string[]) {
+    return this.db
+      .select({
+        id: pointTransaction.id,
+        expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+          pointTransaction.expiresAt,
+        ),
+        remainingPoints: pointTransaction.remainingPoints,
+        userId: pointTransaction.userId,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          inArray(pointTransaction.userId, userIds),
+          ne(pointTransaction.remainingPoints, 0),
+          this.notExpired(),
+          lt(
+            pointTransaction.expiresAt,
+            new Date(
+              platformMidnight(Date.now()) + (EXPIRING_SOON_DAYS + 1) * DAY_MS,
+            ),
+          ),
+        ),
+      )
+      .orderBy(asc(pointTransaction.expiresAt));
+  }
+
   async findAllForOrganization(
     organizationSlug: string,
     query: OrganizationPointTransactionQueryDto = {},
@@ -785,37 +824,12 @@ export class PointsService {
           .offset(offset),
         this.db
           .select({
-            balance:
-              sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
-                Number,
-              ),
+            balance: this.balance(),
             transactionsTotal: count(),
           })
           .from(pointTransaction)
           .where(eq(pointTransaction.userId, userId)),
-        this.db
-          .select({
-            expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
-              pointTransaction.expiresAt,
-            ),
-            remainingPoints: pointTransaction.remainingPoints,
-          })
-          .from(pointTransaction)
-          .where(
-            and(
-              eq(pointTransaction.userId, userId),
-              ne(pointTransaction.remainingPoints, 0),
-              this.notExpired(),
-              lt(
-                pointTransaction.expiresAt,
-                new Date(
-                  platformMidnight(Date.now()) +
-                    (EXPIRING_SOON_DAYS + 1) * DAY_MS,
-                ),
-              ),
-            ),
-          )
-          .orderBy(asc(pointTransaction.expiresAt)),
+        this.expiringLots([userId]),
       ]);
 
     const redeemables = await this.db.query.coupon.findMany({
@@ -873,6 +887,81 @@ export class PointsService {
       ),
       transactionsTotal,
     };
+  }
+
+  async notifyExpiringPoints(): Promise<number> {
+    const organizations = await this.db
+      .select({ id: organization.id })
+      .from(organization);
+    for (const { id } of organizations)
+      await this.syncEarned({ organizationId: id });
+
+    const reminderStart =
+      platformMidnight(Date.now()) + EXPIRING_SOON_DAYS * DAY_MS;
+    const reminderDay = platformDayNumber(reminderStart);
+    const due = await this.db
+      .selectDistinct({ userId: pointTransaction.userId })
+      .from(pointTransaction)
+      .where(
+        and(
+          gt(pointTransaction.remainingPoints, 0),
+          isNull(pointTransaction.expiryRemindedAt),
+          gte(pointTransaction.expiresAt, new Date(reminderStart)),
+          lt(pointTransaction.expiresAt, new Date(reminderStart + DAY_MS)),
+        ),
+      );
+    if (!due.length) return 0;
+
+    const userIds = due.map(({ userId }) => userId);
+    const [lots, balances] = await Promise.all([
+      this.expiringLots(userIds),
+      this.db
+        .select({ userId: pointTransaction.userId, balance: this.balance() })
+        .from(pointTransaction)
+        .where(inArray(pointTransaction.userId, userIds))
+        .groupBy(pointTransaction.userId),
+    ]);
+
+    let notified = 0;
+    for (const { userId, balance } of balances) {
+      const userLots = lots.filter((lot) => lot.userId === userId);
+      const expiring = expiringByPlatformDay(userLots, balance).find(
+        ({ expiresAt }) =>
+          platformDayNumber(expiresAt.getTime()) === reminderDay,
+      );
+      if (!expiring) continue;
+
+      const lotIds = userLots
+        .filter(
+          ({ expiresAt }) =>
+            platformDayNumber(expiresAt.getTime()) === reminderDay,
+        )
+        .map(({ id }) => id);
+      try {
+        await this.db.transaction(async (tx) => {
+          const marked = await tx
+            .update(pointTransaction)
+            .set({ expiryRemindedAt: new Date() })
+            .where(
+              and(
+                inArray(pointTransaction.id, lotIds),
+                isNull(pointTransaction.expiryRemindedAt),
+              ),
+            )
+            .returning({ id: pointTransaction.id });
+          if (!marked.length) return;
+          const sent = await this.mails.sendPointsExpiryReminder({
+            userId,
+            expiresAt: expiring.expiresAt,
+            points: expiring.points,
+          });
+          if (sent) notified += 1;
+        });
+      } catch (error) {
+        this.logger.error(error);
+      }
+    }
+    return notified;
   }
 
   async redeem(
