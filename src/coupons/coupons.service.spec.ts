@@ -360,9 +360,36 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     expect(plan).toMatchObject({ allocatedDiscount: 0, amount: 90 });
   });
 
-  it('下單後改過適用品項就不推算', async () => {
+  it.each([
+    'applicableOrganizationIds',
+    'code',
+    'discountType',
+    'discountValue',
+    'menuItemIds',
+    'menuSectionIds',
+    'scope',
+  ])('下單後改過券的 %s 就不推算', async (column) => {
     await seedCoupon();
-    await audit('coupon', 'coupon', daysAgo(5), { menuItemIds: {} });
+    await audit('coupon', 'coupon', daysAgo(5), { [column]: {} });
+
+    await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
+  });
+
+  it('券在下單前一刻改過也不推算，因為下單時讀券早於訂單建立', async () => {
+    await seedCoupon();
+    const order = placed();
+    await audit(
+      'coupon',
+      'coupon',
+      new Date(order.createdAt.getTime() - 30_000),
+      { menuItemIds: {} },
+    );
+
+    await expect(service.inferItemDiscounts(order)).resolves.toBeNull();
+  });
+
+  it('券不適用這間店就不推算', async () => {
+    await seedCoupon({ applicableOrganizationIds: ['other-store'] });
 
     await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
   });
@@ -390,8 +417,14 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
   });
 
+  const auditMenuTree = async () => {
+    await audit('menuItem', 'cake', daysAgo(30), { name: {} });
+    await audit('menuSection', 'dessert', daysAgo(30), { name: {} });
+  };
+
   it('依分類適用時用目前的分類樹推算，含上層分類', async () => {
     await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await auditMenuTree();
     await audit('menuItem', 'latte', daysAgo(5), { name: {} });
 
     await expect(service.inferItemDiscounts(placed())).resolves.toEqual([
@@ -399,8 +432,30 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     ]);
   });
 
+  it('與訂單無關的品項、分類與其他券在下單後的異動不影響推算', async () => {
+    await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await auditMenuTree();
+    await audit('coupon', 'other-coupon', daysAgo(5), { menuItemIds: {} });
+    await audit('menuItem', 'other-item', daysAgo(5), { menuSectionId: {} });
+    await audit('menuSection', 'other-section', daysAgo(5), {
+      parentSectionId: {},
+    });
+
+    await expect(service.inferItemDiscounts(placed())).resolves.toEqual([
+      65, 0,
+    ]);
+  });
+
+  it('下單時分類的稽核還沒開始就不推算', async () => {
+    await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await audit('menuItem', 'cake', daysAgo(30), { name: {} });
+
+    await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
+  });
+
   it('品項在下單後換過分類就不推算', async () => {
     await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await auditMenuTree();
     await audit('menuItem', 'latte', daysAgo(5), { menuSectionId: {} });
 
     await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
@@ -408,6 +463,7 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
 
   it('分類在下單後換過上層就不推算', async () => {
     await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await auditMenuTree();
     await audit('menuSection', 'coffee', daysAgo(5), { parentSectionId: {} });
 
     await expect(service.inferItemDiscounts(placed())).resolves.toBeNull();
@@ -415,6 +471,7 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
 
   it('品項已不存在就不推算分類', async () => {
     await seedCoupon({ menuItemIds: null, menuSectionIds: ['drinks'] });
+    await auditMenuTree();
     const order = placed();
     order.items[0].menuItemId = 'gone';
 

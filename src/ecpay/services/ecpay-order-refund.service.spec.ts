@@ -120,6 +120,35 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
       });
     });
 
+    it('已經照比例退過款的舊訂單不推算，避免下一筆退超過品項原價', async () => {
+      inferItemDiscounts.mockImplementation(
+        ({ items }: { items: { id: string }[] }) =>
+          Promise.resolve(items.map(({ id }) => (id === 'latte' ? 65 : 0))),
+      );
+      await client.query(
+        `insert into refund (id, amount, channel, status, items, order_id, reason_code, scope)
+         values ('earlier', '63', 'manual', 'settled', $1, 'coupon', 'wrongItem', 'partial')`,
+        [
+          JSON.stringify([
+            {
+              amount: '90',
+              menuItemName: '蛋糕',
+              orderItemId: 'cake',
+              quantity: 1,
+              unitPrice: '90.00',
+            },
+          ]),
+        ],
+      );
+
+      await expect(
+        service.previewRefund('biru', 'coupon', {
+          items: [{ orderItemId: 'latte', quantity: 1 }],
+        }),
+      ).resolves.toMatchObject({ isFull: false });
+      expect(inferItemDiscounts).not.toHaveBeenCalled();
+    });
+
     it('推算不出時照原價比例分攤', async () => {
       await expect(previewCake()).resolves.toEqual({
         allocatedDiscount: 27,

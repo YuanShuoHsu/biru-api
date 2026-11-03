@@ -47,7 +47,7 @@ const allocate = (discount: number, part: number, total: number): number =>
 
 /**
  * 折讓明細的金額必須精準等於折讓總額，且原發票把優惠券折扣開成一筆負數品項，
- * 所以部分退款要把折扣按原價比例分攤回去，否則多次折讓的總和會超出發票金額。
+ * 所以部分退款要把折扣分攤回去，否則多次折讓的總和會超出發票金額。
  */
 export const buildRefundPlan = (
   found: RefundableOrder,

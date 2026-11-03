@@ -231,9 +231,14 @@ export class EcpayOrderRefundService {
     });
     if (!found) throw new NotFoundException('Order not found');
 
-    const inferred = found.items.some((item) => item.discount === null)
-      ? await this.couponsService.inferItemDiscounts(found)
-      : null;
+    const inferred =
+      found.items.some((item) => item.discount === null) &&
+      !(await this.db.query.refund.findFirst({
+        where: eq(refund.orderId, orderId),
+        columns: { id: true },
+      }))
+        ? await this.couponsService.inferItemDiscounts(found)
+        : null;
 
     return toActiveInvoice(
       inferred

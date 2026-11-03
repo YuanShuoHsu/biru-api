@@ -22,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   ne,
   notInArray,
   or,
@@ -134,6 +135,8 @@ const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   validThrough: found.validThrough,
   isActive: found.isActive,
 });
+
+const AUDIT_CLOCK_SKEW_MS = 60_000;
 
 const COUPON_SCOPE_COLUMNS = [
   'applicableOrganizationIds',
@@ -1534,52 +1537,66 @@ export class CouponsService {
       if (menuItemIds.some((id) => !sectionsOf.has(id))) return null;
     }
 
-    const changedSince = gte(auditLog.createdAt, placed.createdAt);
-    const [audit] = await this.db
-      .select({
-        auditedSince:
-          sql<Date | null>`min(${auditLog.createdAt}) filter (where ${eq(auditLog.resource, 'coupon')})`.mapWith(
-            auditLog.createdAt,
+    const auditRow = (condition: SQL | undefined) =>
+      sql<boolean>`exists (select 1 from ${auditLog} where ${condition})`;
+    const auditedResources = usesSections
+      ? (['coupon', 'menuItem', 'menuSection'] as const)
+      : (['coupon'] as const);
+    const changedSince = gte(
+      auditLog.createdAt,
+      new Date(placed.createdAt.getTime() - AUDIT_CLOCK_SKEW_MS),
+    );
+    const {
+      rows: [audit],
+    } = await this.db.execute<{ changed: boolean; covered: boolean }>(sql`
+      select
+        ${and(
+          ...auditedResources.map((resource) =>
+            auditRow(
+              and(
+                eq(auditLog.resource, resource),
+                lte(auditLog.createdAt, placed.createdAt),
+              ),
+            ),
           ),
-        changed: sql<boolean>`coalesce(bool_or(${or(
-          and(
-            eq(auditLog.resource, 'coupon'),
-            eq(auditLog.resourceId, found.id),
-            changedSince,
-            sql`${auditLog.changes} ?| array[${sql.join(
-              COUPON_SCOPE_COLUMNS.map((column) => sql`${column}`),
-              sql`, `,
-            )}]::text[]`,
+        )} as covered,
+        ${or(
+          auditRow(
+            and(
+              eq(auditLog.resource, 'coupon'),
+              eq(auditLog.resourceId, found.id),
+              changedSince,
+              sql`${auditLog.changes} ?| array[${sql.join(
+                COUPON_SCOPE_COLUMNS.map((column) => sql`${column}`),
+                sql`, `,
+              )}]::text[]`,
+            ),
           ),
-          and(
-            eq(auditLog.resource, 'menuItem'),
-            inArray(auditLog.resourceId, [...sectionsOf.keys()]),
-            changedSince,
-            sql`${auditLog.changes} ? ${'menuSectionId'}`,
-          ),
-          and(
-            eq(auditLog.resource, 'menuSection'),
-            inArray(auditLog.resourceId, [
-              ...new Set([...sectionsOf.values()].flat()),
-            ]),
-            changedSince,
-            sql`${auditLog.changes} ? ${'parentSectionId'}`,
-          ),
-        )}), false)`,
-      })
-      .from(auditLog)
-      .where(
-        inArray(
-          auditLog.resource,
-          usesSections ? ['coupon', 'menuItem', 'menuSection'] : ['coupon'],
-        ),
-      );
-    if (
-      !audit.auditedSince ||
-      audit.auditedSince > placed.createdAt ||
-      audit.changed
-    )
-      return null;
+          ...(usesSections
+            ? [
+                auditRow(
+                  and(
+                    eq(auditLog.resource, 'menuItem'),
+                    inArray(auditLog.resourceId, [...sectionsOf.keys()]),
+                    changedSince,
+                    sql`${auditLog.changes} ? ${'menuSectionId'}`,
+                  ),
+                ),
+                auditRow(
+                  and(
+                    eq(auditLog.resource, 'menuSection'),
+                    inArray(auditLog.resourceId, [
+                      ...new Set([...sectionsOf.values()].flat()),
+                    ]),
+                    changedSince,
+                    sql`${auditLog.changes} ? ${'parentSectionId'}`,
+                  ),
+                ),
+              ]
+            : []),
+        )} as changed
+    `);
+    if (!audit.covered || audit.changed) return null;
 
     const isEligible = isEligibleFor(found);
     const lines = placed.items.map((item) => ({
