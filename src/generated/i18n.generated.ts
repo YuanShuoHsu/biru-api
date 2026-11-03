@@ -213,6 +213,7 @@ export type I18nTranslations = {
             "restoreConflict": string;
             "restoreMissingReference": string;
             "restoreInvalid": string;
+            "batchNotFound": string;
         };
         "exceptions": {
             "badRequest": string;
@@ -309,6 +310,7 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
+            "cashUnavailableForMode": string;
             "idempotencyConflict": string;
             "inStoreQrCodeRequired": string;
             "invalidTable": string;
@@ -321,14 +323,20 @@ export type I18nTranslations = {
             "modifierUnavailable": string;
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
+            "onlinePaymentNotRequired": string;
+            "orderNotFound": string;
+            "orderQrSecretNeverRotated": string;
+            "orderQrSessionNotFound": string;
             "orderTotalTooLarge": string;
             "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
             "pickupTimeInvalid": string;
+            "pickupTimeUnavailableForMode": string;
             "pickupTooCloseToClosing": string;
             "pickupTooFarAhead": string;
             "pickupTooSoon": string;
             "statusChanged": string;
+            "tableNumberOutOfRange": string;
         };
         "organizations": {
             "notJoinedAsPlatformAdmin": string;

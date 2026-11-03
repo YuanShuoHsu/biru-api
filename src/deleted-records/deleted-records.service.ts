@@ -247,9 +247,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     private readonly payrollEarnings: PayrollEarningsService,
   ) {}
 
-  private t(
-    key: 'restoreConflict' | 'restoreMissingReference' | 'restoreInvalid',
-  ): string {
+  private t(key: keyof I18nTranslations['common']['deletedRecords']): string {
     return this.i18n.t(`common.deletedRecords.${key}`, {
       lang: I18nContext.current()?.lang,
     });
@@ -535,11 +533,11 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ({ tableName }) =>
         isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
     );
-    if (!root) throw new NotFoundException('Deleted record batch not found');
+    if (!root) throw new NotFoundException(this.t('batchNotFound'));
 
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
-        throw new NotFoundException('Deleted record batch not found');
+        throw new NotFoundException(this.t('batchNotFound'));
       if (!canRestoreTables([...batchTables], scope, grantsOwner(batch)))
         throw new ForbiddenException();
     }
@@ -577,7 +575,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     const data = toCamelRow(root.tableName, root.data);
     const organizationId = asString(data.organizationId);
     if (!organizationId || !root.recordId)
-      throw new NotFoundException('Deleted record batch not found');
+      throw new NotFoundException(this.t('batchNotFound'));
 
     const [membership] = await tx
       .select({ role: member.role })

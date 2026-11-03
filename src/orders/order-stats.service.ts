@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -39,6 +39,7 @@ import type {
   OrderStatsResponseDto,
   OrderStatsTotalsDto,
 } from './dto/order-stats.dto.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 const COUPON_LIMIT = 10;
 const MODIFIER_LIMIT = 10;
@@ -57,7 +58,7 @@ export class OrderStatsService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const { bucketIndexOf, bucketStarts, previousSince, since, until } =
       getStatsWindow(query);

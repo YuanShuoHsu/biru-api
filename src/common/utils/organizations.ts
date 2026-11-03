@@ -28,7 +28,7 @@ export const getOrganizationBySlug = async (
     where: eq(organization.slug, slug),
     columns: { id: true, currency: true },
   });
-  if (!row) throw new NotFoundException('Organization not found');
+  if (!row) throw organizationNotFoundError();
 
   return row;
 };
@@ -46,7 +46,7 @@ export const getOrganizationCurrency = async (
     where: eq(organization.id, organizationId),
     columns: { currency: true },
   });
-  if (!row) throw new NotFoundException('Organization not found');
+  if (!row) throw organizationNotFoundError();
 
   return row.currency;
 };

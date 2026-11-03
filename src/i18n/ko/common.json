@@ -159,7 +159,8 @@
   "deletedRecords": {
     "restoreConflict": "복원할 수 없습니다: 같은 데이터가 이미 있습니다(매장 슬러그, 쿠폰 코드, 이메일 중복 또는 멤버가 이미 매장에 있는 경우 등).",
     "restoreMissingReference": "복원할 수 없습니다: 소속된 상위 데이터가 없습니다. 상위 데이터를 먼저 복원하세요.",
-    "restoreInvalid": "복원할 수 없습니다: 현재 필수 항목 규칙을 충족하지 않습니다(예: 주소가 없는 매장). 새로 만들어 주세요."
+    "restoreInvalid": "복원할 수 없습니다: 현재 필수 항목 규칙을 충족하지 않습니다(예: 주소가 없는 매장). 새로 만들어 주세요.",
+    "batchNotFound": "이 삭제 기록을 찾을 수 없습니다. 보관 기간이 지났을 수 있습니다."
   },
   "exceptions": {
     "badRequest": "잘못된 요청입니다",
@@ -256,6 +257,7 @@
     "tableNumber": "테이블 {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "이 주문 방식에서는 현금 결제를 사용할 수 없습니다",
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",
     "inStoreQrCodeRequired": "매장 내 QR 코드를 스캔하여 주문하세요",
     "invalidTable": "테이블 QR 코드가 유효하지 않습니다. 테이블의 QR 코드를 다시 스캔하세요",
@@ -268,14 +270,20 @@
     "modifierUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "modifierUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "notAwaitingPayment": "결제 기한이 지났거나 상태가 변경되어 이 주문은 결제할 수 없습니다",
+    "onlinePaymentNotRequired": "이 주문은 온라인 결제가 필요하지 않습니다",
+    "orderNotFound": "이 주문을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "orderQrSecretNeverRotated": "QR 코드를 재발급한 적이 없어 되돌릴 이전 버전이 없습니다",
+    "orderQrSessionNotFound": "주문 세션이 만료되었습니다. QR 코드를 다시 스캔해 주세요",
     "orderTotalTooLarge": "주문 금액이 한도를 초과했습니다. 품목을 줄이거나 주문을 나눠 주세요",
     "paymentAttemptsExhausted": "이 주문은 결제 시도 횟수 한도에 도달했습니다. 매장에 문의하시거나 결제 기한이 지나 주문이 자동 취소될 때까지 기다려 주세요",
     "pickupOutsideOpeningHours": "이 픽업 시간은 매장 영업시간이 아닙니다. 다른 시간을 선택하세요",
     "pickupTimeInvalid": "유효한 픽업 시간을 선택하세요",
+    "pickupTimeUnavailableForMode": "픽업 시간은 픽업 주문에서만 지정할 수 있습니다",
     "pickupTooCloseToClosing": "이 픽업 시간은 마감 시간에 너무 가깝습니다. 다른 시간을 선택하세요",
     "pickupTooFarAhead": "이 픽업 시간은 예약 가능한 범위를 벗어났습니다. 다른 시간을 선택하세요",
     "pickupTooSoon": "이 픽업 시간에는 준비가 어렵습니다. 다른 시간을 선택하세요",
-    "statusChanged": "주문 상태가 변경되었습니다. 새로고침 후 다시 시도하세요"
+    "statusChanged": "주문 상태가 변경되었습니다. 새로고침 후 다시 시도하세요",
+    "tableNumberOutOfRange": "테이블 번호는 1부터 매장 테이블 수 사이여야 합니다"
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "이 구성원은 플랫폼 관리자로 참여한 소유자가 아닙니다.",

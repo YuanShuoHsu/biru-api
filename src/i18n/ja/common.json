@@ -159,7 +159,8 @@
   "deletedRecords": {
     "restoreConflict": "復元できません：同じデータがすでに存在します（店舗スラッグ、クーポンコード、メールアドレスの重複、またはメンバーがすでに店舗に所属しているなど）。",
     "restoreMissingReference": "復元できません：所属する上位データが存在しません。先に上位データを復元してください。",
-    "restoreInvalid": "復元できません：現在の必須項目の条件を満たしていません（例：住所のない店舗）。新しく作成し直してください。"
+    "restoreInvalid": "復元できません：現在の必須項目の条件を満たしていません（例：住所のない店舗）。新しく作成し直してください。",
+    "batchNotFound": "この削除記録が見つかりません。保存期間を過ぎた可能性があります。"
   },
   "exceptions": {
     "badRequest": "リクエストが正しくありません",
@@ -256,6 +257,7 @@
     "tableNumber": "テーブル {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "この注文方法では現金でお支払いいただけません",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "inStoreQrCodeRequired": "店内の QR コードを読み取ってご注文ください",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
@@ -268,14 +270,20 @@
     "modifierUnavailable": "「{name}」は現在ご提供できません",
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
+    "onlinePaymentNotRequired": "この注文はオンライン決済の必要がありません",
+    "orderNotFound": "この注文が見つかりません。削除された可能性があります",
+    "orderQrSecretNeverRotated": "QR コードはまだ再発行されていないため、元に戻せる以前のバージョンはありません",
+    "orderQrSessionNotFound": "注文セッションの有効期限が切れました。QR コードをもう一度読み取ってください",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
     "paymentAttemptsExhausted": "この注文はお支払いの試行回数が上限に達しました。店舗にお問い合わせいただくか、お支払い期限を過ぎて注文が自動キャンセルされるまでお待ちください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
     "pickupTimeInvalid": "有効な受取時間を選択してください",
+    "pickupTimeUnavailableForMode": "受け取り時間を指定できるのはテイクアウト注文のみです",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",
     "pickupTooFarAhead": "この受取時間は予約可能な範囲を超えています。別の時間を選択してください",
     "pickupTooSoon": "この受取時間では準備が間に合いません。別の時間を選択してください",
-    "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください"
+    "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください",
+    "tableNumberOutOfRange": "テーブル番号は 1 から店内テーブル数までの範囲で指定してください"
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
