@@ -148,8 +148,9 @@ the latest and was not checked on or after the start of the payroll month carrie
 `checked_at`, run one ingest or every draft is held.
 
 勞保 has two ladders: `laborGrades` (一般勞工) and `partTimeLaborGrades` (部分工時勞工, floor NT$11,100),
-chosen per employee by `insurance.laborLadder`, which is only accepted when `weeklyMinutes < 2400`; a
-draft for an employee whose `weeklyMinutes` later reached 2400 carries `partTimeLadderRequiresPartTime`.
+chosen by `insurance.laborLadder`, which saving terms derives (`deriveInsurance`): `partTime` unless the employee
+is known full-time at the terms' `effectiveFrom` (see Weekly Hours). A draft whose terms carry `partTime` for an
+employee known full-time at the period start carries `partTimeLadderRequiresPartTime`.
 健保 has no part-time ladder — its floor stays 分級表第一級.
 
 If an employee's stored `laborBasis` / `healthBasis` is not a grade in that month's ladder — what
@@ -193,18 +194,22 @@ restricted record is left, and the cascaded rows are captured in `deleted_record
 ### Weekly Hours
 
 An employee's weekly hours are not stored (`0144` dropped `weekly_minutes` and `weekly_minutes_history`); they
-are derived from the schedule. `weeklyMinutesAt` (`src/attendance/employee-hours.ts`) averages the employee's
-non-cancelled `workday` shifts over the 12 months before the date — from `hiredAt` or the first such shift if
-later — counting each shift's `scheduledWorkSeconds` capped at 480 minutes, and falls back to
-`FULL_TIME_WEEKLY_MINUTES` (2400) when there is no such shift. `averageWeeklyMinutesSql` / `employmentTypeSql`
-are the SQL form for lists and average up to `now()`. Under 2400 is part-time.
-Resolve the hours for the date that governs the entitlement with `weeklyMinutesAt` / `weeklyMinutesOf`.
-特別休假 and the yearly 事假 / 家庭照顧假 / 病假 quotas are granted at the period start (勞基法 §38: the right
-vests when the period is reached), so `annualLeavePeriod` and `statutoryLeavePeriod` resolve the hours at
-`period.start` and shifts scheduled later cannot shrink leave already granted. Medical-leave day conversion
-resolves per day, event leave at the case start, the part-time ladder at the payroll month. Because the hours
-follow the shifts, creating or cancelling a shift is the payroll-affecting change that locks
-(see Published Payslips).
+are derived from the schedule. `averageWeeklyMinutes` (`src/attendance/employee-hours.ts`) averages the
+employee's non-cancelled `workday` shifts that ended in the 12 months before the date — from `hiredAt` or the
+first such shift if later — counting each shift's `scheduledWorkSeconds` capped at 480 minutes, and is `null`
+when no such shift ended in that window. `weeklyMinutesAt` / `weeklyMinutesOf` fall back to
+`FULL_TIME_WEEKLY_MINUTES` (2400) for `null`; `averageWeeklyMinutesSql` / `employmentTypeSql` are the SQL form
+for lists and average up to `now()`. Under 2400 is part-time.
+
+Resolve the hours for the date that governs the entitlement. 特別休假 and the yearly 事假 / 家庭照顧假 / 病假
+quotas are granted at the period start (勞基法 §38: the right vests when the period is reached), so
+`annualLeavePeriod` and `statutoryLeavePeriod` resolve the hours at `period.start` and shifts after it cannot
+shrink leave already granted. Medical-leave day conversion and quotas resolve at the start of the calendar year
+(住院 at the previous year's start), event leave at the case start. The 勞保 part-time ladder instead uses
+`knownFullTime` (`src/payroll/payroll.service.ts`), which reads `averageWeeklyMinutes` without the fallback, so
+an employee with no shift history is not known full-time. Creating, updating, cancelling or restoring a shift
+calls `assertPayrollUnlocked` for the shift's own months only, although the rolling average also feeds later
+months.
 
 ### Scheduled Breaks
 
