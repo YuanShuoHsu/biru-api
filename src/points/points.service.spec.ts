@@ -1,7 +1,8 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { eq } from 'drizzle-orm';
+import { Logger } from '@nestjs/common';
+import { eq, isNotNull } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
@@ -11,6 +12,7 @@ import { order } from '../db/schema/orders.js';
 import { pointTransaction } from '../db/schema/points.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import type { MailsService } from '../mails/mails.service.js';
 import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
 
 import { PointsService } from './points.service.js';
@@ -29,6 +31,7 @@ describe('PointsService.getAllMine', () => {
     service = new PointsService(
       db as unknown as DrizzleDB,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as MailsService,
     );
   }, 60_000);
 
@@ -183,6 +186,151 @@ describe('PointsService.getAllMine', () => {
   });
 });
 
+describe('PointsService.notifyExpiringPoints', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: PointsService;
+  const sendPointsExpiryReminder =
+    vi.fn<MailsService['sendPointsExpiryReminder']>();
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new PointsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      { sendPointsExpiryReminder } as unknown as MailsService,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    sendPointsExpiryReminder.mockReset().mockResolvedValue(true);
+    await client.exec('truncate point_transaction, "user" cascade');
+    for (const id of [USER, 'other'])
+      await client.query(
+        `insert into "user" (id, name, email, first_name) values ($1, $1, $1 || '@example.com', $1)`,
+        [id],
+      );
+  });
+
+  const inPlatformDays = (days: number, hours: number) =>
+    new Date(platformMidnight(Date.now()) + days * DAY_MS + hours * 3600_000);
+
+  const addTransactions = (
+    rows: Partial<typeof pointTransaction.$inferInsert>[],
+  ) =>
+    db.insert(pointTransaction).values(
+      rows.map((row, index) => ({
+        id: `t${index}`,
+        points: 10,
+        remainingPoints: 10,
+        type: 'earn' as const,
+        userId: USER,
+        ...row,
+      })),
+    );
+
+  const remindedIds = async () =>
+    (
+      await db
+        .select({ id: pointTransaction.id })
+        .from(pointTransaction)
+        .where(isNotNull(pointTransaction.expiryRemindedAt))
+        .orderBy(pointTransaction.id)
+    ).map(({ id }) => id);
+
+  it('提醒第 24～30 個台灣日到期的點數，一個到期日一封，依當天加總、取當天最早到期時間', async () => {
+    const endOfPlatformDay = (days: number) =>
+      new Date(inPlatformDays(days + 1, 0).getTime() - 1);
+    await addTransactions([
+      { expiresAt: endOfPlatformDay(23) },
+      { expiresAt: inPlatformDays(24, 0) },
+      { expiresAt: endOfPlatformDay(30), remainingPoints: 4 },
+      { expiresAt: inPlatformDays(30, 1) },
+      { expiresAt: inPlatformDays(31, 0) },
+    ]);
+
+    await expect(service.notifyExpiringPoints()).resolves.toBe(2);
+
+    expect(sendPointsExpiryReminder.mock.calls).toEqual([
+      [{ userId: USER, expiresAt: inPlatformDays(24, 0), points: 10 }],
+      [{ userId: USER, expiresAt: inPlatformDays(30, 1), points: 14 }],
+    ]);
+    expect(await remindedIds()).toEqual(['t1', 't2', 't3']);
+  });
+
+  it('已提醒過的點數再跑一次不再寄', async () => {
+    await addTransactions([{ expiresAt: inPlatformDays(30, 1) }]);
+
+    await service.notifyExpiringPoints();
+    await expect(service.notifyExpiringPoints()).resolves.toBe(0);
+
+    expect(sendPointsExpiryReminder).toHaveBeenCalledOnce();
+  });
+
+  it('已用完或被當天收回扣光的點數不寄', async () => {
+    await addTransactions([
+      { expiresAt: inPlatformDays(30, 1), remainingPoints: 0 },
+      { expiresAt: inPlatformDays(30, 2), userId: 'other' },
+      {
+        expiresAt: inPlatformDays(30, 3),
+        points: -10,
+        remainingPoints: -10,
+        type: 'revoke',
+        userId: 'other',
+      },
+    ]);
+
+    await expect(service.notifyExpiringPoints()).resolves.toBe(0);
+
+    expect(sendPointsExpiryReminder).not.toHaveBeenCalled();
+  });
+
+  it('較早到期的點數先佔用餘額，提醒點數只到剩下的餘額為止', async () => {
+    await addTransactions([
+      { expiresAt: inPlatformDays(10, 1), points: 20, remainingPoints: 20 },
+      { expiresAt: inPlatformDays(30, 1), points: 20, remainingPoints: 20 },
+      { expiresAt: null, points: -15, remainingPoints: -15, type: 'revoke' },
+    ]);
+
+    await service.notifyExpiringPoints();
+
+    expect(sendPointsExpiryReminder).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ points: 5 }),
+    );
+  });
+
+  it('寄送失敗時不標記，隔天重跑會補寄原本的到期日', async () => {
+    const error = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => error.mockRestore());
+    const expiresAt = inPlatformDays(30, 1);
+    await addTransactions([{ expiresAt }]);
+    sendPointsExpiryReminder.mockRejectedValueOnce(new Error('smtp down'));
+
+    await expect(service.notifyExpiringPoints()).resolves.toBe(0);
+    expect(await remindedIds()).toEqual([]);
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    onTestFinished(() => vi.useRealTimers());
+    vi.setSystemTime(Date.now() + DAY_MS);
+
+    await expect(service.notifyExpiringPoints()).resolves.toBe(1);
+    expect(sendPointsExpiryReminder).toHaveBeenLastCalledWith({
+      userId: USER,
+      expiresAt,
+      points: 10,
+    });
+    expect(await remindedIds()).toEqual(['t0']);
+  });
+});
+
 describe('PointsService.findAllForOrganization', () => {
   const ORG = 'org';
   const OTHER_ORG = 'other';
@@ -198,6 +346,7 @@ describe('PointsService.findAllForOrganization', () => {
     service = new PointsService(
       db as unknown as DrizzleDB,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as MailsService,
     );
   }, 60_000);
 
@@ -218,7 +367,7 @@ describe('PointsService.findAllForOrganization', () => {
         [id, slug],
       );
     await client.exec(
-      `update point_setting set amount_per_point = 10, points_enabled_at = '2026-01-01', points_validity_years = null`,
+      `update point_setting set amount_per_point = 10, points_enabled_at = '2026-01-01'`,
     );
     for (const [id, email] of [
       ['amy', 'amy@example.com'],
@@ -294,6 +443,56 @@ describe('PointsService.findAllForOrganization', () => {
     expect(result.data).toEqual([
       expect.objectContaining({ orderNumber: 'o2', points: 5 }),
     ]);
+  });
+
+  it('點數自取得日起一年有效，到期時間是台灣時間那天的最後一刻', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { paymentDate: '2026-02-01' });
+    await addPaidOrder('o2', ORG, 'amy', {
+      paymentDate: '2026-02-01T17:00:00Z',
+    });
+    await addPaidOrder('o3', ORG, 'amy', { paymentDate: '2028-02-29' });
+
+    const { data } = await service.findAllForOrganization('biru');
+
+    expect(data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          orderNumber: 'o1',
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        }),
+        expect.objectContaining({
+          orderNumber: 'o2',
+          expiresAt: new Date('2027-02-02T15:59:59.999Z'),
+        }),
+        expect.objectContaining({
+          orderNumber: 'o3',
+          expiresAt: new Date('2029-02-28T15:59:59.999Z'),
+        }),
+      ]),
+    );
+  });
+
+  it('補點自補點日起一年有效，扣點沒有到期日', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-04T03:30:00Z') });
+    try {
+      const added = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 30 },
+        'bob',
+        'admin',
+      );
+      const deducted = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '誤發', points: -10 },
+        'bob',
+        'admin',
+      );
+
+      expect(added.expiresAt).toEqual(new Date('2027-11-04T15:59:59.999Z'));
+      expect(deducted.expiresAt).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('每點金額有小數時以整數分計算，不因浮點誤差少給一點', async () => {
@@ -750,6 +949,7 @@ describe('PointsService.redeem', () => {
     service = new PointsService(
       db as unknown as DrizzleDB,
       { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as MailsService,
     );
   }, 60_000);
 

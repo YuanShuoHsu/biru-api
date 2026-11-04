@@ -50,7 +50,6 @@ export const organization = pgTable(
 
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
     pointsEnabledAt: timestamp('points_enabled_at'),
-    pointsValidityYears: integer('points_validity_years'),
     pickupLeadMinutes: integer('pickup_lead_minutes').notNull().default(15),
     pickupMaxAdvanceDays: integer('pickup_max_advance_days')
       .notNull()

@@ -198,6 +198,14 @@
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "points_expiry_reminder": {
+    "subject": "{points} 點將於 {date} 到期",
+    "title": "點數即將到期",
+    "intro": "您有 {points} 點將於 {date} 到期，到期後無法再使用，請在到期前兌換。",
+    "action": "查看我的點數",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
   "smtp_test": {
     "subject": "{productName} SMTP 測試",
     "text": "如果您收到這封郵件，代表 SMTP 設定正確。"

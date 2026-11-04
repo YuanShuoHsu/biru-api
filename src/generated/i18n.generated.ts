@@ -352,7 +352,6 @@ export type I18nTranslations = {
             "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
-            "validityRequiresEnabled": string;
         };
         "quant": {
             "aiKeyInvalid": string;
@@ -678,6 +677,14 @@ export type I18nTranslations = {
             "refunds": string;
             "point_adjustments": string;
             "low_stock": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "points_expiry_reminder": {
+            "subject": string;
+            "title": string;
+            "intro": string;
             "action": string;
             "salutation": string;
             "trouble_hint": string;

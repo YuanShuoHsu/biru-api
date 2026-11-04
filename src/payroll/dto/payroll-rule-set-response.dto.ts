@@ -86,4 +86,5 @@ export class PayrollRuleIngestResponseDto {
   @ApiProperty({ type: [String] }) skipped: string[];
   @ApiProperty({ type: [String] }) rejected: string[];
   @ApiProperty() checked: boolean;
+  @ApiProperty({ type: [Number] }) holidayYears: number[];
 }

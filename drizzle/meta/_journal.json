@@ -1762,8 +1762,22 @@
     {
       "idx": 251,
       "version": "7",
-      "when": 1793764273729,
-      "tag": "0251_drop_organization_slug_uidx",
+      "when": 1793766693378,
+      "tag": "0251_points_rolling_one_year_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1793772348958,
+      "tag": "0252_points_expiry_reminded_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1793774329417,
+      "tag": "0253_drop_organization_slug_uidx",
       "breakpoints": true
     }
   ]

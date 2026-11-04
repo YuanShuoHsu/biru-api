@@ -1,0 +1,1 @@
+ALTER TABLE "point_transaction" ADD COLUMN "expiry_reminded_at" timestamp;

@@ -1,5 +1,5 @@
 {
-  "id": "bb4b5bc9-5b41-437c-9a50-2da08aa074c7",
+  "id": "28be4697-6021-42c9-b3d9-f1785795b7c3",
   "prevId": "5baa2685-a36b-4501-a29c-c7ba1aaf5ef9",
   "version": "7",
   "dialect": "postgresql",
@@ -5620,12 +5620,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "points_validity_years": {
-          "name": "points_validity_years",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "idempotency_key": {
           "name": "idempotency_key",
           "type": "text",
@@ -6513,12 +6507,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "points_validity_years": {
-          "name": "points_validity_years",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "pickup_lead_minutes": {
           "name": "pickup_lead_minutes",
           "type": "integer",
@@ -6553,7 +6541,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "organization_slug_uidx": {
+          "name": "organization_slug_uidx",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -7907,12 +7911,6 @@
         "amount_per_point": {
           "name": "amount_per_point",
           "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "points_validity_years": {
-          "name": "points_validity_years",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },

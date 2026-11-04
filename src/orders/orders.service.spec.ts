@@ -147,7 +147,6 @@ const createService = ({
           pickupCutoffMinutes: 15,
           pickupLeadMinutes: 15,
           pickupMaxAdvanceDays: 7,
-          pointsValidityYears: 1,
         }),
       },
       organizationSpecialHours: {

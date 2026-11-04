@@ -82,6 +82,43 @@ describe('DeletedRecordsService.restore', () => {
       new ConflictException('common.deletedRecords.restoreInvalid'),
     );
   });
+  it('平台管理員經由服務還原時以 owner 身分操作', async () => {
+    const createShiftType = vi.fn();
+    const serviceRestored = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      { createShiftType } as never,
+      { emit: vi.fn() } as unknown as EventEmitter2,
+      { t: (key: string) => key } as unknown as I18nService,
+      {} as never,
+    );
+    await db.insert(deletedRecord).values({
+      batchId: 100,
+      tableName: 'attendance_shift_type',
+      recordId: 'st1',
+      data: {
+        id: 'st1',
+        organization_id: 'org1',
+        name: '早班',
+        start_time: '08:00',
+        end_time: '16:00',
+      },
+    });
+
+    await serviceRestored.restore([100], {
+      id: 'admin',
+      name: 'admin',
+      email: 'admin@example.com',
+    });
+
+    expect(createShiftType).toHaveBeenCalledWith(
+      { organizationId: 'org1', userId: 'admin', role: 'owner' },
+      expect.anything(),
+      expect.anything(),
+    );
+  });
 });
 
 describe('DeletedRecordsService.list', () => {
@@ -196,5 +233,44 @@ describe('DeletedRecordsService.list', () => {
 
     expect(ids(result)).toEqual([2]);
     expect(result.total).toBe(1);
+  });
+
+  it('店家視角標出不能還原的原因', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 5,
+      tableName: 'member',
+      recordId: 'm1',
+      data: { id: 'm1', organization_id: 'org1', user_id: 'u1', role: 'owner' },
+      deletedAt: new Date('2026-10-04T02:00:00Z'),
+    });
+    const reasons = async (role: string, closed: boolean) =>
+      Object.fromEntries(
+        (
+          await service.list({}, { organizationId: 'org1', role, closed })
+        ).data.map(({ batchId, canRestore, restoreBlockedBy }) => [
+          batchId,
+          { canRestore, restoreBlockedBy },
+        ]),
+      );
+
+    expect(await reasons('owner', false)).toEqual({
+      2: { canRestore: true, restoreBlockedBy: null },
+      5: { canRestore: true, restoreBlockedBy: null },
+    });
+    expect(await reasons('admin', false)).toMatchObject({
+      2: { canRestore: true, restoreBlockedBy: null },
+      5: { canRestore: false, restoreBlockedBy: 'ownerOnly' },
+    });
+    expect(await reasons('owner', true)).toMatchObject({
+      2: { canRestore: false, restoreBlockedBy: 'closed' },
+    });
+  });
+
+  it('平台視角一律可以還原', async () => {
+    const result = await service.list({});
+
+    expect(result.data.every(({ restoreBlockedBy }) => !restoreBlockedBy)).toBe(
+      true,
+    );
   });
 });
