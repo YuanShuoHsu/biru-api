@@ -213,10 +213,13 @@ months.
 
 ### Scheduled Breaks
 
-`attendance_shift.break_starts_at/break_ends_at` (templates: `break_start_time/break_end_time`) mark the
-scheduled break. Unless `paidBreak`, it is not working time: leave minutes, leave pay deductions, medical
-leave units and the hourly scheduled hours all go through `scheduledWorkIntervals`, never the raw shift span.
-A shift without a break keeps its whole span as working time.
+`attendance_shift.breaks` (a jsonb list since `0155`; shift templates were dropped in `0176`) holds the scheduled
+breaks, which `scheduledBreaks` (`src/attendance/shift-intervals.ts`) generates when a shift is saved — one
+30-minute break for every 4 hours of continuous work, spread evenly, none for a shift of 4 hours or less
+(勞基法 §35, [law.moj.gov.tw](https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=N0030001&flno=35)) — so
+they are never entered by hand. Unless `paidBreak` (shifts are saved with it off), they are not working time:
+leave minutes, leave pay deductions, medical leave units and the hourly scheduled hours all go through
+`scheduledWorkIntervals`, never the raw shift span. A shift without a break keeps its whole span as working time.
 
 ### Localized Fields
 
