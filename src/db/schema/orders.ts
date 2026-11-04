@@ -118,7 +118,6 @@ export const order = pgTable(
       .notNull()
       .generatedAlwaysAs(sql`"subtotal" - coalesce("discount", 0)`),
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
     idempotencyFingerprint: text('idempotency_fingerprint'),
     heldOfferStock: jsonb('held_offer_stock').$type<Record<string, number>>(),

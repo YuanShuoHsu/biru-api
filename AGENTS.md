@@ -219,6 +219,15 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 `src/menus/dto/create-menu.dto.ts`), and every DTO documents them with `type: LocalizedTextDto`
 (`src/common/dto/`) so codegen does not emit `Record<string, never>`.
 
+### Points Expiry
+
+Points expire one year after they are earned — the end of the Taiwan day one calendar year after the
+order's `paymentDate` (or the adjustment time), 2/29 falling back to 2/28 — computed by `toExpiresAt` in
+`src/points/points.service.ts`. The term is fixed by design, not a setting: a configurable term gave one
+member lots with different terms and was hard to explain, so don't reintroduce a validity-years field.
+`expiresAt` is stamped when the lot is recorded and must not be shortened afterwards; an earned lot with
+`null` was recorded before the rule existed and never expires.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
