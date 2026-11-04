@@ -30,14 +30,15 @@ const platformMonthSerial = (at: Date): number => {
 const monthStartOf = (serial: number): Date =>
   platformMonthStart(Math.floor(serial / 12), serial % 12);
 
-const sinceNotMonthStartError = () =>
+const MAX_PERIOD_MONTHS = 1200;
+
+const badRequest = (code: 'badRequest' | 'statsSinceNotMonthStart') =>
   new BadRequestException({
     error: 'Bad Request',
-    code: 'statsSinceNotMonthStart',
+    code,
     message:
-      I18nContext.current<I18nTranslations>()?.t(
-        'common.exceptions.statsSinceNotMonthStart',
-      ) ?? 'statsSinceNotMonthStart',
+      I18nContext.current<I18nTranslations>()?.t(`common.exceptions.${code}`) ??
+      code,
   });
 
 const getMonthWindow = (
@@ -45,11 +46,13 @@ const getMonthWindow = (
   sinceDate: Date,
   now: Date,
 ) => {
+  const periodMonths = bucketCount * bucketSize;
+  if (periodMonths > MAX_PERIOD_MONTHS) throw badRequest('badRequest');
+
   const sinceSerial = platformMonthSerial(sinceDate);
   if (monthStartOf(sinceSerial).getTime() !== sinceDate.getTime())
-    throw sinceNotMonthStartError();
+    throw badRequest('statsSinceNotMonthStart');
 
-  const periodMonths = bucketCount * bucketSize;
   const until = monthStartOf(sinceSerial + periodMonths);
   const previousSince = monthStartOf(sinceSerial - periodMonths);
 

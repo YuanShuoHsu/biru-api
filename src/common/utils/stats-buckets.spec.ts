@@ -10,16 +10,15 @@ import type { StatsBucketQueryDto } from '../dto/stats-bucket-query.dto.js';
 import { getStatsWindow, utcTimestampParam } from './stats-buckets.js';
 
 const taipei = (local: string) => new Date(`${local}+08:00`);
-const query = (dto: StatsBucketQueryDto) => dto;
 
 describe('getStatsWindow', () => {
   describe('day / hour', () => {
-    const today = query({
+    const today = {
       since: taipei('2026-11-04T00:00:00').toISOString(),
       bucketUnit: 'hour',
       bucketSize: 1,
       bucketCount: 24,
-    });
+    } satisfies StatsBucketQueryDto;
 
     it('本期進行中時，上期只取到同樣的經過時間', () => {
       const window = getStatsWindow(today, taipei('2026-11-04T10:00:00'));
@@ -44,12 +43,12 @@ describe('getStatsWindow', () => {
   describe('month', () => {
     it('依平台時區的月曆月份切格，跨年也正確', () => {
       const window = getStatsWindow(
-        query({
+        {
           since: taipei('2025-12-01T00:00:00').toISOString(),
           bucketUnit: 'month',
           bucketSize: 1,
           bucketCount: 3,
-        }),
+        } satisfies StatsBucketQueryDto,
         taipei('2026-04-01T00:00:00'),
       );
 
@@ -65,25 +64,23 @@ describe('getStatsWindow', () => {
 
     it('since 不是平台時區的月初時回 400', () => {
       expect(() =>
-        getStatsWindow(
-          query({
-            since: '2025-12-01T00:00:00.000Z',
-            bucketUnit: 'month',
-            bucketSize: 1,
-            bucketCount: 12,
-          }),
-        ),
+        getStatsWindow({
+          since: '2025-12-01T00:00:00.000Z',
+          bucketUnit: 'month',
+          bucketSize: 1,
+          bucketCount: 12,
+        } satisfies StatsBucketQueryDto),
       ).toThrow(BadRequestException);
     });
 
     it('本期進行中時，上期對到同樣月數之前的同一個時間點', () => {
       const window = getStatsWindow(
-        query({
+        {
           since: taipei('2025-12-01T00:00:00').toISOString(),
           bucketUnit: 'month',
           bucketSize: 1,
           bucketCount: 12,
-        }),
+        } satisfies StatsBucketQueryDto,
         taipei('2026-11-04T10:00:00'),
       );
 
@@ -91,14 +88,41 @@ describe('getStatsWindow', () => {
       expect(window.previousUntil).toEqual(taipei('2025-11-04T10:00:00'));
     });
 
+    it('多個月一格時，上期往前推整段的月數', () => {
+      const window = getStatsWindow(
+        {
+          since: taipei('2026-01-01T00:00:00').toISOString(),
+          bucketUnit: 'month',
+          bucketSize: 3,
+          bucketCount: 4,
+        } satisfies StatsBucketQueryDto,
+        taipei('2026-05-10T00:00:00'),
+      );
+
+      expect(window.until).toEqual(taipei('2027-01-01T00:00:00'));
+      expect(window.previousSince).toEqual(taipei('2025-01-01T00:00:00'));
+      expect(window.previousUntil).toEqual(taipei('2025-05-10T00:00:00'));
+    });
+
+    it('月數超過上限時回 400', () => {
+      expect(() =>
+        getStatsWindow({
+          since: taipei('2026-01-01T00:00:00').toISOString(),
+          bucketUnit: 'month',
+          bucketSize: 366,
+          bucketCount: 400,
+        } satisfies StatsBucketQueryDto),
+      ).toThrow(BadRequestException);
+    });
+
     it('上期的對應月份較短時，截在該月月底', () => {
       const window = getStatsWindow(
-        query({
+        {
           since: taipei('2026-03-01T00:00:00').toISOString(),
           bucketUnit: 'month',
           bucketSize: 1,
           bucketCount: 1,
-        }),
+        } satisfies StatsBucketQueryDto,
         taipei('2026-03-31T12:00:00'),
       );
 
@@ -118,14 +142,12 @@ describe('getStatsWindow', () => {
       });
 
       const indexOf = async (bucketSize: number, at: Date) => {
-        const { bucketIndexOf } = getStatsWindow(
-          query({
-            since: taipei('2025-12-01T00:00:00').toISOString(),
-            bucketUnit: 'month',
-            bucketSize,
-            bucketCount: 12,
-          }),
-        );
+        const { bucketIndexOf } = getStatsWindow({
+          since: taipei('2025-12-01T00:00:00').toISOString(),
+          bucketUnit: 'month',
+          bucketSize,
+          bucketCount: 12,
+        } satisfies StatsBucketQueryDto);
         const { rows } = await drizzle(client).execute<{ index: number }>(
           sql`SELECT ${bucketIndexOf(utcTimestampParam(at))} AS index`,
         );
