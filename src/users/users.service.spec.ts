@@ -10,6 +10,10 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { UsersService } from './users.service.js';
 
+vi.mock('../auth/deletion-guards.js', () => ({
+  getDeletableUserIds: () => Promise.resolve(new Set<string>()),
+}));
+
 describe('UsersService', () => {
   let client: PGlite;
   let service: UsersService;
@@ -106,5 +110,90 @@ describe('UsersService.updateUser', () => {
         data: { lastName: ' ', phoneNumber: '' },
       }),
     ).resolves.toMatchObject({ lastName: null, phoneNumber: null });
+  });
+});
+
+describe('UsersService.listUsers banned filter', () => {
+  let client: PGlite;
+  let service: UsersService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new UsersService(db as unknown as DrizzleDB);
+
+    const day = 24 * 60 * 60 * 1000;
+    await db.insert(schema.user).values([
+      {
+        id: 'active',
+        name: 'Active',
+        email: 'active@example.com',
+        firstName: 'A',
+      },
+      {
+        id: 'forever',
+        name: 'Forever',
+        email: 'forever@example.com',
+        firstName: 'A',
+        banned: true,
+      },
+      {
+        id: 'expired',
+        name: 'Expired',
+        email: 'expired@example.com',
+        firstName: 'A',
+        banned: true,
+        banExpires: new Date(Date.now() - day),
+      },
+      {
+        id: 'until',
+        name: 'Until',
+        email: 'until@example.com',
+        firstName: 'A',
+        banned: true,
+        banExpires: new Date(Date.now() + day),
+      },
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  const idsOf = async (query: Record<string, unknown>) =>
+    (
+      await service.listUsers({
+        limit: 10,
+        ...query,
+      } as Parameters<UsersService['listUsers']>[0])
+    ).data
+      .map(({ id }) => id)
+      .sort();
+
+  it.each([
+    ['is', 'true', ['forever', 'until']],
+    ['is', 'false', ['active', 'expired']],
+    ['not', 'true', ['active', 'expired']],
+    ['not', 'false', ['forever', 'until']],
+  ] as const)(
+    '停權欄位 %s %s 把過期的停權算成使用中',
+    async (filterOperator, filterValue, expected) => {
+      expect(
+        await idsOf({ filterField: 'banned', filterOperator, filterValue }),
+      ).toEqual(expected);
+    },
+  );
+
+  it.each([
+    ['true', ['forever', 'until']],
+    ['false', ['active', 'expired']],
+  ] as const)('快速搜尋 banned:%s 與停權欄位一致', async (value, expected) => {
+    expect(
+      await idsOf({
+        quickFilterEnums: [`banned:${value}`],
+        quickFilterValue: 'zzz-no-text-match',
+      }),
+    ).toEqual(expected);
   });
 });
