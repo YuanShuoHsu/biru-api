@@ -561,7 +561,7 @@ export class WaitlistService {
           : revert
             ? { calledAt: now, endedAt: null, status }
             : status === 'called'
-              ? { calledAt: now, status }
+              ? { calledAt: now, confirmedAt: null, status }
               : { endedAt: now, status },
       )
       .where(

@@ -336,6 +336,44 @@ describe('WaitlistService.confirmTicket', () => {
   });
 });
 
+describe('WaitlistService.transitionTicket', () => {
+  const transition = (from: string, to: 'called' | 'waiting') => {
+    const set = vi.fn().mockReturnValue({
+      where: () => ({ returning: () => Promise.resolve([]) }),
+    });
+    const { db, service } = createService({
+      ticket: {
+        calledAt: new Date('2026-10-06T12:00:00Z'),
+        confirmedAt: new Date('2026-10-06T12:01:00Z'),
+        id: 't',
+        organizationId: 'org',
+        status: from,
+      },
+    });
+    db.update.mockReturnValue({ set });
+
+    return { result: service.transitionTicket('slug', 't', to), set };
+  };
+
+  it('clears the confirmation when a called ticket is called again', async () => {
+    const { result, set } = transition('called', 'called');
+
+    await expect(result).rejects.toThrow('waitlistTransitionInvalid');
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmedAt: null, status: 'called' }),
+    );
+  });
+
+  it('keeps the confirmation when a no-show is reverted to called', async () => {
+    const { result, set } = transition('noShow', 'called');
+
+    await expect(result).rejects.toThrow('waitlistTransitionInvalid');
+    expect(set).toHaveBeenCalledWith(
+      expect.not.objectContaining({ confirmedAt: null }),
+    );
+  });
+});
+
 describe('WaitlistService.getPublicStatusByOrganizationId', () => {
   const selectReturning = (rows: unknown[]) =>
     vi.fn(() => ({
