@@ -33,6 +33,7 @@ describe('EcpayOrderInvoiceService 訂單沒有發票', () => {
   const missing = {
     status: 404,
     response: {
+      error: 'Not Found',
       code: 'invoiceNotFound',
       message: 'common.invoices.invoiceNotFound',
     },
