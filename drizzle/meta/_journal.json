@@ -1772,6 +1772,13 @@
       "when": 1793772348958,
       "tag": "0252_points_expiry_reminded_at",
       "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1793774329417,
+      "tag": "0253_drop_organization_slug_uidx",
+      "breakpoints": true
     }
   ]
 }

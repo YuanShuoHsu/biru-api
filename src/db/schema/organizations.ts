@@ -59,7 +59,6 @@ export const organization = pgTable(
     closedAt: timestamp('closed_at'),
   },
   (table) => [
-    uniqueIndex('organization_slug_uidx').on(table.slug),
     check(
       'organization_name_slug_not_blank',
       sql`btrim(${table.name}) <> '' and btrim(${table.slug}) <> ''`,
