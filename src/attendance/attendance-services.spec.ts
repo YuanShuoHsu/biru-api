@@ -350,7 +350,11 @@ describe('shift changes behind a published payslip', () => {
   const lockingDatabase = (published: string[]) => {
     const rows = (table: unknown, where: SQL | undefined) => {
       if (table === attendanceEmployee) return [scheduledEmployee];
-      if (table === statutoryHoliday) return [{ date: '2026-01-01' }];
+      if (table === statutoryHoliday)
+        return [
+          { date: '2026-01-01', name: '開國紀念日' },
+          { date: '2026-01-17', name: '補假' },
+        ];
       if (table === attendanceShift) return shifts.splice(0);
       if (table === attendanceSettings)
         return [{ agreedFrom: '2020-01-01', periods: [] }];
@@ -444,7 +448,15 @@ describe('shift changes behind a published payslip', () => {
     startsAt: '2026-02-11T01:00:00.000Z',
     endsAt: '2026-02-11T09:00:00.000Z',
   };
-  const shiftRow = (interval: typeof january) => ({
+  const march = {
+    startsAt: '2026-03-11T01:00:00.000Z',
+    endsAt: '2026-03-11T09:00:00.000Z',
+  };
+  const januaryRestDay = {
+    startsAt: '2026-01-24T01:00:00.000Z',
+    endsAt: '2026-01-24T09:00:00.000Z',
+  };
+  const shiftRow = (interval: typeof january, dayKind = 'workday') => ({
     id: 'shift',
     organizationId: 'org',
     employeeId: 'employee',
@@ -454,7 +466,7 @@ describe('shift changes behind a published payslip', () => {
     endsAt: new Date(interval.endsAt),
     breaks: [],
     paidBreak: false,
-    dayKind: 'workday',
+    dayKind,
   });
   const create = (db: DrizzleDB, interval: typeof january) =>
     new AttendanceShiftsService(db).createShifts(
@@ -478,8 +490,9 @@ describe('shift changes behind a published payslip', () => {
     db: DrizzleDB,
     interval: typeof january,
     setShifts: (value: unknown[]) => void,
+    dayKind?: string,
   ) => {
-    setShifts([shiftRow(interval)]);
+    setShifts([shiftRow(interval, dayKind)]);
     return new AttendanceShiftsService(db).cancelShift(manager, 'shift', {
       reason: 'correction',
       irreversible: true,
@@ -494,12 +507,12 @@ describe('shift changes behind a published payslip', () => {
       ({ db, setShifts }) => update(db, january, january, setShifts),
     ],
     [
-      'update from January to February',
-      ({ db, setShifts }) => update(db, january, february, setShifts),
+      'update from January to March',
+      ({ db, setShifts }) => update(db, january, march, setShifts),
     ],
     [
-      'update from February to January',
-      ({ db, setShifts }) => update(db, february, january, setShifts),
+      'update from March to January',
+      ({ db, setShifts }) => update(db, march, january, setShifts),
     ],
     ['cancel', ({ db, setShifts }) => cancel(db, january, setShifts)],
   ])('locks a later published month on a January shift %s', async (_, run) => {
@@ -520,4 +533,27 @@ describe('shift changes behind a published payslip', () => {
       await expect(run(lockingDatabase(['2026-01']))).resolves.toBeDefined();
     },
   );
+  it.each<[string, Run]>([
+    ['create', ({ db }) => create(db, januaryRestDay)],
+    [
+      'cancel',
+      ({ db, setShifts }) => cancel(db, januaryRestDay, setShifts, 'restDay'),
+    ],
+  ])(
+    'allows a January rest-day shift %s when only February is published',
+    async (_, run) => {
+      await expect(run(lockingDatabase(['2026-02']))).resolves.toBeDefined();
+    },
+  );
+  it('locks a later published month when a January shift becomes a holiday substitute', async () => {
+    const { db, setShifts } = lockingDatabase(['2026-02']);
+    setShifts([shiftRow(january)]);
+    await expect(
+      new AttendanceLeavesService(db).createHolidaySubstitute(manager, {
+        employeeId: 'employee',
+        holidayDate: '2026-01-17',
+        shiftId: 'shift',
+      }),
+    ).rejects.toThrow('payrollLocked');
+  });
 });
