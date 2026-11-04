@@ -155,6 +155,7 @@ export class EcpayOrderInvoiceService {
       | 'allowanceIssued'
       | 'alreadyIssuing'
       | 'customerNameRequiresIdentifier'
+      | 'invoiceNotFound'
       | 'notIssued'
       | 'notPaid'
       | 'notPending'
@@ -171,6 +172,14 @@ export class EcpayOrderInvoiceService {
     return this.i18n.t(`common.invoices.${key}`, {
       args,
       lang: I18nContext.current()?.lang,
+    });
+  }
+
+  private invoiceNotFoundError() {
+    return new NotFoundException({
+      error: 'Not Found',
+      code: 'invoiceNotFound',
+      message: this.tInvoice('invoiceNotFound'),
     });
   }
 
@@ -345,7 +354,7 @@ export class EcpayOrderInvoiceService {
     const found = toActiveInvoice(row);
 
     const { invoice: data } = found;
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw this.invoiceNotFoundError();
     if (data.status !== 'pending')
       throw new ConflictException(
         this.tInvoice('notPending', {
@@ -580,7 +589,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw this.invoiceNotFoundError();
     if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
       throw new ConflictException(
         this.tInvoice('notVoidable', {
@@ -672,7 +681,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found?.invoices.find(({ invoiceNumber }) => invoiceNumber);
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw this.invoiceNotFoundError();
     if (!data.invoiceNumber || !data.invoiceDate)
       throw new ConflictException(this.tInvoice('notIssued'));
 
@@ -744,7 +753,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw this.invoiceNotFoundError();
     if (!isPrintable(data))
       throw new ConflictException(this.tInvoice('notPrintable'));
 
