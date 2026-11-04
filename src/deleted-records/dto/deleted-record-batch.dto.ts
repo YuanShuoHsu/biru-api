@@ -18,6 +18,15 @@ import {
   type RestorableTable,
 } from '../deleted-record-tables.js';
 
+export const DELETED_RECORD_RESTORE_BLOCKED_BY = [
+  'ownerOnly',
+  'forbidden',
+  'closed',
+] as const;
+
+export type DeletedRecordRestoreBlockedBy =
+  (typeof DELETED_RECORD_RESTORE_BLOCKED_BY)[number];
+
 export const DELETED_RECORD_STRING_FILTER_FIELDS = [
   'organizationName',
 ] as const;
@@ -101,6 +110,15 @@ export class DeletedRecordBatchResponseDto {
     description: '目前操作者可否還原（店內須具備各資料的建立權限）',
   })
   canRestore: boolean;
+
+  @ApiProperty({
+    description:
+      '不能還原的原因：ownerOnly＝要還原擁有者成員或邀請、操作者不是擁有者；forbidden＝角色沒有這些資料的權限；closed＝門市停業中。可以還原時為 null',
+    enum: DELETED_RECORD_RESTORE_BLOCKED_BY,
+    enumName: 'DeletedRecordRestoreBlockedBy',
+    nullable: true,
+  })
+  restoreBlockedBy: DeletedRecordRestoreBlockedBy | null;
 }
 
 export class DeletedRecordPermissionDto {
