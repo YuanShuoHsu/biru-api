@@ -681,6 +681,14 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "points_expiry_reminder": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
         "smtp_test": {
             "subject": string;
             "text": string;

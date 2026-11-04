@@ -198,6 +198,14 @@
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
+  "points_expiry_reminder": {
+    "subject": "{points} points expire on {date}",
+    "title": "Your points are expiring",
+    "intro": "{points} of your points expire on {date} and can't be used after that. Redeem them before they expire.",
+    "action": "View my points",
+    "salutation": "Thanks,<br>The {productName} team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
   "smtp_test": {
     "subject": "{productName} SMTP test",
     "text": "If you receive this email, your SMTP configuration is correct!"
