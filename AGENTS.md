@@ -134,6 +134,9 @@ whose floor or ceiling moves down, or more than doubles, is rejected as a source
 previous ladder is kept. The withholding floor is `各類所得扣繳率標準` §13 — 應扣繳稅額 not over NT$2,000 — **not** a salary
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
+The same job and endpoint also run `ingestHolidays`, which rewrites `statutory_holiday` for the current and later
+years from 政府行政機關辦公日曆表 (`14718`) and returns them as `holidayYears`; `0164` seeds no holidays, so until a
+year is written, scheduling and drafts in it fail with `holidayCalendarMissing`.
 
 最低工資 comes from dataset `6281`. When it has no usable figure for the period — unreachable, rejected for
 showing a decrease, or below the 一般勞工 ladder's first grade (which the 分級表 ties to the monthly 最低工資) —
