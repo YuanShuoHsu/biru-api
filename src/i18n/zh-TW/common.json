@@ -174,6 +174,7 @@
     "tooManyRequests": "請求過多"
   },
   "gcis": {
+    "companyNotFound": "找不到這個統一編號對應的公司資料",
     "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字"
   },
   "inventory": {
@@ -189,6 +190,7 @@
     "allowanceIssued": "此發票已開立折讓，無法作廢",
     "alreadyIssuing": "這張發票正在開立中，請稍候再試",
     "customerNameRequiresIdentifier": "個人或捐贈發票須同時填寫統一編號，才能更正買受人抬頭",
+    "invoiceNotFound": "此訂單查無發票",
     "notIssued": "此發票尚未開立",
     "notPaid": "訂單尚未付款，無法開立發票",
     "notPending": "此發票目前為{status}，無法開立",
@@ -290,6 +292,7 @@
     "showcaseOpenSelfOnly": "只有成員本人能開啟在團隊介紹的公開顯示。",
     "specialHoursEnded": "不能新增或改成已經結束的特殊營業日。",
     "specialHoursInvalidRange": "特殊營業日的開始日期不能晚於結束日期。",
+    "specialHoursNotFound": "找不到這個特殊營業日，可能已被刪除。",
     "specialHoursOverlap": "這段期間和已設定的特殊營業日（{validFrom}～{validThrough}）重疊。"
   },
   "points": {

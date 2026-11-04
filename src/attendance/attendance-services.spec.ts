@@ -18,7 +18,7 @@ import { AttendanceLeavesService } from './attendance-leaves.service.js';
 import { AttendanceRequestsService } from './attendance-requests.service.js';
 import { AttendanceShiftsService } from './attendance-shifts.service.js';
 
-function database(results: unknown[][]) {
+function database(results: unknown[][], conditions: SQL[] = []) {
   const chain = () => {
     const promise = Promise.resolve(results.shift() ?? []);
     const query: Record<string, unknown> = { then: promise.then.bind(promise) };
@@ -30,7 +30,10 @@ function database(results: unknown[][]) {
       'offset',
       'innerJoin',
     ])
-      query[method] = () => query;
+      query[method] = (condition: SQL) => {
+        if (method === 'where') conditions.push(condition);
+        return query;
+      };
     return query;
   };
   const returning = vi.fn(() =>
@@ -342,6 +345,40 @@ describe('attendance services', () => {
       const { db, insert } = database(rows);
       await expect(run(db)).rejects.toThrow('payrollLocked');
       expect(insert).not.toHaveBeenCalled();
+    }
+  });
+  it('locks every month from the shift start onward when a shift changes', async () => {
+    const manager = { ...actor, role: 'owner' };
+    const shift = {
+      id: 'shift',
+      organizationId: 'org',
+      employeeId: 'employee',
+      status: 'scheduled',
+      dayKind: 'workday',
+      startsAt: new Date('2026-01-15T01:00:00Z'),
+      endsAt: new Date('2026-01-15T10:00:00Z'),
+    };
+    const cases: ((db: DrizzleDB) => Promise<unknown>)[] = [
+      (db) =>
+        new AttendanceShiftsService(db).updateShift(manager, 'shift', {
+          endsAt: '2026-01-15T11:00:00Z',
+        }),
+      (db) =>
+        new AttendanceShiftsService(db).cancelShift(manager, 'shift', {
+          reason: 'correction',
+        }),
+    ];
+    for (const run of cases) {
+      const conditions: SQL[] = [];
+      const { db } = database(
+        [[shift], [], [], [], [{ id: 'statement' }]],
+        conditions,
+      );
+      await expect(run(db)).rejects.toThrow('payrollLocked');
+      const months = conditions
+        .flatMap((condition) => new PgDialect().sqlToQuery(condition).params)
+        .filter((param) => /^\d{4}-\d{2}$/.test(String(param)));
+      expect(months).toEqual(['2026-01']);
     }
   });
 });

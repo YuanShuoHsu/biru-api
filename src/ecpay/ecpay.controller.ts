@@ -31,14 +31,17 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { minutes, SkipThrottle, Throttle } from '@nestjs/throttler';
+import { hours, minutes, SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
 
-import { ANONYMOUS_THROTTLER } from '../common/constants/throttle.js';
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 
 @Controller('ecpay')
@@ -148,7 +151,10 @@ export class EcpayController {
 
   @Post()
   @AllowAnonymous()
-  @Throttle({ [ANONYMOUS_THROTTLER]: { limit: 10, ttl: minutes(1) } })
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiCreatedResponse({ type: CheckoutEcpayResponseDto })
   async checkout(
     @Body() dto: CheckoutEcpayDto,

@@ -135,8 +135,9 @@ previous ladder is kept. The withholding floor is `各類所得扣繳率標準` 
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
 The same job and endpoint also run `ingestHolidays`, which rewrites `statutory_holiday` for the current and later
-years from 政府行政機關辦公日曆表 (`14718`) and returns them as `holidayYears`; `0164` seeds no holidays, so until a
-year is written, scheduling and drafts in it fail with `holidayCalendarMissing`. Past years are never backfilled.
+years from 政府行政機關辦公日曆表 (`14718`) and returns the years written as `holidayYears`. Of the past years only the
+previous one is backfilled: written once while it has no rows, never rewritten; older years are never fetched. `0164`
+seeds no holidays, so until a year is written, scheduling and drafts in it fail with `holidayCalendarMissing`.
 Each year is rewritten under a per-year advisory lock, so the cron and a manual run never interleave.
 
 最低工資 comes from dataset `6281`. When it has no usable figure for the period — unreachable, rejected for
@@ -245,10 +246,20 @@ member lots with different terms and was hard to explain, so don't reintroduce a
 `expiresAt` is stamped when the lot is recorded and must not be shortened afterwards; an earned lot with
 `null` was recorded before the rule existed and never expires.
 
+### Ingredient Stock
+
+`ingredient.inventory_level` goes negative only by overselling: an order that is already paid (OrderProblem →
+OrderProcessing, `consumesInventory` in `src/orders/order-transitions.ts`) consumes without `enforceStock`, because a paid
+order can't be refused, and `record` flags the ingredient `oversold` in the low-stock notification. Everything else keeps
+stock non-negative: placing an order uses `enforceStock`, and counts and opening stock are validated as non-negative in
+the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
+orders, and don't accept negative counts.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
 storefront profile settings. No mail checks it yet; whether a mail type honours it is decided per type.
+Account notices about the member's own account, such as the points expiry reminder, don't honour it.
 A mail type that honours it must skip members with `emailSubscribed = false` and link to the profile
 settings page so the member can opt out (個資法 §20,
 [law.moj.gov.tw](https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=I0050021&flno=20)), and goes
@@ -327,11 +338,14 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
-- Rate limiting: 100 req / 60s per IP globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous
-  order, ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with
-  `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler, the global one included, only takes
-  effect once `TRUSTED_PROXIES` is set — without it `req.ip` is the proxy's address, so every caller would share one
-  bucket and any limit would throttle the whole platform. The named throttlers are unlimited unless a route overrides
+- Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). `throttleTracker` buckets
+  signed-in requests by user id and the rest by `clientIp`; requests without a usable IP share one `ip:missing`
+  bucket. It looks the session up itself because `AppModule`'s guards run before better-auth's `AuthGuard`, so
+  `req.user` is not set yet. The anonymous order, ECPay checkout, waitlist ticket, coupon check and company lookup
+  routes add 30 / min and 150 / hour with `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler,
+  the global one included, only takes effect once `CLIENT_IP_HEADER` or `TRUSTED_PROXIES` is set — without either
+  `req.ip` is the proxy's address, so every caller would share one bucket and any limit would throttle the whole
+  platform. The named throttlers are unlimited unless a route overrides
   them, and their `skipIf` also drops the route's override. The expected-points route is deliberately not on the named
   throttlers: it treats an inapplicable coupon as no discount instead of rejecting it, so it can't be used to guess codes
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
@@ -341,10 +355,28 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   attendance allowlist; a hop count breaks whenever the chain length differs between the public
   API and the Next.js rewrite. Trusting by address is chain-length independent and makes a forged
   entry become `req.ip` itself, which the allowlist then rejects. Unset means `false` — `req.ip`
-  is the socket peer, so the allowlist fails closed and every throttler is skipped until the real
+  is the socket peer, so the allowlist fails closed and every throttler (and better-auth's default limit) is skipped until the real
   proxy range is configured and verified with forged headers against the public API, Next.js
   rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
+- Client IP — `clientIp` (`src/common/trusted-proxy.ts`) is what the throttler and the punch allowlist read. With
+  `CLIENT_IP_HEADER` set it returns that header only when it holds a single IP, otherwise nothing (never `req.ip` or
+  `X-Forwarded-For`), so the punch is rejected; unset, it returns `req.ip`. Set it only when every request reaches the
+  API through Cloudflare (`CF-Connecting-IP`): any path that bypasses Cloudflare, the onrender.com subdomain included,
+  lets the caller forge the header, so that subdomain must be disabled or unreachable first. Browser calls that go
+  through a Next `/api/*` rewrite arrive with Vercel's egress IP, so set it only after the frontends call the API
+  directly (#209). Server-side calls from the Next apps also arrive with the Next server's egress IP (or, calling
+  onrender.com directly, without the header, i.e. `ip:missing`); to keep per-visitor buckets the storefront's
+  server-side calls send the visitor's IP in `x-forwarded-client-ip` with `CLIENT_IP_FORWARD_SECRET` in
+  `x-client-ip-forward-secret`. `forwardedClientIp` returns that IP only when the secret matches and the value is a
+  single IP; the throttler tracker and better-auth (its limiter and session IP) read it, never the punch allowlist, so
+  the secret can't vouch for a shop IP. The throttlers skip WebSocket messages. better-auth's own limiter
+  (`/api/auth/*`, which Nest guards never see) uses the same `rateLimitClientIp`: the `BetterAuthModule` middleware
+  removes any `x-biru-client-ip` the caller sent and, once `rateLimitEnabled()`, sets it to that IP;
+  `advanced.ipAddress.ipAddressHeaders` reads only that header. While `rateLimitEnabled()` is false the header is never
+  set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
+  (sign-in, sign-up, password and verification mails), which then share one bucket per path platform-wide — set
+  `CLIENT_IP_HEADER` to give them per-client buckets.
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
@@ -371,6 +403,10 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
   `trust proxy: false`, which fails the attendance IP allowlist closed
+- `CLIENT_IP_HEADER` — Header holding the client IP, e.g. `CF-Connecting-IP`; takes precedence over `req.ip`. Only set
+  it when every request reaches the API through Cloudflare (onrender.com disabled), otherwise the header can be forged
+- `CLIENT_IP_FORWARD_SECRET` — Shared with the biru storefront's server (same name there, never `NEXT_PUBLIC_`); a
+  random value of at least 32 bytes. Unset means forwarded client IPs are ignored
 - `FIELD_ENCRYPTION_KEYS` — `v3:<base64 32 bytes>,v2:<...>,legacy` keys for `src/common/utils/field-encryption.ts`;
   the first encrypts, the rest only decrypt. `legacy` (no key) is the key derived from `BETTER_AUTH_SECRET`,
   which writes the unprefixed `iv.tag.ciphertext` format; it is unrelated to the `-v1` in the purpose info

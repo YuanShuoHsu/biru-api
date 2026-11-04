@@ -23,6 +23,16 @@ import type {
   UpdateSpecialHoursDto,
 } from './dto/special-hours.dto.js';
 
+const specialHoursNotFoundError = () =>
+  new NotFoundException({
+    error: 'Not Found',
+    code: 'specialHoursNotFound',
+    message:
+      I18nContext.current<I18nTranslations>()?.t(
+        'common.organizations.specialHoursNotFound',
+      ) ?? 'specialHoursNotFound',
+  });
+
 @Injectable()
 export class SpecialHoursService {
   constructor(
@@ -85,7 +95,7 @@ export class SpecialHoursService {
     const existing = await this.db.query.organizationSpecialHours.findFirst({
       where,
     });
-    if (!existing) throw new NotFoundException('Special hours not found');
+    if (!existing) throw specialHoursNotFoundError();
 
     const next = { ...existing, ...dto };
     this.assertUpcomingRange(next);
@@ -98,7 +108,7 @@ export class SpecialHoursService {
         .where(where)
         .returning(),
     );
-    if (!updated) throw new NotFoundException('Special hours not found');
+    if (!updated) throw specialHoursNotFoundError();
 
     return updated;
   }
@@ -118,7 +128,7 @@ export class SpecialHoursService {
         ),
       )
       .returning({ id: organizationSpecialHours.id });
-    if (!deleted.length) throw new NotFoundException('Special hours not found');
+    if (!deleted.length) throw specialHoursNotFoundError();
   }
 
   private assertUpcomingRange({

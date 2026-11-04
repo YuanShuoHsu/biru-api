@@ -70,4 +70,48 @@ describe('App (e2e)', () => {
 
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));
+
+  describe('better-auth 的限流', () => {
+    const signIn = (headers: Record<string, string>) =>
+      request(app.getHttpServer())
+        .post('/api/auth/sign-in/email')
+        .set(headers)
+        .send({ email: 'nobody@example.com', password: 'wrong-password' });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('設定 CLIENT_IP_HEADER 後依該標頭的 IP 分桶，客戶端自帶的內部標頭無效', async () => {
+      vi.stubEnv('CLIENT_IP_HEADER', 'CF-Connecting-IP');
+      const visitor = { 'cf-connecting-ip': '203.0.113.21' };
+      for (let i = 0; i < 3; i++)
+        expect((await signIn(visitor)).status).not.toBe(429);
+      expect((await signIn(visitor)).status).toBe(429);
+      expect(
+        (
+          await signIn({
+            ...visitor,
+            'x-biru-client-ip': '203.0.113.99',
+          })
+        ).status,
+      ).toBe(429);
+      expect(
+        (await signIn({ 'cf-connecting-ip': '203.0.113.22' })).status,
+      ).not.toBe(429);
+    });
+
+    it('CLIENT_IP_HEADER 與 TRUSTED_PROXIES 都沒設時，只保留登入等敏感路徑的限制', async () => {
+      vi.stubEnv('CLIENT_IP_HEADER', '');
+      vi.stubEnv('TRUSTED_PROXIES', '');
+      for (let i = 0; i < 110; i++)
+        expect(
+          (await request(app.getHttpServer()).get('/api/auth/get-session'))
+            .status,
+        ).not.toBe(429);
+      for (let i = 0; i < 3; i++)
+        expect((await signIn({})).status).not.toBe(429);
+      expect((await signIn({})).status).toBe(429);
+    });
+  });
 });

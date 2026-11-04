@@ -174,6 +174,7 @@
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "gcis": {
+    "companyNotFound": "이 사업자 등록번호에 해당하는 회사를 찾을 수 없습니다",
     "invalidBusinessNo": "사업자 등록번호 형식이 올바르지 않습니다. 8자리 숫자여야 합니다"
   },
   "inventory": {
@@ -189,6 +190,7 @@
     "allowanceIssued": "이 세금계산서는 에누리가 발행되어 취소할 수 없습니다",
     "alreadyIssuing": "이 세금계산서는 발행 처리 중입니다. 잠시 후 다시 시도하세요",
     "customerNameRequiresIdentifier": "개인 또는 기부 세금계산서는 사업자 번호와 함께 입력해야 구매자 상호를 정정할 수 있습니다",
+    "invoiceNotFound": "이 주문의 세금계산서를 찾을 수 없습니다",
     "notIssued": "이 세금계산서는 아직 발행되지 않았습니다",
     "notPaid": "주문이 결제되지 않아 세금계산서를 발행할 수 없습니다",
     "notPending": "이 세금계산서는 {status} 상태여서 발행할 수 없습니다",
@@ -290,6 +292,7 @@
     "showcaseOpenSelfOnly": "구성원 본인만 팀 소개에 공개로 설정할 수 있습니다.",
     "specialHoursEnded": "이미 종료된 기간으로 특별 영업일을 추가하거나 변경할 수 없습니다.",
     "specialHoursInvalidRange": "특별 영업일의 시작일은 종료일보다 늦을 수 없습니다.",
+    "specialHoursNotFound": "이 특별 영업일을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
     "specialHoursOverlap": "이 기간은 이미 설정된 특별 영업일({validFrom}~{validThrough})과 겹칩니다."
   },
   "points": {

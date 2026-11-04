@@ -24,11 +24,13 @@
 
 1. 在 biru-api 依現有部署流程，對確認的目標資料庫依 `drizzle/meta/_journal.json` 的順序套用尚未套用的 migration。0122–0131 已在隔離 PostgreSQL 18 驗證，0122–0136 另以 PGlite（PostgreSQL 17）驗證；之後的 migration 未在本文記錄重播結果。
 2. 部署更新後的 biru-api 與 biru-admin；API 型別依更新模組的 Swagger 產生。biru-admin 已有班次休息時段與各阻擋原因的顯示，以及平台管理員確認每小時最低工資的 `/payroll-rule-sets` 畫面；勞保 `laborLadder` 由系統推得，沒有輸入欄位。
-3. 部署後由平台管理員執行一次 `POST /api/payroll/rule-sets/ingest`。規則集尚未在薪資月份開始後成功同步前（六份官方資料都要取得，且沒有任何期間因數值不合理被退回），所有薪資草稿都會被 `payrollRuleSetStale` 阻擋。這個端點不同步國定假日；國定假日只由正式環境每天凌晨 4 點的排程同步，migration 也沒有預載資料，第一次同步前排班會回傳 `holidayCalendarMissing`，薪資草稿也被同名原因阻擋。
+3. 部署後由平台管理員執行一次 `POST /api/payroll/rule-sets/ingest`。規則集尚未在薪資月份開始後成功同步前（六份官方資料都要取得，且沒有任何期間因數值不合理被退回），所有薪資草稿都會被 `payrollRuleSetStale` 阻擋。這個端點也會同步今年起的國定假日，回應的 `holidayYears` 列出寫入的年度；migration 沒有預載國定假日；過去的年度只補前一年（資料庫還沒有時寫入一次，之後不再改寫），更早的年度不會補，尚未寫入的年度排班會回傳 `holidayCalendarMissing`，薪資草稿也被同名原因阻擋。
 4. owner 設定店家經緯度、範圍及固定公網 IP，新增假別及薪資條件。主管啟用員工，設定到職日並排班。自訂假別需人工核給額度；法定假別依以下規則計算。
 5. 在實際 HTTPS 網址驗證 GPS 與網路。定位需在 60 秒內，定位誤差加上距離須在店家範圍內，且來源 IP 必須同時通過白名單。
 
 後端使用 `app.set('trust proxy', trustedProxies())`，信任清單讀自 `TRUSTED_PROXIES`，以逗號分隔 IP、CIDR 或 proxy-addr preset。未設定時不信任任何代理，`req.ip` 會是直接連線的位址；格式錯誤時啟動失敗。清單只能列出實際轉送請求的代理，否則客戶端可偽造 X-Forwarded-For，影響打卡 IP 白名單。[Express 代理信任規則](https://expressjs.com/en/guide/behind-proxies/)
+
+設定 `CLIENT_IP_HEADER`（如 `CF-Connecting-IP`）時，打卡與限流改讀該標頭，且只接受單一 IP；缺少或格式不符時拒絕打卡，不會退回 `req.ip` 或 X-Forwarded-For。只有在所有請求都經 Cloudflare 才能到達 API 時才可設定（onrender.com 子網域須停用或無法連線），否則客戶端可直接偽造該標頭。設定後，Next 伺服器端呼叫會以 Next 伺服器的對外 IP 計算（直連 onrender.com 則沒有該標頭，歸入 `ip:missing`），匿名 SSR 流量會共用同一桶；因此前台伺服器端呼叫會以 `x-forwarded-client-ip` 轉送訪客 IP，並以 `x-client-ip-forward-secret` 附上 `CLIENT_IP_FORWARD_SECRET`，密鑰相符且為單一 IP 時，限流才採用，否則忽略；打卡白名單一律不採用轉送的 IP。前台與後台改為瀏覽器直連 API（#209）之前，經 Next `/api/*` rewrite 的瀏覽器請求帶的是 Vercel 的對外 IP，所以在那之前不要設定 `CLIENT_IP_HEADER`。店家網路有 IPv6 時，`CF-Connecting-IP` 會是 IPv6，白名單須加上 IPv6 位址或改用 Cloudflare Pseudo IPv4。
 
 Render 終止 TLS 不保證轉送標頭已被清理，Next rewrite 也不提供這項保證。
 
@@ -38,7 +40,7 @@ Wi-Fi 區網 IP 不可當成店家固定公網 IP。GPS 與 IP 是出勤條件�
 
 ## 薪資計算範圍
 
-目前限定台灣、Asia/Taipei、一般工時、TWD、月薪／時薪與每月結算；費率、投保級距與最低工資依薪資月份套用當期規則集。班次日期類型依員工設定的固定例假與休息日星期推得，未設定時由主管指定；國定假日讀自正式環境排程每日同步的政府行政機關辦公日曆表（[data.gov.tw 14718](https://data.gov.tw/dataset/14718)）加上員工的原住民族歲時祭儀，排在國定假日的平日班自動標為國定假日，當年度行事曆尚未同步時無法排班。薪資條件限月初生效；同一生效日修改會新增版本。
+目前限定台灣、Asia/Taipei、一般工時、TWD、月薪／時薪與每月結算；費率、投保級距與最低工資依薪資月份套用當期規則集。班次日期類型依員工設定的固定例假與休息日星期推得，未設定時由主管指定；國定假日讀自每日排程與平台管理員手動同步的政府行政機關辦公日曆表（[data.gov.tw 14718](https://data.gov.tw/dataset/14718)）加上員工的原住民族歲時祭儀，排在國定假日的平日班自動標為國定假日，當年度行事曆尚未同步時無法排班。薪資條件限月初生效；同一生效日修改會新增版本。
 
 金額以分為單位儲存並使用整數運算。一般工作日、休息日與國定假日按不同規則計算；加班需對應實際核准時段。雇主退休金提繳不從員工實領薪資扣除。投保金額由系統在儲存薪資條件時依約定月薪（時薪人員已有前 3 個月工資時取其平均）自動選定當期官方級距中的一級；系統不自動申報。
 

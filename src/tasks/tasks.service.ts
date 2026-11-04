@@ -14,6 +14,7 @@ import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
 import { OrderNotificationsService } from '../orders/order-notifications.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
+import { PointsService } from '../points/points.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
@@ -31,6 +32,7 @@ export class TasksService {
     private readonly inventoryNotificationsService: InventoryNotificationsService,
     private readonly orderNotificationsService: OrderNotificationsService,
     private readonly payrollRulesService: PayrollRulesService,
+    private readonly pointsService: PointsService,
     private readonly waitlistService: WaitlistService,
   ) {}
 
@@ -155,6 +157,20 @@ export class TasksService {
       if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
     } catch (error) {
       this.logger.error('寄送特休取得通知失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_10AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handlePointsExpiryReminderCron() {
+    try {
+      const notified = await this.pointsService.notifyExpiringPoints();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封點數到期提醒`);
+    } catch (error) {
+      this.logger.error('寄送點數到期提醒失敗', error);
     }
   }
 

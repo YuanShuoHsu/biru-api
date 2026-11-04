@@ -32,6 +32,7 @@ export const pointTransaction = pgTable(
     id: text('id').primaryKey(),
     adjustedBy: text('adjusted_by'),
     expiresAt: timestamp('expires_at'),
+    expiryRemindedAt: timestamp('expiry_reminded_at'),
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
     }),

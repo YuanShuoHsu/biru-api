@@ -174,6 +174,7 @@
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {
+    "companyNotFound": "この統一編号に該当する会社が見つかりません",
     "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください"
   },
   "inventory": {
@@ -189,6 +190,7 @@
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
     "alreadyIssuing": "このインボイスは発行処理中です。しばらくしてからお試しください",
     "customerNameRequiresIdentifier": "個人・寄付のインボイスでは、買い手の名称は統一編号と一緒に入力した場合のみ訂正できます",
+    "invoiceNotFound": "この注文のインボイスが見つかりません",
     "notIssued": "このインボイスはまだ発行されていません",
     "notPaid": "注文が未払いのため、インボイスを発行できません",
     "notPending": "このインボイスは{status}のため、発行できません",
@@ -290,6 +292,7 @@
     "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。",
     "specialHoursEnded": "すでに終了した期間の特別営業日は追加・変更できません。",
     "specialHoursInvalidRange": "特別営業日の開始日は終了日より後にできません。",
+    "specialHoursNotFound": "この特別営業日が見つかりません。削除された可能性があります。",
     "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。"
   },
   "points": {

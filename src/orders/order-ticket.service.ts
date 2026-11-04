@@ -20,13 +20,7 @@ import {
 } from './order-ticket-receipt.js';
 import { isOrderTicketPrintable } from './order-transitions.js';
 
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 
@@ -73,7 +67,11 @@ import {
   type PrintResult,
 } from '../printers/server-direct-print.js';
 import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
-import { notFoundError } from './order-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './order-errors.js';
 
 export const IN_FLIGHT_ORDER_TICKET_STATUSES = [
   'queued',
@@ -668,13 +666,13 @@ export class OrderTicketService implements PrintJobSource {
     });
     if (!found) throw notFoundError('orderNotFound');
     if (!isOrderTicketPrintable(found.orderStatus))
-      throw new BadRequestException(this.t('notReprintable'));
+      throw badRequestError('notReprintable');
 
     const configured = await this.printersService.list(
       organizationId,
       'orderTicket',
     );
-    if (!configured.length) throw new BadRequestException(this.t('noPrinter'));
+    if (!configured.length) throw badRequestError('noPrinter');
 
     const originals = await this.db
       .select({
@@ -861,7 +859,7 @@ export class OrderTicketService implements PrintJobSource {
       return reprint ?? job;
     });
 
-    if (!resolved) throw new ConflictException(this.t('printJobResolved'));
+    if (!resolved) throw conflictError('printJobResolved');
 
     this.emitOrdersUpdated(organizationId, [orderId]);
 

@@ -421,3 +421,30 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     expect(specialHours.map(({ id }) => id)).toEqual(['other']);
   });
 });
+
+describe('organization.slug 唯一', () => {
+  let client: PGlite;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    await migrate(drizzle(client, { schema }), {
+      migrationsFolder: './drizzle',
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('slug 不能重複', async () => {
+    const insert = (id: string) =>
+      client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, $1, 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+        [id],
+      );
+
+    await insert('first');
+
+    await expect(insert('second')).rejects.toThrow(/organization_slug_unique/);
+  });
+});

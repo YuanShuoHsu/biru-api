@@ -1,9 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { ConflictException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -29,7 +27,6 @@ describe('DeletedRecordsService.restore', () => {
       {} as never,
       {} as never,
       { emit: vi.fn() } as unknown as EventEmitter2,
-      { t: (key: string) => key } as unknown as I18nService,
       {} as never,
     );
   }, 60_000);
@@ -78,9 +75,10 @@ describe('DeletedRecordsService.restore', () => {
         name: 'admin',
         email: 'admin@example.com',
       }),
-    ).rejects.toEqual(
-      new ConflictException('common.deletedRecords.restoreInvalid'),
-    );
+    ).rejects.toMatchObject({
+      response: { code: 'restoreInvalid', error: 'Conflict' },
+      status: 409,
+    });
   });
   it('平台管理員經由服務還原時以 owner 身分操作', async () => {
     const createShiftType = vi.fn();
@@ -137,7 +135,6 @@ describe('DeletedRecordsService.list', () => {
       {} as never,
       {} as never,
       {} as EventEmitter2,
-      {} as I18nService,
       {} as never,
     );
     await db.insert(deletedRecord).values([

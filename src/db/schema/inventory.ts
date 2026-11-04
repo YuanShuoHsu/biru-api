@@ -6,6 +6,7 @@
 
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -85,6 +86,7 @@ export const ingredient = pgTable(
       onDelete: 'set null',
     }),
     unitCode: unitCodeEnum('unit_code').notNull(),
+    unlimitedStock: boolean('unlimited_stock').notNull().default(false),
     url: text('url'),
     ...timestamps,
   },

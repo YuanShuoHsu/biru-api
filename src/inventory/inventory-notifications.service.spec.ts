@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -131,6 +132,16 @@ describe('InventoryNotificationsService.notifyLowStockDigest', () => {
       organizationId: 'other',
       unitCode: 'GRM',
     });
+  });
+
+  it('不限量的食材即使低於門檻也不列入摘要', async () => {
+    await db
+      .update(ingredient)
+      .set({ unlimitedStock: true })
+      .where(inArray(ingredient.id, ['milk', 'oat', 'otherBeans']));
+
+    await expect(service.notifyLowStockDigest()).resolves.toBe(0);
+    expect(sendLowStockDigest).not.toHaveBeenCalled();
   });
 
   it('只寄給有低庫存食材門市的 owner／admin，內容只含該門市跌到門檻以下的食材', async () => {

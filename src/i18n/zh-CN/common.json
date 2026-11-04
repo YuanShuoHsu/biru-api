@@ -174,6 +174,7 @@
     "tooManyRequests": "请求过多"
   },
   "gcis": {
+    "companyNotFound": "找不到这个统一编号对应的公司资料",
     "invalidBusinessNo": "统一编号格式错误，需为 8 位数字"
   },
   "inventory": {
@@ -189,6 +190,7 @@
     "allowanceIssued": "此发票已开立折让，无法作废",
     "alreadyIssuing": "这张发票正在开立中，请稍后再试",
     "customerNameRequiresIdentifier": "个人或捐赠发票须同时填写统一编号，才能更正买受人抬头",
+    "invoiceNotFound": "此订单查无发票",
     "notIssued": "此发票尚未开立",
     "notPaid": "订单尚未付款，无法开立发票",
     "notPending": "此发票目前为{status}，无法开立",
@@ -290,6 +292,7 @@
     "showcaseOpenSelfOnly": "只有成员本人能开启在团队介绍的公开显示。",
     "specialHoursEnded": "不能新增或改成已经结束的特殊营业日。",
     "specialHoursInvalidRange": "特殊营业日的开始日期不能晚于结束日期。",
+    "specialHoursNotFound": "找不到这个特殊营业日，可能已被删除。",
     "specialHoursOverlap": "这段期间与已设置的特殊营业日（{validFrom}～{validThrough}）重叠。"
   },
   "points": {

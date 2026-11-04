@@ -459,6 +459,18 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
     ).toEqual(['other']);
   });
 
+  it('不限量的食材不算低庫存，不會讓門市列入總覽', async () => {
+    await client.exec(
+      `truncate "order", point_transaction cascade;
+       update ingredient set unlimited_stock = true;`,
+    );
+
+    const notified = await service.notifyPlatformDailyDigest(NOW);
+
+    expect(notified).toBe(0);
+    expect(sendPlatformDailyDigest).not.toHaveBeenCalled();
+  });
+
   it('沒有任何門市有資料時不寄信', async () => {
     await client.exec(
       'truncate "order", point_transaction, ingredient cascade',
