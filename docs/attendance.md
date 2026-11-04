@@ -24,7 +24,7 @@
 
 1. 在 biru-api 依現有部署流程，對確認的目標資料庫依 `drizzle/meta/_journal.json` 的順序套用尚未套用的 migration。0122–0131 已在隔離 PostgreSQL 18 驗證，0122–0136 另以 PGlite（PostgreSQL 17）驗證；之後的 migration 未在本文記錄重播結果。
 2. 部署更新後的 biru-api 與 biru-admin；API 型別依更新模組的 Swagger 產生。biru-admin 已有班次休息時段與各阻擋原因的顯示，以及平台管理員確認每小時最低工資的 `/payroll-rule-sets` 畫面；勞保 `laborLadder` 由系統推得，沒有輸入欄位。
-3. 部署後由平台管理員執行一次 `POST /api/payroll/rule-sets/ingest`。規則集尚未在薪資月份開始後成功同步前（六份官方資料都要取得，且沒有任何期間因數值不合理被退回），所有薪資草稿都會被 `payrollRuleSetStale` 阻擋。這個端點也會同步今年起的國定假日，回應的 `holidayYears` 列出寫入的年度；migration 沒有預載國定假日，也不會回補過去的年度，尚未寫入的年度排班會回傳 `holidayCalendarMissing`，薪資草稿也被同名原因阻擋。
+3. 部署後由平台管理員執行一次 `POST /api/payroll/rule-sets/ingest`。規則集尚未在薪資月份開始後成功同步前（六份官方資料都要取得，且沒有任何期間因數值不合理被退回），所有薪資草稿都會被 `payrollRuleSetStale` 阻擋。這個端點也會同步今年起的國定假日，回應的 `holidayYears` 列出寫入的年度；migration 沒有預載國定假日；過去的年度只補前一年（資料庫還沒有時寫入一次，之後不再改寫），更早的年度不會補，尚未寫入的年度排班會回傳 `holidayCalendarMissing`，薪資草稿也被同名原因阻擋。
 4. owner 設定店家經緯度、範圍及固定公網 IP，新增假別及薪資條件。主管啟用員工，設定到職日並排班。自訂假別需人工核給額度；法定假別依以下規則計算。
 5. 在實際 HTTPS 網址驗證 GPS 與網路。定位需在 60 秒內，定位誤差加上距離須在店家範圍內，且來源 IP 必須同時通過白名單。
 
