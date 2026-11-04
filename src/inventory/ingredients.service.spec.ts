@@ -315,3 +315,75 @@ describe('IngredientsService remove', () => {
     ).toEqual([{ id: 'milk' }, { id: 'sugar' }]);
   });
 });
+
+describe('IngredientsService unlimitedStock', () => {
+  let client: PGlite;
+  let service: IngredientsService;
+
+  const dto = {
+    eligibleQuantity: '1000',
+    eligibleQuantityUnitCode: 'LTR' as const,
+    name: { 'zh-TW': '水' },
+    price: '12.08',
+    unitCode: 'MLT' as const,
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+       values ('${ORG}', 'biru', 'biru', now(), 'TW', '中壢區', '桃園市', '中正路')`,
+    );
+    service = new IngredientsService(
+      db as unknown as DrizzleDB,
+      {} as InventoryTransactionsService,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('預設追蹤庫存', async () => {
+    const created = await service.create(ORG, {
+      ...dto,
+      lowStockThreshold: '100',
+    });
+
+    expect(created.unlimitedStock).toBe(false);
+    expect(created.lowStockThreshold).toBe('100.000');
+  });
+
+  it('開過不限量再改回追蹤時，警示量與庫存都保留', async () => {
+    const { id } = await service.create(ORG, {
+      ...dto,
+      lowStockThreshold: '100',
+    });
+    await client.query(
+      `update ingredient set inventory_level = 500 where id = '${id}'`,
+    );
+
+    const unlimited = await service.update(id, { unlimitedStock: true });
+    expect(unlimited.lowStockThreshold).toBe('100.000');
+
+    const tracked = await service.update(id, { unlimitedStock: false });
+    expect(tracked.unlimitedStock).toBe(false);
+    expect(tracked.lowStockThreshold).toBe('100.000');
+    expect(tracked.inventoryLevel).toBe('500.000');
+  });
+
+  it('不限量的食材不列入低庫存篩選', async () => {
+    const { id } = await service.create(ORG, {
+      ...dto,
+      lowStockThreshold: '100',
+      name: { 'zh-TW': '低庫存但不限量' },
+      unlimitedStock: true,
+    });
+
+    const { data } = await service.findAll(ORG, { lowStock: 'true' });
+
+    expect(data.map((row) => row.id)).not.toContain(id);
+  });
+});

@@ -85,6 +85,7 @@ export class MenuStockService {
             eq(recipe.organizationId, organizationId),
             isNotNull(recipe.menuItemId),
             gt(recipeIngredient.requiredQuantity, '0'),
+            eq(ingredient.unlimitedStock, false),
           ),
         );
 

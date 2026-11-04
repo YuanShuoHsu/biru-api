@@ -229,6 +229,17 @@ describe('InventoryReportService', () => {
     ]);
   });
 
+  it('不含不限量的食材', async () => {
+    await client.query(
+      `insert into ingredient (id, organization_id, name, unit_code, unlimited_stock)
+       values ('water', 'org', '{"zh-TW":"water"}', 'MLT', true)`,
+    );
+
+    const { rows } = await service.getInventoryReport('biru', range);
+
+    expect(rows.map(({ ingredientId }) => ingredientId)).not.toContain('water');
+  });
+
   it('結束時間不晚於起始時間時拒絕', async () => {
     await expect(
       service.getInventoryReport('biru', {

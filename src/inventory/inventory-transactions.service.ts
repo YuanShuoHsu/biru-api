@@ -301,12 +301,20 @@ export class InventoryTransactionsService {
     if (!recipes.length) return { lowStock: [], offerStockChanged };
 
     const materials = await tx
-      .select()
+      .select({
+        ingredientId: recipeIngredient.ingredientId,
+        recipeId: recipeIngredient.recipeId,
+        requiredQuantity: recipeIngredient.requiredQuantity,
+      })
       .from(recipeIngredient)
+      .innerJoin(ingredient, eq(ingredient.id, recipeIngredient.ingredientId))
       .where(
-        inArray(
-          recipeIngredient.recipeId,
-          recipes.map(({ id }) => id),
+        and(
+          inArray(
+            recipeIngredient.recipeId,
+            recipes.map(({ id }) => id),
+          ),
+          eq(ingredient.unlimitedStock, false),
         ),
       );
 

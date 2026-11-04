@@ -138,7 +138,10 @@ export class IngredientsService {
     const where = and(
       eq(ingredient.organizationId, organizationId),
       lowStock
-        ? lte(ingredient.inventoryLevel, ingredient.lowStockThreshold)
+        ? and(
+            eq(ingredient.unlimitedStock, false),
+            lte(ingredient.inventoryLevel, ingredient.lowStockThreshold),
+          )
         : undefined,
       filterField === 'name' && filterOperator
         ? buildLocalizedTextFilterCondition(

@@ -33,7 +33,12 @@ export class InventoryNotificationsService {
       })
       .from(ingredient)
       .leftJoin(supplier, eq(supplier.id, ingredient.supplierId))
-      .where(lte(ingredient.inventoryLevel, ingredient.lowStockThreshold))
+      .where(
+        and(
+          eq(ingredient.unlimitedStock, false),
+          lte(ingredient.inventoryLevel, ingredient.lowStockThreshold),
+        ),
+      )
       .orderBy(asc(supplier.name), asc(ingredient.sortOrder));
     if (!lowStock.length) return 0;
 

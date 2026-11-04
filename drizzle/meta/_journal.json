@@ -1779,6 +1779,13 @@
       "when": 1793774329417,
       "tag": "0253_drop_organization_slug_uidx",
       "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1793800271904,
+      "tag": "0254_ingredient_unlimited_stock",
+      "breakpoints": true
     }
   ]
 }

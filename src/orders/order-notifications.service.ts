@@ -209,7 +209,13 @@ export class OrderNotificationsService {
                 .select({ id: ingredient.organizationId })
                 .from(ingredient)
                 .where(
-                  lte(ingredient.inventoryLevel, ingredient.lowStockThreshold),
+                  and(
+                    eq(ingredient.unlimitedStock, false),
+                    lte(
+                      ingredient.inventoryLevel,
+                      ingredient.lowStockThreshold,
+                    ),
+                  ),
                 ),
             ),
           ),
@@ -227,7 +233,12 @@ export class OrderNotificationsService {
       this.db
         .select({ organizationId: ingredient.organizationId, count: count() })
         .from(ingredient)
-        .where(lte(ingredient.inventoryLevel, ingredient.lowStockThreshold))
+        .where(
+          and(
+            eq(ingredient.unlimitedStock, false),
+            lte(ingredient.inventoryLevel, ingredient.lowStockThreshold),
+          ),
+        )
         .groupBy(ingredient.organizationId),
     ]);
 

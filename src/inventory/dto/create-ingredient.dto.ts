@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
+  IsBoolean,
   IsIn,
   IsNumberString,
   IsOptional,
@@ -8,6 +9,7 @@ import {
   IsUrl,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
@@ -86,6 +88,15 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsString()
   note?: string | null;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      '不限量的食材不扣庫存、不判斷售完、不發低庫存警示；成本照算。庫存與 lowStockThreshold 會保留，改回追蹤後沿用',
+  })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  unlimitedStock?: boolean;
 
   @ApiPropertyOptional({
     example: '500.000',

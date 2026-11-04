@@ -146,7 +146,7 @@ export class InventoryReportService {
       FROM ${ingredient}
       LEFT JOIN movement ON movement.ingredient_id = ${ingredient.id}
       LEFT JOIN theoretical ON theoretical.ingredient_id = ${ingredient.id}
-      WHERE ${eq(ingredient.organizationId, org.id)}
+      WHERE ${and(eq(ingredient.organizationId, org.id), eq(ingredient.unlimitedStock, false))}
       ORDER BY ${ingredient.sortOrder}, ${localizedTextSql(ingredient.name, toLanguage(I18nContext.current()?.lang))}
     `);
 

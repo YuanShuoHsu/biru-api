@@ -96,6 +96,12 @@ describe('庫存扣除、還原與自動售完', () => {
       ],
     );
 
+  const setUnlimited = (id: string, unlimited = true) =>
+    client.query(`update ingredient set unlimited_stock = $2 where id = $1`, [
+      id,
+      unlimited,
+    ]);
+
   const addRecipe = async (
     menuItemId: string,
     materials: Record<string, string>,
@@ -312,6 +318,24 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(await levelOf('milk')).toBe(300);
     });
 
+    it('不限量的食材不擋單、不扣也不記', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await addIngredient('leaves', '10');
+      await setUnlimited('water');
+      await addRecipe('tea', { leaves: '1', water: '300' });
+      await addOrder('o1', [{ menuItemId: 'tea', quantity: 2 }]);
+
+      await expect(consume('o1', true)).resolves.toBeDefined();
+
+      expect(await levelOf('water')).toBe(0);
+      expect(await levelOf('leaves')).toBe(8);
+      const { rows } = await client.query(
+        `select 1 from inventory_transaction where ingredient_id = 'water'`,
+      );
+      expect(rows).toHaveLength(0);
+    });
+
     it('用量四捨五入到小數第三位的最後一份仍然賣得出去', async () => {
       await addItem('latte');
       await addIngredient('beans', '0.333');
@@ -343,6 +367,36 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(await availabilityOf('tea')).toEqual({
         auto_sold_out: false,
         availability: 'InStock',
+      });
+    });
+
+    it('不限量的食材庫存為 0 也不會讓品項售完', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await setUnlimited('water');
+      await addRecipe('tea', { water: '300' });
+
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('tea')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('食材改回追蹤庫存後，不夠一份的品項會自動售完', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await setUnlimited('water');
+      await addRecipe('tea', { water: '300' });
+      await menuStock.sync(ORG);
+
+      await setUnlimited('water', false);
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('tea')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
       });
     });
 
