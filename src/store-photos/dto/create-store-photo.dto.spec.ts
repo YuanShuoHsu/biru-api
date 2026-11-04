@@ -39,6 +39,15 @@ describe('CreateStorePhotoDto', () => {
       'alt',
     ]);
   });
+
+  it('rejects an svg image', async () => {
+    expect(
+      await errorsOf(CreateStorePhotoDto, {
+        image: 'data:image/svg+xml;base64,PHN2Zz4=',
+        alt: fullAlt,
+      }),
+    ).toEqual(['image']);
+  });
 });
 
 describe('UpdateStorePhotoDto', () => {
