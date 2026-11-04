@@ -422,7 +422,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
   });
 });
 
-describe('organization.slug', () => {
+describe('organization.slug 唯一', () => {
   let client: PGlite;
 
   beforeAll(async () => {
