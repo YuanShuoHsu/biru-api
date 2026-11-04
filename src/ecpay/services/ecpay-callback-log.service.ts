@@ -9,7 +9,9 @@ import { organization } from '../../db/schema/organizations.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+
+import { notFoundError } from '../../orders/order-errors.js';
 
 import type { OrderPaymentNotificationDto } from '../dto/order-payment-notification.dto.js';
 
@@ -96,7 +98,7 @@ export class EcpayCallbackLogService {
         and(eq(order.id, orderId), eq(organization.slug, organizationSlug)),
       );
 
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     return (
       this.db

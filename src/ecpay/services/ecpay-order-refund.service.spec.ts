@@ -85,6 +85,23 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
     ).toEqual([{ channel: 'manual', status: 'settled', amount: '100.00' }]);
   });
 
+  it('門市或訂單不存在時回 404 並帶錯誤代碼', async () => {
+    await expect(
+      service.refundOrder('missing', 'cash', { reasonCode: 'wrongItem' }),
+    ).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'organizationNotFound' },
+    });
+    await expect(refundOf('missing')).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'orderNotFound' },
+    });
+    await expect(service.findByOrder('biru', 'missing')).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'orderNotFound' },
+    });
+  });
+
   it('非現金的人工退款也是人工通道', async () => {
     const refunded = await refundOf('twqr');
 
