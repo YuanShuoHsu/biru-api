@@ -392,7 +392,6 @@
       "unit": "单位",
       "variance": "差异"
     },
-    "dateInvalid": "开始或结束时间不是有效的日期。",
     "rangeInvalid": "结束时间必须晚于开始时间。",
     "rangeTooLong": "报表区间最多 366 天。"
   },

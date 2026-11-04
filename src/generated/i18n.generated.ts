@@ -445,7 +445,6 @@ export type I18nTranslations = {
                 "unit": string;
                 "variance": string;
             };
-            "dateInvalid": string;
             "rangeInvalid": string;
             "rangeTooLong": string;
         };

@@ -392,7 +392,6 @@
       "unit": "Unit",
       "variance": "Variance"
     },
-    "dateInvalid": "The start or end time is not a valid date.",
     "rangeInvalid": "The end time must be later than the start time.",
     "rangeTooLong": "The report can cover at most 366 days."
   },
