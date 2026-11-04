@@ -31,8 +31,8 @@ export class CouponsController {
   @Post('validate')
   @AllowAnonymous()
   @Throttle({
-    [ANONYMOUS_THROTTLER]: { limit: 10, ttl: minutes(1) },
-    [HOURLY_THROTTLER]: { limit: 50, ttl: hours(1) },
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
   })
   @ApiOperation({ summary: '驗證優惠碼' })
   validate(

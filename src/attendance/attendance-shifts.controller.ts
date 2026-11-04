@@ -12,6 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { clientIp } from '../common/trusted-proxy.js';
 import {
   OrganizationMember,
   Roles,
@@ -224,7 +225,7 @@ export class AttendanceShiftsController {
     return this.attendanceShiftsService.punch(
       actor(req, session),
       dto,
-      req.ip ?? req.socket.remoteAddress ?? '',
+      clientIp(req) ?? '',
     );
   }
 }
