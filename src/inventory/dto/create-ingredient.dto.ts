@@ -103,7 +103,7 @@ export class CreateIngredientDto {
     description: '開帳數量；系統會一併寫入盤點帳本',
   })
   @IsOptional()
-  @Matches(/^-?\d{1,9}(\.\d{1,3})?$/)
+  @Matches(/^\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   inventoryLevel?: string | null;
 

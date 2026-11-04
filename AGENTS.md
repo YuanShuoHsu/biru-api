@@ -244,6 +244,15 @@ member lots with different terms and was hard to explain, so don't reintroduce a
 `expiresAt` is stamped when the lot is recorded and must not be shortened afterwards; an earned lot with
 `null` was recorded before the rule existed and never expires.
 
+### Ingredient Stock
+
+`ingredient.inventory_level` goes negative only by overselling: an order that is already paid (OrderProblem →
+OrderProcessing, `consumesInventory` in `src/orders/order-transitions.ts`) consumes without `enforceStock`, because a paid
+order can't be refused, and `record` flags the ingredient `oversold` in the low-stock notification. Everything else keeps
+stock non-negative: placing an order uses `enforceStock`, and counts and opening stock are validated as non-negative in
+the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
+orders, and don't accept negative counts.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
