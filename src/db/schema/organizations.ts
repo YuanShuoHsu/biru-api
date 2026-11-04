@@ -60,6 +60,7 @@ export const organization = pgTable(
     closedAt: timestamp('closed_at'),
   },
   (table) => [
+    // Better Auth 的 slug 是 unique + index，產生器會同時輸出 .unique() 與 uniqueIndex；刪任一個會和產物不一致，並產生 DROP migration
     uniqueIndex('organization_slug_uidx').on(table.slug),
     check(
       'organization_name_slug_not_blank',
