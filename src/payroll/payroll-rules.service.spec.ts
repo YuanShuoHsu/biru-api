@@ -49,7 +49,6 @@ function setup(rows: unknown[][]) {
   }));
   const db = {
     select,
-    selectDistinct: select,
     insert,
     update,
     delete: deleteRows,
@@ -536,20 +535,31 @@ describe('National holiday ingestion', () => {
       '20250101,三,2,開國紀念日',
       '20250102,四,0,',
     ]),
-    'https://example.test/2026.csv': calendar(['20260101,四,2,開國紀念日']),
+    'https://example.test/2026.csv': calendar([
+      '20260101,四,2,開國紀念日',
+      '20270101,五,2,開國紀念日',
+    ]),
     'https://example.test/2027.csv': calendar(['20270101,五,2,開國紀念日']),
     'https://example.test/2027-revised.csv': calendar([
       '20270101,五,2,開國紀念日',
       '20270208,一,2,春節',
     ]),
   };
-  const ingest = async (storedYears: string[]) => {
-    const mocks = setup([storedYears.map((year) => ({ year }))]);
+  const ingest = async (
+    rows: unknown[][],
+    overrides: Record<string, string | null> = {},
+  ) => {
+    const mocks = setup(rows);
+    const bodies = { ...csvs, ...overrides };
     const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((input) => {
       const url = input as string;
       if (url.endsWith('/14718'))
         return fetchOk(dataset) as ReturnType<typeof fetch>;
-      if (csvs[url]) return fetchOk(csvs[url]) as ReturnType<typeof fetch>;
+      if (bodies[url] === null)
+        return Promise.resolve({ ok: false, status: 404 }) as ReturnType<
+          typeof fetch
+        >;
+      if (bodies[url]) return fetchOk(bodies[url]) as ReturnType<typeof fetch>;
 
       throw new Error(`unexpected ${url}`);
     });
@@ -561,6 +571,7 @@ describe('National holiday ingestion', () => {
       fetched: fetchSpy.mock.calls.map(([url]) => url),
     };
   };
+  const lastYearStored = [{ date: '2025-01-01' }];
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -572,14 +583,12 @@ describe('National holiday ingestion', () => {
   });
 
   it('rewrites the current and later years on every run', async () => {
-    const { written, inserted, deleteRows, execute } = await ingest([
-      '2024',
-      '2025',
-      '2026',
-      '2027',
+    const { written, inserted, deleteRows, execute, fetched } = await ingest([
+      lastYearStored,
     ]);
 
     expect(written).toEqual([2026, 2027]);
+    expect(fetched).not.toContain('https://example.test/2025.csv');
     expect(deleteRows).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenCalledTimes(2);
     expect(inserted).toEqual([
@@ -590,20 +599,40 @@ describe('National holiday ingestion', () => {
       ],
     ]);
   });
-  it('backfills a past year missing from the calendar', async () => {
-    const { written, inserted } = await ingest(['2024', '2026']);
+  it('backfills last year when it is missing from the calendar', async () => {
+    const { written, inserted } = await ingest([[], []]);
 
     expect(written).toEqual([2025, 2026, 2027]);
     expect(inserted[0]).toEqual([{ date: '2025-01-01', name: '開國紀念日' }]);
   });
-  it('neither fetches nor rewrites a past year already in the calendar', async () => {
-    const { written, fetched } = await ingest(['2024']);
+  it('neither fetches nor writes a year older than last year', async () => {
+    const { written, fetched } = await ingest([[], []]);
 
     expect(written).not.toContain(2024);
     expect(fetched).not.toContain('https://example.test/2024.csv');
   });
+  it('leaves last year untouched when its calendar is unreachable', async () => {
+    const { written, deleteRows } = await ingest([[]], {
+      'https://example.test/2025.csv': null,
+    });
+
+    expect(written).toEqual([2026, 2027]);
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+  });
+  it('skips last year when another run wrote it before the lock', async () => {
+    const { written, deleteRows, inserted } = await ingest([
+      [],
+      lastYearStored,
+    ]);
+
+    expect(written).toEqual([2026, 2027]);
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+    expect(inserted.flat()).not.toContainEqual(
+      expect.objectContaining({ date: '2025-01-01' }),
+    );
+  });
   it('fetches only the latest revision of a year', async () => {
-    const { fetched } = await ingest(['2024', '2025']);
+    const { fetched } = await ingest([lastYearStored]);
 
     expect(fetched).toContain('https://example.test/2027-revised.csv');
     expect(fetched).not.toContain('https://example.test/2027.csv');
