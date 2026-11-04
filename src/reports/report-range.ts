@@ -19,6 +19,8 @@ export const parseReportRange = (
 
   const since = new Date(range.since);
   const until = new Date(range.until);
+  if (Number.isNaN(since.getTime()) || Number.isNaN(until.getTime()))
+    throw new BadRequestException(t('dateInvalid'));
   if (until <= since) throw new BadRequestException(t('rangeInvalid'));
   if (until.getTime() - since.getTime() > MAX_RANGE_DAYS * DAY_MS)
     throw new BadRequestException(t('rangeTooLong'));

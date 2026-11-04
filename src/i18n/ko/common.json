@@ -392,6 +392,7 @@
       "unit": "단위",
       "variance": "차이"
     },
+    "dateInvalid": "시작 또는 종료 시간이 올바른 날짜가 아닙니다.",
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
     "rangeTooLong": "보고서 기간은 최대 366일입니다."
   },

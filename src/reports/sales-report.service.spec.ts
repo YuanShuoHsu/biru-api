@@ -562,6 +562,18 @@ describe('SalesReportService', () => {
     ).rejects.toThrow(new BadRequestException('common.reports.rangeInvalid'));
   });
 
+  it.each([
+    ['2026-W01', '2026-W02'],
+    ['2026-123', '2026-124'],
+  ])(
+    '日期格式通過驗證卻無法解析時（%s）回 400 而不是 500',
+    async (since, until) => {
+      await expect(
+        service.getSalesReport('biru', { since, until, groupBy: 'day' }),
+      ).rejects.toThrow(new BadRequestException('common.reports.dateInvalid'));
+    },
+  );
+
   it('區間超過 366 天時拒絕', async () => {
     await expect(
       service.getSalesReport('biru', {
