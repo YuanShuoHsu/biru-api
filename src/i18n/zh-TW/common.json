@@ -184,6 +184,10 @@
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
     "recipeNotFound": "找不到這份食譜，可能已被刪除",
+    "sourceRecipeHasMenuItem": "已綁定菜單品項的食譜不能作為食材的來源食譜",
+    "sourceRecipeNested": "來源食譜不能使用由其他食譜製成的食材",
+    "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
+    "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
     "supplierNotFound": "找不到這個供應商，可能已被刪除"
   },
   "invoices": {

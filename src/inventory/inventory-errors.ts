@@ -15,6 +15,10 @@ export const inventoryErrorCodes = [
   'recipeIngredientExists',
   'recipeIngredientNotFound',
   'recipeNotFound',
+  'sourceRecipeHasMenuItem',
+  'sourceRecipeNested',
+  'sourceRecipeUnitIncompatible',
+  'sourceRecipeYieldMissing',
   'supplierNotFound',
 ] as const;
 

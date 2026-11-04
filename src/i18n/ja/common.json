@@ -184,6 +184,10 @@
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
     "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
+    "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
+    "sourceRecipeNested": "元レシピには、別のレシピから作る食材を使えません",
+    "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
+    "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
     "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"
   },
   "invoices": {

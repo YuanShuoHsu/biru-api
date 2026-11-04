@@ -184,6 +184,10 @@
     "recipeIngredientExists": "이미 추가된 재료입니다",
     "recipeIngredientNotFound": "레시피 재료를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "recipeNotFound": "레시피를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "sourceRecipeHasMenuItem": "메뉴 품목에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
+    "sourceRecipeNested": "원본 레시피에는 다른 레시피로 만든 재료를 사용할 수 없습니다",
+    "sourceRecipeUnitIncompatible": "레시피 생산량 단위와 재료의 재고 단위가 호환되지 않습니다",
+    "sourceRecipeYieldMissing": "재료의 원본 레시피로 사용하려면 레시피의 생산량과 단위를 설정하세요",
     "supplierNotFound": "공급업체를 찾을 수 없습니다. 삭제되었을 수 있습니다"
   },
   "invoices": {

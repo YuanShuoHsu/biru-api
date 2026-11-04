@@ -237,6 +237,10 @@ export type I18nTranslations = {
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
             "recipeNotFound": string;
+            "sourceRecipeHasMenuItem": string;
+            "sourceRecipeNested": string;
+            "sourceRecipeUnitIncompatible": string;
+            "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;
         };
         "invoices": {

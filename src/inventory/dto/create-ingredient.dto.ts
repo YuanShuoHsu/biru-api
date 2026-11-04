@@ -9,7 +9,11 @@ import {
   IsUrl,
   Matches,
   MaxLength,
+  Validate,
   ValidateIf,
+  ValidatorConstraint,
+  type ValidationArguments,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
@@ -25,6 +29,26 @@ import {
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
+
+const PURCHASED_FIELDS = [
+  'price',
+  'eligibleQuantity',
+  'eligibleQuantityUnitCode',
+  'supplierId',
+] as const;
+
+@ValidatorConstraint({ name: 'isWithoutPurchasedFields' })
+class IsWithoutPurchasedFields implements ValidatorConstraintInterface {
+  validate(_: unknown, { object }: ValidationArguments): boolean {
+    const dto = object as CreateIngredientDto;
+
+    return PURCHASED_FIELDS.every((field) => dto[field] == null);
+  }
+
+  defaultMessage(): string {
+    return `recipeId 不能與 ${PURCHASED_FIELDS.join(', ')} 同時帶`;
+  }
+}
 
 export class CreateIngredientDto {
   @ApiProperty({
@@ -61,23 +85,42 @@ export class CreateIngredientDto {
   @IsNumberString()
   lowStockThreshold?: string | null;
 
-  @ApiProperty({ example: '950.00', description: '一個包裝的價錢' })
+  @ApiPropertyOptional({
+    description:
+      '自製半成品的來源食譜；設定後單價由食譜材料成本與產量推算，不能再帶 price、eligibleQuantity、eligibleQuantityUnitCode、supplierId',
+  })
+  @IsOptional()
+  @IsString()
+  @Validate(IsWithoutPurchasedFields)
+  recipeId?: string | null;
+
+  @ApiPropertyOptional({
+    example: '950.00',
+    description: '一個包裝的價錢；未帶 recipeId 時必填',
+  })
+  @ValidateIf((dto: CreateIngredientDto) => !dto.recipeId)
   @Matches(/^\d{1,8}(\.\d{1,2})?$/)
   @IsNumberString()
-  price: string;
+  price?: string;
 
-  @ApiProperty({ example: '100.000', description: '一個包裝的量' })
+  @ApiPropertyOptional({
+    example: '100.000',
+    description: '一個包裝的量；未帶 recipeId 時必填',
+  })
+  @ValidateIf((dto: CreateIngredientDto) => !dto.recipeId)
   @Matches(/^(?!0+(\.0+)?$)\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
-  eligibleQuantity: string;
+  eligibleQuantity?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: Object.keys(UNIT_FACTORS),
     enumName: 'UnitCode',
-    description: 'eligibleQuantity 的單位，需與 unitCode 同維度',
+    description:
+      'eligibleQuantity 的單位，需與 unitCode 同維度；未帶 recipeId 時必填',
   })
+  @ValidateIf((dto: CreateIngredientDto) => !dto.recipeId)
   @IsIn(Object.keys(UNIT_FACTORS))
-  eligibleQuantityUnitCode: UnitCode;
+  eligibleQuantityUnitCode?: UnitCode;
 
   @ApiPropertyOptional({ description: '採購連結' })
   @IsOptional()

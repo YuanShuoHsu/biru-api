@@ -1,7 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
-import { CreateIngredientDto } from './create-ingredient.dto.js';
+import {
+  CreateIngredientDto,
+  UpdateIngredientDto,
+} from './create-ingredient.dto.js';
 
 const valid = {
   name: {
@@ -91,4 +94,53 @@ describe('CreateIngredientDto', () => {
       expect(await errorsOf({ inventoryLevel })).toEqual(['inventoryLevel']);
     },
   );
+});
+
+describe('CreateIngredientDto recipeId', () => {
+  const sourced = {
+    name: valid.name,
+    recipeId: 'sauce',
+    unitCode: 'GRM',
+  };
+
+  const sourcedErrorsOf = async (
+    dto: typeof CreateIngredientDto | typeof UpdateIngredientDto,
+    fields: object,
+  ) =>
+    (await validate(plainToInstance(dto, { ...sourced, ...fields }))).map(
+      ({ property }) => property,
+    );
+
+  it('有來源食譜時不必帶包裝與價錢', async () => {
+    expect(await sourcedErrorsOf(CreateIngredientDto, {})).toEqual([]);
+  });
+
+  it('沒有來源食譜時包裝與價錢仍必填', async () => {
+    expect(
+      await sourcedErrorsOf(CreateIngredientDto, { recipeId: undefined }),
+    ).toEqual(['price', 'eligibleQuantity', 'eligibleQuantityUnitCode']);
+  });
+
+  it.each([
+    { price: '950.00' },
+    { eligibleQuantity: '100.000' },
+    { eligibleQuantityUnitCode: 'GRM' },
+    { supplierId: 'supplier' },
+  ])('有來源食譜時拒絕 %o', async (fields) => {
+    expect(await sourcedErrorsOf(CreateIngredientDto, fields)).toEqual([
+      'recipeId',
+    ]);
+    expect(await sourcedErrorsOf(UpdateIngredientDto, fields)).toEqual([
+      'recipeId',
+    ]);
+  });
+
+  it('清掉來源食譜時可以同時帶價錢', async () => {
+    expect(
+      await sourcedErrorsOf(UpdateIngredientDto, {
+        recipeId: null,
+        price: '950.00',
+      }),
+    ).toEqual([]);
+  });
 });

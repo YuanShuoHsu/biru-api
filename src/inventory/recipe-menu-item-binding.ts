@@ -4,7 +4,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 
 import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
-import { recipe } from '../db/schema/inventory.js';
+import { ingredient, recipe } from '../db/schema/inventory.js';
 import { menu, menuItem } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -77,6 +77,7 @@ export const bindRecipeByMenuItemName = async (
           eq(recipe.organizationId, params.organizationId),
           isNull(recipe.menuItemId),
           sameName(recipe.name, params.name),
+          sql`not exists (select 1 from ${ingredient} where ${ingredient.recipeId} = ${recipe.id})`,
         ),
       )
       .limit(2),
@@ -110,6 +111,7 @@ export const bindMenuItemByRecipeName = async (
         eq(menu.organizationId, params.organizationId),
         sameName(menuItem.name, params.name),
         sql`not exists (select 1 from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`,
+        sql`not exists (select 1 from ${ingredient} where ${ingredient.recipeId} = ${params.recipeId})`,
       ),
     )
     .limit(2);
