@@ -579,14 +579,24 @@ export class InventoryTransactionsService {
         .returning({ inventoryLevel: ingredient.inventoryLevel });
 
       const before = locked.find(({ id }) => id === ingredientId);
-      if (!updated || !before || before.lowStockThreshold === null) continue;
+      if (!updated || !before) continue;
 
-      const threshold = Number(before.lowStockThreshold);
-      if (
-        Number(before.inventoryLevel) > threshold &&
-        Number(updated.inventoryLevel) <= threshold
-      )
-        lowStock.push({ id: before.id, name: before.name });
+      const level = Number(before.inventoryLevel);
+      const nextLevel = Number(updated.inventoryLevel);
+      const oversold =
+        level >= -QUANTITY_TOLERANCE && nextLevel < -QUANTITY_TOLERANCE;
+      const threshold = before.lowStockThreshold;
+      const reachedThreshold =
+        threshold !== null &&
+        level > Number(threshold) &&
+        nextLevel <= Number(threshold);
+
+      if (oversold || reachedThreshold)
+        lowStock.push({
+          id: before.id,
+          name: before.name,
+          ...(oversold && { oversold }),
+        });
     }
 
     return lowStock;

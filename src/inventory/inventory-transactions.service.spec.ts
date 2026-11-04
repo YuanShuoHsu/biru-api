@@ -280,7 +280,7 @@ describe('庫存扣除、還原與自動售完', () => {
       await addIngredient('crossed', '10.200', '10');
       await addIngredient('alreadyAtThreshold', '10.000', '10');
       await addIngredient('stillAbove', '20.000', '10');
-      await addIngredient('noThreshold', '0.200');
+      await addIngredient('noThreshold', '5');
       await addRecipe(
         'latte',
         {
@@ -298,7 +298,7 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(lowStock).toEqual([
         { id: 'crossed', name: { 'zh-TW': 'crossed' } },
       ]);
-      expect(await levelOf('noThreshold')).toBeCloseTo(-0.133, 3);
+      expect(await levelOf('noThreshold')).toBeCloseTo(4.667, 3);
     });
 
     it('多個品項共用的食材合計不夠時建單會被擋下，食材不變', async () => {
@@ -316,6 +316,32 @@ describe('庫存扣除、還原與自動售完', () => {
         InsufficientStockError,
       );
       expect(await levelOf('milk')).toBe(300);
+    });
+
+    it('已付款訂單不檢查庫存，超賣時扣成負數並標記提醒', async () => {
+      await addItem('latte');
+      await addIngredient('milk', '100');
+      await addRecipe('latte', { milk: '300' });
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      const { lowStock } = await consume('o1');
+
+      expect(await levelOf('milk')).toBe(-200);
+      expect(lowStock).toEqual([
+        { id: 'milk', name: { 'zh-TW': 'milk' }, oversold: true },
+      ]);
+    });
+
+    it('已經是負數時再超賣不重複提醒', async () => {
+      await addItem('latte');
+      await addIngredient('milk', '-200');
+      await addRecipe('latte', { milk: '300' });
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      const { lowStock } = await consume('o1');
+
+      expect(await levelOf('milk')).toBe(-500);
+      expect(lowStock).toEqual([]);
     });
 
     it('不限量的食材不擋單、不扣也不記', async () => {

@@ -1078,6 +1078,7 @@ export class OrdersService {
         offerStockChanged.add(sellerId);
 
       if (rule.consumesInventory) {
+        // 客人已付款，庫存不足也不能退回訂單，只能超賣並提醒店員
         const consumed = await this.inventoryTransactionsService.consume(
           id,
           tx,
