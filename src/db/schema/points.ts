@@ -75,7 +75,6 @@ export const pointSetting = pgTable(
   {
     id: text('id').primaryKey().default(POINT_SETTING_ID),
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    pointsValidityYears: integer('points_validity_years'),
     pointsEnabledAt: timestamp('points_enabled_at'),
     accountingValuePerPoint: numeric('accounting_value_per_point', {
       precision: 10,

@@ -4,7 +4,6 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { eq } from 'drizzle-orm';
-import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
@@ -13,7 +12,6 @@ import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
 import { order } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
 
 import { AdminPointSettingsController } from './admin-point-settings.controller.js';
@@ -28,10 +26,7 @@ describe('PointSettingsService', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new PointSettingsService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new PointSettingsService(db as unknown as DrizzleDB);
   }, 60_000);
 
   afterAll(async () => {
@@ -41,7 +36,7 @@ describe('PointSettingsService', () => {
   beforeEach(async () => {
     await client.exec(
       `truncate audit_log, "order", organization cascade;
-       update point_setting set amount_per_point = null, points_enabled_at = null, points_validity_years = null, accounting_value_per_point = null`,
+       update point_setting set amount_per_point = null, points_enabled_at = null, accounting_value_per_point = null`,
     );
   });
 
@@ -54,15 +49,11 @@ describe('PointSettingsService', () => {
   });
 
   it('每點金額改成有值時補上啟用時間，之後再改不會重設', async () => {
-    const enabled = await service.update({
-      amountPerPoint: 50,
-      pointsValidityYears: 1,
-    });
+    const enabled = await service.update({ amountPerPoint: 50 });
 
     expect(enabled).toMatchObject({
       amountPerPoint: '50.00',
       pointsEnabledAt: expect.any(Date),
-      pointsValidityYears: 1,
     });
     await expect(
       service.update({ accountingValuePerPoint: 0.5, amountPerPoint: 30 }),
@@ -70,70 +61,36 @@ describe('PointSettingsService', () => {
       accountingValuePerPoint: '0.50',
       amountPerPoint: '30.00',
       pointsEnabledAt: enabled.pointsEnabledAt,
-      pointsValidityYears: 1,
     });
   });
 
-  it('每點金額改成 null 時清空啟用時間與有效年限', async () => {
-    await service.update({ amountPerPoint: 50, pointsValidityYears: 2 });
+  it('每點金額改成 null 時清空啟用時間', async () => {
+    await service.update({ amountPerPoint: 50 });
 
     await expect(
       service.update({ amountPerPoint: null }),
     ).resolves.toMatchObject({
       amountPerPoint: null,
       pointsEnabledAt: null,
-      pointsValidityYears: null,
     });
   });
 
-  it('公開設定只回啟用狀態、每點金額與有效年限', async () => {
+  it('公開設定只回啟用狀態與每點金額', async () => {
     await expect(service.getPublic()).resolves.toStrictEqual({
       amountPerPoint: null,
       enabled: false,
-      pointsValidityYears: null,
     });
 
-    await service.update({
-      accountingValuePerPoint: 0.5,
-      amountPerPoint: 50,
-      pointsValidityYears: 2,
-    });
+    await service.update({ accountingValuePerPoint: 0.5, amountPerPoint: 50 });
 
     await expect(service.getPublic()).resolves.toStrictEqual({
       amountPerPoint: '50.00',
       enabled: true,
-      pointsValidityYears: 2,
-    });
-  });
-
-  it('點數停用時設定有效年限回 400，不改任何欄位', async () => {
-    await expect(service.update({ pointsValidityYears: 2 })).rejects.toThrow(
-      'common.points.validityRequiresEnabled',
-    );
-    await expect(
-      service.update({ amountPerPoint: null, pointsValidityYears: 2 }),
-    ).rejects.toThrow('common.points.validityRequiresEnabled');
-    await expect(service.get()).resolves.toMatchObject({
-      amountPerPoint: null,
-      pointsValidityYears: null,
-    });
-
-    await service.update({ amountPerPoint: 50 });
-    await expect(
-      service.update({ pointsValidityYears: 2 }),
-    ).resolves.toMatchObject({
-      amountPerPoint: '50.00',
-      pointsValidityYears: 2,
-    });
-    await expect(service.update({})).resolves.toMatchObject({
-      amountPerPoint: '50.00',
-      pointsEnabledAt: expect.any(Date),
-      pointsValidityYears: 2,
     });
   });
 
   it('付款時的訂單快照取全品牌設定', async () => {
-    await service.update({ amountPerPoint: 25, pointsValidityYears: 3 });
+    await service.update({ amountPerPoint: 25 });
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status)
@@ -144,9 +101,9 @@ describe('PointSettingsService', () => {
 
     expect(
       await db.query.order.findFirst({
-        columns: { amountPerPoint: true, pointsValidityYears: true },
+        columns: { amountPerPoint: true },
       }),
-    ).toEqual({ amountPerPoint: '25.00', pointsValidityYears: 3 });
+    ).toEqual({ amountPerPoint: '25.00' });
   });
 
   it('PATCH 寫入平台層的異動紀錄', async () => {

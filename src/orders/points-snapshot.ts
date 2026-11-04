@@ -5,5 +5,4 @@ import { pointSetting } from '../db/schema/points.js';
 
 export const POINTS_SNAPSHOT_SET = {
   amountPerPoint: sql`(SELECT ${pointSetting.amountPerPoint} FROM ${pointSetting})`,
-  pointsValidityYears: sql`(SELECT ${pointSetting.pointsValidityYears} FROM ${pointSetting})`,
 } satisfies PgUpdateSetSource<typeof order>;

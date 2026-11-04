@@ -383,9 +383,7 @@ export const createAuth = (
               ? data.amountPerPoint != null
               : current?.amountPerPoint != null;
             if (!enabled)
-              return {
-                data: { pointsEnabledAt: null, pointsValidityYears: null },
-              };
+              return { data: { pointsEnabledAt: null } };
 
             return {
               data: { pointsEnabledAt: current?.pointsEnabledAt ?? new Date() },
@@ -508,11 +506,6 @@ export const createAuth = (
                 required: false,
                 input: false,
               },
-              pointsValidityYears: {
-                type: 'number',
-                required: false,
-              },
-
               pickupLeadMinutes: {
                 type: 'number',
                 required: false,

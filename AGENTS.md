@@ -134,6 +134,10 @@ whose floor or ceiling moves down, or more than doubles, is rejected as a source
 previous ladder is kept. The withholding floor is `各類所得扣繳率標準` §13 — 應扣繳稅額 not over NT$2,000 — **not** a salary
 threshold. Seeded for 2026-01 in `drizzle/0129_payroll_rule_sets.sql`; refreshed daily by
 `TasksService` and on demand via `POST /api/payroll/rule-sets/ingest` (platform admin).
+The same job and endpoint also run `ingestHolidays`, which rewrites `statutory_holiday` for the current and later
+years from 政府行政機關辦公日曆表 (`14718`) and returns them as `holidayYears`; `0164` seeds no holidays, so until a
+year is written, scheduling and drafts in it fail with `holidayCalendarMissing`. Past years are never backfilled.
+Each year is rewritten under a per-year advisory lock, so the cron and a manual run never interleave.
 
 最低工資 comes from dataset `6281`. When it has no usable figure for the period — unreachable, rejected for
 showing a decrease, or below the 一般勞工 ladder's first grade (which the 分級表 ties to the monthly 最低工資) —
@@ -148,8 +152,9 @@ the latest and was not checked on or after the start of the payroll month carrie
 `checked_at`, run one ingest or every draft is held.
 
 勞保 has two ladders: `laborGrades` (一般勞工) and `partTimeLaborGrades` (部分工時勞工, floor NT$11,100),
-chosen per employee by `insurance.laborLadder`, which is only accepted when `weeklyMinutes < 2400`; a
-draft for an employee whose `weeklyMinutes` later reached 2400 carries `partTimeLadderRequiresPartTime`.
+chosen by `insurance.laborLadder`, which saving terms derives (`deriveInsurance`): `partTime` unless the employee
+is known full-time at the terms' `effectiveFrom` (see Weekly Hours). A draft whose terms carry `partTime` for an
+employee known full-time at the period start carries `partTimeLadderRequiresPartTime`.
 健保 has no part-time ladder — its floor stays 分級表第一級.
 
 If an employee's stored `laborBasis` / `healthBasis` is not a grade in that month's ladder — what
@@ -192,23 +197,33 @@ restricted record is left, and the cascaded rows are captured in `deleted_record
 
 ### Weekly Hours
 
-`attendanceEmployee.weeklyMinutesHistory` is the effective-dated record of the employee's contracted
-hours; the `weekly_minutes` column is only a copy taken at the last save, so it goes stale once a
-future-dated change takes effect. Never read or prorate from that column —
-resolve the hours for the date that governs the entitlement with `weeklyMinutesAt` /`weeklyMinutesOf`
-(`src/attendance/employee-hours.ts`). 特別休假 and the yearly 事假 / 家庭照顧假 / 病假 quotas are granted
-at the period start (勞基法 §38: the right vests when the period is reached), so `annualLeavePeriod` and
-`statutoryLeavePeriod` resolve the hours at `period.start` and a later change cannot shrink leave already
-granted. Medical-leave day conversion resolves per day, event leave at the case start, the part-time
-ladder at the payroll month. Changing the hours needs `weeklyMinutesFrom`, which cannot precede `hiredAt`
-and locks like any other payroll-affecting change.
+An employee's weekly hours are not stored (`0144` dropped `weekly_minutes` and `weekly_minutes_history`); they
+are derived from the schedule. `averageWeeklyMinutes` (`src/attendance/employee-hours.ts`) averages the
+employee's non-cancelled `workday` shifts that ended in the 12 months before the date — from `hiredAt` or the
+first such shift if later — counting each shift's `scheduledWorkSeconds` capped at 480 minutes, and is `null`
+when no such shift ended in that window. `weeklyMinutesAt` / `weeklyMinutesOf` fall back to
+`FULL_TIME_WEEKLY_MINUTES` (2400) for `null`; `averageWeeklyMinutesSql` / `employmentTypeSql` are the SQL form
+for lists and average up to `now()`. Under 2400 is part-time.
+
+Resolve the hours for the date that governs the entitlement. 特別休假 and the yearly 事假 / 家庭照顧假 / 病假
+quotas are granted at the period start (勞基法 §38: the right vests when the period is reached), so
+`annualLeavePeriod` and `statutoryLeavePeriod` resolve the hours at `period.start` and shifts after it cannot
+shrink leave already granted. Medical-leave day conversion and quotas resolve at the start of the calendar year
+(住院 at the previous year's start), event leave at the case start. The 勞保 part-time ladder instead uses
+`knownFullTime` (`src/payroll/payroll.service.ts`), which reads `averageWeeklyMinutes` without the fallback, so
+an employee with no shift history is not known full-time. Creating, updating, cancelling or restoring a shift
+calls `assertPayrollUnlocked` for the shift's own months only, although the rolling average also feeds later
+months.
 
 ### Scheduled Breaks
 
-`attendance_shift.break_starts_at/break_ends_at` (templates: `break_start_time/break_end_time`) mark the
-scheduled break. Unless `paidBreak`, it is not working time: leave minutes, leave pay deductions, medical
-leave units and the hourly scheduled hours all go through `scheduledWorkIntervals`, never the raw shift span.
-A shift without a break keeps its whole span as working time.
+`attendance_shift.breaks` (a jsonb list since `0155`; shift templates were dropped in `0176`) holds the scheduled
+breaks, which `scheduledBreaks` (`src/attendance/shift-intervals.ts`) generates when a shift is saved — one
+30-minute break for every 4 hours of continuous work, spread evenly, none for a shift of 4 hours or less
+(勞基法 §35, [law.moj.gov.tw](https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=N0030001&flno=35)) — so
+they are never entered by hand. Unless `paidBreak` (shifts are saved with it off), they are not working time:
+leave minutes, leave pay deductions, medical leave units and the hourly scheduled hours all go through
+`scheduledWorkIntervals`, never the raw shift span. A shift without a break keeps its whole span as working time.
 
 ### Localized Fields
 
@@ -218,6 +233,15 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 (`src/common/decorators/`, which only accepts the five language keys with string values; see
 `src/menus/dto/create-menu.dto.ts`), and every DTO documents them with `type: LocalizedTextDto`
 (`src/common/dto/`) so codegen does not emit `Record<string, never>`.
+
+### Points Expiry
+
+Points expire one year after they are earned — the end of the Taiwan day one calendar year after the
+order's `paymentDate` (or the adjustment time), 2/29 falling back to 2/28 — computed by `toExpiresAt` in
+`src/points/points.service.ts`. The term is fixed by design, not a setting: a configurable term gave one
+member lots with different terms and was hard to explain, so don't reintroduce a validity-years field.
+`expiresAt` is stamped when the lot is recorded and must not be shortened afterwards; an earned lot with
+`null` was recorded before the rule existed and never expires.
 
 ### Email Opt-in
 
@@ -302,11 +326,13 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
   `HttpException` / `WsException` to reject a message, never return `false`
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
-- Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous order,
-  ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with `@Throttle`
-  on the named `anonymous` / `hourly` throttlers, which only take effect once `TRUSTED_PROXIES` is set — without it
-  every caller shares one bucket, so those limits would throttle the whole platform. The named throttlers are
-  unlimited unless a route overrides them, and their `skipIf` also drops the route's override
+- Rate limiting: 100 req / 60s per IP globally (`THROTTLERS` in `src/common/constants/throttle.ts`). The anonymous
+  order, ECPay checkout, waitlist ticket, coupon check and company lookup routes add stricter per-IP limits with
+  `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler, the global one included, only takes
+  effect once `TRUSTED_PROXIES` is set — without it `req.ip` is the proxy's address, so every caller would share one
+  bucket and any limit would throttle the whole platform. The named throttlers are unlimited unless a route overrides
+  them, and their `skipIf` also drops the route's override. The expected-points route is deliberately not on the named
+  throttlers: it treats an inapplicable coupon as no discount instead of rejecting it, so it can't be used to guess codes
 - `trust proxy` — set from `TRUSTED_PROXIES` (`src/common/trusted-proxy.ts`), a comma-separated
   list of proxy addresses/CIDRs or proxy-addr presets. **Never `true` or a hop count.** `true`
   makes `req.ip` the leftmost `X-Forwarded-For` entry, i.e. whatever the caller claims, so any
@@ -314,9 +340,9 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   attendance allowlist; a hop count breaks whenever the chain length differs between the public
   API and the Next.js rewrite. Trusting by address is chain-length independent and makes a forged
   entry become `req.ip` itself, which the allowlist then rejects. Unset means `false` — `req.ip`
-  is the socket peer, so the allowlist fails closed (and `ThrottlerGuard` buckets every caller
-  together) until the real proxy range is configured and verified with forged headers against the
-  public API, Next.js rewrite, custom-domain and onrender.com paths.
+  is the socket peer, so the allowlist fails closed and every throttler is skipped until the real
+  proxy range is configured and verified with forged headers against the public API, Next.js
+  rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials

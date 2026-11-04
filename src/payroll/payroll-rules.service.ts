@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { and, asc, desc, eq, gt, like, lt, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, like, lt, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
@@ -551,6 +551,9 @@ export class PayrollRulesService {
       const holidays = csv ? parseHolidayCalendar(csv) : [];
       if (!holidays.length) continue;
       await this.db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`statutory_holiday:${year}`}, 0))`,
+        );
         await tx
           .delete(statutoryHoliday)
           .where(like(statutoryHoliday.date, `${year}-%`));

@@ -352,7 +352,6 @@ export type I18nTranslations = {
             "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
-            "validityRequiresEnabled": string;
         };
         "quant": {
             "aiKeyInvalid": string;

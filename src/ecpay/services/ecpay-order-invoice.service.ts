@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, asc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -15,6 +15,7 @@ import {
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto.js';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto.js';
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
+import type { VoidedInvoiceDto } from '../dto/voided-invoice.dto.js';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { InvoiceStatus } from '../../db/schema/invoices.js';
@@ -69,6 +70,7 @@ import type { Invoice } from '../../db/schema/invoices.js';
 import { invoice } from '../../db/schema/invoices.js';
 import { order } from '../../db/schema/orders.js';
 import { organization } from '../../db/schema/organizations.js';
+import { user } from '../../db/schema/users.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
@@ -82,6 +84,8 @@ import {
   COUNTED_ORDER_STATUSES,
   isCountedOrder,
 } from '../../orders/counted-orders.js';
+import { organizationNotFoundError } from '../../common/utils/organizations.js';
+import { notFoundError } from '../../orders/order-errors.js';
 import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
@@ -290,7 +294,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return this.issue(orderId, org.id);
   }
@@ -329,7 +333,7 @@ export class EcpayOrderInvoiceService {
       },
     });
 
-    if (!row) throw new NotFoundException('Order not found');
+    if (!row) throw notFoundError('orderNotFound');
     if (
       !row.paymentDate ||
       !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
@@ -568,7 +572,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -656,7 +660,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -689,6 +693,41 @@ export class EcpayOrderInvoiceService {
     };
   }
 
+  async findVoidedForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<VoidedInvoiceDto[]> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
+    });
+    if (!org) throw organizationNotFoundError();
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      columns: { id: true },
+    });
+    if (!found) throw notFoundError('orderNotFound');
+
+    return this.db
+      .select({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        voidedAt: invoice.voidedAt,
+        reason: invoice.voidReason,
+        operatorName: user.name,
+        operatorDeleted: sql<boolean>`${invoice.voidedBy} IS NOT NULL AND ${user.id} IS NULL`,
+      })
+      .from(invoice)
+      .leftJoin(user, eq(user.id, invoice.voidedBy))
+      .where(and(eq(invoice.orderId, orderId), eq(invoice.status, 'voided')))
+      .orderBy(
+        sql`${invoice.voidedAt} desc nulls last`,
+        desc(invoice.createdAt),
+      );
+  }
+
   private async findPrintableInvoice(
     organizationSlug: string,
     orderId: string,
@@ -697,7 +736,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),

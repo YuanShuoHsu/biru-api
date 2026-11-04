@@ -245,10 +245,12 @@ describe('PointsService.notifyExpiringPoints', () => {
     ).map(({ id }) => id);
 
   it('提醒第 24～30 個台灣日到期的點數，一個到期日一封，依當天加總、取當天最早到期時間', async () => {
+    const endOfPlatformDay = (days: number) =>
+      new Date(inPlatformDays(days + 1, 0).getTime() - 1);
     await addTransactions([
-      { expiresAt: inPlatformDays(23, 23) },
+      { expiresAt: endOfPlatformDay(23) },
       { expiresAt: inPlatformDays(24, 0) },
-      { expiresAt: inPlatformDays(30, 20), remainingPoints: 4 },
+      { expiresAt: endOfPlatformDay(30), remainingPoints: 4 },
       { expiresAt: inPlatformDays(30, 1) },
       { expiresAt: inPlatformDays(31, 0) },
     ]);
@@ -365,7 +367,7 @@ describe('PointsService.findAllForOrganization', () => {
         [id, slug],
       );
     await client.exec(
-      `update point_setting set amount_per_point = 10, points_enabled_at = '2026-01-01', points_validity_years = null`,
+      `update point_setting set amount_per_point = 10, points_enabled_at = '2026-01-01'`,
     );
     for (const [id, email] of [
       ['amy', 'amy@example.com'],
@@ -441,6 +443,56 @@ describe('PointsService.findAllForOrganization', () => {
     expect(result.data).toEqual([
       expect.objectContaining({ orderNumber: 'o2', points: 5 }),
     ]);
+  });
+
+  it('點數自取得日起一年有效，到期時間是台灣時間那天的最後一刻', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { paymentDate: '2026-02-01' });
+    await addPaidOrder('o2', ORG, 'amy', {
+      paymentDate: '2026-02-01T17:00:00Z',
+    });
+    await addPaidOrder('o3', ORG, 'amy', { paymentDate: '2028-02-29' });
+
+    const { data } = await service.findAllForOrganization('biru');
+
+    expect(data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          orderNumber: 'o1',
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        }),
+        expect.objectContaining({
+          orderNumber: 'o2',
+          expiresAt: new Date('2027-02-02T15:59:59.999Z'),
+        }),
+        expect.objectContaining({
+          orderNumber: 'o3',
+          expiresAt: new Date('2029-02-28T15:59:59.999Z'),
+        }),
+      ]),
+    );
+  });
+
+  it('補點自補點日起一年有效，扣點沒有到期日', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-04T03:30:00Z') });
+    try {
+      const added = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 30 },
+        'bob',
+        'admin',
+      );
+      const deducted = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '誤發', points: -10 },
+        'bob',
+        'admin',
+      );
+
+      expect(added.expiresAt).toEqual(new Date('2027-11-04T15:59:59.999Z'));
+      expect(deducted.expiresAt).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('每點金額有小數時以整數分計算，不因浮點誤差少給一點', async () => {

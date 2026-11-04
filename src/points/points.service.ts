@@ -53,6 +53,7 @@ import {
   DAY_MS,
   platformDayNumber,
   platformMidnight,
+  toPlatformTime,
 } from '../common/constants/timezone.js';
 import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
@@ -88,6 +89,8 @@ const EXPIRING_SOON_DAYS = 30;
 
 const EXPIRY_REMINDER_FIRST_DAY = 24;
 
+const POINTS_VALIDITY_YEARS = 1;
+
 const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
   const centsPerPoint = Math.round(Number(amountPerPoint) * 100);
   return centsPerPoint > 0
@@ -107,11 +110,6 @@ const EARN_AMOUNT_PER_POINT = earnedFromSnapshotOr<string | null>(
   pointSetting.amountPerPoint,
 );
 
-const EARN_VALIDITY_YEARS = earnedFromSnapshotOr<number | null>(
-  order.pointsValidityYears,
-  pointSetting.pointsValidityYears,
-);
-
 // 未付款訂單付款時才快照目前設定，所以預估用目前設定
 const EXPECTED_AMOUNT_PER_POINT = sql<
   string | null
@@ -119,17 +117,19 @@ const EXPECTED_AMOUNT_PER_POINT = sql<
 
 const EARN_SUBTOTAL = sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`;
 
-const toExpiresAt = (
-  paymentDate: Date,
-  validityYears: number | null,
-): Date | null =>
-  validityYears
-    ? new Date(
-        new Date(paymentDate).setFullYear(
-          paymentDate.getFullYear() + validityYears,
-        ),
-      )
-    : null;
+const toExpiresAt = (earnedAt: Date): Date => {
+  const earnedDay = toPlatformTime(earnedAt);
+  const year = earnedDay.getUTCFullYear() + POINTS_VALIDITY_YEARS;
+  const month = earnedDay.getUTCMonth();
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const anniversary = Date.UTC(
+    year,
+    month,
+    Math.min(earnedDay.getUTCDate(), lastDayOfMonth),
+  );
+
+  return new Date(platformMidnight(anniversary) + DAY_MS - 1);
+};
 
 const expiringByPlatformDay = (
   lots: { expiresAt: Date; remainingPoints: number }[],
@@ -232,7 +232,6 @@ export class PointsService {
         orderId: order.id,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: EARN_VALIDITY_YEARS,
         subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
@@ -273,7 +272,7 @@ export class PointsService {
       return [
         {
           id: randomUUID(),
-          expiresAt: toExpiresAt(row.paymentDate!, row.pointsValidityYears),
+          expiresAt: toExpiresAt(row.paymentDate!),
           orderId: row.orderId,
           organizationId: row.organizationId,
           points,
@@ -452,7 +451,6 @@ export class PointsService {
         discount: order.discount,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: EARN_VALIDITY_YEARS,
         subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
@@ -467,9 +465,7 @@ export class PointsService {
     if (!Number(found.amountPerPoint)) return null;
 
     return {
-      expiresAt: found.paymentDate
-        ? toExpiresAt(found.paymentDate, found.pointsValidityYears)
-        : null,
+      expiresAt: found.paymentDate ? toExpiresAt(found.paymentDate) : null,
       organizationId: found.organizationId,
       points: earnedPoints(
         found.subtotal,
@@ -695,7 +691,7 @@ export class PointsService {
     const setting = await this.db.query.pointSetting.findFirst();
     if (!setting?.pointsEnabledAt)
       throw new BadRequestException(this.t('notEnabled'));
-    const { amountPerPoint, pointsValidityYears } = setting;
+    const { amountPerPoint } = setting;
 
     const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
     if (Math.abs(points) > maxNonOwnerPoints && !isOwnerRole(adjusterRole))
@@ -762,8 +758,7 @@ export class PointsService {
         .values({
           id: randomUUID(),
           adjustedBy,
-          expiresAt:
-            points > 0 ? toExpiresAt(new Date(), pointsValidityYears) : null,
+          expiresAt: points > 0 ? toExpiresAt(new Date()) : null,
           note: note.trim(),
           organizationId,
           points,

@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   type Column,
@@ -22,6 +22,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import {
   COUNTED_AT,
@@ -76,7 +77,7 @@ export class SalesReportService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const rows = isItemGroupBy(groupBy)
       ? await this.itemRows(org.id, since, until, groupBy)

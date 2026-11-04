@@ -399,13 +399,14 @@ export class OrdersService {
       dto.items,
       dto.mode,
     );
+    // 無效優惠碼當作沒折扣，否則這個不限流的端點會變成猜優惠碼的入口
     const applied = dto.discountCode
-      ? await this.couponsService.getApplicableCoupon(
-          org.id,
-          dto.discountCode,
-          items,
-          userId,
-        )
+      ? await this.couponsService
+          .getApplicableCoupon(org.id, dto.discountCode, items, userId)
+          .catch((error: unknown) => {
+            if (error instanceof BadRequestException) return null;
+            throw error;
+          })
       : null;
 
     return {

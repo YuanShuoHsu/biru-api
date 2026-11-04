@@ -45,7 +45,7 @@ import {
 import { auditLog, type AuditResource } from '../db/schema/audit.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';
 import type { LocalizedText } from '../db/schema/enums.js';
-import { member, organization } from '../db/schema/organizations.js';
+import { organization } from '../db/schema/organizations.js';
 import { PAYROLL_EARNING_CATEGORIES } from '../db/schema/payroll.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
@@ -77,6 +77,7 @@ import {
   DELETED_RECORD_ENUM_FILTER_FIELDS,
   DELETED_RECORD_STRING_FILTER_FIELDS,
   type DeletedRecordBatchResponseDto,
+  type DeletedRecordRestoreBlockedBy,
   type DeletedRecordPaginationQueryDto,
 } from './dto/deleted-record-batch.dto.js';
 import {
@@ -114,28 +115,42 @@ const grantsOwner = (rows: Pick<Row, 'tableName' | 'data'>[]) =>
         .includes('owner'),
   );
 
-const canRestoreTables = (
+const restoreBlockedBy = (
   tables: string[],
   scope: RestoreScope,
   restoresOwner: boolean,
-) => {
-  if (restoresOwner && scope.role !== 'owner') return false;
+): DeletedRecordRestoreBlockedBy | null => {
+  if (restoresOwner && scope.role !== 'owner') return 'ownerOnly';
 
   const required = tables.map((table) => RESTORE_PERMISSIONS[table]);
-  if (!required.length || required.some((action) => !action)) return false;
+  if (!required.length || required.some((action) => !action))
+    return 'forbidden';
 
   const action: Record<string, string[]> = {};
   for (const entry of required)
     for (const [resource, verbs] of Object.entries(entry ?? {}))
       action[resource] = [...new Set([...(action[resource] ?? []), ...verbs])];
 
-  return (
-    isAuthorized(scope.role, action) &&
-    (!scope.closed ||
-      Object.keys(action).every((resource) =>
-        CLOSED_WRITABLE_RESOURCES.has(resource),
-      ))
-  );
+  if (!isAuthorized(scope.role, action)) return 'forbidden';
+
+  return scope.closed &&
+    !Object.keys(action).every((resource) =>
+      CLOSED_WRITABLE_RESOURCES.has(resource),
+    )
+    ? 'closed'
+    : null;
+};
+
+const restoreState = (
+  tables: string[],
+  restoresOwner: boolean,
+  scope?: RestoreScope,
+) => {
+  const blockedBy = scope
+    ? restoreBlockedBy(tables, scope, restoresOwner)
+    : null;
+
+  return { canRestore: !blockedBy, restoreBlockedBy: blockedBy };
 };
 
 const AUDIT_TARGETS: Partial<
@@ -458,9 +473,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 organizationName: row.organization_name,
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
-                canRestore:
-                  !scope ||
-                  canRestoreTables(row.tables, scope, row.restores_owner),
+                ...restoreState(row.tables, row.restores_owner, scope),
               },
             ]
           : [],
@@ -484,7 +497,13 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       await this.db.transaction(async (tx) => {
         for (const { root, batch } of batches) {
           if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
-            await this.restoreThroughService(root, batch, actor, tx);
+            await this.restoreThroughService(
+              root,
+              batch,
+              actor,
+              scope?.role ?? 'owner',
+              tx,
+            );
             continue;
           }
 
@@ -538,7 +557,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
         throw new NotFoundException(this.t('batchNotFound'));
-      if (!canRestoreTables([...batchTables], scope, grantsOwner(batch)))
+      if (restoreBlockedBy([...batchTables], scope, grantsOwner(batch)))
         throw new ForbiddenException();
     }
 
@@ -570,6 +589,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     root: Row,
     batch: Row[],
     admin: Actor,
+    role: string,
     tx: Transaction,
   ) {
     const data = toCamelRow(root.tableName, root.data);
@@ -577,19 +597,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     if (!organizationId || !root.recordId)
       throw new NotFoundException(this.t('batchNotFound'));
 
-    const [membership] = await tx
-      .select({ role: member.role })
-      .from(member)
-      .where(
-        and(
-          eq(member.organizationId, organizationId),
-          eq(member.userId, admin.id),
-        ),
-      );
     const actor: AttendanceActor = {
       organizationId,
       userId: admin.id,
-      role: membership?.role ?? '',
+      role,
     };
     const removeRetained = async (tx: Transaction) => {
       await tx

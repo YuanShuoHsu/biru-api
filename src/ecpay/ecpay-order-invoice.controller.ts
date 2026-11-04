@@ -3,6 +3,7 @@ import { OrderInvoiceDto } from '../orders/dto/order-response.dto.js';
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto.js';
 import { ResetInvoicePrintDto } from './dto/reset-invoice-print.dto.js';
 import { VoidInvoiceDto } from './dto/void-invoice.dto.js';
+import { VoidedInvoiceDto } from './dto/voided-invoice.dto.js';
 import { OrderInvoiceVerificationDto } from './dto/order-invoice-verification.dto.js';
 
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service.js';
@@ -139,6 +140,20 @@ export class EcpayOrderInvoiceController {
     @Param('orderId') orderId: string,
   ): Promise<OrderInvoiceVerificationDto> {
     return this.ecpayOrderInvoiceService.verifyForOrder(
+      organizationSlug,
+      orderId,
+    );
+  }
+
+  @Get('voided')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOkResponse({ type: [VoidedInvoiceDto] })
+  @ApiOperation({ summary: '查詢訂單已作廢的發票與作廢人員、原因' })
+  findVoided(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<VoidedInvoiceDto[]> {
+    return this.ecpayOrderInvoiceService.findVoidedForOrder(
       organizationSlug,
       orderId,
     );

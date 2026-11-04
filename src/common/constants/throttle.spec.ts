@@ -33,6 +33,11 @@ const ANONYMOUS_ROUTES = [
   ['post', '/ecpay', 10],
 ] as const;
 
+const UNNAMED_ROUTES = [
+  ['post', '/organizations/shop/orders/expected-points'],
+  ['get', '/organizations/shop/coupons/available'],
+] as const;
+
 describe('THROTTLERS', () => {
   let app: INestApplication<App>;
 
@@ -111,18 +116,20 @@ describe('THROTTLERS', () => {
       await send('post', path).expect(403);
     });
 
-    it('沒有 @Throttle 的路由維持每分鐘 100 次，也沒有具名 throttler 的標頭', async () => {
-      const path = '/organizations/shop/coupons/available';
-      const first = await send('get', path).expect(403);
-      expect(first.headers['x-ratelimit-limit']).toBe('100');
-      expect(first.headers['x-ratelimit-limit-anonymous']).toBeUndefined();
-      expect(first.headers['x-ratelimit-limit-hourly']).toBeUndefined();
+    it.each(UNNAMED_ROUTES)(
+      '沒有 @Throttle 的 %s %s 維持每分鐘 100 次，也沒有具名 throttler 的標頭',
+      async (method, path) => {
+        const first = await send(method, path).expect(403);
+        expect(first.headers['x-ratelimit-limit']).toBe('100');
+        expect(first.headers['x-ratelimit-limit-anonymous']).toBeUndefined();
+        expect(first.headers['x-ratelimit-limit-hourly']).toBeUndefined();
 
-      await expectLimit('get', path, 99);
+        await expectLimit(method, path, 99);
 
-      vi.advanceTimersByTime(61_000);
-      await expectLimit('get', path, 100);
-    });
+        vi.advanceTimersByTime(61_000);
+        await expectLimit(method, path, 100);
+      },
+    );
   });
 
   describe('沒設 TRUSTED_PROXIES 時', () => {
@@ -130,11 +137,14 @@ describe('THROTTLERS', () => {
       vi.stubEnv('TRUSTED_PROXIES', '');
     });
 
-    it.each(ANONYMOUS_ROUTES)(
-      '%s %s 維持每分鐘 100 次',
-      async (method, path) => {
-        await expectLimit(method, path, 100);
-      },
-    );
+    it.each([
+      ...ANONYMOUS_ROUTES.map(([method, path]) => [method, path] as const),
+      ...UNNAMED_ROUTES,
+    ])('%s %s 不限流，也沒有限流標頭', async (method, path) => {
+      for (let i = 0; i < 101; i++) {
+        const res = await send(method, path).expect(403);
+        expect(res.headers['x-ratelimit-limit']).toBeUndefined();
+      }
+    });
   });
 });

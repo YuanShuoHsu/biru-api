@@ -15,7 +15,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { ecpayCallbackLog } from '../../db/schema/ecpay-callback-logs.js';
 import { ecpayPaymentAttempt } from '../../db/schema/ecpay-payment-attempts.js';
@@ -25,6 +25,7 @@ import { organization } from '../../db/schema/organizations.js';
 import { refund } from '../../db/schema/refunds.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
+import { organizationNotFoundError } from '../../common/utils/organizations.js';
 import { isCountedOrder } from '../../orders/counted-orders.js';
 
 const SETTLE_GRACE_MS = 30 * 60 * 1000;
@@ -46,7 +47,7 @@ export class EcpayAttentionService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const now = Date.now();
     const settleStale = new Date(now - SETTLE_GRACE_MS);
