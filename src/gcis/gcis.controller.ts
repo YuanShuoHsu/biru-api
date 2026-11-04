@@ -40,14 +40,23 @@ export class GcisController {
     @Param('businessNo') businessNo: string,
   ): Promise<BusinessInfoResponseDto> {
     if (!/^\d{8}$/.test(businessNo))
-      throw new BadRequestException(
-        this.i18n.t('common.gcis.invalidBusinessNo', {
+      throw new BadRequestException({
+        error: 'Bad Request',
+        code: 'invalidBusinessNo',
+        message: this.i18n.t('common.gcis.invalidBusinessNo', {
           lang: I18nContext.current()?.lang,
         }),
-      );
+      });
 
     const result = await this.gcisService.findByBusinessNo(businessNo);
-    if (!result) throw new NotFoundException('找不到對應的公司資料');
+    if (!result)
+      throw new NotFoundException({
+        error: 'Not Found',
+        code: 'companyNotFound',
+        message: this.i18n.t('common.gcis.companyNotFound', {
+          lang: I18nContext.current()?.lang,
+        }),
+      });
 
     return result;
   }

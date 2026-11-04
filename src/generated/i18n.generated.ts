@@ -227,6 +227,7 @@ export type I18nTranslations = {
             "tooManyRequests": string;
         };
         "gcis": {
+            "companyNotFound": string;
             "invalidBusinessNo": string;
         };
         "inventory": {
@@ -343,6 +344,7 @@ export type I18nTranslations = {
             "showcaseOpenSelfOnly": string;
             "specialHoursEnded": string;
             "specialHoursInvalidRange": string;
+            "specialHoursNotFound": string;
             "specialHoursOverlap": string;
         };
         "points": {

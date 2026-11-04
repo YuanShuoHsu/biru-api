@@ -184,4 +184,17 @@ describe('SpecialHoursService', () => {
     );
     await expect(service.findUpcoming('biru')).resolves.toEqual([biru]);
   });
+
+  it('改或刪不存在的特殊營業日時回 404 並帶 specialHoursNotFound', async () => {
+    const missing = {
+      status: 404,
+      response: { code: 'specialHoursNotFound' },
+    };
+    await expect(
+      service.update('biru', crypto.randomUUID(), { note: '不存在' }),
+    ).rejects.toMatchObject(missing);
+    await expect(
+      service.remove('biru', crypto.randomUUID()),
+    ).rejects.toMatchObject(missing);
+  });
 });
