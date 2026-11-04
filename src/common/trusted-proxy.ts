@@ -50,3 +50,17 @@ export const clientIp = (
   if (!header) return req.ip;
   return singleIp(req.headers[header.toLowerCase()]);
 };
+
+export const rateLimitEnabled = () => !!clientIpHeader() || !!trustedProxies();
+
+export const rateLimitClientIp = (req: Pick<Request, 'headers' | 'ip'>) =>
+  forwardedClientIp(req) ?? clientIp(req);
+
+export const AUTH_CLIENT_IP_HEADER = 'x-biru-client-ip';
+
+export const setAuthClientIpHeader = (req: Pick<Request, 'headers' | 'ip'>) => {
+  delete req.headers[AUTH_CLIENT_IP_HEADER];
+  if (!rateLimitEnabled()) return;
+  const ip = rateLimitClientIp(req);
+  if (ip) req.headers[AUTH_CLIENT_IP_HEADER] = ip;
+};

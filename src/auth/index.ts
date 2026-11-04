@@ -39,6 +39,10 @@ import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_MINUTES,
 } from '../common/constants/pickup.js';
+import {
+  AUTH_CLIENT_IP_HEADER,
+  rateLimitEnabled,
+} from '../common/trusted-proxy.js';
 import { diffAuditRows } from '../common/utils/audit-diff.js';
 import { isValidCurrency } from '../common/utils/currency.js';
 import { isValidOpeningHours } from '../common/utils/opening-hours.js';
@@ -152,6 +156,8 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
     });
 };
 
+const AUTH_RATE_LIMIT = { window: 10, max: 100 };
+
 export const authDatabase = (database: typeof db | Transaction) =>
   drizzleAdapter(database, { provider: 'pg', schema });
 
@@ -181,6 +187,8 @@ export const createAuth = (
       },
     },
     advanced: {
+      // https://www.better-auth.com/docs/concepts/rate-limit
+      ipAddress: { ipAddressHeaders: [AUTH_CLIENT_IP_HEADER] },
       crossSubDomainCookies: {
         enabled: process.env.NODE_ENV === 'production',
         domain: '.birucoffee.com',
@@ -550,6 +558,12 @@ export const createAuth = (
     ],
     rateLimit: {
       enabled: true,
+      window: AUTH_RATE_LIMIT.window,
+      max: AUTH_RATE_LIMIT.max,
+      customRules: {
+        '/**': (_request, rule) =>
+          rateLimitEnabled() || rule.max < AUTH_RATE_LIMIT.max ? rule : false,
+      },
     },
     socialProviders: {
       google: {

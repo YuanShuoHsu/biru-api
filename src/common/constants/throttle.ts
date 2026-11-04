@@ -10,18 +10,13 @@ import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 
 import type { Auth } from '../../auth/index.js';
-import {
-  clientIp,
-  clientIpHeader,
-  forwardedClientIp,
-  trustedProxies,
-} from '../trusted-proxy.js';
+import { rateLimitClientIp, rateLimitEnabled } from '../trusted-proxy.js';
 
 export const ANONYMOUS_THROTTLER = 'anonymous';
 export const HOURLY_THROTTLER = 'hourly';
 
 const skipIf = (context: ExecutionContext) =>
-  context.getType() !== 'http' || (!clientIpHeader() && !trustedProxies());
+  context.getType() !== 'http' || !rateLimitEnabled();
 
 const perRouteOnly: Omit<ThrottlerOptions, 'name'> = {
   ttl: minutes(1),
@@ -53,7 +48,7 @@ export const throttleTracker = (
     }
     const id = await userId;
     if (id) return `user:${id}`;
-    const ip = forwardedClientIp(req as Request) ?? clientIp(req as Request);
+    const ip = rateLimitClientIp(req as Request);
     return ip ? `ip:${normalizeIp(ip)}` : 'ip:missing';
   };
 };

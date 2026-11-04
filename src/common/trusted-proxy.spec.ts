@@ -1,6 +1,7 @@
 import {
   clientIp,
   forwardedClientIp,
+  setAuthClientIpHeader,
   trustedProxies,
 } from './trusted-proxy.js';
 
@@ -130,5 +131,56 @@ describe('forwardedClientIp', () => {
           : signed(ip),
       ),
     ).toBeUndefined();
+  });
+});
+
+describe('setAuthClientIpHeader', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const run = (headers: Record<string, string>) => {
+    const req = {
+      headers: { ...headers } as Record<string, string>,
+      ip: '10.0.0.1',
+    };
+    setAuthClientIpHeader(req);
+    return req.headers['x-biru-client-ip'];
+  };
+
+  it('replaces a value the caller sent with the resolved client IP', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'CF-Connecting-IP');
+    expect(
+      run({ 'cf-connecting-ip': '203.0.113.9', 'x-biru-client-ip': '1.1.1.1' }),
+    ).toBe('203.0.113.9');
+  });
+
+  it('drops a value the caller sent when no client IP resolves', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'CF-Connecting-IP');
+    expect(run({ 'x-biru-client-ip': '1.1.1.1' })).toBeUndefined();
+  });
+
+  it('sets nothing while neither CLIENT_IP_HEADER nor TRUSTED_PROXIES is set', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', '');
+    vi.stubEnv('TRUSTED_PROXIES', '');
+    expect(run({ 'x-biru-client-ip': '1.1.1.1' })).toBeUndefined();
+  });
+
+  it('uses req.ip when only TRUSTED_PROXIES is set', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', '');
+    vi.stubEnv('TRUSTED_PROXIES', '10.0.0.0/8');
+    expect(run({})).toBe('10.0.0.1');
+  });
+
+  it('prefers the IP the storefront server forwards with the secret', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'CF-Connecting-IP');
+    vi.stubEnv('CLIENT_IP_FORWARD_SECRET', 'forward-secret');
+    expect(
+      run({
+        'cf-connecting-ip': '198.51.100.7',
+        'x-forwarded-client-ip': '203.0.113.9',
+        'x-client-ip-forward-secret': 'forward-secret',
+      }),
+    ).toBe('203.0.113.9');
   });
 });

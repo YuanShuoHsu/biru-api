@@ -318,7 +318,7 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   attendance allowlist; a hop count breaks whenever the chain length differs between the public
   API and the Next.js rewrite. Trusting by address is chain-length independent and makes a forged
   entry become `req.ip` itself, which the allowlist then rejects. Unset means `false` — `req.ip`
-  is the socket peer, so the allowlist fails closed and every throttler is skipped until the real
+  is the socket peer, so the allowlist fails closed and every throttler (and better-auth's default limit) is skipped until the real
   proxy range is configured and verified with forged headers against the public API, Next.js
   rewrite, custom-domain and onrender.com paths.
   Reference: [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
@@ -332,8 +332,14 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   onrender.com directly, without the header, i.e. `ip:missing`); to keep per-visitor buckets the storefront's
   server-side calls send the visitor's IP in `x-forwarded-client-ip` with `CLIENT_IP_FORWARD_SECRET` in
   `x-client-ip-forward-secret`. `forwardedClientIp` returns that IP only when the secret matches and the value is a
-  single IP; only the throttler tracker reads it, never the punch allowlist, so the secret can't vouch for a shop IP.
-  The throttlers skip WebSocket messages.
+  single IP; the throttler tracker and better-auth (its limiter and session IP) read it, never the punch allowlist, so
+  the secret can't vouch for a shop IP. The throttlers skip WebSocket messages. better-auth's own limiter
+  (`/api/auth/*`, which Nest guards never see) uses the same `rateLimitClientIp`: the `BetterAuthModule` middleware
+  removes any `x-biru-client-ip` the caller sent and, once `rateLimitEnabled()`, sets it to that IP;
+  `advanced.ipAddress.ipAddressHeaders` reads only that header. While `rateLimitEnabled()` is false the header is never
+  set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
+  (sign-in, sign-up, password and verification mails), which then share one bucket per path platform-wide — set
+  `CLIENT_IP_HEADER` to give them per-client buckets.
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add

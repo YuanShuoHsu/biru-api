@@ -24,6 +24,7 @@ import { BannersModule } from './banners/banners.module.js';
 import { throttleTracker, THROTTLERS } from './common/constants/throttle.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { LanguageResolver } from './common/resolvers/language.resolver.js';
+import { setAuthClientIpHeader } from './common/trusted-proxy.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { CouponsService } from './coupons/coupons.service.js';
 import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
@@ -70,7 +71,10 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
           createAuthI18n(i18nService),
         ),
         bodyParser: { json: { limit: '2mb' } },
-        middleware: (_req, _res, next) => runWithAuthHookState(next),
+        middleware: (req, _res, next) => {
+          setAuthClientIpHeader(req);
+          return runWithAuthHookState(next);
+        },
       }),
     }),
     ClsModule.forRoot({
