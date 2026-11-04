@@ -185,6 +185,20 @@ describe('THROTTLERS', () => {
         403,
       );
     });
+    it('Next 伺服器帶共享密鑰轉送的訪客 IP 各自分桶', async () => {
+      vi.stubEnv('CLIENT_IP_FORWARD_SECRET', 'forward-secret');
+      const path = '/gcis/12345678';
+      const viaNext = (ip: string) => ({
+        'cf-connecting-ip': '198.51.100.7',
+        'x-forwarded-client-ip': ip,
+        'x-client-ip-forward-secret': 'forward-secret',
+      });
+      await expectLimit('get', path, 30, viaNext('203.0.113.1'));
+      await send('get', path, viaNext('203.0.113.2')).expect(403);
+      await send('get', path, { 'cf-connecting-ip': '198.51.100.7' }).expect(
+        403,
+      );
+    });
   });
 
   describe('TRUSTED_PROXIES 與 CLIENT_IP_HEADER 都沒設時', () => {

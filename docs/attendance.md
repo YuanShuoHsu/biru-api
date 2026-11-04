@@ -30,7 +30,7 @@
 
 後端使用 `app.set('trust proxy', trustedProxies())`，信任清單讀自 `TRUSTED_PROXIES`，以逗號分隔 IP、CIDR 或 proxy-addr preset。未設定時不信任任何代理，`req.ip` 會是直接連線的位址；格式錯誤時啟動失敗。清單只能列出實際轉送請求的代理，否則客戶端可偽造 X-Forwarded-For，影響打卡 IP 白名單。[Express 代理信任規則](https://expressjs.com/en/guide/behind-proxies/)
 
-設定 `CLIENT_IP_HEADER`（如 `CF-Connecting-IP`）時，打卡與限流改讀該標頭，且只接受單一 IP；缺少或格式不符時拒絕打卡，不會退回 `req.ip` 或 X-Forwarded-For。只有在所有請求都經 Cloudflare 才能到達 API 時才可設定（onrender.com 子網域須停用或無法連線），否則客戶端可直接偽造該標頭。設定後，Next 伺服器端呼叫會以 Next 伺服器的對外 IP 計算（直連 onrender.com 則沒有該標頭，歸入 `ip:missing`），匿名 SSR 流量共用同一桶。店家網路有 IPv6 時，`CF-Connecting-IP` 會是 IPv6，白名單須加上 IPv6 位址或改用 Cloudflare Pseudo IPv4。
+設定 `CLIENT_IP_HEADER`（如 `CF-Connecting-IP`）時，打卡與限流改讀該標頭，且只接受單一 IP；缺少或格式不符時拒絕打卡，不會退回 `req.ip` 或 X-Forwarded-For。只有在所有請求都經 Cloudflare 才能到達 API 時才可設定（onrender.com 子網域須停用或無法連線），否則客戶端可直接偽造該標頭。設定後，Next 伺服器端呼叫會以 Next 伺服器的對外 IP 計算（直連 onrender.com 則沒有該標頭，歸入 `ip:missing`），匿名 SSR 流量會共用同一桶；因此前台伺服器端呼叫會以 `x-forwarded-client-ip` 轉送訪客 IP，並以 `x-client-ip-forward-secret` 附上 `CLIENT_IP_FORWARD_SECRET`，密鑰相符且為單一 IP 時，限流才採用，否則忽略；打卡白名單一律不採用轉送的 IP。前台與後台改為瀏覽器直連 API（#209）之前，經 Next `/api/*` rewrite 的瀏覽器請求帶的是 Vercel 的對外 IP，所以在那之前不要設定 `CLIENT_IP_HEADER`。店家網路有 IPv6 時，`CF-Connecting-IP` 會是 IPv6，白名單須加上 IPv6 位址或改用 Cloudflare Pseudo IPv4。
 
 Render 終止 TLS 不保證轉送標頭已被清理，Next rewrite 也不提供這項保證。
 

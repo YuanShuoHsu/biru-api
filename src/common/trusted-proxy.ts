@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { compile } from 'proxy-addr';
 
@@ -27,13 +28,25 @@ export const trustedProxies = (
 export const clientIpHeader = () =>
   process.env.CLIENT_IP_HEADER?.trim() || undefined;
 
+const singleIp = (value: string | string[] | undefined) =>
+  typeof value === 'string' && !value.includes('%') && isIP(value)
+    ? value
+    : undefined;
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest();
+
+export const forwardedClientIp = (req: Pick<Request, 'headers'>) => {
+  const secret = process.env.CLIENT_IP_FORWARD_SECRET?.trim();
+  const sent = req.headers['x-client-ip-forward-secret'];
+  if (!secret || typeof sent !== 'string') return undefined;
+  if (!timingSafeEqual(sha256(sent), sha256(secret))) return undefined;
+  return singleIp(req.headers['x-forwarded-client-ip']);
+};
+
 export const clientIp = (
   req: Pick<Request, 'headers' | 'ip'>,
 ): string | undefined => {
   const header = clientIpHeader();
   if (!header) return req.ip;
-  const value = req.headers[header.toLowerCase()];
-  return typeof value === 'string' && !value.includes('%') && isIP(value)
-    ? value
-    : undefined;
+  return singleIp(req.headers[header.toLowerCase()]);
 };

@@ -10,7 +10,12 @@ import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 
 import type { Auth } from '../../auth/index.js';
-import { clientIp, clientIpHeader, trustedProxies } from '../trusted-proxy.js';
+import {
+  clientIp,
+  clientIpHeader,
+  forwardedClientIp,
+  trustedProxies,
+} from '../trusted-proxy.js';
 
 export const ANONYMOUS_THROTTLER = 'anonymous';
 export const HOURLY_THROTTLER = 'hourly';
@@ -48,7 +53,7 @@ export const throttleTracker = (
     }
     const id = await userId;
     if (id) return `user:${id}`;
-    const ip = clientIp(req as Request);
+    const ip = forwardedClientIp(req as Request) ?? clientIp(req as Request);
     return ip ? `ip:${normalizeIp(ip)}` : 'ip:missing';
   };
 };

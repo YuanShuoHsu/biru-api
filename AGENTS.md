@@ -326,9 +326,14 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `CLIENT_IP_HEADER` set it returns that header only when it holds a single IP, otherwise nothing (never `req.ip` or
   `X-Forwarded-For`), so the punch is rejected; unset, it returns `req.ip`. Set it only when every request reaches the
   API through Cloudflare (`CF-Connecting-IP`): any path that bypasses Cloudflare, the onrender.com subdomain included,
-  lets the caller forge the header, so that subdomain must be disabled or unreachable first. Once it is set, server-side
-  calls from the Next apps arrive with the Next server's egress IP (or, calling onrender.com directly, without the
-  header, i.e. `ip:missing`), so their anonymous traffic shares one bucket. The throttlers skip WebSocket messages.
+  lets the caller forge the header, so that subdomain must be disabled or unreachable first. Browser calls that go
+  through a Next `/api/*` rewrite arrive with Vercel's egress IP, so set it only after the frontends call the API
+  directly (#209). Server-side calls from the Next apps also arrive with the Next server's egress IP (or, calling
+  onrender.com directly, without the header, i.e. `ip:missing`); to keep per-visitor buckets the storefront's
+  server-side calls send the visitor's IP in `x-forwarded-client-ip` with `CLIENT_IP_FORWARD_SECRET` in
+  `x-client-ip-forward-secret`. `forwardedClientIp` returns that IP only when the secret matches and the value is a
+  single IP; only the throttler tracker reads it, never the punch allowlist, so the secret can't vouch for a shop IP.
+  The throttlers skip WebSocket messages.
 - Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
@@ -357,6 +362,8 @@ missing variable fails at request time rather than at boot. Required in `.env`:
   `trust proxy: false`, which fails the attendance IP allowlist closed
 - `CLIENT_IP_HEADER` — Header holding the client IP, e.g. `CF-Connecting-IP`; takes precedence over `req.ip`. Only set
   it when every request reaches the API through Cloudflare (onrender.com disabled), otherwise the header can be forged
+- `CLIENT_IP_FORWARD_SECRET` — Shared with the biru storefront's server (same name there, never `NEXT_PUBLIC_`); a
+  random value of at least 32 bytes. Unset means forwarded client IPs are ignored
 - `FIELD_ENCRYPTION_KEYS` — `v3:<base64 32 bytes>,v2:<...>,legacy` keys for `src/common/utils/field-encryption.ts`;
   the first encrypts, the rest only decrypt. `legacy` (no key) is the key derived from `BETTER_AUTH_SECRET`,
   which writes the unprefixed `iv.tag.ciphertext` format; it is unrelated to the `-v1` in the purpose info
