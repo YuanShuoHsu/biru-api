@@ -171,6 +171,7 @@
     "organizationNotFound": "找不到此門市。",
     "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
     "smtpTestFailed": "測試郵件寄送失敗，請檢查 SMTP 設定後再試一次",
+    "statsSinceNotMonthStart": "開始時間必須是平台時區的月初",
     "tooManyRequests": "請求過多"
   },
   "gcis": {

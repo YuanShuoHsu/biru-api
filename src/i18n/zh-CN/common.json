@@ -171,6 +171,7 @@
     "organizationNotFound": "找不到此门店。",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
     "smtpTestFailed": "测试邮件发送失败，请检查 SMTP 设置后再试",
+    "statsSinceNotMonthStart": "开始时间必须是平台时区的月初",
     "tooManyRequests": "请求过多"
   },
   "gcis": {

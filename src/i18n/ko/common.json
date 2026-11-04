@@ -171,6 +171,7 @@
     "organizationNotFound": "매장을 찾을 수 없습니다.",
     "organizationReadOnly": "이 매장은 폐점되었습니다. 메뉴, 재고, 쿠폰, 대기, 매장 설정은 조회만 가능합니다",
     "smtpTestFailed": "테스트 이메일을 보내지 못했습니다. SMTP 설정을 확인한 후 다시 시도해 주세요",
+    "statsSinceNotMonthStart": "시작 시간은 플랫폼 시간대 기준 매월 1일이어야 합니다",
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "gcis": {

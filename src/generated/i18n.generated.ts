@@ -224,6 +224,7 @@ export type I18nTranslations = {
             "organizationNotFound": string;
             "organizationReadOnly": string;
             "smtpTestFailed": string;
+            "statsSinceNotMonthStart": string;
             "tooManyRequests": string;
         };
         "gcis": {

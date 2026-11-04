@@ -171,6 +171,7 @@
     "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
     "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
+    "statsSinceNotMonthStart": "The start time must be the first day of a month in the platform time zone.",
     "tooManyRequests": "Too many requests"
   },
   "gcis": {
