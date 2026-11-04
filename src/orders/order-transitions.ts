@@ -84,7 +84,6 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     extraSet: () => ({
       amountPerPoint: null,
       paymentDate: null,
-      pointsValidityYears: null,
     }),
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPaymentDue',

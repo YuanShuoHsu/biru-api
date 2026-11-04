@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { IsNumber, IsOptional, Max, Min } from 'class-validator';
 
 export class UpdatePointSettingDto {
   @ApiPropertyOptional({
@@ -13,17 +13,6 @@ export class UpdatePointSettingDto {
   @Min(0.01)
   @Max(99999999.99)
   amountPerPoint?: number | null;
-
-  @ApiPropertyOptional({
-    description: '點數有效年限；null = 不會到期',
-    nullable: true,
-    type: Number,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  pointsValidityYears?: number | null;
 
   @ApiPropertyOptional({
     description: '每點的會計價值（元），只用於對帳',
