@@ -621,6 +621,9 @@ export class WaitlistService {
         and(
           eq(waitlistTicket.id, ticket.id),
           eq(waitlistTicket.status, 'called'),
+          ticket.calledAt
+            ? eq(waitlistTicket.calledAt, ticket.calledAt)
+            : undefined,
         ),
       )
       .returning();

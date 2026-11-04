@@ -337,41 +337,54 @@ describe('WaitlistService.confirmTicket', () => {
 });
 
 describe('WaitlistService.transitionTicket', () => {
-  const transition = (from: string, to: 'called' | 'waiting') => {
-    const set = vi.fn().mockReturnValue({
-      where: () => ({ returning: () => Promise.resolve([]) }),
-    });
+  const transition = (from: string) => {
+    const ticket = {
+      calledAt: new Date('2026-10-06T12:00:00Z'),
+      confirmedAt: new Date('2026-10-06T12:01:00Z'),
+      id: 't',
+      number: 3,
+      organizationId: 'org',
+      prefix: 'A',
+      status: from,
+    };
+    const set = vi.fn((values: Record<string, unknown>) => ({
+      where: () => ({
+        returning: () => Promise.resolve([{ ...ticket, ...values }]),
+      }),
+    }));
     const { db, service } = createService({
-      ticket: {
-        calledAt: new Date('2026-10-06T12:00:00Z'),
-        confirmedAt: new Date('2026-10-06T12:01:00Z'),
-        id: 't',
-        organizationId: 'org',
-        status: from,
-      },
+      setting: { enabled: true, groups, holdMinutes: 15, paused: false },
+      ticket,
     });
     db.update.mockReturnValue({ set });
+    vi.spyOn(
+      service as unknown as { countAhead: () => Promise<number> },
+      'countAhead',
+    ).mockResolvedValue(0);
 
-    return { result: service.transitionTicket('slug', 't', to), set };
+    return { result: service.transitionTicket('slug', 't', 'called'), set };
   };
 
   it('clears the confirmation when a called ticket is called again', async () => {
-    const { result, set } = transition('called', 'called');
+    const { result, set } = transition('called');
 
-    await expect(result).rejects.toThrow('waitlistTransitionInvalid');
+    await expect(result).resolves.toMatchObject({ confirmedAt: null });
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({ confirmedAt: null, status: 'called' }),
     );
   });
 
-  it('keeps the confirmation when a no-show is reverted to called', async () => {
-    const { result, set } = transition('noShow', 'called');
+  it.each(['noShow', 'seated'])(
+    'keeps the confirmation when a %s ticket is reverted to called',
+    async (from) => {
+      const { result, set } = transition(from);
 
-    await expect(result).rejects.toThrow('waitlistTransitionInvalid');
-    expect(set).toHaveBeenCalledWith(
-      expect.not.objectContaining({ confirmedAt: null }),
-    );
-  });
+      await expect(result).resolves.toMatchObject({
+        confirmedAt: new Date('2026-10-06T12:01:00Z'),
+      });
+      expect(set.mock.calls[0][0]).not.toHaveProperty('confirmedAt');
+    },
+  );
 });
 
 describe('WaitlistService.getPublicStatusByOrganizationId', () => {
