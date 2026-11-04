@@ -295,6 +295,15 @@
     "specialHoursNotFound": "Special hours not found. They may have been deleted.",
     "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
   },
+  "paymentMethods": {
+    "ApplePay": "Apple Pay",
+    "Cash": "Cash",
+    "Credit": "Credit Card",
+    "iPASS": "iPASS MONEY",
+    "Jkopay": "JKO Pay",
+    "TWQR": "Mobile Payment",
+    "WeiXin": "WeChat Pay"
+  },
   "points": {
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
@@ -401,6 +410,13 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"
+  },
+  "units": {
+    "GRM": "g",
+    "KGM": "kg",
+    "LTR": "L",
+    "MLT": "mL",
+    "H87": "pcs"
   },
   "waitlist": {
     "guest": {

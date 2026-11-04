@@ -295,6 +295,15 @@
     "specialHoursNotFound": "找不到這個特殊營業日，可能已被刪除。",
     "specialHoursOverlap": "這段期間和已設定的特殊營業日（{validFrom}～{validThrough}）重疊。"
   },
+  "paymentMethods": {
+    "ApplePay": "Apple Pay",
+    "Cash": "現金",
+    "Credit": "信用卡",
+    "iPASS": "iPASS MONEY",
+    "Jkopay": "街口支付",
+    "TWQR": "行動支付",
+    "WeiXin": "微信支付"
+  },
   "points": {
     "adjustOwnerOnly": "單筆調整超過 {maxPoints} 點，請由店家 owner 操作",
     "adjustSelf": "不能調整自己的點數",
@@ -401,6 +410,13 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "找不到這張門市照片，可能已被刪除"
+  },
+  "units": {
+    "GRM": "g",
+    "KGM": "kg",
+    "LTR": "L",
+    "MLT": "mL",
+    "H87": "個"
   },
   "waitlist": {
     "guest": {
