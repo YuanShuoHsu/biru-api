@@ -148,8 +148,9 @@ the latest and was not checked on or after the start of the payroll month carrie
 `checked_at`, run one ingest or every draft is held.
 
 勞保 has two ladders: `laborGrades` (一般勞工) and `partTimeLaborGrades` (部分工時勞工, floor NT$11,100),
-chosen per employee by `insurance.laborLadder`, which is only accepted when `weeklyMinutes < 2400`; a
-draft for an employee whose `weeklyMinutes` later reached 2400 carries `partTimeLadderRequiresPartTime`.
+chosen by `insurance.laborLadder`, which saving terms derives (`deriveInsurance`): `partTime` unless the employee
+is known full-time at the terms' `effectiveFrom` (see Weekly Hours). A draft whose terms carry `partTime` for an
+employee known full-time at the period start carries `partTimeLadderRequiresPartTime`.
 健保 has no part-time ladder — its floor stays 分級表第一級.
 
 If an employee's stored `laborBasis` / `healthBasis` is not a grade in that month's ladder — what
@@ -192,23 +193,33 @@ restricted record is left, and the cascaded rows are captured in `deleted_record
 
 ### Weekly Hours
 
-`attendanceEmployee.weeklyMinutesHistory` is the effective-dated record of the employee's contracted
-hours; the `weekly_minutes` column is only a copy taken at the last save, so it goes stale once a
-future-dated change takes effect. Never read or prorate from that column —
-resolve the hours for the date that governs the entitlement with `weeklyMinutesAt` /`weeklyMinutesOf`
-(`src/attendance/employee-hours.ts`). 特別休假 and the yearly 事假 / 家庭照顧假 / 病假 quotas are granted
-at the period start (勞基法 §38: the right vests when the period is reached), so `annualLeavePeriod` and
-`statutoryLeavePeriod` resolve the hours at `period.start` and a later change cannot shrink leave already
-granted. Medical-leave day conversion resolves per day, event leave at the case start, the part-time
-ladder at the payroll month. Changing the hours needs `weeklyMinutesFrom`, which cannot precede `hiredAt`
-and locks like any other payroll-affecting change.
+An employee's weekly hours are not stored (`0144` dropped `weekly_minutes` and `weekly_minutes_history`); they
+are derived from the schedule. `averageWeeklyMinutes` (`src/attendance/employee-hours.ts`) averages the
+employee's non-cancelled `workday` shifts that ended in the 12 months before the date — from `hiredAt` or the
+first such shift if later — counting each shift's `scheduledWorkSeconds` capped at 480 minutes, and is `null`
+when no such shift ended in that window. `weeklyMinutesAt` / `weeklyMinutesOf` fall back to
+`FULL_TIME_WEEKLY_MINUTES` (2400) for `null`; `averageWeeklyMinutesSql` / `employmentTypeSql` are the SQL form
+for lists and average up to `now()`. Under 2400 is part-time.
+
+Resolve the hours for the date that governs the entitlement. 特別休假 and the yearly 事假 / 家庭照顧假 / 病假
+quotas are granted at the period start (勞基法 §38: the right vests when the period is reached), so
+`annualLeavePeriod` and `statutoryLeavePeriod` resolve the hours at `period.start` and shifts after it cannot
+shrink leave already granted. Medical-leave day conversion and quotas resolve at the start of the calendar year
+(住院 at the previous year's start), event leave at the case start. The 勞保 part-time ladder instead uses
+`knownFullTime` (`src/payroll/payroll.service.ts`), which reads `averageWeeklyMinutes` without the fallback, so
+an employee with no shift history is not known full-time. Creating, updating, cancelling or restoring a shift
+calls `assertPayrollUnlocked` for the shift's own months only, although the rolling average also feeds later
+months.
 
 ### Scheduled Breaks
 
-`attendance_shift.break_starts_at/break_ends_at` (templates: `break_start_time/break_end_time`) mark the
-scheduled break. Unless `paidBreak`, it is not working time: leave minutes, leave pay deductions, medical
-leave units and the hourly scheduled hours all go through `scheduledWorkIntervals`, never the raw shift span.
-A shift without a break keeps its whole span as working time.
+`attendance_shift.breaks` (a jsonb list since `0155`; shift templates were dropped in `0176`) holds the scheduled
+breaks, which `scheduledBreaks` (`src/attendance/shift-intervals.ts`) generates when a shift is saved — one
+30-minute break for every 4 hours of continuous work, spread evenly, none for a shift of 4 hours or less
+(勞基法 §35, [law.moj.gov.tw](https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=N0030001&flno=35)) — so
+they are never entered by hand. Unless `paidBreak` (shifts are saved with it off), they are not working time:
+leave minutes, leave pay deductions, medical leave units and the hourly scheduled hours all go through
+`scheduledWorkIntervals`, never the raw shift span. A shift without a break keeps its whole span as working time.
 
 ### Localized Fields
 
