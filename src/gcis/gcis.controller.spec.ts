@@ -42,4 +42,36 @@ describe('GcisController', () => {
       required: ['name', 'address', 'representativeName'],
     });
   });
+
+  it('查不到公司時回 404 並帶 companyNotFound', async () => {
+    const controller = new GcisController(
+      {
+        findByBusinessNo: () => Promise.resolve(null),
+      } as unknown as GcisService,
+      { t: (key: string) => key } as unknown as I18nService,
+    );
+
+    await expect(controller.findOne('12345678')).rejects.toMatchObject({
+      status: 404,
+      response: {
+        code: 'companyNotFound',
+        message: 'common.gcis.companyNotFound',
+      },
+    });
+  });
+
+  it('統一編號格式錯誤時回 400 並帶 invalidBusinessNo', async () => {
+    const controller = new GcisController(
+      {} as GcisService,
+      { t: (key: string) => key } as unknown as I18nService,
+    );
+
+    await expect(controller.findOne('1234')).rejects.toMatchObject({
+      status: 400,
+      response: {
+        code: 'invalidBusinessNo',
+        message: 'common.gcis.invalidBusinessNo',
+      },
+    });
+  });
 });

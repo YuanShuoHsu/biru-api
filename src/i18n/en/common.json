@@ -174,6 +174,7 @@
     "tooManyRequests": "Too many requests"
   },
   "gcis": {
+    "companyNotFound": "No company was found for this tax ID number.",
     "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
   },
   "inventory": {
@@ -290,6 +291,7 @@
     "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section.",
     "specialHoursEnded": "Special hours cannot be added or changed to a period that has already ended.",
     "specialHoursInvalidRange": "The start date of special hours cannot be later than the end date.",
+    "specialHoursNotFound": "Special hours not found. They may have been deleted.",
     "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
   },
   "points": {
@@ -298,8 +300,7 @@
     "insufficient": "Not enough points",
     "notEnabled": "Points are not enabled yet",
     "notRedeemable": "This coupon cannot be redeemed with points",
-    "perUserLimitReached": "You have already redeemed this coupon",
-    "validityRequiresEnabled": "Set an amount per point before setting the points validity"
+    "perUserLimitReached": "You have already redeemed this coupon"
   },
   "quant": {
     "aiKeyInvalid": "Claude API key verification failed: {message}",

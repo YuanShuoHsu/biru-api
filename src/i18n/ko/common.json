@@ -174,6 +174,7 @@
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "gcis": {
+    "companyNotFound": "이 사업자 등록번호에 해당하는 회사를 찾을 수 없습니다",
     "invalidBusinessNo": "사업자 등록번호 형식이 올바르지 않습니다. 8자리 숫자여야 합니다"
   },
   "inventory": {
@@ -290,6 +291,7 @@
     "showcaseOpenSelfOnly": "구성원 본인만 팀 소개에 공개로 설정할 수 있습니다.",
     "specialHoursEnded": "이미 종료된 기간으로 특별 영업일을 추가하거나 변경할 수 없습니다.",
     "specialHoursInvalidRange": "특별 영업일의 시작일은 종료일보다 늦을 수 없습니다.",
+    "specialHoursNotFound": "이 특별 영업일을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
     "specialHoursOverlap": "이 기간은 이미 설정된 특별 영업일({validFrom}~{validThrough})과 겹칩니다."
   },
   "points": {
@@ -298,8 +300,7 @@
     "insufficient": "포인트가 부족합니다",
     "notEnabled": "포인트 기능이 아직 활성화되지 않았습니다",
     "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다",
-    "perUserLimitReached": "이미 교환한 쿠폰입니다",
-    "validityRequiresEnabled": "포인트 기능이 비활성화된 동안에는 유효 기간을 설정할 수 없습니다"
+    "perUserLimitReached": "이미 교환한 쿠폰입니다"
   },
   "quant": {
     "aiKeyInvalid": "Claude API 키 확인 실패: {message}",

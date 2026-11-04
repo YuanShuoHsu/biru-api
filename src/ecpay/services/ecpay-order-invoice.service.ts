@@ -294,7 +294,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return this.issue(orderId, org.id);
   }
@@ -333,7 +333,7 @@ export class EcpayOrderInvoiceService {
       },
     });
 
-    if (!row) throw new NotFoundException('Order not found');
+    if (!row) throw notFoundError('orderNotFound');
     if (
       !row.paymentDate ||
       !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
@@ -572,7 +572,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -660,7 +660,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -736,7 +736,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),

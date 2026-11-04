@@ -1758,6 +1758,20 @@
       "when": 1793689618576,
       "tag": "0250_invoice_void_operator",
       "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1793766693378,
+      "tag": "0251_points_rolling_one_year_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1793772348958,
+      "tag": "0252_points_expiry_reminded_at",
+      "breakpoints": true
     }
   ]
 }

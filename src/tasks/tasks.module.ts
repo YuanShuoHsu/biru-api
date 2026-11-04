@@ -6,6 +6,7 @@ import { DeletedRecordsModule } from '../deleted-records/deleted-records.module.
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { PayrollModule } from '../payroll/payroll.module.js';
+import { PointsModule } from '../points/points.module.js';
 import { WaitlistModule } from '../waitlist/waitlist.module.js';
 
 import { TasksService } from './tasks.service.js';
@@ -18,6 +19,7 @@ import { TasksService } from './tasks.service.js';
     InventoryModule,
     OrdersModule,
     PayrollModule,
+    PointsModule,
     WaitlistModule,
   ],
   providers: [TasksService],

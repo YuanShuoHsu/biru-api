@@ -97,7 +97,6 @@ describe('訂單狀態轉換規則表', () => {
 
     expect(rule?.recordsPayment).toBe(true);
     expect(rule?.extraSet?.()).toHaveProperty('amountPerPoint');
-    expect(rule?.extraSet?.()).toHaveProperty('pointsValidityYears');
   });
 
   it('付款失敗轉異常時還券、還庫存', () => {
@@ -123,7 +122,6 @@ describe('訂單狀態轉換規則表', () => {
     expect(rule?.extraSet?.()).toEqual({
       amountPerPoint: null,
       paymentDate: null,
-      pointsValidityYears: null,
     });
   });
 
