@@ -201,15 +201,78 @@ describe('來源食譜', () => {
 
       expect((await ingredients.findOne(sauce.id)).unitPrice).toBeNull();
     });
+  });
 
-    it('產量為 0 時為 null', async () => {
+  describe('採購欄位', () => {
+    it.each([
+      { price: '10' },
+      { eligibleQuantity: '1' },
+      { eligibleQuantityUnitCode: 'GRM' as const },
+      { supplierId: 'supplier' },
+    ])('有來源食譜的食材不能再改 %o', async (fields) => {
       const sauce = await createSauce();
-      await db
-        .update(recipe)
-        .set({ recipeYieldQuantity: '0' })
-        .where(eq(recipe.id, 'sauceRecipe'));
 
-      expect((await ingredients.findOne(sauce.id)).unitPrice).toBeNull();
+      expect(await codeOf(ingredients.update(sauce.id, fields))).toBe(
+        'purchaseFieldsOnSourcedIngredient',
+      );
+    });
+
+    it('指定來源食譜時清掉包裝、價錢與供應商', async () => {
+      await client.query(
+        `insert into supplier (id, name, organization_id) values ('supplier', '菜商', $1)`,
+        [ORG],
+      );
+      await db.insert(ingredient).values({
+        id: 'paste',
+        eligibleQuantity: '500',
+        eligibleQuantityUnitCode: 'GRM',
+        name: { 'zh-TW': '番茄糊' },
+        organizationId: ORG,
+        price: '80',
+        supplierId: 'supplier',
+        unitCode: 'GRM',
+      });
+
+      const linked = await ingredients.update('paste', {
+        recipeId: 'sauceRecipe',
+      });
+
+      expect(linked).toMatchObject({
+        eligibleQuantity: null,
+        eligibleQuantityUnitCode: null,
+        price: null,
+        recipeId: 'sauceRecipe',
+        supplierId: null,
+        supplierName: null,
+      });
+      expect(linked.unitPrice).toBeCloseTo(0.1);
+    });
+
+    it('取消來源食譜時包裝與價錢必填', async () => {
+      const sauce = await createSauce();
+
+      expect(
+        await codeOf(ingredients.update(sauce.id, { recipeId: null })),
+      ).toBe('packageRequired');
+      expect(
+        await codeOf(
+          ingredients.update(sauce.id, { recipeId: null, price: '50' }),
+        ),
+      ).toBe('packageRequired');
+    });
+
+    it('取消來源食譜並帶齊包裝後改用包裝價格', async () => {
+      const sauce = await createSauce();
+
+      const unlinked = await ingredients.update(sauce.id, {
+        eligibleQuantity: '500',
+        eligibleQuantityUnitCode: 'GRM',
+        price: '50',
+        recipeId: null,
+      });
+
+      expect(unlinked.recipeId).toBeNull();
+      expect(unlinked.unitPrice).toBeCloseTo(0.1);
     });
   });
 

@@ -43,6 +43,7 @@ import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   CreateIngredientDto,
+  PURCHASED_FIELDS,
   UpdateIngredientDto,
 } from './dto/create-ingredient.dto.js';
 import {
@@ -309,8 +310,10 @@ export class IngredientsService {
         .insert(ingredient)
         .values({ ...dto, id: randomUUID(), organizationId, sortOrder: 0 })
         .returning();
+      const unitPrice = await unitPriceOf(tx, row.id);
 
-      if (!inventoryLevel || !Number(inventoryLevel)) return row;
+      if (!inventoryLevel || !Number(inventoryLevel))
+        return { ...row, unitPrice };
 
       await this.inventoryTransactionsService.create(
         row.id,
@@ -318,14 +321,14 @@ export class IngredientsService {
         { tx },
       );
 
-      return { ...row, inventoryLevel };
+      return { ...row, inventoryLevel, unitPrice };
     });
 
     return {
       ...created,
       supplierName: await this.supplierNameOf(created.supplierId),
       priceCurrency,
-      ...pricingOf(created, await unitPriceOf(this.db, created.id)),
+      ...pricingOf(created, created.unitPrice),
     };
   }
 
@@ -335,10 +338,13 @@ export class IngredientsService {
   ): Promise<IngredientResponseDto> {
     const [existing] = await this.db
       .select({
+        eligibleQuantity: ingredient.eligibleQuantity,
         eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
         organizationId: ingredient.organizationId,
+        price: ingredient.price,
         priceCurrency: organization.currency,
         recipeId: ingredient.recipeId,
+        supplierId: ingredient.supplierId,
         unitCode: ingredient.unitCode,
       })
       .from(ingredient)
@@ -346,14 +352,26 @@ export class IngredientsService {
       .where(eq(ingredient.id, ingredientId));
     if (!existing) throw notFoundError('ingredientNotFound');
 
-    this.assertCompatibleUnitCode({ ...existing, ...dto });
+    const merged = { ...existing, ...dto };
+    const linking = Boolean(dto.recipeId);
+    if (merged.recipeId) {
+      if (PURCHASED_FIELDS.some((field) => dto[field] != null))
+        throw badRequestError('purchaseFieldsOnSourcedIngredient');
+    } else if (
+      existing.recipeId &&
+      (!merged.price ||
+        !merged.eligibleQuantity ||
+        !merged.eligibleQuantityUnitCode)
+    )
+      throw badRequestError('packageRequired');
+
+    if (!linking) this.assertCompatibleUnitCode(merged);
     await this.assertSupplierInOrganization(
       dto.supplierId,
       existing.organizationId,
     );
-    const recipeId =
-      dto.recipeId === undefined ? existing.recipeId : dto.recipeId;
-    if (recipeId && (dto.recipeId || dto.unitCode))
+    const { recipeId } = merged;
+    if (recipeId && (linking || dto.unitCode))
       await this.assertSourceRecipe(
         existing.organizationId,
         recipeId,
@@ -365,7 +383,17 @@ export class IngredientsService {
       const [row] = Object.keys(dto).length
         ? await tx
             .update(ingredient)
-            .set(dto)
+            .set(
+              linking
+                ? {
+                    ...dto,
+                    eligibleQuantity: null,
+                    eligibleQuantityUnitCode: null,
+                    price: null,
+                    supplierId: null,
+                  }
+                : dto,
+            )
             .where(eq(ingredient.id, ingredientId))
             .returning()
         : await tx
@@ -374,13 +402,14 @@ export class IngredientsService {
             .where(eq(ingredient.id, ingredientId))
             .for('update');
       if (!row) throw notFoundError('ingredientNotFound');
+      const unitPrice = await unitPriceOf(tx, row.id);
 
       // 帳上數量要拿交易內鎖定的值比，交易外讀到的可能已被出餐扣庫存蓋過
       if (
         inventoryLevel == null ||
         Number(inventoryLevel) === Number(row.inventoryLevel)
       )
-        return row;
+        return { ...row, unitPrice };
 
       await this.inventoryTransactionsService.create(
         row.id,
@@ -388,14 +417,14 @@ export class IngredientsService {
         { tx },
       );
 
-      return { ...row, inventoryLevel };
+      return { ...row, inventoryLevel, unitPrice };
     });
 
     return {
       ...updated,
       supplierName: await this.supplierNameOf(updated.supplierId),
       priceCurrency: existing.priceCurrency,
-      ...pricingOf(updated, await unitPriceOf(this.db, updated.id)),
+      ...pricingOf(updated, updated.unitPrice),
     };
   }
 

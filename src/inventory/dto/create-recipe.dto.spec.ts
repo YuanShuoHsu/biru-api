@@ -46,7 +46,7 @@ describe('CreateRecipeDto recipeYieldQuantity', () => {
 
   it.each([
     {},
-    { recipeYieldQuantity: '0', recipeYieldUnitCode: 'GRM' },
+    { recipeYieldQuantity: '0.001', recipeYieldUnitCode: 'GRM' },
     { recipeYieldQuantity: '1500.000', recipeYieldUnitCode: 'KGM' },
     { recipeYieldQuantity: null, recipeYieldUnitCode: null },
   ])('accepts %o', async (fields) => {
@@ -63,6 +63,14 @@ describe('CreateRecipeDto recipeYieldQuantity', () => {
     ],
     [
       { recipeYieldQuantity: '-1', recipeYieldUnitCode: 'GRM' },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '0', recipeYieldUnitCode: 'GRM' },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '0.000', recipeYieldUnitCode: 'GRM' },
       ['recipeYieldQuantity'],
     ],
     [

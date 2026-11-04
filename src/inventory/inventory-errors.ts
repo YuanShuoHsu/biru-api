@@ -11,7 +11,9 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 export const inventoryErrorCodes = [
   'ingredientInUse',
   'ingredientNotFound',
+  'packageRequired',
   'packageUnitIncompatible',
+  'purchaseFieldsOnSourcedIngredient',
   'recipeIngredientExists',
   'recipeIngredientNotFound',
   'recipeNotFound',

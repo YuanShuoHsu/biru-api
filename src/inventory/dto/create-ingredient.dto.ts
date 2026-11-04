@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsIn,
+  IsNotEmpty,
   IsNumberString,
   IsOptional,
   IsString,
@@ -30,7 +31,7 @@ import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
-const PURCHASED_FIELDS = [
+export const PURCHASED_FIELDS = [
   'price',
   'eligibleQuantity',
   'eligibleQuantityUnitCode',
@@ -91,6 +92,7 @@ export class CreateIngredientDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @Validate(IsWithoutPurchasedFields)
   recipeId?: string | null;
 

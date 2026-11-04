@@ -135,6 +135,12 @@ describe('CreateIngredientDto recipeId', () => {
     ]);
   });
 
+  it('拒絕空字串的來源食譜', async () => {
+    expect(
+      await sourcedErrorsOf(CreateIngredientDto, { recipeId: '' }),
+    ).toContain('recipeId');
+  });
+
   it('清掉來源食譜時可以同時帶價錢', async () => {
     expect(
       await sourcedErrorsOf(UpdateIngredientDto, {

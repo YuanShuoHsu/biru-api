@@ -67,7 +67,7 @@ export class CreateRecipeDto {
       '做出的總量；作為食材來源食譜時必填，與 recipeYieldUnitCode 一起帶',
   })
   @IsOptional()
-  @Matches(/^\d{1,9}(\.\d{1,3})?$/)
+  @Matches(/^(?!0+(\.0+)?$)\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   @Validate(IsRecipeYieldPaired)
   recipeYieldQuantity?: string | null;
