@@ -1,6 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
 
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
@@ -8,7 +7,6 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
 import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
 import type { MenuStockService } from '../inventory/menu-stock.service.js';
 import type { PointsService } from '../points/points.service.js';
@@ -258,7 +256,6 @@ const createService = ({
       {} as OrderQrService,
       orderTickets as unknown as OrderTicketService,
       eventEmitter,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       menuStock as unknown as MenuStockService,
       {} as PrepEstimateService,
       {} as PointsService,
