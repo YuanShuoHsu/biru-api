@@ -171,7 +171,7 @@ parental returns, moving `hiredAt` / `terminatedAt`, re-drafting the month — m
 Leave approvals lock every month from the leave start onward, because medical and annual leave ledgers
 carry into later months. Creating, updating, cancelling or restoring a workday shift — and an indigenous holiday
 change or 國定假日補休 that flips a shift between workday and holiday — likewise lock every month from the shift
-start onward (an update from the earlier of the old and new starts), because weekly hours are a rolling average
+start onward (an update checks the old and new shift, each by its own day kind), because weekly hours are a rolling average
 of workday shifts and leave quotas read them at the period start. Other shifts lock only their own months.
 
 There is no reopen: `payroll_statement` holds one statement per employee and month
