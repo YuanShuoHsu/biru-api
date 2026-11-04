@@ -23,7 +23,6 @@ import { randomUUID } from 'node:crypto';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { isAuthorized } from '../auth/permissions.js';
 import {
-  DAY_MS,
   platformDateString,
   platformMidnight,
   STORE_UTC_OFFSET,
@@ -761,7 +760,6 @@ export class AttendanceEmployeesService {
             actor.organizationId,
             current.id,
             dayStart,
-            new Date(dayStart.getTime() + DAY_MS),
           );
         }
         if (removedHolidays.length) {

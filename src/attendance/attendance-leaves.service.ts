@@ -1835,7 +1835,6 @@ export class AttendanceLeavesService {
         actor.organizationId,
         employee.id,
         shift.startsAt,
-        new Date(shift.startsAt.getTime() + 1),
       );
       const [row] = await tx
         .insert(attendanceHolidaySubstitute)
@@ -1921,7 +1920,6 @@ export class AttendanceLeavesService {
             actor.organizationId,
             substitute.employeeId,
             at,
-            new Date(at.getTime() + 1),
           );
         await tx
           .delete(attendanceHolidaySubstitute)
