@@ -59,4 +59,11 @@ describe('EcpayAttentionService 逾時未開的發票', () => {
         .sort(),
     ).toEqual(['paid:invoiceOverdue', 'problem-issuing:invoiceStuck']);
   });
+
+  it('門市不存在時回 404 並帶 organizationNotFound', async () => {
+    await expect(service.findByOrganization('missing')).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'organizationNotFound' },
+    });
+  });
 });

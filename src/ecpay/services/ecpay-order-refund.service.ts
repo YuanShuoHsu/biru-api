@@ -51,7 +51,6 @@ import {
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -76,6 +75,7 @@ import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
 import { toActiveInvoice } from '../../common/utils/invoices.js';
+import { organizationNotFoundError } from '../../common/utils/organizations.js';
 import { CouponsService } from '../../coupons/coupons.service.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../../events/order-status-updated.event.js';
 import {
@@ -84,6 +84,7 @@ import {
 } from '../../events/order-updated.event.js';
 import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
 import { MenuStockService } from '../../inventory/menu-stock.service.js';
+import { notFoundError } from '../../orders/order-errors.js';
 import { OrderTicketService } from '../../orders/order-ticket.service.js';
 import {
   getRefundChannel,
@@ -223,13 +224,13 @@ export class EcpayOrderRefundService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
       with: { invoices: true, items: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const inferred =
       found.items.some((item) => item.discount === null) &&
@@ -271,7 +272,7 @@ export class EcpayOrderRefundService {
         .where(eq(order.id, orderId))
         .for('update');
 
-      if (!locked) throw new NotFoundException('Order not found');
+      if (!locked) throw notFoundError('orderNotFound');
       if (!locked.paymentDate)
         throw new ConflictException(this.tRefunds('notPaid'));
       if (locked.orderStatus === 'OrderReturned')
@@ -927,13 +928,13 @@ export class EcpayOrderRefundService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db
       .select({ id: order.id })
       .from(order)
       .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)));
-    if (!found.length) throw new NotFoundException('Order not found');
+    if (!found.length) throw notFoundError('orderNotFound');
 
     return this.selectRefunds(eq(refund.orderId, orderId));
   }
