@@ -295,15 +295,6 @@
     "specialHoursNotFound": "Special hours not found. They may have been deleted.",
     "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
   },
-  "paymentMethods": {
-    "ApplePay": "Apple Pay",
-    "Cash": "Cash",
-    "Credit": "Credit Card",
-    "iPASS": "iPASS MONEY",
-    "Jkopay": "JKO Pay",
-    "TWQR": "Mobile Payment",
-    "WeiXin": "WeChat Pay"
-  },
   "points": {
     "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
@@ -401,8 +392,24 @@
       "unit": "Unit",
       "variance": "Variance"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "Cash",
+      "Credit": "Credit Card",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "Mobile Payment",
+      "WeiXin": "WeChat Pay"
+    },
     "rangeInvalid": "The end time must be later than the start time.",
-    "rangeTooLong": "The report can cover at most 366 days."
+    "rangeTooLong": "The report can cover at most 366 days.",
+    "units": {
+      "GRM": "g",
+      "H87": "pcs",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "ml"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
@@ -410,13 +417,6 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"
-  },
-  "units": {
-    "GRM": "g",
-    "KGM": "kg",
-    "LTR": "L",
-    "MLT": "mL",
-    "H87": "pcs"
   },
   "waitlist": {
     "guest": {

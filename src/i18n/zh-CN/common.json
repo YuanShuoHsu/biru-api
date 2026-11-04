@@ -295,15 +295,6 @@
     "specialHoursNotFound": "找不到这个特殊营业日，可能已被删除。",
     "specialHoursOverlap": "这段期间与已设置的特殊营业日（{validFrom}～{validThrough}）重叠。"
   },
-  "paymentMethods": {
-    "ApplePay": "Apple Pay",
-    "Cash": "现金",
-    "Credit": "信用卡",
-    "iPASS": "iPASS MONEY",
-    "Jkopay": "街口支付",
-    "TWQR": "移动支付",
-    "WeiXin": "微信支付"
-  },
   "points": {
     "adjustOwnerOnly": "单笔调整超过 {maxPoints} 点，请由门店 owner 操作",
     "adjustSelf": "不能调整自己的点数",
@@ -401,8 +392,24 @@
       "unit": "单位",
       "variance": "差异"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "现金",
+      "Credit": "信用卡",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口支付",
+      "TWQR": "移动支付",
+      "WeiXin": "微信支付"
+    },
     "rangeInvalid": "结束时间必须晚于开始时间。",
-    "rangeTooLong": "报表区间最多 366 天。"
+    "rangeTooLong": "报表区间最多 366 天。",
+    "units": {
+      "GRM": "克",
+      "H87": "个",
+      "KGM": "公斤",
+      "LTR": "升",
+      "MLT": "毫升"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
@@ -410,13 +417,6 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "找不到这张门店照片，可能已被删除"
-  },
-  "units": {
-    "GRM": "g",
-    "KGM": "kg",
-    "LTR": "L",
-    "MLT": "mL",
-    "H87": "个"
   },
   "waitlist": {
     "guest": {

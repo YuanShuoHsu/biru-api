@@ -157,6 +157,13 @@
     "item": "{name}：残り {level} {unit}（警告量 {threshold} {unit}、不足 {shortage} {unit}）",
     "no_supplier": "仕入先未指定",
     "action": "在庫不足の食材を見る",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "個"
+    },
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
   },

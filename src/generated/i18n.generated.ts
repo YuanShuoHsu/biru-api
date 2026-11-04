@@ -348,15 +348,6 @@ export type I18nTranslations = {
             "specialHoursNotFound": string;
             "specialHoursOverlap": string;
         };
-        "paymentMethods": {
-            "ApplePay": string;
-            "Cash": string;
-            "Credit": string;
-            "iPASS": string;
-            "Jkopay": string;
-            "TWQR": string;
-            "WeiXin": string;
-        };
         "points": {
             "adjustOwnerOnly": string;
             "adjustSelf": string;
@@ -454,8 +445,24 @@ export type I18nTranslations = {
                 "unit": string;
                 "variance": string;
             };
+            "paymentMethods": {
+                "ApplePay": string;
+                "Cash": string;
+                "Credit": string;
+                "iPASS": string;
+                "Jkopay": string;
+                "TWQR": string;
+                "WeiXin": string;
+            };
             "rangeInvalid": string;
             "rangeTooLong": string;
+            "units": {
+                "GRM": string;
+                "H87": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+            };
         };
         "storeLayout": {
             "duplicateTableNumber": string;
@@ -463,13 +470,6 @@ export type I18nTranslations = {
         };
         "storePhotos": {
             "storePhotoNotFound": string;
-        };
-        "units": {
-            "GRM": string;
-            "KGM": string;
-            "LTR": string;
-            "MLT": string;
-            "H87": string;
         };
         "waitlist": {
             "guest": {
@@ -659,6 +659,13 @@ export type I18nTranslations = {
             "item": string;
             "no_supplier": string;
             "action": string;
+            "units": {
+                "GRM": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+                "H87": string;
+            };
             "salutation": string;
             "trouble_hint": string;
         };

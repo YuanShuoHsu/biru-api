@@ -60,9 +60,12 @@ export class ReportCsvService {
             lang,
           });
         case 'paymentMethod':
-          return this.i18n.t(`common.paymentMethods.${key as PaymentMethod}`, {
-            lang,
-          });
+          return this.i18n.t(
+            `common.reports.paymentMethods.${key as PaymentMethod}`,
+            {
+              lang,
+            },
+          );
         case 'menuItem':
         case 'category':
           return key === UNCATEGORIZED_KEY
@@ -130,7 +133,7 @@ export class ReportCsvService {
       [t('ingredient'), t('unit'), ...columns.map(t)],
       ...rows.map((row) => [
         localize(row.name, lang),
-        this.i18n.t(`common.units.${row.unitCode}`, { lang }),
+        this.i18n.t(`common.reports.units.${row.unitCode}`, { lang }),
         ...columns.map((column) => row[column]),
       ]),
     ]);

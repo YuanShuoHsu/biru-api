@@ -809,7 +809,10 @@ export class MailsService {
       supplierId,
       supplierName,
     } of ingredients) {
-      const unit = this.i18n.t(`common.units.${unitCode}`, options);
+      const unit = this.i18n.t(
+        `mail.low_stock_digest.units.${unitCode}`,
+        options,
+      );
       const item = this.i18n.t('mail.low_stock_digest.item', {
         args: {
           level: numberFormat.format(Number(inventoryLevel)),

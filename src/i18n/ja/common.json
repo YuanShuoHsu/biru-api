@@ -295,15 +295,6 @@
     "specialHoursNotFound": "この特別営業日が見つかりません。削除された可能性があります。",
     "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。"
   },
-  "paymentMethods": {
-    "ApplePay": "Apple Pay",
-    "Cash": "現金",
-    "Credit": "クレジットカード",
-    "iPASS": "iPASS MONEY",
-    "Jkopay": "街口Pay",
-    "TWQR": "モバイル決済",
-    "WeiXin": "WeChat Pay"
-  },
   "points": {
     "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",
     "adjustSelf": "自分のポイントは調整できません",
@@ -401,8 +392,24 @@
       "unit": "単位",
       "variance": "差異"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "現金",
+      "Credit": "クレジットカード",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口Pay",
+      "TWQR": "モバイル決済",
+      "WeiXin": "WeChat Pay"
+    },
     "rangeInvalid": "終了日時は開始日時より後にしてください。",
-    "rangeTooLong": "レポートの期間は最大 366 日です。"
+    "rangeTooLong": "レポートの期間は最大 366 日です。",
+    "units": {
+      "GRM": "グラム",
+      "H87": "個",
+      "KGM": "キログラム",
+      "LTR": "リットル",
+      "MLT": "ミリリットル"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
@@ -410,13 +417,6 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "店舗写真が見つかりません。削除された可能性があります"
-  },
-  "units": {
-    "GRM": "g",
-    "KGM": "kg",
-    "LTR": "L",
-    "MLT": "mL",
-    "H87": "個"
   },
   "waitlist": {
     "guest": {

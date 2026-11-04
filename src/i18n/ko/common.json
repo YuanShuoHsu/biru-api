@@ -295,15 +295,6 @@
     "specialHoursNotFound": "이 특별 영업일을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
     "specialHoursOverlap": "이 기간은 이미 설정된 특별 영업일({validFrom}~{validThrough})과 겹칩니다."
   },
-  "paymentMethods": {
-    "ApplePay": "Apple Pay",
-    "Cash": "현금",
-    "Credit": "신용카드",
-    "iPASS": "iPASS MONEY",
-    "Jkopay": "JKO Pay",
-    "TWQR": "모바일 결제",
-    "WeiXin": "위챗페이"
-  },
   "points": {
     "adjustOwnerOnly": "한 번에 {maxPoints}포인트를 초과하는 조정은 소유자만 할 수 있습니다",
     "adjustSelf": "본인의 포인트는 조정할 수 없습니다",
@@ -401,8 +392,24 @@
       "unit": "단위",
       "variance": "차이"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "현금",
+      "Credit": "신용카드",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "모바일 결제",
+      "WeiXin": "위챗페이"
+    },
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
-    "rangeTooLong": "보고서 기간은 최대 366일입니다."
+    "rangeTooLong": "보고서 기간은 최대 366일입니다.",
+    "units": {
+      "GRM": "그램",
+      "H87": "개",
+      "KGM": "킬로그램",
+      "LTR": "리터",
+      "MLT": "밀리리터"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",
@@ -410,13 +417,6 @@
   },
   "storePhotos": {
     "storePhotoNotFound": "매장 사진을 찾을 수 없습니다. 삭제되었을 수 있습니다"
-  },
-  "units": {
-    "GRM": "g",
-    "KGM": "kg",
-    "LTR": "L",
-    "MLT": "mL",
-    "H87": "개"
   },
   "waitlist": {
     "guest": {
