@@ -27,7 +27,15 @@ function setup(rows: unknown[][]) {
     return query;
   });
   const onConflictDoUpdate = vi.fn(() => Promise.resolve());
-  const insert = vi.fn(() => ({ values: () => ({ onConflictDoUpdate }) }));
+  const inserted: unknown[] = [];
+  const insert = vi.fn(() => ({
+    values: (values: unknown) => {
+      inserted.push(values);
+      return { onConflictDoUpdate };
+    },
+  }));
+  const deleteRows = vi.fn(() => ({ where: () => Promise.resolve() }));
+  const execute = vi.fn(() => Promise.resolve());
   const updates: Record<string, unknown>[] = [];
   const update = vi.fn(() => ({
     set: (values: Record<string, unknown>) => {
@@ -41,13 +49,25 @@ function setup(rows: unknown[][]) {
   }));
   const db = {
     select,
+    selectDistinct: select,
     insert,
     update,
+    delete: deleteRows,
+    execute,
     transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };
   const service = new PayrollRulesService(db as unknown as DrizzleDB);
 
-  return { service, db, onConflictDoUpdate, update, updates };
+  return {
+    service,
+    db,
+    onConflictDoUpdate,
+    update,
+    updates,
+    inserted,
+    deleteRows,
+    execute,
+  };
 }
 
 describe('Payroll rule set resolution', () => {
@@ -467,6 +487,126 @@ describe('Official grade ingestion', () => {
     expect(written).toEqual([]);
     expect(skipped).toEqual([]);
     expect(onConflictDoUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('National holiday ingestion', () => {
+  const fetchOk = (body: string) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(body),
+    });
+  const calendar = (rows: string[]) =>
+    '\uFEFF西元日期,星期,是否放假,備註\n' + rows.join('\n') + '\n';
+  const resource = (description: string, url: string) => ({
+    resourceDescription: description,
+    resourceFormat: 'CSV',
+    resourceDownloadUrl: url,
+  });
+  const dataset = JSON.stringify({
+    result: {
+      distribution: [
+        resource(
+          '113年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2024.csv',
+        ),
+        resource(
+          '114年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2025.csv',
+        ),
+        resource(
+          '115年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2026.csv',
+        ),
+        resource(
+          '116年中華民國政府行政機關辦公日曆表(1160615更新)',
+          'https://example.test/2027-revised.csv',
+        ),
+        resource(
+          '116年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2027.csv',
+        ),
+      ],
+    },
+  });
+  const csvs: Record<string, string> = {
+    'https://example.test/2024.csv': calendar(['20240101,一,2,開國紀念日']),
+    'https://example.test/2025.csv': calendar([
+      '20250101,三,2,開國紀念日',
+      '20250102,四,0,',
+    ]),
+    'https://example.test/2026.csv': calendar(['20260101,四,2,開國紀念日']),
+    'https://example.test/2027.csv': calendar(['20270101,五,2,開國紀念日']),
+    'https://example.test/2027-revised.csv': calendar([
+      '20270101,五,2,開國紀念日',
+      '20270208,一,2,春節',
+    ]),
+  };
+  const ingest = async (storedYears: string[]) => {
+    const mocks = setup([storedYears.map((year) => ({ year }))]);
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((input) => {
+      const url = input as string;
+      if (url.endsWith('/14718'))
+        return fetchOk(dataset) as ReturnType<typeof fetch>;
+      if (csvs[url]) return fetchOk(csvs[url]) as ReturnType<typeof fetch>;
+
+      throw new Error(`unexpected ${url}`);
+    });
+    const result = await mocks.service.ingestHolidays();
+
+    return {
+      ...mocks,
+      ...result,
+      fetched: fetchSpy.mock.calls.map(([url]) => url),
+    };
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-04T04:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('rewrites the current and later years on every run', async () => {
+    const { written, inserted, deleteRows, execute } = await ingest([
+      '2024',
+      '2025',
+      '2026',
+      '2027',
+    ]);
+
+    expect(written).toEqual([2026, 2027]);
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(inserted).toEqual([
+      [{ date: '2026-01-01', name: '開國紀念日' }],
+      [
+        { date: '2027-01-01', name: '開國紀念日' },
+        { date: '2027-02-08', name: '春節' },
+      ],
+    ]);
+  });
+  it('backfills a past year missing from the calendar', async () => {
+    const { written, inserted } = await ingest(['2024', '2026']);
+
+    expect(written).toEqual([2025, 2026, 2027]);
+    expect(inserted[0]).toEqual([{ date: '2025-01-01', name: '開國紀念日' }]);
+  });
+  it('neither fetches nor rewrites a past year already in the calendar', async () => {
+    const { written, fetched } = await ingest(['2024']);
+
+    expect(written).not.toContain(2024);
+    expect(fetched).not.toContain('https://example.test/2024.csv');
+  });
+  it('fetches only the latest revision of a year', async () => {
+    const { fetched } = await ingest(['2024', '2025']);
+
+    expect(fetched).toContain('https://example.test/2027-revised.csv');
+    expect(fetched).not.toContain('https://example.test/2027.csv');
   });
 });
 

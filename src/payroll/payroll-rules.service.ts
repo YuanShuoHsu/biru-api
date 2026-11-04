@@ -534,10 +534,23 @@ export class PayrollRulesService {
 
   async ingestHolidays() {
     const currentYear = Number(platformDateString(new Date()).slice(0, 4));
+    const storedYears = new Set(
+      (
+        await this.db
+          .selectDistinct({
+            year: sql<string>`left(${statutoryHoliday.date}, 4)`,
+          })
+          .from(statutoryHoliday)
+      ).map(({ year }) => Number(year)),
+    );
     const latest = new Map<number, { revision: number; url: string }>();
     for (const resource of await this.resources(HOLIDAY_CALENDAR_DATASET)) {
       const calendar = holidayCalendarYear(resource.description);
-      if (!calendar || calendar.year < currentYear) continue;
+      if (
+        !calendar ||
+        (calendar.year < currentYear && storedYears.has(calendar.year))
+      )
+        continue;
       const known = latest.get(calendar.year);
       if (!known || calendar.revision > known.revision)
         latest.set(calendar.year, {
