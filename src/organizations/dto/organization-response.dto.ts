@@ -58,9 +58,6 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   amountPerPoint: string | null;
 
-  @ApiPropertyOptional()
-  pointsValidityYears: number | null;
-
   @ApiProperty()
   pickupLeadMinutes: number;
 

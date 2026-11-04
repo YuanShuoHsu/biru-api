@@ -1,5 +1,5 @@
 {
-  "id": "82e764fa-43eb-4413-b29b-e3953d1b82b4",
+  "id": "28be4697-6021-42c9-b3d9-f1785795b7c3",
   "prevId": "5baa2685-a36b-4501-a29c-c7ba1aaf5ef9",
   "version": "7",
   "dialect": "postgresql",
@@ -6504,12 +6504,6 @@
         "points_enabled_at": {
           "name": "points_enabled_at",
           "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "points_validity_years": {
-          "name": "points_validity_years",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
