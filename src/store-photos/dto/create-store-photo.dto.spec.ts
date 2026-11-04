@@ -16,7 +16,7 @@ const errorsOf = async (
     ({ property }) => property,
   );
 
-const image = 'data:image/png;base64,';
+const image = 'data:image/png;base64,iVBORw0KGgo=';
 
 const fullAlt = Object.fromEntries(
   languagesEnum.enumValues.map((language) => [language, '門市外觀']),

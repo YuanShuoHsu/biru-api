@@ -4,12 +4,16 @@ import {
   IsBoolean,
   IsInt,
   IsString,
+  Matches,
   MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
 
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
 import {
   IsCompleteLocalizedText,
   IsLocalizedText,
@@ -20,6 +24,7 @@ export class CreateStorePhotoDto {
   @ApiProperty({ description: '圖片來源（data URL）' })
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
   image: string;
 
   @ApiProperty({

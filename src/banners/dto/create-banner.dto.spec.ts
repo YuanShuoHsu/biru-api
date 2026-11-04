@@ -7,13 +7,31 @@ const errorsOf = async (fields: Record<string, unknown>) =>
   (
     await validate(
       plainToInstance(CreateBannerDto, {
-        image: 'data:image/png;base64,',
+        image: 'data:image/png;base64,iVBORw0KGgo=',
         ...fields,
       }),
     )
   ).map(({ property }) => property);
 
 describe('CreateBannerDto', () => {
+  it.each([
+    'data:image/webp;base64,UklGRg==',
+    'data:image/jpeg;base64,/9j/4AAQ',
+  ])('accepts image %j', async (image) => {
+    expect(await errorsOf({ image })).toEqual([]);
+  });
+
+  it.each([
+    'data:image/png;base64,',
+    'data:image/svg+xml;base64,PHN2Zz4=',
+    'data:text/html;base64,PGgxPg==',
+    'data:image/png,iVBORw0KGgo',
+    'data:image/png;base64,iVBOR w0K',
+    'https://example.com/banner.png',
+  ])('rejects image %j', async (image) => {
+    expect(await errorsOf({ image })).toEqual(['image']);
+  });
+
   it.each([
     '/order',
     '/zh-TW/waitlist/biru?from=banner',
