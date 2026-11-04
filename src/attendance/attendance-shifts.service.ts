@@ -914,7 +914,6 @@ export class AttendanceShiftsService {
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
-        shift.endsAt,
       );
       const { dryRun, ...change } = dto;
       const [value] = await this.prepareShifts(
@@ -1283,7 +1282,6 @@ export class AttendanceShiftsService {
           actor.organizationId,
           dto.employeeId,
           interval.startsAt,
-          interval.endsAt,
         );
         if (
           reservedRest.some(
@@ -1431,7 +1429,6 @@ export class AttendanceShiftsService {
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
-        shift.endsAt,
       );
       if (!irreversible)
         try {
