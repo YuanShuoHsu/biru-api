@@ -168,7 +168,7 @@ reads — approving a request or a leave cancellation, creating or cancelling a 
 parental returns, moving `hiredAt` / `terminatedAt`, re-drafting the month — must call
 `assertPayrollUnlocked` (`src/attendance/attendance-audit.ts`) first and fails with `payrollLocked`.
 Leave approvals lock every month from the leave start onward, because medical and annual leave ledgers
-carry into later months.
+carry into later months; shift changes lock the 12 months after the shift end (see Weekly Hours).
 
 There is no reopen: `payroll_statement` holds one statement per employee and month
 (`payroll_statement_month_uidx`, migration `0157`), so a published month stays closed.
@@ -212,8 +212,8 @@ shrink leave already granted. Medical-leave day conversion and quotas resolve at
 (住院 at the previous year's start), event leave at the case start. The 勞保 part-time ladder instead uses
 `knownFullTime` (`src/payroll/payroll.service.ts`), which reads `averageWeeklyMinutes` without the fallback, so
 an employee with no shift history is not known full-time. Creating, updating, cancelling or restoring a shift
-calls `assertPayrollUnlocked` for the shift's own months only, although the rolling average also feeds later
-months.
+goes through `assertShiftPayrollUnlocked` (`src/attendance/attendance-audit.ts`), which locks every published
+month from the shift start to 12 months after the shift end, because the rolling average feeds those months.
 
 ### Scheduled Breaks
 

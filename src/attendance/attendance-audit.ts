@@ -9,6 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { AttendanceActor } from './attendance-actor.js';
 import { conflictError } from './attendance-errors.js';
+import { anniversary } from './leave-rules.js';
 
 export type Transaction = Parameters<
   Parameters<DrizzleDB['transaction']>[0]
@@ -227,3 +228,18 @@ export const assertPayrollUnlocked = async (
     .limit(1);
   if (published) throw conflictError('payrollLocked');
 };
+
+// 班表會進入結束後 12 個月內每週工時的滾動平均，影響那些月份的部分工時判定與假別額度
+export const assertShiftPayrollUnlocked = (
+  tx: Transaction,
+  organizationId: string,
+  employeeId: string,
+  shift: { startsAt: Date; endsAt: Date },
+) =>
+  assertPayrollUnlocked(
+    tx,
+    organizationId,
+    employeeId,
+    shift.startsAt,
+    anniversary(shift.endsAt, 12),
+  );

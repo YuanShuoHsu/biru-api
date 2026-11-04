@@ -50,7 +50,7 @@ import {
 
 import type { AttendanceActor } from './attendance-actor.js';
 import {
-  assertPayrollUnlocked,
+  assertShiftPayrollUnlocked,
   lockEmployee,
   lockOrganization,
   type Transaction,
@@ -909,12 +909,11 @@ export class AttendanceShiftsService {
         );
       if (!shift) throw notFoundError();
       await assertShiftWithoutRecords(tx, shift);
-      await assertPayrollUnlocked(
+      await assertShiftPayrollUnlocked(
         tx,
         actor.organizationId,
         shift.employeeId,
-        shift.startsAt,
-        shift.endsAt,
+        shift,
       );
       const { dryRun, ...change } = dto;
       const [value] = await this.prepareShifts(
@@ -1278,12 +1277,11 @@ export class AttendanceShiftsService {
             ) > MAX_DAILY_WORK_SECONDS
         )
           throw badRequestError('scheduledDailyHoursExceeded');
-        await assertPayrollUnlocked(
+        await assertShiftPayrollUnlocked(
           tx,
           actor.organizationId,
           dto.employeeId,
-          interval.startsAt,
-          interval.endsAt,
+          interval,
         );
         if (
           reservedRest.some(
@@ -1426,12 +1424,11 @@ export class AttendanceShiftsService {
       if (shift.startsAt <= new Date() && !reason)
         throw badRequestError('cancelReasonRequired');
       await assertShiftWithoutRecords(tx, shift);
-      await assertPayrollUnlocked(
+      await assertShiftPayrollUnlocked(
         tx,
         actor.organizationId,
         shift.employeeId,
-        shift.startsAt,
-        shift.endsAt,
+        shift,
       );
       if (!irreversible)
         try {
