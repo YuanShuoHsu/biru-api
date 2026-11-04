@@ -565,8 +565,9 @@ describe('SalesReportService', () => {
   it.each([
     ['2026-W01', '2026-W02'],
     ['2026-123', '2026-124'],
+    ['2026-01-01T00:00:00+08:00', '2026-W02'],
   ])(
-    '日期格式通過驗證卻無法解析時（%s）回 400 而不是 500',
+    '日期格式通過驗證卻無法解析時（%s ～ %s）回 400 而不是 500',
     async (since, until) => {
       await expect(
         service.getSalesReport('biru', { since, until, groupBy: 'day' }),
