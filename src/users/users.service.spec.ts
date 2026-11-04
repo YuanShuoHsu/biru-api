@@ -132,6 +132,13 @@ describe('UsersService.listUsers banned filter', () => {
         firstName: 'A',
       },
       {
+        id: 'legacy',
+        name: 'Legacy',
+        email: 'legacy@example.com',
+        firstName: 'A',
+        banned: null,
+      },
+      {
         id: 'forever',
         name: 'Forever',
         email: 'forever@example.com',
@@ -173,8 +180,8 @@ describe('UsersService.listUsers banned filter', () => {
 
   it.each([
     ['is', 'true', ['forever', 'until']],
-    ['is', 'false', ['active', 'expired']],
-    ['not', 'true', ['active', 'expired']],
+    ['is', 'false', ['active', 'expired', 'legacy']],
+    ['not', 'true', ['active', 'expired', 'legacy']],
     ['not', 'false', ['forever', 'until']],
   ] as const)(
     '停權欄位 %s %s 把過期的停權算成使用中',
@@ -187,7 +194,7 @@ describe('UsersService.listUsers banned filter', () => {
 
   it.each([
     ['true', ['forever', 'until']],
-    ['false', ['active', 'expired']],
+    ['false', ['active', 'expired', 'legacy']],
   ] as const)('快速搜尋 banned:%s 與停權欄位一致', async (value, expected) => {
     expect(
       await idsOf({
