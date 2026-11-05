@@ -237,9 +237,10 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 
 ### Images
 
-Menu, section, item, banner and store photo images are stored as base64 data URLs but never returned: responses
-carry `imageUrl` from `withImageUrl` (`src/images/image-url.ts`), `/api/images/:kind/:id/:updatedAtMs.:ext`, which
-`ImagesController` serves with a one-year `immutable` cache. Any update moves `updatedAt` and so the URL; a stale
+Menu, section, item, banner and store photo images are stored as base64 data URLs, but their endpoints return
+`imageUrl` from `withImageUrl` (`src/images/image-url.ts`), `/api/images/:kind/:id/:updatedAtMs.:ext`, which
+`ImagesController` serves with a one-year `immutable` cache and no throttling (`audit_log.changes` still keeps the data
+URLs). Edit dialogs send `image` only when the upload differs from `imageUrl`, never the URL itself. Any update moves `updatedAt` and so the URL; a stale
 version or extension answers 404. The endpoint is anonymous and does not check whether the row is published: the
 URL is only handed out by endpoints that already authorize the caller, and Next's image optimizer fetches the
 source without the viewer's cookies.
