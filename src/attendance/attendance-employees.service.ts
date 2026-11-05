@@ -31,6 +31,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -248,11 +249,17 @@ export class AttendanceEmployeesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceEmployee.jobTitle, `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceEmployee.jobTitle, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceEmployee.hiredAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceEmployee.terminatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -341,11 +348,17 @@ export class AttendanceEmployeesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceEmployee.jobTitle, `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceEmployee.jobTitle, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceEmployee.hiredAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceEmployee.terminatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

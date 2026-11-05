@@ -30,6 +30,7 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   buildStringFilterCondition,
+  escapeLike,
   localTimeText,
   NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
@@ -143,11 +144,11 @@ const buildSearchCondition = (
 ): SQL | undefined => {
   switch (operator) {
     case 'contains':
-      return ilike(field, `%${value}%`);
+      return ilike(field, `%${escapeLike(value)}%`);
     case 'startsWith':
-      return ilike(field, `${value}%`);
+      return ilike(field, `${escapeLike(value)}%`);
     case 'endsWith':
-      return ilike(field, `%${value}`);
+      return ilike(field, `%${escapeLike(value)}`);
   }
 };
 
@@ -269,10 +270,10 @@ export class UsersService {
       quickFilterEnums,
       quickFilterValue,
       textConditions: (value) => [
-        ilike(user.name, `%${value}%`),
-        ilike(user.bio, `%${value}%`),
-        ilike(user.email, `%${value}%`),
-        ilike(localTimeText(user.createdAt), `%${value}%`),
+        ilike(user.name, `%${escapeLike(value)}%`),
+        ilike(user.bio, `%${escapeLike(value)}%`),
+        ilike(user.email, `%${escapeLike(value)}%`),
+        ilike(localTimeText(user.createdAt), `%${escapeLike(value)}%`),
       ],
     });
 
@@ -370,10 +371,10 @@ export class UsersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(session.userAgent, `%${value}%`),
-          ilike(session.ipAddress, `%${value}%`),
-          ilike(localTimeText(session.createdAt), `%${value}%`),
-          ilike(localTimeText(session.expiresAt), `%${value}%`),
+          ilike(session.userAgent, `%${escapeLike(value)}%`),
+          ilike(session.ipAddress, `%${escapeLike(value)}%`),
+          ilike(localTimeText(session.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(session.expiresAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

@@ -17,6 +17,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { attendanceShiftType } from '../db/schema/attendance.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -85,9 +86,9 @@ export class AttendanceShiftTypesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceShiftType.name, `%${value}%`),
-          ilike(attendanceShiftType.startTime, `%${value}%`),
-          ilike(attendanceShiftType.endTime, `%${value}%`),
+          ilike(attendanceShiftType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceShiftType.startTime, `%${escapeLike(value)}%`),
+          ilike(attendanceShiftType.endTime, `%${escapeLike(value)}%`),
         ],
       }),
     );

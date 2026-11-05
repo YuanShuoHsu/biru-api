@@ -6,6 +6,7 @@ import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import type { AuditChangeLabels } from '../db/schema/audit.js';
@@ -115,12 +116,12 @@ export class AuditService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(fieldMap.actorName, `%${value}%`),
-          ilike(fieldMap.actorEmail, `%${value}%`),
-          ilike(fieldMap.resourceId, `%${value}%`),
-          ilike(localTimeText(fieldMap.createdAt), `%${value}%`),
+          ilike(fieldMap.actorName, `%${escapeLike(value)}%`),
+          ilike(fieldMap.actorEmail, `%${escapeLike(value)}%`),
+          ilike(fieldMap.resourceId, `%${escapeLike(value)}%`),
+          ilike(localTimeText(fieldMap.createdAt), `%${escapeLike(value)}%`),
           buildLocalizedTextFilterCondition(resourceLabel, 'contains', value),
-          ilike(entry('"targetEmployeeName"'), `%${value}%`),
+          ilike(entry('"targetEmployeeName"'), `%${escapeLike(value)}%`),
         ],
       }),
     );

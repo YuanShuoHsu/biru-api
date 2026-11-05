@@ -19,6 +19,7 @@ import { UNIT_FACTORS } from '../common/constants/units.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -146,13 +147,24 @@ export class InventoryTransactionsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${inventoryTransaction.quantity}::text`, `%${value}%`),
+          ilike(
+            sql`${inventoryTransaction.quantity}::text`,
+            `%${escapeLike(value)}%`,
+          ),
           ...(canReadPurchasing
-            ? [ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`)]
+            ? [
+                ilike(
+                  sql`${inventoryTransaction.unitCost}::text`,
+                  `%${escapeLike(value)}%`,
+                ),
+              ]
             : []),
-          ilike(inventoryTransaction.note, `%${value}%`),
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(localTimeText(inventoryTransaction.createdAt), `%${value}%`),
+          ilike(inventoryTransaction.note, `%${escapeLike(value)}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(inventoryTransaction.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

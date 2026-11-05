@@ -27,6 +27,7 @@ import { withImageUrl } from '../images/image-url.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 
@@ -112,8 +113,8 @@ export class BannersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(localTimeText(banner.createdAt), `%${value}%`),
-          ilike(localTimeText(banner.updatedAt), `%${value}%`),
+          ilike(localTimeText(banner.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(banner.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

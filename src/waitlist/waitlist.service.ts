@@ -34,6 +34,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { openingCalendar } from '../common/utils/opening-hours.js';
@@ -876,14 +877,26 @@ export class WaitlistService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(ticketNumber, `%${value}%`),
-          ilike(waitlistTicket.name, `%${value}%`),
-          ilike(waitlistTicket.phoneNumber, `%${value}%`),
-          ilike(waitlistTicket.email, `%${value}%`),
-          ilike(sql`${waitlistTicket.partySize}::text`, `%${value}%`),
-          ilike(localTimeText(waitlistTicket.createdAt), `%${value}%`),
-          ilike(localTimeText(waitlistTicket.calledAt), `%${value}%`),
-          ilike(localTimeText(waitlistTicket.endedAt), `%${value}%`),
+          ilike(ticketNumber, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.name, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.phoneNumber, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.email, `%${escapeLike(value)}%`),
+          ilike(
+            sql`${waitlistTicket.partySize}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.calledAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.endedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

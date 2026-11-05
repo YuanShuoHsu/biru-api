@@ -56,6 +56,7 @@ import { toLanguage } from '../common/utils/language.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -755,16 +756,16 @@ export class OrdersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(sql`${order.confirmationNumber}`, `%${value}%`),
-          ilike(sql`${order.customer}->>'name'`, `%${value}%`),
-          ilike(sql`${order.customer}->>'telephone'`, `%${value}%`),
-          ilike(sql`${order.customer}->>'email'`, `%${value}%`),
-          ilike(sql`${order.tableNumber}::text`, `%${value}%`),
-          ilike(localTimeText(order.paymentDate), `%${value}%`),
-          ilike(localTimeText(order.pickupTime), `%${value}%`),
-          ilike(localTimeText(order.createdAt), `%${value}%`),
-          ilike(sql`${order.total}::text`, `%${value}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(sql`${order.confirmationNumber}`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'name'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'telephone'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'email'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.tableNumber}::text`, `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.paymentDate), `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.pickupTime), `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.createdAt), `%${escapeLike(value)}%`),
+          ilike(sql`${order.total}::text`, `%${escapeLike(value)}%`),
         ],
       }),
     );

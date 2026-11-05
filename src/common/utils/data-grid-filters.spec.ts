@@ -1,10 +1,16 @@
+import { readdirSync, readFileSync } from 'node:fs';
+
+import type { PGlite } from '@electric-sql/pglite';
 import { sql } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
+
+import { createPGlite } from '../../../test/pglite.js';
 
 import {
   buildDateFilterCondition,
   buildNumberFilterCondition,
   buildPlainDateFilterCondition,
+  buildStringFilterCondition,
 } from './data-grid-filters.js';
 
 const column = sql`created_at`;
@@ -59,4 +65,52 @@ describe('buildNumberFilterCondition', () => {
       expect(buildNumberFilterCondition(column, '=', value)).toBeUndefined();
     },
   );
+});
+
+describe('buildStringFilterCondition 的 LIKE 比對', () => {
+  let client: PGlite;
+
+  const matches = async (operator: string, value: string) => {
+    const condition = buildStringFilterCondition(sql`name`, operator, value);
+    const { sql: where, params } = new PgDialect().sqlToQuery(condition!);
+    const { rows } = await client.query<{ name: string }>(
+      `select name from (values ('100%'), ('1000'), ('a_b'), ('axb'), ('c:\\d'), ('c:d')) t(name) where ${where} order by name`,
+      params,
+    );
+    return rows.map(({ name }) => name);
+  };
+
+  beforeAll(() => {
+    client = createPGlite();
+  });
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it.each([
+    ['contains', '%', ['100%']],
+    ['contains', '_', ['a_b']],
+    ['contains', '\\', ['c:\\d']],
+    ['startsWith', 'a_', ['a_b']],
+    ['endsWith', '0%', ['100%']],
+    ['doesNotContain', '_', ['100%', '1000', 'axb', 'c:\\d', 'c:d']],
+  ])('%s %s 把萬用字元當成一般字元', async (operator, value, expected) => {
+    expect(await matches(operator, value)).toEqual(expected);
+  });
+});
+
+describe('LIKE 樣式', () => {
+  it('src 裡以輸入值組成的樣式都先經過 escapeLike', () => {
+    const offenders = readdirSync('src', { recursive: true })
+      .map(String)
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
+      .filter((file) =>
+        /`%\$\{[\w.]+\}%?`|`\$\{[\w.]+\}%`/.test(
+          readFileSync(`src/${file}`, 'utf8'),
+        ),
+      );
+
+    expect(offenders).toEqual([]);
+  });
 });

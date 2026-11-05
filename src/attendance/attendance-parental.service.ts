@@ -20,6 +20,7 @@ import { platformMidnight } from '../common/constants/timezone.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -134,11 +135,14 @@ export class AttendanceParentalService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceParentalChild.reference, `%${value}%`),
-          ilike(attendanceParentalChild.label, `%${value}%`),
-          ilike(localTimeText(attendanceParentalChild.birthDate), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceParentalChild.reference, `%${escapeLike(value)}%`),
+          ilike(attendanceParentalChild.label, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceParentalChild.birthDate),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -506,13 +510,16 @@ export class AttendanceParentalService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceParentalReturn.reason, `%${value}%`),
-          ilike(attendanceParentalReturn.reviewReason, `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceParentalReturn.reason, `%${escapeLike(value)}%`),
+          ilike(
+            attendanceParentalReturn.reviewReason,
+            `%${escapeLike(value)}%`,
+          ),
           ilike(
             localTimeText(attendanceParentalReturn.returnsAt),
-            `%${value}%`,
+            `%${escapeLike(value)}%`,
           ),
         ],
       }),

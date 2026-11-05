@@ -50,6 +50,7 @@ import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../../common/utils/data-grid-filters.js';
 
@@ -363,10 +364,10 @@ export class QuantBotsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(quantBot.name, `%${value}%`),
-          ilike(pair, `%${value}%`),
-          ilike(sql`${quantBot.investment}::text`, `%${value}%`),
-          ilike(localTimeText(quantBot.startedAt), `%${value}%`),
+          ilike(quantBot.name, `%${escapeLike(value)}%`),
+          ilike(pair, `%${escapeLike(value)}%`),
+          ilike(sql`${quantBot.investment}::text`, `%${escapeLike(value)}%`),
+          ilike(localTimeText(quantBot.startedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

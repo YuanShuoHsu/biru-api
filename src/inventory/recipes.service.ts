@@ -25,6 +25,7 @@ import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -174,8 +175,8 @@ export class RecipesService {
         quickFilterValue,
         textConditions: (value) => [
           buildLocalizedTextFilterCondition(recipe.name, 'contains', value),
-          ilike(localTimeText(recipe.createdAt), `%${value}%`),
-          ilike(localTimeText(recipe.updatedAt), `%${value}%`),
+          ilike(localTimeText(recipe.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(recipe.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -414,9 +415,18 @@ export class RecipesService {
         quickFilterValue,
         textConditions: (value) => [
           buildLocalizedTextFilterCondition(ingredient.name, 'contains', value),
-          ilike(sql`${recipeIngredient.requiredQuantity}::text`, `%${value}%`),
-          ilike(localTimeText(recipeIngredient.createdAt), `%${value}%`),
-          ilike(localTimeText(recipeIngredient.updatedAt), `%${value}%`),
+          ilike(
+            sql`${recipeIngredient.requiredQuantity}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(recipeIngredient.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(recipeIngredient.updatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

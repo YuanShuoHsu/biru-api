@@ -30,6 +30,7 @@ import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 
@@ -126,8 +127,8 @@ export class StorePhotosService {
         quickFilterValue,
         textConditions: (value) => [
           buildLocalizedTextFilterCondition(storePhoto.alt, 'contains', value),
-          ilike(localTimeText(storePhoto.createdAt), `%${value}%`),
-          ilike(localTimeText(storePhoto.updatedAt), `%${value}%`),
+          ilike(localTimeText(storePhoto.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(storePhoto.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

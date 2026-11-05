@@ -99,6 +99,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
@@ -569,11 +570,11 @@ export class PayrollService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(payrollStatement.employeeName, `%${value}%`),
-          ilike(user.email, `%${value}%`),
+          ilike(payrollStatement.employeeName, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
           ilike(
             sql`replace(${payrollStatement.month}, '-', '/')`,
-            `%${value}%`,
+            `%${escapeLike(value)}%`,
           ),
         ],
       }),
