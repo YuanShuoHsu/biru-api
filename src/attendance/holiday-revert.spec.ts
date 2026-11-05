@@ -168,6 +168,45 @@ describe('turning holiday shifts back into workdays', () => {
     });
   });
 
+  const addSameDayShift = (id: string, date: string) =>
+    client.exec(
+      `insert into attendance_shift (id, organization_id, employee_id, starts_at, ends_at, day_kind)
+         values ('${id}', '${ORG}', 'emp', '${date}T14:00:00+08:00', '${date}T18:00:00+08:00', 'holiday')`,
+    );
+
+  it('cancelling the shift a 補休 is designated on turns the other shifts on that date back into workdays, and restoring it turns them back into holidays', async () => {
+    await addSameDayShift('same-day', '2026-03-17');
+
+    await shifts.cancelShift(actor, 'substitute-only', { reason: '店休' });
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      'same-day': 'workday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+
+    await shifts.restoreShift(actor, 'substitute-only');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      'same-day': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
+  it('cancelling the shift a 補休 is designated on keeps the other shifts a holiday when the date is still an indigenous holiday', async () => {
+    await addSameDayShift('same-day', '2026-03-12');
+
+    await shifts.cancelShift(actor, 'substituted', { reason: '店休' });
+
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      'same-day': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
   it('rejects moving the shift a 補休 is designated on to another date', async () => {
     await expect(
       shifts.updateShift(actor, 'substitute-only', {

@@ -122,6 +122,7 @@ import {
 } from './dto/create-attendance-shifts.dto.js';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup.js';
 import {
+  holidayDatesAmong,
   loadAgreedHolidays,
   loadHolidaySubstitutes,
 } from './holiday-substitutes.js';
@@ -132,7 +133,7 @@ import {
   plannedWorkDays,
 } from './overtime-limit.js';
 import { parseInterval, scheduledBreaks } from './shift-intervals.js';
-import { unfinishedShift } from './shift-queries.js';
+import { shiftStartDate, unfinishedShift } from './shift-queries.js';
 
 const shiftStateCase = sql.join(
   Object.entries(SHIFT_STATE_BY_LAST_ACTION).map(
@@ -1463,12 +1464,55 @@ export class AttendanceShiftsService {
         .update(attendanceShift)
         .set({ status: 'cancelled' })
         .where(eq(attendanceShift.id, id));
+      if (shift.dayKind === 'holiday') {
+        const date = platformDateString(shift.startsAt);
+        const [employee] = await tx
+          .select({ indigenousHolidays: attendanceEmployee.indigenousHolidays })
+          .from(attendanceEmployee)
+          .where(eq(attendanceEmployee.id, shift.employeeId));
+        const stillHolidays = await holidayDatesAmong(
+          tx,
+          { id: shift.employeeId, ...employee },
+          [date],
+        );
+        if (!stillHolidays.has(date))
+          await this.setSameDayKind(tx, actor, shift, 'holiday', 'workday');
+      }
       await writeAudit(tx, actor, 'shift.cancel', id, {
         ...(reason && { reason }),
         ...(irreversible && { irreversible }),
       });
       return { id };
     });
+  }
+
+  private async setSameDayKind(
+    tx: Transaction,
+    actor: AttendanceActor,
+    shift: typeof attendanceShift.$inferSelect,
+    from: AttendanceDayKind,
+    to: AttendanceDayKind,
+  ) {
+    const changed = await tx
+      .update(attendanceShift)
+      .set({ dayKind: to })
+      .where(
+        and(
+          eq(attendanceShift.employeeId, shift.employeeId),
+          ne(attendanceShift.id, shift.id),
+          ne(attendanceShift.status, 'cancelled'),
+          eq(attendanceShift.dayKind, from),
+          eq(shiftStartDate, platformDateString(shift.startsAt)),
+        ),
+      )
+      .returning({ id: attendanceShift.id });
+    if (changed.length)
+      await assertPayrollUnlocked(
+        tx,
+        actor.organizationId,
+        shift.employeeId,
+        shift.startsAt,
+      );
   }
 
   private prepareRestore(
@@ -1505,6 +1549,12 @@ export class AttendanceShiftsService {
         );
       if (!shift) throw notFoundError();
       if (shift.status !== 'cancelled') return { id };
+      const [substitute] = await tx
+        .select({ id: attendanceHolidaySubstitute.id })
+        .from(attendanceHolidaySubstitute)
+        .where(eq(attendanceHolidaySubstitute.shiftId, id));
+      if (substitute)
+        await this.setSameDayKind(tx, actor, shift, 'workday', 'holiday');
       const [{ breaks, dayKind }] = await this.prepareRestore(tx, actor, shift);
       await tx
         .update(attendanceShift)
