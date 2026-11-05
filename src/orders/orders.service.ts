@@ -24,6 +24,7 @@ import {
   inArray,
   isNull,
   lt,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -975,6 +976,10 @@ export class OrdersService {
             lt(order.pickupTime, new Date(now + PUBLIC_BOARD_LEAD_MS)),
           ),
           inArray(order.orderStatus, [...ORDER_BOARD_STATUSES]),
+          or(
+            ne(order.orderStatus, 'OrderPaymentDue'),
+            eq(order.paymentMethod, 'Cash'),
+          ),
         ),
       )
       .orderBy(asc(BOARD_AT));
