@@ -22,7 +22,6 @@ import {
   isNotNull,
   isNull,
   lt,
-  ne,
   notInArray,
   or,
   sql,
@@ -152,6 +151,11 @@ const expiringByPlatformDay = (
   });
 };
 
+const LOT_CONSUMPTION_ORDER = [
+  asc(pointTransaction.expiresAt),
+  asc(pointTransaction.createdAt),
+];
+
 const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
 
 const earnedPoints = (
@@ -221,7 +225,7 @@ export class PointsService {
     });
   }
 
-  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的未用點數收回
+  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的點數收回
   private async syncEarned(
     scope: { userId: string } | { organizationId: string },
   ): Promise<void> {
@@ -282,17 +286,21 @@ export class PointsService {
         },
       ];
     });
-    if (earns.length > 0)
+    if (earns.length > 0) {
       await this.db
         .insert(pointTransaction)
         .values(earns)
         .onConflictDoNothing();
+      for (const userId of new Set(earns.map((earn) => earn.userId)))
+        await this.db.transaction((tx) => this.settleDebts(tx, userId));
+    }
 
     const revoked = alias(pointTransaction, 'revoked');
 
     const revocable = await this.db
       .select({
         id: pointTransaction.id,
+        orderId: order.id,
         points: pointTransaction.points,
         remainingPoints: pointTransaction.remainingPoints,
       })
@@ -308,7 +316,7 @@ export class PointsService {
             ? eq(pointTransaction.userId, scope.userId)
             : eq(pointTransaction.organizationId, scope.organizationId),
           eq(pointTransaction.type, 'earn'),
-          gt(pointTransaction.remainingPoints, 0),
+          gte(pointTransaction.remainingPoints, 0),
           isNull(revoked.id),
           or(
             inArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
@@ -321,9 +329,9 @@ export class PointsService {
     const removableIds = revocable
       .filter((r) => r.remainingPoints === r.points)
       .map((r) => r.id);
-    const drainableIds = revocable
+    const drainableOrderIds = revocable
       .filter((r) => r.remainingPoints !== r.points)
-      .map((r) => r.id);
+      .map((r) => r.orderId);
 
     if (removableIds.length > 0)
       await this.db
@@ -334,19 +342,64 @@ export class PointsService {
             eq(pointTransaction.remainingPoints, pointTransaction.points),
           ),
         );
-    if (drainableIds.length > 0)
-      await this.db
-        .update(pointTransaction)
-        .set({
-          remainingPoints: sql`${pointTransaction.remainingPoints} - ${pointTransaction.points}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            inArray(pointTransaction.id, drainableIds),
-            gte(pointTransaction.remainingPoints, 0),
+    for (const orderId of drainableOrderIds)
+      await this.db.transaction((tx) =>
+        this.revokeForOrder(tx, {
+          orderBecomesTerminal: true,
+          orderId,
+          ratio: 1,
+        }),
+      );
+  }
+
+  private async settleDebts(
+    tx: Pick<DrizzleDB, 'select' | 'update'>,
+    userId: string,
+  ): Promise<void> {
+    const rows = await tx
+      .select({
+        id: pointTransaction.id,
+        createdAt: pointTransaction.createdAt,
+        remainingPoints: pointTransaction.remainingPoints,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.userId, userId),
+          this.notExpired(),
+          or(
+            gt(pointTransaction.remainingPoints, 0),
+            and(
+              eq(pointTransaction.type, 'revoke'),
+              lt(pointTransaction.remainingPoints, 0),
+            ),
           ),
-        );
+        ),
+      )
+      .orderBy(...LOT_CONSUMPTION_ORDER)
+      .for('update');
+
+    const lots = rows.filter((row) => row.remainingPoints > 0);
+    const debts = rows
+      .filter((row) => row.remainingPoints < 0)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const settled = new Map<string, number>();
+    for (const debt of debts)
+      for (const lot of lots) {
+        if (debt.remainingPoints === 0) break;
+        if (lot.remainingPoints <= 0) continue;
+        const consumed = Math.min(lot.remainingPoints, -debt.remainingPoints);
+        lot.remainingPoints -= consumed;
+        debt.remainingPoints += consumed;
+        settled.set(lot.id, lot.remainingPoints);
+        settled.set(debt.id, debt.remainingPoints);
+      }
+
+    for (const [id, remainingPoints] of settled)
+      await tx
+        .update(pointTransaction)
+        .set({ remainingPoints, updatedAt: new Date() })
+        .where(eq(pointTransaction.id, id));
   }
 
   async revokeForOrder(
@@ -408,6 +461,7 @@ export class PointsService {
         type: 'revoke',
         userId: pending.userId,
       });
+      await this.settleDebts(tx, pending.userId);
 
       return;
     }
@@ -441,6 +495,7 @@ export class PointsService {
       type: 'revoke',
       userId: earned.userId,
     });
+    if (deducted < revoking) await this.settleDebts(tx, earned.userId);
   }
 
   private async revokedForOrder(
@@ -558,6 +613,7 @@ export class PointsService {
     return or(
       isNull(pointTransaction.expiresAt),
       gt(pointTransaction.expiresAt, new Date()),
+      lt(pointTransaction.remainingPoints, 0),
     );
   }
 
@@ -581,7 +637,7 @@ export class PointsService {
       .where(
         and(
           inArray(pointTransaction.userId, userIds),
-          ne(pointTransaction.remainingPoints, 0),
+          gt(pointTransaction.remainingPoints, 0),
           this.notExpired(),
           lt(
             pointTransaction.expiresAt,
@@ -797,6 +853,7 @@ export class PointsService {
           userId: target.id,
         })
         .returning();
+      if (points > 0) await this.settleDebts(tx, target.id);
 
       return row;
     });
@@ -1056,10 +1113,7 @@ export class PointsService {
             this.notExpired(),
           ),
         )
-        .orderBy(
-          asc(pointTransaction.expiresAt),
-          asc(pointTransaction.createdAt),
-        )
+        .orderBy(...LOT_CONSUMPTION_ORDER)
         .for('update');
 
       // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
