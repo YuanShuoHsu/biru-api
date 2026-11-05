@@ -6,3 +6,9 @@ export const isUniqueViolation = (error: unknown) =>
 
 export const isForeignKeyViolation = (error: unknown) =>
   pgErrorCode(error) === '23503';
+
+export const isCheckViolation = (error: unknown) =>
+  pgErrorCode(error) === '23514';
+
+export const pgConstraint = (error: unknown) =>
+  (error as { cause?: { constraint?: string } }).cause?.constraint;

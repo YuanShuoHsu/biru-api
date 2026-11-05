@@ -192,6 +192,8 @@
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
     "recipeMenuItemAndModifier": "食譜只能綁定菜單品項或選項其中之一",
+    "recipeMenuItemTaken": "這個菜單品項已經有食譜了",
+    "recipeModifierTaken": "這個選項已經有食譜了",
     "recipeNotFound": "找不到這份食譜，可能已被刪除",
     "sourceRecipeHasMenuItem": "已綁定菜單品項的食譜不能作為食材的來源食譜",
     "sourceRecipeHasModifier": "已綁定選項的食譜不能作為食材的來源食譜",
