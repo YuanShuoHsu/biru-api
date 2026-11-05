@@ -108,6 +108,7 @@ export const inventoryTransaction = pgTable(
   'inventory_transaction',
   {
     id: text('id').primaryKey(),
+    batchId: text('batch_id'),
     ingredientId: text('ingredient_id')
       .notNull()
       .references(() => ingredient.id, { onDelete: 'cascade' }),

@@ -89,6 +89,7 @@ export class InventoryTransactionsService {
       throw new ForbiddenException();
 
     const reason = sql<InventoryTransactionReason>`case
+      when ${inventoryTransaction.batchId} is not null then 'batch'
       when ${inventoryTransaction.orderId} is null then 'count'
       when ${inventoryTransaction.quantity} <= 0 then 'consume'
       else 'restore'
@@ -357,7 +358,7 @@ export class InventoryTransactionsService {
               unitCost: target.unitPrice?.toString() ?? null,
             },
           ],
-          { note, organizationId },
+          { batchId: randomUUID(), note, organizationId },
           tx,
         );
 
@@ -387,7 +388,7 @@ export class InventoryTransactionsService {
       ...(canReadPurchasing && { unitCost }),
       balance,
       orderNumber: null,
-      reason: 'count',
+      reason: 'batch',
     };
   }
 
@@ -665,11 +666,13 @@ export class InventoryTransactionsService {
       unitCost?: string | null;
     }[],
     {
+      batchId,
       menuItemIdByIngredientId,
       note,
       orderId,
       organizationId,
     }: {
+      batchId?: string;
       menuItemIdByIngredientId?: Map<string, string>;
       note?: string | null;
       orderId?: string;
@@ -716,6 +719,7 @@ export class InventoryTransactionsService {
       .values(
         entries.map(({ ingredientId, quantity, unitCost }) => ({
           id: randomUUID(),
+          batchId,
           ingredientId,
           note,
           orderId,

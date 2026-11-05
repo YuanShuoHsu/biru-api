@@ -174,7 +174,7 @@ describe('製作一批半成品', () => {
       note: '午餐備料',
       orderId: null,
       quantity: '1000.000',
-      reason: 'count',
+      reason: 'batch',
     });
     expect(Number(created.unitCost)).toBeCloseTo(101 / 2000);
     expect(
@@ -183,6 +183,35 @@ describe('製作一批半成品', () => {
         unitCost,
       })),
     ).toEqual([{ quantity: '-500.000', unitCost: null }]);
+  });
+
+  it('同一批的異動共用一個 batchId，帳本原因為 batch', async () => {
+    const created = await service.produceBatch(ORG, 'sauce', {
+      quantity: '1000',
+    });
+    await service.produceBatch(ORG, 'sauce', { quantity: '500' });
+
+    const rows = await db
+      .select({ batchId: inventoryTransaction.batchId })
+      .from(inventoryTransaction);
+    const batchIds = new Set(rows.map(({ batchId }) => batchId));
+
+    expect(rows).toHaveLength(6);
+    expect(batchIds.size).toBe(2);
+    expect(created.batchId).toEqual(expect.any(String));
+    expect(
+      rows.filter(({ batchId }) => batchId === created.batchId),
+    ).toHaveLength(3);
+
+    const { data } = await service.findAll('tomato');
+    expect(data.map(({ quantity, reason }) => ({ quantity, reason }))).toEqual([
+      { quantity: '-250.000', reason: 'batch' },
+      { quantity: '-500.000', reason: 'batch' },
+    ]);
+    expect(
+      (await service.findAll('sauce', { quickFilterEnums: ['reason:batch'] }))
+        .total,
+    ).toBe(2);
   });
 
   it('無限庫存的原料不扣也不記異動', async () => {

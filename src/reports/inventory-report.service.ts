@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { type SQL, and, eq, gte, lt, sql } from 'drizzle-orm';
+import { type SQL, and, eq, gte, lt, or, sql } from 'drizzle-orm';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { LocalizedText } from '../db/schema/enums.js';
@@ -49,7 +49,9 @@ export class InventoryReportService {
       gte(inventoryTransaction.createdAt, utcTimestampParam(since)),
       lt(inventoryTransaction.createdAt, utcTimestampParam(until)),
     );
-    const isCount = sql`${inventoryTransaction.orderId} IS NULL`;
+    const isOrder = sql`${inventoryTransaction.orderId} IS NOT NULL`;
+    const isBatch = sql`${inventoryTransaction.batchId} IS NOT NULL`;
+    const isCount = sql`NOT ${isOrder} AND NOT ${isBatch}`;
     const quantity = inventoryTransaction.quantity;
 
     const round = (value: SQL) => sql`ROUND(${value}, 3)`;
@@ -61,7 +63,7 @@ export class InventoryReportService {
       sql`${movement('consumed')} - ${movement('adjusted')}`,
     );
     const theoreticalConsumption = round(
-      sql`COALESCE(theoretical.consumption, 0)`,
+      sql`COALESCE(theoretical.consumption, 0) + ${movement('batch_consumed')}`,
     );
 
     const { rows } = await this.db.execute<{
@@ -82,9 +84,10 @@ export class InventoryReportService {
           ${inventoryTransaction.ingredientId} AS ingredient_id,
           SUM(${quantity}) AS since_now,
           SUM(${quantity}) FILTER (WHERE ${inventoryTransaction.createdAt} >= ${utcTimestampParam(until)}) AS until_now,
-          SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isCount, sql`${quantity} > 0`)}) AS received,
+          SUM(${quantity}) FILTER (WHERE ${and(inPeriod, sql`${quantity} > 0`, or(isCount, isBatch))}) AS received,
           SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isCount, sql`${quantity} < 0`)}) AS adjusted,
-          -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, sql`NOT ${isCount}`)}) AS consumed
+          -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, or(isOrder, and(isBatch, sql`${quantity} < 0`)))}) AS consumed,
+          -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isBatch, sql`${quantity} < 0`)}) AS batch_consumed
         FROM ${inventoryTransaction}
         WHERE ${and(
           eq(inventoryTransaction.organizationId, org.id),
@@ -103,7 +106,7 @@ export class InventoryReportService {
           WHERE ${and(
             eq(inventoryTransaction.organizationId, org.id),
             inPeriod,
-            sql`NOT ${isCount}`,
+            isOrder,
           )}
           GROUP BY 1, ${inventoryTransaction.ingredientId}
         ) AS per_ingredient
