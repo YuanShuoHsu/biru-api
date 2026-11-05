@@ -3,7 +3,6 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { Logger } from '@nestjs/common';
 import { eq, isNotNull, lt } from 'drizzle-orm';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
@@ -11,7 +10,6 @@ import * as schema from '../db/schema/index.js';
 import { order } from '../db/schema/orders.js';
 import { pointTransaction } from '../db/schema/points.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { MailsService } from '../mails/mails.service.js';
 import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
 
@@ -28,11 +26,7 @@ describe('PointsService.getAllMine', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new PointsService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-      {} as MailsService,
-    );
+    service = new PointsService(db as unknown as DrizzleDB, {} as MailsService);
   }, 60_000);
 
   afterAll(async () => {
@@ -199,7 +193,6 @@ describe('PointsService.notifyExpiringPoints', () => {
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PointsService(
       db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       { sendPointsExpiryReminder } as unknown as MailsService,
     );
   }, 60_000);
@@ -343,11 +336,7 @@ describe('PointsService.findAllForOrganization', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new PointsService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-      {} as MailsService,
-    );
+    service = new PointsService(db as unknown as DrizzleDB, {} as MailsService);
   }, 60_000);
 
   afterAll(async () => {
@@ -1135,7 +1124,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.insufficient');
+    ).rejects.toMatchObject({ response: { code: 'insufficient' } });
     expect(
       (await db.select().from(pointTransaction)).map(
         ({ remainingPoints, type }) => ({ remainingPoints, type }),
@@ -1156,7 +1145,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    ).rejects.toMatchObject({ response: { code: 'adjustOwnerOnly' } });
     await expect(
       service.adjustForOrganization(
         'biru',
@@ -1164,7 +1153,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'member',
       ),
-    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    ).rejects.toMatchObject({ response: { code: 'adjustOwnerOnly' } });
     expect(
       await service.adjustForOrganization(
         'biru',
@@ -1201,7 +1190,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    ).rejects.toMatchObject({ response: { code: 'adjustOwnerOnly' } });
 
     await client.exec(`update point_setting set amount_per_point = 0`);
     await expect(
@@ -1211,7 +1200,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    ).rejects.toMatchObject({ response: { code: 'adjustOwnerOnly' } });
   });
 
   it('補扣點上限依每點金額以分精確換算，點數未啟用時 enabled 為 false', async () => {
@@ -1281,7 +1270,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.adjustOwnerOnly');
+    ).rejects.toMatchObject({ response: { code: 'adjustOwnerOnly' } });
   });
 
   it('不能調整自己的點數', async () => {
@@ -1292,7 +1281,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.adjustSelf');
+    ).rejects.toMatchObject({ response: { code: 'adjustSelf' } });
   });
 
   it('點數未啟用時拒絕調整', async () => {
@@ -1305,7 +1294,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.points.notEnabled');
+    ).rejects.toMatchObject({ response: { code: 'notEnabled' } });
   });
 
   it('找不到 email 對應的會員時回 404', async () => {
@@ -1316,7 +1305,7 @@ describe('PointsService.findAllForOrganization', () => {
         'bob',
         'admin',
       ),
-    ).rejects.toThrow('common.coupons.memberNotFound');
+    ).rejects.toMatchObject({ response: { code: 'memberNotFound' } });
   });
 
   it('不是本店顧客的會員與不存在的 email 一樣回 404，owner 也一樣', async () => {
@@ -1340,7 +1329,7 @@ describe('PointsService.findAllForOrganization', () => {
         ),
       ).rejects.toMatchObject({
         status: 404,
-        message: 'common.coupons.memberNotFound',
+        response: { code: 'memberNotFound' },
       });
     expect(
       await db
@@ -1393,7 +1382,7 @@ describe('PointsService.findAllForOrganization', () => {
       ),
     ).rejects.toMatchObject({
       status: 403,
-      message: 'common.points.adjustOwnerOnly',
+      response: { code: 'adjustOwnerOnly' },
     });
   });
 
@@ -1418,7 +1407,7 @@ describe('PointsService.findAllForOrganization', () => {
         ),
       ).rejects.toMatchObject({
         status: 403,
-        message: 'common.points.adjustOwnerOnly',
+        response: { code: 'adjustOwnerOnly' },
       });
       await service.adjustForOrganization(
         'other',
@@ -1467,11 +1456,7 @@ describe('PointsService.redeem', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new PointsService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-      {} as MailsService,
-    );
+    service = new PointsService(db as unknown as DrizzleDB, {} as MailsService);
   }, 60_000);
 
   afterAll(async () => {
@@ -1499,9 +1484,9 @@ describe('PointsService.redeem', () => {
   it('已達每人兌換上限時拒絕再兌換，不扣點也不發券', async () => {
     await service.redeem(USER, 'c1');
 
-    await expect(service.redeem(USER, 'c1')).rejects.toThrow(
-      'common.points.perUserLimitReached',
-    );
+    await expect(service.redeem(USER, 'c1')).rejects.toMatchObject({
+      response: { code: 'perUserLimitReached' },
+    });
     expect(await db.select().from(schema.userCoupon)).toHaveLength(1);
     const [earn] = await db
       .select()
