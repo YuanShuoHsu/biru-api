@@ -308,7 +308,7 @@
     "specialHoursOverlap": "这段期间与已设置的特殊营业日（{validFrom}～{validThrough}）重叠。"
   },
   "points": {
-    "adjustOwnerOnly": "单笔调整超过 {maxPoints} 点，请由门店 owner 操作",
+    "adjustOwnerOnly": "本店对同一会员当日补点与扣点合计超过 {maxPoints} 点，只有拥有者能调整",
     "adjustSelf": "不能调整自己的点数",
     "insufficient": "点数不足",
     "notEnabled": "点数功能尚未启用",
