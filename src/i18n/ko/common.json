@@ -138,6 +138,8 @@
     "codeExists": "이미 존재하는 쿠폰 코드입니다",
     "couponNotFound": "쿠폰을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "expired": "쿠폰 코드가 만료되었습니다",
+    "grantExpired": "이 쿠폰은 만료되어 발급할 수 없습니다",
+    "grantInactive": "이 쿠폰은 비활성화되어 발급할 수 없습니다",
     "inUse": "이미 고객이 받은 쿠폰이라 삭제할 수 없습니다. 대신 비활성화하세요.",
     "issueMinSpendRequired": "금액 달성 보상에는 달성 금액을 설정해야 합니다",
     "itemScopeSingleOrganization": "상품 지정 쿠폰은 한 매장에만 적용할 수 있습니다",

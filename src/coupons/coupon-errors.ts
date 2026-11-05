@@ -7,6 +7,8 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 export const couponErrorCodes = [
   'applicableOrganizationNotFound',
   'couponNotFound',
+  'grantExpired',
+  'grantInactive',
 ] as const;
 
 export type CouponErrorCode = (typeof couponErrorCodes)[number];

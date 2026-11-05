@@ -1203,6 +1203,9 @@ export class CouponsService {
         found.applicableOrganizationIds[0] !== organizationId)
     )
       throw new ForbiddenException(this.t('notGrantable'));
+    if (!found.isActive) throw badRequestError('grantInactive');
+    if (found.validThrough && found.validThrough < new Date())
+      throw badRequestError('grantExpired');
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,

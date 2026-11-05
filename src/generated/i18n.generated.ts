@@ -191,6 +191,8 @@ export type I18nTranslations = {
             "codeExists": string;
             "couponNotFound": string;
             "expired": string;
+            "grantExpired": string;
+            "grantInactive": string;
             "inUse": string;
             "issueMinSpendRequired": string;
             "itemScopeSingleOrganization": string;
