@@ -108,7 +108,10 @@ import {
   weeklyMinutesOf,
 } from './employee-hours.js';
 import { requireEmployee } from './employee-lookup.js';
-import { loadHolidaySubstitutes } from './holiday-substitutes.js';
+import {
+  holidayDatesAmong,
+  loadHolidaySubstitutes,
+} from './holiday-substitutes.js';
 import {
   annualLeaveDeferrals,
   countedLeaves,
@@ -1891,6 +1894,7 @@ export class AttendanceLeavesService {
             substitute: attendanceHolidaySubstitute,
             shiftStartsAt: attendanceShift.startsAt,
             terminatedAt: attendanceEmployee.terminatedAt,
+            indigenousHolidays: attendanceEmployee.indigenousHolidays,
           })
           .from(attendanceHolidaySubstitute)
           .innerJoin(
@@ -1911,7 +1915,8 @@ export class AttendanceLeavesService {
             ),
           );
         if (!row) throw notFoundError();
-        const { substitute, shiftStartsAt, terminatedAt } = row;
+        const { substitute, shiftStartsAt, terminatedAt, indigenousHolidays } =
+          row;
         // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
         for (const at of terminatedAt
           ? [shiftStartsAt, new Date(terminatedAt.getTime() - 1)]
@@ -1926,16 +1931,23 @@ export class AttendanceLeavesService {
         await tx
           .delete(attendanceHolidaySubstitute)
           .where(eq(attendanceHolidaySubstitute.id, id));
-        await tx
-          .update(attendanceShift)
-          .set({ dayKind: 'workday' })
-          .where(
-            and(
-              eq(attendanceShift.employeeId, substitute.employeeId),
-              eq(attendanceShift.dayKind, 'holiday'),
-              eq(shiftStartDate, platformDateString(shiftStartsAt)),
-            ),
-          );
+        const shiftDate = platformDateString(shiftStartsAt);
+        const stillHolidays = await holidayDatesAmong(
+          tx,
+          { id: substitute.employeeId, indigenousHolidays },
+          [shiftDate],
+        );
+        if (!stillHolidays.has(shiftDate))
+          await tx
+            .update(attendanceShift)
+            .set({ dayKind: 'workday' })
+            .where(
+              and(
+                eq(attendanceShift.employeeId, substitute.employeeId),
+                eq(attendanceShift.dayKind, 'holiday'),
+                eq(shiftStartDate, shiftDate),
+              ),
+            );
         await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
           employeeId: substitute.employeeId,
           holidayDate: substitute.holidayDate,
