@@ -33,6 +33,7 @@ import { DrizzleModule } from './drizzle/drizzle.module.js';
 import { EcpayModule } from './ecpay/ecpay.module.js';
 import { EventsModule } from './events/events.module.js';
 import { GcisModule } from './gcis/gcis.module.js';
+import { ImagesModule } from './images/images.module.js';
 import type { I18nTranslations } from './generated/i18n.generated.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { MailsModule } from './mails/mails.module.js';
@@ -95,6 +96,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     EventEmitterModule.forRoot(),
     EventsModule,
     GcisModule,
+    ImagesModule,
     I18nModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

@@ -19,6 +19,7 @@ import {
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
+import { withImageUrl } from '../images/image-url.js';
 import { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import { OrganizationId } from './decorators/organization-id.decorator.js';
@@ -85,10 +86,12 @@ export class MenusController {
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
   @ApiOperation({ summary: '取得組織所有菜單' })
-  findAllMenus(
+  async findAllMenus(
     @Param('organizationId') organizationId: string,
   ): Promise<MenuResponseDto[]> {
-    return this.menusService.menus(organizationId);
+    const menus = await this.menusService.menus(organizationId);
+
+    return menus.map((row) => withImageUrl('menu', row));
   }
 
   @Get('menus/:menuId')
@@ -98,43 +101,52 @@ export class MenusController {
     const result = await this.menusService.menu({ id: menuId });
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menu', result);
   }
 
   @Patch('menus/:menuId')
   @Roles({ menu: ['update'] }, 'menuId')
   @Audit('menu', { param: 'menuId' })
   @ApiOperation({ summary: '更新菜單' })
-  updateMenu(
+  async updateMenu(
     @Body() updateMenuDto: UpdateMenuDto,
     @Param('menuId') menuId: string,
   ): Promise<MenuResponseDto> {
-    return this.menusService.updateMenu({
+    const updated = await this.menusService.updateMenu({
       where: { id: menuId },
       data: updateMenuDto,
     });
+
+    return withImageUrl('menu', updated);
   }
 
   @Post('menus/:menuId/menu-sections')
   @Roles({ menu: ['create'] }, 'menuId')
   @Audit('menuSection', { response: true })
   @ApiOperation({ summary: '建立菜單分類' })
-  createMenuSection(
+  async createMenuSection(
     @Body() createMenuSectionDto: CreateMenuSectionDto,
     @Param('menuId') menuId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.createMenuSection(menuId, createMenuSectionDto);
+    const created = await this.menusService.createMenuSection(
+      menuId,
+      createMenuSectionDto,
+    );
+
+    return withImageUrl('menuSection', created);
   }
 
   @Get('menus/:menuId/menu-sections')
   @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有分類' })
   @ApiOkResponse({ type: MenuSectionListResponseDto })
-  findAllMenuSections(
+  async findAllMenuSections(
     @Param('menuId') menuId: string,
     @Query() query: MenuSectionPaginationQueryDto,
   ): Promise<MenuSectionListResponseDto> {
-    return this.menusService.menuSections(menuId, query);
+    const { data, total } = await this.menusService.menuSections(menuId, query);
+
+    return { data: data.map((row) => withImageUrl('menuSection', row)), total };
   }
 
   @Get('menus/:menuId/order-ticket-printers')
@@ -166,21 +178,23 @@ export class MenusController {
     const result = await this.menusService.menuSection({ id: sectionId });
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menuSection', result);
   }
 
   @Patch('menu-sections/:sectionId')
   @Roles({ menu: ['update'] }, 'sectionId')
   @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '更新菜單分類' })
-  updateMenuSection(
+  async updateMenuSection(
     @Body() updateMenuSectionDto: UpdateMenuSectionDto,
     @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.updateMenuSection({
+    const updated = await this.menusService.updateMenuSection({
       where: { id: sectionId },
       data: updateMenuSectionDto,
     });
+
+    return withImageUrl('menuSection', updated);
   }
 
   @Delete('menus/:menuId/menu-sections')
@@ -198,10 +212,14 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'sectionId')
   @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '刪除菜單分類' })
-  deleteMenuSection(
+  async deleteMenuSection(
     @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.deleteMenuSection({ id: sectionId });
+    const deleted = await this.menusService.deleteMenuSection({
+      id: sectionId,
+    });
+
+    return withImageUrl('menuSection', deleted);
   }
 
   @Post('menu-sections/:sectionId/menu-items')
@@ -216,34 +234,38 @@ export class MenusController {
     },
   )
   @ApiOperation({ summary: '建立菜單品項' })
-  createMenuItem(
+  async createMenuItem(
     @Body() createMenuItemDto: CreateMenuItemDto,
     @Param('sectionId') sectionId: string,
     @OrganizationId() organizationId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.createMenuItem(
+    const created = await this.menusService.createMenuItem(
       sectionId,
       organizationId,
       createMenuItemDto,
     );
+
+    return withImageUrl('menuItem', created);
   }
 
   @Get('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['read'] }, 'sectionId')
   @ApiOperation({ summary: '取得分類所有品項' })
   @ApiOkResponse({ type: MenuItemListResponseDto })
-  findAllMenuSectionItems(
+  async findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
     @Query() query: MenuItemPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
     @OrganizationId() organizationId: string,
   ): Promise<MenuItemListResponseDto> {
-    return this.menusService.menuSectionItems(
+    const { data, total } = await this.menusService.menuSectionItems(
       sectionId,
       organizationId,
       query,
       canReadPurchasing,
     );
+
+    return { data: data.map((row) => withImageUrl('menuItem', row)), total };
   }
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
@@ -272,7 +294,7 @@ export class MenusController {
     );
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menuItem', result);
   }
 
   @Patch('menu-items/:menuItemId')
@@ -287,16 +309,18 @@ export class MenusController {
     },
   )
   @ApiOperation({ summary: '更新菜單品項' })
-  updateMenuItem(
+  async updateMenuItem(
     @Body() updateMenuItemDto: UpdateMenuItemDto,
     @Param('menuItemId') menuItemId: string,
     @OrganizationId() organizationId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.updateMenuItem({
+    const updated = await this.menusService.updateMenuItem({
       where: { id: menuItemId },
       organizationId,
       data: updateMenuItemDto,
     });
+
+    return withImageUrl('menuItem', updated);
   }
 
   @Delete('menu-sections/:sectionId/menu-items')
@@ -314,10 +338,12 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'menuItemId')
   @Audit('menuItem', { param: 'menuItemId' })
   @ApiOperation({ summary: '刪除菜單品項' })
-  deleteMenuItem(
+  async deleteMenuItem(
     @Param('menuItemId') menuItemId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.deleteMenuItem({ id: menuItemId });
+    const deleted = await this.menusService.deleteMenuItem({ id: menuItemId });
+
+    return withImageUrl('menuItem', deleted);
   }
 
   @Post('menu-items/:menuItemId/offers')

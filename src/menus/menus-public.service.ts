@@ -20,6 +20,7 @@ import {
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { withImageUrl } from '../images/image-url.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
@@ -197,13 +198,13 @@ export class PublicMenusService {
 
     const sections = orderMenu.menuSections
       .map((section) => ({
-        ...section,
+        ...withImageUrl('menuSection', section),
         name: localize(section.name, lang) || '',
         description: localize(section.description, lang),
         menuItems: section.menuItems
           .filter((entry) => !isDiscontinued(entry))
           .map(({ addOns, modifierGroups, offers, ...item }) => ({
-            ...item,
+            ...withImageUrl('menuItem', item),
             offers: offers.map((row) => ({ ...row, priceCurrency })),
             name: localize(item.name, lang) || '',
             description: localize(item.description, lang),
@@ -227,10 +228,12 @@ export class PublicMenusService {
                     recommendedSweetnessLevel,
                     servingTemperatures,
                     sweetness,
+                    updatedAt,
                   }) => ({
                     id,
                     name: localize(name, lang) || '',
-                    image,
+                    imageUrl: withImageUrl('menuItem', { id, image, updatedAt })
+                      .imageUrl,
                     availableModes,
                     servingTemperatures,
                     recommendedServingTemperatureLevel,
@@ -256,7 +259,7 @@ export class PublicMenusService {
       id: orderMenu.id,
       name: localize(orderMenu.name, lang) || '',
       description: localize(orderMenu.description, lang),
-      image: orderMenu.image,
+      imageUrl: withImageUrl('menu', orderMenu).imageUrl,
       currency: priceCurrency,
       sections,
       createdAt: orderMenu.createdAt,

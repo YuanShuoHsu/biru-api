@@ -5,7 +5,8 @@ import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class BannerResponseDto {
   @ApiProperty() id: string;
-  @ApiProperty({ description: '圖片來源（data URL）' }) image: string;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
   @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   alt: LocalizedText | null;
   @ApiPropertyOptional({ nullable: true }) url: string | null;
