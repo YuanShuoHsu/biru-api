@@ -1,7 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -10,7 +9,6 @@ import { coupon } from '../db/schema/coupons.js';
 import * as schema from '../db/schema/index.js';
 import { menu, menuItem, menuSection } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type {
   OrderPricingService,
   ResolvedOrderItem,
@@ -66,7 +64,6 @@ const applicableOf = (coupon: Partial<Coupon>) => {
   };
   const service = new CouponsService(
     db as unknown as DrizzleDB,
-    { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     {} as OrderPricingService,
   );
 
@@ -112,19 +109,19 @@ describe('CouponsService.getApplicableCoupon 折扣金額', () => {
   it('購物車沒有適用品項時拒絕', async () => {
     await expect(
       discountOf({ menuItemIds: ['tea'], scope: 'item' }),
-    ).rejects.toThrow('common.coupons.notApplicable');
+    ).rejects.toMatchObject({ response: { code: 'notApplicable' } });
   });
 
   it('未達低消門檻時拒絕', async () => {
-    await expect(discountOf({ minSubtotal: '220' })).rejects.toThrow(
-      'common.coupons.minSubtotal',
-    );
+    await expect(discountOf({ minSubtotal: '220' })).rejects.toMatchObject({
+      response: { code: 'minSubtotal' },
+    });
   });
 
   it('不適用此店時拒絕', async () => {
     await expect(
       discountOf({ applicableOrganizationIds: ['other-org'] }),
-    ).rejects.toThrow('common.coupons.notApplicableHere');
+    ).rejects.toMatchObject({ response: { code: 'notApplicableHere' } });
   });
 });
 
@@ -187,7 +184,6 @@ describe('CouponsService 自動發券', () => {
     };
     const service = new CouponsService(
       db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       {} as OrderPricingService,
     );
 
@@ -234,7 +230,6 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new CouponsService(
       db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       {} as OrderPricingService,
     );
     await client.query(
@@ -529,7 +524,6 @@ describe('CouponsService.grant 券狀態', () => {
     };
     const service = new CouponsService(
       db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       {} as OrderPricingService,
     );
     return service.grant(
@@ -579,7 +573,7 @@ describe('CouponsService.grant 券狀態', () => {
       grantOf({ ...baseCoupon, ...overrides }),
     ).rejects.toMatchObject({
       status: 404,
-      message: 'common.coupons.memberNotFound',
+      response: { code: 'memberNotFound' },
     });
   });
 });
