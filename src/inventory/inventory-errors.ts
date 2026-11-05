@@ -20,6 +20,8 @@ export const inventoryErrorCodes = [
   'recipeIngredientExists',
   'recipeIngredientNotFound',
   'recipeMenuItemAndModifier',
+  'recipeMenuItemTaken',
+  'recipeModifierTaken',
   'recipeNotFound',
   'sourceRecipeHasMenuItem',
   'sourceRecipeHasModifier',

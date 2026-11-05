@@ -246,6 +246,8 @@ export type I18nTranslations = {
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
             "recipeMenuItemAndModifier": string;
+            "recipeMenuItemTaken": string;
+            "recipeModifierTaken": string;
             "recipeNotFound": string;
             "sourceRecipeHasMenuItem": string;
             "sourceRecipeHasModifier": string;

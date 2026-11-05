@@ -30,8 +30,10 @@ import {
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import {
+  isCheckViolation,
   isForeignKeyViolation,
   isUniqueViolation,
+  pgConstraint,
 } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
@@ -91,6 +93,20 @@ const totalCostOf = (
     : materials.reduce((sum, { cost }) => sum + (cost ?? 0), 0);
 
 const PURCHASING_FIELDS: string[] = ['unitPrice', 'cost'];
+
+const rethrowBindingConflict = (error: unknown): never => {
+  const constraint = pgConstraint(error);
+  if (isUniqueViolation(error) && constraint === 'recipe_menuItemId_uidx')
+    throw conflictError('recipeMenuItemTaken');
+  if (isUniqueViolation(error) && constraint === 'recipe_modifierId_uidx')
+    throw conflictError('recipeModifierTaken');
+  if (
+    isCheckViolation(error) &&
+    constraint === 'recipe_menuItemId_modifierId_check'
+  )
+    throw conflictError('recipeMenuItemAndModifier');
+  throw error;
+};
 
 @Injectable()
 export class RecipesService {
@@ -240,7 +256,8 @@ export class RecipesService {
           modifierId,
           organizationId,
         })
-        .returning();
+        .returning()
+        .catch(rethrowBindingConflict);
 
       if (menuItemId !== undefined || modifierId) return row;
 
@@ -297,7 +314,8 @@ export class RecipesService {
         .update(recipe)
         .set(dto)
         .where(eq(recipe.id, recipeId))
-        .returning();
+        .returning()
+        .catch(rethrowBindingConflict);
       if (!row) throw notFoundError('recipeNotFound');
 
       if (

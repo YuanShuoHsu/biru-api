@@ -193,6 +193,8 @@
     "recipeIngredientExists": "이미 추가된 재료입니다",
     "recipeIngredientNotFound": "레시피 재료를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "recipeMenuItemAndModifier": "레시피는 메뉴 품목과 옵션 중 하나에만 연결할 수 있습니다",
+    "recipeMenuItemTaken": "이 메뉴 품목에는 이미 레시피가 있습니다",
+    "recipeModifierTaken": "이 옵션에는 이미 레시피가 있습니다",
     "recipeNotFound": "레시피를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "sourceRecipeHasMenuItem": "메뉴 품목에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
     "sourceRecipeHasModifier": "옵션에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
