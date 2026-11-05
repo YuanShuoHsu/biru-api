@@ -22,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   notInArray,
   or,
   sql,
@@ -154,6 +155,7 @@ const expiringByPlatformDay = (
 const LOT_CONSUMPTION_ORDER = [
   asc(pointTransaction.expiresAt),
   asc(pointTransaction.createdAt),
+  asc(pointTransaction.id),
 ];
 
 const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
@@ -301,6 +303,7 @@ export class PointsService {
       .select({
         id: pointTransaction.id,
         orderId: order.id,
+        orderStatus: order.orderStatus,
         points: pointTransaction.points,
         remainingPoints: pointTransaction.remainingPoints,
       })
@@ -330,7 +333,11 @@ export class PointsService {
       .filter((r) => r.remainingPoints === r.points)
       .map((r) => r.id);
     const drainableOrderIds = revocable
-      .filter((r) => r.remainingPoints !== r.points)
+      .filter(
+        (r) =>
+          r.remainingPoints !== r.points &&
+          ORDER_TERMINAL_STATUSES.some((status) => status === r.orderStatus),
+      )
       .map((r) => r.orderId);
 
     if (removableIds.length > 0)
@@ -353,37 +360,58 @@ export class PointsService {
   }
 
   private async settleDebts(
-    tx: Pick<DrizzleDB, 'select' | 'update'>,
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
     userId: string,
   ): Promise<void> {
     const rows = await tx
       .select({
         id: pointTransaction.id,
         createdAt: pointTransaction.createdAt,
+        expiresAt: pointTransaction.expiresAt,
+        orderId: pointTransaction.orderId,
+        organizationId: pointTransaction.organizationId,
+        points: pointTransaction.points,
         remainingPoints: pointTransaction.remainingPoints,
+        type: pointTransaction.type,
       })
       .from(pointTransaction)
       .where(
         and(
           eq(pointTransaction.userId, userId),
           this.notExpired(),
-          or(
-            gt(pointTransaction.remainingPoints, 0),
-            and(
-              eq(pointTransaction.type, 'revoke'),
-              lt(pointTransaction.remainingPoints, 0),
-            ),
-          ),
+          ne(pointTransaction.remainingPoints, 0),
         ),
       )
       .orderBy(...LOT_CONSUMPTION_ORDER)
       .for('update');
 
     const lots = rows.filter((row) => row.remainingPoints > 0);
-    const debts = rows
-      .filter((row) => row.remainingPoints < 0)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const settled = new Map<string, number>();
+    const debts = [];
+    for (const row of rows.filter((row) => row.remainingPoints < 0)) {
+      if (row.type !== 'earn') {
+        debts.push(row);
+        continue;
+      }
+      const id = randomUUID();
+      await tx.insert(pointTransaction).values({
+        id,
+        expiresAt: row.expiresAt,
+        orderId: row.orderId,
+        organizationId: row.organizationId,
+        points: -row.points,
+        remainingPoints: row.remainingPoints,
+        type: 'revoke',
+        userId,
+      });
+      settled.set(row.id, 0);
+      debts.push({ ...row, id });
+    }
+    debts.sort(
+      (a, b) =>
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    );
     for (const debt of debts)
       for (const lot of lots) {
         if (debt.remainingPoints === 0) break;

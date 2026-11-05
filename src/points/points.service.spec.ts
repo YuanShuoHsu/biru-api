@@ -881,6 +881,68 @@ describe('PointsService.findAllForOrganization', () => {
       expect(await balanceAt('2027-03-02T00:00:00Z')).toBe(0);
     });
 
+    it('舊版直接記在 earn 上的欠點，之後取得點數時改為收回列並抵扣，且不重複收回', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: 0, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
+
+    it('現金訂單退回未付款時不收回已用掉的點數，再付款不重複入點，取消後只收回一次', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await client.query(
+        `update point_transaction set remaining_points = 70 where order_id = 'o1'`,
+      );
+
+      await client.query(
+        `update "order" set order_status = 'OrderPaymentDue', payment_date = null, amount_per_point = null where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderProcessing', payment_date = '2026-02-02', amount_per_point = 10 where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -30, type: 'revoke' },
+      ]);
+    });
+
     it('退款時會員還有其他點數就立即抵扣，不留下欠點', async () => {
       await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
       await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
