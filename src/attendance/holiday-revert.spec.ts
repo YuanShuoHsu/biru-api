@@ -111,6 +111,17 @@ describe('turning holiday shifts back into workdays', () => {
     });
   });
 
+  it('removing an indigenous holiday whose date stays a 補休 still locks its own published month', async () => {
+    await client.exec(
+      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, status, snapshot, reason, idempotency_key, created_by, paid_on)
+         values ('march', '${ORG}', 'emp', 'Amy', '2026-03', 'published', '{}', 'initial', 'march', 'owner', '2026-04-05')`,
+    );
+
+    await expect(
+      employees.saveEmployee(actor, employeeDto(['2026-03-10'])),
+    ).rejects.toThrow('payrollLocked');
+  });
+
   it('removing an indigenous holiday that turns a shift back into a workday locks the later published months', async () => {
     await publishApril();
 
