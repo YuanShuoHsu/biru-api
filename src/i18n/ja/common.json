@@ -315,7 +315,7 @@
     "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。"
   },
   "points": {
-    "adjustOwnerOnly": "1 回 {maxPoints} ポイントを超える調整はオーナーのみ行えます",
+    "adjustOwnerOnly": "この店舗で同じ会員へのポイント付与と減算が 1 日の合計で {maxPoints} ポイントを超える場合は、オーナーのみ調整できます",
     "adjustSelf": "自分のポイントは調整できません",
     "insufficient": "ポイントが不足しています",
     "notEnabled": "ポイント機能はまだ有効になっていません",

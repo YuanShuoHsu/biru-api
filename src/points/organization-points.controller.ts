@@ -39,7 +39,9 @@ export class OrganizationPointsController {
 
   @Get('adjustment-limit')
   @Roles({ organization: ['update'] }, 'organizationSlug')
-  @ApiOperation({ summary: '查詢目前使用者在本店單筆可補點或扣點的上限' })
+  @ApiOperation({
+    summary: '查詢目前使用者在本店對同一會員每日可補點或扣點的合計上限',
+  })
   @ApiParam({ name: 'organizationSlug', type: String })
   @ApiOkResponse({ type: PointAdjustmentLimitDto })
   getAdjustmentLimit(
@@ -53,7 +55,7 @@ export class OrganizationPointsController {
   @Audit('pointTransaction', { response: true })
   @ApiOperation({
     summary:
-      '為會員手動補點或扣點；扣點只扣本店發出且未過期的剩餘點數；單筆超過 NT$3,000 換算點數只有 owner 能做',
+      '為本店顧客（在本店有已付款訂單或點數明細）手動補點或扣點，其他 email 與不存在的一樣回 404；扣點只扣本店發出且未過期的剩餘點數；同一會員在本店當日合計超過 NT$3,000 換算點數只有 owner 能做',
   })
   @ApiCreatedResponse({ type: OrganizationPointTransactionDto })
   adjust(

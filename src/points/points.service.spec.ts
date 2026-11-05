@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { Logger } from '@nestjs/common';
-import { eq, isNotNull } from 'drizzle-orm';
+import { eq, isNotNull, lt } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
@@ -82,7 +82,7 @@ describe('PointsService.getAllMine', () => {
 
     expect(result.transactions.map(({ id }) => id)).toEqual(['t5', 't4']);
     expect(result.transactionsTotal).toBe(7);
-    expect(result.balance).toBe(21);
+    expect(result.balance).toBe(16);
   });
 
   it('同一時間建立的明細依 id 排序，翻頁不重複也不遺漏', async () => {
@@ -473,6 +473,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('補點自補點日起一年有效，扣點沒有到期日', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     vi.useFakeTimers({ now: new Date('2026-11-04T03:30:00Z') });
     try {
       const added = await service.adjustForOrganization(
@@ -733,23 +734,32 @@ describe('PointsService.findAllForOrganization', () => {
     await client.query(
       `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
     );
-    const update = db.update.bind(db);
-    const spy = vi.spyOn(db, 'update').mockImplementationOnce((table) => {
-      void client.query(
-        `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
-      );
-      return update(table);
-    });
+    const transaction = db.transaction.bind(db);
+    const spy = vi
+      .spyOn(db, 'transaction')
+      .mockImplementationOnce(async (run, config) => {
+        await client.query(
+          `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
+        );
+        return transaction(run, config);
+      });
     onTestFinished(() => spy.mockRestore());
 
     await service.findAllForOrganization('biru');
 
     expect(
       await db
-        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
         .from(pointTransaction)
-        .where(eq(pointTransaction.orderId, 'o1')),
-    ).toEqual([{ remainingPoints: -100 }]);
+        .where(eq(pointTransaction.orderId, 'o1'))
+        .orderBy(pointTransaction.type),
+    ).toEqual([
+      { remainingPoints: 0, type: 'earn' },
+      { remainingPoints: -100, type: 'revoke' },
+    ]);
   });
 
   it('同時收回兩次已取消訂單，部分使用的點數只扣一次', async () => {
@@ -769,10 +779,272 @@ describe('PointsService.findAllForOrganization', () => {
 
     expect(
       await db
-        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
         .from(pointTransaction)
-        .where(eq(pointTransaction.orderId, 'o1')),
-    ).toEqual([{ remainingPoints: -70 }]);
+        .where(eq(pointTransaction.orderId, 'o1'))
+        .orderBy(pointTransaction.type),
+    ).toEqual([
+      { remainingPoints: 0, type: 'earn' },
+      { remainingPoints: -70, type: 'revoke' },
+    ]);
+  });
+
+  describe('欠點', () => {
+    const spendAll = async (orderId: string) => {
+      const [earn] = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, orderId));
+      await db
+        .update(pointTransaction)
+        .set({ remainingPoints: 0 })
+        .where(eq(pointTransaction.id, earn.id));
+      await db.insert(pointTransaction).values({
+        id: `redeem-${orderId}`,
+        points: -earn.remainingPoints,
+        type: 'redeem',
+        userId: earn.userId,
+      });
+    };
+
+    const remainingByType = (orderId: string) =>
+      db
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, orderId))
+        .orderBy(pointTransaction.type);
+
+    const balanceAt = async (now: string) => {
+      vi.useFakeTimers({ now: new Date(now), toFake: ['Date'] });
+      try {
+        return (await service.getAllMine('amy')).balance;
+      } finally {
+        vi.useRealTimers();
+      }
+    };
+
+    it('已取消訂單的點數全部兌換掉時也收回，成為欠點且不重複收回', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await spendAll('o1');
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+
+      expect((await service.getAllMine('amy')).balance).toBe(-100);
+      expect((await service.getAllMine('amy')).balance).toBe(-100);
+    });
+
+    it('退款造成的欠點過了收回列的到期日仍計入餘額', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await spendAll('o1');
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect(await balanceAt('2027-03-01T00:00:00Z')).toBe(-100);
+    });
+
+    it('欠點從之後取得的點數抵扣，那筆點數到期後餘額為 0 而不是負數', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await client.query(
+        `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+      );
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(-70);
+
+      await addPaidOrder('o2', ORG, 'amy', {
+        paymentDate: '2026-03-01',
+        unitPrice: '1000',
+      });
+      await service.getAllMine('amy');
+      await service.getAllMine('amy');
+
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: 0, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+      expect(await balanceAt('2027-03-02T00:00:00Z')).toBe(0);
+    });
+
+    it('舊版直接記在 earn 上的欠點，之後取得點數時改為收回列並抵扣，且不重複收回', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: 0, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
+
+    it('舊版 earn 上的欠點已有收回列時，之後取得點數直接抵扣 earn，不再新增收回列', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values([
+        {
+          id: 'legacy',
+          createdAt: new Date('2026-02-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: 100,
+          remainingPoints: -70,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'legacy-revoke',
+          createdAt: new Date('2026-03-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: -100,
+          remainingPoints: -100,
+          type: 'revoke',
+          userId: 'amy',
+        },
+      ]);
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      await service.getAllMine('amy');
+      await service.getAllMine('amy');
+
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -70, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+      ]);
+    });
+
+    it('舊版直接記在 earn 上的欠點遇到部分退款，不再多記一筆欠點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 0.5,
+      });
+
+      const rows = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1'));
+      expect(
+        rows
+          .filter(({ type }) => type === 'revoke')
+          .reduce((total, row) => total - row.points, 0),
+      ).toBe(100);
+      expect(rows.reduce((total, row) => total + row.remainingPoints, 0)).toBe(
+        -70,
+      );
+    });
+
+    it('現金訂單退回未付款時不收回已用掉的點數，再付款不重複入點，取消後只收回一次', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await client.query(
+        `update point_transaction set remaining_points = 70 where order_id = 'o1'`,
+      );
+
+      await client.query(
+        `update "order" set order_status = 'OrderPaymentDue', payment_date = null, amount_per_point = null where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderProcessing', payment_date = '2026-02-02', amount_per_point = 10 where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -30, type: 'revoke' },
+      ]);
+    });
+
+    it('退款時會員還有其他點數就立即抵扣，不留下欠點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await client.query(
+        `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+      );
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect(
+        await db
+          .select()
+          .from(pointTransaction)
+          .where(lt(pointTransaction.remainingPoints, 0)),
+      ).toEqual([]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
   });
 
   it('依會員 email 篩選', async () => {
@@ -792,6 +1064,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('補點記下原因與操作者，列入本店明細與會員餘額', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     const created = await service.adjustForOrganization(
       'biru',
       { email: 'AMY@example.com', note: ' 客訴補償 ', points: 30 },
@@ -815,10 +1088,10 @@ describe('PointsService.findAllForOrganization', () => {
     expect(row).toEqual(
       expect.objectContaining({ adjustedBy: 'bob', organizationId: ORG }),
     );
-    expect((await service.findAllForOrganization('biru')).data).toEqual([
+    expect((await service.findAllForOrganization('biru')).data).toContainEqual(
       expect.objectContaining({ id: created.id, note: '客訴補償' }),
-    ]);
-    expect((await service.getAllMine('amy')).balance).toBe(30);
+    );
+    expect((await service.getAllMine('amy')).balance).toBe(40);
   });
 
   it('扣點先補入未入點的訂單，只從本店剩餘點數扣', async () => {
@@ -911,6 +1184,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('owner 門檻依全品牌每點金額換算，金額不大於 0 時只有 owner 能調整', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     await client.exec(`update point_setting set amount_per_point = 33.33`);
     expect(
       await service.adjustForOrganization(
@@ -980,6 +1254,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('非 owner 可補扣到上限為止，超過上限拒絕', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     await client.exec(`update point_setting set amount_per_point = 1.1`);
     const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit('admin');
 
@@ -1042,6 +1317,144 @@ describe('PointsService.findAllForOrganization', () => {
         'admin',
       ),
     ).rejects.toThrow('common.coupons.memberNotFound');
+  });
+
+  it('不是本店顧客的會員與不存在的 email 一樣回 404，owner 也一樣', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ('cat', 'cat', 'cat@example.com', 'cat')`,
+    );
+    await addPaidOrder('o1', OTHER_ORG, 'cat');
+    await addPaidOrder('o2', ORG, 'cat', { paymentDate: null });
+
+    for (const [email, role] of [
+      ['cat@example.com', 'admin'],
+      ['cat@example.com', 'owner'],
+      ['nobody@example.com', 'admin'],
+    ])
+      await expect(
+        service.adjustForOrganization(
+          'biru',
+          { email, note: '補償', points: 5 },
+          'bob',
+          role,
+        ),
+      ).rejects.toMatchObject({
+        status: 404,
+        message: 'common.coupons.memberNotFound',
+      });
+    expect(
+      await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.type, 'adjust')),
+    ).toEqual([]);
+  });
+
+  it('在本店有已付款訂單或本店點數明細的會員可以調整', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ('cat', 'cat', 'cat@example.com', 'cat')`,
+    );
+    await addPaidOrder('o1', ORG, 'amy');
+    await db.insert(pointTransaction).values({
+      id: 'old',
+      organizationId: ORG,
+      points: 3,
+      remainingPoints: 3,
+      type: 'adjust',
+      userId: 'cat',
+    });
+
+    for (const email of ['amy@example.com', 'cat@example.com'])
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email, note: '補償', points: 5 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 5, userEmail: email }));
+  });
+
+  it('owner 當天已補點超過上限後，非 owner 當天再補 1 點也拒絕', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await service.adjustForOrganization(
+      'biru',
+      { email: 'amy@example.com', note: '活動', points: 500 },
+      'bob',
+      'owner',
+    );
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 1 },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: 'common.points.adjustOwnerOnly',
+    });
+  });
+
+  it('非 owner 對同一會員在同一個台灣日的補扣點合計不能超過上限，隔天重新計算，owner 不受限', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+    vi.useFakeTimers({ now: new Date('2026-11-04T15:00:00Z') });
+    try {
+      await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 200 },
+        'bob',
+        'admin',
+      );
+      vi.setSystemTime(new Date('2026-11-04T15:59:00Z'));
+      await expect(
+        service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '誤發', points: -101 },
+          'bob',
+          'member',
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        message: 'common.points.adjustOwnerOnly',
+      });
+      await service.adjustForOrganization(
+        'other',
+        { email: 'amy@example.com', note: '補償', points: 300 },
+        'bob',
+        'admin',
+      );
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '補償', points: 100 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 100 }));
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '活動', points: 500 },
+          'bob',
+          'owner',
+        ),
+      ).toEqual(expect.objectContaining({ points: 500 }));
+
+      vi.setSystemTime(new Date('2026-11-04T16:00:00Z'));
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '補償', points: 300 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 300 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
