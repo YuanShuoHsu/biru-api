@@ -23,6 +23,7 @@ import type { Language } from '../db/schema/enums.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { withImageUrl } from '../images/image-url.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import {
@@ -52,13 +53,14 @@ export class StorePhotosService {
 
   async findAllActive(lang: Language): Promise<PublicStorePhotoResponseDto[]> {
     const rows = await this.db.query.storePhoto.findMany({
-      columns: { id: true, image: true, alt: true },
+      columns: { id: true, image: true, alt: true, updatedAt: true },
       where: eq(storePhoto.isActive, true),
       orderBy: [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)],
     });
 
     return rows.map(({ alt, ...row }) => ({
-      ...row,
+      id: row.id,
+      imageUrl: withImageUrl('storePhoto', row).imageUrl,
       alt: localize(alt, lang) ?? '',
     }));
   }
@@ -135,7 +137,10 @@ export class StorePhotosService {
       this.db.select({ total: count() }).from(storePhoto).where(where),
     ]);
 
-    return { data, total };
+    return {
+      data: data.map((row) => withImageUrl('storePhoto', row)),
+      total,
+    };
   }
 
   async create(dto: CreateStorePhotoDto): Promise<StorePhotoResponseDto> {
@@ -154,7 +159,7 @@ export class StorePhotosService {
       })
       .returning();
 
-    return created;
+    return withImageUrl('storePhoto', created);
   }
 
   async update(
@@ -168,7 +173,7 @@ export class StorePhotosService {
       .returning();
     if (!updated) throw notFoundError('storePhotoNotFound');
 
-    return updated;
+    return withImageUrl('storePhoto', updated);
   }
 
   async remove(storePhotoId: string): Promise<void> {

@@ -4,7 +4,8 @@ import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class StorePhotoResponseDto {
   @ApiProperty() id: string;
-  @ApiProperty({ description: '圖片來源（data URL）' }) image: string;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
   @ApiProperty() alt: LocalizedText;
   @ApiProperty() isActive: boolean;
   @ApiProperty() sortOrder: number;

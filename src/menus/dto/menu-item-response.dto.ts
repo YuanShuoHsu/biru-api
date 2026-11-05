@@ -45,8 +45,8 @@ export class MenuItemResponseDto {
   @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   description: LocalizedText | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
