@@ -207,6 +207,35 @@ describe('turning holiday shifts back into workdays', () => {
     });
   });
 
+  it('rejects cancelling the shift a 補休 is designated on when a later month is published', async () => {
+    await addSameDayShift('same-day', '2026-03-17');
+    await client.exec(
+      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, status, snapshot, reason, idempotency_key, created_by, paid_on)
+         values ('april', '${ORG}', 'emp', 'Amy', '2026-04', 'published', '{}', 'initial', 'april', 'owner', '2026-05-05')`,
+    );
+
+    await expect(
+      shifts.cancelShift(actor, 'substitute-only', { reason: '店休' }),
+    ).rejects.toThrow('payrollLocked');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      'same-day': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
+  it('rejects restoring the shift a 補休 is designated on once its weekday became a rest day', async () => {
+    await shifts.cancelShift(actor, 'substitute-only', { reason: '店休' });
+    await client.exec(
+      `update attendance_employee set regular_leave_weekday = 0, rest_day_weekday = 2 where id = 'emp'`,
+    );
+
+    await expect(shifts.restoreShift(actor, 'substitute-only')).rejects.toThrow(
+      'holidaySubstituteInvalid',
+    );
+  });
+
   it('rejects moving the shift a 補休 is designated on to another date', async () => {
     await expect(
       shifts.updateShift(actor, 'substitute-only', {

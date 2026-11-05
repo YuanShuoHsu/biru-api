@@ -1476,7 +1476,13 @@ export class AttendanceShiftsService {
           [date],
         );
         if (!stillHolidays.has(date))
-          await this.setSameDayKind(tx, actor, shift, 'holiday', 'workday');
+          await this.setOtherSameDayShiftsKind(
+            tx,
+            actor,
+            shift,
+            'holiday',
+            'workday',
+          );
       }
       await writeAudit(tx, actor, 'shift.cancel', id, {
         ...(reason && { reason }),
@@ -1486,16 +1492,16 @@ export class AttendanceShiftsService {
     });
   }
 
-  private async setSameDayKind(
+  private async setOtherSameDayShiftsKind(
     tx: Transaction,
     actor: AttendanceActor,
     shift: typeof attendanceShift.$inferSelect,
     from: AttendanceDayKind,
     to: AttendanceDayKind,
   ) {
-    const changed = await tx
-      .update(attendanceShift)
-      .set({ dayKind: to })
+    const others = await tx
+      .select({ id: attendanceShift.id })
+      .from(attendanceShift)
       .where(
         and(
           eq(attendanceShift.employeeId, shift.employeeId),
@@ -1504,14 +1510,22 @@ export class AttendanceShiftsService {
           eq(attendanceShift.dayKind, from),
           eq(shiftStartDate, platformDateString(shift.startsAt)),
         ),
-      )
-      .returning({ id: attendanceShift.id });
-    if (changed.length)
-      await assertPayrollUnlocked(
-        tx,
-        actor.organizationId,
-        shift.employeeId,
-        shift.startsAt,
+      );
+    if (!others.length) return;
+    await assertPayrollUnlocked(
+      tx,
+      actor.organizationId,
+      shift.employeeId,
+      shift.startsAt,
+    );
+    await tx
+      .update(attendanceShift)
+      .set({ dayKind: to })
+      .where(
+        inArray(
+          attendanceShift.id,
+          others.map(({ id }) => id),
+        ),
       );
   }
 
@@ -1554,7 +1568,13 @@ export class AttendanceShiftsService {
         .from(attendanceHolidaySubstitute)
         .where(eq(attendanceHolidaySubstitute.shiftId, id));
       if (substitute)
-        await this.setSameDayKind(tx, actor, shift, 'workday', 'holiday');
+        await this.setOtherSameDayShiftsKind(
+          tx,
+          actor,
+          shift,
+          'workday',
+          'holiday',
+        );
       const [{ breaks, dayKind }] = await this.prepareRestore(tx, actor, shift);
       await tx
         .update(attendanceShift)
