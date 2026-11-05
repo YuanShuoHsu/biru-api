@@ -15,7 +15,7 @@ describe('OrdersService.listPublicBoard', () => {
   const addOrder = (id: string, orderStatus: string, paymentMethod: string) =>
     client.query(
       `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at)
-       values ($1, '{"name":"客人"}', 'pickup', '1', $2, $3, 'org', 100, now() - interval '1 hour')`,
+       values ($1, '{"name":"客人"}', 'dineIn', '1', $2, $3, 'org', 100, now() - interval '1 hour')`,
       [id, orderStatus, paymentMethod],
     );
 
