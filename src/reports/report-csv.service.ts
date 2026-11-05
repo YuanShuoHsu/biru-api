@@ -11,6 +11,7 @@ import { localize } from '../menus/menus-public.service.js';
 import type { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import type { SalesReportQueryDto } from './dto/sales-report.dto.js';
 import { InventoryReportService } from './inventory-report.service.js';
+import { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import {
   SalesReportService,
   UNCATEGORIZED_KEY,
@@ -39,6 +40,7 @@ export class ReportCsvService {
   constructor(
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly inventoryReportService: InventoryReportService,
+    private readonly personnelCostReportService: PersonnelCostReportService,
     private readonly salesReportService: SalesReportService,
   ) {}
 
@@ -136,6 +138,41 @@ export class ReportCsvService {
         this.i18n.t(`common.reports.units.${row.unitCode}`, { lang }),
         ...columns.map((column) => row[column]),
       ]),
+    ]);
+  }
+  async personnel(organizationSlug: string, month: string): Promise<string> {
+    const { rows, totals } =
+      await this.personnelCostReportService.getPersonnelCostReport(
+        organizationSlug,
+        month,
+      );
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const t = (key: CsvColumn) =>
+      this.i18n.t(`common.reports.csv.${key}`, { lang });
+    const dollars = (cents: string) => Number(cents) / 100;
+    const amounts = (row: typeof totals) => [
+      row.headcount,
+      dollars(row.grossCents),
+      row.employerInsuranceCents === null
+        ? null
+        : dollars(row.employerInsuranceCents),
+      dollars(row.employerPensionCents),
+      dollars(row.totalCents),
+      row.missingEmployerInsurance,
+    ];
+
+    return toCsv([
+      [
+        t('jobTitle'),
+        t('headcount'),
+        t('gross'),
+        t('employerInsurance'),
+        t('employerPension'),
+        t('personnelCost'),
+        t('missingEmployerInsurance'),
+      ],
+      ...rows.map((row) => [row.jobTitle ?? t('noJobTitle'), ...amounts(row)]),
+      [t('total'), ...amounts(totals)],
     ]);
   }
 }

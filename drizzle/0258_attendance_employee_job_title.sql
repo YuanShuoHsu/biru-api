@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_employee" ADD COLUMN "job_title" text;

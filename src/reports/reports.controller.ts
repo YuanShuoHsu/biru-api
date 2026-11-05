@@ -9,12 +9,17 @@ import {
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
+import {
+  PersonnelCostReportQueryDto,
+  PersonnelCostReportResponseDto,
+} from './dto/personnel-cost-report.dto.js';
 import { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import {
   SalesReportQueryDto,
   SalesReportResponseDto,
 } from './dto/sales-report.dto.js';
 import { InventoryReportService } from './inventory-report.service.js';
+import { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { ReportCsvService } from './report-csv.service.js';
 import { SalesReportService } from './sales-report.service.js';
 
@@ -29,6 +34,7 @@ const csvFile = (csv: string, filename: string) =>
 export class ReportsController {
   constructor(
     private readonly inventoryReportService: InventoryReportService,
+    private readonly personnelCostReportService: PersonnelCostReportService,
     private readonly reportCsvService: ReportCsvService,
     private readonly salesReportService: SalesReportService,
   ) {}
@@ -84,5 +90,32 @@ export class ReportsController {
     return this.reportCsvService
       .inventory(organizationSlug, query)
       .then((csv) => csvFile(csv, 'inventory-report.csv'));
+  }
+  @Get('personnel')
+  @Roles({ payslip: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '查詢人事成本報表' })
+  @ApiOkResponse({ type: PersonnelCostReportResponseDto })
+  findPersonnel(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: PersonnelCostReportQueryDto,
+  ): Promise<PersonnelCostReportResponseDto> {
+    return this.personnelCostReportService.getPersonnelCostReport(
+      organizationSlug,
+      query.month,
+    );
+  }
+
+  @Get('personnel/export.csv')
+  @Roles({ payslip: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '匯出人事成本報表 CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  exportPersonnel(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() query: PersonnelCostReportQueryDto,
+  ): Promise<StreamableFile> {
+    return this.reportCsvService
+      .personnel(organizationSlug, query.month)
+      .then((csv) => csvFile(csv, 'personnel-report.csv'));
   }
 }

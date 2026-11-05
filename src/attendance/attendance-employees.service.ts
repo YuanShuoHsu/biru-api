@@ -221,6 +221,7 @@ export class AttendanceEmployeesService {
     const fieldMap: Record<string, Column | SQL> = {
       name: user.name,
       email: user.email,
+      jobTitle: attendanceEmployee.jobTitle,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
@@ -249,6 +250,7 @@ export class AttendanceEmployeesService {
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
           ilike(user.email, `%${value}%`),
+          ilike(attendanceEmployee.jobTitle, `%${value}%`),
           ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
           ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
         ],
@@ -312,6 +314,7 @@ export class AttendanceEmployeesService {
     const fieldMap: Record<string, Column | SQL> = {
       name: user.name,
       email: user.email,
+      jobTitle: attendanceEmployee.jobTitle,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
@@ -340,6 +343,7 @@ export class AttendanceEmployeesService {
         textConditions: (value) => [
           ilike(user.name, `%${value}%`),
           ilike(user.email, `%${value}%`),
+          ilike(attendanceEmployee.jobTitle, `%${value}%`),
           ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
           ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
         ],
@@ -361,6 +365,7 @@ export class AttendanceEmployeesService {
           email: user.email,
           joinedAt: member.createdAt,
           deletable: employeeDeletableSql,
+          jobTitle: attendanceEmployee.jobTitle,
           employmentType: employmentTypeSql,
           legalStatus: attendanceEmployee.legalStatus,
           workPermits: attendanceEmployee.workPermits,
@@ -404,6 +409,7 @@ export class AttendanceEmployeesService {
           employmentType,
           hiredAt,
           id,
+          jobTitle,
           joinedAt,
           legalStatus,
           name,
@@ -431,6 +437,7 @@ export class AttendanceEmployeesService {
               ? null
               : {
                   id,
+                  jobTitle,
                   employmentType,
                   legalStatus,
                   workPermits,
@@ -858,6 +865,7 @@ export class AttendanceEmployeesService {
       const values = {
         organizationId: actor.organizationId,
         userId: dto.userId,
+        jobTitle: dto.jobTitle?.trim() || null,
         birthDate: dto.birthDate,
         taiwanStaySince:
           dto.legalStatus === 'national' ? null : (dto.taiwanStaySince ?? null),
