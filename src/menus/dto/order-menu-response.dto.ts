@@ -138,8 +138,8 @@ export class OrderMenuAddOnItemResponseDto {
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty({
     description: '可販售的點餐模式',
@@ -240,8 +240,8 @@ export class OrderMenuItemResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
@@ -337,8 +337,8 @@ export class OrderMenuSectionResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty()
   sortOrder: number;
@@ -363,8 +363,8 @@ export class OrderMenuResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty({ description: '店家定價幣別；整份菜單共用一個' })
   currency: string;

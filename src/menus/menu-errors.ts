@@ -6,14 +6,19 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const menuErrorCodes = [
   'addOnMenuSectionNotFound',
+  'addOnSelf',
+  'addOnTargetRequired',
   'fixedSweetnessLevelRequired',
   'menuItemNotFound',
   'menuSectionNotFound',
   'modifierGroupNotFound',
   'modifierNotFound',
   'offerNotFound',
+  'parentSectionDescendant',
   'parentSectionNotFound',
+  'parentSectionSelf',
   'printerNotFound',
+  'selectionCountInvalid',
 ] as const;
 
 export type MenuErrorCode = (typeof menuErrorCodes)[number];

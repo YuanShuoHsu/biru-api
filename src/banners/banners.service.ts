@@ -22,6 +22,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { banner } from '../db/schema/banners.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { withImageUrl } from '../images/image-url.js';
 
 import {
   buildFilterCondition,
@@ -50,10 +51,10 @@ export class BannersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   // 前台輪播:僅啟用且在上下架時間內的圖,依排序顯示
-  findAllActive(): Promise<BannerResponseDto[]> {
+  async findAllActive(): Promise<BannerResponseDto[]> {
     const now = new Date();
 
-    return this.db.query.banner.findMany({
+    const rows = await this.db.query.banner.findMany({
       where: and(
         eq(banner.isActive, true),
         or(isNull(banner.startsAt), lte(banner.startsAt, now)),
@@ -61,6 +62,8 @@ export class BannersService {
       ),
       orderBy: [asc(banner.sortOrder), asc(banner.createdAt)],
     });
+
+    return rows.map((row) => withImageUrl('banner', row));
   }
 
   async findAll(
@@ -120,7 +123,7 @@ export class BannersService {
       this.db.select({ total: count() }).from(banner).where(where),
     ]);
 
-    return { data, total };
+    return { data: data.map((row) => withImageUrl('banner', row)), total };
   }
 
   async create(dto: CreateBannerDto): Promise<BannerResponseDto> {
@@ -142,7 +145,7 @@ export class BannersService {
       })
       .returning();
 
-    return created;
+    return withImageUrl('banner', created);
   }
 
   async update(
@@ -175,7 +178,7 @@ export class BannersService {
       .returning();
     if (!updated) throw notFoundError('bannerNotFound');
 
-    return updated;
+    return withImageUrl('banner', updated);
   }
 
   async remove(bannerId: string): Promise<void> {

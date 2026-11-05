@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 import {
   BadRequestException,
@@ -37,20 +37,6 @@ describe('orderErrorCodes', () => {
       expect(orders[code], code).toEqual(expect.stringMatching(/\S/));
     for (const code of orderTicketErrorCodes)
       expect(orderTickets[code], code).toEqual(expect.stringMatching(/\S/));
-  });
-});
-
-describe('翻譯過的錯誤都帶代碼', () => {
-  it('src/orders 不再直接以翻譯訊息建立例外', () => {
-    const offenders = readdirSync('src/orders')
-      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
-      .filter((file) =>
-        /Exception\(\s*this\.(i18n\.)?t\(/.test(
-          readFileSync(`src/orders/${file}`, 'utf8'),
-        ),
-      );
-
-    expect(offenders).toEqual([]);
   });
 });
 

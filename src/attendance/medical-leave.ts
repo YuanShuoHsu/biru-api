@@ -25,7 +25,7 @@ import {
 import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours.js';
 import { requiresMedicalCertificate } from './leave-rules.js';
 
-export const medicalKinds = [
+const medicalKinds = [
   'sick',
   'hospitalSick',
   'pregnancyRest',

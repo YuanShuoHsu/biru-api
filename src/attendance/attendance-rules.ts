@@ -111,7 +111,7 @@ const EVENT_TRANSITIONS = {
   completed: [],
 } as const satisfies Record<ShiftState, readonly AttendanceEventAction[]>;
 
-export const AVAILABLE_PUNCH_ACTIONS = {
+const AVAILABLE_PUNCH_ACTIONS = {
   scheduled: ['clockIn'],
   working: ['clockOut'],
   resting: ['breakEnd'],
@@ -212,14 +212,14 @@ export const MAX_SHIFT_MS = DAY_MS;
 
 export const MAX_DAILY_WORK_SECONDS = 12 * 3600;
 
-export const STUDENT_WEEKLY_WORK_SECONDS = 20 * 3600;
+const STUDENT_WEEKLY_WORK_SECONDS = 20 * 3600;
 
 export const weekStartOfDate = (date: string) => {
   const day = new Date(`${date}T00:00:00Z`);
   return day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS;
 };
 
-export const withinPeriods = (periods: DatePeriod[], date: string) =>
+const withinPeriods = (periods: DatePeriod[], date: string) =>
   periods.some(({ from, to }) => from <= date && date <= to);
 
 export const intervalWithinPeriods = (
@@ -387,7 +387,7 @@ export const restDayDesignationConflict = (
   return designated !== null && dayKind !== designated;
 };
 
-export const INDIGENOUS_HOLIDAY_NAME = '原住民族歲時祭儀';
+const INDIGENOUS_HOLIDAY_NAME = '原住民族歲時祭儀';
 
 export const INDIGENOUS_HOLIDAYS_PER_YEAR = 3;
 
@@ -565,7 +565,7 @@ export const MINIMUM_WORKING_AGE = 15;
 
 export const ADULT_WORKING_AGE = 16;
 
-export const MIN_SHIFT_REST_MS = 11 * 3600 * 1000;
+const MIN_SHIFT_REST_MS = 11 * 3600 * 1000;
 
 const CHILD_DAILY_WORK_SECONDS = 8 * 3600;
 

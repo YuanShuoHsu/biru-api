@@ -231,3 +231,40 @@ describe('CreateOrderDto invoice', () => {
     },
   );
 });
+
+describe('CreateOrderDto pickupTime', () => {
+  const pickupTimeErrorsOf = async (pickupTime: string) =>
+    (
+      await validate(
+        plainToInstance(CreateOrderDto, {
+          customer: { name: 'Amy' },
+          invoice: { type: 'personal' },
+          items: [],
+          mode: 'pickup',
+          payment: 'Credit',
+          pickupTime,
+        }),
+      )
+    ).filter(({ property }) => property === 'pickupTime');
+
+  it.each(['2026-08-31T01:15:00.000Z', '2026-08-31T09:15:00+08:00'])(
+    'accepts %j',
+    async (pickupTime) => {
+      expect(await pickupTimeErrorsOf(pickupTime)).toEqual([]);
+    },
+  );
+
+  it.each([
+    '2026-08-31T09:15:00',
+    '2026-08-31',
+    '2026-02-30T09:15:00+08:00',
+    '2026-08-31T24:00:00+08:00',
+    '2026-08-31T09:15:00+0800',
+    '2026-08-31T09:15+08:00',
+  ])(
+    'rejects %j, which has no offset or is not a real time',
+    async (pickupTime) => {
+      expect(await pickupTimeErrorsOf(pickupTime)).toHaveLength(1);
+    },
+  );
+});

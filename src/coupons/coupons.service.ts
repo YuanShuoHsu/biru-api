@@ -292,6 +292,14 @@ export class CouponsService {
       throw new BadRequestException(this.t('itemScopeSingleOrganization'));
   }
 
+  private assertValidityWindow(
+    validFrom: Date | null | undefined,
+    validThrough: Date | null | undefined,
+  ): void {
+    if (validFrom && validThrough && validFrom >= validThrough)
+      throw badRequestError('scheduleInvalid');
+  }
+
   private async resolveDiscountCurrency(
     applicableOrganizationIds: string[] | null | undefined,
     declared: string | undefined,
@@ -319,6 +327,11 @@ export class CouponsService {
       dto.menuSectionIds,
       applicableOrganizationIds,
     );
+    const validFrom = dto.validFrom ? new Date(dto.validFrom) : undefined;
+    const validThrough = dto.validThrough
+      ? new Date(dto.validThrough)
+      : undefined;
+    this.assertValidityWindow(validFrom, validThrough);
 
     const code = dto.code.trim();
     const existing = await this.db.query.coupon.findFirst({
@@ -350,8 +363,8 @@ export class CouponsService {
         pointsCost: dto.pointsCost,
         scope,
         totalLimit: dto.totalLimit,
-        validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
-        validThrough: dto.validThrough ? new Date(dto.validThrough) : undefined,
+        validFrom,
+        validThrough,
       })
       .returning();
 
@@ -779,6 +792,25 @@ export class CouponsService {
       effectiveOrganizationIds,
     );
 
+    // null 表示清除期限，undefined 表示不變更
+    const validFrom =
+      dto.validFrom === null
+        ? null
+        : dto.validFrom
+          ? new Date(dto.validFrom)
+          : undefined;
+    const validThrough =
+      dto.validThrough === null
+        ? null
+        : dto.validThrough
+          ? new Date(dto.validThrough)
+          : undefined;
+    if (validFrom !== undefined || validThrough !== undefined)
+      this.assertValidityWindow(
+        validFrom === undefined ? found.validFrom : validFrom,
+        validThrough === undefined ? found.validThrough : validThrough,
+      );
+
     if (dto.code !== undefined) {
       const duplicated = await this.db.query.coupon.findFirst({
         where: and(
@@ -814,19 +846,8 @@ export class CouponsService {
         scope: dto.scope,
         totalLimit: dto.totalLimit,
         updatedAt: new Date(),
-        // null 表示清除期限，undefined 表示不變更
-        validFrom:
-          dto.validFrom === null
-            ? null
-            : dto.validFrom
-              ? new Date(dto.validFrom)
-              : undefined,
-        validThrough:
-          dto.validThrough === null
-            ? null
-            : dto.validThrough
-              ? new Date(dto.validThrough)
-              : undefined,
+        validFrom,
+        validThrough,
       })
       .where(eq(coupon.id, couponId))
       .returning();
@@ -931,7 +952,7 @@ export class CouponsService {
     // 生日券與消費券沒有唯一索引擋重複；用 no key update 才不會擋到參照會員的 insert 而與領券互鎖
     await this.db.transaction(async (tx) => {
       const [found] = await tx
-        .select({ birthDate: user.birthDate })
+        .select({ birthDate: user.birthDate, createdAt: user.createdAt })
         .from(user)
         .where(eq(user.id, userId))
         .for('no key update');
@@ -940,6 +961,8 @@ export class CouponsService {
       await Promise.all(
         autoCoupons.map(async (c) => {
           if (c.issueTrigger === 'signup') {
+            if (found.createdAt < (c.validFrom ?? c.createdAt)) return;
+
             await tx
               .insert(userCoupon)
               .values({
@@ -996,7 +1019,7 @@ export class CouponsService {
                       ? [inArray(order.sellerId, c.applicableOrganizationIds)]
                       : []),
                     eq(order.userId, userId),
-                    isNotNull(order.paymentDate),
+                    gte(order.paymentDate, c.validFrom ?? c.createdAt),
                     notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
                   ),
                 )
@@ -1203,6 +1226,9 @@ export class CouponsService {
         found.applicableOrganizationIds[0] !== organizationId)
     )
       throw new ForbiddenException(this.t('notGrantable'));
+    if (!found.isActive) throw badRequestError('grantInactive');
+    if (found.validThrough && found.validThrough < new Date())
+      throw badRequestError('grantExpired');
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,

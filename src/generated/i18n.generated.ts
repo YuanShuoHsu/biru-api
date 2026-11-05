@@ -191,6 +191,8 @@ export type I18nTranslations = {
             "codeExists": string;
             "couponNotFound": string;
             "expired": string;
+            "grantExpired": string;
+            "grantInactive": string;
             "inUse": string;
             "issueMinSpendRequired": string;
             "itemScopeSingleOrganization": string;
@@ -207,6 +209,7 @@ export type I18nTranslations = {
             "perUserLimitReached": string;
             "percentageTooHigh": string;
             "pointsOnly": string;
+            "scheduleInvalid": string;
             "usedUp": string;
         };
         "deletedRecords": {
@@ -234,6 +237,7 @@ export type I18nTranslations = {
         "inventory": {
             "ingredientInUse": string;
             "ingredientNotFound": string;
+            "insufficientStock": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "purchaseFieldsOnSourcedIngredient": string;
@@ -242,6 +246,7 @@ export type I18nTranslations = {
             "recipeNotFound": string;
             "sourceRecipeHasMenuItem": string;
             "sourceRecipeNested": string;
+            "sourceRecipeRequired": string;
             "sourceRecipeUnitIncompatible": string;
             "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;

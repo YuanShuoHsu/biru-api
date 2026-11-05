@@ -14,11 +14,14 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
+  isNull,
   lt,
   ne,
+  not,
   or,
   sql,
 } from 'drizzle-orm';
@@ -96,6 +99,21 @@ const buildEnumFilterCondition = (
   }
 };
 
+const isBannedNow = (): SQL =>
+  and(
+    sql`coalesce(${user.banned}, false)`,
+    or(isNull(user.banExpires), gt(user.banExpires, new Date())),
+  )!;
+
+const booleanEquals = (
+  field: typeof user.banned | typeof user.emailSubscribed,
+  value: boolean,
+): SQL => {
+  if (field !== user.banned) return eq(field, value);
+
+  return value ? isBannedNow() : not(isBannedNow());
+};
+
 const buildBooleanFilterCondition = (
   field: typeof user.banned | typeof user.emailSubscribed,
   operator: EnumFilterOperator,
@@ -109,12 +127,12 @@ const buildBooleanFilterCondition = (
 
   switch (operator) {
     case 'is':
-      return eq(field, boolValues[0]);
+      return booleanEquals(field, boolValues[0]);
     case 'not':
-      return ne(field, boolValues[0]);
+      return booleanEquals(field, !boolValues[0]);
     case 'isAnyOf':
       if (boolValues.length >= 2) return undefined;
-      return eq(field, boolValues[0]);
+      return booleanEquals(field, boolValues[0]);
   }
 };
 
@@ -140,7 +158,7 @@ const buildBooleanQuickFilterCondition = (
 ): SQL | undefined => {
   const values = value.split(',').filter(Boolean);
 
-  return or(...values.map((entry) => eq(column, entry === 'true')));
+  return or(...values.map((entry) => booleanEquals(column, entry === 'true')));
 };
 
 const buildColumnFilterCondition = (

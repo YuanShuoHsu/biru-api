@@ -330,7 +330,6 @@ export class AttendanceParentalService {
     if (
       !reference ||
       !label ||
-      !Number.isFinite(birthDate.getTime()) ||
       birthDate > new Date() ||
       birthDate.getTime() !== platformMidnight(birthDate.getTime())
     )

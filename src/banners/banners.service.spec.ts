@@ -35,18 +35,19 @@ describe('BannersService', () => {
   it('前台只回傳啟用且在上下架時間內的橫幅', async () => {
     const now = Date.now();
     const at = (offset: number) => new Date(now + offset).toISOString();
-    for (const [image, fields] of [
+    const ids = new Map<string, string>();
+    for (const [label, fields] of [
       ['always', {}],
       ['running', { startsAt: at(-DAY_MS), endsAt: at(DAY_MS) }],
       ['scheduled', { startsAt: at(DAY_MS) }],
       ['ended', { endsAt: at(-DAY_MS) }],
       ['inactive', { isActive: false }],
     ] as const)
-      await service.create({ image, ...fields });
+      ids.set(label, (await service.create({ image: label, ...fields })).id);
 
-    expect((await service.findAllActive()).map(({ image }) => image)).toEqual([
-      'always',
-      'running',
+    expect((await service.findAllActive()).map(({ id }) => id)).toEqual([
+      ids.get('always'),
+      ids.get('running'),
     ]);
   });
 

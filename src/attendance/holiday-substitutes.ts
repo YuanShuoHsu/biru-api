@@ -29,6 +29,7 @@ import {
   weekStartOfDate,
 } from './attendance-rules.js';
 import { CALENDAR_LEAVE_KINDS } from './leave-rules.js';
+import { shiftStartDate } from './shift-queries.js';
 
 const shiftDate = (date: string, days: number) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
@@ -206,4 +207,35 @@ export async function loadAgreedHolidays(
       ];
     }),
   );
+}
+
+export async function holidayDatesAmong(
+  tx: Transaction,
+  employee: { id: string; indigenousHolidays: string[] },
+  dates: string[],
+) {
+  const [statutory, substituted] = await Promise.all([
+    tx
+      .select({ date: statutoryHoliday.date })
+      .from(statutoryHoliday)
+      .where(inArray(statutoryHoliday.date, dates)),
+    tx
+      .select({ date: shiftStartDate })
+      .from(attendanceHolidaySubstitute)
+      .innerJoin(
+        attendanceShift,
+        eq(attendanceShift.id, attendanceHolidaySubstitute.shiftId),
+      )
+      .where(
+        and(
+          eq(attendanceHolidaySubstitute.employeeId, employee.id),
+          ne(attendanceShift.status, 'cancelled'),
+          inArray(shiftStartDate, dates),
+        ),
+      ),
+  ]);
+  return new Set([
+    ...[...statutory, ...substituted].map(({ date }) => date),
+    ...employee.indigenousHolidays.filter((date) => dates.includes(date)),
+  ]);
 }

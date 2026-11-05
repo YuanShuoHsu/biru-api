@@ -6,6 +6,7 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
+  IsISO8601,
   IsNumber,
   IsOptional,
   Matches,
@@ -77,6 +78,7 @@ export class SaveAttendanceSettingsDto {
   })
   @IsOptional()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
+  @IsISO8601({ strict: true })
   overtimeAgreedFrom?: string | null;
   @ApiPropertyOptional({
     description: '每月發薪日，超過該月天數時為月底',

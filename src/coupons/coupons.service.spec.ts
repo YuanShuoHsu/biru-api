@@ -518,3 +518,68 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     ).resolves.toBeNull();
   });
 });
+
+describe('CouponsService.grant 券狀態', () => {
+  const grantOf = (found: Partial<Coupon>, organizationId?: string) => {
+    const db = {
+      query: {
+        coupon: { findFirst: vi.fn().mockResolvedValue(found) },
+        user: { findFirst: vi.fn().mockResolvedValue(undefined) },
+      },
+    };
+    const service = new CouponsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as OrderPricingService,
+    );
+    return service.grant(
+      'coupon',
+      'member@example.com',
+      'admin',
+      organizationId,
+    );
+  };
+
+  it('停用的券不能發放', async () => {
+    await expect(
+      grantOf({ ...baseCoupon, isActive: false }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'grantInactive' },
+    });
+  });
+
+  it('已過期的券不能發放', async () => {
+    await expect(
+      grantOf({ ...baseCoupon, validThrough: new Date(Date.now() - 1000) }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'grantExpired' },
+    });
+  });
+
+  it('別家門市的券先回 403，不透露券的狀態', async () => {
+    await expect(
+      grantOf(
+        {
+          ...baseCoupon,
+          applicableOrganizationIds: ['other'],
+          isActive: false,
+        },
+        ORG_ID,
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it.each([
+    ['尚未開始的券', { validFrom: new Date(Date.now() + 86_400_000) }],
+    ['點數兌換券', { pointsCost: 100 }],
+  ])('%s可以發放', async (_, overrides) => {
+    await expect(
+      grantOf({ ...baseCoupon, ...overrides }),
+    ).rejects.toMatchObject({
+      status: 404,
+      message: 'common.coupons.memberNotFound',
+    });
+  });
+});

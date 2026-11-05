@@ -97,6 +97,7 @@ import {
   weeklyMinutesAt,
 } from './employee-hours.js';
 import { findEmployee } from './employee-lookup.js';
+import { holidayDatesAmong } from './holiday-substitutes.js';
 import { anniversary } from './leave-rules.js';
 import { shiftStartDate } from './shift-queries.js';
 import {
@@ -754,6 +755,16 @@ export class AttendanceEmployeesService {
         const removedHolidays = current.indigenousHolidays.filter(
           (date) => !indigenousHolidays.includes(date),
         );
+        const stillHolidays = removedHolidays.length
+          ? await holidayDatesAmong(
+              tx,
+              { id: current.id, indigenousHolidays },
+              removedHolidays,
+            )
+          : new Set<string>();
+        const revertedDates = removedHolidays.filter(
+          (date) => !stillHolidays.has(date),
+        );
         const changedHolidays = [...addedHolidays, ...removedHolidays];
         const flippedDates = new Set(
           changedHolidays.length
@@ -772,7 +783,7 @@ export class AttendanceEmployeesService {
                         ),
                         and(
                           eq(attendanceShift.dayKind, 'holiday'),
-                          inArray(shiftStartDate, removedHolidays),
+                          inArray(shiftStartDate, revertedDates),
                         ),
                       ),
                     ),
@@ -819,7 +830,7 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, addedHolidays),
               ),
             );
-        if (removedHolidays.length)
+        if (revertedDates.length)
           await tx
             .update(attendanceShift)
             .set({ dayKind: 'workday' })
@@ -827,7 +838,7 @@ export class AttendanceEmployeesService {
               and(
                 eq(attendanceShift.employeeId, current.id),
                 eq(attendanceShift.dayKind, 'holiday'),
-                inArray(shiftStartDate, removedHolidays),
+                inArray(shiftStartDate, revertedDates),
               ),
             );
         for (const [before, after] of [

@@ -6,10 +6,11 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsIn,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
@@ -30,20 +31,21 @@ export class EmergencyWorkDto {
   })
   @IsIn(['disaster', 'incident', 'unexpected'])
   cause: 'disaster' | 'incident' | 'unexpected';
-  @IsDateString() reportedAt: string;
-  @IsDateString() makeupStartsAt: string;
-  @IsDateString() makeupEndsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) reportedAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) makeupStartsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) makeupEndsAt: string;
 }
 
 export class ReviewLeaveCaseDto {
   @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(100) reference: string;
-  @IsDateString() eventDate: string;
-  @IsDateString() startsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) eventDate: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) startsAt: string;
   @ApiPropertyOptional({
     description: '產假、流產假由開始日加法定天數推得，其他假別必填',
   })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   endsAt?: string;
   @IsOptional() @IsBoolean() extensionAgreed?: boolean;
 }

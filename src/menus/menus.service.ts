@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   Column,
@@ -22,7 +17,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
@@ -59,7 +54,6 @@ import { printer } from '../db/schema/printers.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
 import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
 import { RecipesService } from '../inventory/recipes.service.js';
@@ -213,14 +207,7 @@ export class MenusService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly recipesService: RecipesService,
-    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
-
-  private t(key: keyof I18nTranslations['common']['menus']): string {
-    return this.i18n.t(`common.menus.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private async recipeWithCost(
     found: RecipeSummary | null | undefined,
@@ -273,7 +260,7 @@ export class MenusService {
   ): Promise<void> {
     if (!parentSectionId) return;
     if (parentSectionId === sectionId)
-      throw new BadRequestException(this.t('parentSectionSelf'));
+      throw badRequestError('parentSectionSelf');
 
     await tx
       .select({ id: menu.id })
@@ -298,7 +285,7 @@ export class MenusService {
     if (ancestors.find(({ id }) => id === parentSectionId)?.menu_id !== menuId)
       throw notFoundError('parentSectionNotFound');
     if (sectionId && ancestors.some(({ id }) => id === sectionId))
-      throw new BadRequestException(this.t('parentSectionDescendant'));
+      throw badRequestError('parentSectionDescendant');
   }
 
   private async validateOrderTicketPrinter(
@@ -1221,10 +1208,10 @@ export class MenusService {
     }: CreateMenuItemAddOnDto | UpdateMenuItemAddOnDto,
   ): Promise<void> {
     if (!addOnMenuItemId === !addOnMenuSectionId)
-      throw new BadRequestException(this.t('addOnTargetRequired'));
+      throw badRequestError('addOnTargetRequired');
 
     if (addOnMenuItemId === menuItemId) {
-      throw new BadRequestException(this.t('addOnSelf'));
+      throw badRequestError('addOnSelf');
     }
 
     const menuId = await this.menuIdOfItem(menuItemId);
@@ -1511,7 +1498,7 @@ export class MenusService {
     maxSelectionCount: number | null,
   ): void {
     if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
-      throw new BadRequestException(this.t('selectionCountInvalid'));
+      throw badRequestError('selectionCountInvalid');
     }
   }
 

@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsUUID,
   Matches,
@@ -52,7 +53,9 @@ export class AttendanceHolidaySubstitutePaginationQueryDto extends PaginationQue
 
 export class CreateAttendanceHolidaySubstituteDto {
   @IsUUID() employeeId: string;
-  @Matches(/^\d{4}-\d{2}-\d{2}$/) holidayDate: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
+  holidayDate: string;
   @IsUUID() shiftId: string;
 }
 
