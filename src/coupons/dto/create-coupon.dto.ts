@@ -4,11 +4,12 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsNumber,
   IsOptional,
+  IsRFC3339,
   IsString,
   Matches,
   MaxLength,
@@ -153,12 +154,14 @@ export class CreateCouponDto {
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   validFrom?: string | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   validThrough?: string | null;
 }
 

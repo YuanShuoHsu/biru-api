@@ -156,6 +156,7 @@
     "perUserLimitReached": "You have already used this promo code",
     "percentageTooHigh": "A percentage discount can't exceed 100",
     "pointsOnly": "This promo code must be redeemed with points before use",
+    "scheduleInvalid": "The start time must be earlier than the end time",
     "usedUp": "This promo code has reached its usage limit"
   },
   "deletedRecords": {

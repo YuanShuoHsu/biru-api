@@ -156,6 +156,7 @@
     "perUserLimitReached": "您已使用过此优惠码",
     "percentageTooHigh": "百分比折扣不能超过 100",
     "pointsOnly": "此优惠码需以点数兑换后才能使用",
+    "scheduleInvalid": "开始时间必须早于结束时间",
     "usedUp": "此优惠码已达使用上限"
   },
   "deletedRecords": {

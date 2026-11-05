@@ -9,6 +9,7 @@ export const couponErrorCodes = [
   'couponNotFound',
   'grantExpired',
   'grantInactive',
+  'scheduleInvalid',
 ] as const;
 
 export type CouponErrorCode = (typeof couponErrorCodes)[number];
