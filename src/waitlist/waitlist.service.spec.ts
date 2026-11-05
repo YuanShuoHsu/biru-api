@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -235,6 +237,75 @@ describe('WaitlistService.createTicket', () => {
       service.createTicket('slug', dto, null, 'zh-TW', 'key', false),
     ).resolves.toMatchObject({ id: 't', ticketNumber: 'A001' });
     expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the same request', dto, 'resolves'],
+    ['a different request', { ...dto, partySize: 3 }, 'rejects'],
+  ] as const)(
+    'replays a ticket for %s with the same key',
+    async (_, retried, outcome) => {
+      const fingerprint = createHash('sha256')
+        .update(JSON.stringify(dto))
+        .digest('hex');
+      const { service } = createService({
+        setting: openSetting,
+        ticket: {
+          calledAt: null,
+          confirmedAt: null,
+          id: 't',
+          idempotencyFingerprint: fingerprint,
+          number: 1,
+          organizationId: 'org',
+          prefix: 'A',
+          status: 'called',
+        },
+      });
+
+      const result = service.createTicket(
+        'slug',
+        retried,
+        null,
+        'zh-TW',
+        'key',
+        false,
+      );
+
+      if (outcome === 'resolves')
+        await expect(result).resolves.toMatchObject({ id: 't' });
+      else
+        await expect(result).rejects.toMatchObject({
+          message: 'waitlistIdempotencyConflict',
+          status: 409,
+        });
+    },
+  );
+
+  it('replays a ticket recorded without a fingerprint for any request', async () => {
+    const { service } = createService({
+      setting: openSetting,
+      ticket: {
+        calledAt: null,
+        confirmedAt: null,
+        id: 't',
+        idempotencyFingerprint: null,
+        number: 1,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(
+      service.createTicket(
+        'slug',
+        { ...dto, partySize: 3 },
+        null,
+        'zh-TW',
+        'key',
+        false,
+      ),
+    ).resolves.toMatchObject({ id: 't' });
   });
 });
 

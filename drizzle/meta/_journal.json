@@ -1800,6 +1800,13 @@
       "when": 1793860276363,
       "tag": "0256_inventory_transaction_production_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1793865284803,
+      "tag": "0257_waitlist_idempotency_fingerprint_indexes",
+      "breakpoints": true
     }
   ]
 }

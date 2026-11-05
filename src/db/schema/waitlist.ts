@@ -71,6 +71,7 @@ export const waitlistTicket = pgTable(
     status: waitlistTicketStatusEnum('status').notNull().default('waiting'),
     cancelReason: cancelReasonEnum('cancel_reason'),
     idempotencyKey: text('idempotency_key'),
+    idempotencyFingerprint: text('idempotency_fingerprint'),
     calledAt: timestamp('called_at'),
     confirmedAt: timestamp('confirmed_at'),
     endedAt: timestamp('ended_at'),
@@ -94,6 +95,15 @@ export const waitlistTicket = pgTable(
       table.idempotencyKey,
     ),
     index('waitlist_ticket_status_idx').on(table.status, table.serviceDate),
+    index('waitlist_ticket_organizationId_createdAt_idx').on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index('waitlist_ticket_personal_data_idx')
+      .on(sql`COALESCE(${table.endedAt}, ${table.createdAt})`)
+      .where(
+        sql`${table.name} IS NOT NULL OR ${table.phoneNumber} IS NOT NULL OR ${table.email} IS NOT NULL`,
+      ),
     check('waitlist_ticket_party_size_positive', sql`${table.partySize} > 0`),
   ],
 );

@@ -13,6 +13,7 @@ export const waitlistErrorCodes = [
   'waitlistCutoff',
   'waitlistDisabled',
   'waitlistGroupsInvalid',
+  'waitlistIdempotencyConflict',
   'waitlistPartySizeUnavailable',
   'waitlistPaused',
   'waitlistPhoneInQueue',
