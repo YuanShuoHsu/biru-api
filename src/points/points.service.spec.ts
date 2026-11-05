@@ -667,6 +667,56 @@ describe('PointsService.findAllForOrganization', () => {
     ).toHaveLength(1);
   });
 
+  it('收回已取消訂單時，同時被兌換掉的點數也算進欠點', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+    await service.findAllForOrganization('biru');
+    await client.query(
+      `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+    );
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+    );
+    const update = db.update.bind(db);
+    vi.spyOn(db, 'update').mockImplementationOnce((table) => {
+      void client.query(
+        `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
+      );
+      return update(table);
+    });
+
+    await service.findAllForOrganization('biru');
+
+    expect(
+      await db
+        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1')),
+    ).toEqual([{ remainingPoints: -100 }]);
+  });
+
+  it('同時收回兩次已取消訂單，部分使用的點數只扣一次', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+    await service.findAllForOrganization('biru');
+    await client.query(
+      `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+    );
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+    );
+
+    await Promise.all([
+      service.findAllForOrganization('biru'),
+      service.findAllForOrganization('biru'),
+    ]);
+
+    expect(
+      await db
+        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1')),
+    ).toEqual([{ remainingPoints: -70 }]);
+  });
+
   it('依會員 email 篩選', async () => {
     await addPaidOrder('o1', ORG, 'amy');
     await addPaidOrder('o2', ORG, 'bob');
