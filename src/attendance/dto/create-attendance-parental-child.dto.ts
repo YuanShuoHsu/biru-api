@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
-  IsDateString,
+  IsISO8601,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
@@ -12,5 +13,5 @@ export class CreateAttendanceParentalChildDto {
   @IsUUID() employeeId: string;
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(100) reference: string;
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(100) label: string;
-  @IsDateString() birthDate: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) birthDate: string;
 }

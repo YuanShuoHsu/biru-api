@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
-  IsDateString,
+  IsISO8601,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
@@ -10,6 +11,6 @@ import { trim } from '../../common/utils/trim.js';
 
 export class CreateAttendanceAnnualLeaveDeferralDto {
   @IsUUID() employeeId: string;
-  @IsDateString() periodStart: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) periodStart: string;
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason: string;
 }

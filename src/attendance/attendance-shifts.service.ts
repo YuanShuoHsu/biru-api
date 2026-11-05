@@ -778,8 +778,6 @@ export class AttendanceShiftsService {
     { from, weeks, dryRun = false }: CopyAttendanceWeekDto,
   ) {
     const sourceStart = new Date(`${from}T00:00:00${STORE_UTC_OFFSET}`);
-    if (!Number.isFinite(sourceStart.getTime()))
-      throw badRequestError('invalidInterval');
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const source = await tx
