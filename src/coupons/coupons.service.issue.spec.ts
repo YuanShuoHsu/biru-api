@@ -2,13 +2,11 @@ import { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import { coupon, userCoupon } from '../db/schema/coupons.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { OrderPricingService } from '../orders/order-pricing.service.js';
 
 import { CouponsService } from './coupons.service.js';
@@ -24,7 +22,6 @@ describe('CouponsService 註冊禮、生日券與滿額券發放', () => {
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new CouponsService(
       db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       {} as OrderPricingService,
     );
   }, 60_000);

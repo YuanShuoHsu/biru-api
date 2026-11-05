@@ -1,6 +1,6 @@
 {
-  "id": "6d3675b6-3a8d-42f4-b43f-1190a0270b71",
-  "prevId": "9cdd09d1-f4cd-4315-ab38-2d6c886ef0ee",
+  "id": "6b089c2b-efbb-4362-b031-67e04b081bf0",
+  "prevId": "0618cdb7-8b82-456a-b0b0-d9226e52e62f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -369,6 +369,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "job_title": {
+          "name": "job_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "birth_date": {
           "name": "birth_date",
@@ -3409,7 +3415,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "ingredient_supplier_id_supplier_id_fk": {

@@ -159,6 +159,7 @@ export const attendanceEmployee = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
+    jobTitle: text('job_title'),
     birthDate: text('birth_date'),
     taiwanStaySince: text('taiwan_stay_since'),
     legalStatus: text('legal_status')

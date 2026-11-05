@@ -40,11 +40,16 @@ describe('RecipesService', () => {
         unitCode: 'GRM' as const,
       })),
     );
+    await client.exec(`
+      insert into menu (id, organization_id, name) values ('menu', '${ORG}', '{"zh-TW":"菜單"}');
+      insert into menu_item (id, menu_id, name) values ('latte-item', 'menu', '{"zh-TW":"拿鐵"}');
+    `);
     await db.insert(recipe).values([
       {
         id: 'latte',
         name: { en: 'Latte', 'zh-TW': '拿鐵' },
         organizationId: ORG,
+        menuItemId: 'latte-item',
       },
       { id: 'mocha', name: { 'zh-TW': '摩卡' }, organizationId: ORG },
     ]);
@@ -91,6 +96,12 @@ describe('RecipesService', () => {
         filterValue: 'Latte',
       }),
     ).toEqual(['latte']);
+  });
+
+  it('依是否綁定菜單品項篩選食譜', async () => {
+    expect(await recipeIds({ hasMenuItem: false })).toEqual(['mocha']);
+    expect(await recipeIds({ hasMenuItem: true })).toEqual(['latte']);
+    expect(await recipeIds({})).toEqual(['latte', 'mocha']);
   });
 
   it('食譜材料名稱的快速搜尋與篩選不比對語系鍵', async () => {

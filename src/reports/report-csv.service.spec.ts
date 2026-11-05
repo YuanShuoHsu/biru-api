@@ -8,6 +8,7 @@ import { languagesEnum } from '../db/schema/enums.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { InventoryReportService } from './inventory-report.service.js';
+import type { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { ReportCsvService, toCsv } from './report-csv.service.js';
 import type { SalesReportService } from './sales-report.service.js';
 
@@ -65,9 +66,11 @@ describe('toCsv', () => {
 describe('ReportCsvService', () => {
   const salesReportService = { getSalesReport: vi.fn() };
   const inventoryReportService = { getInventoryReport: vi.fn() };
+  const personnelCostReportService = { getPersonnelCostReport: vi.fn() };
   const service = new ReportCsvService(
     i18n,
     inventoryReportService as unknown as InventoryReportService,
+    personnelCostReportService as unknown as PersonnelCostReportService,
     salesReportService as unknown as SalesReportService,
   );
   const range = {
