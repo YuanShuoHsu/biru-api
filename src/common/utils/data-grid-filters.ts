@@ -23,7 +23,7 @@ import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
-// https://www.postgresql.org/docs/16/functions-matching.html#FUNCTIONS-LIKE
+// https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-LIKE
 export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 export const localTimeText = (column: Column | SQL): SQL =>
