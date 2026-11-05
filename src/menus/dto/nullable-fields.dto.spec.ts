@@ -78,6 +78,15 @@ describe('menu DTO fields cleared with null', () => {
     expect(await errorsOf(cls, fields)).toEqual([]);
   });
 
+  it.each([UpdateMenuDto, UpdateMenuSectionDto, UpdateMenuItemDto])(
+    '%o rejects an image that is not an image data URL',
+    async (cls) => {
+      expect(
+        await errorsOf(cls, { image: 'data:image/svg+xml;base64,PHN2Zz4=' }),
+      ).toEqual(['image']);
+    },
+  );
+
   it.each([
     [UpdateMenuDto, 'image'],
     [UpdateMenuSectionDto, 'image'],
