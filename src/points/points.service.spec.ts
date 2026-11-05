@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { Logger } from '@nestjs/common';
-import { eq, isNotNull } from 'drizzle-orm';
+import { eq, isNotNull, lt } from 'drizzle-orm';
 import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
@@ -82,7 +82,7 @@ describe('PointsService.getAllMine', () => {
 
     expect(result.transactions.map(({ id }) => id)).toEqual(['t5', 't4']);
     expect(result.transactionsTotal).toBe(7);
-    expect(result.balance).toBe(21);
+    expect(result.balance).toBe(16);
   });
 
   it('同一時間建立的明細依 id 排序，翻頁不重複也不遺漏', async () => {
@@ -734,23 +734,32 @@ describe('PointsService.findAllForOrganization', () => {
     await client.query(
       `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
     );
-    const update = db.update.bind(db);
-    const spy = vi.spyOn(db, 'update').mockImplementationOnce((table) => {
-      void client.query(
-        `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
-      );
-      return update(table);
-    });
+    const transaction = db.transaction.bind(db);
+    const spy = vi
+      .spyOn(db, 'transaction')
+      .mockImplementationOnce(async (run, config) => {
+        await client.query(
+          `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
+        );
+        return transaction(run, config);
+      });
     onTestFinished(() => spy.mockRestore());
 
     await service.findAllForOrganization('biru');
 
     expect(
       await db
-        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
         .from(pointTransaction)
-        .where(eq(pointTransaction.orderId, 'o1')),
-    ).toEqual([{ remainingPoints: -100 }]);
+        .where(eq(pointTransaction.orderId, 'o1'))
+        .orderBy(pointTransaction.type),
+    ).toEqual([
+      { remainingPoints: 0, type: 'earn' },
+      { remainingPoints: -100, type: 'revoke' },
+    ]);
   });
 
   it('同時收回兩次已取消訂單，部分使用的點數只扣一次', async () => {
@@ -770,10 +779,272 @@ describe('PointsService.findAllForOrganization', () => {
 
     expect(
       await db
-        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
         .from(pointTransaction)
-        .where(eq(pointTransaction.orderId, 'o1')),
-    ).toEqual([{ remainingPoints: -70 }]);
+        .where(eq(pointTransaction.orderId, 'o1'))
+        .orderBy(pointTransaction.type),
+    ).toEqual([
+      { remainingPoints: 0, type: 'earn' },
+      { remainingPoints: -70, type: 'revoke' },
+    ]);
+  });
+
+  describe('欠點', () => {
+    const spendAll = async (orderId: string) => {
+      const [earn] = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, orderId));
+      await db
+        .update(pointTransaction)
+        .set({ remainingPoints: 0 })
+        .where(eq(pointTransaction.id, earn.id));
+      await db.insert(pointTransaction).values({
+        id: `redeem-${orderId}`,
+        points: -earn.remainingPoints,
+        type: 'redeem',
+        userId: earn.userId,
+      });
+    };
+
+    const remainingByType = (orderId: string) =>
+      db
+        .select({
+          remainingPoints: pointTransaction.remainingPoints,
+          type: pointTransaction.type,
+        })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, orderId))
+        .orderBy(pointTransaction.type);
+
+    const balanceAt = async (now: string) => {
+      vi.useFakeTimers({ now: new Date(now), toFake: ['Date'] });
+      try {
+        return (await service.getAllMine('amy')).balance;
+      } finally {
+        vi.useRealTimers();
+      }
+    };
+
+    it('已取消訂單的點數全部兌換掉時也收回，成為欠點且不重複收回', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await spendAll('o1');
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+
+      expect((await service.getAllMine('amy')).balance).toBe(-100);
+      expect((await service.getAllMine('amy')).balance).toBe(-100);
+    });
+
+    it('退款造成的欠點過了收回列的到期日仍計入餘額', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await spendAll('o1');
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect(await balanceAt('2027-03-01T00:00:00Z')).toBe(-100);
+    });
+
+    it('欠點從之後取得的點數抵扣，那筆點數到期後餘額為 0 而不是負數', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.findAllForOrganization('biru');
+      await client.query(
+        `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+      );
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(-70);
+
+      await addPaidOrder('o2', ORG, 'amy', {
+        paymentDate: '2026-03-01',
+        unitPrice: '1000',
+      });
+      await service.getAllMine('amy');
+      await service.getAllMine('amy');
+
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: 0, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+      expect(await balanceAt('2027-03-02T00:00:00Z')).toBe(0);
+    });
+
+    it('舊版直接記在 earn 上的欠點，之後取得點數時改為收回列並抵扣，且不重複收回', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: 0, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
+
+    it('舊版 earn 上的欠點已有收回列時，之後取得點數直接抵扣 earn，不再新增收回列', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values([
+        {
+          id: 'legacy',
+          createdAt: new Date('2026-02-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: 100,
+          remainingPoints: -70,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'legacy-revoke',
+          createdAt: new Date('2026-03-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: -100,
+          remainingPoints: -100,
+          type: 'revoke',
+          userId: 'amy',
+        },
+      ]);
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      await service.getAllMine('amy');
+      await service.getAllMine('amy');
+
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -70, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+      ]);
+    });
+
+    it('舊版直接記在 earn 上的欠點遇到部分退款，不再多記一筆欠點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 0.5,
+      });
+
+      const rows = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1'));
+      expect(
+        rows
+          .filter(({ type }) => type === 'revoke')
+          .reduce((total, row) => total - row.points, 0),
+      ).toBe(100);
+      expect(rows.reduce((total, row) => total + row.remainingPoints, 0)).toBe(
+        -70,
+      );
+    });
+
+    it('現金訂單退回未付款時不收回已用掉的點數，再付款不重複入點，取消後只收回一次', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await client.query(
+        `update point_transaction set remaining_points = 70 where order_id = 'o1'`,
+      );
+
+      await client.query(
+        `update "order" set order_status = 'OrderPaymentDue', payment_date = null, amount_per_point = null where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderProcessing', payment_date = '2026-02-02', amount_per_point = 10 where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 70, type: 'earn' },
+      ]);
+
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect((await service.getAllMine('amy')).balance).toBe(-30);
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -30, type: 'revoke' },
+      ]);
+    });
+
+    it('退款時會員還有其他點數就立即抵扣，不留下欠點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await client.query(
+        `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+      );
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+      expect(
+        await db
+          .select()
+          .from(pointTransaction)
+          .where(lt(pointTransaction.remainingPoints, 0)),
+      ).toEqual([]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
   });
 
   it('依會員 email 篩選', async () => {
