@@ -677,12 +677,13 @@ describe('PointsService.findAllForOrganization', () => {
       `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
     );
     const update = db.update.bind(db);
-    vi.spyOn(db, 'update').mockImplementationOnce((table) => {
+    const spy = vi.spyOn(db, 'update').mockImplementationOnce((table) => {
       void client.query(
         `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
       );
       return update(table);
     });
+    onTestFinished(() => spy.mockRestore());
 
     await service.findAllForOrganization('biru');
 
