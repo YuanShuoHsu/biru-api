@@ -31,8 +31,8 @@ export class ImagesController {
   ): Promise<StreamableFile> {
     const { current, mimeType, data } = await this.imagesService.find(params);
 
-    // 錯誤回應與舊版網址都不能帶永久快取，所以不用 @Header()
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#no-cache
+    // 錯誤回應不能帶永久快取，所以不用 @Header()
+    // https://www.rfc-editor.org/rfc/rfc9111#section-5.2.2.4
     res.set({
       'Cache-Control': current
         ? 'public, max-age=31536000, immutable'

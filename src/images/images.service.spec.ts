@@ -25,6 +25,9 @@ describe('ImagesService', () => {
       .insert(schema.banner)
       .values({ id: 'banner-1', image: 'data:image/png;base64,iVBORw0KGgo=' })
       .returning();
+    await db
+      .insert(schema.banner)
+      .values({ id: 'banner-2', image: 'not-a-data-url' });
     version = String(row.updatedAt.getTime());
   }, 60_000);
 
@@ -64,14 +67,12 @@ describe('ImagesService', () => {
     },
   );
 
-  it('找不到圖片時回 404', async () => {
-    await expect(
-      service.find({
-        kind: 'banner',
-        id: 'missing',
-        version,
-        extension: 'png',
-      }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
+  it.each(['missing', 'banner-2'])(
+    '找不到資料或圖片無法辨識時回 404：%s',
+    async (id) => {
+      await expect(
+        service.find({ kind: 'banner', id, version, extension: 'png' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
 });

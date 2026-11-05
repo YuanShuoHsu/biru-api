@@ -1,4 +1,8 @@
-import { type INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  type INestApplication,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import request from 'supertest';
@@ -42,5 +46,15 @@ describe('ImagesController', () => {
 
     expect(response.headers['cache-control']).toBe(cacheControl);
     expect(response.headers['content-type']).toBe('image/png');
+  });
+
+  it('找不到圖片時回 404 且不帶快取標頭', async () => {
+    find.mockRejectedValueOnce(new NotFoundException());
+
+    const response = await request(app.getHttpServer())
+      .get('/images/banner/7f3c5b2e-8a1d-4c6f-9e2b-1a2b3c4d5e6f/1.png')
+      .expect(404);
+
+    expect(response.headers['cache-control']).toBeUndefined();
   });
 });
