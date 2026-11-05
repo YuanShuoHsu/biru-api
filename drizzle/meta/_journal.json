@@ -1814,6 +1814,13 @@
       "when": 1793880522255,
       "tag": "0258_recipe_modifier",
       "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1793893498040,
+      "tag": "0259_source_recipe_no_action",
+      "breakpoints": true
     }
   ]
 }

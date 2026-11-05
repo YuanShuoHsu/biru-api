@@ -189,6 +189,7 @@
     "packageRequired": "没有来源食谱的食材须填写包装价格、内容量与单位",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
     "purchaseFieldsOnSourcedIngredient": "由来源食谱制成的食材不能设定包装价格、内容量或供应商",
+    "recipeInUseAsSource": "以下自制食材仍以这份食谱为来源食谱：{names}。请先在这些食材取消来源食谱",
     "recipeIngredientExists": "这项材料已经加入过了",
     "recipeIngredientNotFound": "找不到这项食谱材料，可能已被移除",
     "recipeMenuItemAndModifier": "食谱只能绑定菜单品项或选项其中之一",

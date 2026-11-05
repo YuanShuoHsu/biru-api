@@ -28,7 +28,10 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
-import { isUniqueViolation } from '../common/utils/pg-errors.js';
+import {
+  isForeignKeyViolation,
+  isUniqueViolation,
+} from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -47,6 +50,7 @@ import {
 } from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
+import { localize } from '../menus/menus-public.service.js';
 
 import {
   CreateRecipeDto,
@@ -315,8 +319,31 @@ export class RecipesService {
     const deleted = await this.db
       .delete(recipe)
       .where(eq(recipe.id, recipeId))
-      .returning({ id: recipe.id });
+      .returning({ id: recipe.id })
+      .catch(async (error: unknown) => {
+        if (isForeignKeyViolation(error))
+          throw await this.recipeInUseAsSourceError(recipeId);
+        throw error;
+      });
     if (!deleted.length) throw notFoundError('recipeNotFound');
+  }
+
+  private async recipeInUseAsSourceError(recipeId: string) {
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const ingredients = await this.db
+      .select({ id: ingredient.id, name: ingredient.name })
+      .from(ingredient)
+      .where(eq(ingredient.recipeId, recipeId))
+      .orderBy(asc(ingredient.sortOrder), asc(ingredient.id));
+    const names = ingredients.map(({ name }) => localize(name, lang) ?? '');
+
+    return conflictError(
+      'recipeInUseAsSource',
+      { ingredients },
+      {
+        names: new Intl.ListFormat(lang, { type: 'conjunction' }).format(names),
+      },
+    );
   }
 
   async findAllIngredients(

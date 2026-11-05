@@ -242,6 +242,7 @@ export type I18nTranslations = {
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "purchaseFieldsOnSourcedIngredient": string;
+            "recipeInUseAsSource": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
             "recipeMenuItemAndModifier": string;

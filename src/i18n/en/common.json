@@ -189,6 +189,7 @@
     "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
+    "recipeInUseAsSource": "These house-made ingredients still use this recipe as their source recipe: {names}. Unlink it from them first",
     "recipeIngredientExists": "This ingredient has already been added",
     "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
     "recipeMenuItemAndModifier": "A recipe can be linked to a menu item or an option, not both",

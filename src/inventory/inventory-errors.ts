@@ -16,6 +16,7 @@ export const inventoryErrorCodes = [
   'packageRequired',
   'packageUnitIncompatible',
   'purchaseFieldsOnSourcedIngredient',
+  'recipeInUseAsSource',
   'recipeIngredientExists',
   'recipeIngredientNotFound',
   'recipeMenuItemAndModifier',
@@ -31,11 +32,15 @@ export const inventoryErrorCodes = [
 
 export type InventoryErrorCode = (typeof inventoryErrorCodes)[number];
 
-const errorBody = (code: InventoryErrorCode) => ({
+const errorBody = (
+  code: InventoryErrorCode,
+  args?: Record<string, unknown>,
+) => ({
   code,
   message:
-    I18nContext.current<I18nTranslations>()?.t(`common.inventory.${code}`) ??
-    code,
+    I18nContext.current<I18nTranslations>()?.t(`common.inventory.${code}`, {
+      args,
+    }) ?? code,
 });
 
 export const badRequestError = (
@@ -48,8 +53,16 @@ export const badRequestError = (
     ...errorBody(code),
   });
 
-export const conflictError = (code: InventoryErrorCode) =>
-  new ConflictException({ error: 'Conflict', ...errorBody(code) });
+export const conflictError = (
+  code: InventoryErrorCode,
+  details?: Record<string, unknown>,
+  args?: Record<string, unknown>,
+) =>
+  new ConflictException({
+    error: 'Conflict',
+    ...details,
+    ...errorBody(code, args),
+  });
 
 export const notFoundError = (code: InventoryErrorCode) =>
   new NotFoundException({ error: 'Not Found', ...errorBody(code) });

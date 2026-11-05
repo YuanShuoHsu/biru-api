@@ -1,4 +1,6 @@
+import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { I18nContext } from 'nestjs-i18n';
 
 import { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
@@ -576,6 +578,77 @@ describe('來源食譜', () => {
         recipeYieldQuantity: '2.000',
         recipeYieldUnitCode: 'LTR',
       });
+    });
+  });
+
+  describe('刪除來源食譜', () => {
+    it('仍被食材當作來源時回 409 並列出那些食材', async () => {
+      const sauce = await createSauce();
+      const removing = recipes.remove('sauceRecipe');
+
+      await expect(removing).rejects.toBeInstanceOf(ConflictException);
+      expect(
+        await removing.catch(
+          (error: ConflictException) => error.getResponse() as object,
+        ),
+      ).toMatchObject({
+        code: 'recipeInUseAsSource',
+        ingredients: [{ id: sauce.id, name: { 'zh-TW': '自製番茄醬' } }],
+      });
+      expect(await recipes.findOne('sauceRecipe')).toMatchObject({
+        id: 'sauceRecipe',
+      });
+    });
+
+    it('訊息依請求語系列出所有以它為來源的食材', async () => {
+      await createSauce();
+      await ingredients.create(ORG, {
+        name: { en: 'Pizza sauce', 'zh-TW': '披薩醬' },
+        recipeId: 'sauceRecipe',
+        unitCode: 'GRM',
+      });
+      const t = vi.fn((key: string) => key);
+      vi.spyOn(I18nContext, 'current').mockReturnValue({
+        lang: 'en',
+        t,
+      } as unknown as I18nContext);
+
+      await recipes.remove('sauceRecipe').catch(() => undefined);
+
+      expect(t).toHaveBeenCalledWith('common.inventory.recipeInUseAsSource', {
+        args: { names: 'Pizza sauce and 自製番茄醬' },
+      });
+      vi.restoreAllMocks();
+    });
+
+    it('食材取消來源食譜後可以刪除', async () => {
+      const sauce = await createSauce();
+      await ingredients.update(sauce.id, {
+        eligibleQuantity: '1',
+        eligibleQuantityUnitCode: 'KGM',
+        price: '80',
+        recipeId: null,
+      });
+
+      await recipes.remove('sauceRecipe');
+
+      expect(await codeOf(recipes.findOne('sauceRecipe'))).toBe(
+        'recipeNotFound',
+      );
+    });
+
+    it('刪除門市時連同來源食譜與自製食材一起刪除', async () => {
+      await createSauce();
+      await db.delete(recipeIngredient);
+
+      await client.query('delete from organization where id = $1', [ORG]);
+
+      expect(
+        await db
+          .select()
+          .from(ingredient)
+          .where(eq(ingredient.organizationId, ORG)),
+      ).toEqual([]);
     });
   });
 
