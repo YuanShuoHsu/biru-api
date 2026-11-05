@@ -4,7 +4,8 @@ import { IsISO8601, IsOptional, IsRFC3339 } from 'class-validator';
 
 export class MenuItemSalesQueryDto {
   @ApiPropertyOptional({
-    description: '統計起始時間；預設為近 30 天',
+    description: '統計起始時間，須帶時區；預設為近 30 天',
+    example: '2026-11-01T00:00:00+08:00',
     format: 'date-time',
   })
   @IsOptional()
@@ -13,7 +14,8 @@ export class MenuItemSalesQueryDto {
   since?: string;
 
   @ApiPropertyOptional({
-    description: '統計結束時間（不含）；預設為現在',
+    description: '統計結束時間（不含），須帶時區；預設為現在',
+    example: '2026-12-01T00:00:00+08:00',
     format: 'date-time',
   })
   @IsOptional()

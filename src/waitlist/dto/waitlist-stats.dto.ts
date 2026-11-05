@@ -4,7 +4,8 @@ import { IsISO8601, IsOptional, IsRFC3339 } from 'class-validator';
 
 export class WaitlistStatsQueryDto {
   @ApiProperty({
-    description: '統計起始時間（以取號時間計）',
+    description: '統計起始時間（以取號時間計），須帶時區',
+    example: '2026-11-01T00:00:00+08:00',
     format: 'date-time',
   })
   @IsRFC3339()
@@ -12,7 +13,8 @@ export class WaitlistStatsQueryDto {
   since: string;
 
   @ApiPropertyOptional({
-    description: '統計結束時間（不含）；預設為現在',
+    description: '統計結束時間（不含），須帶時區；預設為現在',
+    example: '2026-12-01T00:00:00+08:00',
     format: 'date-time',
   })
   @IsOptional()

@@ -12,9 +12,9 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsISO8601,
   IsIn,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -1620,7 +1620,11 @@ export class QuantBotEventPaginationQueryDto extends BotRecordPaginationQueryDto
 }
 
 export class QuantBotFillMarkerQueryDto {
-  @ApiProperty({ description: '只回傳此時間之後的成交', format: 'date-time' })
+  @ApiProperty({
+    description: '只回傳此時間之後的成交，須帶時區',
+    example: '2026-11-01T00:00:00+08:00',
+    format: 'date-time',
+  })
   @IsRFC3339()
   @IsISO8601({ strict: true })
   since: string;
