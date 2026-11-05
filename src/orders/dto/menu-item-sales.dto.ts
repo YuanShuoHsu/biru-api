@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsISO8601, IsOptional, IsRFC3339 } from 'class-validator';
 
 export class MenuItemSalesQueryDto {
   @ApiPropertyOptional({
@@ -8,7 +8,8 @@ export class MenuItemSalesQueryDto {
     format: 'date-time',
   })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   since?: string;
 
   @ApiPropertyOptional({
@@ -16,7 +17,8 @@ export class MenuItemSalesQueryDto {
     format: 'date-time',
   })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   until?: string;
 }
 
