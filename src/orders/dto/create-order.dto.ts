@@ -72,16 +72,19 @@ export class CreateOrderCustomerDto {
   @Transform(trim)
   @IsString()
   @IsNotEmpty()
+  @MaxLength(60, { message: i18nValidationMessage('validation.maxLength') })
   name: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(160, { message: i18nValidationMessage('validation.maxLength') })
   remark?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(30, { message: i18nValidationMessage('validation.maxLength') })
   telephone?: string;
 }
 
@@ -281,6 +284,7 @@ export class CreateOrderDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(64, { message: i18nValidationMessage('validation.maxLength') })
   discountCode?: string;
 
   @ApiProperty({ type: CreateOrderInvoiceDto })
