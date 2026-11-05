@@ -38,7 +38,7 @@ import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
-import { menuItem } from '../db/schema/menus.js';
+import { menuItem, modifier } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
@@ -87,6 +87,7 @@ import {
 import {
   InsufficientStockError,
   InventoryTransactionsService,
+  type StockSource,
 } from '../inventory/inventory-transactions.service.js';
 import { MenuStockService } from '../inventory/menu-stock.service.js';
 import { localize } from '../menus/menus-public.service.js';
@@ -315,16 +316,27 @@ export class OrdersService {
   ) {}
 
   private async insufficientStockError(
-    menuItemId: string,
+    source: StockSource,
   ): Promise<BadRequestException> {
-    const [found] = await this.db
-      .select({ name: menuItem.name })
-      .from(menuItem)
-      .where(eq(menuItem.id, menuItemId));
+    const [found] =
+      'menuItemId' in source
+        ? await this.db
+            .select({ name: menuItem.name })
+            .from(menuItem)
+            .where(eq(menuItem.id, source.menuItemId))
+        : await this.db
+            .select({ name: modifier.displayName })
+            .from(modifier)
+            .where(eq(modifier.id, source.modifierId));
 
-    return badRequestError('menuItemInsufficientStock', {
-      name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
-    });
+    return badRequestError(
+      'menuItemId' in source
+        ? 'menuItemInsufficientStock'
+        : 'modifierInsufficientStock',
+      {
+        name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
+      },
+    );
   }
 
   private async getOrgBySlug(slug: string) {
@@ -659,7 +671,7 @@ export class OrdersService {
       })
       .catch(async (error: unknown) => {
         if (error instanceof InsufficientStockError)
-          throw await this.insufficientStockError(error.menuItemId);
+          throw await this.insufficientStockError(error.source);
         throw error;
       });
 

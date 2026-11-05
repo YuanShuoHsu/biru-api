@@ -38,7 +38,13 @@ import {
   type Recipe,
   type RecipeIngredient,
 } from '../db/schema/inventory.js';
-import { menu, menuItem, offer } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
 
@@ -204,17 +210,27 @@ export class RecipesService {
 
   async create(
     organizationId: string,
-    { menuItemId, ...dto }: CreateRecipeDto,
+    { menuItemId, modifierId, ...dto }: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
+    if (menuItemId && modifierId)
+      throw badRequestError('recipeMenuItemAndModifier');
     await this.assertMenuItemInOrganization(organizationId, menuItemId);
+    await this.assertModifierInOrganization(organizationId, modifierId);
 
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(recipe)
-        .values({ ...dto, id: randomUUID(), menuItemId, organizationId })
+        .values({
+          ...dto,
+          id: randomUUID(),
+          menuItemId,
+          modifierId,
+          organizationId,
+          recipeYield: modifierId ? 1 : dto.recipeYield,
+        })
         .returning();
 
-      if (menuItemId !== undefined) return row;
+      if (menuItemId !== undefined || modifierId) return row;
 
       const boundMenuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
@@ -236,35 +252,50 @@ export class RecipesService {
   ): Promise<RecipeResponseDto> {
     await this.assertSourceRecipeUpdate(recipeId, dto);
 
-    if (dto.menuItemId) {
-      const [current] = await this.db
-        .select({ organizationId: recipe.organizationId })
-        .from(recipe)
-        .where(eq(recipe.id, recipeId));
-      if (!current) throw notFoundError('recipeNotFound');
-      await this.assertMenuItemInOrganization(
-        current.organizationId,
-        dto.menuItemId,
-      );
-    }
+    const [current] = await this.db
+      .select({
+        menuItemId: recipe.menuItemId,
+        modifierId: recipe.modifierId,
+        organizationId: recipe.organizationId,
+      })
+      .from(recipe)
+      .where(eq(recipe.id, recipeId));
+    if (!current) throw notFoundError('recipeNotFound');
+
+    const { recipeYield, ...changes } = dto;
+    const modifierId =
+      dto.modifierId === undefined ? current.modifierId : dto.modifierId;
+    const menuItemId =
+      dto.menuItemId === undefined ? current.menuItemId : dto.menuItemId;
+    if (menuItemId && modifierId)
+      throw badRequestError('recipeMenuItemAndModifier');
+    await this.assertMenuItemInOrganization(
+      current.organizationId,
+      dto.menuItemId,
+    );
+    await this.assertModifierInOrganization(
+      current.organizationId,
+      dto.modifierId,
+    );
 
     const updated = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .update(recipe)
-        .set(dto)
+        .set({ ...changes, recipeYield: modifierId ? 1 : recipeYield })
         .where(eq(recipe.id, recipeId))
         .returning();
       if (!row) throw notFoundError('recipeNotFound');
 
-      if (dto.menuItemId !== undefined || row.menuItemId) return row;
+      if (dto.menuItemId !== undefined || row.menuItemId || row.modifierId)
+        return row;
 
-      const menuItemId = await bindMenuItemByRecipeName(tx, {
+      const boundMenuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
         organizationId: row.organizationId,
         recipeId: row.id,
       });
 
-      return { ...row, menuItemId };
+      return { ...row, menuItemId: boundMenuItemId };
     });
 
     const [response] = await this.toResponse([updated], true);
@@ -397,12 +428,38 @@ export class RecipesService {
     if (!found) throw menuNotFoundError('menuItemNotFound');
   }
 
+  private async assertModifierInOrganization(
+    organizationId: string,
+    modifierId: string | null | undefined,
+  ): Promise<void> {
+    if (!modifierId) return;
+
+    const [found] = await this.db
+      .select({ id: modifier.id })
+      .from(modifier)
+      .innerJoin(modifierGroup, eq(modifierGroup.id, modifier.modifierGroupId))
+      .innerJoin(menu, eq(menu.id, modifierGroup.menuId))
+      .where(
+        and(
+          eq(modifier.id, modifierId),
+          eq(menu.organizationId, organizationId),
+        ),
+      );
+    if (!found) throw menuNotFoundError('modifierNotFound');
+  }
+
   private async assertSourceRecipeUpdate(
     recipeId: string,
-    { menuItemId, recipeYieldQuantity, recipeYieldUnitCode }: UpdateRecipeDto,
+    {
+      menuItemId,
+      modifierId,
+      recipeYieldQuantity,
+      recipeYieldUnitCode,
+    }: UpdateRecipeDto,
   ): Promise<void> {
     if (
       !menuItemId &&
+      !modifierId &&
       recipeYieldQuantity === undefined &&
       recipeYieldUnitCode === undefined
     )
@@ -415,6 +472,7 @@ export class RecipesService {
     if (!sourced.length) return;
 
     if (menuItemId) throw badRequestError('sourceRecipeHasMenuItem');
+    if (modifierId) throw badRequestError('sourceRecipeHasModifier');
     if (recipeYieldQuantity === null || recipeYieldUnitCode === null)
       throw badRequestError('sourceRecipeYieldMissing');
     if (

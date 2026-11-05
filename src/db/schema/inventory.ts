@@ -7,6 +7,7 @@
 import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   type AnyPgColumn,
   integer,
@@ -21,7 +22,7 @@ import {
 
 import { timestamps } from './columns.helpers.js';
 import { type LocalizedText } from './enums.js';
-import { menuItem } from './menus.js';
+import { menuItem, modifier } from './menus.js';
 import { order } from './orders.js';
 import { organization } from './organizations.js';
 
@@ -143,6 +144,9 @@ export const recipe = pgTable(
     menuItemId: text('menu_item_id').references(() => menuItem.id, {
       onDelete: 'set null',
     }),
+    modifierId: text('modifier_id').references(() => modifier.id, {
+      onDelete: 'set null',
+    }),
     name: jsonb('name').notNull().$type<LocalizedText>(),
     organizationId: text('organization_id')
       .notNull()
@@ -159,6 +163,11 @@ export const recipe = pgTable(
   (table) => [
     index('recipe_organizationId_idx').on(table.organizationId),
     uniqueIndex('recipe_menuItemId_uidx').on(table.menuItemId),
+    uniqueIndex('recipe_modifierId_uidx').on(table.modifierId),
+    check(
+      'recipe_menuItemId_modifierId_check',
+      sql`${table.menuItemId} is null or ${table.modifierId} is null`,
+    ),
   ],
 );
 
@@ -237,6 +246,10 @@ export const recipeRelations = relations(recipe, ({ one, many }) => ({
   menuItem: one(menuItem, {
     fields: [recipe.menuItemId],
     references: [menuItem.id],
+  }),
+  modifier: one(modifier, {
+    fields: [recipe.modifierId],
+    references: [modifier.id],
   }),
   organization: one(organization, {
     fields: [recipe.organizationId],

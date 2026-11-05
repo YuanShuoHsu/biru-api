@@ -9,6 +9,7 @@ import {
   eq,
   ilike,
   inArray,
+  or,
   sql,
   type Column,
   type SQL,
@@ -54,9 +55,11 @@ import { unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
+export type StockSource = { menuItemId: string } | { modifierId: string };
+
 export class InsufficientStockError extends Error {
-  constructor(readonly menuItemId: string) {
-    super(`Insufficient stock for MenuItem ${menuItemId}`);
+  constructor(readonly source: StockSource) {
+    super(`Insufficient stock for ${JSON.stringify(source)}`);
   }
 }
 
@@ -410,13 +413,15 @@ export class InventoryTransactionsService {
       .select({
         addOns: orderItem.addOns,
         menuItemId: orderItem.menuItemId,
+        modifiers: orderItem.modifiers,
         orderQuantity: orderItem.orderQuantity,
       })
       .from(orderItem)
       .where(eq(orderItem.orderId, orderId));
 
     const servingsByMenuItemId = new Map<string, number>();
-    for (const { addOns, menuItemId, orderQuantity } of items)
+    const servingsByModifierId = new Map<string, number>();
+    for (const { addOns, menuItemId, modifiers, orderQuantity } of items) {
       for (const id of [
         menuItemId,
         ...(addOns ?? []).map((addOn) => addOn.menuItemId),
@@ -425,6 +430,15 @@ export class InventoryTransactionsService {
           id,
           (servingsByMenuItemId.get(id) ?? 0) + orderQuantity,
         );
+      for (const { modifierId } of [
+        ...(modifiers ?? []),
+        ...(addOns ?? []).flatMap((addOn) => addOn.modifiers ?? []),
+      ])
+        servingsByModifierId.set(
+          modifierId,
+          (servingsByModifierId.get(modifierId) ?? 0) + orderQuantity,
+        );
+    }
     if (!servingsByMenuItemId.size)
       return { lowStock: [], offerStockChanged: false };
 
@@ -439,10 +453,16 @@ export class InventoryTransactionsService {
       .select({
         id: recipe.id,
         menuItemId: recipe.menuItemId,
+        modifierId: recipe.modifierId,
         recipeYield: recipe.recipeYield,
       })
       .from(recipe)
-      .where(inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]));
+      .where(
+        or(
+          inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]),
+          inArray(recipe.modifierId, [...servingsByModifierId.keys()]),
+        ),
+      );
     if (!recipes.length) return { lowStock: [], offerStockChanged };
 
     const materials = await tx
@@ -464,10 +484,17 @@ export class InventoryTransactionsService {
       );
 
     const quantities = new Map<string, number>();
-    const menuItemIdByIngredientId = new Map<string, string>();
-    for (const { id, menuItemId, recipeYield } of recipes) {
+    const sourceByIngredientId = new Map<string, StockSource>();
+    for (const { id, menuItemId, modifierId, recipeYield } of recipes) {
+      const source = menuItemId
+        ? { menuItemId }
+        : modifierId
+          ? { modifierId }
+          : null;
       const servings =
-        (menuItemId && servingsByMenuItemId.get(menuItemId)) || 0;
+        (menuItemId
+          ? servingsByMenuItemId.get(menuItemId)
+          : modifierId && servingsByModifierId.get(modifierId)) || 0;
 
       for (const material of materials.filter(
         ({ recipeId }) => recipeId === id,
@@ -478,8 +505,8 @@ export class InventoryTransactionsService {
           material.ingredientId,
           (quantities.get(material.ingredientId) ?? 0) + used,
         );
-        if (menuItemId && !menuItemIdByIngredientId.has(material.ingredientId))
-          menuItemIdByIngredientId.set(material.ingredientId, menuItemId);
+        if (source && !sourceByIngredientId.has(material.ingredientId))
+          sourceByIngredientId.set(material.ingredientId, source);
       }
     }
 
@@ -489,7 +516,7 @@ export class InventoryTransactionsService {
         quantity: -used,
       })),
       {
-        ...(enforceStock && { menuItemIdByIngredientId }),
+        ...(enforceStock && { sourceByIngredientId }),
         orderId,
         organizationId: placed.sellerId,
       },
@@ -590,7 +617,7 @@ export class InventoryTransactionsService {
 
       const servings = servingsByMenuItemId.get(menuItemId) ?? 0;
       if (enforceStock && remaining < servings)
-        throw new InsufficientStockError(menuItemId);
+        throw new InsufficientStockError({ menuItemId });
 
       const taken = Math.min(remaining, servings);
       if (taken <= 0) continue;
@@ -667,13 +694,13 @@ export class InventoryTransactionsService {
     }[],
     {
       productionBatchId,
-      menuItemIdByIngredientId,
+      sourceByIngredientId,
       note,
       orderId,
       organizationId,
     }: {
       productionBatchId?: string;
-      menuItemIdByIngredientId?: Map<string, string>;
+      sourceByIngredientId?: Map<string, StockSource>;
       note?: string | null;
       orderId?: string;
       organizationId: string;
@@ -702,16 +729,16 @@ export class InventoryTransactionsService {
       .orderBy(asc(ingredient.id))
       .for('update');
 
-    if (menuItemIdByIngredientId)
+    if (sourceByIngredientId)
       for (const { ingredientId, quantity } of entries) {
         const before = locked.find(({ id }) => id === ingredientId);
-        const menuItemId = menuItemIdByIngredientId.get(ingredientId);
+        const source = sourceByIngredientId.get(ingredientId);
         if (
           before &&
-          menuItemId &&
+          source &&
           Number(before.inventoryLevel) + quantity < -QUANTITY_TOLERANCE
         )
-          throw new InsufficientStockError(menuItemId);
+          throw new InsufficientStockError(source);
       }
 
     const created = await tx

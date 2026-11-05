@@ -76,6 +76,7 @@ export const bindRecipeByMenuItemName = async (
         and(
           eq(recipe.organizationId, params.organizationId),
           isNull(recipe.menuItemId),
+          isNull(recipe.modifierId),
           sameName(recipe.name, params.name),
           sql`not exists (select 1 from ${ingredient} where ${ingredient.recipeId} = ${recipe.id})`,
         ),

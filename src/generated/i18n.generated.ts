@@ -243,8 +243,10 @@ export type I18nTranslations = {
             "purchaseFieldsOnSourcedIngredient": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
+            "recipeMenuItemAndModifier": string;
             "recipeNotFound": string;
             "sourceRecipeHasMenuItem": string;
+            "sourceRecipeHasModifier": string;
             "sourceRecipeNested": string;
             "sourceRecipeRequired": string;
             "sourceRecipeUnitIncompatible": string;
@@ -334,6 +336,7 @@ export type I18nTranslations = {
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;
+            "modifierInsufficientStock": string;
             "modifierUnavailable": string;
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
