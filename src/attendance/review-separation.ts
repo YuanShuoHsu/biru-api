@@ -45,7 +45,7 @@ export const reviewerUserIds = async (
     .filter(({ role }) => holdsPermission(role, permission))
     .map(({ userId }) => userId);
 
-export const alternateReviewerExists = async (
+const alternateReviewerExists = async (
   db: DrizzleDB | Transaction,
   organizationId: string,
   permission: ReviewPermission,

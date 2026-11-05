@@ -15,8 +15,8 @@ import {
 } from './attendance-rules.js';
 import { anniversary } from './leave-rules.js';
 
-export const FULL_TIME_WEEKLY_MINUTES = 2400;
-export const NORMAL_DAILY_MINUTES = 480;
+const FULL_TIME_WEEKLY_MINUTES = 2400;
+const NORMAL_DAILY_MINUTES = 480;
 
 const WEEK_MS = 7 * DAY_MS;
 
@@ -112,7 +112,7 @@ export const employmentType = (
 const normalShiftSql = (alias: string) =>
   sql.raw(`${alias}.status <> 'cancelled' AND ${alias}.day_kind = 'workday'`);
 
-export const averageWeeklyMinutesSql = sql<number | null>`(
+const averageWeeklyMinutesSql = sql<number | null>`(
   SELECT CASE WHEN t.shifts = 0 THEN NULL
     ELSE round(t.minutes * 10080 / (extract(epoch FROM now() - w.from_at) / 60))
   END

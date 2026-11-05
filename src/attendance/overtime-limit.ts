@@ -35,7 +35,7 @@ interface PlannedOvertime {
 }
 
 // §36 III 休息日全數計入；國定假日、特休與平日只計超過 8 小時的部分；§40 例假日不計
-export const countedOvertimeSeconds = ({
+const countedOvertimeSeconds = ({
   dayKind,
   seconds,
 }: {
