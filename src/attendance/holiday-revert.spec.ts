@@ -136,7 +136,12 @@ describe('turning holiday shifts back into workdays', () => {
 
     await employees.saveEmployee(actor, employeeDto(['2026-03-10']));
 
-    expect((await dayKinds())['substituted-later']).toBe('workday');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'workday',
+      'substituted-later': 'workday',
+      'substitute-only': 'holiday',
+    });
   });
 
   it('editing the shift a 補休 is designated on keeps it a holiday', async () => {
@@ -145,7 +150,32 @@ describe('turning holiday shifts back into workdays', () => {
       endsAt: '2026-03-17T14:00:00+08:00',
     });
 
-    expect((await dayKinds())['substitute-only']).toBe('holiday');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
+  it('restoring the cancelled shift a 補休 is designated on keeps it a holiday', async () => {
+    await shifts.cancelShift(actor, 'substitute-only', { reason: '店休' });
+    await shifts.restoreShift(actor, 'substitute-only');
+
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
+  it('rejects moving the shift a 補休 is designated on to another date', async () => {
+    await expect(
+      shifts.updateShift(actor, 'substitute-only', {
+        dayKind: 'workday',
+        startsAt: '2026-03-18T09:00:00+08:00',
+        endsAt: '2026-03-18T13:00:00+08:00',
+      }),
+    ).rejects.toThrow('holidaySubstituteInvalid');
   });
 
   it('rejects moving the shift a 補休 is designated on to another employee', async () => {
