@@ -245,7 +245,7 @@ describe('InventoryReportService', () => {
       `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
          ('tomato', 'org', '{"zh-TW":"tomato"}', 'GRM', 1490, 4),
          ('sauce', 'org', '{"zh-TW":"sauce"}', 'GRM', 1000, 5);
-       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, batch_id, created_at) values
+       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, production_batch_id, created_at) values
          ('tomato-stock', 'tomato', 'org', 2000, null, '2026-10-19T02:00:00Z'::timestamptz at time zone 'UTC'),
          ('tomato-batch', 'tomato', 'org', -500, 'batch', '2026-10-20T02:00:00Z'::timestamptz at time zone 'UTC'),
          ('sauce-batch', 'sauce', 'org', 1000, 'batch', '2026-10-20T02:00:00Z'::timestamptz at time zone 'UTC'),

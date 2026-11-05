@@ -1797,8 +1797,8 @@
     {
       "idx": 256,
       "version": "7",
-      "when": 1793859880279,
-      "tag": "0256_inventory_transaction_batch",
+      "when": 1793860276363,
+      "tag": "0256_inventory_transaction_production_batch",
       "breakpoints": true
     }
   ]

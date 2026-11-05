@@ -24,7 +24,7 @@ export class InventoryTransactionResponseDto {
   @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
   unitCost?: string | null;
   @ApiPropertyOptional({ description: '同一次製作批次的異動共用' })
-  batchId: string | null;
+  productionBatchId: string | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;

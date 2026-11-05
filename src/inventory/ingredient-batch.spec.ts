@@ -185,22 +185,27 @@ describe('製作一批半成品', () => {
     ).toEqual([{ quantity: '-500.000', unitCost: null }]);
   });
 
-  it('同一批的異動共用一個 batchId，帳本原因為 batch', async () => {
+  it('同一批的異動共用一個 productionBatchId，帳本原因為 batch', async () => {
     const created = await service.produceBatch(ORG, 'sauce', {
       quantity: '1000',
     });
     await service.produceBatch(ORG, 'sauce', { quantity: '500' });
 
     const rows = await db
-      .select({ batchId: inventoryTransaction.batchId })
+      .select({ productionBatchId: inventoryTransaction.productionBatchId })
       .from(inventoryTransaction);
-    const batchIds = new Set(rows.map(({ batchId }) => batchId));
+    const batchIds = new Set(
+      rows.map(({ productionBatchId }) => productionBatchId),
+    );
 
     expect(rows).toHaveLength(6);
     expect(batchIds.size).toBe(2);
-    expect(created.batchId).toEqual(expect.any(String));
+    expect(created.productionBatchId).toEqual(expect.any(String));
     expect(
-      rows.filter(({ batchId }) => batchId === created.batchId),
+      rows.filter(
+        ({ productionBatchId }) =>
+          productionBatchId === created.productionBatchId,
+      ),
     ).toHaveLength(3);
 
     const { data } = await service.findAll('tomato');

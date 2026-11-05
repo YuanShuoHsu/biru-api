@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_transaction" ADD COLUMN "production_batch_id" text;

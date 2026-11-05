@@ -1,1 +1,0 @@
-ALTER TABLE "inventory_transaction" ADD COLUMN "batch_id" text;

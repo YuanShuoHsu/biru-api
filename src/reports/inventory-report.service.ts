@@ -50,7 +50,7 @@ export class InventoryReportService {
       lt(inventoryTransaction.createdAt, utcTimestampParam(until)),
     );
     const isOrder = sql`${inventoryTransaction.orderId} IS NOT NULL`;
-    const isBatch = sql`${inventoryTransaction.batchId} IS NOT NULL`;
+    const isBatch = sql`${inventoryTransaction.productionBatchId} IS NOT NULL`;
     const isCount = sql`NOT ${isOrder} AND NOT ${isBatch}`;
     const quantity = inventoryTransaction.quantity;
 
