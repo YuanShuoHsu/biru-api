@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { I18nContext } from 'nestjs-i18n';
 
+import type { PriceSpecification } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { CreateOrderItemDto } from './dto/create-order.dto.js';
@@ -36,6 +37,7 @@ const cartItemOf = (
 const createService = (
   menuItems: object[],
   menuSections: { id: string; parentSectionId: string | null }[] = [],
+  priceSpecification: PriceSpecification | null = null,
 ) => {
   const db = {
     query: {
@@ -56,6 +58,7 @@ const createService = (
             availability: 'InStock',
             menuItemId: id,
             price: '100.00',
+            priceSpecification,
           })),
         ),
       },
@@ -127,5 +130,114 @@ describe('OrderPricingService.resolveOrderItems', () => {
     );
 
     expect(item.menuSectionIds).toEqual(['oolong', 'tea', 'drinks']);
+  });
+
+  describe('促銷價依平台時區的日期判斷，起訖兩天都含整天', () => {
+    const unitPriceAt = async (
+      time: string,
+      priceSpecification: PriceSpecification,
+    ) => {
+      vi.useFakeTimers({ now: new Date(time), toFake: ['Date'] });
+      const service = createService([latte], [], priceSpecification);
+      const [item] = await service.resolveOrderItems(
+        'org',
+        [cartItemOf()],
+        'counter',
+      );
+      return item.unitPrice;
+    };
+
+    const june = {
+      price: '80.00',
+      validFrom: '2026-06-01',
+      validThrough: '2026-06-30',
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it.each([
+      ['2026-05-31T23:59:59+08:00', '100.00'],
+      ['2026-06-01T00:00:00+08:00', '80.00'],
+      ['2026-06-30T23:59:59+08:00', '80.00'],
+      ['2026-07-01T00:00:00+08:00', '100.00'],
+    ])('%s 的單價為 %s', async (time, unitPrice) => {
+      expect(await unitPriceAt(time, june)).toBe(unitPrice);
+    });
+
+    it.each([
+      ['2026-06-01T00:00:00+08:00', '80.00'],
+      ['2026-06-01T23:59:59+08:00', '80.00'],
+      ['2026-06-02T00:00:00+08:00', '100.00'],
+    ])('單日促銷在 %s 的單價為 %s', async (time, unitPrice) => {
+      expect(
+        await unitPriceAt(time, {
+          price: '80.00',
+          validFrom: '2026-06-01',
+          validThrough: '2026-06-01',
+        }),
+      ).toBe(unitPrice);
+    });
+
+    it('沒有結束日的促銷開始後一直有效', async () => {
+      expect(
+        await unitPriceAt('2030-01-01T12:00:00+08:00', {
+          price: '80.00',
+          validFrom: '2026-06-01',
+        }),
+      ).toBe('80.00');
+    });
+
+    it('沒有開始日的促銷到結束日當天都有效', async () => {
+      expect(
+        await unitPriceAt('2026-06-30T23:59:59+08:00', {
+          price: '80.00',
+          validThrough: '2026-06-30',
+        }),
+      ).toBe('80.00');
+    });
+
+    it('舊資料的日期時間取其平台時區日期', async () => {
+      expect(
+        await unitPriceAt('2026-06-30T23:00:00+08:00', {
+          price: '80.00',
+          validFrom: '2026-05-31T16:00:00Z',
+          validThrough: '2026-06-30T00:00:00+08:00',
+        }),
+      ).toBe('80.00');
+    });
+
+    it('舊資料 UTC 時間跨到隔天時，以平台時區日期判斷起日', async () => {
+      expect(
+        await unitPriceAt('2026-05-31T23:00:00+08:00', {
+          price: '80.00',
+          validFrom: '2026-05-31T16:00:00Z',
+        }),
+      ).toBe('100.00');
+    });
+
+    it('舊資料 UTC 時間跨到隔天時，以平台時區日期判斷訖日', async () => {
+      expect(
+        await unitPriceAt('2026-06-01T12:00:00+08:00', {
+          price: '80.00',
+          validThrough: '2026-05-31T16:00:00Z',
+        }),
+      ).toBe('80.00');
+    });
+
+    it.each([
+      '2026-W01',
+      '20260601',
+      '2026-06-01T00:00:00',
+      '2026-06-01 00:00Z',
+    ])('無法解析的日期 %s 不套用促銷價', async (validFrom) => {
+      expect(
+        await unitPriceAt('2026-06-15T12:00:00+08:00', {
+          price: '80.00',
+          validFrom,
+        }),
+      ).toBe('100.00');
+    });
   });
 });

@@ -43,4 +43,50 @@ describe('CreateOfferDto', () => {
       await errorsOf({ price: '100', inventoryLevel: { value: -1 } }),
     ).toEqual(['inventoryLevel.value']);
   });
+
+  it.each([
+    ['2025-06-01', '2025-06-30'],
+    ['2025-06-01', '2025-06-01'],
+    ['2025-06-01', undefined],
+    [undefined, '2025-06-30'],
+  ])('accepts promo dates %s to %s', async (validFrom, validThrough) => {
+    expect(
+      await errorsOf({
+        price: '100',
+        priceSpecification: { price: '80', validFrom, validThrough },
+      }),
+    ).toEqual([]);
+  });
+
+  it.each(['2025-06-01T00:00:00+08:00', '2026-W01', '2025-02-30', '20250601'])(
+    'rejects promo date %s, which is not a calendar date',
+    async (date) => {
+      expect(
+        await errorsOf({
+          price: '100',
+          priceSpecification: {
+            price: '80',
+            validFrom: date,
+            validThrough: date,
+          },
+        }),
+      ).toEqual([
+        'priceSpecification.validFrom',
+        'priceSpecification.validThrough',
+      ]);
+    },
+  );
+
+  it('rejects a promo that ends before it starts', async () => {
+    expect(
+      await errorsOf({
+        price: '100',
+        priceSpecification: {
+          price: '80',
+          validFrom: '2025-06-02',
+          validThrough: '2025-06-01',
+        },
+      }),
+    ).toEqual(['priceSpecification.validThrough']);
+  });
 });
