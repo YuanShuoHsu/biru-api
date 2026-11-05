@@ -64,6 +64,44 @@ describe('CouponsService.update', () => {
     });
   });
 
+  it('效期開始不早於結束時拒絕，部分更新時和既有效期一起檢查', async () => {
+    const scheduleInvalid = {
+      status: 400,
+      response: { code: 'scheduleInvalid' },
+    };
+    await expect(
+      service.create({
+        code: 'REVERSED',
+        discountType: 'fixed',
+        discountValue: 50,
+        discountCurrency: 'TWD',
+        validFrom: '2026-12-31T00:00:00Z',
+        validThrough: '2026-10-01T00:00:00Z',
+      }),
+    ).rejects.toMatchObject(scheduleInvalid);
+
+    const { id } = await service.create({
+      code: 'WINDOW',
+      discountType: 'fixed',
+      discountValue: 50,
+      discountCurrency: 'TWD',
+      validFrom: '2026-10-01T00:00:00Z',
+      validThrough: '2026-12-31T00:00:00Z',
+    });
+    await expect(
+      service.update(id, { validFrom: '2027-01-01T00:00:00Z' }),
+    ).rejects.toMatchObject(scheduleInvalid);
+    await expect(
+      service.update(id, { validThrough: '2026-10-01T00:00:00Z' }),
+    ).rejects.toMatchObject(scheduleInvalid);
+    await expect(
+      service.update(id, {
+        validFrom: '2027-01-01T00:00:00Z',
+        validThrough: null,
+      }),
+    ).resolves.toMatchObject({ validThrough: null });
+  });
+
   it('改回整單券時清除原本指定的品項與分類', async () => {
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'org', 'org', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,

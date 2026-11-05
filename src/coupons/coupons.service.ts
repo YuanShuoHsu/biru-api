@@ -292,6 +292,14 @@ export class CouponsService {
       throw new BadRequestException(this.t('itemScopeSingleOrganization'));
   }
 
+  private assertValidityWindow(
+    validFrom: Date | null | undefined,
+    validThrough: Date | null | undefined,
+  ): void {
+    if (validFrom && validThrough && validFrom >= validThrough)
+      throw badRequestError('scheduleInvalid');
+  }
+
   private async resolveDiscountCurrency(
     applicableOrganizationIds: string[] | null | undefined,
     declared: string | undefined,
@@ -319,6 +327,11 @@ export class CouponsService {
       dto.menuSectionIds,
       applicableOrganizationIds,
     );
+    const validFrom = dto.validFrom ? new Date(dto.validFrom) : undefined;
+    const validThrough = dto.validThrough
+      ? new Date(dto.validThrough)
+      : undefined;
+    this.assertValidityWindow(validFrom, validThrough);
 
     const code = dto.code.trim();
     const existing = await this.db.query.coupon.findFirst({
@@ -350,8 +363,8 @@ export class CouponsService {
         pointsCost: dto.pointsCost,
         scope,
         totalLimit: dto.totalLimit,
-        validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
-        validThrough: dto.validThrough ? new Date(dto.validThrough) : undefined,
+        validFrom,
+        validThrough,
       })
       .returning();
 
@@ -779,6 +792,24 @@ export class CouponsService {
       effectiveOrganizationIds,
     );
 
+    // null 表示清除期限，undefined 表示不變更
+    const validFrom =
+      dto.validFrom === null
+        ? null
+        : dto.validFrom
+          ? new Date(dto.validFrom)
+          : undefined;
+    const validThrough =
+      dto.validThrough === null
+        ? null
+        : dto.validThrough
+          ? new Date(dto.validThrough)
+          : undefined;
+    this.assertValidityWindow(
+      validFrom === undefined ? found.validFrom : validFrom,
+      validThrough === undefined ? found.validThrough : validThrough,
+    );
+
     if (dto.code !== undefined) {
       const duplicated = await this.db.query.coupon.findFirst({
         where: and(
@@ -814,19 +845,8 @@ export class CouponsService {
         scope: dto.scope,
         totalLimit: dto.totalLimit,
         updatedAt: new Date(),
-        // null 表示清除期限，undefined 表示不變更
-        validFrom:
-          dto.validFrom === null
-            ? null
-            : dto.validFrom
-              ? new Date(dto.validFrom)
-              : undefined,
-        validThrough:
-          dto.validThrough === null
-            ? null
-            : dto.validThrough
-              ? new Date(dto.validThrough)
-              : undefined,
+        validFrom,
+        validThrough,
       })
       .where(eq(coupon.id, couponId))
       .returning();

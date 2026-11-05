@@ -207,6 +207,7 @@ export type I18nTranslations = {
             "perUserLimitReached": string;
             "percentageTooHigh": string;
             "pointsOnly": string;
+            "scheduleInvalid": string;
             "usedUp": string;
         };
         "deletedRecords": {

@@ -154,6 +154,7 @@
     "perUserLimitReached": "이미 사용한 쿠폰 코드입니다",
     "percentageTooHigh": "퍼센트 할인은 100을 초과할 수 없습니다",
     "pointsOnly": "이 쿠폰 코드는 포인트로 교환한 후 사용할 수 있습니다",
+    "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다",
     "usedUp": "이 쿠폰 코드는 사용 한도에 도달했습니다"
   },
   "deletedRecords": {

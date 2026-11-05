@@ -68,6 +68,25 @@ describe('CreateBannerDto', () => {
     ).toEqual([]);
   });
 
+  it.each(['2026-10-31T16:00:00.000Z', '2026-11-01T00:00:00+08:00', null])(
+    'accepts startsAt %j',
+    async (startsAt) => {
+      expect(await errorsOf({ startsAt })).toEqual([]);
+    },
+  );
+
+  it.each([
+    '2026-11-01',
+    '2026-11-01T00:00:00',
+    '2026-W01',
+    '2026-02-30T00:00:00+08:00',
+  ])(
+    'rejects startsAt %j, which has no offset or is not a real date',
+    async (startsAt) => {
+      expect(await errorsOf({ startsAt })).toEqual(['startsAt']);
+    },
+  );
+
   it('turns an all-blank alt into null', () => {
     expect(
       plainToInstance(UpdateBannerDto, { alt: { en: ' ', 'zh-TW': '' } }).alt,

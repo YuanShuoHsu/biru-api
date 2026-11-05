@@ -154,6 +154,7 @@
     "perUserLimitReached": "このクーポンコードは既にご利用済みです",
     "percentageTooHigh": "パーセント割引は100を超えられません",
     "pointsOnly": "このクーポンコードはポイントと交換してからご利用いただけます",
+    "scheduleInvalid": "開始日時は終了日時より前にしてください",
     "usedUp": "このクーポンコードは利用上限に達しました"
   },
   "deletedRecords": {

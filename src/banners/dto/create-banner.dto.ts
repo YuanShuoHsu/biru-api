@@ -3,9 +3,10 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
+  IsISO8601,
   IsInt,
   IsOptional,
+  IsRFC3339,
   IsString,
   Matches,
   MaxLength,
@@ -75,12 +76,14 @@ export class CreateBannerDto {
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   startsAt?: string | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   @Validate(IsStartsAtBeforeEndsAt)
   endsAt?: string | null;
 
