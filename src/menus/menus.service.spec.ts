@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { I18nContext, type I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -16,7 +16,6 @@ import {
   modifierGroup,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
@@ -44,7 +43,6 @@ describe('MenusService localized text filters and sorting', () => {
       {
         costsOf: () => Promise.resolve(new Map()),
       } as unknown as RecipesService,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -492,7 +490,7 @@ describe('MenusService localized text filters and sorting', () => {
   });
   describe('加購對象', () => {
     const rejected = {
-      response: { message: 'common.menus.addOnTargetRequired' },
+      response: { code: 'addOnTargetRequired' },
       status: 400,
     };
 
