@@ -273,9 +273,40 @@ describe('WaitlistService.createTicket', () => {
 
       if (outcome === 'resolves')
         await expect(result).resolves.toMatchObject({ id: 't' });
-      else await expect(result).rejects.toThrow('waitlistIdempotencyConflict');
+      else
+        await expect(result).rejects.toMatchObject({
+          message: 'waitlistIdempotencyConflict',
+          status: 409,
+        });
     },
   );
+
+  it('replays a ticket recorded without a fingerprint for any request', async () => {
+    const { service } = createService({
+      setting: openSetting,
+      ticket: {
+        calledAt: null,
+        confirmedAt: null,
+        id: 't',
+        idempotencyFingerprint: null,
+        number: 1,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(
+      service.createTicket(
+        'slug',
+        { ...dto, partySize: 3 },
+        null,
+        'zh-TW',
+        'key',
+        false,
+      ),
+    ).resolves.toMatchObject({ id: 't' });
+  });
 });
 
 describe('WaitlistService.createTicket by staff', () => {
