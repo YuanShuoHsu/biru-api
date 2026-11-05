@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -148,6 +149,197 @@ describe('來源食譜', () => {
       `insert into menu_item (id, menu_id, name) values ($1, 'menu', $2)`,
       [id, JSON.stringify({ 'zh-TW': name })],
     );
+
+  const addModifier = async (id: string, name: string, menuId = 'menu') => {
+    await client.query(
+      `insert into modifier_group (id, menu_id, display_name) values ($1, $2, '{"zh-TW":"群組"}') on conflict do nothing`,
+      [`${menuId}-group`, menuId],
+    );
+    await client.query(
+      `insert into modifier (id, modifier_group_id, display_name) values ($1, $2, $3)`,
+      [id, `${menuId}-group`, JSON.stringify({ 'zh-TW': name })],
+    );
+  };
+
+  describe('綁定客製選項', () => {
+    it('選項食譜沒給份量時為 1，不依名稱綁到同名品項，解除綁定時也不會', async () => {
+      await addModifier('large', '加大');
+      await addMenuItem('item', '加大');
+
+      const created = await recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大' },
+      });
+
+      expect(created).toMatchObject({
+        menuItemId: null,
+        modifierId: 'large',
+        recipeYield: 1,
+      });
+      expect(
+        await recipes.update(created.id, { modifierId: null }),
+      ).toMatchObject({ menuItemId: null, modifierId: null });
+    });
+
+    it('選項食譜的份量不是 1 時拒絕', async () => {
+      await addModifier('large', '加大');
+      await addModifier('small', '小份');
+
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            modifierId: 'large',
+            name: { 'zh-TW': '加大' },
+            recipeYield: 4,
+          }),
+        ),
+      ).toBe('modifierRecipeYieldNotOne');
+
+      const { id } = await recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大' },
+      });
+      expect(await codeOf(recipes.update(id, { recipeYield: 3 }))).toBe(
+        'modifierRecipeYieldNotOne',
+      );
+
+      await recipes.update('noYield', { recipeYield: 2 });
+      expect(
+        await codeOf(recipes.update('noYield', { modifierId: 'small' })),
+      ).toBe('modifierRecipeYieldNotOne');
+      expect(
+        await recipes.update('noYield', {
+          modifierId: 'small',
+          recipeYield: 1,
+        }),
+      ).toMatchObject({ modifierId: 'small', recipeYield: 1 });
+    });
+
+    it('已綁選項的食譜不會依名稱綁到同名品項', async () => {
+      await addModifier('large', '番茄醬');
+      await addMenuItem('item', '番茄醬');
+      await recipes.update('noYield', { modifierId: 'large' });
+
+      expect(
+        await bindMenuItemByRecipeName(db, {
+          name: { 'zh-TW': '番茄醬' },
+          organizationId: ORG,
+          recipeId: 'noYield',
+        }),
+      ).toBeNull();
+      expect((await recipes.findOne('noYield')).menuItemId).toBeNull();
+    });
+
+    it('品項不會依名稱綁到已綁選項的食譜', async () => {
+      await addModifier('large', '番茄醬');
+      await addMenuItem('item', '番茄醬');
+      await recipes.update('sauceRecipe', { modifierId: 'large' });
+
+      expect(
+        await bindRecipeByMenuItemName(db, {
+          menuItemId: 'item',
+          name: { 'zh-TW': '番茄醬' },
+          organizationId: ORG,
+        }),
+      ).toBeNull();
+    });
+
+    it('別家店的選項找不到', async () => {
+      await client.exec(
+        `insert into menu (id, organization_id, name) values ('otherMenu', '${OTHER_ORG}', '{"zh-TW":"別店菜單"}')`,
+      );
+      await addModifier('otherLarge', '加大', 'otherMenu');
+
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            modifierId: 'otherLarge',
+            name: { 'zh-TW': '加大' },
+          }),
+        ),
+      ).toBe('modifierNotFound');
+      expect(
+        await codeOf(recipes.update('noYield', { modifierId: 'otherLarge' })),
+      ).toBe('modifierNotFound');
+    });
+
+    it('不能同時綁品項與選項', async () => {
+      await addModifier('large', '加大');
+      await addMenuItem('item', '義大利麵');
+
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            menuItemId: 'item',
+            modifierId: 'large',
+            name: { 'zh-TW': '加大' },
+          }),
+        ),
+      ).toBe('recipeMenuItemAndModifier');
+
+      await recipes.update('noYield', { menuItemId: 'item' });
+      expect(
+        await codeOf(recipes.update('noYield', { modifierId: 'large' })),
+      ).toBe('recipeMenuItemAndModifier');
+      expect(
+        await recipes.update('noYield', {
+          menuItemId: null,
+          modifierId: 'large',
+        }),
+      ).toMatchObject({ menuItemId: null, modifierId: 'large' });
+    });
+
+    it('選項或品項已經有食譜時回 409', async () => {
+      await addModifier('large', '加大');
+      await addMenuItem('item', '義大利麵');
+      await recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大' },
+      });
+      await recipes.update('noYield', { menuItemId: 'item' });
+
+      const modifierTaken = recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大二' },
+      });
+      await expect(modifierTaken).rejects.toBeInstanceOf(ConflictException);
+      expect(await codeOf(modifierTaken)).toBe('recipeModifierTaken');
+      expect(
+        await codeOf(recipes.update('sauceRecipe', { modifierId: 'large' })),
+      ).toBe('recipeModifierTaken');
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            menuItemId: 'item',
+            name: { 'zh-TW': '義大利麵二' },
+          }),
+        ),
+      ).toBe('recipeMenuItemTaken');
+      expect(
+        await codeOf(recipes.update('sauceRecipe', { menuItemId: 'item' })),
+      ).toBe('recipeMenuItemTaken');
+    });
+
+    it('已綁選項的食譜不能當來源，來源食譜也不能綁選項', async () => {
+      await addModifier('large', '加大');
+      await db
+        .update(recipe)
+        .set({ modifierId: 'large' })
+        .where(eq(recipe.id, 'sauceRecipe'));
+
+      expect(await codeOf(createSauce())).toBe('sourceRecipeHasModifier');
+
+      await db
+        .update(recipe)
+        .set({ modifierId: null })
+        .where(eq(recipe.id, 'sauceRecipe'));
+      await createSauce();
+
+      expect(
+        await codeOf(recipes.update('sauceRecipe', { modifierId: 'large' })),
+      ).toBe('sourceRecipeHasModifier');
+    });
+  });
 
   describe('單價', () => {
     it('來源食譜的材料成本除以產量換算成每基準單位', async () => {

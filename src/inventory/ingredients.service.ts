@@ -494,6 +494,7 @@ export class IngredientsService {
     const [found] = await this.db
       .select({
         menuItemId: recipe.menuItemId,
+        modifierId: recipe.modifierId,
         recipeYieldQuantity: recipe.recipeYieldQuantity,
         recipeYieldUnitCode: recipe.recipeYieldUnitCode,
       })
@@ -508,6 +509,7 @@ export class IngredientsService {
     if (!COMPATIBLE_UNIT_CODES[unitCode].includes(found.recipeYieldUnitCode))
       throw badRequestError('sourceRecipeUnitIncompatible');
     if (found.menuItemId) throw badRequestError('sourceRecipeHasMenuItem');
+    if (found.modifierId) throw badRequestError('sourceRecipeHasModifier');
 
     const sourceOf = alias(ingredient, 'source_of');
     const [nested] = await this.db

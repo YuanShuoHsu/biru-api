@@ -113,23 +113,30 @@ export class InventoryReportService {
         GROUP BY 1
       ),
       sold AS (
-        SELECT entry.menu_item_id, SUM(${orderItem.orderQuantity} * deduction.times) AS servings
+        SELECT entry.menu_item_id, entry.modifier_id, SUM(${orderItem.orderQuantity} * deduction.times) AS servings
         FROM deduction
         JOIN ${orderItem} ON ${orderItem.orderId} = deduction.order_id
         CROSS JOIN LATERAL (
-          SELECT ${orderItem.menuItemId}
+          SELECT ${orderItem.menuItemId}, NULL
           UNION ALL
-          SELECT add_on.value ->> 'menuItemId'
+          SELECT add_on.value ->> 'menuItemId', NULL
           FROM jsonb_array_elements(COALESCE(${orderItem.addOns}, '[]'::jsonb)) AS add_on
-        ) AS entry(menu_item_id)
-        GROUP BY 1
+          UNION ALL
+          SELECT NULL, modifier.value ->> 'modifierId'
+          FROM jsonb_array_elements(COALESCE(${orderItem.modifiers}, '[]'::jsonb)) AS modifier
+          UNION ALL
+          SELECT NULL, add_on_modifier.value ->> 'modifierId'
+          FROM jsonb_array_elements(COALESCE(${orderItem.addOns}, '[]'::jsonb)) AS add_on
+          CROSS JOIN jsonb_array_elements(COALESCE(add_on.value -> 'modifiers', '[]'::jsonb)) AS add_on_modifier
+        ) AS entry(menu_item_id, modifier_id)
+        GROUP BY 1, 2
       ),
       theoretical AS (
         SELECT
           ${recipeIngredient.ingredientId} AS ingredient_id,
           SUM(${recipeIngredient.requiredQuantity} / ${recipe.recipeYield} * sold.servings) AS consumption
         FROM sold
-        JOIN ${recipe} ON ${recipe.menuItemId} = sold.menu_item_id
+        JOIN ${recipe} ON ${recipe.menuItemId} = sold.menu_item_id OR ${recipe.modifierId} = sold.modifier_id
         JOIN ${recipeIngredient} ON ${recipeIngredient.recipeId} = ${recipe.id}
         WHERE ${eq(recipe.organizationId, org.id)}
         GROUP BY 1

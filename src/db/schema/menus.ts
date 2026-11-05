@@ -288,6 +288,7 @@ export const modifier = pgTable(
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
+    autoSoldOut: boolean('auto_sold_out').notNull().default(false),
     availableModes: orderModeEnum('available_modes')
       .array()
       .notNull()

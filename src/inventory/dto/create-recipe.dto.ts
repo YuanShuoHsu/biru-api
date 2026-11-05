@@ -55,6 +55,14 @@ export class CreateRecipeDto {
   @IsString()
   menuItemId?: string | null;
 
+  @ApiPropertyOptional({
+    description:
+      '對應的客製選項，一個選項只能有一份食譜；與 menuItemId 擇一，份量必須為 1',
+  })
+  @IsOptional()
+  @IsString()
+  modifierId?: string | null;
+
   @ApiPropertyOptional({ default: 1, description: '份量' })
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()

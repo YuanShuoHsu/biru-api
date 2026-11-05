@@ -708,7 +708,7 @@ describe('OrdersService.createOrder', () => {
 
     it('剩餘數量不足時回傳品項名稱，不同步售完狀態', async () => {
       const { menuStock, service } = createService({
-        consumeError: new InsufficientStockError('cake'),
+        consumeError: new InsufficientStockError({ menuItemId: 'cake' }),
       });
 
       await expect(
@@ -721,6 +721,22 @@ describe('OrdersService.createOrder', () => {
         },
       });
       expect(menuStock.refresh).not.toHaveBeenCalled();
+    });
+
+    it('選項的剩餘數量不足時回傳選項名稱', async () => {
+      const { service } = createService({
+        consumeError: new InsufficientStockError({ modifierId: 'cheese' }),
+      });
+
+      await expect(
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'modifierInsufficientStock',
+          message: 'common.orders.modifierInsufficientStock:蛋糕',
+        },
+      });
     });
 
     it('折扣寫入訂單並核銷優惠券', async () => {

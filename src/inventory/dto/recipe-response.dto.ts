@@ -30,6 +30,7 @@ export class RecipeResponseDto {
   @ApiPropertyOptional() menuItemId: string | null;
   @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   menuItemName: LocalizedText | null;
+  @ApiPropertyOptional() modifierId: string | null;
   @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
   @ApiProperty() recipeYield: number;
   @ApiPropertyOptional() recipeYieldQuantity: string | null;

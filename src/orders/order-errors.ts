@@ -19,6 +19,7 @@ export const orderErrorCodes = [
   'menuItemUnavailable',
   'menuItemUnavailableAtTime',
   'menuItemUnavailableForMode',
+  'modifierInsufficientStock',
   'modifierUnavailable',
   'modifierUnavailableForMode',
   'notAwaitingPayment',

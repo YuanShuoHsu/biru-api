@@ -275,6 +275,60 @@ describe('InventoryReportService', () => {
     ]);
   });
 
+  it('理論耗用計入品項與加料上客製選項的食譜', async () => {
+    await client.exec(
+      `insert into modifier_group (id, menu_id, display_name) values ('flavor', 'menu', '{"zh-TW":"口味"}');
+       insert into modifier (id, modifier_group_id, display_name) values
+         ('vanilla', 'flavor', '{"zh-TW":"香草"}'),
+         ('plain', 'flavor', '{"zh-TW":"原味"}');
+       insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
+         ('syrup', 'org', '{"zh-TW":"syrup"}', 'MLT', 940, 6);
+       insert into recipe (id, organization_id, modifier_id, name) values
+         ('vanilla-recipe', 'org', 'vanilla', '{"zh-TW":"香草"}');
+       insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity) values
+         ('vanilla-syrup', 'vanilla-recipe', 'syrup', 10);`,
+    );
+    await addOrder('flavored', 'OrderDelivered');
+    await client.query(
+      `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons, modifiers)
+       values ('flavored-latte', 'flavored', 'latte', '拿鐵', 3, 50, $1, $2)`,
+      [
+        JSON.stringify([
+          {
+            menuItemId: 'oat',
+            menuItemName: '燕麥奶',
+            unitPrice: 0,
+            modifiers: [{ modifierId: 'vanilla' }],
+          },
+        ]),
+        JSON.stringify([{ modifierId: 'vanilla' }, { modifierId: 'plain' }]),
+      ],
+    );
+    await addTransaction('syrup-stock', 'syrup', 1000, '2026-10-24T02:00:00Z');
+    await addTransaction(
+      'syrup-flavored',
+      'syrup',
+      -60,
+      '2026-10-25T02:00:00Z',
+      'flavored',
+    );
+
+    const { rows } = await service.getInventoryReport('biru', {
+      since: '2026-10-25T00:00:00+08:00',
+      until: '2026-10-26T00:00:00+08:00',
+    });
+
+    expect(rows.find(({ ingredientId }) => ingredientId === 'syrup')).toEqual(
+      row('syrup', 'MLT', {
+        opening: '1000.000',
+        consumed: '60.000',
+        closing: '940.000',
+        theoreticalConsumption: '60.000',
+        actualConsumption: '60.000',
+      }),
+    );
+  });
+
   it('結束時間不晚於起始時間時拒絕', async () => {
     await expect(
       service.getInventoryReport('biru', {
