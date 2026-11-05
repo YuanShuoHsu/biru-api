@@ -116,7 +116,7 @@ class IsCarrierNum implements ValidatorConstraintInterface {
   }
 }
 
-export class CreateOrderInvoiceDto {
+class CreateOrderInvoiceDto {
   @ApiProperty({ enum: ['personal', 'company', 'donate'] })
   @IsEnum(['personal', 'company', 'donate'])
   type: 'personal' | 'company' | 'donate';

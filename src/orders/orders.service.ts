@@ -176,7 +176,7 @@ const PICKUP_MINUTES_STEP = 15;
 
 const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
 
-export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -209,7 +209,7 @@ const paymentDeadlineOf = (
   );
 };
 
-export type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
+type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
 type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
