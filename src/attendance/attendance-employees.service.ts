@@ -755,6 +755,16 @@ export class AttendanceEmployeesService {
         const removedHolidays = current.indigenousHolidays.filter(
           (date) => !indigenousHolidays.includes(date),
         );
+        const stillHolidays = removedHolidays.length
+          ? await holidayDatesAmong(
+              tx,
+              { id: current.id, indigenousHolidays },
+              removedHolidays,
+            )
+          : new Set<string>();
+        const revertedDates = removedHolidays.filter(
+          (date) => !stillHolidays.has(date),
+        );
         const changedHolidays = [...addedHolidays, ...removedHolidays];
         const flippedDates = new Set(
           changedHolidays.length
@@ -773,7 +783,7 @@ export class AttendanceEmployeesService {
                         ),
                         and(
                           eq(attendanceShift.dayKind, 'holiday'),
-                          inArray(shiftStartDate, removedHolidays),
+                          inArray(shiftStartDate, revertedDates),
                         ),
                       ),
                     ),
@@ -820,27 +830,17 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, addedHolidays),
               ),
             );
-        if (removedHolidays.length) {
-          const stillHolidays = await holidayDatesAmong(
-            tx,
-            { id: current.id, indigenousHolidays },
-            removedHolidays,
-          );
-          const revertedDates = removedHolidays.filter(
-            (date) => !stillHolidays.has(date),
-          );
-          if (revertedDates.length)
-            await tx
-              .update(attendanceShift)
-              .set({ dayKind: 'workday' })
-              .where(
-                and(
-                  eq(attendanceShift.employeeId, current.id),
-                  eq(attendanceShift.dayKind, 'holiday'),
-                  inArray(shiftStartDate, revertedDates),
-                ),
-              );
-        }
+        if (revertedDates.length)
+          await tx
+            .update(attendanceShift)
+            .set({ dayKind: 'workday' })
+            .where(
+              and(
+                eq(attendanceShift.employeeId, current.id),
+                eq(attendanceShift.dayKind, 'holiday'),
+                inArray(shiftStartDate, revertedDates),
+              ),
+            );
         for (const [before, after] of [
           [current.hiredAt, hiredAt],
           [current.terminatedAt, terminatedAt],
