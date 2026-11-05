@@ -42,6 +42,7 @@ import {
   POINT_SETTING_ID,
   pointSetting,
   pointTransaction,
+  type PointTransaction,
 } from '../db/schema/points.js';
 import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -386,32 +387,22 @@ export class PointsService {
       .for('update');
 
     const lots = rows.filter((row) => row.remainingPoints > 0);
-    const settled = new Map<string, number>();
     const debts = [];
-    for (const row of rows.filter((row) => row.remainingPoints < 0)) {
-      if (row.type !== 'earn') {
-        debts.push(row);
-        continue;
-      }
-      const id = randomUUID();
-      await tx.insert(pointTransaction).values({
-        id,
-        expiresAt: row.expiresAt,
-        orderId: row.orderId,
-        organizationId: row.organizationId,
-        points: -row.points,
-        remainingPoints: row.remainingPoints,
-        type: 'revoke',
-        userId,
-      });
-      settled.set(row.id, 0);
-      debts.push({ ...row, id });
-    }
+    for (const row of rows.filter((row) => row.remainingPoints < 0))
+      debts.push(
+        row.type === 'earn'
+          ? {
+              ...row,
+              id: await this.separateLegacyDebt(tx, { ...row, userId }),
+            }
+          : row,
+      );
     debts.sort(
       (a, b) =>
         a.createdAt.getTime() - b.createdAt.getTime() ||
         a.id.localeCompare(b.id),
     );
+    const settled = new Map<string, number>();
     for (const debt of debts)
       for (const lot of lots) {
         if (debt.remainingPoints === 0) break;
@@ -428,6 +419,41 @@ export class PointsService {
         .update(pointTransaction)
         .set({ remainingPoints, updatedAt: new Date() })
         .where(eq(pointTransaction.id, id));
+  }
+
+  private async separateLegacyDebt(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    earn: Pick<
+      PointTransaction,
+      | 'id'
+      | 'expiresAt'
+      | 'orderId'
+      | 'organizationId'
+      | 'points'
+      | 'remainingPoints'
+      | 'userId'
+    >,
+  ): Promise<string> {
+    if (!earn.orderId || (await this.revokedForOrder(tx, earn.orderId)) > 0)
+      return earn.id;
+
+    const id = randomUUID();
+    await tx.insert(pointTransaction).values({
+      id,
+      expiresAt: earn.expiresAt,
+      orderId: earn.orderId,
+      organizationId: earn.organizationId,
+      points: -earn.points,
+      remainingPoints: earn.remainingPoints,
+      type: 'revoke',
+      userId: earn.userId,
+    });
+    await tx
+      .update(pointTransaction)
+      .set({ remainingPoints: 0, updatedAt: new Date() })
+      .where(eq(pointTransaction.id, earn.id));
+
+    return id;
   }
 
   async revokeForOrder(
@@ -493,6 +519,9 @@ export class PointsService {
 
       return;
     }
+
+    if (earned.remainingPoints < 0)
+      await this.separateLegacyDebt(tx, { ...earned, orderId });
 
     const unrevoked = earned.points - (await this.revokedForOrder(tx, orderId));
     const revoking = orderBecomesTerminal

@@ -909,6 +909,39 @@ describe('PointsService.findAllForOrganization', () => {
       ]);
     });
 
+    it('舊版直接記在 earn 上的欠點遇到部分退款，不再多記一筆欠點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 0.5,
+      });
+
+      const rows = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1'));
+      expect(
+        rows
+          .filter(({ type }) => type === 'revoke')
+          .reduce((total, row) => total - row.points, 0),
+      ).toBe(100);
+      expect(rows.reduce((total, row) => total + row.remainingPoints, 0)).toBe(
+        -70,
+      );
+    });
+
     it('現金訂單退回未付款時不收回已用掉的點數，再付款不重複入點，取消後只收回一次', async () => {
       await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
       await service.getAllMine('amy');
