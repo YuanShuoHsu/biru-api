@@ -473,6 +473,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('補點自補點日起一年有效，扣點沒有到期日', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     vi.useFakeTimers({ now: new Date('2026-11-04T03:30:00Z') });
     try {
       const added = await service.adjustForOrganization(
@@ -684,6 +685,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('補點記下原因與操作者，列入本店明細與會員餘額', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     const created = await service.adjustForOrganization(
       'biru',
       { email: 'AMY@example.com', note: ' 客訴補償 ', points: 30 },
@@ -707,10 +709,10 @@ describe('PointsService.findAllForOrganization', () => {
     expect(row).toEqual(
       expect.objectContaining({ adjustedBy: 'bob', organizationId: ORG }),
     );
-    expect((await service.findAllForOrganization('biru')).data).toEqual([
+    expect((await service.findAllForOrganization('biru')).data).toContainEqual(
       expect.objectContaining({ id: created.id, note: '客訴補償' }),
-    ]);
-    expect((await service.getAllMine('amy')).balance).toBe(30);
+    );
+    expect((await service.getAllMine('amy')).balance).toBe(40);
   });
 
   it('扣點先補入未入點的訂單，只從本店剩餘點數扣', async () => {
@@ -803,6 +805,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('owner 門檻依全品牌每點金額換算，金額不大於 0 時只有 owner 能調整', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     await client.exec(`update point_setting set amount_per_point = 33.33`);
     expect(
       await service.adjustForOrganization(
@@ -872,6 +875,7 @@ describe('PointsService.findAllForOrganization', () => {
   });
 
   it('非 owner 可補扣到上限為止，超過上限拒絕', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
     await client.exec(`update point_setting set amount_per_point = 1.1`);
     const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit('admin');
 
@@ -934,6 +938,122 @@ describe('PointsService.findAllForOrganization', () => {
         'admin',
       ),
     ).rejects.toThrow('common.coupons.memberNotFound');
+  });
+
+  it('不是本店顧客的會員與不存在的 email 一樣回 404，owner 也一樣', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ('cat', 'cat', 'cat@example.com', 'cat')`,
+    );
+    await addPaidOrder('o1', OTHER_ORG, 'cat');
+    await addPaidOrder('o2', ORG, 'cat', { paymentDate: null });
+
+    for (const [email, role] of [
+      ['cat@example.com', 'admin'],
+      ['cat@example.com', 'owner'],
+      ['nobody@example.com', 'admin'],
+    ])
+      await expect(
+        service.adjustForOrganization(
+          'biru',
+          { email, note: '補償', points: 5 },
+          'bob',
+          role,
+        ),
+      ).rejects.toMatchObject({
+        status: 404,
+        message: 'common.coupons.memberNotFound',
+      });
+    expect(
+      await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.type, 'adjust')),
+    ).toEqual([]);
+  });
+
+  it('在本店有已付款訂單或本店點數明細的會員可以調整', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name) values ('cat', 'cat', 'cat@example.com', 'cat')`,
+    );
+    await addPaidOrder('o1', ORG, 'amy');
+    await db.insert(pointTransaction).values({
+      id: 'old',
+      organizationId: ORG,
+      points: 3,
+      remainingPoints: 3,
+      type: 'adjust',
+      userId: 'cat',
+    });
+
+    for (const email of ['amy@example.com', 'cat@example.com'])
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email, note: '補償', points: 5 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 5, userEmail: email }));
+  });
+
+  it('非 owner 對同一會員在同一個台灣日的補扣點合計不能超過上限，隔天重新計算，owner 不受限', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await addPaidOrder('o2', OTHER_ORG, 'amy');
+    vi.useFakeTimers({ now: new Date('2026-11-04T15:00:00Z') });
+    try {
+      await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 200 },
+        'bob',
+        'admin',
+      );
+      vi.setSystemTime(new Date('2026-11-04T15:59:00Z'));
+      await expect(
+        service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '誤發', points: -101 },
+          'bob',
+          'member',
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        message: 'common.points.adjustOwnerOnly',
+      });
+      await service.adjustForOrganization(
+        'other',
+        { email: 'amy@example.com', note: '補償', points: 300 },
+        'bob',
+        'admin',
+      );
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '補償', points: 100 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 100 }));
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '活動', points: 500 },
+          'bob',
+          'owner',
+        ),
+      ).toEqual(expect.objectContaining({ points: 500 }));
+
+      vi.setSystemTime(new Date('2026-11-04T16:00:00Z'));
+      expect(
+        await service.adjustForOrganization(
+          'biru',
+          { email: 'amy@example.com', note: '補償', points: 300 },
+          'bob',
+          'admin',
+        ),
+      ).toEqual(expect.objectContaining({ points: 300 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

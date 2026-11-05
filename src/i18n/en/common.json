@@ -308,7 +308,7 @@
     "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
   },
   "points": {
-    "adjustOwnerOnly": "A single adjustment over {maxPoints} points must be made by the store owner",
+    "adjustOwnerOnly": "Adjustments for one member at this store over {maxPoints} points in a day must be made by the store owner",
     "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
     "notEnabled": "Points are not enabled yet",

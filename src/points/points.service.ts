@@ -666,6 +666,35 @@ export class PointsService {
     return { data, total };
   }
 
+  private async isCustomerOf(
+    organizationId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const [paidOrder] = await this.db
+      .select({ id: order.id })
+      .from(order)
+      .where(
+        and(
+          eq(order.sellerId, organizationId),
+          eq(order.userId, userId),
+          isNotNull(order.paymentDate),
+        ),
+      )
+      .limit(1);
+    if (paidOrder) return true;
+    const [transaction] = await this.db
+      .select({ id: pointTransaction.id })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.organizationId, organizationId),
+          eq(pointTransaction.userId, userId),
+        ),
+      )
+      .limit(1);
+    return !!transaction;
+  }
+
   async getAdjustmentLimit(
     memberRole: string,
   ): Promise<PointAdjustmentLimitDto> {
@@ -705,10 +734,38 @@ export class PointsService {
     if (!target) throw new NotFoundException(this.tCoupons('memberNotFound'));
     if (target.id === adjustedBy)
       throw new BadRequestException(this.t('adjustSelf'));
+    if (!(await this.isCustomerOf(organizationId, target.id)))
+      throw new NotFoundException(this.tCoupons('memberNotFound'));
 
     await this.syncEarned({ userId: target.id });
 
     const created = await this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`${organizationId}:${target.id}`}, 0))`,
+      );
+      if (!isOwnerRole(adjusterRole)) {
+        const [{ adjustedToday }] = await tx
+          .select({
+            adjustedToday: sql<number>`COALESCE(SUM(ABS(${pointTransaction.points})), 0)::int`,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.organizationId, organizationId),
+              eq(pointTransaction.userId, target.id),
+              eq(pointTransaction.type, 'adjust'),
+              gte(
+                pointTransaction.createdAt,
+                new Date(platformMidnight(Date.now())),
+              ),
+            ),
+          );
+        if (adjustedToday + Math.abs(points) > maxNonOwnerPoints)
+          throw new ForbiddenException(
+            this.t('adjustOwnerOnly', { maxPoints: maxNonOwnerPoints }),
+          );
+      }
+
       if (points < 0) {
         const holdings = await tx
           .select({
@@ -758,6 +815,7 @@ export class PointsService {
         .values({
           id: randomUUID(),
           adjustedBy,
+          createdAt: new Date(),
           expiresAt: points > 0 ? toExpiresAt(new Date()) : null,
           note: note.trim(),
           organizationId,
