@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class UserStatsBucketDto {
+class UserStatsBucketDto {
   @ApiProperty({ format: 'date-time' }) start: string;
   @ApiProperty() users: number;
 }

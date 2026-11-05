@@ -12,22 +12,21 @@ export const USER_SESSION_DATE_FILTER_FIELDS = [
   'createdAt',
   'expiresAt',
 ] as const;
-export const USER_SESSION_ALL_FILTER_FIELDS = [
+const USER_SESSION_ALL_FILTER_FIELDS = [
   ...USER_SESSION_STRING_FILTER_FIELDS,
   ...USER_SESSION_DATE_FILTER_FIELDS,
 ] as const;
 
-export type UserSessionFilterField =
-  (typeof USER_SESSION_ALL_FILTER_FIELDS)[number];
+type UserSessionFilterField = (typeof USER_SESSION_ALL_FILTER_FIELDS)[number];
 
-export const USER_SESSION_SORT_FIELDS = [
+const USER_SESSION_SORT_FIELDS = [
   'userAgent',
   'ipAddress',
   'createdAt',
   'expiresAt',
 ] as const;
 
-export type UserSessionSortField = (typeof USER_SESSION_SORT_FIELDS)[number];
+type UserSessionSortField = (typeof USER_SESSION_SORT_FIELDS)[number];
 
 export class UserSessionPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
