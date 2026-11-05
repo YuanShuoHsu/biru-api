@@ -139,7 +139,7 @@
     "couponNotFound": "The coupon wasn't found. It may have been deleted",
     "expired": "This promo code has expired",
     "grantExpired": "This coupon has expired and can't be granted",
-    "grantInactive": "This coupon is turned off and can't be granted",
+    "grantInactive": "This coupon has been deactivated and can't be granted",
     "inUse": "Customers have already claimed this coupon, so it can't be deleted. Deactivate it instead.",
     "issueMinSpendRequired": "A minimum spend is required for spend rewards",
     "itemScopeSingleOrganization": "An item-specific coupon can only apply to one store",
