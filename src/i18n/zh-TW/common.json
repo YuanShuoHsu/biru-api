@@ -181,6 +181,7 @@
   "inventory": {
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
+    "insufficientStock": "部分原料庫存不足，無法製作這一批。請先進貨或盤點",
     "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
@@ -189,6 +190,7 @@
     "recipeNotFound": "找不到這份食譜，可能已被刪除",
     "sourceRecipeHasMenuItem": "已綁定菜單品項的食譜不能作為食材的來源食譜",
     "sourceRecipeNested": "來源食譜不能使用由其他食譜製成的食材",
+    "sourceRecipeRequired": "這項食材沒有來源食譜，無法製作批次",
     "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
     "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
     "supplierNotFound": "找不到這個供應商，可能已被刪除"

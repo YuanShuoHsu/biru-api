@@ -181,6 +181,7 @@
   "inventory": {
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
+    "insufficientStock": "Not enough stock of some ingredients for this batch. Restock or recount them first",
     "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
@@ -189,6 +190,7 @@
     "recipeNotFound": "The recipe wasn't found. It may have been deleted",
     "sourceRecipeHasMenuItem": "A recipe linked to a menu item can't be an ingredient's source recipe",
     "sourceRecipeNested": "A source recipe can't use ingredients that are made from another recipe",
+    "sourceRecipeRequired": "This ingredient has no source recipe, so it can't be made in batches",
     "sourceRecipeUnitIncompatible": "The recipe's yield unit isn't compatible with the ingredient's stock unit",
     "sourceRecipeYieldMissing": "Set the recipe's yield quantity and unit before using it as an ingredient's source recipe",
     "supplierNotFound": "The supplier wasn't found. It may have been deleted"

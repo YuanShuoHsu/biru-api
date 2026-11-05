@@ -1,3 +1,5 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 import { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -47,7 +49,7 @@ describe('來源食譜', () => {
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;
-    transactions = new InventoryTransactionsService(db);
+    transactions = new InventoryTransactionsService(db, new EventEmitter2());
     ingredients = new IngredientsService(db, transactions);
     recipes = new RecipesService(db);
   }, 60_000);
