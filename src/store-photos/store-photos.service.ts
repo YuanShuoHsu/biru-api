@@ -32,6 +32,7 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import type {
   CreateStorePhotoDto,
@@ -197,14 +198,7 @@ export class StorePhotosService {
     });
   }
 
-  async reorder(ids: string[], offset: number): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(storePhoto)
-          .set({ sortOrder: offset + i })
-          .where(eq(storePhoto.id, id));
-      }
-    });
+  async reorder(ids: string[]): Promise<void> {
+    await reorderSortOrders(this.db, storePhoto, ids);
   }
 }

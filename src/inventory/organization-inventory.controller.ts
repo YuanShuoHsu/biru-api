@@ -113,9 +113,9 @@ export class OrganizationInventoryController {
   @ApiOperation({ summary: '重新排序食材' })
   reorderIngredients(
     @OrganizationId() organizationId: string,
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
   ): Promise<void> {
-    return this.ingredientsService.reorder(organizationId, ids, offset);
+    return this.ingredientsService.reorder(organizationId, ids);
   }
 
   @Delete('ingredients')

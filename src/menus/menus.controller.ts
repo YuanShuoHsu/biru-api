@@ -163,10 +163,10 @@ export class MenusController {
   @Audit('menuSection', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單分類' })
   reorderMenuSections(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuId') menuId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuSections(menuId, ids, offset);
+    return this.menusService.reorderMenuSections(menuId, ids);
   }
 
   @Get('menu-sections/:sectionId')
@@ -273,10 +273,10 @@ export class MenusController {
   @Audit('menuItem', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單品項' })
   reorderMenuItems(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('sectionId') sectionId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItems(sectionId, ids, offset);
+    return this.menusService.reorderMenuItems(sectionId, ids);
   }
 
   @Get('menu-items/:menuItemId')
@@ -461,10 +461,10 @@ export class MenusController {
   @Audit('menuItemAddOn', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項加購' })
   reorderMenuItemAddOns(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuItemId') menuItemId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItemAddOns(menuItemId, ids, offset);
+    return this.menusService.reorderMenuItemAddOns(menuItemId, ids);
   }
 
   @Patch('menu-items/:menuItemId/add-ons/:addOnId')
@@ -534,10 +534,10 @@ export class MenusController {
   @Audit('modifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項群組' })
   reorderModifierGroups(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuId') menuId: string,
   ): Promise<void> {
-    return this.menusService.reorderModifierGroups(menuId, ids, offset);
+    return this.menusService.reorderModifierGroups(menuId, ids);
   }
 
   @Get('modifier-groups/:groupId')
@@ -620,10 +620,10 @@ export class MenusController {
   @Audit('modifier', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項' })
   reorderModifiers(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('groupId') groupId: string,
   ): Promise<void> {
-    return this.menusService.reorderModifiers(groupId, ids, offset);
+    return this.menusService.reorderModifiers(groupId, ids);
   }
 
   @Patch('modifiers/:modifierId')
@@ -710,14 +710,10 @@ export class MenusController {
   @Audit('menuItemModifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項的選項群組' })
   reorderMenuItemModifierGroups(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuItemId') menuItemId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItemModifierGroups(
-      menuItemId,
-      ids,
-      offset,
-    );
+    return this.menusService.reorderMenuItemModifierGroups(menuItemId, ids);
   }
 
   @Delete('menu-items/:menuItemId/modifier-groups')

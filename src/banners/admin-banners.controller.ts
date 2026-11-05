@@ -49,8 +49,8 @@ export class AdminBannersController {
   @Patch('reorder')
   @Audit('banner', { body: 'ids' })
   @ApiOperation({ summary: '重新排序輪播圖' })
-  reorder(@Body() { ids, offset }: ReorderBannersDto): Promise<void> {
-    return this.bannersService.reorder(ids, offset);
+  reorder(@Body() { ids }: ReorderBannersDto): Promise<void> {
+    return this.bannersService.reorder(ids);
   }
 
   @Delete()

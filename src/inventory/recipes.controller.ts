@@ -109,9 +109,9 @@ export class RecipesController {
   @ApiOperation({ summary: '重新排序食譜材料' })
   reorderIngredients(
     @Param('recipeId') recipeId: string,
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
   ): Promise<void> {
-    return this.recipesService.reorderIngredients(recipeId, ids, offset);
+    return this.recipesService.reorderIngredients(recipeId, ids);
   }
 
   @Patch('recipe-ingredients/:recipeIngredientId')

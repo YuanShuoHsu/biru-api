@@ -29,6 +29,7 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
   BANNER_DATE_FILTER_FIELDS,
@@ -202,14 +203,7 @@ export class BannersService {
     });
   }
 
-  async reorder(ids: string[], offset: number): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(banner)
-          .set({ sortOrder: offset + i })
-          .where(eq(banner.id, id));
-      }
-    });
+  async reorder(ids: string[]): Promise<void> {
+    await reorderSortOrders(this.db, banner, ids);
   }
 }
