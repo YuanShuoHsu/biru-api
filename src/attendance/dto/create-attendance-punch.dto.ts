@@ -1,9 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import {
-  IsDateString,
   IsIn,
+  IsISO8601,
   IsNumber,
+  IsRFC3339,
   IsUUID,
   Max,
   Min,
@@ -26,5 +27,5 @@ export class CreateAttendancePunchDto {
   @IsNumber() @Min(-90) @Max(90) latitude: number;
   @IsNumber() @Min(-180) @Max(180) longitude: number;
   @IsNumber() @Min(0) @Max(10000) accuracy: number;
-  @IsDateString() locatedAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) locatedAt: string;
 }

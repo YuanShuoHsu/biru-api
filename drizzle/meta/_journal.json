@@ -1793,6 +1793,13 @@
       "when": 1793814642288,
       "tag": "0255_ingredient_source_recipe",
       "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1793860276363,
+      "tag": "0256_inventory_transaction_production_batch",
+      "breakpoints": true
     }
   ]
 }

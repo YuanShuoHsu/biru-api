@@ -138,6 +138,8 @@
     "codeExists": "이미 존재하는 쿠폰 코드입니다",
     "couponNotFound": "쿠폰을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "expired": "쿠폰 코드가 만료되었습니다",
+    "grantExpired": "이 쿠폰은 만료되어 발급할 수 없습니다",
+    "grantInactive": "이 쿠폰은 비활성화되어 발급할 수 없습니다",
     "inUse": "이미 고객이 받은 쿠폰이라 삭제할 수 없습니다. 대신 비활성화하세요.",
     "issueMinSpendRequired": "금액 달성 보상에는 달성 금액을 설정해야 합니다",
     "itemScopeSingleOrganization": "상품 지정 쿠폰은 한 매장에만 적용할 수 있습니다",
@@ -182,6 +184,7 @@
   "inventory": {
     "ingredientInUse": "이 식자재는 아직 레시피에 사용되고 있습니다. 먼저 레시피에서 제거해 주세요",
     "ingredientNotFound": "식자재를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "insufficientStock": "이 배치에 필요한 재료의 재고가 부족합니다. 먼저 입고하거나 재고를 실사하세요",
     "packageRequired": "원본 레시피가 없는 재료는 포장 가격, 용량, 단위를 입력하세요",
     "packageUnitIncompatible": "내용량 단위와 재고 단위가 호환되지 않습니다",
     "purchaseFieldsOnSourcedIngredient": "원본 레시피로 만드는 재료에는 포장 가격, 용량, 공급업체를 설정할 수 없습니다",
@@ -190,6 +193,7 @@
     "recipeNotFound": "레시피를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "sourceRecipeHasMenuItem": "메뉴 품목에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
     "sourceRecipeNested": "원본 레시피에는 다른 레시피로 만든 재료를 사용할 수 없습니다",
+    "sourceRecipeRequired": "이 재료에는 원본 레시피가 없어 배치로 만들 수 없습니다",
     "sourceRecipeUnitIncompatible": "레시피 생산량 단위와 재료의 재고 단위가 호환되지 않습니다",
     "sourceRecipeYieldMissing": "재료의 원본 레시피로 사용하려면 레시피의 생산량과 단위를 설정하세요",
     "supplierNotFound": "공급업체를 찾을 수 없습니다. 삭제되었을 수 있습니다"

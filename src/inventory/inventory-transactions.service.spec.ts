@@ -31,7 +31,7 @@ describe('庫存扣除、還原與自動售完', () => {
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;
-    service = new InventoryTransactionsService(db);
+    service = new InventoryTransactionsService(db, new EventEmitter2());
     eventEmitter = new EventEmitter2();
     menuStock = new MenuStockService(db, eventEmitter);
   }, 60_000);

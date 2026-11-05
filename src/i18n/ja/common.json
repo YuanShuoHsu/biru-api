@@ -138,6 +138,8 @@
     "codeExists": "このクーポンコードはすでに存在します",
     "couponNotFound": "クーポンが見つかりません。削除された可能性があります",
     "expired": "クーポンコードの有効期限が切れています",
+    "grantExpired": "このクーポンは有効期限が切れているため、配布できません",
+    "grantInactive": "このクーポンは無効になっているため、配布できません",
     "inUse": "このクーポンはすでにお客様が受け取っているため削除できません。無効化してください。",
     "issueMinSpendRequired": "金額達成特典には達成金額の設定が必要です",
     "itemScopeSingleOrganization": "商品指定クーポンは1店舗のみに適用できます",
@@ -182,6 +184,7 @@
   "inventory": {
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
+    "insufficientStock": "このバッチに必要な食材の在庫が足りません。先に仕入れるか棚卸ししてください",
     "packageRequired": "元レシピのない食材には、包装の価格・内容量・単位を入力してください",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",
@@ -190,6 +193,7 @@
     "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
     "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
     "sourceRecipeNested": "元レシピには、別のレシピから作る食材を使えません",
+    "sourceRecipeRequired": "この食材には元レシピがないため、バッチで作れません",
     "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
     "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
     "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"

@@ -240,6 +240,41 @@ describe('InventoryReportService', () => {
     expect(rows.map(({ ingredientId }) => ingredientId)).not.toContain('water');
   });
 
+  it('製作批次扣的原料計入耗用與理論耗用，產出計入進貨，不算盤點調整', async () => {
+    await client.exec(
+      `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
+         ('tomato', 'org', '{"zh-TW":"tomato"}', 'GRM', 1490, 4),
+         ('sauce', 'org', '{"zh-TW":"sauce"}', 'GRM', 1000, 5);
+       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, production_batch_id, created_at) values
+         ('tomato-stock', 'tomato', 'org', 2000, null, '2026-10-19T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('tomato-batch', 'tomato', 'org', -500, 'batch', '2026-10-20T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('sauce-batch', 'sauce', 'org', 1000, 'batch', '2026-10-20T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('tomato-loss', 'tomato', 'org', -10, null, '2026-10-20T03:00:00Z'::timestamptz at time zone 'UTC');`,
+    );
+
+    const { rows } = await service.getInventoryReport('biru', {
+      since: '2026-10-20T00:00:00+08:00',
+      until: '2026-10-21T00:00:00+08:00',
+    });
+
+    expect(
+      rows.filter(({ ingredientId }) =>
+        ['tomato', 'sauce'].includes(ingredientId),
+      ),
+    ).toEqual([
+      row('tomato', 'GRM', {
+        opening: '2000.000',
+        consumed: '500.000',
+        adjusted: '-10.000',
+        closing: '1490.000',
+        theoreticalConsumption: '500.000',
+        actualConsumption: '510.000',
+        variance: '10.000',
+      }),
+      row('sauce', 'GRM', { received: '1000.000', closing: '1000.000' }),
+    ]);
+  });
+
   it('結束時間不晚於起始時間時拒絕', async () => {
     await expect(
       service.getInventoryReport('biru', {

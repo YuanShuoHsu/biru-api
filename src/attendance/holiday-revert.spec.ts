@@ -93,6 +93,43 @@ describe('turning holiday shifts back into workdays', () => {
     });
   });
 
+  const publishApril = () =>
+    client.exec(
+      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, status, snapshot, reason, idempotency_key, created_by, paid_on)
+         values ('april', '${ORG}', 'emp', 'Amy', '2026-04', 'published', '{}', 'initial', 'april', 'owner', '2026-05-05')`,
+    );
+
+  it('removing an indigenous holiday whose date stays a 補休 does not lock the later published months', async () => {
+    await publishApril();
+
+    await employees.saveEmployee(actor, employeeDto(['2026-03-10']));
+
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
+  });
+
+  it('removing an indigenous holiday whose date stays a 補休 still locks its own published month', async () => {
+    await client.exec(
+      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, status, snapshot, reason, idempotency_key, created_by, paid_on)
+         values ('march', '${ORG}', 'emp', 'Amy', '2026-03', 'published', '{}', 'initial', 'march', 'owner', '2026-04-05')`,
+    );
+
+    await expect(
+      employees.saveEmployee(actor, employeeDto(['2026-03-10'])),
+    ).rejects.toThrow('payrollLocked');
+  });
+
+  it('removing an indigenous holiday that turns a shift back into a workday locks the later published months', async () => {
+    await publishApril();
+
+    await expect(
+      employees.saveEmployee(actor, employeeDto(['2026-03-12'])),
+    ).rejects.toThrow('payrollLocked');
+  });
+
   it('removing an indigenous holiday keeps a statutory holiday on that date a holiday', async () => {
     await client.exec(
       `insert into statutory_holiday (date, name) values ('2026-03-10', '補假')`,
@@ -209,10 +246,7 @@ describe('turning holiday shifts back into workdays', () => {
 
   it('rejects cancelling the shift a 補休 is designated on when a later month is published', async () => {
     await addSameDayShift('same-day', '2026-03-17');
-    await client.exec(
-      `insert into payroll_statement (id, organization_id, employee_id, employee_name, month, status, snapshot, reason, idempotency_key, created_by, paid_on)
-         values ('april', '${ORG}', 'emp', 'Amy', '2026-04', 'published', '{}', 'initial', 'april', 'owner', '2026-05-05')`,
-    );
+    await publishApril();
 
     await expect(
       shifts.cancelShift(actor, 'substitute-only', { reason: '店休' }),
