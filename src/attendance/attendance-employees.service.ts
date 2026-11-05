@@ -97,6 +97,7 @@ import {
   weeklyMinutesAt,
 } from './employee-hours.js';
 import { findEmployee } from './employee-lookup.js';
+import { holidayDatesAmong } from './holiday-substitutes.js';
 import { anniversary } from './leave-rules.js';
 import { shiftStartDate } from './shift-queries.js';
 import {
@@ -819,17 +820,27 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, addedHolidays),
               ),
             );
-        if (removedHolidays.length)
-          await tx
-            .update(attendanceShift)
-            .set({ dayKind: 'workday' })
-            .where(
-              and(
-                eq(attendanceShift.employeeId, current.id),
-                eq(attendanceShift.dayKind, 'holiday'),
-                inArray(shiftStartDate, removedHolidays),
-              ),
-            );
+        if (removedHolidays.length) {
+          const stillHolidays = await holidayDatesAmong(
+            tx,
+            { id: current.id, indigenousHolidays },
+            removedHolidays,
+          );
+          const revertedDates = removedHolidays.filter(
+            (date) => !stillHolidays.has(date),
+          );
+          if (revertedDates.length)
+            await tx
+              .update(attendanceShift)
+              .set({ dayKind: 'workday' })
+              .where(
+                and(
+                  eq(attendanceShift.employeeId, current.id),
+                  eq(attendanceShift.dayKind, 'holiday'),
+                  inArray(shiftStartDate, revertedDates),
+                ),
+              );
+        }
         for (const [before, after] of [
           [current.hiredAt, hiredAt],
           [current.terminatedAt, terminatedAt],
