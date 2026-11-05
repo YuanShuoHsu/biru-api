@@ -11,6 +11,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 export const inventoryErrorCodes = [
   'ingredientInUse',
   'ingredientNotFound',
+  'insufficientStock',
   'packageRequired',
   'packageUnitIncompatible',
   'purchaseFieldsOnSourcedIngredient',
@@ -19,6 +20,7 @@ export const inventoryErrorCodes = [
   'recipeNotFound',
   'sourceRecipeHasMenuItem',
   'sourceRecipeNested',
+  'sourceRecipeRequired',
   'sourceRecipeUnitIncompatible',
   'sourceRecipeYieldMissing',
   'supplierNotFound',
@@ -33,8 +35,15 @@ const errorBody = (code: InventoryErrorCode) => ({
     code,
 });
 
-export const badRequestError = (code: InventoryErrorCode) =>
-  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+export const badRequestError = (
+  code: InventoryErrorCode,
+  details?: Record<string, unknown>,
+) =>
+  new BadRequestException({
+    error: 'Bad Request',
+    ...errorBody(code),
+    ...details,
+  });
 
 export const conflictError = (code: InventoryErrorCode) =>
   new ConflictException({ error: 'Conflict', ...errorBody(code) });

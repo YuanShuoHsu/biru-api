@@ -1,4 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -13,6 +14,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
+import { UNIT_FACTORS } from '../common/constants/units.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -23,12 +25,17 @@ import {
   inventoryTransaction,
   recipe,
   recipeIngredient,
+  type InventoryTransaction,
 } from '../db/schema/inventory.js';
 import { offer } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { LowStockReachedEvent } from '../events/low-stock-reached.event.js';
+import {
+  LOW_STOCK_REACHED_EVENT,
+  type LowStockReachedEvent,
+} from '../events/low-stock-reached.event.js';
 
+import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
@@ -41,7 +48,7 @@ import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto.js';
-import { notFoundError } from './inventory-errors.js';
+import { badRequestError, notFoundError } from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
 import { unitPriceSql } from './pricing.js';
 
@@ -55,7 +62,10 @@ export class InsufficientStockError extends Error {
 
 @Injectable()
 export class InventoryTransactionsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(
     ingredientId: string,
@@ -245,6 +255,142 @@ export class InventoryTransactionsService {
     return { ...created, balance, orderNumber: null, reason: 'count' };
   }
 
+  async produceBatch(
+    organizationId: string,
+    ingredientId: string,
+    { note, quantity }: CreateIngredientBatchDto,
+    canReadPurchasing = true,
+  ): Promise<InventoryTransactionResponseDto> {
+    const { batch, balance, lowStock } = await this.db.transaction(
+      async (tx) => {
+        const [target] = await tx
+          .select({
+            recipeId: ingredient.recipeId,
+            recipeYieldQuantity: recipe.recipeYieldQuantity,
+            recipeYieldUnitCode: recipe.recipeYieldUnitCode,
+            unitPrice: unitPriceSql,
+          })
+          .from(ingredient)
+          .leftJoin(recipe, eq(recipe.id, ingredient.recipeId))
+          .where(
+            and(
+              eq(ingredient.id, ingredientId),
+              eq(ingredient.organizationId, organizationId),
+            ),
+          );
+        if (!target) throw notFoundError('ingredientNotFound');
+        if (!target.recipeId) throw badRequestError('sourceRecipeRequired');
+
+        const { recipeYieldQuantity, recipeYieldUnitCode } = target;
+        const yieldQuantity =
+          recipeYieldQuantity && recipeYieldUnitCode
+            ? Number(recipeYieldQuantity) * UNIT_FACTORS[recipeYieldUnitCode]
+            : 0;
+        if (!yieldQuantity) throw badRequestError('sourceRecipeYieldMissing');
+
+        const produced = Number(quantity);
+        const materials = await tx
+          .select({
+            ingredientId: recipeIngredient.ingredientId,
+            requiredQuantity: recipeIngredient.requiredQuantity,
+          })
+          .from(recipeIngredient)
+          .innerJoin(
+            ingredient,
+            eq(ingredient.id, recipeIngredient.ingredientId),
+          )
+          .where(
+            and(
+              eq(recipeIngredient.recipeId, target.recipeId),
+              eq(ingredient.unlimitedStock, false),
+            ),
+          )
+          .orderBy(asc(recipeIngredient.sortOrder), asc(recipeIngredient.id));
+        const used = materials.map(({ ingredientId, requiredQuantity }) => ({
+          ingredientId,
+          quantity: (Number(requiredQuantity) * produced) / yieldQuantity,
+        }));
+
+        const locked = await tx
+          .select({
+            id: ingredient.id,
+            inventoryLevel: ingredient.inventoryLevel,
+            name: ingredient.name,
+          })
+          .from(ingredient)
+          .where(
+            inArray(ingredient.id, [
+              ingredientId,
+              ...used.map(({ ingredientId }) => ingredientId),
+            ]),
+          )
+          .orderBy(asc(ingredient.id))
+          .for('update');
+
+        const shortfalls = used.flatMap(({ ingredientId, quantity }) => {
+          const material = locked.find(({ id }) => id === ingredientId);
+          const shortfall = quantity - Number(material?.inventoryLevel);
+          return material && shortfall > QUANTITY_TOLERANCE
+            ? [
+                {
+                  id: material.id,
+                  name: material.name,
+                  shortfall: shortfall.toFixed(3),
+                },
+              ]
+            : [];
+        });
+        if (shortfalls.length)
+          throw badRequestError('insufficientStock', {
+            ingredients: shortfalls,
+          });
+
+        const { created, lowStock } = await this.record(
+          [
+            ...used.map(({ ingredientId, quantity }) => ({
+              ingredientId,
+              quantity: -quantity,
+            })),
+            {
+              ingredientId,
+              quantity: produced,
+              unitCost: target.unitPrice?.toString() ?? null,
+            },
+          ],
+          { note, organizationId },
+          tx,
+        );
+
+        const [{ balance }] = await tx
+          .select({ balance: ingredient.inventoryLevel })
+          .from(ingredient)
+          .where(eq(ingredient.id, ingredientId));
+
+        return {
+          batch: created[created.length - 1],
+          balance,
+          lowStock,
+        };
+      },
+    );
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
+
+    const { unitCost, ...rest } = batch;
+
+    return {
+      ...rest,
+      ...(canReadPurchasing && { unitCost }),
+      balance,
+      orderNumber: null,
+      reason: 'count',
+    };
+  }
+
   async consume(
     orderId: string,
     tx: Tx,
@@ -336,7 +482,7 @@ export class InventoryTransactionsService {
       }
     }
 
-    const lowStock = await this.record(
+    const { lowStock } = await this.record(
       [...quantities].map(([ingredientId, used]) => ({
         ingredientId,
         quantity: -used,
@@ -513,19 +659,28 @@ export class InventoryTransactionsService {
   }
 
   private async record(
-    entries: { ingredientId: string; quantity: number }[],
+    entries: {
+      ingredientId: string;
+      quantity: number;
+      unitCost?: string | null;
+    }[],
     {
       menuItemIdByIngredientId,
+      note,
       orderId,
       organizationId,
     }: {
       menuItemIdByIngredientId?: Map<string, string>;
-      orderId: string;
+      note?: string | null;
+      orderId?: string;
       organizationId: string;
     },
     tx: Tx,
-  ): Promise<LowStockReachedEvent['ingredients']> {
-    if (!entries.length) return [];
+  ): Promise<{
+    created: InventoryTransaction[];
+    lowStock: LowStockReachedEvent['ingredients'];
+  }> {
+    if (!entries.length) return { created: [], lowStock: [] };
 
     const locked = await tx
       .select({
@@ -556,15 +711,20 @@ export class InventoryTransactionsService {
           throw new InsufficientStockError(menuItemId);
       }
 
-    await tx.insert(inventoryTransaction).values(
-      entries.map(({ ingredientId, quantity }) => ({
-        id: randomUUID(),
-        ingredientId,
-        orderId,
-        organizationId,
-        quantity: String(quantity),
-      })),
-    );
+    const created = await tx
+      .insert(inventoryTransaction)
+      .values(
+        entries.map(({ ingredientId, quantity, unitCost }) => ({
+          id: randomUUID(),
+          ingredientId,
+          note,
+          orderId,
+          organizationId,
+          quantity: String(quantity),
+          unitCost,
+        })),
+      )
+      .returning();
 
     const lowStock: LowStockReachedEvent['ingredients'] = [];
     for (const { ingredientId, quantity } of entries) {
@@ -597,6 +757,6 @@ export class InventoryTransactionsService {
         });
     }
 
-    return lowStock;
+    return { created, lowStock };
   }
 }
