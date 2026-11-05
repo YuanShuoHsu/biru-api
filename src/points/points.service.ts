@@ -360,11 +360,12 @@ export class PointsService {
       );
   }
 
-  private async settleDebts(
-    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+  private lockPoints(
+    tx: Pick<DrizzleDB, 'select'>,
     userId: string,
-  ): Promise<void> {
-    const rows = await tx
+    orderId?: string,
+  ) {
+    return tx
       .select({
         id: pointTransaction.id,
         createdAt: pointTransaction.createdAt,
@@ -379,12 +380,21 @@ export class PointsService {
       .where(
         and(
           eq(pointTransaction.userId, userId),
-          this.notExpired(),
-          ne(pointTransaction.remainingPoints, 0),
+          or(
+            and(this.notExpired(), ne(pointTransaction.remainingPoints, 0)),
+            orderId ? eq(pointTransaction.orderId, orderId) : undefined,
+          ),
         ),
       )
       .orderBy(...LOT_CONSUMPTION_ORDER)
       .for('update');
+  }
+
+  private async settleDebts(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    userId: string,
+  ): Promise<void> {
+    const rows = await this.lockPoints(tx, userId);
 
     const lots = rows.filter((row) => row.remainingPoints > 0);
     const debts = [];
@@ -464,6 +474,12 @@ export class PointsService {
       ratio,
     }: { orderBecomesTerminal: boolean; orderId: string; ratio: number },
   ): Promise<void> {
+    const [buyer] = await tx
+      .select({ userId: order.userId })
+      .from(order)
+      .where(eq(order.id, orderId));
+    if (buyer?.userId) await this.lockPoints(tx, buyer.userId, orderId);
+
     const [earned] = await tx
       .select({
         id: pointTransaction.id,

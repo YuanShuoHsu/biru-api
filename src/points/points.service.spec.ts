@@ -909,6 +909,49 @@ describe('PointsService.findAllForOrganization', () => {
       ]);
     });
 
+    it('舊版 earn 上的欠點已有收回列時，之後取得點數直接抵扣 earn，不再新增收回列', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values([
+        {
+          id: 'legacy',
+          createdAt: new Date('2026-02-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: 100,
+          remainingPoints: -70,
+          type: 'earn',
+          userId: 'amy',
+        },
+        {
+          id: 'legacy-revoke',
+          createdAt: new Date('2026-03-01T00:00:00Z'),
+          expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+          orderId: 'o1',
+          organizationId: ORG,
+          points: -100,
+          remainingPoints: -100,
+          type: 'revoke',
+          userId: 'amy',
+        },
+      ]);
+      await addPaidOrder('o2', ORG, 'amy', { unitPrice: '1000' });
+
+      await service.getAllMine('amy');
+      await service.getAllMine('amy');
+
+      expect(await remainingByType('o1')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+        { remainingPoints: -70, type: 'revoke' },
+      ]);
+      expect(await remainingByType('o2')).toEqual([
+        { remainingPoints: 0, type: 'earn' },
+      ]);
+    });
+
     it('舊版直接記在 earn 上的欠點遇到部分退款，不再多記一筆欠點', async () => {
       await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
       await db.insert(pointTransaction).values({
