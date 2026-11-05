@@ -532,6 +532,63 @@ describe('PointsService.findAllForOrganization', () => {
     ]);
   });
 
+  describe('多次退款累計收回', () => {
+    const refund = (ratio: number, orderBecomesTerminal = false) =>
+      service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal,
+        orderId: 'o1',
+        ratio,
+      });
+
+    const totalRevoked = async () =>
+      (
+        await db
+          .select()
+          .from(pointTransaction)
+          .where(eq(pointTransaction.type, 'revoke'))
+      ).reduce((total, row) => total - row.points, 0);
+
+    it('1 點的訂單兩次退一半，只收回 1 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '10' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.5);
+      await refund(0.5);
+
+      expect(await totalRevoked()).toBe(1);
+    });
+
+    it('5 點的訂單分 30%、30%、40% 退款，合計收回 5 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '50' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.3);
+      await refund(0.3);
+      await refund(0.4);
+
+      expect(await totalRevoked()).toBe(5);
+    });
+
+    it('部分退款後再全額退款，收回剩下全部點數', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '50' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.5);
+      await refund(0.5, true);
+
+      expect(await totalRevoked()).toBe(5);
+    });
+
+    it('尚未入點的 1 點訂單兩次退一半，只收回 1 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '10' });
+
+      await refund(0.5);
+      await refund(0.5);
+
+      expect(await totalRevoked()).toBe(1);
+    });
+  });
+
   it('點數停用時，沒有快照的訂單不入點', async () => {
     await client.exec(
       `update point_setting set amount_per_point = null, points_enabled_at = null`,
