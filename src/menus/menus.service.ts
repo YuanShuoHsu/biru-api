@@ -1865,7 +1865,11 @@ export class MenusService {
   }): Promise<ModifierWithCurrency> {
     const [updated] = await this.db
       .update(modifier)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        ...keepAutoSoldOut(params.data.availability, modifier),
+        updatedAt: new Date(),
+      })
       .where(eq(modifier.id, params.where.id))
       .returning();
     if (!updated) throw notFoundError('modifierNotFound');

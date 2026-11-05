@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { and, asc, eq, gt, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, or, sql } from 'drizzle-orm';
 
 import {
   ingredient,
@@ -10,6 +10,8 @@ import {
 import {
   menu,
   menuItem,
+  modifier,
+  modifierGroup,
   offer,
   type ItemAvailability,
 } from '../db/schema/menus.js';
@@ -22,12 +24,36 @@ export const QUANTITY_TOLERANCE = 0.0005;
 // 店員送出與目前相同的供應狀態（例如只改價格）時保留自動售完，補貨後仍會自動恢復
 export const keepAutoSoldOut = (
   availability: ItemAvailability | null | undefined,
+  table: typeof offer | typeof modifier = offer,
 ) =>
   availability === undefined
     ? {}
     : {
-        autoSoldOut: sql<boolean>`${offer.autoSoldOut} and ${offer.availability} is not distinct from ${availability}::item_availability`,
+        autoSoldOut: sql<boolean>`${table.autoSoldOut} and ${table.availability} is not distinct from ${availability}::item_availability`,
       };
+
+const soldOutChanges = <
+  T extends {
+    autoSoldOut: boolean;
+    availability: ItemAvailability | null;
+    id: string;
+  },
+>(
+  rows: T[],
+  isShort: (row: T) => boolean,
+) => ({
+  toInStock: rows
+    .filter(
+      (row) =>
+        row.availability === 'SoldOut' && row.autoSoldOut && !isShort(row),
+    )
+    .map(({ id }) => id),
+  toSoldOut: rows
+    .filter(
+      (row) => (row.availability ?? 'InStock') === 'InStock' && isShort(row),
+    )
+    .map(({ id }) => id),
+});
 
 @Injectable()
 export class MenuStockService {
@@ -68,12 +94,28 @@ export class MenuStockService {
         .where(eq(menu.organizationId, organizationId))
         .orderBy(asc(offer.id))
         .for('update', { of: offer });
-      if (!offers.length) return false;
+      const modifiers = await tx
+        .select({
+          autoSoldOut: modifier.autoSoldOut,
+          availability: modifier.availability,
+          id: modifier.id,
+        })
+        .from(modifier)
+        .innerJoin(
+          modifierGroup,
+          eq(modifierGroup.id, modifier.modifierGroupId),
+        )
+        .innerJoin(menu, eq(menu.id, modifierGroup.menuId))
+        .where(eq(menu.organizationId, organizationId))
+        .orderBy(asc(modifier.id))
+        .for('update', { of: modifier });
+      if (!offers.length && !modifiers.length) return false;
 
       const materials = await tx
         .select({
           inventoryLevel: ingredient.inventoryLevel,
           menuItemId: recipe.menuItemId,
+          modifierId: recipe.modifierId,
           recipeYield: recipe.recipeYield,
           requiredQuantity: recipeIngredient.requiredQuantity,
         })
@@ -83,56 +125,56 @@ export class MenuStockService {
         .where(
           and(
             eq(recipe.organizationId, organizationId),
-            isNotNull(recipe.menuItemId),
+            or(isNotNull(recipe.menuItemId), isNotNull(recipe.modifierId)),
             gt(recipeIngredient.requiredQuantity, '0'),
             eq(ingredient.unlimitedStock, false),
           ),
         );
 
-      const shortOfIngredients = new Set(
-        materials
-          .filter(
-            ({ inventoryLevel, recipeYield, requiredQuantity }) =>
-              Number(inventoryLevel) <
-              Number(requiredQuantity) / recipeYield - QUANTITY_TOLERANCE,
-          )
-          .map(({ menuItemId }) => menuItemId),
+      const shortRecipes = materials.filter(
+        ({ inventoryLevel, recipeYield, requiredQuantity }) =>
+          Number(inventoryLevel) <
+          Number(requiredQuantity) / recipeYield - QUANTITY_TOLERANCE,
+      );
+      const shortMenuItems = new Set(
+        shortRecipes.map(({ menuItemId }) => menuItemId),
+      );
+      const shortModifiers = new Set(
+        shortRecipes.map(({ modifierId }) => modifierId),
       );
 
-      const isShort = ({
-        inventoryLevel,
-        menuItemId,
-      }: (typeof offers)[number]) =>
-        (typeof inventoryLevel?.value === 'number' &&
-          inventoryLevel.value < 1) ||
-        shortOfIngredients.has(menuItemId);
-
-      const toSoldOut = offers
-        .filter(
-          (row) =>
-            (row.availability ?? 'InStock') === 'InStock' && isShort(row),
-        )
-        .map(({ id }) => id);
-      const toInStock = offers
-        .filter(
-          (row) =>
-            row.availability === 'SoldOut' && row.autoSoldOut && !isShort(row),
-        )
-        .map(({ id }) => id);
+      const offerChanges = soldOutChanges(
+        offers,
+        ({ inventoryLevel, menuItemId }) =>
+          (typeof inventoryLevel?.value === 'number' &&
+            inventoryLevel.value < 1) ||
+          shortMenuItems.has(menuItemId),
+      );
+      const modifierChanges = soldOutChanges(modifiers, ({ id }) =>
+        shortModifiers.has(id),
+      );
 
       const updatedAt = new Date();
-      if (toSoldOut.length)
-        await tx
-          .update(offer)
-          .set({ autoSoldOut: true, availability: 'SoldOut', updatedAt })
-          .where(inArray(offer.id, toSoldOut));
-      if (toInStock.length)
-        await tx
-          .update(offer)
-          .set({ autoSoldOut: false, availability: 'InStock', updatedAt })
-          .where(inArray(offer.id, toInStock));
+      for (const [table, { toInStock, toSoldOut }] of [
+        [offer, offerChanges],
+        [modifier, modifierChanges],
+      ] as const) {
+        if (toSoldOut.length)
+          await tx
+            .update(table)
+            .set({ autoSoldOut: true, availability: 'SoldOut', updatedAt })
+            .where(inArray(table.id, toSoldOut));
+        if (toInStock.length)
+          await tx
+            .update(table)
+            .set({ autoSoldOut: false, availability: 'InStock', updatedAt })
+            .where(inArray(table.id, toInStock));
+      }
 
-      return toSoldOut.length > 0 || toInStock.length > 0;
+      return [offerChanges, modifierChanges].some(
+        ({ toInStock, toSoldOut }) =>
+          toInStock.length > 0 || toSoldOut.length > 0,
+      );
     });
   }
 }

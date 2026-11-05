@@ -31,6 +31,11 @@ export class ModifierResponseDto {
   availability: ItemAvailability | null;
 
   @ApiProperty({
+    description: 'true 代表系統因食材不足而自動售完，補貨後會自動恢復供應',
+  })
+  autoSoldOut: boolean;
+
+  @ApiProperty({
     description: '可販售的點餐模式',
     enum: orderModeEnum.enumValues,
     enumName: 'OrderMode',
