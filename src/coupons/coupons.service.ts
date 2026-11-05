@@ -1,14 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
   and,
@@ -31,7 +23,6 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { anniversary } from '../attendance/leave-rules.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { AUDIT_LOG_RETENTION_MONTHS, auditLog } from '../db/schema/audit.js';
@@ -54,7 +45,6 @@ import { organization } from '../db/schema/organizations.js';
 import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   PLATFORM_UTC_OFFSET_MS,
@@ -121,7 +111,12 @@ import type {
   ValidateCouponDto,
   ValidateCouponResponseDto,
 } from './dto/validate-coupon.dto.js';
-import { badRequestError, notFoundError } from './coupon-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  forbiddenError,
+  notFoundError,
+} from './coupon-errors.js';
 
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,
@@ -172,39 +167,8 @@ export class CouponsService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly orderPricingService: OrderPricingService,
   ) {}
-
-  private t(
-    key:
-      | 'alreadyClaimed'
-      | 'codeExists'
-      | 'expired'
-      | 'inUse'
-      | 'issueMinSpendRequired'
-      | 'itemScopeSingleOrganization'
-      | 'itemScopeTargetsRequired'
-      | 'memberNotFound'
-      | 'memberOnly'
-      | 'minSubtotal'
-      | 'notApplicable'
-      | 'notApplicableHere'
-      | 'notFound'
-      | 'notGrantable'
-      | 'notYetValid'
-      | 'organizationClosed'
-      | 'perUserLimitReached'
-      | 'percentageTooHigh'
-      | 'pointsOnly'
-      | 'usedUp',
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.coupons.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private async getOrgBySlug(slug: string) {
     const org = await this.db.query.organization.findFirst({
@@ -229,7 +193,7 @@ export class CouponsService {
     if (found.length !== unique.length)
       throw badRequestError('applicableOrganizationNotFound');
     if (found.some(({ id, closedAt }) => closedAt && !currentIds?.includes(id)))
-      throw new BadRequestException(this.t('organizationClosed'));
+      throw badRequestError('organizationClosed');
     return unique;
   }
 
@@ -267,7 +231,7 @@ export class CouponsService {
     discountValue: number,
   ): void {
     if (discountType === 'percentage' && discountValue > 100)
-      throw new BadRequestException(this.t('percentageTooHigh'));
+      throw badRequestError('percentageTooHigh');
   }
 
   private assertIssueTrigger(
@@ -275,7 +239,7 @@ export class CouponsService {
     issueMinSpend: number | null,
   ): void {
     if (issueTrigger === 'spend' && !issueMinSpend)
-      throw new BadRequestException(this.t('issueMinSpendRequired'));
+      throw badRequestError('issueMinSpendRequired');
   }
 
   private assertScopeTargets(
@@ -287,9 +251,9 @@ export class CouponsService {
     if (scope !== 'item') return;
 
     if (!menuItemIds?.length && !menuSectionIds?.length)
-      throw new BadRequestException(this.t('itemScopeTargetsRequired'));
+      throw badRequestError('itemScopeTargetsRequired');
     if (applicableOrganizationIds?.length !== 1)
-      throw new BadRequestException(this.t('itemScopeSingleOrganization'));
+      throw badRequestError('itemScopeSingleOrganization');
   }
 
   private assertValidityWindow(
@@ -337,7 +301,7 @@ export class CouponsService {
     const existing = await this.db.query.coupon.findFirst({
       where: sql`lower(${coupon.code}) = lower(${code})`,
     });
-    if (existing) throw new BadRequestException(this.t('codeExists'));
+    if (existing) throw badRequestError('codeExists');
 
     const [created] = await this.db
       .insert(coupon)
@@ -818,7 +782,7 @@ export class CouponsService {
           sql`lower(${coupon.code}) = lower(${dto.code.trim()})`,
         ),
       });
-      if (duplicated) throw new BadRequestException(this.t('codeExists'));
+      if (duplicated) throw badRequestError('codeExists');
     }
 
     const [updated] = await this.db
@@ -860,7 +824,7 @@ export class CouponsService {
       where: eq(userCoupon.couponId, couponId),
       columns: { id: true },
     });
-    if (claimed) throw new ConflictException(this.t('inUse'));
+    if (claimed) throw conflictError('inUse');
 
     const deleted = await this.db
       .delete(coupon)
@@ -878,7 +842,7 @@ export class CouponsService {
           .from(userCoupon)
           .where(eq(userCoupon.couponId, id))
           .limit(1);
-        if (claimed) throw new ConflictException(this.t('inUse'));
+        if (claimed) throw conflictError('inUse');
 
         const deleted = await tx
           .delete(coupon)
@@ -1161,7 +1125,7 @@ export class CouponsService {
         withinValidity(),
       ),
     });
-    if (!found) throw new BadRequestException(this.t('notFound'));
+    if (!found) throw badRequestError('notFound');
 
     let created: UserCoupon;
     try {
@@ -1180,7 +1144,7 @@ export class CouponsService {
               and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
             );
           if (locked.usedCount + reserved >= found.totalLimit)
-            throw new BadRequestException(this.t('usedUp'));
+            throw badRequestError('usedUp');
         }
 
         const [row] = await tx
@@ -1195,8 +1159,7 @@ export class CouponsService {
         return row;
       });
     } catch (error) {
-      if (isUniqueViolation(error))
-        throw new BadRequestException(this.t('alreadyClaimed'));
+      if (isUniqueViolation(error)) throw badRequestError('alreadyClaimed');
       throw error;
     }
 
@@ -1225,7 +1188,7 @@ export class CouponsService {
       (found.applicableOrganizationIds?.length !== 1 ||
         found.applicableOrganizationIds[0] !== organizationId)
     )
-      throw new ForbiddenException(this.t('notGrantable'));
+      throw forbiddenError('notGrantable');
     if (!found.isActive) throw badRequestError('grantInactive');
     if (found.validThrough && found.validThrough < new Date())
       throw badRequestError('grantExpired');
@@ -1233,7 +1196,7 @@ export class CouponsService {
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
     });
-    if (!target) throw new NotFoundException(this.t('memberNotFound'));
+    if (!target) throw notFoundError('memberNotFound');
 
     const created = await this.db.transaction(async (tx) => {
       if (found.totalLimit !== null) {
@@ -1250,7 +1213,7 @@ export class CouponsService {
             and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
           );
         if (locked.usedCount + reserved >= found.totalLimit)
-          throw new BadRequestException(this.t('usedUp'));
+          throw badRequestError('usedUp');
       }
 
       const [row] = await tx
@@ -1438,15 +1401,14 @@ export class CouponsService {
       code,
     );
     if (!found && matches.some((c) => c.isActive))
-      throw new BadRequestException(this.t('notApplicableHere'));
-    if (!found || !found.isActive)
-      throw new BadRequestException(this.t('notFound'));
+      throw badRequestError('notApplicableHere');
+    if (!found || !found.isActive) throw badRequestError('notFound');
 
     const now = new Date();
     if (found.validFrom && now < found.validFrom)
-      throw new BadRequestException(this.t('notYetValid'));
+      throw badRequestError('notYetValid');
     if (found.validThrough && now > found.validThrough)
-      throw new BadRequestException(this.t('expired'));
+      throw badRequestError('expired');
 
     const voucher = userId
       ? await this.db.query.userCoupon.findFirst({
@@ -1460,7 +1422,7 @@ export class CouponsService {
       : undefined;
 
     if (!voucher && found.pointsCost !== null)
-      throw new BadRequestException(this.t('pointsOnly'));
+      throw badRequestError('pointsOnly');
 
     if (!voucher && found.totalLimit !== null) {
       const [{ value: reserved }] = await this.db
@@ -1470,31 +1432,29 @@ export class CouponsService {
           and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
         );
       if (found.usedCount + reserved >= found.totalLimit)
-        throw new BadRequestException(this.t('usedUp'));
+        throw badRequestError('usedUp');
     }
 
     if (!voucher && found.perUserLimit !== null) {
-      if (!userId) throw new BadRequestException(this.t('memberOnly'));
+      if (!userId) throw badRequestError('memberOnly');
 
       const used = await this.countUserCouponOrders(this.db, found, userId);
       if (used >= found.perUserLimit)
-        throw new BadRequestException(this.t('perUserLimitReached'));
+        throw badRequestError('perUserLimitReached');
     }
 
     const subtotal = sumOrderItems(items);
     if (found.minSubtotal && subtotal < Number(found.minSubtotal))
-      throw new BadRequestException(
-        this.t('minSubtotal', {
-          amount: Math.round(Number(found.minSubtotal)),
-        }),
-      );
+      throw badRequestError('minSubtotal', {
+        amount: Math.round(Number(found.minSubtotal)),
+      });
 
     const isEligible = isEligibleFor(found);
     const discount = couponDiscount(
       found,
       sumOrderItems(items.filter(isEligible)),
     );
-    if (discount <= 0) throw new BadRequestException(this.t('notApplicable'));
+    if (discount <= 0) throw badRequestError('notApplicable');
 
     return {
       coupon: found,
@@ -1694,8 +1654,7 @@ export class CouponsService {
         applied.coupon,
         applied.userId,
       );
-      if (used > perUserLimit)
-        throw new BadRequestException(this.t('perUserLimitReached'));
+      if (used > perUserLimit) throw badRequestError('perUserLimitReached');
     }
 
     const updated = await db
@@ -1715,7 +1674,7 @@ export class CouponsService {
         ),
       )
       .returning({ id: coupon.id });
-    if (updated.length === 0) throw new BadRequestException(this.t('usedUp'));
+    if (updated.length === 0) throw badRequestError('usedUp');
 
     if (applied.userCouponId) {
       const consumed = await db
@@ -1732,8 +1691,7 @@ export class CouponsService {
           ),
         )
         .returning({ id: userCoupon.id });
-      if (consumed.length === 0)
-        throw new BadRequestException(this.t('usedUp'));
+      if (consumed.length === 0) throw badRequestError('usedUp');
     }
   }
 
