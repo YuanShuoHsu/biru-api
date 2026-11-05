@@ -12,6 +12,7 @@ export const inventoryErrorCodes = [
   'ingredientInUse',
   'ingredientNotFound',
   'insufficientStock',
+  'modifierRecipeYieldNotOne',
   'packageRequired',
   'packageUnitIncompatible',
   'purchaseFieldsOnSourcedIngredient',

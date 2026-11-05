@@ -238,6 +238,7 @@ export type I18nTranslations = {
             "ingredientInUse": string;
             "ingredientNotFound": string;
             "insufficientStock": string;
+            "modifierRecipeYieldNotOne": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
             "purchaseFieldsOnSourcedIngredient": string;

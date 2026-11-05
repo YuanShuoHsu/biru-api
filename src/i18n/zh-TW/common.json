@@ -185,6 +185,7 @@
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
     "insufficientStock": "部分原料庫存不足，無法製作這一批。請先進貨或盤點",
+    "modifierRecipeYieldNotOne": "綁定選項的食譜份量必須為 1",
     "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",

@@ -185,6 +185,7 @@
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
     "insufficientStock": "Not enough stock of some ingredients for this batch. Restock or recount them first",
+    "modifierRecipeYieldNotOne": "A recipe linked to an option must have a yield of 1",
     "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
     "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",

@@ -462,7 +462,8 @@ export class InventoryTransactionsService {
           inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]),
           inArray(recipe.modifierId, [...servingsByModifierId.keys()]),
         ),
-      );
+      )
+      .orderBy(asc(recipe.menuItemId), asc(recipe.modifierId));
     if (!recipes.length) return { lowStock: [], offerStockChanged };
 
     const materials = await tx

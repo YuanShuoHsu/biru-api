@@ -42,14 +42,21 @@ const claim = async (
   menuItemId: string,
 ): Promise<boolean> => {
   try {
-    await tx.transaction(async (savepoint) => {
-      await savepoint
+    const claimed = await tx.transaction((savepoint) =>
+      savepoint
         .update(recipe)
         .set({ menuItemId, updatedAt: new Date() })
-        .where(eq(recipe.id, recipeId));
-    });
+        .where(
+          and(
+            eq(recipe.id, recipeId),
+            isNull(recipe.menuItemId),
+            isNull(recipe.modifierId),
+          ),
+        )
+        .returning({ id: recipe.id }),
+    );
 
-    return true;
+    return claimed.length > 0;
   } catch (error) {
     if (isUniqueViolation(error)) return false;
     throw error;

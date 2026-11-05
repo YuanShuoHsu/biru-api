@@ -57,7 +57,7 @@ export class CreateRecipeDto {
 
   @ApiPropertyOptional({
     description:
-      '對應的客製選項，一個選項只能有一份食譜；與 menuItemId 擇一，份量固定為 1',
+      '對應的客製選項，一個選項只能有一份食譜；與 menuItemId 擇一，份量必須為 1',
   })
   @IsOptional()
   @IsString()

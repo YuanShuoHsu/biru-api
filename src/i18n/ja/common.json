@@ -185,6 +185,7 @@
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
     "insufficientStock": "このバッチに必要な食材の在庫が足りません。先に仕入れるか棚卸ししてください",
+    "modifierRecipeYieldNotOne": "オプションに紐づけるレシピの出来高は 1 にしてください",
     "packageRequired": "元レシピのない食材には、包装の価格・内容量・単位を入力してください",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
     "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",

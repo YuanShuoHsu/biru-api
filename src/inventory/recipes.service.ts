@@ -214,6 +214,8 @@ export class RecipesService {
   ): Promise<RecipeResponseDto> {
     if (menuItemId && modifierId)
       throw badRequestError('recipeMenuItemAndModifier');
+    if (modifierId && (dto.recipeYield ?? 1) !== 1)
+      throw badRequestError('modifierRecipeYieldNotOne');
     await this.assertMenuItemInOrganization(organizationId, menuItemId);
     await this.assertModifierInOrganization(organizationId, modifierId);
 
@@ -226,7 +228,6 @@ export class RecipesService {
           menuItemId,
           modifierId,
           organizationId,
-          recipeYield: modifierId ? 1 : dto.recipeYield,
         })
         .returning();
 
@@ -257,18 +258,20 @@ export class RecipesService {
         menuItemId: recipe.menuItemId,
         modifierId: recipe.modifierId,
         organizationId: recipe.organizationId,
+        recipeYield: recipe.recipeYield,
       })
       .from(recipe)
       .where(eq(recipe.id, recipeId));
     if (!current) throw notFoundError('recipeNotFound');
 
-    const { recipeYield, ...changes } = dto;
     const modifierId =
       dto.modifierId === undefined ? current.modifierId : dto.modifierId;
     const menuItemId =
       dto.menuItemId === undefined ? current.menuItemId : dto.menuItemId;
     if (menuItemId && modifierId)
       throw badRequestError('recipeMenuItemAndModifier');
+    if (modifierId && (dto.recipeYield ?? current.recipeYield) !== 1)
+      throw badRequestError('modifierRecipeYieldNotOne');
     await this.assertMenuItemInOrganization(
       current.organizationId,
       dto.menuItemId,
@@ -281,12 +284,17 @@ export class RecipesService {
     const updated = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .update(recipe)
-        .set({ ...changes, recipeYield: modifierId ? 1 : recipeYield })
+        .set(dto)
         .where(eq(recipe.id, recipeId))
         .returning();
       if (!row) throw notFoundError('recipeNotFound');
 
-      if (dto.menuItemId !== undefined || row.menuItemId || row.modifierId)
+      if (
+        dto.menuItemId !== undefined ||
+        dto.modifierId !== undefined ||
+        row.menuItemId ||
+        row.modifierId
+      )
         return row;
 
       const boundMenuItemId = await bindMenuItemByRecipeName(tx, {

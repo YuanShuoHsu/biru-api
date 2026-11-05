@@ -161,14 +161,13 @@ describe('來源食譜', () => {
   };
 
   describe('綁定客製選項', () => {
-    it('選項食譜份量固定為 1，不依名稱綁到同名品項', async () => {
+    it('選項食譜沒給份量時為 1，不依名稱綁到同名品項，解除綁定時也不會', async () => {
       await addModifier('large', '加大');
       await addMenuItem('item', '加大');
 
       const created = await recipes.create(ORG, {
         modifierId: 'large',
         name: { 'zh-TW': '加大' },
-        recipeYield: 4,
       });
 
       expect(created).toMatchObject({
@@ -177,12 +176,57 @@ describe('來源食譜', () => {
         recipeYield: 1,
       });
       expect(
-        await recipes.update(created.id, { recipeYield: 3 }),
-      ).toMatchObject({
-        menuItemId: null,
+        await recipes.update(created.id, { modifierId: null }),
+      ).toMatchObject({ menuItemId: null, modifierId: null });
+    });
+
+    it('選項食譜的份量不是 1 時拒絕', async () => {
+      await addModifier('large', '加大');
+      await addModifier('small', '小份');
+
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            modifierId: 'large',
+            name: { 'zh-TW': '加大' },
+            recipeYield: 4,
+          }),
+        ),
+      ).toBe('modifierRecipeYieldNotOne');
+
+      const { id } = await recipes.create(ORG, {
         modifierId: 'large',
-        recipeYield: 1,
+        name: { 'zh-TW': '加大' },
       });
+      expect(await codeOf(recipes.update(id, { recipeYield: 3 }))).toBe(
+        'modifierRecipeYieldNotOne',
+      );
+
+      await recipes.update('noYield', { recipeYield: 2 });
+      expect(
+        await codeOf(recipes.update('noYield', { modifierId: 'small' })),
+      ).toBe('modifierRecipeYieldNotOne');
+      expect(
+        await recipes.update('noYield', {
+          modifierId: 'small',
+          recipeYield: 1,
+        }),
+      ).toMatchObject({ modifierId: 'small', recipeYield: 1 });
+    });
+
+    it('已綁選項的食譜不會依名稱綁到同名品項', async () => {
+      await addModifier('large', '番茄醬');
+      await addMenuItem('item', '番茄醬');
+      await recipes.update('noYield', { modifierId: 'large' });
+
+      expect(
+        await bindMenuItemByRecipeName(db, {
+          name: { 'zh-TW': '番茄醬' },
+          organizationId: ORG,
+          recipeId: 'noYield',
+        }),
+      ).toBeNull();
+      expect((await recipes.findOne('noYield')).menuItemId).toBeNull();
     });
 
     it('品項不會依名稱綁到已綁選項的食譜', async () => {

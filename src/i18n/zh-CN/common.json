@@ -185,6 +185,7 @@
     "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",
     "ingredientNotFound": "找不到这项食材，可能已被删除",
     "insufficientStock": "部分原料库存不足，无法制作这一批。请先进货或盘点",
+    "modifierRecipeYieldNotOne": "绑定选项的食谱份量必须为 1",
     "packageRequired": "没有来源食谱的食材须填写包装价格、内容量与单位",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
     "purchaseFieldsOnSourcedIngredient": "由来源食谱制成的食材不能设定包装价格、内容量或供应商",

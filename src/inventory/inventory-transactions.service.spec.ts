@@ -476,6 +476,21 @@ describe('庫存扣除、還原與自動售完', () => {
       expect(await levelOf('parmesan')).toBe(15);
     });
 
+    it('品項與選項共用的食材不夠時指出品項', async () => {
+      await addItem('pasta');
+      await addModifier('cheese');
+      await addIngredient('parmesan', '15');
+      await addModifierRecipe('cheese', { parmesan: '10' });
+      await addRecipe('pasta', { parmesan: '10' });
+      await addOrder('o1', [
+        { menuItemId: 'pasta', quantity: 1, modifiers: ['cheese'] },
+      ]);
+
+      await expect(consume('o1', true)).rejects.toEqual(
+        new InsufficientStockError({ menuItemId: 'pasta' }),
+      );
+    });
+
     it('用量四捨五入到小數第三位的最後一份仍然賣得出去', async () => {
       await addItem('latte');
       await addIngredient('beans', '0.333');
