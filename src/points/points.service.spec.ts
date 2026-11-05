@@ -532,6 +532,63 @@ describe('PointsService.findAllForOrganization', () => {
     ]);
   });
 
+  describe('多次退款累計收回', () => {
+    const refund = (ratio: number, orderBecomesTerminal = false) =>
+      service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal,
+        orderId: 'o1',
+        ratio,
+      });
+
+    const totalRevoked = async () =>
+      (
+        await db
+          .select()
+          .from(pointTransaction)
+          .where(eq(pointTransaction.type, 'revoke'))
+      ).reduce((total, row) => total - row.points, 0);
+
+    it('1 點的訂單兩次退一半，只收回 1 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '10' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.5);
+      await refund(0.5);
+
+      expect(await totalRevoked()).toBe(1);
+    });
+
+    it('5 點的訂單分 30%、30%、40% 退款，合計收回 5 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '50' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.3);
+      await refund(0.3);
+      await refund(0.4);
+
+      expect(await totalRevoked()).toBe(5);
+    });
+
+    it('部分退款後再全額退款，收回剩下全部點數', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '50' });
+      await service.findAllForOrganization('biru');
+
+      await refund(0.5);
+      await refund(0.5, true);
+
+      expect(await totalRevoked()).toBe(5);
+    });
+
+    it('尚未入點的 1 點訂單兩次退一半，只收回 1 點', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '10' });
+
+      await refund(0.5);
+      await refund(0.5);
+
+      expect(await totalRevoked()).toBe(1);
+    });
+  });
+
   it('點數停用時，沒有快照的訂單不入點', async () => {
     await client.exec(
       `update point_setting set amount_per_point = null, points_enabled_at = null`,
@@ -665,6 +722,57 @@ describe('PointsService.findAllForOrganization', () => {
         .from(pointTransaction)
         .where(eq(pointTransaction.organizationId, OTHER_ORG)),
     ).toHaveLength(1);
+  });
+
+  it('收回已取消訂單時，同時被兌換掉的點數也算進欠點', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+    await service.findAllForOrganization('biru');
+    await client.query(
+      `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+    );
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+    );
+    const update = db.update.bind(db);
+    const spy = vi.spyOn(db, 'update').mockImplementationOnce((table) => {
+      void client.query(
+        `update point_transaction set remaining_points = 0 where order_id = 'o1'`,
+      );
+      return update(table);
+    });
+    onTestFinished(() => spy.mockRestore());
+
+    await service.findAllForOrganization('biru');
+
+    expect(
+      await db
+        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1')),
+    ).toEqual([{ remainingPoints: -100 }]);
+  });
+
+  it('同時收回兩次已取消訂單，部分使用的點數只扣一次', async () => {
+    await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+    await service.findAllForOrganization('biru');
+    await client.query(
+      `update point_transaction set remaining_points = 30 where order_id = 'o1'`,
+    );
+    await client.query(
+      `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+    );
+
+    await Promise.all([
+      service.findAllForOrganization('biru'),
+      service.findAllForOrganization('biru'),
+    ]);
+
+    expect(
+      await db
+        .select({ remainingPoints: pointTransaction.remainingPoints })
+        .from(pointTransaction)
+        .where(eq(pointTransaction.orderId, 'o1')),
+    ).toEqual([{ remainingPoints: -70 }]);
   });
 
   it('依會員 email 篩選', async () => {

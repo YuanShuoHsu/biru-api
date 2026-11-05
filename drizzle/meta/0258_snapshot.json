@@ -1,5 +1,5 @@
 {
-  "id": "9cdd09d1-f4cd-4315-ab38-2d6c886ef0ee",
+  "id": "0618cdb7-8b82-456a-b0b0-d9226e52e62f",
   "prevId": "b19c1b70-d6be-4b6a-9039-2e824cd99423",
   "version": "7",
   "dialect": "postgresql",
@@ -369,6 +369,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "job_title": {
+          "name": "job_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "birth_date": {
           "name": "birth_date",
@@ -3609,12 +3615,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "modifier_id": {
-          "name": "modifier_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "name": {
           "name": "name",
           "type": "jsonb",
@@ -3698,21 +3698,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "recipe_modifierId_uidx": {
-          "name": "recipe_modifierId_uidx",
-          "columns": [
-            {
-              "expression": "modifier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -3722,19 +3707,6 @@
           "tableTo": "menu_item",
           "columnsFrom": [
             "menu_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "recipe_modifier_id_modifier_id_fk": {
-          "name": "recipe_modifier_id_modifier_id_fk",
-          "tableFrom": "recipe",
-          "tableTo": "modifier",
-          "columnsFrom": [
-            "modifier_id"
           ],
           "columnsTo": [
             "id"
@@ -3759,12 +3731,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "recipe_menuItemId_modifierId_check": {
-          "name": "recipe_menuItemId_modifierId_check",
-          "value": "\"recipe\".\"menu_item_id\" is null or \"recipe\".\"modifier_id\" is null"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.recipe_ingredient": {
@@ -5285,13 +5252,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'InStock'"
-        },
-        "auto_sold_out": {
-          "name": "auto_sold_out",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "available_modes": {
           "name": "available_modes",

@@ -11,6 +11,7 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   max,
   sql,
   type Column,
@@ -124,6 +125,7 @@ export class RecipesService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
+      hasMenuItem,
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
@@ -143,6 +145,11 @@ export class RecipesService {
 
     const where = and(
       eq(recipe.organizationId, organizationId),
+      hasMenuItem === undefined
+        ? undefined
+        : hasMenuItem
+          ? isNotNull(recipe.menuItemId)
+          : isNull(recipe.menuItemId),
       filterField === 'name' && filterOperator
         ? buildLocalizedTextFilterCondition(
             recipe.name,
