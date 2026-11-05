@@ -438,8 +438,14 @@ export class UsersService {
   }
 
   async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
     const createdIn = (from: Date, to: Date) =>
       and(
         gte(user.createdAt, utcTimestampParam(from)),
@@ -456,7 +462,7 @@ export class UsersService {
       this.db
         .select({ previous: count() })
         .from(user)
-        .where(createdIn(previousSince, since)),
+        .where(createdIn(previousSince, previousUntil)),
     ]);
 
     const usersByIndex = new Map(

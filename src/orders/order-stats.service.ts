@@ -60,8 +60,14 @@ export class OrderStatsService {
     });
     if (!org) throw organizationNotFoundError();
 
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
 
     const counted = and(eq(order.sellerId, org.id), isCountedOrder);
     const inRange = (from: Date, to: Date) =>
@@ -150,7 +156,10 @@ export class OrderStatsService {
         .from(order)
         .where(inPeriod)
         .groupBy(sql`1`),
-      this.db.select(totals).from(order).where(inRange(previousSince, since)),
+      this.db
+        .select(totals)
+        .from(order)
+        .where(inRange(previousSince, previousUntil)),
       this.db
         .select({ index: bucketIndexOf(refund.createdAt), ...refunded })
         .from(refund)
@@ -161,7 +170,7 @@ export class OrderStatsService {
         .select(refunded)
         .from(refund)
         .innerJoin(order, eq(order.id, refund.orderId))
-        .where(refundsInRange(previousSince, since)),
+        .where(refundsInRange(previousSince, previousUntil)),
       this.db
         .select({
           index: bucketIndexOf(sql`${firstRefunds.firstRefundedAt}`),

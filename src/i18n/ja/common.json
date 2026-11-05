@@ -171,6 +171,7 @@
     "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
+    "statsSinceNotMonthStart": "開始時刻はプラットフォームのタイムゾーンで月初めにしてください",
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {
