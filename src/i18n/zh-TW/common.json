@@ -138,6 +138,8 @@
     "codeExists": "此優惠碼已存在",
     "couponNotFound": "找不到這張優惠券，可能已被刪除",
     "expired": "優惠碼已過期",
+    "grantExpired": "此優惠券已過期，無法發放",
+    "grantInactive": "此優惠券已停用，無法發放",
     "inUse": "已有顧客領取此優惠券，無法刪除，請改為停用。",
     "issueMinSpendRequired": "滿額回饋須設定滿額門檻",
     "itemScopeSingleOrganization": "指定品項券僅適用單一店家",

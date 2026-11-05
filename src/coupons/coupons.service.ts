@@ -1196,6 +1196,9 @@ export class CouponsService {
       where: eq(coupon.id, couponId),
     });
     if (!found) throw notFoundError('couponNotFound');
+    if (!found.isActive) throw badRequestError('grantInactive');
+    if (found.validThrough && found.validThrough < new Date())
+      throw badRequestError('grantExpired');
 
     if (
       organizationId &&

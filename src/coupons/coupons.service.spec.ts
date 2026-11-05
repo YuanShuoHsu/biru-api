@@ -518,3 +518,44 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
     ).resolves.toBeNull();
   });
 });
+
+describe('CouponsService.grant 券狀態', () => {
+  const grantOf = (found: Partial<Coupon>) => {
+    const db = {
+      query: {
+        coupon: { findFirst: vi.fn().mockResolvedValue(found) },
+        user: { findFirst: vi.fn().mockResolvedValue(undefined) },
+      },
+    };
+    const service = new CouponsService(
+      db as unknown as DrizzleDB,
+      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      {} as OrderPricingService,
+    );
+    return service.grant('coupon', 'member@example.com', 'admin');
+  };
+
+  it('停用的券不能發放', async () => {
+    await expect(
+      grantOf({ ...baseCoupon, isActive: false }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'grantInactive' },
+    });
+  });
+
+  it('已過期的券不能發放', async () => {
+    await expect(
+      grantOf({ ...baseCoupon, validThrough: new Date(Date.now() - 1000) }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'grantExpired' },
+    });
+  });
+
+  it('尚未開始的券可以先發放', async () => {
+    await expect(
+      grantOf({ ...baseCoupon, validFrom: new Date(Date.now() + 86_400_000) }),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
