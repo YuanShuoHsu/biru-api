@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -286,6 +287,37 @@ describe('來源食譜', () => {
           modifierId: 'large',
         }),
       ).toMatchObject({ menuItemId: null, modifierId: 'large' });
+    });
+
+    it('選項或品項已經有食譜時回 409', async () => {
+      await addModifier('large', '加大');
+      await addMenuItem('item', '義大利麵');
+      await recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大' },
+      });
+      await recipes.update('noYield', { menuItemId: 'item' });
+
+      const modifierTaken = recipes.create(ORG, {
+        modifierId: 'large',
+        name: { 'zh-TW': '加大二' },
+      });
+      await expect(modifierTaken).rejects.toBeInstanceOf(ConflictException);
+      expect(await codeOf(modifierTaken)).toBe('recipeModifierTaken');
+      expect(
+        await codeOf(recipes.update('sauceRecipe', { modifierId: 'large' })),
+      ).toBe('recipeModifierTaken');
+      expect(
+        await codeOf(
+          recipes.create(ORG, {
+            menuItemId: 'item',
+            name: { 'zh-TW': '義大利麵二' },
+          }),
+        ),
+      ).toBe('recipeMenuItemTaken');
+      expect(
+        await codeOf(recipes.update('sauceRecipe', { menuItemId: 'item' })),
+      ).toBe('recipeMenuItemTaken');
     });
 
     it('已綁選項的食譜不能當來源，來源食譜也不能綁選項', async () => {

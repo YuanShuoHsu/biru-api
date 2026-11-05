@@ -192,6 +192,8 @@
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
     "recipeMenuItemAndModifier": "レシピはメニュー品目かオプションのどちらか一方にしか紐づけられません",
+    "recipeMenuItemTaken": "このメニュー品目にはすでにレシピがあります",
+    "recipeModifierTaken": "このオプションにはすでにレシピがあります",
     "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
     "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
     "sourceRecipeHasModifier": "オプションに紐づいたレシピは食材の元レシピにできません",
