@@ -931,7 +931,7 @@ export class CouponsService {
     // 生日券與消費券沒有唯一索引擋重複；用 no key update 才不會擋到參照會員的 insert 而與領券互鎖
     await this.db.transaction(async (tx) => {
       const [found] = await tx
-        .select({ birthDate: user.birthDate })
+        .select({ birthDate: user.birthDate, createdAt: user.createdAt })
         .from(user)
         .where(eq(user.id, userId))
         .for('no key update');
@@ -940,6 +940,8 @@ export class CouponsService {
       await Promise.all(
         autoCoupons.map(async (c) => {
           if (c.issueTrigger === 'signup') {
+            if (found.createdAt < (c.validFrom ?? c.createdAt)) return;
+
             await tx
               .insert(userCoupon)
               .values({
@@ -996,7 +998,7 @@ export class CouponsService {
                       ? [inArray(order.sellerId, c.applicableOrganizationIds)]
                       : []),
                     eq(order.userId, userId),
-                    isNotNull(order.paymentDate),
+                    gte(order.paymentDate, c.validFrom ?? c.createdAt),
                     notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
                   ),
                 )
