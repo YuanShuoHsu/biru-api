@@ -1,0 +1,3 @@
+ALTER TABLE "waitlist_ticket" ADD COLUMN "idempotency_fingerprint" text;--> statement-breakpoint
+CREATE INDEX "waitlist_ticket_organizationId_createdAt_idx" ON "waitlist_ticket" USING btree ("organization_id","created_at");--> statement-breakpoint
+CREATE INDEX "waitlist_ticket_personal_data_idx" ON "waitlist_ticket" USING btree (COALESCE("ended_at", "created_at")) WHERE "waitlist_ticket"."name" IS NOT NULL OR "waitlist_ticket"."phone_number" IS NOT NULL OR "waitlist_ticket"."email" IS NOT NULL;

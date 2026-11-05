@@ -461,6 +461,7 @@ export type I18nTranslations = {
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
                 "waitlistGroupsInvalid": string;
+                "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
@@ -474,6 +475,7 @@ export type I18nTranslations = {
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
                 "waitlistGroupsInvalid": string;
+                "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;

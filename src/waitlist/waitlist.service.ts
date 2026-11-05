@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -383,15 +383,27 @@ export class WaitlistService {
   ): Promise<WaitlistTicketResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const findReplay = (db: Pick<DrizzleDB, 'query'>) =>
-      idempotencyKey
-        ? db.query.waitlistTicket.findFirst({
-            where: and(
-              eq(waitlistTicket.organizationId, org.id),
-              eq(waitlistTicket.idempotencyKey, idempotencyKey),
-            ),
-          })
-        : undefined;
+    const idempotencyFingerprint = idempotencyKey
+      ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
+      : null;
+    const findReplay = async (db: Pick<DrizzleDB, 'query'>) => {
+      if (!idempotencyKey) return undefined;
+      const existing = await db.query.waitlistTicket.findFirst({
+        where: and(
+          eq(waitlistTicket.organizationId, org.id),
+          eq(waitlistTicket.idempotencyKey, idempotencyKey),
+        ),
+      });
+      if (
+        existing?.idempotencyFingerprint &&
+        existing.idempotencyFingerprint !== idempotencyFingerprint
+      )
+        throw conflictError(
+          'waitlistIdempotencyConflict',
+          byStaff ? 'staff' : 'guest',
+        );
+      return existing;
+    };
 
     const settings = await this.getSettings(org.id);
 
@@ -488,6 +500,7 @@ export class WaitlistService {
           email: dto.email || null,
           locale,
           idempotencyKey,
+          idempotencyFingerprint,
           userId,
         })
         .returning();
@@ -1086,7 +1099,12 @@ export class WaitlistService {
     return this.db.transaction(async (tx) => {
       const erased = await tx
         .update(waitlistTicket)
-        .set({ email: null, name: null, phoneNumber: null })
+        .set({
+          email: null,
+          idempotencyFingerprint: null,
+          name: null,
+          phoneNumber: null,
+        })
         .where(
           and(
             inArray(waitlistTicket.status, [...WAITLIST_ENDED_STATUSES]),
