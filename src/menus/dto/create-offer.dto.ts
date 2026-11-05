@@ -2,8 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
   IsEnum,
+  IsISO8601,
   IsInt,
   IsNumber,
   IsNumberString,
@@ -24,17 +24,19 @@ import {
   type ItemAvailability,
 } from '../../db/schema/menus.js';
 
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 @ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
 class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
   validate(_: unknown, { object }: ValidationArguments): boolean {
     const { validFrom, validThrough } = object as PriceSpecificationDto;
     if (!validFrom || !validThrough) return true;
 
-    return new Date(validFrom) < new Date(validThrough);
+    return validFrom <= validThrough;
   }
 
   defaultMessage(): string {
-    return 'validFrom 必須早於 validThrough';
+    return 'validFrom 不可晚於 validThrough';
   }
 }
 
@@ -56,19 +58,21 @@ export class PriceSpecificationDto {
   price: string;
 
   @ApiPropertyOptional({
-    example: '2025-06-01T00:00:00+08:00',
-    description: '促銷開始時間（ISO 8601）',
+    example: '2025-06-01',
+    description: '促銷開始日（平台時區，含當天）',
   })
   @IsOptional()
-  @IsDateString()
+  @Matches(DATE_PATTERN)
+  @IsISO8601({ strict: true })
   validFrom?: string;
 
   @ApiPropertyOptional({
-    example: '2025-06-30T23:59:59+08:00',
-    description: '促銷結束時間（ISO 8601）',
+    example: '2025-06-30',
+    description: '促銷結束日（平台時區，含當天）',
   })
   @IsOptional()
-  @IsDateString()
+  @Matches(DATE_PATTERN)
+  @IsISO8601({ strict: true })
   @Validate(IsValidFromBeforeValidThrough)
   validThrough?: string;
 }
