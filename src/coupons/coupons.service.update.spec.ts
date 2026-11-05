@@ -64,23 +64,12 @@ describe('CouponsService.update', () => {
     });
   });
 
-  it('效期開始不早於結束時拒絕，部分更新時和既有效期一起檢查', async () => {
-    const scheduleInvalid = {
-      status: 400,
-      response: { code: 'scheduleInvalid' },
-    };
-    await expect(
-      service.create({
-        code: 'REVERSED',
-        discountType: 'fixed',
-        discountValue: 50,
-        discountCurrency: 'TWD',
-        validFrom: '2026-12-31T00:00:00Z',
-        validThrough: '2026-10-01T00:00:00Z',
-      }),
-    ).rejects.toMatchObject(scheduleInvalid);
-
-    const { id } = await service.create({
+  const scheduleInvalid = {
+    status: 400,
+    response: { code: 'scheduleInvalid' },
+  };
+  const createWindow = () =>
+    service.create({
       code: 'WINDOW',
       discountType: 'fixed',
       discountValue: 50,
@@ -88,6 +77,24 @@ describe('CouponsService.update', () => {
       validFrom: '2026-10-01T00:00:00Z',
       validThrough: '2026-12-31T00:00:00Z',
     });
+
+  it('建立時效期開始不早於結束就拒絕', async () => {
+    for (const validThrough of ['2026-10-01T00:00:00Z', '2026-12-31T00:00:00Z'])
+      await expect(
+        service.create({
+          code: 'REVERSED',
+          discountType: 'fixed',
+          discountValue: 50,
+          discountCurrency: 'TWD',
+          validFrom: '2026-12-31T00:00:00Z',
+          validThrough,
+        }),
+      ).rejects.toMatchObject(scheduleInvalid);
+  });
+
+  it('只改效期的一端時和既有的另一端一起檢查', async () => {
+    const { id } = await createWindow();
+
     await expect(
       service.update(id, { validFrom: '2027-01-01T00:00:00Z' }),
     ).rejects.toMatchObject(scheduleInvalid);
@@ -100,6 +107,20 @@ describe('CouponsService.update', () => {
         validThrough: null,
       }),
     ).resolves.toMatchObject({ validThrough: null });
+    await expect(
+      service.update(id, { validFrom: null }),
+    ).resolves.toMatchObject({ validFrom: null });
+  });
+
+  it('沒送效期的更新不檢查既有效期', async () => {
+    const { id } = await createWindow();
+    await client.exec(
+      `update coupon set valid_from = valid_through + interval '1 day' where id = '${id}'`,
+    );
+
+    await expect(
+      service.update(id, { isActive: false }),
+    ).resolves.toMatchObject({ isActive: false });
   });
 
   it('改回整單券時清除原本指定的品項與分類', async () => {

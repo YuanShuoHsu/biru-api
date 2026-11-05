@@ -805,10 +805,11 @@ export class CouponsService {
         : dto.validThrough
           ? new Date(dto.validThrough)
           : undefined;
-    this.assertValidityWindow(
-      validFrom === undefined ? found.validFrom : validFrom,
-      validThrough === undefined ? found.validThrough : validThrough,
-    );
+    if (validFrom !== undefined || validThrough !== undefined)
+      this.assertValidityWindow(
+        validFrom === undefined ? found.validFrom : validFrom,
+        validThrough === undefined ? found.validThrough : validThrough,
+      );
 
     if (dto.code !== undefined) {
       const duplicated = await this.db.query.coupon.findFirst({

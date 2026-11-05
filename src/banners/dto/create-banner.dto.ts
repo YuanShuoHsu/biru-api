@@ -3,8 +3,8 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsISO8601,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsRFC3339,
   IsString,
