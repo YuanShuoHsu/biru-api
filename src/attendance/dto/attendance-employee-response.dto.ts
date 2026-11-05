@@ -21,6 +21,8 @@ export class AttendanceEmploymentResponseDto {
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
   @ApiProperty() email: string;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  jobTitle: string | null;
   @ApiProperty({
     enum: ATTENDANCE_EMPLOYMENT_TYPES,
     enumName: 'AttendanceEmploymentType',
@@ -102,6 +104,7 @@ export class AttendanceMemberEmploymentResponseDto extends PickType(
   AttendanceEmploymentResponseDto,
   [
     'id',
+    'jobTitle',
     'employmentType',
     'legalStatus',
     'workPermits',

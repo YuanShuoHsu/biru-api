@@ -625,6 +625,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           actor,
           {
             userId,
+            jobTitle: asString(data.jobTitle) ?? undefined,
             birthDate: asString(data.birthDate) ?? '',
             taiwanStaySince: asString(data.taiwanStaySince) ?? undefined,
             legalStatus:

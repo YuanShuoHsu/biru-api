@@ -7,6 +7,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 export const ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS = [
   'name',
   'email',
+  'jobTitle',
 ] as const;
 
 export const ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS = [

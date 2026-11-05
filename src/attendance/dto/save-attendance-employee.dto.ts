@@ -12,6 +12,7 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -31,6 +32,7 @@ export class DatePeriodDto {
 
 export class SaveAttendanceEmployeeDto {
   @IsString() @MinLength(1) userId: string;
+  @IsOptional() @IsString() @MaxLength(50) jobTitle?: string;
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   @IsISO8601({ strict: true })
   birthDate: string;
