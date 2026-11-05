@@ -367,7 +367,7 @@ export class InventoryTransactionsService {
           .where(eq(ingredient.id, ingredientId));
 
         return {
-          batch: created[created.length - 1],
+          batch: created.find((row) => row.ingredientId === ingredientId)!,
           balance,
           lowStock,
         };

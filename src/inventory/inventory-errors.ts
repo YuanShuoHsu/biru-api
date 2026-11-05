@@ -41,8 +41,8 @@ export const badRequestError = (
 ) =>
   new BadRequestException({
     error: 'Bad Request',
-    ...errorBody(code),
     ...details,
+    ...errorBody(code),
   });
 
 export const conflictError = (code: InventoryErrorCode) =>
