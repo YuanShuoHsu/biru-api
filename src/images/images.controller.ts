@@ -29,11 +29,14 @@ export class ImagesController {
     @Param() params: ImageParamsDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { mimeType, data } = await this.imagesService.find(params);
+    const { current, mimeType, data } = await this.imagesService.find(params);
 
-    // 錯誤回應不能帶永久快取，所以不用 @Header()
+    // 錯誤回應與舊版網址都不能帶永久快取，所以不用 @Header()
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#no-cache
     res.set({
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': current
+        ? 'public, max-age=31536000, immutable'
+        : 'public, no-cache',
       'Content-Security-Policy':
         "default-src 'self'; script-src 'none'; sandbox;",
       'Cross-Origin-Resource-Policy': 'cross-origin',

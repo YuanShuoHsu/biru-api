@@ -243,7 +243,10 @@ Menu, section, item, banner and store photo images are stored as base64 data URL
 `imageUrl` from `withImageUrl` (`src/images/image-url.ts`), `/api/images/:kind/:id/:updatedAtMs.:ext`, which
 `ImagesController` serves with a one-year `immutable` cache and no throttling (`audit_log.changes` still keeps the data
 URLs). Edit dialogs send `image` only when the upload differs from `imageUrl`, never the URL itself. Any update moves `updatedAt` and so the URL; a stale
-version or extension answers 404. The endpoint is anonymous and does not check whether the row is published: the
+version or extension still serves the current image, with `no-cache` instead of `immutable`, because the storefront
+caches the banner and store photo lists (`"use cache"`) for longer than an edit takes, and every environment shares one
+database, so no cache can be invalidated on every edit. Don't answer it with a redirect: Next's image optimizer rejects
+a non-2xx response for a local image. Only a missing row or image answers 404. The endpoint is anonymous and does not check whether the row is published: the
 URL is only handed out by endpoints that already authorize the caller, and Next's image optimizer fetches the
 source without the viewer's cookies.
 

@@ -25,14 +25,12 @@ export class ImagesService {
       .where(eq(table.id, id));
 
     const parsed = row?.image ? parseImageDataUrl(row.image) : null;
-    if (
-      !parsed ||
-      String(row.updatedAt.getTime()) !== version ||
-      parsed.extension !== extension
-    )
-      throw new NotFoundException();
+    if (!parsed) throw new NotFoundException();
 
     return {
+      current:
+        String(row.updatedAt.getTime()) === version &&
+        parsed.extension === extension,
       mimeType: parsed.mimeType,
       data: Buffer.from(parsed.base64, 'base64'),
     };

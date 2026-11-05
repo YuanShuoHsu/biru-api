@@ -32,25 +32,46 @@ describe('ImagesService', () => {
     await client.close();
   });
 
-  it('回傳解碼後的圖片與 MIME 類型', async () => {
-    const { mimeType, data } = await service.find({
+  it('回傳解碼後的圖片、MIME 類型，並標示網址就是目前的版本', async () => {
+    const { current, mimeType, data } = await service.find({
       kind: 'banner',
       id: 'banner-1',
       version,
       extension: 'png',
     });
 
+    expect(current).toBe(true);
     expect(mimeType).toBe('image/png');
     expect(data).toEqual(Buffer.from('iVBORw0KGgo=', 'base64'));
   });
 
   it.each([
-    { id: 'missing', version: () => version, extension: 'png' },
-    { id: 'banner-1', version: () => '1', extension: 'png' },
-    { id: 'banner-1', version: () => version, extension: 'webp' },
-  ])('網址和目前的圖片不符時回 404：%o', async ({ id, version, extension }) => {
+    { version: () => '1', extension: 'png' },
+    { version: () => version, extension: 'webp' },
+  ])(
+    '版本或副檔名過期時回目前的圖片，並標示不是目前的版本：%o',
+    async ({ version, extension }) => {
+      const { current, mimeType, data } = await service.find({
+        kind: 'banner',
+        id: 'banner-1',
+        version: version(),
+        extension,
+      });
+
+      expect(current).toBe(false);
+      expect(mimeType).toBe('image/png');
+      expect(data).toEqual(Buffer.from('iVBORw0KGgo=', 'base64'));
+    },
+  );
+
+  it('找不到圖片時回 404', async () => {
     await expect(
-      service.find({ kind: 'banner', id, version: version(), extension }),
+      service.find({
+        kind: 'banner',
+        id: 'missing',
+        version,
+        extension: 'png',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
