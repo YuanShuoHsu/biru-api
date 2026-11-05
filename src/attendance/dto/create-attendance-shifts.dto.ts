@@ -6,9 +6,10 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsDateString,
+  IsISO8601,
   IsIn,
   IsOptional,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
@@ -23,8 +24,8 @@ import {
 
 export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;
-  @IsDateString() startsAt: string;
-  @IsDateString() endsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) startsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) endsAt: string;
   @ApiPropertyOptional({
     description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
     enum: ATTENDANCE_SCHEDULED_DAY_KINDS,

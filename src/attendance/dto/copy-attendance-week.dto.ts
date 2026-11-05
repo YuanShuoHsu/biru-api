@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   IsBoolean,
+  IsISO8601,
   IsInt,
   IsOptional,
   Matches,
@@ -38,6 +39,7 @@ export type AttendanceCopySkipReason =
 export class CopyAttendanceWeekDto {
   @ApiProperty({ description: '來源週第一天（YYYY-MM-DD），往後 7 天為來源' })
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
   from: string;
   @ApiProperty({ minimum: 1, maximum: 12 })
   @IsInt()

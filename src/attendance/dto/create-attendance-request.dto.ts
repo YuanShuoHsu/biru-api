@@ -5,9 +5,10 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsDateString,
+  IsISO8601,
   IsIn,
   IsOptional,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
@@ -28,7 +29,7 @@ export class CorrectedEventDto {
   })
   @IsIn(ATTENDANCE_EVENT_ACTIONS)
   action: AttendanceEventAction;
-  @IsDateString() occurredAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) occurredAt: string;
 }
 
 export class CreateAttendanceRequestDto {
@@ -40,8 +41,8 @@ export class CreateAttendanceRequestDto {
   @IsIn(['correction', 'leave', 'overtime'])
   kind: 'correction' | 'leave' | 'overtime';
   @IsOptional() @IsUUID() shiftId?: string;
-  @IsDateString() startsAt: string;
-  @IsDateString() endsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) startsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) endsAt: string;
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason: string;
   @IsOptional() @IsUUID() leaveTypeId?: string;
   @IsOptional()
