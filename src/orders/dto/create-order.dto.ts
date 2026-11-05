@@ -14,6 +14,7 @@ import {
   IsNotEmpty,
   IsObject,
   IsOptional,
+  IsRFC3339,
   IsString,
   isObject,
   Matches,
@@ -305,10 +306,8 @@ export class CreateOrderDto {
 
   @ApiPropertyOptional({ example: '2026-08-31T09:15:00+08:00' })
   @IsOptional()
-  @IsISO8601()
-  @Matches(/(?:Z|[+-]\d{2}:?\d{2})$/, {
-    message: 'pickupTime must carry a UTC offset',
-  })
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   pickupTime?: string;
 
   @ApiPropertyOptional()
