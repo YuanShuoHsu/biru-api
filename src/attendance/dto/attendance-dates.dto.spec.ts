@@ -150,6 +150,9 @@ const instantCases: Case[] = [
   ],
 ];
 
+const caseOf = (cases: Case[], name: string) =>
+  cases.find(([caseName]) => caseName === name)!;
+
 const dateCases: Case[] = [
   [
     'CreateAttendanceHolidaySubstituteDto',
@@ -168,9 +171,7 @@ const dateCases: Case[] = [
     'SaveAttendanceEmployeeDto',
     SaveAttendanceEmployeeDto,
     {
-      ...instantCases.find(
-        ([name]) => name === 'SaveAttendanceEmployeeDto',
-      )![2],
+      ...caseOf(instantCases, 'SaveAttendanceEmployeeDto')[2],
       birthDate: DATE,
       taiwanStaySince: DATE,
     },
@@ -204,11 +205,14 @@ const errorsOf = async (
 
 describe('attendance date fields', () => {
   describe.each(instantCases)('%s', (_, cls, base, fields) => {
-    it.each(fields)('%s 接受 UTC 與 +08:00 時間', async (field) => {
-      expect(await errorsOf(cls, base)).toEqual([]);
-      expect(
-        await errorsOf(cls, base, { [field]: '2026-11-01T00:00:00+08:00' }),
-      ).toEqual([]);
+    it.each(
+      fields.flatMap((field) =>
+        [INSTANT, '2026-11-01T00:00:00+08:00', '2028-02-29T00:00:00+08:00'].map(
+          (value) => [field, value],
+        ),
+      ),
+    )('%s 接受 %s', async (field, value) => {
+      expect(await errorsOf(cls, base, { [field]: value })).toEqual([]);
     });
 
     it.each(
@@ -228,8 +232,12 @@ describe('attendance date fields', () => {
   });
 
   describe.each(dateCases)('%s', (_, cls, base, fields) => {
-    it.each(fields)('%s 接受 YYYY-MM-DD', async () => {
-      expect(await errorsOf(cls, base)).toEqual([]);
+    it.each(
+      fields.flatMap((field) =>
+        [DATE, '2028-02-29'].map((value) => [field, value]),
+      ),
+    )('%s 接受 %s', async (field, value) => {
+      expect(await errorsOf(cls, base, { [field]: value })).toEqual([]);
     });
 
     it.each(
@@ -242,9 +250,32 @@ describe('attendance date fields', () => {
   });
 
   it('indigenousHolidays 拒絕不存在的日期', async () => {
-    const [, cls, base] = dateCases[3];
+    const [, cls, base] = caseOf(dateCases, 'SaveAttendanceEmployeeDto');
     expect(
       await errorsOf(cls, base, { indigenousHolidays: [DATE, '2026-02-30'] }),
     ).toEqual(['indigenousHolidays']);
+  });
+
+  it.each([
+    ['CreateAttendanceLeaveCaseDto', instantCases, ['eventDate', 'endsAt']],
+    ['ReviewLeaveCaseDto', instantCases, ['endsAt']],
+    [
+      'SaveAttendanceEmployeeDto',
+      instantCases,
+      ['terminatedAt', 'terminationNoticedAt'],
+    ],
+    ['SaveAttendanceEmployeeDto', dateCases, ['taiwanStaySince']],
+    ['SaveAttendanceSettingsDto', dateCases, ['overtimeAgreedFrom']],
+  ] as const)('%s 可省略 %s', async (name, cases, omitted) => {
+    const [, cls, base] = caseOf([...cases], name);
+    const rest = Object.fromEntries(
+      Object.entries(base).filter(([key]) => !omitted.includes(key)),
+    );
+    expect(await errorsOf(cls, rest)).toEqual([]);
+  });
+
+  it('overtimeAgreedFrom 接受 null', async () => {
+    const [, cls, base] = caseOf(dateCases, 'SaveAttendanceSettingsDto');
+    expect(await errorsOf(cls, base, { overtimeAgreedFrom: null })).toEqual([]);
   });
 });

@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import {
-  IsISO8601,
   IsIn,
+  IsISO8601,
   IsNumber,
   IsRFC3339,
   IsUUID,
