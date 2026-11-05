@@ -741,7 +741,7 @@ export class PointsService {
 
     const created = await this.db.transaction(async (tx) => {
       await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${`${organizationId}:${target.id}`}, 0))`,
+        sql`select pg_advisory_xact_lock(hashtextextended(${`points_adjust:${organizationId}:${target.id}`}, 0))`,
       );
       if (!isOwnerRole(adjusterRole)) {
         const [{ adjustedToday }] = await tx

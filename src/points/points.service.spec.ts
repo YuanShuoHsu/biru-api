@@ -996,6 +996,28 @@ describe('PointsService.findAllForOrganization', () => {
       ).toEqual(expect.objectContaining({ points: 5, userEmail: email }));
   });
 
+  it('owner 當天已補點超過上限後，非 owner 當天再補 1 點也拒絕', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    await service.adjustForOrganization(
+      'biru',
+      { email: 'amy@example.com', note: '活動', points: 500 },
+      'bob',
+      'owner',
+    );
+
+    await expect(
+      service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 1 },
+        'bob',
+        'admin',
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: 'common.points.adjustOwnerOnly',
+    });
+  });
+
   it('非 owner 對同一會員在同一個台灣日的補扣點合計不能超過上限，隔天重新計算，owner 不受限', async () => {
     await addPaidOrder('o1', ORG, 'amy');
     await addPaidOrder('o2', OTHER_ORG, 'amy');
