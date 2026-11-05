@@ -26,8 +26,8 @@ import {
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-@ValidatorConstraint({ name: 'isValidFromBeforeValidThrough' })
-class IsValidFromBeforeValidThrough implements ValidatorConstraintInterface {
+@ValidatorConstraint({ name: 'isValidFromNotAfterValidThrough' })
+class IsValidFromNotAfterValidThrough implements ValidatorConstraintInterface {
   validate(_: unknown, { object }: ValidationArguments): boolean {
     const { validFrom, validThrough } = object as PriceSpecificationDto;
     if (!validFrom || !validThrough) return true;
@@ -73,7 +73,7 @@ export class PriceSpecificationDto {
   @IsOptional()
   @Matches(DATE_PATTERN)
   @IsISO8601({ strict: true })
-  @Validate(IsValidFromBeforeValidThrough)
+  @Validate(IsValidFromNotAfterValidThrough)
   validThrough?: string;
 }
 

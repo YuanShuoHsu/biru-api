@@ -58,7 +58,12 @@ export const sectionAncestry = (
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
 
+// 店面判斷促銷是否進行中用同一個格式，改這裡要一起改
+const PROMO_DATE_PATTERN =
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$/;
+
 const platformDateOf = (value: string): string | null => {
+  if (!PROMO_DATE_PATTERN.test(value)) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : platformDateString(date);
 };

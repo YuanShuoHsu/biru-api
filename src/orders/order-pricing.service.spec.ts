@@ -208,11 +208,34 @@ describe('OrderPricingService.resolveOrderItems', () => {
       ).toBe('80.00');
     });
 
-    it('無法解析的日期不套用促銷價', async () => {
+    it('舊資料 UTC 時間跨到隔天時，以平台時區日期判斷起日', async () => {
+      expect(
+        await unitPriceAt('2026-05-31T23:00:00+08:00', {
+          price: '80.00',
+          validFrom: '2026-05-31T16:00:00Z',
+        }),
+      ).toBe('100.00');
+    });
+
+    it('舊資料 UTC 時間跨到隔天時，以平台時區日期判斷訖日', async () => {
+      expect(
+        await unitPriceAt('2026-06-01T12:00:00+08:00', {
+          price: '80.00',
+          validThrough: '2026-05-31T16:00:00Z',
+        }),
+      ).toBe('80.00');
+    });
+
+    it.each([
+      '2026-W01',
+      '20260601',
+      '2026-06-01T00:00:00',
+      '2026-06-01 00:00Z',
+    ])('無法解析的日期 %s 不套用促銷價', async (validFrom) => {
       expect(
         await unitPriceAt('2026-06-15T12:00:00+08:00', {
           price: '80.00',
-          validFrom: '2026-W01',
+          validFrom,
         }),
       ).toBe('100.00');
     });
