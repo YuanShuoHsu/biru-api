@@ -27,6 +27,7 @@ import {
 import {
   attendanceEmployee,
   attendanceEvent,
+  attendanceHolidaySubstitute,
   attendanceLeaveType,
   attendanceRequest,
   attendanceSettings,
@@ -1049,6 +1050,12 @@ export class AttendanceShiftsService {
     ) =>
       holidays.some((holiday) => holiday.date === date) ||
       employee.indigenousHolidays.includes(date);
+    const [replacedSubstitute] = replacing
+      ? await tx
+          .select({ employeeId: attendanceHolidaySubstitute.employeeId })
+          .from(attendanceHolidaySubstitute)
+          .where(eq(attendanceHolidaySubstitute.shiftId, replacing.id))
+      : [];
     const weekStart = (date: Date) =>
       platformMidnight(date.getTime()) -
       ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
@@ -1236,6 +1243,12 @@ export class AttendanceShiftsService {
         if (!scheduledKind) throw badRequestError('dayKindRequired');
         if (dto.dayKind && dto.dayKind !== scheduledKind)
           throw badRequestError('restDayDesignationConflict');
+        if (
+          replacedSubstitute &&
+          (replacedSubstitute.employeeId !== dto.employeeId ||
+            scheduledKind !== 'workday')
+        )
+          throw badRequestError('holidaySubstituteInvalid');
         const sameDayKinds = new Set(
           [...existingShifts, ...values]
             .filter(
@@ -1247,7 +1260,9 @@ export class AttendanceShiftsService {
         );
         const dayKind =
           scheduledKind === 'workday' &&
-          (isHoliday(employee, dates[index]) || sameDayKinds.has('holiday'))
+          (isHoliday(employee, dates[index]) ||
+            sameDayKinds.has('holiday') ||
+            replacedSubstitute)
             ? 'holiday'
             : scheduledKind;
         if (skip && dayKind !== 'workday') {

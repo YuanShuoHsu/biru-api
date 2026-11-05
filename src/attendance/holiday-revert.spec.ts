@@ -9,6 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { AttendanceActor } from './attendance-actor.js';
 import { AttendanceEmployeesService } from './attendance-employees.service.js';
 import { AttendanceLeavesService } from './attendance-leaves.service.js';
+import { AttendanceShiftsService } from './attendance-shifts.service.js';
 import type { SaveAttendanceEmployeeDto } from './dto/save-attendance-employee.dto.js';
 
 const ORG = 'org';
@@ -22,15 +23,15 @@ describe('turning holiday shifts back into workdays', () => {
   let client: PGlite;
   let employees: AttendanceEmployeesService;
   let leaves: AttendanceLeavesService;
+  let shifts: AttendanceShiftsService;
 
   beforeAll(async () => {
     client = createPGlite();
-    const db = drizzle(client, { schema }) as unknown as DrizzleDB;
-    await migrate(drizzle(client, { schema }), {
-      migrationsFolder: './drizzle',
-    });
-    employees = new AttendanceEmployeesService(db);
-    leaves = new AttendanceLeavesService(db);
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    employees = new AttendanceEmployeesService(db as unknown as DrizzleDB);
+    leaves = new AttendanceLeavesService(db as unknown as DrizzleDB);
+    shifts = new AttendanceShiftsService(db as unknown as DrizzleDB);
   }, 60_000);
 
   afterAll(async () => {
@@ -44,6 +45,7 @@ describe('turning holiday shifts back into workdays', () => {
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('${ORG}', '碧露', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "user" (id, name, first_name, email, lang) values ('owner', 'Owner', 'Owner', 'owner@example.com', 'zh-TW'), ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW');
+       insert into statutory_holiday (date, name) values ('2026-01-01', '開國紀念日');
        insert into member (id, organization_id, user_id, role, created_at) values ('m-owner', '${ORG}', 'owner', 'owner', now()), ('m-amy', '${ORG}', 'amy', 'member', now());
        insert into attendance_employee (id, organization_id, user_id, birth_date, hired_at, indigenous_holidays)
          values ('emp', '${ORG}', 'amy', '1990-01-01', '2026-01-01T00:00:00+08:00', '["2026-03-10", "2026-03-12"]');
@@ -98,18 +100,69 @@ describe('turning holiday shifts back into workdays', () => {
 
     await employees.saveEmployee(actor, employeeDto(['2026-03-12']));
 
-    expect((await dayKinds())['indigenous-only']).toBe('holiday');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
   });
 
-  it('deleting a 補休 keeps an indigenous holiday on that date a holiday', async () => {
+  it('deleting a 補休 keeps an indigenous holiday added to that date afterwards a holiday', async () => {
     await leaves.deleteHolidaySubstitutes(actor, ['sub-indigenous']);
 
-    expect((await dayKinds()).substituted).toBe('holiday');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'holiday',
+    });
   });
 
   it('deleting a 補休 on an ordinary date turns its shift back into a workday', async () => {
     await leaves.deleteHolidaySubstitutes(actor, ['sub-plain']);
 
-    expect((await dayKinds())['substitute-only']).toBe('workday');
+    expect(await dayKinds()).toEqual({
+      'indigenous-only': 'holiday',
+      substituted: 'holiday',
+      'substitute-only': 'workday',
+    });
+  });
+
+  it('removing an indigenous holiday turns its shift back into a workday when the only 補休 on that date is on a cancelled shift', async () => {
+    await client.exec(
+      `update attendance_shift set status = 'cancelled' where id = 'substituted';
+       insert into attendance_shift (id, organization_id, employee_id, starts_at, ends_at, day_kind)
+         values ('substituted-later', '${ORG}', 'emp', '2026-03-12T14:00:00+08:00', '2026-03-12T18:00:00+08:00', 'holiday');`,
+    );
+
+    await employees.saveEmployee(actor, employeeDto(['2026-03-10']));
+
+    expect((await dayKinds())['substituted-later']).toBe('workday');
+  });
+
+  it('editing the shift a 補休 is designated on keeps it a holiday', async () => {
+    await shifts.updateShift(actor, 'substitute-only', {
+      startsAt: '2026-03-17T10:00:00+08:00',
+      endsAt: '2026-03-17T14:00:00+08:00',
+    });
+
+    expect((await dayKinds())['substitute-only']).toBe('holiday');
+  });
+
+  it('rejects moving the shift a 補休 is designated on to another employee', async () => {
+    await client.exec(
+      `insert into "user" (id, name, first_name, email, lang) values ('ben', 'Ben', 'Ben', 'ben@example.com', 'zh-TW');
+       insert into member (id, organization_id, user_id, role, created_at) values ('m-ben', '${ORG}', 'ben', 'member', now());
+       insert into attendance_employee (id, organization_id, user_id, birth_date, hired_at)
+         values ('ben-emp', '${ORG}', 'ben', '1990-01-01', '2026-01-01T00:00:00+08:00');`,
+    );
+
+    await expect(
+      shifts.updateShift(actor, 'substitute-only', {
+        employeeId: 'ben-emp',
+        dayKind: 'workday',
+        startsAt: '2026-03-17T09:00:00+08:00',
+        endsAt: '2026-03-17T13:00:00+08:00',
+      }),
+    ).rejects.toThrow('holidaySubstituteInvalid');
   });
 });
