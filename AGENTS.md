@@ -339,7 +339,7 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   — `nest-cli.json` enables the [`@nestjs/swagger` CLI plugin](https://docs.nestjs.com/openapi/cli-plugin) with its
   defaults, so every property declared in a `*.dto.ts` / `*.entity.ts` file is documented without `@ApiProperty`:
   type and `required` come from the TypeScript declaration (`?`, not `@IsOptional()`), class-validator decorators add
-  constraints such as `@Min` / `@IsIn`, and values given in `@ApiProperty*` take precedence over what it infers. To
+  constraints such as `@Min` / `@IsIn`, and values given in `@ApiProperty*` take precedence over what the plugin infers. To
   tell whether a change alters the document (and so the frontends' `types/api.ts`), compare `/api-json` before and after
 - Port: `PORT` env var (default 3001)
 - `bodyParser: false` at the Nest factory — better-auth's module owns body parsing
