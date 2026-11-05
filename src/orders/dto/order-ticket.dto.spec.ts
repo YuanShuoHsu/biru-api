@@ -1,6 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
+import '../../db/schema/index.js';
+
 import { ReprintOrderTicketDto } from './order-ticket.dto.js';
 
 const errorsOf = async (printerIds: unknown) =>
