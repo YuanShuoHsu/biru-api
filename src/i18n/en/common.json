@@ -398,8 +398,24 @@
       "unit": "Unit",
       "variance": "Variance"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "Cash",
+      "Credit": "Credit Card",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "Mobile Payment",
+      "WeiXin": "WeChat Pay"
+    },
     "rangeInvalid": "The end time must be later than the start time.",
-    "rangeTooLong": "The report can cover at most 366 days."
+    "rangeTooLong": "The report can cover at most 366 days.",
+    "units": {
+      "GRM": "g",
+      "H87": "pcs",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "ml"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",

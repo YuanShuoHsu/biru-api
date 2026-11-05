@@ -398,8 +398,24 @@
       "unit": "단위",
       "variance": "차이"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "현금",
+      "Credit": "신용카드",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "모바일 결제",
+      "WeiXin": "위챗페이"
+    },
     "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
-    "rangeTooLong": "보고서 기간은 최대 366일입니다."
+    "rangeTooLong": "보고서 기간은 최대 366일입니다.",
+    "units": {
+      "GRM": "그램",
+      "H87": "개",
+      "KGM": "킬로그램",
+      "LTR": "리터",
+      "MLT": "밀리리터"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",

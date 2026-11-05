@@ -451,8 +451,24 @@ export type I18nTranslations = {
                 "unit": string;
                 "variance": string;
             };
+            "paymentMethods": {
+                "ApplePay": string;
+                "Cash": string;
+                "Credit": string;
+                "iPASS": string;
+                "Jkopay": string;
+                "TWQR": string;
+                "WeiXin": string;
+            };
             "rangeInvalid": string;
             "rangeTooLong": string;
+            "units": {
+                "GRM": string;
+                "H87": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+            };
         };
         "storeLayout": {
             "duplicateTableNumber": string;

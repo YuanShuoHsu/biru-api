@@ -398,8 +398,24 @@
       "unit": "单位",
       "variance": "差异"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "现金",
+      "Credit": "信用卡",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口支付",
+      "TWQR": "移动支付",
+      "WeiXin": "微信支付"
+    },
     "rangeInvalid": "结束时间必须晚于开始时间。",
-    "rangeTooLong": "报表区间最多 366 天。"
+    "rangeTooLong": "报表区间最多 366 天。",
+    "units": {
+      "GRM": "克",
+      "H87": "个",
+      "KGM": "公斤",
+      "LTR": "升",
+      "MLT": "毫升"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
