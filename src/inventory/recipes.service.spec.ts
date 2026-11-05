@@ -104,6 +104,25 @@ describe('RecipesService', () => {
     expect(await recipeIds({})).toEqual(['latte', 'mocha']);
   });
 
+  it('依客製選項取得綁定的食譜，沒綁的選項回 null', async () => {
+    await client.exec(`
+      insert into modifier_group (id, menu_id, display_name) values ('milk-options', 'menu', '{"zh-TW":"奶類"}');
+      insert into modifier (id, modifier_group_id, display_name) values ('oat-milk', 'milk-options', '{"zh-TW":"燕麥奶"}'), ('no-milk', 'milk-options', '{"zh-TW":"不加奶"}');
+    `);
+    await db.insert(recipe).values({
+      id: 'oat-milk-recipe',
+      name: { 'zh-TW': '燕麥奶' },
+      organizationId: ORG,
+      modifierId: 'oat-milk',
+    });
+
+    expect(await service.findOneByModifier('oat-milk')).toMatchObject({
+      id: 'oat-milk-recipe',
+      modifierId: 'oat-milk',
+    });
+    expect(await service.findOneByModifier('no-milk')).toBeNull();
+  });
+
   it('食譜材料名稱的快速搜尋與篩選不比對語系鍵', async () => {
     expect(await materialIds({ quickFilterValue: 'TW' })).toEqual([]);
     expect(await materialIds({ quickFilterValue: '咖啡' })).toEqual(['beans']);

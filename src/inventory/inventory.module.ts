@@ -8,6 +8,7 @@ import { InventoryNotificationsService } from './inventory-notifications.service
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { MenuStockService } from './menu-stock.service.js';
 import { MenuItemInventoryController } from './menu-item-inventory.controller.js';
+import { ModifierInventoryController } from './modifier-inventory.controller.js';
 import { OrganizationInventoryController } from './organization-inventory.controller.js';
 import { RecipesController } from './recipes.controller.js';
 import { RecipesService } from './recipes.service.js';
@@ -20,6 +21,7 @@ import { SuppliersService } from './suppliers.service.js';
     OrganizationInventoryController,
     IngredientsController,
     MenuItemInventoryController,
+    ModifierInventoryController,
     RecipesController,
     SuppliersController,
   ],

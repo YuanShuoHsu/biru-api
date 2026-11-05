@@ -233,6 +233,17 @@ export class RecipesService {
     return found ? this.detailOf(found, canReadPurchasing) : null;
   }
 
+  async findOneByModifier(
+    modifierId: string,
+    canReadPurchasing = true,
+  ): Promise<RecipeResponseDto | null> {
+    const found = await this.db.query.recipe.findFirst({
+      where: eq(recipe.modifierId, modifierId),
+    });
+
+    return found ? this.detailOf(found, canReadPurchasing) : null;
+  }
+
   async create(
     organizationId: string,
     { menuItemId, modifierId, ...dto }: CreateRecipeDto,
