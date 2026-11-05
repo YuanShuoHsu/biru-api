@@ -274,6 +274,14 @@ export class AuditService {
     scope?: { organizationId: string; role: string },
     resource?: string,
   ): SQL {
+    const auditLogConditions = and(
+      scope ? sql`a.organization_id = ${scope.organizationId}` : undefined,
+      resource
+        ? isAuditResource(resource)
+          ? sql`a.resource = ${resource}`
+          : sql`false`
+        : undefined,
+    );
     const auditLogs = sql`
       SELECT
         'audit' AS source,
@@ -291,16 +299,7 @@ export class AuditService {
         a.change_labels AS "changeLabels",
         a.created_at
       FROM audit_log a
-      WHERE ${
-        and(
-          scope ? sql`a.organization_id = ${scope.organizationId}` : undefined,
-          resource
-            ? isAuditResource(resource)
-              ? sql`a.resource = ${resource}`
-              : sql`false`
-            : undefined,
-        ) ?? sql`true`
-      }
+      ${auditLogConditions ? sql`WHERE ${auditLogConditions}` : sql``}
     `;
 
     const readable = readableAttendanceActions(scope?.role);

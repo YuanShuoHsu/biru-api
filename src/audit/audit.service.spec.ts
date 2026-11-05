@@ -179,6 +179,7 @@ describe('AuditService.listForOrganization paging', () => {
     {},
     { sortBy: 'actorName', sortDirection: 'asc' },
     { sortBy: 'action', sortDirection: 'desc' },
+    { sortBy: 'organizationId', sortDirection: 'asc' },
   ] as const)(
     'returns every entry written in one transaction exactly once across pages (%o)',
     async (sort) => {
