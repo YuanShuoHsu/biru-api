@@ -390,7 +390,10 @@ export class PointsService {
       const pending = await this.calculatePendingEarn(tx, orderId);
       if (!pending || pending.points <= 0) return;
 
-      const revoking = Math.round(pending.points * ratio);
+      const revoking = Math.min(
+        Math.round(pending.points * ratio),
+        pending.points - (await this.revokedForOrder(tx, orderId)),
+      );
       if (revoking <= 0) return;
 
       await tx.insert(pointTransaction).values({
@@ -407,7 +410,10 @@ export class PointsService {
       return;
     }
 
-    const revoking = Math.round(earned.points * ratio);
+    const unrevoked = earned.points - (await this.revokedForOrder(tx, orderId));
+    const revoking = orderBecomesTerminal
+      ? unrevoked
+      : Math.min(Math.round(earned.points * ratio), unrevoked);
     if (revoking <= 0) return;
 
     const deductible = Math.max(earned.remainingPoints, 0);
@@ -433,6 +439,28 @@ export class PointsService {
       type: 'revoke',
       userId: earned.userId,
     });
+  }
+
+  private async revokedForOrder(
+    tx: Pick<DrizzleDB, 'select'>,
+    orderId: string,
+  ): Promise<number> {
+    const [{ revoked }] = await tx
+      .select({
+        revoked:
+          sql<number>`-COALESCE(SUM(${pointTransaction.points}), 0)`.mapWith(
+            Number,
+          ),
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.orderId, orderId),
+          eq(pointTransaction.type, 'revoke'),
+        ),
+      );
+
+    return revoked;
   }
 
   /** 尚未 lazy 入點的訂單，依付款當下的快照算出它應得多少點 */
