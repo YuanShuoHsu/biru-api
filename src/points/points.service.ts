@@ -334,17 +334,19 @@ export class PointsService {
             eq(pointTransaction.remainingPoints, pointTransaction.points),
           ),
         );
-    for (const id of drainableIds) {
-      const target = revocable.find((r) => r.id === id)!;
-
+    if (drainableIds.length > 0)
       await this.db
         .update(pointTransaction)
         .set({
-          remainingPoints: target.remainingPoints - target.points,
+          remainingPoints: sql`${pointTransaction.remainingPoints} - ${pointTransaction.points}`,
           updatedAt: new Date(),
         })
-        .where(eq(pointTransaction.id, id));
-    }
+        .where(
+          and(
+            inArray(pointTransaction.id, drainableIds),
+            gte(pointTransaction.remainingPoints, 0),
+          ),
+        );
   }
 
   async revokeForOrder(
