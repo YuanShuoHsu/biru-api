@@ -691,6 +691,20 @@ describe('庫存扣除、還原與自動售完', () => {
       });
     });
 
+    it('食譜解除綁定後，系統自動售完的選項恢復供應', async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
     it('食材不夠時店員手動售完的選項不算自動售完', async () => {
       await addModifier('cheese', { availability: 'SoldOut' });
       await addIngredient('cheddar', '0');
@@ -744,7 +758,7 @@ describe('庫存扣除、還原與自動售完', () => {
         .update(offer)
         .set({
           ...(availability && { availability }),
-          ...keepAutoSoldOut(availability),
+          ...keepAutoSoldOut(availability, offer),
           price: '120',
         })
         .where(eq(offer.menuItemId, 'cake'));

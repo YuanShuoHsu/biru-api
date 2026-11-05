@@ -24,7 +24,7 @@ export const QUANTITY_TOLERANCE = 0.0005;
 // 店員送出與目前相同的供應狀態（例如只改價格）時保留自動售完，補貨後仍會自動恢復
 export const keepAutoSoldOut = (
   availability: ItemAvailability | null | undefined,
-  table: typeof offer | typeof modifier = offer,
+  table: typeof offer | typeof modifier,
 ) =>
   availability === undefined
     ? {}
@@ -106,7 +106,21 @@ export class MenuStockService {
           eq(modifierGroup.id, modifier.modifierGroupId),
         )
         .innerJoin(menu, eq(menu.id, modifierGroup.menuId))
-        .where(eq(menu.organizationId, organizationId))
+        .where(
+          and(
+            eq(menu.organizationId, organizationId),
+            or(
+              eq(modifier.autoSoldOut, true),
+              inArray(
+                modifier.id,
+                tx
+                  .select({ id: recipe.modifierId })
+                  .from(recipe)
+                  .where(eq(recipe.organizationId, organizationId)),
+              ),
+            ),
+          ),
+        )
         .orderBy(asc(modifier.id))
         .for('update', { of: modifier });
       if (!offers.length && !modifiers.length) return false;

@@ -961,7 +961,7 @@ export class MenusService {
           .update(offer)
           .set({
             ...offerData,
-            ...keepAutoSoldOut(offerData.availability),
+            ...keepAutoSoldOut(offerData.availability, offer),
             updatedAt: new Date(),
           })
           .where(eq(offer.id, existingOffer.id))
@@ -1059,7 +1059,7 @@ export class MenusService {
       .update(offer)
       .set({
         ...params.data,
-        ...keepAutoSoldOut(params.data.availability),
+        ...keepAutoSoldOut(params.data.availability, offer),
         updatedAt: new Date(),
       })
       .where(eq(offer.id, params.where.id))
@@ -1107,7 +1107,7 @@ export class MenusService {
       .update(offer)
       .set({
         ...availability,
-        ...keepAutoSoldOut(availability.availability),
+        ...keepAutoSoldOut(availability.availability, offer),
         ...(nextInventoryLevel !== undefined && {
           inventoryLevel: nextInventoryLevel,
         }),
