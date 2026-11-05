@@ -259,6 +259,8 @@ describe('CreateOrderDto pickupTime', () => {
     '2026-08-31',
     '2026-02-30T09:15:00+08:00',
     '2026-08-31T24:00:00+08:00',
+    '2026-08-31T09:15:00+0800',
+    '2026-08-31T09:15+08:00',
   ])(
     'rejects %j, which has no offset or is not a real time',
     async (pickupTime) => {
