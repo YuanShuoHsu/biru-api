@@ -20,7 +20,7 @@ export const organizationNotFoundError = () =>
       ) ?? 'organizationNotFound',
   });
 
-export const getOrganizationBySlug = async (
+const getOrganizationBySlug = async (
   db: DrizzleDB,
   slug: string,
 ): Promise<{ id: string; currency: string }> => {

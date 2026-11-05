@@ -167,7 +167,7 @@ export const buildNumberFilterCondition = (
   }
 };
 
-export const buildEnumFilterCondition = (
+const buildEnumFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -192,7 +192,7 @@ export const buildEnumFilterCondition = (
   }
 };
 
-export const buildBooleanFilterCondition = (
+const buildBooleanFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -238,7 +238,7 @@ export const buildPlainDateFilterCondition = (
   }
 };
 
-export const buildMonthFilterCondition = (
+const buildMonthFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -276,7 +276,7 @@ export const buildArrayOverlapCondition = (
   )}]::text[]`;
 };
 
-export const buildArrayEnumFilterCondition = (
+const buildArrayEnumFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
