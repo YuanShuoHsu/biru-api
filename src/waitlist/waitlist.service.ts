@@ -561,7 +561,7 @@ export class WaitlistService {
           : revert
             ? { calledAt: now, endedAt: null, status }
             : status === 'called'
-              ? { calledAt: now, status }
+              ? { calledAt: now, confirmedAt: null, status }
               : { endedAt: now, status },
       )
       .where(
@@ -621,6 +621,9 @@ export class WaitlistService {
         and(
           eq(waitlistTicket.id, ticket.id),
           eq(waitlistTicket.status, 'called'),
+          ticket.calledAt
+            ? eq(waitlistTicket.calledAt, ticket.calledAt)
+            : undefined,
         ),
       )
       .returning();
