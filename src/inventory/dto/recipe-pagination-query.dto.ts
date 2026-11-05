@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsIn, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsIn, IsOptional } from 'class-validator';
 
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
@@ -35,4 +36,14 @@ export class RecipePaginationQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(RECIPE_SORT_FIELDS)
   sortBy?: RecipeSortField;
+
+  @ApiPropertyOptional({
+    description: 'true 只列綁定菜單品項的食譜，false 只列未綁定的',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  hasMenuItem?: boolean;
 }
