@@ -233,10 +233,16 @@ export type I18nTranslations = {
         "inventory": {
             "ingredientInUse": string;
             "ingredientNotFound": string;
+            "packageRequired": string;
             "packageUnitIncompatible": string;
+            "purchaseFieldsOnSourcedIngredient": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
             "recipeNotFound": string;
+            "sourceRecipeHasMenuItem": string;
+            "sourceRecipeNested": string;
+            "sourceRecipeUnitIncompatible": string;
+            "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;
         };
         "invoices": {

@@ -180,10 +180,16 @@
   "inventory": {
     "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",
     "ingredientNotFound": "找不到这项食材，可能已被删除",
+    "packageRequired": "没有来源食谱的食材须填写包装价格、内容量与单位",
     "packageUnitIncompatible": "内容量单位与库存单位不兼容",
+    "purchaseFieldsOnSourcedIngredient": "由来源食谱制成的食材不能设定包装价格、内容量或供应商",
     "recipeIngredientExists": "这项材料已经加入过了",
     "recipeIngredientNotFound": "找不到这项食谱材料，可能已被移除",
     "recipeNotFound": "找不到这份食谱，可能已被删除",
+    "sourceRecipeHasMenuItem": "已绑定菜单品项的食谱不能作为食材的来源食谱",
+    "sourceRecipeNested": "来源食谱不能使用由其他食谱制成的食材",
+    "sourceRecipeUnitIncompatible": "食谱产量单位与食材库存单位不兼容",
+    "sourceRecipeYieldMissing": "请先设定食谱的产量与单位，才能作为食材的来源食谱",
     "supplierNotFound": "找不到这个供应商，可能已被删除"
   },
   "invoices": {

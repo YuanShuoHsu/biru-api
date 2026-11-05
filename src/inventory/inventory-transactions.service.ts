@@ -43,7 +43,7 @@ import {
 } from './dto/inventory-transaction-response.dto.js';
 import { notFoundError } from './inventory-errors.js';
 import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
-import { unitPriceOf } from './pricing.js';
+import { unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
@@ -212,9 +212,7 @@ export class InventoryTransactionsService {
       .select({
         organizationId: ingredient.organizationId,
         inventoryLevel: ingredient.inventoryLevel,
-        eligibleQuantity: ingredient.eligibleQuantity,
-        eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
-        price: ingredient.price,
+        unitPrice: unitPriceSql,
       })
       .from(ingredient)
       .where(eq(ingredient.id, ingredientId))
@@ -223,7 +221,7 @@ export class InventoryTransactionsService {
 
     const inventoryLevel = Number(dto.inventoryLevel);
     const quantity = inventoryLevel - Number(found.inventoryLevel);
-    const unitPrice = unitPriceOf(found)?.toString() ?? null;
+    const unitPrice = found.unitPrice?.toString() ?? null;
 
     const [created] = await tx
       .insert(inventoryTransaction)

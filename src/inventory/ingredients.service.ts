@@ -8,11 +8,14 @@ import {
   desc,
   eq,
   ilike,
+  isNotNull,
   lte,
+  or,
   sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
@@ -29,14 +32,18 @@ import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import {
   ingredient,
+  recipe,
+  recipeIngredient,
   supplier,
   type Ingredient,
+  type UnitCode,
 } from '../db/schema/inventory.js';
 import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   CreateIngredientDto,
+  PURCHASED_FIELDS,
   UpdateIngredientDto,
 } from './dto/create-ingredient.dto.js';
 import {
@@ -53,7 +60,12 @@ import {
   notFoundError,
 } from './inventory-errors.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
-import { packageBaseQuantitySql, pricingOf, unitPriceSql } from './pricing.js';
+import {
+  packageBaseQuantitySql,
+  pricingOf,
+  unitPriceOf,
+  unitPriceSql,
+} from './pricing.js';
 
 const PURCHASING_FIELDS = [
   'price',
@@ -186,7 +198,11 @@ export class IngredientsService {
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select({ ingredient, supplierName: supplier.name })
+        .select({
+          ingredient,
+          supplierName: supplier.name,
+          unitPrice: unitPriceSql,
+        })
         .from(ingredient)
         .leftJoin(supplier, eq(supplier.id, ingredient.supplierId))
         .where(where)
@@ -197,12 +213,12 @@ export class IngredientsService {
     ]);
 
     return {
-      data: rows.map(({ ingredient: row, supplierName: name }) => {
+      data: rows.map(({ ingredient: row, supplierName: name, unitPrice }) => {
         const dto = {
           ...row,
           supplierName: name,
           priceCurrency,
-          ...pricingOf(row),
+          ...pricingOf(row, unitPrice),
         };
 
         return canReadPurchasing ? dto : omitPurchasing(dto);
@@ -248,17 +264,24 @@ export class IngredientsService {
     ingredientId: string,
     canReadPurchasing = true,
   ): Promise<IngredientResponseDto> {
-    const found = await this.db.query.ingredient.findFirst({
-      where: eq(ingredient.id, ingredientId),
-    });
-    if (!found) throw notFoundError('ingredientNotFound');
+    const [selected] = await this.db
+      .select({ found: ingredient, unitPrice: unitPriceSql })
+      .from(ingredient)
+      .where(eq(ingredient.id, ingredientId));
+    if (!selected) throw notFoundError('ingredientNotFound');
+    const { found, unitPrice } = selected;
 
     const [supplierName, priceCurrency] = await Promise.all([
       this.supplierNameOf(found.supplierId),
       getOrganizationCurrency(this.db, found.organizationId),
     ]);
 
-    const dto = { ...found, supplierName, priceCurrency, ...pricingOf(found) };
+    const dto = {
+      ...found,
+      supplierName,
+      priceCurrency,
+      ...pricingOf(found, unitPrice),
+    };
 
     return canReadPurchasing ? dto : omitPurchasing(dto);
   }
@@ -274,6 +297,8 @@ export class IngredientsService {
 
     this.assertCompatibleUnitCode(dto);
     await this.assertSupplierInOrganization(dto.supplierId, organizationId);
+    if (dto.recipeId)
+      await this.assertSourceRecipe(organizationId, dto.recipeId, dto.unitCode);
 
     const created = await this.db.transaction(async (tx) => {
       await tx
@@ -285,8 +310,10 @@ export class IngredientsService {
         .insert(ingredient)
         .values({ ...dto, id: randomUUID(), organizationId, sortOrder: 0 })
         .returning();
+      const unitPrice = await unitPriceOf(tx, row.id);
 
-      if (!inventoryLevel || !Number(inventoryLevel)) return row;
+      if (!inventoryLevel || !Number(inventoryLevel))
+        return { ...row, unitPrice };
 
       await this.inventoryTransactionsService.create(
         row.id,
@@ -294,14 +321,14 @@ export class IngredientsService {
         { tx },
       );
 
-      return { ...row, inventoryLevel };
+      return { ...row, inventoryLevel, unitPrice };
     });
 
     return {
       ...created,
       supplierName: await this.supplierNameOf(created.supplierId),
       priceCurrency,
-      ...pricingOf(created),
+      ...pricingOf(created, created.unitPrice),
     };
   }
 
@@ -311,9 +338,13 @@ export class IngredientsService {
   ): Promise<IngredientResponseDto> {
     const [existing] = await this.db
       .select({
+        eligibleQuantity: ingredient.eligibleQuantity,
         eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
         organizationId: ingredient.organizationId,
+        price: ingredient.price,
         priceCurrency: organization.currency,
+        recipeId: ingredient.recipeId,
+        supplierId: ingredient.supplierId,
         unitCode: ingredient.unitCode,
       })
       .from(ingredient)
@@ -321,17 +352,48 @@ export class IngredientsService {
       .where(eq(ingredient.id, ingredientId));
     if (!existing) throw notFoundError('ingredientNotFound');
 
-    this.assertCompatibleUnitCode({ ...existing, ...dto });
+    const merged = { ...existing, ...dto };
+    const linking = Boolean(dto.recipeId);
+    if (merged.recipeId) {
+      if (PURCHASED_FIELDS.some((field) => dto[field] != null))
+        throw badRequestError('purchaseFieldsOnSourcedIngredient');
+    } else if (
+      existing.recipeId &&
+      (!merged.price ||
+        !merged.eligibleQuantity ||
+        !merged.eligibleQuantityUnitCode)
+    )
+      throw badRequestError('packageRequired');
+
+    if (!linking) this.assertCompatibleUnitCode(merged);
     await this.assertSupplierInOrganization(
       dto.supplierId,
       existing.organizationId,
     );
+    const { recipeId } = merged;
+    if (recipeId && (linking || dto.unitCode))
+      await this.assertSourceRecipe(
+        existing.organizationId,
+        recipeId,
+        dto.unitCode ?? existing.unitCode,
+        ingredientId,
+      );
 
     const updated = await this.db.transaction(async (tx) => {
       const [row] = Object.keys(dto).length
         ? await tx
             .update(ingredient)
-            .set(dto)
+            .set(
+              linking
+                ? {
+                    ...dto,
+                    eligibleQuantity: null,
+                    eligibleQuantityUnitCode: null,
+                    price: null,
+                    supplierId: null,
+                  }
+                : dto,
+            )
             .where(eq(ingredient.id, ingredientId))
             .returning()
         : await tx
@@ -340,13 +402,14 @@ export class IngredientsService {
             .where(eq(ingredient.id, ingredientId))
             .for('update');
       if (!row) throw notFoundError('ingredientNotFound');
+      const unitPrice = await unitPriceOf(tx, row.id);
 
       // 帳上數量要拿交易內鎖定的值比，交易外讀到的可能已被出餐扣庫存蓋過
       if (
         inventoryLevel == null ||
         Number(inventoryLevel) === Number(row.inventoryLevel)
       )
-        return row;
+        return { ...row, unitPrice };
 
       await this.inventoryTransactionsService.create(
         row.id,
@@ -354,14 +417,14 @@ export class IngredientsService {
         { tx },
       );
 
-      return { ...row, inventoryLevel };
+      return { ...row, inventoryLevel, unitPrice };
     });
 
     return {
       ...updated,
       supplierName: await this.supplierNameOf(updated.supplierId),
       priceCurrency: existing.priceCurrency,
-      ...pricingOf(updated),
+      ...pricingOf(updated, updated.unitPrice),
     };
   }
 
@@ -420,6 +483,56 @@ export class IngredientsService {
         ),
       );
     if (!found) throw notFoundError('supplierNotFound');
+  }
+
+  private async assertSourceRecipe(
+    organizationId: string,
+    recipeId: string,
+    unitCode: UnitCode,
+    ingredientId?: string,
+  ): Promise<void> {
+    const [found] = await this.db
+      .select({
+        menuItemId: recipe.menuItemId,
+        recipeYieldQuantity: recipe.recipeYieldQuantity,
+        recipeYieldUnitCode: recipe.recipeYieldUnitCode,
+      })
+      .from(recipe)
+      .where(
+        and(eq(recipe.id, recipeId), eq(recipe.organizationId, organizationId)),
+      );
+    if (!found) throw notFoundError('recipeNotFound');
+
+    if (found.recipeYieldQuantity == null || !found.recipeYieldUnitCode)
+      throw badRequestError('sourceRecipeYieldMissing');
+    if (!COMPATIBLE_UNIT_CODES[unitCode].includes(found.recipeYieldUnitCode))
+      throw badRequestError('sourceRecipeUnitIncompatible');
+    if (found.menuItemId) throw badRequestError('sourceRecipeHasMenuItem');
+
+    const sourceOf = alias(ingredient, 'source_of');
+    const [nested] = await this.db
+      .select({ id: recipeIngredient.id })
+      .from(recipeIngredient)
+      .innerJoin(ingredient, eq(ingredient.id, recipeIngredient.ingredientId))
+      .where(
+        or(
+          and(
+            eq(recipeIngredient.recipeId, recipeId),
+            isNotNull(ingredient.recipeId),
+          ),
+          ingredientId
+            ? and(
+                eq(recipeIngredient.ingredientId, ingredientId),
+                or(
+                  eq(recipeIngredient.recipeId, recipeId),
+                  sql`exists (select 1 from ${ingredient} as ${sourceOf} where ${sourceOf.recipeId} = ${recipeIngredient.recipeId})`,
+                ),
+              )
+            : undefined,
+        ),
+      )
+      .limit(1);
+    if (nested) throw badRequestError('sourceRecipeNested');
   }
 
   private assertCompatibleUnitCode({
