@@ -1,5 +1,5 @@
 {
-  "id": "0d63be69-f765-424b-9584-89683ebdb0f1",
+  "id": "709432c8-11eb-46db-a820-cb5fa2162523",
   "prevId": "40748151-ed39-4205-8779-4750751e2cd7",
   "version": "7",
   "dialect": "postgresql",
@@ -3284,6 +3284,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "recipe_id": {
+          "name": "recipe_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -3348,6 +3354,21 @@
           "method": "btree",
           "with": {}
         },
+        "ingredient_recipeId_idx": {
+          "name": "ingredient_recipeId_idx",
+          "columns": [
+            {
+              "expression": "recipe_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "ingredient_supplierId_idx": {
           "name": "ingredient_supplierId_idx",
           "columns": [
@@ -3376,6 +3397,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ingredient_recipe_id_recipe_id_fk": {
+          "name": "ingredient_recipe_id_recipe_id_fk",
+          "tableFrom": "ingredient",
+          "tableTo": "recipe",
+          "columnsFrom": [
+            "recipe_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "ingredient_supplier_id_supplier_id_fk": {
@@ -3593,6 +3627,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": 1
+        },
+        "recipe_yield_quantity": {
+          "name": "recipe_yield_quantity",
+          "type": "numeric(12, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recipe_yield_unit_code": {
+          "name": "recipe_yield_unit_code",
+          "type": "unit_code",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -10873,12 +10920,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "idempotency_fingerprint": {
-          "name": "idempotency_fingerprint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "called_at": {
           "name": "called_at",
           "type": "timestamp",
@@ -11018,43 +11059,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "waitlist_ticket_organizationId_createdAt_idx": {
-          "name": "waitlist_ticket_organizationId_createdAt_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "waitlist_ticket_personal_data_idx": {
-          "name": "waitlist_ticket_personal_data_idx",
-          "columns": [
-            {
-              "expression": "COALESCE(\"ended_at\", \"created_at\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"waitlist_ticket\".\"name\" IS NOT NULL OR \"waitlist_ticket\".\"phone_number\" IS NOT NULL OR \"waitlist_ticket\".\"email\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

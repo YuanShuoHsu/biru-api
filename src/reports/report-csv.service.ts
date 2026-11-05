@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
-import type { OrderMode } from '../db/schema/orders.js';
+import type { OrderMode, PaymentMethod } from '../db/schema/orders.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { toLanguage } from '../common/utils/language.js';
@@ -59,6 +59,13 @@ export class ReportCsvService {
           return this.i18n.t(`common.orderTickets.modes.${key as OrderMode}`, {
             lang,
           });
+        case 'paymentMethod':
+          return this.i18n.t(
+            `common.reports.paymentMethods.${key as PaymentMethod}`,
+            {
+              lang,
+            },
+          );
         case 'menuItem':
         case 'category':
           return key === UNCATEGORIZED_KEY
@@ -126,7 +133,7 @@ export class ReportCsvService {
       [t('ingredient'), t('unit'), ...columns.map(t)],
       ...rows.map((row) => [
         localize(row.name, lang),
-        row.unitCode,
+        this.i18n.t(`common.reports.units.${row.unitCode}`, { lang }),
         ...columns.map((column) => row[column]),
       ]),
     ]);

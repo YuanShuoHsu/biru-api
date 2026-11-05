@@ -171,6 +171,7 @@
     "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
+    "statsSinceNotMonthStart": "開始時刻はプラットフォームのタイムゾーンで月初めにしてください",
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {
@@ -180,10 +181,16 @@
   "inventory": {
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
     "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
+    "packageRequired": "元レシピのない食材には、包装の価格・内容量・単位を入力してください",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
+    "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",
     "recipeIngredientExists": "この材料はすでに追加されています",
     "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
     "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
+    "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
+    "sourceRecipeNested": "元レシピには、別のレシピから作る食材を使えません",
+    "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
+    "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
     "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"
   },
   "invoices": {
@@ -392,8 +399,24 @@
       "unit": "単位",
       "variance": "差異"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "現金",
+      "Credit": "クレジットカード",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口Pay",
+      "TWQR": "モバイル決済",
+      "WeiXin": "WeChat Pay"
+    },
     "rangeInvalid": "終了日時は開始日時より後にしてください。",
-    "rangeTooLong": "レポートの期間は最大 366 日です。"
+    "rangeTooLong": "レポートの期間は最大 366 日です。",
+    "units": {
+      "GRM": "グラム",
+      "H87": "個",
+      "KGM": "キログラム",
+      "LTR": "リットル",
+      "MLT": "ミリリットル"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",

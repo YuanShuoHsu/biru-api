@@ -224,6 +224,7 @@ export type I18nTranslations = {
             "organizationNotFound": string;
             "organizationReadOnly": string;
             "smtpTestFailed": string;
+            "statsSinceNotMonthStart": string;
             "tooManyRequests": string;
         };
         "gcis": {
@@ -233,10 +234,16 @@ export type I18nTranslations = {
         "inventory": {
             "ingredientInUse": string;
             "ingredientNotFound": string;
+            "packageRequired": string;
             "packageUnitIncompatible": string;
+            "purchaseFieldsOnSourcedIngredient": string;
             "recipeIngredientExists": string;
             "recipeIngredientNotFound": string;
             "recipeNotFound": string;
+            "sourceRecipeHasMenuItem": string;
+            "sourceRecipeNested": string;
+            "sourceRecipeUnitIncompatible": string;
+            "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;
         };
         "invoices": {
@@ -445,8 +452,24 @@ export type I18nTranslations = {
                 "unit": string;
                 "variance": string;
             };
+            "paymentMethods": {
+                "ApplePay": string;
+                "Cash": string;
+                "Credit": string;
+                "iPASS": string;
+                "Jkopay": string;
+                "TWQR": string;
+                "WeiXin": string;
+            };
             "rangeInvalid": string;
             "rangeTooLong": string;
+            "units": {
+                "GRM": string;
+                "H87": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+            };
         };
         "storeLayout": {
             "duplicateTableNumber": string;

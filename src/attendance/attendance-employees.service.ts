@@ -754,14 +754,42 @@ export class AttendanceEmployeesService {
         const removedHolidays = current.indigenousHolidays.filter(
           (date) => !indigenousHolidays.includes(date),
         );
-        for (const date of [...addedHolidays, ...removedHolidays]) {
+        const changedHolidays = [...addedHolidays, ...removedHolidays];
+        const flippedDates = new Set(
+          changedHolidays.length
+            ? (
+                await tx
+                  .select({ date: shiftStartDate })
+                  .from(attendanceShift)
+                  .where(
+                    and(
+                      eq(attendanceShift.employeeId, current.id),
+                      ne(attendanceShift.status, 'cancelled'),
+                      or(
+                        and(
+                          eq(attendanceShift.dayKind, 'workday'),
+                          inArray(shiftStartDate, addedHolidays),
+                        ),
+                        and(
+                          eq(attendanceShift.dayKind, 'holiday'),
+                          inArray(shiftStartDate, removedHolidays),
+                        ),
+                      ),
+                    ),
+                  )
+              ).map(({ date }) => date)
+            : [],
+        );
+        for (const date of changedHolidays) {
           const dayStart = new Date(`${date}T00:00:00${STORE_UTC_OFFSET}`);
           await assertPayrollUnlocked(
             tx,
             actor.organizationId,
             current.id,
             dayStart,
-            new Date(dayStart.getTime() + DAY_MS),
+            flippedDates.has(date)
+              ? undefined
+              : new Date(dayStart.getTime() + DAY_MS),
           );
         }
         if (removedHolidays.length) {

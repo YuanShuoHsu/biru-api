@@ -319,8 +319,14 @@ export class OrganizationsService {
     memberUserId: string | null,
     query: StatsBucketQueryDto,
   ): Promise<OrganizationStatsResponseDto> {
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
     const visible = memberUserId
       ? inArray(
           organization.id,
@@ -350,7 +356,7 @@ export class OrganizationsService {
       this.db
         .select({ previous: count() })
         .from(organization)
-        .where(createdIn(previousSince, since)),
+        .where(createdIn(previousSince, previousUntil)),
     ]);
 
     const organizationsByIndex = new Map(

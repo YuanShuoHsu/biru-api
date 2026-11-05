@@ -914,6 +914,7 @@ export class AttendanceShiftsService {
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
+        shift.dayKind === 'workday' ? undefined : shift.endsAt,
       );
       const { dryRun, ...change } = dto;
       const [value] = await this.prepareShifts(
@@ -1282,6 +1283,7 @@ export class AttendanceShiftsService {
           actor.organizationId,
           dto.employeeId,
           interval.startsAt,
+          dayKind === 'workday' ? undefined : interval.endsAt,
         );
         if (
           reservedRest.some(
@@ -1429,6 +1431,7 @@ export class AttendanceShiftsService {
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
+        shift.dayKind === 'workday' ? undefined : shift.endsAt,
       );
       if (!irreversible)
         try {

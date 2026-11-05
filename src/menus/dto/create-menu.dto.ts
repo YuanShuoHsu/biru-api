@@ -1,8 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
 import {
   IsLocalizedText,
   IsCompleteLocalizedText,
@@ -31,5 +34,6 @@ export class CreateMenuDto {
   @IsOptional()
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
   image?: string | null;
 }

@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 
 import type { I18nService } from 'nestjs-i18n';
 
+import { unitCodeEnum } from '../db/schema/inventory.js';
+import { paymentMethodEnum } from '../db/schema/orders.js';
+import { languagesEnum } from '../db/schema/enums.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { InventoryReportService } from './inventory-report.service.js';
@@ -26,6 +29,24 @@ const i18n = {
         translations(lang),
       ),
 } as unknown as I18nService<I18nTranslations>;
+
+describe('report csv labels', () => {
+  it.each(languagesEnum.enumValues)(
+    '%s labels every payment method and unit',
+    (lang) => {
+      const { paymentMethods, units } = translations(lang).reports as Record<
+        string,
+        Record<string, string>
+      >;
+      expect(Object.keys(paymentMethods).sort()).toEqual(
+        [...paymentMethodEnum.enumValues].sort(),
+      );
+      expect(Object.keys(units).sort()).toEqual(
+        [...unitCodeEnum.enumValues].sort(),
+      );
+    },
+  );
+});
 
 describe('toCsv', () => {
   it('starts with a BOM, quotes cells that need it and ends rows with CRLF', () => {
@@ -83,6 +104,26 @@ describe('ReportCsvService', () => {
     });
   });
 
+  it('labels payment methods', async () => {
+    salesReportService.getSalesReport.mockResolvedValue({
+      groupBy: 'paymentMethod',
+      rows: [
+        { key: 'Credit', ...totals },
+        { key: 'TWQR', ...totals },
+      ],
+      totals,
+    });
+
+    await expect(
+      service.sales('biru', { ...range, groupBy: 'paymentMethod' }),
+    ).resolves.toBe(
+      '\uFEFF付款方式,訂單數,營收,折扣,退款,淨額\r\n' +
+        '信用卡,3,300,10,50,250\r\n' +
+        '行動支付,3,300,10,50,250\r\n' +
+        '合計,3,300,10,50,250\r\n',
+    );
+  });
+
   it('names menu items, labels uncategorized rows and leaves the total quantity empty', async () => {
     salesReportService.getSalesReport.mockResolvedValue({
       groupBy: 'category',
@@ -121,7 +162,7 @@ describe('ReportCsvService', () => {
         {
           ingredientId: 'milk',
           name: { 'zh-TW': '牛奶' },
-          unitCode: 'ml',
+          unitCode: 'MLT',
           opening: '1000.000',
           received: '500.000',
           consumed: '300.000',
@@ -136,7 +177,7 @@ describe('ReportCsvService', () => {
 
     await expect(service.inventory('biru', range)).resolves.toBe(
       '\uFEFF食材,單位,期初,入庫,耗用,調整,期末,理論耗用,實際耗用,差異\r\n' +
-        '牛奶,ml,1000.000,500.000,300.000,-20.000,1180.000,280.000,320.000,40.000\r\n',
+        '牛奶,毫升,1000.000,500.000,300.000,-20.000,1180.000,280.000,320.000,40.000\r\n',
     );
   });
 });

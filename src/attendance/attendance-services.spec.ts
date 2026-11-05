@@ -3,6 +3,14 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
+import {
+  attendanceEmployee,
+  attendanceSettings,
+  attendanceShift,
+  statutoryHoliday,
+} from '../db/schema/attendance.js';
+import { payrollStatement } from '../db/schema/payroll.js';
+
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { AttendanceEmployeesService } from './attendance-employees.service.js';
@@ -346,6 +354,7 @@ describe('attendance services', () => {
       organizationId: 'org',
       employeeId: 'employee',
       status: 'scheduled',
+      dayKind: 'workday',
       startsAt: new Date('2026-01-15T01:00:00Z'),
       endsAt: new Date('2026-01-15T10:00:00Z'),
     };
@@ -371,5 +380,217 @@ describe('attendance services', () => {
         .filter((param) => /^\d{4}-\d{2}$/.test(String(param)));
       expect(months).toEqual(['2026-01']);
     }
+  });
+});
+
+describe('shift changes behind a published payslip', () => {
+  const lockingDatabase = (published: string[]) => {
+    const rows = (table: unknown, where: SQL | undefined) => {
+      if (table === attendanceEmployee) return [scheduledEmployee];
+      if (table === statutoryHoliday)
+        return [
+          { date: '2026-01-01', name: '開國紀念日' },
+          { date: '2026-01-17', name: '補假' },
+        ];
+      if (table === attendanceShift) return shifts.splice(0);
+      if (table === attendanceSettings)
+        return [{ agreedFrom: '2020-01-01', periods: [] }];
+      if (table !== payrollStatement || !where) return [];
+      const { sql: text, params } = new PgDialect().sqlToQuery(where);
+      const bound = (operator: string) => {
+        const match = new RegExp(`"month" ${operator} \\$(\\d+)`).exec(text);
+        return match ? String(params[Number(match[1]) - 1]) : undefined;
+      };
+      const from = bound('>=');
+      const to = bound('<=');
+      return published
+        .filter((month) => (!from || month >= from) && (!to || month <= to))
+        .map((month) => ({ id: month }));
+    };
+    let shifts: unknown[] = [];
+    const chain = () => {
+      let table: unknown;
+      let where: SQL | undefined;
+      const query: Record<string, unknown> = {
+        then: (
+          resolve: (value: unknown) => unknown,
+          reject: (reason: unknown) => unknown,
+        ) => Promise.resolve(rows(table, where)).then(resolve, reject),
+        from: (value: unknown) => {
+          table = value;
+          return query;
+        },
+        where: (condition: SQL) => {
+          where = condition;
+          return query;
+        },
+      };
+      for (const method of [
+        'orderBy',
+        'limit',
+        'offset',
+        'innerJoin',
+        'leftJoin',
+        'groupBy',
+      ])
+        query[method] = () => query;
+      return query;
+    };
+    const write = () => {
+      const query: Record<string, unknown> = {
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve([]).then(resolve),
+      };
+      for (const method of ['values', 'set', 'where', 'returning'])
+        query[method] = () => query;
+      return query;
+    };
+    const db = {
+      select: vi.fn(chain),
+      execute: vi.fn(),
+      insert: vi.fn(write),
+      update: vi.fn(write),
+      transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
+    };
+    return {
+      db: db as unknown as DrizzleDB,
+      setShifts: (value: unknown[]) => {
+        shifts = value;
+      },
+    };
+  };
+  const scheduledEmployee = {
+    id: 'employee',
+    userId: 'user',
+    organizationId: 'org',
+    hiredAt: new Date('2020-01-01T00:00:00+08:00'),
+    terminatedAt: null,
+    birthDate: '1990-01-01',
+    legalStatus: 'national',
+    workPermits: [],
+    studentVacations: [],
+    pregnancyPeriods: [],
+    nursingPeriods: [],
+    childcareReductionPeriods: [],
+    indigenousHolidays: [],
+    regularLeaveWeekday: 0,
+    restDayWeekday: 6,
+  };
+  const manager = { ...actor, userId: 'manager', role: 'owner' };
+  const january = {
+    startsAt: '2026-01-14T01:00:00.000Z',
+    endsAt: '2026-01-14T09:00:00.000Z',
+  };
+  const february = {
+    startsAt: '2026-02-11T01:00:00.000Z',
+    endsAt: '2026-02-11T09:00:00.000Z',
+  };
+  const march = {
+    startsAt: '2026-03-11T01:00:00.000Z',
+    endsAt: '2026-03-11T09:00:00.000Z',
+  };
+  const januaryRestDay = {
+    startsAt: '2026-01-24T01:00:00.000Z',
+    endsAt: '2026-01-24T09:00:00.000Z',
+  };
+  const shiftRow = (interval: typeof january, dayKind = 'workday') => ({
+    id: 'shift',
+    organizationId: 'org',
+    employeeId: 'employee',
+    teamId: null,
+    status: 'scheduled',
+    startsAt: new Date(interval.startsAt),
+    endsAt: new Date(interval.endsAt),
+    breaks: [],
+    paidBreak: false,
+    dayKind,
+  });
+  const create = (db: DrizzleDB, interval: typeof january) =>
+    new AttendanceShiftsService(db).createShifts(
+      manager,
+      [{ employeeId: 'employee', ...interval }],
+      true,
+    );
+  const update = (
+    db: DrizzleDB,
+    from: typeof january,
+    to: typeof january,
+    setShifts: (value: unknown[]) => void,
+  ) => {
+    setShifts([shiftRow(from)]);
+    return new AttendanceShiftsService(db).updateShift(manager, 'shift', {
+      ...to,
+      dryRun: true,
+    });
+  };
+  const cancel = (
+    db: DrizzleDB,
+    interval: typeof january,
+    setShifts: (value: unknown[]) => void,
+    dayKind?: string,
+  ) => {
+    setShifts([shiftRow(interval, dayKind)]);
+    return new AttendanceShiftsService(db).cancelShift(manager, 'shift', {
+      reason: 'correction',
+      irreversible: true,
+    });
+  };
+
+  type Run = (database: ReturnType<typeof lockingDatabase>) => Promise<unknown>;
+  it.each<[string, Run]>([
+    ['create', ({ db }) => create(db, january)],
+    [
+      'update within January',
+      ({ db, setShifts }) => update(db, january, january, setShifts),
+    ],
+    [
+      'update from January to March',
+      ({ db, setShifts }) => update(db, january, march, setShifts),
+    ],
+    [
+      'update from March to January',
+      ({ db, setShifts }) => update(db, march, january, setShifts),
+    ],
+    ['cancel', ({ db, setShifts }) => cancel(db, january, setShifts)],
+  ])('locks a later published month on a January shift %s', async (_, run) => {
+    await expect(run(lockingDatabase(['2026-02']))).rejects.toThrow(
+      'payrollLocked',
+    );
+  });
+  it.each<[string, Run]>([
+    ['create', ({ db }) => create(db, february)],
+    [
+      'update',
+      ({ db, setShifts }) => update(db, february, february, setShifts),
+    ],
+    ['cancel', ({ db, setShifts }) => cancel(db, february, setShifts)],
+  ])(
+    'allows a February shift %s when only January is published',
+    async (_, run) => {
+      await expect(run(lockingDatabase(['2026-01']))).resolves.toBeDefined();
+    },
+  );
+  it.each<[string, Run]>([
+    ['create', ({ db }) => create(db, januaryRestDay)],
+    [
+      'cancel',
+      ({ db, setShifts }) => cancel(db, januaryRestDay, setShifts, 'restDay'),
+    ],
+  ])(
+    'allows a January rest-day shift %s when only February is published',
+    async (_, run) => {
+      await expect(run(lockingDatabase(['2026-02']))).resolves.toBeDefined();
+    },
+  );
+  it('locks a later published month when a January shift becomes a holiday substitute', async () => {
+    const { db, setShifts } = lockingDatabase(['2026-02']);
+    setShifts([shiftRow(january)]);
+    await expect(
+      new AttendanceLeavesService(db).createHolidaySubstitute(manager, {
+        employeeId: 'employee',
+        holidayDate: '2026-01-17',
+        shiftId: 'shift',
+      }),
+    ).rejects.toThrow('payrollLocked');
   });
 });

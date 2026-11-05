@@ -32,6 +32,13 @@ export class RecipeResponseDto {
   menuItemName: LocalizedText | null;
   @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
   @ApiProperty() recipeYield: number;
+  @ApiPropertyOptional() recipeYieldQuantity: string | null;
+  @ApiPropertyOptional({
+    enum: Object.keys(UNIT_FACTORS),
+    enumName: 'UnitCode',
+    description: 'recipeYieldQuantity 的單位',
+  })
+  recipeYieldUnitCode: UnitCode | null;
   @ApiPropertyOptional({ type: [LocalizedTextDto], nullable: true })
   recipeInstructions: LocalizedText[] | null;
   @ApiPropertyOptional({

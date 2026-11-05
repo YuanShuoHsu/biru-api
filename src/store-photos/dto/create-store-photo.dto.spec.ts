@@ -16,7 +16,7 @@ const errorsOf = async (
     ({ property }) => property,
   );
 
-const image = 'data:image/png;base64,';
+const image = 'data:image/png;base64,iVBORw0KGgo=';
 
 const fullAlt = Object.fromEntries(
   languagesEnum.enumValues.map((language) => [language, '門市外觀']),
@@ -38,6 +38,15 @@ describe('CreateStorePhotoDto', () => {
     expect(await errorsOf(CreateStorePhotoDto, { image, alt })).toEqual([
       'alt',
     ]);
+  });
+
+  it('rejects an svg image', async () => {
+    expect(
+      await errorsOf(CreateStorePhotoDto, {
+        image: 'data:image/svg+xml;base64,PHN2Zz4=',
+        alt: fullAlt,
+      }),
+    ).toEqual(['image']);
   });
 });
 

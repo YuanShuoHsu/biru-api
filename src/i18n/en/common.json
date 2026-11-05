@@ -171,6 +171,7 @@
     "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
     "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
+    "statsSinceNotMonthStart": "The start time must be the first day of a month in the platform time zone.",
     "tooManyRequests": "Too many requests"
   },
   "gcis": {
@@ -180,10 +181,16 @@
   "inventory": {
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
     "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
+    "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
+    "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
     "recipeIngredientExists": "This ingredient has already been added",
     "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
     "recipeNotFound": "The recipe wasn't found. It may have been deleted",
+    "sourceRecipeHasMenuItem": "A recipe linked to a menu item can't be an ingredient's source recipe",
+    "sourceRecipeNested": "A source recipe can't use ingredients that are made from another recipe",
+    "sourceRecipeUnitIncompatible": "The recipe's yield unit isn't compatible with the ingredient's stock unit",
+    "sourceRecipeYieldMissing": "Set the recipe's yield quantity and unit before using it as an ingredient's source recipe",
     "supplierNotFound": "The supplier wasn't found. It may have been deleted"
   },
   "invoices": {
@@ -392,8 +399,24 @@
       "unit": "Unit",
       "variance": "Variance"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "Cash",
+      "Credit": "Credit Card",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "Mobile Payment",
+      "WeiXin": "WeChat Pay"
+    },
     "rangeInvalid": "The end time must be later than the start time.",
-    "rangeTooLong": "The report can cover at most 366 days."
+    "rangeTooLong": "The report can cover at most 366 days.",
+    "units": {
+      "GRM": "g",
+      "H87": "pcs",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "ml"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",

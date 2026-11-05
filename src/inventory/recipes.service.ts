@@ -7,8 +7,10 @@ import {
   count,
   desc,
   eq,
+  exists,
   ilike,
   inArray,
+  isNotNull,
   max,
   sql,
   type Column,
@@ -17,6 +19,7 @@ import {
 import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
 import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
@@ -61,8 +64,12 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
-import { conflictError, notFoundError } from './inventory-errors.js';
-import { unitPriceOf, unitPriceSql } from './pricing.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './inventory-errors.js';
+import { unitPriceSql } from './pricing.js';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding.js';
 
 const totalCostOf = (
@@ -227,6 +234,8 @@ export class RecipesService {
     recipeId: string,
     dto: UpdateRecipeDto,
   ): Promise<RecipeResponseDto> {
+    await this.assertSourceRecipeUpdate(recipeId, dto);
+
     if (dto.menuItemId) {
       const [current] = await this.db
         .select({ organizationId: recipe.organizationId })
@@ -348,7 +357,11 @@ export class RecipesService {
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select({ material: recipeIngredient, ingredient })
+        .select({
+          material: recipeIngredient,
+          ingredient,
+          unitPrice: unitPriceSql,
+        })
         .from(recipeIngredient)
         .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
         .where(where)
@@ -382,6 +395,60 @@ export class RecipesService {
         ),
       );
     if (!found) throw menuNotFoundError('menuItemNotFound');
+  }
+
+  private async assertSourceRecipeUpdate(
+    recipeId: string,
+    { menuItemId, recipeYieldQuantity, recipeYieldUnitCode }: UpdateRecipeDto,
+  ): Promise<void> {
+    if (
+      !menuItemId &&
+      recipeYieldQuantity === undefined &&
+      recipeYieldUnitCode === undefined
+    )
+      return;
+
+    const sourced = await this.db
+      .select({ unitCode: ingredient.unitCode })
+      .from(ingredient)
+      .where(eq(ingredient.recipeId, recipeId));
+    if (!sourced.length) return;
+
+    if (menuItemId) throw badRequestError('sourceRecipeHasMenuItem');
+    if (recipeYieldQuantity === null || recipeYieldUnitCode === null)
+      throw badRequestError('sourceRecipeYieldMissing');
+    if (
+      recipeYieldUnitCode &&
+      sourced.some(
+        ({ unitCode }) =>
+          !COMPATIBLE_UNIT_CODES[unitCode].includes(recipeYieldUnitCode),
+      )
+    )
+      throw badRequestError('sourceRecipeUnitIncompatible');
+  }
+
+  private async assertMaterialNotSourced(
+    recipeId: string,
+    ingredientId: string | undefined,
+  ): Promise<void> {
+    if (!ingredientId) return;
+
+    const [nested] = await this.db
+      .select({ id: ingredient.id })
+      .from(ingredient)
+      .where(
+        and(
+          eq(ingredient.id, ingredientId),
+          isNotNull(ingredient.recipeId),
+          exists(
+            this.db
+              .select({ id: ingredient.id })
+              .from(ingredient)
+              .where(eq(ingredient.recipeId, recipeId)),
+          ),
+        ),
+      );
+    if (nested) throw badRequestError('sourceRecipeNested');
   }
 
   private async assertIngredientInRecipeOrganization(
@@ -436,6 +503,7 @@ export class RecipesService {
     { sortOrder, ...dto }: CreateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
+    await this.assertMaterialNotSourced(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(recipeId, dto.ingredientId);
 
     const [{ maxSortOrder }] = await this.db
@@ -464,6 +532,7 @@ export class RecipesService {
     dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
+    await this.assertMaterialNotSourced(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(
       recipeId,
       dto.ingredientId,
@@ -611,7 +680,11 @@ export class RecipesService {
     if (!recipeIds.length) return new Map();
 
     const rows = await this.db
-      .select({ material: recipeIngredient, ingredient })
+      .select({
+        material: recipeIngredient,
+        ingredient,
+        unitPrice: unitPriceSql,
+      })
       .from(recipeIngredient)
       .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
       .where(inArray(recipeIngredient.recipeId, recipeIds))
@@ -634,12 +707,14 @@ export class RecipesService {
   }
 
   private priced(
-    rows: { material: RecipeIngredient; ingredient: Ingredient }[],
+    rows: {
+      material: RecipeIngredient;
+      ingredient: Ingredient;
+      unitPrice: number | null;
+    }[],
     canReadPurchasing: boolean,
   ): RecipeIngredientResponseDto[] {
-    return rows.map(({ material, ingredient: source }) => {
-      const unitPrice = unitPriceOf(source);
-
+    return rows.map(({ material, ingredient: source, unitPrice }) => {
       return {
         ...material,
         ...(canReadPurchasing && {

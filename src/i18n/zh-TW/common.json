@@ -171,6 +171,7 @@
     "organizationNotFound": "找不到此門市。",
     "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
     "smtpTestFailed": "測試郵件寄送失敗，請檢查 SMTP 設定後再試一次",
+    "statsSinceNotMonthStart": "開始時間必須是平台時區的月初",
     "tooManyRequests": "請求過多"
   },
   "gcis": {
@@ -180,10 +181,16 @@
   "inventory": {
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
     "ingredientNotFound": "找不到這項食材，可能已被刪除",
+    "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
+    "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
     "recipeNotFound": "找不到這份食譜，可能已被刪除",
+    "sourceRecipeHasMenuItem": "已綁定菜單品項的食譜不能作為食材的來源食譜",
+    "sourceRecipeNested": "來源食譜不能使用由其他食譜製成的食材",
+    "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
+    "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
     "supplierNotFound": "找不到這個供應商，可能已被刪除"
   },
   "invoices": {
@@ -392,8 +399,24 @@
       "unit": "單位",
       "variance": "差異"
     },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "現金",
+      "Credit": "信用卡",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口支付",
+      "TWQR": "行動支付",
+      "WeiXin": "微信支付"
+    },
     "rangeInvalid": "結束時間必須晚於開始時間。",
-    "rangeTooLong": "報表區間最多 366 天。"
+    "rangeTooLong": "報表區間最多 366 天。",
+    "units": {
+      "GRM": "公克",
+      "H87": "個",
+      "KGM": "公斤",
+      "LTR": "公升",
+      "MLT": "毫升"
+    }
   },
   "storeLayout": {
     "duplicateTableNumber": "桌號 {tableNumber} 重複了。",

@@ -1,11 +1,7 @@
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
-import {
-  assertPayrollUnlocked,
-  assertShiftPayrollUnlocked,
-  type Transaction,
-} from './attendance-audit.js';
+import { assertPayrollUnlocked, type Transaction } from './attendance-audit.js';
 
 async function lockedMonths(assert: (tx: Transaction) => Promise<void>) {
   let where: SQL | undefined;
@@ -47,28 +43,5 @@ describe('assertPayrollUnlocked', () => {
         ),
       ),
     ).toEqual(['2026-01']);
-  });
-});
-
-describe('assertShiftPayrollUnlocked', () => {
-  it('locks the 12 months whose weekly-hours average the shift feeds', async () => {
-    expect(
-      await lockedMonths((tx) =>
-        assertShiftPayrollUnlocked(tx, 'org', 'employee', {
-          startsAt: new Date('2026-01-15T01:00:00Z'),
-          endsAt: new Date('2026-01-15T10:00:00Z'),
-        }),
-      ),
-    ).toEqual(['2026-01', '2027-01']);
-  });
-  it('ends the lock at the store-local anniversary of the shift end', async () => {
-    expect(
-      await lockedMonths((tx) =>
-        assertShiftPayrollUnlocked(tx, 'org', 'employee', {
-          startsAt: new Date('2026-02-28T01:00:00Z'),
-          endsAt: new Date('2026-02-28T16:00:00Z'),
-        }),
-      ),
-    ).toEqual(['2026-02', '2027-02']);
   });
 });

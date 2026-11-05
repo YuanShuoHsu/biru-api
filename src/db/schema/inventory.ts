@@ -8,6 +8,7 @@ import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
   index,
+  type AnyPgColumn,
   integer,
   jsonb,
   numeric,
@@ -81,6 +82,10 @@ export const ingredient = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     price: numeric('price', { precision: 10, scale: 2 }),
+    // https://orm.drizzle.team/docs/indexes-constraints#foreign-key
+    recipeId: text('recipe_id').references((): AnyPgColumn => recipe.id, {
+      onDelete: 'set null',
+    }),
     sortOrder: integer('sort_order').notNull().default(0),
     supplierId: text('supplier_id').references(() => supplier.id, {
       onDelete: 'set null',
@@ -92,6 +97,7 @@ export const ingredient = pgTable(
   },
   (table) => [
     index('ingredient_organizationId_idx').on(table.organizationId),
+    index('ingredient_recipeId_idx').on(table.recipeId),
     index('ingredient_supplierId_idx').on(table.supplierId),
   ],
 );
@@ -142,6 +148,11 @@ export const recipe = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     recipeInstructions: jsonb('recipe_instructions').$type<LocalizedText[]>(),
     recipeYield: integer('recipe_yield').notNull().default(1),
+    recipeYieldQuantity: numeric('recipe_yield_quantity', {
+      precision: 12,
+      scale: 3,
+    }),
+    recipeYieldUnitCode: unitCodeEnum('recipe_yield_unit_code'),
     ...timestamps,
   },
   (table) => [
