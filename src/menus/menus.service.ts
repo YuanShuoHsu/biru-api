@@ -27,7 +27,7 @@ import {
   localizedTextSql,
 } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
-import { isUniqueViolation } from '../common/utils/pg-errors.js';
+import { isUniqueViolation, pgConstraint } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
@@ -1960,7 +1960,11 @@ export class MenusService {
         return created;
       });
     } catch (error) {
-      if (isUniqueViolation(error))
+      if (
+        isUniqueViolation(error) &&
+        pgConstraint(error) ===
+          'menuItemModifierGroup_menuItemId_modifierGroupId_uidx'
+      )
         throw conflictError('modifierGroupAttached');
       throw error;
     }

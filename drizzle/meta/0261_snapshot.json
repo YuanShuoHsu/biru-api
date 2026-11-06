@@ -1,5 +1,5 @@
 {
-  "id": "a8213803-82c7-4910-a930-19cfdd96b673",
+  "id": "ceb6253f-6c37-47e8-baec-d19110fb490a",
   "prevId": "6f762723-0551-44c3-a4fb-38ef09977eb8",
   "version": "7",
   "dialect": "postgresql",
@@ -5058,6 +5058,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "menuItemModifierGroup_menuItemId_modifierGroupId_uidx": {
+          "name": "menuItemModifierGroup_menuItemId_modifierGroupId_uidx",
+          "columns": [
+            {
+              "expression": "menu_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "modifier_group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5089,16 +5110,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "menuItemModifierGroup_menuItemId_modifierGroupId_unique": {
-          "name": "menuItemModifierGroup_menuItemId_modifierGroupId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "menu_item_id",
-            "modifier_group_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

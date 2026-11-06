@@ -17,6 +17,7 @@ import {
   pgTable,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
@@ -320,7 +321,7 @@ export const menuItemModifierGroup = pgTable(
     index('menuItemModifierGroup_modifierGroupId_idx').on(
       table.modifierGroupId,
     ),
-    unique('menuItemModifierGroup_menuItemId_modifierGroupId_unique').on(
+    uniqueIndex('menuItemModifierGroup_menuItemId_modifierGroupId_uidx').on(
       table.menuItemId,
       table.modifierGroupId,
     ),

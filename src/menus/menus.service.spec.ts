@@ -424,7 +424,15 @@ describe('MenusService localized text filters and sorting', () => {
     });
 
     it('同一個選項群組不能重複掛載到同一個品項，排序也不變', async () => {
-      const before = await itemGroupIds({});
+      const sortOrders = () =>
+        db
+          .select({
+            id: menuItemModifierGroup.id,
+            sortOrder: menuItemModifierGroup.sortOrder,
+          })
+          .from(menuItemModifierGroup)
+          .orderBy(menuItemModifierGroup.id);
+      const before = await sortOrders();
 
       await expect(
         service.createMenuItemModifierGroup('latte', {
@@ -434,7 +442,7 @@ describe('MenusService localized text filters and sorting', () => {
         response: { code: 'modifierGroupAttached' },
         status: 409,
       });
-      expect(await itemGroupIds({})).toEqual(before);
+      expect(await sortOrders()).toEqual(before);
     });
   });
 
