@@ -227,7 +227,7 @@ export class InvoicePrinterService implements PrintJobSource {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
 
-    await this.db.transaction(async (tx) => {
+    const changed = await this.db.transaction(async (tx) => {
       await tx
         .delete(printerTable)
         .where(
@@ -236,7 +236,7 @@ export class InvoicePrinterService implements PrintJobSource {
             eq(printerTable.purpose, 'invoice'),
           ),
         );
-      await tx
+      const cancelled = await tx
         .update(invoicePrintJob)
         .set({ finishedAt: new Date(), status: 'cancelled' })
         .where(
@@ -244,9 +244,10 @@ export class InvoicePrinterService implements PrintJobSource {
             eq(invoicePrintJob.organizationId, organizationId),
             eq(invoicePrintJob.status, 'queued'),
           ),
-        );
+        )
+        .returning({ invoiceId: invoicePrintJob.invoiceId });
       // 已交給印表機但沒回報的，換掉印表機後就再也等不到結果
-      await tx
+      const unanswered = await tx
         .update(invoicePrintJob)
         .set({ status: 'unknown' })
         .where(
@@ -254,8 +255,13 @@ export class InvoicePrinterService implements PrintJobSource {
             eq(invoicePrintJob.organizationId, organizationId),
             eq(invoicePrintJob.status, 'sent'),
           ),
-        );
+        )
+        .returning({ invoiceId: invoicePrintJob.invoiceId });
+
+      return [...cancelled, ...unanswered].map(({ invoiceId }) => invoiceId);
     });
+
+    await this.emitOrdersUpdated(organizationId, changed);
   }
 
   /** 同一張發票已有正本在途時回傳 null */

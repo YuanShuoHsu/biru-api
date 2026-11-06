@@ -13,6 +13,7 @@ import * as schema from '../../db/schema/index.js';
 import { invoice, invoicePrintJob } from '../../db/schema/invoices.js';
 import { printer as printerTable } from '../../db/schema/printers.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+import { ORDER_UPDATED_EVENT } from '../../events/order-updated.event.js';
 import {
   PRINTER_OFFLINE_AFTER_MS,
   pollIntervalOf,
@@ -131,14 +132,16 @@ describe('InvoicePrinterService（PGlite）', () => {
         getOrThrow: () => 'http://api.test',
       } as unknown as ConfigService,
     );
+    const eventEmitter = new EventEmitter2();
+    const emit = vi.spyOn(eventEmitter, 'emit');
     const service = new InvoicePrinterService(
       db as unknown as DrizzleDB,
       { getIssue } as unknown as EcpayGetIssueInvoiceService,
-      new EventEmitter2(),
+      eventEmitter,
       printers,
     );
 
-    return { getIssue, printers, service };
+    return { emit, getIssue, printers, service };
   };
 
   const addInvoice = async (
@@ -475,8 +478,8 @@ describe('InvoicePrinterService（PGlite）', () => {
     await expect(service.printerOnline(ORG)).resolves.toBe(false);
   });
 
-  it('移除印表機：排隊的取消，已送出的轉成結果不明，舊帳密失效', async () => {
-    const { service } = createService();
+  it('移除印表機：排隊的取消，已送出的轉成結果不明，舊帳密失效，並通知訂單頁更新', async () => {
+    const { emit, service } = createService();
     await addInvoice('1');
     await addInvoice('2');
     const { credentials, printer } = await register(service);
@@ -484,6 +487,7 @@ describe('InvoicePrinterService（PGlite）', () => {
       .update(invoicePrintJob)
       .set({ status: 'sent' })
       .where(eq(invoicePrintJob.invoiceId, '1'));
+    emit.mockClear();
 
     await service.deletePrinter('biru');
 
@@ -495,6 +499,14 @@ describe('InvoicePrinterService（PGlite）', () => {
     ]);
     await expect(findPrinter(credentials.username)).resolves.toBeUndefined();
     expect(printer.username).toBe(credentials.username);
+    expect(emit).toHaveBeenCalledWith(ORDER_UPDATED_EVENT, {
+      orderId: 'order-1',
+      organizationId: ORG,
+    });
+    expect(emit).toHaveBeenCalledWith(ORDER_UPDATED_EVENT, {
+      orderId: 'order-2',
+      organizationId: ORG,
+    });
   });
 
   it('排隊期間發票被作廢就取消，不會印出', async () => {
