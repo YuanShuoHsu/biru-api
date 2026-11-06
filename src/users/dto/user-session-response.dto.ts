@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UserSessionResponseDto {
+class UserSessionResponseDto {
   @ApiProperty() id: string;
   @ApiPropertyOptional({ nullable: true }) ipAddress: string | null;
   @ApiPropertyOptional({ nullable: true }) userAgent: string | null;

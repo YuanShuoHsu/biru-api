@@ -85,7 +85,7 @@ export const ingredient = pgTable(
     price: numeric('price', { precision: 10, scale: 2 }),
     // https://orm.drizzle.team/docs/indexes-constraints#foreign-key
     recipeId: text('recipe_id').references((): AnyPgColumn => recipe.id, {
-      onDelete: 'set null',
+      onDelete: 'no action',
     }),
     sortOrder: integer('sort_order').notNull().default(0),
     supplierId: text('supplier_id').references(() => supplier.id, {

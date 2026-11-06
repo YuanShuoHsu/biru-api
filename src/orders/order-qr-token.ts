@@ -27,7 +27,7 @@ export type QrOrderMode = (typeof qrOrderModes)[number];
 
 const ORDER_QR_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
-export type OrderQrSession = {
+type OrderQrSession = {
   expiresAt: Date;
   mode: QrOrderMode;
   tableNumber: number | null;
@@ -90,7 +90,7 @@ export const isValidQrToken = (
   );
 };
 
-export type IssuedOrderQrSession = { session: OrderQrSession; value: string };
+type IssuedOrderQrSession = { session: OrderQrSession; value: string };
 
 export const issueOrderQrSession = (
   organizationId: string,

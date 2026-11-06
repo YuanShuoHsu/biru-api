@@ -9,6 +9,7 @@ const modulesWithErrorCodes = [
   'menus',
   'orders',
   'organizations',
+  'points',
   'store-photos',
   'waitlist',
 ];
