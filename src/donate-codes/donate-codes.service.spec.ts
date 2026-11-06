@@ -55,4 +55,32 @@ describe('DonateCodesService', () => {
     );
     expect(service.getAll()).toEqual(loaded);
   });
+
+  it('上次更新失敗時重試，成功後不再重試', async () => {
+    const loaded = [{ donateCode: '919', donateNm: '社團法人範例協會' }];
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response(JSON.stringify(loaded)));
+
+    await service.refresh();
+    expect(service.getAll()).toEqual([]);
+
+    await service.retryFailedRefresh();
+    expect(service.getAll()).toEqual(loaded);
+
+    await service.retryFailedRefresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('上次更新成功時不重試', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('[]'));
+
+    await service.refresh();
+    await service.retryFailedRefresh();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
 });
