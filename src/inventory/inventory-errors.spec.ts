@@ -65,4 +65,27 @@ describe('inventory errors', () => {
       });
     },
   );
+
+  it('衝突錯誤帶上明細，並把參數交給翻譯', () => {
+    const t = vi.fn((key: string) => `translated:${key}`);
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t,
+    } as unknown as I18nContext);
+
+    const thrown = conflictError(
+      'recipeInUseAsSource',
+      { ingredients: [{ id: 'sauce' }] },
+      { names: '番茄醬' },
+    );
+
+    expect(thrown.getResponse()).toEqual({
+      code: 'recipeInUseAsSource',
+      error: 'Conflict',
+      ingredients: [{ id: 'sauce' }],
+      message: 'translated:common.inventory.recipeInUseAsSource',
+    });
+    expect(t).toHaveBeenCalledWith('common.inventory.recipeInUseAsSource', {
+      args: { names: '番茄醬' },
+    });
+  });
 });
