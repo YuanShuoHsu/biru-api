@@ -264,7 +264,7 @@ export class OrderTicketService implements PrintJobSource {
               eq(order.orderStatus, 'OrderProcessing'),
             ),
           )
-          .orderBy(asc(order.createdAt))
+          .orderBy(asc(order.id))
           .for('update');
 
         const queued: OrderTicketJob[] = [];
