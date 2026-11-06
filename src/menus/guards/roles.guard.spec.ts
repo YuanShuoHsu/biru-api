@@ -142,49 +142,24 @@ describe('RolesGuard', () => {
 
 describe('RolesGuard 由路由參數找門市', () => {
   let client: PGlite;
-  let guard: RolesGuard;
+  let db: DrizzleDB;
 
-  beforeAll(async () => {
-    client = createPGlite();
-    const db = drizzle(client, { schema });
-    await migrate(db, { migrationsFolder: './drizzle' });
-    await client.exec(`
-      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
-    `);
-    await db.insert(menu).values({
-      id: 'menu',
-      organizationId: 'biru',
-      name: { 'zh-TW': '菜單' },
-    });
-    await db.insert(menuItem).values({
-      id: 'unsectioned',
-      menuId: 'menu',
-      name: { 'zh-TW': '未分類品項' },
-      sortOrder: 0,
-    });
-    guard = new RolesGuard(
+  const guardAs = (userId: string, role = 'user') =>
+    new RolesGuard(
       new Reflector(),
       {
         api: {
-          getSession: vi
-            .fn()
-            .mockResolvedValue({ user: { id: 'user', role: 'admin' } }),
+          getSession: vi.fn().mockResolvedValue({ user: { id: userId, role } }),
         },
       } as unknown as AuthService<Auth>,
-      db as unknown as DrizzleDB,
+      db,
     );
-  }, 60_000);
 
-  afterAll(async () => {
-    await client.close();
-  });
-
-  it('沒有分類的品項也從它的菜單找到門市', async () => {
+  const itemContext = (menuItemId: string) => {
     const request = {
       headers: {},
       method: 'GET',
-      params: { menuItemId: 'unsectioned' },
+      params: { menuItemId },
     } as unknown as AuthRequest;
     const handler = () => undefined;
     Reflect.defineMetadata(
@@ -192,15 +167,61 @@ describe('RolesGuard 由路由參數找門市', () => {
       { action: { menu: ['read'] }, organizationParam: 'menuItemId' },
       handler,
     );
+    const context = {
+      getClass: () => class {},
+      getHandler: () => handler,
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
 
-    await expect(
-      guard.canActivate({
-        getClass: () => class {},
-        getHandler: () => handler,
-        getType: () => 'http',
-        switchToHttp: () => ({ getRequest: () => request }),
-      } as unknown as ExecutionContext),
-    ).resolves.toBe(true);
+    return { context, request };
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    db = pglite as unknown as DrizzleDB;
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+      insert into "user" (id, name, email, first_name) values
+        ('amy', 'amy', 'amy@example.com', 'Amy'),
+        ('bob', 'bob', 'bob@example.com', 'Bob');
+      insert into member (id, organization_id, user_id, role, created_at) values
+        ('amy-biru', 'biru', 'amy', 'member', now()),
+        ('bob-other', 'other', 'bob', 'member', now());
+    `);
+    await pglite.insert(menu).values({
+      id: 'menu',
+      organizationId: 'biru',
+      name: { 'zh-TW': '菜單' },
+    });
+    await pglite.insert(menuItem).values({
+      id: 'unsectioned',
+      menuId: 'menu',
+      name: { 'zh-TW': '未分類品項' },
+      sortOrder: 0,
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('沒有分類的品項也從它的菜單找到門市', async () => {
+    const { context, request } = itemContext('unsectioned');
+
+    await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
     expect(request.organizationId).toBe('biru');
+  });
+
+  it('別家門市的成員仍然不能讀這個品項', async () => {
+    const { context } = itemContext('unsectioned');
+
+    await expect(guardAs('bob').canActivate(context)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 });
