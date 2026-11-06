@@ -60,6 +60,7 @@ describe('GcisService', () => {
       () => Promise.reject(new DOMException('timed out', 'TimeoutError')),
     ],
     ['回應不是 JSON', () => Promise.resolve(new Response('<html>'))],
+    ['回應不是陣列', () => Promise.resolve(new Response('null'))],
   ])('%s時回 503 並帶 lookupUnavailable', async (_name, respond) => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(respond);
 

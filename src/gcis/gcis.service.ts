@@ -48,6 +48,7 @@ export class GcisService {
       if (!text.trim()) return null;
 
       data = JSON.parse(text) as GcisCompany[];
+      if (!Array.isArray(data)) throw new Error('not an array');
     } catch (err) {
       this.logger.warn(`商工登記查詢失敗：${String(err)}`);
       throw new ServiceUnavailableException({
