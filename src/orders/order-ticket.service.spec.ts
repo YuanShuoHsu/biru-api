@@ -59,7 +59,7 @@ describe('OrderTicketService 出單機（PGlite）', () => {
       .where(eq(printerTable.organizationId, ORG))
       .orderBy(asc(printerTable.createdAt), asc(printerTable.id));
 
-  it('同時新增多台時只有一台成為預設', async () => {
+  it('一次新增多台時只有一台成為預設', async () => {
     await Promise.all(
       ['吧台', '廚房', '外帶'].map((name) =>
         service.createPrinter('biru', name),
@@ -83,7 +83,7 @@ describe('OrderTicketService 出單機（PGlite）', () => {
     ]);
   });
 
-  it('移除預設的出單機和設為預設同時進行，仍只留一台預設', async () => {
+  it('移除預設的出單機並改設另一台為預設後，仍恰好一台是預設', async () => {
     const bar = await service.createPrinter('biru', '吧台');
     await service.createPrinter('biru', '廚房');
     const takeout = await service.createPrinter('biru', '外帶');
