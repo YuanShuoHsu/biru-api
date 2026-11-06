@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -11,6 +11,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 
+import { notFoundError } from './point-errors.js';
 import type { PublicPointSettingResponseDto } from './dto/point-setting-response.dto.js';
 import type { UpdatePointSettingDto } from './dto/update-point-setting.dto.js';
 
@@ -23,7 +24,7 @@ export class PointSettingsService {
 
   async get(): Promise<PointSetting> {
     const found = await this.db.query.pointSetting.findFirst();
-    if (!found) throw new NotFoundException();
+    if (!found) throw notFoundError('settingNotFound');
 
     return found;
   }
@@ -52,7 +53,7 @@ export class PointSettingsService {
       })
       .where(eq(pointSetting.id, POINT_SETTING_ID))
       .returning();
-    if (!updated) throw new NotFoundException();
+    if (!updated) throw notFoundError('settingNotFound');
 
     return updated;
   }

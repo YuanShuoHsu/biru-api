@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -11,6 +15,7 @@ export const pointErrorCodes = [
   'notEnabled',
   'notRedeemable',
   'perUserLimitReached',
+  'settingNotFound',
 ] as const;
 
 export type PointErrorCode = (typeof pointErrorCodes)[number];
@@ -30,3 +35,6 @@ export const forbiddenError = (
   code: PointErrorCode,
   args?: Record<string, unknown>,
 ) => new ForbiddenException({ error: 'Forbidden', ...errorBody(code, args) });
+
+export const notFoundError = (code: PointErrorCode) =>
+  new NotFoundException({ error: 'Not Found', ...errorBody(code) });

@@ -147,4 +147,17 @@ describe('PointSettingsService', () => {
       ]),
     );
   });
+
+  it('沒有設定列時讀取與更新都回帶代碼的 404', async () => {
+    await client.exec('begin; delete from point_setting');
+    try {
+      for (const run of [() => service.get(), () => service.update({})])
+        await expect(run()).rejects.toMatchObject({
+          response: { code: 'settingNotFound', error: 'Not Found' },
+          status: 404,
+        });
+    } finally {
+      await client.exec('rollback');
+    }
+  });
 });
