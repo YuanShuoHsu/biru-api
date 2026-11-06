@@ -1,6 +1,8 @@
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayNotEmpty,
+  ArrayUnique,
   IsArray,
   IsNotEmpty,
   IsString,
@@ -58,6 +60,8 @@ export class ReprintOrderTicketDto {
   @ApiProperty({ description: '要補印的工作單印表機', type: [String] })
   @IsArray()
   @ArrayNotEmpty()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
   @IsString({ each: true })
   printerIds: string[];
 }

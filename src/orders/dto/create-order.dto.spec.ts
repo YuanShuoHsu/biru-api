@@ -55,6 +55,48 @@ describe('CreateOrderDto customer', () => {
   it.each([undefined, null])('rejects %j', async (customer) => {
     expect(await customerErrorsOf(customer)).toHaveLength(1);
   });
+
+  it.each([
+    { name: 'a'.repeat(61) },
+    { name: 'Amy', remark: 'a'.repeat(161) },
+    { name: 'Amy', telephone: '1'.repeat(31) },
+  ])('rejects an over-long field in %j', async (customer) => {
+    expect(await customerErrorsOf(customer)).toHaveLength(1);
+  });
+
+  it('accepts fields at their maximum length', async () => {
+    expect(
+      await customerErrorsOf({
+        name: 'a'.repeat(60),
+        remark: 'a'.repeat(160),
+        telephone: '1'.repeat(30),
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('CreateOrderDto discountCode', () => {
+  const discountCodeErrorsOf = async (discountCode: string) =>
+    (
+      await validate(
+        plainToInstance(CreateOrderDto, {
+          customer: { name: 'Amy' },
+          discountCode,
+          invoice: { type: 'personal' },
+          items: [],
+          mode: 'pickup',
+          payment: 'Credit',
+        }),
+      )
+    ).filter(({ property }) => property === 'discountCode');
+
+  it('accepts a code as long as a coupon code can be', async () => {
+    expect(await discountCodeErrorsOf('A'.repeat(64))).toEqual([]);
+  });
+
+  it('rejects a longer code', async () => {
+    expect(await discountCodeErrorsOf('A'.repeat(65))).toHaveLength(1);
+  });
 });
 
 describe('CreateOrderDto invoice', () => {
