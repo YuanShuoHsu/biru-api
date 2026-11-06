@@ -26,6 +26,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   isCalendarDate,
   localTimeText,
   parseQuickFilterEnums,
@@ -446,13 +447,19 @@ export class AttendanceLeavesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceLeaveType.name, `%${value}%`),
-          ilike(attendanceLeaveCase.reference, `%${value}%`),
-          ilike(attendanceLeaveCase.reason, `%${value}%`),
-          ilike(localTimeText(attendanceLeaveCase.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceLeaveCase.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveCase.reference, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveCase.reason, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceLeaveCase.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceLeaveCase.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -966,7 +973,7 @@ export class AttendanceLeavesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceLeaveType.name, `%${value}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
         ],
       }),
     );

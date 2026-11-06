@@ -22,6 +22,7 @@ import { randomUUID } from 'node:crypto';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -298,11 +299,17 @@ export class AttendanceShiftsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(team.name, `%${value}%`),
-          ilike(localTimeText(attendanceShift.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceShift.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(team.name, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceShift.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceShift.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

@@ -60,6 +60,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -400,17 +401,17 @@ export class CouponsService {
       quickFilterEnums,
       quickFilterValue,
       textConditions: (value) => [
-        ilike(coupon.code, `%${value}%`),
-        ilike(sql`${menuSectionNames}`, `%${value}%`),
-        ilike(sql`${menuItemNames}`, `%${value}%`),
-        ilike(sql`${coupon.discountValue}::text`, `%${value}%`),
-        ilike(sql`${coupon.minSubtotal}::text`, `%${value}%`),
-        ilike(sql`${coupon.usedCount}::text`, `%${value}%`),
-        ilike(sql`${coupon.perUserLimit}::text`, `%${value}%`),
-        ilike(sql`${coupon.pointsCost}::text`, `%${value}%`),
-        ilike(localTimeText(coupon.validFrom), `%${value}%`),
-        ilike(localTimeText(coupon.validThrough), `%${value}%`),
-        ilike(localTimeText(coupon.createdAt), `%${value}%`),
+        ilike(coupon.code, `%${escapeLike(value)}%`),
+        ilike(sql`${menuSectionNames}`, `%${escapeLike(value)}%`),
+        ilike(sql`${menuItemNames}`, `%${escapeLike(value)}%`),
+        ilike(sql`${coupon.discountValue}::text`, `%${escapeLike(value)}%`),
+        ilike(sql`${coupon.minSubtotal}::text`, `%${escapeLike(value)}%`),
+        ilike(sql`${coupon.usedCount}::text`, `%${escapeLike(value)}%`),
+        ilike(sql`${coupon.perUserLimit}::text`, `%${escapeLike(value)}%`),
+        ilike(sql`${coupon.pointsCost}::text`, `%${escapeLike(value)}%`),
+        ilike(localTimeText(coupon.validFrom), `%${escapeLike(value)}%`),
+        ilike(localTimeText(coupon.validThrough), `%${escapeLike(value)}%`),
+        ilike(localTimeText(coupon.createdAt), `%${escapeLike(value)}%`),
       ],
     });
 
@@ -657,10 +658,10 @@ export class CouponsService {
       quickFilterEnums,
       quickFilterValue,
       textConditions: (value) => [
-        ilike(user.email, `%${value}%`),
-        ilike(granter.email, `%${value}%`),
-        ilike(localTimeText(userCoupon.createdAt), `%${value}%`),
-        ilike(localTimeText(userCoupon.usedAt), `%${value}%`),
+        ilike(user.email, `%${escapeLike(value)}%`),
+        ilike(granter.email, `%${escapeLike(value)}%`),
+        ilike(localTimeText(userCoupon.createdAt), `%${escapeLike(value)}%`),
+        ilike(localTimeText(userCoupon.usedAt), `%${escapeLike(value)}%`),
       ],
     });
 

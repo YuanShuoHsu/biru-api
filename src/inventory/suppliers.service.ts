@@ -21,6 +21,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -94,12 +95,12 @@ export class SuppliersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(supplier.name, `%${value}%`),
-          ilike(supplier.telephone, `%${value}%`),
-          ilike(supplier.url, `%${value}%`),
-          ilike(supplier.note, `%${value}%`),
-          ilike(localTimeText(supplier.createdAt), `%${value}%`),
-          ilike(localTimeText(supplier.updatedAt), `%${value}%`),
+          ilike(supplier.name, `%${escapeLike(value)}%`),
+          ilike(supplier.telephone, `%${escapeLike(value)}%`),
+          ilike(supplier.url, `%${escapeLike(value)}%`),
+          ilike(supplier.note, `%${escapeLike(value)}%`),
+          ilike(localTimeText(supplier.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(supplier.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

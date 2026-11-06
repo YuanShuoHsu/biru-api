@@ -51,6 +51,7 @@ import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
@@ -757,10 +758,13 @@ export class PointsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.email, `%${value}%`),
-          ilike(user.name, `%${value}%`),
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(localTimeText(pointTransaction.createdAt), `%${value}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(pointTransaction.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

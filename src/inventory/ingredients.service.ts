@@ -24,6 +24,7 @@ import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { toLanguage } from '../common/utils/language.js';
@@ -181,18 +182,24 @@ export class IngredientsService {
         quickFilterValue,
         textConditions: (value) => [
           buildLocalizedTextFilterCondition(ingredient.name, 'contains', value),
-          ilike(ingredient.brand, `%${value}%`),
+          ilike(ingredient.brand, `%${escapeLike(value)}%`),
           ...(canReadPurchasing
             ? [
-                ilike(supplierName, `%${value}%`),
-                ilike(ingredient.url, `%${value}%`),
+                ilike(supplierName, `%${escapeLike(value)}%`),
+                ilike(ingredient.url, `%${escapeLike(value)}%`),
               ]
             : []),
-          ilike(ingredient.note, `%${value}%`),
-          ilike(sql`${ingredient.inventoryLevel}::text`, `%${value}%`),
-          ilike(sql`${ingredient.lowStockThreshold}::text`, `%${value}%`),
-          ilike(localTimeText(ingredient.createdAt), `%${value}%`),
-          ilike(localTimeText(ingredient.updatedAt), `%${value}%`),
+          ilike(ingredient.note, `%${escapeLike(value)}%`),
+          ilike(
+            sql`${ingredient.inventoryLevel}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            sql`${ingredient.lowStockThreshold}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(localTimeText(ingredient.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(ingredient.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );

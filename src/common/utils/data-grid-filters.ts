@@ -23,6 +23,9 @@ import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
+// https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-LIKE
+export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
+
 export const localTimeText = (column: Column | SQL): SQL =>
   sql`TO_CHAR(${column} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY/MM/DD HH24:MI:SS')`;
 
@@ -35,17 +38,17 @@ export const buildStringFilterCondition = (
 
   switch (operator) {
     case 'contains':
-      return ilike(colSql, `%${value}%`);
+      return ilike(colSql, `%${escapeLike(value)}%`);
     case 'doesNotContain':
-      return notIlike(colSql, `%${value}%`);
+      return notIlike(colSql, `%${escapeLike(value)}%`);
     case 'equals':
       return eq(colSql, value);
     case 'doesNotEqual':
       return ne(colSql, value);
     case 'startsWith':
-      return ilike(colSql, `${value}%`);
+      return ilike(colSql, `${escapeLike(value)}%`);
     case 'endsWith':
-      return ilike(colSql, `%${value}`);
+      return ilike(colSql, `%${escapeLike(value)}`);
     case 'isEmpty':
       return or(isNull(colSql), eq(colSql, ''));
     case 'isNotEmpty':

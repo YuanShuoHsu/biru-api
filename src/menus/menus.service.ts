@@ -64,6 +64,7 @@ import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
@@ -423,11 +424,11 @@ export class MenusService {
             ),
             ilike(
               localTimeText(menuSection.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuSection.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -737,10 +738,10 @@ export class MenusService {
             offerValue(
               sql`concat_ws(' ', ${offer.price}::text, ${offer.inventoryLevel}->>'value', ${offer.inventoryLevel}->>'unitText', ${offer.deliveryLeadTimeMinutes}::text, ${offer.priceSpecification}->>'price', ${offer.priceSpecification}->>'validFrom', ${offer.priceSpecification}->>'validThrough')`,
             ),
-            `%${value}%`,
+            `%${escapeLike(value)}%`,
           ),
-          ilike(localTimeText(menuItem.createdAt), `%${value}%`),
-          ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
+          ilike(localTimeText(menuItem.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(menuItem.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
       searchField && searchOperator && searchValue
@@ -1336,11 +1337,11 @@ export class MenusService {
             ),
             ilike(
               localTimeText(menuItemAddOn.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemAddOn.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -1578,19 +1579,19 @@ export class MenusService {
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               sql`${modifierGroup.maxSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(modifierGroup.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(modifierGroup.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -1786,9 +1787,12 @@ export class MenusService {
             'contains',
             value,
           ),
-          ilike(sql`${modifier.priceAdjustment}::text`, `%${value}%`),
-          ilike(localTimeText(modifier.createdAt), `%${value}%`),
-          ilike(localTimeText(modifier.updatedAt), `%${value}%`),
+          ilike(
+            sql`${modifier.priceAdjustment}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(localTimeText(modifier.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(modifier.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -1995,19 +1999,19 @@ export class MenusService {
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               sql`${modifierGroup.maxSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemModifierGroup.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemModifierGroup.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,

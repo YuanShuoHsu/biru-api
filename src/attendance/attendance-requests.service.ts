@@ -29,6 +29,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -322,13 +323,19 @@ export class AttendanceRequestsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceLeaveType.name, `%${value}%`),
-          ilike(attendanceRequest.reason, `%${value}%`),
-          ilike(attendanceRequest.reviewReason, `%${value}%`),
-          ilike(localTimeText(attendanceRequest.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceRequest.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceRequest.reason, `%${escapeLike(value)}%`),
+          ilike(attendanceRequest.reviewReason, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceRequest.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceRequest.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );

@@ -30,6 +30,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { payrollEarning, payrollEarningType } from '../db/schema/payroll.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -88,7 +89,7 @@ export class PayrollEarningsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(payrollEarningType.name, `%${value}%`),
+          ilike(payrollEarningType.name, `%${escapeLike(value)}%`),
         ],
       }),
     );

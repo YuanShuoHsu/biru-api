@@ -32,6 +32,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { pgErrorCode } from '../common/utils/pg-errors.js';
 import {
@@ -357,10 +358,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         quickFilterValue,
         textConditions: (value) => [
           ...LABEL_COLUMNS.map((column) =>
-            ilike(sql`l.data ->> ${column}`, `%${value}%`),
+            ilike(sql`l.data ->> ${column}`, `%${escapeLike(value)}%`),
           ),
-          ilike(sql`l.user_name`, `%${value}%`),
-          ilike(sql`l.deleted_by`, `%${value}%`),
+          ilike(sql`l.user_name`, `%${escapeLike(value)}%`),
+          ilike(sql`l.deleted_by`, `%${escapeLike(value)}%`),
         ],
       }),
     );
