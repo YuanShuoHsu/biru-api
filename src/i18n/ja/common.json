@@ -257,6 +257,7 @@
     "otherPrinters": "他の担当：{printers}",
     "pickupTime": "受取 {time}",
     "printJobResolved": "この伝票は確認済みです。再読み込みしてからもう一度お試しください",
+    "printerBusy": "削除中にこのプリンターへ新しい伝票が送られました。もう一度お試しください",
     "refund": "返品",
     "reprint": "再印刷",
     "servingTemperatureLevels": {

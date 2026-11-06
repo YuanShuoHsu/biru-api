@@ -257,6 +257,7 @@
     "otherPrinters": "另有：{printers}",
     "pickupTime": "取餐 {time}",
     "printJobResolved": "這筆工作單已確認過，請重新整理後再試",
+    "printerBusy": "移除時有新的工作單正送往這台印表機，請再試一次",
     "refund": "退品",
     "reprint": "補印",
     "servingTemperatureLevels": {
