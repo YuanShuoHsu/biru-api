@@ -424,6 +424,28 @@ describe('MenusService localized text filters and sorting', () => {
       expect(await groupIds(sorted)).toEqual(['extras', 'ice']);
       expect(await itemGroupIds(sorted)).toEqual(['extras', 'ice']);
     });
+
+    it('同一個選項群組不能重複掛載到同一個品項，排序也不變', async () => {
+      const sortOrders = () =>
+        db
+          .select({
+            id: menuItemModifierGroup.id,
+            sortOrder: menuItemModifierGroup.sortOrder,
+          })
+          .from(menuItemModifierGroup)
+          .orderBy(menuItemModifierGroup.id);
+      const before = await sortOrders();
+
+      await expect(
+        service.createMenuItemModifierGroup('latte', {
+          modifierGroupId: 'extras',
+        } as CreateMenuItemModifierGroupDto),
+      ).rejects.toMatchObject({
+        response: { code: 'modifierGroupAttached' },
+        status: 409,
+      });
+      expect(await sortOrders()).toEqual(before);
+    });
   });
 
   describe('modifiers', () => {

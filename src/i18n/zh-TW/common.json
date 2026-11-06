@@ -234,6 +234,7 @@
     "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
     "menuItemNotFound": "找不到這個品項，可能已被刪除",
     "menuSectionNotFound": "找不到這個分類，可能已被刪除",
+    "modifierGroupAttached": "這個選項群組已經掛載到這個品項",
     "modifierGroupNotFound": "找不到這個選項群組，可能已被刪除",
     "modifierNotFound": "找不到這個選項，可能已被刪除",
     "offerNotFound": "找不到這個品項價格，可能已被刪除",
