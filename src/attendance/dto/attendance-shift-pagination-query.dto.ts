@@ -19,22 +19,21 @@ export const ATTENDANCE_SHIFT_DATE_FILTER_FIELDS = [
 
 export const ATTENDANCE_SHIFT_ENUM_FILTER_FIELDS = ['dayKind'] as const;
 
-export const ATTENDANCE_SHIFT_FILTER_FIELDS = [
+const ATTENDANCE_SHIFT_FILTER_FIELDS = [
   ...ATTENDANCE_SHIFT_STRING_FILTER_FIELDS,
   ...ATTENDANCE_SHIFT_DATE_FILTER_FIELDS,
   ...ATTENDANCE_SHIFT_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceShiftFilterField =
+type AttendanceShiftFilterField =
   (typeof ATTENDANCE_SHIFT_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_SHIFT_SORT_FIELDS = [
+const ATTENDANCE_SHIFT_SORT_FIELDS = [
   ...ATTENDANCE_SHIFT_FILTER_FIELDS,
   'state',
 ] as const;
 
-export type AttendanceShiftSortField =
-  (typeof ATTENDANCE_SHIFT_SORT_FIELDS)[number];
+type AttendanceShiftSortField = (typeof ATTENDANCE_SHIFT_SORT_FIELDS)[number];
 
 export class AttendanceShiftPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({

@@ -25,12 +25,12 @@ export const ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS = [
   'substituteStartsAt',
 ] as const;
 
-export const ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS = [
+const ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS = [
   ...ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceHolidaySubstituteFilterField =
+type AttendanceHolidaySubstituteFilterField =
   (typeof ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS)[number];
 
 export class AttendanceHolidaySubstitutePaginationQueryDto extends PaginationQueryDto {

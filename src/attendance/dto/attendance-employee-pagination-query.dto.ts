@@ -22,19 +22,18 @@ export const ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS = [
   'workPermitStatus',
 ] as const;
 
-export const ATTENDANCE_EMPLOYEE_FILTER_FIELDS = [
+const ATTENDANCE_EMPLOYEE_FILTER_FIELDS = [
   ...ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceEmployeeFilterField =
+type AttendanceEmployeeFilterField =
   (typeof ATTENDANCE_EMPLOYEE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_EMPLOYEE_SORT_FIELDS =
-  ATTENDANCE_EMPLOYEE_FILTER_FIELDS;
+const ATTENDANCE_EMPLOYEE_SORT_FIELDS = ATTENDANCE_EMPLOYEE_FILTER_FIELDS;
 
-export type AttendanceEmployeeSortField =
+type AttendanceEmployeeSortField =
   (typeof ATTENDANCE_EMPLOYEE_SORT_FIELDS)[number];
 
 export class AttendanceEmployeePaginationQueryDto extends PaginationQueryDto {
