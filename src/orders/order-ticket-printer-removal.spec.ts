@@ -77,7 +77,9 @@ describe('OrderTicketService 移除出單機（PGlite）', () => {
       `insert into order_item (id, order_id, menu_item_id, menu_item_name, unit_price, order_quantity)
        values ('i1', 'o1', 'm1', '{}', 100, 1)`,
     );
-    await db.transaction((tx) => service.enqueueOrder(tx, 'o1', ORG));
+    await db.transaction((tx) =>
+      service.enqueueOrder(tx as unknown as DrizzleDB, 'o1', ORG),
+    );
 
     await service.deletePrinter('biru', bar.id);
 

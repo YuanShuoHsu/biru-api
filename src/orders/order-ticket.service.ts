@@ -360,7 +360,7 @@ export class OrderTicketService implements PrintJobSource {
         .for('update');
       if (!deleted) throw menuNotFoundError('printerNotFound');
 
-      // 同一交易改過的列再被外鍵 set null 時會重檢訂單外鍵，排單中的訂單已鎖住就會死結，所以印表機欄位在這裡先清
+      // 同一交易改過的列再被外鍵 set null 時會重檢訂單外鍵而等到已鎖訂單的排單交易，所以這裡先清掉印表機
       const stranded = await tx
         .update(orderTicketJob)
         .set({ finishedAt: new Date(), printerId: null, status: 'cancelled' })
@@ -419,16 +419,20 @@ export class OrderTicketService implements PrintJobSource {
 
     // 訂單要在刪除印表機的交易外才鎖：排單時是先鎖訂單再等印表機，反過來會死結
     for (const [orderId, orderItemIds] of reroutes)
-      await this.db.transaction(async (tx) => {
-        const [locked] = await tx
-          .select({ orderStatus: order.orderStatus })
-          .from(order)
-          .where(eq(order.id, orderId))
-          .for('update');
+      await this.db
+        .transaction(async (tx) => {
+          const [locked] = await tx
+            .select({ orderStatus: order.orderStatus })
+            .from(order)
+            .where(eq(order.id, orderId))
+            .for('update');
 
-        if (locked && isOrderTicketPrintable(locked.orderStatus))
-          await this.enqueueOrder(tx, orderId, organizationId, orderItemIds);
-      });
+          if (locked && isOrderTicketPrintable(locked.orderStatus))
+            await this.enqueueOrder(tx, orderId, organizationId, orderItemIds);
+        })
+        .catch((error: unknown) =>
+          this.logger.error(`訂單 ${orderId} 的工作單改排失敗`, error),
+        );
 
     this.emitOrdersUpdated(
       organizationId,
@@ -436,6 +440,23 @@ export class OrderTicketService implements PrintJobSource {
         ({ orderId }) => orderId,
       ),
     );
+  }
+
+  // 改工作單前先取得印表機的鎖：先鎖工作單再等印表機，會和移除印表機時外鍵 set null 等這張工作單互鎖
+  private async lockJobPrinter(tx: Tx, jobId: string) {
+    await tx
+      .select({ id: printerTable.id })
+      .from(printerTable)
+      .where(
+        eq(
+          printerTable.id,
+          tx
+            .select({ printerId: orderTicketJob.printerId })
+            .from(orderTicketJob)
+            .where(eq(orderTicketJob.id, jobId)),
+        ),
+      )
+      .for('key share');
   }
 
   /** 品項自己的設定 → 最近一層有設定的上層分類 → 預設印表機 */
@@ -826,6 +847,8 @@ export class OrderTicketService implements PrintJobSource {
       await this.printersService.findOrganizationId(organizationSlug);
 
     const resolved = await this.db.transaction(async (tx) => {
+      await this.lockJobPrinter(tx, jobId);
+
       if (printed) {
         const job = await this.markPrinted(
           tx,
@@ -842,20 +865,6 @@ export class OrderTicketService implements PrintJobSource {
         .from(order)
         .where(eq(order.id, orderId))
         .for('update');
-
-      await tx
-        .select({ id: printerTable.id })
-        .from(printerTable)
-        .where(
-          eq(
-            printerTable.id,
-            tx
-              .select({ printerId: orderTicketJob.printerId })
-              .from(orderTicketJob)
-              .where(eq(orderTicketJob.id, jobId)),
-          ),
-        )
-        .for('key share');
 
       const [job] = await tx
         .update(orderTicketJob)
@@ -1180,6 +1189,8 @@ export class OrderTicketService implements PrintJobSource {
 
     for (const { code, printJobId, success } of results) {
       const job = await this.db.transaction(async (tx) => {
+        await this.lockJobPrinter(tx, printJobId);
+
         if (success)
           return this.markPrinted(tx, printJobId, { printerId: printer.id }, [
             'sent',
