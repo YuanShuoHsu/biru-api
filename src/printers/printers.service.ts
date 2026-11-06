@@ -27,6 +27,7 @@ import { notFoundError } from '../menus/menu-errors.js';
 export const PRINTER_OFFLINE_AFTER_MS = 60_000;
 
 const POLL_GAP_SAMPLES = 5;
+const DIGEST_NC_MAX = 2 ** 31 - 1;
 
 export type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 
@@ -123,6 +124,8 @@ export class PrintersService {
     nonce: string,
     nc: number,
   ): Promise<boolean> {
+    if (nc > DIGEST_NC_MAX) return false;
+
     const accepted = await this.db
       .update(printerTable)
       .set({ digestNc: nc, digestNonce: nonce })
