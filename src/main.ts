@@ -19,8 +19,6 @@ async function bootstrap() {
   });
 
   app.useStaticAssets(join(import.meta.dirname, '..', 'public'));
-  app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
-  app.setViewEngine('hbs');
 
   app.set('trust proxy', trustedProxies());
 

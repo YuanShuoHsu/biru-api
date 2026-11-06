@@ -397,7 +397,7 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   set, so sessions store no IP, and a `customRules` catch-all drops every limit except the stricter built-in ones
   (sign-in, sign-up, password and verification mails), which then share one bucket per path platform-wide — set
   `CLIENT_IP_HEADER` to give them per-client buckets.
-- Also applied: `helmet`, `cookieParser`, hbs view engine, CORS restricted to
+- Also applied: `helmet`, `cookieParser`, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
   `app.use(I18nMiddleware)` here — Express receives the class, treats it as an error handler

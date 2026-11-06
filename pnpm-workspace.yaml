@@ -9,3 +9,4 @@ allowBuilds:
 overrides:
   proxy-addr: '>=2.0.8'
   handlebars: '>=4.7.10'
+  nodemailer: '>=10.0.6'
