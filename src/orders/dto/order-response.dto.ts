@@ -27,7 +27,7 @@ import {
   type PaymentMethod,
 } from '../../db/schema/orders.js';
 
-export class OrderItemModifierSnapshotDto {
+class OrderItemModifierSnapshotDto {
   @ApiProperty() modifierGroupId: string;
   @ApiProperty() modifierGroupName: string;
   @ApiProperty() modifierId: string;
@@ -35,7 +35,7 @@ export class OrderItemModifierSnapshotDto {
   @ApiPropertyOptional() priceAdjustment?: string | null;
 }
 
-export class OrderItemAddOnSnapshotDto {
+class OrderItemAddOnSnapshotDto {
   @ApiProperty() menuItemId: string;
   @ApiProperty() menuItemName: string;
   @ApiProperty() unitPrice: string;
@@ -55,7 +55,7 @@ export class OrderItemAddOnSnapshotDto {
   sweetnessLevel?: SweetnessLevel | null;
 }
 
-export class OrderItemResponseDto {
+class OrderItemResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() orderId: string;
   @ApiProperty() menuItemId: string;
@@ -84,7 +84,7 @@ export class OrderItemResponseDto {
 }
 
 // https://schema.org/customer
-export class OrderCustomerDto {
+class OrderCustomerDto {
   @ApiPropertyOptional() email?: string | null;
   @ApiProperty() name: string;
   @ApiPropertyOptional() remark?: string | null;
@@ -188,7 +188,7 @@ export class CreateOrderResponseDto extends OrderReceiptResponseDto {
 }
 
 // https://schema.org/seller
-export class OrderSellerDto {
+class OrderSellerDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiProperty() slug: string;

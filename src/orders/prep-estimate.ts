@@ -9,12 +9,12 @@ export interface QueuedOrder {
   prepMinutes: number;
 }
 
-export interface ReadyOrder {
+interface ReadyOrder {
   readyAt: Date;
   startedAt: Date;
 }
 
-export interface ReadyOrderItems extends ReadyOrder {
+interface ReadyOrderItems extends ReadyOrder {
   menuItemIds: string[];
 }
 

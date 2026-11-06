@@ -47,8 +47,7 @@ export const orderTicketErrorCodes = [
 
 type OrderTicketErrorCode = (typeof orderTicketErrorCodes)[number];
 
-export type OrderErrorCode =
-  (typeof orderErrorCodes)[number] | OrderTicketErrorCode;
+type OrderErrorCode = (typeof orderErrorCodes)[number] | OrderTicketErrorCode;
 
 const isTicketCode = (code: OrderErrorCode): code is OrderTicketErrorCode =>
   orderTicketErrorCodes.some((ticketCode) => ticketCode === code);
