@@ -1,6 +1,7 @@
 import type { ArgumentsHost } from '@nestjs/common';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 
+import type { MockInstance } from 'vitest';
 import { I18nContext } from 'nestjs-i18n';
 
 import {
@@ -15,8 +16,10 @@ describe('門市停業的錯誤', () => {
       `translated:${key}${options?.args ? JSON.stringify(options.args) : ''}`,
   );
 
+  let current: MockInstance<typeof I18nContext.current>;
+
   beforeEach(() => {
-    vi.spyOn(I18nContext, 'current').mockReturnValue({
+    current = vi.spyOn(I18nContext, 'current').mockReturnValue({
       t,
     } as unknown as I18nContext);
   });
@@ -40,7 +43,7 @@ describe('門市停業的錯誤', () => {
     const host = {} as ArgumentsHost;
     const error = organizationReadOnlyError(host);
 
-    expect(I18nContext.current).toHaveBeenCalledWith(host);
+    expect(current).toHaveBeenCalledWith(host);
     expect(error).toBeInstanceOf(ForbiddenException);
     expect(error.getResponse()).toEqual({
       error: 'Forbidden',
@@ -62,10 +65,11 @@ describe('門市停業的錯誤', () => {
   });
 
   it('沒有請求語系時仍帶代碼', () => {
-    vi.mocked(I18nContext.current).mockReturnValue(undefined);
+    current.mockReturnValue(undefined);
 
     expect(organizationClosedError().getResponse()).toMatchObject({
       code: 'organizationClosed',
+      message: 'This store is closed.',
     });
   });
 });
