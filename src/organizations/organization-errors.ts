@@ -40,9 +40,9 @@ export const conflictError = (
   extra?: Record<string, unknown>,
 ) =>
   new ConflictException({
+    ...extra,
     error: 'Conflict',
     ...errorBody(code, args),
-    ...extra,
   });
 
 export const forbiddenError = (code: OrganizationErrorCode) =>
