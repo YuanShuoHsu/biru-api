@@ -17,14 +17,14 @@ export const BANNER_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const BANNER_ALL_FILTER_FIELDS = [
+const BANNER_ALL_FILTER_FIELDS = [
   ...BANNER_ENUM_FILTER_FIELDS,
   ...BANNER_DATE_FILTER_FIELDS,
 ] as const;
 
-export type BannerFilterField = (typeof BANNER_ALL_FILTER_FIELDS)[number];
+type BannerFilterField = (typeof BANNER_ALL_FILTER_FIELDS)[number];
 
-export const BANNER_SORT_FIELDS = [
+const BANNER_SORT_FIELDS = [
   'isActive',
   'startsAt',
   'endsAt',
@@ -32,7 +32,7 @@ export const BANNER_SORT_FIELDS = [
   'updatedAt',
 ] as const;
 
-export type BannerSortField = (typeof BANNER_SORT_FIELDS)[number];
+type BannerSortField = (typeof BANNER_SORT_FIELDS)[number];
 
 export class BannerPaginationQueryDto {
   @IsOptional()
