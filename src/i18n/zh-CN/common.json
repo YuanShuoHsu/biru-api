@@ -172,6 +172,7 @@
     "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",
     "organizationNotFound": "找不到此门店。",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
+    "returnUrlNotAllowed": "不允许使用这个返回网址",
     "smtpTestFailed": "测试邮件发送失败，请检查 SMTP 设置后再试",
     "statsSinceNotMonthStart": "开始时间必须是平台时区的月初",
     "tooManyRequests": "请求过多"
@@ -376,6 +377,7 @@
   "refunds": {
     "allowanceExceeded": "折让金额 {amount} 超过此发票剩余可折让金额 {remaining}，请至绿界后台确认折让记录",
     "alreadyRefunded": "此订单已全额退款",
+    "cardRefundUnavailable": "绿界信用卡退刷没有测试环境，只能在正式环境退款",
     "invalidAmount": "退款金额计算异常，请确认订单金额",
     "itemNotInOrder": "退款品项不属于此订单",
     "noEcpayTransaction": "此订单没有可退刷的绿界交易",

@@ -1,8 +1,6 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
 
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { EcpayOrderInvoiceService } from './ecpay-order-invoice.service.js';
 
@@ -27,7 +25,6 @@ describe('EcpayOrderInvoiceService 訂單沒有發票', () => {
     {} as never,
     {} as never,
     new EventEmitter2(),
-    { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
   );
 
   const missing = {
@@ -35,7 +32,7 @@ describe('EcpayOrderInvoiceService 訂單沒有發票', () => {
     response: {
       error: 'Not Found',
       code: 'invoiceNotFound',
-      message: 'common.invoices.invoiceNotFound',
+      message: 'invoiceNotFound',
     },
   };
 

@@ -17,10 +17,7 @@ import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.d
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
 import type { VoidedInvoiceDto } from '../dto/voided-invoice.dto.js';
 
-import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { InvoiceStatus } from '../../db/schema/invoices.js';
 import type { PrintCopy } from '../../db/schema/printers.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
 import {
@@ -43,6 +40,13 @@ import {
   earliestVoidableInvoiceDate,
   lineAmountCents,
 } from '../utils/refund-plan.js';
+import {
+  badRequestError,
+  conflictError,
+  internalServerError,
+  invoiceStatusText,
+  notFoundError as notFoundInvoiceError,
+} from '../invoice-errors.js';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
 import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
@@ -55,13 +59,10 @@ import { InvoicePrinterService } from './invoice-printer.service.js';
 
 import {
   BadGatewayException,
-  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
-  InternalServerErrorException,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -147,47 +148,7 @@ export class EcpayOrderInvoiceService {
     private readonly ecpayInvalidInvoiceService: EcpayInvalidInvoiceService,
     private readonly invoicePrinterService: InvoicePrinterService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
-
-  private tInvoice(
-    key:
-      | 'allowanceIssued'
-      | 'alreadyIssuing'
-      | 'customerNameRequiresIdentifier'
-      | 'invoiceNotFound'
-      | 'notIssued'
-      | 'notPaid'
-      | 'notPending'
-      | 'notPrintable'
-      | 'notVoidable'
-      | 'orderRefunded'
-      | 'pastVoidablePeriod'
-      | 'printing'
-      | 'printJobNotQueued'
-      | 'printJobResolved'
-      | 'voidWriteFailed',
-    args?: Record<string, string | number>,
-  ): string {
-    return this.i18n.t(`common.invoices.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  private invoiceNotFoundError() {
-    return new NotFoundException({
-      error: 'Not Found',
-      code: 'invoiceNotFound',
-      message: this.tInvoice('invoiceNotFound'),
-    });
-  }
-
-  private invoiceStatusText(status: InvoiceStatus): string {
-    return this.i18n.t(`common.invoices.status.${status}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private emitOrderUpdated(organizationId: string, orderId: string) {
     this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
@@ -347,20 +308,18 @@ export class EcpayOrderInvoiceService {
       !row.paymentDate ||
       !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
     )
-      throw new ConflictException(this.tInvoice('notPaid'));
+      throw conflictError('notPaid');
     if (row.orderStatus === 'OrderReturned')
-      throw new ConflictException(this.tInvoice('orderRefunded'));
+      throw conflictError('orderRefunded');
 
     const found = toActiveInvoice(row);
 
     const { invoice: data } = found;
-    if (!data) throw this.invoiceNotFoundError();
+    if (!data) throw notFoundInvoiceError('invoiceNotFound');
     if (data.status !== 'pending')
-      throw new ConflictException(
-        this.tInvoice('notPending', {
-          status: this.invoiceStatusText(data.status),
-        }),
-      );
+      throw conflictError('notPending', {
+        status: invoiceStatusText(data.status),
+      });
 
     // 綠界以 RelateNumber 唯一性防重複開立，所以要在呼叫前落地、重試時沿用同一組
     const relateNumber = data.relateNumber ?? randomUUID().replace(/-/g, '');
@@ -371,7 +330,7 @@ export class EcpayOrderInvoiceService {
       .where(and(eq(invoice.id, data.id), eq(invoice.status, 'pending')))
       .returning();
 
-    if (!claimed) throw new ConflictException(this.tInvoice('alreadyIssuing'));
+    if (!claimed) throw conflictError('alreadyIssuing');
 
     const result = await this.issueOrRelease(claimed, found, relateNumber);
 
@@ -466,7 +425,7 @@ export class EcpayOrderInvoiceService {
       organizationId,
       copy,
     );
-    if (!job) throw new ConflictException(this.tInvoice('printing'));
+    if (!job) throw conflictError('printing');
 
     return { printJob: toPrintJobDto(job) };
   }
@@ -487,8 +446,7 @@ export class EcpayOrderInvoiceService {
       data.id,
       printed,
     );
-    if (!resolved)
-      throw new ConflictException(this.tInvoice('printJobResolved'));
+    if (!resolved) throw conflictError('printJobResolved');
 
     this.emitOrderUpdated(organizationId, orderId);
 
@@ -510,7 +468,7 @@ export class EcpayOrderInvoiceService {
     );
 
     const job = await this.invoicePrinterService.cancelQueued(jobId, data.id);
-    if (!job) throw new ConflictException(this.tInvoice('printJobNotQueued'));
+    if (!job) throw conflictError('printJobNotQueued');
 
     this.emitOrderUpdated(organizationId, orderId);
   }
@@ -553,7 +511,7 @@ export class EcpayOrderInvoiceService {
       .where(and(eq(invoice.id, data.id), eq(invoice.status, 'issued')))
       .returning();
 
-    if (!updated) throw new ConflictException(this.tInvoice('notPrintable'));
+    if (!updated) throw conflictError('notPrintable');
 
     this.emitOrderUpdated(organizationId, orderId);
 
@@ -589,21 +547,16 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw this.invoiceNotFoundError();
+    if (!data) throw notFoundInvoiceError('invoiceNotFound');
     if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
-      throw new ConflictException(
-        this.tInvoice('notVoidable', {
-          status: this.invoiceStatusText(data.status),
-        }),
-      );
-    if (data.allowances.length)
-      throw new ConflictException(this.tInvoice('allowanceIssued'));
+      throw conflictError('notVoidable', {
+        status: invoiceStatusText(data.status),
+      });
+    if (data.allowances.length) throw conflictError('allowanceIssued');
     if (data.invoiceDate < earliestVoidableInvoiceDate(new Date()))
-      throw new ConflictException(this.tInvoice('pastVoidablePeriod'));
+      throw conflictError('pastVoidablePeriod');
     if (customerName && !customerIdentifier && data.type !== 'company')
-      throw new BadRequestException(
-        this.tInvoice('customerNameRequiresIdentifier'),
-      );
+      throw badRequestError('customerNameRequiresIdentifier');
 
     await this.ecpayInvalidInvoiceService.invalidInvoice({
       InvoiceDate: toInvoiceDateText(data.invoiceDate),
@@ -649,11 +602,9 @@ export class EcpayOrderInvoiceService {
         error instanceof Error ? error.stack : String(error),
       );
 
-      throw new InternalServerErrorException(
-        this.tInvoice('voidWriteFailed', {
-          invoiceNumber: data.invoiceNumber,
-        }),
-      );
+      throw internalServerError('voidWriteFailed', {
+        invoiceNumber: data.invoiceNumber,
+      });
     }
 
     this.emitOrderUpdated(org.id, orderId);
@@ -681,12 +632,12 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found?.invoices.find(({ invoiceNumber }) => invoiceNumber);
-    if (!data) throw this.invoiceNotFoundError();
+    if (!data) throw notFoundInvoiceError('invoiceNotFound');
     if (!data.invoiceNumber || !data.invoiceDate)
-      throw new ConflictException(this.tInvoice('notIssued'));
+      throw conflictError('notIssued');
 
     const query = toGetIssueQuery(data);
-    if (!query) throw new ConflictException(this.tInvoice('notIssued'));
+    if (!query) throw conflictError('notIssued');
 
     const result = await this.ecpayGetIssueInvoiceService.getIssue(query);
 
@@ -753,9 +704,8 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw this.invoiceNotFoundError();
-    if (!isPrintable(data))
-      throw new ConflictException(this.tInvoice('notPrintable'));
+    if (!data) throw notFoundInvoiceError('invoiceNotFound');
+    if (!isPrintable(data)) throw conflictError('notPrintable');
 
     return { data, organizationId: org.id };
   }
@@ -770,7 +720,7 @@ export class EcpayOrderInvoiceService {
       organizationId,
       copy,
     );
-    if (!job) throw new ConflictException(this.tInvoice('printing'));
+    if (!job) throw conflictError('printing');
 
     try {
       const printUrl = await this.ecpayInvoicePrintService.getPrintUrl(

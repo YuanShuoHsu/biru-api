@@ -5,13 +5,14 @@ import type { DoActionEcpayResponseDto } from '../dto/do-action-ecpay.dto.js';
 import { ECPAY_DO_ACTION } from '../dto/do-action-ecpay.dto.js';
 
 import { getEcpayMode } from '../ecpay.config.js';
+import { serviceUnavailableError } from '../refund-errors.js';
 
 import { EcpayMode } from '../types/ecpay.types.js';
 
 import { EcpayBaseService } from './ecpay-base.service.js';
 
 import { HttpService } from '@nestjs/axios';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 const ECPAY_DO_ACTION_API_URL =
@@ -50,9 +51,7 @@ export class EcpayDoActionService {
     tradeNo: string;
   }): Promise<DoActionEcpayResponseDto> {
     if (!this.isAvailable)
-      throw new ServiceUnavailableException(
-        'ECPay DoAction has no test environment; refunds can only be issued in production',
-      );
+      throw serviceUnavailableError('cardRefundUnavailable');
 
     const payload: Record<string, string> = {
       Action: ECPAY_DO_ACTION.Refund,

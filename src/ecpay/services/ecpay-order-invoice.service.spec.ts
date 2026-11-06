@@ -35,7 +35,6 @@ describe('EcpayOrderInvoiceService.retryPendingInvoices（PGlite）', () => {
       {} as never,
       {} as never,
       new EventEmitter2(),
-      {} as never,
     );
   }, 60_000);
 

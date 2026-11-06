@@ -4,12 +4,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../../test/pglite.js';
 import * as schema from '../../db/schema/index.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { EcpayOrderInvoiceService } from './ecpay-order-invoice.service.js';
 
@@ -32,7 +30,6 @@ describe('EcpayOrderInvoiceService 只替已付款的訂單開發票', () => {
       {} as never,
       {} as never,
       new EventEmitter2(),
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     );
   }, 60_000);
 
@@ -72,9 +69,10 @@ describe('EcpayOrderInvoiceService 只替已付款的訂單開發票', () => {
   });
 
   it('付款失敗轉異常的訂單即使有付款時間也不開立', async () => {
-    await expect(service.issueForOrder('biru', 'problem')).rejects.toThrow(
-      'common.invoices.notPaid',
-    );
+    await expect(service.issueForOrder('biru', 'problem')).rejects.toMatchObject({
+      status: 409,
+      response: { code: 'notPaid' },
+    });
     expect(issueInvoice).not.toHaveBeenCalled();
   });
 

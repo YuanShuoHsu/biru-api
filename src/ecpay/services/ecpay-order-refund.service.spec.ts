@@ -244,7 +244,6 @@ describe('EcpayOrderRefundService.refundOrder 人工退款', () => {
 });
 
 describe('EcpayOrderRefundService 折讓品項', () => {
-  const t = ((key: string) => key) as never;
   const buildAllowanceItems = (
     plan: ReturnType<typeof buildRefundPlan>,
   ): { ItemAmount: number; ItemCount: number; ItemPrice: number }[] =>
@@ -265,7 +264,7 @@ describe('EcpayOrderRefundService 折讓品項', () => {
       items: ReturnType<typeof buildRefundPlan>['items'];
     }[] = [];
     return steps.map((requested) => {
-      const plan = buildRefundPlan(order, previous, requested, t);
+      const plan = buildRefundPlan(order, previous, requested);
       previous.push({ amount: String(plan.amount), items: plan.items });
       return plan;
     });
