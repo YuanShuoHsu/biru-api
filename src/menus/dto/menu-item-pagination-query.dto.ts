@@ -34,7 +34,7 @@ export const MENU_ITEM_PLAIN_DATE_FILTER_FIELDS = [
   'priceSpecificationValidFrom',
   'priceSpecificationValidThrough',
 ] as const;
-export const MENU_ITEM_ALL_FILTER_FIELDS = [
+const MENU_ITEM_ALL_FILTER_FIELDS = [
   ...MENU_ITEM_STRING_FILTER_FIELDS,
   ...MENU_ITEM_NUMBER_FILTER_FIELDS,
   ...MENU_ITEM_ENUM_FILTER_FIELDS,
@@ -55,7 +55,7 @@ export const MENU_ITEM_SEARCH_OPERATORS = [
   'endsWith',
 ] as const;
 
-export const MENU_ITEM_SORT_FIELDS = [
+const MENU_ITEM_SORT_FIELDS = [
   ...MENU_ITEM_STRING_FILTER_FIELDS,
   ...MENU_ITEM_NUMBER_FILTER_FIELDS,
   ...MENU_ITEM_ENUM_FILTER_FIELDS,
@@ -67,8 +67,8 @@ export const MENU_ITEM_SORT_FIELDS = [
 const dropRemovedField = ({ value }: { value: unknown }) =>
   value === 'priceCurrency' ? undefined : value;
 
-export type MenuItemFilterField = (typeof MENU_ITEM_ALL_FILTER_FIELDS)[number];
-export type MenuItemSortField = (typeof MENU_ITEM_SORT_FIELDS)[number];
+type MenuItemFilterField = (typeof MENU_ITEM_ALL_FILTER_FIELDS)[number];
+type MenuItemSortField = (typeof MENU_ITEM_SORT_FIELDS)[number];
 
 export class MenuItemPaginationQueryDto {
   @IsOptional()

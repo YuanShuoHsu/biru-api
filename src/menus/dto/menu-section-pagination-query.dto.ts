@@ -18,7 +18,7 @@ export const MENU_SECTION_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const MENU_SECTION_ALL_FILTER_FIELDS = [
+const MENU_SECTION_ALL_FILTER_FIELDS = [
   ...MENU_SECTION_STRING_FILTER_FIELDS,
   ...MENU_SECTION_DATE_FILTER_FIELDS,
 ] as const;
@@ -30,11 +30,10 @@ export const MENU_SECTION_SEARCH_OPERATORS = [
   'endsWith',
 ] as const;
 
-export const MENU_SECTION_SORT_FIELDS = MENU_SECTION_ALL_FILTER_FIELDS;
+const MENU_SECTION_SORT_FIELDS = MENU_SECTION_ALL_FILTER_FIELDS;
 
-export type MenuSectionFilterField =
-  (typeof MENU_SECTION_ALL_FILTER_FIELDS)[number];
-export type MenuSectionSortField = (typeof MENU_SECTION_SORT_FIELDS)[number];
+type MenuSectionFilterField = (typeof MENU_SECTION_ALL_FILTER_FIELDS)[number];
+type MenuSectionSortField = (typeof MENU_SECTION_SORT_FIELDS)[number];
 
 export class MenuSectionPaginationQueryDto {
   @IsOptional()
