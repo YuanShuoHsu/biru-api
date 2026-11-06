@@ -32,6 +32,7 @@ export class DonateCodesService implements OnModuleInit {
         const url = `${API_URL}?limit=${PAGE_SIZE}&offset=${offset}`;
         const res = await fetch(url, {
           headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(30000),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
