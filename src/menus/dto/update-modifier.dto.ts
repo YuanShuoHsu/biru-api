@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsNumberString,
   IsOptional,
+  Matches,
   ValidateIf,
 } from 'class-validator';
 import {
@@ -33,6 +34,7 @@ export class UpdateModifierDto {
     type: String,
   })
   @IsOptional()
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/)
   @IsNumberString()
   priceAdjustment?: string | null;
 
