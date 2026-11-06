@@ -13,7 +13,39 @@ describe('DonateCodesService', () => {
     service = module.get<DonateCodesService>(DonateCodesService);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('電子發票 API 沒有回應時逾時放棄，保留原本的捐贈碼', async () => {
+    const timeout = new AbortController();
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeout.signal);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () =>
+              reject(init.signal?.reason),
+            ),
+          ),
+      );
+
+    const refresh = service.refresh();
+    timeout.abort(new DOMException('timed out', 'TimeoutError'));
+    await refresh;
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: timeout.signal }),
+    );
+    expect(service.getAll()).toEqual([]);
   });
 });
