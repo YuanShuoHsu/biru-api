@@ -27,6 +27,7 @@ import {
   localizedTextSql,
 } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
@@ -117,7 +118,11 @@ import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js'
 import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
 import type { UpdateOfferDto } from './dto/update-offer.dto.js';
-import { badRequestError, notFoundError } from './menu-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './menu-errors.js';
 
 type RecipeSummary = {
   id: string;
@@ -1935,24 +1940,30 @@ export class MenusService {
       );
     if (!group) throw notFoundError('modifierGroupNotFound');
 
-    return this.db.transaction(async (tx) => {
-      await tx
-        .update(menuItemModifierGroup)
-        .set({ sortOrder: sql`${menuItemModifierGroup.sortOrder} + 1` })
-        .where(eq(menuItemModifierGroup.menuItemId, menuItemId));
+    try {
+      return await this.db.transaction(async (tx) => {
+        await tx
+          .update(menuItemModifierGroup)
+          .set({ sortOrder: sql`${menuItemModifierGroup.sortOrder} + 1` })
+          .where(eq(menuItemModifierGroup.menuItemId, menuItemId));
 
-      const [created] = await tx
-        .insert(menuItemModifierGroup)
-        .values({
-          id: uuidv4(),
-          menuItemId,
-          modifierGroupId: data.modifierGroupId,
-          sortOrder: 0,
-        })
-        .returning();
+        const [created] = await tx
+          .insert(menuItemModifierGroup)
+          .values({
+            id: uuidv4(),
+            menuItemId,
+            modifierGroupId: data.modifierGroupId,
+            sortOrder: 0,
+          })
+          .returning();
 
-      return created;
-    });
+        return created;
+      });
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw conflictError('modifierGroupAttached');
+      throw error;
+    }
   }
 
   async menuItemModifierGroups(

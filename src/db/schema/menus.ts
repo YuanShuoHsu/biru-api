@@ -320,6 +320,10 @@ export const menuItemModifierGroup = pgTable(
     index('menuItemModifierGroup_modifierGroupId_idx').on(
       table.modifierGroupId,
     ),
+    unique('menuItemModifierGroup_menuItemId_modifierGroupId_unique').on(
+      table.menuItemId,
+      table.modifierGroupId,
+    ),
   ],
 );
 

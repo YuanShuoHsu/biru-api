@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -11,6 +15,7 @@ export const menuErrorCodes = [
   'fixedSweetnessLevelRequired',
   'menuItemNotFound',
   'menuSectionNotFound',
+  'modifierGroupAttached',
   'modifierGroupNotFound',
   'modifierNotFound',
   'offerNotFound',
@@ -31,6 +36,9 @@ const errorBody = (code: MenuErrorCode) => ({
 
 export const badRequestError = (code: MenuErrorCode) =>
   new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+
+export const conflictError = (code: MenuErrorCode) =>
+  new ConflictException({ error: 'Conflict', ...errorBody(code) });
 
 export const notFoundError = (code: MenuErrorCode) =>
   new NotFoundException({ error: 'Not Found', ...errorBody(code) });

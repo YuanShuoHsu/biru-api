@@ -287,6 +287,7 @@ export type I18nTranslations = {
             "fixedSweetnessLevelRequired": string;
             "menuItemNotFound": string;
             "menuSectionNotFound": string;
+            "modifierGroupAttached": string;
             "modifierGroupNotFound": string;
             "modifierNotFound": string;
             "offerNotFound": string;

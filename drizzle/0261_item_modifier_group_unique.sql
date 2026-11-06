@@ -1,0 +1,2 @@
+DELETE FROM "menu_item_modifier_group" AS "duplicate" USING "menu_item_modifier_group" AS "kept" WHERE "duplicate"."menu_item_id" = "kept"."menu_item_id" AND "duplicate"."modifier_group_id" = "kept"."modifier_group_id" AND ("kept"."sort_order", "kept"."created_at", "kept"."id") < ("duplicate"."sort_order", "duplicate"."created_at", "duplicate"."id");--> statement-breakpoint
+ALTER TABLE "menu_item_modifier_group" ADD CONSTRAINT "menuItemModifierGroup_menuItemId_modifierGroupId_unique" UNIQUE("menu_item_id","modifier_group_id");

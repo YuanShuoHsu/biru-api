@@ -234,6 +234,7 @@
     "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
     "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
     "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
+    "modifierGroupAttached": "このオプショングループはすでにこの商品に紐付けられています",
     "modifierGroupNotFound": "オプショングループが見つかりません。削除された可能性があります",
     "modifierNotFound": "オプションが見つかりません。削除された可能性があります",
     "offerNotFound": "品目の価格が見つかりません。削除された可能性があります",
