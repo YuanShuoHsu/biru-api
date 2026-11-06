@@ -1,13 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
   and,
@@ -30,7 +23,6 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { coupon, userCoupon, type Coupon } from '../db/schema/coupons.js';
 import {
   ORDER_TERMINAL_STATUSES,
@@ -47,7 +39,6 @@ import {
 import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { MailsService } from '../mails/mails.service.js';
 
 import {
@@ -64,9 +55,14 @@ import {
 } from '../common/utils/data-grid-filters.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 
+import {
+  badRequestError as couponBadRequestError,
+  notFoundError as couponNotFoundError,
+} from '../coupons/coupon-errors.js';
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
 import type { AdjustPointsDto } from './dto/adjust-points.dto.js';
+import { badRequestError, forbiddenError } from './point-errors.js';
 import {
   POINT_TRANSACTION_DATE_FILTER_FIELDS,
   POINT_TRANSACTION_ENUM_FILTER_FIELDS,
@@ -202,31 +198,8 @@ export class PointsService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly mails: MailsService,
   ) {}
-
-  private t(
-    key:
-      | 'adjustOwnerOnly'
-      | 'adjustSelf'
-      | 'insufficient'
-      | 'notEnabled'
-      | 'notRedeemable'
-      | 'perUserLimitReached',
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.points.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  private tCoupons(key: 'memberNotFound' | 'usedUp'): string {
-    return this.i18n.t(`common.coupons.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的點數收回
   private async syncEarned(
@@ -877,24 +850,22 @@ export class PointsService {
       organizationSlug,
     );
     const setting = await this.db.query.pointSetting.findFirst();
-    if (!setting?.pointsEnabledAt)
-      throw new BadRequestException(this.t('notEnabled'));
+    if (!setting?.pointsEnabledAt) throw badRequestError('notEnabled');
     const { amountPerPoint } = setting;
 
     const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
     if (Math.abs(points) > maxNonOwnerPoints && !isOwnerRole(adjusterRole))
-      throw new ForbiddenException(
-        this.t('adjustOwnerOnly', { maxPoints: maxNonOwnerPoints }),
-      );
+      throw forbiddenError('adjustOwnerOnly', {
+        maxPoints: maxNonOwnerPoints,
+      });
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
     });
-    if (!target) throw new NotFoundException(this.tCoupons('memberNotFound'));
-    if (target.id === adjustedBy)
-      throw new BadRequestException(this.t('adjustSelf'));
+    if (!target) throw couponNotFoundError('memberNotFound');
+    if (target.id === adjustedBy) throw badRequestError('adjustSelf');
     if (!(await this.isCustomerOf(organizationId, target.id)))
-      throw new NotFoundException(this.tCoupons('memberNotFound'));
+      throw couponNotFoundError('memberNotFound');
 
     await this.syncEarned({ userId: target.id });
 
@@ -920,9 +891,9 @@ export class PointsService {
             ),
           );
         if (adjustedToday + Math.abs(points) > maxNonOwnerPoints)
-          throw new ForbiddenException(
-            this.t('adjustOwnerOnly', { maxPoints: maxNonOwnerPoints }),
-          );
+          throw forbiddenError('adjustOwnerOnly', {
+            maxPoints: maxNonOwnerPoints,
+          });
       }
 
       if (points < 0) {
@@ -950,8 +921,7 @@ export class PointsService {
           (sum, row) => sum + row.remainingPoints,
           0,
         );
-        if (balance < -points)
-          throw new BadRequestException(this.t('insufficient'));
+        if (balance < -points) throw badRequestError('insufficient');
 
         let deficit = -points;
         for (const holding of holdings) {
@@ -1209,8 +1179,7 @@ export class PointsService {
         withinValidity(),
       ),
     });
-    if (!found?.pointsCost)
-      throw new BadRequestException(this.t('notRedeemable'));
+    if (!found?.pointsCost) throw badRequestError('notRedeemable');
     const pointsCost = found.pointsCost;
 
     const created = await this.db.transaction(async (tx) => {
@@ -1228,7 +1197,7 @@ export class PointsService {
             and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
           );
         if (locked.usedCount + reserved >= found.totalLimit)
-          throw new BadRequestException(this.tCoupons('usedUp'));
+          throw couponBadRequestError('usedUp');
       }
 
       const earns = await tx
@@ -1260,12 +1229,11 @@ export class PointsService {
             ),
           );
         if (redeemed >= found.perUserLimit)
-          throw new BadRequestException(this.t('perUserLimitReached'));
+          throw badRequestError('perUserLimitReached');
       }
 
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);
-      if (balance < pointsCost)
-        throw new BadRequestException(this.t('insufficient'));
+      if (balance < pointsCost) throw badRequestError('insufficient');
 
       let deficit = pointsCost;
       for (const earn of earns) {
