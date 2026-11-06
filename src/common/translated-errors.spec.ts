@@ -8,6 +8,7 @@ const modulesWithErrorCodes = [
   'inventory',
   'menus',
   'orders',
+  'organizations',
   'points',
   'store-photos',
   'waitlist',

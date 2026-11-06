@@ -7,13 +7,11 @@ import {
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import { DAY_MS, platformDateString } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { SpecialHoursService } from './special-hours.service.js';
 
@@ -28,10 +26,7 @@ describe('SpecialHoursService', () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new SpecialHoursService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new SpecialHoursService(db as unknown as DrizzleDB);
   }, 60_000);
 
   afterAll(async () => {
@@ -87,7 +82,7 @@ describe('SpecialHoursService', () => {
 
     expect(error).toBeInstanceOf(ConflictException);
     expect((error as ConflictException).getResponse()).toMatchObject({
-      message: 'common.organizations.specialHoursOverlap',
+      code: 'specialHoursOverlap',
       conflict: existing,
     });
   });
@@ -119,18 +114,14 @@ describe('SpecialHoursService', () => {
         validThrough: day(-1),
         openingHours: null,
       }),
-    ).rejects.toThrow(
-      new BadRequestException('common.organizations.specialHoursEnded'),
-    );
+    ).rejects.toMatchObject({ response: { code: 'specialHoursEnded' } });
     await expect(
       service.create('biru', {
         validFrom: day(3),
         validThrough: day(2),
         openingHours: null,
       }),
-    ).rejects.toThrow(
-      new BadRequestException('common.organizations.specialHoursInvalidRange'),
-    );
+    ).rejects.toMatchObject({ response: { code: 'specialHoursInvalidRange' } });
 
     const created = await service.create('biru', {
       validFrom: day(0),
