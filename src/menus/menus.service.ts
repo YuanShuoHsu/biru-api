@@ -1417,7 +1417,8 @@ export class MenusService {
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
-    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
+    if (!found || found.menuItemId !== where.menuItemId)
+      throw new NotFoundException();
     await this.validateAddOnTargets(where.menuItemId, {
       addOnMenuItemId:
         data.addOnMenuItemId === undefined
@@ -1446,7 +1447,8 @@ export class MenusService {
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
-    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
+    if (!found || found.menuItemId !== where.menuItemId)
+      throw new NotFoundException();
     await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
     return found;

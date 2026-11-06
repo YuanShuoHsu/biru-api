@@ -1,3 +1,5 @@
+import { NotFoundException } from '@nestjs/common';
+
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -486,6 +488,18 @@ describe('MenusService localized text filters and sorting', () => {
         },
         status: 404,
       });
+    });
+
+    it.each([
+      { id: 'missing', menuItemId: 'latte' },
+      { id: 'with-americano', menuItemId: 'americano' },
+    ])('加購不存在或不屬於該品項時，更新與刪除都回 404：%j', async (where) => {
+      await expect(
+        service.updateMenuItemAddOn(where, { addOnMenuItemId: 'americano' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deleteMenuItemAddOn(where)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
   describe('加購對象', () => {
