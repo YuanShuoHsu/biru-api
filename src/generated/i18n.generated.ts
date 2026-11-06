@@ -233,6 +233,7 @@ export type I18nTranslations = {
         "gcis": {
             "companyNotFound": string;
             "invalidBusinessNo": string;
+            "lookupUnavailable": string;
         };
         "inventory": {
             "ingredientInUse": string;

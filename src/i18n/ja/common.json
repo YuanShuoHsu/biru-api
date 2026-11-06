@@ -179,7 +179,8 @@
   },
   "gcis": {
     "companyNotFound": "この統一編号に該当する会社が見つかりません",
-    "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください"
+    "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください",
+    "lookupUnavailable": "現在、会社登記の照会を利用できません。しばらくしてからもう一度お試しください"
   },
   "inventory": {
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
