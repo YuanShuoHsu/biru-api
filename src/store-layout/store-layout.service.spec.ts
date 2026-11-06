@@ -6,7 +6,6 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
@@ -15,7 +14,6 @@ import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
 import type { StoreLayoutData } from '../db/schema/store-layout.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { ROLES_KEY } from '../menus/decorators/roles.decorator.js';
 
 import { StoreLayoutController } from './store-layout.controller.js';
@@ -52,10 +50,7 @@ describe('StoreLayoutService', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new StoreLayoutService(
-      db as unknown as DrizzleDB,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new StoreLayoutService(db as unknown as DrizzleDB);
   }, 60_000);
 
   afterAll(async () => {
@@ -70,9 +65,9 @@ describe('StoreLayoutService', () => {
   });
 
   it('門市還沒有平面圖時回 404', async () => {
-    await expect(service.get('biru')).rejects.toThrow(
-      new NotFoundException('common.storeLayout.notFound'),
-    );
+    await expect(service.get('biru')).rejects.toMatchObject({
+      response: { code: 'notFound' },
+    });
   });
 
   it('門市不存在時回 404', async () => {
@@ -105,9 +100,11 @@ describe('StoreLayoutService', () => {
   });
 
   it('桌號重複時回 400 且不寫入', async () => {
-    await expect(service.update('biru', layout([5, 5]))).rejects.toThrow(
-      new BadRequestException('common.storeLayout.duplicateTableNumber'),
-    );
+    const duplicate = service.update('biru', layout([5, 5]));
+    await expect(duplicate).rejects.toBeInstanceOf(BadRequestException);
+    await expect(duplicate).rejects.toMatchObject({
+      response: { code: 'duplicateTableNumber' },
+    });
     await expect(service.get('biru')).rejects.toBeInstanceOf(NotFoundException);
   });
 

@@ -1,23 +1,17 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { eq } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { storeLayout } from '../db/schema/store-layout.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type {
   StoreLayoutDataDto,
   StoreLayoutResponseDto,
 } from './dto/store-layout.dto.js';
+import { badRequestError, notFoundError } from './store-layout-errors.js';
 
 const fields = {
   organizationId: storeLayout.organizationId,
@@ -28,10 +22,7 @@ const fields = {
 
 @Injectable()
 export class StoreLayoutService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async get(organizationSlug: string): Promise<StoreLayoutResponseDto> {
     const organizationId = await getOrganizationIdBySlug(
@@ -42,12 +33,7 @@ export class StoreLayoutService {
       .select(fields)
       .from(storeLayout)
       .where(eq(storeLayout.organizationId, organizationId));
-    if (!found)
-      throw new NotFoundException(
-        this.i18n.t('common.storeLayout.notFound', {
-          lang: I18nContext.current()?.lang,
-        }),
-      );
+    if (!found) throw notFoundError('notFound');
 
     return found;
   }
@@ -60,12 +46,7 @@ export class StoreLayoutService {
     for (const { tableNumber } of data.items) {
       if (tableNumber === undefined) continue;
       if (seen.has(tableNumber))
-        throw new BadRequestException(
-          this.i18n.t('common.storeLayout.duplicateTableNumber', {
-            args: { tableNumber },
-            lang: I18nContext.current()?.lang,
-          }),
-        );
+        throw badRequestError('duplicateTableNumber', { tableNumber });
       seen.add(tableNumber);
     }
 
