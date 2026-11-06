@@ -7,6 +7,7 @@ import { languagesEnum } from '../db/schema/enums.js';
 
 import {
   badRequestError,
+  notFoundError,
   storeLayoutErrorCodes,
 } from './store-layout-errors.js';
 
@@ -47,6 +48,15 @@ describe('badRequestError', () => {
     });
     expect(t).toHaveBeenCalledWith('common.storeLayout.duplicateTableNumber', {
       args: { tableNumber: 5 },
+    });
+  });
+
+  it('沒有請求語系時以代碼當訊息', () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue(undefined);
+
+    expect(notFoundError('notFound').getResponse()).toMatchObject({
+      code: 'notFound',
+      message: 'notFound',
     });
   });
 });
