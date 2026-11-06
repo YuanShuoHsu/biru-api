@@ -16,18 +16,18 @@ export const COUPON_RECIPIENT_STRING_FILTER_FIELDS = [
 ] as const;
 export const COUPON_RECIPIENT_ENUM_FILTER_FIELDS = ['source'] as const;
 export const COUPON_RECIPIENT_DATE_FILTER_FIELDS = ['createdAt'] as const;
-export const COUPON_RECIPIENT_CUSTOM_FILTER_FIELDS = ['usedAt'] as const;
-export const COUPON_RECIPIENT_ALL_FILTER_FIELDS = [
+const COUPON_RECIPIENT_CUSTOM_FILTER_FIELDS = ['usedAt'] as const;
+const COUPON_RECIPIENT_ALL_FILTER_FIELDS = [
   ...COUPON_RECIPIENT_STRING_FILTER_FIELDS,
   ...COUPON_RECIPIENT_ENUM_FILTER_FIELDS,
   ...COUPON_RECIPIENT_DATE_FILTER_FIELDS,
   ...COUPON_RECIPIENT_CUSTOM_FILTER_FIELDS,
 ] as const;
 
-export type CouponRecipientFilterField =
+type CouponRecipientFilterField =
   (typeof COUPON_RECIPIENT_ALL_FILTER_FIELDS)[number];
 
-export const COUPON_RECIPIENT_SORT_FIELDS = [
+const COUPON_RECIPIENT_SORT_FIELDS = [
   'userEmail',
   'source',
   'grantedByEmail',
@@ -35,8 +35,7 @@ export const COUPON_RECIPIENT_SORT_FIELDS = [
   'usedAt',
 ] as const;
 
-export type CouponRecipientSortField =
-  (typeof COUPON_RECIPIENT_SORT_FIELDS)[number];
+type CouponRecipientSortField = (typeof COUPON_RECIPIENT_SORT_FIELDS)[number];
 
 export class CouponRecipientQueryDto {
   @IsOptional()

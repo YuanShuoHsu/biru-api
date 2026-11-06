@@ -22,11 +22,11 @@ export const COUPON_NUMBER_FILTER_FIELDS = [
   'pointsCost',
 ] as const;
 // 特例欄位:適用店家(陣列、含全部通用語意)與取得管道(三旗標合成),條件於 service 內組裝
-export const COUPON_CUSTOM_FILTER_FIELDS = [
+const COUPON_CUSTOM_FILTER_FIELDS = [
   'applicableOrganizationIds',
   'distribution',
 ] as const;
-export const COUPON_ALL_FILTER_FIELDS = [
+const COUPON_ALL_FILTER_FIELDS = [
   ...COUPON_STRING_FILTER_FIELDS,
   ...COUPON_ENUM_FILTER_FIELDS,
   ...COUPON_DATE_FILTER_FIELDS,
@@ -34,9 +34,9 @@ export const COUPON_ALL_FILTER_FIELDS = [
   ...COUPON_CUSTOM_FILTER_FIELDS,
 ] as const;
 
-export type CouponFilterField = (typeof COUPON_ALL_FILTER_FIELDS)[number];
+type CouponFilterField = (typeof COUPON_ALL_FILTER_FIELDS)[number];
 
-export const COUPON_SORT_FIELDS = [
+const COUPON_SORT_FIELDS = [
   'code',
   'applicableOrganizationIds',
   'scope',
@@ -53,7 +53,7 @@ export const COUPON_SORT_FIELDS = [
   'createdAt',
 ] as const;
 
-export type CouponSortField = (typeof COUPON_SORT_FIELDS)[number];
+type CouponSortField = (typeof COUPON_SORT_FIELDS)[number];
 
 export class CouponPaginationQueryDto {
   @IsOptional()
