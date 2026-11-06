@@ -89,7 +89,6 @@ describe('DeletedRecordsService.restore', () => {
       {} as never,
       { createShiftType } as never,
       { emit: vi.fn() } as unknown as EventEmitter2,
-      { t: (key: string) => key } as unknown as I18nService,
       {} as never,
     );
     await db.insert(deletedRecord).values({
