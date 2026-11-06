@@ -15,7 +15,7 @@ export const MODIFIER_NUMBER_FILTER_FIELDS = ['priceAdjustment'] as const;
 export const MODIFIER_ENUM_FILTER_FIELDS = ['availability'] as const;
 export const MODIFIER_ARRAY_ENUM_FILTER_FIELDS = ['availableModes'] as const;
 export const MODIFIER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
-export const MODIFIER_ALL_FILTER_FIELDS = [
+const MODIFIER_ALL_FILTER_FIELDS = [
   ...MODIFIER_STRING_FILTER_FIELDS,
   ...MODIFIER_NUMBER_FILTER_FIELDS,
   ...MODIFIER_ENUM_FILTER_FIELDS,
@@ -25,15 +25,15 @@ export const MODIFIER_ALL_FILTER_FIELDS = [
 
 export const MODIFIER_QUICK_FILTER_ENUM_FIELDS = ['availability'] as const;
 
-export const MODIFIER_SORT_FIELDS = [
+const MODIFIER_SORT_FIELDS = [
   ...MODIFIER_STRING_FILTER_FIELDS,
   ...MODIFIER_NUMBER_FILTER_FIELDS,
   ...MODIFIER_ENUM_FILTER_FIELDS,
   ...MODIFIER_DATE_FILTER_FIELDS,
 ] as const;
 
-export type ModifierFilterField = (typeof MODIFIER_ALL_FILTER_FIELDS)[number];
-export type ModifierSortField = (typeof MODIFIER_SORT_FIELDS)[number];
+type ModifierFilterField = (typeof MODIFIER_ALL_FILTER_FIELDS)[number];
+type ModifierSortField = (typeof MODIFIER_SORT_FIELDS)[number];
 
 export class ModifierPaginationQueryDto {
   @IsOptional()

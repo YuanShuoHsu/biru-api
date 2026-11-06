@@ -19,18 +19,17 @@ export const MODIFIER_GROUP_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const MODIFIER_GROUP_ALL_FILTER_FIELDS = [
+const MODIFIER_GROUP_ALL_FILTER_FIELDS = [
   ...MODIFIER_GROUP_STRING_FILTER_FIELDS,
   ...MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
   ...MODIFIER_GROUP_DATE_FILTER_FIELDS,
 ] as const;
 
-export const MODIFIER_GROUP_SORT_FIELDS = MODIFIER_GROUP_ALL_FILTER_FIELDS;
+const MODIFIER_GROUP_SORT_FIELDS = MODIFIER_GROUP_ALL_FILTER_FIELDS;
 
-export type ModifierGroupFilterField =
+type ModifierGroupFilterField =
   (typeof MODIFIER_GROUP_ALL_FILTER_FIELDS)[number];
-export type ModifierGroupSortField =
-  (typeof MODIFIER_GROUP_SORT_FIELDS)[number];
+type ModifierGroupSortField = (typeof MODIFIER_GROUP_SORT_FIELDS)[number];
 
 export class ModifierGroupPaginationQueryDto {
   @IsOptional()
