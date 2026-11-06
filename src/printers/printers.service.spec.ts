@@ -11,7 +11,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { PrintersService } from './printers.service.js';
 
-describe('PrintersService.findOrganizationId（PGlite）', () => {
+describe('PrintersService（PGlite）', () => {
   let client: PGlite;
   let service: PrintersService;
 
@@ -41,5 +41,26 @@ describe('PrintersService.findOrganizationId（PGlite）', () => {
 
     await expect(lookup).rejects.toBeInstanceOf(NotFoundException);
     await expect(lookup).rejects.toThrow('organizationNotFound');
+  });
+
+  it('nc 超過 int4 範圍時拒絕而不是丟出 500', async () => {
+    const [printer] = await drizzle(client, { schema })
+      .insert(schema.printer)
+      .values({
+        id: 'printer-1',
+        organizationId: 'org-1',
+        purpose: 'orderTicket',
+        username: 'biru-nc-overflow',
+        digestHa1: 'ha1',
+      })
+      .returning();
+    const nonce = `${Date.now()}.salt.signature`;
+
+    await expect(
+      service.acceptNonceCount(printer, nonce, 0x80000000),
+    ).resolves.toBe(false);
+    await expect(
+      service.acceptNonceCount(printer, nonce, 0x7fffffff),
+    ).resolves.toBe(true);
   });
 });
