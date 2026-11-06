@@ -1,14 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { and, desc, eq, lte, or } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import {
@@ -20,7 +12,6 @@ import {
 } from '../../db/schema/quant.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   AiConfigDto,
@@ -33,6 +24,12 @@ import type {
 } from '../dto/quant-bot.dto.js';
 import { QuantEngineService } from '../engine/quant-engine.service.js';
 import { quantEnvironment } from '../quant-environment.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+  unauthorizedError,
+} from '../quant-errors.js';
 
 import { DEFAULT_AI_EFFORT, DEFAULT_AI_MODEL } from './ai-model.js';
 import { isClaudeCodeLocal } from './claude-code-local.js';
@@ -57,8 +54,6 @@ const connectCode = () =>
       CONNECT_CODE_ALPHABET[byte % CONNECT_CODE_ALPHABET.length],
   ).join('');
 
-type ErrorKey = keyof I18nTranslations['common']['quant'];
-
 const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
 
@@ -80,16 +75,9 @@ export class QuantAiAgentService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly backtests: QuantAiBacktestService,
     private readonly engine: QuantEngineService,
   ) {}
-
-  private t(key: ErrorKey) {
-    return this.i18n.t(`common.quant.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private tokenScope(userId: string) {
     return and(
@@ -142,8 +130,7 @@ export class QuantAiAgentService {
 
   // 後端跑在本機時已經自己呼叫 Claude Code，代理再判斷一次只會重複消耗額度
   assertAgentNeeded() {
-    if (isClaudeCodeLocal())
-      throw new ConflictException(this.t('agentNotNeeded'));
+    if (isClaudeCodeLocal()) throw conflictError('agentNotNeeded');
   }
 
   startConnect(): QuantAgentConnectDto {
@@ -177,7 +164,7 @@ export class QuantAiAgentService {
         !entry.token &&
         entry.expiresAt > Date.now(),
     );
-    if (!connect) throw new BadRequestException(this.t('agentConnectExpired'));
+    if (!connect) throw badRequestError('agentConnectExpired');
 
     connect.token = await this.regenerateToken(userId);
   }
@@ -197,7 +184,7 @@ export class QuantAiAgentService {
         ),
       )
       .returning({ userId: quantAiAgentToken.userId });
-    if (!row) throw new UnauthorizedException(this.t('agentTokenInvalid'));
+    if (!row) throw unauthorizedError('agentTokenInvalid');
 
     return row.userId;
   }
@@ -257,15 +244,13 @@ export class QuantAiAgentService {
     await this.expireStale(userId);
 
     const request = await this.ownedRequest(userId, id);
-    if (request.status !== 'pending')
-      throw new BadRequestException(this.t('aiRequestClosed'));
+    if (request.status !== 'pending') throw badRequestError('aiRequestClosed');
     if (request.backtestId) return this.backtests.answer(id, decision);
 
     const bot = await this.db.query.quantBot.findFirst({
       where: eq(quantBot.id, request.botId!),
     });
-    if (bot?.status !== 'running')
-      throw new BadRequestException(this.t('botNotRunning'));
+    if (bot?.status !== 'running') throw badRequestError('botNotRunning');
 
     await this.execute(request, decision);
   }
@@ -295,8 +280,7 @@ export class QuantAiAgentService {
       columns: { config: true, status: true },
       where: eq(quantBot.id, request.botId!),
     });
-    if (bot?.status !== 'running')
-      throw new BadRequestException(this.t('botNotRunning'));
+    if (bot?.status !== 'running') throw badRequestError('botNotRunning');
 
     const [claimed] = await this.db
       .update(quantAiRequest)
@@ -313,7 +297,7 @@ export class QuantAiAgentService {
         ),
       )
       .returning({ id: quantAiRequest.id });
-    if (!claimed) throw new BadRequestException(this.t('aiRequestClosed'));
+    if (!claimed) throw badRequestError('aiRequestClosed');
 
     try {
       await this.engine.aiDecision(request.botId!, decision, {
@@ -353,7 +337,7 @@ export class QuantAiAgentService {
         eq(quantAiRequest.environment, quantEnvironment()),
       ),
     });
-    if (!request) throw new NotFoundException(this.t('aiRequestNotFound'));
+    if (!request) throw notFoundError('aiRequestNotFound');
 
     return request;
   }
