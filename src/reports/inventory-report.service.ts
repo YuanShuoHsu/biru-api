@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { type SQL, and, eq, gte, lt, or, sql } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
@@ -15,7 +15,6 @@ import { orderItem } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
@@ -28,16 +27,13 @@ import { parseReportRange } from './report-range.js';
 
 @Injectable()
 export class InventoryReportService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async getInventoryReport(
     organizationSlug: string,
     query: ReportRangeQueryDto,
   ): Promise<InventoryReportResponseDto> {
-    const { since, until } = parseReportRange(query, this.i18n);
+    const { since, until } = parseReportRange(query);
 
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),

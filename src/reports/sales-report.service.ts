@@ -10,7 +10,6 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
-import { I18nService } from 'nestjs-i18n';
 
 import { DEFAULT_LANGUAGE, type LocalizedText } from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
@@ -19,7 +18,6 @@ import { organization } from '../db/schema/organizations.js';
 import { refund } from '../db/schema/refunds.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { organizationNotFoundError } from '../common/utils/organizations.js';
@@ -62,16 +60,13 @@ const groupKeyOf = (groupBy: OrderSalesReportGroupBy, at: SQL | Column) =>
 
 @Injectable()
 export class SalesReportService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async getSalesReport(
     organizationSlug: string,
     { groupBy, ...range }: SalesReportQueryDto,
   ): Promise<SalesReportResponseDto> {
-    const { since, until } = parseReportRange(range, this.i18n);
+    const { since, until } = parseReportRange(range);
 
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
