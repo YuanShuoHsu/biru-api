@@ -312,7 +312,8 @@ export class MenusService {
           eq(printer.id, printerId),
           eq(printer.purpose, 'orderTicket'),
         ),
-      );
+      )
+      .for('key share', { of: printer });
     if (!found) throw notFoundError('printerNotFound');
   }
 
