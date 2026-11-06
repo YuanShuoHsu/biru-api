@@ -1,44 +1,28 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import { and, asc, eq, gte, lte, ne } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { platformDateString } from '../common/constants/timezone.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { pgErrorCode } from '../common/utils/pg-errors.js';
 import { organizationSpecialHours } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type {
   CreateSpecialHoursDto,
   SpecialHoursDto,
   UpdateSpecialHoursDto,
 } from './dto/special-hours.dto.js';
-
-const specialHoursNotFoundError = () =>
-  new NotFoundException({
-    error: 'Not Found',
-    code: 'specialHoursNotFound',
-    message:
-      I18nContext.current<I18nTranslations>()?.t(
-        'common.organizations.specialHoursNotFound',
-      ) ?? 'specialHoursNotFound',
-  });
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './organization-errors.js';
 
 @Injectable()
 export class SpecialHoursService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findUpcoming(organizationSlug: string): Promise<SpecialHoursDto[]> {
     const organizationId = await getOrganizationIdBySlug(
@@ -95,7 +79,7 @@ export class SpecialHoursService {
     const existing = await this.db.query.organizationSpecialHours.findFirst({
       where,
     });
-    if (!existing) throw specialHoursNotFoundError();
+    if (!existing) throw notFoundError('specialHoursNotFound');
 
     const next = { ...existing, ...dto };
     this.assertUpcomingRange(next);
@@ -108,7 +92,7 @@ export class SpecialHoursService {
         .where(where)
         .returning(),
     );
-    if (!updated) throw specialHoursNotFoundError();
+    if (!updated) throw notFoundError('specialHoursNotFound');
 
     return updated;
   }
@@ -128,7 +112,7 @@ export class SpecialHoursService {
         ),
       )
       .returning({ id: organizationSpecialHours.id });
-    if (!deleted.length) throw specialHoursNotFoundError();
+    if (!deleted.length) throw notFoundError('specialHoursNotFound');
   }
 
   private assertUpcomingRange({
@@ -138,17 +122,11 @@ export class SpecialHoursService {
     validFrom: string;
     validThrough: string;
   }): void {
-    const lang = I18nContext.current()?.lang;
-
     if (validFrom > validThrough)
-      throw new BadRequestException(
-        this.i18n.t('common.organizations.specialHoursInvalidRange', { lang }),
-      );
+      throw badRequestError('specialHoursInvalidRange');
 
     if (validThrough < platformDateString(new Date()))
-      throw new BadRequestException(
-        this.i18n.t('common.organizations.specialHoursEnded', { lang }),
-      );
+      throw badRequestError('specialHoursEnded');
   }
 
   private async rejectOverlap<T>(
@@ -175,14 +153,7 @@ export class SpecialHoursService {
       });
       if (!conflict) throw error;
 
-      throw new ConflictException({
-        error: 'Conflict',
-        message: this.i18n.t('common.organizations.specialHoursOverlap', {
-          lang: I18nContext.current()?.lang,
-          args: conflict,
-        }),
-        conflict,
-      });
+      throw conflictError('specialHoursOverlap', conflict, { conflict });
     }
   }
 }

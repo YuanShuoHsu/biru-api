@@ -1,12 +1,9 @@
 import {
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
-import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import {
   and,
@@ -37,7 +34,6 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { getDeletableOrganizationIds } from '../auth/deletion-guards.js';
 import { isAuthorized } from '../auth/permissions.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import { DAY_MS } from '../common/constants/timezone.js';
@@ -58,13 +54,11 @@ import type {
 } from './dto/organization-member-response.dto.js';
 import type { MyOrganizationListItemDto } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
+import { conflictError, forbiddenError } from './organization-errors.js';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   organizations(includeClosed?: boolean): Promise<Organization[]> {
     return this.db.query.organization.findMany({
@@ -154,12 +148,7 @@ export class OrganizationsService {
     const isSelf = target.userId === actor.userId;
     if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
       throw new ForbiddenException();
-    if (showcase && !isSelf)
-      throw new ForbiddenException(
-        this.i18n.t('common.organizations.showcaseOpenSelfOnly', {
-          lang: I18nContext.current()?.lang,
-        }),
-      );
+    if (showcase && !isSelf) throw forbiddenError('showcaseOpenSelfOnly');
 
     const [updated] = await this.db
       .update(member)
@@ -213,11 +202,7 @@ export class OrganizationsService {
     });
     if (!target) throw new NotFoundException();
 
-    throw new ConflictException(
-      this.i18n.t('common.organizations.notJoinedAsPlatformAdmin', {
-        lang: I18nContext.current()?.lang,
-      }),
-    );
+    throw conflictError('notJoinedAsPlatformAdmin');
   }
 
   async setClosed(

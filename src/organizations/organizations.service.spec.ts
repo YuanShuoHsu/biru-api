@@ -31,9 +31,7 @@ describe('OrganizationsService 團隊介紹', () => {
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as DrizzleDB;
-    service = new OrganizationsService(db, {
-      t: (key: string) => key,
-    } as never);
+    service = new OrganizationsService(db);
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
         ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
@@ -256,12 +254,7 @@ describe('OrganizationsService 轉為真正店主', () => {
     client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
-    service = new OrganizationsService(
-      pglite as unknown as DrizzleDB,
-      {
-        t: (key: string) => key,
-      } as never,
-    );
+    service = new OrganizationsService(pglite as unknown as DrizzleDB);
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
         ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
@@ -374,10 +367,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
-    service = new OrganizationsService(
-      pglite as unknown as DrizzleDB,
-      { t: (key: string) => key } as never,
-    );
+    service = new OrganizationsService(pglite as unknown as DrizzleDB);
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
         ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
