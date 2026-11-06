@@ -6,6 +6,7 @@ import {
   eq,
   inArray,
   ne,
+  sql,
 } from 'drizzle-orm';
 import { I18nService, type Path } from 'nestjs-i18n';
 
@@ -228,6 +229,8 @@ export class OrderTicketService implements PrintJobSource {
 
     const { password, printer, queued } = await this.db.transaction(
       async (tx) => {
+        await this.lockPrinters(tx, organizationId);
+
         const existing = await this.printersService.list(
           organizationId,
           'orderTicket',
@@ -305,6 +308,8 @@ export class OrderTicketService implements PrintJobSource {
       await this.printersService.findOrganizationId(organizationSlug);
 
     const updated = await this.db.transaction(async (tx) => {
+      await this.lockPrinters(tx, organizationId);
+
       await tx
         .update(printerTable)
         .set({ isDefault: false })
@@ -347,6 +352,8 @@ export class OrderTicketService implements PrintJobSource {
       await this.printersService.findOrganizationId(organizationSlug);
 
     const changed = await this.db.transaction(async (tx) => {
+      await this.lockPrinters(tx, organizationId);
+
       const [deleted] = await tx
         .select({ isDefault: printerTable.isDefault })
         .from(printerTable)
@@ -428,6 +435,13 @@ export class OrderTicketService implements PrintJobSource {
     });
 
     this.emitOrdersUpdated(organizationId, changed);
+  }
+
+  // https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS
+  private async lockPrinters(tx: Tx, organizationId: string) {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`order_ticket_printers:${organizationId}`}, 0))`,
+    );
   }
 
   /** 品項自己的設定 → 最近一層有設定的上層分類 → 預設印表機 */
