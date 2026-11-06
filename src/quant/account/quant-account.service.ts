@@ -1,12 +1,7 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -20,7 +15,6 @@ import {
 } from '../../db/schema/quant.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   CreateQuantCredentialDto,
@@ -53,6 +47,7 @@ import type {
   PionexTransfer,
 } from '../pionex/pionex.types.js';
 import { quantEnvironment } from '../quant-environment.js';
+import { badRequestError, notFoundError } from '../quant-errors.js';
 
 import { collectHistoryPage, type HistoryPage } from './history-page.js';
 
@@ -129,31 +124,10 @@ const toCredentialDto = ({
 export class QuantAccountService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly privateStreams: PionexPrivateStreams,
     private readonly rest: PionexRestClient,
     private readonly symbols: PionexSymbolsService,
   ) {}
-
-  private t(
-    key:
-      | 'credentialInvalid'
-      | 'credentialNotFound'
-      | 'exchangeError'
-      | 'exchangeRejected'
-      | 'orderAmountRejected'
-      | 'orderFieldsMarketBuy'
-      | 'orderFieldsMarketSell'
-      | 'orderFieldsLimit'
-      | 'orderNotFound'
-      | 'orderSizeRejected',
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.quant.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   async listCredentials(userId: string): Promise<QuantCredentialDto[]> {
     const rows = await this.db.query.quantCredential.findMany({
@@ -180,9 +154,7 @@ export class QuantAccountService {
     } catch (error) {
       if (!(error instanceof PionexApiError)) throw error;
 
-      throw new BadRequestException(
-        this.t('credentialInvalid', { message: error.message }),
-      );
+      throw badRequestError('credentialInvalid', { message: error.message });
     }
 
     const [row] = await this.db
@@ -212,7 +184,7 @@ export class QuantAccountService {
         ),
       )
       .returning({ id: quantCredential.id });
-    if (!removed) throw new NotFoundException(this.t('credentialNotFound'));
+    if (!removed) throw notFoundError('credentialNotFound');
 
     this.privateStreams.close(id);
   }
@@ -229,7 +201,7 @@ export class QuantAccountService {
         eq(quantCredential.environment, quantEnvironment()),
       ),
     });
-    if (!row) throw new NotFoundException(this.t('credentialNotFound'));
+    if (!row) throw notFoundError('credentialNotFound');
 
     return {
       apiKey: decryptField(row.encryptedApiKey, 'quantCredential'),
@@ -346,11 +318,11 @@ export class QuantAccountService {
     { amount, price, side, size, symbol, type }: PlaceQuantOrderDto,
   ): Promise<PlaceQuantOrderResponseDto> {
     if (type === 'LIMIT' && (!price || !size))
-      throw new BadRequestException(this.t('orderFieldsLimit'));
+      throw badRequestError('orderFieldsLimit');
     if (type === 'MARKET' && side === 'BUY' && !amount)
-      throw new BadRequestException(this.t('orderFieldsMarketBuy'));
+      throw badRequestError('orderFieldsMarketBuy');
     if (type === 'MARKET' && side === 'SELL' && !size)
-      throw new BadRequestException(this.t('orderFieldsMarketSell'));
+      throw badRequestError('orderFieldsMarketSell');
 
     await this.symbols.get(symbol);
     const credentials = await this.resolveCredentials(userId, id);
@@ -383,8 +355,7 @@ export class QuantAccountService {
     symbol: string,
     orderId: string,
   ): Promise<void> {
-    if (!/^\d+$/.test(orderId))
-      throw new NotFoundException(this.t('orderNotFound'));
+    if (!/^\d+$/.test(orderId)) throw notFoundError('orderNotFound');
 
     const credentials = await this.resolveCredentials(userId, id);
     const order = await this.rest
@@ -396,11 +367,10 @@ export class QuantAccountService {
           error instanceof PionexApiError &&
           ORDER_NOT_FOUND_CODES.has(error.code)
         )
-          throw new NotFoundException(this.t('orderNotFound'));
+          throw notFoundError('orderNotFound');
         throw error;
       });
-    if (!isManualOrder(order))
-      throw new NotFoundException(this.t('orderNotFound'));
+    if (!isManualOrder(order)) throw notFoundError('orderNotFound');
 
     await this.translateOrderError(() =>
       this.rest.signed(credentials, 'DELETE', '/api/v1/trade/order', {
@@ -438,8 +408,7 @@ export class QuantAccountService {
     symbol: string,
     orderId: string,
   ): Promise<QuantFillDto[]> {
-    if (!/^\d+$/.test(orderId))
-      throw new NotFoundException(this.t('orderNotFound'));
+    if (!/^\d+$/.test(orderId)) throw notFoundError('orderNotFound');
 
     const { fills } = await this.withExchangeError(async () =>
       this.rest.signed<{ fills: PionexFill[] }>(
@@ -570,7 +539,7 @@ export class QuantAccountService {
   }
 
   orderNotFound() {
-    return new NotFoundException(this.t('orderNotFound'));
+    return notFoundError('orderNotFound');
   }
 
   async withExchangeError<T>(request: () => Promise<T>) {
@@ -579,9 +548,7 @@ export class QuantAccountService {
     } catch (error) {
       if (!(error instanceof PionexApiError)) throw error;
 
-      throw new BadRequestException(
-        this.t('exchangeError', { message: error.message }),
-      );
+      throw badRequestError('exchangeError', { message: error.message });
     }
   }
 
@@ -594,11 +561,9 @@ export class QuantAccountService {
       const known =
         KNOWN_ORDER_ERRORS[error.code as keyof typeof KNOWN_ORDER_ERRORS];
 
-      throw new BadRequestException(
-        known
-          ? this.t(known)
-          : this.t('exchangeRejected', { message: error.message }),
-      );
+      throw known
+        ? badRequestError(known)
+        : badRequestError('exchangeRejected', { message: error.message });
     }
   }
 }

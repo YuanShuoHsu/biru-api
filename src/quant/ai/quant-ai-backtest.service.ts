@@ -1,14 +1,7 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -18,7 +11,6 @@ import {
 } from '../../db/schema/quant.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import {
   QuantBacktestService,
@@ -53,14 +45,13 @@ import {
   type PionexKlineInterval,
 } from '../pionex/pionex.types.js';
 import { quantEnvironment } from '../quant-environment.js';
+import { badRequestError, notFoundError } from '../quant-errors.js';
 
 import { QuantAiAdvisorService } from './quant-ai-advisor.service.js';
 import { QuantAiKeyService } from './quant-ai-key.service.js';
 
 const RECENT_DECISIONS = 8;
 const LIST_LIMIT = 20;
-
-type ErrorKey = keyof I18nTranslations['common']['quant'];
 
 class NeedAiDecision extends Error {
   constructor(readonly snapshot: AiSnapshot) {
@@ -96,7 +87,6 @@ export class QuantAiBacktestService {
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly advisor: QuantAiAdvisorService,
     private readonly aiKeys: QuantAiKeyService,
     private readonly backtests: QuantBacktestService,
@@ -105,19 +95,13 @@ export class QuantAiBacktestService {
     private readonly symbols: PionexSymbolsService,
   ) {}
 
-  private t(key: ErrorKey) {
-    return this.i18n.t(`common.quant.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
   async create(
     userId: string,
     { candleCount, config, investment, symbol }: CreateAiBacktestDto,
   ): Promise<QuantAiBacktestDto> {
     const isPerp = (await this.symbols.marketTypeOf(symbol)) === 'PERP';
     if (isPerp !== !!config.futures)
-      throw new BadRequestException(this.t('futuresPositionMismatch'));
+      throw badRequestError('futuresPositionMismatch');
     if (config.source === 'claude_api') await this.aiKeys.resolve(userId);
     await botSymbolSpec(this.symbols, { config, symbol, type: 'ai' });
 
@@ -210,7 +194,7 @@ export class QuantAiBacktestService {
   ): Promise<QuantAiBacktestDto> {
     const run = await this.owned(userId, id);
     if (run.status !== 'canceled' && run.status !== 'failed')
-      throw new BadRequestException(this.t('aiBacktestNotResumable'));
+      throw badRequestError('aiBacktestNotResumable');
 
     const config = {
       ...(run.config as unknown as AiConfigDto),
@@ -222,7 +206,7 @@ export class QuantAiBacktestService {
         config.monthlyCostLimit !== undefined &&
         run.cost >= config.monthlyCostLimit
       )
-        throw new BadRequestException(this.t('aiBacktestCostLimitReached'));
+        throw badRequestError('aiBacktestCostLimitReached');
     }
 
     await this.db.transaction(async (tx) => {
@@ -523,7 +507,7 @@ export class QuantAiBacktestService {
     const run = await this.db.query.quantAiBacktest.findFirst({
       where: and(eq(quantAiBacktest.id, id), this.scope(userId)),
     });
-    if (!run) throw new NotFoundException(this.t('aiBacktestNotFound'));
+    if (!run) throw notFoundError('aiBacktestNotFound');
 
     return run;
   }

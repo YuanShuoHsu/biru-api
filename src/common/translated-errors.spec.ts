@@ -10,6 +10,7 @@ const modulesWithErrorCodes = [
   'orders',
   'organizations',
   'points',
+  'quant',
   'store-photos',
   'waitlist',
 ];

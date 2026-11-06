@@ -9,8 +9,6 @@ import type {
 import type { PreviewFuturesOrderDto } from './dto/quant-futures.dto.js';
 import { isConditionComplete } from './engine/strategies/indicator-conditions.js';
 
-const i18n = { t: vi.fn(() => 'error') };
-
 describe('isConditionComplete', () => {
   it.each<[IndicatorConditionDto, boolean]>([
     [{ kind: 'rsi', operator: 'above', value: 70 }, true],
@@ -35,11 +33,7 @@ describe('指標回測', () => {
   it('條件不完整時回 400，不打交易所', async () => {
     const market = { findCandleHistory: vi.fn() };
     const symbols = { marketTypeOf: vi.fn(), get: vi.fn(), getPerp: vi.fn() };
-    const service = new QuantBacktestService(
-      i18n as never,
-      market as never,
-      symbols as never,
-    );
+    const service = new QuantBacktestService(market as never, symbols as never);
 
     await expect(
       service.run('indicator', {
@@ -62,7 +56,6 @@ describe('合約下單預覽', () => {
   const symbols = { getPerp: vi.fn(), riskTiersOf: vi.fn() };
   const service = new QuantFuturesService(
     {} as never,
-    i18n as never,
     { markPrice: vi.fn() } as never,
     {} as never,
     symbols as never,

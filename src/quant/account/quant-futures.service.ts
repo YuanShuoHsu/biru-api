@@ -1,9 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
-
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type {
   AdjustIsolatedMarginDto,
@@ -40,6 +37,7 @@ import type {
   PionexPosition,
   PionexPositionMode,
 } from '../pionex/pionex.types.js';
+import { badRequestError } from '../quant-errors.js';
 
 import { collectHistoryPage, type HistoryPage } from './history-page.js';
 import { QuantAccountService } from './quant-account.service.js';
@@ -131,21 +129,10 @@ const toPositionHistory = (
 export class QuantFuturesService {
   constructor(
     private readonly account: QuantAccountService,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly marketCache: MarketCacheService,
     private readonly rest: PionexRestClient,
     private readonly symbols: PionexSymbolsService,
   ) {}
-
-  private t(
-    key: 'orderFieldsFuturesLimit',
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.quant.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private async get<T>(
     userId: string,
@@ -535,7 +522,7 @@ export class QuantFuturesService {
 
   private assertLimitPrice(type: PionexFuturesOrderType, price?: string) {
     if (type !== 'MARKET_QTY' && !(Number(price) > 0))
-      throw new BadRequestException(this.t('orderFieldsFuturesLimit'));
+      throw badRequestError('orderFieldsFuturesLimit');
   }
 
   private async submitOrder(
