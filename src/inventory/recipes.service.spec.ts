@@ -123,6 +123,22 @@ describe('RecipesService', () => {
     expect(await service.findOneByModifier('no-milk')).toBeNull();
   });
 
+  it('未綁定的食譜不含綁客製選項的食譜', async () => {
+    await client.exec(`
+      insert into modifier_group (id, menu_id, display_name) values ('syrup-options', 'menu', '{"zh-TW":"糖漿"}');
+      insert into modifier (id, modifier_group_id, display_name) values ('vanilla', 'syrup-options', '{"zh-TW":"香草"}');
+    `);
+    await db.insert(recipe).values({
+      id: 'vanilla-recipe',
+      name: { 'zh-TW': '香草糖漿' },
+      organizationId: ORG,
+      modifierId: 'vanilla',
+    });
+
+    expect(await recipeIds({ hasMenuItem: false })).toEqual(['mocha']);
+    expect(await recipeIds({ hasMenuItem: true })).toEqual(['latte']);
+  });
+
   it('食譜材料名稱的快速搜尋與篩選不比對語系鍵', async () => {
     expect(await materialIds({ quickFilterValue: 'TW' })).toEqual([]);
     expect(await materialIds({ quickFilterValue: '咖啡' })).toEqual(['beans']);

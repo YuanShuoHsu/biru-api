@@ -153,7 +153,7 @@ export class RecipesService {
         ? undefined
         : hasMenuItem
           ? isNotNull(recipe.menuItemId)
-          : isNull(recipe.menuItemId),
+          : and(isNull(recipe.menuItemId), isNull(recipe.modifierId)),
       filterField === 'name' && filterOperator
         ? buildLocalizedTextFilterCondition(
             recipe.name,
