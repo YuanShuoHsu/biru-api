@@ -69,7 +69,9 @@ describe('EcpayOrderInvoiceService 只替已付款的訂單開發票', () => {
   });
 
   it('付款失敗轉異常的訂單即使有付款時間也不開立', async () => {
-    await expect(service.issueForOrder('biru', 'problem')).rejects.toMatchObject({
+    await expect(
+      service.issueForOrder('biru', 'problem'),
+    ).rejects.toMatchObject({
       status: 409,
       response: { code: 'notPaid' },
     });

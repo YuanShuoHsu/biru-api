@@ -45,7 +45,7 @@ import {
   conflictError,
   internalServerError,
   invoiceStatusText,
-  notFoundError as notFoundInvoiceError,
+  notFoundError as invoiceNotFoundError,
 } from '../invoice-errors.js';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
@@ -315,7 +315,7 @@ export class EcpayOrderInvoiceService {
     const found = toActiveInvoice(row);
 
     const { invoice: data } = found;
-    if (!data) throw notFoundInvoiceError('invoiceNotFound');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (data.status !== 'pending')
       throw conflictError('notPending', {
         status: invoiceStatusText(data.status),
@@ -547,7 +547,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw notFoundInvoiceError('invoiceNotFound');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
       throw conflictError('notVoidable', {
         status: invoiceStatusText(data.status),
@@ -632,7 +632,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found?.invoices.find(({ invoiceNumber }) => invoiceNumber);
-    if (!data) throw notFoundInvoiceError('invoiceNotFound');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (!data.invoiceNumber || !data.invoiceDate)
       throw conflictError('notIssued');
 
@@ -704,7 +704,7 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw notFoundInvoiceError('invoiceNotFound');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (!isPrintable(data)) throw conflictError('notPrintable');
 
     return { data, organizationId: org.id };

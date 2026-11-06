@@ -172,7 +172,7 @@
     "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",
     "organizationNotFound": "找不到此门店。",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
-    "returnUrlNotAllowed": "不允许使用这个返回网址",
+    "returnUrlNotAllowed": "不允许使用此返回网址",
     "smtpTestFailed": "测试邮件发送失败，请检查 SMTP 设置后再试",
     "statsSinceNotMonthStart": "开始时间必须是平台时区的月初",
     "tooManyRequests": "请求过多"
