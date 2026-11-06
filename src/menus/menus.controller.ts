@@ -626,6 +626,16 @@ export class MenusController {
     return this.menusService.reorderModifiers(groupId, ids);
   }
 
+  @Get('modifiers/:modifierId')
+  @Roles({ menu: ['read'] }, 'modifierId')
+  @ApiOperation({ summary: '取得選項詳情' })
+  findModifier(
+    @Param('modifierId') modifierId: string,
+    @OrganizationId() organizationId: string,
+  ): Promise<ModifierResponseDto> {
+    return this.menusService.modifier({ id: modifierId }, organizationId);
+  }
+
   @Patch('modifiers/:modifierId')
   @Roles({ menu: ['update'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })

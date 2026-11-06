@@ -472,6 +472,22 @@ describe('MenusService localized text filters and sorting', () => {
       inEnglish();
       expect(await modifierIds(sorted)).toEqual(['boba', 'jelly']);
     });
+
+    it('取得單一選項時帶門市幣別，不存在時回帶代碼的 404', async () => {
+      await expect(
+        service.modifier({ id: 'boba' }, ORG),
+      ).resolves.toMatchObject({
+        id: 'boba',
+        modifierGroupId: 'extras',
+        priceCurrency: 'TWD',
+      });
+      await expect(
+        service.modifier({ id: 'missing' }, ORG),
+      ).rejects.toMatchObject({
+        response: { code: 'modifierNotFound' },
+        status: 404,
+      });
+    });
   });
 
   describe('missing records', () => {

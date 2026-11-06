@@ -1832,6 +1832,19 @@ export class MenusService {
     );
   }
 
+  async modifier(
+    where: { id: string },
+    organizationId: string,
+  ): Promise<ModifierWithCurrency> {
+    const [found, priceCurrency] = await Promise.all([
+      this.db.query.modifier.findFirst({ where: eq(modifier.id, where.id) }),
+      getOrganizationCurrency(this.db, organizationId),
+    ]);
+    if (!found) throw notFoundError('modifierNotFound');
+
+    return { ...found, priceCurrency };
+  }
+
   async updateModifier(params: {
     where: { id: string };
     organizationId: string;
