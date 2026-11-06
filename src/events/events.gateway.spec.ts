@@ -1,4 +1,4 @@
-import { ForbiddenException, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { EXCEPTION_FILTERS_METADATA } from '@nestjs/common/constants';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
 import type { Namespace, Socket } from 'socket.io';
@@ -500,9 +500,14 @@ describe('EventsGateway room joins', () => {
 
   const storeJoins = joins.slice(1);
 
-  const forbidden = new ForbiddenException(
-    'translated:common.exceptions.forbidden',
-  );
+  const forbidden = {
+    status: 403,
+    response: {
+      error: 'Forbidden',
+      code: 'forbidden',
+      message: 'translated:common.exceptions.forbidden',
+    },
+  };
 
   it.each(storeJoins)(
     'join%s 通過時回 true、加入 room 並記下使用者',
@@ -524,7 +529,7 @@ describe('EventsGateway room joins', () => {
       const context = setup([...users]);
       authorize(context);
 
-      await expect(context.send(`join${name}`, body)).rejects.toThrow(
+      await expect(context.send(`join${name}`, body)).rejects.toMatchObject(
         forbidden,
       );
       expect(context.rooms.has(room)).toBe(false);
@@ -536,7 +541,9 @@ describe('EventsGateway room joins', () => {
     const context = setup();
     context.session.resolve(null);
 
-    await expect(context.send(`join${name}`, body)).rejects.toThrow(forbidden);
+    await expect(context.send(`join${name}`, body)).rejects.toMatchObject(
+      forbidden,
+    );
     expect(context.rooms.has(room)).toBe(false);
   });
 
@@ -556,9 +563,9 @@ describe('EventsGateway room joins', () => {
     context.session.resolve(null);
     context.canRead.resolve(false);
 
-    await expect(context.send('joinOrder', { orderId: 'o1' })).rejects.toThrow(
-      forbidden,
-    );
+    await expect(
+      context.send('joinOrder', { orderId: 'o1' }),
+    ).rejects.toMatchObject(forbidden);
     expect(context.rooms.has('order:o1')).toBe(false);
   });
 
@@ -598,7 +605,7 @@ describe('EventsGateway room joins', () => {
       const context = setup([{ id: 'staff' }]);
       authorize(context);
 
-      await expect(context.send(`join${name}`, body)).rejects.toThrow(
+      await expect(context.send(`join${name}`, body)).rejects.toMatchObject(
         forbidden,
       );
 
@@ -621,7 +628,7 @@ describe('EventsGateway room joins', () => {
     await context.send('leaveOrder', { orderId: 'o1' });
     await expect(
       context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
-    ).rejects.toThrow(forbidden);
+    ).rejects.toMatchObject(forbidden);
     valid.resolve(true);
     await first;
 
@@ -640,7 +647,7 @@ describe('EventsGateway room joins', () => {
     context.arrive('leaveOrder', { orderId: 'o1' });
     await expect(
       context.send('joinOrder', { orderId: 'o1', accessToken: 'stale' }),
-    ).rejects.toThrow(forbidden);
+    ).rejects.toMatchObject(forbidden);
     await context.handle('leaveOrder', { orderId: 'o1' });
 
     expect(context.rooms.has('order:o1')).toBe(false);
