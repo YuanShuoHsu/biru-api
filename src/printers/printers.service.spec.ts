@@ -59,8 +59,8 @@ describe('PrintersService（PGlite）', () => {
     await expect(
       service.acceptNonceCount(printer, nonce, 0x80000000),
     ).resolves.toBe(false);
-    await expect(service.acceptNonceCount(printer, nonce, 1)).resolves.toBe(
-      true,
-    );
+    await expect(
+      service.acceptNonceCount(printer, nonce, 0x7fffffff),
+    ).resolves.toBe(true);
   });
 });
