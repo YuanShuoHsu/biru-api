@@ -95,7 +95,6 @@ export type I18nTranslations = {
             "childcareReductionInvalid": string;
             "indigenousHolidayInvalid": string;
             "insufficientLeaveBalance": string;
-            "invalidBusinessNumber": string;
             "invalidEarningType": string;
             "invalidEmergencyDetails": string;
             "invalidEventSequence": string;
@@ -232,7 +231,6 @@ export type I18nTranslations = {
         };
         "gcis": {
             "companyNotFound": string;
-            "invalidBusinessNo": string;
             "lookupUnavailable": string;
         };
         "inventory": {
@@ -747,8 +745,8 @@ export type I18nTranslations = {
         };
     };
     "validation": {
+        "businessNumber": string;
         "invoiceCertificate": string;
-        "invoiceCustomerIdentifier": string;
         "invoiceDonateCode": string;
         "invoiceMobileBarcode": string;
         "isEmail": string;

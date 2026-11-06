@@ -1,3 +1,4 @@
+import type { FilterOperator } from '../common/constants/pagination.js';
 import { pageInMemory } from './attendance-leaves.service.js';
 
 const rows = [
@@ -7,7 +8,7 @@ const rows = [
 
 const filter = (
   filterField: string,
-  filterOperator: string,
+  filterOperator: FilterOperator,
   filterValue: string,
 ) =>
   pageInMemory(
@@ -36,7 +37,7 @@ describe('pageInMemory', () => {
     ['usedMinutes', '=', 'abc'],
     ['usedMinutes', '=', '1e400'],
     ['usedMinutes', 'isAnyOf', 'abc,'],
-  ])(
+  ] as const)(
     '%s %s %s 不是合法值時忽略篩選，與 SQL 篩選一致',
     (field, operator, value) => {
       expect(filter(field, operator, value)).toEqual(['a', 'b']);

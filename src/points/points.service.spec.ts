@@ -311,7 +311,9 @@ describe('PointsService.notifyExpiringPoints', () => {
     expect(await remindedIds()).toEqual([]);
 
     vi.useFakeTimers({ toFake: ['Date'] });
-    onTestFinished(() => vi.useRealTimers());
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     vi.setSystemTime(Date.now() + DAY_MS);
 
     await expect(service.notifyExpiringPoints()).resolves.toBe(1);
@@ -1246,6 +1248,7 @@ describe('PointsService.findAllForOrganization', () => {
     await addPaidOrder('o1', ORG, 'amy');
     await client.exec(`update point_setting set amount_per_point = 1.1`);
     const { ownerOnlyAbovePoints } = await service.getAdjustmentLimit('admin');
+    if (ownerOnlyAbovePoints === null) throw new Error('admin has a limit');
 
     expect(
       await service.adjustForOrganization(

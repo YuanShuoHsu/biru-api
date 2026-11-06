@@ -116,7 +116,10 @@ describe('RolesGuard', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it.each([{ refund: ['create'] }, { invoice: ['void'] }])(
+  it.each<Record<string, string[]>>([
+    { refund: ['create'] },
+    { invoice: ['void'] },
+  ])(
     'still lets a closed organization refund and void invoices (%o)',
     async (action) => {
       const { context } = contextFor(action, 'POST');

@@ -15,10 +15,7 @@ const fullText = (text: string) =>
     languagesEnum.enumValues.map((language) => [language, text]),
   );
 
-const errorsOf = async (
-  dto: typeof CreateMenuDto | typeof CreateRecipeDto,
-  fields: object,
-) =>
+const errorsOf = async (dto: new () => object, fields: object) =>
   (await validate(plainToInstance(dto, fields), validationOptions)).map(
     ({ property }) => property,
   );

@@ -42,7 +42,6 @@
     "childcareReductionInvalid": "育兒減少工時期間須在到職後，且落在已登記子女出生後至滿三歲前；請先在員工管理的「子女資料」登記子女。",
     "indigenousHolidayInvalid": "歲時祭儀放假日每年最多 3 天，須在任職期間內、不可重複，也不可與國定假日同一天。",
     "insufficientLeaveBalance": "休假額度不足，請由主管確認年度額度。",
-    "invalidBusinessNumber": "統一編號檢查碼不正確。",
     "invalidEarningType": "找不到這個加項名目。",
     "invalidEmergencyDetails": "請確認報備時間與至少連續 24 小時的補假。",
     "invalidEventSequence": "打卡順序或時間不正確，請確認上下班時間。",
@@ -178,9 +177,8 @@
     "tooManyRequests": "請求過多"
   },
   "gcis": {
-    "companyNotFound": "找不到這個統一編號對應的公司資料",
-    "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字",
-    "lookupUnavailable": "目前無法查詢公司登記資料，請稍後再試"
+    "companyNotFound": "找不到這個統一編號的公司或商業登記資料，請手動填寫名稱與地址",
+    "lookupUnavailable": "目前無法查詢公司登記資料，請手動填寫名稱與地址"
   },
   "inventory": {
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",

@@ -53,7 +53,6 @@ export const attendanceErrorCodes = [
   'childcareReductionInvalid',
   'indigenousHolidayInvalid',
   'insufficientLeaveBalance',
-  'invalidBusinessNumber',
   'invalidEarningType',
   'invalidEmergencyDetails',
   'invalidEventSequence',

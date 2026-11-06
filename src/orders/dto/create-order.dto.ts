@@ -30,6 +30,7 @@ import {
 } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
 import { DINE_IN_MAX_TABLE_COUNT } from '../../common/constants/dine-in.js';
+import { IsBusinessNumber } from '../../common/decorators/is-business-number.decorator.js';
 import {
   servingTemperatureLevelEnum,
   sweetnessLevelEnum,
@@ -151,11 +152,12 @@ class CreateOrderInvoiceDto {
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({ description: '公司發票必填，8 碼數字' })
-  @ValidateIf(isInvoiceType('company'))
-  @Matches(/^\d{8}$/, {
-    message: i18nValidationMessage('validation.invoiceCustomerIdentifier'),
+  @ApiPropertyOptional({
+    description: '公司發票必填，8 碼數字且須通過統一編號檢查碼',
   })
+  @ValidateIf(isInvoiceType('company'))
+  @Transform(trim)
+  @IsBusinessNumber()
   customerIdentifier?: string;
 
   @ApiPropertyOptional({ description: '公司發票必填', maxLength: 60 })

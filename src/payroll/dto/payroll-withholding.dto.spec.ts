@@ -1,7 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
-import { PayrollNonResidentFileQueryDto } from './payroll-withholding.dto.js';
+import {
+  PayrollNonResidentFileQueryDto,
+  PayrollWithholdingUnitDto,
+} from './payroll-withholding.dto.js';
 
 const errorsOf = async (paymentDate: string) =>
   (
@@ -21,4 +24,14 @@ describe('PayrollNonResidentFileQueryDto', () => {
       expect(await errorsOf(paymentDate)).toEqual(['paymentDate']);
     },
   );
+});
+
+describe('PayrollWithholdingUnitDto', () => {
+  it('去掉統一編號前後空白', () => {
+    expect(
+      plainToInstance(PayrollWithholdingUnitDto, {
+        businessNumber: ' 22099131 ',
+      }),
+    ).toMatchObject({ businessNumber: '22099131' });
+  });
 });

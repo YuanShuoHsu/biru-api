@@ -1,15 +1,11 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-} from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 
 import {
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiParam,
+  ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { hours, minutes, Throttle } from '@nestjs/throttler';
@@ -23,6 +19,7 @@ import {
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { BusinessInfoResponseDto } from './dto/business-info-response.dto.js';
+import { BusinessNoParamDto } from './dto/business-no-param.dto.js';
 import { GcisService } from './gcis.service.js';
 
 @AllowAnonymous()
@@ -39,21 +36,21 @@ export class GcisController {
     [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
     [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
   })
-  @ApiOperation({ summary: '依統一編號查詢公司名稱、地址與負責人' })
-  @ApiParam({ name: 'businessNo', description: '統一編號（8位數字）' })
+  @ApiOperation({
+    summary: '依統一編號查詢公司或商業登記的名稱、地址與負責人',
+  })
+  // https://docs.nestjs.com/openapi/operations#responses
   @ApiOkResponse({ type: BusinessInfoResponseDto })
+  @ApiBadRequestResponse({ description: '統一編號格式或檢查碼不符' })
+  @ApiNotFoundResponse({
+    description: '查無公司或商業登記，需手動填寫名稱與地址',
+  })
+  @ApiServiceUnavailableResponse({
+    description: '商工登記查詢服務暫時無法使用',
+  })
   async findOne(
-    @Param('businessNo') businessNo: string,
+    @Param() { businessNo }: BusinessNoParamDto,
   ): Promise<BusinessInfoResponseDto> {
-    if (!/^\d{8}$/.test(businessNo))
-      throw new BadRequestException({
-        error: 'Bad Request',
-        code: 'invalidBusinessNo',
-        message: this.i18n.t('common.gcis.invalidBusinessNo', {
-          lang: I18nContext.current()?.lang,
-        }),
-      });
-
     const result = await this.gcisService.findByBusinessNo(businessNo);
     if (!result)
       throw new NotFoundException({

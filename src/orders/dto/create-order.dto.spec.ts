@@ -126,7 +126,7 @@ describe('CreateOrderDto invoice', () => {
     },
     {
       customerAddr: '台北市信義區',
-      customerIdentifier: '12345678',
+      customerIdentifier: '12345675',
       customerName: '比如股份有限公司',
       type: 'company',
     },
@@ -141,7 +141,7 @@ describe('CreateOrderDto invoice', () => {
       await invoiceErrorsOf({
         carrierNum: 'bad',
         carrierType: 'mobile',
-        customerIdentifier: '12345678',
+        customerIdentifier: '12345675',
         donateCode: '12',
         type: 'company',
         customerAddr: '台北市信義區',
@@ -204,7 +204,7 @@ describe('CreateOrderDto invoice', () => {
   it('rejects a whitespace-only company name and address', async () => {
     const errors = await invoiceErrorsOf({
       customerAddr: '   ',
-      customerIdentifier: '12345678',
+      customerIdentifier: '12345675',
       customerName: ' \t',
       type: 'company',
     });
@@ -225,11 +225,11 @@ describe('CreateOrderDto invoice', () => {
     ]);
   });
 
-  it('trims the company name and address', async () => {
+  it('trims the company tax id, name and address', async () => {
     const dto = plainToInstance(CreateOrderDto, {
       invoice: {
         customerAddr: ' 台北市信義區 ',
-        customerIdentifier: '12345678',
+        customerIdentifier: ' 12345675 ',
         customerName: ' 比如股份有限公司 ',
         type: 'company',
       },
@@ -237,6 +237,7 @@ describe('CreateOrderDto invoice', () => {
 
     expect(dto.invoice).toMatchObject({
       customerAddr: '台北市信義區',
+      customerIdentifier: '12345675',
       customerName: '比如股份有限公司',
     });
   });
@@ -253,9 +254,7 @@ describe('CreateOrderDto invoice', () => {
       'customerAddr',
     ]);
     expect(errors[0].constraints).toEqual({
-      matches: expect.stringMatching(
-        /^validation\.invoiceCustomerIdentifier\|/,
-      ),
+      isBusinessNumber: expect.stringMatching(/^validation\.businessNumber\|/),
     });
   });
 

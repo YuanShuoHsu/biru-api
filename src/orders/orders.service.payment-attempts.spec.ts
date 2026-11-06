@@ -77,13 +77,15 @@ describe('OrdersService.createPaymentAttempt', () => {
     const findFirst = db.query.order.findFirst.bind(db.query.order);
     const spy = vi
       .spyOn(db.query.order, 'findFirst')
-      .mockImplementationOnce(async (config) => {
+      .mockImplementationOnce((async (
+        config: Parameters<typeof findFirst>[0],
+      ) => {
         const found = await findFirst(config);
         await client.query(
           `update "order" set order_status = 'OrderProcessing' where id = 'o3'`,
         );
         return found;
-      });
+      }) as unknown as typeof findFirst);
 
     await expect(
       service.createPaymentAttempt('o3', null),

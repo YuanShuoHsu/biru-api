@@ -42,7 +42,6 @@
     "childcareReductionInvalid": "育児短時間勤務の期間は入社日以降で、登録済みの子どもの出生日から 3 歳の誕生日までの間である必要があります。先に従業員管理の「子どもの情報」で登録してください。",
     "indigenousHolidayInvalid": "歳時祭儀の休日は年 3 日までで、在職期間内・重複なし・国定休日以外の日にしてください。",
     "insufficientLeaveBalance": "休暇残数が不足しています。管理者に確認してください。",
-    "invalidBusinessNumber": "統一番号のチェックディジットが正しくありません。",
     "invalidEarningType": "この加算項目が見つかりません。",
     "invalidEmergencyDetails": "報告日時と連続 24 時間以上の代休を確認してください。",
     "invalidEventSequence": "打刻順序または時刻が不正です。出退勤時刻を確認してください。",
@@ -178,9 +177,8 @@
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {
-    "companyNotFound": "この統一編号に該当する会社が見つかりません",
-    "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください",
-    "lookupUnavailable": "現在、会社登記の照会を利用できません。しばらくしてからもう一度お試しください"
+    "companyNotFound": "この統一編号に該当する会社・商業登記が見つかりません。名称と住所を入力してください",
+    "lookupUnavailable": "現在、会社登記の照会を利用できません。名称と住所を入力してください"
   },
   "inventory": {
     "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",

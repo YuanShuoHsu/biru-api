@@ -42,7 +42,6 @@
     "childcareReductionInvalid": "Reduced childcare hours must start after the hire date and fall between a registered child's birth and third birthday. Register the child under Children in Employees first.",
     "indigenousHolidayInvalid": "Ceremony holidays are limited to 3 per year, must fall within employment, cannot repeat, and cannot coincide with a national holiday.",
     "insufficientLeaveBalance": "Insufficient leave balance. Ask a manager to check the allowance.",
-    "invalidBusinessNumber": "The business ID number check digit is invalid.",
     "invalidEarningType": "This pay item no longer exists.",
     "invalidEmergencyDetails": "Check the report time and at least 24 continuous hours of make-up rest.",
     "invalidEventSequence": "Invalid punch sequence or times. Check the clock-in and clock-out times.",
@@ -178,9 +177,8 @@
     "tooManyRequests": "Too many requests"
   },
   "gcis": {
-    "companyNotFound": "No company was found for this tax ID number.",
-    "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits.",
-    "lookupUnavailable": "The company registry lookup is unavailable right now. Please try again later."
+    "companyNotFound": "No company or business registration was found for this tax ID number. Please enter the name and address.",
+    "lookupUnavailable": "The company registry lookup is unavailable right now. Please enter the name and address."
   },
   "inventory": {
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",

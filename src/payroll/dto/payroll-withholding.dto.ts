@@ -20,18 +20,19 @@ import {
   type AttendanceLegalStatus,
 } from '../../db/schema/attendance.js';
 
+import { IsBusinessNumber } from '../../common/decorators/is-business-number.decorator.js';
+import { trim } from '../../common/utils/trim.js';
 import {
   RESIDENCE_COUNTRY_CODES,
   type ResidenceCountryCode,
 } from '../residence-countries.js';
-import { trim } from '../../common/utils/trim.js';
 
 export const WITHHOLDING_ID_TYPES = ['0', '3', '7'] as const;
 
 export type WithholdingIdType = (typeof WITHHOLDING_ID_TYPES)[number];
 
 export class PayrollWithholdingUnitDto {
-  @Matches(/^\d{8}$/) businessNumber: string;
+  @Transform(trim) @IsBusinessNumber() businessNumber: string;
   @ApiProperty({ description: '國稅局分局、稽徵所或服務處代號' })
   @Matches(/^[A-Z]\d{2}$/)
   taxOfficeCode: string;

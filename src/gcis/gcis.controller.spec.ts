@@ -1,7 +1,10 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { I18nService } from 'nestjs-i18n';
 
+import { BusinessNoParamDto } from './dto/business-no-param.dto.js';
 import { GcisController } from './gcis.controller.js';
 import { GcisService } from './gcis.service.js';
 
@@ -23,6 +26,14 @@ describe('GcisController', () => {
     );
     await app.close();
 
+    expect(document.paths['/gcis/{businessNo}'].get?.parameters).toEqual([
+      expect.objectContaining({
+        description: '統一編號（8 位數字，須通過檢查碼）',
+        in: 'path',
+        name: 'businessNo',
+        required: true,
+      }),
+    ]);
     expect(
       document.paths['/gcis/{businessNo}'].get?.responses['200'],
     ).toMatchObject({
@@ -51,7 +62,9 @@ describe('GcisController', () => {
       { t: (key: string) => key } as unknown as I18nService,
     );
 
-    await expect(controller.findOne('12345678')).rejects.toMatchObject({
+    await expect(
+      controller.findOne({ businessNo: '12345675' }),
+    ).rejects.toMatchObject({
       status: 404,
       response: {
         code: 'companyNotFound',
@@ -60,18 +73,20 @@ describe('GcisController', () => {
     });
   });
 
-  it('統一編號格式錯誤時回 400 並帶 invalidBusinessNo', async () => {
-    const controller = new GcisController(
-      {} as GcisService,
-      { t: (key: string) => key } as unknown as I18nService,
-    );
+  it.each(['1234', '12345678'])(
+    '統一編號 %s 格式錯誤或檢查碼不符時驗證失敗',
+    async (businessNo) => {
+      const errors = await validate(
+        plainToInstance(BusinessNoParamDto, { businessNo }),
+      );
 
-    await expect(controller.findOne('1234')).rejects.toMatchObject({
-      status: 400,
-      response: {
-        code: 'invalidBusinessNo',
-        message: 'common.gcis.invalidBusinessNo',
-      },
-    });
-  });
+      expect(errors.map(({ constraints }) => constraints)).toEqual([
+        {
+          isBusinessNumber: expect.stringMatching(
+            /^validation\.businessNumber\|/,
+          ),
+        },
+      ]);
+    },
+  );
 });

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
+import type { PGlite } from '@electric-sql/pglite';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import request from 'supertest';
@@ -37,7 +38,7 @@ vi.mock('../src/db/index.js', async () => {
 });
 
 describe('App (e2e)', () => {
-  const pglite = db as unknown as PgliteDatabase;
+  const pglite = db as unknown as PgliteDatabase & { $client: PGlite };
   let app: INestApplication<App>;
 
   beforeAll(async () => {

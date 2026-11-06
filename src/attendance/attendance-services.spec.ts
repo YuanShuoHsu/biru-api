@@ -361,6 +361,7 @@ describe('attendance services', () => {
     const cases: ((db: DrizzleDB) => Promise<unknown>)[] = [
       (db) =>
         new AttendanceShiftsService(db).updateShift(manager, 'shift', {
+          startsAt: '2026-01-15T01:00:00Z',
           endsAt: '2026-01-15T11:00:00Z',
         }),
       (db) =>

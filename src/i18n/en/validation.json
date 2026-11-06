@@ -1,6 +1,6 @@
 {
+  "businessNumber": "Must be a valid tax ID number",
   "invoiceCertificate": "Must be 2 uppercase letters followed by 14 digits",
-  "invoiceCustomerIdentifier": "Must be an 8-digit tax ID number",
   "invoiceDonateCode": "Must be a 3 to 7 digit donation code",
   "invoiceMobileBarcode": "Must be / followed by 7 digits, uppercase letters or + - .",
   "isEmail": "Must be a valid email address",

@@ -269,7 +269,9 @@ describe('attendance date fields', () => {
   ] as const)('%s 可省略 %s', async (name, cases, omitted) => {
     const [, cls, base] = caseOf([...cases], name);
     const rest = Object.fromEntries(
-      Object.entries(base).filter(([key]) => !omitted.includes(key)),
+      Object.entries(base).filter(
+        ([key]) => !(omitted as readonly string[]).includes(key),
+      ),
     );
     expect(await errorsOf(cls, rest)).toEqual([]);
   });

@@ -42,7 +42,6 @@
     "childcareReductionInvalid": "育儿减少工时期间须在入职后，且落在已登记子女出生后至满三岁前；请先在员工管理的「子女资料」登记子女。",
     "indigenousHolidayInvalid": "岁时祭仪放假日每年最多 3 天，须在任职期间内、不可重复，也不可与国定假日同一天。",
     "insufficientLeaveBalance": "休假额度不足，请由主管确认年度额度。",
-    "invalidBusinessNumber": "统一编号检查码不正确。",
     "invalidEarningType": "找不到这个加项名目。",
     "invalidEmergencyDetails": "请确认报备时间与至少连续 24 小时的补假。",
     "invalidEventSequence": "打卡顺序或时间不正确，请确认上下班时间。",
@@ -178,9 +177,8 @@
     "tooManyRequests": "请求过多"
   },
   "gcis": {
-    "companyNotFound": "找不到这个统一编号对应的公司资料",
-    "invalidBusinessNo": "统一编号格式错误，需为 8 位数字",
-    "lookupUnavailable": "目前无法查询公司登记资料，请稍后再试"
+    "companyNotFound": "找不到这个统一编号的公司或商业登记资料，请手动填写名称与地址",
+    "lookupUnavailable": "目前无法查询公司登记资料，请手动填写名称与地址"
   },
   "inventory": {
     "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",
