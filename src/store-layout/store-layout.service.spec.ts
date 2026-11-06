@@ -10,13 +10,13 @@ import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
-import { ROLES_KEY } from '../menus/decorators/roles.decorator.js';
 import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
 import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
 import type { StoreLayoutData } from '../db/schema/store-layout.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { ROLES_KEY } from '../menus/decorators/roles.decorator.js';
 
 import { StoreLayoutController } from './store-layout.controller.js';
 import { StoreLayoutService } from './store-layout.service.js';
