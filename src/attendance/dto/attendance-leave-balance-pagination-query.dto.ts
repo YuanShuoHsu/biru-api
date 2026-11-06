@@ -25,20 +25,20 @@ export const ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS = [
   'usedMinutes',
 ] as const;
 
-export const ATTENDANCE_LEAVE_BALANCE_FILTER_FIELDS = [
+const ATTENDANCE_LEAVE_BALANCE_FILTER_FIELDS = [
   ...ATTENDANCE_LEAVE_BALANCE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_BALANCE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_BALANCE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_BALANCE_NUMBER_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceLeaveBalanceFilterField =
+type AttendanceLeaveBalanceFilterField =
   (typeof ATTENDANCE_LEAVE_BALANCE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_LEAVE_BALANCE_SORT_FIELDS =
+const ATTENDANCE_LEAVE_BALANCE_SORT_FIELDS =
   ATTENDANCE_LEAVE_BALANCE_FILTER_FIELDS;
 
-export type AttendanceLeaveBalanceSortField =
+type AttendanceLeaveBalanceSortField =
   (typeof ATTENDANCE_LEAVE_BALANCE_SORT_FIELDS)[number];
 
 export class AttendanceLeaveBalancePaginationQueryDto extends PaginationQueryDto {

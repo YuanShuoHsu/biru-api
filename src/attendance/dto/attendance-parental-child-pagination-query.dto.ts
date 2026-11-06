@@ -15,18 +15,18 @@ export const ATTENDANCE_PARENTAL_CHILD_DATE_FILTER_FIELDS = [
   'birthDate',
 ] as const;
 
-export const ATTENDANCE_PARENTAL_CHILD_FILTER_FIELDS = [
+const ATTENDANCE_PARENTAL_CHILD_FILTER_FIELDS = [
   ...ATTENDANCE_PARENTAL_CHILD_STRING_FILTER_FIELDS,
   ...ATTENDANCE_PARENTAL_CHILD_DATE_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceParentalChildFilterField =
+type AttendanceParentalChildFilterField =
   (typeof ATTENDANCE_PARENTAL_CHILD_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_PARENTAL_CHILD_SORT_FIELDS =
+const ATTENDANCE_PARENTAL_CHILD_SORT_FIELDS =
   ATTENDANCE_PARENTAL_CHILD_FILTER_FIELDS;
 
-export type AttendanceParentalChildSortField =
+type AttendanceParentalChildSortField =
   (typeof ATTENDANCE_PARENTAL_CHILD_SORT_FIELDS)[number];
 
 export class AttendanceParentalChildPaginationQueryDto extends PaginationQueryDto {

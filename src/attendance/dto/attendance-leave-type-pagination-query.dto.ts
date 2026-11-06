@@ -19,20 +19,19 @@ export const ATTENDANCE_LEAVE_TYPE_BOOLEAN_FILTER_FIELDS = [
   'enabled',
 ] as const;
 
-export const ATTENDANCE_LEAVE_TYPE_FILTER_FIELDS = [
+const ATTENDANCE_LEAVE_TYPE_FILTER_FIELDS = [
   ...ATTENDANCE_LEAVE_TYPE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_TYPE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_TYPE_NUMBER_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_TYPE_BOOLEAN_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceLeaveTypeFilterField =
+type AttendanceLeaveTypeFilterField =
   (typeof ATTENDANCE_LEAVE_TYPE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_LEAVE_TYPE_SORT_FIELDS =
-  ATTENDANCE_LEAVE_TYPE_FILTER_FIELDS;
+const ATTENDANCE_LEAVE_TYPE_SORT_FIELDS = ATTENDANCE_LEAVE_TYPE_FILTER_FIELDS;
 
-export type AttendanceLeaveTypeSortField =
+type AttendanceLeaveTypeSortField =
   (typeof ATTENDANCE_LEAVE_TYPE_SORT_FIELDS)[number];
 
 export class AttendanceLeaveTypePaginationQueryDto extends PaginationQueryDto {

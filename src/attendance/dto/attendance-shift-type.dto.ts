@@ -19,13 +19,12 @@ export const ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS = [
   'endTime',
 ] as const;
 
-export type AttendanceShiftTypeFilterField =
+type AttendanceShiftTypeFilterField =
   (typeof ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_SHIFT_TYPE_SORT_FIELDS =
-  ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS;
+const ATTENDANCE_SHIFT_TYPE_SORT_FIELDS = ATTENDANCE_SHIFT_TYPE_FILTER_FIELDS;
 
-export type AttendanceShiftTypeSortField =
+type AttendanceShiftTypeSortField =
   (typeof ATTENDANCE_SHIFT_TYPE_SORT_FIELDS)[number];
 
 export class AttendanceShiftTypePaginationQueryDto extends PaginationQueryDto {
