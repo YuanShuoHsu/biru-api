@@ -809,6 +809,12 @@ export class OrderTicketService implements PrintJobSource {
       throw menuNotFoundError('printerNotFound');
 
     const created = await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: order.id })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('key share');
+
       const live = await tx
         .select({ id: printerTable.id })
         .from(printerTable)
