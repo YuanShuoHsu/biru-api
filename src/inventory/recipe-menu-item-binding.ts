@@ -10,7 +10,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 type Tx = Pick<DrizzleDB, 'select' | 'transaction' | 'update'>;
 
-export type BoundRecipe = {
+type BoundRecipe = {
   id: string;
   name: LocalizedText;
   recipeYield: number;

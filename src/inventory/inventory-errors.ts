@@ -32,7 +32,7 @@ export const inventoryErrorCodes = [
   'supplierNotFound',
 ] as const;
 
-export type InventoryErrorCode = (typeof inventoryErrorCodes)[number];
+type InventoryErrorCode = (typeof inventoryErrorCodes)[number];
 
 const errorBody = (
   code: InventoryErrorCode,
