@@ -179,7 +179,8 @@
   },
   "gcis": {
     "companyNotFound": "找不到这个统一编号对应的公司资料",
-    "invalidBusinessNo": "统一编号格式错误，需为 8 位数字"
+    "invalidBusinessNo": "统一编号格式错误，需为 8 位数字",
+    "lookupUnavailable": "目前无法查询公司登记资料，请稍后再试"
   },
   "inventory": {
     "ingredientInUse": "这项食材仍被食谱使用，请先从食谱中移除",

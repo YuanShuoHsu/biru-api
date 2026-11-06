@@ -179,7 +179,8 @@
   },
   "gcis": {
     "companyNotFound": "No company was found for this tax ID number.",
-    "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
+    "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits.",
+    "lookupUnavailable": "The company registry lookup is unavailable right now. Please try again later."
   },
   "inventory": {
     "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",

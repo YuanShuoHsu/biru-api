@@ -179,7 +179,8 @@
   },
   "gcis": {
     "companyNotFound": "找不到這個統一編號對應的公司資料",
-    "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字"
+    "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字",
+    "lookupUnavailable": "目前無法查詢公司登記資料，請稍後再試"
   },
   "inventory": {
     "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
