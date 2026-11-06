@@ -3,7 +3,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
-import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
+import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import {
   StoreLayoutResponseDto,
@@ -27,7 +27,7 @@ export class StoreLayoutController {
   }
 
   @Put()
-  @OrganizationMember('organizationSlug')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
   @Audit({
     resource: 'organization',
     idSource: { column: 'organizationId', organization: true },

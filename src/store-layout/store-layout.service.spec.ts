@@ -16,6 +16,7 @@ import { auditLog } from '../db/schema/audit.js';
 import type { StoreLayoutData } from '../db/schema/store-layout.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { ROLES_KEY } from '../menus/decorators/roles.decorator.js';
 
 import { StoreLayoutController } from './store-layout.controller.js';
 import { StoreLayoutService } from './store-layout.service.js';
@@ -180,5 +181,20 @@ describe('StoreLayoutService', () => {
         }),
       ]),
     );
+  });
+
+  it('PUT 需要門市的 organization: update，停業門市因此唯讀', () => {
+    expect(
+      Reflect.getMetadata(
+        ROLES_KEY,
+        Object.getOwnPropertyDescriptor(
+          StoreLayoutController.prototype,
+          'update',
+        )?.value as object,
+      ),
+    ).toEqual({
+      action: { organization: ['update'] },
+      organizationParam: 'organizationSlug',
+    });
   });
 });
