@@ -1,13 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
-
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { I18nService } from 'nestjs-i18n';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import { createPGlite } from '../../test/pglite.js';
 import { InventoryReportService } from './inventory-report.service.js';
@@ -65,12 +61,7 @@ describe('InventoryReportService', () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new InventoryReportService(
-      db as unknown as DrizzleDB,
-      {
-        t: (key: string) => key,
-      } as unknown as I18nService<I18nTranslations>,
-    );
+    service = new InventoryReportService(db as unknown as DrizzleDB);
 
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
@@ -335,7 +326,10 @@ describe('InventoryReportService', () => {
         since: range.until,
         until: range.since,
       }),
-    ).rejects.toThrow(new BadRequestException('common.reports.rangeInvalid'));
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'rangeInvalid' },
+    });
   });
 
   it('區間超過 366 天時拒絕', async () => {
@@ -344,7 +338,10 @@ describe('InventoryReportService', () => {
         since: '2025-01-01T00:00:00+08:00',
         until: '2026-01-03T00:00:00+08:00',
       }),
-    ).rejects.toThrow(new BadRequestException('common.reports.rangeTooLong'));
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'rangeTooLong' },
+    });
   });
 
   it('門市不存在時回 404 並帶 organizationNotFound', async () => {

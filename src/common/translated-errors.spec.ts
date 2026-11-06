@@ -11,6 +11,7 @@ const modulesWithErrorCodes = [
   'organizations',
   'points',
   'quant',
+  'reports',
   'store-layout',
   'store-photos',
   'waitlist',
