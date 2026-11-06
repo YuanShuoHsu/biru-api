@@ -6,6 +6,7 @@ import {
   eq,
   inArray,
   ne,
+  or,
   sql,
 } from 'drizzle-orm';
 import { I18nService, type Path } from 'nestjs-i18n';
@@ -88,6 +89,8 @@ const LEFT_QUEUE_STATUSES = [
 ] as const satisfies PrintJobStatus[];
 
 const MAX_JOBS_PER_POLL = 20;
+
+const PRINTER_REMOVAL_ATTEMPTS = 3;
 
 const OFFLINE_SWEEP_MS = 10_000;
 
@@ -261,7 +264,7 @@ export class OrderTicketService implements PrintJobSource {
               eq(order.orderStatus, 'OrderProcessing'),
             ),
           )
-          .orderBy(asc(order.createdAt))
+          .orderBy(asc(order.id))
           .for('update');
 
         const queued: OrderTicketJob[] = [];
@@ -351,102 +354,150 @@ export class OrderTicketService implements PrintJobSource {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
 
-    const changed = await this.db.transaction(async (tx) => {
-      await this.lockPrinters(tx, organizationId);
+    let orderIds: string[] = [];
+    for (let attempt = 0; attempt < PRINTER_REMOVAL_ATTEMPTS; attempt++) {
+      const outcome = await this.db.transaction(
+        async (
+          tx,
+        ): Promise<{ changed: string[] } | { retryWith: string[] }> => {
+          await this.lockPrinters(tx, organizationId);
 
-      const [deleted] = await tx
-        .select({ isDefault: printerTable.isDefault })
-        .from(printerTable)
-        .where(
-          and(
-            eq(printerTable.id, printerId),
-            eq(printerTable.organizationId, organizationId),
-            eq(printerTable.purpose, 'orderTicket'),
-          ),
-        )
-        .for('update');
-      if (!deleted) throw menuNotFoundError('printerNotFound');
-
-      // 同一交易改過的列再被外鍵 set null 時會重檢訂單外鍵而等到已鎖訂單的排單交易，所以這裡先清掉印表機
-      const stranded = await tx
-        .update(orderTicketJob)
-        .set({ finishedAt: new Date(), printerId: null, status: 'cancelled' })
-        .where(
-          and(
-            eq(orderTicketJob.printerId, printerId),
-            eq(orderTicketJob.status, 'queued'),
-          ),
-        )
-        .returning();
-
-      const unanswered = await tx
-        .update(orderTicketJob)
-        .set({ printerId: null, status: 'unknown' })
-        .where(
-          and(
-            eq(orderTicketJob.printerId, printerId),
-            eq(orderTicketJob.status, 'sent'),
-          ),
-        )
-        .returning({ orderId: orderTicketJob.orderId });
-
-      await tx.delete(printerTable).where(eq(printerTable.id, printerId));
-
-      if (deleted.isDefault)
-        await tx
-          .update(printerTable)
-          .set({ isDefault: true })
-          .where(
-            inArray(
-              printerTable.id,
-              tx
-                .select({ id: printerTable.id })
-                .from(printerTable)
-                .where(
-                  and(
-                    eq(printerTable.organizationId, organizationId),
-                    eq(printerTable.purpose, 'orderTicket'),
-                  ),
-                )
-                .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
-                .limit(1),
-            ),
-          );
-
-      return { stranded, unanswered };
-    });
-
-    const reroutes = new Map<string, string[]>();
-    for (const job of changed.stranded)
-      if (job.kind === 'order' && job.copy === 'original')
-        reroutes.set(job.orderId, [
-          ...(reroutes.get(job.orderId) ?? []),
-          ...job.orderItemIds,
-        ]);
-
-    // 訂單要在刪除印表機的交易外才鎖：排單時是先鎖訂單再等印表機，反過來會死結
-    for (const [orderId, orderItemIds] of reroutes)
-      await this.db
-        .transaction(async (tx) => {
-          const [locked] = await tx
-            .select({ orderStatus: order.orderStatus })
+          // 訂單要比印表機先鎖，和排單的順序一致；鎖住印表機後才冒出的訂單不能再等它的鎖，只能整筆重來
+          const locked = await tx
+            .select({ id: order.id, orderStatus: order.orderStatus })
             .from(order)
-            .where(eq(order.id, orderId))
+            .where(
+              or(
+                inArray(order.id, this.strandedOrderIds(tx, printerId)),
+                inArray(order.id, orderIds),
+              ),
+            )
+            .orderBy(asc(order.id))
             .for('update');
 
-          if (locked && isOrderTicketPrintable(locked.orderStatus))
-            await this.enqueueOrder(tx, orderId, organizationId, orderItemIds);
-        })
-        .catch((error: unknown) =>
-          this.logger.error(`訂單 ${orderId} 的工作單改排失敗`, error),
-        );
+          const [deleted] = await tx
+            .select({ isDefault: printerTable.isDefault })
+            .from(printerTable)
+            .where(
+              and(
+                eq(printerTable.id, printerId),
+                eq(printerTable.organizationId, organizationId),
+                eq(printerTable.purpose, 'orderTicket'),
+              ),
+            )
+            .for('update');
+          if (!deleted) throw menuNotFoundError('printerNotFound');
 
-    this.emitOrdersUpdated(
-      organizationId,
-      [...changed.stranded, ...changed.unanswered].map(
-        ({ orderId }) => orderId,
-      ),
-    );
+          const unlocked = (await this.strandedOrderIds(tx, printerId)).filter(
+            ({ orderId }) => !locked.some(({ id }) => id === orderId),
+          );
+          if (unlocked.length)
+            return {
+              retryWith: [
+                ...locked.map(({ id }) => id),
+                ...unlocked.map(({ orderId }) => orderId),
+              ],
+            };
+
+          // 同一交易改過的列再被外鍵 set null 時會重檢訂單外鍵而等到已鎖訂單的排單交易，所以這裡先清掉印表機
+          const stranded = await tx
+            .update(orderTicketJob)
+            .set({
+              finishedAt: new Date(),
+              printerId: null,
+              status: 'cancelled',
+            })
+            .where(
+              and(
+                eq(orderTicketJob.printerId, printerId),
+                eq(orderTicketJob.status, 'queued'),
+              ),
+            )
+            .returning();
+
+          const unanswered = await tx
+            .update(orderTicketJob)
+            .set({ printerId: null, status: 'unknown' })
+            .where(
+              and(
+                eq(orderTicketJob.printerId, printerId),
+                eq(orderTicketJob.status, 'sent'),
+              ),
+            )
+            .returning({ orderId: orderTicketJob.orderId });
+
+          await tx.delete(printerTable).where(eq(printerTable.id, printerId));
+
+          if (deleted.isDefault)
+            await tx
+              .update(printerTable)
+              .set({ isDefault: true })
+              .where(
+                inArray(
+                  printerTable.id,
+                  tx
+                    .select({ id: printerTable.id })
+                    .from(printerTable)
+                    .where(
+                      and(
+                        eq(printerTable.organizationId, organizationId),
+                        eq(printerTable.purpose, 'orderTicket'),
+                      ),
+                    )
+                    .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
+                    .limit(1),
+                ),
+              );
+
+          const reroutes = new Map<string, string[]>();
+          for (const job of stranded)
+            if (job.kind === 'order' && job.copy === 'original')
+              reroutes.set(job.orderId, [
+                ...(reroutes.get(job.orderId) ?? []),
+                ...job.orderItemIds,
+              ]);
+
+          for (const [orderId, orderItemIds] of reroutes) {
+            const found = locked.find(({ id }) => id === orderId);
+            if (found && isOrderTicketPrintable(found.orderStatus))
+              await this.enqueueOrder(
+                tx,
+                orderId,
+                organizationId,
+                orderItemIds,
+              );
+          }
+
+          return {
+            changed: [...stranded, ...unanswered].map(({ orderId }) => orderId),
+          };
+        },
+      );
+
+      if ('changed' in outcome) {
+        this.emitOrdersUpdated(organizationId, outcome.changed);
+
+        return;
+      }
+
+      orderIds = outcome.retryWith;
+    }
+
+    throw conflictError('printerBusy');
+  }
+
+  private strandedOrderIds(tx: Tx, printerId: string) {
+    return tx
+      .selectDistinct({ orderId: orderTicketJob.orderId })
+      .from(orderTicketJob)
+      .where(
+        and(
+          eq(orderTicketJob.printerId, printerId),
+          eq(orderTicketJob.kind, 'order'),
+          eq(orderTicketJob.copy, 'original'),
+          eq(orderTicketJob.status, 'queued'),
+        ),
+      );
   }
 
   // 改工作單前先取得印表機的鎖：先鎖工作單再等印表機，會和移除印表機時外鍵 set null 等這張工作單互鎖
@@ -758,6 +809,12 @@ export class OrderTicketService implements PrintJobSource {
       throw menuNotFoundError('printerNotFound');
 
     const created = await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: order.id })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('key share');
+
       const live = await tx
         .select({ id: printerTable.id })
         .from(printerTable)
@@ -861,9 +918,9 @@ export class OrderTicketService implements PrintJobSource {
       await this.printersService.findOrganizationId(organizationSlug);
 
     const resolved = await this.db.transaction(async (tx) => {
-      await this.lockJobPrinter(tx, jobId);
-
       if (printed) {
+        await this.lockJobPrinter(tx, jobId);
+
         const job = await this.markPrinted(
           tx,
           jobId,
@@ -879,6 +936,8 @@ export class OrderTicketService implements PrintJobSource {
         .from(order)
         .where(eq(order.id, orderId))
         .for('update');
+
+      await this.lockJobPrinter(tx, jobId);
 
       const [job] = await tx
         .update(orderTicketJob)

@@ -1007,6 +1007,7 @@ export class OrdersService {
 
     const found = await this.db.query.order.findMany({
       where: and(inArray(order.id, orderIds), eq(order.sellerId, org.id)),
+      orderBy: asc(order.id),
       with: { items: true },
     });
     if (found.length !== orderIds.length) throw notFoundError('orderNotFound');
@@ -1430,17 +1431,35 @@ export class OrdersService {
   async markReconciled(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    await this.db
-      .update(order)
-      .set({ reconciledAt: new Date() })
-      .where(inArray(order.id, orderIds));
+    await this.db.transaction(async (tx) => {
+      await this.lockOrders(tx, orderIds);
+
+      await tx
+        .update(order)
+        .set({ reconciledAt: new Date() })
+        .where(inArray(order.id, orderIds));
+    });
+  }
+
+  // 多筆訂單一律依 id 順序上鎖，和移除出單機鎖訂單的順序一致，否則兩邊各握一部分會死結
+  private async lockOrders(tx: Pick<DrizzleDB, 'select'>, orderIds: string[]) {
+    await tx
+      .select({ id: order.id })
+      .from(order)
+      .where(inArray(order.id, orderIds))
+      .orderBy(asc(order.id))
+      .for('update');
   }
 
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
     const { offerStockChanged, updated: cancelled } = await this.db.transaction(
-      (tx) => this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
+      async (tx) => {
+        await this.lockOrders(tx, orderIds);
+
+        return this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds);
+      },
     );
 
     this.emitTransitioned(

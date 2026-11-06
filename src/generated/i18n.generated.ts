@@ -310,6 +310,7 @@ export type I18nTranslations = {
             "otherPrinters": string;
             "pickupTime": string;
             "printJobResolved": string;
+            "printerBusy": string;
             "refund": string;
             "reprint": string;
             "servingTemperatureLevels": {

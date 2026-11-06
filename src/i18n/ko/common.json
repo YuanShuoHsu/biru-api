@@ -257,6 +257,7 @@
     "otherPrinters": "다른 스테이션: {printers}",
     "pickupTime": "픽업 {time}",
     "printJobResolved": "이 주문서는 이미 확인되었습니다. 새로고침 후 다시 시도해 주세요",
+    "printerBusy": "삭제하는 동안 이 프린터로 새 주문서가 전송되었습니다. 다시 시도해 주세요",
     "refund": "반품",
     "reprint": "재출력",
     "servingTemperatureLevels": {
