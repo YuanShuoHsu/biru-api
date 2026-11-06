@@ -22,6 +22,13 @@ describe('DonateCodesService', () => {
   });
 
   it('電子發票 API 沒有回應時逾時放棄，保留原本的捐贈碼', async () => {
+    const loaded = [{ donateCode: '919', donateNm: '社團法人範例協會' }];
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(loaded)),
+    );
+    await service.refresh();
+    expect(service.getAll()).toEqual(loaded);
+
     const timeout = new AbortController();
     const timeoutSpy = vi
       .spyOn(AbortSignal, 'timeout')
@@ -42,10 +49,10 @@ describe('DonateCodesService', () => {
     await refresh;
 
     expect(timeoutSpy).toHaveBeenCalledWith(30_000);
-    expect(fetchSpy).toHaveBeenCalledWith(
+    expect(fetchSpy).toHaveBeenLastCalledWith(
       expect.any(String),
       expect.objectContaining({ signal: timeout.signal }),
     );
-    expect(service.getAll()).toEqual([]);
+    expect(service.getAll()).toEqual(loaded);
   });
 });
