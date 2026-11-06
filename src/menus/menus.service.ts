@@ -66,6 +66,7 @@ import {
   buildQuickFilterCondition,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
   ADD_ON_DATE_FILTER_FIELDS,
@@ -453,19 +454,13 @@ export class MenusService {
     return { data, total };
   }
 
-  async reorderMenuSections(
-    menuId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuSection)
-          .set({ sortOrder: offset + i })
-          .where(and(eq(menuSection.id, id), eq(menuSection.menuId, menuId)));
-      }
-    });
+  async reorderMenuSections(menuId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      menuSection,
+      ids,
+      eq(menuSection.menuId, menuId),
+    );
   }
 
   async menuSection(where: { id: string }): Promise<MenuSection | null> {
@@ -829,21 +824,13 @@ export class MenusService {
     };
   }
 
-  async reorderMenuItems(
-    sectionId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItem)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(eq(menuItem.id, id), eq(menuItem.menuSectionId, sectionId)),
-          );
-      }
-    });
+  async reorderMenuItems(sectionId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      menuItem,
+      ids,
+      eq(menuItem.menuSectionId, sectionId),
+    );
   }
 
   async updateMenuItem(params: {
@@ -1409,21 +1396,13 @@ export class MenusService {
   async reorderMenuItemAddOns(
     menuItemId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItemAddOn)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(menuItemAddOn.id, id),
-              eq(menuItemAddOn.menuItemId, menuItemId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      menuItemAddOn,
+      ids,
+      eq(menuItemAddOn.menuItemId, menuItemId),
+    );
   }
 
   async updateMenuItemAddOn(
@@ -1629,21 +1608,13 @@ export class MenusService {
     return { data, total };
   }
 
-  async reorderModifierGroups(
-    menuId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(modifierGroup)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(eq(modifierGroup.id, id), eq(modifierGroup.menuId, menuId)),
-          );
-      }
-    });
+  async reorderModifierGroups(menuId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      modifierGroup,
+      ids,
+      eq(modifierGroup.menuId, menuId),
+    );
   }
 
   async modifierGroup(where: { id: string }): Promise<ModifierGroup | null> {
@@ -1841,21 +1812,13 @@ export class MenusService {
   async reorderModifiers(
     modifierGroupId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(modifier)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(modifier.id, id),
-              eq(modifier.modifierGroupId, modifierGroupId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      modifier,
+      ids,
+      eq(modifier.modifierGroupId, modifierGroupId),
+    );
   }
 
   async updateModifier(params: {
@@ -2093,21 +2056,13 @@ export class MenusService {
   async reorderMenuItemModifierGroups(
     menuItemId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItemModifierGroup)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(menuItemModifierGroup.id, id),
-              eq(menuItemModifierGroup.menuItemId, menuItemId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      menuItemModifierGroup,
+      ids,
+      eq(menuItemModifierGroup.menuItemId, menuItemId),
+    );
   }
 
   async deleteMenuItemModifierGroup(where: {

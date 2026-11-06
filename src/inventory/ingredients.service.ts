@@ -30,6 +30,7 @@ import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
   ingredient,
   recipe,
@@ -227,24 +228,13 @@ export class IngredientsService {
     };
   }
 
-  async reorder(
-    organizationId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(ingredient)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(ingredient.id, id),
-              eq(ingredient.organizationId, organizationId),
-            ),
-          );
-      }
-    });
+  async reorder(organizationId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      ingredient,
+      ids,
+      eq(ingredient.organizationId, organizationId),
+    );
   }
 
   private async supplierNameOf(

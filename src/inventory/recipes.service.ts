@@ -35,6 +35,7 @@ import {
   isUniqueViolation,
   pgConstraint,
 } from '../common/utils/pg-errors.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -708,24 +709,13 @@ export class RecipesService {
     });
   }
 
-  async reorderIngredients(
-    recipeId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(recipeIngredient)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(recipeIngredient.id, id),
-              eq(recipeIngredient.recipeId, recipeId),
-            ),
-          );
-      }
-    });
+  async reorderIngredients(recipeId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      recipeIngredient,
+      ids,
+      eq(recipeIngredient.recipeId, recipeId),
+    );
   }
 
   private async toMaterial(

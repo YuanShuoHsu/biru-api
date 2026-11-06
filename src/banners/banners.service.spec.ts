@@ -105,4 +105,53 @@ describe('BannersService', () => {
     });
     vi.restoreAllMocks();
   });
+
+  describe('reorder', () => {
+    const sortOrders = async () =>
+      (
+        await client.query<{ id: string; sort_order: number }>(
+          'select id, sort_order from banner order by sort_order, created_at',
+        )
+      ).rows;
+
+    it('刪除留下空號後調整第 2 頁，只在該頁原本的排序值之間互換', async () => {
+      const ids: string[] = [];
+      for (let i = 0; i < 14; i++)
+        ids.push((await service.create({ image: `banner-${i}` })).id);
+      await service.removeMany([ids[2], ids[5]]);
+      const firstPage = (await sortOrders()).slice(0, 10);
+
+      await service.reorder([ids[13], ids[12]]);
+
+      const rows = await sortOrders();
+      expect(rows.slice(0, 10)).toEqual(firstPage);
+      expect(rows.slice(10)).toEqual([
+        { id: ids[13], sort_order: 12 },
+        { id: ids[12], sort_order: 13 },
+      ]);
+    });
+
+    it('排序值重複時仍依新順序排成遞增', async () => {
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i++)
+        ids.push((await service.create({ image: `banner-${i}` })).id);
+      await client.exec('update banner set sort_order = 4');
+
+      await service.reorder([ids[2], ids[0], ids[1]]);
+
+      expect(await sortOrders()).toEqual([
+        { id: ids[2], sort_order: 4 },
+        { id: ids[0], sort_order: 5 },
+        { id: ids[1], sort_order: 6 },
+      ]);
+    });
+
+    it('略過不存在的 id', async () => {
+      const { id } = await service.create({ image: 'banner' });
+
+      await service.reorder([crypto.randomUUID(), id]);
+
+      expect(await sortOrders()).toEqual([{ id, sort_order: 0 }]);
+    });
+  });
 });

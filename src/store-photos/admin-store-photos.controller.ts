@@ -52,8 +52,8 @@ export class AdminStorePhotosController {
   @Patch('reorder')
   @Audit('storePhoto', { body: 'ids' })
   @ApiOperation({ summary: '重新排序門市照片' })
-  reorder(@Body() { ids, offset }: ReorderStorePhotosDto): Promise<void> {
-    return this.storePhotosService.reorder(ids, offset);
+  reorder(@Body() { ids }: ReorderStorePhotosDto): Promise<void> {
+    return this.storePhotosService.reorder(ids);
   }
 
   @Delete()
