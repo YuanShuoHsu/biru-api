@@ -8,17 +8,17 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 export const RECIPE_STRING_FILTER_FIELDS = ['name'] as const;
 export const RECIPE_NUMBER_FILTER_FIELDS = ['recipeYield'] as const;
 export const RECIPE_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
-export const RECIPE_ALL_FILTER_FIELDS = [
+const RECIPE_ALL_FILTER_FIELDS = [
   ...RECIPE_STRING_FILTER_FIELDS,
   ...RECIPE_NUMBER_FILTER_FIELDS,
   ...RECIPE_DATE_FILTER_FIELDS,
 ] as const;
 
-export type RecipeFilterField = (typeof RECIPE_ALL_FILTER_FIELDS)[number];
+type RecipeFilterField = (typeof RECIPE_ALL_FILTER_FIELDS)[number];
 
-export const RECIPE_SORT_FIELDS = RECIPE_ALL_FILTER_FIELDS;
+const RECIPE_SORT_FIELDS = RECIPE_ALL_FILTER_FIELDS;
 
-export type RecipeSortField = (typeof RECIPE_SORT_FIELDS)[number];
+type RecipeSortField = (typeof RECIPE_SORT_FIELDS)[number];
 
 export class RecipePaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({

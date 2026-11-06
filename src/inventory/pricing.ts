@@ -15,7 +15,7 @@ type Package = Pick<
   'eligibleQuantity' | 'eligibleQuantityUnitCode' | 'price'
 >;
 
-export const baseQuantityOf = ({
+const baseQuantityOf = ({
   eligibleQuantity,
   eligibleQuantityUnitCode,
 }: Package): number | null =>

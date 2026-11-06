@@ -11,20 +11,20 @@ export const INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS = [
 ] as const;
 export const INVENTORY_TRANSACTION_DATE_FILTER_FIELDS = ['createdAt'] as const;
 export const INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS = ['reason'] as const;
-export const INVENTORY_TRANSACTION_ALL_FILTER_FIELDS = [
+const INVENTORY_TRANSACTION_ALL_FILTER_FIELDS = [
   ...INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
   ...INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   ...INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
   ...INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type InventoryTransactionFilterField =
+type InventoryTransactionFilterField =
   (typeof INVENTORY_TRANSACTION_ALL_FILTER_FIELDS)[number];
 
-export const INVENTORY_TRANSACTION_SORT_FIELDS =
+const INVENTORY_TRANSACTION_SORT_FIELDS =
   INVENTORY_TRANSACTION_ALL_FILTER_FIELDS;
 
-export type InventoryTransactionSortField =
+type InventoryTransactionSortField =
   (typeof INVENTORY_TRANSACTION_SORT_FIELDS)[number];
 
 export class InventoryTransactionPaginationQueryDto extends PaginationQueryDto {

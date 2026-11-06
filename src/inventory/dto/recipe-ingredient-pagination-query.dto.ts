@@ -14,27 +14,23 @@ export const RECIPE_INGREDIENT_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const RECIPE_INGREDIENT_ALL_FILTER_FIELDS = [
+const RECIPE_INGREDIENT_ALL_FILTER_FIELDS = [
   ...RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
   ...RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
   ...RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
 ] as const;
 
-export type RecipeIngredientFilterField =
+type RecipeIngredientFilterField =
   (typeof RECIPE_INGREDIENT_ALL_FILTER_FIELDS)[number];
 
-export const RECIPE_INGREDIENT_SORT_ONLY_FIELDS = [
-  'unitPrice',
-  'cost',
-] as const;
+const RECIPE_INGREDIENT_SORT_ONLY_FIELDS = ['unitPrice', 'cost'] as const;
 
-export const RECIPE_INGREDIENT_SORT_FIELDS = [
+const RECIPE_INGREDIENT_SORT_FIELDS = [
   ...RECIPE_INGREDIENT_ALL_FILTER_FIELDS,
   ...RECIPE_INGREDIENT_SORT_ONLY_FIELDS,
 ] as const;
 
-export type RecipeIngredientSortField =
-  (typeof RECIPE_INGREDIENT_SORT_FIELDS)[number];
+type RecipeIngredientSortField = (typeof RECIPE_INGREDIENT_SORT_FIELDS)[number];
 
 export class RecipeIngredientPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
