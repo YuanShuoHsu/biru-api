@@ -498,7 +498,11 @@ export class EventsGateway implements OnGatewayConnection {
 
     if ('error' in result) throw result.error;
     if (!result.authorized)
-      throw new ForbiddenException(i18n.t('common.exceptions.forbidden'));
+      throw new ForbiddenException({
+        error: 'Forbidden',
+        code: 'forbidden',
+        message: i18n.t('common.exceptions.forbidden'),
+      });
 
     return true;
   }
