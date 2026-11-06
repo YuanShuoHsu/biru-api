@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
-import { offer } from '../db/schema/menus.js';
+import { modifier, offer } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MENU_UPDATED_EVENT } from '../events/menu-updated.event.js';
 
@@ -125,15 +125,21 @@ describe('庫存扣除、還原與自動售完', () => {
       );
   };
 
-  const addModifier = async (id: string) => {
+  const addModifier = async (
+    id: string,
+    {
+      autoSoldOut = false,
+      availability = 'InStock',
+    }: { autoSoldOut?: boolean; availability?: 'InStock' | 'SoldOut' } = {},
+  ) => {
     await client.query(
       `insert into modifier_group (id, menu_id, display_name) values ($1, 'menu', '{"zh-TW":"群組"}')
        on conflict do nothing`,
       ['group'],
     );
     await client.query(
-      `insert into modifier (id, modifier_group_id, display_name) values ($1, 'group', $2)`,
-      [id, JSON.stringify({ 'zh-TW': id })],
+      `insert into modifier (id, modifier_group_id, display_name, availability, auto_sold_out) values ($1, 'group', $2, $3, $4)`,
+      [id, JSON.stringify({ 'zh-TW': id }), availability, autoSoldOut],
     );
   };
 
@@ -228,6 +234,16 @@ describe('庫存扣除、還原與自動售完', () => {
     } = await client.query<{ availability: string; auto_sold_out: boolean }>(
       `select availability, auto_sold_out from offer where menu_item_id = $1`,
       [menuItemId],
+    );
+    return row;
+  };
+
+  const modifierAvailabilityOf = async (modifierId: string) => {
+    const {
+      rows: [row],
+    } = await client.query<{ availability: string; auto_sold_out: boolean }>(
+      `select availability, auto_sold_out from modifier where id = $1`,
+      [modifierId],
     );
     return row;
   };
@@ -629,13 +645,120 @@ describe('庫存扣除、還原與自動售完', () => {
     });
   });
 
+  describe('MenuStockService.sync 選項', () => {
+    it('選項食譜的食材不夠一份時自動售完並通知前台，沒有食譜的選項不動', async () => {
+      await addModifier('cheese');
+      await addModifier('large');
+      await addIngredient('cheddar', '10');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+      const emit = vi.spyOn(eventEmitter, 'emit');
+
+      await menuStock.refresh(ORG);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+      expect(await modifierAvailabilityOf('large')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(emit).toHaveBeenCalledWith(MENU_UPDATED_EVENT, {
+        organizationId: ORG,
+      });
+      emit.mockRestore();
+    });
+
+    it('補貨後只恢復系統自動售完的選項，店員手動售完的不動', async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+      await addModifier('bacon', { availability: 'SoldOut' });
+      await addIngredient('cheddar', '100');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+      await addModifierRecipe('bacon', { cheddar: '20' });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(await modifierAvailabilityOf('bacon')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('食譜解除綁定後，系統自動售完的選項恢復供應', async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('食材不夠時店員手動售完的選項不算自動售完', async () => {
+      await addModifier('cheese', { availability: 'SoldOut' });
+      await addIngredient('cheddar', '0');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(false);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+    });
+  });
+
+  describe('keepAutoSoldOut 選項', () => {
+    const save = (availability: 'InStock' | 'SoldOut') =>
+      db
+        .update(modifier)
+        .set({ availability, ...keepAutoSoldOut(availability, modifier) })
+        .where(eq(modifier.id, 'cheese'));
+
+    beforeEach(async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('送出與目前相同的供應狀態時保留自動售完', async () => {
+      await save('SoldOut');
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('店員改了供應狀態就不再算自動售完', async () => {
+      await save('InStock');
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+  });
+
   describe('keepAutoSoldOut', () => {
     const save = (availability?: 'InStock' | 'SoldOut') =>
       db
         .update(offer)
         .set({
           ...(availability && { availability }),
-          ...keepAutoSoldOut(availability),
+          ...keepAutoSoldOut(availability, offer),
           price: '120',
         })
         .where(eq(offer.menuItemId, 'cake'));

@@ -189,6 +189,7 @@
     "packageRequired": "원본 레시피가 없는 재료는 포장 가격, 용량, 단위를 입력하세요",
     "packageUnitIncompatible": "내용량 단위와 재고 단위가 호환되지 않습니다",
     "purchaseFieldsOnSourcedIngredient": "원본 레시피로 만드는 재료에는 포장 가격, 용량, 공급업체를 설정할 수 없습니다",
+    "recipeInUseAsSource": "다음 자체 제조 식자재가 아직 이 레시피를 원본 레시피로 사용하고 있습니다: {names}. 먼저 이 식자재에서 원본 레시피를 해제해 주세요",
     "recipeIngredientExists": "이미 추가된 재료입니다",
     "recipeIngredientNotFound": "레시피 재료를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "recipeMenuItemAndModifier": "레시피는 메뉴 품목과 옵션 중 하나에만 연결할 수 있습니다",

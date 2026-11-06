@@ -189,6 +189,7 @@
     "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
     "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
+    "recipeInUseAsSource": "以下自製食材仍以這份食譜為來源食譜：{names}。請先在這些食材取消來源食譜",
     "recipeIngredientExists": "這項材料已經加入過了",
     "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
     "recipeMenuItemAndModifier": "食譜只能綁定菜單品項或選項其中之一",

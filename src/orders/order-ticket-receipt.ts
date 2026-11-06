@@ -9,7 +9,7 @@ export interface OrderTicketItem {
   quantity: number;
 }
 
-export interface OrderTicketInput {
+interface OrderTicketInput {
   /** 補印、退品等要讓吧台一眼看到的標示 */
   banners: string[];
   headerLines: string[];

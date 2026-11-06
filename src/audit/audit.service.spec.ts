@@ -179,6 +179,7 @@ describe('AuditService.listForOrganization paging', () => {
     {},
     { sortBy: 'actorName', sortDirection: 'asc' },
     { sortBy: 'action', sortDirection: 'desc' },
+    { sortBy: 'organizationId', sortDirection: 'asc' },
   ] as const)(
     'returns every entry written in one transaction exactly once across pages (%o)',
     async (sort) => {
@@ -354,6 +355,74 @@ describe('AuditService.listAll sorting', () => {
       'alpha',
       'beta',
     ]);
+  });
+});
+
+describe('AuditService.listAll organization and resource filters', () => {
+  let client: PGlite;
+  let service: AuditService;
+
+  const ids = async (query: Parameters<AuditService['listAll']>[0]) => {
+    const { data, total } = await service.listAll(query);
+    expect(total).toBe(data.length);
+    return data.map(({ id }) => id).sort();
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new AuditService(db as unknown as DrizzleDB);
+
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+         ('z-org', 'Alpha', 'alpha', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('a-org', 'Beta', 'beta', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, action, changes, created_at) values
+         ('alpha', null, 'Owner', 'b@example.com', 'z-org', 'order', 'shared-id', 'update', '{}', '2026-10-28 08:00:00'),
+         ('beta', null, 'Owner', 'c@example.com', 'a-org', 'order', 'order-2', 'update', '{}', '2026-10-28 08:01:00'),
+         ('platform', null, 'Admin', 'a@example.com', null, 'banner', 'banner-1', 'update', '{}', '2026-10-28 08:02:00');
+       insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at) values
+         ('att-leave-type', 'a-org', null, 'leaveType.update', 'shared-id', '{}', '2026-10-28 08:03:00+00');`,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it.each([
+    ['is', 'platform', ['platform']],
+    ['is', 'z-org', ['alpha']],
+    ['not', 'platform', ['alpha', 'att-leave-type', 'beta']],
+    ['not', 'z-org', ['att-leave-type', 'beta', 'platform']],
+    ['isAnyOf', 'platform,z-org', ['alpha', 'platform']],
+  ])(
+    'filters organizationId %s %s, with platform meaning no organization',
+    async (filterOperator, filterValue, expected) => {
+      expect(
+        await ids({
+          filterField: 'organizationId',
+          filterOperator: filterOperator as 'is' | 'not' | 'isAnyOf',
+          filterValue,
+        }),
+      ).toEqual(expected);
+    },
+  );
+
+  it('matches platform entries from the quick filter organization options', async () => {
+    expect(
+      await ids({ quickFilterEnums: ['organizationId:platform,a-org'] }),
+    ).toEqual(['att-leave-type', 'beta', 'platform']);
+  });
+
+  it('keeps a resource history to its own resource when ids collide', async () => {
+    expect(await ids({ resource: 'order', resourceId: 'shared-id' })).toEqual([
+      'alpha',
+    ]);
+    expect(
+      await ids({ resource: 'leaveType', resourceId: 'shared-id' }),
+    ).toEqual(['att-leave-type']);
   });
 });
 

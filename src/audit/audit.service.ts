@@ -1,6 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, arrayContains, ilike, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  arrayContains,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import {
   buildFilterCondition,
@@ -9,7 +19,10 @@ import {
   escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import type { AuditChangeLabels } from '../db/schema/audit.js';
+import {
+  auditResourceEnum,
+  type AuditChangeLabels,
+} from '../db/schema/audit.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
@@ -37,6 +50,49 @@ type AuditLogRow = Omit<AuditLogResponseDto, 'createdAt' | 'changes'> & {
 };
 
 const entry = (column: string) => sql.raw(`entry.${column}`);
+
+const isAuditResource = (
+  resource: string,
+): resource is (typeof auditResourceEnum.enumValues)[number] =>
+  auditResourceEnum.enumValues.some((value) => value === resource);
+
+const organizationCondition = (
+  operator: string,
+  value: string | undefined,
+): SQL | undefined => {
+  const column = entry('"organizationId"');
+  const matches = (ids: string[]) => {
+    const storeIds = ids.filter((id) => id !== PLATFORM_ORGANIZATION_ID);
+    return or(
+      ids.includes(PLATFORM_ORGANIZATION_ID) ? isNull(column) : undefined,
+      storeIds.length ? inArray(column, storeIds) : undefined,
+    );
+  };
+
+  if (!value) return undefined;
+
+  switch (operator) {
+    case 'is':
+      return matches([value]);
+    case 'not':
+      return value === PLATFORM_ORGANIZATION_ID
+        ? isNotNull(column)
+        : sql`${column} IS DISTINCT FROM ${value}`;
+    case 'isAnyOf':
+      return matches(value.split(',').filter(Boolean));
+  }
+};
+
+const targetEmployeeName = sql`
+  CASE WHEN entry.source = 'attendance' THEN (
+    SELECT u.name FROM attendance_employee e
+    JOIN "user" u ON u.id = e.user_id
+    WHERE e.id = COALESCE(
+      ${attendanceEmployeeId(entry('resource'), entry('"resourceId"'))},
+      entry.changes ->> 'employeeId',
+      entry.changes -> 'after' ->> 'employeeId'
+    )
+  ) END`;
 
 @Injectable()
 export class AuditService {
@@ -83,7 +139,6 @@ export class AuditService {
       actorName: entry('"actorName"'),
       actorEmail: entry('"actorEmail"'),
       resourceId: entry('"resourceId"'),
-      organizationId: sql`COALESCE(${entry('"organizationId"')}, ${PLATFORM_ORGANIZATION_ID})`,
       resource: entry('resource'),
       action: entry('action'),
       createdAt: entry('created_at'),
@@ -99,18 +154,23 @@ export class AuditService {
             sql`ARRAY[${ancestorId}]::text[]`,
           )
         : undefined,
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
-            filterOperator,
-            filterValue,
-            fieldMap,
-            AUDIT_LOG_STRING_FILTER_FIELDS,
-            AUDIT_LOG_DATE_FILTER_FIELDS,
-            AUDIT_LOG_ENUM_FILTER_FIELDS,
-          )
-        : undefined,
+      filterField === 'organizationId' && filterOperator
+        ? organizationCondition(filterOperator, filterValue)
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              AUDIT_LOG_STRING_FILTER_FIELDS,
+              AUDIT_LOG_DATE_FILTER_FIELDS,
+              AUDIT_LOG_ENUM_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
+        customConditions: {
+          organizationId: (value) => organizationCondition('isAnyOf', value),
+        },
         enumFields: AUDIT_LOG_ENUM_FILTER_FIELDS,
         fieldMap,
         quickFilterEnums,
@@ -121,7 +181,7 @@ export class AuditService {
           ilike(fieldMap.resourceId, `%${escapeLike(value)}%`),
           ilike(localTimeText(fieldMap.createdAt), `%${escapeLike(value)}%`),
           buildLocalizedTextFilterCondition(resourceLabel, 'contains', value),
-          ilike(entry('"targetEmployeeName"'), `%${escapeLike(value)}%`),
+          ilike(targetEmployeeName, `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -136,21 +196,7 @@ export class AuditService {
       ? sql`${sortMap[sortBy]} ${direction}, ${newestFirst}`
       : newestFirst;
 
-    const entries = sql`
-      SELECT
-        entry.*,
-        CASE WHEN entry.source = 'attendance' THEN (
-          SELECT u.name FROM attendance_employee e
-          JOIN "user" u ON u.id = e.user_id
-          WHERE e.id = COALESCE(
-            ${attendanceEmployeeId(entry('resource'), entry('"resourceId"'))},
-            entry.changes ->> 'employeeId',
-            entry.changes -> 'after' ->> 'employeeId'
-          )
-        ) END AS "targetEmployeeName"
-      FROM (${this.entries(scope)}) entry
-    `;
-    const filtered = sql`FROM (${entries}) entry ${where ? sql`WHERE ${where}` : sql``}`;
+    const filtered = sql`FROM (${this.entries(scope, resource)}) entry ${where ? sql`WHERE ${where}` : sql``}`;
 
     const [{ rows }, { rows: totals }] = await Promise.all([
       this.db.execute<AuditLogRow>(sql`
@@ -169,10 +215,13 @@ export class AuditService {
           entry.changes,
           entry."changeLabels",
           ${fieldMap.createdAt} AT TIME ZONE 'UTC' AS "createdAt",
-          entry."targetEmployeeName"
-        ${filtered}
+          ${targetEmployeeName} AS "targetEmployeeName"
+        FROM (
+          SELECT entry.* ${filtered}
+          ORDER BY ${orderBy}
+          LIMIT ${limit} OFFSET ${offset}
+        ) entry
         ORDER BY ${orderBy}
-        LIMIT ${limit} OFFSET ${offset}
       `),
       this.db.execute<{ total: number }>(
         sql`SELECT count(*)::int AS total ${filtered}`,
@@ -222,7 +271,18 @@ export class AuditService {
     return { data: logs, total: totals[0]?.total ?? 0 };
   }
 
-  private entries(scope?: { organizationId: string; role: string }): SQL {
+  private entries(
+    scope?: { organizationId: string; role: string },
+    resource?: string,
+  ): SQL {
+    const auditLogConditions = and(
+      scope ? sql`a.organization_id = ${scope.organizationId}` : undefined,
+      resource
+        ? isAuditResource(resource)
+          ? sql`a.resource = ${resource}`
+          : sql`false`
+        : undefined,
+    );
     const auditLogs = sql`
       SELECT
         'audit' AS source,
@@ -240,7 +300,7 @@ export class AuditService {
         a.change_labels AS "changeLabels",
         a.created_at
       FROM audit_log a
-      ${scope ? sql`WHERE a.organization_id = ${scope.organizationId}` : sql``}
+      ${auditLogConditions ? sql`WHERE ${auditLogConditions}` : sql``}
     `;
 
     const readable = readableAttendanceActions(scope?.role);
