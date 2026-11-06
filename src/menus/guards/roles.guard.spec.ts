@@ -1,8 +1,15 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { AuthService } from '@thallesp/nestjs-better-auth';
 
+import type { PGlite } from '@electric-sql/pglite';
+import type { AuthService } from '@thallesp/nestjs-better-auth';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+
+import { createPGlite } from '../../../test/pglite.js';
 import type { Auth } from '../../auth/index.js';
+import * as schema from '../../db/schema/index.js';
+import { menu, menuItem } from '../../db/schema/menus.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
 import { type AuthRequest, RolesGuard } from './roles.guard.js';
@@ -130,5 +137,91 @@ describe('RolesGuard', () => {
     await expect(
       guardFor({ userRole: 'admin', closed: true }).canActivate(context),
     ).rejects.toThrow(/read-only/);
+  });
+});
+
+describe('RolesGuard 由路由參數找門市', () => {
+  let client: PGlite;
+  let db: DrizzleDB;
+
+  const guardAs = (userId: string, role = 'user') =>
+    new RolesGuard(
+      new Reflector(),
+      {
+        api: {
+          getSession: vi.fn().mockResolvedValue({ user: { id: userId, role } }),
+        },
+      } as unknown as AuthService<Auth>,
+      db,
+    );
+
+  const itemContext = (menuItemId: string) => {
+    const request = {
+      headers: {},
+      method: 'GET',
+      params: { menuItemId },
+    } as unknown as AuthRequest;
+    const handler = () => undefined;
+    Reflect.defineMetadata(
+      'roles',
+      { action: { menu: ['read'] }, organizationParam: 'menuItemId' },
+      handler,
+    );
+    const context = {
+      getClass: () => class {},
+      getHandler: () => handler,
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+
+    return { context, request };
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    db = pglite as unknown as DrizzleDB;
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+      insert into "user" (id, name, email, first_name) values
+        ('amy', 'amy', 'amy@example.com', 'Amy'),
+        ('bob', 'bob', 'bob@example.com', 'Bob');
+      insert into member (id, organization_id, user_id, role, created_at) values
+        ('amy-biru', 'biru', 'amy', 'member', now()),
+        ('bob-other', 'other', 'bob', 'member', now());
+    `);
+    await pglite.insert(menu).values({
+      id: 'menu',
+      organizationId: 'biru',
+      name: { 'zh-TW': '菜單' },
+    });
+    await pglite.insert(menuItem).values({
+      id: 'unsectioned',
+      menuId: 'menu',
+      name: { 'zh-TW': '未分類品項' },
+      sortOrder: 0,
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('沒有分類的品項也從它的菜單找到門市', async () => {
+    const { context, request } = itemContext('unsectioned');
+
+    await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
+    expect(request.organizationId).toBe('biru');
+  });
+
+  it('別家門市的成員仍然不能讀這個品項', async () => {
+    const { context } = itemContext('unsectioned');
+
+    await expect(guardAs('bob').canActivate(context)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 });

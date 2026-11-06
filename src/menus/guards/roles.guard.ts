@@ -164,14 +164,10 @@ export class RolesGuard implements CanActivate {
       case 'menuItemId': {
         const row = await this.db.query.menuItem.findFirst({
           where: eq(menuItem.id, params.menuItemId),
-          with: {
-            menuSection: {
-              with: { menu: { columns: { organizationId: true } } },
-            },
-          },
+          with: { menu: { columns: { organizationId: true } } },
         });
 
-        return row?.menuSection?.menu?.organizationId;
+        return row?.menu?.organizationId;
       }
 
       case 'offerId': {
