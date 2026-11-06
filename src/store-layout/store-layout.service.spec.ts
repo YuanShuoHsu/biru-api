@@ -10,6 +10,7 @@ import type { I18nService } from 'nestjs-i18n';
 import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
+import { ROLES_KEY } from '../menus/decorators/roles.decorator.js';
 import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
 import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -180,5 +181,20 @@ describe('StoreLayoutService', () => {
         }),
       ]),
     );
+  });
+
+  it('PUT 需要門市的 organization: update，停業門市因此唯讀', () => {
+    expect(
+      Reflect.getMetadata(
+        ROLES_KEY,
+        Object.getOwnPropertyDescriptor(
+          StoreLayoutController.prototype,
+          'update',
+        )?.value as object,
+      ),
+    ).toEqual({
+      action: { organization: ['update'] },
+      organizationParam: 'organizationSlug',
+    });
   });
 });
