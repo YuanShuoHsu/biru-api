@@ -60,6 +60,7 @@ export type I18nTranslations = {
             "belowStatutoryPaidPercent": string;
             "calendarLeaveInterval": string;
             "calendarLeavePayRequired": string;
+            "calendarRangeTooLong": string;
             "cancelIrreversible": string;
             "cancelReasonRequired": string;
             "cannotReviewOwnDraft": string;

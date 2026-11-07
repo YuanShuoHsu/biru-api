@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "The paid percentage cannot be below the statutory rate.",
     "calendarLeaveInterval": "Use the statutory number of full calendar days, from midnight to midnight (exclusive end).",
     "calendarLeavePayRequired": "An owner must provide the verified full daily wage for maternity leave. The paid percentage is calculated from seniority.",
+    "calendarRangeTooLong": "The calendar can show at most 62 days at a time.",
     "cancelIrreversible": "This shift no longer passes scheduling rules and cannot be restored once cancelled.",
     "cancelReasonRequired": "A reason is required to cancel a shift that has already started.",
     "cannotReviewOwnDraft": "You cannot review a payslip you drafted. Another manager must review it.",

@@ -382,6 +382,25 @@ describe('attendance services', () => {
       expect(months).toEqual(['2026-01']);
     }
   });
+  it('rejects a day kind calendar range over 62 days before querying', async () => {
+    const { db } = database([]);
+    await expect(
+      new AttendanceShiftsService(db).calendarDayKinds(actor, {
+        from: '2026-01-01T00:00:00+08:00',
+        to: '2026-03-05T00:00:00+08:00',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'calendarRangeTooLong' } });
+    expect(db.select).not.toHaveBeenCalled();
+  });
+  it('accepts a six-week month view day kind calendar range', async () => {
+    const { db } = database([[], []]);
+    await expect(
+      new AttendanceShiftsService(db).calendarDayKinds(actor, {
+        from: '2026-03-01T00:00:00+08:00',
+        to: '2026-04-12T00:00:00+08:00',
+      }),
+    ).resolves.toBeDefined();
+  });
 });
 
 describe('shift changes behind a published payslip', () => {

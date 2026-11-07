@@ -166,6 +166,7 @@ const clockOutAt = sql<Date | null>`CASE
   END`.mapWith(attendanceShift.startsAt);
 
 const CALENDAR_SHIFT_LIMIT = 500;
+const CALENDAR_MAX_DAYS = 62;
 
 const shiftMonth = (time: SQL | typeof attendanceShift.startsAt) =>
   sql`to_char((${time}) AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM')`;
@@ -662,6 +663,11 @@ export class AttendanceShiftsService {
     actor: AttendanceActor,
     { from, to }: AttendanceShiftRangeQueryDto,
   ) {
+    if (
+      new Date(to).getTime() - new Date(from).getTime() >
+      CALENDAR_MAX_DAYS * DAY_MS
+    )
+      throw badRequestError('calendarRangeTooLong');
     const fromDate = platformDateString(new Date(from));
     const toDate = platformDateString(new Date(to));
     const [employees, statutory] = await Promise.all([
