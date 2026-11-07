@@ -37,6 +37,11 @@
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{inviterName} さんが {productName} の {organizationName} に {role} として招待しています。下のボタンをクリックして招待を承認してください。",
     "preheader": "{productName} の {organizationName} に招待されました。",
+    "roles": {
+      "admin": "管理者",
+      "member": "メンバー",
+      "owner": "オーナー"
+    },
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "security_notice": "セキュリティのため、この招待は {inviterName} さんが {productName} アカウントから送信しました。この招待に心当たりがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName} の {organizationName} に招待されました",

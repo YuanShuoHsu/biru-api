@@ -179,6 +179,15 @@ describe('MailsService 語系', () => {
     expect(sent[0].html).toContain('invited');
   });
 
+  it('邀請信以受邀者的語系顯示角色', async () => {
+    await sendInvitationEmail('Invitee@Example.com', 'en-US,en;q=0.9');
+    await sendInvitationEmail('new@example.com', 'en-US,en;q=0.9');
+
+    expect(sent[0].html).toContain('メンバー');
+    expect(sent[0].html).not.toMatch(/\bmember\b/);
+    expect(sent[1].html).toContain('as a member.');
+  });
+
   const spyLoggerError = () => {
     const error = vi
       .spyOn(Logger.prototype, 'error')
