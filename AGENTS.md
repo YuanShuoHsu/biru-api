@@ -242,7 +242,9 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 Menu, section, item, banner and store photo images are stored as base64 data URLs, but their endpoints return
 `imageUrl` from `withImageUrl` (`src/images/image-url.ts`), `/api/images/:kind/:id/:version.:ext` (`imageVersion`:
 the first 16 hex digits of the data URL's SHA-256; a query that only needs the URL selects `imageRefSql` instead of the
-image and passes it to `withImageRefUrl`, as the public order menu does, so the image never leaves Postgres), which
+image (`imageRefQuery`) and passes it to `withImageRefUrl`, as the order menu and the menu, banner and store photo
+lists do, so the image never leaves Postgres; a paginated list selects the page `withoutImage` and adds `withImageRefs`
+afterwards, because in the paged query Postgres would hash every matching row, not just the page), which
 `ImagesController` serves with no throttling and, for the current version, a one-year `immutable` cache (`audit_log.changes` still keeps the data
 URLs). Edit dialogs send `image` only when the upload differs from `imageUrl`, never the URL itself. Only a new image
 moves the URL — reordering, toggling or editing other fields keeps it, so browsers and the image optimizer keep their

@@ -18,6 +18,7 @@ import {
   modifierGroup,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
 import type { CreateMenuItemModifierGroupDto } from './dto/create-menu-item-modifier-group.dto.js';
@@ -575,5 +576,83 @@ describe('MenusService localized text filters and sorting', () => {
         addOnMenuSectionId: null,
       });
     });
+  });
+});
+
+describe('MenusService 列表的圖片網址', () => {
+  let client: PGlite;
+  let service: MenusService;
+  const MENU_IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
+  const SECTION_IMAGE = 'data:image/jpeg;base64,/9j/4AAQ';
+  const ITEM_IMAGE = 'data:image/webp;base64,UklGRg==';
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new MenusService(
+      db as unknown as DrizzleDB,
+      {
+        costsOf: () => Promise.resolve(new Map()),
+      } as unknown as RecipesService,
+    );
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      [ORG],
+    );
+    await db.insert(menu).values({
+      id: 'menu',
+      organizationId: ORG,
+      name: { 'zh-TW': '菜單' },
+      image: MENU_IMAGE,
+    });
+    await db.insert(menuSection).values({
+      id: 'drinks',
+      menuId: 'menu',
+      name: { 'zh-TW': '飲品' },
+      image: SECTION_IMAGE,
+    });
+    await db.insert(menuItem).values([
+      {
+        id: 'latte',
+        menuId: 'menu',
+        menuSectionId: 'drinks',
+        name: { 'zh-TW': '拿鐵' },
+        image: ITEM_IMAGE,
+        sortOrder: 0,
+      },
+      {
+        id: 'mocha',
+        menuId: 'menu',
+        menuSectionId: 'drinks',
+        name: { 'zh-TW': '摩卡' },
+        sortOrder: 1,
+      },
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('菜單、分類與品項列表不載入圖片，網址和 withImageUrl 相同', async () => {
+    const [menuRow] = await service.menus(ORG);
+    const { data: sections } = await service.menuSections('menu');
+    const { data: items } = await service.menuSectionItems('drinks', ORG);
+
+    expect(menuRow).not.toHaveProperty('image');
+    expect(withImageRefUrl('menu', menuRow).imageUrl).toBe(
+      withImageUrl('menu', { id: 'menu', image: MENU_IMAGE }).imageUrl,
+    );
+    expect(withImageRefUrl('menuSection', sections[0]).imageUrl).toBe(
+      withImageUrl('menuSection', { id: 'drinks', image: SECTION_IMAGE })
+        .imageUrl,
+    );
+    expect(
+      items.map((item) => withImageRefUrl('menuItem', item).imageUrl),
+    ).toEqual([
+      withImageUrl('menuItem', { id: 'latte', image: ITEM_IMAGE }).imageUrl,
+      null,
+    ]);
   });
 });

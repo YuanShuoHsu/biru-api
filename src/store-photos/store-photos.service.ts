@@ -23,7 +23,12 @@ import type { Language } from '../db/schema/enums.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { withImageUrl } from '../images/image-url.js';
+import {
+  imageRefQuery,
+  withImageRefs,
+  withImageRefUrl,
+  withImageUrl,
+} from '../images/image-url.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import {
@@ -55,14 +60,15 @@ export class StorePhotosService {
 
   async findAllActive(lang: Language): Promise<PublicStorePhotoResponseDto[]> {
     const rows = await this.db.query.storePhoto.findMany({
-      columns: { id: true, image: true, alt: true },
+      columns: { id: true, alt: true },
+      extras: imageRefQuery.extras,
       where: eq(storePhoto.isActive, true),
       orderBy: [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)],
     });
 
     return rows.map(({ alt, ...row }) => ({
       id: row.id,
-      imageUrl: withImageUrl('storePhoto', row).imageUrl,
+      imageUrl: withImageRefUrl('storePhoto', row).imageUrl,
       alt: localize(alt, lang) ?? '',
     }));
   }
@@ -135,12 +141,20 @@ export class StorePhotosService {
     );
 
     const [data, [{ total }]] = await Promise.all([
-      this.db.query.storePhoto.findMany({ where, orderBy, limit, offset }),
+      this.db.query.storePhoto.findMany({
+        columns: { image: false },
+        where,
+        orderBy,
+        limit,
+        offset,
+      }),
       this.db.select({ total: count() }).from(storePhoto).where(where),
     ]);
 
     return {
-      data: data.map((row) => withImageUrl('storePhoto', row)),
+      data: (await withImageRefs(this.db, storePhoto, data)).map((row) =>
+        withImageRefUrl('storePhoto', row),
+      ),
       total,
     };
   }

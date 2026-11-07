@@ -22,7 +22,12 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { banner } from '../db/schema/banners.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { withImageUrl } from '../images/image-url.js';
+import {
+  imageRefQuery,
+  withImageRefs,
+  withImageRefUrl,
+  withImageUrl,
+} from '../images/image-url.js';
 
 import {
   buildFilterCondition,
@@ -57,6 +62,7 @@ export class BannersService {
     const now = new Date();
 
     const rows = await this.db.query.banner.findMany({
+      ...imageRefQuery,
       where: and(
         eq(banner.isActive, true),
         or(isNull(banner.startsAt), lte(banner.startsAt, now)),
@@ -65,7 +71,7 @@ export class BannersService {
       orderBy: [asc(banner.sortOrder), asc(banner.createdAt)],
     });
 
-    return rows.map((row) => withImageUrl('banner', row));
+    return rows.map((row) => withImageRefUrl('banner', row));
   }
 
   async findAll(
@@ -121,11 +127,22 @@ export class BannersService {
     );
 
     const [data, [{ total }]] = await Promise.all([
-      this.db.query.banner.findMany({ where, orderBy, limit, offset }),
+      this.db.query.banner.findMany({
+        columns: { image: false },
+        where,
+        orderBy,
+        limit,
+        offset,
+      }),
       this.db.select({ total: count() }).from(banner).where(where),
     ]);
 
-    return { data: data.map((row) => withImageUrl('banner', row)), total };
+    return {
+      data: (await withImageRefs(this.db, banner, data)).map((row) =>
+        withImageRefUrl('banner', row),
+      ),
+      total,
+    };
   }
 
   async create(dto: CreateBannerDto): Promise<BannerResponseDto> {

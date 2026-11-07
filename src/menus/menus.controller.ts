@@ -19,7 +19,7 @@ import {
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
-import { withImageUrl } from '../images/image-url.js';
+import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import { OrganizationId } from './decorators/organization-id.decorator.js';
@@ -91,7 +91,7 @@ export class MenusController {
   ): Promise<MenuResponseDto[]> {
     const menus = await this.menusService.menus(organizationId);
 
-    return menus.map((row) => withImageUrl('menu', row));
+    return menus.map((row) => withImageRefUrl('menu', row));
   }
 
   @Get('menus/:menuId')
@@ -146,7 +146,10 @@ export class MenusController {
   ): Promise<MenuSectionListResponseDto> {
     const { data, total } = await this.menusService.menuSections(menuId, query);
 
-    return { data: data.map((row) => withImageUrl('menuSection', row)), total };
+    return {
+      data: data.map((row) => withImageRefUrl('menuSection', row)),
+      total,
+    };
   }
 
   @Get('menus/:menuId/order-ticket-printers')
@@ -265,7 +268,10 @@ export class MenusController {
       canReadPurchasing,
     );
 
-    return { data: data.map((row) => withImageUrl('menuItem', row)), total };
+    return {
+      data: data.map((row) => withImageRefUrl('menuItem', row)),
+      total,
+    };
   }
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
