@@ -679,6 +679,10 @@ export const attendanceParentalReturn = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index('attendance_parental_return_org_idx').on(
+      t.organizationId,
+      t.createdAt,
+    ),
     uniqueIndex('attendance_parental_return_pending_uidx')
       .on(t.requestId)
       .where(sql`${t.status} = 'pending'`),
