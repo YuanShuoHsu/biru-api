@@ -18,21 +18,19 @@ export const POINT_TRANSACTION_DATE_FILTER_FIELDS = [
   'createdAt',
   'expiresAt',
 ] as const;
-export const POINT_TRANSACTION_ALL_FILTER_FIELDS = [
+const POINT_TRANSACTION_ALL_FILTER_FIELDS = [
   ...POINT_TRANSACTION_STRING_FILTER_FIELDS,
   ...POINT_TRANSACTION_ENUM_FILTER_FIELDS,
   ...POINT_TRANSACTION_NUMBER_FILTER_FIELDS,
   ...POINT_TRANSACTION_DATE_FILTER_FIELDS,
 ] as const;
 
-export type PointTransactionFilterField =
+type PointTransactionFilterField =
   (typeof POINT_TRANSACTION_ALL_FILTER_FIELDS)[number];
 
-export const POINT_TRANSACTION_SORT_FIELDS =
-  POINT_TRANSACTION_ALL_FILTER_FIELDS;
+const POINT_TRANSACTION_SORT_FIELDS = POINT_TRANSACTION_ALL_FILTER_FIELDS;
 
-export type PointTransactionSortField =
-  (typeof POINT_TRANSACTION_SORT_FIELDS)[number];
+type PointTransactionSortField = (typeof POINT_TRANSACTION_SORT_FIELDS)[number];
 
 export class OrganizationPointTransactionQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
