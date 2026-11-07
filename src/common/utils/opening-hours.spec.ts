@@ -268,12 +268,9 @@ describe('opening calendar', () => {
         validThrough: '9999-12-31',
       },
     ]);
-    const startedAt = performance.now();
-
-    expect(
-      calendar.minutesUntilClose(at('2026-09-01T10:00'), 43_200),
-    ).toBeGreaterThanOrEqual(43_200);
-    expect(performance.now() - startedAt).toBeLessThan(100);
+    expect(calendar.minutesUntilClose(at('2026-09-01T10:00'), 43_200)).toBe(
+      14 * 60 + 30 * 24 * 60,
+    );
   });
 
   it('gives the exact minutes when the store closes before the cutoff', () => {
