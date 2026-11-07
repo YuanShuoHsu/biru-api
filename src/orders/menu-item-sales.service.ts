@@ -70,6 +70,7 @@ export class MenuItemSalesService {
   ): Promise<MenuItemSalesResponseDto[]> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
     });
     if (!org) throw organizationNotFoundError();
 
