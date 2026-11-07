@@ -381,21 +381,6 @@ export const createAuth = (
                 })
                 .onConflictDoNothing();
             }
-
-            const touchesPoints =
-              Object.hasOwn(data, 'amountPerPoint') ||
-              Object.hasOwn(data, 'pointsEnabledAt');
-            if (!touchesPoints) return;
-
-            const enabled = Object.hasOwn(data, 'amountPerPoint')
-              ? data.amountPerPoint != null
-              : current?.amountPerPoint != null;
-            if (!enabled)
-              return { data: { pointsEnabledAt: null } };
-
-            return {
-              data: { pointsEnabledAt: current?.pointsEnabledAt ?? new Date() },
-            };
           },
           afterUpdateOrganization: async ({
             organization: updated,
@@ -500,14 +485,6 @@ export const createAuth = (
                 required: false,
               },
 
-              amountPerPoint: {
-                type: 'number',
-                required: false,
-              },
-              pointsEnabledAt: {
-                type: 'date',
-                required: false,
-              },
               // 停業／復業只走平台管理員端點，店家不能經由 organization.update 自行改
               closedAt: {
                 type: 'date',
