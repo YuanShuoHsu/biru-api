@@ -1,4 +1,10 @@
-import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  ForbiddenException,
+  UseFilters,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
@@ -11,6 +17,7 @@ import {
 } from '@nestjs/websockets';
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
+import { I18n, I18nContext } from 'nestjs-i18n';
 
 import { QuantAccountService } from './account/quant-account.service.js';
 import {
@@ -41,7 +48,9 @@ import {
 } from './pionex/pionex-private-streams.js';
 
 import { Namespace, Socket } from 'socket.io';
+import { AllWsExceptionsFilter } from '../common/filters/all-ws-exceptions.filter.js';
 import { WsAdminGuard } from '../common/guards/ws-admin.guard.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 const marketRoom = (symbol: string) => `market:${symbol}`;
 const candleRoom = (symbol: string, interval: string) =>
@@ -51,6 +60,13 @@ const userRoom = (userId: string) => `user:${userId}`;
 
 const CLIENT_DEPTH_LEVELS = 20;
 
+const forbiddenError = (i18n: I18nContext<I18nTranslations>) =>
+  new ForbiddenException({
+    error: 'Forbidden',
+    code: 'forbidden',
+    message: i18n.t('common.exceptions.forbidden'),
+  });
+
 interface QuantSocketData {
   releaseAccount?: () => void;
   releaseMarket?: () => void;
@@ -59,6 +75,7 @@ interface QuantSocketData {
 type QuantSocket = Socket<never, never, never, QuantSocketData>;
 
 @AllowAnonymous()
+@UseFilters(AllWsExceptionsFilter)
 @UseGuards(WsAdminGuard)
 @UsePipes(
   new ValidationPipe({
@@ -112,11 +129,12 @@ export class QuantGateway implements OnGatewayDisconnect {
   async watchAccount(
     @ConnectedSocket() client: QuantSocket,
     @MessageBody() { credentialId, symbol }: WatchAccountDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
     });
-    if (!session) throw new WsException('Forbidden');
+    if (!session) throw forbiddenError(i18n);
 
     const credentials = await this.account.resolveCredentials(
       session.user.id,
@@ -137,11 +155,14 @@ export class QuantGateway implements OnGatewayDisconnect {
   }
 
   @SubscribeMessage('watchBots')
-  async watchBots(@ConnectedSocket() client: QuantSocket) {
+  async watchBots(
+    @ConnectedSocket() client: QuantSocket,
+    @I18n() i18n: I18nContext<I18nTranslations>,
+  ) {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
     });
-    if (!session) throw new WsException('Forbidden');
+    if (!session) throw forbiddenError(i18n);
 
     await client.join(userRoom(session.user.id));
 
