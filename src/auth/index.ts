@@ -31,8 +31,9 @@ import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js'
 
 import { DINE_IN_MAX_TABLE_COUNT } from '../common/constants/dine-in.js';
 import {
+  getPickupMaxLeadMinutes,
   PICKUP_MAX_ADVANCE_DAYS,
-  PICKUP_MAX_MINUTES,
+  PICKUP_MAX_CUTOFF_MINUTES,
 } from '../common/constants/pickup.js';
 import { diffAuditRows } from '../common/utils/audit-diff.js';
 import { isValidCurrency } from '../common/utils/currency.js';
@@ -54,12 +55,18 @@ const getInitialOrganization = async (userId: string) => {
 };
 
 const PICKUP_FIELD_MAXIMUMS = {
-  pickupLeadMinutes: PICKUP_MAX_MINUTES,
+  pickupLeadMinutes: getPickupMaxLeadMinutes(PICKUP_MAX_ADVANCE_DAYS),
   pickupMaxAdvanceDays: PICKUP_MAX_ADVANCE_DAYS,
-  pickupCutoffMinutes: PICKUP_MAX_MINUTES,
+  pickupCutoffMinutes: PICKUP_MAX_CUTOFF_MINUTES,
 };
 
-const assertValidOrganizationInput = (data: Record<string, unknown>) => {
+const assertValidOrganizationInput = (
+  data: Record<string, unknown>,
+  current?: Pick<
+    typeof schema.organization.$inferSelect,
+    'pickupLeadMinutes' | 'pickupMaxAdvanceDays'
+  >,
+) => {
   if (
     typeof data.openingHours === 'string' &&
     !isValidOpeningHours(data.openingHours)
@@ -87,6 +94,20 @@ const assertValidOrganizationInput = (data: Record<string, unknown>) => {
         message: `${field} must be an integer from 0 to ${max}`,
       });
   }
+
+  const leadMinutes = data.pickupLeadMinutes ?? current?.pickupLeadMinutes;
+  const advanceDays =
+    data.pickupMaxAdvanceDays ?? current?.pickupMaxAdvanceDays;
+  if (
+    (data.pickupLeadMinutes !== undefined ||
+      data.pickupMaxAdvanceDays !== undefined) &&
+    typeof leadMinutes === 'number' &&
+    typeof advanceDays === 'number' &&
+    leadMinutes > getPickupMaxLeadMinutes(advanceDays)
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: `pickupLeadMinutes must be shorter than ${advanceDays + 1} days`,
+    });
 
   const { dineInTableCount } = data;
   if (
@@ -267,11 +288,11 @@ export const createAuth = (
             await assertSlugAvailable(data.slug);
           },
           beforeUpdateOrganization: async ({ organization: data, member }) => {
-            assertValidOrganizationInput(data);
-
             const current = await authDb().query.organization.findFirst({
               where: eq(schema.organization.id, member.organizationId),
             });
+
+            assertValidOrganizationInput(data, current);
 
             authHookState().snapshot = current;
 
