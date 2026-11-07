@@ -186,7 +186,7 @@ export interface SpecialOpeningHours {
 
 export interface OpeningCalendar {
   isOpenAt: (at: Date) => boolean;
-  minutesUntilClose: (at: Date) => number;
+  minutesUntilClose: (at: Date, enough?: number) => number;
 }
 
 export const openingCalendar = (
@@ -222,7 +222,7 @@ export const openingCalendar = (
   return {
     isOpenAt: (at) => minutesUntilSegmentEnd(schedulesOn, at) !== null,
 
-    minutesUntilClose: (at) => {
+    minutesUntilClose: (at, enough = Infinity) => {
       let cursor = at;
       let elapsed = 0;
       let hopsPastSpecials = 0;
@@ -238,6 +238,7 @@ export const openingCalendar = (
         if (minutes === null) return elapsed;
 
         elapsed += minutes;
+        if (elapsed >= enough) return elapsed;
         cursor = new Date(cursor.getTime() + minutes * 60_000);
       }
     },
