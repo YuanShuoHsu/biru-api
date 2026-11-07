@@ -9,7 +9,15 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createPGlite } from '../../../test/pglite.js';
 import type { Auth } from '../../auth/index.js';
 import * as schema from '../../db/schema/index.js';
-import { menu, menuItem } from '../../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  menuItemAddOn,
+  menuSection,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../../db/schema/menus.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
 import { type AuthRequest, RolesGuard } from './roles.guard.js';
@@ -166,16 +174,16 @@ describe('RolesGuard 由路由參數找門市', () => {
       db,
     );
 
-  const itemContext = (menuItemId: string) => {
+  const paramContext = (organizationParam: string, value: string) => {
     const request = {
       headers: {},
       method: 'GET',
-      params: { menuItemId },
+      params: { [organizationParam]: value },
     } as unknown as AuthRequest;
     const handler = () => undefined;
     Reflect.defineMetadata(
       'roles',
-      { action: { menu: ['read'] }, organizationParam: 'menuItemId' },
+      { action: { menu: ['read'] }, organizationParam },
       handler,
     );
     const context = {
@@ -187,6 +195,9 @@ describe('RolesGuard 由路由參數找門市', () => {
 
     return { context, request };
   };
+
+  const itemContext = (menuItemId: string) =>
+    paramContext('menuItemId', menuItemId);
 
   beforeAll(async () => {
     client = createPGlite();
@@ -215,6 +226,37 @@ describe('RolesGuard 由路由參數找門市', () => {
       name: { 'zh-TW': '未分類品項' },
       sortOrder: 0,
     });
+    await pglite.insert(menuSection).values({
+      id: 'drinks',
+      menuId: 'menu',
+      name: { 'zh-TW': '飲品' },
+    });
+    await pglite.insert(menuItem).values({
+      id: 'latte',
+      menuId: 'menu',
+      menuSectionId: 'drinks',
+      name: { 'zh-TW': '拿鐵' },
+      sortOrder: 0,
+    });
+    await pglite.insert(offer).values([
+      { id: 'latte-offer', menuItemId: 'latte' },
+      { id: 'drinks-offer', menuSectionId: 'drinks' },
+    ]);
+    await pglite.insert(menuItemAddOn).values({
+      id: 'latte-addon',
+      menuItemId: 'latte',
+      addOnMenuItemId: 'unsectioned',
+    });
+    await pglite.insert(modifierGroup).values({
+      id: 'sizes',
+      menuId: 'menu',
+      displayName: { 'zh-TW': '尺寸' },
+    });
+    await pglite.insert(modifier).values({
+      id: 'large',
+      modifierGroupId: 'sizes',
+      displayName: { 'zh-TW': '大杯' },
+    });
   }, 60_000);
 
   afterAll(async () => {
@@ -223,6 +265,21 @@ describe('RolesGuard 由路由參數找門市', () => {
 
   it('沒有分類的品項也從它的菜單找到門市', async () => {
     const { context, request } = itemContext('unsectioned');
+
+    await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
+    expect(request.organizationId).toBe('biru');
+  });
+
+  it.each([
+    ['sectionId', 'drinks'],
+    ['menuItemId', 'latte'],
+    ['offerId', 'latte-offer'],
+    ['offerId', 'drinks-offer'],
+    ['addOnId', 'latte-addon'],
+    ['groupId', 'sizes'],
+    ['modifierId', 'large'],
+  ])('%s %s 沿著菜單找到門市', async (organizationParam, value) => {
+    const { context, request } = paramContext(organizationParam, value);
 
     await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
     expect(request.organizationId).toBe('biru');
