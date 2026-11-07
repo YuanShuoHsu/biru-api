@@ -1,6 +1,11 @@
 import { createHash } from 'crypto';
 
-import { imageVersion, parseImageDataUrl, withImageUrl } from './image-url.js';
+import {
+  imageVersion,
+  parseImageDataUrl,
+  withImageRefUrl,
+  withImageUrl,
+} from './image-url.js';
 
 describe('parseImageDataUrl', () => {
   it.each([
@@ -80,4 +85,27 @@ describe('withImageUrl', () => {
       withImageUrl('banner', { id: 'banner-1', image }).imageUrl,
     ).toBeNull();
   });
+});
+
+describe('withImageRefUrl', () => {
+  it('組出和 withImageUrl 相同的網址，並拿掉 imageRef', () => {
+    const image = 'data:image/webp;base64,UklGRg==';
+
+    expect(
+      withImageRefUrl('menuItem', {
+        id: 'item-1',
+        imageRef: `image/webp ${imageVersion(image)}`,
+        name: 'Latte',
+      }),
+    ).toEqual(withImageUrl('menuItem', { id: 'item-1', image, name: 'Latte' }));
+  });
+
+  it.each([null, 'image/bmp 0123456789abcdef', 'image/png'])(
+    'imageRef 為 %j 時 imageUrl 為 null',
+    (imageRef) => {
+      expect(
+        withImageRefUrl('menu', { id: 'menu-1', imageRef }).imageUrl,
+      ).toBeNull();
+    },
+  );
 });

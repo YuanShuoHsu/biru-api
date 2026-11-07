@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, type AnyColumn } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type Language,
@@ -20,7 +20,7 @@ import {
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { withImageUrl } from '../images/image-url.js';
+import { imageRefSql, withImageRefUrl } from '../images/image-url.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
@@ -63,6 +63,13 @@ const getActiveAddOnMenuItems = <
   (addOnMenuItem ? [addOnMenuItem] : addOnMenuSection?.menuItems || []).filter(
     (entry) => entry.id !== menuItemId && !isDiscontinued(entry),
   );
+
+const imageRefQuery = {
+  columns: { image: false },
+  extras: ({ image }: { image: AnyColumn }) => ({
+    imageRef: imageRefSql(image).as('image_ref'),
+  }),
+} as const;
 
 const modifierGroupsQuery = {
   orderBy: [asc(menuItemModifierGroup.sortOrder)],
@@ -118,13 +125,16 @@ export class PublicMenusService {
   ): Promise<OrderMenuResponseDto | null> {
     const [orderMenu, salesByMenuItemId] = await Promise.all([
       this.db.query.menu.findFirst({
+        ...imageRefQuery,
         where: eq(menu.organizationId, organizationId),
         with: {
           organization: { columns: { currency: true } },
           menuSections: {
+            ...imageRefQuery,
             orderBy: [asc(menuSection.sortOrder)],
             with: {
               menuItems: {
+                ...imageRefQuery,
                 orderBy: [asc(menuItem.sortOrder)],
                 with: {
                   offers: { orderBy: [asc(offer.createdAt)] },
@@ -132,11 +142,13 @@ export class PublicMenusService {
                     orderBy: [asc(menuItemAddOn.sortOrder)],
                     with: {
                       addOnMenuItem: {
+                        ...imageRefQuery,
                         with: { offers: { orderBy: [asc(offer.createdAt)] } },
                       },
                       addOnMenuSection: {
                         with: {
                           menuItems: {
+                            ...imageRefQuery,
                             orderBy: [asc(menuItem.sortOrder)],
                             with: {
                               offers: { orderBy: [asc(offer.createdAt)] },
@@ -198,13 +210,13 @@ export class PublicMenusService {
 
     const sections = orderMenu.menuSections
       .map((section) => ({
-        ...withImageUrl('menuSection', section),
+        ...withImageRefUrl('menuSection', section),
         name: localize(section.name, lang) || '',
         description: localize(section.description, lang),
         menuItems: section.menuItems
           .filter((entry) => !isDiscontinued(entry))
           .map(({ addOns, modifierGroups, offers, ...item }) => ({
-            ...withImageUrl('menuItem', item),
+            ...withImageRefUrl('menuItem', item),
             offers: offers.map((row) => ({ ...row, priceCurrency })),
             name: localize(item.name, lang) || '',
             description: localize(item.description, lang),
@@ -221,7 +233,7 @@ export class PublicMenusService {
                     availableModes,
                     fixedSweetnessLevel,
                     id,
-                    image,
+                    imageRef,
                     name,
                     offers,
                     recommendedServingTemperatureLevel,
@@ -231,7 +243,8 @@ export class PublicMenusService {
                   }) => ({
                     id,
                     name: localize(name, lang) || '',
-                    imageUrl: withImageUrl('menuItem', { id, image }).imageUrl,
+                    imageUrl: withImageRefUrl('menuItem', { id, imageRef })
+                      .imageUrl,
                     availableModes,
                     servingTemperatures,
                     recommendedServingTemperatureLevel,
@@ -257,7 +270,7 @@ export class PublicMenusService {
       id: orderMenu.id,
       name: localize(orderMenu.name, lang) || '',
       description: localize(orderMenu.description, lang),
-      imageUrl: withImageUrl('menu', orderMenu).imageUrl,
+      imageUrl: withImageRefUrl('menu', orderMenu).imageUrl,
       currency: priceCurrency,
       sections,
       createdAt: orderMenu.createdAt,
