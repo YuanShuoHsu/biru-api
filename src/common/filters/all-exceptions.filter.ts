@@ -2,6 +2,7 @@
 
 import {
   ArgumentsHost,
+  BadRequestException,
   Catch,
   ExceptionFilter,
   HttpException,
@@ -11,6 +12,7 @@ import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
 
 import { I18nContext } from 'nestjs-i18n';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
+import { isUnstorableText } from '../utils/pg-errors.js';
 
 @Catch()
 export class AllExceptionsFilter
@@ -21,13 +23,23 @@ export class AllExceptionsFilter
     super(adapterHost.httpAdapter);
   }
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(caught: unknown, host: ArgumentsHost): void {
+    const i18n = I18nContext.current<I18nTranslations>(host);
+
+    const exception = isUnstorableText(caught)
+      ? new BadRequestException({
+          error: 'Bad Request',
+          code: 'badRequest',
+          message: i18n?.t('common.exceptions.badRequest', {
+            lang: i18n?.lang,
+          }),
+        })
+      : caught;
+
     const httpStatus =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    const i18n = I18nContext.current<I18nTranslations>(host);
 
     const isProduction = process.env.NODE_ENV === 'production';
 

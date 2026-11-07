@@ -99,6 +99,24 @@ describe('AllWsExceptionsFilter', () => {
     });
   });
 
+  it.each(['22021', '22P05'])(
+    '資料庫拒收的文字（%s，含 NUL）送出翻譯後的 badRequest',
+    (code) => {
+      const { emit, catch: handle } = setup();
+
+      handle({ cause: { code } });
+
+      expect(emit).toHaveBeenCalledWith('exception', {
+        message: 'en:common.exceptions.badRequest',
+        error: 'Bad Request',
+        code: 'badRequest',
+        statusCode: 400,
+        status: 'error',
+        cause,
+      });
+    },
+  );
+
   it('限流送出翻譯後的 tooManyRequests', () => {
     const { emit, catch: handle } = setup();
 
