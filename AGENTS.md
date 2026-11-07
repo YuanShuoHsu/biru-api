@@ -422,7 +422,9 @@ missing variable fails at request time rather than at boot. Required in `.env`:
 - `NEXT_ADMIN_URL` — Admin frontend origin (same two uses)
 - `FALLBACK_LANGUAGE` — Default i18n locale (e.g. `zh-TW`); read with `getOrThrow`
 - `TRUSTED_PROXIES` — Comma-separated proxy addresses/CIDRs or proxy-addr presets. Unset means
-  `trust proxy: false`, which fails the attendance IP allowlist closed
+  `trust proxy: false`, which fails the attendance IP allowlist closed; with `CLIENT_IP_HEADER` also unset, every Nest
+  throttler is off and better-auth keeps only its stricter built-in limits, shared platform-wide (logged at boot when
+  `NODE_ENV=production`)
 - `CLIENT_IP_HEADER` — Header holding the client IP, e.g. `CF-Connecting-IP`; takes precedence over `req.ip`. Only set
   it when every request reaches the API through Cloudflare (onrender.com disabled), otherwise the header can be forged
 - `CLIENT_IP_FORWARD_SECRET` — Shared with the biru storefront's server (same name there, never `NEXT_PUBLIC_`); a

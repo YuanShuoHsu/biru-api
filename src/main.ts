@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
-import { trustedProxies } from './common/trusted-proxy.js';
+import { rateLimitEnabled, trustedProxies } from './common/trusted-proxy.js';
 import { fieldEncryptionKeys } from './common/utils/field-encryption.js';
 
 async function bootstrap() {
@@ -25,6 +25,11 @@ async function bootstrap() {
   if (!fieldEncryptionKeys())
     new Logger('FieldEncryption').warn(
       'FIELD_ENCRYPTION_KEYS 未設定，欄位加密沿用 BETTER_AUTH_SECRET 推導的金鑰',
+    );
+
+  if (process.env.NODE_ENV === 'production' && !rateLimitEnabled())
+    new Logger('RateLimit').warn(
+      'CLIENT_IP_HEADER 與 TRUSTED_PROXIES 都未設定：Nest 的限流全部停用，better-auth 只剩登入、註冊等內建限流，且全平台共用同一個桶',
     );
 
   app.use(cookieParser());
