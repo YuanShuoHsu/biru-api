@@ -31,6 +31,7 @@ import {
 } from '../common/utils/audit-resources.js';
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
@@ -357,8 +358,12 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ...LABEL_COLUMNS.map((column) =>
-            ilike(sql`l.data ->> ${column}`, `%${escapeLike(value)}%`),
+          ...LABEL_COLUMNS.map(
+            (column) => sql`CASE
+              WHEN jsonb_typeof(l.data -> ${column}) = 'object'
+                THEN ${buildLocalizedTextFilterCondition(sql`l.data -> ${column}`, 'contains', value)}
+              ELSE ${ilike(sql`l.data ->> ${column}`, `%${escapeLike(value)}%`)}
+            END`,
           ),
           ilike(sql`l.user_name`, `%${escapeLike(value)}%`),
           ilike(sql`l.deleted_by`, `%${escapeLike(value)}%`),
