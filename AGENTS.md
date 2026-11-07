@@ -340,7 +340,8 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 ### Global Setup (`src/main.ts`)
 
 - API prefix: `/api`
-- Swagger docs at: `/api` (currently mounted unconditionally, including in production)
+- Swagger UI at `/api`, document at `/api-json` — mounted only when `NODE_ENV !== 'production'` (`src/main.ts`), so codegen
+  and `/api-json` comparisons run against a local or non-production API
   — `nest-cli.json` enables the [`@nestjs/swagger` CLI plugin](https://docs.nestjs.com/openapi/cli-plugin) with its
   defaults, so every property declared in a `*.dto.ts` / `*.entity.ts` file is documented without `@ApiProperty`:
   type and `required` come from the TypeScript declaration (`?`, not `@IsOptional()`), class-validator decorators add
