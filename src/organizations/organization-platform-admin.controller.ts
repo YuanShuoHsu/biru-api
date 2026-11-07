@@ -1,4 +1,4 @@
-import { Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -36,6 +36,18 @@ export class OrganizationPlatformAdminController {
       organizationId,
       session.user.id,
     );
+  }
+
+  @Get('platform-admin-members')
+  @OrganizationMember('organizationId')
+  @ApiOperation({
+    summary: '列出身為平台管理員的成員 id；只有平台管理員能移除或改動這些成員',
+  })
+  @ApiOkResponse({ type: String, isArray: true })
+  platformAdminMemberIds(
+    @Param('organizationId') organizationId: string,
+  ): Promise<string[]> {
+    return this.organizationsService.platformAdminMemberIds(organizationId);
   }
 
   @Post('members/:memberId/confirm-owner')

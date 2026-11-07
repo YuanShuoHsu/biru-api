@@ -20,6 +20,7 @@ import {
   organizationSlugHistory,
 } from '../db/schema/organizations.js';
 import { order } from '../db/schema/orders.js';
+import { user } from '../db/schema/users.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
   waitlistTicket,
@@ -199,6 +200,18 @@ export class OrganizationsService {
     if (!target) throw new NotFoundException();
 
     throw conflictError('notJoinedAsPlatformAdmin');
+  }
+
+  async platformAdminMemberIds(organizationId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: member.id })
+      .from(member)
+      .innerJoin(user, eq(user.id, member.userId))
+      .where(
+        and(eq(member.organizationId, organizationId), eq(user.role, 'admin')),
+      );
+
+    return rows.map(({ id }) => id);
   }
 
   async setClosed(
