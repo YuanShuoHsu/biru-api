@@ -111,6 +111,11 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `columns.helpers.ts` — shared column builders. Its `timestamps` are `timestamp` **without** time zone;
   the attendance and payroll tables use `withTimezone: true` instead, so don't switch them to the helper.
 
+A DTO cap on a Postgres `integer` column must leave room for the code that adds to the stored value: new rows are
+appended at max `sortOrder` + 1 or prepended at 0 with every existing row shifted +1, and `reorderSortOrders`
+(`src/common/utils/sort-order.ts`) renumbers upwards, so cap such fields at a domain size (e.g. `@Max(9999)`), never at
+2147483647, or the overflow 500 only moves to the next insert.
+
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
 
 Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; batches whose root table is in `RESTORABLE_TABLES` can be restored by platform admins, or by store members whose role holds that table's `RESTORE_PERMISSIONS` action (restoring an owner member or invitation needs `owner`). Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
