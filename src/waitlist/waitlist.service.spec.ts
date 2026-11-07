@@ -759,3 +759,29 @@ describe('WaitlistService.processOverdueTickets', () => {
     expect(error).not.toHaveBeenCalled();
   });
 });
+
+describe('WaitlistService.expireStaleTickets', () => {
+  it('作廢後通知每間受影響門市的候位看板一次', async () => {
+    const { db, service } = createService({});
+    db.update.mockReturnValue({
+      set: () => ({
+        where: () => ({
+          returning: () =>
+            Promise.resolve([
+              { id: 't1', organizationId: 'org-a' },
+              { id: 't2', organizationId: 'org-a' },
+              { id: 't3', organizationId: 'org-b' },
+            ]),
+        }),
+      }),
+    });
+    const emit = vi.spyOn(EventEmitter2.prototype, 'emit');
+    onTestFinished(() => emit.mockRestore());
+
+    await expect(service.expireStaleTickets()).resolves.toBe(3);
+    expect(emit.mock.calls).toEqual([
+      ['waitlist.updated', { organizationId: 'org-a', ticket: null }],
+      ['waitlist.updated', { organizationId: 'org-b', ticket: null }],
+    ]);
+  });
+});
