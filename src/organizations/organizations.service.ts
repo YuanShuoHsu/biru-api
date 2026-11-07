@@ -84,8 +84,13 @@ export class OrganizationsService {
       },
     });
 
+    const now = new Date();
+
     return members
-      .filter(({ user }) => !showcasedOnly || !user.banned)
+      .filter(
+        ({ user: { banned, banExpires } }) =>
+          !showcasedOnly || !banned || (!!banExpires && banExpires <= now),
+      )
       .map(({ id, role, showcase, createdAt, user }) => ({
         id,
         role,
