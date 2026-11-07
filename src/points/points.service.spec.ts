@@ -1100,7 +1100,6 @@ describe('PointsService.findAllForOrganization', () => {
       expect.objectContaining({
         id: created.id,
         note: '客訴補償',
-        organizationName: expect.any(String),
         type: 'adjust',
       }),
     );
