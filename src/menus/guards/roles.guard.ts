@@ -154,6 +154,7 @@ export class RolesGuard implements CanActivate {
 
       case 'sectionId': {
         const row = await this.db.query.menuSection.findFirst({
+          columns: {},
           where: eq(menuSection.id, params.sectionId),
           with: { menu: { columns: { organizationId: true } } },
         });
@@ -163,6 +164,7 @@ export class RolesGuard implements CanActivate {
 
       case 'menuItemId': {
         const row = await this.db.query.menuItem.findFirst({
+          columns: {},
           where: eq(menuItem.id, params.menuItemId),
           with: { menu: { columns: { organizationId: true } } },
         });
@@ -172,17 +174,21 @@ export class RolesGuard implements CanActivate {
 
       case 'offerId': {
         const row = await this.db.query.offer.findFirst({
+          columns: {},
           where: eq(offer.id, params.offerId),
           with: {
             menuItem: {
+              columns: {},
               with: {
                 menu: { columns: { organizationId: true } },
                 menuSection: {
+                  columns: {},
                   with: { menu: { columns: { organizationId: true } } },
                 },
               },
             },
             menuSection: {
+              columns: {},
               with: { menu: { columns: { organizationId: true } } },
             },
           },
@@ -197,12 +203,15 @@ export class RolesGuard implements CanActivate {
 
       case 'addOnId': {
         const row = await this.db.query.menuItemAddOn.findFirst({
+          columns: {},
           where: eq(menuItemAddOn.id, params.addOnId),
           with: {
             menuItem: {
+              columns: {},
               with: {
                 menu: { columns: { organizationId: true } },
                 menuSection: {
+                  columns: {},
                   with: { menu: { columns: { organizationId: true } } },
                 },
               },
@@ -218,6 +227,7 @@ export class RolesGuard implements CanActivate {
 
       case 'groupId': {
         const row = await this.db.query.modifierGroup.findFirst({
+          columns: {},
           where: eq(modifierGroup.id, params.groupId),
           with: { menu: { columns: { organizationId: true } } },
         });
@@ -227,9 +237,11 @@ export class RolesGuard implements CanActivate {
 
       case 'modifierId': {
         const row = await this.db.query.modifier.findFirst({
+          columns: {},
           where: eq(modifier.id, params.modifierId),
           with: {
             modifierGroup: {
+              columns: {},
               with: { menu: { columns: { organizationId: true } } },
             },
           },
