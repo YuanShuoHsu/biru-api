@@ -1,0 +1,1 @@
+CREATE INDEX "attendance_shift_ends_at_idx" ON "attendance_shift" USING btree ("ends_at");
