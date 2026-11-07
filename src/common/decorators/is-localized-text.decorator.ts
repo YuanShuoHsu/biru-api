@@ -9,6 +9,7 @@ import {
   hasLocalizedText,
   isCompleteLocalizedText,
   isLocalizedText,
+  isLocalizedTextWithin,
 } from '../utils/localized-text.js';
 
 export const IsLocalizedText = (validationOptions?: ValidationOptions) =>
@@ -56,6 +57,26 @@ export const IsCompleteLocalizedText = (
         defaultMessage: buildMessage(
           (eachPrefix) =>
             `${eachPrefix}$property must have non-blank text for every language (${languagesEnum.enumValues.join(', ')})`,
+          validationOptions,
+        ),
+      },
+    },
+    validationOptions,
+  );
+
+export const MaxLocalizedTextLength = (
+  max: number,
+  validationOptions?: ValidationOptions,
+) =>
+  ValidateBy(
+    {
+      name: 'maxLocalizedTextLength',
+      constraints: [max],
+      validator: {
+        validate: (value: unknown) => isLocalizedTextWithin(value, max),
+        defaultMessage: buildMessage(
+          (eachPrefix) =>
+            `${eachPrefix}$property must be at most $constraint1 characters in every language`,
           validationOptions,
         ),
       },

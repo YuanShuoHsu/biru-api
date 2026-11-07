@@ -14,6 +14,13 @@ const errorsOf = async (fields: Record<string, unknown>) =>
   ).map(({ property }) => property);
 
 describe('CreateBannerDto', () => {
+  it('accepts an alt of 160 characters and rejects 161 in any language', async () => {
+    expect(await errorsOf({ alt: { en: 'a'.repeat(160) } })).toEqual([]);
+    expect(
+      await errorsOf({ alt: { 'zh-TW': '橫幅', ko: '가'.repeat(161) } }),
+    ).toEqual(['alt']);
+  });
+
   it.each([
     'data:image/webp;base64,UklGRg==',
     'data:image/jpeg;base64,/9j/4AAQ',

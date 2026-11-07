@@ -19,10 +19,14 @@ import {
 } from 'class-validator';
 
 import {
+  IMAGE_ALT_MAX_LENGTH,
   IMAGE_DATA_URL_MAX_LENGTH,
   IMAGE_DATA_URL_PATTERN,
 } from '../../common/constants/image.js';
-import { IsLocalizedText } from '../../common/decorators/is-localized-text.decorator.js';
+import {
+  IsLocalizedText,
+  MaxLocalizedTextLength,
+} from '../../common/decorators/is-localized-text.decorator.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
@@ -55,6 +59,7 @@ export class CreateBannerDto {
   })
   @IsOptional()
   @IsLocalizedText()
+  @MaxLocalizedTextLength(IMAGE_ALT_MAX_LENGTH)
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   alt?: LocalizedText | null;
 

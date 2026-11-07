@@ -1,3 +1,4 @@
+import { maxLength } from 'class-validator';
 import { sql, type Column, type SQL } from 'drizzle-orm';
 
 import {
@@ -24,6 +25,10 @@ export const hasLocalizedText = (value: unknown): boolean =>
 export const isCompleteLocalizedText = (value: unknown): boolean =>
   isLocalizedText(value) &&
   languages.every((language) => value[language as Language]?.trim());
+
+export const isLocalizedTextWithin = (value: unknown, max: number): boolean =>
+  isLocalizedText(value) &&
+  Object.values(value).every((text) => maxLength(text, max));
 
 export const emptyLocalizedTextToNull = (value: unknown): unknown =>
   isLocalizedText(value) && Object.values(value).every((text) => !text.trim())
