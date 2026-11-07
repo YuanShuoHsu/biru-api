@@ -31,6 +31,8 @@ describe('CreateBannerDto', () => {
   it.each([
     'data:image/png;base64,',
     'data:image/svg+xml;base64,PHN2Zz4=',
+    'data:image/gif;base64,R0lGODlh',
+    'data:image/avif;base64,AAAAIGZ0eXA=',
     'data:text/html;base64,PGgxPg==',
     'data:image/png,iVBORw0KGgo',
     'data:image/png;base64,iVBOR w0K',

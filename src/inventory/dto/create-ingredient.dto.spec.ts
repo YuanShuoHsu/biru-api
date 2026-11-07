@@ -94,6 +94,23 @@ describe('CreateIngredientDto', () => {
       expect(await errorsOf({ inventoryLevel })).toEqual(['inventoryLevel']);
     },
   );
+
+  it.each([
+    null,
+    'data:image/webp;base64,UklGRg==',
+    'data:image/jpeg;base64,/9j/4AAQ',
+  ])('accepts image %j', async (image) => {
+    expect(await errorsOf({ image })).toEqual([]);
+  });
+
+  it.each([
+    'data:image/svg+xml;base64,PHN2Zz4=',
+    'data:image/gif;base64,R0lGODlh',
+    'data:text/html;base64,PGgxPg==',
+    'https://example.com/matcha.png',
+  ])('rejects image %j', async (image) => {
+    expect(await errorsOf({ image })).toEqual(['image']);
+  });
 });
 
 describe('CreateIngredientDto recipeId', () => {
