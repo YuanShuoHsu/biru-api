@@ -179,6 +179,15 @@ describe('MailsService 語系', () => {
     expect(sent[0].html).toContain('invited');
   });
 
+  it('邀請信以受邀者的語系顯示角色', async () => {
+    await sendInvitationEmail('Invitee@Example.com', 'en-US,en;q=0.9');
+    await sendInvitationEmail('new@example.com', 'en-US,en;q=0.9');
+
+    expect(sent[0].html).toContain('メンバー');
+    expect(sent[0].html).not.toMatch(/\bmember\b/);
+    expect(sent[1].html).toContain('as a member.');
+  });
+
   const spyLoggerError = () => {
     const error = vi
       .spyOn(Logger.prototype, 'error')
@@ -339,6 +348,22 @@ describe('MailsService 語系', () => {
         "Failed to send points-expiry-reminder email to i***@example.com: Can't send mail - all recipients were rejected: 550 <a***@example.com>",
       );
     });
+  });
+
+  it('出勤通知寄送失敗時往外丟遮罩後的錯誤', async () => {
+    vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
+
+    await expect(
+      service.sendMissingClockOut({
+        recipient: { email: 'ann@example.com', lang: 'en' },
+        organizationName: 'Biru',
+        path: '/attendance',
+        startsAt: new Date('2026-11-01T01:00:00Z'),
+        endsAt: new Date('2026-11-01T09:00:00Z'),
+      }),
+    ).rejects.toThrow(
+      "Failed to send attendance-notification email to a***@example.com: Can't send mail - all recipients were rejected: 550 <a***@example.com>",
+    );
   });
 
   it('測試信用請求者的 lang', async () => {

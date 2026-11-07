@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -137,6 +137,8 @@ const isActive = (status: WaitlistTicketStatus) =>
 
 @Injectable()
 export class WaitlistService {
+  private readonly logger = new Logger(WaitlistService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly eventEmitter: EventEmitter2,
@@ -1022,7 +1024,10 @@ export class WaitlistService {
       if (autoNoShowAt && autoNoShowAt <= now) {
         await this.updateStatus(ticket, 'noShow', 'staff').then(
           () => skipped++,
-          () => {},
+          (error: unknown) => {
+            if (!(error instanceof HttpException))
+              this.logger.error(`自動過號失敗：${ticket.id}`, error);
+          },
         );
       } else if (
         isOverdue(ticket, hold, now) &&

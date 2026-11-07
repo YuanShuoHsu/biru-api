@@ -1839,8 +1839,15 @@
     {
       "idx": 262,
       "version": "7",
-      "when": 1794022965822,
-      "tag": "0262_drop_organization_point_columns",
+      "when": 1794021389735,
+      "tag": "0262_attendance_shift_ends_at_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 263,
+      "version": "7",
+      "when": 1794024025773,
+      "tag": "0263_drop_organization_point_columns",
       "breakpoints": true
     }
   ]

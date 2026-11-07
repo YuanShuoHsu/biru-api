@@ -317,6 +317,7 @@ export const attendanceShift = pgTable(
   (t) => [
     index('attendance_shift_org_start_idx').on(t.organizationId, t.startsAt),
     index('attendance_shift_employee_start_idx').on(t.employeeId, t.startsAt),
+    index('attendance_shift_ends_at_idx').on(t.endsAt),
     check('attendance_shift_interval', sql`${t.endsAt} > ${t.startsAt}`),
   ],
 );

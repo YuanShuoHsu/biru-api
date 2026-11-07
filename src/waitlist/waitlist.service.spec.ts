@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 
+import { BadRequestException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { I18nContext } from 'nestjs-i18n';
 
@@ -707,5 +708,54 @@ describe('WaitlistService.scanQr', () => {
 
   it('returns null for an unknown organization', async () => {
     await expect(withOrgRows([]).scanQr('missing', 'x')).resolves.toBeNull();
+  });
+});
+
+describe('WaitlistService.processOverdueTickets', () => {
+  const overdueRow = {
+    graceMinutes: 5,
+    holdMinutes: 10,
+    ticket: {
+      calledAt: new Date('2026-10-06T03:00:00Z'),
+      id: 'ticket',
+      organizationId: 'org',
+      status: 'called',
+    },
+  };
+
+  const run = (failure: unknown) => {
+    const { db, service } = createService({});
+    Object.assign(db, {
+      select: () => ({
+        from: () => ({
+          leftJoin: () => ({ where: () => Promise.resolve([overdueRow]) }),
+        }),
+      }),
+    });
+    vi.spyOn(
+      service as unknown as { updateStatus: () => Promise<unknown> },
+      'updateStatus',
+    ).mockRejectedValue(failure);
+    const error = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => error.mockRestore());
+
+    return { error, result: service.processOverdueTickets(new Date(0)) };
+  };
+
+  it('自動過號遇到非預期錯誤時記錄，不往外丟', async () => {
+    const failure = new Error('connection terminated');
+    const { error, result } = run(failure);
+
+    await expect(result).resolves.toBe(0);
+    expect(error).toHaveBeenCalledWith('自動過號失敗：ticket', failure);
+  });
+
+  it('號碼已被店員改狀態（轉換不合法）時不記錄', async () => {
+    const { error, result } = run(new BadRequestException());
+
+    await expect(result).resolves.toBe(0);
+    expect(error).not.toHaveBeenCalled();
   });
 });

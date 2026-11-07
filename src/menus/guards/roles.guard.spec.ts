@@ -116,6 +116,14 @@ describe('RolesGuard', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('rejects with the forbidden code', async () => {
+    const { context } = contextFor({ organization: ['update'] });
+
+    await expect(
+      guardFor({ userRole: 'user', memberRole: 'member' }).canActivate(context),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
+
   it.each<Record<string, string[]>>([
     { refund: ['create'] },
     { invoice: ['void'] },

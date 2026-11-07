@@ -37,6 +37,11 @@
     "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
     "intro": "{inviterName}님이 {productName}의 {organizationName}에 {role}(으)로 참여하도록 초대했습니다. 아래 버튼을 클릭하여 초대를 수락하세요.",
     "preheader": "{productName}의 {organizationName}에 초대되었습니다.",
+    "roles": {
+      "admin": "관리자",
+      "member": "멤버",
+      "owner": "소유자"
+    },
     "salutation": "감사합니다.<br>{productName} 팀",
     "security_notice": "보안을 위해 이 초대는 {inviterName}이(가) {productName} 계정에서 보냈습니다. 초대를 예상하지 않으셨다면 이 이메일을 무시하시거나, 질문이 있으시면 <a href=\"{support_url}\">지원팀에 문의</a>해주세요.",
     "subject": "{productName}의 {organizationName}에 초대되었습니다",

@@ -572,6 +572,11 @@ export type I18nTranslations = {
             "address": string;
             "intro": string;
             "preheader": string;
+            "roles": {
+                "admin": string;
+                "member": string;
+                "owner": string;
+            };
             "salutation": string;
             "security_notice": string;
             "subject": string;

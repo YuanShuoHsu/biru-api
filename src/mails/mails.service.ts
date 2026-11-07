@@ -16,6 +16,7 @@ import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { isLanguage, pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
+import { memberRoleEnum, type MemberRole } from '../db/schema/organizations.js';
 import { user, type User } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
@@ -64,6 +65,14 @@ export class MailsService {
     });
   }
 
+  private async sendOrThrow(
+    options: ISendMailOptions & { to: string; template: string },
+  ): Promise<void> {
+    await this.mailerService.sendMail(options).catch((error: unknown) => {
+      throw new Error(sendFailure(options.template, options.to, error));
+    });
+  }
+
   public async sendPointsExpiryReminder({
     userId,
     points,
@@ -104,32 +113,28 @@ export class MailsService {
       lang,
     };
 
-    await this.mailerService
-      .sendMail({
-        to: member.email,
-        subject: this.i18n.t('mail.points_expiry_reminder.subject', translate),
-        template,
-        context: {
-          action: this.i18n.t('mail.points_expiry_reminder.action', options),
-          home_url: `${baseUrl}/${lang}`,
-          i18nLang: lang,
-          intro: this.i18n.t('mail.points_expiry_reminder.intro', translate),
-          productName,
-          salutation: this.i18n.t(
-            'mail.points_expiry_reminder.salutation',
-            translate,
-          ),
-          title: this.i18n.t('mail.points_expiry_reminder.title', options),
-          trouble_hint: this.i18n.t(
-            'mail.points_expiry_reminder.trouble_hint',
-            options,
-          ),
-          url,
-        },
-      })
-      .catch((error: unknown) => {
-        throw new Error(sendFailure(template, member.email, error));
-      });
+    await this.sendOrThrow({
+      to: member.email,
+      subject: this.i18n.t('mail.points_expiry_reminder.subject', translate),
+      template,
+      context: {
+        action: this.i18n.t('mail.points_expiry_reminder.action', options),
+        home_url: `${baseUrl}/${lang}`,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.points_expiry_reminder.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.points_expiry_reminder.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.points_expiry_reminder.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.points_expiry_reminder.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
 
     return true;
   }
@@ -415,7 +420,12 @@ export class MailsService {
         inviterName,
         organizationName,
         productName,
-        role,
+        role: (memberRoleEnum.enumValues as readonly string[]).includes(role)
+          ? this.i18n.t(
+              `mail.organization_invitation.roles.${role as MemberRole}`,
+              { lang },
+            )
+          : role,
         support_url,
         url: invite_url,
       },
@@ -688,7 +698,7 @@ export class MailsService {
     };
     const translate = { args, lang };
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.annual_leave_entitlement.subject', translate),
       template: 'attendance-notification',
@@ -743,7 +753,7 @@ export class MailsService {
       lang,
     };
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.missing_clock_out.subject', translate),
       template: 'attendance-notification',
@@ -832,7 +842,7 @@ export class MailsService {
       });
     }
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.low_stock_digest.subject', translate),
       template: 'digest',
@@ -973,7 +983,7 @@ export class MailsService {
       });
     }
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.daily_sales_digest.subject', translate),
       template: 'digest',
@@ -1035,7 +1045,7 @@ export class MailsService {
       lang,
     };
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.platform_daily_digest.subject', translate),
       template: 'digest',

@@ -1,5 +1,5 @@
 {
-  "id": "1aa997d1-4b11-41bc-9dac-4b5b369f2bc0",
+  "id": "1c3b97b5-b44c-4a12-8e67-4a9ccb43bb07",
   "prevId": "ceb6253f-6c37-47e8-baec-d19110fb490a",
   "version": "7",
   "dialect": "postgresql",
@@ -2130,6 +2130,21 @@
             },
             {
               "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attendance_shift_ends_at_idx": {
+          "name": "attendance_shift_ends_at_idx",
+          "columns": [
+            {
+              "expression": "ends_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6627,6 +6642,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'TWD'"
+        },
+        "amount_per_point": {
+          "name": "amount_per_point",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "points_enabled_at": {
+          "name": "points_enabled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "pickup_lead_minutes": {
           "name": "pickup_lead_minutes",
