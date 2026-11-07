@@ -137,7 +137,6 @@ const createService = ({
       },
       organization: {
         findFirst: vi.fn().mockResolvedValue({
-          amountPerPoint: '100',
           closedAt,
           currency: 'TWD',
           dineInTableCount: 12,

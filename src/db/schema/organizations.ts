@@ -48,8 +48,6 @@ export const organization = pgTable(
 
     currency: text('currency').notNull().default('TWD'),
 
-    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    pointsEnabledAt: timestamp('points_enabled_at'),
     pickupLeadMinutes: integer('pickup_lead_minutes').notNull().default(15),
     pickupMaxAdvanceDays: integer('pickup_max_advance_days')
       .notNull()
