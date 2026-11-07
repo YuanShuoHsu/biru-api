@@ -16,6 +16,7 @@ export const organizationErrorCodes = [
   'specialHoursInvalidRange',
   'specialHoursNotFound',
   'specialHoursOverlap',
+  'specialHoursTooLong',
 ] as const;
 
 export type OrganizationErrorCode = (typeof organizationErrorCodes)[number];
@@ -31,8 +32,11 @@ const errorBody = (
     }) ?? code,
 });
 
-export const badRequestError = (code: OrganizationErrorCode) =>
-  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
+export const badRequestError = (
+  code: OrganizationErrorCode,
+  args?: Record<string, unknown>,
+) =>
+  new BadRequestException({ error: 'Bad Request', ...errorBody(code, args) });
 
 export const conflictError = (
   code: OrganizationErrorCode,
