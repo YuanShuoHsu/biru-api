@@ -114,6 +114,12 @@ export class OrderStatsResponseDto {
   refundedOrders: number;
 
   @ApiProperty({
+    description:
+      '期間內計入的訂單中，至今已有確認退款的訂單數（不論退款日）；除以各區間 orders 合計即為退款率',
+  })
+  refundedPeriodOrders: number;
+
+  @ApiProperty({
     description: '期間內確認退款份數前 10 名品項（依退款日歸期）',
     type: [OrderStatsRefundedItemDto],
   })
