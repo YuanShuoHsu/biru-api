@@ -7,6 +7,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { withImageUrl } from '../images/image-url.js';
 
 import { StorePhotosService } from './store-photos.service.js';
 
@@ -90,5 +91,53 @@ describe('StorePhotosService.findAll alt', () => {
       'patio',
       'door',
     ]);
+  });
+});
+
+describe('StorePhotosService 圖片網址', () => {
+  let client: PGlite;
+  let service: StorePhotosService;
+  const image = 'data:image/jpeg;base64,/9j/4AAQ';
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new StorePhotosService(db as unknown as DrizzleDB);
+    await client.exec('truncate store_photo');
+    await db.insert(storePhoto).values([
+      { id: 'bar', image, alt: { 'zh-TW': '吧台' }, sortOrder: 0 },
+      { id: 'door', image: 'door.jpg', alt: { 'zh-TW': '門口' }, sortOrder: 1 },
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('前台與後台列表在資料庫組出和 withImageUrl 相同的網址', async () => {
+    const expected = [
+      withImageUrl('storePhoto', { id: 'bar', image }).imageUrl,
+      null,
+    ];
+
+    expect(
+      (await service.findAllActive('zh-TW')).map(({ imageUrl }) => imageUrl),
+    ).toEqual(expected);
+    expect(
+      (await service.findAll()).data.map(({ imageUrl }) => imageUrl),
+    ).toEqual(expected);
+  });
+
+  it('分頁時每一頁的網址對應到自己的列', async () => {
+    const page = async (offset: number) =>
+      (await service.findAll({ limit: 1, offset })).data.map(
+        ({ id, imageUrl }) => [id, imageUrl],
+      );
+
+    expect(await page(0)).toEqual([
+      ['bar', withImageUrl('storePhoto', { id: 'bar', image }).imageUrl],
+    ]);
+    expect(await page(1)).toEqual([['door', null]]);
   });
 });

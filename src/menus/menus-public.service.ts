@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { asc, eq, inArray, type AnyColumn } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_LANGUAGE,
   type Language,
@@ -20,7 +20,7 @@ import {
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { imageRefSql, withImageRefUrl } from '../images/image-url.js';
+import { imageRefQuery, withImageRefUrl } from '../images/image-url.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
@@ -63,13 +63,6 @@ const getActiveAddOnMenuItems = <
   (addOnMenuItem ? [addOnMenuItem] : addOnMenuSection?.menuItems || []).filter(
     (entry) => entry.id !== menuItemId && !isDiscontinued(entry),
   );
-
-const imageRefQuery = {
-  columns: { image: false },
-  extras: ({ image }: { image: AnyColumn }) => ({
-    imageRef: imageRefSql(image).as('image_ref'),
-  }),
-} as const;
 
 const modifierGroupsQuery = {
   orderBy: [asc(menuItemModifierGroup.sortOrder)],

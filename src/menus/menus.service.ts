@@ -55,6 +55,12 @@ import { printer } from '../db/schema/printers.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import {
+  imageRefQuery,
+  withImageRefs,
+  withoutImage,
+  type WithImageRef,
+} from '../images/image-url.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
 import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
 import { RecipesService } from '../inventory/recipes.service.js';
@@ -230,8 +236,9 @@ export class MenusService {
 
   // ── Menu ──────────────────────────────────────────────────────────
 
-  async menus(organizationId: string): Promise<Menu[]> {
+  async menus(organizationId: string): Promise<WithImageRef<Menu>[]> {
     return this.db.query.menu.findMany({
+      ...imageRefQuery,
       where: eq(menu.organizationId, organizationId),
     });
   }
@@ -359,7 +366,7 @@ export class MenusService {
   async menuSections(
     menuId: string,
     query: MenuSectionPaginationQueryDto = {},
-  ): Promise<{ data: MenuSection[]; total: number }> {
+  ): Promise<{ data: WithImageRef<MenuSection>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -449,7 +456,7 @@ export class MenusService {
 
     const [data, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(menuSection)))
         .from(menuSection)
         .where(where)
         .orderBy(...orderBy)
@@ -458,7 +465,7 @@ export class MenusService {
       this.db.select({ total: count() }).from(menuSection).where(where),
     ]);
 
-    return { data, total };
+    return { data: await withImageRefs(this.db, menuSection, data), total };
   }
 
   async reorderMenuSections(menuId: string, ids: string[]): Promise<void> {
@@ -642,7 +649,7 @@ export class MenusService {
     organizationId: string,
     query: MenuItemPaginationQueryDto = {},
     canReadPurchasing = true,
-  ): Promise<{ data: MenuItemWithRecipe[]; total: number }> {
+  ): Promise<{ data: WithImageRef<MenuItemWithRecipe>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -759,9 +766,9 @@ export class MenusService {
         : undefined,
     );
 
-    const [data, [{ total }], priceCurrency] = await Promise.all([
+    const [rows, [{ total }], priceCurrency] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(menuItem)))
         .from(menuItem)
         .where(where)
         .orderBy(...orderBy)
@@ -771,10 +778,11 @@ export class MenusService {
       getOrganizationCurrency(this.db, organizationId),
     ]);
 
-    const itemIds = data.map((item) => item.id);
-    const [offers, recipes] =
+    const itemIds = rows.map((item) => item.id);
+    const [data, [offers, recipes]] = await Promise.all([
+      withImageRefs(this.db, menuItem, rows),
       itemIds.length > 0
-        ? await Promise.all([
+        ? Promise.all([
             this.db
               .select()
               .from(offer)
@@ -790,7 +798,8 @@ export class MenusService {
               .from(recipe)
               .where(inArray(recipe.menuItemId, itemIds)),
           ])
-        : [[], []];
+        : [[], []],
+    ]);
 
     const offerByItemId = new Map<string, Offer>();
     for (const o of offers) {

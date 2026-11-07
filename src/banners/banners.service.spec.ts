@@ -8,6 +8,7 @@ import { I18nContext } from 'nestjs-i18n';
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { withImageUrl } from '../images/image-url.js';
 
 import { BannersService } from './banners.service.js';
 
@@ -49,6 +50,17 @@ describe('BannersService', () => {
       ids.get('always'),
       ids.get('running'),
     ]);
+  });
+
+  it('列表在資料庫組出和儲存時相同的圖片網址', async () => {
+    const image = 'data:image/webp;base64,UklGRg==';
+    const created = await service.create({ image });
+
+    expect((await service.findAllActive())[0].imageUrl).toBe(created.imageUrl);
+    expect((await service.findAll()).data[0].imageUrl).toBe(created.imageUrl);
+    expect(created.imageUrl).toBe(
+      withImageUrl('banner', { id: created.id, image }).imageUrl,
+    );
   });
 
   it('更新時可以設定與清除替代文字、連結與上下架時間', async () => {
