@@ -50,7 +50,7 @@ function database(results: unknown[][], conditions: SQL[] = []) {
     insert,
     transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };
-  return { db: db as unknown as DrizzleDB, insert, values };
+  return { db: db as unknown as DrizzleDB, insert, values, select: db.select };
 }
 
 const actor = { organizationId: 'org', userId: 'user', role: 'member' };
@@ -383,23 +383,22 @@ describe('attendance services', () => {
     }
   });
   it('rejects a day kind calendar range over 62 days before querying', async () => {
-    const { db } = database([]);
+    const { db, select } = database([]);
     await expect(
       new AttendanceShiftsService(db).calendarDayKinds(actor, {
         from: '2026-01-01T00:00:00+08:00',
         to: '2026-03-05T00:00:00+08:00',
       }),
     ).rejects.toMatchObject({ response: { code: 'calendarRangeTooLong' } });
-    expect(db.select).not.toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
   });
-  it('accepts a six-week month view day kind calendar range', async () => {
-    const { db } = database([[], []]);
-    await expect(
-      new AttendanceShiftsService(db).calendarDayKinds(actor, {
-        from: '2026-03-01T00:00:00+08:00',
-        to: '2026-04-12T00:00:00+08:00',
-      }),
-    ).resolves.toBeDefined();
+  it('accepts a day kind calendar range of exactly 62 days', async () => {
+    const { db, select } = database([[], []]);
+    await new AttendanceShiftsService(db).calendarDayKinds(actor, {
+      from: '2026-01-01T00:00:00+08:00',
+      to: '2026-03-04T00:00:00+08:00',
+    });
+    expect(select).toHaveBeenCalledTimes(2);
   });
 });
 
