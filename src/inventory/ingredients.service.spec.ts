@@ -250,6 +250,23 @@ describe('IngredientsService name filter and purchasing fields', () => {
       expect(hidden[field as keyof typeof hidden], field).toBeUndefined();
     expect(hidden).toMatchObject({ id: 'milk', priceCurrency: 'TWD' });
   });
+
+  it('沒有採購權限時依採購欄位排序或篩選回 403 forbidden', async () => {
+    await expect(
+      service.findAll(ORG, { sortBy: 'price' }, false),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+    await expect(
+      service.findAll(
+        ORG,
+        {
+          filterField: 'supplierName',
+          filterOperator: 'equals',
+          filterValue: 'x',
+        },
+        false,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
 });
 
 describe('IngredientsService remove', () => {

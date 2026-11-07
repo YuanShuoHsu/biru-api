@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
 import {
@@ -16,6 +16,7 @@ import {
 } from 'drizzle-orm';
 
 import { UNIT_FACTORS } from '../common/constants/units.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -90,7 +91,7 @@ export class InventoryTransactionsService {
 
     // 成本欄位剝掉後仍能被排序、篩選與快速搜尋反推，三條路要一起封
     if (!canReadPurchasing && [sortBy, filterField].includes('unitCost'))
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     const reason = sql<InventoryTransactionReason>`case
       when ${inventoryTransaction.productionBatchId} is not null then 'batch'

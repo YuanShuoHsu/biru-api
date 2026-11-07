@@ -210,4 +210,10 @@ describe('RecipesService', () => {
       ),
     ).toEqual(['milk', 'beans']);
   });
+
+  it('沒有採購權限時依成本排序材料回 403 forbidden', async () => {
+    await expect(
+      service.findAllIngredients('recipe', { sortBy: 'cost' }, false),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
 });
