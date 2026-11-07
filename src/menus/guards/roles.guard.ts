@@ -1,7 +1,6 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Inject,
   Injectable,
 } from '@nestjs/common';
@@ -13,6 +12,7 @@ import { Request } from 'express';
 
 import type { Auth } from '../../auth/index.js';
 import { isAuthorized } from '../../auth/permissions.js';
+import { accessForbiddenError } from '../../common/utils/access-forbidden-error.js';
 import { organizationReadOnlyError } from '../../common/utils/organization-closure.js';
 import { ingredient, recipe, supplier } from '../../db/schema/inventory.js';
 import {
@@ -81,13 +81,13 @@ export class RolesGuard implements CanActivate {
       headers: fromNodeHeaders(headers),
     });
     const userId = session?.user.id;
-    if (!userId) throw new ForbiddenException();
+    if (!userId) throw accessForbiddenError(context);
 
     const organizationId = await this.resolveOrganizationId(
       requiredRoles.organizationParam,
       params,
     );
-    if (!organizationId) throw new ForbiddenException();
+    if (!organizationId) throw accessForbiddenError(context);
 
     request.organizationId = organizationId;
 
@@ -116,12 +116,12 @@ export class RolesGuard implements CanActivate {
               columns: { role: true },
             })
           )?.role;
-    if (!role) throw new ForbiddenException();
+    if (!role) throw accessForbiddenError(context);
 
     request.memberRole = role;
 
     if (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
-      throw new ForbiddenException();
+      throw accessForbiddenError(context);
 
     return true;
   }

@@ -1835,6 +1835,13 @@
       "when": 1793944371898,
       "tag": "0261_item_modifier_group_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1794021389735,
+      "tag": "0262_attendance_shift_ends_at_index",
+      "breakpoints": true
     }
   ]
 }

@@ -37,6 +37,11 @@
     "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} 邀请您以 {role} 身份加入 {productName} 上的 {organizationName}。请点击下方按钮接受邀请。",
     "preheader": "您已被邀请加入 {productName} 上的 {organizationName}。",
+    "roles": {
+      "admin": "管理员",
+      "member": "成员",
+      "owner": "拥有者"
+    },
     "salutation": "谢谢，<br>{productName} 团队",
     "security_notice": "出于安全考量，此邀请由 {inviterName} 通过 {productName} 账号发送。如果您不认识此邀请，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
     "subject": "您已被邀请加入 {productName} 上的 {organizationName}",
