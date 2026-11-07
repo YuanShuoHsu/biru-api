@@ -20,7 +20,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  ForbiddenException,
   Get,
   HttpCode,
   Logger,
@@ -44,6 +43,7 @@ import {
   HOURLY_THROTTLER,
 } from '../common/constants/throttle.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 @Controller('ecpay')
@@ -181,14 +181,7 @@ export class EcpayController {
         accessToken ?? null,
       ))
     )
-      throw new ForbiddenException({
-        error: 'Forbidden',
-        code: 'forbidden',
-        message:
-          I18nContext.current<I18nTranslations>()?.t(
-            'common.exceptions.forbidden',
-          ) ?? 'forbidden',
-      });
+      throw accessForbiddenError();
 
     const order = await this.ordersService.createPaymentAttempt(
       orderId,
