@@ -30,7 +30,7 @@ export const IMAGE_EXTENSION_VALUES = Object.values(IMAGE_EXTENSIONS);
 
 const DATA_URL_PREFIX = '^data:(image/[a-z+]+);base64,';
 
-const isImageMimeType = (value: string): value is ImageMimeType =>
+export const isImageMimeType = (value: string): value is ImageMimeType =>
   Object.hasOwn(IMAGE_EXTENSIONS, value);
 
 export const parseImageDataUrl = (dataUrl: string) => {

@@ -257,7 +257,7 @@ afterwards, because in the paged query Postgres would hash every matching row, n
 URLs). Edit dialogs send `image` only when the upload differs from `imageUrl`, never the URL itself. Only a new image
 moves the URL — reordering, toggling or editing other fields keeps it, so browsers and the image optimizer keep their
 copy; a stale
-version or extension still serves the current image, with `no-cache` instead of `immutable`, because the storefront
+version or extension still serves the current image (fetched from its R2 URL once the row has moved there), with `no-cache` instead of `immutable`, because the storefront
 caches the banner and store photo lists (`"use cache"`) for longer than an edit takes, and every environment shares one
 database, so no cache can be invalidated on every edit. Don't answer it with a redirect: Next's image optimizer rejects
 a non-2xx response for a local image. The optimizer still keeps what it fetched from a stale URL for
