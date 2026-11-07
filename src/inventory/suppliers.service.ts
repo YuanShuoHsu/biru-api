@@ -42,7 +42,7 @@ import {
   SupplierIngredientResponseDto,
   SupplierResponseDto,
 } from './dto/supplier-response.dto.js';
-import { notFoundError } from './inventory-errors.js';
+import { badRequestError, notFoundError } from './inventory-errors.js';
 
 type Tx = Pick<DrizzleDB, 'update'>;
 
@@ -198,6 +198,7 @@ export class SuppliersService {
     await this.assertIngredientsInOrganization(
       ingredientIds,
       existing.organizationId,
+      supplierId,
     );
 
     const updated = await this.db.transaction(async (tx) => {
@@ -231,12 +232,16 @@ export class SuppliersService {
   private async assertIngredientsInOrganization(
     ingredientIds: string[] | undefined,
     organizationId: string,
+    supplierId?: string,
   ): Promise<void> {
     const unique = [...new Set(ingredientIds)];
     if (!unique.length) return;
 
     const found = await this.db
-      .select({ id: ingredient.id })
+      .select({
+        recipeId: ingredient.recipeId,
+        supplierId: ingredient.supplierId,
+      })
       .from(ingredient)
       .where(
         and(
@@ -246,6 +251,8 @@ export class SuppliersService {
       );
     if (found.length !== unique.length)
       throw notFoundError('ingredientNotFound');
+    if (found.some((row) => row.recipeId && row.supplierId !== supplierId))
+      throw badRequestError('purchaseFieldsOnSourcedIngredient');
   }
 
   private async bindIngredients(

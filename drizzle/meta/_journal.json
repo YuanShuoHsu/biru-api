@@ -1856,6 +1856,13 @@
       "when": 1794027144617,
       "tag": "0264_attendance_parental_return_org_index",
       "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1794046616531,
+      "tag": "0265_clear_supplier_on_sourced_ingredients",
+      "breakpoints": true
     }
   ]
 }
