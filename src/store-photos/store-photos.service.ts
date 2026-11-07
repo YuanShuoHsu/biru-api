@@ -55,7 +55,7 @@ export class StorePhotosService {
 
   async findAllActive(lang: Language): Promise<PublicStorePhotoResponseDto[]> {
     const rows = await this.db.query.storePhoto.findMany({
-      columns: { id: true, image: true, alt: true, updatedAt: true },
+      columns: { id: true, image: true, alt: true },
       where: eq(storePhoto.isActive, true),
       orderBy: [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)],
     });

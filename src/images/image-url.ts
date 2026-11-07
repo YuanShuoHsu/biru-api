@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export const IMAGE_KINDS = [
   'menu',
   'menuSection',
@@ -34,9 +36,10 @@ export const parseImageDataUrl = (dataUrl: string) => {
   };
 };
 
-export const withImageUrl = <
-  T extends { id: string; image: string | null; updatedAt: Date },
->(
+export const imageVersion = (image: string) =>
+  createHash('sha256').update(image).digest('hex').slice(0, 16);
+
+export const withImageUrl = <T extends { id: string; image: string | null }>(
   kind: ImageKind,
   { image, ...row }: T,
 ): Omit<T, 'image'> & { imageUrl: string | null } => {
@@ -44,8 +47,9 @@ export const withImageUrl = <
 
   return {
     ...row,
-    imageUrl: parsed
-      ? `/api/images/${kind}/${row.id}/${row.updatedAt.getTime()}.${parsed.extension}`
-      : null,
+    imageUrl:
+      image && parsed
+        ? `/api/images/${kind}/${row.id}/${imageVersion(image)}.${parsed.extension}`
+        : null,
   };
 };

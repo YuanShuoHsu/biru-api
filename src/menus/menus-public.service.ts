@@ -228,12 +228,10 @@ export class PublicMenusService {
                     recommendedSweetnessLevel,
                     servingTemperatures,
                     sweetness,
-                    updatedAt,
                   }) => ({
                     id,
                     name: localize(name, lang) || '',
-                    imageUrl: withImageUrl('menuItem', { id, image, updatedAt })
-                      .imageUrl,
+                    imageUrl: withImageUrl('menuItem', { id, image }).imageUrl,
                     availableModes,
                     servingTemperatures,
                     recommendedServingTemperatureLevel,
