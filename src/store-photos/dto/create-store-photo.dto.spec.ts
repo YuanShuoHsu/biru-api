@@ -40,6 +40,27 @@ describe('CreateStorePhotoDto', () => {
     ]);
   });
 
+  it('accepts an alt of 160 characters and rejects 161 in any language', async () => {
+    expect(
+      await errorsOf(CreateStorePhotoDto, {
+        image,
+        alt: { ...fullAlt, en: 'a'.repeat(160) },
+      }),
+    ).toEqual([]);
+    expect(
+      await errorsOf(CreateStorePhotoDto, {
+        image,
+        alt: { ...fullAlt, ja: 'あ'.repeat(161) },
+      }),
+    ).toEqual(['alt']);
+    expect(
+      await errorsOf(CreateStorePhotoDto, {
+        image,
+        alt: { ...fullAlt, en: '𠮷'.repeat(160) },
+      }),
+    ).toEqual([]);
+  });
+
   it('rejects an svg image', async () => {
     expect(
       await errorsOf(CreateStorePhotoDto, {

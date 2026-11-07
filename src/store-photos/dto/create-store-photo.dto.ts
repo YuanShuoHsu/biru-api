@@ -11,12 +11,14 @@ import {
 } from 'class-validator';
 
 import {
+  IMAGE_ALT_MAX_LENGTH,
   IMAGE_DATA_URL_MAX_LENGTH,
   IMAGE_DATA_URL_PATTERN,
 } from '../../common/constants/image.js';
 import {
   IsCompleteLocalizedText,
   IsLocalizedText,
+  MaxLocalizedTextLength,
 } from '../../common/decorators/is-localized-text.decorator.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
@@ -33,6 +35,7 @@ export class CreateStorePhotoDto {
   })
   @IsLocalizedText()
   @IsCompleteLocalizedText()
+  @MaxLocalizedTextLength(IMAGE_ALT_MAX_LENGTH)
   alt: LocalizedText;
 
   @ApiPropertyOptional()
