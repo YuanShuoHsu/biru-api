@@ -1849,6 +1849,13 @@
       "when": 1794024025773,
       "tag": "0263_drop_organization_point_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 264,
+      "version": "7",
+      "when": 1794027144617,
+      "tag": "0264_attendance_parental_return_org_index",
+      "breakpoints": true
     }
   ]
 }

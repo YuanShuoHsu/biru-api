@@ -1,0 +1,1 @@
+CREATE INDEX "attendance_parental_return_org_idx" ON "attendance_parental_return" USING btree ("organization_id","created_at");
