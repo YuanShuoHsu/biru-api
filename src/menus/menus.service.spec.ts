@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -18,6 +19,7 @@ import {
   modifierGroup,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import type { RecipesService } from '../inventory/recipes.service.js';
 
@@ -46,6 +48,9 @@ describe('MenusService localized text filters and sorting', () => {
       {
         costsOf: () => Promise.resolve(new Map()),
       } as unknown as RecipesService,
+      new ImageStorageService({
+        get: () => undefined,
+      } as unknown as ConfigService),
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -595,6 +600,9 @@ describe('MenusService 列表的圖片網址', () => {
       {
         costsOf: () => Promise.resolve(new Map()),
       } as unknown as RecipesService,
+      new ImageStorageService({
+        get: () => undefined,
+      } as unknown as ConfigService),
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,

@@ -22,6 +22,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { banner } from '../db/schema/banners.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import {
   imageRefQuery,
   withImageRefs,
@@ -55,7 +56,10 @@ const toTimestamp = (
 
 @Injectable()
 export class BannersService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly imageStorage: ImageStorageService,
+  ) {}
 
   // 前台輪播:僅啟用且在上下架時間內的圖,依排序顯示
   async findAllActive(): Promise<BannerResponseDto[]> {
@@ -154,7 +158,7 @@ export class BannersService {
       .insert(banner)
       .values({
         id: randomUUID(),
-        image: dto.image,
+        image: await this.imageStorage.store('banner', dto.image),
         alt: dto.alt,
         url: dto.url,
         isActive: dto.isActive ?? true,
@@ -190,6 +194,7 @@ export class BannersService {
       .update(banner)
       .set({
         ...fields,
+        image: await this.imageStorage.store('banner', fields.image),
         startsAt: toTimestamp(startsAt),
         endsAt: toTimestamp(endsAt),
       })

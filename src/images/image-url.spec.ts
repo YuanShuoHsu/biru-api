@@ -80,6 +80,15 @@ describe('withImageUrl', () => {
     );
   });
 
+  it('https 網址原樣當成 imageUrl', () => {
+    const url = 'https://images.example.com/banner/0123456789abcdef.webp';
+
+    expect(withImageUrl('banner', { id: 'banner-1', image: url })).toEqual({
+      id: 'banner-1',
+      imageUrl: url,
+    });
+  });
+
   it.each([null, 'banner'])('image 為 %j 時 imageUrl 為 null', (image) => {
     expect(
       withImageUrl('banner', { id: 'banner-1', image }).imageUrl,
@@ -98,6 +107,15 @@ describe('withImageRefUrl', () => {
         name: 'Latte',
       }),
     ).toEqual(withImageUrl('menuItem', { id: 'item-1', image, name: 'Latte' }));
+  });
+
+  it('https 網址原樣當成 imageUrl', () => {
+    const url = 'https://images.example.com/menu/0123456789abcdef.png';
+
+    expect(withImageRefUrl('menu', { id: 'menu-1', imageRef: url })).toEqual({
+      id: 'menu-1',
+      imageUrl: url,
+    });
   });
 
   it.each([null, 'image/bmp 0123456789abcdef', 'image/png'])(

@@ -27,6 +27,10 @@ describe('ImagesService', () => {
     await db
       .insert(schema.banner)
       .values({ id: 'banner-2', image: 'not-a-data-url' });
+    await db.insert(schema.banner).values({
+      id: 'banner-3',
+      image: 'https://images.example.com/banner/0123456789abcdef.png',
+    });
     version = imageVersion(image);
   }, 60_000);
 
@@ -75,4 +79,58 @@ describe('ImagesService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     },
   );
+
+  describe('圖片已搬到 R2', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('舊網址回 R2 上目前的圖片，並標示不是目前的版本', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(Buffer.from('iVBORw0KGgo=', 'base64'), {
+          headers: { 'content-type': 'image/png' },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { current, mimeType, data } = await service.find({
+        kind: 'banner',
+        id: 'banner-3',
+        version,
+        extension: 'png',
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://images.example.com/banner/0123456789abcdef.png',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+      expect(current).toBe(false);
+      expect(mimeType).toBe('image/png');
+      expect(data).toEqual(Buffer.from('iVBORw0KGgo=', 'base64'));
+    });
+
+    it.each([
+      [404, 'image/png'],
+      [200, 'text/html'],
+    ])('R2 回 %s、%s 時回 404', async (status, contentType) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response('x', {
+            status,
+            headers: { 'content-type': contentType },
+          }),
+        ),
+      );
+
+      await expect(
+        service.find({
+          kind: 'banner',
+          id: 'banner-3',
+          version,
+          extension: 'png',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 });

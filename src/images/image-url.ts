@@ -30,7 +30,7 @@ export const IMAGE_EXTENSION_VALUES = Object.values(IMAGE_EXTENSIONS);
 
 const DATA_URL_PREFIX = '^data:(image/[a-z+]+);base64,';
 
-const isImageMimeType = (value: string): value is ImageMimeType =>
+export const isImageMimeType = (value: string): value is ImageMimeType =>
   Object.hasOwn(IMAGE_EXTENSIONS, value);
 
 export const parseImageDataUrl = (dataUrl: string) => {
@@ -60,6 +60,8 @@ export const withImageUrl = <T extends { id: string; image: string | null }>(
   kind: ImageKind,
   { image, ...row }: T,
 ): Omit<T, 'image'> & { imageUrl: string | null } => {
+  if (image?.startsWith('https://')) return { ...row, imageUrl: image };
+
   const parsed = image ? parseImageDataUrl(image) : null;
 
   return {
@@ -73,10 +75,11 @@ export const withImageUrl = <T extends { id: string; image: string | null }>(
 
 // https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 // https://www.postgresql.org/docs/current/functions-binarystring.html
+// https://www.postgresql.org/docs/current/functions-string.html
 export const imageRefSql = (image: AnyColumn) =>
   sql<
     string | null
-  >`substring(left(${image}, 64) from ${DATA_URL_PREFIX}) || ' ' || left(encode(sha256(convert_to(${image}, 'UTF8')), 'hex'), 16)`;
+  >`CASE WHEN starts_with(${image}, 'https://') THEN ${image} ELSE substring(left(${image}, 64) from ${DATA_URL_PREFIX}) || ' ' || left(encode(sha256(convert_to(${image}, 'UTF8')), 'hex'), 16) END`;
 
 export type WithImageRef<T extends { image: string | null }> = Omit<
   T,
@@ -127,6 +130,8 @@ export const withImageRefUrl = <
   kind: ImageKind,
   { imageRef, ...row }: T,
 ): Omit<T, 'imageRef'> & { imageUrl: string | null } => {
+  if (imageRef?.startsWith('https://')) return { ...row, imageUrl: imageRef };
+
   const [mimeType, version] = imageRef?.split(' ') ?? [];
 
   return {

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -8,6 +9,7 @@ import { I18nContext } from 'nestjs-i18n';
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageUrl } from '../images/image-url.js';
 
 import { BannersService } from './banners.service.js';
@@ -22,7 +24,12 @@ describe('BannersService', () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new BannersService(db as unknown as DrizzleDB);
+    service = new BannersService(
+      db as unknown as DrizzleDB,
+      new ImageStorageService({
+        get: () => undefined,
+      } as unknown as ConfigService),
+    );
   }, 60_000);
 
   afterAll(async () => {

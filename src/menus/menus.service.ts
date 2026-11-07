@@ -55,6 +55,7 @@ import { printer } from '../db/schema/printers.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import {
   imageRefQuery,
   withImageRefs,
@@ -220,6 +221,7 @@ export class MenusService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly recipesService: RecipesService,
+    private readonly imageStorage: ImageStorageService,
   ) {}
 
   private async recipeWithCost(
@@ -257,7 +259,11 @@ export class MenusService {
   }): Promise<Menu> {
     const [updated] = await this.db
       .update(menu)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        image: await this.imageStorage.store('menu', params.data.image),
+        updatedAt: new Date(),
+      })
       .where(eq(menu.id, params.where.id))
       .returning();
 
@@ -341,6 +347,8 @@ export class MenusService {
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
+    const image = await this.imageStorage.store('menuSection', data.image);
+
     return this.db.transaction(async (tx) => {
       await this.validateParentSection(tx, menuId, data.parentSectionId);
       await this.validateOrderTicketPrinter(
@@ -356,7 +364,7 @@ export class MenusService {
 
       const [created] = await tx
         .insert(menuSection)
-        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data })
+        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data, image })
         .returning();
 
       return created;
@@ -489,6 +497,11 @@ export class MenusService {
     where: { id: string };
     data: UpdateMenuSectionDto;
   }): Promise<MenuSection> {
+    const image = await this.imageStorage.store(
+      'menuSection',
+      params.data.image,
+    );
+
     return this.db.transaction(async (tx) => {
       const [current] = await tx
         .select({ menuId: menuSection.menuId })
@@ -509,7 +522,7 @@ export class MenusService {
 
       const [updated] = await tx
         .update(menuSection)
-        .set({ ...params.data, updatedAt: new Date() })
+        .set({ ...params.data, image, updatedAt: new Date() })
         .where(eq(menuSection.id, params.where.id))
         .returning();
 
@@ -555,6 +568,8 @@ export class MenusService {
     });
     if (!section) throw notFoundError('menuSectionNotFound');
 
+    const image = await this.imageStorage.store('menuItem', itemData.image);
+
     const result = await this.db.transaction(async (tx) => {
       await this.validateOrderTicketPrinter(
         tx,
@@ -575,6 +590,7 @@ export class MenusService {
           menuId: section.menuId,
           sortOrder: 0,
           ...itemData,
+          image,
           ...resolveDrinkOptions(NEW_MENU_ITEM_DRINK_OPTIONS, itemData),
         })
         .returning();
@@ -860,6 +876,8 @@ export class MenusService {
       (field) => itemData[field] !== undefined,
     );
 
+    const image = await this.imageStorage.store('menuItem', itemData.image);
+
     const result = await this.db.transaction(async (tx) => {
       if (itemData.orderTicketPrinterId) {
         const [current] = await tx
@@ -897,6 +915,7 @@ export class MenusService {
           .update(menuItem)
           .set({
             ...itemData,
+            image,
             ...(touchesDrinkOptions &&
               previous &&
               resolveDrinkOptions(previous, itemData)),

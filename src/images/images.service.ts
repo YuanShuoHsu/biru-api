@@ -9,7 +9,11 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type { ImageParamsDto } from './dto/image-params.dto.js';
-import { imageVersion, parseImageDataUrl } from './image-url.js';
+import {
+  imageVersion,
+  isImageMimeType,
+  parseImageDataUrl,
+} from './image-url.js';
 
 const IMAGE_TABLES = { menu, menuSection, menuItem, banner, storePhoto };
 
@@ -23,6 +27,20 @@ export class ImagesService {
       .select({ image: table.image })
       .from(table)
       .where(eq(table.id, id));
+
+    if (row?.image?.startsWith('https://')) {
+      const res = await fetch(row.image, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const mimeType = res.headers.get('content-type') ?? '';
+      if (!res.ok || !isImageMimeType(mimeType)) throw new NotFoundException();
+
+      return {
+        current: false,
+        mimeType,
+        data: Buffer.from(await res.arrayBuffer()),
+      };
+    }
 
     const parsed = row?.image ? parseImageDataUrl(row.image) : null;
     if (!row?.image || !parsed) throw new NotFoundException();
