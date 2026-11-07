@@ -6,6 +6,7 @@ import {
   desc,
   asc,
   eq,
+  exists,
   gte,
   isNotNull,
   lt,
@@ -140,6 +141,7 @@ export class OrderStatsService {
       refundBucketRows,
       [previousRefunded],
       firstRefundBucketRows,
+      [{ refundedPeriodOrders }],
       hourRows,
       modes,
       paymentMethods,
@@ -184,6 +186,20 @@ export class OrderStatsService {
           ),
         )
         .groupBy(sql`1`),
+      this.db
+        .select({ refundedPeriodOrders: count() })
+        .from(order)
+        .where(
+          and(
+            inPeriod,
+            exists(
+              this.db
+                .select({ id: refund.id })
+                .from(refund)
+                .where(and(eq(refund.orderId, order.id), isConfirmedRefund)),
+            ),
+          ),
+        ),
       this.db
         .select({ hour: localHour, orders: count() })
         .from(order)
@@ -300,6 +316,7 @@ export class OrderStatsService {
         (sum, { orders }) => sum + orders,
         0,
       ),
+      refundedPeriodOrders,
       refundedItems: refundedItemRows.rows,
       refundReasons,
       hourlyOrders,
