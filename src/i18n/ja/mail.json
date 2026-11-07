@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "はじめる",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のメールアドレスを認証いただきありがとうございます。ご参加いただき大変嬉しく思います。今すぐ {productName} の使用を開始いただけます。",
     "preheader": "{productName}へようこそ！メールアドレスが確認されました。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "サインイン",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "あなたのメールアドレスを使用して {productName} アカウントへの登録が試みられました。ご本人の操作であれば、そのままサインインしてください。お客様の {productName} アカウントは引き続き安全にご利用いただけます。",
     "preheader": "ご本人でない場合も、{productName} アカウントは安全です。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "サインイン",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のパスワードが正常にリセットされました。新しいパスワードでサインインできます。",
     "preheader": "{productName} のパスワードが正常に変更されました。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -34,7 +34,7 @@
   },
   "organization_invitation": {
     "action_button": "招待を承認する",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} さんが {productName} の {organizationName} に {role} として招待しています。下のボタンをクリックして招待を承認してください。",
     "preheader": "{productName} の {organizationName} に招待されました。",
     "roles": {
@@ -50,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "メールアドレス変更を確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} アカウントのメールアドレスを <strong>{newEmail}</strong> に変更するリクエストを受け付けました。下のボタンをクリックして変更を確認してください。このリンクは1時間有効です。",
     "preheader": "{productName} のメールアドレス変更を確認してください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -61,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "パスワードをリセット",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のパスワードリセットをリクエストしました。下のボタンをクリックして新しいパスワードを設定してください。このリンクは1時間有効です。",
     "preheader": "{productName} のパスワードをリセットします。このリンクは1時間で期限切れになります。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -72,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "アカウント削除を確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} アカウントの永久削除リクエストを受け付けました。下のボタンをクリックして操作を確認してください。このリンクの有効期限は1時間です。確認しない場合、アカウントは削除されません。",
     "preheader": "{productName} アカウントの削除リクエストを確認してください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -83,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "メールアドレスを確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
     "preheader": "{productName}へようこそ！メールアドレスをご確認ください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",

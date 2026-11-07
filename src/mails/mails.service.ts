@@ -16,7 +16,11 @@ import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { isLanguage, pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
-import { memberRoleEnum, type MemberRole } from '../db/schema/organizations.js';
+import {
+  memberRoleEnum,
+  organization,
+  type MemberRole,
+} from '../db/schema/organizations.js';
 import { user, type User } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
@@ -28,6 +32,40 @@ const redact = (text: string) =>
   text
     .replace(/https?:\/\/\S+/g, '[url]')
     .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
+
+const countryName = (code: string, lang: Language) => {
+  try {
+    return new Intl.DisplayNames(lang, { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+
+const formatAddress = (
+  address: Pick<
+    typeof organization.$inferSelect,
+    | 'addressCountry'
+    | 'addressLocality'
+    | 'addressRegion'
+    | 'extendedAddress'
+    | 'postalCode'
+    | 'streetAddress'
+  >,
+  lang: Language,
+) => {
+  const groups = [
+    [address.streetAddress, address.extendedAddress],
+    [address.addressLocality],
+    [address.addressRegion],
+    [address.postalCode],
+    [countryName(address.addressCountry, lang)],
+  ];
+
+  return (lang === 'en' ? groups : groups.reverse())
+    .flat()
+    .filter(Boolean)
+    .join(', ');
+};
 
 const sendFailure = (template: string, to: string, error: unknown) =>
   redact(
@@ -380,7 +418,7 @@ export class MailsService {
       id,
       email,
       role,
-      organization: { name: organizationName },
+      organization: { id: organizationId, name: organizationName },
       inviter: {
         user: { name: inviterName },
       },
@@ -388,7 +426,7 @@ export class MailsService {
       id: string;
       email: string;
       role: string;
-      organization: { name: string };
+      organization: { id: string; name: string };
       inviter: { user: { name: string; email: string } };
     },
     request?: Request,
@@ -403,6 +441,17 @@ export class MailsService {
     const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
+    const store = await this.db.query.organization.findFirst({
+      columns: {
+        addressCountry: true,
+        addressLocality: true,
+        addressRegion: true,
+        extendedAddress: true,
+        postalCode: true,
+        streetAddress: true,
+      },
+      where: eq(organization.id, organizationId),
+    });
 
     const inviteParams = new URLSearchParams({ email, id });
     const invite_url = `${baseUrl}/${lang}/auth/accept-invitation?${inviteParams.toString()}`;
@@ -418,6 +467,7 @@ export class MailsService {
         home_url,
         i18nLang: lang,
         inviterName,
+        organizationAddress: store ? formatAddress(store, lang) : '',
         organizationName,
         productName,
         role: (memberRoleEnum.enumValues as readonly string[]).includes(role)

@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "立即開始",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感謝您完成 {productName} 的電子郵件驗證。我們很高興您的加入。您現在可以開始使用 {productName}。",
     "preheader": "歡迎使用 {productName}！您的電子郵件已驗證。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "立即登入",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "有人嘗試使用您的電子郵件地址註冊 {productName} 帳號。如果這是您本人的操作，您可以直接登入。您的 {productName} 帳號仍然安全無虞。",
     "preheader": "這不是您嗎？您的 {productName} 帳號仍然安全。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "立即登入",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您的 {productName} 密碼已成功重設。您現在可以使用新密碼登入。",
     "preheader": "您的 {productName} 密碼已成功變更。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -34,7 +34,7 @@
   },
   "organization_invitation": {
     "action_button": "接受邀請",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} 邀請您以 {role} 身份加入 {productName} 上的 {organizationName}。請點擊下方按鈕接受邀請。",
     "preheader": "您已被邀請加入 {productName} 上的 {organizationName}。",
     "roles": {
@@ -50,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "確認更換電子郵件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我們收到將您 {productName} 帳號的電子郵件更換為 <strong>{newEmail}</strong> 的申請。請點擊下方按鈕確認此更換，此連結有效期為 1 小時。",
     "preheader": "請確認您的 {productName} 電子郵件地址變更。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -61,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "重置密碼",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您申請了重置 {productName} 密碼。請點擊下方按鈕設定新密碼，此連結有效期為 1 小時。",
     "preheader": "重置您的 {productName} 密碼，此連結將在 1 小時後過期。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -72,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "確認刪除帳號",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我們收到永久刪除您 {productName} 帳號的申請。請點擊下方按鈕確認此操作，此連結有效期為 1 小時。如果您未確認，帳號將不會被刪除。",
     "preheader": "請確認您的 {productName} 帳號刪除申請。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -83,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "確認電子郵件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感謝您試用 {productName}。我們很高興您的加入。若要開始使用 {productName}，請確認您的帳戶。",
     "preheader": "歡迎來到 {productName}！請確認您的電子郵件地址。",
     "salutation": "謝謝，<br>{productName} 團隊",

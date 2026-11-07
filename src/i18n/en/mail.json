@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "Get Started",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "Thanks for verifying your email address for {productName}. We're thrilled to have you on board. You can now start using {productName}.",
     "preheader": "Welcome to {productName}! Your email has been verified.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "Sign In",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "Someone tried to create a {productName} account using your email address. If this was you, you can simply sign in instead. Your existing {productName} account remains safe and accessible.",
     "preheader": "If this wasn't you, your {productName} account is still safe.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "Sign In",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "Your {productName} password has been successfully reset. You can now sign in with your new password.",
     "preheader": "Your {productName} password was successfully changed.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -34,7 +34,7 @@
   },
   "organization_invitation": {
     "action_button": "Accept Invitation",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} has invited you to join {organizationName} on {productName} as {role}. Click the button below to accept the invitation.",
     "preheader": "You've been invited to join {organizationName} on {productName}.",
     "roles": {
@@ -50,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "Confirm Email Change",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "We received a request to change your {productName} account email to <strong>{newEmail}</strong>. Click the button below to confirm this change. This link is valid for 1 hour.",
     "preheader": "Confirm your {productName} email address change.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -61,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "Reset Password",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "You requested to reset your {productName} password. Click the button below to choose a new password. This link is valid for 1 hour.",
     "preheader": "Reset your {productName} password. This link expires in 1 hour.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -72,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "Confirm Account Deletion",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "We received a request to permanently delete your {productName} account. Click the button below to confirm. This link is valid for 1 hour. If you do not confirm, your account will not be deleted.",
     "preheader": "Confirm your {productName} account deletion request.",
     "salutation": "Thanks,<br>The {productName} Team",
@@ -83,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "Confirm Email",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "Thanks for trying {productName}. We're thrilled to have you on board. To get started with {productName}, please confirm your account.",
     "preheader": "Welcome to {productName}! Please confirm your email address.",
     "salutation": "Thanks,<br>The {productName} Team",

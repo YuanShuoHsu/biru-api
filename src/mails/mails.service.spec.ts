@@ -9,6 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { PGlite } from '@electric-sql/pglite';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nModule } from 'nestjs-i18n';
@@ -92,6 +93,17 @@ describe('MailsService 語系', () => {
       lang: 'ja',
       name: 'Ann',
     });
+    await db.insert(schema.organization).values({
+      id: 'store',
+      name: 'Biru',
+      slug: 'biru',
+      createdAt: new Date(),
+      addressCountry: 'TW',
+      addressLocality: '中正區',
+      addressRegion: '臺北市',
+      postalCode: '100',
+      streetAddress: '忠孝西路一段 1 號',
+    });
   }, 60_000);
 
   afterAll(async () => {
@@ -156,7 +168,7 @@ describe('MailsService 語系', () => {
         id: 'invitation',
         email,
         role: 'member',
-        organization: { name: 'Biru' },
+        organization: { id: 'store', name: 'Biru' },
         inviter: { user: { name: 'Owner', email: 'owner@example.com' } },
       },
       request(acceptLanguage),
@@ -177,6 +189,43 @@ describe('MailsService 語系', () => {
 
     expect(sent[0].subject).toBe("You're invited to join Biru on Biru Coffee");
     expect(sent[0].html).toContain('invited');
+  });
+
+  it('邀請信頁尾顯示邀請門市的地址，不再是範本假地址', async () => {
+    await sendInvitationEmail('Invitee@Example.com', 'en-US,en;q=0.9');
+    await sendInvitationEmail('new@example.com', 'en-US,en;q=0.9');
+
+    expect(sent[0].html).toContain(
+      'Biru<br>台湾, 100, 臺北市, 中正區, 忠孝西路一段 1 號',
+    );
+    expect(sent[1].html).toContain(
+      'Biru<br>忠孝西路一段 1 號, 中正區, 臺北市, 100, Taiwan',
+    );
+    expect(sent.map(({ html }) => html).join()).not.toContain('Street Rd.');
+  });
+
+  it('門市地址的 HTML 會被跳脫，國家代碼不合法時照原樣顯示', async () => {
+    await db
+      .update(schema.organization)
+      .set({ addressCountry: 'Taiwan', streetAddress: '<b>1 號</b>' })
+      .where(eq(schema.organization.id, 'store'));
+    onTestFinished(() =>
+      db
+        .update(schema.organization)
+        .set({ addressCountry: 'TW', streetAddress: '忠孝西路一段 1 號' })
+        .where(eq(schema.organization.id, 'store')),
+    );
+
+    await sendInvitationEmail('new@example.com', 'en-US,en;q=0.9');
+
+    expect(sent[0].html).toContain('&lt;b&gt;1 號&lt;/b&gt;');
+    expect(sent[0].html).toContain(', Taiwan');
+  });
+
+  it('其他驗證信頁尾只留產品名稱', async () => {
+    await sendVerificationEmail('en');
+
+    expect(sent[0].html).not.toContain('Street Rd.');
   });
 
   it('邀請信以受邀者的語系顯示角色', async () => {
