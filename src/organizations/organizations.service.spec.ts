@@ -115,6 +115,31 @@ describe('OrganizationsService 團隊介紹', () => {
     }
   });
 
+  it('停權已過期的成員會出現在團隊介紹，期限未到的不會', async () => {
+    await service.setMemberShowcase('biru', 'm-bob', true, bob);
+
+    try {
+      await client.exec(
+        `update "user" set banned = true, ban_expires = now() - interval '1 day' where id = 'bob'`,
+      );
+      expect(
+        (await service.organizationTeam('biru')).map(({ id }) => id),
+      ).toContain('m-bob');
+
+      await client.exec(
+        `update "user" set ban_expires = now() + interval '1 day' where id = 'bob'`,
+      );
+      expect(
+        (await service.organizationTeam('biru')).map(({ id }) => id),
+      ).not.toContain('m-bob');
+    } finally {
+      await client.exec(
+        `update "user" set banned = false, ban_expires = null where id = 'bob'`,
+      );
+      await service.setMemberShowcase('biru', 'm-bob', false, bob);
+    }
+  });
+
   it('找不到門市時回 404', async () => {
     await expect(service.organizationTeam('nope')).rejects.toThrow(
       NotFoundException,
