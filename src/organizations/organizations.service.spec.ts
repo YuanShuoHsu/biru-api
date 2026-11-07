@@ -229,7 +229,7 @@ describe('OrganizationsService 團隊介紹', () => {
   it('一般成員不能更動其他成員的公開顯示', async () => {
     await expect(
       service.setMemberShowcase('biru', 'm-amy', false, bob),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
   });
 
   it('成員異動紀錄以成員的名稱作為標籤', async () => {
@@ -330,7 +330,7 @@ describe('OrganizationsService 轉為真正店主', () => {
         platformAdmin: false,
         userId: 'cat',
       }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
     await expect(
       service.confirmOwner('other', 'm-sue', {
         platformAdmin: false,

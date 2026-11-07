@@ -262,6 +262,24 @@ describe('DeletedRecordsService.list', () => {
     });
   });
 
+  it('店家視角還原被擋下時回 403 forbidden', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 5,
+      tableName: 'member',
+      recordId: 'm1',
+      data: { id: 'm1', organization_id: 'org1', user_id: 'u1', role: 'owner' },
+      deletedAt: new Date('2026-10-04T02:00:00Z'),
+    });
+
+    await expect(
+      service.restore(
+        [5],
+        { id: 'admin', name: 'admin', email: 'admin@example.com' },
+        { organizationId: 'org1', role: 'admin', closed: false },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
+  });
+
   it('平台視角一律可以還原', async () => {
     const result = await service.list({});
 

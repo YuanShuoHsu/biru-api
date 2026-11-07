@@ -1,5 +1,4 @@
 import {
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -23,6 +22,7 @@ import { AttendanceShiftTypesService } from '../attendance/attendance-shift-type
 import { isAuthorized } from '../auth/permissions.js';
 import { platformDateString } from '../common/constants/timezone.js';
 import type { AuditSubTable } from '../common/decorators/audit.decorator.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { diffAuditRows } from '../common/utils/audit-diff.js';
 import {
   AUDIT_IGNORED_COLUMNS,
@@ -549,7 +549,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
         throw notFoundError('batchNotFound');
       if (restoreBlockedBy([...batchTables], scope, grantsOwner(batch)))
-        throw new ForbiddenException();
+        throw accessForbiddenError();
     }
 
     return { root, batch };

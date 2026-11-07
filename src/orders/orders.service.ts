@@ -2,7 +2,6 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -52,6 +51,7 @@ import {
 } from '../common/constants/timezone.js';
 
 import { isAuthorized } from '../auth/permissions.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { toLanguage } from '../common/utils/language.js';
 import {
   buildFilterCondition,
@@ -860,7 +860,7 @@ export class OrdersService {
     const receipt = await this.findOrderReceipt(org.id, orderId);
 
     if (!(await this.canReadOrderById(orderId, viewer, accessToken)))
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     return receipt;
   }

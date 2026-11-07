@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -17,6 +16,7 @@ import {
 } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
 import type { AuthRequest } from '../menus/guards/roles.guard.js';
 import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
@@ -48,7 +48,7 @@ export class OrganizationsController {
     @Session() session: UserSession | null,
   ): Promise<OrganizationResponseDto[]> {
     if (includeClosed && session?.user.role !== 'admin')
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     return this.organizationsService.organizations(includeClosed);
   }
