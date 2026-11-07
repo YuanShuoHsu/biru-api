@@ -361,8 +361,8 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 - Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). `throttleTracker` buckets
   signed-in requests by user id and the rest by `clientIp`; requests without a usable IP share one `ip:missing`
   bucket. It looks the session up itself because `AppModule`'s guards run before better-auth's `AuthGuard`, so
-  `req.user` is not set yet. The anonymous order, ECPay checkout, waitlist ticket, coupon check and company lookup
-  routes add 30 / min and 150 / hour with `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler,
+  `req.user` is not set yet. The anonymous order, ECPay checkout, carrier barcode check, waitlist ticket, coupon check and
+  company lookup routes add 30 / min and 150 / hour with `@Throttle` on the named `anonymous` / `hourly` throttlers. Every throttler,
   the global one included, only takes effect once `CLIENT_IP_HEADER` or `TRUSTED_PROXIES` is set — without either
   `req.ip` is the proxy's address, so every caller would share one bucket and any limit would throttle the whole
   platform. The named throttlers are unlimited unless a route overrides

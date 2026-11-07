@@ -31,6 +31,7 @@ const ANONYMOUS_ROUTES = [
   ['post', '/organizations/shop/coupons/validate'],
   ['get', '/gcis/12345678'],
   ['post', '/ecpay'],
+  ['post', '/ecpay/check-barcode'],
 ] as const;
 
 const getSession = vi.fn(({ headers }: { headers: Headers }) => {
