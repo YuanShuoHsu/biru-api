@@ -369,6 +369,7 @@ export type I18nTranslations = {
             "specialHoursInvalidRange": string;
             "specialHoursNotFound": string;
             "specialHoursOverlap": string;
+            "specialHoursTooLong": string;
         };
         "points": {
             "adjustOwnerOnly": string;

@@ -136,6 +136,28 @@ describe('SpecialHoursService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('區間最多 366 天，超過時回 400 並帶 specialHoursTooLong', async () => {
+    await expect(
+      service.create('biru', {
+        validFrom: day(0),
+        validThrough: day(366),
+        openingHours: 'Mo-Su',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'specialHoursTooLong' },
+    });
+
+    const created = await service.create('biru', {
+      validFrom: day(0),
+      validThrough: day(365),
+      openingHours: 'Mo-Su',
+    });
+    await expect(
+      service.update('biru', created.id, { validThrough: day(366) }),
+    ).rejects.toMatchObject({ response: { code: 'specialHoursTooLong' } });
+  });
+
   it('刪除後不再列出，刪除時留下可追溯的紀錄', async () => {
     const created = await service.create('biru', {
       validFrom: day(1),
