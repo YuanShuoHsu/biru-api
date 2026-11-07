@@ -16,6 +16,7 @@ import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
 import { isLanguage, pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
 import type { UnitCode } from '../db/schema/inventory.js';
+import { memberRoleEnum, type MemberRole } from '../db/schema/organizations.js';
 import { user, type User } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
@@ -415,7 +416,12 @@ export class MailsService {
         inviterName,
         organizationName,
         productName,
-        role,
+        role: (memberRoleEnum.enumValues as readonly string[]).includes(role)
+          ? this.i18n.t(
+              `mail.organization_invitation.roles.${role as MemberRole}`,
+              { lang },
+            )
+          : role,
         support_url,
         url: invite_url,
       },
