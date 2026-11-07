@@ -2,6 +2,7 @@
 
 import {
   ArgumentsHost,
+  BadRequestException,
   Catch,
   HttpException,
   HttpStatus,
@@ -13,6 +14,7 @@ import { I18nContext, I18nService, I18nValidationException } from 'nestjs-i18n';
 import type { Socket } from 'socket.io';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import { LanguageResolver } from '../resolvers/language.resolver.js';
+import { isUnstorableText } from '../utils/pg-errors.js';
 
 const languageResolver = new LanguageResolver();
 
@@ -34,9 +36,20 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
     });
   }
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(caught: unknown, host: ArgumentsHost): void {
     const ws = host.switchToWs();
     const pattern = ws.getPattern();
+
+    const lang =
+      I18nContext.current(host)?.lang ?? languageResolver.resolve(host);
+
+    const exception = isUnstorableText(caught)
+      ? new BadRequestException({
+          error: 'Bad Request',
+          code: 'badRequest',
+          message: this.i18n.t('common.exceptions.badRequest', { lang }),
+        })
+      : caught;
 
     if (
       !(exception instanceof IntrinsicException) &&
@@ -46,9 +59,6 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
         `WebSocket 訊息處理失敗：${pattern}`,
         exception,
       );
-
-    const lang =
-      I18nContext.current(host)?.lang ?? languageResolver.resolve(host);
 
     const isProduction = process.env.NODE_ENV === 'production';
 

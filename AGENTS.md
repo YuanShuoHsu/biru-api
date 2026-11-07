@@ -358,6 +358,9 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   is only there if that object has one), translated like `AllExceptionsFilter` except that validation errors become
   `common.exceptions.badRequest`, `accessToken` stripped from `cause.data`; the ack is never called. Throw a translated
   `HttpException` / `WsException` to reject a message, never return `false`
+  — both filters answer text Postgres refuses to store (a NUL byte: pg `22021` / `22P05`, `isUnstorableText`) with
+  400 `badRequest`, so values bound for Postgres need no NUL check of their own; text sent elsewhere (ECPay, mail)
+  still does
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
 - Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). `throttleTracker` buckets
   signed-in requests by user id and the rest by `clientIp`; requests without a usable IP share one `ip:missing`
