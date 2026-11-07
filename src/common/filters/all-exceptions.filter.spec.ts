@@ -2,7 +2,7 @@ import { type ArgumentsHost, NotFoundException } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 
 import { DrizzleQueryError } from 'drizzle-orm';
-import { I18nContext } from 'nestjs-i18n';
+import { I18nContext, I18nValidationException } from 'nestjs-i18n';
 
 import { AllExceptionsFilter } from './all-exceptions.filter.js';
 
@@ -50,6 +50,23 @@ describe('AllExceptionsFilter', () => {
       );
     },
   );
+
+  it('驗證錯誤回 400 與翻譯後的 badRequest', () => {
+    const { reply, catch: handle } = setup();
+
+    handle(new I18nValidationException([]));
+
+    expect(reply).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        error: 'Bad Request',
+        code: 'badRequest',
+        message: 'en:common.exceptions.badRequest',
+        statusCode: 400,
+      }),
+      400,
+    );
+  });
 
   it('HttpException 照原狀態碼回應', () => {
     const { reply, catch: handle } = setup();

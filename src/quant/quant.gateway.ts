@@ -1,10 +1,4 @@
-import {
-  ForbiddenException,
-  UseFilters,
-  UseGuards,
-  UsePipes,
-  ValidationPipe,
-} from '@nestjs/common';
+import { ForbiddenException, UseFilters, UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
@@ -13,7 +7,6 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  WsException,
 } from '@nestjs/websockets';
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
@@ -77,13 +70,6 @@ type QuantSocket = Socket<never, never, never, QuantSocketData>;
 @AllowAnonymous()
 @UseFilters(AllWsExceptionsFilter)
 @UseGuards(WsAdminGuard)
-@UsePipes(
-  new ValidationPipe({
-    exceptionFactory: () => new WsException('Bad request'),
-    forbidNonWhitelisted: true,
-    whitelist: true,
-  }),
-)
 @WebSocketGateway({
   namespace: '/quant',
   cors: { origin: [process.env.NEXT_ADMIN_URL!], credentials: true },
