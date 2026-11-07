@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { ImagesModule } from '../images/images.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 
@@ -9,7 +10,7 @@ import { MenusController } from './menus.controller.js';
 import { MenusService } from './menus.service.js';
 
 @Module({
-  imports: [InventoryModule, OrdersModule],
+  imports: [ImagesModule, InventoryModule, OrdersModule],
   controllers: [MenusController, PublicMenusController],
   providers: [MenusService, PublicMenusService],
   exports: [MenusService, PublicMenusService],

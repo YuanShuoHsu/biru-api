@@ -244,8 +244,11 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 
 ### Images
 
-Menu, section, item, banner and store photo images are stored as base64 data URLs, but their endpoints return
-`imageUrl` from `withImageUrl` (`src/images/image-url.ts`), `/api/images/:kind/:id/:version.:ext` (`imageVersion`:
+Menu, section, item, banner and store photo images are stored as base64 data URLs, unless R2 is configured (see
+Environment Variables): then `ImageStorageService` (`src/images/image-storage.service.ts`) uploads each new image before
+the write, keyed `<kind>/<imageVersion>.<ext>`, and the column stores its public `https://` URL, which every helper below
+returns as `imageUrl` unchanged. For data URLs, their endpoints return `imageUrl` from `withImageUrl`
+(`src/images/image-url.ts`), `/api/images/:kind/:id/:version.:ext` (`imageVersion`:
 the first 16 hex digits of the data URL's SHA-256; a query that only needs the URL selects `imageRefSql` instead of the
 image (`imageRefQuery`) and passes it to `withImageRefUrl`, as the order menu and the menu, banner and store photo
 lists do, so the image never leaves Postgres; a paginated list selects the page `withoutImage` and adds `withImageRefs`
@@ -453,6 +456,9 @@ missing variable fails at request time rather than at boot. Required in `.env`:
   the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
   until it is re-encrypted; a later PR provides that script
+- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` — Cloudflare R2 bucket for menu, banner and
+  store photo images; all five R2 variables must be set, or new images stay base64 data URLs in Postgres
+- `R2_PUBLIC_URL` — Public origin of that bucket (e.g. its custom domain); the uploaded image URL is this plus the key
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,

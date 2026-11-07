@@ -23,6 +23,7 @@ import type { Language } from '../db/schema/enums.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import {
   imageRefQuery,
   withImageRefs,
@@ -56,7 +57,10 @@ import { notFoundError } from './store-photo-errors.js';
 
 @Injectable()
 export class StorePhotosService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly imageStorage: ImageStorageService,
+  ) {}
 
   async findAllActive(lang: Language): Promise<PublicStorePhotoResponseDto[]> {
     const rows = await this.db.query.storePhoto.findMany({
@@ -168,7 +172,7 @@ export class StorePhotosService {
       .insert(storePhoto)
       .values({
         id: randomUUID(),
-        image: dto.image,
+        image: await this.imageStorage.store('storePhoto', dto.image),
         alt: dto.alt,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
@@ -184,7 +188,10 @@ export class StorePhotosService {
   ): Promise<StorePhotoResponseDto> {
     const [updated] = await this.db
       .update(storePhoto)
-      .set(dto)
+      .set({
+        ...dto,
+        image: await this.imageStorage.store('storePhoto', dto.image),
+      })
       .where(eq(storePhoto.id, storePhotoId))
       .returning();
     if (!updated) throw notFoundError('storePhotoNotFound');

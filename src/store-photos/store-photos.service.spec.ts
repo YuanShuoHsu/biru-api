@@ -1,3 +1,5 @@
+import type { ConfigService } from '@nestjs/config';
+
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -7,6 +9,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageUrl } from '../images/image-url.js';
 
 import { StorePhotosService } from './store-photos.service.js';
@@ -20,7 +23,12 @@ describe('StorePhotosService.findAll alt', () => {
     client = createPGlite();
     db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new StorePhotosService(db as unknown as DrizzleDB);
+    service = new StorePhotosService(
+      db as unknown as DrizzleDB,
+      new ImageStorageService({
+        get: () => undefined,
+      } as unknown as ConfigService),
+    );
     await client.exec('truncate store_photo');
     await db.insert(storePhoto).values([
       {
@@ -98,16 +106,23 @@ describe('StorePhotosService 圖片網址', () => {
   let client: PGlite;
   let service: StorePhotosService;
   const image = 'data:image/jpeg;base64,/9j/4AAQ';
+  const r2Url = 'https://images.example.com/storePhoto/0123456789abcdef.jpg';
 
   beforeAll(async () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    service = new StorePhotosService(db as unknown as DrizzleDB);
+    service = new StorePhotosService(
+      db as unknown as DrizzleDB,
+      new ImageStorageService({
+        get: () => undefined,
+      } as unknown as ConfigService),
+    );
     await client.exec('truncate store_photo');
     await db.insert(storePhoto).values([
       { id: 'bar', image, alt: { 'zh-TW': '吧台' }, sortOrder: 0 },
       { id: 'door', image: 'door.jpg', alt: { 'zh-TW': '門口' }, sortOrder: 1 },
+      { id: 'counter', image: r2Url, alt: { 'zh-TW': '櫃台' }, sortOrder: 2 },
     ]);
   }, 60_000);
 
@@ -119,6 +134,7 @@ describe('StorePhotosService 圖片網址', () => {
     const expected = [
       withImageUrl('storePhoto', { id: 'bar', image }).imageUrl,
       null,
+      r2Url,
     ];
 
     expect(
@@ -139,5 +155,6 @@ describe('StorePhotosService 圖片網址', () => {
       ['bar', withImageUrl('storePhoto', { id: 'bar', image }).imageUrl],
     ]);
     expect(await page(1)).toEqual([['door', null]]);
+    expect(await page(2)).toEqual([['counter', r2Url]]);
   });
 });
