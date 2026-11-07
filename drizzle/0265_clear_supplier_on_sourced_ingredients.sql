@@ -1,0 +1,1 @@
+UPDATE "ingredient" SET "supplier_id" = NULL WHERE "recipe_id" IS NOT NULL AND "supplier_id" IS NOT NULL;
