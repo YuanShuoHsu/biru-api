@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   and,
@@ -38,6 +33,7 @@ import { isAuthorized } from '../auth/permissions.js';
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import { DAY_MS } from '../common/constants/timezone.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
 import {
   findSpecialHours,
@@ -147,7 +143,7 @@ export class OrganizationsService {
 
     const isSelf = target.userId === actor.userId;
     if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
-      throw new ForbiddenException();
+      throw accessForbiddenError();
     if (showcase && !isSelf) throw forbiddenError('showcaseOpenSelfOnly');
 
     const [updated] = await this.db
@@ -176,7 +172,7 @@ export class OrganizationsService {
         columns: { joinedAsPlatformAdmin: true, role: true },
       });
       if (own?.role !== 'owner' || own.joinedAsPlatformAdmin)
-        throw new ForbiddenException();
+        throw accessForbiddenError();
     }
 
     const [confirmed] = await this.db
