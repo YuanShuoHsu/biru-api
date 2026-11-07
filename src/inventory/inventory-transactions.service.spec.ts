@@ -812,4 +812,10 @@ describe('庫存扣除、還原與自動售完', () => {
     expect(await remainingOf('cake')).toBe(5);
     expect(await remainingOf('cream')).toBe(5);
   });
+
+  it('沒有採購權限時依單位成本排序異動回 403 forbidden', async () => {
+    await expect(
+      service.findAll('cake', { sortBy: 'unitCost' }, false),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
 });

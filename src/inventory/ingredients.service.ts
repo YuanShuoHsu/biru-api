@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import {
@@ -20,6 +20,7 @@ import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
   buildFilterCondition,
   buildLocalizedTextFilterCondition,
@@ -117,7 +118,7 @@ export class IngredientsService {
         (field) => field && PURCHASING_FIELDS.includes(field),
       )
     )
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     const priceCurrency = await getOrganizationCurrency(
       this.db,
