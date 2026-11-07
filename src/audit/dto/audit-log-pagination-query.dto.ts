@@ -22,15 +22,15 @@ export const AUDIT_LOG_ENUM_FILTER_FIELDS = [
   'action',
 ] as const;
 export const AUDIT_LOG_DATE_FILTER_FIELDS = ['createdAt'] as const;
-export const AUDIT_LOG_ALL_FILTER_FIELDS = [
+const AUDIT_LOG_ALL_FILTER_FIELDS = [
   ...AUDIT_LOG_STRING_FILTER_FIELDS,
   ...AUDIT_LOG_ENUM_FILTER_FIELDS,
   ...AUDIT_LOG_DATE_FILTER_FIELDS,
 ] as const;
 
-export type AuditLogFilterField = (typeof AUDIT_LOG_ALL_FILTER_FIELDS)[number];
+type AuditLogFilterField = (typeof AUDIT_LOG_ALL_FILTER_FIELDS)[number];
 
-export const AUDIT_LOG_SORT_FIELDS = [
+const AUDIT_LOG_SORT_FIELDS = [
   'organizationId',
   'actorName',
   'actorEmail',
@@ -39,7 +39,7 @@ export const AUDIT_LOG_SORT_FIELDS = [
   'createdAt',
 ] as const;
 
-export type AuditLogSortField = (typeof AUDIT_LOG_SORT_FIELDS)[number];
+type AuditLogSortField = (typeof AUDIT_LOG_SORT_FIELDS)[number];
 
 export class AuditLogPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: AUDIT_LOG_RESOURCES, enumName: 'AuditResource' })
