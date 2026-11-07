@@ -341,6 +341,22 @@ describe('MailsService 語系', () => {
     });
   });
 
+  it('出勤通知寄送失敗時往外丟遮罩後的錯誤', async () => {
+    vi.mocked(sendMail).mockRejectedValueOnce(smtpError());
+
+    await expect(
+      service.sendMissingClockOut({
+        recipient: { email: 'ann@example.com', lang: 'en' },
+        organizationName: 'Biru',
+        path: '/attendance',
+        startsAt: new Date('2026-11-01T01:00:00Z'),
+        endsAt: new Date('2026-11-01T09:00:00Z'),
+      }),
+    ).rejects.toThrow(
+      "Failed to send attendance-notification email to a***@example.com: Can't send mail - all recipients were rejected: 550 <a***@example.com>",
+    );
+  });
+
   it('測試信用請求者的 lang', async () => {
     await service.sendTestEmail({ email: 'ann@example.com' }, 'ja');
     await service.sendTestEmail({ email: 'ann@example.com' }, undefined);
