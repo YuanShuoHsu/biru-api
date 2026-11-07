@@ -22,12 +22,20 @@ describe('OrderStatsService', () => {
   const addOrder = (
     id: string,
     orderDate: string,
-    { orderStatus = 'OrderDelivered', sellerId = 'org' } = {},
+    {
+      orderStatus = 'OrderDelivered',
+      paymentDate = null,
+      sellerId = 'org',
+    }: {
+      orderStatus?: string;
+      paymentDate?: string | null;
+      sellerId?: string;
+    } = {},
   ) =>
     client.query(
-      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, order_date)
-       values ($1, '{"name":"客人"}', 'counter', '1', $2, 'Cash', $3, 100, $4::timestamptz at time zone 'UTC')`,
-      [id, orderStatus, sellerId, orderDate],
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, order_date, payment_date)
+       values ($1, '{"name":"客人"}', 'counter', '1', $2, 'Cash', $3, 100, $4::timestamptz at time zone 'UTC', $5::timestamptz at time zone 'UTC')`,
+      [id, orderStatus, sellerId, orderDate, paymentDate],
     );
 
   const addRefund = (
@@ -68,6 +76,10 @@ describe('OrderStatsService', () => {
     await addRefund('r-refunded-2', 'refunded', '2026-10-02T05:00:00Z');
     await addOrder('later', '2026-10-02T02:00:00Z');
     await addRefund('r-later', 'later', '2026-10-05T03:00:00Z');
+    await addOrder('paid-today', '2026-10-01T02:00:00Z', {
+      paymentDate: '2026-10-02T02:00:00Z',
+    });
+    await addRefund('r-paid-today', 'paid-today', '2026-10-03T03:00:00Z');
     await addOrder('pending', '2026-10-02T02:00:00Z');
     await addRefund('r-pending', 'pending', '2026-10-02T03:00:00Z', 'pending');
     await addOrder('cancelled', '2026-10-02T02:00:00Z', {
@@ -79,8 +91,8 @@ describe('OrderStatsService', () => {
 
     const stats = await service.getStats('biru', query, false);
 
-    expect(stats.buckets[0].orders).toBe(4);
+    expect(stats.buckets[0].orders).toBe(5);
     expect(stats.refundedOrders).toBe(3);
-    expect(stats.refundedPeriodOrders).toBe(2);
+    expect(stats.refundedPeriodOrders).toBe(3);
   });
 });
