@@ -148,12 +148,19 @@ export class OrderPricingService {
       itemAddOns,
     ] = await Promise.all([
       this.db.query.menu.findFirst({
+        columns: { id: true },
         where: eq(menu.organizationId, organizationId),
         with: { organization: { columns: { currency: true } } },
       }),
       this.db.query.menuItem.findMany({
+        columns: { image: false },
         where: inArray(menuItem.id, allMenuItemIds),
-        with: { menuSection: { with: { parentSection: true } } },
+        with: {
+          menuSection: {
+            columns: { menuId: true },
+            with: { parentSection: { columns: { menuId: true } } },
+          },
+        },
       }),
       allModifierIds.length > 0
         ? this.db.query.modifier.findMany({
