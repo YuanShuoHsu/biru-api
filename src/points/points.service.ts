@@ -1068,6 +1068,7 @@ export class PointsService {
           couponCode,
           createdAt: transaction.createdAt,
           expiresAt: transaction.expiresAt,
+          note: transaction.note,
           orderNumber,
           organizationName,
           points: transaction.points,

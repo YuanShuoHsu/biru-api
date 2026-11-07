@@ -25,6 +25,8 @@ export class PointTransactionDto {
   couponCode?: string | null;
   @ApiProperty() createdAt: Date;
   @ApiPropertyOptional() expiresAt?: Date | null;
+  @ApiPropertyOptional({ description: 'adjust 的調整原因，會員看得到' })
+  note?: string | null;
   @ApiPropertyOptional({ description: 'earn 來源訂單編號' })
   orderNumber?: string | null;
   @ApiPropertyOptional({ description: '交易發生店家；redeem 屬品牌層為 null' })

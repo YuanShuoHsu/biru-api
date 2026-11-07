@@ -1085,6 +1085,30 @@ describe('PointsService.findAllForOrganization', () => {
     expect((await service.getAllMine('amy')).balance).toBe(40);
   });
 
+  it('會員的點數明細帶出門市調整的原因', async () => {
+    await addPaidOrder('o1', ORG, 'amy');
+    const created = await service.adjustForOrganization(
+      'biru',
+      { email: 'amy@example.com', note: '客訴補償', points: 30 },
+      'bob',
+      'admin',
+    );
+
+    const { transactions } = await service.getAllMine('amy');
+
+    expect(transactions).toContainEqual(
+      expect.objectContaining({
+        id: created.id,
+        note: '客訴補償',
+        organizationName: expect.any(String),
+        type: 'adjust',
+      }),
+    );
+    expect(transactions.filter(({ type }) => type === 'earn')).toEqual([
+      expect.objectContaining({ note: null }),
+    ]);
+  });
+
   it('扣點先補入未入點的訂單，只從本店剩餘點數扣', async () => {
     await addPaidOrder('o1', ORG, 'amy');
     await addPaidOrder('o2', OTHER_ORG, 'amy');
