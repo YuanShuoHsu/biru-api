@@ -259,4 +259,23 @@ describe('opening calendar', () => {
     expect(calendar.isOpenAt(at('2026-08-31T10:00'))).toBe(true);
     expect(calendar.minutesUntilClose(at('2026-08-31T10:00'))).toBe(Infinity);
   });
+
+  it('stops counting once the cutoff is reached on a years-long all-day special range', () => {
+    const calendar = openingCalendar('Mo-Fr 09:00-18:00', [
+      {
+        openingHours: 'Mo-Su',
+        validFrom: '2026-09-01',
+        validThrough: '9999-12-31',
+      },
+    ]);
+    expect(calendar.minutesUntilClose(at('2026-09-01T10:00'), 43_200)).toBe(
+      14 * 60 + 30 * 24 * 60,
+    );
+  });
+
+  it('gives the exact minutes when the store closes before the cutoff', () => {
+    const calendar = openingCalendar(weekly, []);
+
+    expect(calendar.minutesUntilClose(at('2026-08-31T17:00'), 120)).toBe(60);
+  });
 });

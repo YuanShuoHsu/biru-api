@@ -87,7 +87,8 @@ export const getAvailability = (
   const open = calendar.isOpenAt(at);
 
   return {
-    cutoff: open && calendar.minutesUntilClose(at) < cutoffMinutes,
+    cutoff:
+      open && calendar.minutesUntilClose(at, cutoffMinutes) < cutoffMinutes,
     open,
   };
 };
