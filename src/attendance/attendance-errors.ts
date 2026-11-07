@@ -18,6 +18,7 @@ export const attendanceErrorCodes = [
   'belowStatutoryPaidPercent',
   'calendarLeaveInterval',
   'calendarLeavePayRequired',
+  'calendarRangeTooLong',
   'cancelIrreversible',
   'cancelReasonRequired',
   'cannotReviewOwnDraft',

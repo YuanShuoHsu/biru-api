@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "给薪比例不得低于法定标准。",
     "calendarLeaveInterval": "产假事件期间须为法定天数的完整日历日（起讫 00:00，结束日不含）。",
     "calendarLeavePayRequired": "产假事件须由 owner 设置核定每日全薪，给薪比例由工龄自动计算。",
+    "calendarRangeTooLong": "排班表一次最多显示 62 天。",
     "cancelIrreversible": "此班次目前不符合排班规则，取消后无法恢复。",
     "cancelReasonRequired": "已开始的班次须填写取消原因。",
     "cannotReviewOwnDraft": "不能复核自己创建的工资单，请由另一位管理者处理。",

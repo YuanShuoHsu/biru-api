@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "支給率は法定基準を下回れません。",
     "calendarLeaveInterval": "法定日数を暦日で指定してください（午前0時から午前0時、終了日を含まない）。",
     "calendarLeavePayRequired": "産休の事由は owner が確認済みの日額賃金を設定してください。支給率は勤続期間から自動計算されます。",
+    "calendarRangeTooLong": "カレンダーで一度に表示できるのは最大 62 日です。",
     "cancelIrreversible": "このシフトは現在のシフト規則を満たしていないため、取り消すと元に戻せません。",
     "cancelReasonRequired": "開始済みのシフトを取り消すには理由が必要です。",
     "cannotReviewOwnDraft": "自分が作成した給与明細は確認できません。別の管理者が確認してください。",
