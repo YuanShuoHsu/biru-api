@@ -80,12 +80,12 @@ describe('ImagesService', () => {
     },
   );
 
-  describe('圖片已搬到 R2', () => {
+  describe('圖片已搬到物件儲存', () => {
     afterEach(() => {
       vi.unstubAllGlobals();
     });
 
-    it('舊網址回 R2 上目前的圖片，並標示不是目前的版本', async () => {
+    it('舊網址回物件儲存上目前的圖片，並標示不是目前的版本', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(Buffer.from('iVBORw0KGgo=', 'base64'), {
           headers: { 'content-type': 'image/png' },
@@ -112,7 +112,7 @@ describe('ImagesService', () => {
     it.each([
       [404, 'image/png'],
       [200, 'text/html'],
-    ])('R2 回 %s、%s 時回 404', async (status, contentType) => {
+    ])('物件儲存回 %s、%s 時回 404', async (status, contentType) => {
       vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue(
