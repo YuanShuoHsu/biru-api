@@ -8,6 +8,7 @@ import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
+import { imageVersion } from './image-url.js';
 import { ImagesService } from './images.service.js';
 
 describe('ImagesService', () => {
@@ -21,14 +22,12 @@ describe('ImagesService', () => {
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new ImagesService(db as unknown as DrizzleDB);
 
-    const [row] = await db
-      .insert(schema.banner)
-      .values({ id: 'banner-1', image: 'data:image/png;base64,iVBORw0KGgo=' })
-      .returning();
+    const image = 'data:image/png;base64,iVBORw0KGgo=';
+    await db.insert(schema.banner).values({ id: 'banner-1', image });
     await db
       .insert(schema.banner)
       .values({ id: 'banner-2', image: 'not-a-data-url' });
-    version = String(row.updatedAt.getTime());
+    version = imageVersion(image);
   }, 60_000);
 
   afterAll(async () => {
@@ -49,7 +48,8 @@ describe('ImagesService', () => {
   });
 
   it.each([
-    { version: () => '1', extension: 'png' },
+    { version: () => '1762315200123', extension: 'png' },
+    { version: () => '0123456789abcdef', extension: 'png' },
     { version: () => version, extension: 'webp' },
   ])(
     '版本或副檔名過期時回目前的圖片，並標示不是目前的版本：%o',

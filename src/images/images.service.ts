@@ -9,7 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type { ImageParamsDto } from './dto/image-params.dto.js';
-import { parseImageDataUrl } from './image-url.js';
+import { imageVersion, parseImageDataUrl } from './image-url.js';
 
 const IMAGE_TABLES = { menu, menuSection, menuItem, banner, storePhoto };
 
@@ -20,17 +20,16 @@ export class ImagesService {
   async find({ kind, id, version, extension }: ImageParamsDto) {
     const table = IMAGE_TABLES[kind];
     const [row] = await this.db
-      .select({ image: table.image, updatedAt: table.updatedAt })
+      .select({ image: table.image })
       .from(table)
       .where(eq(table.id, id));
 
     const parsed = row?.image ? parseImageDataUrl(row.image) : null;
-    if (!parsed) throw new NotFoundException();
+    if (!row?.image || !parsed) throw new NotFoundException();
 
     return {
       current:
-        String(row.updatedAt.getTime()) === version &&
-        parsed.extension === extension,
+        imageVersion(row.image) === version && parsed.extension === extension,
       mimeType: parsed.mimeType,
       data: Buffer.from(parsed.base64, 'base64'),
     };

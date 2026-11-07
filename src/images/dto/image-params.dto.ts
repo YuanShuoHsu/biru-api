@@ -17,8 +17,10 @@ export class ImageParamsDto {
   @IsString()
   id: string;
 
-  @ApiProperty({ description: '圖片所屬資料的 updatedAt（毫秒）' })
-  @Matches(/^\d{1,15}$/)
+  @ApiProperty({
+    description: '圖片內容的雜湊；舊網址的 updatedAt 毫秒數也接受',
+  })
+  @Matches(/^[\da-f]{1,16}$/)
   version: string;
 
   @ApiProperty({ enum: IMAGE_EXTENSION_VALUES })
