@@ -1,4 +1,9 @@
-import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  UseFilters,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
@@ -41,7 +46,9 @@ import {
 } from './pionex/pionex-private-streams.js';
 
 import { Namespace, Socket } from 'socket.io';
+import { AllWsExceptionsFilter } from '../common/filters/all-ws-exceptions.filter.js';
 import { WsAdminGuard } from '../common/guards/ws-admin.guard.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 
 const marketRoom = (symbol: string) => `market:${symbol}`;
 const candleRoom = (symbol: string, interval: string) =>
@@ -59,6 +66,7 @@ interface QuantSocketData {
 type QuantSocket = Socket<never, never, never, QuantSocketData>;
 
 @AllowAnonymous()
+@UseFilters(AllWsExceptionsFilter)
 @UseGuards(WsAdminGuard)
 @UsePipes(
   new ValidationPipe({
@@ -116,7 +124,7 @@ export class QuantGateway implements OnGatewayDisconnect {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
     });
-    if (!session) throw new WsException('Forbidden');
+    if (!session) throw accessForbiddenError();
 
     const credentials = await this.account.resolveCredentials(
       session.user.id,
@@ -141,7 +149,7 @@ export class QuantGateway implements OnGatewayDisconnect {
     const session = await this.authService.api.getSession({
       headers: fromNodeHeaders(client.handshake.headers),
     });
-    if (!session) throw new WsException('Forbidden');
+    if (!session) throw accessForbiddenError();
 
     await client.join(userRoom(session.user.id));
 
