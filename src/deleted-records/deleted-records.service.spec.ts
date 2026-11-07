@@ -182,6 +182,19 @@ describe('DeletedRecordsService.list', () => {
     expect(result.total).toBe(1);
   });
 
+  it('快速搜尋不比對多語名稱的語言代碼', async () => {
+    const result = await service.list({ quickFilterValue: 'zh-TW' });
+
+    expect(ids(result)).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('快速搜尋比對純文字名稱', async () => {
+    const result = await service.list({ quickFilterValue: '北區' });
+
+    expect(ids(result)).toEqual([2]);
+  });
+
   it('依資料類型篩選並依刪除時間排序', async () => {
     const result = await service.list({
       filterField: 'tableName',
