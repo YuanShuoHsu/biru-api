@@ -37,12 +37,14 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import { I18nContext } from 'nestjs-i18n';
 
 import {
   ANONYMOUS_THROTTLER,
   HOURLY_THROTTLER,
 } from '../common/constants/throttle.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 @Controller('ecpay')
 export class EcpayController {
@@ -163,7 +165,14 @@ export class EcpayController {
     const { accessToken, orderId, returnUrl, ...base } = dto;
 
     if (returnUrl && !this.isAllowedUrl(returnUrl))
-      throw new BadRequestException('returnUrl is not allowed');
+      throw new BadRequestException({
+        error: 'Bad Request',
+        code: 'returnUrlNotAllowed',
+        message:
+          I18nContext.current<I18nTranslations>()?.t(
+            'common.exceptions.returnUrlNotAllowed',
+          ) ?? 'returnUrlNotAllowed',
+      });
 
     if (
       !(await this.ordersService.canReadOrderById(
@@ -172,7 +181,14 @@ export class EcpayController {
         accessToken ?? null,
       ))
     )
-      throw new ForbiddenException();
+      throw new ForbiddenException({
+        error: 'Forbidden',
+        code: 'forbidden',
+        message:
+          I18nContext.current<I18nTranslations>()?.t(
+            'common.exceptions.forbidden',
+          ) ?? 'forbidden',
+      });
 
     const order = await this.ordersService.createPaymentAttempt(
       orderId,

@@ -1,10 +1,6 @@
 import { buildRefundPlan } from './refund-plan.js';
 
-import { BadRequestException } from '@nestjs/common';
-
 import type { RefundItemSnapshot } from '../../db/schema/refunds.js';
-
-const t = ((key: string) => key) as never;
 
 const order = {
   items: [
@@ -39,13 +35,11 @@ describe('buildRefundPlan', () => {
       order,
       [],
       [{ orderItemId: 'a', quantity: 2 }],
-      t,
     );
     const second = buildRefundPlan(
       order,
       [{ amount: String(first.amount), items: first.items }],
       [{ orderItemId: 'b', quantity: 1 }],
-      t,
     );
     const last = buildRefundPlan(
       order,
@@ -54,7 +48,6 @@ describe('buildRefundPlan', () => {
         { amount: String(second.amount), items: second.items },
       ],
       undefined,
-      t,
     );
 
     expect(first.amount + second.amount + last.amount).toBe(700);
@@ -66,13 +59,11 @@ describe('buildRefundPlan', () => {
       order,
       [],
       [{ orderItemId: 'a', quantity: 1 }],
-      t,
     );
     const rest = buildRefundPlan(
       order,
       [{ amount: String(first.amount), items: first.items }],
       undefined,
-      t,
     );
 
     expect(
@@ -86,7 +77,6 @@ describe('buildRefundPlan', () => {
       order,
       [],
       [{ orderItemId: 'c', quantity: 1 }],
-      t,
     );
 
     expect(() =>
@@ -94,15 +84,19 @@ describe('buildRefundPlan', () => {
         order,
         [{ amount: String(first.amount), items: first.items }],
         [{ orderItemId: 'c', quantity: 1 }],
-        t,
       ),
-    ).toThrow(BadRequestException);
+    ).toThrow(
+      expect.objectContaining({
+        status: 400,
+        response: expect.objectContaining({ code: 'quantityExceeded' }),
+      }),
+    );
   });
 
   it('全額折抵的訂單退款金額為零而不是負數', () => {
     const freeOrder = { items: order.items, total: '0.00' };
 
-    expect(buildRefundPlan(freeOrder, [], undefined, t).amount).toBe(0);
+    expect(buildRefundPlan(freeOrder, [], undefined).amount).toBe(0);
   });
   describe('每行有記錄折扣時照該行折扣退', () => {
     const itemCouponOrder = {
@@ -130,7 +124,6 @@ describe('buildRefundPlan', () => {
         itemCouponOrder,
         [],
         [{ orderItemId: 'a', quantity: 1 }],
-        t,
       );
 
       expect(plan.allocatedDiscount).toBe(0);
@@ -142,7 +135,6 @@ describe('buildRefundPlan', () => {
         itemCouponOrder,
         [],
         [{ orderItemId: 'b', quantity: 3 }],
-        t,
       );
 
       expect(plan.allocatedDiscount).toBe(50);
@@ -157,7 +149,7 @@ describe('buildRefundPlan', () => {
         [{ orderItemId: 'a', quantity: 1 }],
         undefined,
       ].map((requested) => {
-        const plan = buildRefundPlan(itemCouponOrder, previous, requested, t);
+        const plan = buildRefundPlan(itemCouponOrder, previous, requested);
         previous.push({ amount: String(plan.amount), items: plan.items });
         return plan;
       });
@@ -187,12 +179,9 @@ describe('buildRefundPlan', () => {
 
       const previous: { amount: string; items: RefundItemSnapshot[] }[] = [];
       const amounts = ['a', 'b', 'c', 'x'].map((orderItemId) => {
-        const plan = buildRefundPlan(
-          tenPercentOrder,
-          previous,
-          [{ orderItemId, quantity: 1 }],
-          t,
-        );
+        const plan = buildRefundPlan(tenPercentOrder, previous, [
+          { orderItemId, quantity: 1 },
+        ]);
         previous.push({ amount: String(plan.amount), items: plan.items });
         return plan.amount;
       });
@@ -232,7 +221,6 @@ describe('buildRefundPlan', () => {
         fullCouponOrder,
         [],
         [{ orderItemId: 'a', quantity: 1 }],
-        t,
       );
 
       expect(plan.amount).toBe(0);

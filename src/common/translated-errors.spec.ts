@@ -5,6 +5,7 @@ const modulesWithErrorCodes = [
   'banners',
   'coupons',
   'deleted-records',
+  'ecpay',
   'inventory',
   'menus',
   'orders',

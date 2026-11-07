@@ -225,6 +225,7 @@ export type I18nTranslations = {
             "organizationHasOpenWork": string;
             "organizationNotFound": string;
             "organizationReadOnly": string;
+            "returnUrlNotAllowed": string;
             "smtpTestFailed": string;
             "statsSinceNotMonthStart": string;
             "tooManyRequests": string;
@@ -429,6 +430,7 @@ export type I18nTranslations = {
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;
+            "cardRefundUnavailable": string;
             "invalidAmount": string;
             "itemNotInOrder": string;
             "noEcpayTransaction": string;

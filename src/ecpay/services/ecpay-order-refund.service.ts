@@ -30,11 +30,11 @@ import {
   toGetIssueQuery,
   toInvoiceDateText,
 } from '../utils/ecpay.js';
-import type { RefundPlanTranslate } from '../utils/refund-plan.js';
 import {
   buildRefundPlan,
   earliestVoidableInvoiceDate,
 } from '../utils/refund-plan.js';
+import { conflictError, serviceUnavailableError } from '../refund-errors.js';
 
 import { EcpayAllowanceInvoiceService } from './ecpay-allowance-invoice.service.js';
 import {
@@ -178,25 +178,6 @@ export class EcpayOrderRefundService {
     private readonly menuStockService: MenuStockService,
   ) {}
 
-  private readonly t: RefundPlanTranslate = (key, args) =>
-    this.i18n.t(`common.refunds.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-
-  private tRefunds(
-    key:
-      | 'alreadyRefunded'
-      | 'noEcpayTransaction'
-      | 'notPaid'
-      | 'notRefundable'
-      | 'resultUnknown',
-  ): string {
-    return this.i18n.t(`common.refunds.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
   async previewRefund(
     organizationSlug: string,
     orderId: string,
@@ -213,7 +194,6 @@ export class EcpayOrderRefundService {
       found,
       previous,
       dto.items,
-      this.t,
     );
 
     return { allocatedDiscount, amount, isFull };
@@ -273,19 +253,17 @@ export class EcpayOrderRefundService {
         .for('update');
 
       if (!locked) throw notFoundError('orderNotFound');
-      if (!locked.paymentDate)
-        throw new ConflictException(this.tRefunds('notPaid'));
+      if (!locked.paymentDate) throw conflictError('notPaid');
       if (locked.orderStatus === 'OrderReturned')
-        throw new ConflictException(this.tRefunds('alreadyRefunded'));
-      if (!isRefundable(locked))
-        throw new ConflictException(this.tRefunds('notRefundable'));
+        throw conflictError('alreadyRefunded');
+      if (!isRefundable(locked)) throw conflictError('notRefundable');
 
       const previous = await tx
         .select({ amount: refund.amount, items: refund.items })
         .from(refund)
         .where(eq(refund.orderId, orderId));
 
-      const plan = buildRefundPlan(found, previous, dto.items, this.t);
+      const plan = buildRefundPlan(found, previous, dto.items);
 
       const channel =
         plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual';
@@ -314,7 +292,7 @@ export class EcpayOrderRefundService {
       if (!found.merchantTradeNo || !found.tradeNo) {
         await this.db.delete(refund).where(eq(refund.id, created.id));
 
-        throw new ConflictException(this.tRefunds('noEcpayTransaction'));
+        throw conflictError('noEcpayTransaction');
       }
 
       try {
@@ -340,7 +318,7 @@ export class EcpayOrderRefundService {
             error,
           );
 
-          throw new ServiceUnavailableException(this.tRefunds('resultUnknown'));
+          throw serviceUnavailableError('resultUnknown');
         }
 
         await this.db.delete(refund).where(eq(refund.id, created.id));

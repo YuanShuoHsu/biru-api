@@ -28,7 +28,6 @@ describe('EcpayOrderInvoiceService.findVoidedForOrder（PGlite）', () => {
       {} as never,
       {} as never,
       new EventEmitter2(),
-      {} as never,
     );
 
     for (const slug of ['biru', 'other'])

@@ -38,7 +38,6 @@ describe('EcpayOrderInvoiceService 開立中發票對帳（PGlite）', () => {
       {} as never,
       { hasPrinter: () => Promise.resolve(false) } as never,
       new EventEmitter2(),
-      {} as never,
     );
   }, 60_000);
 

@@ -1,8 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
-
 import type { RefundItemSnapshot } from '../../db/schema/refunds.js';
 
 import { STORE_UTC_OFFSET } from '../../common/constants/timezone.js';
+
+import { badRequestError } from '../refund-errors.js';
 
 const round = (value: number): number => Math.round(value);
 
@@ -11,14 +11,6 @@ export const lineAmountCents = (unitPrice: string, quantity: number): number =>
 
 const lineAmount = (unitPrice: string, quantity: number): number =>
   round(lineAmountCents(unitPrice, quantity) / 100);
-
-export type RefundPlanErrorKey =
-  'invalidAmount' | 'itemNotInOrder' | 'nothingToRefund' | 'quantityExceeded';
-
-export type RefundPlanTranslate = (
-  key: RefundPlanErrorKey,
-  args?: Record<string, number | string>,
-) => string;
 
 export interface RefundPlan {
   allocatedDiscount: number;
@@ -53,7 +45,6 @@ export const buildRefundPlan = (
   found: RefundableOrder,
   previous: { amount: string; items: RefundItemSnapshot[] | null }[],
   requestedItems: { orderItemId: string; quantity: number }[] | undefined,
-  t: RefundPlanTranslate,
 ): RefundPlan => {
   const refundedQuantities = new Map<string, number>();
   for (const row of previous)
@@ -82,16 +73,17 @@ export const buildRefundPlan = (
   const items: RefundItemSnapshot[] = requested.map((input) => {
     const source = found.items.find((item) => item.id === input.orderItemId);
     if (!source)
-      throw new BadRequestException(
-        t('itemNotInOrder', { orderItemId: input.orderItemId }),
-      );
+      throw badRequestError('itemNotInOrder', {
+        orderItemId: input.orderItemId,
+      });
 
     const refunded = refundedQuantities.get(source.id) ?? 0;
     const remaining = source.orderQuantity - refunded;
     if (input.quantity > remaining)
-      throw new BadRequestException(
-        t('quantityExceeded', { name: source.menuItemName, remaining }),
-      );
+      throw badRequestError('quantityExceeded', {
+        name: source.menuItemName,
+        remaining,
+      });
 
     return {
       amount: String(
@@ -105,7 +97,7 @@ export const buildRefundPlan = (
     };
   });
 
-  if (!items.length) throw new BadRequestException(t('nothingToRefund'));
+  if (!items.length) throw badRequestError('nothingToRefund');
 
   const itemTotal = found.items.reduce(
     (sum, item) => sum + lineAmount(item.unitPrice, item.orderQuantity),
@@ -148,7 +140,7 @@ export const buildRefundPlan = (
 
   const amount = sumRefundItems(items) - allocatedDiscount;
   if (!Number.isFinite(amount) || amount < 0)
-    throw new BadRequestException(t('invalidAmount'));
+    throw badRequestError('invalidAmount');
 
   return {
     allocatedDiscount,

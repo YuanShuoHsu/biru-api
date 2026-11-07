@@ -1,10 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
 
 import type { Invoice } from '../../db/schema/invoices.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
 import type { EcpayIssueInvoiceService } from './ecpay-issue-invoice.service.js';
@@ -71,7 +68,6 @@ const issuedPayloadOf = async (data: Partial<Invoice>) => {
       hasPrinter: vi.fn().mockResolvedValue(false),
     } as unknown as InvoicePrinterService,
     new EventEmitter2(),
-    { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
   ).issueForOrder('biru', 'order');
 
   return issueInvoice.mock.calls[0][0] as Record<string, unknown>;
@@ -145,7 +141,6 @@ describe('EcpayOrderInvoiceService.voidForOrder 更正買受人抬頭', () => {
       { invalidInvoice } as unknown as EcpayInvalidInvoiceService,
       {} as never,
       new EventEmitter2(),
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
     ).voidForOrder('biru', 'order', { ...dto, reason: '抬頭錯誤' });
 
     return { invalidInvoice, result };
@@ -158,11 +153,10 @@ describe('EcpayOrderInvoiceService.voidForOrder 更正買受人抬頭', () => {
         customerName: '比如股份有限公司',
       });
 
-      await expect(result).rejects.toThrow(
-        new BadRequestException(
-          'common.invoices.customerNameRequiresIdentifier',
-        ),
-      );
+      await expect(result).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'customerNameRequiresIdentifier' },
+      });
       expect(invalidInvoice).not.toHaveBeenCalled();
     },
   );
@@ -222,7 +216,6 @@ describe('EcpayOrderInvoiceService.voidForOrder 作廢紀錄', () => {
         { invalidInvoice } as unknown as EcpayInvalidInvoiceService,
         {} as never,
         new EventEmitter2(),
-        { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
       ).voidForOrder('biru', 'order', { reason: '抬頭錯誤' }, 'staff'),
     ).rejects.toThrow();
 

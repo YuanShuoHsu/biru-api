@@ -172,6 +172,7 @@
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
     "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
+    "returnUrlNotAllowed": "この戻り先 URL は使用できません",
     "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
     "statsSinceNotMonthStart": "開始時刻はプラットフォームのタイムゾーンで月初めにしてください",
     "tooManyRequests": "リクエストが多すぎます"
@@ -376,6 +377,7 @@
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",
     "alreadyRefunded": "この注文はすでに全額返金済みです",
+    "cardRefundUnavailable": "ECPay のクレジットカード返金にはテスト環境がないため、本番環境でのみ返金できます",
     "invalidAmount": "返金額を算出できません。注文金額をご確認ください",
     "itemNotInOrder": "返金対象の商品はこの注文に含まれていません",
     "noEcpayTransaction": "この注文には返金できる ECPay 取引がありません",

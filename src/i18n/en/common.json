@@ -172,6 +172,7 @@
     "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
     "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
+    "returnUrlNotAllowed": "This return URL is not allowed",
     "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
     "statsSinceNotMonthStart": "The start time must be the first day of a month in the platform time zone.",
     "tooManyRequests": "Too many requests"
@@ -376,6 +377,7 @@
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",
     "alreadyRefunded": "This order has already been fully refunded",
+    "cardRefundUnavailable": "ECPay card refunds have no test environment and can only be issued in production",
     "invalidAmount": "The refund amount could not be calculated; please check the order total",
     "itemNotInOrder": "The item to refund does not belong to this order",
     "noEcpayTransaction": "This order has no ECPay transaction to refund against",

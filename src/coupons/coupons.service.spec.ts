@@ -350,7 +350,6 @@ describe('CouponsService.inferItemDiscounts 舊訂單推算每行折扣', () => 
       },
       [],
       [{ orderItemId: 'line-cake', quantity: 1 }],
-      ((key: string) => key) as never,
     );
     expect(plan).toMatchObject({ allocatedDiscount: 0, amount: 90 });
   });
