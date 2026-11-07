@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "시작하기",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}의 이메일 주소를 인증해 주셔서 감사합니다. 함께하게 되어 기쁩니다. 이제 {productName}를 시작하실 수 있습니다.",
     "preheader": "{productName}에 오신 것을 환영합니다! 이메일이 인증되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "로그인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "누군가 귀하의 이메일 주소로 {productName} 계정 가입을 시도했습니다. 본인이 시도하셨다면 바로 로그인하시면 됩니다. 귀하의 {productName} 계정은 안전하게 유지되고 있습니다.",
     "preheader": "본인이 아니어도 {productName} 계정은 안전합니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "로그인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 비밀번호가 성공적으로 재설정되었습니다. 새 비밀번호로 로그인하실 수 있습니다.",
     "preheader": "{productName} 비밀번호가 성공적으로 변경되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -34,7 +34,7 @@
   },
   "organization_invitation": {
     "action_button": "초대 수락",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName}님이 {productName}의 {organizationName}에 {role}(으)로 참여하도록 초대했습니다. 아래 버튼을 클릭하여 초대를 수락하세요.",
     "preheader": "{productName}의 {organizationName}에 초대되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -45,7 +45,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "이메일 변경 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 계정 이메일을 <strong>{newEmail}</strong>(으)로 변경하는 요청을 받았습니다. 아래 버튼을 클릭하여 변경을 확인하세요. 이 링크는 1시간 동안 유효합니다.",
     "preheader": "{productName} 이메일 주소 변경을 확인해주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -56,7 +56,7 @@
   },
   "send_reset_password": {
     "action_button": "비밀번호 재설정",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 비밀번호 재설정을 요청하셨습니다. 아래 버튼을 클릭하여 새 비밀번호를 설정하세요. 이 링크는 1시간 동안 유효합니다.",
     "preheader": "{productName} 비밀번호를 재설정하세요. 이 링크는 1시간 후에 만료됩니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -67,7 +67,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "계정 삭제 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 계정을 영구적으로 삭제하려는 요청을 받았습니다. 아래 버튼을 클릭하여 이 작업을 확인하세요. 이 링크는 1시간 동안 유효합니다. 확인하지 않으면 계정이 삭제되지 않습니다.",
     "preheader": "{productName} 계정 삭제 요청을 확인해 주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -78,7 +78,7 @@
   },
   "send_verification_email": {
     "action_button": "이메일 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}를 이용해 주셔서 감사합니다. 함께하게 되어 기쁩니다. {productName}를 시작하려면 계정을 확인해주세요.",
     "preheader": "{productName}에 오신 것을 환영합니다! 이메일 주소를 확인해주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
