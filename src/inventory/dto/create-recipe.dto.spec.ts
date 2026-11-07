@@ -5,6 +5,7 @@ import {
   CreateRecipeDto,
   CreateRecipeIngredientDto,
   UpdateRecipeDto,
+  UpdateRecipeIngredientDto,
 } from './create-recipe.dto.js';
 
 const errorsOf = async (requiredQuantity: string) =>
@@ -80,5 +81,36 @@ describe('CreateRecipeDto recipeYieldQuantity', () => {
   ])('rejects %o', async (fields, properties) => {
     expect(await yieldErrorsOf(CreateRecipeDto, fields)).toEqual(properties);
     expect(await yieldErrorsOf(UpdateRecipeDto, fields)).toEqual(properties);
+  });
+});
+
+describe('CreateRecipeDto integer columns', () => {
+  const errorsOf = async (dto: object) =>
+    (await validate(dto)).map(({ property }) => property);
+
+  it.each([
+    ['CreateRecipeDto', CreateRecipeDto],
+    ['UpdateRecipeDto', UpdateRecipeDto],
+  ] as const)('%s 的 recipeYield 超過 9999 時拒絕', async (_, dto) => {
+    const recipeOf = (recipeYield: number) =>
+      plainToInstance(dto, { name: { 'zh-TW': '番茄醬' }, recipeYield });
+
+    expect(await errorsOf(recipeOf(9999))).toEqual([]);
+    expect(await errorsOf(recipeOf(10000))).toEqual(['recipeYield']);
+  });
+
+  it.each([
+    ['CreateRecipeIngredientDto', CreateRecipeIngredientDto],
+    ['UpdateRecipeIngredientDto', UpdateRecipeIngredientDto],
+  ] as const)('%s 的 sortOrder 超過 9999 時拒絕', async (_, dto) => {
+    const ingredientOf = (sortOrder: number) =>
+      plainToInstance(dto, {
+        ingredientId: 'milk',
+        requiredQuantity: '1',
+        sortOrder,
+      });
+
+    expect(await errorsOf(ingredientOf(9999))).toEqual([]);
+    expect(await errorsOf(ingredientOf(10000))).toEqual(['sortOrder']);
   });
 });

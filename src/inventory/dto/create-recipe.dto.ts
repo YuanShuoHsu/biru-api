@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   Validate,
   ValidateIf,
@@ -67,6 +68,7 @@ export class CreateRecipeDto {
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(1)
+  @Max(9999)
   recipeYield?: number;
 
   @ApiPropertyOptional({
@@ -118,6 +120,7 @@ export class CreateRecipeIngredientDto {
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(9999)
   sortOrder?: number;
 }
 
