@@ -32,19 +32,17 @@ export const DELETED_RECORD_STRING_FILTER_FIELDS = [
 ] as const;
 export const DELETED_RECORD_ENUM_FILTER_FIELDS = ['tableName'] as const;
 export const DELETED_RECORD_DATE_FILTER_FIELDS = ['deletedAt'] as const;
-export const DELETED_RECORD_FILTER_FIELDS = [
+const DELETED_RECORD_FILTER_FIELDS = [
   ...DELETED_RECORD_STRING_FILTER_FIELDS,
   ...DELETED_RECORD_ENUM_FILTER_FIELDS,
   ...DELETED_RECORD_DATE_FILTER_FIELDS,
 ] as const;
 
-export type DeletedRecordFilterField =
-  (typeof DELETED_RECORD_FILTER_FIELDS)[number];
+type DeletedRecordFilterField = (typeof DELETED_RECORD_FILTER_FIELDS)[number];
 
-export const DELETED_RECORD_SORT_FIELDS = DELETED_RECORD_FILTER_FIELDS;
+const DELETED_RECORD_SORT_FIELDS = DELETED_RECORD_FILTER_FIELDS;
 
-export type DeletedRecordSortField =
-  (typeof DELETED_RECORD_SORT_FIELDS)[number];
+type DeletedRecordSortField = (typeof DELETED_RECORD_SORT_FIELDS)[number];
 
 export class DeletedRecordPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
