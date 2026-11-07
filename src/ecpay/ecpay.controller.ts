@@ -193,6 +193,10 @@ export class EcpayController {
 
   @Post('check-barcode')
   @AllowAnonymous()
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiCreatedResponse({ type: CheckBarcodeEcpayResponseDto })
   async checkBarcode(
     @Body() { barCode }: CheckBarcodeEcpayDto,
