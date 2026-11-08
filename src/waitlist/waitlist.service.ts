@@ -478,6 +478,17 @@ export class WaitlistService {
           byStaff ? 'staff' : 'guest',
         );
 
+      const saved = await tx.query.waitlistSetting.findFirst({
+        where: eq(waitlistSetting.organizationId, org.id),
+        columns: { groups: true },
+      });
+      const lockedGroup = findGroup(
+        saved?.groups.length ? saved.groups : DEFAULT_WAITLIST_GROUPS,
+        dto.partySize,
+      );
+      if (lockedGroup?.prefix !== group.prefix)
+        throw conflictError('waitlistGroupsInUse', byStaff ? 'staff' : 'guest');
+
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)

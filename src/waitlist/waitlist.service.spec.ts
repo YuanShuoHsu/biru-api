@@ -282,6 +282,31 @@ describe('WaitlistService.createTicket', () => {
     },
   );
 
+  it('refuses a ticket whose group changed while it waited for the store lock', async () => {
+    const { db, service } = createService({ setting: openSetting });
+    const tx = {
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({
+            groups: [{ maxPartySize: 4, minPartySize: 1, prefix: 'B' }],
+          }),
+        },
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(undefined) },
+      },
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([]) }) }),
+      }),
+    };
+    db.query.waitlistTicket.findFirst.mockResolvedValue(undefined);
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, true),
+    ).rejects.toMatchObject({ message: 'waitlistGroupsInUse', status: 409 });
+  });
+
   it('replays a ticket recorded without a fingerprint for any request', async () => {
     const { service } = createService({
       setting: openSetting,
