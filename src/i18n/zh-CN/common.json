@@ -316,7 +316,7 @@
     "specialHoursInvalidRange": "特殊营业日的开始日期不能晚于结束日期。",
     "specialHoursNotFound": "找不到这个特殊营业日，可能已被删除。",
     "specialHoursOverlap": "这段期间与已设置的特殊营业日（{validFrom}～{validThrough}）重叠。",
-    "specialHoursTooLong": "特殊营业日最多只能设置 {days} 天。"
+    "specialHoursTooLong": "特殊营业日最长只能设置一年。"
   },
   "points": {
     "adjustOwnerOnly": "本店对同一会员当日补点与扣点合计超过 {maxPoints} 点，只有拥有者能调整",

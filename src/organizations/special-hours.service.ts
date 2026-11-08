@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, asc, eq, gte, lte, ne } from 'drizzle-orm';
 
-import { DAY_MS, platformDateString } from '../common/constants/timezone.js';
+import { platformDateString } from '../common/constants/timezone.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import { pgErrorCode } from '../common/utils/pg-errors.js';
 import { organizationSpecialHours } from '../db/schema/organizations.js';
@@ -19,8 +19,6 @@ import {
   conflictError,
   notFoundError,
 } from './organization-errors.js';
-
-const SPECIAL_HOURS_MAX_DAYS = 366;
 
 @Injectable()
 export class SpecialHoursService {
@@ -127,13 +125,10 @@ export class SpecialHoursService {
     if (validFrom > validThrough)
       throw badRequestError('specialHoursInvalidRange');
 
-    if (
-      (Date.parse(validThrough) - Date.parse(validFrom)) / DAY_MS + 1 >
-      SPECIAL_HOURS_MAX_DAYS
-    )
-      throw badRequestError('specialHoursTooLong', {
-        days: SPECIAL_HOURS_MAX_DAYS,
-      });
+    const yearAfter = new Date(validFrom);
+    yearAfter.setUTCFullYear(yearAfter.getUTCFullYear() + 1);
+    if (validThrough >= yearAfter.toISOString().slice(0, 10))
+      throw badRequestError('specialHoursTooLong');
 
     if (validThrough < platformDateString(new Date()))
       throw badRequestError('specialHoursEnded');

@@ -32,11 +32,8 @@ const errorBody = (
     }) ?? code,
 });
 
-export const badRequestError = (
-  code: OrganizationErrorCode,
-  args?: Record<string, unknown>,
-) =>
-  new BadRequestException({ error: 'Bad Request', ...errorBody(code, args) });
+export const badRequestError = (code: OrganizationErrorCode) =>
+  new BadRequestException({ error: 'Bad Request', ...errorBody(code) });
 
 export const conflictError = (
   code: OrganizationErrorCode,

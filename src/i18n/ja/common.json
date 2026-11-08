@@ -316,7 +316,7 @@
     "specialHoursInvalidRange": "特別営業日の開始日は終了日より後にできません。",
     "specialHoursNotFound": "この特別営業日が見つかりません。削除された可能性があります。",
     "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。",
-    "specialHoursTooLong": "特別営業日は最長 {days} 日までです。"
+    "specialHoursTooLong": "特別営業日は最長 1 年までです。"
   },
   "points": {
     "adjustOwnerOnly": "この店舗で同じ会員へのポイント付与と減算が 1 日の合計で {maxPoints} ポイントを超える場合は、オーナーのみ調整できます",
