@@ -112,7 +112,6 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Audit('user', { param: 'id' })
   @ApiOperation({ summary: '刪除使用者' })
   async remove(
     @Req() { headers }: Request,
