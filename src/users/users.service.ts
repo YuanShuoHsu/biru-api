@@ -446,16 +446,6 @@ export class UsersService {
     return user;
   }
 
-  async deleteUser(where: { id: string }): Promise<User> {
-    const [user] = await this.db
-      .delete(schema.user)
-      .where(eq(schema.user.id, where.id))
-      .returning();
-    if (!user) throw new NotFoundException();
-
-    return user;
-  }
-
   async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
     const {
       bucketIndexOf,

@@ -114,7 +114,15 @@ export class UsersController {
   @Delete(':id')
   @Audit('user', { param: 'id' })
   @ApiOperation({ summary: '刪除使用者' })
-  remove(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.deleteUser({ id });
+  async remove(
+    @Req() { headers }: Request,
+    @Param('id') id: string,
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.user({ id });
+    if (!user) throw new NotFoundException();
+
+    await this.authBatchService.removeUsers(headers, [id]);
+
+    return user;
   }
 }

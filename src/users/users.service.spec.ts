@@ -38,13 +38,7 @@ describe('UsersService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('刪除不存在的使用者回 404', async () => {
-    await expect(service.deleteUser({ id: 'missing' })).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
-  });
-
-  it('更新與刪除既有的使用者回傳該使用者', async () => {
+  it('更新既有的使用者回傳該使用者', async () => {
     const { id } = await service.createUser({
       id: 'user-1',
       name: 'Biru',
@@ -55,7 +49,6 @@ describe('UsersService', () => {
     await expect(
       service.updateUser({ where: { id }, data: { firstName: 'Tea' } }),
     ).resolves.toMatchObject({ id, firstName: 'Tea' });
-    await expect(service.deleteUser({ id })).resolves.toMatchObject({ id });
   });
 });
 
