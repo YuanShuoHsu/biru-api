@@ -203,4 +203,38 @@ describe('UsersService.listUsers banned filter', () => {
       }),
     ).toEqual(expected);
   });
+
+  it('依停權排序時，過期的停權和使用中排在一起', async () => {
+    const { data } = await service.listUsers({
+      limit: 10,
+      sortBy: 'banned',
+      sortDirection: 'desc',
+    } as Parameters<UsersService['listUsers']>[0]);
+
+    expect(data.map(({ id }) => id)).toEqual([
+      'forever',
+      'until',
+      'active',
+      'expired',
+      'legacy',
+    ]);
+  });
+
+  it('同值排序以 id 決定順序，分頁不重複也不漏', async () => {
+    const page = async (offset: number) =>
+      (
+        await service.listUsers({
+          limit: 2,
+          offset,
+          sortBy: 'emailSubscribed',
+          sortDirection: 'asc',
+        } as Parameters<UsersService['listUsers']>[0])
+      ).data.map(({ id }) => id);
+
+    expect([
+      ...(await page(0)),
+      ...(await page(2)),
+      ...(await page(4)),
+    ]).toEqual(['active', 'expired', 'forever', 'legacy', 'until']);
+  });
 });
