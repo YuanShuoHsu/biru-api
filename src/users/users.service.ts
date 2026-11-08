@@ -1,11 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-
-import { I18nContext } from 'nestjs-i18n';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   SQL,
@@ -35,17 +28,15 @@ import {
   NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
-import { blankToNull } from '../auth/user-fields.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import {
   getStatsWindow,
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
 import * as schema from '../db/schema/index.js';
-import type { CreateUser, User, UserRole } from '../db/schema/users.js';
+import type { UserRole } from '../db/schema/users.js';
 import { user, userRoles } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import type {
@@ -66,7 +57,6 @@ import {
   ENUM_FILTER_OPERATORS,
   STRING_FILTER_FIELDS,
 } from './dto/list-users-query.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
 import type { UserListResponseDto } from './dto/user-response.dto.js';
 import {
   USER_SESSION_DATE_FILTER_FIELDS,
@@ -213,35 +203,6 @@ const buildColumnFilterCondition = (
 @Injectable()
 export class UsersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
-
-  async user(where: Partial<User>): Promise<User | null> {
-    const result = await this.db.query.user.findFirst({
-      where: (user) => {
-        const conditions = Object.entries(where)
-          .filter(([, value]) => value !== undefined)
-          .map(([key, value]) => eq(user[key as keyof User], value!));
-        return and(...conditions);
-      },
-    });
-    return result || null;
-  }
-
-  async users(params: {
-    offset?: number;
-    limit?: number;
-    cursor?: { id: string };
-    where?: SQL;
-    orderBy?: SQL | SQL[];
-  }): Promise<User[]> {
-    const { offset, limit, cursor, where, orderBy } = params;
-    return await this.db.query.user.findMany({
-      where: (user) =>
-        and(where, cursor?.id ? gte(user.id, cursor.id) : undefined),
-      orderBy,
-      limit,
-      offset,
-    });
-  }
 
   async listUsers(query: ListUsersQueryDto): Promise<UserListResponseDto> {
     const {
@@ -399,61 +360,6 @@ export class UsersService {
     ]);
 
     return { data, total };
-  }
-
-  async createUser(data: CreateUser): Promise<User> {
-    const results = await this.db.insert(schema.user).values(data).returning();
-    return results[0];
-  }
-
-  async updateUser(params: {
-    where: { id: string };
-    data: UpdateUserDto;
-  }): Promise<User> {
-    const {
-      where,
-      data: { lastName, phoneNumber, ...data },
-    } = params;
-    const [user] = await this.db
-      .update(schema.user)
-      .set({
-        ...data,
-        ...(lastName !== undefined && { lastName: blankToNull(lastName) }),
-        ...(phoneNumber !== undefined && {
-          phoneNumber: blankToNull(phoneNumber),
-          phoneNumberVerified: false,
-        }),
-      })
-      .where(eq(schema.user.id, where.id))
-      .returning()
-      .catch((error: unknown) => {
-        if (
-          (error as { cause?: { constraint?: string } }).cause?.constraint ===
-          'user_phone_number_unique'
-        )
-          throw new BadRequestException({
-            error: 'Bad Request',
-            code: 'PHONE_NUMBER_ALREADY_EXISTS',
-            message:
-              I18nContext.current<I18nTranslations>()?.t(
-                'auth.PHONE_NUMBER_ALREADY_EXISTS',
-              ) ?? 'Phone number already exists',
-          });
-        throw error;
-      });
-    if (!user) throw new NotFoundException();
-
-    return user;
-  }
-
-  async deleteUser(where: { id: string }): Promise<User> {
-    const [user] = await this.db
-      .delete(schema.user)
-      .where(eq(schema.user.id, where.id))
-      .returning();
-    if (!user) throw new NotFoundException();
-
-    return user;
   }
 
   async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {

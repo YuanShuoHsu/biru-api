@@ -58,7 +58,7 @@ Branch from `develop` and open every PR against `develop`. GitHub's default bran
 | DrizzleModule        | `src/drizzle/`         | **Global** — injects DB instance via `DRIZZLE` token                                                   |
 | AuthModule           | `src/auth/`            | better-auth config, access-control statements, email verification                                      |
 | OrganizationsModule  | `src/organizations/`   | Organizations (tenants), teams, members                                                                |
-| UsersModule          | `src/users/`           | User CRUD, admin-only user list with data-grid filters                                                 |
+| UsersModule          | `src/users/`           | Admin user list, stats, batch delete, sessions; per-user get/update/remove via better-auth admin       |
 | MenusModule          | `src/menus/`           | Menus, sections, items, offers, add-ons, modifiers                                                     |
 | OrdersModule         | `src/orders/`          | Order lifecycle, payment recording, menu-item sales reporting                                          |
 | CouponsModule        | `src/coupons/`         | Coupons, user wallets (`userCoupon`), claim / grant / redeem                                           |
