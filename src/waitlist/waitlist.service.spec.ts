@@ -409,13 +409,19 @@ describe('WaitlistService.confirmTicket', () => {
 });
 
 describe('WaitlistService.transitionTicket', () => {
-  const transition = (from: string) => {
+  const transition = (
+    from: string,
+    to: 'called' | 'waiting' = 'called',
+    queued?: { id: string },
+    phoneNumber: string | null = '+886912345678',
+  ) => {
     const ticket = {
       calledAt: new Date('2026-10-06T12:00:00Z'),
       confirmedAt: new Date('2026-10-06T12:01:00Z'),
       id: 't',
       number: 3,
       organizationId: 'org',
+      phoneNumber,
       prefix: 'A',
       status: from,
     };
@@ -424,18 +430,69 @@ describe('WaitlistService.transitionTicket', () => {
         returning: () => Promise.resolve([{ ...ticket, ...values }]),
       }),
     }));
+    const lock = vi.fn(() => Promise.resolve([]));
+    const tx = {
+      query: {
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(queued) },
+      },
+      select: () => ({ from: () => ({ where: () => ({ for: lock }) }) }),
+      update: () => ({ set }),
+    };
     const { db, service } = createService({
       setting: { enabled: true, groups, holdMinutes: 15, paused: false },
       ticket,
     });
-    db.update.mockReturnValue({ set });
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
     vi.spyOn(
       service as unknown as { countAhead: () => Promise<number> },
       'countAhead',
     ).mockResolvedValue(0);
 
-    return { result: service.transitionTicket('slug', 't', 'called'), set };
+    return { lock, result: service.transitionTicket('slug', 't', to), set };
   };
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket while its phone is queued on another ticket',
+    async (from, to) => {
+      const { lock, result, set } = transition(from, to, { id: 'other' });
+
+      await expect(result).rejects.toThrow('waitlistPhoneInQueue');
+      expect(lock).toHaveBeenCalledWith('update');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reverts a cancelled ticket when its phone is not queued', async () => {
+    const { result, set } = transition('cancelled', 'waiting');
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(set).toHaveBeenCalled();
+  });
+
+  it('reverts a ticket whose phone was erased without checking the queue', async () => {
+    const { lock, result } = transition(
+      'cancelled',
+      'waiting',
+      { id: 'other' },
+      null,
+    );
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(lock).not.toHaveBeenCalled();
+  });
+
+  it('does not lock the store for a transition within the queue', async () => {
+    const { lock, result } = transition('called', 'waiting');
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(lock).not.toHaveBeenCalled();
+  });
 
   it('clears the confirmation when a called ticket is called again', async () => {
     const { result, set } = transition('called');
