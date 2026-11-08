@@ -759,3 +759,84 @@ describe('WaitlistService.processOverdueTickets', () => {
     expect(error).not.toHaveBeenCalled();
   });
 });
+
+describe('WaitlistService.updateSettings', () => {
+  const stored = [
+    { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
+    { maxPartySize: 10, minPartySize: 3, prefix: 'B' },
+  ];
+  const settingsDto = (
+    groups: { maxPartySize: number; minPartySize: number }[],
+  ) => ({
+    cutoffMinutes: 30,
+    enabled: true,
+    graceMinutes: 0,
+    groups,
+    holdMinutes: 10,
+  });
+
+  const update = (
+    groups: { maxPartySize: number; minPartySize: number }[],
+    queued?: { id: string },
+  ) => {
+    const insert = vi.fn(() => ({
+      values: () => ({ onConflictDoUpdate: () => Promise.resolve() }),
+    }));
+    const tx = {
+      insert,
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({ groups: stored }),
+        },
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(queued) },
+      },
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([]) }) }),
+      }),
+    };
+    const { db, service } = createService({
+      setting: { enabled: true, groups: stored, paused: false },
+    });
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+
+    return {
+      insert,
+      result: service.updateSettings('slug', settingsDto(groups)),
+    };
+  };
+
+  it('refuses to change the party size ranges while tickets are queued', async () => {
+    const { insert, result } = update(
+      [
+        { maxPartySize: 4, minPartySize: 1 },
+        { maxPartySize: 10, minPartySize: 5 },
+      ],
+      { id: 'queued' },
+    );
+
+    await expect(result).rejects.toThrow('waitlistGroupsInUse');
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('saves other settings while tickets are queued if the ranges stay', async () => {
+    const { insert, result } = update(
+      [
+        { maxPartySize: 10, minPartySize: 3 },
+        { maxPartySize: 2, minPartySize: 1 },
+      ],
+      { id: 'queued' },
+    );
+
+    await expect(result).resolves.toBeDefined();
+    expect(insert).toHaveBeenCalled();
+  });
+
+  it('changes the party size ranges when no ticket is queued', async () => {
+    const { insert, result } = update([{ maxPartySize: 10, minPartySize: 1 }]);
+
+    await expect(result).resolves.toBeDefined();
+    expect(insert).toHaveBeenCalled();
+  });
+});

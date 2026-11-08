@@ -963,13 +963,50 @@ export class WaitlistService {
       holdMinutes: dto.holdMinutes,
     };
 
-    await this.db
-      .insert(waitlistSetting)
-      .values({ ...values, organizationId: org.id })
-      .onConflictDoUpdate({
-        target: waitlistSetting.organizationId,
-        set: values,
+    await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, org.id))
+        .for('update');
+
+      const current = await tx.query.waitlistSetting.findFirst({
+        where: eq(waitlistSetting.organizationId, org.id),
+        columns: { groups: true },
       });
+      const currentGroups = current?.groups.length
+        ? current.groups
+        : DEFAULT_WAITLIST_GROUPS;
+      const regrouped =
+        currentGroups.length !== groups.length ||
+        groups.some(({ maxPartySize, minPartySize, prefix }) => {
+          const before = currentGroups.find((group) => group.prefix === prefix);
+
+          return (
+            before?.minPartySize !== minPartySize ||
+            before.maxPartySize !== maxPartySize
+          );
+        });
+
+      if (regrouped) {
+        const queued = await tx.query.waitlistTicket.findFirst({
+          where: and(
+            eq(waitlistTicket.organizationId, org.id),
+            inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          ),
+          columns: { id: true },
+        });
+        if (queued) throw conflictError('waitlistGroupsInUse', 'staff');
+      }
+
+      await tx
+        .insert(waitlistSetting)
+        .values({ ...values, organizationId: org.id })
+        .onConflictDoUpdate({
+          target: waitlistSetting.organizationId,
+          set: values,
+        });
+    });
 
     this.emitUpdated(org.id, null);
 
