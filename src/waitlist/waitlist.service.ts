@@ -1108,7 +1108,12 @@ export class WaitlistService {
           lt(waitlistTicket.createdAt, new Date(Date.now() - STALE_TICKET_MS)),
         ),
       )
-      .returning({ id: waitlistTicket.id });
+      .returning({ organizationId: waitlistTicket.organizationId });
+
+    for (const organizationId of new Set(
+      expired.map(({ organizationId }) => organizationId),
+    ))
+      this.emitUpdated(organizationId, null);
 
     return expired.length;
   }
