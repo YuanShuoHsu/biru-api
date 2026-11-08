@@ -42,7 +42,10 @@ export class OrganizationPlatformAdminController {
   }
 
   @Get('platform-admin-members')
-  @Roles({ member: ['update'] }, 'organizationId')
+  @Roles(
+    { member: { actions: ['update', 'delete'], connector: 'OR' } },
+    'organizationId',
+  )
   @ApiOperation({
     summary: '列出身為平台管理員的成員 id；只有平台管理員能移除或改動這些成員',
   })

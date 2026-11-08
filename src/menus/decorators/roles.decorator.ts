@@ -1,5 +1,7 @@
 import { SetMetadata } from '@nestjs/common';
 
+import type { PermissionRequest } from '../../auth/permissions.js';
+
 export const ROLES_KEY = 'roles';
 
 export type OrganizationParam =
@@ -17,7 +19,7 @@ export type OrganizationParam =
   | 'recipeId';
 
 export const Roles = (
-  action: Record<string, string[]>,
+  action: PermissionRequest,
   organizationParam: OrganizationParam,
 ) => SetMetadata(ROLES_KEY, { action, organizationParam });
 

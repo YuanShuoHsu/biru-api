@@ -11,3 +11,17 @@ describe('refund and invoice void permissions', () => {
     },
   );
 });
+
+describe('OR connector', () => {
+  it.each([
+    ['owner', true],
+    ['admin', true],
+    ['member', false],
+  ])('%s passes a request for any one of the actions: %s', (role, expected) => {
+    expect(
+      isAuthorized(role, {
+        member: { actions: ['update', 'delete'], connector: 'OR' },
+      }),
+    ).toBe(expected);
+  });
+});

@@ -11,7 +11,10 @@ import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
 import type { Auth } from '../../auth/index.js';
-import { isAuthorized } from '../../auth/permissions.js';
+import {
+  isAuthorized,
+  type PermissionRequest,
+} from '../../auth/permissions.js';
 import { accessForbiddenError } from '../../common/utils/access-forbidden-error.js';
 import { organizationReadOnlyError } from '../../common/utils/organization-closure.js';
 import { ingredient, recipe, supplier } from '../../db/schema/inventory.js';
@@ -70,7 +73,7 @@ export class RolesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<{
-      action?: Record<string, string[]>;
+      action?: PermissionRequest;
       organizationParam: OrganizationParam;
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles || context.getType() !== 'http') return true;
