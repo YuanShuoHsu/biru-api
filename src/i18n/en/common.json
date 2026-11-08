@@ -315,7 +315,8 @@
     "specialHoursEnded": "Special hours cannot be added or changed to a period that has already ended.",
     "specialHoursInvalidRange": "The start date of special hours cannot be later than the end date.",
     "specialHoursNotFound": "Special hours not found. They may have been deleted.",
-    "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough})."
+    "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough}).",
+    "specialHoursTooLong": "Special hours can cover at most one year."
   },
   "points": {
     "adjustOwnerOnly": "Only the store owner can add and deduct more than {maxPoints} points in total for one member at this store in a day.",
