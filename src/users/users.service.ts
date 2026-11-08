@@ -293,15 +293,16 @@ export class UsersService {
       searchCondition,
     );
 
+    const sortColumn = sortBy === 'banned' ? isBannedNow() : user[sortBy];
     const orderBy =
-      sortDirection === 'asc' ? asc(user[sortBy]) : desc(user[sortBy]);
+      sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(user)
         .where(where)
-        .orderBy(orderBy)
+        .orderBy(orderBy, asc(user.id))
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(user).where(where),
