@@ -43,13 +43,14 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
     const lang =
       I18nContext.current(host)?.lang ?? languageResolver.resolve(host);
 
-    const exception = isUnstorableText(caught)
-      ? new BadRequestException({
-          error: 'Bad Request',
-          code: 'badRequest',
-          message: this.i18n.t('common.exceptions.badRequest', { lang }),
-        })
-      : caught;
+    const exception =
+      isUnstorableText(caught) || caught instanceof I18nValidationException
+        ? new BadRequestException({
+            error: 'Bad Request',
+            code: 'badRequest',
+            message: this.i18n.t('common.exceptions.badRequest', { lang }),
+          })
+        : caught;
 
     if (
       !(exception instanceof IntrinsicException) &&
@@ -72,26 +73,24 @@ export class AllWsExceptionsFilter extends BaseWsExceptionFilter {
     const error =
       statusCode === Number(HttpStatus.TOO_MANY_REQUESTS)
         ? this.i18n.t('common.exceptions.tooManyRequests', { lang })
-        : exception instanceof I18nValidationException
-          ? this.i18n.t('common.exceptions.badRequest', { lang })
-          : exception instanceof HttpException
-            ? exception.getResponse()
-            : exception instanceof WsException
-              ? exception.getError()
-              : isProduction
-                ? this.i18n.t('common.exceptions.internalServerError', {
-                    lang,
-                  })
-                : {
-                    message:
-                      exception instanceof Error
-                        ? exception.message
-                        : String(exception),
-                    stack:
-                      exception instanceof Error
-                        ? exception.stack
-                        : String(exception),
-                  };
+        : exception instanceof HttpException
+          ? exception.getResponse()
+          : exception instanceof WsException
+            ? exception.getError()
+            : isProduction
+              ? this.i18n.t('common.exceptions.internalServerError', {
+                  lang,
+                })
+              : {
+                  message:
+                    exception instanceof Error
+                      ? exception.message
+                      : String(exception),
+                  stack:
+                    exception instanceof Error
+                      ? exception.stack
+                      : String(exception),
+                };
 
     const client = ws.getClient<Socket>();
 

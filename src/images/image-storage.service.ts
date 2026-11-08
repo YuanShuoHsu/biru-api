@@ -11,26 +11,33 @@ import {
 
 @Injectable()
 export class ImageStorageService {
-  private readonly r2: {
+  private readonly storage: {
     client: S3Client;
     bucket: string;
     publicUrl: string;
   } | null;
 
   constructor(configService: ConfigService) {
-    const accountId = configService.get<string>('R2_ACCOUNT_ID');
-    const accessKeyId = configService.get<string>('R2_ACCESS_KEY_ID');
-    const secretAccessKey = configService.get<string>('R2_SECRET_ACCESS_KEY');
-    const bucket = configService.get<string>('R2_BUCKET');
-    const publicUrl = configService.get<string>('R2_PUBLIC_URL');
+    const endpoint = configService.get<string>('S3_ENDPOINT');
+    const region = configService.get<string>('S3_REGION');
+    const accessKeyId = configService.get<string>('S3_ACCESS_KEY_ID');
+    const secretAccessKey = configService.get<string>('S3_SECRET_ACCESS_KEY');
+    const bucket = configService.get<string>('S3_BUCKET');
+    const publicUrl = configService.get<string>('S3_PUBLIC_URL');
 
-    // https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/
-    this.r2 =
-      accountId && accessKeyId && secretAccessKey && bucket && publicUrl
+    // https://supabase.com/docs/guides/storage/s3/authentication
+    this.storage =
+      endpoint &&
+      region &&
+      accessKeyId &&
+      secretAccessKey &&
+      bucket &&
+      publicUrl
         ? {
             client: new S3Client({
-              region: 'auto',
-              endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+              forcePathStyle: true,
+              region,
+              endpoint,
               credentials: { accessKeyId, secretAccessKey },
             }),
             bucket,
@@ -44,12 +51,12 @@ export class ImageStorageService {
     image: T,
   ): Promise<T | string> {
     const parsed = image ? parseImageDataUrl(image) : null;
-    if (!this.r2 || !image || !parsed) return image;
+    if (!this.storage || !image || !parsed) return image;
 
     const key = `${kind}/${imageVersion(image)}.${parsed.extension}`;
-    await this.r2.client.send(
+    await this.storage.client.send(
       new PutObjectCommand({
-        Bucket: this.r2.bucket,
+        Bucket: this.storage.bucket,
         Key: key,
         Body: Buffer.from(parsed.base64, 'base64'),
         ContentType: parsed.mimeType,
@@ -57,6 +64,6 @@ export class ImageStorageService {
       }),
     );
 
-    return `${this.r2.publicUrl}/${key}`;
+    return `${this.storage.publicUrl}/${key}`;
   }
 }

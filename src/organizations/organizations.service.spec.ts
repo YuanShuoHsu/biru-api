@@ -316,6 +316,23 @@ describe('OrganizationsService 轉為真正店主', () => {
       )
     ).rows[0]?.joined_as_platform_admin;
 
+  it('列出本店身為平台管理員的成員，不論是否以平台管理員身分加入', async () => {
+    await client.exec(`
+      insert into member (id, organization_id, user_id, role, joined_as_platform_admin, created_at) values
+        ('m-sue-biru', 'biru', 'sue', 'member', false, now());
+    `);
+
+    await expect(service.platformAdminMemberIds('biru')).resolves.toEqual(
+      expect.arrayContaining(['m-root', 'm-sue-biru']),
+    );
+    await expect(service.platformAdminMemberIds('biru')).resolves.toHaveLength(
+      2,
+    );
+    await expect(service.platformAdminMemberIds('other')).resolves.toEqual([
+      'm-sue',
+    ]);
+  });
+
   it('真正的店主可以把以平台管理員身分加入的成員轉為真正店主', async () => {
     await expect(
       service.confirmOwner('biru', 'm-root', {

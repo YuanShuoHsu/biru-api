@@ -569,29 +569,50 @@ export class WaitlistService {
 
     const now = new Date();
     const revert = isRevert(ticket.status, status);
-    const [updated] = await this.db
-      .update(waitlistTicket)
-      .set(
-        status === 'waiting'
-          ? { calledAt: null, confirmedAt: null, endedAt: null, status }
-          : revert
-            ? { calledAt: now, endedAt: null, status }
-            : status === 'called'
-              ? { calledAt: now, confirmedAt: null, status }
-              : { endedAt: now, status },
-      )
-      .where(
-        and(
-          eq(waitlistTicket.id, ticket.id),
-          eq(waitlistTicket.status, ticket.status),
-        ),
-      )
-      .returning()
-      .catch((error: unknown) => {
-        if (isUniqueViolation(error))
-          throw conflictError('waitlistPhoneInQueue', audience);
-        throw error;
-      });
+    const [updated] = await this.db.transaction(async (tx) => {
+      if (ticket.phoneNumber && !isActive(ticket.status) && isActive(status)) {
+        await tx
+          .select({ id: organization.id })
+          .from(organization)
+          .where(eq(organization.id, ticket.organizationId))
+          .for('update');
+
+        const inQueue = await tx.query.waitlistTicket.findFirst({
+          where: and(
+            eq(waitlistTicket.organizationId, ticket.organizationId),
+            eq(waitlistTicket.phoneNumber, ticket.phoneNumber),
+            inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+            ne(waitlistTicket.id, ticket.id),
+          ),
+          columns: { id: true },
+        });
+        if (inQueue) throw conflictError('waitlistPhoneInQueue', audience);
+      }
+
+      return tx
+        .update(waitlistTicket)
+        .set(
+          status === 'waiting'
+            ? { calledAt: null, confirmedAt: null, endedAt: null, status }
+            : revert
+              ? { calledAt: now, endedAt: null, status }
+              : status === 'called'
+                ? { calledAt: now, confirmedAt: null, status }
+                : { endedAt: now, status },
+        )
+        .where(
+          and(
+            eq(waitlistTicket.id, ticket.id),
+            eq(waitlistTicket.status, ticket.status),
+          ),
+        )
+        .returning()
+        .catch((error: unknown) => {
+          if (isUniqueViolation(error))
+            throw conflictError('waitlistPhoneInQueue', audience);
+          throw error;
+        });
+    });
     if (!updated) throw badRequestError('waitlistTransitionInvalid', audience);
 
     // 退回不帶號碼牌狀態，避免通知服務把它當成新取號、新叫號而重寄信
@@ -1108,7 +1129,12 @@ export class WaitlistService {
           lt(waitlistTicket.createdAt, new Date(Date.now() - STALE_TICKET_MS)),
         ),
       )
-      .returning({ id: waitlistTicket.id });
+      .returning({ organizationId: waitlistTicket.organizationId });
+
+    for (const organizationId of new Set(
+      expired.map(({ organizationId }) => organizationId),
+    ))
+      this.emitUpdated(organizationId, null);
 
     return expired.length;
   }

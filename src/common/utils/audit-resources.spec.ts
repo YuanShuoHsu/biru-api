@@ -8,7 +8,11 @@ import { recipe } from '../../db/schema/inventory.js';
 import { menu, menuItem, menuSection } from '../../db/schema/menus.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 
-import { resolveAuditLabels } from './audit-resources.js';
+import { diffAuditRows } from './audit-diff.js';
+import {
+  AUDIT_IGNORED_COLUMNS,
+  resolveAuditLabels,
+} from './audit-resources.js';
 
 const ORG = 'org';
 
@@ -91,6 +95,20 @@ describe('resolveAuditLabels recipe', () => {
     expect(labels.get('gone')).toEqual({
       resourceLabel: { 'zh-TW': '已刪除' },
       ancestorIds: ['drinks', 'latte'],
+    });
+  });
+});
+
+describe('AUDIT_IGNORED_COLUMNS order', () => {
+  it('leaves the held offer stock reservation out of an order diff', () => {
+    expect(
+      diffAuditRows(
+        { orderStatus: 'OrderPaymentDue', heldOfferStock: { offer: 2 } },
+        { orderStatus: 'OrderCancelled', heldOfferStock: null },
+        AUDIT_IGNORED_COLUMNS.order,
+      ),
+    ).toEqual({
+      orderStatus: { before: 'OrderPaymentDue', after: 'OrderCancelled' },
     });
   });
 });

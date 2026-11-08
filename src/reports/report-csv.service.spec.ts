@@ -107,6 +107,26 @@ describe('ReportCsvService', () => {
     });
   });
 
+  it('writes hour rows as hh:00 like the reports page', async () => {
+    salesReportService.getSalesReport.mockResolvedValue({
+      groupBy: 'hour',
+      rows: [
+        { key: '9', ...totals },
+        { key: '14', ...totals },
+      ],
+      totals,
+    });
+
+    await expect(
+      service.sales('biru', { ...range, groupBy: 'hour' }),
+    ).resolves.toBe(
+      '\uFEFF小時,訂單數,營收,折扣,退款,淨額\r\n' +
+        '09:00,3,300,10,50,250\r\n' +
+        '14:00,3,300,10,50,250\r\n' +
+        '合計,3,300,10,50,250\r\n',
+    );
+  });
+
   it('labels payment methods', async () => {
     salesReportService.getSalesReport.mockResolvedValue({
       groupBy: 'paymentMethod',

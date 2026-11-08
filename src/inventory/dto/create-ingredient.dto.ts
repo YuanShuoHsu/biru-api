@@ -17,7 +17,10 @@ import {
   type ValidatorConstraintInterface,
 } from 'class-validator';
 
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
 import {
   BASE_UNIT_CODES,
   UNIT_FACTORS,
@@ -69,6 +72,7 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
   image?: string | null;
 
   @ApiPropertyOptional({ description: '向哪一家採購' })

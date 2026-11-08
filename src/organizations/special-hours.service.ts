@@ -125,6 +125,11 @@ export class SpecialHoursService {
     if (validFrom > validThrough)
       throw badRequestError('specialHoursInvalidRange');
 
+    const yearAfter = new Date(validFrom);
+    yearAfter.setUTCFullYear(yearAfter.getUTCFullYear() + 1);
+    if (validThrough >= yearAfter.toISOString().slice(0, 10))
+      throw badRequestError('specialHoursTooLong');
+
     if (validThrough < platformDateString(new Date()))
       throw badRequestError('specialHoursEnded');
   }
