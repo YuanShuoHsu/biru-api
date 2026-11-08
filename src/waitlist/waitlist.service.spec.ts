@@ -413,6 +413,7 @@ describe('WaitlistService.transitionTicket', () => {
     from: string,
     to: 'called' | 'waiting' = 'called',
     queued?: { id: string },
+    phoneNumber: string | null = '+886912345678',
   ) => {
     const ticket = {
       calledAt: new Date('2026-10-06T12:00:00Z'),
@@ -420,7 +421,7 @@ describe('WaitlistService.transitionTicket', () => {
       id: 't',
       number: 3,
       organizationId: 'org',
-      phoneNumber: '+886912345678',
+      phoneNumber,
       prefix: 'A',
       status: from,
     };
@@ -472,6 +473,18 @@ describe('WaitlistService.transitionTicket', () => {
 
     await expect(result).resolves.toMatchObject({ status: 'waiting' });
     expect(set).toHaveBeenCalled();
+  });
+
+  it('reverts a ticket whose phone was erased without checking the queue', async () => {
+    const { lock, result } = transition(
+      'cancelled',
+      'waiting',
+      { id: 'other' },
+      null,
+    );
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(lock).not.toHaveBeenCalled();
   });
 
   it('does not lock the store for a transition within the queue', async () => {
