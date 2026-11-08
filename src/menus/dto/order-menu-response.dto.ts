@@ -24,7 +24,7 @@ import {
 } from './create-offer.dto.js';
 import { NutritionInformationDto } from './nutrition-information.dto.js';
 
-export class OrderMenuOfferResponseDto {
+class OrderMenuOfferResponseDto {
   @ApiProperty()
   id: string;
 
@@ -65,7 +65,7 @@ export class OrderMenuOfferResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuModifierResponseDto {
+class OrderMenuModifierResponseDto {
   @ApiProperty()
   id: string;
 
@@ -105,7 +105,7 @@ export class OrderMenuModifierResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuModifierGroupResponseDto {
+class OrderMenuModifierGroupResponseDto {
   @ApiProperty()
   id: string;
 
@@ -131,7 +131,7 @@ export class OrderMenuModifierGroupResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuAddOnItemResponseDto {
+class OrderMenuAddOnItemResponseDto {
   @ApiProperty()
   id: string;
 
@@ -195,7 +195,7 @@ export class OrderMenuAddOnItemResponseDto {
   modifierGroups: OrderMenuModifierGroupResponseDto[];
 }
 
-export class OrderMenuAddOnResponseDto {
+class OrderMenuAddOnResponseDto {
   @ApiProperty()
   id: string;
 
@@ -224,7 +224,7 @@ export class OrderMenuAddOnResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuItemResponseDto {
+class OrderMenuItemResponseDto {
   @ApiProperty()
   id: string;
 
@@ -321,7 +321,7 @@ export class OrderMenuItemResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuSectionResponseDto {
+class OrderMenuSectionResponseDto {
   @ApiProperty()
   id: string;
 
