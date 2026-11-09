@@ -442,7 +442,7 @@ export class CouponsService {
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.coupon.findMany({
         where,
-        orderBy,
+        orderBy: [...orderBy, desc(coupon.id)],
         limit,
         offset,
       }),
@@ -698,7 +698,7 @@ export class CouponsService {
         .innerJoin(user, eq(user.id, userCoupon.userId))
         .leftJoin(granter, eq(granter.id, userCoupon.grantedBy))
         .where(where)
-        .orderBy(...orderBy)
+        .orderBy(...orderBy, desc(userCoupon.id))
         .limit(limit)
         .offset(offset),
       this.db
