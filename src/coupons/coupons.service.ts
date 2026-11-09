@@ -827,7 +827,7 @@ export class CouponsService {
 
   async removeMany(ids: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      for (const id of ids) {
+      for (const id of ids.toSorted()) {
         await startDeletedRecordBatch(tx);
         const [locked] = await tx
           .select({ id: coupon.id })
