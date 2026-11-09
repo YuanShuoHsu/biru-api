@@ -125,6 +125,31 @@ describe('BannersService', () => {
     vi.restoreAllMocks();
   });
 
+  it('排序值與建立時間相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
+    await client.exec(
+      `insert into banner (id, image) values ('c', 'c'), ('a', 'a'), ('b', 'b')`,
+    );
+
+    const pages = [];
+    for (const offset of [0, 1, 2])
+      pages.push(
+        ...(await service.findAll({ limit: 1, offset, sortBy: 'isActive' }))
+          .data,
+      );
+
+    expect(pages.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+    expect((await service.findAll()).data.map(({ id }) => id)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+    expect((await service.findAllActive()).map(({ id }) => id)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+  });
+
   describe('reorder', () => {
     const sortOrders = async () =>
       (
