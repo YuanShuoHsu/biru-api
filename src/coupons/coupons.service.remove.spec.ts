@@ -122,6 +122,24 @@ describe('CouponsService 刪除與領券、發券同時發生', () => {
     });
   });
 
+  it('自動發券時優惠券剛被刪除就略過，不讓請求失敗', async () => {
+    const findMany = vi
+      .spyOn(db.query.coupon, 'findMany')
+      .mockResolvedValueOnce([
+        {
+          code: 'GONE',
+          createdAt: new Date(0),
+          id: 'gone',
+          issueTrigger: 'signup',
+          validFrom: null,
+        } as Coupon,
+      ]);
+    onTestFinished(() => findMany.mockRestore());
+
+    await expect(service.issueSignupCoupons('member')).resolves.toBeUndefined();
+    await expect(db.query.userCoupon.findMany()).resolves.toEqual([]);
+  });
+
   it.each([
     ['沒有總量上限', null],
     ['有總量上限', 10],

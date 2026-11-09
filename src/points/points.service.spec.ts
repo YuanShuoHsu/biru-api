@@ -1497,4 +1497,29 @@ describe('PointsService.redeem', () => {
       .where(eq(pointTransaction.id, 'earn'));
     expect(earn.remainingPoints).toBe(15);
   });
+
+  it.each([
+    ['沒有總量上限', null],
+    ['有總量上限', 10],
+  ])(
+    '兌換時優惠券剛被刪除回 notRedeemable，不扣點（%s）',
+    async (_, totalLimit) => {
+      const found = await db.query.coupon.findFirst();
+      await db.delete(schema.coupon);
+      const findFirst = vi
+        .spyOn(db.query.coupon, 'findFirst')
+        .mockResolvedValueOnce({ ...found!, totalLimit });
+      onTestFinished(() => findFirst.mockRestore());
+
+      await expect(service.redeem(USER, 'c1')).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'notRedeemable' },
+      });
+      const [earn] = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.id, 'earn'));
+      expect(earn.remainingPoints).toBe(20);
+    },
+  );
 });
