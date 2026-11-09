@@ -37,4 +37,28 @@ describe('CreateCouponDto', () => {
       expect(await errorsOf({ [field]: value })).toEqual([field]);
     },
   );
+
+  it.each([
+    ['discountValue', 99999999.99],
+    ['issueMinSpend', 99999999.99],
+    ['minSubtotal', 99999999.99],
+    ['perUserLimit', 9999],
+    ['pointsCost', 100000],
+    ['totalLimit', 1000000],
+  ])('accepts %s at its cap %j', async (field, value) => {
+    expect(await errorsOf({ [field]: value })).toEqual([]);
+  });
+
+  it.each([
+    ['discountValue', 100000000],
+    ['issueMinSpend', 100000000],
+    ['minSubtotal', 100000000],
+    ['discountValue', 10.005],
+    ['minSubtotal', 99999999.995],
+    ['perUserLimit', 10000],
+    ['pointsCost', 100001],
+    ['totalLimit', 1000001],
+  ])('rejects %s %j, which the column cannot store', async (field, value) => {
+    expect(await errorsOf({ [field]: value })).toEqual([field]);
+  });
 });
