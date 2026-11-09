@@ -22,7 +22,9 @@ export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
   @Get(':kind/:id/:version.:extension')
-  @ApiOperation({ summary: '取得菜單、分類、品項、橫幅與門市照片的圖片' })
+  @ApiOperation({
+    summary: '取得菜單、分類、品項、客製選項、橫幅與門市照片的圖片',
+  })
   @ApiProduces('image/*')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   async find(
