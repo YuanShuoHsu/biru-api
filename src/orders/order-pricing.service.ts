@@ -174,7 +174,15 @@ export class OrderPricingService {
       }),
       this.db.query.menuItemModifierGroup.findMany({
         where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),
-        with: { modifierGroup: true },
+        with: {
+          modifierGroup: {
+            with: {
+              modifiers: {
+                columns: { availability: true, availableModes: true },
+              },
+            },
+          },
+        },
       }),
       this.db.query.menuItemAddOn.findMany({
         where: inArray(
@@ -310,10 +318,23 @@ export class OrderPricingService {
         if (new Set(modIds).size !== modIds.length) throw optionsInvalid(item);
       }
 
-      for (const { id, maxSelectionCount, minSelectionCount } of groups) {
+      for (const {
+        id,
+        maxSelectionCount,
+        minSelectionCount,
+        modifiers,
+      } of groups) {
         const count = modifiersInput[id]?.length ?? 0;
+        const listed = modifiers.filter(
+          ({ availability }) => availability !== 'Discontinued',
+        );
+        const requiredCount =
+          listed.length === 0 ||
+          listed.some(({ availableModes }) => availableModes.includes(mode))
+            ? minSelectionCount
+            : 0;
         if (
-          count < minSelectionCount ||
+          count < requiredCount ||
           (maxSelectionCount != null && count > maxSelectionCount)
         )
           throw optionsInvalid(item);
