@@ -581,22 +581,35 @@ export class WaitlistService {
     const now = new Date();
     const revert = isRevert(ticket.status, status);
     const [updated] = await this.db.transaction(async (tx) => {
-      if (ticket.phoneNumber && !isActive(ticket.status) && isActive(status)) {
+      if (!isActive(ticket.status) && isActive(status)) {
         await tx
           .select({ id: organization.id })
           .from(organization)
           .where(eq(organization.id, ticket.organizationId))
           .for('update');
 
-        const inQueue = await tx.query.waitlistTicket.findFirst({
-          where: and(
-            eq(waitlistTicket.organizationId, ticket.organizationId),
-            eq(waitlistTicket.phoneNumber, ticket.phoneNumber),
-            inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-            ne(waitlistTicket.id, ticket.id),
-          ),
-          columns: { id: true },
+        const saved = await tx.query.waitlistSetting.findFirst({
+          where: eq(waitlistSetting.organizationId, ticket.organizationId),
+          columns: { groups: true },
         });
+        const group = findGroup(
+          saved?.groups.length ? saved.groups : DEFAULT_WAITLIST_GROUPS,
+          ticket.partySize,
+        );
+        if (group?.prefix !== ticket.prefix)
+          throw conflictError('waitlistGroupChanged', audience);
+
+        const inQueue =
+          ticket.phoneNumber &&
+          (await tx.query.waitlistTicket.findFirst({
+            where: and(
+              eq(waitlistTicket.organizationId, ticket.organizationId),
+              eq(waitlistTicket.phoneNumber, ticket.phoneNumber),
+              inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+              ne(waitlistTicket.id, ticket.id),
+            ),
+            columns: { id: true },
+          }));
         if (inQueue) throw conflictError('waitlistPhoneInQueue', audience);
       }
 
