@@ -164,6 +164,7 @@ export class OrderPricingService {
       }),
       allModifierIds.length > 0
         ? this.db.query.modifier.findMany({
+            columns: { image: false },
             where: inArray(modifier.id, allModifierIds),
             with: { modifierGroup: true },
           })

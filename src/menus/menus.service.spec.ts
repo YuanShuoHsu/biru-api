@@ -587,22 +587,25 @@ describe('MenusService localized text filters and sorting', () => {
 describe('MenusService 列表的圖片網址', () => {
   let client: PGlite;
   let service: MenusService;
+  let imageStorage: ImageStorageService;
   const MENU_IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
   const SECTION_IMAGE = 'data:image/jpeg;base64,/9j/4AAQ';
   const ITEM_IMAGE = 'data:image/webp;base64,UklGRg==';
+  const MODIFIER_IMAGE = 'data:image/png;base64,Qm9iYQ==';
 
   beforeAll(async () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
+    imageStorage = new ImageStorageService({
+      get: () => undefined,
+    } as unknown as ConfigService);
     service = new MenusService(
       db as unknown as DrizzleDB,
       {
         costsOf: () => Promise.resolve(new Map()),
       } as unknown as RecipesService,
-      new ImageStorageService({
-        get: () => undefined,
-      } as unknown as ConfigService),
+      imageStorage,
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
@@ -637,10 +640,61 @@ describe('MenusService 列表的圖片網址', () => {
         sortOrder: 1,
       },
     ]);
+    await db.insert(modifierGroup).values({
+      id: 'extras',
+      menuId: 'menu',
+      displayName: { 'zh-TW': '加料' },
+    });
+    await db.insert(modifier).values({
+      id: 'boba',
+      modifierGroupId: 'extras',
+      displayName: { 'zh-TW': '珍珠' },
+      image: MODIFIER_IMAGE,
+    });
   }, 60_000);
 
   afterAll(async () => {
     await client.close();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('選項列表不載入圖片，網址和 withImageUrl 相同', async () => {
+    const { data } = await service.modifiers('extras', ORG);
+
+    expect(data[0]).not.toHaveProperty('image');
+    expect(withImageRefUrl('modifier', data[0]).imageUrl).toBe(
+      withImageUrl('modifier', { id: 'boba', image: MODIFIER_IMAGE }).imageUrl,
+    );
+  });
+
+  it('新增與更新選項的圖片經過 modifier 的圖片儲存，沒送圖片時保留原圖', async () => {
+    const store = vi.spyOn(imageStorage, 'store');
+
+    const created = await service.createModifier('extras', ORG, {
+      displayName: { 'zh-TW': '椰果' },
+      image: ITEM_IMAGE,
+    });
+    expect(store).toHaveBeenCalledWith('modifier', ITEM_IMAGE);
+    expect(created.image).toBe(ITEM_IMAGE);
+
+    const renamed = await service.updateModifier({
+      where: { id: created.id },
+      organizationId: ORG,
+      data: { displayName: { 'zh-TW': '大椰果' } },
+    });
+    expect(store).toHaveBeenLastCalledWith('modifier', undefined);
+    expect(renamed.image).toBe(ITEM_IMAGE);
+
+    const cleared = await service.updateModifier({
+      where: { id: created.id },
+      organizationId: ORG,
+      data: { image: null },
+    });
+    expect(store).toHaveBeenLastCalledWith('modifier', null);
+    expect(cleared.image).toBeNull();
   });
 
   it('菜單、分類與品項列表不載入圖片，網址和 withImageUrl 相同', async () => {

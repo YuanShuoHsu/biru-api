@@ -20,7 +20,30 @@ const errorsOf = async (
     ({ property }) => property,
   );
 
+const imageErrorsOf = async (
+  dto: typeof CreateModifierDto | typeof UpdateModifierDto,
+  image: string | null,
+) =>
+  (await validate(plainToInstance(dto, { displayName, image }))).map(
+    ({ property }) => property,
+  );
+
 describe.each([CreateModifierDto, UpdateModifierDto])('%o', (dto) => {
+  it.each(['data:image/png;base64,iVBORw0KGgo=', null])(
+    'accepts image %s',
+    async (image) => {
+      expect(await imageErrorsOf(dto, image)).toEqual([]);
+    },
+  );
+
+  it.each([
+    'data:image/svg+xml;base64,PHN2Zz4=',
+    'https://example.com/boba.png',
+    'boba',
+  ])('rejects image %s, which is not an image data URL', async (image) => {
+    expect(await imageErrorsOf(dto, image)).toEqual(['image']);
+  });
+
   it.each(['0', '10', '10.5', '10.00', '99999999.99', null])(
     'accepts priceAdjustment %s',
     async (priceAdjustment) => {

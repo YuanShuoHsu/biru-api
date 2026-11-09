@@ -597,28 +597,39 @@ export class MenusController {
   @Roles({ menu: ['create'] }, 'groupId')
   @Audit('modifier', { response: true })
   @ApiOperation({ summary: '建立選項' })
-  createModifier(
+  async createModifier(
     @Body() createModifierDto: CreateModifierDto,
     @Param('groupId') groupId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.createModifier(
+    const created = await this.menusService.createModifier(
       groupId,
       organizationId,
       createModifierDto,
     );
+
+    return withImageUrl('modifier', created);
   }
 
   @Get('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['read'] }, 'groupId')
   @ApiOperation({ summary: '取得群組所有選項' })
   @ApiOkResponse({ type: ModifierListResponseDto })
-  findAllModifiers(
+  async findAllModifiers(
     @Param('groupId') groupId: string,
     @Query() query: ModifierPaginationQueryDto,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierListResponseDto> {
-    return this.menusService.modifiers(groupId, organizationId, query);
+    const { data, total } = await this.menusService.modifiers(
+      groupId,
+      organizationId,
+      query,
+    );
+
+    return {
+      data: data.map((row) => withImageRefUrl('modifier', row)),
+      total,
+    };
   }
 
   @Patch('modifier-groups/:groupId/modifiers/reorder')
@@ -635,43 +646,52 @@ export class MenusController {
   @Get('modifiers/:modifierId')
   @Roles({ menu: ['read'] }, 'modifierId')
   @ApiOperation({ summary: '取得選項詳情' })
-  findModifier(
+  async findModifier(
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.modifier({ id: modifierId }, organizationId);
+    const result = await this.menusService.modifier(
+      { id: modifierId },
+      organizationId,
+    );
+
+    return withImageUrl('modifier', result);
   }
 
   @Patch('modifiers/:modifierId')
   @Roles({ menu: ['update'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '更新選項' })
-  updateModifier(
+  async updateModifier(
     @Body() updateModifierDto: UpdateModifierDto,
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.updateModifier({
+    const updated = await this.menusService.updateModifier({
       where: { id: modifierId },
       organizationId,
       data: updateModifierDto,
     });
+
+    return withImageUrl('modifier', updated);
   }
 
   @Patch('modifiers/:modifierId/availability')
   @Roles({ itemAvailability: ['update'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '更新選項供應狀態' })
-  updateModifierAvailability(
+  async updateModifierAvailability(
     @Body() updateItemAvailabilityDto: UpdateItemAvailabilityDto,
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.updateModifier({
+    const updated = await this.menusService.updateModifier({
       where: { id: modifierId },
       organizationId,
       data: updateItemAvailabilityDto,
     });
+
+    return withImageUrl('modifier', updated);
   }
 
   @Delete('modifier-groups/:groupId/modifiers')
@@ -689,11 +709,16 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '刪除選項' })
-  deleteModifier(
+  async deleteModifier(
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.deleteModifier({ id: modifierId, organizationId });
+    const deleted = await this.menusService.deleteModifier({
+      id: modifierId,
+      organizationId,
+    });
+
+    return withImageUrl('modifier', deleted);
   }
 
   @Post('menu-items/:menuItemId/modifier-groups')

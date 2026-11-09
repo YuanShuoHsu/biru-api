@@ -244,7 +244,7 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 
 ### Images
 
-Menu, section, item, banner and store photo images are stored as base64 data URLs, unless S3-compatible storage is configured (see
+Menu, section, item, modifier, banner and store photo images are stored as base64 data URLs, unless S3-compatible storage is configured (see
 Environment Variables): then `ImageStorageService` (`src/images/image-storage.service.ts`) uploads each new image before
 the write, keyed `<kind>/<imageVersion>.<ext>`, and the column stores its public `https://` URL, which every helper below
 returns as `imageUrl` unchanged. For data URLs, their endpoints return `imageUrl` from `withImageUrl`

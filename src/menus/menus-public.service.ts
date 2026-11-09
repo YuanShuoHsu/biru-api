@@ -20,7 +20,11 @@ import {
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import { imageRefQuery, withImageRefUrl } from '../images/image-url.js';
+import {
+  imageRefQuery,
+  withImageRefUrl,
+  type WithImageRef,
+} from '../images/image-url.js';
 import {
   MenuItemSalesService,
   SALES_WINDOW_DAYS,
@@ -69,7 +73,7 @@ const modifierGroupsQuery = {
   with: {
     modifierGroup: {
       with: {
-        modifiers: { orderBy: [asc(modifier.sortOrder)] },
+        modifiers: { ...imageRefQuery, orderBy: [asc(modifier.sortOrder)] },
       },
     },
   },
@@ -78,7 +82,7 @@ const modifierGroupsQuery = {
 const mapModifierGroups = (
   modifierGroups: {
     sortOrder: number;
-    modifierGroup: ModifierGroup & { modifiers: Modifier[] };
+    modifierGroup: ModifierGroup & { modifiers: WithImageRef<Modifier>[] };
   }[],
   lang: Language,
   priceCurrency: string,
@@ -93,7 +97,7 @@ const mapModifierGroups = (
       modifiers: group.modifiers
         .filter((mod) => mod.availability !== 'Discontinued')
         .map((mod) => ({
-          ...mod,
+          ...withImageRefUrl('modifier', mod),
           priceCurrency,
           displayName: localize(mod.displayName, lang) || '',
         })),

@@ -3,7 +3,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 import { banner } from '../db/schema/banners.js';
-import { menu, menuItem, menuSection } from '../db/schema/menus.js';
+import { menu, menuItem, menuSection, modifier } from '../db/schema/menus.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -15,7 +15,14 @@ import {
   parseImageDataUrl,
 } from './image-url.js';
 
-const IMAGE_TABLES = { menu, menuSection, menuItem, banner, storePhoto };
+const IMAGE_TABLES = {
+  menu,
+  menuSection,
+  menuItem,
+  modifier,
+  banner,
+  storePhoto,
+};
 
 @Injectable()
 export class ImagesService {

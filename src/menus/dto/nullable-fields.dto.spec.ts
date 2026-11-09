@@ -97,6 +97,8 @@ describe('menu DTO fields cleared with null', () => {
     [CreateOfferDto, 'priceSpecification'],
     [CreateModifierDto, 'priceAdjustment'],
     [UpdateModifierDto, 'priceAdjustment'],
+    [CreateModifierDto, 'image'],
+    [UpdateModifierDto, 'image'],
   ] as const)('%o.%s is documented as nullable', (cls, property) => {
     expect(schemas[cls.name].properties[property].nullable).toBe(true);
   });

@@ -287,6 +287,7 @@ export const modifier = pgTable(
       .notNull()
       .references(() => modifierGroup.id, { onDelete: 'cascade' }),
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
+    image: text('image'),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
     autoSoldOut: boolean('auto_sold_out').notNull().default(false),

@@ -8,7 +8,10 @@ import {
   menu,
   menuItem,
   menuItemAddOn,
+  menuItemModifierGroup,
   menuSection,
+  modifier,
+  modifierGroup,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { withImageUrl } from '../images/image-url.js';
@@ -22,6 +25,7 @@ const MENU_IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
 const SECTION_IMAGE = 'data:image/jpeg;base64,/9j/4AAQ';
 const LATTE_IMAGE = 'data:image/webp;base64,UklGRg==';
 const OOLONG_IMAGE = 'data:image/bmp;base64,Qk0=';
+const BOBA_IMAGE = 'data:image/png;base64,Qm9iYQ==';
 
 describe('PublicMenusService.findOrderMenu', () => {
   let client: PGlite;
@@ -91,6 +95,31 @@ describe('PublicMenusService.findOrderMenu', () => {
         sortOrder: 1,
       },
     ]);
+    await db.insert(modifierGroup).values({
+      id: 'extras',
+      menuId: 'menu',
+      displayName: { 'zh-TW': '加料' },
+    });
+    await db.insert(menuItemModifierGroup).values({
+      id: 'latte-extras',
+      menuItemId: 'latte',
+      modifierGroupId: 'extras',
+    });
+    await db.insert(modifier).values([
+      {
+        id: 'boba',
+        modifierGroupId: 'extras',
+        displayName: { 'zh-TW': '珍珠' },
+        image: BOBA_IMAGE,
+        sortOrder: 0,
+      },
+      {
+        id: 'jelly',
+        modifierGroupId: 'extras',
+        displayName: { 'zh-TW': '仙草' },
+        sortOrder: 1,
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -136,5 +165,23 @@ describe('PublicMenusService.findOrderMenu', () => {
     expect(latte?.addOns[0].menuItems[0].imageUrl).toBeNull();
     expect(latte).not.toHaveProperty('image');
     expect(latte).not.toHaveProperty('imageRef');
+  });
+
+  it('returns modifier image urls instead of the image, also under add-on items', async () => {
+    const orderMenu = await service.findOrderMenu(ORG, 'zh-TW');
+    const sections = new Map(orderMenu?.sections.map((s) => [s.id, s]));
+    const [boba, jelly] =
+      sections.get('drinks')?.menuItems[0].modifierGroups[0].modifiers ?? [];
+
+    expect(boba.imageUrl).toBe(
+      withImageUrl('modifier', { id: 'boba', image: BOBA_IMAGE }).imageUrl,
+    );
+    expect(jelly.imageUrl).toBeNull();
+    expect(boba).not.toHaveProperty('image');
+    expect(boba).not.toHaveProperty('imageRef');
+    expect(
+      sections.get('tea')?.menuItems[0].addOns[0].menuItems[0].modifierGroups[0]
+        .modifiers[0].imageUrl,
+    ).toBe(boba.imageUrl);
   });
 });
