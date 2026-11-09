@@ -122,6 +122,18 @@ describe('IngredientsService.findAll name sort', () => {
     ]);
   });
 
+  it('排序欄位同值時依 id 排出固定順序，分頁不重複也不漏', async () => {
+    const ids = [];
+    for (const offset of [0, 1, 2])
+      ids.push(
+        ...(
+          await service.findAll(ORG, { limit: 1, offset, sortBy: 'createdAt' })
+        ).data.map(({ id }) => id),
+      );
+
+    expect(ids).toEqual(['apple', 'untranslated', 'zebra']);
+  });
+
   it('目前語系沒有翻譯時以預設語系的名稱排序', async () => {
     vi.spyOn(I18nContext, 'current').mockReturnValue({
       lang: 'en',

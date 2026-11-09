@@ -76,7 +76,9 @@ export class SuppliersService {
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy = sortBy ? [dir(fieldMap[sortBy])] : [asc(supplier.name)];
+    const orderBy = sortBy
+      ? [dir(fieldMap[sortBy]), asc(supplier.id)]
+      : [asc(supplier.name), asc(supplier.id)];
 
     const where = and(
       eq(supplier.organizationId, organizationId),
