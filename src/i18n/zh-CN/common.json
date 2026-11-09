@@ -472,7 +472,7 @@
       "waitlistClosed": "当前非营业时间，暂不开放取号。",
       "waitlistCutoff": "已接近打烊时间，现场排队已停止取号。",
       "waitlistDisabled": "本店尚未开启现场排队。",
-      "waitlistGroupChanged": "这张号码牌结束后人数分组已变更，无法退回排队，请改为代客重新登记。",
+      "waitlistGroupChanged": "这张号码牌结束后人数分组已变更，无法退回，请改为代客重新登记。",
       "waitlistGroupsInUse": "还有排队中或已叫号的号码牌时不能修改人数分组，请先将它们入座、过号或取消。",
       "waitlistGroupsInvalid": "人数分组须从 1 开始连续且不可重叠。",
       "waitlistIdempotencyConflict": "登记内容已变更，请关闭表单重新操作。",

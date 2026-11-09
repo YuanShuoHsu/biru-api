@@ -540,6 +540,22 @@ describe('WaitlistService.transitionTicket', () => {
     },
   );
 
+  it('refuses a ticket whose phone was erased when its group changed', async () => {
+    const { result, set } = transition(
+      'cancelled',
+      'waiting',
+      undefined,
+      null,
+      [
+        { maxPartySize: 1, minPartySize: 1, prefix: 'A' },
+        { maxPartySize: 4, minPartySize: 2, prefix: 'B' },
+      ],
+    );
+
+    await expect(result).rejects.toThrow('waitlistGroupChanged');
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it('does not lock the store for a transition within the queue', async () => {
     const { lock, result } = transition('called', 'waiting');
 
