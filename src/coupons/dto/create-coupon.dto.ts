@@ -12,6 +12,7 @@ import {
   IsRFC3339,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
   IsNotEmpty,
@@ -65,8 +66,9 @@ export class CreateCouponDto {
   @ApiProperty({
     description: 'fixed: 折抵金額；percentage: 折扣百分比（0 < value ≤ 100）',
   })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(99999999.99)
   discountValue: number;
 
   @ApiPropertyOptional()
@@ -86,8 +88,9 @@ export class CreateCouponDto {
 
   @ApiPropertyOptional({ description: 'issueTrigger=spend 的單筆滿額門檻' })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(99999999.99)
   issueMinSpend?: number;
 
   @ApiPropertyOptional({
@@ -119,14 +122,16 @@ export class CreateCouponDto {
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(99999999.99)
   minSubtotal?: number | null;
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(9999)
   perUserLimit?: number | null;
 
   @ApiPropertyOptional({
@@ -136,6 +141,7 @@ export class CreateCouponDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100000)
   pointsCost?: number | null;
 
   @ApiPropertyOptional({
@@ -150,6 +156,7 @@ export class CreateCouponDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1000000)
   totalLimit?: number | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
