@@ -1721,6 +1721,7 @@ export class MenusService {
     organizationId: string,
     data: CreateModifierDto,
   ): Promise<ModifierWithCurrency> {
+    const image = await this.imageStorage.store('modifier', data.image);
     const created = await this.db.transaction(async (tx) => {
       await tx
         .update(modifier)
@@ -1729,7 +1730,7 @@ export class MenusService {
 
       const [row] = await tx
         .insert(modifier)
-        .values({ id: uuidv4(), modifierGroupId, sortOrder: 0, ...data })
+        .values({ id: uuidv4(), modifierGroupId, sortOrder: 0, ...data, image })
         .returning();
 
       return row;
@@ -1745,7 +1746,7 @@ export class MenusService {
     modifierGroupId: string,
     organizationId: string,
     query: ModifierPaginationQueryDto = {},
-  ): Promise<{ data: ModifierWithCurrency[]; total: number }> {
+  ): Promise<{ data: WithImageRef<ModifierWithCurrency>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -1833,7 +1834,7 @@ export class MenusService {
 
     const [data, [{ total }], priceCurrency] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(modifier)))
         .from(modifier)
         .where(where)
         .orderBy(...orderBy)
@@ -1844,7 +1845,10 @@ export class MenusService {
     ]);
 
     return {
-      data: data.map((row) => ({ ...row, priceCurrency })),
+      data: (await withImageRefs(this.db, modifier, data)).map((row) => ({
+        ...row,
+        priceCurrency,
+      })),
       total,
     };
   }
@@ -1879,10 +1883,12 @@ export class MenusService {
     organizationId: string;
     data: UpdateModifierDto;
   }): Promise<ModifierWithCurrency> {
+    const image = await this.imageStorage.store('modifier', params.data.image);
     const [updated] = await this.db
       .update(modifier)
       .set({
         ...params.data,
+        image,
         ...keepAutoSoldOut(params.data.availability, modifier),
         updatedAt: new Date(),
       })

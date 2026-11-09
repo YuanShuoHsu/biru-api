@@ -1,0 +1,1 @@
+ALTER TABLE "modifier" ADD COLUMN "image" text;

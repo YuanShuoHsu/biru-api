@@ -5,9 +5,15 @@ import {
   IsEnum,
   IsNumberString,
   IsOptional,
+  IsString,
   Matches,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
 
 import {
   IsLocalizedText,
@@ -30,6 +36,13 @@ export class CreateModifierDto {
   @IsLocalizedText()
   @IsCompleteLocalizedText()
   displayName: LocalizedText;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
+  image?: string | null;
 
   @ApiPropertyOptional({
     description: '加價金額；省略代表不影響價格',

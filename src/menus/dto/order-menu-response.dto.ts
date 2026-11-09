@@ -75,6 +75,9 @@ class OrderMenuModifierResponseDto {
   @ApiProperty()
   displayName: string;
 
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
+
   @ApiPropertyOptional({ description: '加價金額；null 代表不影響價格' })
   priceAdjustment: string | null;
 

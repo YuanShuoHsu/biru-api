@@ -9,6 +9,7 @@ export const IMAGE_KINDS = [
   'menu',
   'menuSection',
   'menuItem',
+  'modifier',
   'banner',
   'storePhoto',
 ] as const;
