@@ -145,8 +145,11 @@ export class RecipesService {
     );
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(sortBy === 'name' ? localizedName : fieldMap[sortBy])]
-      : [asc(localizedName)];
+      ? [
+          dir(sortBy === 'name' ? localizedName : fieldMap[sortBy]),
+          asc(recipe.id),
+        ]
+      : [asc(localizedName), asc(recipe.id)];
 
     const where = and(
       eq(recipe.organizationId, organizationId),
@@ -424,8 +427,13 @@ export class RecipesService {
                 )
               : fieldMap[sortBy],
           ),
+          asc(recipeIngredient.id),
         ]
-      : [asc(recipeIngredient.sortOrder), asc(recipeIngredient.createdAt)];
+      : [
+          asc(recipeIngredient.sortOrder),
+          asc(recipeIngredient.createdAt),
+          asc(recipeIngredient.id),
+        ];
 
     const where = and(
       eq(recipeIngredient.recipeId, recipeId),

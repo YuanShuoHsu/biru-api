@@ -147,8 +147,11 @@ export class IngredientsService {
     );
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(sortBy === 'name' ? localizedName : fieldMap[sortBy])]
-      : [asc(ingredient.sortOrder), asc(localizedName)];
+      ? [
+          dir(sortBy === 'name' ? localizedName : fieldMap[sortBy]),
+          asc(ingredient.id),
+        ]
+      : [asc(ingredient.sortOrder), asc(localizedName), asc(ingredient.id)];
 
     const where = and(
       eq(ingredient.organizationId, organizationId),

@@ -59,6 +59,24 @@ describe('SuppliersService.findOne', () => {
     vi.restoreAllMocks();
   });
 
+  it('供應商同名時依 id 排出固定順序', async () => {
+    await db.insert(supplier).values(
+      ['c', 'a', 'b'].map((id) => ({
+        id,
+        name: '同名',
+        organizationId: ORG,
+      })),
+    );
+
+    const { data } = await service.findAll(ORG, {
+      filterField: 'name',
+      filterOperator: 'equals',
+      filterValue: '同名',
+    });
+
+    expect(data.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+  });
+
   it('依目前語系的名稱排序供應商的食材', async () => {
     const { ingredients, name } = await service.findOne('supplier');
 
