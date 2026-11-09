@@ -71,7 +71,7 @@ import {
   getOrganizationCurrency,
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
-import { isUniqueViolation } from '../common/utils/pg-errors.js';
+import { isUniqueViolation, pgConstraint } from '../common/utils/pg-errors.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
@@ -118,6 +118,12 @@ import {
   forbiddenError,
   notFoundError,
 } from './coupon-errors.js';
+
+const rethrowCodeExists = (error: unknown): never => {
+  if (isUniqueViolation(error) && pgConstraint(error) === 'coupon_code_unique')
+    throw badRequestError('codeExists');
+  throw error;
+};
 
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,
@@ -331,7 +337,8 @@ export class CouponsService {
         validFrom,
         validThrough,
       })
-      .returning();
+      .returning()
+      .catch(rethrowCodeExists);
 
     return created;
   }
@@ -815,7 +822,8 @@ export class CouponsService {
         validThrough,
       })
       .where(eq(coupon.id, couponId))
-      .returning();
+      .returning()
+      .catch(rethrowCodeExists);
 
     return updated;
   }

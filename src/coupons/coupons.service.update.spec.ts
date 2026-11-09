@@ -11,11 +11,12 @@ import { CouponsService } from './coupons.service.js';
 
 describe('CouponsService.update', () => {
   let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
   let service: CouponsService;
 
   beforeAll(async () => {
     client = createPGlite();
-    const db = drizzle(client, { schema });
+    db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new CouponsService(
       db as unknown as DrizzleDB,
@@ -59,6 +60,55 @@ describe('CouponsService.update', () => {
       validFrom: null,
       validThrough: null,
     });
+  });
+
+  const codeExists = { status: 400, response: { code: 'codeExists' } };
+  const skipCodeCheck = (lookupsBefore = 0) => {
+    const original = db.query.coupon.findFirst.bind(db.query.coupon);
+    const findFirst = vi.spyOn(db.query.coupon, 'findFirst');
+    for (let i = 0; i < lookupsBefore; i++)
+      findFirst.mockImplementationOnce(original);
+    findFirst.mockResolvedValueOnce(undefined);
+    onTestFinished(() => findFirst.mockRestore());
+  };
+
+  it('檢查後才被別人建立的同名優惠碼，建立時回 codeExists', async () => {
+    await service.create({
+      code: 'SUMMER',
+      discountType: 'fixed',
+      discountValue: 50,
+      discountCurrency: 'TWD',
+    });
+    skipCodeCheck();
+
+    await expect(
+      service.create({
+        code: 'summer',
+        discountType: 'fixed',
+        discountValue: 50,
+        discountCurrency: 'TWD',
+      }),
+    ).rejects.toMatchObject(codeExists);
+  });
+
+  it('檢查後才被別人改成的同名優惠碼，更新時回 codeExists', async () => {
+    await service.create({
+      code: 'SUMMER',
+      discountType: 'fixed',
+      discountValue: 50,
+      discountCurrency: 'TWD',
+    });
+    const { id } = await service.create({
+      code: 'WINTER',
+      discountType: 'fixed',
+      discountValue: 50,
+      discountCurrency: 'TWD',
+    });
+    skipCodeCheck(1);
+
+    await expect(service.update(id, { code: 'Summer' })).rejects.toMatchObject(
+      codeExists,
+    );
   });
 
   const scheduleInvalid = {
