@@ -12,6 +12,7 @@ export const waitlistErrorCodes = [
   'waitlistClosed',
   'waitlistCutoff',
   'waitlistDisabled',
+  'waitlistGroupsInUse',
   'waitlistGroupsInvalid',
   'waitlistIdempotencyConflict',
   'waitlistPartySizeUnavailable',
