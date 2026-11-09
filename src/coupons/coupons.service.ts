@@ -71,7 +71,11 @@ import {
   getOrganizationCurrency,
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
-import { isUniqueViolation } from '../common/utils/pg-errors.js';
+import {
+  isForeignKeyViolation,
+  isUniqueViolation,
+  pgConstraint,
+} from '../common/utils/pg-errors.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type { ResolvedOrderItem } from '../orders/order-pricing.service.js';
@@ -118,6 +122,10 @@ import {
   forbiddenError,
   notFoundError,
 } from './coupon-errors.js';
+
+const isCouponDeleted = (error: unknown) =>
+  isForeignKeyViolation(error) &&
+  pgConstraint(error) === 'user_coupon_coupon_id_coupon_id_fk';
 
 const toCustomerCoupon = (found: Coupon): CustomerCouponDto => ({
   id: found.id,
@@ -820,24 +828,21 @@ export class CouponsService {
     return updated;
   }
 
-  async remove(couponId: string): Promise<void> {
-    const claimed = await this.db.query.userCoupon.findFirst({
-      where: eq(userCoupon.couponId, couponId),
-      columns: { id: true },
-    });
-    if (claimed) throw conflictError('inUse');
-
-    const deleted = await this.db
-      .delete(coupon)
-      .where(eq(coupon.id, couponId))
-      .returning({ id: coupon.id });
-    if (deleted.length === 0) throw notFoundError('couponNotFound');
+  remove(couponId: string): Promise<void> {
+    return this.removeMany([couponId]);
   }
 
   async removeMany(ids: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
       for (const id of ids) {
         await startDeletedRecordBatch(tx);
+        const [locked] = await tx
+          .select({ id: coupon.id })
+          .from(coupon)
+          .where(eq(coupon.id, id))
+          .for('update');
+        if (!locked) throw notFoundError('couponNotFound');
+
         const [claimed] = await tx
           .select({ id: userCoupon.id })
           .from(userCoupon)
@@ -845,11 +850,7 @@ export class CouponsService {
           .limit(1);
         if (claimed) throw conflictError('inUse');
 
-        const deleted = await tx
-          .delete(coupon)
-          .where(eq(coupon.id, id))
-          .returning({ id: coupon.id });
-        if (!deleted.length) throw notFoundError('couponNotFound');
+        await tx.delete(coupon).where(eq(coupon.id, id));
       }
     });
   }
@@ -1137,6 +1138,7 @@ export class CouponsService {
             .from(coupon)
             .where(eq(coupon.id, found.id))
             .for('update');
+          if (!locked) throw badRequestError('notFound');
 
           const [{ value: reserved }] = await tx
             .select({ value: count() })
@@ -1161,6 +1163,7 @@ export class CouponsService {
       });
     } catch (error) {
       if (isUniqueViolation(error)) throw badRequestError('alreadyClaimed');
+      if (isCouponDeleted(error)) throw badRequestError('notFound');
       throw error;
     }
 
@@ -1206,6 +1209,7 @@ export class CouponsService {
           .from(coupon)
           .where(eq(coupon.id, found.id))
           .for('update');
+        if (!locked) throw notFoundError('couponNotFound');
 
         const [{ value: reserved }] = await tx
           .select({ value: count() })
@@ -1226,7 +1230,11 @@ export class CouponsService {
           source: 'granted',
           userId: target.id,
         })
-        .returning();
+        .returning()
+        .catch((error: unknown) => {
+          if (isCouponDeleted(error)) throw notFoundError('couponNotFound');
+          throw error;
+        });
       return row;
     });
 
