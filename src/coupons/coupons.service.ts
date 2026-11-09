@@ -1280,6 +1280,8 @@ export class CouponsService {
   }
 
   async getAllMine(userId: string): Promise<MyCouponResponseDto[]> {
+    await this.issueAutoCoupons(userId, await this.findAutoCoupons(undefined));
+
     const vouchers = await this.db
       .select({ coupon, voucher: userCoupon })
       .from(userCoupon)

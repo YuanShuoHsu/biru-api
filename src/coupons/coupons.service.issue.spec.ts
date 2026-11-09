@@ -157,6 +157,36 @@ describe('CouponsService 註冊禮、生日券與滿額券發放', () => {
     ).resolves.toEqual([{ couponId: 'spend', source: 'spend', userId: 'may' }]);
   });
 
+  it('打開跨店錢包時發放已達門檻的門市滿額券，重複打開不會多發', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+         values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await db.insert(coupon).values({
+      applicableOrganizationIds: ['org'],
+      code: 'SPEND',
+      createdAt: new Date('2026-03-01T00:00:00Z'),
+      discountType: 'fixed',
+      discountValue: '30',
+      id: 'spend',
+      issueMinSpend: '200',
+      issueTrigger: 'spend',
+    });
+    await paidOrder('paid', '2026-03-05T00:00:00Z');
+
+    await service.getAllMine('may');
+    const mine = await service.getAllMine('may');
+
+    expect(
+      mine
+        .filter(({ source }) => source === 'spend')
+        .map(({ coupon: c }) => c.id),
+    ).toEqual(['spend']);
+    await expect(
+      wallet().then((rows) => rows.filter((row) => row.source === 'spend')),
+    ).resolves.toEqual([{ couponId: 'spend', source: 'spend', userId: 'may' }]);
+  });
+
   it('註冊禮只發啟用中的註冊券，重複呼叫不會多發', async () => {
     await service.issueSignupCoupons('none');
     await service.issueSignupCoupons('none');
