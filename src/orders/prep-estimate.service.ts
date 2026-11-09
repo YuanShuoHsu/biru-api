@@ -49,8 +49,14 @@ type PrepEstimateOrganization = Pick<Organization, 'id' | 'pickupLeadMinutes'>;
 export class PrepEstimateService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async findBySlug(slug: string): Promise<PrepEstimateResponseDto> {
-    const estimate = await this.findWhere(eq(organization.slug, slug));
+  async findBySlug(
+    slug: string,
+    leadMinutes = 0,
+  ): Promise<PrepEstimateResponseDto> {
+    const estimate = await this.findWhere(
+      eq(organization.slug, slug),
+      leadMinutes,
+    );
     if (!estimate) throw organizationNotFoundError();
     return estimate;
   }
@@ -136,7 +142,10 @@ export class PrepEstimateService {
     return rows.map(({ id }) => id);
   }
 
-  private async findWhere(where: SQL): Promise<PrepEstimateResponseDto | null> {
+  private async findWhere(
+    where: SQL,
+    leadMinutes = 0,
+  ): Promise<PrepEstimateResponseDto | null> {
     const org = await this.db.query.organization.findFirst({
       columns: { id: true, pickupLeadMinutes: true },
       where,
@@ -150,7 +159,7 @@ export class PrepEstimateService {
     ]);
     const { minutes, queuedOrders } = estimatePrepMinutes(
       queue,
-      orderPrepMinutes(org.pickupLeadMinutes, []),
+      orderPrepMinutes(org.pickupLeadMinutes, [leadMinutes]),
       now,
       pace,
     );

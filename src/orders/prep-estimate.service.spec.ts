@@ -115,6 +115,19 @@ describe('PrepEstimateService', () => {
     });
   });
 
+  it('帶本單備餐時間時，估算與下單驗證用同一個製作時間', async () => {
+    await expect(service.findBySlug('biru', 30)).resolves.toEqual({
+      basis: 'leadTime',
+      estimatedMinutes: 60,
+      queuedOrders: 2,
+    });
+    await expect(service.findBySlug('biru', 5)).resolves.toEqual({
+      basis: 'leadTime',
+      estimatedMinutes: 40,
+      queuedOrders: 2,
+    });
+  });
+
   it('下單驗證以本單製作時間加上佇列', async () => {
     await expect(
       service.prepMinutesWith({ id: 'org', pickupLeadMinutes: 8 }, 30),

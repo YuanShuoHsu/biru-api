@@ -50,6 +50,7 @@ import {
 } from './dto/expected-points.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
+import { PrepEstimateQueryDto } from './dto/prep-estimate-query.dto.js';
 import {
   PrepEstimateResponseDto,
   PrepTimeResponseDto,
@@ -164,8 +165,9 @@ export class OrdersController {
   @ApiOperation({ summary: '查詢目前出餐約需幾分鐘（公開）' })
   findPrepEstimate(
     @Param('organizationSlug') organizationSlug: string,
+    @Query() { leadMinutes }: PrepEstimateQueryDto,
   ): Promise<PrepEstimateResponseDto> {
-    return this.prepEstimateService.findBySlug(organizationSlug);
+    return this.prepEstimateService.findBySlug(organizationSlug, leadMinutes);
   }
 
   @Get('prep-times')
