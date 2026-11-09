@@ -57,7 +57,7 @@ describe('CreateCouponDto', () => {
     ['minSubtotal', 99999999.995],
     ['perUserLimit', 10000],
     ['pointsCost', 100001],
-    ['totalLimit', 3000000000],
+    ['totalLimit', 1000001],
   ])('rejects %s %j, which the column cannot store', async (field, value) => {
     expect(await errorsOf({ [field]: value })).toEqual([field]);
   });
