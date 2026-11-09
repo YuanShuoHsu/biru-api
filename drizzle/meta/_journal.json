@@ -1863,6 +1863,13 @@
       "when": 1794046616531,
       "tag": "0265_clear_supplier_on_sourced_ingredients",
       "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1794082592301,
+      "tag": "0266_inventory_transaction_org_created_index",
+      "breakpoints": true
     }
   ]
 }

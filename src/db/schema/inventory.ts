@@ -130,6 +130,10 @@ export const inventoryTransaction = pgTable(
   (table) => [
     index('inventoryTransaction_ingredientId_idx').on(table.ingredientId),
     index('inventoryTransaction_organizationId_idx').on(table.organizationId),
+    index('inventoryTransaction_organizationId_createdAt_idx').on(
+      table.organizationId,
+      table.createdAt,
+    ),
     index('inventoryTransaction_orderId_idx').on(table.orderId),
   ],
 );

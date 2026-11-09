@@ -104,9 +104,14 @@ export const member = ac.newRole({
   waitlist: ['read', 'update'],
 });
 
+export type PermissionRequest = Record<
+  string,
+  string[] | { actions: string[]; connector: 'AND' | 'OR' }
+>;
+
 export const isAuthorized = (
   role: string,
-  action: Record<string, string[]>,
+  action: PermissionRequest,
 ): boolean => {
   switch (role) {
     case 'owner':

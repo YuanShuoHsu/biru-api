@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
 
-import { I18nContext } from 'nestjs-i18n';
+import { I18nContext, I18nValidationException } from 'nestjs-i18n';
 import type { I18nTranslations } from '../../generated/i18n.generated.js';
 import { isUnstorableText } from '../utils/pg-errors.js';
 
@@ -26,15 +26,16 @@ export class AllExceptionsFilter
   catch(caught: unknown, host: ArgumentsHost): void {
     const i18n = I18nContext.current<I18nTranslations>(host);
 
-    const exception = isUnstorableText(caught)
-      ? new BadRequestException({
-          error: 'Bad Request',
-          code: 'badRequest',
-          message: i18n?.t('common.exceptions.badRequest', {
-            lang: i18n?.lang,
-          }),
-        })
-      : caught;
+    const exception =
+      isUnstorableText(caught) || caught instanceof I18nValidationException
+        ? new BadRequestException({
+            error: 'Bad Request',
+            code: 'badRequest',
+            message: i18n?.t('common.exceptions.badRequest', {
+              lang: i18n?.lang,
+            }),
+          })
+        : caught;
 
     const httpStatus =
       exception instanceof HttpException

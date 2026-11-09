@@ -73,6 +73,8 @@ export class ReportCsvService {
           return key === UNCATEGORIZED_KEY
             ? t('uncategorized')
             : (localize(name, lang) ?? key);
+        case 'hour':
+          return `${key.padStart(2, '0')}:00`;
         default:
           return key;
       }

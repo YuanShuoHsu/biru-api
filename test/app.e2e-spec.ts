@@ -67,7 +67,16 @@ describe('App (e2e)', () => {
     request(app.getHttpServer()).get('/api/banners/active').expect(200, []));
 
   it('未登入不能讀取使用者清單', () =>
-    request(app.getHttpServer()).get('/api/users').expect(401));
+    request(app.getHttpServer()).get('/api/users/list').expect(401));
+
+  it.each([
+    ['get', '/api/users'],
+    ['get', '/api/users/user-1'],
+    ['patch', '/api/users/user-1'],
+    ['delete', '/api/users/user-1'],
+  ] as const)('已移除的 %s %s 回 404', (method, path) =>
+    request(app.getHttpServer())[method](path).expect(404),
+  );
 
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));

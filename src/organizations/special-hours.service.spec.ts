@@ -136,6 +136,27 @@ describe('SpecialHoursService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('區間最長一年，到隔年同一天就回 400 並帶 specialHoursTooLong', async () => {
+    const create = (validFrom: string, validThrough: string) =>
+      service.create('biru', {
+        validFrom,
+        validThrough,
+        openingHours: 'Mo-Su',
+      });
+
+    await expect(create('2099-03-01', '2100-03-01')).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'specialHoursTooLong' },
+    });
+    await expect(create('2099-03-01', '2100-02-28')).resolves.toBeDefined();
+    await expect(create('2096-01-01', '2096-12-31')).resolves.toBeDefined();
+
+    const created = await create('2097-01-01', '2097-01-02');
+    await expect(
+      service.update('biru', created.id, { validThrough: '2098-01-01' }),
+    ).rejects.toMatchObject({ response: { code: 'specialHoursTooLong' } });
+  });
+
   it('刪除後不再列出，刪除時留下可追溯的紀錄', async () => {
     const created = await service.create('biru', {
       validFrom: day(1),

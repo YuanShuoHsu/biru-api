@@ -1,5 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
-import { EXCEPTION_FILTERS_METADATA } from '@nestjs/common/constants';
+import {
+  EXCEPTION_FILTERS_METADATA,
+  PIPES_METADATA,
+} from '@nestjs/common/constants';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
 
 import type { I18nContext } from 'nestjs-i18n';
@@ -13,6 +16,10 @@ describe('QuantGateway', () => {
     expect(
       Reflect.getMetadata(EXCEPTION_FILTERS_METADATA, QuantGateway),
     ).toEqual([AllWsExceptionsFilter]);
+  });
+
+  it('不另掛 ValidationPipe，以免連 @I18n() 參數一起驗證而擋下 watchAccount、watchBots', () => {
+    expect(Reflect.getMetadata(PIPES_METADATA, QuantGateway)).toBeUndefined();
   });
 
   it('watchBots 沒有 session 時回 403，帶代碼與翻譯後的訊息', async () => {

@@ -38,6 +38,7 @@ const createService = (
   menuItems: object[],
   menuSections: { id: string; parentSectionId: string | null }[] = [],
   priceSpecification: PriceSpecification | null = null,
+  itemModifierGroups: object[] = [],
 ) => {
   const db = {
     query: {
@@ -50,7 +51,9 @@ const createService = (
       },
       menuItem: { findMany: vi.fn().mockResolvedValue(menuItems) },
       menuItemAddOn: { findMany: vi.fn().mockResolvedValue([]) },
-      menuItemModifierGroup: { findMany: vi.fn().mockResolvedValue([]) },
+      menuItemModifierGroup: {
+        findMany: vi.fn().mockResolvedValue(itemModifierGroups),
+      },
       modifier: { findMany: vi.fn().mockResolvedValue([]) },
       offer: {
         findMany: vi.fn().mockResolvedValue(
@@ -130,6 +133,90 @@ describe('OrderPricingService.resolveOrderItems', () => {
     );
 
     expect(item.menuSectionIds).toEqual(['oolong', 'tea', 'drinks']);
+  });
+
+  describe('必選群組只在點餐模式有可選選項時要求選擇', () => {
+    const dineInLatte = { ...latte, availableModes: ['counter', 'dineIn'] };
+    const sealingGroupOf = (
+      modifiers: { availability: string; availableModes: string[] }[],
+    ) => [
+      {
+        menuItemId: latte.id,
+        modifierGroup: {
+          id: 'sealing',
+          maxSelectionCount: 1,
+          minSelectionCount: 1,
+          modifiers,
+        },
+      },
+    ];
+    const takeoutOnly = {
+      availability: 'InStock',
+      availableModes: ['counter'],
+    };
+
+    it('選項都不在內用販售時，內用不必選', async () => {
+      const service = createService(
+        [dineInLatte],
+        [],
+        null,
+        sealingGroupOf([takeoutOnly, takeoutOnly]),
+      );
+
+      const [item] = await service.resolveOrderItems(
+        'org',
+        [cartItemOf()],
+        'dineIn',
+      );
+
+      expect(item.modifiers).toEqual([]);
+    });
+
+    it('有選項在該點餐模式販售時仍必須選擇', async () => {
+      const service = createService(
+        [dineInLatte],
+        [],
+        null,
+        sealingGroupOf([takeoutOnly]),
+      );
+
+      await expect(
+        service.resolveOrderItems('org', [cartItemOf()], 'counter'),
+      ).rejects.toThrow('common.orders.menuItemOptionsInvalid:拿鐵');
+    });
+
+    it('已停售的選項不算在該點餐模式可選', async () => {
+      const service = createService(
+        [dineInLatte],
+        [],
+        null,
+        sealingGroupOf([
+          takeoutOnly,
+          { availability: 'Discontinued', availableModes: ['dineIn'] },
+        ]),
+      );
+
+      const [item] = await service.resolveOrderItems(
+        'org',
+        [cartItemOf()],
+        'dineIn',
+      );
+
+      expect(item.modifiers).toEqual([]);
+    });
+
+    it('選項全部停售的必選群組仍擋下訂單', async () => {
+      const service = createService(
+        [dineInLatte],
+        [],
+        null,
+        sealingGroupOf([{ availability: 'Discontinued', availableModes: [] }]),
+      );
+
+      await expect(
+        service.resolveOrderItems('org', [cartItemOf()], 'dineIn'),
+      ).rejects.toThrow('common.orders.menuItemOptionsInvalid:拿鐵');
+    });
   });
 
   describe('促銷價依平台時區的日期判斷，起訖兩天都含整天', () => {

@@ -16,6 +16,7 @@ export const organizationErrorCodes = [
   'specialHoursInvalidRange',
   'specialHoursNotFound',
   'specialHoursOverlap',
+  'specialHoursTooLong',
 ] as const;
 
 export type OrganizationErrorCode = (typeof organizationErrorCodes)[number];

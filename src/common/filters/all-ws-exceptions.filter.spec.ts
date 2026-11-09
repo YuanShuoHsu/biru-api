@@ -93,6 +93,8 @@ describe('AllWsExceptionsFilter', () => {
 
     expect(emit).toHaveBeenCalledWith('exception', {
       message: 'en:common.exceptions.badRequest',
+      error: 'Bad Request',
+      code: 'badRequest',
       statusCode: 400,
       status: 'error',
       cause,

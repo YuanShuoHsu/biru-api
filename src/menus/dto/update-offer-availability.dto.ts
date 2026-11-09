@@ -11,7 +11,7 @@ import {
 
 import { UpdateItemAvailabilityDto } from './update-item-availability.dto.js';
 
-export class OfferInventoryLevelValueDto {
+class OfferInventoryLevelValueDto {
   @ApiProperty({
     type: Number,
     nullable: true,

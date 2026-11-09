@@ -58,7 +58,7 @@ Branch from `develop` and open every PR against `develop`. GitHub's default bran
 | DrizzleModule        | `src/drizzle/`         | **Global** — injects DB instance via `DRIZZLE` token                                                   |
 | AuthModule           | `src/auth/`            | better-auth config, access-control statements, email verification                                      |
 | OrganizationsModule  | `src/organizations/`   | Organizations (tenants), teams, members                                                                |
-| UsersModule          | `src/users/`           | User CRUD, admin-only user list with data-grid filters                                                 |
+| UsersModule          | `src/users/`           | Admin user list, stats, batch delete, sessions (per-user get/update/remove: better-auth admin)         |
 | MenusModule          | `src/menus/`           | Menus, sections, items, offers, add-ons, modifiers                                                     |
 | OrdersModule         | `src/orders/`          | Order lifecycle, payment recording, menu-item sales reporting                                          |
 | CouponsModule        | `src/coupons/`         | Coupons, user wallets (`userCoupon`), claim / grant / redeem                                           |
@@ -244,7 +244,7 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 
 ### Images
 
-Menu, section, item, banner and store photo images are stored as base64 data URLs, unless R2 is configured (see
+Menu, section, item, banner and store photo images are stored as base64 data URLs, unless S3-compatible storage is configured (see
 Environment Variables): then `ImageStorageService` (`src/images/image-storage.service.ts`) uploads each new image before
 the write, keyed `<kind>/<imageVersion>.<ext>`, and the column stores its public `https://` URL, which every helper below
 returns as `imageUrl` unchanged. For data URLs, their endpoints return `imageUrl` from `withImageUrl`
@@ -257,7 +257,7 @@ afterwards, because in the paged query Postgres would hash every matching row, n
 URLs). Edit dialogs send `image` only when the upload differs from `imageUrl`, never the URL itself. Only a new image
 moves the URL — reordering, toggling or editing other fields keeps it, so browsers and the image optimizer keep their
 copy; a stale
-version or extension still serves the current image (fetched from its R2 URL once the row has moved there), with `no-cache` instead of `immutable`, because the storefront
+version or extension still serves the current image (fetched from its storage URL once the row has moved there), with `no-cache` instead of `immutable`, because the storefront
 caches the banner and store photo lists (`"use cache"`) for longer than an edit takes, and every environment shares one
 database, so no cache can be invalidated on every edit. Don't answer it with a redirect: Next's image optimizer rejects
 a non-2xx response for a local image. The optimizer still keeps what it fetched from a stale URL for
@@ -456,9 +456,11 @@ missing variable fails at request time rather than at boot. Required in `.env`:
   the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
   until it is re-encrypted; a later PR provides that script
-- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` — Cloudflare R2 bucket for menu, banner and
-  store photo images; all five R2 variables must be set, or new images stay base64 data URLs in Postgres
-- `R2_PUBLIC_URL` — Public origin of that bucket (e.g. its custom domain); the uploaded image URL is this plus the key
+- `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
+  (Supabase Storage, path-style) for menu, banner and store photo images; all six S3 variables must be set, or new images
+  stay base64 data URLs in Postgres
+- `S3_PUBLIC_URL` — Public URL prefix of that bucket (`https://<project_ref>.supabase.co/storage/v1/object/public/<bucket>`);
+  the uploaded image URL is this plus the key
 - `PORT` — HTTP port (default 3001)
 
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`,
