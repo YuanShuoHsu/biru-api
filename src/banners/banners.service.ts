@@ -72,7 +72,7 @@ export class BannersService {
         or(isNull(banner.startsAt), lte(banner.startsAt, now)),
         or(isNull(banner.endsAt), gt(banner.endsAt, now)),
       ),
-      orderBy: [asc(banner.sortOrder), asc(banner.createdAt)],
+      orderBy: [asc(banner.sortOrder), asc(banner.createdAt), asc(banner.id)],
     });
 
     return rows.map((row) => withImageRefUrl('banner', row));
@@ -103,8 +103,8 @@ export class BannersService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(bannerFieldMap[sortBy]), asc(banner.createdAt)]
-      : [asc(banner.sortOrder), asc(banner.createdAt)];
+      ? [dir(bannerFieldMap[sortBy]), asc(banner.createdAt), asc(banner.id)]
+      : [asc(banner.sortOrder), asc(banner.createdAt), asc(banner.id)];
 
     const where = and(
       filterField && filterOperator
