@@ -1,5 +1,6 @@
 import { and, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import { coupon, userCoupon } from '../../db/schema/coupons.js';
+import { isForeignKeyViolation, pgConstraint } from './pg-errors.js';
 
 // 排除點數兌換券：僅能以點數兌換取得，不參與輸碼／領取／自動發放
 export const notPointsRedeem = () => isNull(coupon.pointsCost);
@@ -25,3 +26,7 @@ export const withinValidity = () => {
     or(isNull(coupon.validThrough), gte(coupon.validThrough, now)),
   );
 };
+
+export const isCouponDeleted = (error: unknown) =>
+  isForeignKeyViolation(error) &&
+  pgConstraint(error) === 'user_coupon_coupon_id_coupon_id_fk';

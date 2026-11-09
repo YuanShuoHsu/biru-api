@@ -47,7 +47,11 @@ import {
   platformMidnight,
   toPlatformTime,
 } from '../common/constants/timezone.js';
-import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
+import {
+  isCouponDeleted,
+  withinCapacity,
+  withinValidity,
+} from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -1193,6 +1197,7 @@ export class PointsService {
           .from(coupon)
           .where(eq(coupon.id, found.id))
           .for('update');
+        if (!locked) throw badRequestError('notRedeemable');
 
         const [{ value: reserved }] = await tx
           .select({ value: count() })
@@ -1262,7 +1267,11 @@ export class PointsService {
           source: 'redeemed',
           userId,
         })
-        .returning();
+        .returning()
+        .catch((error: unknown) => {
+          if (isCouponDeleted(error)) throw badRequestError('notRedeemable');
+          throw error;
+        });
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),
