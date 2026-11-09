@@ -1,6 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
+import { PICKUP_MAX_MINUTES } from '../../common/constants/pickup.js';
+
 import { PrepEstimateQueryDto } from './prep-estimate-query.dto.js';
 
 const parse = async (query: Record<string, string>) => {
@@ -19,7 +21,10 @@ describe('PrepEstimateQueryDto', () => {
     expect(dto.leadMinutes).toBe(25);
   });
 
-  it.each(['-1', '2.5', 'abc'])('rejects %s', async (leadMinutes) => {
-    expect((await parse({ leadMinutes })).errors).toHaveLength(1);
-  });
+  it.each(['-1', '2.5', 'abc', '1e308', String(PICKUP_MAX_MINUTES + 1)])(
+    'rejects %s',
+    async (leadMinutes) => {
+      expect((await parse({ leadMinutes })).errors).toHaveLength(1);
+    },
+  );
 });
