@@ -18,6 +18,7 @@ import {
   multiSession,
   organization,
 } from 'better-auth/plugins';
+import { isURL } from 'class-validator';
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -109,6 +110,19 @@ const assertValidOrganizationInput = (
   )
     throw new APIError('BAD_REQUEST', {
       message: 'openingHours must match "Mo-Fr 09:00-12:00,13:00-18:00"',
+    });
+
+  if (
+    data.hasMap != null &&
+    data.hasMap !== '' &&
+    (typeof data.hasMap !== 'string' ||
+      !isURL(data.hasMap, {
+        protocols: ['http', 'https'],
+        require_protocol: true,
+      }))
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: 'hasMap must be an http or https URL',
     });
 
   if (Object.hasOwn(data, 'currency') && !isValidCurrency(data.currency))
