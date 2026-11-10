@@ -438,4 +438,109 @@ describe('DeletedRecordsService 還原平台管理員身分加入的成員', () 
       joinedAsPlatformAdmin: false,
     });
   });
+
+  const deleteStore = async (platformAdminId: string) => {
+    const id = uuidv4();
+    await db.insert(schema.organization).values({
+      id,
+      name: '信義門市',
+      slug: id,
+      createdAt: new Date(),
+      addressCountry: 'TW',
+      addressLocality: '信義區',
+      addressRegion: '臺北市',
+      postalCode: '110',
+      streetAddress: '市府路 1 號',
+    });
+    await db.insert(schema.member).values(
+      [
+        { userId: platformAdminId, role: 'owner' as const, flagged: true },
+        { userId: 'staff', role: 'member' as const, flagged: false },
+      ].map(({ userId, role, flagged }) => ({
+        id: uuidv4(),
+        organizationId: id,
+        userId,
+        role,
+        joinedAsPlatformAdmin: flagged,
+        createdAt: new Date(),
+      })),
+    );
+    await db
+      .insert(schema.team)
+      .values({ id, name: '外場', organizationId: id, createdAt: new Date() });
+    await db.insert(schema.teamMember).values(
+      [platformAdminId, 'staff'].map((userId) => ({
+        id: uuidv4(),
+        teamId: id,
+        userId,
+      })),
+    );
+    await db.delete(schema.organization).where(eq(schema.organization.id, id));
+    const [{ batchId }] = await db
+      .select({ batchId: deletedRecord.batchId })
+      .from(deletedRecord)
+      .where(eq(deletedRecord.recordId, id));
+
+    return { id, batchId };
+  };
+
+  const storeRows = async (id: string) => ({
+    organization: (
+      await db
+        .select({ id: schema.organization.id })
+        .from(schema.organization)
+        .where(eq(schema.organization.id, id))
+    ).length,
+    members: (
+      await db.query.member.findMany({
+        where: eq(schema.member.organizationId, id),
+        columns: { userId: true },
+      })
+    )
+      .map(({ userId }) => userId)
+      .toSorted(),
+    teamMembers: (
+      await db.query.teamMember.findMany({
+        where: eq(schema.teamMember.teamId, id),
+        columns: { userId: true },
+      })
+    )
+      .map(({ userId }) => userId)
+      .toSorted(),
+  });
+
+  it('門市批次含已撤銷平台管理員的成員時照常還原，但不還原該成員與其團隊成員', async () => {
+    const { id, batchId } = await deleteStore('revoked');
+
+    expect(await blockedBy(batchId)).toMatchObject({
+      tableName: 'organization',
+      canRestore: true,
+      restoreBlockedBy: null,
+    });
+    await service.restore([batchId], actor);
+
+    expect(await storeRows(id)).toEqual({
+      organization: 1,
+      members: ['staff'],
+      teamMembers: ['staff'],
+    });
+    expect(
+      await db
+        .select()
+        .from(deletedRecord)
+        .where(eq(deletedRecord.batchId, batchId)),
+    ).toEqual([]);
+  });
+
+  it('門市批次內的平台管理員仍是平台管理員時一併還原', async () => {
+    const { id, batchId } = await deleteStore('stillAdmin');
+
+    await service.restore([batchId], actor);
+
+    expect(await storeRows(id)).toEqual({
+      organization: 1,
+      members: ['staff', 'stillAdmin'],
+      teamMembers: ['staff', 'stillAdmin'],
+    });
+  });
 });
