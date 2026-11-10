@@ -25,4 +25,12 @@ describe('ReorderBannersDto', () => {
       'ids',
     ]);
   });
+
+  it('accepts a reorder without the offset', async () => {
+    expect(await errorsOf({ ids: ['a', 'b'] })).toEqual([]);
+  });
+
+  it('still rejects a negative offset', async () => {
+    expect(await errorsOf({ ids: ['a', 'b'], offset: -1 })).toEqual(['offset']);
+  });
 });
