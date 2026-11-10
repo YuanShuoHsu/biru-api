@@ -95,9 +95,7 @@ export const sharedCartParticipant = pgTable(
     }),
     avatar: sharedCartAvatarEnum('avatar').notNull(),
     nickname: text('nickname').notNull(),
-    status: sharedCartParticipantStatusEnum('status')
-      .notNull()
-      .default('active'),
+    status: sharedCartParticipantStatusEnum('status').notNull(),
     requestedAt: timestamp('requested_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

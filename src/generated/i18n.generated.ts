@@ -509,6 +509,7 @@ export type I18nTranslations = {
                 "penguin": string;
                 "rabbit": string;
             };
+            "sharedCartAlreadyJoined": string;
             "sharedCartFull": string;
             "sharedCartMemberAvatarSignInRequired": string;
             "sharedCartNotFound": string;

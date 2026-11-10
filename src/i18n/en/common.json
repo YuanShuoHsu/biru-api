@@ -456,6 +456,7 @@
       "penguin": "Penguin",
       "rabbit": "Rabbit"
     },
+    "sharedCartAlreadyJoined": "You are already in another shared order. Leave it before joining or starting a new one",
     "sharedCartFull": "This shared order is full",
     "sharedCartMemberAvatarSignInRequired": "Sign in to use your member avatar",
     "sharedCartNotFound": "Shared order not found, or the code has expired",

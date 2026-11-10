@@ -456,6 +456,7 @@
       "penguin": "企鵝",
       "rabbit": "兔兔"
     },
+    "sharedCartAlreadyJoined": "你已在另一張共享點餐單中，請先離開再加入或發起新的單",
     "sharedCartFull": "這張共享點餐單人數已滿",
     "sharedCartMemberAvatarSignInRequired": "登入會員才能使用會員頭像",
     "sharedCartNotFound": "找不到這張共享點餐單，或單號已失效",

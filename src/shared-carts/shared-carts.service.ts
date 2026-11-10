@@ -402,6 +402,8 @@ export class SharedCartsService {
     const tableNumber = this.qrTableNumber(org, qrSessionValue, dto.mode);
     const profile = this.profile(member, dto);
     const previous = await this.findMembership(org, cookies);
+    if (previous?.status === 'active')
+      throw conflictError('sharedCartAlreadyJoined');
 
     const membership = await this.db.transaction(async (tx) => {
       if (previous) await this.leave(tx, previous);
@@ -412,9 +414,12 @@ export class SharedCartsService {
         tableNumber,
       );
       const participantId = randomUUID();
-      await tx
-        .insert(sharedCartParticipant)
-        .values({ ...profile, id: participantId, sharedCartId });
+      await tx.insert(sharedCartParticipant).values({
+        ...profile,
+        id: participantId,
+        sharedCartId,
+        status: 'active',
+      });
       return { participantId, sharedCartId, status: 'active' as const };
     });
 
@@ -445,6 +450,8 @@ export class SharedCartsService {
           ),
         );
       if (!found) throw notFoundError('sharedCartNotFound');
+      if (previous?.status === 'active' && previous.sharedCartId !== found.id)
+        throw conflictError('sharedCartAlreadyJoined');
 
       const cart = (
         await this.lockCarts(
@@ -519,7 +526,7 @@ export class SharedCartsService {
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
-    const membership = await this.requireMembership(org, cookies);
+    const membership = await this.requireActive(org, cookies);
 
     if (avatar === 'member' && !member)
       throw badRequestError('sharedCartMemberAvatarSignInRequired');
@@ -555,7 +562,17 @@ export class SharedCartsService {
     const membership = await this.requireActive(org, cookies);
 
     await this.db.transaction(async (tx) => {
-      await this.lockCarts(tx, [membership.sharedCartId]);
+      const [cart] = await this.lockCarts(tx, [membership.sharedCartId]);
+      if (!cart || cart.lastActivityAt <= activeSince())
+        throw notFoundError('sharedCartNotFound');
+      const [approver] = await tx
+        .select({ status: sharedCartParticipant.status })
+        .from(sharedCartParticipant)
+        .where(eq(sharedCartParticipant.id, membership.participantId));
+      if (!approver) throw notFoundError('sharedCartNotFound');
+      if (approver.status !== 'active')
+        throw forbiddenError('sharedCartPending');
+
       const [request] = await tx
         .select({ id: sharedCartParticipant.id })
         .from(sharedCartParticipant)
