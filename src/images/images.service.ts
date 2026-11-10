@@ -13,16 +13,17 @@ import {
   imageVersion,
   isImageMimeType,
   parseImageDataUrl,
+  type ImageKind,
 } from './image-url.js';
 
-const IMAGE_TABLES = {
+export const IMAGE_TABLES = {
   menu,
   menuSection,
   menuItem,
   modifier,
   banner,
   storePhoto,
-};
+} satisfies Record<ImageKind, unknown>;
 
 @Injectable()
 export class ImagesService {
