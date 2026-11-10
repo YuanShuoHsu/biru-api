@@ -4,7 +4,6 @@ import {
   type SQL,
   and,
   asc,
-  count,
   eq,
   gte,
   inArray,
@@ -12,20 +11,20 @@ import {
   lt,
   lte,
   or,
-  sum,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { isAuthorized } from '../auth/permissions.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
-import { ingredient } from '../db/schema/inventory.js';
+import { ingredient, supplier } from '../db/schema/inventory.js';
 import { order } from '../db/schema/orders.js';
 import { member, organization } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
 import { user } from '../db/schema/users.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { MailsService } from '../mails/mails.service.js';
+import { localize } from '../menus/menus-public.service.js';
 
 import { COUNTED_AT, isCountedOrder } from './counted-orders.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
@@ -191,6 +190,7 @@ export class OrderNotificationsService {
     if (!admins.length) return 0;
 
     const { since, until } = yesterdayOf(now);
+    const adjuster = alias(user, 'adjuster');
     const [stores, adjustments, lowStock] = await Promise.all([
       this.db
         .select({
@@ -224,45 +224,70 @@ export class OrderNotificationsService {
       this.db
         .select({
           organizationId: pointTransaction.organizationId,
-          count: count(),
-          total: sum(pointTransaction.points).mapWith(Number),
+          adjuster: adjuster.name,
+          member: user.name,
+          points: pointTransaction.points,
+          reason: pointTransaction.note,
         })
         .from(pointTransaction)
+        .innerJoin(user, eq(user.id, pointTransaction.userId))
+        .leftJoin(adjuster, eq(adjuster.id, pointTransaction.adjustedBy))
         .where(adjustedBetween(since, until))
-        .groupBy(pointTransaction.organizationId),
+        .orderBy(asc(pointTransaction.createdAt)),
       this.db
-        .select({ organizationId: ingredient.organizationId, count: count() })
+        .select({
+          organizationId: ingredient.organizationId,
+          name: ingredient.name,
+          inventoryLevel: ingredient.inventoryLevel,
+          lowStockThreshold: ingredient.lowStockThreshold,
+          unitCode: ingredient.unitCode,
+          supplierName: supplier.name,
+        })
         .from(ingredient)
+        .leftJoin(supplier, eq(supplier.id, ingredient.supplierId))
         .where(
           and(
             eq(ingredient.unlimitedStock, false),
             lte(ingredient.inventoryLevel, ingredient.lowStockThreshold),
           ),
         )
-        .groupBy(ingredient.organizationId),
+        .orderBy(asc(supplier.name), asc(ingredient.sortOrder)),
     ]);
 
     const sections = [];
     for (const { id, name, slug, currency } of stores) {
       try {
-        const { buckets, refundedOrders } = await this.dailyStats(slug, since);
-        const adjusted = adjustments.find(
-          ({ organizationId }) => organizationId === id,
-        );
+        const [{ buckets, hourlyOrders, previous, refundedOrders }, sales] =
+          await Promise.all([
+            this.dailyStats(slug, since),
+            this.menuItemSales.querySales(id, since, until),
+          ]);
+        const peakOrders = Math.max(...hourlyOrders);
         sections.push({
           organizationName: name,
           currency,
           path: dashboardPath(slug),
-          orders: buckets[0].orders,
-          revenue: buckets[0].revenue!,
-          refundedOrders,
-          pointAdjustments: {
-            count: adjusted?.count ?? 0,
-            total: adjusted?.total ?? 0,
+          current: { orders: buckets[0].orders, revenue: buckets[0].revenue! },
+          previous: { orders: previous.orders, revenue: previous.revenue! },
+          peakHour: {
+            hour: hourlyOrders.indexOf(peakOrders),
+            orders: peakOrders,
           },
-          lowStock:
-            lowStock.find(({ organizationId }) => organizationId === id)
-              ?.count ?? 0,
+          refundedOrders,
+          topItems: sales
+            .filter(({ sold }) => sold > 0)
+            .slice(0, TOP_ITEM_LIMIT)
+            .map(({ menuItemName, sold }) => ({ name: menuItemName, sold })),
+          pointAdjustments: adjustments.flatMap(
+            ({ organizationId, ...adjustment }) =>
+              organizationId === id ? [adjustment] : [],
+          ),
+          lowStock: lowStock.flatMap(
+            ({ organizationId, lowStockThreshold, ...row }) =>
+              organizationId === id
+                ? [{ ...row, lowStockThreshold: lowStockThreshold! }]
+                : [],
+          ),
         });
       } catch (error) {
         this.logger.error(error);
@@ -277,7 +302,13 @@ export class OrderNotificationsService {
           recipient,
           date: since,
           path: ORGANIZATIONS_PAGE,
-          stores: sections,
+          stores: sections.map((section) => ({
+            ...section,
+            lowStock: section.lowStock.map(({ name, ...row }) => ({
+              ...row,
+              name: localize(name, recipient.lang) ?? '',
+            })),
+          })),
         });
         notified += 1;
       } catch (error) {
