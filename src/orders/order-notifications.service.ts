@@ -92,6 +92,7 @@ export class OrderNotificationsService {
             member.organizationId,
             sellers.map(({ id }) => id),
           ),
+          eq(member.joinedAsPlatformAdmin, false),
           notBanned(now),
         ),
       );
