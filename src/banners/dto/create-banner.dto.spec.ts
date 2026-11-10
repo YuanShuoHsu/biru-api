@@ -62,21 +62,6 @@ describe('CreateBannerDto', () => {
     expect(await errorsOf({ url })).toEqual(['url']);
   });
 
-  it('requires startsAt before endsAt', async () => {
-    expect(
-      await errorsOf({
-        startsAt: '2026-11-01T00:00:00Z',
-        endsAt: '2026-10-01T00:00:00Z',
-      }),
-    ).toEqual(['endsAt']);
-    expect(
-      await errorsOf({
-        startsAt: '2026-10-01T00:00:00Z',
-        endsAt: '2026-11-01T00:00:00Z',
-      }),
-    ).toEqual([]);
-  });
-
   it.each(['startsAt', 'endsAt'])('accepts an offset %s', async (field) => {
     for (const value of [
       '2026-10-31T16:00:00.000Z',

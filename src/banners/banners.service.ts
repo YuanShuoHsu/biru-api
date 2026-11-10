@@ -54,6 +54,14 @@ const toTimestamp = (
   value: string | null | undefined,
 ): Date | null | undefined => (value == null ? value : new Date(value));
 
+const assertSchedule = (
+  startsAt: Date | null | undefined,
+  endsAt: Date | null | undefined,
+): void => {
+  if (startsAt && endsAt && startsAt >= endsAt)
+    throw badRequestError('scheduleInvalid');
+};
+
 @Injectable()
 export class BannersService {
   constructor(
@@ -150,6 +158,10 @@ export class BannersService {
   }
 
   async create(dto: CreateBannerDto): Promise<BannerResponseDto> {
+    const startsAt = toTimestamp(dto.startsAt);
+    const endsAt = toTimestamp(dto.endsAt);
+    assertSchedule(startsAt, endsAt);
+
     const [{ maxSortOrder }] = await this.db
       .select({ maxSortOrder: max(banner.sortOrder) })
       .from(banner);
@@ -162,8 +174,8 @@ export class BannersService {
         alt: dto.alt,
         url: dto.url,
         isActive: dto.isActive ?? true,
-        startsAt: toTimestamp(dto.startsAt),
-        endsAt: toTimestamp(dto.endsAt),
+        startsAt,
+        endsAt,
         sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
       })
       .returning();
@@ -183,11 +195,10 @@ export class BannersService {
       });
       if (!current) throw notFoundError('bannerNotFound');
 
-      const from =
-        startsAt === undefined ? current.startsAt : toTimestamp(startsAt);
-      const until = endsAt === undefined ? current.endsAt : toTimestamp(endsAt);
-      if (from && until && from >= until)
-        throw badRequestError('scheduleInvalid');
+      assertSchedule(
+        startsAt === undefined ? current.startsAt : toTimestamp(startsAt),
+        endsAt === undefined ? current.endsAt : toTimestamp(endsAt),
+      );
     }
 
     const [updated] = await this.db
