@@ -26,7 +26,7 @@ export class AdminPointSettingsController {
   @Audit('pointSetting', { id: POINT_SETTING_ID })
   @ApiOperation({
     summary:
-      '修改全品牌的點數規則；每點金額設為有值時自動記下啟用時間，設為 null 時停用並清空有效年限',
+      '修改全品牌的點數規則；每點金額設為有值時自動記下啟用時間，設為 null 時停用並清空啟用時間',
   })
   @ApiOkResponse({ type: PointSettingResponseDto })
   update(@Body() dto: UpdatePointSettingDto): Promise<PointSettingResponseDto> {
