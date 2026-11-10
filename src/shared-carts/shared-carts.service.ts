@@ -68,7 +68,7 @@ import {
 
 export const SHARED_CART_MAX_PARTICIPANTS = 20;
 export const SHARED_CART_MAX_PENDING = 5;
-export const SHARED_CART_MAX_PER_STORE = 1_000;
+export const SHARED_CART_MAX_PER_STORE = 3_000;
 export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 export const SHARED_CART_REQUEST_TTL_MS = 10 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
