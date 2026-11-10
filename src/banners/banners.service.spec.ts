@@ -99,6 +99,43 @@ describe('BannersService', () => {
     expect(updated.startsAt).toBeNull();
   });
 
+  it('建立時開始時間不早於結束時間，回 400 scheduleInvalid', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+
+    for (const endsAt of ['2026-10-01T00:00:00Z', '2026-09-01T00:00:00Z'])
+      await expect(
+        service.create({
+          image: 'banner',
+          startsAt: '2026-10-01T00:00:00Z',
+          endsAt,
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'scheduleInvalid',
+          message: 'translated:common.banners.scheduleInvalid',
+        },
+        status: 400,
+      });
+    expect((await service.findAll()).total).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it('同時更新兩個時間且順序相反時，回 400 scheduleInvalid', async () => {
+    const { id } = await service.create({ image: 'banner' });
+
+    await expect(
+      service.update(id, {
+        startsAt: '2026-11-01T00:00:00Z',
+        endsAt: '2026-10-01T00:00:00Z',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'scheduleInvalid' },
+      status: 400,
+    });
+  });
+
   it('只更新其中一個時間時，仍與既有的時間比對先後', async () => {
     const { id } = await service.create({
       image: 'banner',

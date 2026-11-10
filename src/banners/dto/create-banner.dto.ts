@@ -12,11 +12,7 @@ import {
   Max,
   MaxLength,
   Min,
-  Validate,
   ValidateIf,
-  ValidationArguments,
-  ValidatorConstraint,
-  ValidatorConstraintInterface,
 } from 'class-validator';
 
 import {
@@ -31,20 +27,6 @@ import {
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
-
-@ValidatorConstraint({ name: 'isStartsAtBeforeEndsAt' })
-class IsStartsAtBeforeEndsAt implements ValidatorConstraintInterface {
-  validate(_: unknown, { object }: ValidationArguments): boolean {
-    const { startsAt, endsAt } = object as CreateBannerDto;
-    if (!startsAt || !endsAt) return true;
-
-    return new Date(startsAt) < new Date(endsAt);
-  }
-
-  defaultMessage(): string {
-    return 'startsAt 必須早於 endsAt';
-  }
-}
 
 export class CreateBannerDto {
   @ApiProperty({ description: '圖片來源（data URL）' })
@@ -90,7 +72,6 @@ export class CreateBannerDto {
   @IsOptional()
   @IsRFC3339()
   @IsISO8601({ strict: true })
-  @Validate(IsStartsAtBeforeEndsAt)
   endsAt?: string | null;
 
   @ApiPropertyOptional({ description: '未帶時排在最後' })
