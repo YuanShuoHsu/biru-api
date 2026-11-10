@@ -71,7 +71,12 @@ export class OrganizationsService {
     const members = await this.db.query.member.findMany({
       where: and(
         eq(member.organizationId, organizationId),
-        showcasedOnly ? eq(member.showcase, true) : undefined,
+        showcasedOnly
+          ? and(
+              eq(member.showcase, true),
+              eq(member.joinedAsPlatformAdmin, false),
+            )
+          : undefined,
       ),
       orderBy: [asc(member.createdAt)],
       with: {
@@ -143,7 +148,7 @@ export class OrganizationsService {
         eq(member.id, memberId),
         eq(member.organizationId, organizationId),
       ),
-      columns: { userId: true },
+      columns: { joinedAsPlatformAdmin: true, userId: true },
     });
     if (!target) throw new NotFoundException();
 
@@ -151,6 +156,8 @@ export class OrganizationsService {
     if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
       throw accessForbiddenError();
     if (showcase && !isSelf) throw forbiddenError('showcaseOpenSelfOnly');
+    if (showcase && target.joinedAsPlatformAdmin)
+      throw forbiddenError('showcaseJoinedAsPlatformAdmin');
 
     const [updated] = await this.db
       .update(member)
