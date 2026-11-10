@@ -207,6 +207,28 @@ describe('InventoryNotificationsService.notifyLowStockDigest', () => {
     expect(emails).not.toContain('stillBannedAdmin@example.com');
   });
 
+  it('以平台管理員身分加入的 owner 不寄，改由全平台總覽信涵蓋', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name, role) values ('platformAdmin', 'platformAdmin', 'platformAdmin@example.com', 'platformAdmin', 'admin')`,
+    );
+    await db.insert(member).values({
+      id: 'm5',
+      organizationId: 'org',
+      userId: 'platformAdmin',
+      role: 'owner',
+      joinedAsPlatformAdmin: true,
+      createdAt: new Date(),
+    });
+
+    await service.notifyLowStockDigest();
+
+    const emails = sendLowStockDigest.mock.calls.map(
+      ([{ recipient }]) => recipient.email,
+    );
+    expect(emails).toContain('owner@example.com');
+    expect(emails).not.toContain('platformAdmin@example.com');
+  });
+
   it('沒有低庫存食材時不寄信', async () => {
     await client.exec(`update ingredient set inventory_level = 1000`);
 

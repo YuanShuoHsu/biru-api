@@ -348,9 +348,10 @@ platform-admin step.
 For notifications the hierarchy governs what a role learns, not how it is sent. A platform admin's daily digests may be
 merged into the platform daily digest (`notifyPlatformDailyDigest`, `src/orders/order-notifications.service.ts`), so
 a per-store digest (`notifyDailySalesDigest`, `notifyLowStockDigest`) may leave out members with
-`joined_as_platform_admin` only for content the platform digest also carries. It doesn't yet carry the top items, peak
-hour, previous-day comparison, the individual point adjustments or the low-stock ingredient details, so no per-store
-digest leaves them out yet. Notifications about a single event, such as an attendance request to review, reach a
+`joined_as_platform_admin` only for content the platform digest also carries. It carries everything both digests
+send today, so both leave those members out; a per-store digest that gains content the platform digest lacks must
+include them again until the platform digest carries it too. Notifications about a single event, such as an
+attendance request to review, reach a
 platform admin only in the stores they joined, where their `owner` member row already makes them a recipient; the
 other stores' events are not sent to them, because they can open any store as `owner` instead.
 A platform admin who joins a store gets `owner` with `member.joined_as_platform_admin` set; every
