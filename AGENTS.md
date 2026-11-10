@@ -266,6 +266,8 @@ check whether the row is published: the URL is only handed out by endpoints that
 Next's image optimizer fetches the source without the viewer's cookies. The version is not an access check: anyone
 who once had a URL keeps seeing the row's current image until the row or its image is deleted.
 
+`pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
+
 ### Points Expiry
 
 Points expire one year after they are earned — the end of the Taiwan day one calendar year after the
