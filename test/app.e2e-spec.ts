@@ -337,7 +337,7 @@ describe('App (e2e)', () => {
       expect(participantSetCookie(unknownStore)).toBeUndefined();
     });
 
-    it('用不同點餐模式加入時回 409 並告知這張單的模式', async () => {
+    it('用不同點餐模式加入時回和查無單號一樣的 404', async () => {
       const server = app.getHttpServer();
       const created = await request(server)
         .post(base)
@@ -358,18 +358,25 @@ describe('App (e2e)', () => {
         'counter',
         null,
       ).value;
-      const mismatch = await request(server)
-        .post(`${base}/join`)
-        .set('content-type', 'application/json')
-        .set('x-lang', 'zh-TW')
-        .set('cookie', `${ORDER_QR_SESSION_COOKIE}=${counterSession}`)
-        .send({ code: created.body.code, mode: 'counter' })
-        .expect(409);
-      expect(mismatch.body).toMatchObject({
-        code: 'sharedCartModeMismatch',
-        mode: 'pickup',
+      const joinAsCounter = (code: string) =>
+        request(server)
+          .post(`${base}/join`)
+          .set('content-type', 'application/json')
+          .set('x-lang', 'zh-TW')
+          .set('cookie', `${ORDER_QR_SESSION_COOKIE}=${counterSession}`)
+          .send({ code, mode: 'counter' })
+          .expect(404);
+      const mismatch = await joinAsCounter(created.body.code);
+      const unknown = await joinAsCounter(
+        ((Number(created.body.code) + 1) % 10_000).toString().padStart(4, '0'),
+      );
+      const { timestamp: _, ...body } = mismatch.body;
+      const { timestamp: __, ...unknownBody } = unknown.body;
+      expect(body).toEqual(unknownBody);
+      expect(body).toMatchObject({
+        code: 'sharedCartCodeNotFound',
+        message: '找不到這張共享點餐單，請確認單號與點餐模式',
       });
-      expect(mismatch.body.message).toContain('線上自取');
       expect(participantSetCookie(mismatch)).toBeUndefined();
     });
 

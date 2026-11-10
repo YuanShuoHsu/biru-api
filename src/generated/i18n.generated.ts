@@ -509,10 +509,10 @@ export type I18nTranslations = {
                 "penguin": string;
                 "rabbit": string;
             };
+            "sharedCartCodeNotFound": string;
             "sharedCartFull": string;
             "sharedCartLimitReached": string;
             "sharedCartMemberAvatarSignInRequired": string;
-            "sharedCartModeMismatch": string;
             "sharedCartNotFound": string;
             "sharedCartPending": string;
             "sharedCartRequestNotFound": string;

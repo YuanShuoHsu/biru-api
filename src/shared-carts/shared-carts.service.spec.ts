@@ -1,5 +1,7 @@
 import { randomInt } from 'node:crypto';
 
+import type { NotFoundException } from '@nestjs/common';
+
 import type { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -834,7 +836,7 @@ describe('SharedCartsService', () => {
       ).toEqual([expect.objectContaining({ nickname: '小華' })]);
     });
 
-    it('refuses a request from another order mode and names the cart’s mode', async () => {
+    it('answers another mode or table exactly like an unknown code', async () => {
       const host = await service.create(
         SLUG,
         { mode: 'dineIn' },
@@ -842,53 +844,57 @@ describe('SharedCartsService', () => {
         tableSession(3),
         undefined,
       );
+      const responseOf = (
+        code: string,
+        mode: 'dineIn' | 'pickup',
+        qrSession?: string,
+      ) =>
+        service.join(SLUG, { code, mode }, null, qrSession, undefined).then(
+          () => 'joined',
+          (error: NotFoundException) => ({
+            response: error.getResponse(),
+            status: error.getStatus(),
+          }),
+        );
+      const unknown = await responseOf(
+        ((Number(host.cart.code) + 1) % 10_000).toString().padStart(4, '0'),
+        'pickup',
+      );
 
-      await expect(
-        service.join(
-          SLUG,
-          { code: host.cart.code!, mode: 'pickup' },
-          null,
-          undefined,
-          undefined,
-        ),
-      ).rejects.toMatchObject({
-        response: { code: 'sharedCartModeMismatch', mode: 'dineIn' },
-        status: 409,
+      expect(unknown).toEqual({
+        response: {
+          code: 'sharedCartCodeNotFound',
+          error: 'Not Found',
+          message: 'sharedCartCodeNotFound',
+        },
+        status: 404,
       });
+      expect(await responseOf(host.cart.code!, 'pickup')).toEqual(unknown);
+      expect(
+        await responseOf(host.cart.code!, 'dineIn', tableSession(4)),
+      ).toEqual(unknown);
       expect(await db.select().from(sharedCartParticipant)).toHaveLength(1);
-      await expect(
-        service.join(
-          SLUG,
-          { code: host.cart.code!, mode: 'dineIn' },
-          null,
-          tableSession(3),
-          undefined,
-        ),
-      ).resolves.toMatchObject({ cart: { me: { status: 'pending' } } });
+
+      expect(await responseOf(host.cart.code!, 'dineIn', tableSession(3))).toBe(
+        'joined',
+      );
     });
 
     it('asks for the QR session of the caller’s own mode first', async () => {
       const host = await startPickup();
-      await expect(
-        service.join(
-          SLUG,
-          { code: host.cart.code!, mode: 'counter' },
-          null,
-          undefined,
-          undefined,
-        ),
-      ).rejects.toThrow('inStoreQrCodeRequired');
-      await expect(
-        service.join(
-          SLUG,
-          { code: host.cart.code!, mode: 'counter' },
-          null,
-          counterSession(),
-          undefined,
-        ),
-      ).rejects.toMatchObject({
-        response: { code: 'sharedCartModeMismatch', mode: 'pickup' },
-      });
+      for (const [mode, code] of [
+        ['counter', 'inStoreQrCodeRequired'],
+        ['dineIn', 'invalidTable'],
+      ] as const)
+        await expect(
+          service.join(
+            SLUG,
+            { code: host.cart.code!, mode },
+            null,
+            undefined,
+            undefined,
+          ),
+        ).rejects.toThrow(code);
     });
 
     it('answers not found for an unknown or expired code', async () => {
@@ -905,37 +911,7 @@ describe('SharedCartsService', () => {
           undefined,
           undefined,
         ),
-      ).rejects.toThrow('sharedCartNotFound');
-    });
-
-    it('requires a QR session for the same table', async () => {
-      const host = await service.create(
-        SLUG,
-        { mode: 'dineIn' },
-        null,
-        tableSession(3),
-        undefined,
-      );
-
-      for (const qrSession of [undefined, tableSession(4)])
-        await expect(
-          service.join(
-            SLUG,
-            { code: host.cart.code!, mode: 'dineIn' },
-            null,
-            qrSession,
-            undefined,
-          ),
-        ).rejects.toThrow('invalidTable');
-      await expect(
-        service.join(
-          SLUG,
-          { code: host.cart.code!, mode: 'dineIn' },
-          null,
-          tableSession(3),
-          undefined,
-        ),
-      ).resolves.toBeDefined();
+      ).rejects.toThrow('sharedCartCodeNotFound');
     });
 
     it(`refuses a request once ${SHARED_CART_MAX_PARTICIPANTS} have joined`, async () => {
@@ -1032,7 +1008,7 @@ describe('SharedCartsService', () => {
       expect(cart.code).not.toBe(host.cart.code);
       expect(cart.requests.map(({ id }) => id)).toEqual([waiting.cart.me.id]);
       await expect(requestToJoin(host.cart.code)).rejects.toThrow(
-        'sharedCartNotFound',
+        'sharedCartCodeNotFound',
       );
       await expect(
         service.approveRequest(
@@ -1082,7 +1058,7 @@ describe('SharedCartsService', () => {
       );
 
       await expect(requestToJoin(host.cart.code)).rejects.toThrow(
-        'sharedCartNotFound',
+        'sharedCartCodeNotFound',
       );
       expect(rejected.cart.me.status).toBe('pending');
     });

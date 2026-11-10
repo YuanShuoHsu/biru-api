@@ -456,10 +456,10 @@
       "penguin": "ペンギン",
       "rabbit": "ウサギ"
     },
+    "sharedCartCodeNotFound": "共有注文が見つかりません。番号と注文方法をご確認ください",
     "sharedCartFull": "この共有注文は人数が上限に達しています",
     "sharedCartLimitReached": "現在、共有注文が多すぎます。しばらくしてから作成してください",
     "sharedCartMemberAvatarSignInRequired": "会員アイコンを使うにはログインしてください",
-    "sharedCartModeMismatch": "この共有注文は{mode}です。{mode}の注文画面から参加してください",
     "sharedCartNotFound": "共有注文が見つからないか、番号の有効期限が切れています",
     "sharedCartPending": "共有注文のメンバーが参加を許可するまでお待ちください",
     "sharedCartRequestNotFound": "この参加リクエストは処理済みか、期限が切れています",

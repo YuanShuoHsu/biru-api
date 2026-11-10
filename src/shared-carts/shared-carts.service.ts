@@ -9,6 +9,7 @@ import {
   eq,
   gt,
   inArray,
+  isNull,
   lte,
   ne,
   or,
@@ -55,7 +56,6 @@ import {
   badRequestError,
   conflictError,
   forbiddenError,
-  modeMismatchError,
   notFoundError,
 } from './shared-cart-errors.js';
 import {
@@ -582,17 +582,20 @@ export class SharedCartsService {
 
     await this.db.transaction(async (tx) => {
       const [found] = await tx
-        .select({ id: sharedCart.id, mode: sharedCart.mode })
+        .select({ id: sharedCart.id })
         .from(sharedCart)
         .where(
           and(
             eq(sharedCart.code, dto.code),
             eq(sharedCart.organizationId, org.id),
+            eq(sharedCart.mode, dto.mode),
+            tableNumber === null
+              ? isNull(sharedCart.tableNumber)
+              : eq(sharedCart.tableNumber, tableNumber),
             gt(sharedCart.lastActivityAt, activeSince()),
           ),
         );
-      if (!found) throw notFoundError('sharedCartNotFound');
-      if (found.mode !== dto.mode) throw modeMismatchError(found.mode);
+      if (!found) throw notFoundError('sharedCartCodeNotFound');
 
       const { device, locked } = await this.lockDevice(
         tx,
@@ -606,9 +609,7 @@ export class SharedCartsService {
           code === dto.code &&
           lastActivityAt > activeSince(),
       );
-      if (!cart) throw notFoundError('sharedCartNotFound');
-      if (tableNumber !== cart.tableNumber)
-        throw orderBadRequestError('invalidTable');
+      if (!cart) throw notFoundError('sharedCartCodeNotFound');
 
       if (
         device.active?.sharedCartId === cart.id ||
