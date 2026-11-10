@@ -490,16 +490,13 @@ describe('SharedCartsService', () => {
     it('lets a rejected requester ask again', async () => {
       const host = await startPickup();
       const guest = await requestToJoin(host.cart.code);
-      await service.rejectRequest(
+      const { cart } = await service.rejectRequest(
         SLUG,
         guest.issued.session.participantId,
         cookiesOf(host.issued),
       );
 
-      const again = await requestToJoin(
-        host.cart.code,
-        cookiesOf(guest.issued),
-      );
+      const again = await requestToJoin(cart.code, cookiesOf(guest.issued));
       expect(again.cart.me.status).toBe('pending');
       expect(again.issued.session.participantId).not.toBe(
         guest.issued.session.participantId,
@@ -695,6 +692,49 @@ describe('SharedCartsService', () => {
       await expect(
         service.approveRequest(SLUG, 'unknown', cookiesOf(host.issued)),
       ).rejects.toThrow('sharedCartRequestNotFound');
+    });
+
+    it('rotates the code on reject and keeps the other requests', async () => {
+      const host = await startPickup();
+      const rejected = await requestToJoin(host.cart.code);
+      const waiting = await requestToJoin(host.cart.code);
+
+      const { cart } = await service.rejectRequest(
+        SLUG,
+        rejected.cart.me.id,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.code).toMatch(/^\d{6}$/);
+      expect(cart.code).not.toBe(host.cart.code);
+      expect(cart.requests.map(({ id }) => id)).toEqual([waiting.cart.me.id]);
+      await expect(requestToJoin(host.cart.code)).rejects.toThrow(
+        'sharedCartNotFound',
+      );
+      await expect(
+        service.approveRequest(
+          SLUG,
+          waiting.cart.me.id,
+          cookiesOf(host.issued),
+        ),
+      ).resolves.toMatchObject({ cart: { code: cart.code } });
+    });
+
+    it('skips a code held by a live cart when rotating', async () => {
+      const host = await startPickup();
+      const other = await startPickup();
+      const guest = await requestToJoin(host.cart.code);
+      vi.mocked(randomInt)
+        .mockReturnValueOnce(Number(other.cart.code) as never)
+        .mockReturnValueOnce(42 as never);
+
+      const { cart } = await service.rejectRequest(
+        SLUG,
+        guest.cart.me.id,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.code).toBe('000042');
     });
 
     it('rejects by deleting the request', async () => {

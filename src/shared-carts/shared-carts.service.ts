@@ -6,6 +6,7 @@ import { and, asc, count, eq, gt, inArray, lte, or } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import { organizationClosedError } from '../common/utils/organization-closure.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import {
   getOrganizationIdBySlug,
   organizationNotFoundError,
@@ -285,12 +286,10 @@ export class SharedCartsService {
       await tx.delete(sharedCart).where(eq(sharedCart.id, sharedCartId));
   }
 
-  private async insertCart(
+  private async withFreeCode<T>(
     tx: Tx,
-    organizationId: string,
-    mode: OrderMode,
-    tableNumber: number | null,
-  ) {
+    write: (code: string) => Promise<T | undefined>,
+  ): Promise<T> {
     for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
       const code = sharedCartCode();
       await tx
@@ -301,6 +300,19 @@ export class SharedCartsService {
             lte(sharedCart.lastActivityAt, activeSince()),
           ),
         );
+      const written = await write(code);
+      if (written !== undefined) return written;
+    }
+    throw new Error('No free shared cart code');
+  }
+
+  private insertCart(
+    tx: Tx,
+    organizationId: string,
+    mode: OrderMode,
+    tableNumber: number | null,
+  ) {
+    return this.withFreeCode(tx, async (code) => {
       const [created] = await tx
         .insert(sharedCart)
         .values({
@@ -313,9 +325,27 @@ export class SharedCartsService {
         })
         .onConflictDoNothing({ target: sharedCart.code })
         .returning({ id: sharedCart.id });
-      if (created) return created.id;
-    }
-    throw new Error('No free shared cart code');
+      return created?.id;
+    });
+  }
+
+  private rotateCode(tx: Tx, sharedCartId: string) {
+    return this.withFreeCode(tx, (code) =>
+      tx
+        .transaction((savepoint) =>
+          savepoint
+            .update(sharedCart)
+            .set({ code })
+            .where(eq(sharedCart.id, sharedCartId)),
+        )
+        .then(
+          () => code,
+          (error: unknown) => {
+            if (isUniqueViolation(error)) return undefined;
+            throw error;
+          },
+        ),
+    );
   }
 
   private async view(
@@ -611,6 +641,7 @@ export class SharedCartsService {
         await tx
           .delete(sharedCartParticipant)
           .where(eq(sharedCartParticipant.id, request.id));
+        await this.rotateCode(tx, membership.sharedCartId);
         return;
       }
       if (

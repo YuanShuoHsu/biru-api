@@ -201,6 +201,7 @@ describe('App (e2e)', () => {
         .set('cookie', host)
         .expect(200);
       expect(rejected.body.requests).toEqual([]);
+      expect(rejected.body.code).not.toBe(created.body.code);
       await request(server)
         .get(`${base}/current`)
         .set('cookie', guest)
@@ -210,6 +211,12 @@ describe('App (e2e)', () => {
         .set('content-type', 'application/json')
         .set('cookie', guest)
         .send({ code: created.body.code })
+        .expect(404);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', guest)
+        .send({ code: rejected.body.code })
         .expect(200)
         .expect(({ body }) => expect(body.me.status).toBe('pending'));
     });
