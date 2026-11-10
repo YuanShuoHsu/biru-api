@@ -2,7 +2,18 @@ import { randomInt, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, asc, count, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gt,
+  inArray,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import { organizationClosedError } from '../common/utils/organization-closure.js';
@@ -57,6 +68,7 @@ import {
 
 export const SHARED_CART_MAX_PARTICIPANTS = 20;
 export const SHARED_CART_MAX_PENDING = 5;
+export const SHARED_CART_MAX_PER_STORE = 1_000;
 export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 export const SHARED_CART_REQUEST_TTL_MS = 10 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
@@ -345,7 +357,7 @@ export class SharedCartsService {
       const written = await write(code);
       if (written !== undefined) return written;
     }
-    throw new Error('No free shared cart code');
+    throw conflictError('sharedCartLimitReached');
   }
 
   private insertCart(
@@ -380,10 +392,13 @@ export class SharedCartsService {
           savepoint
             .update(sharedCart)
             .set({ code })
-            .where(eq(sharedCart.id, sharedCartId)),
+            .where(
+              and(eq(sharedCart.id, sharedCartId), ne(sharedCart.code, code)),
+            )
+            .returning({ id: sharedCart.id }),
         )
         .then(
-          () => code,
+          (updated) => (updated.length ? code : undefined),
           (error: unknown) => {
             if (isUniqueViolation(error)) return undefined;
             throw error;
@@ -518,6 +533,21 @@ export class SharedCartsService {
       if (device.pending)
         await deleteParticipant(tx, device.pending.participantId);
 
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`shared_cart_store:${org.id}`}, 0))`,
+      );
+      const [{ live }] = await tx
+        .select({ live: count() })
+        .from(sharedCart)
+        .where(
+          and(
+            eq(sharedCart.organizationId, org.id),
+            gt(sharedCart.lastActivityAt, activeSince()),
+          ),
+        );
+      if (live >= SHARED_CART_MAX_PER_STORE)
+        throw conflictError('sharedCartLimitReached');
+
       const sharedCartId = await this.insertCart(
         tx,
         org.id,
@@ -577,7 +607,6 @@ export class SharedCartsService {
           lastActivityAt > activeSince(),
       );
       if (!cart) throw notFoundError('sharedCartNotFound');
-      if (cart.mode !== dto.mode) throw modeMismatchError(cart.mode);
       if (tableNumber !== cart.tableNumber)
         throw orderBadRequestError('invalidTable');
 

@@ -510,6 +510,7 @@ export type I18nTranslations = {
                 "rabbit": string;
             };
             "sharedCartFull": string;
+            "sharedCartLimitReached": string;
             "sharedCartMemberAvatarSignInRequired": string;
             "sharedCartModeMismatch": string;
             "sharedCartNotFound": string;

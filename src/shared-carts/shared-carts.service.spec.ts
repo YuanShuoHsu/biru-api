@@ -25,6 +25,7 @@ import {
 import {
   SHARED_CART_MAX_PARTICIPANTS,
   SHARED_CART_MAX_PENDING,
+  SHARED_CART_MAX_PER_STORE,
   SHARED_CART_REQUEST_TTL_MS,
   SHARED_CART_TTL_MS,
   sharedCartCode,
@@ -284,6 +285,41 @@ describe('SharedCartsService', () => {
           ({ id }) => id,
         ),
       ).not.toContain('expired');
+    });
+
+    it(`refuses a new cart once the store has ${SHARED_CART_MAX_PER_STORE} live ones`, async () => {
+      await db.insert(sharedCart).values(
+        Array.from({ length: SHARED_CART_MAX_PER_STORE }, (_, i) => ({
+          code: i.toString().padStart(4, '0'),
+          id: `live-${i}`,
+          mode: 'pickup' as const,
+          organizationId: ORG,
+        })),
+      );
+
+      await expect(startPickup()).rejects.toMatchObject({
+        response: { code: 'sharedCartLimitReached' },
+        status: 409,
+      });
+
+      await db
+        .update(sharedCart)
+        .set({ lastActivityAt: new Date(Date.now() - SHARED_CART_TTL_MS) })
+        .where(eq(sharedCart.id, 'live-0'));
+      await expect(startPickup()).resolves.toBeDefined();
+    });
+
+    it('answers the limit error when every draw hits a live code', async () => {
+      const host = await startPickup();
+      for (let attempt = 0; attempt < 10; attempt++)
+        vi.mocked(randomInt).mockReturnValueOnce(
+          Number(host.cart.code) as never,
+        );
+
+      await expect(startPickup()).rejects.toMatchObject({
+        response: { code: 'sharedCartLimitReached' },
+        status: 409,
+      });
     });
 
     it('lets another store hold the same code but never this one', async () => {
@@ -1049,6 +1085,24 @@ describe('SharedCartsService', () => {
         'sharedCartNotFound',
       );
       expect(rejected.cart.me.status).toBe('pending');
+    });
+
+    it('draws again when rotating lands on the current code', async () => {
+      const host = await startPickup();
+      const guest = await requestToJoin(host.cart.code);
+      vi.mocked(randomInt)
+        .mockReturnValueOnce(Number(host.cart.code) as never)
+        .mockReturnValueOnce(((Number(host.cart.code) + 1) % 10_000) as never);
+
+      const { cart } = await service.rejectRequest(
+        SLUG,
+        guest.cart.me.id,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.code).toBe(
+        ((Number(host.cart.code) + 1) % 10_000).toString().padStart(4, '0'),
+      );
     });
 
     it('skips a code held by a live cart when rotating', async () => {

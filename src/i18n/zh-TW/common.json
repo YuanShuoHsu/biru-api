@@ -457,6 +457,7 @@
       "rabbit": "兔兔"
     },
     "sharedCartFull": "這張共享點餐單人數已滿",
+    "sharedCartLimitReached": "目前共享點餐單太多，請稍後再發起",
     "sharedCartMemberAvatarSignInRequired": "登入會員才能使用會員頭像",
     "sharedCartModeMismatch": "這張單是{mode}，請從{mode}點餐加入",
     "sharedCartNotFound": "找不到這張共享點餐單，或單號已失效",

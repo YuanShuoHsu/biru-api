@@ -12,6 +12,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const sharedCartErrorCodes = [
   'sharedCartFull',
+  'sharedCartLimitReached',
   'sharedCartMemberAvatarSignInRequired',
   'sharedCartModeMismatch',
   'sharedCartNotFound',
