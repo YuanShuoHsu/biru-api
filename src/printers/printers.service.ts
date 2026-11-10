@@ -100,7 +100,10 @@ export class PrintersService {
         eq(printerTable.organizationId, organizationId),
         eq(printerTable.purpose, purpose),
       ),
-      orderBy: (printers, { asc }) => [asc(printers.createdAt)],
+      orderBy: (printers, { asc }) => [
+        asc(printers.createdAt),
+        asc(printers.id),
+      ],
     });
   }
 

@@ -43,6 +43,16 @@ describe('PrintersService（PGlite）', () => {
     await expect(lookup).rejects.toThrow('organizationNotFound');
   });
 
+  it('建立時間相同的出單機依 id 排出固定順序', async () => {
+    await client.exec(
+      `insert into printer (id, organization_id, purpose, username, digest_ha1, created_at) values ('c', 'org-1', 'orderTicket', 'tie-c', 'x', '2026-01-01'), ('a', 'org-1', 'orderTicket', 'tie-a', 'x', '2026-01-01'), ('b', 'org-1', 'orderTicket', 'tie-b', 'x', '2026-01-01')`,
+    );
+
+    const printers = await service.list('org-1', 'orderTicket');
+
+    expect(printers.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+  });
+
   it('nc 超過 int4 範圍時拒絕而不是丟出 500', async () => {
     const [printer] = await drizzle(client, { schema })
       .insert(schema.printer)
