@@ -61,6 +61,14 @@ describe('CreateStorePhotoDto', () => {
     ).toEqual([]);
   });
 
+  it('accepts a sortOrder up to 9999 and rejects 10000', async () => {
+    const photoOf = (sortOrder: number) =>
+      errorsOf(CreateStorePhotoDto, { image, alt: fullAlt, sortOrder });
+
+    expect(await photoOf(9999)).toEqual([]);
+    expect(await photoOf(10000)).toEqual(['sortOrder']);
+  });
+
   it('rejects an svg image', async () => {
     expect(
       await errorsOf(CreateStorePhotoDto, {
@@ -86,6 +94,12 @@ describe('UpdateStorePhotoDto', () => {
       );
     },
   );
+
+  it('rejects a sortOrder over 9999', async () => {
+    expect(await errorsOf(UpdateStorePhotoDto, { sortOrder: 10000 })).toEqual([
+      'sortOrder',
+    ]);
+  });
 
   it('rejects a blank alt', async () => {
     expect(await errorsOf(UpdateStorePhotoDto, { alt: { en: ' ' } })).toEqual([
