@@ -12,17 +12,16 @@ export const PAYROLL_STATEMENT_STRING_FILTER_FIELDS = [
 export const PAYROLL_STATEMENT_MONTH_FILTER_FIELDS = ['month'] as const;
 
 export const PAYROLL_STATEMENT_ENUM_FILTER_FIELDS = ['status'] as const;
-export const PAYROLL_STATEMENT_FILTER_FIELDS = [
+const PAYROLL_STATEMENT_FILTER_FIELDS = [
   ...PAYROLL_STATEMENT_STRING_FILTER_FIELDS,
   ...PAYROLL_STATEMENT_MONTH_FILTER_FIELDS,
   ...PAYROLL_STATEMENT_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type PayrollStatementFilterField =
+type PayrollStatementFilterField =
   (typeof PAYROLL_STATEMENT_FILTER_FIELDS)[number];
-export const PAYROLL_STATEMENT_SORT_FIELDS = PAYROLL_STATEMENT_FILTER_FIELDS;
-export type PayrollStatementSortField =
-  (typeof PAYROLL_STATEMENT_SORT_FIELDS)[number];
+const PAYROLL_STATEMENT_SORT_FIELDS = PAYROLL_STATEMENT_FILTER_FIELDS;
+type PayrollStatementSortField = (typeof PAYROLL_STATEMENT_SORT_FIELDS)[number];
 
 export class PayrollStatementPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
