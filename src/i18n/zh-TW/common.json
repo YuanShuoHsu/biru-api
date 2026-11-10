@@ -312,6 +312,7 @@
   },
   "organizations": {
     "notJoinedAsPlatformAdmin": "這位成員不是以平台管理員身分加入的擁有者。",
+    "showcaseJoinedAsPlatformAdmin": "以平台管理員身分加入的成員不能在團隊介紹公開顯示。",
     "showcaseOpenSelfOnly": "只有成員本人能開啟在團隊介紹的公開顯示。",
     "specialHoursEnded": "不能新增或改成已經結束的特殊營業日。",
     "specialHoursInvalidRange": "特殊營業日的開始日期不能晚於結束日期。",
@@ -444,6 +445,27 @@
       "LTR": "公升",
       "MLT": "毫升"
     }
+  },
+  "sharedCarts": {
+    "anonymousNickname": "匿名{animal}",
+    "avatars": {
+      "bear": "熊熊",
+      "cat": "貓咪",
+      "dog": "狗狗",
+      "fox": "狐狸",
+      "koala": "無尾熊",
+      "panda": "熊貓",
+      "penguin": "企鵝",
+      "rabbit": "兔兔"
+    },
+    "sharedCartCodeNotFound": "找不到這張共享點餐單，請確認單號與點餐模式",
+    "sharedCartFull": "這張共享點餐單人數已滿",
+    "sharedCartLimitReached": "目前共享點餐單太多，請稍後再發起",
+    "sharedCartMemberAvatarSignInRequired": "登入會員才能使用會員頭像",
+    "sharedCartNotFound": "找不到這張共享點餐單，或單號已失效",
+    "sharedCartPending": "請等單內的人允許你加入",
+    "sharedCartRequestNotFound": "這筆加入請求已被處理或已逾時",
+    "sharedCartRequestsFull": "等待允許加入的人數已滿，請稍後再試"
   },
   "storeLayout": {
     "duplicateTableNumber": "桌號 {tableNumber} 重複了。",

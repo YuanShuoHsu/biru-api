@@ -125,6 +125,7 @@ export class ListUsersQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
   offset?: number = 0;
 
   @ApiPropertyOptional({ description: 'Quick Filter 搜尋值' })

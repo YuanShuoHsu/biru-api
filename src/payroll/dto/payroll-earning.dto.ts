@@ -22,18 +22,17 @@ export const PAYROLL_EARNING_TYPE_STRING_FILTER_FIELDS = ['name'] as const;
 
 export const PAYROLL_EARNING_TYPE_ENUM_FILTER_FIELDS = ['category'] as const;
 
-export const PAYROLL_EARNING_TYPE_FILTER_FIELDS = [
+const PAYROLL_EARNING_TYPE_FILTER_FIELDS = [
   ...PAYROLL_EARNING_TYPE_STRING_FILTER_FIELDS,
   ...PAYROLL_EARNING_TYPE_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type PayrollEarningTypeFilterField =
+type PayrollEarningTypeFilterField =
   (typeof PAYROLL_EARNING_TYPE_FILTER_FIELDS)[number];
 
-export const PAYROLL_EARNING_TYPE_SORT_FIELDS =
-  PAYROLL_EARNING_TYPE_FILTER_FIELDS;
+const PAYROLL_EARNING_TYPE_SORT_FIELDS = PAYROLL_EARNING_TYPE_FILTER_FIELDS;
 
-export type PayrollEarningTypeSortField =
+type PayrollEarningTypeSortField =
   (typeof PAYROLL_EARNING_TYPE_SORT_FIELDS)[number];
 
 export class PayrollEarningTypePaginationQueryDto extends PaginationQueryDto {

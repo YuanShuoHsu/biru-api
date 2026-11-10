@@ -57,6 +57,13 @@ const EMPLOYEE_RESOURCES: AttendanceAuditResource[] = [
   'withholdingCertificate',
 ];
 
+const NAMED_RESOURCES: Partial<Record<AttendanceAuditResource, SQL>> = {
+  earningType: sql`SELECT id, name FROM payroll_earning_type`,
+  leaveType: sql`SELECT id, name FROM attendance_leave_type`,
+  shiftType: sql`SELECT id, name FROM attendance_shift_type`,
+  withholdingUnit: sql`SELECT organization_id AS id, name FROM payroll_withholding_unit`,
+};
+
 const HIDDEN_FIELDS = new Set([
   'idempotencyKey',
   'organizationId',
@@ -94,6 +101,17 @@ export const attendanceEmployeeId = (resource: SQL, resourceId: SQL) => sql`
       Object.entries(EMPLOYEE_TABLES).map(
         ([value, table]) =>
           sql`WHEN ${resource} = ${value} THEN (SELECT employee_id FROM ${sql.identifier(table)} WHERE id = ${resourceId})`,
+      ),
+      sql` `,
+    )}
+  END`;
+
+export const attendanceResourceName = (resource: SQL, resourceId: SQL) => sql`
+  CASE
+    ${sql.join(
+      Object.entries(NAMED_RESOURCES).map(
+        ([value, source]) =>
+          sql`WHEN ${resource} = ${value} THEN (SELECT source.name FROM (${source}) source WHERE source.id = ${resourceId})`,
       ),
       sql` `,
     )}

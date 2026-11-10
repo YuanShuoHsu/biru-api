@@ -9,7 +9,7 @@ import * as schema from '../db/schema/index.js';
 import { createPGlite } from '../../test/pglite.js';
 
 const migration = readFileSync(
-  './drizzle/0271_order_ticket_printer_name_unique.sql',
+  './drizzle/0272_order_ticket_printer_name_unique.sql',
   'utf8',
 );
 

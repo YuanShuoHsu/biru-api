@@ -365,6 +365,7 @@ export type I18nTranslations = {
         };
         "organizations": {
             "notJoinedAsPlatformAdmin": string;
+            "showcaseJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;
             "specialHoursEnded": string;
             "specialHoursInvalidRange": string;
@@ -497,6 +498,27 @@ export type I18nTranslations = {
                 "LTR": string;
                 "MLT": string;
             };
+        };
+        "sharedCarts": {
+            "anonymousNickname": string;
+            "avatars": {
+                "bear": string;
+                "cat": string;
+                "dog": string;
+                "fox": string;
+                "koala": string;
+                "panda": string;
+                "penguin": string;
+                "rabbit": string;
+            };
+            "sharedCartCodeNotFound": string;
+            "sharedCartFull": string;
+            "sharedCartLimitReached": string;
+            "sharedCartMemberAvatarSignInRequired": string;
+            "sharedCartNotFound": string;
+            "sharedCartPending": string;
+            "sharedCartRequestNotFound": string;
+            "sharedCartRequestsFull": string;
         };
         "storeLayout": {
             "duplicateTableNumber": string;
@@ -769,6 +791,7 @@ export type I18nTranslations = {
         "isString": string;
         "maxLength": string;
         "minLength": string;
+        "printableText": string;
     };
 };
 /* prettier-ignore */

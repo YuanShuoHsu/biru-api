@@ -13,6 +13,7 @@ const modulesWithErrorCodes = [
   'points',
   'quant',
   'reports',
+  'shared-carts',
   'store-layout',
   'store-photos',
   'waitlist',

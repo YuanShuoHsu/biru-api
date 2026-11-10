@@ -257,6 +257,30 @@ describe('OrganizationsService 團隊介紹', () => {
     ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
   });
 
+  it('以平台管理員身分加入的成員不能開啟公開顯示，也不會出現在團隊介紹', async () => {
+    await client.exec(
+      `update member set joined_as_platform_admin = true where id = 'm-cat'`,
+    );
+    try {
+      await expect(
+        service.setMemberShowcase('biru', 'm-cat', true, adminActor),
+      ).rejects.toMatchObject({
+        response: { code: 'showcaseJoinedAsPlatformAdmin' },
+        status: 403,
+      });
+
+      await client.exec(`update member set showcase = true where id = 'm-cat'`);
+      expect(
+        await service.organizationMembers('biru', { showcasedOnly: true }),
+      ).toEqual([]);
+      await service.setMemberShowcase('biru', 'm-cat', false, adminActor);
+    } finally {
+      await client.exec(
+        `update member set joined_as_platform_admin = false, showcase = false where id = 'm-cat'`,
+      );
+    }
+  });
+
   it('成員異動紀錄以成員的名稱作為標籤', async () => {
     const labels = await resolveAuditLabels(
       db,
