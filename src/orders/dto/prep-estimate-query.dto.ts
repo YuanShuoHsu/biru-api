@@ -3,7 +3,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
-import { PICKUP_MAX_MINUTES } from '../../common/constants/pickup.js';
+import {
+  getPickupMaxLeadMinutes,
+  PICKUP_MAX_ADVANCE_DAYS,
+} from '../../common/constants/pickup.js';
 
 export class PrepEstimateQueryDto {
   @ApiPropertyOptional({
@@ -14,6 +17,6 @@ export class PrepEstimateQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(PICKUP_MAX_MINUTES)
+  @Max(getPickupMaxLeadMinutes(PICKUP_MAX_ADVANCE_DAYS))
   leadMinutes?: number;
 }
