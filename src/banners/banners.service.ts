@@ -61,7 +61,6 @@ export class BannersService {
     private readonly imageStorage: ImageStorageService,
   ) {}
 
-  // 前台輪播:僅啟用且在上下架時間內的圖,依排序顯示
   async findAllActive(): Promise<BannerResponseDto[]> {
     const now = new Date();
 
