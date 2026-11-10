@@ -1,6 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
@@ -643,7 +643,11 @@ describe('DeletedRecordsService 還原平台管理員身分加入的成員', () 
       .select({ organizationId: schema.team.organizationId })
       .from(schema.team)
       .where(eq(schema.team.id, teamId));
-    const batchId = 9_000_001;
+    const {
+      rows: [{ batchId }],
+    } = await db.execute<{ batchId: number }>(
+      sql`SELECT (-nextval('deleted_record_batch_seq'))::int AS "batchId"`,
+    );
     await db.insert(deletedRecord).values([
       {
         batchId,

@@ -358,6 +358,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
               AND NOT EXISTS (
                 SELECT 1 FROM deleted_record other
                 WHERE other.batch_id = d.batch_id
+                  AND (other.id = d.id OR NOT ${grantsRevokedPlatformAdmin('other')})
                   AND other.table_name NOT IN (${sql.join(
                     [...restorableTablesFor(scope.role), ''].map(
                       (table) => sql`${table}`,
