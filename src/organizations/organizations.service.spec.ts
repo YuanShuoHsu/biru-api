@@ -276,7 +276,7 @@ describe('OrganizationsService 團隊介紹', () => {
       await service.setMemberShowcase('biru', 'm-cat', false, adminActor);
     } finally {
       await client.exec(
-        `update member set joined_as_platform_admin = false where id = 'm-cat'`,
+        `update member set joined_as_platform_admin = false, showcase = false where id = 'm-cat'`,
       );
     }
   });
