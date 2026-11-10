@@ -458,6 +458,7 @@
     },
     "sharedCartFull": "这张共享点餐单人数已满",
     "sharedCartMemberAvatarSignInRequired": "登录会员才能使用会员头像",
+    "sharedCartModeMismatch": "这张单是{mode}，请从{mode}点餐加入",
     "sharedCartNotFound": "找不到这张共享点餐单，或单号已失效",
     "sharedCartPending": "请等单内的人允许你加入",
     "sharedCartRequestNotFound": "这笔加入请求已被处理或已超时",

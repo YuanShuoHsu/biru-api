@@ -10,6 +10,10 @@ import { App } from 'supertest/types.js';
 
 import { AppModule } from '../src/app.module.js';
 import { db } from '../src/db/index.js';
+import {
+  issueOrderQrSession,
+  ORDER_QR_SESSION_COOKIE,
+} from '../src/orders/order-qr-token.js';
 
 vi.hoisted(() => {
   Object.assign(process.env, {
@@ -112,14 +116,14 @@ describe('App (e2e)', () => {
       expect(host).toBeDefined();
       expect(participantSetCookie(created)).not.toMatch(/expires|max-age/i);
       expect(created.body).toMatchObject({
-        code: expect.stringMatching(/^\d{6}$/),
+        code: expect.stringMatching(/^\d{4}$/),
         participants: [{ avatar: 'cat', isMe: true, nickname: '小明' }],
       });
 
       const joined = await request(server)
         .post(`${base}/join`)
         .set('content-type', 'application/json')
-        .send({ code: created.body.code })
+        .send({ code: created.body.code, mode: 'pickup' })
         .expect(200);
       const guest = participantCookie(joined)!;
       expect(joined.body).toMatchObject({
@@ -177,7 +181,7 @@ describe('App (e2e)', () => {
       await request(server)
         .post(`${base}/join`)
         .set('content-type', 'application/json')
-        .send({ code: created.body.code })
+        .send({ code: created.body.code, mode: 'pickup' })
         .expect(404);
     });
 
@@ -192,7 +196,7 @@ describe('App (e2e)', () => {
       const joined = await request(server)
         .post(`${base}/join`)
         .set('content-type', 'application/json')
-        .send({ code: created.body.code })
+        .send({ code: created.body.code, mode: 'pickup' })
         .expect(200);
       const guest = participantCookie(joined)!;
 
@@ -210,13 +214,13 @@ describe('App (e2e)', () => {
         .post(`${base}/join`)
         .set('content-type', 'application/json')
         .set('cookie', guest)
-        .send({ code: created.body.code })
+        .send({ code: created.body.code, mode: 'pickup' })
         .expect(404);
       await request(server)
         .post(`${base}/join`)
         .set('content-type', 'application/json')
         .set('cookie', guest)
-        .send({ code: rejected.body.code })
+        .send({ code: rejected.body.code, mode: 'pickup' })
         .expect(200)
         .expect(({ body }) => expect(body.me.status).toBe('pending'));
     });
@@ -238,7 +242,7 @@ describe('App (e2e)', () => {
         .post(`${base}/join`)
         .set('content-type', 'application/json')
         .set('cookie', firstCookie)
-        .send({ code: second.body.code })
+        .send({ code: second.body.code, mode: 'pickup' })
         .expect(200);
       expect(asked.body).toMatchObject({
         code: first.body.code,
@@ -331,6 +335,42 @@ describe('App (e2e)', () => {
         .expect(404);
       expect(unknownStore.body.code).toBe('organizationNotFound');
       expect(participantSetCookie(unknownStore)).toBeUndefined();
+    });
+
+    it('用不同點餐模式加入時回 409 並告知這張單的模式', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+
+      const response = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code, mode: 'driveThru' })
+        .expect(400);
+      expect(response.body.code).toBe('inStoreQrCodeRequired');
+
+      const counterSession = issueOrderQrSession(
+        'shared-cart-org',
+        null,
+        'counter',
+        null,
+      ).value;
+      const mismatch = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('x-lang', 'zh-TW')
+        .set('cookie', `${ORDER_QR_SESSION_COOKIE}=${counterSession}`)
+        .send({ code: created.body.code, mode: 'counter' })
+        .expect(409);
+      expect(mismatch.body).toMatchObject({
+        code: 'sharedCartModeMismatch',
+        mode: 'pickup',
+      });
+      expect(mismatch.body.message).toContain('線上自取');
+      expect(participantSetCookie(mismatch)).toBeUndefined();
     });
 
     it('內用沒有桌位 QR session 時拒絕發起', () =>

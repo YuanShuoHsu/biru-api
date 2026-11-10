@@ -7,11 +7,13 @@ import {
 
 import { I18nContext } from 'nestjs-i18n';
 
+import type { OrderMode } from '../db/schema/orders.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const sharedCartErrorCodes = [
   'sharedCartFull',
   'sharedCartMemberAvatarSignInRequired',
+  'sharedCartModeMismatch',
   'sharedCartNotFound',
   'sharedCartPending',
   'sharedCartRequestNotFound',
@@ -20,11 +22,14 @@ export const sharedCartErrorCodes = [
 
 type SharedCartErrorCode = (typeof sharedCartErrorCodes)[number];
 
-const errorBody = (code: SharedCartErrorCode) => ({
+const translate = () => I18nContext.current<I18nTranslations>();
+
+const errorBody = (
+  code: SharedCartErrorCode,
+  args?: Record<string, unknown>,
+) => ({
   code,
-  message:
-    I18nContext.current<I18nTranslations>()?.t(`common.sharedCarts.${code}`) ??
-    code,
+  message: translate()?.t(`common.sharedCarts.${code}`, { args }) ?? code,
 });
 
 export const badRequestError = (code: SharedCartErrorCode) =>
@@ -32,6 +37,15 @@ export const badRequestError = (code: SharedCartErrorCode) =>
 
 export const conflictError = (code: SharedCartErrorCode) =>
   new ConflictException({ error: 'Conflict', ...errorBody(code) });
+
+export const modeMismatchError = (mode: OrderMode) =>
+  new ConflictException({
+    error: 'Conflict',
+    ...errorBody('sharedCartModeMismatch', {
+      mode: translate()?.t(`common.orderTickets.modes.${mode}`) ?? mode,
+    }),
+    mode,
+  });
 
 export const forbiddenError = (code: SharedCartErrorCode) =>
   new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });

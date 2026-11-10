@@ -59,8 +59,8 @@ export class CreateSharedCartDto extends SharedCartProfileDto {
   mode: OrderMode;
 }
 
-export class JoinSharedCartDto extends SharedCartProfileDto {
-  @ApiProperty({ example: '012345' })
-  @Matches(/^\d{6}$/)
+export class JoinSharedCartDto extends CreateSharedCartDto {
+  @ApiProperty({ example: '0123' })
+  @Matches(/^\d{4}$/)
   code: string;
 }

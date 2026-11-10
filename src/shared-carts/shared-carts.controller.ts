@@ -95,7 +95,7 @@ export class SharedCartsController {
     [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
   })
   @ApiOperation({
-    summary: '以 6 碼單號送出加入請求，由單內已加入的人允許後才看得到內容',
+    summary: '以 4 碼單號送出加入請求，由單內已加入的人允許後才看得到內容',
   })
   async join(
     @Param('organizationSlug') organizationSlug: string,

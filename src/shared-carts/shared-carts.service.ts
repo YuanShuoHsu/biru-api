@@ -44,6 +44,7 @@ import {
   badRequestError,
   conflictError,
   forbiddenError,
+  modeMismatchError,
   notFoundError,
 } from './shared-cart-errors.js';
 import {
@@ -85,7 +86,7 @@ export type SharedCartResult = {
 };
 
 export const sharedCartCode = () =>
-  randomInt(0, 1_000_000).toString().padStart(6, '0');
+  randomInt(0, 10_000).toString().padStart(4, '0');
 
 const randomAnimal = () =>
   SHARED_CART_ANIMAL_AVATARS[randomInt(SHARED_CART_ANIMAL_AVATARS.length)];
@@ -327,6 +328,7 @@ export class SharedCartsService {
 
   private async withFreeCode<T>(
     tx: Tx,
+    organizationId: string,
     write: (code: string) => Promise<T | undefined>,
   ): Promise<T> {
     for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
@@ -335,6 +337,7 @@ export class SharedCartsService {
         .delete(sharedCart)
         .where(
           and(
+            eq(sharedCart.organizationId, organizationId),
             eq(sharedCart.code, code),
             lte(sharedCart.lastActivityAt, activeSince()),
           ),
@@ -351,7 +354,7 @@ export class SharedCartsService {
     mode: OrderMode,
     tableNumber: number | null,
   ) {
-    return this.withFreeCode(tx, async (code) => {
+    return this.withFreeCode(tx, organizationId, async (code) => {
       const [created] = await tx
         .insert(sharedCart)
         .values({
@@ -362,14 +365,16 @@ export class SharedCartsService {
           organizationId,
           tableNumber,
         })
-        .onConflictDoNothing({ target: sharedCart.code })
+        .onConflictDoNothing({
+          target: [sharedCart.organizationId, sharedCart.code],
+        })
         .returning({ id: sharedCart.id });
       return created?.id;
     });
   }
 
-  private rotateCode(tx: Tx, sharedCartId: string) {
-    return this.withFreeCode(tx, (code) =>
+  private rotateCode(tx: Tx, organizationId: string, sharedCartId: string) {
+    return this.withFreeCode(tx, organizationId, (code) =>
       tx
         .transaction((savepoint) =>
           savepoint
@@ -540,13 +545,14 @@ export class SharedCartsService {
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
+    const tableNumber = this.qrTableNumber(org, qrSessionValue, dto.mode);
     const profile = this.profile(member, dto);
     const deviceKey =
       this.deviceKeyOf(org, cookies) ?? newSharedCartDeviceKey();
 
     await this.db.transaction(async (tx) => {
       const [found] = await tx
-        .select({ id: sharedCart.id })
+        .select({ id: sharedCart.id, mode: sharedCart.mode })
         .from(sharedCart)
         .where(
           and(
@@ -556,6 +562,7 @@ export class SharedCartsService {
           ),
         );
       if (!found) throw notFoundError('sharedCartNotFound');
+      if (found.mode !== dto.mode) throw modeMismatchError(found.mode);
 
       const { device, locked } = await this.lockDevice(
         tx,
@@ -570,10 +577,8 @@ export class SharedCartsService {
           lastActivityAt > activeSince(),
       );
       if (!cart) throw notFoundError('sharedCartNotFound');
-
-      if (
-        this.qrTableNumber(org, qrSessionValue, cart.mode) !== cart.tableNumber
-      )
+      if (cart.mode !== dto.mode) throw modeMismatchError(cart.mode);
+      if (tableNumber !== cart.tableNumber)
         throw orderBadRequestError('invalidTable');
 
       if (
@@ -717,7 +722,7 @@ export class SharedCartsService {
 
       if (!approve) {
         await deleteParticipant(tx, requestId);
-        await this.rotateCode(tx, sharedCartId);
+        await this.rotateCode(tx, org.id, sharedCartId);
         return;
       }
       if ((await countActive(tx, sharedCartId)) >= SHARED_CART_MAX_PARTICIPANTS)

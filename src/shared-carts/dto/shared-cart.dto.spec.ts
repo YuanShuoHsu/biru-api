@@ -84,14 +84,24 @@ describe('CreateSharedCartDto', () => {
 
 describe('JoinSharedCartDto', () => {
   it.each([
-    ['012345', []],
+    ['0123', []],
+    ['123', ['code']],
     ['12345', ['code']],
-    ['1234567', ['code']],
-    ['12a456', ['code']],
-    [123456, ['code']],
+    ['12a4', ['code']],
+    [1234, ['code']],
   ])('code %j', async (code, errors) => {
-    expect((await errorsOf(JoinSharedCartDto, { code })).errors).toEqual(
-      errors,
-    );
+    expect(
+      (await errorsOf(JoinSharedCartDto, { code, mode: 'pickup' })).errors,
+    ).toEqual(errors);
+  });
+
+  it('requires an order mode', async () => {
+    expect(
+      (await errorsOf(JoinSharedCartDto, { code: '0123' })).errors,
+    ).toEqual(['mode']);
+    expect(
+      (await errorsOf(JoinSharedCartDto, { code: '0123', mode: 'drone' }))
+        .errors,
+    ).toEqual(['mode']);
   });
 });

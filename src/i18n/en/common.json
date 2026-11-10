@@ -458,6 +458,7 @@
     },
     "sharedCartFull": "This shared order is full",
     "sharedCartMemberAvatarSignInRequired": "Sign in to use your member avatar",
+    "sharedCartModeMismatch": "This shared order is for {mode}. Join it from {mode} ordering",
     "sharedCartNotFound": "Shared order not found, or the code has expired",
     "sharedCartPending": "Wait until someone in the shared order lets you in",
     "sharedCartRequestNotFound": "This join request has already been handled or has expired",

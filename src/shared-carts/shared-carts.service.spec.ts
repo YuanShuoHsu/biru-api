@@ -46,10 +46,10 @@ const cookiesOf = ({ name, value }: IssuedSharedCartParticipant) => ({
 });
 
 describe('sharedCartCode', () => {
-  it('zero-pads the random number to six digits', () => {
+  it('zero-pads the random number to four digits', () => {
     vi.mocked(randomInt).mockReturnValueOnce(42 as never);
-    expect(sharedCartCode()).toBe('000042');
-    expect(sharedCartCode()).toMatch(/^\d{6}$/);
+    expect(sharedCartCode()).toBe('0042');
+    expect(sharedCartCode()).toMatch(/^\d{4}$/);
   });
 });
 
@@ -77,7 +77,13 @@ describe('SharedCartsService', () => {
     cookies?: Record<string, string>,
     profile: { avatar?: 'dog'; nickname?: string } = {},
   ) =>
-    service.join(SLUG, { code: code!, ...profile }, null, undefined, cookies);
+    service.join(
+      SLUG,
+      { code: code!, mode: 'pickup', ...profile },
+      null,
+      undefined,
+      cookies,
+    );
 
   const joinApproved = async (host: SharedCartResult) => {
     const guest = await requestToJoin(host.cart.code);
@@ -136,7 +142,7 @@ describe('SharedCartsService', () => {
       const { cart, issued } = await startPickup();
 
       expect(cart).toMatchObject({
-        code: expect.stringMatching(/^\d{6}$/),
+        code: expect.stringMatching(/^\d{4}$/),
         items: [],
         me: { avatar: 'cat', image: null, nickname: '小明', status: 'active' },
         mode: 'pickup',
@@ -253,13 +259,13 @@ describe('SharedCartsService', () => {
       const expired = new Date(Date.now() - SHARED_CART_TTL_MS - 1000);
       await db.insert(sharedCart).values([
         {
-          code: '000001',
+          code: '0001',
           id: 'active',
           mode: 'pickup',
           organizationId: ORG,
         },
         {
-          code: '000002',
+          code: '0002',
           id: 'expired',
           lastActivityAt: expired,
           mode: 'pickup',
@@ -272,12 +278,71 @@ describe('SharedCartsService', () => {
 
       const { cart } = await startPickup();
 
-      expect(cart.code).toBe('000002');
+      expect(cart.code).toBe('0002');
       expect(
         (await db.select({ id: sharedCart.id }).from(sharedCart)).map(
           ({ id }) => id,
         ),
       ).not.toContain('expired');
+    });
+
+    it('lets another store hold the same code but never this one', async () => {
+      await client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org-b', 'Biru B', 'biru-b', now(), 'TW', '桃園市', '大園區', '中正東路一段') on conflict do nothing`,
+      );
+      const here = await startPickup();
+      vi.mocked(randomInt)
+        .mockReturnValueOnce(Number(here.cart.code) as never)
+        .mockReturnValueOnce(Number(here.cart.code) as never)
+        .mockReturnValueOnce(7 as never);
+
+      const there = await service.create(
+        'biru-b',
+        { avatar: 'cat', mode: 'pickup', nickname: '小明' },
+        null,
+        undefined,
+        undefined,
+      );
+      const next = await startPickup();
+
+      expect(there.cart.code).toBe(here.cart.code);
+      expect(next.cart.code).toBe('0007');
+    });
+
+    it('rotates a code only against this store', async () => {
+      await client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org-b', 'Biru B', 'biru-b', now(), 'TW', '桃園市', '大園區', '中正東路一段') on conflict do nothing`,
+      );
+      const there = await service.create(
+        'biru-b',
+        { mode: 'pickup' },
+        null,
+        undefined,
+        undefined,
+      );
+      await db
+        .update(sharedCart)
+        .set({ lastActivityAt: new Date(Date.now() - SHARED_CART_TTL_MS) })
+        .where(eq(sharedCart.organizationId, 'org-b'));
+      const host = await startPickup();
+      const guest = await requestToJoin(host.cart.code);
+      vi.mocked(randomInt).mockReturnValueOnce(
+        Number(there.cart.code) as never,
+      );
+
+      const { cart } = await service.rejectRequest(
+        SLUG,
+        guest.cart.me.id,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.code).toBe(there.cart.code);
+      expect(
+        await db
+          .select({ id: sharedCart.id })
+          .from(sharedCart)
+          .where(eq(sharedCart.organizationId, 'org-b')),
+      ).toHaveLength(1);
     });
 
     it('drops a pending request when the requester starts their own cart', async () => {
@@ -314,7 +379,7 @@ describe('SharedCartsService', () => {
       await expect(
         service.join(
           SLUG,
-          { code: host.cart.code! },
+          { code: host.cart.code!, mode: 'pickup' },
           null,
           undefined,
           undefined,
@@ -733,6 +798,63 @@ describe('SharedCartsService', () => {
       ).toEqual([expect.objectContaining({ nickname: '小華' })]);
     });
 
+    it('refuses a request from another order mode and names the cart’s mode', async () => {
+      const host = await service.create(
+        SLUG,
+        { mode: 'dineIn' },
+        null,
+        tableSession(3),
+        undefined,
+      );
+
+      await expect(
+        service.join(
+          SLUG,
+          { code: host.cart.code!, mode: 'pickup' },
+          null,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'sharedCartModeMismatch', mode: 'dineIn' },
+        status: 409,
+      });
+      expect(await db.select().from(sharedCartParticipant)).toHaveLength(1);
+      await expect(
+        service.join(
+          SLUG,
+          { code: host.cart.code!, mode: 'dineIn' },
+          null,
+          tableSession(3),
+          undefined,
+        ),
+      ).resolves.toMatchObject({ cart: { me: { status: 'pending' } } });
+    });
+
+    it('asks for the QR session of the caller’s own mode first', async () => {
+      const host = await startPickup();
+      await expect(
+        service.join(
+          SLUG,
+          { code: host.cart.code!, mode: 'counter' },
+          null,
+          undefined,
+          undefined,
+        ),
+      ).rejects.toThrow('inStoreQrCodeRequired');
+      await expect(
+        service.join(
+          SLUG,
+          { code: host.cart.code!, mode: 'counter' },
+          null,
+          counterSession(),
+          undefined,
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'sharedCartModeMismatch', mode: 'pickup' },
+      });
+    });
+
     it('answers not found for an unknown or expired code', async () => {
       const host = await startPickup();
       await db
@@ -742,7 +864,7 @@ describe('SharedCartsService', () => {
       await expect(
         service.join(
           SLUG,
-          { code: host.cart.code! },
+          { code: host.cart.code!, mode: 'pickup' },
           null,
           undefined,
           undefined,
@@ -763,7 +885,7 @@ describe('SharedCartsService', () => {
         await expect(
           service.join(
             SLUG,
-            { code: host.cart.code! },
+            { code: host.cart.code!, mode: 'dineIn' },
             null,
             qrSession,
             undefined,
@@ -772,7 +894,7 @@ describe('SharedCartsService', () => {
       await expect(
         service.join(
           SLUG,
-          { code: host.cart.code! },
+          { code: host.cart.code!, mode: 'dineIn' },
           null,
           tableSession(3),
           undefined,
@@ -797,7 +919,7 @@ describe('SharedCartsService', () => {
       await expect(
         service.join(
           SLUG,
-          { code: host.cart.code! },
+          { code: host.cart.code!, mode: 'pickup' },
           null,
           undefined,
           undefined,
@@ -870,7 +992,7 @@ describe('SharedCartsService', () => {
         cookiesOf(host.issued),
       );
 
-      expect(cart.code).toMatch(/^\d{6}$/);
+      expect(cart.code).toMatch(/^\d{4}$/);
       expect(cart.code).not.toBe(host.cart.code);
       expect(cart.requests.map(({ id }) => id)).toEqual([waiting.cart.me.id]);
       await expect(requestToJoin(host.cart.code)).rejects.toThrow(
@@ -943,7 +1065,7 @@ describe('SharedCartsService', () => {
         cookiesOf(host.issued),
       );
 
-      expect(cart.code).toBe('000042');
+      expect(cart.code).toBe('0042');
     });
 
     it('rejects by deleting the request', async () => {

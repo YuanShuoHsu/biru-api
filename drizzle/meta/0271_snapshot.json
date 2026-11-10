@@ -1,5 +1,5 @@
 {
-  "id": "07b088f5-a7c4-4ffe-bbc5-6b371280c823",
+  "id": "68b54cce-e763-4801-ac97-7255439bbed4",
   "prevId": "ea07ec1f-42e6-4fc8-8fcc-f7ee30dcca9f",
   "version": "7",
   "dialect": "postgresql",
@@ -10394,9 +10394,15 @@
         }
       },
       "indexes": {
-        "shared_cart_code_unique": {
-          "name": "shared_cart_code_unique",
+        "shared_cart_organizationId_code_unique": {
+          "name": "shared_cart_organizationId_code_unique",
           "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "code",
               "isExpression": false,
@@ -10405,21 +10411,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "shared_cart_organizationId_idx": {
-          "name": "shared_cart_organizationId_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

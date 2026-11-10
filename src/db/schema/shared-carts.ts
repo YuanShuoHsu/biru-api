@@ -72,8 +72,10 @@ export const sharedCart = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table): PgTableExtraConfigValue[] => [
-    uniqueIndex('shared_cart_code_unique').on(table.code),
-    index('shared_cart_organizationId_idx').on(table.organizationId),
+    uniqueIndex('shared_cart_organizationId_code_unique').on(
+      table.organizationId,
+      table.code,
+    ),
     foreignKey({
       name: 'shared_cart_checkoutParticipantId_fk',
       columns: [table.checkoutParticipantId],
