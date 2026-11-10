@@ -509,6 +509,7 @@ export type I18nTranslations = {
                 "waitlistClosed": string;
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
+                "waitlistGroupChanged": string;
                 "waitlistGroupsInUse": string;
                 "waitlistGroupsInvalid": string;
                 "waitlistIdempotencyConflict": string;
@@ -524,6 +525,7 @@ export type I18nTranslations = {
                 "waitlistClosed": string;
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
+                "waitlistGroupChanged": string;
                 "waitlistGroupsInUse": string;
                 "waitlistGroupsInvalid": string;
                 "waitlistIdempotencyConflict": string;

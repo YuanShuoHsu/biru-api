@@ -439,6 +439,7 @@ describe('WaitlistService.transitionTicket', () => {
     to: 'called' | 'waiting' = 'called',
     queued?: { id: string },
     phoneNumber: string | null = '+886912345678',
+    savedGroups: typeof groups = groups,
   ) => {
     const ticket = {
       calledAt: new Date('2026-10-06T12:00:00Z'),
@@ -446,6 +447,7 @@ describe('WaitlistService.transitionTicket', () => {
       id: 't',
       number: 3,
       organizationId: 'org',
+      partySize: 2,
       phoneNumber,
       prefix: 'A',
       status: from,
@@ -456,9 +458,13 @@ describe('WaitlistService.transitionTicket', () => {
       }),
     }));
     const lock = vi.fn(() => Promise.resolve([]));
+    const findQueued = vi.fn().mockResolvedValue(queued);
     const tx = {
       query: {
-        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(queued) },
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({ groups: savedGroups }),
+        },
+        waitlistTicket: { findFirst: findQueued },
       },
       select: () => ({ from: () => ({ where: () => ({ for: lock }) }) }),
       update: () => ({ set }),
@@ -475,7 +481,12 @@ describe('WaitlistService.transitionTicket', () => {
       'countAhead',
     ).mockResolvedValue(0);
 
-    return { lock, result: service.transitionTicket('slug', 't', to), set };
+    return {
+      findQueued,
+      lock,
+      result: service.transitionTicket('slug', 't', to),
+      set,
+    };
   };
 
   it.each([
@@ -501,7 +512,7 @@ describe('WaitlistService.transitionTicket', () => {
   });
 
   it('reverts a ticket whose phone was erased without checking the queue', async () => {
-    const { lock, result } = transition(
+    const { findQueued, result } = transition(
       'cancelled',
       'waiting',
       { id: 'other' },
@@ -509,7 +520,40 @@ describe('WaitlistService.transitionTicket', () => {
     );
 
     await expect(result).resolves.toMatchObject({ status: 'waiting' });
-    expect(lock).not.toHaveBeenCalled();
+    expect(findQueued).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket whose party size now falls in another group',
+    async (from, to) => {
+      const { result, set } = transition(from, to, undefined, undefined, [
+        { maxPartySize: 1, minPartySize: 1, prefix: 'A' },
+        { maxPartySize: 4, minPartySize: 2, prefix: 'B' },
+      ]);
+
+      await expect(result).rejects.toThrow('waitlistGroupChanged');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses a ticket whose phone was erased when its group changed', async () => {
+    const { result, set } = transition(
+      'cancelled',
+      'waiting',
+      undefined,
+      null,
+      [
+        { maxPartySize: 1, minPartySize: 1, prefix: 'A' },
+        { maxPartySize: 4, minPartySize: 2, prefix: 'B' },
+      ],
+    );
+
+    await expect(result).rejects.toThrow('waitlistGroupChanged');
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('does not lock the store for a transition within the queue', async () => {
