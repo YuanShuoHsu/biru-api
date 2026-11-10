@@ -886,7 +886,7 @@ export class WaitlistService {
       sortDirection = 'desc',
     } = query;
 
-    const ticketNumber = sql`${waitlistTicket.prefix} || lpad(${waitlistTicket.number}::text, 3, '0')`;
+    const ticketNumber = sql`${waitlistTicket.prefix} || lpad(${waitlistTicket.number}::text, greatest(3, length(${waitlistTicket.number}::text)), '0')`;
     const fieldMap: Record<string, Column | SQL> = {
       ticketNumber,
       name: waitlistTicket.name,
