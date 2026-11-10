@@ -27,6 +27,7 @@ import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import {
   attendanceEmployeeId,
+  attendanceResourceName,
   isLabeledField,
   LABELED_FIELDS,
   type LabeledField,
@@ -47,6 +48,7 @@ type AuditLogRow = Omit<AuditLogResponseDto, 'createdAt' | 'changes'> & {
   createdAt: string;
   source: 'audit' | 'attendance';
   targetEmployeeName: string | null;
+  targetResourceName: string | null;
 };
 
 const entry = (column: string) => sql.raw(`entry.${column}`);
@@ -93,6 +95,9 @@ const targetEmployeeName = sql`
       entry.changes -> 'after' ->> 'employeeId'
     )
   ) END`;
+
+const targetResourceName = sql`
+  CASE WHEN entry.source = 'attendance' THEN ${attendanceResourceName(entry('resource'), entry('"resourceId"'))} END`;
 
 @Injectable()
 export class AuditService {
@@ -182,6 +187,7 @@ export class AuditService {
           ilike(localTimeText(fieldMap.createdAt), `%${escapeLike(value)}%`),
           buildLocalizedTextFilterCondition(resourceLabel, 'contains', value),
           ilike(targetEmployeeName, `%${escapeLike(value)}%`),
+          ilike(targetResourceName, `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -215,7 +221,8 @@ export class AuditService {
           entry.changes,
           entry."changeLabels",
           ${fieldMap.createdAt} AT TIME ZONE 'UTC' AS "createdAt",
-          ${targetEmployeeName} AS "targetEmployeeName"
+          ${targetEmployeeName} AS "targetEmployeeName",
+          ${targetResourceName} AS "targetResourceName"
         FROM (
           SELECT entry.* ${filtered}
           ORDER BY ${orderBy}
@@ -233,6 +240,7 @@ export class AuditService {
       ({
         source,
         targetEmployeeName,
+        targetResourceName,
         createdAt,
         ...row
       }): AuditLogResponseDto => {
@@ -250,7 +258,8 @@ export class AuditService {
           changes,
           createdAt: new Date(createdAt),
           resourceLabel:
-            targetEmployeeName ?? (typeof name === 'string' ? name : null),
+            targetEmployeeName ??
+            (typeof name === 'string' ? name : targetResourceName),
         };
         attendanceLogs.add(log);
         return log;

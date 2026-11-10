@@ -230,6 +230,7 @@ describe('AuditService.listForOrganization search', () => {
          ('manager', 'Manager', 'Manager', 'manager@example.com', 'zh-TW'),
          ('barista', 'Wang Xiaoming', 'Xiaoming', 'barista@example.com', 'zh-TW');
        insert into attendance_employee (id, organization_id, user_id, hired_at) values ('employee-wang', 'org', 'barista', '2026-01-01');
+       insert into attendance_leave_type (id, organization_id, name, paid_percent, requires_balance) values ('leave-type-1', 'org', 'Birthday Leave', 100, false);
        insert into audit_log (id, actor_id, actor_name, actor_email, organization_id, resource, resource_id, resource_label, action, changes, created_at) values
          ('menu-latte', 'owner', 'Owner', 'owner@example.com', 'org', 'menuItem', 'item-1', '{"zh-TW": "拿鐵", "ja": "ラテ", "en": "Caffe Latte"}', 'update', '{}', '2026-10-28 08:00:00'),
          ('member-wang', 'owner', 'Owner', 'owner@example.com', 'org', 'member', 'member-1', '"Wang Xiaoming"', 'create', '{}', '2026-10-28 08:00:00'),
@@ -237,7 +238,7 @@ describe('AuditService.listForOrganization search', () => {
        insert into attendance_audit (id, organization_id, actor_id, action, resource_id, changes, created_at) values
          ('att-employee', 'org', 'owner', 'employee.update', 'employee-wang', '{}', '2026-10-28 08:00:00+00'),
          ('att-shift', 'org', 'manager', 'shift.create', 'shift-1', '{"employeeId": "employee-wang"}', '2026-10-28 08:00:00+00'),
-         ('att-leave-type', 'org', 'manager', 'leaveType.update', 'leave-type-1', '{}', '2026-10-28 08:00:00+00');`,
+         ('att-leave-type', 'org', 'manager', 'leaveType.update', 'leave-type-1', '{"paidPercent": {"before": 50, "after": 100}}', '2026-10-28 08:00:00+00');`,
     );
   }, 60_000);
 
@@ -263,6 +264,12 @@ describe('AuditService.listForOrganization search', () => {
       'att-employee',
       'att-shift',
       'member-wang',
+    ]);
+  });
+
+  it('finds attendance entries by the current name of their resource', async () => {
+    expect(await ids('owner', { quickFilterValue: 'birthday' })).toEqual([
+      'att-leave-type',
     ]);
   });
 
@@ -298,7 +305,7 @@ describe('AuditService.listForOrganization search', () => {
       'member-wang': 'Wang Xiaoming',
       'att-employee': 'Wang Xiaoming',
       'att-shift': 'Wang Xiaoming',
-      'att-leave-type': null,
+      'att-leave-type': 'Birthday Leave',
     });
   });
 });
