@@ -341,7 +341,7 @@ When adding a tenant-scoped route whose param isn't already covered, extend both
 **Role hierarchy** — every role holds all features and notifications of the roles below it:
 platform admin ⊇ `owner` ⊇ `admin` ⊇ `member`. A platform admin counts as `owner` in every
 organization, whatever their own `member` row says. When a feature or notification is limited to a role, also
-give it to every role above (for notifications, as below), and never grant a lower role something a higher one lacks.
+give it to every role above (for notifications, see below), and never grant a lower role something a higher one lacks.
 `permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`;
 `RolesGuard` and `findOrganizationRoles` (which the events gateway uses for its store-room joins and pushes) apply the
 platform-admin step.
@@ -349,7 +349,7 @@ For notifications the hierarchy governs what a role learns, not how it is sent. 
 merged into the platform daily digest (`notifyPlatformDailyDigest`, `src/orders/order-notifications.service.ts`), so
 a per-store digest (`notifyDailySalesDigest`, `notifyLowStockDigest`) may leave out members with
 `joined_as_platform_admin` only for content the platform digest also carries. It doesn't yet carry the top items, peak
-hour, previous-day comparison, the individual point adjustments or the low-stock ingredient list, so no per-store
+hour, previous-day comparison, the individual point adjustments or the low-stock ingredient details, so no per-store
 digest leaves them out yet. Notifications about a single event, such as an attendance request to review, reach a
 platform admin only in the stores they joined, where their `owner` member row already makes them a recipient; the
 other stores' events are not sent to them, because they can open any store as `owner` instead.
