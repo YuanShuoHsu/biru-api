@@ -6,15 +6,16 @@ const SHARED_CART_PARTICIPANT_PURPOSE = 'biru-shared-cart-participant-v1';
 
 export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 
-export const SHARED_CART_PARTICIPANT_COOKIE = 'biru_shared_cart_participant';
+export const sharedCartParticipantCookie = (organizationId: string) =>
+  `biru_shared_cart_participant_${Buffer.from(organizationId).toString('base64url')}`;
 
 export type SharedCartParticipantSession = {
-  expiresAt: Date;
   participantId: string;
   sharedCartId: string;
 };
 
 export type IssuedSharedCartParticipant = {
+  name: string;
   session: SharedCartParticipantSession;
   value: string;
 };
@@ -25,18 +26,13 @@ export const issueSharedCartParticipant = (
   sharedCartId: string,
   participantId: string,
 ): IssuedSharedCartParticipant => {
-  const expiresAt = new Date(Date.now() + SHARED_CART_TTL_MS);
   const payload = Buffer.from(
-    JSON.stringify([
-      organizationId,
-      sharedCartId,
-      participantId,
-      expiresAt.getTime(),
-    ]),
+    JSON.stringify([organizationId, sharedCartId, participantId]),
   ).toString('base64url');
 
   return {
-    session: { expiresAt, participantId, sharedCartId },
+    name: sharedCartParticipantCookie(organizationId),
+    session: { participantId, sharedCartId },
     value: `${payload}.${sign(SHARED_CART_PARTICIPANT_PURPOSE, qrSecret, payload)}`,
   };
 };
@@ -60,18 +56,13 @@ export const verifySharedCartParticipant = (
   )
     return null;
 
-  const [sessionOrganizationId, sharedCartId, participantId, expiresAt] =
-    JSON.parse(Buffer.from(payload, 'base64url').toString()) as [
-      string,
-      string,
-      string,
-      number,
-    ];
+  const [sessionOrganizationId, sharedCartId, participantId] = JSON.parse(
+    Buffer.from(payload, 'base64url').toString(),
+  ) as [string, string, string];
 
-  if (sessionOrganizationId !== organizationId || !(expiresAt > Date.now()))
-    return null;
+  if (sessionOrganizationId !== organizationId) return null;
 
-  return { expiresAt: new Date(expiresAt), participantId, sharedCartId };
+  return { participantId, sharedCartId };
 };
 
 const cookieOptions = () =>
@@ -82,14 +73,11 @@ const cookieOptions = () =>
     secure: process.env.NODE_ENV === 'production',
   }) as const;
 
+// 不設 expires：效期只看資料庫的 last_activity_at，cookie 比群組早過期會讓同一人重複佔位
 export const setSharedCartParticipantCookie = (
   res: Response,
-  { session, value }: IssuedSharedCartParticipant,
-) =>
-  res.cookie(SHARED_CART_PARTICIPANT_COOKIE, value, {
-    ...cookieOptions(),
-    expires: session.expiresAt,
-  });
+  { name, value }: IssuedSharedCartParticipant,
+) => res.cookie(name, value, cookieOptions());
 
-export const clearSharedCartParticipantCookie = (res: Response) =>
-  res.clearCookie(SHARED_CART_PARTICIPANT_COOKIE, cookieOptions());
+export const clearSharedCartParticipantCookie = (res: Response, name: string) =>
+  res.clearCookie(name, cookieOptions());

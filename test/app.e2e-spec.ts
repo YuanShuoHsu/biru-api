@@ -86,15 +86,17 @@ describe('App (e2e)', () => {
   describe('共享點餐單', () => {
     beforeAll(() =>
       pglite.$client.query(
-        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('shared-cart-org', 'Biru', 'shared-cart-store', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('shared-cart-org', 'Biru', 'shared-cart-store', now(), 'TW', '桃園市', '大園區', '中正東路一段'), ('shared-cart-org-b', 'Biru B', 'shared-cart-store-b', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
       ),
     );
 
     const base = '/api/organizations/shared-cart-store/shared-carts';
+    const baseB = '/api/organizations/shared-cart-store-b/shared-carts';
+    const setCookies = (response: request.Response) =>
+      ([] as string[]).concat(response.headers['set-cookie'] ?? []);
     const participantCookie = (response: request.Response) =>
-      ([] as string[])
-        .concat(response.headers['set-cookie'] ?? [])
-        .find((cookie) => cookie.startsWith('biru_shared_cart_participant='))
+      setCookies(response)
+        .find((cookie) => cookie.startsWith('biru_shared_cart_participant_'))
         ?.split(';')[0];
 
     it('自取不需 QR code 即可發起，另一支手機以單號加入，離開後單號失效', async () => {
@@ -106,6 +108,7 @@ describe('App (e2e)', () => {
         .expect(201);
       const host = participantCookie(created)!;
       expect(host).toBeDefined();
+      expect(setCookies(created)[0]).not.toMatch(/expires|max-age/i);
       expect(created.body).toMatchObject({
         code: expect.stringMatching(/^\d{6}$/),
         participants: [{ avatar: 'cat', isMe: true, nickname: '小明' }],
@@ -140,6 +143,42 @@ describe('App (e2e)', () => {
         .set('content-type', 'application/json')
         .send({ code: created.body.code })
         .expect(404);
+    });
+
+    it('另一家門市的共享單不會蓋掉這家的參與者 cookie', async () => {
+      const server = app.getHttpServer();
+      const inA = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookieA = participantCookie(inA)!;
+
+      const inB = await request(server)
+        .post(baseB)
+        .set('content-type', 'application/json')
+        .set('cookie', cookieA)
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookieB = participantCookie(inB)!;
+      expect(cookieB.split('=')[0]).not.toBe(cookieA.split('=')[0]);
+      await request(server)
+        .delete(`${baseB}/current/me`)
+        .set('cookie', [cookieA, cookieB].join('; '))
+        .expect(204)
+        .expect((response) =>
+          expect(
+            setCookies(response).some((cookie) =>
+              cookie.startsWith(`${cookieA.split('=')[0]}=`),
+            ),
+          ).toBe(false),
+        );
+
+      const current = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', cookieA)
+        .expect(200);
+      expect(current.body.code).toBe(inA.body.code);
     });
 
     it('內用沒有桌位 QR session 時拒絕發起', () =>

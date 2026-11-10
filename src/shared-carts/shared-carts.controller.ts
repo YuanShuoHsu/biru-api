@@ -34,7 +34,6 @@ import { SharedCartResponseDto } from './dto/shared-cart-response.dto.js';
 import {
   clearSharedCartParticipantCookie,
   setSharedCartParticipantCookie,
-  SHARED_CART_PARTICIPANT_COOKIE,
 } from './shared-cart-participant-token.js';
 import {
   SharedCartsService,
@@ -47,8 +46,8 @@ const memberOf = (session: UserSession | null) =>
 const qrSessionOf = (req: Request) =>
   req.cookies?.[ORDER_QR_SESSION_COOKIE] as string | undefined;
 
-const participantOf = (req: Request): unknown =>
-  req.cookies?.[SHARED_CART_PARTICIPANT_COOKIE];
+const cookiesOf = (req: Request) =>
+  req.cookies as Record<string, unknown> | undefined;
 
 const respond = (res: Response, { cart, issued }: SharedCartResult) => {
   setSharedCartParticipantCookie(res, issued);
@@ -83,7 +82,7 @@ export class SharedCartsController {
         dto,
         memberOf(session),
         qrSessionOf(req),
-        participantOf(req),
+        cookiesOf(req),
       ),
     );
   }
@@ -109,7 +108,7 @@ export class SharedCartsController {
         dto,
         memberOf(session),
         qrSessionOf(req),
-        participantOf(req),
+        cookiesOf(req),
       ),
     );
   }
@@ -125,7 +124,7 @@ export class SharedCartsController {
       res,
       await this.sharedCartsService.findCurrent(
         organizationSlug,
-        participantOf(req),
+        cookiesOf(req),
       ),
     );
   }
@@ -145,7 +144,7 @@ export class SharedCartsController {
         organizationSlug,
         dto,
         memberOf(session),
-        participantOf(req),
+        cookiesOf(req),
       ),
     );
   }
@@ -158,7 +157,9 @@ export class SharedCartsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    await this.sharedCartsService.leaveMe(organizationSlug, participantOf(req));
-    clearSharedCartParticipantCookie(res);
+    clearSharedCartParticipantCookie(
+      res,
+      await this.sharedCartsService.leaveMe(organizationSlug, cookiesOf(req)),
+    );
   }
 }

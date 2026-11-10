@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 
 import type { PGlite } from '@electric-sql/pglite';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext } from 'nestjs-i18n';
@@ -18,7 +19,9 @@ import { OrderQrService } from '../orders/order-qr.service.js';
 
 import {
   SHARED_CART_TTL_MS,
+  sharedCartParticipantCookie,
   verifySharedCartParticipant,
+  type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 import {
   SHARED_CART_MAX_PARTICIPANTS,
@@ -34,6 +37,10 @@ vi.mock('node:crypto', async (importOriginal) => {
 const ORG = 'org';
 const SLUG = 'biru';
 const AMY = { id: 'amy', name: 'Amy' };
+
+const cookiesOf = ({ name, value }: IssuedSharedCartParticipant) => ({
+  [name]: value,
+});
 
 describe('sharedCartCode', () => {
   it('zero-pads the random number to six digits', () => {
@@ -53,13 +60,13 @@ describe('SharedCartsService', () => {
   const tableSession = (table: number) =>
     issueOrderQrSession(ORG, null, 'dineIn', table).value;
 
-  const startPickup = (participantValue?: string) =>
+  const startPickup = (cookies?: Record<string, string>) =>
     service.create(
       SLUG,
       { avatar: 'cat', mode: 'pickup', nickname: '小明' },
       null,
       undefined,
-      participantValue,
+      cookies,
     );
 
   beforeAll(async () => {
@@ -103,7 +110,11 @@ describe('SharedCartsService', () => {
         ],
         tableNumber: null,
       });
-      expect(cart.expiresAt).toEqual(issued.session.expiresAt);
+      const [row] = await db.select().from(sharedCart);
+      expect(cart.expiresAt).toEqual(
+        new Date(row.lastActivityAt.getTime() + SHARED_CART_TTL_MS),
+      );
+      expect(issued.name).toBe(sharedCartParticipantCookie(ORG));
       expect(verifySharedCartParticipant(ORG, null, issued.value)).toEqual(
         issued.session,
       );
@@ -235,7 +246,7 @@ describe('SharedCartsService', () => {
 
     it('moves a participant out of the cart it was in', async () => {
       const first = await startPickup();
-      await startPickup(first.issued.value);
+      await startPickup(cookiesOf(first.issued));
 
       expect(
         await db
@@ -273,7 +284,12 @@ describe('SharedCartsService', () => {
         ),
       ).rejects.toMatchObject({ response: { code: 'organizationClosed' } });
       await expect(
-        service.updateMe(SLUG, { nickname: '阿美' }, null, host.issued.value),
+        service.updateMe(
+          SLUG,
+          { nickname: '阿美' },
+          null,
+          cookiesOf(host.issued),
+        ),
       ).rejects.toMatchObject({ response: { code: 'organizationClosed' } });
     });
   });
@@ -297,14 +313,14 @@ describe('SharedCartsService', () => {
           { code: second.cart.code },
           null,
           undefined,
-          first.issued.value,
+          cookiesOf(first.issued),
         ),
         service.join(
           SLUG,
           { code: first.cart.code },
           null,
           undefined,
-          second.issued.value,
+          cookiesOf(second.issued),
         ),
       ]);
 
@@ -329,7 +345,7 @@ describe('SharedCartsService', () => {
         { code: host.cart.code },
         null,
         undefined,
-        joined.issued.value,
+        cookiesOf(joined.issued),
       );
 
       expect(joined.cart.participants).toEqual([
@@ -432,7 +448,7 @@ describe('SharedCartsService', () => {
       const stale = new Date(Date.now() - 60_000);
       await db.update(sharedCart).set({ lastActivityAt: stale });
 
-      const { cart } = await service.findCurrent(SLUG, host.issued.value);
+      const { cart } = await service.findCurrent(SLUG, cookiesOf(host.issued));
 
       expect(cart.items).toEqual([
         {
@@ -459,7 +475,7 @@ describe('SharedCartsService', () => {
         SLUG,
         { avatar: 'member', nickname: '阿美' },
         AMY,
-        host.issued.value,
+        cookiesOf(host.issued),
       );
 
       expect(cart.participants).toEqual([
@@ -474,8 +490,32 @@ describe('SharedCartsService', () => {
     it('refuses the member avatar to a guest', async () => {
       const host = await startPickup();
       await expect(
-        service.updateMe(SLUG, { avatar: 'member' }, null, host.issued.value),
+        service.updateMe(
+          SLUG,
+          { avatar: 'member' },
+          null,
+          cookiesOf(host.issued),
+        ),
       ).rejects.toThrow('sharedCartMemberAvatarSignInRequired');
+    });
+  });
+
+  describe('purgeExpired', () => {
+    it('deletes only the carts idle past the window, with their rows', async () => {
+      const active = await startPickup();
+      const expired = await startPickup();
+      await db
+        .update(sharedCart)
+        .set({ lastActivityAt: new Date(Date.now() - SHARED_CART_TTL_MS) })
+        .where(eq(sharedCart.id, expired.issued.session.sharedCartId));
+
+      expect(await service.purgeExpired()).toBe(1);
+      expect(
+        (await db.select().from(sharedCart)).map(({ code }) => code),
+      ).toEqual([active.cart.code]);
+      expect(
+        (await db.select().from(sharedCartParticipant)).map(({ id }) => id),
+      ).toEqual([active.issued.session.participantId]);
     });
   });
 
@@ -499,17 +539,18 @@ describe('SharedCartsService', () => {
         sharedCartId: guest.issued.session.sharedCartId,
       });
 
-      await service.leaveMe(SLUG, guest.issued.value);
+      await service.leaveMe(SLUG, cookiesOf(guest.issued));
 
       expect(await db.select().from(sharedCartItem)).toEqual([]);
       await expect(
-        service.findCurrent(SLUG, guest.issued.value),
+        service.findCurrent(SLUG, cookiesOf(guest.issued)),
       ).rejects.toThrow('sharedCartNotFound');
       expect(
-        (await service.findCurrent(SLUG, host.issued.value)).cart.participants,
+        (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart
+          .participants,
       ).toHaveLength(1);
 
-      await service.leaveMe(SLUG, host.issued.value);
+      await service.leaveMe(SLUG, cookiesOf(host.issued));
       expect(await db.select().from(sharedCart)).toEqual([]);
     });
   });

@@ -9,5 +9,6 @@ import { SharedCartsService } from './shared-carts.service.js';
   imports: [OrdersModule],
   controllers: [SharedCartsController],
   providers: [SharedCartsService],
+  exports: [SharedCartsService],
 })
 export class SharedCartsModule {}

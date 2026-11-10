@@ -15,6 +15,7 @@ import { InventoryNotificationsService } from '../inventory/inventory-notificati
 import { OrderNotificationsService } from '../orders/order-notifications.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
 import { PointsService } from '../points/points.service.js';
+import { SharedCartsService } from '../shared-carts/shared-carts.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
@@ -33,6 +34,7 @@ export class TasksService {
     private readonly orderNotificationsService: OrderNotificationsService,
     private readonly payrollRulesService: PayrollRulesService,
     private readonly pointsService: PointsService,
+    private readonly sharedCartsService: SharedCartsService,
     private readonly waitlistService: WaitlistService,
   ) {}
 
@@ -235,6 +237,20 @@ export class TasksService {
       if (erased) this.logger.log(`清除 ${erased} 張已結束候位號碼牌的個資`);
     } catch (error) {
       this.logger.error('清除候位個資失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleSharedCartRetentionCron() {
+    try {
+      const purged = await this.sharedCartsService.purgeExpired();
+
+      if (purged) this.logger.log(`清除 ${purged} 張已失效的共享點餐單`);
+    } catch (error) {
+      this.logger.error('清除失效共享點餐單失敗', error);
     }
   }
 

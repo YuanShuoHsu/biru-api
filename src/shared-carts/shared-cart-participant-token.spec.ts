@@ -1,9 +1,10 @@
 import type { Response } from 'express';
 
 import {
+  clearSharedCartParticipantCookie,
   issueSharedCartParticipant,
-  SHARED_CART_PARTICIPANT_COOKIE,
   setSharedCartParticipantCookie,
+  sharedCartParticipantCookie,
   verifySharedCartParticipant,
 } from './shared-cart-participant-token.js';
 
@@ -17,26 +18,39 @@ describe('shared cart participant cookie', () => {
     vi.useRealTimers();
   });
 
-  it('verifies an issued participant until it expires', () => {
+  it('verifies an issued participant without an expiry of its own', () => {
     vi.useFakeTimers({ now: new Date('2026-11-10T04:00:00Z') });
-    const { session, value } = issueSharedCartParticipant(
+    const issued = issueSharedCartParticipant(
       'org',
       'secret',
       'cart',
       'participant',
     );
 
-    expect(session).toEqual({
-      expiresAt: new Date('2026-11-10T06:00:00Z'),
+    expect(issued.session).toEqual({
       participantId: 'participant',
       sharedCartId: 'cart',
     });
-    expect(verifySharedCartParticipant('org', 'secret', value)).toEqual(
-      session,
-    );
 
-    vi.setSystemTime(session.expiresAt);
-    expect(verifySharedCartParticipant('org', 'secret', value)).toBeNull();
+    vi.setSystemTime(new Date('2026-11-20T04:00:00Z'));
+    expect(verifySharedCartParticipant('org', 'secret', issued.value)).toEqual(
+      issued.session,
+    );
+  });
+
+  it('names the cookie per store with cookie-safe characters', () => {
+    expect(sharedCartParticipantCookie('aB3')).toBe(
+      'biru_shared_cart_participant_YUIz',
+    );
+    expect(sharedCartParticipantCookie('a b;(c)')).toMatch(
+      /^biru_shared_cart_participant_[A-Za-z0-9_-]+$/,
+    );
+    expect(sharedCartParticipantCookie('org-a')).not.toBe(
+      sharedCartParticipantCookie('org-b'),
+    );
+    expect(issueSharedCartParticipant('org', null, 'c', 'p').name).toBe(
+      sharedCartParticipantCookie('org'),
+    );
   });
 
   it.each([
@@ -52,9 +66,9 @@ describe('shared cart participant cookie', () => {
   it('rejects a payload swapped to another participant', () => {
     const { value } = issueSharedCartParticipant('org', null, 'c', 'p');
     const [, signature] = value.split('.');
-    const forged = Buffer.from(
-      JSON.stringify(['org', 'c', 'other', Date.now() + 60_000]),
-    ).toString('base64url');
+    const forged = Buffer.from(JSON.stringify(['org', 'c', 'other'])).toString(
+      'base64url',
+    );
 
     expect(
       verifySharedCartParticipant('org', null, `${forged}.${signature}`),
@@ -78,22 +92,33 @@ describe('shared cart participant cookie', () => {
     ).toBeNull();
   });
 
-  it('sets an httpOnly lax cookie that expires with the session', () => {
+  it('sets an httpOnly lax browser-session cookie', () => {
     const cookie = vi.fn();
     const issued = issueSharedCartParticipant('org', null, 'c', 'p');
 
     setSharedCartParticipantCookie({ cookie } as unknown as Response, issued);
 
-    expect(cookie).toHaveBeenCalledWith(
-      SHARED_CART_PARTICIPANT_COOKIE,
-      issued.value,
-      {
-        expires: issued.session.expiresAt,
-        httpOnly: true,
-        path: '/',
-        sameSite: 'lax',
-        secure: false,
-      },
+    expect(cookie).toHaveBeenCalledWith(issued.name, issued.value, {
+      httpOnly: true,
+      path: '/',
+      sameSite: 'lax',
+      secure: false,
+    });
+  });
+
+  it('clears the named cookie with the same options', () => {
+    const clearCookie = vi.fn();
+
+    clearSharedCartParticipantCookie(
+      { clearCookie } as unknown as Response,
+      'name',
     );
+
+    expect(clearCookie).toHaveBeenCalledWith('name', {
+      httpOnly: true,
+      path: '/',
+      sameSite: 'lax',
+      secure: false,
+    });
   });
 });

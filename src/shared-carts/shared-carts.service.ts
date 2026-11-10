@@ -43,6 +43,7 @@ import {
 import {
   issueSharedCartParticipant,
   SHARED_CART_TTL_MS,
+  sharedCartParticipantCookie,
   verifySharedCartParticipant,
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
@@ -60,6 +61,8 @@ type Org = {
 };
 type Membership = { participantId: string; sharedCartId: string };
 type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
+
+export type SharedCartCookies = Record<string, unknown> | undefined;
 
 export type SharedCartResult = {
   cart: SharedCartResponseDto;
@@ -147,12 +150,12 @@ export class SharedCartsService {
 
   private async findMembership(
     org: Org,
-    participantValue: unknown,
+    cookies: SharedCartCookies,
   ): Promise<Membership | null> {
     const session = verifySharedCartParticipant(
       org.id,
       org.qrSecret,
-      participantValue,
+      cookies?.[sharedCartParticipantCookie(org.id)],
     );
     if (!session) return null;
 
@@ -177,8 +180,8 @@ export class SharedCartsService {
     return found ?? null;
   }
 
-  private async requireMembership(org: Org, participantValue: unknown) {
-    const membership = await this.findMembership(org, participantValue);
+  private async requireMembership(org: Org, cookies: SharedCartCookies) {
+    const membership = await this.findMembership(org, cookies);
     if (!membership) throw notFoundError('sharedCartNotFound');
     return membership;
   }
@@ -302,7 +305,7 @@ export class SharedCartsService {
     return {
       cart: {
         code: cart.code,
-        expiresAt: issued.session.expiresAt,
+        expiresAt: new Date(cart.lastActivityAt.getTime() + SHARED_CART_TTL_MS),
         items,
         mode: cart.mode,
         participants: participants.map((participant) => ({
@@ -321,13 +324,13 @@ export class SharedCartsService {
     dto: CreateSharedCartDto,
     member: SharedCartUser | null,
     qrSessionValue: string | undefined,
-    participantValue: unknown,
+    cookies: SharedCartCookies,
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
     const tableNumber = this.qrTableNumber(org, qrSessionValue, dto.mode);
     const profile = this.profile(member, dto);
-    const previous = await this.findMembership(org, participantValue);
+    const previous = await this.findMembership(org, cookies);
 
     const membership = await this.db.transaction(async (tx) => {
       if (previous) await this.leave(tx, previous);
@@ -352,12 +355,12 @@ export class SharedCartsService {
     dto: JoinSharedCartDto,
     member: SharedCartUser | null,
     qrSessionValue: string | undefined,
-    participantValue: unknown,
+    cookies: SharedCartCookies,
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
     const profile = this.profile(member, dto);
-    const previous = await this.findMembership(org, participantValue);
+    const previous = await this.findMembership(org, cookies);
 
     const membership = await this.db.transaction(async (tx) => {
       const [found] = await tx
@@ -408,20 +411,20 @@ export class SharedCartsService {
     return this.view(org, membership);
   }
 
-  async findCurrent(organizationSlug: string, participantValue: unknown) {
+  async findCurrent(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
-    return this.view(org, await this.requireMembership(org, participantValue));
+    return this.view(org, await this.requireMembership(org, cookies));
   }
 
   async updateMe(
     organizationSlug: string,
     { avatar, nickname }: SharedCartProfileDto,
     member: SharedCartUser | null,
-    participantValue: unknown,
+    cookies: SharedCartCookies,
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
-    const membership = await this.requireMembership(org, participantValue);
+    const membership = await this.requireMembership(org, cookies);
 
     if (avatar === 'member' && !member)
       throw badRequestError('sharedCartMemberAvatarSignInRequired');
@@ -439,9 +442,18 @@ export class SharedCartsService {
     return this.view(org, membership);
   }
 
-  async leaveMe(organizationSlug: string, participantValue: unknown) {
+  async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
-    const membership = await this.requireMembership(org, participantValue);
+    const membership = await this.requireMembership(org, cookies);
     await this.db.transaction((tx) => this.leave(tx, membership));
+    return sharedCartParticipantCookie(org.id);
+  }
+
+  async purgeExpired(): Promise<number> {
+    const purged = await this.db
+      .delete(sharedCart)
+      .where(lte(sharedCart.lastActivityAt, activeSince()))
+      .returning({ id: sharedCart.id });
+    return purged.length;
   }
 }
