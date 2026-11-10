@@ -444,6 +444,22 @@
       "MLT": "밀리리터"
     }
   },
+  "sharedCarts": {
+    "anonymousNickname": "익명 {animal}",
+    "avatars": {
+      "bear": "곰",
+      "cat": "고양이",
+      "dog": "강아지",
+      "fox": "여우",
+      "koala": "코알라",
+      "panda": "판다",
+      "penguin": "펭귄",
+      "rabbit": "토끼"
+    },
+    "sharedCartFull": "이 공유 주문은 인원이 가득 찼습니다",
+    "sharedCartMemberAvatarSignInRequired": "회원 프로필 사진은 로그인 후 사용할 수 있습니다",
+    "sharedCartNotFound": "공유 주문을 찾을 수 없거나 번호가 만료되었습니다"
+  },
   "storeLayout": {
     "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",
     "notFound": "이 매장에는 아직 평면도가 없습니다."

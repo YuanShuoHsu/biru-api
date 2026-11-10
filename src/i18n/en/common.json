@@ -444,6 +444,22 @@
       "MLT": "ml"
     }
   },
+  "sharedCarts": {
+    "anonymousNickname": "Anonymous {animal}",
+    "avatars": {
+      "bear": "Bear",
+      "cat": "Cat",
+      "dog": "Dog",
+      "fox": "Fox",
+      "koala": "Koala",
+      "panda": "Panda",
+      "penguin": "Penguin",
+      "rabbit": "Rabbit"
+    },
+    "sharedCartFull": "This shared order is full",
+    "sharedCartMemberAvatarSignInRequired": "Sign in to use your member avatar",
+    "sharedCartNotFound": "Shared order not found, or the code has expired"
+  },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
     "notFound": "This store has no floor plan yet."

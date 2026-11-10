@@ -46,6 +46,7 @@ import { PayrollModule } from './payroll/payroll.module.js';
 import { PointsModule } from './points/points.module.js';
 import { QuantModule } from './quant/quant.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { SharedCartsModule } from './shared-carts/shared-carts.module.js';
 import { StoreLayoutModule } from './store-layout/store-layout.module.js';
 import { StorePhotosModule } from './store-photos/store-photos.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
@@ -123,6 +124,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     QuantModule,
     ReportsModule,
     ScheduleModule.forRoot(),
+    SharedCartsModule,
     StoreLayoutModule,
     StorePhotosModule,
     TasksModule,

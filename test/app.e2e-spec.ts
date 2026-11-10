@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import type { PGlite } from '@electric-sql/pglite';
+import cookieParser from 'cookie-parser';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import request from 'supertest';
@@ -54,6 +55,7 @@ describe('App (e2e)', () => {
 
     app = moduleFixture.createNestApplication({ bodyParser: false });
     app.setGlobalPrefix('api');
+    app.use(cookieParser());
     await app.init();
   }, 120_000);
 
@@ -80,6 +82,73 @@ describe('App (e2e)', () => {
 
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));
+
+  describe('共享點餐單', () => {
+    beforeAll(() =>
+      pglite.$client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('shared-cart-org', 'Biru', 'shared-cart-store', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      ),
+    );
+
+    const base = '/api/organizations/shared-cart-store/shared-carts';
+    const participantCookie = (response: request.Response) =>
+      ([] as string[])
+        .concat(response.headers['set-cookie'] ?? [])
+        .find((cookie) => cookie.startsWith('biru_shared_cart_participant='))
+        ?.split(';')[0];
+
+    it('自取不需 QR code 即可發起，另一支手機以單號加入，離開後單號失效', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ avatar: 'cat', mode: 'pickup', nickname: '小明' })
+        .expect(201);
+      const host = participantCookie(created)!;
+      expect(host).toBeDefined();
+      expect(created.body).toMatchObject({
+        code: expect.stringMatching(/^\d{6}$/),
+        participants: [{ avatar: 'cat', isMe: true, nickname: '小明' }],
+      });
+
+      const joined = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code })
+        .expect(200);
+      const guest = participantCookie(joined)!;
+      expect(joined.body.participants).toHaveLength(2);
+
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', guest)
+        .expect(204);
+      const current = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', host)
+        .expect(200);
+      expect(current.body.participants).toEqual([
+        expect.objectContaining({ isMe: true, nickname: '小明' }),
+      ]);
+
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', host)
+        .expect(204);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code })
+        .expect(404);
+    });
+
+    it('內用沒有桌位 QR session 時拒絕發起', () =>
+      request(app.getHttpServer())
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'dineIn' })
+        .expect(400));
+  });
 
   describe('better-auth 的限流', () => {
     const signIn = (headers: Record<string, string>) =>

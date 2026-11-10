@@ -8,5 +8,6 @@
   "isNumber": "숫자여야 합니다",
   "isString": "문자열이어야 합니다",
   "maxLength": "{constraints.0}자 이하여야 합니다",
-  "minLength": "{constraints.0}자 이상이어야 합니다"
+  "minLength": "{constraints.0}자 이상이어야 합니다",
+  "printableText": "제어 문자나 보이지 않는 문자는 사용할 수 없습니다"
 }
