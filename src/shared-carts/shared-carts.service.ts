@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 
-import { and, asc, count, eq, gt, inArray, lte, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import { organizationClosedError } from '../common/utils/organization-closure.js';
@@ -70,7 +70,6 @@ type Org = {
 };
 type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 type DeviceRow = {
-  code: string;
   participantId: string;
   requestedAt: Date;
   sharedCartId: string;
@@ -123,7 +122,6 @@ const deviceRows = (
 ): Promise<DeviceRow[]> =>
   db
     .select({
-      code: sharedCart.code,
       participantId: sharedCartParticipant.id,
       requestedAt: sharedCartParticipant.requestedAt,
       sharedCartId: sharedCart.id,
@@ -154,6 +152,28 @@ const deviceOf = async (
     pending: rows.find(({ status }) => status === 'pending'),
   };
 };
+
+const dropStaleRows = (tx: Tx, deviceKey: string) =>
+  tx
+    .delete(sharedCartParticipant)
+    .where(
+      and(
+        eq(sharedCartParticipant.deviceKey, deviceKey),
+        or(
+          and(
+            eq(sharedCartParticipant.status, 'pending'),
+            lte(sharedCartParticipant.requestedAt, requestedSince()),
+          ),
+          inArray(
+            sharedCartParticipant.sharedCartId,
+            tx
+              .select({ id: sharedCart.id })
+              .from(sharedCart)
+              .where(lte(sharedCart.lastActivityAt, activeSince())),
+          ),
+        ),
+      ),
+    );
 
 const deleteParticipant = (tx: Tx, participantId: string) =>
   tx
@@ -263,6 +283,7 @@ export class SharedCartsService {
     if (!unique.length) return [];
     return tx
       .select({
+        code: sharedCart.code,
         id: sharedCart.id,
         lastActivityAt: sharedCart.lastActivityAt,
         mode: sharedCart.mode,
@@ -280,6 +301,8 @@ export class SharedCartsService {
     deviceKey: string,
     ...extra: (string | undefined)[]
   ) {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${deviceKey}))`);
+    await dropStaleRows(tx, deviceKey);
     const seen = await deviceRows(tx, organizationId, deviceKey);
     const locked = await this.lockCarts(tx, [
       ...extra,
@@ -429,7 +452,7 @@ export class SharedCartsService {
 
     return {
       cart: {
-        code: cart.code,
+        code: isActive ? cart.code : null,
         expiresAt: isActive
           ? new Date(cart.lastActivityAt.getTime() + SHARED_CART_TTL_MS)
           : new Date(me.requestedAt.getTime() + SHARED_CART_REQUEST_TTL_MS),
@@ -439,7 +462,6 @@ export class SharedCartsService {
         outgoingRequest:
           active && pending
             ? {
-                code: pending.code,
                 expiresAt: new Date(
                   pending.requestedAt.getTime() + SHARED_CART_REQUEST_TTL_MS,
                 ),
@@ -535,8 +557,10 @@ export class SharedCartsService {
         found.id,
       );
       const cart = locked.find(
-        ({ id, lastActivityAt }) =>
-          id === found.id && lastActivityAt > activeSince(),
+        ({ code, id, lastActivityAt }) =>
+          id === found.id &&
+          code === dto.code &&
+          lastActivityAt > activeSince(),
       );
       if (!cart) throw notFoundError('sharedCartNotFound');
 
@@ -663,11 +687,10 @@ export class SharedCartsService {
           .where(isLiveRequest(sharedCartId, requestId));
       const [seen] = await liveRequest();
       if (!seen) throw notFoundError('sharedCartRequestNotFound');
-      const requesterCart = approve
-        ? (await deviceOf(tx, org.id, seen.deviceKey)).active?.sharedCartId
-        : undefined;
-
-      const locked = await this.lockCarts(tx, [sharedCartId, requesterCart]);
+      const locked = approve
+        ? (await this.lockDevice(tx, org.id, seen.deviceKey, sharedCartId))
+            .locked
+        : await this.lockCarts(tx, [sharedCartId]);
       if (
         !locked.some(
           ({ id, lastActivityAt }) =>
@@ -692,15 +715,13 @@ export class SharedCartsService {
       }
       if ((await countActive(tx, sharedCartId)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
+
+      const left = (await deviceOf(tx, org.id, request.deviceKey)).active;
+      if (left) await this.leave(tx, left);
       await tx
         .update(sharedCartParticipant)
         .set({ joinedAt: new Date(), status: 'active' })
         .where(eq(sharedCartParticipant.id, requestId));
-
-      const left = (await deviceRows(tx, org.id, request.deviceKey)).find(
-        (row) => row.status === 'active' && row.sharedCartId !== sharedCartId,
-      );
-      if (left) await this.leave(tx, left);
     });
 
     return this.view(org, deviceKey);

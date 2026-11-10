@@ -50,4 +50,6 @@ CREATE INDEX "shared_cart_organizationId_idx" ON "shared_cart" USING btree ("org
 CREATE INDEX "shared_cart_item_sharedCartId_idx" ON "shared_cart_item" USING btree ("shared_cart_id");--> statement-breakpoint
 CREATE INDEX "shared_cart_participant_sharedCartId_idx" ON "shared_cart_participant" USING btree ("shared_cart_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "shared_cart_participant_sharedCartId_deviceKey_unique" ON "shared_cart_participant" USING btree ("shared_cart_id","device_key");--> statement-breakpoint
-CREATE INDEX "shared_cart_participant_deviceKey_idx" ON "shared_cart_participant" USING btree ("device_key");
+CREATE INDEX "shared_cart_participant_deviceKey_idx" ON "shared_cart_participant" USING btree ("device_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "shared_cart_participant_deviceKey_active_unique" ON "shared_cart_participant" USING btree ("device_key") WHERE "shared_cart_participant"."status" = 'active';--> statement-breakpoint
+CREATE UNIQUE INDEX "shared_cart_participant_deviceKey_pending_unique" ON "shared_cart_participant" USING btree ("device_key") WHERE "shared_cart_participant"."status" = 'pending';

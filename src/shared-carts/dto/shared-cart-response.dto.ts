@@ -52,13 +52,17 @@ export class SharedCartItemResponseDto extends CreateOrderItemDto {
 }
 
 export class SharedCartOutgoingRequestDto {
-  code: string;
   requestedAt: Date;
   expiresAt: Date;
 }
 
 export class SharedCartResponseDto {
-  code: string;
+  @ApiProperty({
+    description: '待允許時為 null：單號會因拒絕而換發，允許後才看得到新的單號',
+    nullable: true,
+    type: String,
+  })
+  code: string | null;
 
   @ApiProperty({ enum: orderModeEnum.enumValues })
   mode: OrderMode;

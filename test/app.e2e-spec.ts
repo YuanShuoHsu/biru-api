@@ -243,7 +243,7 @@ describe('App (e2e)', () => {
       expect(asked.body).toMatchObject({
         code: first.body.code,
         me: { status: 'active' },
-        outgoingRequest: { code: second.body.code },
+        outgoingRequest: { expiresAt: expect.any(String) },
       });
 
       const waiting = await request(server)

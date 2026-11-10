@@ -1,5 +1,5 @@
 {
-  "id": "e1c963ee-84d1-43a1-9672-e186fc9bfa1f",
+  "id": "07b088f5-a7c4-4ffe-bbc5-6b371280c823",
   "prevId": "ea07ec1f-42e6-4fc8-8fcc-f7ee30dcca9f",
   "version": "7",
   "dialect": "postgresql",
@@ -10696,6 +10696,38 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_cart_participant_deviceKey_active_unique": {
+          "name": "shared_cart_participant_deviceKey_active_unique",
+          "columns": [
+            {
+              "expression": "device_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"shared_cart_participant\".\"status\" = 'active'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_cart_participant_deviceKey_pending_unique": {
+          "name": "shared_cart_participant_deviceKey_pending_unique",
+          "columns": [
+            {
+              "expression": "device_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"shared_cart_participant\".\"status\" = 'pending'",
           "concurrently": false,
           "method": "btree",
           "with": {}

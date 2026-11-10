@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   foreignKey,
   index,
@@ -111,6 +112,12 @@ export const sharedCartParticipant = pgTable(
       table.deviceKey,
     ),
     index('shared_cart_participant_deviceKey_idx').on(table.deviceKey),
+    uniqueIndex('shared_cart_participant_deviceKey_active_unique')
+      .on(table.deviceKey)
+      .where(sql`${table.status} = 'active'`),
+    uniqueIndex('shared_cart_participant_deviceKey_pending_unique')
+      .on(table.deviceKey)
+      .where(sql`${table.status} = 'pending'`),
   ],
 );
 
