@@ -42,6 +42,11 @@ export class CreateOrderTicketPrinterDto {
   name: string;
 }
 
+export class UpdateOrderTicketPrinterDto extends PickType(
+  CreateOrderTicketPrinterDto,
+  ['name'] as const,
+) {}
+
 export class OrderTicketPrinterStatusDto extends PickType(PrinterDto, [
   'id',
   'lastSeenAt',

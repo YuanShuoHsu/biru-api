@@ -3,6 +3,7 @@ import {
   OrderTicketJobDto,
   OrderTicketPrinterStatusDto,
   ReprintOrderTicketDto,
+  UpdateOrderTicketPrinterDto,
 } from './dto/order-ticket.dto.js';
 
 import { OrderTicketService } from './order-ticket.service.js';
@@ -14,6 +15,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Put,
 } from '@nestjs/common';
@@ -71,6 +73,23 @@ export class OrderTicketPrintersController {
     @Body() { name }: CreateOrderTicketPrinterDto,
   ): Promise<PrinterCredentialsDto> {
     return this.orderTicketService.createPrinter(organizationSlug, name);
+  }
+
+  @Patch('order-ticket-printers/:printerId')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @Audit(PRINTER_AUDIT)
+  @ApiOkResponse({ type: PrinterDto })
+  @ApiOperation({ summary: '重新命名工作單印表機' })
+  rename(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('printerId') printerId: string,
+    @Body() { name }: UpdateOrderTicketPrinterDto,
+  ): Promise<PrinterDto> {
+    return this.orderTicketService.renamePrinter(
+      organizationSlug,
+      printerId,
+      name,
+    );
   }
 
   @Put('order-ticket-printers/:printerId/credentials')

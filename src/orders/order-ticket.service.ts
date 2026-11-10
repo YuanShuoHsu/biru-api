@@ -27,6 +27,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { isUniqueViolation, pgConstraint } from '../common/utils/pg-errors.js';
 import { DEFAULT_LANGUAGE } from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
 import type {
@@ -74,6 +75,15 @@ import {
   conflictError,
   notFoundError,
 } from './order-errors.js';
+
+const rethrowNameTaken = (error: unknown): never => {
+  if (
+    isUniqueViolation(error) &&
+    pgConstraint(error) === 'printer_organizationId_orderTicket_name_idx'
+  )
+    throw conflictError('printerNameTaken');
+  throw error;
+};
 
 export const IN_FLIGHT_ORDER_TICKET_STATUSES = [
   'queued',
@@ -230,8 +240,8 @@ export class OrderTicketService implements PrintJobSource {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
 
-    const { password, printer, queued } = await this.db.transaction(
-      async (tx) => {
+    const { password, printer, queued } = await this.db
+      .transaction(async (tx) => {
         await this.lockPrinters(tx, organizationId);
 
         const existing = await this.printersService.list(
@@ -272,8 +282,8 @@ export class OrderTicketService implements PrintJobSource {
           queued.push(...(await this.enqueueOrder(tx, id, organizationId)));
 
         return { password: registered.password, printer: created, queued };
-      },
-    );
+      })
+      .catch(rethrowNameTaken);
 
     this.emitOrdersUpdated(
       organizationId,
@@ -339,6 +349,31 @@ export class OrderTicketService implements PrintJobSource {
 
       return updated;
     });
+
+    return this.printersService.toDto(updated);
+  }
+
+  async renamePrinter(
+    organizationSlug: string,
+    printerId: string,
+    name: string,
+  ): Promise<PrinterDto> {
+    const organizationId =
+      await this.printersService.findOrganizationId(organizationSlug);
+
+    const [updated] = await this.db
+      .update(printerTable)
+      .set({ name })
+      .where(
+        and(
+          eq(printerTable.id, printerId),
+          eq(printerTable.organizationId, organizationId),
+          eq(printerTable.purpose, 'orderTicket'),
+        ),
+      )
+      .returning()
+      .catch(rethrowNameTaken);
+    if (!updated) throw menuNotFoundError('printerNotFound');
 
     return this.printersService.toDto(updated);
   }

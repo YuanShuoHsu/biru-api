@@ -97,4 +97,65 @@ describe('OrderTicketService 出單機（PGlite）', () => {
     expect(rows.map(({ name }) => name)).toEqual(['廚房', '外帶']);
     expect(rows.filter(({ isDefault }) => isDefault)).toHaveLength(1);
   });
+
+  it('同店已有同名的出單機時拒絕新增', async () => {
+    await service.createPrinter('biru', '吧台');
+
+    await expect(service.createPrinter('biru', '吧台')).rejects.toMatchObject({
+      response: { code: 'printerNameTaken' },
+      status: 409,
+    });
+    expect(await printers()).toHaveLength(1);
+  });
+
+  it('不同店可以用同一個名稱', async () => {
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org-2', 'Biru 2', 'biru-2', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await service.createPrinter('biru', '吧台');
+
+    await expect(
+      service.createPrinter('biru-2', '吧台'),
+    ).resolves.toMatchObject({ name: '吧台' });
+  });
+
+  it('改名', async () => {
+    const bar = await service.createPrinter('biru', '吧台');
+
+    await expect(
+      service.renamePrinter('biru', bar.id, '手搖吧台'),
+    ).resolves.toMatchObject({ id: bar.id, isDefault: true, name: '手搖吧台' });
+    expect(await printers()).toEqual([{ isDefault: true, name: '手搖吧台' }]);
+  });
+
+  it('改成同店另一台的名稱時拒絕', async () => {
+    const bar = await service.createPrinter('biru', '吧台');
+    await service.createPrinter('biru', '廚房');
+
+    await expect(
+      service.renamePrinter('biru', bar.id, '廚房'),
+    ).rejects.toMatchObject({
+      response: { code: 'printerNameTaken' },
+      status: 409,
+    });
+    expect((await printers()).map(({ name }) => name)).toEqual([
+      '吧台',
+      '廚房',
+    ]);
+  });
+
+  it('改名不存在或別店的出單機時回 404', async () => {
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org-2', 'Biru 2', 'biru-2', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    const elsewhere = await service.createPrinter('biru-2', '吧台');
+
+    for (const printerId of [elsewhere.id, 'missing'])
+      await expect(
+        service.renamePrinter('biru', printerId, '廚房'),
+      ).rejects.toMatchObject({
+        response: { code: 'printerNotFound' },
+        status: 404,
+      });
+  });
 });
