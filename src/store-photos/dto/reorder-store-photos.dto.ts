@@ -1,13 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  ArrayMaxSize,
-  ArrayUnique,
-  IsArray,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsString } from 'class-validator';
 
 export class ReorderStorePhotosDto {
   @ApiProperty({ type: [String] })
@@ -16,13 +8,4 @@ export class ReorderStorePhotosDto {
   @ArrayUnique()
   @IsString({ each: true })
   ids: string[];
-
-  @ApiPropertyOptional({
-    deprecated: true,
-    description: '已不使用，之後會移除',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  offset?: number;
 }
