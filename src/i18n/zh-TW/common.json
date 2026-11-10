@@ -459,6 +459,10 @@
       "penguin": "企鵝",
       "rabbit": "兔兔"
     },
+    "sharedCartApplicantCheckoutLocked": "對方原本的單正在結帳，請稍後再允許",
+    "sharedCartCheckoutLeaveBlocked": "你所在的共享點餐單正在結帳，請等結帳完成再離開",
+    "sharedCartCheckoutLocked": "有人正在結帳，請等結帳完成再修改",
+    "sharedCartCheckoutNotFound": "你沒有在結帳，或結帳鎖定已逾時",
     "sharedCartCodeNotFound": "找不到這張共享點餐單，請確認單號與點餐模式",
     "sharedCartFull": "這張共享點餐單人數已滿",
     "sharedCartItemNotFound": "這個品項已不在共享點餐單中",

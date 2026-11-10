@@ -512,6 +512,10 @@ export type I18nTranslations = {
                 "penguin": string;
                 "rabbit": string;
             };
+            "sharedCartApplicantCheckoutLocked": string;
+            "sharedCartCheckoutLeaveBlocked": string;
+            "sharedCartCheckoutLocked": string;
+            "sharedCartCheckoutNotFound": string;
             "sharedCartCodeNotFound": string;
             "sharedCartFull": string;
             "sharedCartItemNotFound": string;

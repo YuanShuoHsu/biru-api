@@ -459,6 +459,10 @@
       "penguin": "ペンギン",
       "rabbit": "ウサギ"
     },
+    "sharedCartApplicantCheckoutLocked": "相手が参加中の注文は会計中です。しばらくしてから許可してください",
+    "sharedCartCheckoutLeaveBlocked": "参加中の共有注文は会計中です。会計が終わるまでお待ちください",
+    "sharedCartCheckoutLocked": "会計中の人がいます。会計が終わってから変更してください",
+    "sharedCartCheckoutNotFound": "会計中ではないか、会計のロックが期限切れです",
     "sharedCartCodeNotFound": "共有注文が見つかりません。番号と注文方法をご確認ください",
     "sharedCartFull": "この共有注文は人数が上限に達しています",
     "sharedCartItemNotFound": "この商品は共有注文にもうありません",

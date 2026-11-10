@@ -459,6 +459,10 @@
       "penguin": "Penguin",
       "rabbit": "Rabbit"
     },
+    "sharedCartApplicantCheckoutLocked": "Their current shared order is checking out. Please approve them a little later",
+    "sharedCartCheckoutLeaveBlocked": "Your shared order is checking out. Please wait until checkout is done before leaving",
+    "sharedCartCheckoutLocked": "Someone is checking out. Please wait until checkout is done to make changes",
+    "sharedCartCheckoutNotFound": "You are not checking out, or the checkout lock has expired",
     "sharedCartCodeNotFound": "Shared order not found. Check the code and the order mode",
     "sharedCartFull": "This shared order is full",
     "sharedCartItemNotFound": "This item is no longer in the shared order",

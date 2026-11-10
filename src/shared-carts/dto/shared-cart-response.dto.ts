@@ -56,6 +56,11 @@ export class SharedCartOutgoingRequestDto {
   expiresAt: Date;
 }
 
+export class SharedCartCheckoutDto {
+  participantId: string;
+  lockedUntil: Date;
+}
+
 export class SharedCartResponseDto {
   @ApiProperty({
     description: '待允許時為 null：單號會因拒絕而換發，允許後才看得到新的單號',
@@ -76,6 +81,14 @@ export class SharedCartResponseDto {
   expiresAt: Date;
 
   me: SharedCartMeResponseDto;
+
+  @ApiProperty({
+    description:
+      '正在結帳的人與鎖定的失效時間；鎖定期間只有他能修改品項或移除參與者，單內任何人都不能離開。沒有人在結帳或待允許時為 null',
+    nullable: true,
+    type: SharedCartCheckoutDto,
+  })
+  checkout: SharedCartCheckoutDto | null;
 
   @ApiProperty({
     description:

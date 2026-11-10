@@ -62,6 +62,7 @@ import {
   conflictError,
   forbiddenError,
   notFoundError,
+  type SharedCartErrorCode,
 } from './shared-cart-errors.js';
 import {
   issueSharedCartParticipant,
@@ -76,6 +77,7 @@ export const SHARED_CART_MAX_PENDING = 5;
 export const SHARED_CART_MAX_PER_STORE = 3_000;
 export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 export const SHARED_CART_REQUEST_TTL_MS = 10 * 60 * 1000;
+export const SHARED_CART_CHECKOUT_LOCK_MS = 2 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
 
 export type SharedCartUser = { id: string; name: string; sessionId: string };
@@ -130,6 +132,27 @@ const liveSessionOf = () =>
 const activeSince = (now = Date.now()) => new Date(now - SHARED_CART_TTL_MS);
 const requestedSince = (now = Date.now()) =>
   new Date(now - SHARED_CART_REQUEST_TTL_MS);
+
+const checkoutLockedSince = () =>
+  new Date(Date.now() - SHARED_CART_CHECKOUT_LOCK_MS);
+
+const liveCheckout = ({
+  checkoutLockedAt,
+  checkoutParticipantId,
+}: {
+  checkoutLockedAt: Date | null;
+  checkoutParticipantId: string | null;
+}) =>
+  checkoutLockedAt &&
+  checkoutParticipantId &&
+  checkoutLockedAt > checkoutLockedSince()
+    ? {
+        lockedUntil: new Date(
+          checkoutLockedAt.getTime() + SHARED_CART_CHECKOUT_LOCK_MS,
+        ),
+        participantId: checkoutParticipantId,
+      }
+    : null;
 
 const isLiveParticipant = (now = Date.now()) =>
   or(
@@ -366,6 +389,8 @@ export class SharedCartsService {
     if (!unique.length) return [];
     return tx
       .select({
+        checkoutLockedAt: sharedCart.checkoutLockedAt,
+        checkoutParticipantId: sharedCart.checkoutParticipantId,
         code: sharedCart.code,
         id: sharedCart.id,
         lastActivityAt: sharedCart.lastActivityAt,
@@ -421,8 +446,13 @@ export class SharedCartsService {
       throw forbiddenError('sharedCartPending');
   }
 
-  private async leave(tx: Tx, { participantId, sharedCartId }: DeviceRow) {
-    await this.lockCarts(tx, [sharedCartId]);
+  private async leave(
+    tx: Tx,
+    { participantId, sharedCartId }: DeviceRow,
+    blocked: SharedCartErrorCode = 'sharedCartCheckoutLeaveBlocked',
+  ) {
+    const [cart] = await this.lockCarts(tx, [sharedCartId]);
+    if (cart && liveCheckout(cart)) throw conflictError(blocked);
     await deleteParticipant(tx, participantId);
     if (!(await countActive(tx, sharedCartId)))
       await tx.delete(sharedCart).where(eq(sharedCart.id, sharedCartId));
@@ -587,6 +617,7 @@ export class SharedCartsService {
 
     return {
       cart: {
+        checkout: isActive ? liveCheckout(cart) : null,
         code: isActive ? cart.code : null,
         expiresAt: isActive
           ? new Date(cart.lastActivityAt.getTime() + SHARED_CART_TTL_MS)
@@ -872,7 +903,7 @@ export class SharedCartsService {
         throw conflictError('sharedCartFull');
 
       const left = (await deviceOf(tx, org.id, request.deviceKey)).active;
-      if (left) await this.leave(tx, left);
+      if (left) await this.leave(tx, left, 'sharedCartApplicantCheckoutLocked');
       await tx
         .update(sharedCartParticipant)
         .set({ joinedAt: new Date(), status: 'active' })
@@ -918,11 +949,11 @@ export class SharedCartsService {
       );
 
     await this.db.transaction(async (tx) => {
-      await this.assertStillActive(
-        tx,
-        await this.lockCarts(tx, [active.sharedCartId]),
-        active,
-      );
+      const locked = await this.lockCarts(tx, [active.sharedCartId]);
+      await this.assertStillActive(tx, locked, active);
+      const holder = liveCheckout(locked[0])?.participantId;
+      if (holder && holder !== active.participantId)
+        throw conflictError('sharedCartCheckoutLocked');
       await change(tx, active, org);
     });
 
@@ -1042,6 +1073,52 @@ export class SharedCartsService {
         if (!removed.length)
           throw notFoundError('sharedCartParticipantNotFound');
         await this.rotateCode(tx, org.id, sharedCartId);
+      },
+    );
+  }
+
+  acquireCheckout(
+    organizationSlug: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      (tx, { participantId, sharedCartId }) =>
+        tx
+          .update(sharedCart)
+          .set({
+            checkoutLockedAt: new Date(),
+            checkoutParticipantId: participantId,
+          })
+          .where(eq(sharedCart.id, sharedCartId)),
+    );
+  }
+
+  releaseCheckout(
+    organizationSlug: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { participantId, sharedCartId }) => {
+        const released = await tx
+          .update(sharedCart)
+          .set({ checkoutLockedAt: null, checkoutParticipantId: null })
+          .where(
+            and(
+              eq(sharedCart.id, sharedCartId),
+              eq(sharedCart.checkoutParticipantId, participantId),
+              gt(sharedCart.checkoutLockedAt, checkoutLockedSince()),
+            ),
+          )
+          .returning({ id: sharedCart.id });
+        if (!released.length) throw notFoundError('sharedCartCheckoutNotFound');
       },
     );
   }
