@@ -503,10 +503,28 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
     ).toBe('milk');
   });
 
-  it('單一門市統計失敗時仍列入該店的點數調整與低庫存，其他門市照常列入', async () => {
+  it('門市統計失敗時仍列入該店的點數調整與低庫存，營業統計記為無法取得', async () => {
+    vi.spyOn(orderStats, 'getStats').mockRejectedValue(new Error('stats'));
+
+    await service.notifyPlatformDailyDigest(NOW);
+
+    const [biru, other] = sendPlatformDailyDigest.mock.calls[0][0].stores;
+    expect(biru).toMatchObject({
+      organizationName: 'biru',
+      sales: null,
+      pointAdjustments: [{ points: 50 }, { points: -20 }],
+    });
+    expect(other).toMatchObject({
+      organizationName: 'other',
+      sales: null,
+      lowStock: [{ supplierName: '鮮奶坊' }],
+    });
+  });
+
+  it('單一門市統計失敗時，其他門市的營業統計照常列入', async () => {
     const getStats = orderStats.getStats.bind(orderStats);
     vi.spyOn(orderStats, 'getStats').mockImplementation((slug, ...rest) =>
-      slug === 'other'
+      slug === 'biru'
         ? Promise.reject(new Error('stats'))
         : getStats(slug, ...rest),
     );
@@ -514,12 +532,8 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
     await service.notifyPlatformDailyDigest(NOW);
 
     const [biru, other] = sendPlatformDailyDigest.mock.calls[0][0].stores;
-    expect(biru.sales).not.toBeNull();
-    expect(other).toMatchObject({
-      organizationName: 'other',
-      sales: null,
-      lowStock: [{ supplierName: '鮮奶坊' }],
-    });
+    expect(biru.sales).toBeNull();
+    expect(other.sales).toMatchObject({ current: { orders: 0, revenue: 0 } });
   });
 
   it('不限量的食材不算低庫存，不會讓門市列入總覽', async () => {
