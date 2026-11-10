@@ -6,7 +6,10 @@ import { and, asc, count, eq, gt, inArray, lte } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import { organizationClosedError } from '../common/utils/organization-closure.js';
-import { organizationNotFoundError } from '../common/utils/organizations.js';
+import {
+  getOrganizationIdBySlug,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import type { OrderMode } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
 import {
@@ -42,13 +45,13 @@ import {
 } from './shared-cart-errors.js';
 import {
   issueSharedCartParticipant,
-  SHARED_CART_TTL_MS,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 
 export const SHARED_CART_MAX_PARTICIPANTS = 20;
+export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
 
 export type SharedCartUser = { id: string; name: string };
@@ -409,6 +412,12 @@ export class SharedCartsService {
     });
 
     return this.view(org, membership);
+  }
+
+  async participantCookieName(organizationSlug: string) {
+    return sharedCartParticipantCookie(
+      await getOrganizationIdBySlug(this.db, organizationSlug),
+    );
   }
 
   async findCurrent(organizationSlug: string, cookies: SharedCartCookies) {

@@ -4,8 +4,6 @@ import { isSameToken, sign } from '../orders/order-qr-token.js';
 
 const SHARED_CART_PARTICIPANT_PURPOSE = 'biru-shared-cart-participant-v1';
 
-export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
-
 export const sharedCartParticipantCookie = (organizationId: string) =>
   `biru_shared_cart_participant_${Buffer.from(organizationId).toString('base64url')}`;
 
@@ -73,7 +71,7 @@ const cookieOptions = () =>
     secure: process.env.NODE_ENV === 'production',
   }) as const;
 
-// 不設 expires：效期只看資料庫的 last_activity_at，cookie 比群組早過期會讓同一人重複佔位
+// 不設 expires：效期只看資料庫裡群組最後操作的時間，cookie 比群組早過期會讓同一人重複佔位
 export const setSharedCartParticipantCookie = (
   res: Response,
   { name, value }: IssuedSharedCartParticipant,

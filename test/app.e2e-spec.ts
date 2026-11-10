@@ -94,10 +94,12 @@ describe('App (e2e)', () => {
     const baseB = '/api/organizations/shared-cart-store-b/shared-carts';
     const setCookies = (response: request.Response) =>
       ([] as string[]).concat(response.headers['set-cookie'] ?? []);
+    const participantSetCookie = (response: request.Response) =>
+      setCookies(response).find((cookie) =>
+        cookie.startsWith('biru_shared_cart_participant_'),
+      );
     const participantCookie = (response: request.Response) =>
-      setCookies(response)
-        .find((cookie) => cookie.startsWith('biru_shared_cart_participant_'))
-        ?.split(';')[0];
+      participantSetCookie(response)?.split(';')[0];
 
     it('自取不需 QR code 即可發起，另一支手機以單號加入，離開後單號失效', async () => {
       const server = app.getHttpServer();
@@ -108,7 +110,7 @@ describe('App (e2e)', () => {
         .expect(201);
       const host = participantCookie(created)!;
       expect(host).toBeDefined();
-      expect(setCookies(created)[0]).not.toMatch(/expires|max-age/i);
+      expect(participantSetCookie(created)).not.toMatch(/expires|max-age/i);
       expect(created.body).toMatchObject({
         code: expect.stringMatching(/^\d{6}$/),
         participants: [{ avatar: 'cat', isMe: true, nickname: '小明' }],
@@ -179,6 +181,37 @@ describe('App (e2e)', () => {
         .set('cookie', cookieA)
         .expect(200);
       expect(current.body.code).toBe(inA.body.code);
+    });
+
+    it('單已失效時清掉這家的 cookie，門市不存在時不清', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookie = participantCookie(created)!;
+      const name = cookie.split('=')[0];
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', cookie)
+        .expect(204);
+
+      const stale = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', cookie)
+        .expect(404);
+      expect(stale.body.code).toBe('sharedCartNotFound');
+      expect(participantSetCookie(stale)).toMatch(
+        new RegExp(`^${name}=;.*Expires=Thu, 01 Jan 1970`),
+      );
+
+      const unknownStore = await request(server)
+        .get('/api/organizations/no-such-store/shared-carts/current')
+        .set('cookie', cookie)
+        .expect(404);
+      expect(unknownStore.body.code).toBe('organizationNotFound');
+      expect(participantSetCookie(unknownStore)).toBeUndefined();
     });
 
     it('內用沒有桌位 QR session 時拒絕發起', () =>

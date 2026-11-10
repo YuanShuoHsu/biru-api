@@ -29,5 +29,9 @@ export const badRequestError = (code: SharedCartErrorCode) =>
 export const conflictError = (code: SharedCartErrorCode) =>
   new ConflictException({ error: 'Conflict', ...errorBody(code) });
 
+export const isSharedCartNotFound = (error: unknown) =>
+  error instanceof NotFoundException &&
+  (error.getResponse() as { code?: unknown }).code === 'sharedCartNotFound';
+
 export const notFoundError = (code: SharedCartErrorCode) =>
   new NotFoundException({ error: 'Not Found', ...errorBody(code) });

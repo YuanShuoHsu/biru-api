@@ -31,6 +31,7 @@ import {
   SharedCartProfileDto,
 } from './dto/shared-cart.dto.js';
 import { SharedCartResponseDto } from './dto/shared-cart-response.dto.js';
+import { isSharedCartNotFound } from './shared-cart-errors.js';
 import {
   clearSharedCartParticipantCookie,
   setSharedCartParticipantCookie,
@@ -122,10 +123,18 @@ export class SharedCartsController {
   ): Promise<SharedCartResponseDto> {
     return respond(
       res,
-      await this.sharedCartsService.findCurrent(
-        organizationSlug,
-        cookiesOf(req),
-      ),
+      await this.sharedCartsService
+        .findCurrent(organizationSlug, cookiesOf(req))
+        .catch(async (error: unknown) => {
+          if (isSharedCartNotFound(error))
+            clearSharedCartParticipantCookie(
+              res,
+              await this.sharedCartsService.participantCookieName(
+                organizationSlug,
+              ),
+            );
+          throw error;
+        }),
     );
   }
 

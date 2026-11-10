@@ -18,13 +18,13 @@ import { issueOrderQrSession } from '../orders/order-qr-token.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
 
 import {
-  SHARED_CART_TTL_MS,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 import {
   SHARED_CART_MAX_PARTICIPANTS,
+  SHARED_CART_TTL_MS,
   sharedCartCode,
   SharedCartsService,
 } from './shared-carts.service.js';
