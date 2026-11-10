@@ -163,7 +163,8 @@
     "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email, or the member is already in the store).",
     "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first.",
     "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead.",
-    "batchNotFound": "This deleted record could not be found. It may be past its retention period."
+    "batchNotFound": "This deleted record could not be found. It may be past its retention period.",
+    "restoreRevokedPlatformAdmin": "Can't restore: this member joined as a platform admin, and that user is no longer a platform admin."
   },
   "exceptions": {
     "badRequest": "Invalid request",

@@ -9,6 +9,7 @@ export const deletedRecordErrorCodes = [
   'restoreConflict',
   'restoreInvalid',
   'restoreMissingReference',
+  'restoreRevokedPlatformAdmin',
 ] as const;
 
 export type DeletedRecordErrorCode = (typeof deletedRecordErrorCodes)[number];
