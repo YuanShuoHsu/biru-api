@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { Logger } from '@nestjs/common';
-import { eq, isNotNull, lt } from 'drizzle-orm';
+import { eq, inArray, isNotNull, lt } from 'drizzle-orm';
 
 import { createPGlite } from '../../test/pglite.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
@@ -1113,6 +1113,35 @@ describe('PointsService.findAllForOrganization', () => {
       ]),
     );
     expect((await service.getAllMine('amy')).balance).toBe(16);
+  });
+
+  it('扣點時到期與取得時間相同的點數依 id 扣，與兌換的扣點順序一致', async () => {
+    for (const id of ['lot-b', 'lot-a'])
+      await client.query(
+        `insert into point_transaction (id, user_id, organization_id, type, points, remaining_points, expires_at, created_at)
+         values ($1, 'amy', $2, 'adjust', 5, 5, '2027-02-01T15:59:59.999Z', '2026-02-01T00:00:00Z')`,
+        [id, ORG],
+      );
+
+    await service.adjustForOrganization(
+      'biru',
+      { email: 'amy@example.com', note: '誤發', points: -3 },
+      'bob',
+      'admin',
+    );
+
+    const lots = await db
+      .select({
+        id: pointTransaction.id,
+        remainingPoints: pointTransaction.remainingPoints,
+      })
+      .from(pointTransaction)
+      .where(inArray(pointTransaction.id, ['lot-a', 'lot-b']))
+      .orderBy(pointTransaction.id);
+    expect(lots).toEqual([
+      { id: 'lot-a', remainingPoints: 2 },
+      { id: 'lot-b', remainingPoints: 5 },
+    ]);
   });
 
   it('扣點超過本店剩餘點數時拒絕，不動任何明細', async () => {

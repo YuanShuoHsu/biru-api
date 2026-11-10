@@ -919,10 +919,7 @@ export class PointsService {
               this.notExpired(),
             ),
           )
-          .orderBy(
-            asc(pointTransaction.expiresAt),
-            asc(pointTransaction.createdAt),
-          )
+          .orderBy(...LOT_CONSUMPTION_ORDER)
           .for('update');
 
         const balance = holdings.reduce(
