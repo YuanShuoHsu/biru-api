@@ -513,10 +513,14 @@ export type I18nTranslations = {
             };
             "sharedCartCodeNotFound": string;
             "sharedCartFull": string;
+            "sharedCartItemNotFound": string;
+            "sharedCartItemsFull": string;
             "sharedCartLimitReached": string;
             "sharedCartMemberAvatarSignInRequired": string;
             "sharedCartNotFound": string;
+            "sharedCartParticipantNotFound": string;
             "sharedCartPending": string;
+            "sharedCartRemoveSelf": string;
             "sharedCartRequestNotFound": string;
             "sharedCartRequestsFull": string;
         };

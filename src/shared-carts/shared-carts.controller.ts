@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   Res,
 } from '@nestjs/common';
@@ -23,9 +24,11 @@ import {
   ANONYMOUS_THROTTLER,
   HOURLY_THROTTLER,
 } from '../common/constants/throttle.js';
+import { CreateOrderItemDto } from '../orders/dto/create-order.dto.js';
 import { ORDER_QR_SESSION_COOKIE } from '../orders/order-qr-token.js';
 
 import {
+  AddSharedCartItemsDto,
   CreateSharedCartDto,
   JoinSharedCartDto,
   SharedCartProfileDto,
@@ -202,6 +205,96 @@ export class SharedCartsController {
     return respond(
       res,
       await this.sharedCartsService.rejectRequest(
+        organizationSlug,
+        participantId,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Post('current/items')
+  @ApiOperation({
+    summary:
+      '加入品項到共享點餐單（已加入的參與者皆可；可一次帶入自己的購物車）',
+  })
+  async addItems(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() dto: AddSharedCartItemsDto,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.addItems(
+        organizationSlug,
+        dto,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Put('current/items/:itemId')
+  @ApiOperation({
+    summary: '修改共享點餐單的品項（任何已加入的參與者皆可，加入者不變）',
+  })
+  async updateItem(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: CreateOrderItemDto,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.updateItem(
+        organizationSlug,
+        itemId,
+        dto,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Delete('current/items/:itemId')
+  @ApiOperation({ summary: '刪除共享點餐單的品項（任何已加入的參與者皆可）' })
+  async removeItem(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('itemId') itemId: string,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.removeItem(
+        organizationSlug,
+        itemId,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Delete('current/participants/:participantId')
+  @ApiOperation({
+    summary:
+      '把另一位已加入的參與者移出共享點餐單並刪除他加入的品項，單號隨之換發；移除自己請改用離開',
+  })
+  async removeParticipant(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('participantId') participantId: string,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.removeParticipant(
         organizationSlug,
         participantId,
         memberOf(session),

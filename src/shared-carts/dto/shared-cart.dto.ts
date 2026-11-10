@@ -1,13 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsEnum,
   IsNotEmpty,
   IsString,
   Matches,
   MaxLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
@@ -17,8 +21,10 @@ import {
   sharedCartAvatarEnum,
   type SharedCartAvatar,
 } from '../../db/schema/shared-carts.js';
+import { CreateOrderItemDto } from '../../orders/dto/create-order.dto.js';
 
 export const SHARED_CART_NICKNAME_MAX_LENGTH = 20;
+export const SHARED_CART_MAX_ITEMS = 50;
 
 const UNPRINTABLE =
   '\\p{Cc}\\p{Co}\\p{Cn}\\p{Cs}\\u200B\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069';
@@ -63,4 +69,17 @@ export class JoinSharedCartDto extends CreateSharedCartDto {
   @ApiProperty({ example: '0123' })
   @Matches(/^\d{4}$/)
   code: string;
+}
+
+export class AddSharedCartItemsDto {
+  @ApiProperty({
+    description: `可一次加入多筆（例如帶入自己的購物車）；整張單最多 ${SHARED_CART_MAX_ITEMS} 筆`,
+    type: [CreateOrderItemDto],
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(SHARED_CART_MAX_ITEMS)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
 }
