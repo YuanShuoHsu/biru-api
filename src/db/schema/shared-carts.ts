@@ -40,6 +40,13 @@ export const sharedCartAvatarEnum = pgEnum('shared_cart_avatar', [
 ]);
 export type SharedCartAvatar = (typeof sharedCartAvatarEnum.enumValues)[number];
 
+export const sharedCartParticipantStatusEnum = pgEnum(
+  'shared_cart_participant_status',
+  ['pending', 'active'],
+);
+export type SharedCartParticipantStatus =
+  (typeof sharedCartParticipantStatusEnum.enumValues)[number];
+
 export const sharedCart = pgTable(
   'shared_cart',
   {
@@ -88,6 +95,12 @@ export const sharedCartParticipant = pgTable(
     }),
     avatar: sharedCartAvatarEnum('avatar').notNull(),
     nickname: text('nickname').notNull(),
+    status: sharedCartParticipantStatusEnum('status')
+      .notNull()
+      .default('active'),
+    requestedAt: timestamp('requested_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     joinedAt: timestamp('joined_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

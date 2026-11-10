@@ -458,7 +458,10 @@
     },
     "sharedCartFull": "This shared order is full",
     "sharedCartMemberAvatarSignInRequired": "Sign in to use your member avatar",
-    "sharedCartNotFound": "Shared order not found, or the code has expired"
+    "sharedCartNotFound": "Shared order not found, or the code has expired",
+    "sharedCartPending": "Wait until someone in the shared order lets you in",
+    "sharedCartRequestNotFound": "This join request has already been handled or has expired",
+    "sharedCartRequestsFull": "Too many people are waiting to join. Please try again later"
   },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",

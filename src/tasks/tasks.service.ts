@@ -246,9 +246,12 @@ export class TasksService {
   })
   async handleSharedCartRetentionCron() {
     try {
-      const purged = await this.sharedCartsService.purgeExpired();
+      const { carts, requests } = await this.sharedCartsService.purgeExpired();
 
-      if (purged) this.logger.log(`清除 ${purged} 張已失效的共享點餐單`);
+      if (carts || requests)
+        this.logger.log(
+          `清除 ${carts} 張已失效的共享點餐單與 ${requests} 筆逾時的加入請求`,
+        );
     } catch (error) {
       this.logger.error('清除失效共享點餐單失敗', error);
     }

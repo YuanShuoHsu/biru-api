@@ -94,7 +94,9 @@ export class SharedCartsController {
     [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
     [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
   })
-  @ApiOperation({ summary: '以 6 碼單號加入共享點餐單' })
+  @ApiOperation({
+    summary: '以 6 碼單號送出加入請求，由單內已加入的人允許後才看得到內容',
+  })
   async join(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: JoinSharedCartDto,
@@ -158,9 +160,50 @@ export class SharedCartsController {
     );
   }
 
+  @Post('current/requests/:participantId/approve')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '允許一筆加入請求（已加入的參與者皆可，先處理者為準）',
+  })
+  async approveRequest(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('participantId') participantId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.approveRequest(
+        organizationSlug,
+        participantId,
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Delete('current/requests/:participantId')
+  @ApiOperation({ summary: '拒絕一筆加入請求；對方可重新送出' })
+  async rejectRequest(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('participantId') participantId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.rejectRequest(
+        organizationSlug,
+        participantId,
+        cookiesOf(req),
+      ),
+    );
+  }
+
   @Delete('current/me')
   @HttpCode(204)
-  @ApiOperation({ summary: '離開共享點餐單；最後一人離開時刪除整張單' })
+  @ApiOperation({
+    summary: '離開共享點餐單或取消加入請求；最後一位已加入的人離開時刪除整張單',
+  })
   async leaveMe(
     @Param('organizationSlug') organizationSlug: string,
     @Req() req: Request,

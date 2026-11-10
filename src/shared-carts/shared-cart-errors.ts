@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -12,6 +13,9 @@ export const sharedCartErrorCodes = [
   'sharedCartFull',
   'sharedCartMemberAvatarSignInRequired',
   'sharedCartNotFound',
+  'sharedCartPending',
+  'sharedCartRequestNotFound',
+  'sharedCartRequestsFull',
 ] as const;
 
 type SharedCartErrorCode = (typeof sharedCartErrorCodes)[number];
@@ -28,6 +32,9 @@ export const badRequestError = (code: SharedCartErrorCode) =>
 
 export const conflictError = (code: SharedCartErrorCode) =>
   new ConflictException({ error: 'Conflict', ...errorBody(code) });
+
+export const forbiddenError = (code: SharedCartErrorCode) =>
+  new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });
 
 export const isSharedCartNotFound = (error: unknown) =>
   error instanceof NotFoundException &&

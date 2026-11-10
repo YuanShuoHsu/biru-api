@@ -1,4 +1,5 @@
 CREATE TYPE "public"."shared_cart_avatar" AS ENUM('cat', 'dog', 'rabbit', 'bear', 'fox', 'panda', 'penguin', 'koala', 'member');--> statement-breakpoint
+CREATE TYPE "public"."shared_cart_participant_status" AS ENUM('pending', 'active');--> statement-breakpoint
 CREATE TABLE "shared_cart" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
@@ -32,6 +33,8 @@ CREATE TABLE "shared_cart_participant" (
 	"user_id" text,
 	"avatar" "shared_cart_avatar" NOT NULL,
 	"nickname" text NOT NULL,
+	"status" "shared_cart_participant_status" DEFAULT 'active' NOT NULL,
+	"requested_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"joined_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

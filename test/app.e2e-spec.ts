@@ -122,7 +122,41 @@ describe('App (e2e)', () => {
         .send({ code: created.body.code })
         .expect(200);
       const guest = participantCookie(joined)!;
-      expect(joined.body.participants).toHaveLength(2);
+      expect(joined.body).toMatchObject({
+        items: [],
+        me: { status: 'pending' },
+        participants: [],
+        requests: [],
+      });
+
+      const pending = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', host)
+        .expect(200);
+      expect(pending.body.requests).toEqual([
+        expect.objectContaining({ id: joined.body.me.id }),
+      ]);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', guest)
+        .expect(403);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', host)
+        .expect(200);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', host)
+        .expect(404);
+
+      const approved = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', guest)
+        .expect(200);
+      expect(approved.body).toMatchObject({
+        me: { status: 'active' },
+        participants: [{ isMe: false, nickname: '小明' }, { isMe: true }],
+      });
 
       await request(server)
         .delete(`${base}/current/me`)
@@ -145,6 +179,39 @@ describe('App (e2e)', () => {
         .set('content-type', 'application/json')
         .send({ code: created.body.code })
         .expect(404);
+    });
+
+    it('拒絕加入請求後對方看不到單，可再送一次', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const host = participantCookie(created)!;
+      const joined = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code })
+        .expect(200);
+      const guest = participantCookie(joined)!;
+
+      const rejected = await request(server)
+        .delete(`${base}/current/requests/${joined.body.me.id}`)
+        .set('cookie', host)
+        .expect(200);
+      expect(rejected.body.requests).toEqual([]);
+      await request(server)
+        .get(`${base}/current`)
+        .set('cookie', guest)
+        .expect(404);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', guest)
+        .send({ code: created.body.code })
+        .expect(200)
+        .expect(({ body }) => expect(body.me.status).toBe('pending'));
     });
 
     it('另一家門市的共享單不會蓋掉這家的參與者 cookie', async () => {

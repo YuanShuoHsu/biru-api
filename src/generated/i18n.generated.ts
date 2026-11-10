@@ -512,6 +512,9 @@ export type I18nTranslations = {
             "sharedCartFull": string;
             "sharedCartMemberAvatarSignInRequired": string;
             "sharedCartNotFound": string;
+            "sharedCartPending": string;
+            "sharedCartRequestNotFound": string;
+            "sharedCartRequestsFull": string;
         };
         "storeLayout": {
             "duplicateTableNumber": string;

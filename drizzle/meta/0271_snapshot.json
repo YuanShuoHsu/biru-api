@@ -1,5 +1,5 @@
 {
-  "id": "acf89686-fd4c-407a-a995-ef85e44058a5",
+  "id": "b91a9af9-c09f-4381-a6b8-1c2a2c6c7ee4",
   "prevId": "ea07ec1f-42e6-4fc8-8fcc-f7ee30dcca9f",
   "version": "7",
   "dialect": "postgresql",
@@ -10620,6 +10620,21 @@
           "primaryKey": false,
           "notNull": true
         },
+        "status": {
+          "name": "status",
+          "type": "shared_cart_participant_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "joined_at": {
           "name": "joined_at",
           "type": "timestamp with time zone",
@@ -12143,6 +12158,14 @@
         "penguin",
         "koala",
         "member"
+      ]
+    },
+    "public.shared_cart_participant_status": {
+      "name": "shared_cart_participant_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "active"
       ]
     },
     "public.waitlist_ticket_status": {
