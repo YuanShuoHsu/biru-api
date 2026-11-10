@@ -13,5 +13,6 @@ export class UserOrderPaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
   offset?: number = 0;
 }
