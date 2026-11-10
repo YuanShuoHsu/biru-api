@@ -21,7 +21,7 @@ const ADDRESS = {
   streetAddress: '中正東路 1 號',
 };
 
-describe('門市地圖連結只接受 http 或 https 網址', () => {
+describe('門市地圖連結只接受 Google 地圖嵌入網址', () => {
   let client: PGlite;
   let db: Transaction;
   let auth: ReturnType<typeof betterAuth>;
@@ -102,6 +102,12 @@ describe('門市地圖連結只接受 http 或 https 網址', () => {
     ['ftp://example.com/map'],
     ['//www.google.com/maps'],
     ['www.google.com/maps'],
+    ['https://evil.example.com/maps/embed?pb=1'],
+    ['https://www.google.com.evil.example/maps/embed?pb=1'],
+    ['http://www.google.com/maps/embed?pb=1'],
+    ['https://maps.app.goo.gl/abc'],
+    ['https://www.google.com/maps/place/Biru'],
+    ['https://www.google.com/maps/embedded'],
   ])('建立與更新門市時擋下 %j', async (hasMap) => {
     const created = await request('/organization/create', {
       name: 'Map',
@@ -117,12 +123,12 @@ describe('門市地圖連結只接受 http 或 https 網址', () => {
     for (const response of [created, updated]) {
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({
-        message: 'hasMap must be an http or https URL',
+        message: 'hasMap must be a Google Maps embed URL',
       });
     }
   });
 
-  it('建立門市時接受 https 網址', async () => {
+  it('建立門市時接受 Google 地圖嵌入網址', async () => {
     const response = await request('/organization/create', {
       name: 'Map',
       slug: `map-${slugIndex++}`,
@@ -138,8 +144,14 @@ describe('門市地圖連結只接受 http 或 https 網址', () => {
       'https://www.google.com/maps/embed?pb=!1m18!1m12',
       'https://www.google.com/maps/embed?pb=!1m18!1m12',
     ],
-    ['HTTPS://MAPS.EXAMPLE.COM/biru', 'HTTPS://MAPS.EXAMPLE.COM/biru'],
-    ['http://maps.example.com/biru', 'http://maps.example.com/biru'],
+    [
+      'https://www.google.com/maps/embed/v1/place?key=KEY&q=Biru',
+      'https://www.google.com/maps/embed/v1/place?key=KEY&q=Biru',
+    ],
+    [
+      'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18',
+      'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18',
+    ],
     ['', ''],
     [null, null],
   ])('更新門市時接受 %j', async (hasMap, stored) => {

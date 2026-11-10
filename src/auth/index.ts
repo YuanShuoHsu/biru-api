@@ -18,7 +18,6 @@ import {
   multiSession,
   organization,
 } from 'better-auth/plugins';
-import { isURL } from 'class-validator';
 import { asc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -86,6 +85,10 @@ const REQUIRED_TEXT_FIELDS = [
   'streetAddress',
 ] as const;
 
+// https://developers.google.com/maps/documentation/embed/embedding-map
+const GOOGLE_MAPS_EMBED_URL =
+  /^https:\/\/www\.google\.com\/maps\/embed([/?#]|$)/i;
+
 const assertValidOrganizationInput = (
   data: Record<string, unknown>,
   current?: Pick<
@@ -116,13 +119,10 @@ const assertValidOrganizationInput = (
     data.hasMap != null &&
     data.hasMap !== '' &&
     (typeof data.hasMap !== 'string' ||
-      !isURL(data.hasMap, {
-        protocols: ['http', 'https'],
-        require_protocol: true,
-      }))
+      !GOOGLE_MAPS_EMBED_URL.test(data.hasMap))
   )
     throw new APIError('BAD_REQUEST', {
-      message: 'hasMap must be an http or https URL',
+      message: 'hasMap must be a Google Maps embed URL',
     });
 
   if (Object.hasOwn(data, 'currency') && !isValidCurrency(data.currency))

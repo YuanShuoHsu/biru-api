@@ -1,0 +1,1 @@
+UPDATE "organization" SET "has_map" = NULL WHERE "has_map" IS NOT NULL AND "has_map" !~* '^https://www\.google\.com/maps/embed([/?#]|$)';
