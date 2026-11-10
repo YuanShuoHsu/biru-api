@@ -48,6 +48,7 @@ import {
 } from './shared-cart-errors.js';
 import {
   issueSharedCartParticipant,
+  newSharedCartDeviceKey,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
   type IssuedSharedCartParticipant,
@@ -67,12 +68,15 @@ type Org = {
   id: string;
   qrSecret: string | null;
 };
-type Membership = {
+type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
+type DeviceRow = {
+  code: string;
   participantId: string;
+  requestedAt: Date;
   sharedCartId: string;
   status: SharedCartParticipantStatus;
 };
-type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
+type Device = { active?: DeviceRow; pending?: DeviceRow };
 
 export type SharedCartCookies = Record<string, unknown> | undefined;
 
@@ -111,6 +115,50 @@ const isLiveRequest = (sharedCartId: string, participantId?: string) =>
     gt(sharedCartParticipant.requestedAt, requestedSince()),
     participantId ? eq(sharedCartParticipant.id, participantId) : undefined,
   );
+
+const deviceRows = (
+  db: DrizzleDB | Tx,
+  organizationId: string,
+  deviceKey: string,
+): Promise<DeviceRow[]> =>
+  db
+    .select({
+      code: sharedCart.code,
+      participantId: sharedCartParticipant.id,
+      requestedAt: sharedCartParticipant.requestedAt,
+      sharedCartId: sharedCart.id,
+      status: sharedCartParticipant.status,
+    })
+    .from(sharedCartParticipant)
+    .innerJoin(
+      sharedCart,
+      eq(sharedCart.id, sharedCartParticipant.sharedCartId),
+    )
+    .where(
+      and(
+        eq(sharedCartParticipant.deviceKey, deviceKey),
+        eq(sharedCart.organizationId, organizationId),
+        gt(sharedCart.lastActivityAt, activeSince()),
+        isLiveParticipant(),
+      ),
+    );
+
+const deviceOf = async (
+  db: DrizzleDB | Tx,
+  organizationId: string,
+  deviceKey: string,
+): Promise<Device> => {
+  const rows = await deviceRows(db, organizationId, deviceKey);
+  return {
+    active: rows.find(({ status }) => status === 'active'),
+    pending: rows.find(({ status }) => status === 'pending'),
+  };
+};
+
+const deleteParticipant = (tx: Tx, participantId: string) =>
+  tx
+    .delete(sharedCartParticipant)
+    .where(eq(sharedCartParticipant.id, participantId));
 
 const countActive = async (tx: Tx, sharedCartId: string) => {
   const [{ active }] = await tx
@@ -188,54 +236,31 @@ export class SharedCartsService {
     };
   }
 
-  private async findMembership(
-    org: Org,
-    cookies: SharedCartCookies,
-  ): Promise<Membership | null> {
-    const session = verifySharedCartParticipant(
+  private deviceKeyOf(org: Org, cookies: SharedCartCookies) {
+    return verifySharedCartParticipant(
       org.id,
       org.qrSecret,
       cookies?.[sharedCartParticipantCookie(org.id)],
     );
-    if (!session) return null;
-
-    const [found] = await this.db
-      .select({
-        participantId: sharedCartParticipant.id,
-        sharedCartId: sharedCart.id,
-        status: sharedCartParticipant.status,
-      })
-      .from(sharedCartParticipant)
-      .innerJoin(
-        sharedCart,
-        eq(sharedCart.id, sharedCartParticipant.sharedCartId),
-      )
-      .where(
-        and(
-          eq(sharedCartParticipant.id, session.participantId),
-          eq(sharedCart.id, session.sharedCartId),
-          eq(sharedCart.organizationId, org.id),
-          gt(sharedCart.lastActivityAt, activeSince()),
-          isLiveParticipant(),
-        ),
-      );
-    return found ?? null;
   }
 
-  private async requireMembership(org: Org, cookies: SharedCartCookies) {
-    const membership = await this.findMembership(org, cookies);
-    if (!membership) throw notFoundError('sharedCartNotFound');
-    return membership;
+  private requireDeviceKey(org: Org, cookies: SharedCartCookies) {
+    const deviceKey = this.deviceKeyOf(org, cookies);
+    if (!deviceKey) throw notFoundError('sharedCartNotFound');
+    return deviceKey;
   }
 
   private async requireActive(org: Org, cookies: SharedCartCookies) {
-    const membership = await this.requireMembership(org, cookies);
-    if (membership.status !== 'active')
-      throw forbiddenError('sharedCartPending');
-    return membership;
+    const deviceKey = this.requireDeviceKey(org, cookies);
+    const { active, pending } = await deviceOf(this.db, org.id, deviceKey);
+    if (active) return { active, deviceKey };
+    if (pending) throw forbiddenError('sharedCartPending');
+    throw notFoundError('sharedCartNotFound');
   }
 
-  private lockCarts(tx: Tx, ids: string[]) {
+  private async lockCarts(tx: Tx, ids: (string | undefined)[]) {
+    const unique = [...new Set(ids.filter((id) => id !== undefined))];
+    if (!unique.length) return [];
     return tx
       .select({
         id: sharedCart.id,
@@ -244,44 +269,28 @@ export class SharedCartsService {
         tableNumber: sharedCart.tableNumber,
       })
       .from(sharedCart)
-      .where(inArray(sharedCart.id, ids))
+      .where(inArray(sharedCart.id, unique))
       .orderBy(asc(sharedCart.id))
       .for('update');
   }
 
-  private async dropPending(
+  private async lockDevice(
     tx: Tx,
-    { participantId, sharedCartId }: Membership,
+    organizationId: string,
+    deviceKey: string,
+    ...extra: (string | undefined)[]
   ) {
-    await this.lockCarts(tx, [sharedCartId]);
-    const dropped = await tx
-      .delete(sharedCartParticipant)
-      .where(
-        and(
-          eq(sharedCartParticipant.id, participantId),
-          eq(sharedCartParticipant.status, 'pending'),
-        ),
-      )
-      .returning({ id: sharedCartParticipant.id });
-    if (dropped.length) return;
-
-    const [approved] = await tx
-      .select({ id: sharedCartParticipant.id })
-      .from(sharedCartParticipant)
-      .where(
-        and(
-          eq(sharedCartParticipant.id, participantId),
-          eq(sharedCartParticipant.status, 'active'),
-        ),
-      );
-    if (approved) throw conflictError('sharedCartAlreadyJoined');
+    const seen = await deviceRows(tx, organizationId, deviceKey);
+    const locked = await this.lockCarts(tx, [
+      ...extra,
+      ...seen.map(({ sharedCartId }) => sharedCartId),
+    ]);
+    return { device: await deviceOf(tx, organizationId, deviceKey), locked };
   }
 
-  private async leave(tx: Tx, { participantId, sharedCartId }: Membership) {
+  private async leave(tx: Tx, { participantId, sharedCartId }: DeviceRow) {
     await this.lockCarts(tx, [sharedCartId]);
-    await tx
-      .delete(sharedCartParticipant)
-      .where(eq(sharedCartParticipant.id, participantId));
+    await deleteParticipant(tx, participantId);
     if (!(await countActive(tx, sharedCartId)))
       await tx.delete(sharedCart).where(eq(sharedCart.id, sharedCartId));
   }
@@ -348,10 +357,12 @@ export class SharedCartsService {
     );
   }
 
-  private async view(
-    org: Org,
-    { participantId, sharedCartId }: Membership,
-  ): Promise<SharedCartResult> {
+  private async view(org: Org, deviceKey: string): Promise<SharedCartResult> {
+    const { active, pending } = await deviceOf(this.db, org.id, deviceKey);
+    const mine = active ?? pending;
+    if (!mine) throw notFoundError('sharedCartNotFound');
+    const { participantId, sharedCartId } = mine;
+
     const people = await this.db
       .select({
         avatar: sharedCartParticipant.avatar,
@@ -425,6 +436,16 @@ export class SharedCartsService {
         items,
         me: { ...profileOf(me), status: me.status },
         mode: cart.mode,
+        outgoingRequest:
+          active && pending
+            ? {
+                code: pending.code,
+                expiresAt: new Date(
+                  pending.requestedAt.getTime() + SHARED_CART_REQUEST_TTL_MS,
+                ),
+                requestedAt: pending.requestedAt,
+              }
+            : null,
         participants: visible
           .filter(({ status }) => status === 'active')
           .map((person) => ({
@@ -439,12 +460,7 @@ export class SharedCartsService {
           })),
         tableNumber: cart.tableNumber,
       },
-      issued: issueSharedCartParticipant(
-        org.id,
-        org.qrSecret,
-        cart.id,
-        participantId,
-      ),
+      issued: issueSharedCartParticipant(org.id, org.qrSecret, deviceKey),
     };
   }
 
@@ -459,29 +475,31 @@ export class SharedCartsService {
     if (org.closedAt) throw organizationClosedError();
     const tableNumber = this.qrTableNumber(org, qrSessionValue, dto.mode);
     const profile = this.profile(member, dto);
-    const previous = await this.findMembership(org, cookies);
-    if (previous?.status === 'active')
-      throw conflictError('sharedCartAlreadyJoined');
+    const deviceKey =
+      this.deviceKeyOf(org, cookies) ?? newSharedCartDeviceKey();
 
-    const membership = await this.db.transaction(async (tx) => {
-      if (previous) await this.dropPending(tx, previous);
+    await this.db.transaction(async (tx) => {
+      const { device } = await this.lockDevice(tx, org.id, deviceKey);
+      if (device.active) await this.leave(tx, device.active);
+      if (device.pending)
+        await deleteParticipant(tx, device.pending.participantId);
+
       const sharedCartId = await this.insertCart(
         tx,
         org.id,
         dto.mode,
         tableNumber,
       );
-      const participantId = randomUUID();
       await tx.insert(sharedCartParticipant).values({
         ...profile,
-        id: participantId,
+        deviceKey,
+        id: randomUUID(),
         sharedCartId,
         status: 'active',
       });
-      return { participantId, sharedCartId, status: 'active' as const };
     });
 
-    return this.view(org, membership);
+    return this.view(org, deviceKey);
   }
 
   async join(
@@ -494,9 +512,10 @@ export class SharedCartsService {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
     const profile = this.profile(member, dto);
-    const previous = await this.findMembership(org, cookies);
+    const deviceKey =
+      this.deviceKeyOf(org, cookies) ?? newSharedCartDeviceKey();
 
-    const membership = await this.db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       const [found] = await tx
         .select({ id: sharedCart.id })
         .from(sharedCart)
@@ -508,15 +527,14 @@ export class SharedCartsService {
           ),
         );
       if (!found) throw notFoundError('sharedCartNotFound');
-      if (previous?.status === 'active' && previous.sharedCartId !== found.id)
-        throw conflictError('sharedCartAlreadyJoined');
 
-      const cart = (
-        await this.lockCarts(
-          tx,
-          previous ? [found.id, previous.sharedCartId] : [found.id],
-        )
-      ).find(
+      const { device, locked } = await this.lockDevice(
+        tx,
+        org.id,
+        deviceKey,
+        found.id,
+      );
+      const cart = locked.find(
         ({ id, lastActivityAt }) =>
           id === found.id && lastActivityAt > activeSince(),
       );
@@ -527,8 +545,11 @@ export class SharedCartsService {
       )
         throw orderBadRequestError('invalidTable');
 
-      if (previous?.sharedCartId === cart.id) return previous;
-      if (previous) await this.dropPending(tx, previous);
+      if (
+        device.active?.sharedCartId === cart.id ||
+        device.pending?.sharedCartId === cart.id
+      )
+        return;
 
       if ((await countActive(tx, cart.id)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
@@ -548,21 +569,18 @@ export class SharedCartsService {
       if (pending >= SHARED_CART_MAX_PENDING)
         throw conflictError('sharedCartRequestsFull');
 
-      const participantId = randomUUID();
+      if (device.pending)
+        await deleteParticipant(tx, device.pending.participantId);
       await tx.insert(sharedCartParticipant).values({
         ...profile,
-        id: participantId,
+        deviceKey,
+        id: randomUUID(),
         sharedCartId: cart.id,
         status: 'pending',
       });
-      return {
-        participantId,
-        sharedCartId: cart.id,
-        status: 'pending' as const,
-      };
     });
 
-    return this.view(org, membership);
+    return this.view(org, deviceKey);
   }
 
   async participantCookieName(organizationSlug: string) {
@@ -573,7 +591,7 @@ export class SharedCartsService {
 
   async findCurrent(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
-    return this.view(org, await this.requireMembership(org, cookies));
+    return this.view(org, this.requireDeviceKey(org, cookies));
   }
 
   async updateMe(
@@ -584,7 +602,7 @@ export class SharedCartsService {
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
-    const membership = await this.requireActive(org, cookies);
+    const { active, deviceKey } = await this.requireActive(org, cookies);
 
     if (avatar === 'member' && !member)
       throw badRequestError('sharedCartMemberAvatarSignInRequired');
@@ -597,16 +615,30 @@ export class SharedCartsService {
           nickname,
           ...(avatar === 'member' && member && { userId: member.id }),
         })
-        .where(eq(sharedCartParticipant.id, membership.participantId));
+        .where(eq(sharedCartParticipant.id, active.participantId));
 
-    return this.view(org, membership);
+    return this.view(org, deviceKey);
   }
 
   async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
-    const membership = await this.requireMembership(org, cookies);
-    await this.db.transaction((tx) => this.leave(tx, membership));
-    return sharedCartParticipantCookie(org.id);
+    const deviceKey = this.requireDeviceKey(org, cookies);
+    await this.db.transaction(async (tx) => {
+      const { device } = await this.lockDevice(tx, org.id, deviceKey);
+      if (device.active) return this.leave(tx, device.active);
+      if (!device.pending) throw notFoundError('sharedCartNotFound');
+      await deleteParticipant(tx, device.pending.participantId);
+    });
+  }
+
+  async cancelRequest(organizationSlug: string, cookies: SharedCartCookies) {
+    const org = await this.getOrg(organizationSlug);
+    const deviceKey = this.requireDeviceKey(org, cookies);
+    await this.db.transaction(async (tx) => {
+      const { device } = await this.lockDevice(tx, org.id, deviceKey);
+      if (!device.pending) throw notFoundError('sharedCartRequestNotFound');
+      await deleteParticipant(tx, device.pending.participantId);
+    });
   }
 
   private async decide(
@@ -617,45 +649,61 @@ export class SharedCartsService {
   ) {
     const org = await this.getOrg(organizationSlug);
     if (org.closedAt) throw organizationClosedError();
-    const membership = await this.requireActive(org, cookies);
+    const { active: approver, deviceKey } = await this.requireActive(
+      org,
+      cookies,
+    );
+    const { sharedCartId } = approver;
 
     await this.db.transaction(async (tx) => {
-      const [cart] = await this.lockCarts(tx, [membership.sharedCartId]);
-      if (!cart || cart.lastActivityAt <= activeSince())
+      const liveRequest = () =>
+        tx
+          .select({ deviceKey: sharedCartParticipant.deviceKey })
+          .from(sharedCartParticipant)
+          .where(isLiveRequest(sharedCartId, requestId));
+      const [seen] = await liveRequest();
+      if (!seen) throw notFoundError('sharedCartRequestNotFound');
+      const requesterCart = approve
+        ? (await deviceOf(tx, org.id, seen.deviceKey)).active?.sharedCartId
+        : undefined;
+
+      const locked = await this.lockCarts(tx, [sharedCartId, requesterCart]);
+      if (
+        !locked.some(
+          ({ id, lastActivityAt }) =>
+            id === sharedCartId && lastActivityAt > activeSince(),
+        )
+      )
         throw notFoundError('sharedCartNotFound');
-      const [approver] = await tx
+      const [stillApprover] = await tx
         .select({ status: sharedCartParticipant.status })
         .from(sharedCartParticipant)
-        .where(eq(sharedCartParticipant.id, membership.participantId));
-      if (!approver) throw notFoundError('sharedCartNotFound');
-      if (approver.status !== 'active')
+        .where(eq(sharedCartParticipant.id, approver.participantId));
+      if (!stillApprover) throw notFoundError('sharedCartNotFound');
+      if (stillApprover.status !== 'active')
         throw forbiddenError('sharedCartPending');
-
-      const [request] = await tx
-        .select({ id: sharedCartParticipant.id })
-        .from(sharedCartParticipant)
-        .where(isLiveRequest(membership.sharedCartId, requestId));
+      const [request] = await liveRequest();
       if (!request) throw notFoundError('sharedCartRequestNotFound');
 
       if (!approve) {
-        await tx
-          .delete(sharedCartParticipant)
-          .where(eq(sharedCartParticipant.id, request.id));
-        await this.rotateCode(tx, membership.sharedCartId);
+        await deleteParticipant(tx, requestId);
+        await this.rotateCode(tx, sharedCartId);
         return;
       }
-      if (
-        (await countActive(tx, membership.sharedCartId)) >=
-        SHARED_CART_MAX_PARTICIPANTS
-      )
+      if ((await countActive(tx, sharedCartId)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
       await tx
         .update(sharedCartParticipant)
         .set({ joinedAt: new Date(), status: 'active' })
-        .where(eq(sharedCartParticipant.id, request.id));
+        .where(eq(sharedCartParticipant.id, requestId));
+
+      const left = (await deviceRows(tx, org.id, request.deviceKey)).find(
+        (row) => row.status === 'active' && row.sharedCartId !== sharedCartId,
+      );
+      if (left) await this.leave(tx, left);
     });
 
-    return this.view(org, membership);
+    return this.view(org, deviceKey);
   }
 
   approveRequest(

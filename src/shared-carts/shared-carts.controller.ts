@@ -202,16 +202,26 @@ export class SharedCartsController {
   @Delete('current/me')
   @HttpCode(204)
   @ApiOperation({
-    summary: '離開共享點餐單或取消加入請求；最後一位已加入的人離開時刪除整張單',
+    summary:
+      '離開已加入的共享點餐單（沒有已加入的單時取消加入請求）；最後一位已加入的人離開時刪除整張單',
   })
-  async leaveMe(
+  leaveMe(
     @Param('organizationSlug') organizationSlug: string,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    clearSharedCartParticipantCookie(
-      res,
-      await this.sharedCartsService.leaveMe(organizationSlug, cookiesOf(req)),
+    return this.sharedCartsService.leaveMe(organizationSlug, cookiesOf(req));
+  }
+
+  @Delete('current/request')
+  @HttpCode(204)
+  @ApiOperation({ summary: '取消送往另一張共享點餐單的加入請求' })
+  cancelRequest(
+    @Param('organizationSlug') organizationSlug: string,
+    @Req() req: Request,
+  ): Promise<void> {
+    return this.sharedCartsService.cancelRequest(
+      organizationSlug,
+      cookiesOf(req),
     );
   }
 }

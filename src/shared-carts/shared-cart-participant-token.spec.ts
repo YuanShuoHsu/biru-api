@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import {
   clearSharedCartParticipantCookie,
   issueSharedCartParticipant,
+  newSharedCartDeviceKey,
   setSharedCartParticipantCookie,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
@@ -18,24 +19,21 @@ describe('shared cart participant cookie', () => {
     vi.useRealTimers();
   });
 
-  it('verifies an issued participant without an expiry of its own', () => {
+  it('verifies an issued device key without an expiry of its own', () => {
     vi.useFakeTimers({ now: new Date('2026-11-10T04:00:00Z') });
-    const issued = issueSharedCartParticipant(
-      'org',
-      'secret',
-      'cart',
-      'participant',
-    );
+    const issued = issueSharedCartParticipant('org', 'secret', 'device');
 
-    expect(issued.session).toEqual({
-      participantId: 'participant',
-      sharedCartId: 'cart',
-    });
-
+    expect(issued.deviceKey).toBe('device');
     vi.setSystemTime(new Date('2026-11-20T04:00:00Z'));
-    expect(verifySharedCartParticipant('org', 'secret', issued.value)).toEqual(
-      issued.session,
+    expect(verifySharedCartParticipant('org', 'secret', issued.value)).toBe(
+      'device',
     );
+  });
+
+  it('mints a random 32-byte device key', () => {
+    const key = newSharedCartDeviceKey();
+    expect(Buffer.from(key, 'base64url')).toHaveLength(32);
+    expect(newSharedCartDeviceKey()).not.toBe(key);
   });
 
   it('names the cookie per store with cookie-safe characters', () => {
@@ -48,7 +46,7 @@ describe('shared cart participant cookie', () => {
     expect(sharedCartParticipantCookie('org-a')).not.toBe(
       sharedCartParticipantCookie('org-b'),
     );
-    expect(issueSharedCartParticipant('org', null, 'c', 'p').name).toBe(
+    expect(issueSharedCartParticipant('org', null, 'device').name).toBe(
       sharedCartParticipantCookie('org'),
     );
   });
@@ -57,16 +55,16 @@ describe('shared cart participant cookie', () => {
     ['another organization', 'other', 'secret'],
     ['a rotated secret', 'org', 'rotated'],
   ])('rejects %s', (_, organizationId, qrSecret) => {
-    const { value } = issueSharedCartParticipant('org', 'secret', 'c', 'p');
+    const { value } = issueSharedCartParticipant('org', 'secret', 'device');
     expect(
       verifySharedCartParticipant(organizationId, qrSecret, value),
     ).toBeNull();
   });
 
-  it('rejects a payload swapped to another participant', () => {
-    const { value } = issueSharedCartParticipant('org', null, 'c', 'p');
+  it('rejects a payload swapped to another device', () => {
+    const { value } = issueSharedCartParticipant('org', null, 'device');
     const [, signature] = value.split('.');
-    const forged = Buffer.from(JSON.stringify(['org', 'c', 'other'])).toString(
+    const forged = Buffer.from(JSON.stringify(['org', 'other'])).toString(
       'base64url',
     );
 
@@ -82,7 +80,7 @@ describe('shared cart participant cookie', () => {
     ['a tampered signature', (v: string) => `${v.slice(0, -1)}x`],
     ['extra segments', (v: string) => `${v}.extra`],
   ])('returns null for %s', (_, value) => {
-    const { value: issued } = issueSharedCartParticipant('org', null, 'c', 'p');
+    const { value: issued } = issueSharedCartParticipant('org', null, 'device');
     expect(
       verifySharedCartParticipant(
         'org',
@@ -94,7 +92,7 @@ describe('shared cart participant cookie', () => {
 
   it('sets an httpOnly lax browser-session cookie', () => {
     const cookie = vi.fn();
-    const issued = issueSharedCartParticipant('org', null, 'c', 'p');
+    const issued = issueSharedCartParticipant('org', null, 'device');
 
     setSharedCartParticipantCookie({ cookie } as unknown as Response, issued);
 

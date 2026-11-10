@@ -90,6 +90,7 @@ export const sharedCartParticipant = pgTable(
     sharedCartId: text('shared_cart_id')
       .notNull()
       .references(() => sharedCart.id, { onDelete: 'cascade' }),
+    deviceKey: text('device_key').notNull(),
     userId: text('user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
@@ -105,6 +106,11 @@ export const sharedCartParticipant = pgTable(
   },
   (table) => [
     index('shared_cart_participant_sharedCartId_idx').on(table.sharedCartId),
+    uniqueIndex('shared_cart_participant_sharedCartId_deviceKey_unique').on(
+      table.sharedCartId,
+      table.deviceKey,
+    ),
+    index('shared_cart_participant_deviceKey_idx').on(table.deviceKey),
   ],
 );
 

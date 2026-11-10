@@ -221,6 +221,51 @@ describe('App (e2e)', () => {
         .expect(({ body }) => expect(body.me.status).toBe('pending'));
     });
 
+    it('已加入的人送出另一張單的請求後仍留在原單，被允許時才移過去', async () => {
+      const server = app.getHttpServer();
+      const start = () =>
+        request(server)
+          .post(base)
+          .set('content-type', 'application/json')
+          .send({ mode: 'pickup' })
+          .expect(201);
+      const first = await start();
+      const second = await start();
+      const firstCookie = participantCookie(first)!;
+      const secondCookie = participantCookie(second)!;
+
+      const asked = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', firstCookie)
+        .send({ code: second.body.code })
+        .expect(200);
+      expect(asked.body).toMatchObject({
+        code: first.body.code,
+        me: { status: 'active' },
+        outgoingRequest: { code: second.body.code },
+      });
+
+      const waiting = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', secondCookie)
+        .expect(200);
+      await request(server)
+        .post(`${base}/current/requests/${waiting.body.requests[0].id}/approve`)
+        .set('cookie', secondCookie)
+        .expect(200);
+
+      const moved = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', firstCookie)
+        .expect(200);
+      expect(moved.body).toMatchObject({
+        code: second.body.code,
+        outgoingRequest: null,
+        participants: [{ isMe: false }, { isMe: true }],
+      });
+    });
+
     it('另一家門市的共享單不會蓋掉這家的參與者 cookie', async () => {
       const server = app.getHttpServer();
       const inA = await request(server)

@@ -30,6 +30,7 @@ CREATE TABLE "shared_cart_item" (
 CREATE TABLE "shared_cart_participant" (
 	"id" text PRIMARY KEY NOT NULL,
 	"shared_cart_id" text NOT NULL,
+	"device_key" text NOT NULL,
 	"user_id" text,
 	"avatar" "shared_cart_avatar" NOT NULL,
 	"nickname" text NOT NULL,
@@ -47,4 +48,6 @@ ALTER TABLE "shared_cart_participant" ADD CONSTRAINT "shared_cart_participant_us
 CREATE UNIQUE INDEX "shared_cart_code_unique" ON "shared_cart" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "shared_cart_organizationId_idx" ON "shared_cart" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "shared_cart_item_sharedCartId_idx" ON "shared_cart_item" USING btree ("shared_cart_id");--> statement-breakpoint
-CREATE INDEX "shared_cart_participant_sharedCartId_idx" ON "shared_cart_participant" USING btree ("shared_cart_id");
+CREATE INDEX "shared_cart_participant_sharedCartId_idx" ON "shared_cart_participant" USING btree ("shared_cart_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "shared_cart_participant_sharedCartId_deviceKey_unique" ON "shared_cart_participant" USING btree ("shared_cart_id","device_key");--> statement-breakpoint
+CREATE INDEX "shared_cart_participant_deviceKey_idx" ON "shared_cart_participant" USING btree ("device_key");

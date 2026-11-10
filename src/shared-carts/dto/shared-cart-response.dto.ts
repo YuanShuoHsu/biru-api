@@ -51,6 +51,12 @@ export class SharedCartItemResponseDto extends CreateOrderItemDto {
   participantId: string;
 }
 
+export class SharedCartOutgoingRequestDto {
+  code: string;
+  requestedAt: Date;
+  expiresAt: Date;
+}
+
 export class SharedCartResponseDto {
   code: string;
 
@@ -66,6 +72,14 @@ export class SharedCartResponseDto {
   expiresAt: Date;
 
   me: SharedCartMeResponseDto;
+
+  @ApiProperty({
+    description:
+      '已加入這張單、同時在等另一張單允許時的那筆請求；允許的那一刻才離開這張單',
+    nullable: true,
+    type: SharedCartOutgoingRequestDto,
+  })
+  outgoingRequest: SharedCartOutgoingRequestDto | null;
 
   @ApiProperty({
     description: '已加入的參與者；待允許時為空',

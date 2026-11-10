@@ -1,37 +1,36 @@
+import { randomBytes } from 'node:crypto';
+
 import type { Response } from 'express';
 
 import { isSameToken, sign } from '../orders/order-qr-token.js';
 
-const SHARED_CART_PARTICIPANT_PURPOSE = 'biru-shared-cart-participant-v1';
+const SHARED_CART_DEVICE_PURPOSE = 'biru-shared-cart-device-v1';
 
 export const sharedCartParticipantCookie = (organizationId: string) =>
   `biru_shared_cart_participant_${Buffer.from(organizationId).toString('base64url')}`;
 
-export type SharedCartParticipantSession = {
-  participantId: string;
-  sharedCartId: string;
-};
+export const newSharedCartDeviceKey = () =>
+  randomBytes(32).toString('base64url');
 
 export type IssuedSharedCartParticipant = {
+  deviceKey: string;
   name: string;
-  session: SharedCartParticipantSession;
   value: string;
 };
 
 export const issueSharedCartParticipant = (
   organizationId: string,
   qrSecret: string | null,
-  sharedCartId: string,
-  participantId: string,
+  deviceKey: string,
 ): IssuedSharedCartParticipant => {
   const payload = Buffer.from(
-    JSON.stringify([organizationId, sharedCartId, participantId]),
+    JSON.stringify([organizationId, deviceKey]),
   ).toString('base64url');
 
   return {
+    deviceKey,
     name: sharedCartParticipantCookie(organizationId),
-    session: { participantId, sharedCartId },
-    value: `${payload}.${sign(SHARED_CART_PARTICIPANT_PURPOSE, qrSecret, payload)}`,
+    value: `${payload}.${sign(SHARED_CART_DEVICE_PURPOSE, qrSecret, payload)}`,
   };
 };
 
@@ -39,7 +38,7 @@ export const verifySharedCartParticipant = (
   organizationId: string,
   qrSecret: string | null,
   value: unknown,
-): SharedCartParticipantSession | null => {
+): string | null => {
   if (typeof value !== 'string') return null;
 
   const [payload, signature, ...rest] = value.split('.');
@@ -47,20 +46,15 @@ export const verifySharedCartParticipant = (
     !payload ||
     !signature ||
     rest.length ||
-    !isSameToken(
-      sign(SHARED_CART_PARTICIPANT_PURPOSE, qrSecret, payload),
-      signature,
-    )
+    !isSameToken(sign(SHARED_CART_DEVICE_PURPOSE, qrSecret, payload), signature)
   )
     return null;
 
-  const [sessionOrganizationId, sharedCartId, participantId] = JSON.parse(
+  const [sessionOrganizationId, deviceKey] = JSON.parse(
     Buffer.from(payload, 'base64url').toString(),
-  ) as [string, string, string];
+  ) as [string, string];
 
-  if (sessionOrganizationId !== organizationId) return null;
-
-  return { participantId, sharedCartId };
+  return sessionOrganizationId === organizationId ? deviceKey : null;
 };
 
 const cookieOptions = () =>

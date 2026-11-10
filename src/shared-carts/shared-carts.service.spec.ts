@@ -82,11 +82,19 @@ describe('SharedCartsService', () => {
     const guest = await requestToJoin(host.cart.code);
     await service.approveRequest(
       SLUG,
-      guest.issued.session.participantId,
+      guest.cart.me.id,
       cookiesOf(host.issued),
     );
     return guest;
   };
+
+  const cartIdOf = async ({ cart }: SharedCartResult) =>
+    (
+      await db
+        .select({ id: sharedCartParticipant.sharedCartId })
+        .from(sharedCartParticipant)
+        .where(eq(sharedCartParticipant.id, cart.me.id))
+    )[0].id;
 
   const ageRequests = (ms: number) =>
     db
@@ -142,8 +150,8 @@ describe('SharedCartsService', () => {
         new Date(row.lastActivityAt.getTime() + SHARED_CART_TTL_MS),
       );
       expect(issued.name).toBe(sharedCartParticipantCookie(ORG));
-      expect(verifySharedCartParticipant(ORG, null, issued.value)).toEqual(
-        issued.session,
+      expect(verifySharedCartParticipant(ORG, null, issued.value)).toBe(
+        issued.deviceKey,
       );
     });
 
@@ -344,80 +352,200 @@ describe('SharedCartsService', () => {
       ]);
     });
 
-    it('refuses a joined participant another cart until they leave', async () => {
+    it('stays in its cart while asking to join another', async () => {
       const first = await startPickup();
       const second = await startPickup();
       const member = await joinApproved(first);
 
-      for (const attempt of [
-        requestToJoin(second.cart.code, cookiesOf(member.issued)),
-        startPickup(cookiesOf(member.issued)),
-      ])
-        await expect(attempt).rejects.toMatchObject({
-          response: { code: 'sharedCartAlreadyJoined' },
-          status: 409,
-        });
+      const asked = await requestToJoin(
+        second.cart.code,
+        cookiesOf(member.issued),
+      );
 
-      expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
-      ).toMatchObject({
+      expect(asked.cart).toMatchObject({
         code: first.cart.code,
+        me: { id: member.cart.me.id, status: 'active' },
+        outgoingRequest: {
+          code: second.cart.code,
+          expiresAt: expect.any(Date),
+          requestedAt: expect.any(Date),
+        },
         participants: [{ isMe: false }, { isMe: true }],
       });
       expect(
         (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
           .requests,
-      ).toEqual([]);
-
-      await service.leaveMe(SLUG, cookiesOf(member.issued));
-      await expect(
-        requestToJoin(second.cart.code, cookiesOf(member.issued)),
-      ).resolves.toMatchObject({ cart: { me: { status: 'pending' } } });
+      ).toHaveLength(1);
     });
 
-    it('keeps a request approved while its requester moves on', async () => {
+    it('moves to the other cart once approved and deletes a cart left empty', async () => {
       const first = await startPickup();
       const second = await startPickup();
-      const guest = await requestToJoin(first.cart.code);
-      const findMembership = vi.spyOn(
-        service as unknown as { findMembership: () => Promise<unknown> },
-        'findMembership',
+      const asked = await requestToJoin(
+        second.cart.code,
+        cookiesOf(first.issued),
       );
-      const stale = { ...guest.issued.session, status: 'pending' };
-      await db
-        .update(sharedCartParticipant)
-        .set({ status: 'active' })
-        .where(
-          eq(sharedCartParticipant.id, guest.issued.session.participantId),
-        );
 
-      for (const attempt of [
-        () => requestToJoin(second.cart.code, cookiesOf(guest.issued)),
-        () => startPickup(cookiesOf(guest.issued)),
-      ]) {
-        findMembership.mockResolvedValueOnce(stale);
-        await expect(attempt()).rejects.toMatchObject({
-          response: { code: 'sharedCartAlreadyJoined' },
-        });
-      }
+      await service.approveRequest(
+        SLUG,
+        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+          .requests[0].id,
+        cookiesOf(second.issued),
+      );
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart,
-      ).toMatchObject({ code: first.cart.code, me: { status: 'active' } });
-      expect(await db.select().from(sharedCart)).toHaveLength(2);
+        (await service.findCurrent(SLUG, cookiesOf(asked.issued))).cart,
+      ).toMatchObject({
+        code: second.cart.code,
+        me: { status: 'active' },
+        outgoingRequest: null,
+        participants: [{ isMe: false }, { isMe: true }],
+      });
+      expect(
+        (await db.select().from(sharedCart)).map(({ code }) => code),
+      ).toEqual([second.cart.code]);
+    });
+
+    it('keeps the old cart for the members still in it', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
+
+      await service.approveRequest(
+        SLUG,
+        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+          .requests[0].id,
+        cookiesOf(second.issued),
+      );
+
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+          .participants,
+      ).toEqual([expect.objectContaining({ isMe: true })]);
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart.code,
+      ).toBe(second.cart.code);
+    });
+
+    it('stays in its cart when the other cart rejects it', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
+
+      const { cart } = await service.rejectRequest(
+        SLUG,
+        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+          .requests[0].id,
+        cookiesOf(second.issued),
+      );
+
+      expect(cart.code).not.toBe(second.cart.code);
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+      ).toMatchObject({ code: first.cart.code, outgoingRequest: null });
+    });
+
+    it('replaces its outgoing request with the next one', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const third = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
+
+      const { cart } = await requestToJoin(
+        third.cart.code,
+        cookiesOf(member.issued),
+      );
+
+      expect(cart.outgoingRequest?.code).toBe(third.cart.code);
+      for (const [host, requests] of [
+        [second, 0],
+        [third, 1],
+      ] as const)
+        expect(
+          (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart
+            .requests,
+        ).toHaveLength(requests);
+    });
+
+    it('cancels only the outgoing request', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
+
+      await service.cancelRequest(SLUG, cookiesOf(member.issued));
+
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+      ).toMatchObject({ code: first.cart.code, outgoingRequest: null });
       expect(
         (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
           .requests,
       ).toEqual([]);
+      await expect(
+        service.cancelRequest(SLUG, cookiesOf(member.issued)),
+      ).rejects.toThrow('sharedCartRequestNotFound');
     });
 
-    it('refuses the creator another cart until they leave', async () => {
-      const host = await startPickup();
+    it('falls back to the outgoing request after leaving its cart', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
 
-      await expect(startPickup(cookiesOf(host.issued))).rejects.toMatchObject({
-        response: { code: 'sharedCartAlreadyJoined' },
+      await service.leaveMe(SLUG, cookiesOf(member.issued));
+
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+      ).toMatchObject({
+        code: second.cart.code,
+        me: { status: 'pending' },
+        participants: [],
       });
-      expect(await db.select().from(sharedCart)).toHaveLength(1);
+    });
+
+    it('moves into the approved cart even if its old cart empties meanwhile', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const member = await joinApproved(first);
+      await requestToJoin(second.cart.code, cookiesOf(member.issued));
+      const requestId = (
+        await service.findCurrent(SLUG, cookiesOf(second.issued))
+      ).cart.requests[0].id;
+
+      await Promise.all([
+        service.approveRequest(SLUG, requestId, cookiesOf(second.issued)),
+        service.leaveMe(SLUG, cookiesOf(first.issued)),
+      ]);
+
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart.code,
+      ).toBe(second.cart.code);
+      expect(
+        (await db.select().from(sharedCart)).map(({ code }) => code),
+      ).toEqual([second.cart.code]);
+    });
+
+    it('leaves its cart when it starts a new one', async () => {
+      const first = await startPickup();
+      const member = await joinApproved(first);
+
+      const own = await startPickup(cookiesOf(member.issued));
+      expect(own.cart.participants).toEqual([
+        expect.objectContaining({ isMe: true }),
+      ]);
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+          .participants,
+      ).toHaveLength(1);
+
+      await startPickup(cookiesOf(first.issued));
+      expect(
+        (await db.select().from(sharedCart)).map(({ code }) => code),
+      ).not.toContain(first.cart.code);
     });
 
     it('files a pending request that sees nothing of the cart', async () => {
@@ -427,9 +555,9 @@ describe('SharedCartsService', () => {
         id: 'host-item',
         menuItemId: 'latte',
         modifiers: {},
-        participantId: host.issued.session.participantId,
+        participantId: host.cart.me.id,
         quantity: 1,
-        sharedCartId: host.issued.session.sharedCartId,
+        sharedCartId: await cartIdOf(host),
       });
 
       const guest = await requestToJoin(host.cart.code, undefined, {
@@ -443,12 +571,13 @@ describe('SharedCartsService', () => {
         items: [],
         me: {
           avatar: 'dog',
-          id: guest.issued.session.participantId,
+          id: guest.cart.me.id,
           image: null,
           nickname: '小華',
           status: 'pending',
         },
         mode: 'pickup',
+        outgoingRequest: null,
         participants: [],
         requests: [],
         tableNumber: null,
@@ -483,7 +612,7 @@ describe('SharedCartsService', () => {
         cookiesOf(guest.issued),
       );
 
-      expect(again.issued.session).toEqual(guest.issued.session);
+      expect(again.cart.me.id).toBe(guest.cart.me.id);
       expect(await db.select().from(sharedCartParticipant)).toHaveLength(2);
     });
 
@@ -492,15 +621,13 @@ describe('SharedCartsService', () => {
       const guest = await requestToJoin(host.cart.code);
       const { cart } = await service.rejectRequest(
         SLUG,
-        guest.issued.session.participantId,
+        guest.cart.me.id,
         cookiesOf(host.issued),
       );
 
       const again = await requestToJoin(cart.code, cookiesOf(guest.issued));
       expect(again.cart.me.status).toBe('pending');
-      expect(again.issued.session.participantId).not.toBe(
-        guest.issued.session.participantId,
-      );
+      expect(again.cart.me.id).not.toBe(guest.cart.me.id);
     });
 
     it(`caps live requests at ${SHARED_CART_MAX_PENDING} and frees the expired ones`, async () => {
@@ -528,11 +655,7 @@ describe('SharedCartsService', () => {
         (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart.requests,
       ).toEqual([]);
       await expect(
-        service.approveRequest(
-          SLUG,
-          guest.issued.session.participantId,
-          cookiesOf(host.issued),
-        ),
+        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(host.issued)),
       ).rejects.toThrow('sharedCartRequestNotFound');
     });
 
@@ -619,13 +742,15 @@ describe('SharedCartsService', () => {
 
     it(`refuses a request once ${SHARED_CART_MAX_PARTICIPANTS} have joined`, async () => {
       const host = await startPickup();
+      const hostCartId = await cartIdOf(host);
       await db.insert(sharedCartParticipant).values(
         Array.from({ length: SHARED_CART_MAX_PARTICIPANTS - 1 }, (_, i) => ({
           avatar: 'cat' as const,
+          deviceKey: `device-${i}`,
           status: 'active' as const,
           id: `guest-${i}`,
           nickname: `guest ${i}`,
-          sharedCartId: host.issued.session.sharedCartId,
+          sharedCartId: hostCartId,
         })),
       );
 
@@ -652,7 +777,7 @@ describe('SharedCartsService', () => {
       expect(cart.requests).toEqual([
         {
           avatar: expect.any(String),
-          id: guest.issued.session.participantId,
+          id: guest.cart.me.id,
           image: null,
           nickname: '小華',
           requestedAt: expect.any(Date),
@@ -661,7 +786,7 @@ describe('SharedCartsService', () => {
 
       const approved = await service.approveRequest(
         SLUG,
-        guest.issued.session.participantId,
+        guest.cart.me.id,
         cookiesOf(host.issued),
       );
       expect(approved.cart.requests).toEqual([]);
@@ -680,7 +805,7 @@ describe('SharedCartsService', () => {
       const host = await startPickup();
       const other = await joinApproved(host);
       const guest = await requestToJoin(host.cart.code);
-      const id = guest.issued.session.participantId;
+      const id = guest.cart.me.id;
 
       await service.approveRequest(SLUG, id, cookiesOf(host.issued));
       await expect(
@@ -743,7 +868,7 @@ describe('SharedCartsService', () => {
 
       const { cart } = await service.rejectRequest(
         SLUG,
-        guest.issued.session.participantId,
+        guest.cart.me.id,
         cookiesOf(host.issued),
       );
 
@@ -763,11 +888,7 @@ describe('SharedCartsService', () => {
         service.rejectRequest.bind(service),
       ])
         await expect(
-          decide(
-            SLUG,
-            second.issued.session.participantId,
-            cookiesOf(first.issued),
-          ),
+          decide(SLUG, second.cart.me.id, cookiesOf(first.issued)),
         ).rejects.toMatchObject({
           response: { code: 'sharedCartPending' },
           status: 403,
@@ -778,36 +899,24 @@ describe('SharedCartsService', () => {
       const host = await startPickup();
       const other = await joinApproved(host);
       const guest = await requestToJoin(host.cart.code);
-      const id = guest.issued.session.participantId;
-
-      await expect(
-        service.approveRequest(SLUG, id, cookiesOf(other.issued)),
-      ).resolves.toBeDefined();
-      const late = await requestToJoin(host.cart.code);
-      const findMembership = vi.spyOn(
-        service as unknown as { findMembership: () => Promise<unknown> },
-        'findMembership',
+      const internals = service as unknown as {
+        lockCarts: (tx: unknown, ids: string[]) => Promise<unknown>;
+      };
+      const lockCarts = internals.lockCarts.bind(service);
+      vi.spyOn(internals, 'lockCarts').mockImplementationOnce(
+        async (tx, ids) => {
+          await (tx as typeof db)
+            .delete(sharedCartParticipant)
+            .where(eq(sharedCartParticipant.id, other.cart.me.id));
+          return lockCarts(tx, ids);
+        },
       );
-      findMembership.mockResolvedValueOnce({
-        participantId: other.issued.session.participantId,
-        sharedCartId: other.issued.session.sharedCartId,
-        status: 'active',
-      });
-      await db
-        .delete(sharedCartParticipant)
-        .where(
-          eq(sharedCartParticipant.id, other.issued.session.participantId),
-        );
 
       await expect(
-        service.approveRequest(
-          SLUG,
-          late.issued.session.participantId,
-          cookiesOf(other.issued),
-        ),
+        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(other.issued)),
       ).rejects.toThrow('sharedCartNotFound');
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(late.issued))).cart.me
+        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart.me
           .status,
       ).toBe('pending');
     });
@@ -815,22 +924,20 @@ describe('SharedCartsService', () => {
     it(`refuses to approve past ${SHARED_CART_MAX_PARTICIPANTS}`, async () => {
       const host = await startPickup();
       const guest = await requestToJoin(host.cart.code);
+      const hostCartId = await cartIdOf(host);
       await db.insert(sharedCartParticipant).values(
         Array.from({ length: SHARED_CART_MAX_PARTICIPANTS - 1 }, (_, i) => ({
           avatar: 'cat' as const,
+          deviceKey: `device-${i}`,
           status: 'active' as const,
           id: `guest-${i}`,
           nickname: `guest ${i}`,
-          sharedCartId: host.issued.session.sharedCartId,
+          sharedCartId: hostCartId,
         })),
       );
 
       await expect(
-        service.approveRequest(
-          SLUG,
-          guest.issued.session.participantId,
-          cookiesOf(host.issued),
-        ),
+        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(host.issued)),
       ).rejects.toThrow('sharedCartFull');
     });
   });
@@ -844,7 +951,8 @@ describe('SharedCartsService', () => {
 
     it('lists the items with who ordered them and touches the cart', async () => {
       const host = await startPickup();
-      const { participantId, sharedCartId } = host.issued.session;
+      const participantId = host.cart.me.id;
+      const sharedCartId = await cartIdOf(host);
       await db.insert(sharedCartItem).values({
         addOns: [],
         id: 'item',
@@ -919,7 +1027,7 @@ describe('SharedCartsService', () => {
       await db
         .update(sharedCart)
         .set({ lastActivityAt: new Date(Date.now() - SHARED_CART_TTL_MS) })
-        .where(eq(sharedCart.id, expired.issued.session.sharedCartId));
+        .where(eq(sharedCart.id, await cartIdOf(expired)));
 
       expect(await service.purgeExpired()).toEqual({ carts: 1, requests: 1 });
       expect(
@@ -927,7 +1035,7 @@ describe('SharedCartsService', () => {
       ).toEqual([active.cart.code]);
       expect(
         (await db.select().from(sharedCartParticipant)).map(({ id }) => id),
-      ).toEqual([active.issued.session.participantId]);
+      ).toEqual([active.cart.me.id]);
     });
   });
 
@@ -940,9 +1048,9 @@ describe('SharedCartsService', () => {
         id: 'guest-item',
         menuItemId: 'latte',
         modifiers: {},
-        participantId: guest.issued.session.participantId,
+        participantId: guest.cart.me.id,
         quantity: 1,
-        sharedCartId: guest.issued.session.sharedCartId,
+        sharedCartId: await cartIdOf(guest),
       });
 
       await service.leaveMe(SLUG, cookiesOf(guest.issued));

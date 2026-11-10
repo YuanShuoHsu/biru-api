@@ -1,5 +1,5 @@
 {
-  "id": "54d4622f-e6b1-4453-b8e1-693b5856bf66",
+  "id": "e1c963ee-84d1-43a1-9672-e186fc9bfa1f",
   "prevId": "ea07ec1f-42e6-4fc8-8fcc-f7ee30dcca9f",
   "version": "7",
   "dialect": "postgresql",
@@ -10601,6 +10601,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "device_key": {
+          "name": "device_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -10648,6 +10654,42 @@
           "columns": [
             {
               "expression": "shared_cart_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_cart_participant_sharedCartId_deviceKey_unique": {
+          "name": "shared_cart_participant_sharedCartId_deviceKey_unique",
+          "columns": [
+            {
+              "expression": "shared_cart_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "device_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_cart_participant_deviceKey_idx": {
+          "name": "shared_cart_participant_deviceKey_idx",
+          "columns": [
+            {
+              "expression": "device_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
