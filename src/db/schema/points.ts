@@ -60,6 +60,7 @@ export const pointTransaction = pgTable(
       table.organizationId,
       table.createdAt,
     ),
+    index('pointTransaction_orderId_idx').on(table.orderId),
     uniqueIndex('pointTransaction_orderId_earn_unique')
       .on(table.orderId)
       .where(sql`"type" = 'earn'`),

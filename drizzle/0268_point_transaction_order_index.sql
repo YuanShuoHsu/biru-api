@@ -1,0 +1,1 @@
+CREATE INDEX "pointTransaction_orderId_idx" ON "point_transaction" USING btree ("order_id");
