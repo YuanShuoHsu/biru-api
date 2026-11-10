@@ -33,6 +33,7 @@ import { localizedTextSql } from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
 import { isForeignKeyViolation } from '../common/utils/pg-errors.js';
 import { reorderSortOrders } from '../common/utils/sort-order.js';
+import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
   recipe,
@@ -213,10 +214,12 @@ export class IngredientsService {
         .select({
           ingredient,
           supplierName: supplier.name,
+          recipeName: recipe.name,
           unitPrice: unitPriceSql,
         })
         .from(ingredient)
         .leftJoin(supplier, eq(supplier.id, ingredient.supplierId))
+        .leftJoin(recipe, eq(recipe.id, ingredient.recipeId))
         .where(where)
         .orderBy(...orderBy)
         .limit(limit)
@@ -225,16 +228,19 @@ export class IngredientsService {
     ]);
 
     return {
-      data: rows.map(({ ingredient: row, supplierName: name, unitPrice }) => {
-        const dto = {
-          ...row,
-          supplierName: name,
-          priceCurrency,
-          ...pricingOf(row, unitPrice),
-        };
+      data: rows.map(
+        ({ ingredient: row, supplierName: name, recipeName, unitPrice }) => {
+          const dto = {
+            ...row,
+            supplierName: name,
+            recipeName,
+            priceCurrency,
+            ...pricingOf(row, unitPrice),
+          };
 
-        return canReadPurchasing ? dto : omitPurchasing(dto);
-      }),
+          return canReadPurchasing ? dto : omitPurchasing(dto);
+        },
+      ),
       total,
     };
   }
@@ -261,6 +267,19 @@ export class IngredientsService {
     return found?.name ?? null;
   }
 
+  private async recipeNameOf(
+    recipeId: string | null,
+  ): Promise<LocalizedText | null> {
+    if (!recipeId) return null;
+
+    const [found] = await this.db
+      .select({ name: recipe.name })
+      .from(recipe)
+      .where(eq(recipe.id, recipeId));
+
+    return found?.name ?? null;
+  }
+
   async findOne(
     ingredientId: string,
     canReadPurchasing = true,
@@ -272,14 +291,16 @@ export class IngredientsService {
     if (!selected) throw notFoundError('ingredientNotFound');
     const { found, unitPrice } = selected;
 
-    const [supplierName, priceCurrency] = await Promise.all([
+    const [supplierName, recipeName, priceCurrency] = await Promise.all([
       this.supplierNameOf(found.supplierId),
+      this.recipeNameOf(found.recipeId),
       getOrganizationCurrency(this.db, found.organizationId),
     ]);
 
     const dto = {
       ...found,
       supplierName,
+      recipeName,
       priceCurrency,
       ...pricingOf(found, unitPrice),
     };
@@ -328,6 +349,7 @@ export class IngredientsService {
     return {
       ...created,
       supplierName: await this.supplierNameOf(created.supplierId),
+      recipeName: await this.recipeNameOf(created.recipeId),
       priceCurrency,
       ...pricingOf(created, created.unitPrice),
     };
@@ -424,6 +446,7 @@ export class IngredientsService {
     return {
       ...updated,
       supplierName: await this.supplierNameOf(updated.supplierId),
+      recipeName: await this.recipeNameOf(updated.recipeId),
       priceCurrency: existing.priceCurrency,
       ...pricingOf(updated, updated.unitPrice),
     };

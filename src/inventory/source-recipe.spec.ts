@@ -471,6 +471,46 @@ describe('來源食譜', () => {
     });
   });
 
+  describe('來源食譜名稱', () => {
+    const recipeName = { 'zh-TW': '番茄醬' };
+
+    it('新增、查詢與列表都帶來源食譜名稱，沒有採購權限也帶', async () => {
+      const sauce = await createSauce();
+
+      expect(sauce.recipeName).toEqual(recipeName);
+      expect((await ingredients.findOne(sauce.id, false)).recipeName).toEqual(
+        recipeName,
+      );
+      const { data } = await ingredients.findAll(ORG, {}, false);
+      expect(
+        Object.fromEntries(data.map(({ id, recipeName }) => [id, recipeName])),
+      ).toEqual({
+        [sauce.id]: recipeName,
+        tomato: null,
+        salt: null,
+        basil: null,
+      });
+    });
+
+    it('更新時依新的來源食譜帶名稱', async () => {
+      const sauce = await createSauce();
+
+      expect(
+        (await ingredients.update(sauce.id, { note: '冷藏' })).recipeName,
+      ).toEqual(recipeName);
+      expect(
+        (
+          await ingredients.update(sauce.id, {
+            eligibleQuantity: '500',
+            eligibleQuantityUnitCode: 'GRM',
+            price: '50',
+            recipeId: null,
+          })
+        ).recipeName,
+      ).toBeNull();
+    });
+  });
+
   describe('設定來源食譜', () => {
     it('別家店的食譜找不到', async () => {
       expect(await codeOf(createSauce('otherRecipe'))).toBe('recipeNotFound');
