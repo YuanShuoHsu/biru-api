@@ -27,6 +27,7 @@ describe('清掉不是 Google 地圖嵌入網址的門市地圖連結', () => {
         ('embed', 'Embed', 'embed', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'https://www.google.com/maps/embed?pb=!1m18!1m12'),
         ('embed-api', 'Embed API', 'embed-api', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'https://www.google.com/maps/embed/v1/place?key=KEY&q=Biru'),
         ('uppercase', 'Uppercase', 'uppercase', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18'),
+        ('dots', 'Dots', 'dots', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'https://www.google.com/maps/embed/../../url?q=https://evil.example'),
         ('share', 'Share', 'share', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'https://maps.app.goo.gl/abc'),
         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'https://evil.example.com/maps/embed?pb=1'),
         ('script', 'Script', 'script', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'javascript:alert(1)'),
@@ -47,6 +48,7 @@ describe('清掉不是 Google 地圖嵌入網址的門市地圖連結', () => {
     );
     expect(rows).toEqual([
       { id: 'blank', has_map: null },
+      { id: 'dots', has_map: null },
       {
         id: 'embed',
         has_map: 'https://www.google.com/maps/embed?pb=!1m18!1m12',
@@ -59,10 +61,7 @@ describe('清掉不是 Google 地圖嵌入網址的門市地圖連結', () => {
       { id: 'other', has_map: null },
       { id: 'script', has_map: null },
       { id: 'share', has_map: null },
-      {
-        id: 'uppercase',
-        has_map: 'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18',
-      },
+      { id: 'uppercase', has_map: null },
     ]);
   });
 });

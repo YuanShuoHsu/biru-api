@@ -108,6 +108,10 @@ describe('門市地圖連結只接受 Google 地圖嵌入網址', () => {
     ['https://maps.app.goo.gl/abc'],
     ['https://www.google.com/maps/place/Biru'],
     ['https://www.google.com/maps/embedded'],
+    ['https://www.google.com/maps/embed/../../url?q=https://evil.example'],
+    ['https://www.google.com/maps/embed/v1/../../url'],
+    ['HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18'],
+    ['https://www.google.com/MAPS/EMBED?pb=!1m18'],
   ])('建立與更新門市時擋下 %j', async (hasMap) => {
     const created = await request('/organization/create', {
       name: 'Map',
@@ -148,10 +152,7 @@ describe('門市地圖連結只接受 Google 地圖嵌入網址', () => {
       'https://www.google.com/maps/embed/v1/place?key=KEY&q=Biru',
       'https://www.google.com/maps/embed/v1/place?key=KEY&q=Biru',
     ],
-    [
-      'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18',
-      'HTTPS://WWW.GOOGLE.COM/maps/embed?pb=!1m18',
-    ],
+    ['https://www.google.com/maps/embed', 'https://www.google.com/maps/embed'],
     ['', ''],
     [null, null],
   ])('更新門市時接受 %j', async (hasMap, stored) => {
