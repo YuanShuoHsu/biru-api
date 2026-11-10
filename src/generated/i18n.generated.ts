@@ -735,11 +735,12 @@ export type I18nTranslations = {
             "subject": string;
             "title": string;
             "intro": string;
-            "revenue": string;
-            "orders": string;
             "refunds": string;
+            "top_items": string;
+            "item": string;
             "point_adjustments": string;
             "low_stock": string;
+            "low_stock_item": string;
             "action": string;
             "salutation": string;
             "trouble_hint": string;

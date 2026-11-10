@@ -415,6 +415,84 @@ describe('MailsService 語系', () => {
     );
   });
 
+  it('平台總覽逐店列出前一日比較、尖峰、熱銷、每筆補扣點與低庫存食材', async () => {
+    const store = {
+      currency: 'TWD',
+      path: '/dashboard',
+      previous: { orders: 0, revenue: 0 },
+      peakHour: { hour: 0, orders: 0 },
+      refundedOrders: 0,
+      topItems: [],
+      pointAdjustments: [],
+      lowStock: [],
+    };
+
+    await service.sendPlatformDailyDigest({
+      recipient: { email: 'root@example.com', lang: 'zh-TW' },
+      date: new Date('2026-10-21T16:00:00Z'),
+      path: '/organizations',
+      stores: [
+        {
+          ...store,
+          organizationName: 'Biru',
+          current: { orders: 2, revenue: 300 },
+          previous: { orders: 1, revenue: 150 },
+          peakHour: { hour: 14, orders: 2 },
+          refundedOrders: 1,
+          topItems: [
+            { name: '拿鐵', sold: 2 },
+            { name: '摩卡', sold: 1 },
+          ],
+          pointAdjustments: [
+            { adjuster: 'Ann', member: 'Bob', points: 50, reason: '補登' },
+            { adjuster: null, member: 'Bob', points: -20, reason: null },
+          ],
+        },
+        {
+          ...store,
+          organizationName: 'Other',
+          current: { orders: 0, revenue: 0 },
+          lowStock: [
+            {
+              name: '鮮奶',
+              inventoryLevel: '100',
+              lowStockThreshold: '500',
+              unitCode: 'MLT',
+              supplierName: '鮮奶坊',
+            },
+            {
+              name: '糖',
+              inventoryLevel: '0',
+              lowStockThreshold: '1',
+              unitCode: 'KGM',
+              supplierName: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    const items = [...sent[0].html.matchAll(/<li>(.*?)<\/li>/gs)].map(
+      ([, item]) => item.trim(),
+    );
+    expect(items).toEqual([
+      '營收：$300（前一日 $150）',
+      '訂單：2 筆（前一日 1 筆）',
+      '尖峰時段：14:00–15:00（2 筆）',
+      '退款：1 筆',
+      '熱銷品項：拿鐵 2 份和摩卡 1 份',
+      '點數人工調整：2 筆，合計 +30 點',
+      'Ann 為 Bob 調整 +50 點：補登',
+      '— 為 Bob 調整 -20 點：',
+      '營收：$0（前一日 $0）',
+      '訂單：0 筆（前一日 0 筆）',
+      '退款：0 筆',
+      '目前低庫存食材：2 項',
+      '鮮奶：剩 100 mL（警示量 500 mL，缺 400 mL），供應商：鮮奶坊',
+      '糖：剩 0 kg（警示量 1 kg，缺 1 kg），供應商：未指定供應商',
+    ]);
+  });
+
   it('測試信用請求者的 lang', async () => {
     await service.sendTestEmail({ email: 'ann@example.com' }, 'ja');
     await service.sendTestEmail({ email: 'ann@example.com' }, undefined);
