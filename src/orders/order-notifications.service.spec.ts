@@ -269,6 +269,28 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
     ).toEqual(['owner@example.com']);
   });
 
+  it('以平台管理員身分加入的 owner 不寄，改由全平台總覽信涵蓋', async () => {
+    await client.query(
+      `insert into "user" (id, name, email, first_name, role) values ('platformAdmin', 'platformAdmin', 'platformAdmin@example.com', 'platformAdmin', 'admin')`,
+    );
+    await db.insert(member).values({
+      id: 'platformAdmin',
+      organizationId: 'org',
+      userId: 'platformAdmin',
+      role: 'owner',
+      joinedAsPlatformAdmin: true,
+      createdAt: NOW,
+    });
+
+    await service.notifyDailySalesDigest(NOW);
+
+    expect(
+      sendDailySalesDigest.mock.calls
+        .map(([{ recipient }]) => recipient.email)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['admin@example.com', 'owner@example.com']);
+  });
+
   it('單一收件人寄送失敗時，其他收件人照常寄出', async () => {
     sendDailySalesDigest.mockRejectedValueOnce(new Error('smtp'));
 

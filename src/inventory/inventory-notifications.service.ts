@@ -59,6 +59,7 @@ export class InventoryNotificationsService {
             ...new Set(lowStock.map(({ organizationId }) => organizationId)),
           ]),
           inArray(member.role, ['owner', 'admin']),
+          eq(member.joinedAsPlatformAdmin, false),
           or(
             isNull(user.banned),
             eq(user.banned, false),

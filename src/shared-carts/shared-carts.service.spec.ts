@@ -16,6 +16,7 @@ import {
   sharedCartParticipant,
 } from '../db/schema/shared-carts.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { OrderPricingService } from '../orders/order-pricing.service.js';
 import { issueOrderQrSession } from '../orders/order-qr-token.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
 
@@ -121,10 +122,17 @@ describe('SharedCartsService', () => {
     service = new SharedCartsService(
       db as unknown as DrizzleDB,
       new OrderQrService(db as unknown as DrizzleDB),
+      new OrderPricingService(db as unknown as DrizzleDB),
     );
     await client.query(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, dine_in_table_count) values ($1, 'Biru', $2, now(), 'TW', '桃園市', '大園區', '中正東路一段', 10)`,
       [ORG, SLUG],
+    );
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('elsewhere', 'Elsewhere', 'elsewhere', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into menu (id, organization_id, name) values ('menu', 'org', '{"zh-TW":"菜單"}'), ('elsewhere-menu', 'elsewhere', '{"zh-TW":"菜單"}');
+       insert into menu_item (id, menu_id, name) values ('latte', 'menu', '{"zh-TW":"拿鐵"}'), ('cake', 'menu', '{"zh-TW":"蛋糕"}'), ('foreign', 'elsewhere-menu', '{"zh-TW":"別家"}');
+       insert into offer (id, menu_item_id, price, created_at) values ('latte-offer', 'latte', 100, now()), ('cake-offer', 'cake', 80, now()), ('foreign-offer', 'foreign', 50, now());`,
     );
   }, 120_000);
 
@@ -1632,6 +1640,273 @@ describe('SharedCartsService', () => {
       expect(
         (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart,
       ).toMatchObject({ participants: [{ isMe: true }], requests: [] });
+    });
+  });
+
+  describe('items', () => {
+    const item = (menuItemId = 'latte', quantity = 1) => ({
+      addOns: [],
+      menuItemId,
+      modifiers: {},
+      quantity,
+    });
+
+    const addItems = (
+      guest: SharedCartResult,
+      items: ReturnType<typeof item>[],
+    ) => service.addItems(SLUG, { items }, null, cookiesOf(guest.issued));
+
+    it('lets any joined participant add, change and delete any item', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+
+      const added = await addItems(guest, [item('latte', 2), item('cake')]);
+      expect(added.cart.items).toEqual([
+        {
+          addOns: [],
+          id: expect.any(String),
+          menuItemId: 'latte',
+          modifiers: {},
+          participantId: guest.cart.me.id,
+          quantity: 2,
+          servingTemperatureLevel: null,
+          sweetnessLevel: null,
+        },
+        expect.objectContaining({
+          menuItemId: 'cake',
+          participantId: guest.cart.me.id,
+        }),
+      ]);
+      const [latte, cake] = added.cart.items;
+
+      const updated = await service.updateItem(
+        SLUG,
+        latte.id,
+        item('latte', 5),
+        null,
+        cookiesOf(host.issued),
+      );
+      expect(updated.cart.items[0]).toMatchObject({
+        id: latte.id,
+        participantId: guest.cart.me.id,
+        quantity: 5,
+      });
+
+      const removed = await service.removeItem(
+        SLUG,
+        cake.id,
+        null,
+        cookiesOf(host.issued),
+      );
+      expect(removed.cart.items.map(({ id }) => id)).toEqual([latte.id]);
+      expect(
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart
+          .items,
+      ).toEqual(removed.cart.items);
+    });
+
+    it('brings a personal cart in one call, keeping its order', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await addItems(host, [item('cake')]);
+
+      const { cart } = await addItems(guest, [
+        item('latte', 1),
+        item('cake', 2),
+        item('latte', 3),
+      ]);
+
+      expect(
+        cart.items.map(({ participantId, quantity }) => [
+          participantId === guest.cart.me.id,
+          quantity,
+        ]),
+      ).toEqual([
+        [false, 1],
+        [true, 1],
+        [true, 2],
+        [true, 3],
+      ]);
+    });
+
+    it('refreshes the cart activity on every change', async () => {
+      const host = await startPickup();
+      const stale = new Date(Date.now() - SHARED_CART_TTL_MS / 2);
+      await db.update(sharedCart).set({ lastActivityAt: stale });
+
+      await addItems(host, [item()]);
+
+      const [row] = await db.select().from(sharedCart);
+      expect(row.lastActivityAt.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    it('keeps a pending requester away from the items', async () => {
+      const host = await startPickup();
+      const { cart } = await addItems(host, [item()]);
+      const guest = await requestToJoin(host.cart.code);
+
+      expect(
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart
+          .items,
+      ).toEqual([]);
+      for (const attempt of [
+        () => addItems(guest, [item()]),
+        () =>
+          service.updateItem(
+            SLUG,
+            cart.items[0].id,
+            item('latte', 2),
+            null,
+            cookiesOf(guest.issued),
+          ),
+        () =>
+          service.removeItem(
+            SLUG,
+            cart.items[0].id,
+            null,
+            cookiesOf(guest.issued),
+          ),
+      ])
+        await expect(attempt()).rejects.toMatchObject({
+          response: { code: 'sharedCartPending' },
+        });
+      expect(await db.select().from(sharedCartItem)).toHaveLength(1);
+    });
+
+    it('caps the cart at 50 items across participants', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await addItems(
+        host,
+        Array.from({ length: 30 }, () => item()),
+      );
+
+      await expect(
+        addItems(
+          guest,
+          Array.from({ length: 21 }, () => item()),
+        ),
+      ).rejects.toMatchObject({ response: { code: 'sharedCartItemsFull' } });
+      await addItems(
+        guest,
+        Array.from({ length: 20 }, () => item()),
+      );
+      await expect(addItems(host, [item()])).rejects.toMatchObject({
+        response: { code: 'sharedCartItemsFull' },
+      });
+      expect(await db.select().from(sharedCartItem)).toHaveLength(50);
+    });
+
+    it('validates items like order creation does', async () => {
+      const host = await startPickup();
+      const { cart } = await addItems(host, [item()]);
+
+      await expect(addItems(host, [item('foreign')])).rejects.toMatchObject({
+        response: { code: 'menuChanged' },
+      });
+      await db.delete(schema.offer).where(eq(schema.offer.id, 'cake-offer'));
+      await expect(
+        service.updateItem(
+          SLUG,
+          cart.items[0].id,
+          item('cake'),
+          null,
+          cookiesOf(host.issued),
+        ),
+      ).rejects.toMatchObject({ response: { code: 'menuItemUnavailable' } });
+      await db.insert(schema.offer).values({
+        id: 'cake-offer',
+        menuItemId: 'cake',
+        price: '80',
+      });
+      expect(await db.select().from(sharedCartItem)).toMatchObject([
+        { menuItemId: 'latte' },
+      ]);
+    });
+
+    it('refuses items of another cart', async () => {
+      const host = await startPickup();
+      const { cart } = await addItems(host, [item()]);
+      const other = await startPickup();
+
+      await expect(
+        service.updateItem(
+          SLUG,
+          cart.items[0].id,
+          item('latte', 2),
+          null,
+          cookiesOf(other.issued),
+        ),
+      ).rejects.toThrow('sharedCartItemNotFound');
+      await expect(
+        service.removeItem(
+          SLUG,
+          cart.items[0].id,
+          null,
+          cookiesOf(other.issued),
+        ),
+      ).rejects.toThrow('sharedCartItemNotFound');
+      expect(await db.select().from(sharedCartItem)).toMatchObject([
+        { quantity: 1 },
+      ]);
+    });
+  });
+
+  describe('removeParticipant', () => {
+    it('removes another joined participant with their items and changes the code', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await service.addItems(
+        SLUG,
+        {
+          items: [
+            { addOns: [], menuItemId: 'latte', modifiers: {}, quantity: 1 },
+          ],
+        },
+        null,
+        cookiesOf(guest.issued),
+      );
+
+      const { cart } = await service.removeParticipant(
+        SLUG,
+        guest.cart.me.id,
+        null,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.participants.map(({ id }) => id)).toEqual([host.cart.me.id]);
+      expect(cart.items).toEqual([]);
+      expect(cart.code).toMatch(/^\d{4}$/);
+      expect(cart.code).not.toBe(host.cart.code);
+      await expect(
+        service.findCurrent(SLUG, null, cookiesOf(guest.issued)),
+      ).rejects.toThrow('sharedCartNotFound');
+    });
+
+    it('refuses to remove yourself, a requester or someone unknown', async () => {
+      const host = await startPickup();
+      const requester = await requestToJoin(host.cart.code);
+      const elsewhere = await startPickup();
+
+      await expect(
+        service.removeParticipant(
+          SLUG,
+          host.cart.me.id,
+          null,
+          cookiesOf(host.issued),
+        ),
+      ).rejects.toMatchObject({ response: { code: 'sharedCartRemoveSelf' } });
+      for (const id of [requester.cart.me.id, elsewhere.cart.me.id, 'nobody'])
+        await expect(
+          service.removeParticipant(SLUG, id, null, cookiesOf(host.issued)),
+        ).rejects.toMatchObject({
+          response: { code: 'sharedCartParticipantNotFound' },
+        });
+      expect(await db.select().from(sharedCartParticipant)).toHaveLength(3);
+      expect(
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
+          .code,
+      ).toBe(host.cart.code);
     });
   });
 });

@@ -31,7 +31,7 @@ export class PersonnelCostReportTotalsDto {
   totalCents: string;
 }
 
-export class PersonnelCostReportRowDto extends PersonnelCostReportTotalsDto {
+class PersonnelCostReportRowDto extends PersonnelCostReportTotalsDto {
   @ApiProperty({
     description: '員工目前的職位；未設定為 null',
     nullable: true,
