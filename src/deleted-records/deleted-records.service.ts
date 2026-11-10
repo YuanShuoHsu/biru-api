@@ -140,20 +140,39 @@ const restoreBlockedBy = (
     : null;
 };
 
-const restoresRevokedPlatformAdmin = (batchId: SQL | number) => sql`EXISTS (
-  SELECT 1 FROM deleted_record m
-  WHERE m.batch_id = ${batchId}
-    AND m.table_name = 'member'
-    AND (m.data ->> 'joined_as_platform_admin')::boolean
-    AND COALESCE(
-      (
-        SELECT u.data ->> 'role' FROM deleted_record u
-        WHERE u.batch_id = m.batch_id
-          AND u.table_name = 'user'
-          AND u.data ->> 'id' = m.data ->> 'user_id'
-      ),
-      (SELECT u.role FROM "user" u WHERE u.id = m.data ->> 'user_id')
-    ) IS DISTINCT FROM 'admin'
+const grantsRevokedPlatformAdmin = (row: string) => sql`(
+  ${sql.identifier(row)}.table_name IN ('member', 'team_member')
+  AND EXISTS (
+    SELECT 1 FROM deleted_record grant_member
+    WHERE grant_member.batch_id = ${sql.identifier(row)}.batch_id
+      AND (
+        grant_member.id = ${sql.identifier(row)}.id
+        OR (
+          ${sql.identifier(row)}.table_name = 'team_member'
+          AND ${sql.identifier(row)}.data ->> 'user_id' = grant_member.data ->> 'user_id'
+          AND COALESCE(
+            (
+              SELECT grant_team.data ->> 'organization_id' FROM deleted_record grant_team
+              WHERE grant_team.batch_id = grant_member.batch_id
+                AND grant_team.table_name = 'team'
+                AND grant_team.record_id = ${sql.identifier(row)}.data ->> 'team_id'
+            ),
+            (SELECT grant_team.organization_id FROM team grant_team WHERE grant_team.id = ${sql.identifier(row)}.data ->> 'team_id')
+          ) = grant_member.data ->> 'organization_id'
+        )
+      )
+      AND grant_member.table_name = 'member'
+      AND (grant_member.data ->> 'joined_as_platform_admin')::boolean
+      AND COALESCE(
+        (
+          SELECT grant_user.data ->> 'role' FROM deleted_record grant_user
+          WHERE grant_user.batch_id = grant_member.batch_id
+            AND grant_user.table_name = 'user'
+            AND grant_user.data ->> 'id' = grant_member.data ->> 'user_id'
+        ),
+        (SELECT grant_user.role FROM "user" grant_user WHERE grant_user.id = grant_member.data ->> 'user_id')
+      ) IS DISTINCT FROM 'admin'
+  )
 )`;
 
 const restoreState = (
@@ -339,6 +358,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
               AND NOT EXISTS (
                 SELECT 1 FROM deleted_record other
                 WHERE other.batch_id = d.batch_id
+                  AND (other.id = d.id OR NOT ${grantsRevokedPlatformAdmin('other')})
                   AND other.table_name NOT IN (${sql.join(
                     [...restorableTablesFor(scope.role), ''].map(
                       (table) => sql`${table}`,
@@ -388,6 +408,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       }),
     );
 
+    const restoredWithRoot = (row: string) =>
+      sql`(${sql.identifier(row)}.id = r.id OR NOT ${grantsRevokedPlatformAdmin(row)})`;
+
     const listed = sql`
       WITH roots AS (${roots}), listed AS (
         SELECT
@@ -397,17 +420,18 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           r.table_name,
           r.record_id,
           r.data,
-          (SELECT count(*)::int - 1 FROM deleted_record d WHERE d.batch_id = r.batch_id) AS related_count,
-          (SELECT array_agg(DISTINCT t.table_name) FROM deleted_record t WHERE t.batch_id = r.batch_id) AS tables,
+          (SELECT count(*)::int - 1 FROM deleted_record d WHERE d.batch_id = r.batch_id AND ${restoredWithRoot('d')}) AS related_count,
+          (SELECT array_agg(DISTINCT t.table_name) FROM deleted_record t WHERE t.batch_id = r.batch_id AND ${restoredWithRoot('t')}) AS tables,
           EXISTS (
             SELECT 1 FROM deleted_record m
             WHERE m.batch_id = r.batch_id
+              AND ${restoredWithRoot('m')}
               AND m.table_name IN ('member', 'invitation')
               AND 'owner' = ANY (
                 SELECT trim(role) FROM unnest(string_to_array(m.data ->> 'role', ',')) AS role
               )
           ) AS restores_owner,
-          ${restoresRevokedPlatformAdmin(sql`r.batch_id`)} AS restores_revoked_platform_admin,
+          ${grantsRevokedPlatformAdmin('r')} AS restores_revoked_platform_admin,
           COALESCE(
             o.name,
             CASE WHEN r.table_name = 'organization' THEN r.data ->> 'name' END
@@ -515,7 +539,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
 
     try {
       await this.db.transaction(async (tx) => {
-        for (const { root, batch } of batches) {
+        for (const { root, batch, restored } of batches) {
           if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
             await this.restoreThroughService(
               root,
@@ -527,7 +551,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
             continue;
           }
 
-          await this.insertRows(tx, batch);
+          await this.insertRows(tx, restored);
           await tx.delete(deletedRecord).where(
             inArray(
               deletedRecord.id,
@@ -574,21 +598,34 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     );
     if (!root) throw notFoundError('batchNotFound');
 
-    if (scope) {
-      if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
-        throw notFoundError('batchNotFound');
-      if (restoreBlockedBy([...batchTables], scope, grantsOwner(batch)))
-        throw accessForbiddenError();
-    }
+    if (
+      scope &&
+      (await this.resolveOrganizationId(root)) !== scope.organizationId
+    )
+      throw notFoundError('batchNotFound');
 
-    const {
-      rows: [{ revoked }],
-    } = await this.db.execute<{ revoked: boolean }>(
-      sql`SELECT ${restoresRevokedPlatformAdmin(batchId)} AS revoked`,
+    const { rows: revoked } = await this.db.execute<{ id: number }>(sql`
+      SELECT d.id FROM deleted_record d
+      WHERE d.batch_id = ${batchId} AND ${grantsRevokedPlatformAdmin('d')}
+    `);
+    const skipped = new Set(revoked.map(({ id }) => Number(id)));
+    const restored = batch.filter(
+      ({ id }) => id === root.id || !skipped.has(id),
     );
-    if (revoked) throw conflictError('restoreRevokedPlatformAdmin');
 
-    return { root, batch };
+    if (
+      scope &&
+      restoreBlockedBy(
+        [...new Set(restored.map(({ tableName }) => tableName))],
+        scope,
+        grantsOwner(restored),
+      )
+    )
+      throw accessForbiddenError();
+    if (skipped.has(root.id))
+      throw conflictError('restoreRevokedPlatformAdmin');
+
+    return { root, batch, restored };
   }
 
   async getScope(organizationId: string, role: string): Promise<RestoreScope> {
