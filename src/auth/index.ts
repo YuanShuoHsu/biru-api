@@ -85,6 +85,10 @@ const REQUIRED_TEXT_FIELDS = [
   'streetAddress',
 ] as const;
 
+// https://developers.google.com/maps/documentation/embed/embedding-map
+const GOOGLE_MAPS_EMBED_URL =
+  /^https:\/\/www\.google\.com\/maps\/embed(\/v1\/[a-z]+)?([?#][^\n]*)?$/;
+
 const assertValidOrganizationInput = (
   data: Record<string, unknown>,
   current?: Pick<
@@ -109,6 +113,16 @@ const assertValidOrganizationInput = (
   )
     throw new APIError('BAD_REQUEST', {
       message: 'openingHours must match "Mo-Fr 09:00-12:00,13:00-18:00"',
+    });
+
+  if (
+    data.hasMap != null &&
+    data.hasMap !== '' &&
+    (typeof data.hasMap !== 'string' ||
+      !GOOGLE_MAPS_EMBED_URL.test(data.hasMap))
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: 'hasMap must be a Google Maps embed URL',
     });
 
   if (Object.hasOwn(data, 'currency') && !isValidCurrency(data.currency))

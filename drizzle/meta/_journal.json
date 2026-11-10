@@ -1891,6 +1891,13 @@
       "when": 1794291510565,
       "tag": "0269_audit_log_created_index",
       "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1794301043116,
+      "tag": "0270_clear_non_embed_store_maps",
+      "breakpoints": true
     }
   ]
 }
