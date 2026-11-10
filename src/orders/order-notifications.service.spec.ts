@@ -446,14 +446,16 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
           organizationName: 'biru',
           currency: 'TWD',
           path: '/dashboard?organization=biru&range=yesterday',
-          current: { orders: 2, revenue: 200 },
-          previous: { orders: 1, revenue: 150 },
-          peakHour: { hour: 14, orders: 2 },
-          refundedOrders: 1,
-          topItems: [
-            { name: 'latte', sold: 2 },
-            { name: 'mocha', sold: 1 },
-          ],
+          sales: {
+            current: { orders: 2, revenue: 200 },
+            previous: { orders: 1, revenue: 150 },
+            peakHour: { hour: 14, orders: 2 },
+            refundedOrders: 1,
+            topItems: [
+              { name: 'latte', sold: 2 },
+              { name: 'mocha', sold: 1 },
+            ],
+          },
           pointAdjustments: [
             {
               adjuster: 'owner',
@@ -474,11 +476,13 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
           organizationName: 'other',
           currency: 'TWD',
           path: '/dashboard?organization=other&range=yesterday',
-          current: { orders: 0, revenue: 0 },
-          previous: { orders: 0, revenue: 0 },
-          peakHour: { hour: 0, orders: 0 },
-          refundedOrders: 0,
-          topItems: [],
+          sales: {
+            current: { orders: 0, revenue: 0 },
+            previous: { orders: 0, revenue: 0 },
+            peakHour: { hour: 0, orders: 0 },
+            refundedOrders: 0,
+            topItems: [],
+          },
           pointAdjustments: [],
           lowStock: [
             {
@@ -499,22 +503,23 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
     ).toBe('milk');
   });
 
-  it('單一門市統計失敗時，其他門市照常列入', async () => {
+  it('單一門市統計失敗時仍列入該店的點數調整與低庫存，其他門市照常列入', async () => {
     const getStats = orderStats.getStats.bind(orderStats);
     vi.spyOn(orderStats, 'getStats').mockImplementation((slug, ...rest) =>
-      slug === 'biru'
+      slug === 'other'
         ? Promise.reject(new Error('stats'))
         : getStats(slug, ...rest),
     );
 
     await service.notifyPlatformDailyDigest(NOW);
 
-    expect(
-      sendPlatformDailyDigest.mock.calls[0][0].stores.map(
-        ({ organizationName }: { organizationName: string }) =>
-          organizationName,
-      ),
-    ).toEqual(['other']);
+    const [biru, other] = sendPlatformDailyDigest.mock.calls[0][0].stores;
+    expect(biru.sales).not.toBeNull();
+    expect(other).toMatchObject({
+      organizationName: 'other',
+      sales: null,
+      lowStock: [{ supplierName: '鮮奶坊' }],
+    });
   });
 
   it('不限量的食材不算低庫存，不會讓門市列入總覽', async () => {

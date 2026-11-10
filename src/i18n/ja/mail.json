@@ -200,6 +200,7 @@
     "point_adjustments": "ポイントの手動調整：{adjustments} 件、合計 {points} ポイント",
     "low_stock": "現在在庫不足の食材：{lowStock} 品目",
     "low_stock_item": "{item}、仕入先：{supplier}",
+    "sales_unavailable": "この店舗の売上データを取得できませんでした。ダッシュボードで確認してください。",
     "action": "すべての店舗を見る",
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"

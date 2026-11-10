@@ -200,6 +200,7 @@
     "point_adjustments": "积分人工调整：{adjustments} 笔，合计 {points} 点",
     "low_stock": "目前低库存食材：{lowStock} 项",
     "low_stock_item": "{item}，供应商：{supplier}",
+    "sales_unavailable": "这家门店的营业统计暂时无法取得，请到仪表板查看。",
     "action": "查看所有门店",
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"

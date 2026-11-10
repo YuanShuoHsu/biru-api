@@ -415,14 +415,17 @@ describe('MailsService 語系', () => {
     );
   });
 
-  it('平台總覽逐店列出前一日比較、尖峰、熱銷、每筆補扣點與低庫存食材', async () => {
-    const store = {
-      currency: 'TWD',
-      path: '/dashboard',
+  it('平台總覽逐店列出前一日比較、尖峰、熱銷、每筆補扣點與低庫存食材，統計失敗的門市註明無法取得', async () => {
+    const sales = {
+      current: { orders: 0, revenue: 0 },
       previous: { orders: 0, revenue: 0 },
       peakHour: { hour: 0, orders: 0 },
       refundedOrders: 0,
       topItems: [],
+    };
+    const store = {
+      currency: 'TWD',
+      path: '/dashboard',
       pointAdjustments: [],
       lowStock: [],
     };
@@ -435,14 +438,16 @@ describe('MailsService 語系', () => {
         {
           ...store,
           organizationName: 'Biru',
-          current: { orders: 2, revenue: 300 },
-          previous: { orders: 1, revenue: 150 },
-          peakHour: { hour: 14, orders: 2 },
-          refundedOrders: 1,
-          topItems: [
-            { name: '拿鐵', sold: 2 },
-            { name: '摩卡', sold: 1 },
-          ],
+          sales: {
+            current: { orders: 2, revenue: 300 },
+            previous: { orders: 1, revenue: 150 },
+            peakHour: { hour: 14, orders: 2 },
+            refundedOrders: 1,
+            topItems: [
+              { name: '拿鐵', sold: 2 },
+              { name: '摩卡', sold: 1 },
+            ],
+          },
           pointAdjustments: [
             { adjuster: 'Ann', member: 'Bob', points: 50, reason: '補登' },
             { adjuster: null, member: 'Bob', points: -20, reason: null },
@@ -451,7 +456,7 @@ describe('MailsService 語系', () => {
         {
           ...store,
           organizationName: 'Other',
-          current: { orders: 0, revenue: 0 },
+          sales,
           lowStock: [
             {
               name: '鮮奶',
@@ -465,6 +470,20 @@ describe('MailsService 語系', () => {
               inventoryLevel: '0',
               lowStockThreshold: '1',
               unitCode: 'KGM',
+              supplierName: null,
+            },
+          ],
+        },
+        {
+          ...store,
+          organizationName: 'Failed',
+          sales: null,
+          lowStock: [
+            {
+              name: '燕麥奶',
+              inventoryLevel: '0',
+              lowStockThreshold: '1',
+              unitCode: 'LTR',
               supplierName: null,
             },
           ],
@@ -491,6 +510,9 @@ describe('MailsService 語系', () => {
       '目前低庫存食材：2 項',
       '鮮奶：剩 100 mL（警示量 500 mL，缺 400 mL），供應商：鮮奶坊',
       '糖：剩 0 kg（警示量 1 kg，缺 1 kg），供應商：未指定供應商',
+      '這家門市的營業統計暫時無法取得，請到儀表板查看。',
+      '目前低庫存食材：1 項',
+      '燕麥奶：剩 0 L（警示量 1 L，缺 1 L），供應商：未指定供應商',
     ]);
   });
 

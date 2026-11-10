@@ -765,6 +765,7 @@ export type I18nTranslations = {
             "point_adjustments": string;
             "low_stock": string;
             "low_stock_item": string;
+            "sales_unavailable": string;
             "action": string;
             "salutation": string;
             "trouble_hint": string;

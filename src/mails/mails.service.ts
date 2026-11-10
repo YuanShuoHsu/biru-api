@@ -1065,11 +1065,13 @@ export class MailsService {
       organizationName: string;
       currency: string;
       path: string;
-      current: { orders: number; revenue: number };
-      previous: { orders: number; revenue: number };
-      peakHour: { hour: number; orders: number };
-      refundedOrders: number;
-      topItems: { name: string; sold: number }[];
+      sales: {
+        current: { orders: number; revenue: number };
+        previous: { orders: number; revenue: number };
+        peakHour: { hour: number; orders: number };
+        refundedOrders: number;
+        topItems: { name: string; sold: number }[];
+      } | null;
       pointAdjustments: PointAdjustmentLine[];
       lowStock: (LowStockLine & { supplierName: string | null })[];
     }[];
@@ -1104,56 +1106,60 @@ export class MailsService {
             organizationName,
             currency,
             path: storePath,
-            current,
-            previous,
-            peakHour,
-            refundedOrders,
-            topItems,
+            sales,
             pointAdjustments,
             lowStock,
           }) => {
-            const money = new Intl.NumberFormat(lang, {
-              style: 'currency',
-              currency,
-              maximumFractionDigits: 0,
-            });
-            const args = {
-              adjustments: pointAdjustments.length,
-              average: money.format(
-                current.orders ? current.revenue / current.orders : 0,
-              ),
-              lowStock: lowStock.length,
-              orders: current.orders,
-              peakHour: hourRange(peakHour.hour),
-              peakOrders: peakHour.orders,
-              points: signed.format(
-                pointAdjustments.reduce((sum, { points }) => sum + points, 0),
-              ),
-              previousOrders: previous.orders,
-              previousRevenue: money.format(previous.revenue),
-              refundedOrders,
-              revenue: money.format(current.revenue),
-            };
-            return {
-              heading: organizationName,
-              url: `${adminUrl}${storePath}`,
-              items: [
-                this.i18n.t('mail.daily_sales_digest.revenue', { args, lang }),
-                this.i18n.t('mail.daily_sales_digest.orders', { args, lang }),
+            const salesLines = (() => {
+              if (!sales)
+                return [
+                  this.i18n.t(
+                    'mail.platform_daily_digest.sales_unavailable',
+                    options,
+                  ),
+                ];
+              const { current, previous, peakHour, refundedOrders, topItems } =
+                sales;
+              const money = new Intl.NumberFormat(lang, {
+                style: 'currency',
+                currency,
+                maximumFractionDigits: 0,
+              });
+              const salesArgs = {
+                average: money.format(
+                  current.orders ? current.revenue / current.orders : 0,
+                ),
+                orders: current.orders,
+                peakHour: hourRange(peakHour.hour),
+                peakOrders: peakHour.orders,
+                previousOrders: previous.orders,
+                previousRevenue: money.format(previous.revenue),
+                refundedOrders,
+                revenue: money.format(current.revenue),
+              };
+              return [
+                this.i18n.t('mail.daily_sales_digest.revenue', {
+                  args: salesArgs,
+                  lang,
+                }),
+                this.i18n.t('mail.daily_sales_digest.orders', {
+                  args: salesArgs,
+                  lang,
+                }),
                 ...(current.orders
                   ? [
                       this.i18n.t('mail.daily_sales_digest.average', {
-                        args,
+                        args: salesArgs,
                         lang,
                       }),
                       this.i18n.t('mail.daily_sales_digest.peak_hour', {
-                        args,
+                        args: salesArgs,
                         lang,
                       }),
                     ]
                   : []),
                 this.i18n.t('mail.platform_daily_digest.refunds', {
-                  args,
+                  args: salesArgs,
                   lang,
                 }),
                 ...(topItems.length
@@ -1173,6 +1179,20 @@ export class MailsService {
                       }),
                     ]
                   : []),
+              ];
+            })();
+            const args = {
+              adjustments: pointAdjustments.length,
+              lowStock: lowStock.length,
+              points: signed.format(
+                pointAdjustments.reduce((sum, { points }) => sum + points, 0),
+              ),
+            };
+            return {
+              heading: organizationName,
+              url: `${adminUrl}${storePath}`,
+              items: [
+                ...salesLines,
                 ...(pointAdjustments.length
                   ? [
                       this.i18n.t(
