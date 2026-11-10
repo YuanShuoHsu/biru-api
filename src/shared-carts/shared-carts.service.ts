@@ -9,10 +9,10 @@ import {
   eq,
   gt,
   inArray,
-  isNotNull,
   isNull,
   lte,
   ne,
+  notExists,
   or,
   sql,
 } from 'drizzle-orm';
@@ -112,13 +112,9 @@ const anonymousNickname = (animal: SharedCartAnimalAvatar) => {
   });
 };
 
-const animalOf = (participantId: string) =>
-  SHARED_CART_ANIMAL_AVATARS[
-    Array.from(participantId).reduce(
-      (sum, character) => sum + character.charCodeAt(0),
-      0,
-    ) % SHARED_CART_ANIMAL_AVATARS.length
-  ];
+const anonymousAvatar = sql<SharedCartAnimalAvatar>`case when ${sharedCartParticipant.avatar} = 'member' then (${sql.raw(
+  `array['${SHARED_CART_ANIMAL_AVATARS.join("','")}']`,
+)}::shared_cart_avatar[])[1 + (hashtext(${sharedCartParticipant.id}) & 2147483647) % ${sql.raw(String(SHARED_CART_ANIMAL_AVATARS.length))}] else ${sharedCartParticipant.avatar} end`;
 
 const liveSessionOf = () =>
   and(
@@ -286,43 +282,45 @@ export class SharedCartsService {
         nickname ??
         (memberName ||
           anonymousNickname(chosen === 'member' ? randomAnimal() : chosen)),
+      memberProfile: !!linked,
       sessionId: linked?.sessionId ?? null,
       userId: linked?.id ?? null,
     };
   }
 
-  private async anonymizeSignedOut(
-    deviceKey: string,
-    member: SharedCartUser | null,
-  ) {
-    const linked = await this.db
-      .select({
-        avatar: sharedCartParticipant.avatar,
-        id: sharedCartParticipant.id,
-        sessionId: session.id,
-        userId: sharedCartParticipant.userId,
+  private anonymizeSignedOut(deviceKey: string, member: SharedCartUser | null) {
+    return this.db
+      .update(sharedCartParticipant)
+      .set({
+        avatar: anonymousAvatar,
+        memberProfile: false,
+        nickname: sql`case ${anonymousAvatar} ${sql.join(
+          SHARED_CART_ANIMAL_AVATARS.map(
+            (animal) =>
+              sql`when ${animal}::shared_cart_avatar then ${anonymousNickname(animal)}`,
+          ),
+          sql` `,
+        )} end`,
+        sessionId: null,
+        userId: null,
       })
-      .from(sharedCartParticipant)
-      .leftJoin(session, liveSessionOf())
       .where(
         and(
           eq(sharedCartParticipant.deviceKey, deviceKey),
-          isNotNull(sharedCartParticipant.userId),
+          eq(sharedCartParticipant.memberProfile, true),
+          notExists(
+            this.db
+              .select({ id: session.id })
+              .from(session)
+              .where(
+                and(
+                  liveSessionOf(),
+                  member ? eq(session.userId, member.id) : sql`false`,
+                ),
+              ),
+          ),
         ),
       );
-    for (const { avatar, id, sessionId, userId } of linked) {
-      if (sessionId && userId === member?.id) continue;
-      const animal = avatar === 'member' ? animalOf(id) : avatar;
-      await this.db
-        .update(sharedCartParticipant)
-        .set({
-          avatar: animal,
-          nickname: anonymousNickname(animal),
-          sessionId: null,
-          userId: null,
-        })
-        .where(eq(sharedCartParticipant.id, id));
-    }
   }
 
   private deviceKeyOf(org: Org, cookies: SharedCartCookies) {
@@ -480,9 +478,10 @@ export class SharedCartsService {
         image: user.image,
         nickname: sharedCartParticipant.nickname,
         requestedAt: sharedCartParticipant.requestedAt,
+        anonymousAvatar,
+        memberProfile: sharedCartParticipant.memberProfile,
         sessionId: session.id,
         status: sharedCartParticipant.status,
-        userId: sharedCartParticipant.userId,
       })
       .from(sharedCartParticipant)
       .leftJoin(user, eq(user.id, sharedCartParticipant.userId))
@@ -533,16 +532,13 @@ export class SharedCartsService {
       : [];
 
     const profileOf = (person: (typeof people)[number]) => {
-      if (person.userId && !person.sessionId) {
-        const animal =
-          person.avatar === 'member' ? animalOf(person.id) : person.avatar;
+      if (person.memberProfile && !person.sessionId)
         return {
-          avatar: animal,
+          avatar: person.anonymousAvatar,
           id: person.id,
           image: null,
-          nickname: anonymousNickname(animal),
+          nickname: anonymousNickname(person.anonymousAvatar),
         };
-      }
       return {
         avatar: person.avatar,
         id: person.id,
@@ -760,7 +756,18 @@ export class SharedCartsService {
           avatar,
           nickname,
           ...(avatar === 'member' &&
-            member && { sessionId: member.sessionId, userId: member.id }),
+            member && {
+              memberProfile: true,
+              sessionId: member.sessionId,
+              userId: member.id,
+            }),
+          ...(avatar !== undefined &&
+            avatar !== 'member' &&
+            nickname !== undefined && {
+              memberProfile: false,
+              sessionId: null,
+              userId: null,
+            }),
         })
         .where(eq(sharedCartParticipant.id, active.participantId));
 

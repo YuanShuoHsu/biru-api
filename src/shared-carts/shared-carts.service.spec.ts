@@ -126,16 +126,16 @@ describe('SharedCartsService', () => {
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, dine_in_table_count) values ($1, 'Biru', $2, now(), 'TW', '桃園市', '大園區', '中正東路一段', 10)`,
       [ORG, SLUG],
     );
-    await client.query(
-      `insert into "user" (id, name, first_name, email, lang, image) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW', 'https://example.com/amy.png')`,
-    );
   }, 120_000);
 
-  beforeEach(() =>
-    client.query(
+  beforeEach(async () => {
+    await client.query(
+      `insert into "user" (id, name, first_name, email, lang, image) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW', 'https://example.com/amy.png') on conflict (id) do nothing`,
+    );
+    await client.query(
       `insert into session (id, expires_at, token, updated_at, user_id) values ('amy-session', now() + interval '1 day', 'amy-token', now(), 'amy') on conflict (id) do update set expires_at = excluded.expires_at`,
-    ),
-  );
+    );
+  });
 
   afterEach(async () => {
     vi.restoreAllMocks();
@@ -942,6 +942,7 @@ describe('SharedCartsService', () => {
         Array.from({ length: SHARED_CART_MAX_PARTICIPANTS - 1 }, (_, i) => ({
           avatar: 'cat' as const,
           deviceKey: `device-${i}`,
+          memberProfile: false,
           status: 'active' as const,
           id: `guest-${i}`,
           nickname: `guest ${i}`,
@@ -1203,6 +1204,7 @@ describe('SharedCartsService', () => {
         Array.from({ length: SHARED_CART_MAX_PARTICIPANTS - 1 }, (_, i) => ({
           avatar: 'cat' as const,
           deviceKey: `device-${i}`,
+          memberProfile: false,
           status: 'active' as const,
           id: `guest-${i}`,
           nickname: `guest ${i}`,
@@ -1228,6 +1230,7 @@ describe('SharedCartsService', () => {
       (
         await db
           .select({
+            memberProfile: sharedCartParticipant.memberProfile,
             sessionId: sharedCartParticipant.sessionId,
             userId: sharedCartParticipant.userId,
           })
@@ -1281,6 +1284,52 @@ describe('SharedCartsService', () => {
       expect(JSON.stringify(hidden)).not.toMatch(/Amy|amy\.png/);
     });
 
+    it('hides a member whose account was deleted', async () => {
+      const { guest, host } = await amyWithGuest();
+      const asked = await startPickup();
+      await service.join(
+        SLUG,
+        { code: asked.cart.code!, mode: 'pickup' },
+        AMY,
+        undefined,
+        cookiesOf(host.issued),
+      );
+
+      await client.query(`delete from "user" where id = 'amy'`);
+
+      const seenByGuest = (
+        await service.findCurrent(SLUG, null, cookiesOf(guest.issued))
+      ).cart.participants[0];
+      const seenByAsked = (
+        await service.findCurrent(SLUG, null, cookiesOf(asked.issued))
+      ).cart.requests[0];
+      expect(seenByGuest).toEqual({
+        ...anonymous(host.cart.me.id),
+        isMe: false,
+      });
+      expect(seenByAsked).toMatchObject({ image: null });
+      expect(JSON.stringify([seenByGuest, seenByAsked])).not.toMatch(
+        /Amy|member|amy\.png/,
+      );
+
+      const own = await service.findCurrent(SLUG, AMY, cookiesOf(host.issued));
+      expect(JSON.stringify(own.cart.me)).not.toMatch(/Amy|member|amy\.png/);
+      expect(
+        await db
+          .select({
+            avatar: sharedCartParticipant.avatar,
+            memberProfile: sharedCartParticipant.memberProfile,
+          })
+          .from(sharedCartParticipant)
+          .where(eq(sharedCartParticipant.deviceKey, host.issued.deviceKey)),
+      ).toEqual(
+        expect.arrayContaining([
+          { avatar: seenByGuest.avatar, memberProfile: false },
+          { avatar: seenByAsked.avatar, memberProfile: false },
+        ]),
+      );
+    });
+
     it('treats an expired session as gone', async () => {
       const { guest, host } = await amyWithGuest();
       await client.query(
@@ -1302,6 +1351,7 @@ describe('SharedCartsService', () => {
         undefined,
       );
       expect(await linkOf(host.cart.me.id)).toEqual({
+        memberProfile: true,
         sessionId: 'amy-session',
         userId: 'amy',
       });
@@ -1319,6 +1369,7 @@ describe('SharedCartsService', () => {
         status: 'active',
       });
       expect(await linkOf(host.cart.me.id)).toEqual({
+        memberProfile: false,
         sessionId: null,
         userId: null,
       });
@@ -1422,6 +1473,7 @@ describe('SharedCartsService', () => {
         nickname: '小明',
       });
       expect(await linkOf(host.cart.me.id)).toEqual({
+        memberProfile: true,
         sessionId: 'amy-session',
         userId: 'amy',
       });

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   foreignKey,
   index,
   integer,
@@ -102,6 +103,7 @@ export const sharedCartParticipant = pgTable(
     }),
     avatar: sharedCartAvatarEnum('avatar').notNull(),
     nickname: text('nickname').notNull(),
+    memberProfile: boolean('member_profile').notNull(),
     status: sharedCartParticipantStatusEnum('status').notNull(),
     requestedAt: timestamp('requested_at', { withTimezone: true })
       .notNull()
@@ -117,6 +119,8 @@ export const sharedCartParticipant = pgTable(
       table.deviceKey,
     ),
     index('shared_cart_participant_deviceKey_idx').on(table.deviceKey),
+    index('shared_cart_participant_userId_idx').on(table.userId),
+    index('shared_cart_participant_sessionId_idx').on(table.sessionId),
     uniqueIndex('shared_cart_participant_deviceKey_active_unique')
       .on(table.deviceKey)
       .where(sql`${table.status} = 'active'`),
