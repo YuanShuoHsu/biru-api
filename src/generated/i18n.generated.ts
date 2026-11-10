@@ -364,6 +364,7 @@ export type I18nTranslations = {
         };
         "organizations": {
             "notJoinedAsPlatformAdmin": string;
+            "showcaseJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;
             "specialHoursEnded": string;
             "specialHoursInvalidRange": string;

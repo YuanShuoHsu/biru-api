@@ -11,6 +11,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const organizationErrorCodes = [
   'notJoinedAsPlatformAdmin',
+  'showcaseJoinedAsPlatformAdmin',
   'showcaseOpenSelfOnly',
   'specialHoursEnded',
   'specialHoursInvalidRange',
