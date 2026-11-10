@@ -1884,6 +1884,13 @@
       "when": 1794281038109,
       "tag": "0268_point_transaction_order_index",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1794291510565,
+      "tag": "0269_audit_log_created_index",
+      "breakpoints": true
     }
   ]
 }
