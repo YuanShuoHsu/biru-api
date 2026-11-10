@@ -514,6 +514,7 @@ describe('DeletedRecordsService 還原平台管理員身分加入的成員', () 
 
     expect(await blockedBy(batchId)).toMatchObject({
       tableName: 'organization',
+      relatedCount: 3,
       canRestore: true,
       restoreBlockedBy: null,
     });
@@ -541,6 +542,138 @@ describe('DeletedRecordsService 還原平台管理員身分加入的成員', () 
       organization: 1,
       members: ['staff', 'stillAdmin'],
       teamMembers: ['staff', 'stillAdmin'],
+    });
+  });
+
+  const createStore = async (organizationId: string) => {
+    const teamId = uuidv4();
+    await db.insert(schema.organization).values({
+      id: organizationId,
+      name: '大安門市',
+      slug: organizationId,
+      createdAt: new Date(),
+      addressCountry: 'TW',
+      addressLocality: '大安區',
+      addressRegion: '臺北市',
+      postalCode: '106',
+      streetAddress: '復興南路 1 號',
+    });
+    await db.insert(schema.team).values({
+      id: teamId,
+      name: '吧台',
+      organizationId,
+      createdAt: new Date(),
+    });
+
+    return teamId;
+  };
+
+  it('刪除的使用者還原時不還原其平台管理員身分加入的成員與該店的團隊成員，其他門市照常還原', async () => {
+    const userId = uuidv4();
+    const flaggedStore = uuidv4();
+    const otherStore = uuidv4();
+    const [flaggedTeam, otherTeam] = [
+      await createStore(flaggedStore),
+      await createStore(otherStore),
+    ];
+    await db.insert(schema.user).values({
+      id: userId,
+      name: 'former',
+      email: `${userId}@example.com`,
+      firstName: 'former',
+      role: 'user',
+    });
+    await db.insert(schema.member).values(
+      [
+        { organizationId: flaggedStore, role: 'owner' as const, flagged: true },
+        { organizationId: otherStore, role: 'member' as const, flagged: false },
+      ].map(({ organizationId, role, flagged }) => ({
+        id: uuidv4(),
+        organizationId,
+        userId,
+        role,
+        joinedAsPlatformAdmin: flagged,
+        createdAt: new Date(),
+      })),
+    );
+    await db.insert(schema.teamMember).values(
+      [flaggedTeam, otherTeam].map((teamId) => ({
+        id: uuidv4(),
+        teamId,
+        userId,
+      })),
+    );
+    await db.delete(schema.user).where(eq(schema.user.id, userId));
+    const [{ batchId }] = await db
+      .select({ batchId: deletedRecord.batchId })
+      .from(deletedRecord)
+      .where(eq(deletedRecord.recordId, userId));
+
+    expect(await blockedBy(batchId)).toMatchObject({
+      tableName: 'user',
+      relatedCount: 2,
+      canRestore: true,
+      restoreBlockedBy: null,
+    });
+    await service.restore([batchId], actor);
+
+    expect(
+      await db.query.user.findFirst({
+        where: eq(schema.user.id, userId),
+        columns: { role: true },
+      }),
+    ).toEqual({ role: 'user' });
+    expect(
+      await db.query.member.findMany({
+        where: eq(schema.member.userId, userId),
+        columns: { organizationId: true },
+      }),
+    ).toEqual([{ organizationId: otherStore }]);
+    expect(
+      await db.query.teamMember.findMany({
+        where: eq(schema.teamMember.userId, userId),
+        columns: { teamId: true },
+      }),
+    ).toEqual([{ teamId: otherTeam }]);
+  });
+
+  it('批次根為已撤銷平台管理員的團隊成員且其成員同在批次時回 409', async () => {
+    const teamId = await createStore(uuidv4());
+    const [{ organizationId }] = await db
+      .select({ organizationId: schema.team.organizationId })
+      .from(schema.team)
+      .where(eq(schema.team.id, teamId));
+    const batchId = 9_000_001;
+    await db.insert(deletedRecord).values([
+      {
+        batchId,
+        tableName: 'team_member',
+        recordId: 'tm-revoked',
+        data: { id: 'tm-revoked', team_id: teamId, user_id: 'revoked' },
+      },
+      {
+        batchId,
+        tableName: 'member',
+        recordId: 'm-revoked',
+        data: {
+          id: 'm-revoked',
+          organization_id: organizationId,
+          user_id: 'revoked',
+          role: 'owner',
+          joined_as_platform_admin: true,
+          created_at: '2026-01-01T00:00:00',
+        },
+      },
+    ]);
+
+    expect(await blockedBy(batchId)).toMatchObject({
+      tableName: 'team_member',
+      canRestore: false,
+      restoreBlockedBy: 'revokedPlatformAdmin',
+    });
+    await expect(service.restore([batchId], actor)).rejects.toMatchObject({
+      response: { code: 'restoreRevokedPlatformAdmin' },
+      status: 409,
     });
   });
 });
