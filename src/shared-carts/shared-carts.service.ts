@@ -38,7 +38,9 @@ import { session, user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
+import type { CreateOrderItemDto } from '../orders/dto/create-order.dto.js';
 import { badRequestError as orderBadRequestError } from '../orders/order-errors.js';
+import { OrderPricingService } from '../orders/order-pricing.service.js';
 import {
   isOpenDineInTable,
   verifyOrderQrSession,
@@ -46,8 +48,10 @@ import {
 import { OrderQrService } from '../orders/order-qr.service.js';
 
 import {
+  SHARED_CART_MAX_ITEMS,
   SHARED_CART_NICKNAME_MAX_LENGTH,
   UNPRINTABLE_CHARACTERS,
+  type AddSharedCartItemsDto,
   type CreateSharedCartDto,
   type JoinSharedCartDto,
   type SharedCartProfileDto,
@@ -84,6 +88,7 @@ type Org = {
 };
 type Tx = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0];
 type DeviceRow = {
+  mode: OrderMode;
   participantId: string;
   requestedAt: Date;
   sharedCartId: string;
@@ -148,6 +153,7 @@ const deviceRows = (
 ): Promise<DeviceRow[]> =>
   db
     .select({
+      mode: sharedCart.mode,
       participantId: sharedCartParticipant.id,
       requestedAt: sharedCartParticipant.requestedAt,
       sharedCartId: sharedCart.id,
@@ -205,6 +211,15 @@ const deleteParticipant = (tx: Tx, participantId: string) =>
     .delete(sharedCartParticipant)
     .where(eq(sharedCartParticipant.id, participantId));
 
+const itemValues = (item: CreateOrderItemDto) => ({
+  addOns: item.addOns,
+  menuItemId: item.menuItemId,
+  modifiers: item.modifiers,
+  quantity: item.quantity,
+  servingTemperatureLevel: item.servingTemperatureLevel ?? null,
+  sweetnessLevel: item.sweetnessLevel ?? null,
+});
+
 const countActive = async (tx: Tx, sharedCartId: string) => {
   const [{ active }] = await tx
     .select({ active: count() })
@@ -223,6 +238,7 @@ export class SharedCartsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly orderQrService: OrderQrService,
+    private readonly orderPricingService: OrderPricingService,
   ) {}
 
   private async getOrg(slug: string): Promise<Org> {
@@ -382,6 +398,27 @@ export class SharedCartsService {
       device: await deviceOf(tx, organizationId, deviceKey, now),
       locked,
     };
+  }
+
+  private async assertStillActive(
+    tx: Tx,
+    locked: { id: string; lastActivityAt: Date }[],
+    { participantId, sharedCartId }: DeviceRow,
+  ) {
+    if (
+      !locked.some(
+        ({ id, lastActivityAt }) =>
+          id === sharedCartId && lastActivityAt > activeSince(),
+      )
+    )
+      throw notFoundError('sharedCartNotFound');
+    const [participant] = await tx
+      .select({ status: sharedCartParticipant.status })
+      .from(sharedCartParticipant)
+      .where(eq(sharedCartParticipant.id, participantId));
+    if (!participant) throw notFoundError('sharedCartNotFound');
+    if (participant.status !== 'active')
+      throw forbiddenError('sharedCartPending');
   }
 
   private async leave(tx: Tx, { participantId, sharedCartId }: DeviceRow) {
@@ -822,20 +859,7 @@ export class SharedCartsService {
         ? (await this.lockDevice(tx, org.id, seen.deviceKey, sharedCartId))
             .locked
         : await this.lockCarts(tx, [sharedCartId]);
-      if (
-        !locked.some(
-          ({ id, lastActivityAt }) =>
-            id === sharedCartId && lastActivityAt > activeSince(),
-        )
-      )
-        throw notFoundError('sharedCartNotFound');
-      const [stillApprover] = await tx
-        .select({ status: sharedCartParticipant.status })
-        .from(sharedCartParticipant)
-        .where(eq(sharedCartParticipant.id, approver.participantId));
-      if (!stillApprover) throw notFoundError('sharedCartNotFound');
-      if (stillApprover.status !== 'active')
-        throw forbiddenError('sharedCartPending');
+      await this.assertStillActive(tx, locked, approver);
       const [request] = await liveRequest();
       if (!request) throw notFoundError('sharedCartRequestNotFound');
 
@@ -874,6 +898,152 @@ export class SharedCartsService {
     cookies: SharedCartCookies,
   ) {
     return this.decide(organizationSlug, requestId, member, cookies, false);
+  }
+
+  private async changeCart(
+    organizationSlug: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+    change: (tx: Tx, active: DeviceRow, org: Org) => Promise<unknown>,
+    items?: CreateOrderItemDto[],
+  ) {
+    const org = await this.getOrg(organizationSlug);
+    if (org.closedAt) throw organizationClosedError();
+    const { active, deviceKey } = await this.requireActive(org, cookies);
+    if (items)
+      await this.orderPricingService.resolveOrderItems(
+        org.id,
+        items,
+        active.mode,
+      );
+
+    await this.db.transaction(async (tx) => {
+      await this.assertStillActive(
+        tx,
+        await this.lockCarts(tx, [active.sharedCartId]),
+        active,
+      );
+      await change(tx, active, org);
+    });
+
+    return this.view(org, deviceKey, member);
+  }
+
+  addItems(
+    organizationSlug: string,
+    { items }: AddSharedCartItemsDto,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { participantId, sharedCartId }) => {
+        const [{ held }] = await tx
+          .select({ held: count() })
+          .from(sharedCartItem)
+          .where(eq(sharedCartItem.sharedCartId, sharedCartId));
+        if (held + items.length > SHARED_CART_MAX_ITEMS)
+          throw conflictError('sharedCartItemsFull', {
+            max: SHARED_CART_MAX_ITEMS,
+          });
+        const addedAt = Date.now();
+        await tx.insert(sharedCartItem).values(
+          items.map((item, index) => ({
+            ...itemValues(item),
+            createdAt: new Date(addedAt + index),
+            id: randomUUID(),
+            participantId,
+            sharedCartId,
+          })),
+        );
+      },
+      items,
+    );
+  }
+
+  updateItem(
+    organizationSlug: string,
+    itemId: string,
+    item: CreateOrderItemDto,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { sharedCartId }) => {
+        const updated = await tx
+          .update(sharedCartItem)
+          .set(itemValues(item))
+          .where(
+            and(
+              eq(sharedCartItem.id, itemId),
+              eq(sharedCartItem.sharedCartId, sharedCartId),
+            ),
+          )
+          .returning({ id: sharedCartItem.id });
+        if (!updated.length) throw notFoundError('sharedCartItemNotFound');
+      },
+      [item],
+    );
+  }
+
+  removeItem(
+    organizationSlug: string,
+    itemId: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { sharedCartId }) => {
+        const removed = await tx
+          .delete(sharedCartItem)
+          .where(
+            and(
+              eq(sharedCartItem.id, itemId),
+              eq(sharedCartItem.sharedCartId, sharedCartId),
+            ),
+          )
+          .returning({ id: sharedCartItem.id });
+        if (!removed.length) throw notFoundError('sharedCartItemNotFound');
+      },
+    );
+  }
+
+  removeParticipant(
+    organizationSlug: string,
+    targetId: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { participantId, sharedCartId }, org) => {
+        if (targetId === participantId)
+          throw badRequestError('sharedCartRemoveSelf');
+        const removed = await tx
+          .delete(sharedCartParticipant)
+          .where(
+            and(
+              eq(sharedCartParticipant.id, targetId),
+              eq(sharedCartParticipant.sharedCartId, sharedCartId),
+              eq(sharedCartParticipant.status, 'active'),
+            ),
+          )
+          .returning({ id: sharedCartParticipant.id });
+        if (!removed.length)
+          throw notFoundError('sharedCartParticipantNotFound');
+        await this.rotateCode(tx, org.id, sharedCartId);
+      },
+    );
   }
 
   async purgeExpired() {
