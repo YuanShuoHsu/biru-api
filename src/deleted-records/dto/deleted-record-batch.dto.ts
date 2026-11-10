@@ -22,6 +22,7 @@ export const DELETED_RECORD_RESTORE_BLOCKED_BY = [
   'ownerOnly',
   'forbidden',
   'closed',
+  'revokedPlatformAdmin',
 ] as const;
 
 export type DeletedRecordRestoreBlockedBy =
@@ -111,7 +112,7 @@ export class DeletedRecordBatchResponseDto {
 
   @ApiProperty({
     description:
-      '不能還原的原因：ownerOnly＝要還原擁有者成員或邀請、操作者不是擁有者；forbidden＝角色沒有這些資料的權限；closed＝門市停業中。可以還原時為 null',
+      '不能還原的原因：ownerOnly＝要還原擁有者成員或邀請、操作者不是擁有者；forbidden＝角色沒有這些資料的權限；closed＝門市停業中；revokedPlatformAdmin＝要還原以平台管理員身分加入的成員、該使用者已不是平台管理員。可以還原時為 null',
     enum: DELETED_RECORD_RESTORE_BLOCKED_BY,
     enumName: 'DeletedRecordRestoreBlockedBy',
     nullable: true,

@@ -217,6 +217,7 @@ export type I18nTranslations = {
             "restoreMissingReference": string;
             "restoreInvalid": string;
             "batchNotFound": string;
+            "restoreRevokedPlatformAdmin": string;
         };
         "exceptions": {
             "badRequest": string;

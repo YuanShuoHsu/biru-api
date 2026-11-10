@@ -140,14 +140,31 @@ const restoreBlockedBy = (
     : null;
 };
 
+const restoresRevokedPlatformAdmin = (batchId: SQL | number) => sql`EXISTS (
+  SELECT 1 FROM deleted_record m
+  WHERE m.batch_id = ${batchId}
+    AND m.table_name = 'member'
+    AND (m.data ->> 'joined_as_platform_admin')::boolean
+    AND COALESCE(
+      (
+        SELECT u.data ->> 'role' FROM deleted_record u
+        WHERE u.batch_id = m.batch_id
+          AND u.table_name = 'user'
+          AND u.data ->> 'id' = m.data ->> 'user_id'
+      ),
+      (SELECT u.role FROM "user" u WHERE u.id = m.data ->> 'user_id')
+    ) IS DISTINCT FROM 'admin'
+)`;
+
 const restoreState = (
   tables: string[],
   restoresOwner: boolean,
+  revokedPlatformAdmin: boolean,
   scope?: RestoreScope,
 ) => {
-  const blockedBy = scope
-    ? restoreBlockedBy(tables, scope, restoresOwner)
-    : null;
+  const blockedBy =
+    (scope ? restoreBlockedBy(tables, scope, restoresOwner) : null) ??
+    (revokedPlatformAdmin ? 'revokedPlatformAdmin' : null);
 
   return { canRestore: !blockedBy, restoreBlockedBy: blockedBy };
 };
@@ -390,6 +407,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 SELECT trim(role) FROM unnest(string_to_array(m.data ->> 'role', ',')) AS role
               )
           ) AS restores_owner,
+          ${restoresRevokedPlatformAdmin(sql`r.batch_id`)} AS restores_revoked_platform_admin,
           COALESCE(
             o.name,
             CASE WHEN r.table_name = 'organization' THEN r.data ->> 'name' END
@@ -446,6 +464,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
         deleted_by: string | null;
         tables: string[];
         restores_owner: boolean;
+        restores_revoked_platform_admin: boolean;
       }>(sql`
         ${listed}
         ORDER BY ${sortBy ? sql`${fieldMap[sortBy]} ${direction} NULLS LAST, ` : sql``}l.deleted_at DESC, l.batch_id DESC
@@ -469,7 +488,12 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 organizationName: row.organization_name,
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
-                ...restoreState(row.tables, row.restores_owner, scope),
+                ...restoreState(
+                  row.tables,
+                  row.restores_owner,
+                  row.restores_revoked_platform_admin,
+                  scope,
+                ),
               },
             ]
           : [],
@@ -556,6 +580,13 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       if (restoreBlockedBy([...batchTables], scope, grantsOwner(batch)))
         throw accessForbiddenError();
     }
+
+    const {
+      rows: [{ revoked }],
+    } = await this.db.execute<{ revoked: boolean }>(
+      sql`SELECT ${restoresRevokedPlatformAdmin(batchId)} AS revoked`,
+    );
+    if (revoked) throw conflictError('restoreRevokedPlatformAdmin');
 
     return { root, batch };
   }

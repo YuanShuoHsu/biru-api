@@ -1,7 +1,9 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
+import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { v4 as uuidv4 } from 'uuid';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
@@ -299,5 +301,141 @@ describe('DeletedRecordsService.list', () => {
     expect(result.data.every(({ restoreBlockedBy }) => !restoreBlockedBy)).toBe(
       true,
     );
+  });
+});
+
+describe('DeletedRecordsService 還原平台管理員身分加入的成員', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: DeletedRecordsService;
+
+  const actor = { id: 'admin', name: 'admin', email: 'admin@example.com' };
+  const ownerScope = { organizationId: 'store', role: 'owner', closed: false };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventEmitter2,
+      {} as never,
+    );
+    await db.insert(schema.user).values(
+      (['revoked', 'stillAdmin', 'staff'] as const).map((id) => ({
+        id,
+        name: id,
+        email: `${id}@example.com`,
+        firstName: id,
+        role: id === 'stillAdmin' ? ('admin' as const) : ('user' as const),
+      })),
+    );
+    await db.insert(schema.organization).values({
+      id: 'store',
+      name: 'Biru',
+      slug: 'biru',
+      createdAt: new Date(),
+      addressCountry: 'TW',
+      addressLocality: '中正區',
+      addressRegion: '臺北市',
+      postalCode: '100',
+      streetAddress: '忠孝西路一段 1 號',
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  const deleteMember = async (
+    userId: string,
+    role: 'owner' | 'member',
+    joinedAsPlatformAdmin: boolean,
+  ) => {
+    const id = uuidv4();
+    await db.insert(schema.member).values({
+      id,
+      organizationId: 'store',
+      userId,
+      role,
+      joinedAsPlatformAdmin,
+      createdAt: new Date(),
+    });
+    await db.delete(schema.member).where(eq(schema.member.id, id));
+    const [{ batchId }] = await db
+      .select({ batchId: deletedRecord.batchId })
+      .from(deletedRecord)
+      .where(eq(deletedRecord.recordId, id));
+
+    return batchId;
+  };
+
+  const restoredMember = (userId: string) =>
+    db.query.member.findFirst({
+      where: eq(schema.member.userId, userId),
+      columns: { role: true, joinedAsPlatformAdmin: true },
+    });
+
+  const blockedBy = async (batchId: number, scope?: typeof ownerScope) =>
+    (await service.list({}, scope)).data.find((row) => row.batchId === batchId);
+
+  it('店家擁有者不能還原已撤銷平台管理員的擁有者成員', async () => {
+    const batchId = await deleteMember('revoked', 'owner', true);
+
+    expect(await blockedBy(batchId, ownerScope)).toMatchObject({
+      canRestore: false,
+      restoreBlockedBy: 'revokedPlatformAdmin',
+    });
+    await expect(
+      service.restore([batchId], actor, ownerScope),
+    ).rejects.toMatchObject({
+      response: { code: 'restoreRevokedPlatformAdmin', error: 'Conflict' },
+      status: 409,
+    });
+    expect(await restoredMember('revoked')).toBeUndefined();
+  });
+
+  it('平台視角也不能還原已撤銷平台管理員的擁有者成員', async () => {
+    const batchId = await deleteMember('revoked', 'owner', true);
+
+    expect(await blockedBy(batchId)).toMatchObject({
+      canRestore: false,
+      restoreBlockedBy: 'revokedPlatformAdmin',
+    });
+    await expect(service.restore([batchId], actor)).rejects.toMatchObject({
+      response: { code: 'restoreRevokedPlatformAdmin' },
+      status: 409,
+    });
+    expect(await restoredMember('revoked')).toBeUndefined();
+  });
+
+  it('仍是平台管理員時可以還原', async () => {
+    const batchId = await deleteMember('stillAdmin', 'owner', true);
+
+    expect(await blockedBy(batchId, ownerScope)).toMatchObject({
+      canRestore: true,
+      restoreBlockedBy: null,
+    });
+    await service.restore([batchId], actor, ownerScope);
+
+    expect(await restoredMember('stillAdmin')).toEqual({
+      role: 'owner',
+      joinedAsPlatformAdmin: true,
+    });
+  });
+
+  it('一般成員照常還原', async () => {
+    const batchId = await deleteMember('staff', 'member', false);
+
+    await service.restore([batchId], actor, ownerScope);
+
+    expect(await restoredMember('staff')).toEqual({
+      role: 'member',
+      joinedAsPlatformAdmin: false,
+    });
   });
 });
