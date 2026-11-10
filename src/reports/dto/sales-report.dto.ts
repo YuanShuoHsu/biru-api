@@ -20,11 +20,11 @@ const ITEM_SALES_REPORT_GROUP_BYS = ['menuItem', 'category'] as const;
 export type ItemSalesReportGroupBy =
   (typeof ITEM_SALES_REPORT_GROUP_BYS)[number];
 
-export const SALES_REPORT_GROUP_BYS = [
+const SALES_REPORT_GROUP_BYS = [
   ...ORDER_SALES_REPORT_GROUP_BYS,
   ...ITEM_SALES_REPORT_GROUP_BYS,
 ] as const;
-export type SalesReportGroupBy = (typeof SALES_REPORT_GROUP_BYS)[number];
+type SalesReportGroupBy = (typeof SALES_REPORT_GROUP_BYS)[number];
 
 export class SalesReportQueryDto extends ReportRangeQueryDto {
   @ApiProperty({
