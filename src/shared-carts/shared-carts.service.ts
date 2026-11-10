@@ -98,13 +98,14 @@ const anonymousNickname = (animal: SharedCartAnimalAvatar) => {
   });
 };
 
-const activeSince = () => new Date(Date.now() - SHARED_CART_TTL_MS);
-const requestedSince = () => new Date(Date.now() - SHARED_CART_REQUEST_TTL_MS);
+const activeSince = (now = Date.now()) => new Date(now - SHARED_CART_TTL_MS);
+const requestedSince = (now = Date.now()) =>
+  new Date(now - SHARED_CART_REQUEST_TTL_MS);
 
-const isLiveParticipant = () =>
+const isLiveParticipant = (now = Date.now()) =>
   or(
     eq(sharedCartParticipant.status, 'active'),
-    gt(sharedCartParticipant.requestedAt, requestedSince()),
+    gt(sharedCartParticipant.requestedAt, requestedSince(now)),
   );
 
 const isLiveRequest = (sharedCartId: string, participantId?: string) =>
@@ -119,6 +120,7 @@ const deviceRows = (
   db: DrizzleDB | Tx,
   organizationId: string,
   deviceKey: string,
+  now = Date.now(),
 ): Promise<DeviceRow[]> =>
   db
     .select({
@@ -136,8 +138,8 @@ const deviceRows = (
       and(
         eq(sharedCartParticipant.deviceKey, deviceKey),
         eq(sharedCart.organizationId, organizationId),
-        gt(sharedCart.lastActivityAt, activeSince()),
-        isLiveParticipant(),
+        gt(sharedCart.lastActivityAt, activeSince(now)),
+        isLiveParticipant(now),
       ),
     );
 
@@ -145,35 +147,34 @@ const deviceOf = async (
   db: DrizzleDB | Tx,
   organizationId: string,
   deviceKey: string,
+  now = Date.now(),
 ): Promise<Device> => {
-  const rows = await deviceRows(db, organizationId, deviceKey);
+  const rows = await deviceRows(db, organizationId, deviceKey, now);
   return {
     active: rows.find(({ status }) => status === 'active'),
     pending: rows.find(({ status }) => status === 'pending'),
   };
 };
 
-const dropStaleRows = (tx: Tx, deviceKey: string) =>
-  tx
-    .delete(sharedCartParticipant)
-    .where(
-      and(
-        eq(sharedCartParticipant.deviceKey, deviceKey),
-        or(
-          and(
-            eq(sharedCartParticipant.status, 'pending'),
-            lte(sharedCartParticipant.requestedAt, requestedSince()),
-          ),
-          inArray(
-            sharedCartParticipant.sharedCartId,
-            tx
-              .select({ id: sharedCart.id })
-              .from(sharedCart)
-              .where(lte(sharedCart.lastActivityAt, activeSince())),
-          ),
+const dropStaleRows = (tx: Tx, deviceKey: string, now: number) =>
+  tx.delete(sharedCartParticipant).where(
+    and(
+      eq(sharedCartParticipant.deviceKey, deviceKey),
+      or(
+        and(
+          eq(sharedCartParticipant.status, 'pending'),
+          lte(sharedCartParticipant.requestedAt, requestedSince(now)),
+        ),
+        inArray(
+          sharedCartParticipant.sharedCartId,
+          tx
+            .select({ id: sharedCart.id })
+            .from(sharedCart)
+            .where(lte(sharedCart.lastActivityAt, activeSince(now))),
         ),
       ),
-    );
+    ),
+  );
 
 const deleteParticipant = (tx: Tx, participantId: string) =>
   tx
@@ -301,14 +302,20 @@ export class SharedCartsService {
     deviceKey: string,
     ...extra: (string | undefined)[]
   ) {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${deviceKey}))`);
-    await dropStaleRows(tx, deviceKey);
-    const seen = await deviceRows(tx, organizationId, deviceKey);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`shared_cart_device:${deviceKey}`}, 0))`,
+    );
+    const now = Date.now();
+    await dropStaleRows(tx, deviceKey, now);
+    const seen = await deviceRows(tx, organizationId, deviceKey, now);
     const locked = await this.lockCarts(tx, [
       ...extra,
       ...seen.map(({ sharedCartId }) => sharedCartId),
     ]);
-    return { device: await deviceOf(tx, organizationId, deviceKey), locked };
+    return {
+      device: await deviceOf(tx, organizationId, deviceKey, now),
+      locked,
+    };
   }
 
   private async leave(tx: Tx, { participantId, sharedCartId }: DeviceRow) {
