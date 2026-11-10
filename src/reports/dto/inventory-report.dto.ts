@@ -5,7 +5,7 @@ import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
-export class InventoryReportRowDto {
+class InventoryReportRowDto {
   @ApiProperty() ingredientId: string;
 
   @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
