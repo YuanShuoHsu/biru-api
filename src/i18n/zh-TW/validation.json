@@ -8,5 +8,6 @@
   "isNumber": "必須是數字",
   "isString": "必須是字串",
   "maxLength": "長度必須小於 {constraints.0} 個字元",
-  "minLength": "長度必須大於 {constraints.0} 個字元"
+  "minLength": "長度必須大於 {constraints.0} 個字元",
+  "printableText": "不得包含控制字元或不可見字元"
 }

@@ -445,6 +445,27 @@
       "MLT": "ミリリットル"
     }
   },
+  "sharedCarts": {
+    "anonymousNickname": "匿名の{animal}",
+    "avatars": {
+      "bear": "クマ",
+      "cat": "ネコ",
+      "dog": "イヌ",
+      "fox": "キツネ",
+      "koala": "コアラ",
+      "panda": "パンダ",
+      "penguin": "ペンギン",
+      "rabbit": "ウサギ"
+    },
+    "sharedCartCodeNotFound": "共有注文が見つかりません。番号と注文方法をご確認ください",
+    "sharedCartFull": "この共有注文は人数が上限に達しています",
+    "sharedCartLimitReached": "現在、共有注文が多すぎます。しばらくしてから作成してください",
+    "sharedCartMemberAvatarSignInRequired": "会員アイコンを使うにはログインしてください",
+    "sharedCartNotFound": "共有注文が見つからないか、番号の有効期限が切れています",
+    "sharedCartPending": "共有注文のメンバーが参加を許可するまでお待ちください",
+    "sharedCartRequestNotFound": "この参加リクエストは処理済みか、期限が切れています",
+    "sharedCartRequestsFull": "参加を待っている人が上限に達しています。しばらくしてからお試しください"
+  },
   "storeLayout": {
     "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
     "notFound": "この店舗のフロアプランはまだありません。"

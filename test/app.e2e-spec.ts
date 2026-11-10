@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import type { PGlite } from '@electric-sql/pglite';
+import cookieParser from 'cookie-parser';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import request from 'supertest';
@@ -9,6 +10,10 @@ import { App } from 'supertest/types.js';
 
 import { AppModule } from '../src/app.module.js';
 import { db } from '../src/db/index.js';
+import {
+  issueOrderQrSession,
+  ORDER_QR_SESSION_COOKIE,
+} from '../src/orders/order-qr-token.js';
 
 vi.hoisted(() => {
   Object.assign(process.env, {
@@ -54,6 +59,7 @@ describe('App (e2e)', () => {
 
     app = moduleFixture.createNestApplication({ bodyParser: false });
     app.setGlobalPrefix('api');
+    app.use(cookieParser());
     await app.init();
   }, 120_000);
 
@@ -80,6 +86,307 @@ describe('App (e2e)', () => {
 
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));
+
+  describe('共享點餐單', () => {
+    beforeAll(() =>
+      pglite.$client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('shared-cart-org', 'Biru', 'shared-cart-store', now(), 'TW', '桃園市', '大園區', '中正東路一段'), ('shared-cart-org-b', 'Biru B', 'shared-cart-store-b', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      ),
+    );
+
+    const base = '/api/organizations/shared-cart-store/shared-carts';
+    const baseB = '/api/organizations/shared-cart-store-b/shared-carts';
+    const setCookies = (response: request.Response) =>
+      ([] as string[]).concat(response.headers['set-cookie'] ?? []);
+    const participantSetCookie = (response: request.Response) =>
+      setCookies(response).find((cookie) =>
+        cookie.startsWith('biru_shared_cart_participant_'),
+      );
+    const participantCookie = (response: request.Response) =>
+      participantSetCookie(response)?.split(';')[0];
+
+    it('自取不需 QR code 即可發起，另一支手機以單號加入，離開後單號失效', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ avatar: 'cat', mode: 'pickup', nickname: '小明' })
+        .expect(201);
+      const host = participantCookie(created)!;
+      expect(host).toBeDefined();
+      expect(participantSetCookie(created)).not.toMatch(/expires|max-age/i);
+      expect(created.body).toMatchObject({
+        code: expect.stringMatching(/^\d{4}$/),
+        participants: [{ avatar: 'cat', isMe: true, nickname: '小明' }],
+      });
+
+      const joined = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code, mode: 'pickup' })
+        .expect(200);
+      const guest = participantCookie(joined)!;
+      expect(joined.body).toMatchObject({
+        items: [],
+        me: { status: 'pending' },
+        participants: [],
+        requests: [],
+      });
+
+      const pending = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', host)
+        .expect(200);
+      expect(pending.body.requests).toEqual([
+        expect.objectContaining({ id: joined.body.me.id }),
+      ]);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', guest)
+        .expect(403);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', host)
+        .expect(200);
+      await request(server)
+        .post(`${base}/current/requests/${joined.body.me.id}/approve`)
+        .set('cookie', host)
+        .expect(404);
+
+      const approved = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', guest)
+        .expect(200);
+      expect(approved.body).toMatchObject({
+        me: { status: 'active' },
+        participants: [{ isMe: false, nickname: '小明' }, { isMe: true }],
+      });
+
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', guest)
+        .expect(204);
+      const current = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', host)
+        .expect(200);
+      expect(current.body.participants).toEqual([
+        expect.objectContaining({ isMe: true, nickname: '小明' }),
+      ]);
+
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', host)
+        .expect(204);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code, mode: 'pickup' })
+        .expect(404);
+    });
+
+    it('拒絕加入請求後對方看不到單，可再送一次', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const host = participantCookie(created)!;
+      const joined = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code, mode: 'pickup' })
+        .expect(200);
+      const guest = participantCookie(joined)!;
+
+      const rejected = await request(server)
+        .delete(`${base}/current/requests/${joined.body.me.id}`)
+        .set('cookie', host)
+        .expect(200);
+      expect(rejected.body.requests).toEqual([]);
+      expect(rejected.body.code).not.toBe(created.body.code);
+      await request(server)
+        .get(`${base}/current`)
+        .set('cookie', guest)
+        .expect(404);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', guest)
+        .send({ code: created.body.code, mode: 'pickup' })
+        .expect(404);
+      await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', guest)
+        .send({ code: rejected.body.code, mode: 'pickup' })
+        .expect(200)
+        .expect(({ body }) => expect(body.me.status).toBe('pending'));
+    });
+
+    it('已加入的人送出另一張單的請求後仍留在原單，被允許時才移過去', async () => {
+      const server = app.getHttpServer();
+      const start = () =>
+        request(server)
+          .post(base)
+          .set('content-type', 'application/json')
+          .send({ mode: 'pickup' })
+          .expect(201);
+      const first = await start();
+      const second = await start();
+      const firstCookie = participantCookie(first)!;
+      const secondCookie = participantCookie(second)!;
+
+      const asked = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .set('cookie', firstCookie)
+        .send({ code: second.body.code, mode: 'pickup' })
+        .expect(200);
+      expect(asked.body).toMatchObject({
+        code: first.body.code,
+        me: { status: 'active' },
+        outgoingRequest: { expiresAt: expect.any(String) },
+      });
+
+      const waiting = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', secondCookie)
+        .expect(200);
+      await request(server)
+        .post(`${base}/current/requests/${waiting.body.requests[0].id}/approve`)
+        .set('cookie', secondCookie)
+        .expect(200);
+
+      const moved = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', firstCookie)
+        .expect(200);
+      expect(moved.body).toMatchObject({
+        code: second.body.code,
+        outgoingRequest: null,
+        participants: [{ isMe: false }, { isMe: true }],
+      });
+    });
+
+    it('另一家門市的共享單不會蓋掉這家的參與者 cookie', async () => {
+      const server = app.getHttpServer();
+      const inA = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookieA = participantCookie(inA)!;
+
+      const inB = await request(server)
+        .post(baseB)
+        .set('content-type', 'application/json')
+        .set('cookie', cookieA)
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookieB = participantCookie(inB)!;
+      expect(cookieB.split('=')[0]).not.toBe(cookieA.split('=')[0]);
+      await request(server)
+        .delete(`${baseB}/current/me`)
+        .set('cookie', [cookieA, cookieB].join('; '))
+        .expect(204)
+        .expect((response) =>
+          expect(
+            setCookies(response).some((cookie) =>
+              cookie.startsWith(`${cookieA.split('=')[0]}=`),
+            ),
+          ).toBe(false),
+        );
+
+      const current = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', cookieA)
+        .expect(200);
+      expect(current.body.code).toBe(inA.body.code);
+    });
+
+    it('單已失效時清掉這家的 cookie，門市不存在時不清', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+      const cookie = participantCookie(created)!;
+      const name = cookie.split('=')[0];
+      await request(server)
+        .delete(`${base}/current/me`)
+        .set('cookie', cookie)
+        .expect(204);
+
+      const stale = await request(server)
+        .get(`${base}/current`)
+        .set('cookie', cookie)
+        .expect(404);
+      expect(stale.body.code).toBe('sharedCartNotFound');
+      expect(participantSetCookie(stale)).toMatch(
+        new RegExp(`^${name}=;.*Expires=Thu, 01 Jan 1970`),
+      );
+
+      const unknownStore = await request(server)
+        .get('/api/organizations/no-such-store/shared-carts/current')
+        .set('cookie', cookie)
+        .expect(404);
+      expect(unknownStore.body.code).toBe('organizationNotFound');
+      expect(participantSetCookie(unknownStore)).toBeUndefined();
+    });
+
+    it('用不同點餐模式加入時回和查無單號一樣的 404', async () => {
+      const server = app.getHttpServer();
+      const created = await request(server)
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'pickup' })
+        .expect(201);
+
+      const response = await request(server)
+        .post(`${base}/join`)
+        .set('content-type', 'application/json')
+        .send({ code: created.body.code, mode: 'driveThru' })
+        .expect(400);
+      expect(response.body.code).toBe('inStoreQrCodeRequired');
+
+      const counterSession = issueOrderQrSession(
+        'shared-cart-org',
+        null,
+        'counter',
+        null,
+      ).value;
+      const joinAsCounter = (code: string) =>
+        request(server)
+          .post(`${base}/join`)
+          .set('content-type', 'application/json')
+          .set('x-lang', 'zh-TW')
+          .set('cookie', `${ORDER_QR_SESSION_COOKIE}=${counterSession}`)
+          .send({ code, mode: 'counter' })
+          .expect(404);
+      const mismatch = await joinAsCounter(created.body.code);
+      const unknown = await joinAsCounter(
+        ((Number(created.body.code) + 1) % 10_000).toString().padStart(4, '0'),
+      );
+      const { timestamp: _, ...body } = mismatch.body;
+      const { timestamp: __, ...unknownBody } = unknown.body;
+      expect(body).toEqual(unknownBody);
+      expect(body).toMatchObject({
+        code: 'sharedCartCodeNotFound',
+        message: '找不到這張共享點餐單，請確認單號與點餐模式',
+      });
+      expect(participantSetCookie(mismatch)).toBeUndefined();
+    });
+
+    it('內用沒有桌位 QR session 時拒絕發起', () =>
+      request(app.getHttpServer())
+        .post(base)
+        .set('content-type', 'application/json')
+        .send({ mode: 'dineIn' })
+        .expect(400));
+  });
 
   describe('better-auth 的限流', () => {
     const signIn = (headers: Record<string, string>) =>

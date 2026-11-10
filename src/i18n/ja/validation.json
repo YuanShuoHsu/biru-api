@@ -8,5 +8,6 @@
   "isNumber": "数値である必要があります",
   "isString": "文字列である必要があります",
   "maxLength": "{constraints.0} 文字以下で入力してください",
-  "minLength": "{constraints.0} 文字以上で入力してください"
+  "minLength": "{constraints.0} 文字以上で入力してください",
+  "printableText": "制御文字や不可視文字は使用できません"
 }

@@ -445,6 +445,27 @@
       "MLT": "毫升"
     }
   },
+  "sharedCarts": {
+    "anonymousNickname": "匿名{animal}",
+    "avatars": {
+      "bear": "熊熊",
+      "cat": "猫咪",
+      "dog": "狗狗",
+      "fox": "狐狸",
+      "koala": "考拉",
+      "panda": "熊猫",
+      "penguin": "企鹅",
+      "rabbit": "兔兔"
+    },
+    "sharedCartCodeNotFound": "找不到这张共享点餐单，请确认单号与点餐模式",
+    "sharedCartFull": "这张共享点餐单人数已满",
+    "sharedCartLimitReached": "目前共享点餐单太多，请稍后再发起",
+    "sharedCartMemberAvatarSignInRequired": "登录会员才能使用会员头像",
+    "sharedCartNotFound": "找不到这张共享点餐单，或单号已失效",
+    "sharedCartPending": "请等单内的人允许你加入",
+    "sharedCartRequestNotFound": "这笔加入请求已被处理或已超时",
+    "sharedCartRequestsFull": "等待允许加入的人数已满，请稍后再试"
+  },
   "storeLayout": {
     "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
     "notFound": "这家门店还没有平面图。"

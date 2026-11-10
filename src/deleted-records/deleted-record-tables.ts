@@ -15,6 +15,9 @@ export const UNTRACKED_TABLES = [
   'printer',
   'order_ticket_job',
   'invoice_print_job',
+  'shared_cart',
+  'shared_cart_participant',
+  'shared_cart_item',
 ] as const;
 
 // 出勤與薪資資料不直接寫回，交給各自的建立流程重跑檢查、薪資鎖定與連動效果
