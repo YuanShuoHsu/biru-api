@@ -312,6 +312,7 @@ export type I18nTranslations = {
             "pickupTime": string;
             "printJobResolved": string;
             "printerBusy": string;
+            "printerNameTaken": string;
             "refund": string;
             "reprint": string;
             "servingTemperatureLevels": {

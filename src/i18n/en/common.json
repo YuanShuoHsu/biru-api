@@ -259,6 +259,7 @@
     "pickupTime": "Pickup {time}",
     "printJobResolved": "This ticket has already been confirmed. Please refresh and try again",
     "printerBusy": "New tickets were sent to this printer while it was being removed. Please try again",
+    "printerNameTaken": "This store already has an order ticket printer with this name. Please choose another name",
     "refund": "REFUND",
     "reprint": "REPRINT",
     "servingTemperatureLevels": {

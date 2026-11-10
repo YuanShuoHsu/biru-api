@@ -259,6 +259,7 @@
     "pickupTime": "取餐 {time}",
     "printJobResolved": "這筆工作單已確認過，請重新整理後再試",
     "printerBusy": "移除時有新的工作單正送往這台印表機，請再試一次",
+    "printerNameTaken": "這間店已有同名的工作單印表機，請換一個名稱",
     "refund": "退品",
     "reprint": "補印",
     "servingTemperatureLevels": {

@@ -44,6 +44,7 @@ export const orderTicketErrorCodes = [
   'notReprintable',
   'printJobResolved',
   'printerBusy',
+  'printerNameTaken',
 ] as const;
 
 type OrderTicketErrorCode = (typeof orderTicketErrorCodes)[number];

@@ -58,6 +58,9 @@ export const printer = pgTable(
     uniqueIndex('printer_organizationId_invoice_idx')
       .on(table.organizationId)
       .where(sql`${table.purpose} = 'invoice'`),
+    uniqueIndex('printer_organizationId_orderTicket_name_idx')
+      .on(table.organizationId, table.name)
+      .where(sql`${table.purpose} = 'orderTicket'`),
     uniqueIndex('printer_organizationId_default_idx')
       .on(table.organizationId)
       .where(sql`${table.isDefault}`),
