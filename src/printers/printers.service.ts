@@ -110,7 +110,16 @@ export class PrintersService {
   async listOffline(purpose: PrinterPurpose): Promise<Printer[]> {
     return (
       await this.db.query.printer.findMany({
-        where: eq(printerTable.purpose, purpose),
+        where: and(
+          eq(printerTable.purpose, purpose),
+          or(
+            isNull(printerTable.lastSeenAt),
+            lt(
+              printerTable.lastSeenAt,
+              new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS),
+            ),
+          ),
+        ),
       })
     ).filter((printer) => !isOnline(printer));
   }
