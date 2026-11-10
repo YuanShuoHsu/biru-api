@@ -1119,6 +1119,9 @@ export class MailsService {
             });
             const args = {
               adjustments: pointAdjustments.length,
+              average: money.format(
+                current.orders ? current.revenue / current.orders : 0,
+              ),
               lowStock: lowStock.length,
               orders: current.orders,
               peakHour: hourRange(peakHour.hour),
@@ -1139,6 +1142,10 @@ export class MailsService {
                 this.i18n.t('mail.daily_sales_digest.orders', { args, lang }),
                 ...(current.orders
                   ? [
+                      this.i18n.t('mail.daily_sales_digest.average', {
+                        args,
+                        lang,
+                      }),
                       this.i18n.t('mail.daily_sales_digest.peak_hour', {
                         args,
                         lang,
