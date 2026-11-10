@@ -42,7 +42,7 @@ vi.mock('node:crypto', async (importOriginal) => {
 
 const ORG = 'org';
 const SLUG = 'biru';
-const AMY = { id: 'amy', name: 'Amy' };
+const AMY = { id: 'amy', name: 'Amy', sessionId: 'amy-session' };
 
 const cookiesOf = ({ name, value }: IssuedSharedCartParticipant) => ({
   [name]: value,
@@ -93,6 +93,7 @@ describe('SharedCartsService', () => {
     await service.approveRequest(
       SLUG,
       guest.cart.me.id,
+      null,
       cookiesOf(host.issued),
     );
     return guest;
@@ -129,6 +130,12 @@ describe('SharedCartsService', () => {
       `insert into "user" (id, name, first_name, email, lang, image) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW', 'https://example.com/amy.png')`,
     );
   }, 120_000);
+
+  beforeEach(() =>
+    client.query(
+      `insert into session (id, expires_at, token, updated_at, user_id) values ('amy-session', now() + interval '1 day', 'amy-token', now(), 'amy') on conflict (id) do update set expires_at = excluded.expires_at`,
+    ),
+  );
 
   afterEach(async () => {
     vi.restoreAllMocks();
@@ -213,7 +220,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.create(
         SLUG,
         { mode: 'pickup' },
-        { id: 'amy', name: `\u200b${'😀'.repeat(19)}\n🍵🍵` },
+        { ...AMY, name: `\u200b${'😀'.repeat(19)}\n🍵🍵` },
         undefined,
         undefined,
       );
@@ -371,6 +378,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
@@ -390,7 +398,7 @@ describe('SharedCartsService', () => {
       await startPickup(cookiesOf(guest.issued));
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(first.issued))).cart
           .requests,
       ).toEqual([]);
       expect(await db.select().from(sharedCart)).toHaveLength(2);
@@ -476,7 +484,7 @@ describe('SharedCartsService', () => {
         participants: [{ isMe: false }, { isMe: true }],
       });
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests,
       ).toHaveLength(1);
     });
@@ -491,13 +499,14 @@ describe('SharedCartsService', () => {
 
       await service.approveRequest(
         SLUG,
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests[0].id,
+        null,
         cookiesOf(second.issued),
       );
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(asked.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(asked.issued))).cart,
       ).toMatchObject({
         code: second.cart.code,
         me: { status: 'active' },
@@ -517,17 +526,19 @@ describe('SharedCartsService', () => {
 
       await service.approveRequest(
         SLUG,
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests[0].id,
+        null,
         cookiesOf(second.issued),
       );
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(first.issued))).cart
           .participants,
       ).toEqual([expect.objectContaining({ isMe: true })]);
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart.code,
+        (await service.findCurrent(SLUG, null, cookiesOf(member.issued))).cart
+          .code,
       ).toBe(second.cart.code);
     });
 
@@ -539,14 +550,15 @@ describe('SharedCartsService', () => {
 
       const { cart } = await service.rejectRequest(
         SLUG,
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests[0].id,
+        null,
         cookiesOf(second.issued),
       );
 
       expect(cart.code).not.toBe(second.cart.code);
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(member.issued))).cart,
       ).toMatchObject({ code: first.cart.code, outgoingRequest: null });
     });
 
@@ -568,7 +580,7 @@ describe('SharedCartsService', () => {
         [third, 1],
       ] as const)
         expect(
-          (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart
+          (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
             .requests,
         ).toHaveLength(requests);
     });
@@ -582,10 +594,10 @@ describe('SharedCartsService', () => {
       await service.cancelRequest(SLUG, cookiesOf(member.issued));
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(member.issued))).cart,
       ).toMatchObject({ code: first.cart.code, outgoingRequest: null });
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests,
       ).toEqual([]);
       await expect(
@@ -602,7 +614,7 @@ describe('SharedCartsService', () => {
       await service.leaveMe(SLUG, cookiesOf(member.issued));
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(member.issued))).cart,
       ).toMatchObject({
         code: null,
         me: { status: 'pending' },
@@ -616,16 +628,17 @@ describe('SharedCartsService', () => {
       const member = await joinApproved(first);
       await requestToJoin(second.cart.code, cookiesOf(member.issued));
       const requestId = (
-        await service.findCurrent(SLUG, cookiesOf(second.issued))
+        await service.findCurrent(SLUG, null, cookiesOf(second.issued))
       ).cart.requests[0].id;
 
       await Promise.all([
-        service.approveRequest(SLUG, requestId, cookiesOf(second.issued)),
+        service.approveRequest(SLUG, requestId, null, cookiesOf(second.issued)),
         service.leaveMe(SLUG, cookiesOf(first.issued)),
       ]);
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(member.issued))).cart.code,
+        (await service.findCurrent(SLUG, null, cookiesOf(member.issued))).cart
+          .code,
       ).toBe(second.cart.code);
       expect(
         (await db.select().from(sharedCart)).map(({ code }) => code),
@@ -681,7 +694,7 @@ describe('SharedCartsService', () => {
         expect.objectContaining({ isMe: true }),
       ]);
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(first.issued))).cart
           .participants,
       ).toHaveLength(1);
 
@@ -726,7 +739,7 @@ describe('SharedCartsService', () => {
         tableNumber: null,
       });
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart,
       ).toMatchObject({ items: [], participants: [], requests: [] });
     });
 
@@ -738,11 +751,11 @@ describe('SharedCartsService', () => {
       await requestToJoin(second.cart.code, cookiesOf(guest.issued));
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(first.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(first.issued))).cart
           .requests,
       ).toEqual([]);
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(second.issued))).cart
           .requests,
       ).toHaveLength(1);
     });
@@ -765,6 +778,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
@@ -792,13 +806,19 @@ describe('SharedCartsService', () => {
       await ageRequests(SHARED_CART_REQUEST_TTL_MS);
 
       await expect(
-        service.findCurrent(SLUG, cookiesOf(guest.issued)),
+        service.findCurrent(SLUG, null, cookiesOf(guest.issued)),
       ).rejects.toThrow('sharedCartNotFound');
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart.requests,
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
+          .requests,
       ).toEqual([]);
       await expect(
-        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(host.issued)),
+        service.approveRequest(
+          SLUG,
+          guest.cart.me.id,
+          null,
+          cookiesOf(host.issued),
+        ),
       ).rejects.toThrow('sharedCartRequestNotFound');
     });
 
@@ -808,7 +828,7 @@ describe('SharedCartsService', () => {
       await db.update(sharedCart).set({ lastActivityAt: stale });
 
       const guest = await requestToJoin(host.cart.code);
-      await service.findCurrent(SLUG, cookiesOf(guest.issued));
+      await service.findCurrent(SLUG, null, cookiesOf(guest.issued));
 
       const [row] = await db.select().from(sharedCart);
       expect(row.lastActivityAt).toEqual(stale);
@@ -832,7 +852,8 @@ describe('SharedCartsService', () => {
         status: 403,
       });
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart.requests,
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
+          .requests,
       ).toEqual([expect.objectContaining({ nickname: '小華' })]);
     });
 
@@ -947,7 +968,11 @@ describe('SharedCartsService', () => {
         nickname: '小華',
       });
 
-      const { cart } = await service.findCurrent(SLUG, cookiesOf(host.issued));
+      const { cart } = await service.findCurrent(
+        SLUG,
+        null,
+        cookiesOf(host.issued),
+      );
       expect(cart.requests).toEqual([
         {
           avatar: expect.any(String),
@@ -961,6 +986,7 @@ describe('SharedCartsService', () => {
       const approved = await service.approveRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
       expect(approved.cart.requests).toEqual([]);
@@ -968,7 +994,7 @@ describe('SharedCartsService', () => {
         approved.cart.participants.map(({ nickname }) => nickname),
       ).toEqual(['小明', '小華']);
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart,
       ).toMatchObject({
         me: { status: 'active' },
         participants: [{ isMe: false }, { isMe: true }],
@@ -981,15 +1007,15 @@ describe('SharedCartsService', () => {
       const guest = await requestToJoin(host.cart.code);
       const id = guest.cart.me.id;
 
-      await service.approveRequest(SLUG, id, cookiesOf(host.issued));
+      await service.approveRequest(SLUG, id, null, cookiesOf(host.issued));
       await expect(
-        service.approveRequest(SLUG, id, cookiesOf(other.issued)),
+        service.approveRequest(SLUG, id, null, cookiesOf(other.issued)),
       ).rejects.toThrow('sharedCartRequestNotFound');
       await expect(
-        service.rejectRequest(SLUG, id, cookiesOf(other.issued)),
+        service.rejectRequest(SLUG, id, null, cookiesOf(other.issued)),
       ).rejects.toThrow('sharedCartRequestNotFound');
       await expect(
-        service.approveRequest(SLUG, 'unknown', cookiesOf(host.issued)),
+        service.approveRequest(SLUG, 'unknown', null, cookiesOf(host.issued)),
       ).rejects.toThrow('sharedCartRequestNotFound');
     });
 
@@ -1001,6 +1027,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         rejected.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
@@ -1014,6 +1041,7 @@ describe('SharedCartsService', () => {
         service.approveRequest(
           SLUG,
           waiting.cart.me.id,
+          null,
           cookiesOf(host.issued),
         ),
       ).resolves.toMatchObject({ cart: { code: cart.code } });
@@ -1029,13 +1057,15 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         rejected.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
       for (const requester of [waiting, elsewhere])
         expect(
           JSON.stringify(
-            (await service.findCurrent(SLUG, cookiesOf(requester.issued))).cart,
+            (await service.findCurrent(SLUG, null, cookiesOf(requester.issued)))
+              .cart,
           ),
         ).not.toContain(cart.code!);
     });
@@ -1073,6 +1103,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
@@ -1092,6 +1123,7 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
@@ -1105,12 +1137,13 @@ describe('SharedCartsService', () => {
       const { cart } = await service.rejectRequest(
         SLUG,
         guest.cart.me.id,
+        null,
         cookiesOf(host.issued),
       );
 
       expect(cart.requests).toEqual([]);
       await expect(
-        service.findCurrent(SLUG, cookiesOf(guest.issued)),
+        service.findCurrent(SLUG, null, cookiesOf(guest.issued)),
       ).rejects.toThrow('sharedCartNotFound');
     });
 
@@ -1124,7 +1157,7 @@ describe('SharedCartsService', () => {
         service.rejectRequest.bind(service),
       ])
         await expect(
-          decide(SLUG, second.cart.me.id, cookiesOf(first.issued)),
+          decide(SLUG, second.cart.me.id, null, cookiesOf(first.issued)),
         ).rejects.toMatchObject({
           response: { code: 'sharedCartPending' },
           status: 403,
@@ -1149,10 +1182,15 @@ describe('SharedCartsService', () => {
       );
 
       await expect(
-        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(other.issued)),
+        service.approveRequest(
+          SLUG,
+          guest.cart.me.id,
+          null,
+          cookiesOf(other.issued),
+        ),
       ).rejects.toThrow('sharedCartNotFound');
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart.me
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart.me
           .status,
       ).toBe('pending');
     });
@@ -1173,14 +1211,226 @@ describe('SharedCartsService', () => {
       );
 
       await expect(
-        service.approveRequest(SLUG, guest.cart.me.id, cookiesOf(host.issued)),
+        service.approveRequest(
+          SLUG,
+          guest.cart.me.id,
+          null,
+          cookiesOf(host.issued),
+        ),
       ).rejects.toThrow('sharedCartFull');
+    });
+  });
+
+  describe('member identity', () => {
+    const signOutAmy = () =>
+      client.query(`delete from session where id = 'amy-session'`);
+    const linkOf = async (participantId: string) =>
+      (
+        await db
+          .select({
+            sessionId: sharedCartParticipant.sessionId,
+            userId: sharedCartParticipant.userId,
+          })
+          .from(sharedCartParticipant)
+          .where(eq(sharedCartParticipant.id, participantId))
+      )[0];
+    const amyAsMember = {
+      avatar: 'member',
+      image: 'https://example.com/amy.png',
+      nickname: 'Amy',
+    };
+    const anonymous = (id: string) => {
+      const animal = expect.stringMatching(
+        /^(cat|dog|rabbit|bear|fox|panda|penguin|koala)$/,
+      );
+      return { avatar: animal, id, image: null, nickname: animal };
+    };
+
+    const amyWithGuest = async () => {
+      const host = await service.create(
+        SLUG,
+        { mode: 'pickup' },
+        AMY,
+        undefined,
+        undefined,
+      );
+      const guest = await requestToJoin(host.cart.code);
+      await service.approveRequest(
+        SLUG,
+        guest.cart.me.id,
+        AMY,
+        cookiesOf(host.issued),
+      );
+      return { guest, host };
+    };
+
+    it('shows a member to the others only while their login session exists', async () => {
+      const { guest, host } = await amyWithGuest();
+      const seenByGuest = async () =>
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart
+          .participants[0];
+
+      expect(await seenByGuest()).toMatchObject(amyAsMember);
+
+      await signOutAmy();
+
+      const hidden = await seenByGuest();
+      expect(hidden).toEqual({ ...anonymous(host.cart.me.id), isMe: false });
+      expect(hidden.nickname).toBe(hidden.avatar);
+      expect(await seenByGuest()).toEqual(hidden);
+      expect(JSON.stringify(hidden)).not.toMatch(/Amy|amy\.png/);
+    });
+
+    it('treats an expired session as gone', async () => {
+      const { guest, host } = await amyWithGuest();
+      await client.query(
+        `update session set expires_at = now() - interval '1 minute' where id = 'amy-session'`,
+      );
+
+      expect(
+        (await service.findCurrent(SLUG, null, cookiesOf(guest.issued))).cart
+          .participants[0],
+      ).toEqual({ ...anonymous(host.cart.me.id), isMe: false });
+    });
+
+    it('stores the anonymous profile the next time that device calls', async () => {
+      const host = await service.create(
+        SLUG,
+        { mode: 'pickup' },
+        AMY,
+        undefined,
+        undefined,
+      );
+      expect(await linkOf(host.cart.me.id)).toEqual({
+        sessionId: 'amy-session',
+        userId: 'amy',
+      });
+      await signOutAmy();
+      expect((await linkOf(host.cart.me.id)).userId).toBe('amy');
+
+      const { cart } = await service.findCurrent(
+        SLUG,
+        null,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.me).toEqual({
+        ...anonymous(host.cart.me.id),
+        status: 'active',
+      });
+      expect(await linkOf(host.cart.me.id)).toEqual({
+        sessionId: null,
+        userId: null,
+      });
+    });
+
+    it.each([
+      ['signed out on this device', null],
+      [
+        'signed in as someone else',
+        { id: 'ben', name: 'Ben', sessionId: 'ben-session' },
+      ],
+    ])('drops the member profile at once when %s', async (_, member) => {
+      const host = await service.create(
+        SLUG,
+        { mode: 'pickup' },
+        AMY,
+        undefined,
+        undefined,
+      );
+
+      const { cart } = await service.findCurrent(
+        SLUG,
+        member,
+        cookiesOf(host.issued),
+      );
+
+      expect(cart.me).toEqual({
+        ...anonymous(host.cart.me.id),
+        status: 'active',
+      });
+      expect((await linkOf(host.cart.me.id)).userId).toBeNull();
+      expect(
+        (await service.findCurrent(SLUG, AMY, cookiesOf(host.issued))).cart.me,
+      ).not.toMatchObject({ nickname: 'Amy' });
+    });
+
+    it('hides a signed-out member in the join requests too', async () => {
+      const host = await startPickup();
+      const asked = await service.join(
+        SLUG,
+        { code: host.cart.code!, mode: 'pickup' },
+        AMY,
+        undefined,
+        undefined,
+      );
+      const requestSeenByHost = async () =>
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
+          .requests[0];
+
+      expect(await requestSeenByHost()).toMatchObject(amyAsMember);
+      await signOutAmy();
+      expect(await requestSeenByHost()).toEqual({
+        ...anonymous(asked.cart.me.id),
+        requestedAt: expect.any(Date),
+      });
+    });
+
+    it('keeps a nickname and animal the member typed in themselves', async () => {
+      const host = await service.create(
+        SLUG,
+        { avatar: 'cat', mode: 'pickup', nickname: '小明' },
+        AMY,
+        undefined,
+        undefined,
+      );
+      expect((await linkOf(host.cart.me.id)).userId).toBeNull();
+      await signOutAmy();
+
+      expect(
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart.me,
+      ).toMatchObject({ avatar: 'cat', nickname: '小明' });
+    });
+
+    it('lets a signed-out device set a new nickname and take the member avatar back', async () => {
+      const host = await service.create(
+        SLUG,
+        { mode: 'pickup' },
+        AMY,
+        undefined,
+        undefined,
+      );
+
+      const renamed = await service.updateMe(
+        SLUG,
+        { nickname: '小明' },
+        null,
+        cookiesOf(host.issued),
+      );
+      expect(renamed.cart.me).toMatchObject({ image: null, nickname: '小明' });
+      expect(renamed.cart.me.avatar).not.toBe('member');
+
+      const back = await service.updateMe(
+        SLUG,
+        { avatar: 'member' },
+        AMY,
+        cookiesOf(host.issued),
+      );
+      expect(back.cart.me).toMatchObject({
+        avatar: 'member',
+        image: 'https://example.com/amy.png',
+        nickname: '小明',
+      });
+      expect(await linkOf(host.cart.me.id)).toEqual({
+        sessionId: 'amy-session',
+        userId: 'amy',
+      });
     });
   });
 
   describe('current', () => {
     it('answers not found without a participant cookie', async () => {
-      await expect(service.findCurrent(SLUG, undefined)).rejects.toThrow(
+      await expect(service.findCurrent(SLUG, null, undefined)).rejects.toThrow(
         'sharedCartNotFound',
       );
     });
@@ -1202,7 +1452,11 @@ describe('SharedCartsService', () => {
       const stale = new Date(Date.now() - 60_000);
       await db.update(sharedCart).set({ lastActivityAt: stale });
 
-      const { cart } = await service.findCurrent(SLUG, cookiesOf(host.issued));
+      const { cart } = await service.findCurrent(
+        SLUG,
+        null,
+        cookiesOf(host.issued),
+      );
 
       expect(cart.items).toEqual([
         {
@@ -1293,10 +1547,10 @@ describe('SharedCartsService', () => {
 
       expect(await db.select().from(sharedCartItem)).toEqual([]);
       await expect(
-        service.findCurrent(SLUG, cookiesOf(guest.issued)),
+        service.findCurrent(SLUG, null, cookiesOf(guest.issued)),
       ).rejects.toThrow('sharedCartNotFound');
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
           .participants,
       ).toHaveLength(1);
 
@@ -1313,7 +1567,7 @@ describe('SharedCartsService', () => {
       expect(await db.select().from(sharedCart)).toEqual([]);
       expect(await db.select().from(sharedCartParticipant)).toEqual([]);
       await expect(
-        service.findCurrent(SLUG, cookiesOf(guest.issued)),
+        service.findCurrent(SLUG, null, cookiesOf(guest.issued)),
       ).rejects.toThrow('sharedCartNotFound');
     });
 
@@ -1324,7 +1578,7 @@ describe('SharedCartsService', () => {
       await service.leaveMe(SLUG, cookiesOf(guest.issued));
 
       expect(
-        (await service.findCurrent(SLUG, cookiesOf(host.issued))).cart,
+        (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart,
       ).toMatchObject({ participants: [{ isMe: true }], requests: [] });
     });
   });

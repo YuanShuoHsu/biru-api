@@ -20,7 +20,7 @@ import {
 } from './enums.js';
 import { orderModeEnum } from './orders.js';
 import { organization } from './organizations.js';
-import { user } from './users.js';
+import { session, user } from './users.js';
 
 export const SHARED_CART_ANIMAL_AVATARS = [
   'cat',
@@ -95,6 +95,9 @@ export const sharedCartParticipant = pgTable(
       .references(() => sharedCart.id, { onDelete: 'cascade' }),
     deviceKey: text('device_key').notNull(),
     userId: text('user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    sessionId: text('session_id').references(() => session.id, {
       onDelete: 'set null',
     }),
     avatar: sharedCartAvatarEnum('avatar').notNull(),

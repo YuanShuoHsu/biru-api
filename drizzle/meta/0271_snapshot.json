@@ -1,5 +1,5 @@
 {
-  "id": "68b54cce-e763-4801-ac97-7255439bbed4",
+  "id": "b09e0e44-7042-4a1f-8619-c411bfbda60d",
   "prevId": "ea07ec1f-42e6-4fc8-8fcc-f7ee30dcca9f",
   "version": "7",
   "dialect": "postgresql",
@@ -10604,6 +10604,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "avatar": {
           "name": "avatar",
           "type": "shared_cart_avatar",
@@ -10744,6 +10750,19 @@
           "tableTo": "user",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "shared_cart_participant_session_id_session_id_fk": {
+          "name": "shared_cart_participant_session_id_session_id_fk",
+          "tableFrom": "shared_cart_participant",
+          "tableTo": "session",
+          "columnsFrom": [
+            "session_id"
           ],
           "columnsTo": [
             "id"

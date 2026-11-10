@@ -9,6 +9,7 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
   lte,
   ne,
@@ -33,7 +34,7 @@ import {
   type SharedCartAnimalAvatar,
   type SharedCartParticipantStatus,
 } from '../db/schema/shared-carts.js';
-import { user } from '../db/schema/users.js';
+import { session, user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -73,7 +74,7 @@ export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 export const SHARED_CART_REQUEST_TTL_MS = 10 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
 
-export type SharedCartUser = { id: string; name: string };
+export type SharedCartUser = { id: string; name: string; sessionId: string };
 
 type Org = {
   closedAt: Date | null;
@@ -110,6 +111,20 @@ const anonymousNickname = (animal: SharedCartAnimalAvatar) => {
     args: { animal: i18n.t(`common.sharedCarts.avatars.${animal}`) },
   });
 };
+
+const animalOf = (participantId: string) =>
+  SHARED_CART_ANIMAL_AVATARS[
+    Array.from(participantId).reduce(
+      (sum, character) => sum + character.charCodeAt(0),
+      0,
+    ) % SHARED_CART_ANIMAL_AVATARS.length
+  ];
+
+const liveSessionOf = () =>
+  and(
+    eq(session.id, sharedCartParticipant.sessionId),
+    gt(session.expiresAt, new Date()),
+  );
 
 const activeSince = (now = Date.now()) => new Date(now - SHARED_CART_TTL_MS);
 const requestedSince = (now = Date.now()) =>
@@ -256,18 +271,58 @@ export class SharedCartsService {
       throw badRequestError('sharedCartMemberAvatarSignInRequired');
 
     const chosen = avatar ?? (member ? 'member' : randomAnimal());
+    const memberName = Array.from(
+      member?.name.replace(UNPRINTABLE_CHARACTERS, '').trim() ?? '',
+    )
+      .slice(0, SHARED_CART_NICKNAME_MAX_LENGTH)
+      .join('');
+    const linked =
+      member && (chosen === 'member' || (nickname === undefined && memberName))
+        ? member
+        : null;
     return {
       avatar: chosen,
       nickname:
         nickname ??
-        (Array.from(
-          member?.name.replace(UNPRINTABLE_CHARACTERS, '').trim() ?? '',
-        )
-          .slice(0, SHARED_CART_NICKNAME_MAX_LENGTH)
-          .join('') ||
+        (memberName ||
           anonymousNickname(chosen === 'member' ? randomAnimal() : chosen)),
-      userId: member?.id ?? null,
+      sessionId: linked?.sessionId ?? null,
+      userId: linked?.id ?? null,
     };
+  }
+
+  private async anonymizeSignedOut(
+    deviceKey: string,
+    member: SharedCartUser | null,
+  ) {
+    const linked = await this.db
+      .select({
+        avatar: sharedCartParticipant.avatar,
+        id: sharedCartParticipant.id,
+        sessionId: session.id,
+        userId: sharedCartParticipant.userId,
+      })
+      .from(sharedCartParticipant)
+      .leftJoin(session, liveSessionOf())
+      .where(
+        and(
+          eq(sharedCartParticipant.deviceKey, deviceKey),
+          isNotNull(sharedCartParticipant.userId),
+        ),
+      );
+    for (const { avatar, id, sessionId, userId } of linked) {
+      if (sessionId && userId === member?.id) continue;
+      const animal = avatar === 'member' ? animalOf(id) : avatar;
+      await this.db
+        .update(sharedCartParticipant)
+        .set({
+          avatar: animal,
+          nickname: anonymousNickname(animal),
+          sessionId: null,
+          userId: null,
+        })
+        .where(eq(sharedCartParticipant.id, id));
+    }
   }
 
   private deviceKeyOf(org: Org, cookies: SharedCartCookies) {
@@ -407,7 +462,12 @@ export class SharedCartsService {
     );
   }
 
-  private async view(org: Org, deviceKey: string): Promise<SharedCartResult> {
+  private async view(
+    org: Org,
+    deviceKey: string,
+    member: SharedCartUser | null,
+  ): Promise<SharedCartResult> {
+    await this.anonymizeSignedOut(deviceKey, member);
     const { active, pending } = await deviceOf(this.db, org.id, deviceKey);
     const mine = active ?? pending;
     if (!mine) throw notFoundError('sharedCartNotFound');
@@ -420,10 +480,13 @@ export class SharedCartsService {
         image: user.image,
         nickname: sharedCartParticipant.nickname,
         requestedAt: sharedCartParticipant.requestedAt,
+        sessionId: session.id,
         status: sharedCartParticipant.status,
+        userId: sharedCartParticipant.userId,
       })
       .from(sharedCartParticipant)
       .leftJoin(user, eq(user.id, sharedCartParticipant.userId))
+      .leftJoin(session, liveSessionOf())
       .where(
         and(
           eq(sharedCartParticipant.sharedCartId, sharedCartId),
@@ -469,12 +532,24 @@ export class SharedCartsService {
           .orderBy(asc(sharedCartItem.createdAt), asc(sharedCartItem.id))
       : [];
 
-    const profileOf = (person: (typeof people)[number]) => ({
-      avatar: person.avatar,
-      id: person.id,
-      image: person.avatar === 'member' ? person.image : null,
-      nickname: person.nickname,
-    });
+    const profileOf = (person: (typeof people)[number]) => {
+      if (person.userId && !person.sessionId) {
+        const animal =
+          person.avatar === 'member' ? animalOf(person.id) : person.avatar;
+        return {
+          avatar: animal,
+          id: person.id,
+          image: null,
+          nickname: anonymousNickname(animal),
+        };
+      }
+      return {
+        avatar: person.avatar,
+        id: person.id,
+        image: person.avatar === 'member' ? person.image : null,
+        nickname: person.nickname,
+      };
+    };
     const visible = isActive ? people : [];
 
     return {
@@ -563,7 +638,7 @@ export class SharedCartsService {
       });
     });
 
-    return this.view(org, deviceKey);
+    return this.view(org, deviceKey, member);
   }
 
   async join(
@@ -646,7 +721,7 @@ export class SharedCartsService {
       });
     });
 
-    return this.view(org, deviceKey);
+    return this.view(org, deviceKey, member);
   }
 
   async participantCookieName(organizationSlug: string) {
@@ -655,9 +730,13 @@ export class SharedCartsService {
     );
   }
 
-  async findCurrent(organizationSlug: string, cookies: SharedCartCookies) {
+  async findCurrent(
+    organizationSlug: string,
+    member: SharedCartUser | null,
+    cookies: SharedCartCookies,
+  ) {
     const org = await this.getOrg(organizationSlug);
-    return this.view(org, this.requireDeviceKey(org, cookies));
+    return this.view(org, this.requireDeviceKey(org, cookies), member);
   }
 
   async updateMe(
@@ -673,17 +752,19 @@ export class SharedCartsService {
     if (avatar === 'member' && !member)
       throw badRequestError('sharedCartMemberAvatarSignInRequired');
 
+    await this.anonymizeSignedOut(deviceKey, member);
     if (avatar !== undefined || nickname !== undefined)
       await this.db
         .update(sharedCartParticipant)
         .set({
           avatar,
           nickname,
-          ...(avatar === 'member' && member && { userId: member.id }),
+          ...(avatar === 'member' &&
+            member && { sessionId: member.sessionId, userId: member.id }),
         })
         .where(eq(sharedCartParticipant.id, active.participantId));
 
-    return this.view(org, deviceKey);
+    return this.view(org, deviceKey, member);
   }
 
   async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
@@ -710,6 +791,7 @@ export class SharedCartsService {
   private async decide(
     organizationSlug: string,
     requestId: string,
+    member: SharedCartUser | null,
     cookies: SharedCartCookies,
     approve: boolean,
   ) {
@@ -766,23 +848,25 @@ export class SharedCartsService {
         .where(eq(sharedCartParticipant.id, requestId));
     });
 
-    return this.view(org, deviceKey);
+    return this.view(org, deviceKey, member);
   }
 
   approveRequest(
     organizationSlug: string,
     requestId: string,
+    member: SharedCartUser | null,
     cookies: SharedCartCookies,
   ) {
-    return this.decide(organizationSlug, requestId, cookies, true);
+    return this.decide(organizationSlug, requestId, member, cookies, true);
   }
 
   rejectRequest(
     organizationSlug: string,
     requestId: string,
+    member: SharedCartUser | null,
     cookies: SharedCartCookies,
   ) {
-    return this.decide(organizationSlug, requestId, cookies, false);
+    return this.decide(organizationSlug, requestId, member, cookies, false);
   }
 
   async purgeExpired() {

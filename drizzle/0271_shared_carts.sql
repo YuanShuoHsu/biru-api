@@ -32,6 +32,7 @@ CREATE TABLE "shared_cart_participant" (
 	"shared_cart_id" text NOT NULL,
 	"device_key" text NOT NULL,
 	"user_id" text,
+	"session_id" text,
 	"avatar" "shared_cart_avatar" NOT NULL,
 	"nickname" text NOT NULL,
 	"status" "shared_cart_participant_status" NOT NULL,
@@ -45,6 +46,7 @@ ALTER TABLE "shared_cart_item" ADD CONSTRAINT "shared_cart_item_shared_cart_id_s
 ALTER TABLE "shared_cart_item" ADD CONSTRAINT "shared_cart_item_participant_id_shared_cart_participant_id_fk" FOREIGN KEY ("participant_id") REFERENCES "public"."shared_cart_participant"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shared_cart_participant" ADD CONSTRAINT "shared_cart_participant_shared_cart_id_shared_cart_id_fk" FOREIGN KEY ("shared_cart_id") REFERENCES "public"."shared_cart"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shared_cart_participant" ADD CONSTRAINT "shared_cart_participant_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "shared_cart_participant" ADD CONSTRAINT "shared_cart_participant_session_id_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."session"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "shared_cart_organizationId_code_unique" ON "shared_cart" USING btree ("organization_id","code");--> statement-breakpoint
 CREATE INDEX "shared_cart_item_sharedCartId_idx" ON "shared_cart_item" USING btree ("shared_cart_id");--> statement-breakpoint
 CREATE INDEX "shared_cart_participant_sharedCartId_idx" ON "shared_cart_participant" USING btree ("shared_cart_id");--> statement-breakpoint

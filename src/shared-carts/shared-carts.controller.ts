@@ -42,7 +42,13 @@ import {
 } from './shared-carts.service.js';
 
 const memberOf = (session: UserSession | null) =>
-  session ? { id: session.user.id, name: session.user.name } : null;
+  session
+    ? {
+        id: session.user.id,
+        name: session.user.name,
+        sessionId: session.session.id,
+      }
+    : null;
 
 const qrSessionOf = (req: Request) =>
   req.cookies?.[ORDER_QR_SESSION_COOKIE] as string | undefined;
@@ -120,13 +126,14 @@ export class SharedCartsController {
   @ApiOperation({ summary: '目前瀏覽器所在的共享點餐單' })
   async findCurrent(
     @Param('organizationSlug') organizationSlug: string,
+    @Session() session: UserSession | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SharedCartResponseDto> {
     return respond(
       res,
       await this.sharedCartsService
-        .findCurrent(organizationSlug, cookiesOf(req))
+        .findCurrent(organizationSlug, memberOf(session), cookiesOf(req))
         .catch(async (error: unknown) => {
           if (isSharedCartNotFound(error))
             clearSharedCartParticipantCookie(
@@ -168,6 +175,7 @@ export class SharedCartsController {
   async approveRequest(
     @Param('organizationSlug') organizationSlug: string,
     @Param('participantId') participantId: string,
+    @Session() session: UserSession | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SharedCartResponseDto> {
@@ -176,6 +184,7 @@ export class SharedCartsController {
       await this.sharedCartsService.approveRequest(
         organizationSlug,
         participantId,
+        memberOf(session),
         cookiesOf(req),
       ),
     );
@@ -186,6 +195,7 @@ export class SharedCartsController {
   async rejectRequest(
     @Param('organizationSlug') organizationSlug: string,
     @Param('participantId') participantId: string,
+    @Session() session: UserSession | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SharedCartResponseDto> {
@@ -194,6 +204,7 @@ export class SharedCartsController {
       await this.sharedCartsService.rejectRequest(
         organizationSlug,
         participantId,
+        memberOf(session),
         cookiesOf(req),
       ),
     );
