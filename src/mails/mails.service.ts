@@ -72,6 +72,23 @@ const sendFailure = (template: string, to: string, error: unknown) =>
     `Failed to send ${template} email to ${to}: ${error instanceof Error ? error.message : String(error)}`,
   );
 
+const hourRange = (hour: number) =>
+  `${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00`;
+
+type PointAdjustmentLine = {
+  adjuster: string | null;
+  member: string;
+  points: number;
+  reason: string | null;
+};
+
+type LowStockLine = {
+  name: string;
+  inventoryLevel: string;
+  lowStockThreshold: string;
+  unitCode: UnitCode;
+};
+
 @Injectable()
 export class MailsService {
   private readonly logger = new Logger(MailsService.name);
@@ -869,21 +886,11 @@ export class MailsService {
       supplierId,
       supplierName,
     } of ingredients) {
-      const unit = this.i18n.t(
-        `mail.low_stock_digest.units.${unitCode}`,
-        options,
-      );
-      const item = this.i18n.t('mail.low_stock_digest.item', {
-        args: {
-          level: numberFormat.format(Number(inventoryLevel)),
-          name,
-          shortage: numberFormat.format(
-            Number(lowStockThreshold) - Number(inventoryLevel),
-          ),
-          threshold: numberFormat.format(Number(lowStockThreshold)),
-          unit,
-        },
-        lang,
+      const item = this.lowStockLine(lang, numberFormat, {
+        name,
+        inventoryLevel,
+        lowStockThreshold,
+        unitCode,
       });
 
       groups.set(supplierId, {
@@ -940,12 +947,7 @@ export class MailsService {
     current: { orders: number; revenue: number };
     previous: { orders: number; revenue: number };
     peakHour: { hour: number; orders: number };
-    pointAdjustments: {
-      adjuster: string | null;
-      member: string;
-      points: number;
-      reason: string | null;
-    }[];
+    pointAdjustments: PointAdjustmentLine[];
     refundedOrders: number;
     topItems: { name: string; sold: number }[];
   }): Promise<void> {
@@ -967,7 +969,7 @@ export class MailsService {
       }).format(date),
       orders: current.orders,
       organizationName,
-      peakHour: `${String(peakHour.hour).padStart(2, '0')}:00–${String(peakHour.hour + 1).padStart(2, '0')}:00`,
+      peakHour: hourRange(peakHour.hour),
       peakOrders: peakHour.orders,
       previousOrders: previous.orders,
       previousRevenue: money.format(previous.revenue),
@@ -1019,16 +1021,8 @@ export class MailsService {
           },
           lang,
         }),
-        items: pointAdjustments.map(({ adjuster, member, points, reason }) =>
-          this.i18n.t('mail.daily_sales_digest.point_adjustment', {
-            args: {
-              adjuster: adjuster ?? '—',
-              member,
-              points: signed.format(points),
-              reason: reason ?? '',
-            },
-            lang,
-          }),
+        items: pointAdjustments.map((adjustment) =>
+          this.pointAdjustmentLine(lang, signed, adjustment),
         ),
       });
     }
@@ -1071,11 +1065,13 @@ export class MailsService {
       organizationName: string;
       currency: string;
       path: string;
-      orders: number;
-      revenue: number;
+      current: { orders: number; revenue: number };
+      previous: { orders: number; revenue: number };
+      peakHour: { hour: number; orders: number };
       refundedOrders: number;
-      pointAdjustments: { count: number; total: number };
-      lowStock: number;
+      topItems: { name: string; sold: number }[];
+      pointAdjustments: PointAdjustmentLine[];
+      lowStock: (LowStockLine & { supplierName: string | null })[];
     }[];
   }): Promise<void> {
     const productName = PRODUCT_NAME;
@@ -1083,6 +1079,8 @@ export class MailsService {
     const url = `${adminUrl}${path}`;
     const options = { lang };
     const signed = new Intl.NumberFormat(lang, { signDisplay: 'always' });
+    const quantity = new Intl.NumberFormat(lang, { maximumFractionDigits: 3 });
+    const list = new Intl.ListFormat(lang);
     const translate = {
       args: {
         count: stores.length,
@@ -1106,49 +1104,113 @@ export class MailsService {
             organizationName,
             currency,
             path: storePath,
+            current,
+            previous,
+            peakHour,
+            refundedOrders,
+            topItems,
             pointAdjustments,
-            ...store
+            lowStock,
           }) => {
+            const money = new Intl.NumberFormat(lang, {
+              style: 'currency',
+              currency,
+              maximumFractionDigits: 0,
+            });
             const args = {
-              ...store,
-              revenue: new Intl.NumberFormat(lang, {
-                style: 'currency',
-                currency,
-                maximumFractionDigits: 0,
-              }).format(store.revenue),
-              adjustments: pointAdjustments.count,
-              points: signed.format(pointAdjustments.total),
+              adjustments: pointAdjustments.length,
+              average: money.format(
+                current.orders ? current.revenue / current.orders : 0,
+              ),
+              lowStock: lowStock.length,
+              orders: current.orders,
+              peakHour: hourRange(peakHour.hour),
+              peakOrders: peakHour.orders,
+              points: signed.format(
+                pointAdjustments.reduce((sum, { points }) => sum + points, 0),
+              ),
+              previousOrders: previous.orders,
+              previousRevenue: money.format(previous.revenue),
+              refundedOrders,
+              revenue: money.format(current.revenue),
             };
             return {
               heading: organizationName,
               url: `${adminUrl}${storePath}`,
               items: [
-                this.i18n.t('mail.platform_daily_digest.revenue', {
-                  args,
-                  lang,
-                }),
-                this.i18n.t('mail.platform_daily_digest.orders', {
-                  args,
-                  lang,
-                }),
+                this.i18n.t('mail.daily_sales_digest.revenue', { args, lang }),
+                this.i18n.t('mail.daily_sales_digest.orders', { args, lang }),
+                ...(current.orders
+                  ? [
+                      this.i18n.t('mail.daily_sales_digest.average', {
+                        args,
+                        lang,
+                      }),
+                      this.i18n.t('mail.daily_sales_digest.peak_hour', {
+                        args,
+                        lang,
+                      }),
+                    ]
+                  : []),
                 this.i18n.t('mail.platform_daily_digest.refunds', {
                   args,
                   lang,
                 }),
-                ...(pointAdjustments.count
+                ...(topItems.length
+                  ? [
+                      this.i18n.t('mail.platform_daily_digest.top_items', {
+                        args: {
+                          items: list.format(
+                            topItems.map(({ name, sold }) =>
+                              this.i18n.t('mail.platform_daily_digest.item', {
+                                args: { name, sold },
+                                lang,
+                              }),
+                            ),
+                          ),
+                        },
+                        lang,
+                      }),
+                    ]
+                  : []),
+                ...(pointAdjustments.length
                   ? [
                       this.i18n.t(
                         'mail.platform_daily_digest.point_adjustments',
                         { args, lang },
                       ),
+                      ...pointAdjustments.map((adjustment) =>
+                        this.pointAdjustmentLine(lang, signed, adjustment),
+                      ),
                     ]
                   : []),
-                ...(store.lowStock
+                ...(lowStock.length
                   ? [
                       this.i18n.t('mail.platform_daily_digest.low_stock', {
                         args,
                         lang,
                       }),
+                      ...lowStock.map(({ supplierName, ...ingredient }) =>
+                        this.i18n.t(
+                          'mail.platform_daily_digest.low_stock_item',
+                          {
+                            args: {
+                              item: this.lowStockLine(
+                                lang,
+                                quantity,
+                                ingredient,
+                              ),
+                              supplier:
+                                supplierName ??
+                                this.i18n.t(
+                                  'mail.low_stock_digest.no_supplier',
+                                  options,
+                                ),
+                            },
+                            lang,
+                          },
+                        ),
+                      ),
                     ]
                   : []),
               ],
@@ -1170,6 +1232,44 @@ export class MailsService {
         ),
         url,
       },
+    });
+  }
+
+  private lowStockLine(
+    lang: Language,
+    quantity: Intl.NumberFormat,
+    { name, inventoryLevel, lowStockThreshold, unitCode }: LowStockLine,
+  ): string {
+    const unit = this.i18n.t(`mail.low_stock_digest.units.${unitCode}`, {
+      lang,
+    });
+    return this.i18n.t('mail.low_stock_digest.item', {
+      args: {
+        level: quantity.format(Number(inventoryLevel)),
+        name,
+        shortage: quantity.format(
+          Number(lowStockThreshold) - Number(inventoryLevel),
+        ),
+        threshold: quantity.format(Number(lowStockThreshold)),
+        unit,
+      },
+      lang,
+    });
+  }
+
+  private pointAdjustmentLine(
+    lang: Language,
+    signed: Intl.NumberFormat,
+    { adjuster, member, points, reason }: PointAdjustmentLine,
+  ): string {
+    return this.i18n.t('mail.daily_sales_digest.point_adjustment', {
+      args: {
+        adjuster: adjuster ?? '—',
+        member,
+        points: signed.format(points),
+        reason: reason ?? '',
+      },
+      lang,
     });
   }
 

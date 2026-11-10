@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
-import { ingredient } from '../db/schema/inventory.js';
+import { ingredient, supplier } from '../db/schema/inventory.js';
 import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
 import { member } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
@@ -326,15 +326,16 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
         `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ($1, $2, $2, now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
         [id, slug],
       );
-    for (const [id, role, banned, banExpires] of [
-      ['root', 'admin', false, null],
-      ['bannedRoot', 'admin', true, null],
-      ['unbannedRoot', 'admin', true, '2026-10-22T00:00:00Z'],
-      ['owner', 'user', false, null],
+    for (const [id, role, banned, banExpires, lang] of [
+      ['root', 'admin', false, null, 'zh-TW'],
+      ['bannedRoot', 'admin', true, null, 'zh-TW'],
+      ['unbannedRoot', 'admin', true, '2026-10-22T00:00:00Z', 'en'],
+      ['owner', 'user', false, null, 'zh-TW'],
+      ['customer', 'user', false, null, 'zh-TW'],
     ] as const)
       await client.query(
-        `insert into "user" (id, name, email, first_name, lang, role, banned, ban_expires) values ($1, $1, $1 || '@example.com', $1, 'zh-TW', $2, $3, $4)`,
-        [id, role, banned, banExpires],
+        `insert into "user" (id, name, email, first_name, lang, role, banned, ban_expires) values ($1, $1, $1 || '@example.com', $1, $5, $2, $3, $4)`,
+        [id, role, banned, banExpires, lang],
       );
     await db.insert(member).values({
       id: 'owner',
@@ -360,6 +361,19 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
         subtotal,
       })),
     );
+    await db.insert(orderItem).values(
+      [
+        ['o1', 'latte', 2],
+        ['o2', 'mocha', 1],
+      ].map(([orderId, menuItemId, quantity]) => ({
+        id: `${orderId}-item`,
+        menuItemId: String(menuItemId),
+        menuItemName: String(menuItemId),
+        orderId: String(orderId),
+        orderQuantity: Number(quantity),
+        unitPrice: '100',
+      })),
+    );
     await db.insert(refund).values({
       id: 'refund-o2',
       orderId: 'o2',
@@ -370,30 +384,41 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
       createdAt: new Date('2026-10-22T08:00:00Z'),
     });
     await db.insert(pointTransaction).values(
-      [
-        ['adjust-1', 50],
-        ['adjust-2', -20],
-      ].map(([id, points]) => ({
-        id: String(id),
+      (
+        [
+          ['adjust-1', 50, '2026-10-22T03:00:00Z', '補登漏掉的點數'],
+          ['adjust-2', -20, '2026-10-22T04:00:00Z', null],
+        ] as const
+      ).map(([id, points, createdAt, note]) => ({
+        id,
         adjustedBy: 'owner',
-        createdAt: new Date('2026-10-22T03:00:00Z'),
+        createdAt: new Date(createdAt),
+        note,
         organizationId: 'org',
-        points: Number(points),
+        points,
         type: 'adjust' as const,
-        userId: 'owner',
+        userId: 'customer',
       })),
     );
+    await db.insert(supplier).values({
+      id: 'dairy',
+      name: '鮮奶坊',
+      organizationId: 'other',
+    });
     await db.insert(ingredient).values(
-      [
-        ['milk', 'other', '100'],
-        ['beans', 'other', '900'],
-        ['quietBeans', 'quiet', '900'],
-      ].map(([id, organizationId, inventoryLevel]) => ({
+      (
+        [
+          ['milk', 'other', '100', 'dairy'],
+          ['beans', 'other', '900', null],
+          ['quietBeans', 'quiet', '900', null],
+        ] as const
+      ).map(([id, organizationId, inventoryLevel, supplierId]) => ({
         id,
         inventoryLevel,
         lowStockThreshold: '500',
-        name: { 'zh-TW': id },
+        name: { 'zh-TW': `${id}（中）`, en: id },
         organizationId,
+        supplierId,
         unitCode: 'GRM' as const,
       })),
     );
@@ -421,24 +446,57 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
           organizationName: 'biru',
           currency: 'TWD',
           path: '/dashboard?organization=biru&range=yesterday',
-          orders: 2,
-          revenue: 200,
+          current: { orders: 2, revenue: 200 },
+          previous: { orders: 1, revenue: 150 },
+          peakHour: { hour: 14, orders: 2 },
           refundedOrders: 1,
-          pointAdjustments: { count: 2, total: 30 },
-          lowStock: 0,
+          topItems: [
+            { name: 'latte', sold: 2 },
+            { name: 'mocha', sold: 1 },
+          ],
+          pointAdjustments: [
+            {
+              adjuster: 'owner',
+              member: 'customer',
+              points: 50,
+              reason: '補登漏掉的點數',
+            },
+            {
+              adjuster: 'owner',
+              member: 'customer',
+              points: -20,
+              reason: null,
+            },
+          ],
+          lowStock: [],
         },
         {
           organizationName: 'other',
           currency: 'TWD',
           path: '/dashboard?organization=other&range=yesterday',
-          orders: 0,
-          revenue: 0,
+          current: { orders: 0, revenue: 0 },
+          previous: { orders: 0, revenue: 0 },
+          peakHour: { hour: 0, orders: 0 },
           refundedOrders: 0,
-          pointAdjustments: { count: 0, total: 0 },
-          lowStock: 1,
+          topItems: [],
+          pointAdjustments: [],
+          lowStock: [
+            {
+              name: 'milk（中）',
+              inventoryLevel: '100.000',
+              lowStockThreshold: '500.000',
+              unitCode: 'GRM',
+              supplierName: '鮮奶坊',
+            },
+          ],
         },
       ],
     });
+    expect(
+      sendPlatformDailyDigest.mock.calls.find(
+        ([{ recipient }]) => recipient.email === 'unbannedRoot@example.com',
+      )![0].stores[1].lowStock[0].name,
+    ).toBe('milk');
   });
 
   it('單一門市統計失敗時，其他門市照常列入', async () => {

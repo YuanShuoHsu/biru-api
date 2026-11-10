@@ -73,4 +73,27 @@ describe('PrintersService（PGlite）', () => {
       service.acceptNonceCount(printer, nonce, 0x7fffffff),
     ).resolves.toBe(true);
   });
+
+  it('只列出沒連過或超過輪詢間隔加 60 秒沒來的出單機', async () => {
+    const secondsAgo = (seconds: number) =>
+      new Date(Date.now() - seconds * 1000).toISOString();
+    await client.query(
+      `insert into printer (id, organization_id, purpose, username, digest_ha1, last_seen_at, poll_gaps_ms) values
+        ('off-never', 'org-1', 'orderTicket', 'offline-never', 'x', null, null),
+        ('off-recent', 'org-1', 'orderTicket', 'offline-recent', 'x', $1, null),
+        ('off-stale', 'org-1', 'orderTicket', 'offline-stale', 'x', $2, null),
+        ('off-slow', 'org-1', 'orderTicket', 'offline-slow', 'x', $2, '{30000}'),
+        ('off-invoice', 'org-1', 'invoice', 'offline-invoice', 'x', null, null)`,
+      [secondsAgo(10), secondsAgo(70)],
+    );
+
+    const offline = await service.listOffline('orderTicket');
+
+    expect(
+      offline
+        .map(({ id }) => id)
+        .filter((id) => id.startsWith('off-'))
+        .toSorted(),
+    ).toEqual(['off-never', 'off-stale']);
+  });
 });

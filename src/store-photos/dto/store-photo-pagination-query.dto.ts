@@ -16,23 +16,22 @@ export const STORE_PHOTO_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const STORE_PHOTO_ALL_FILTER_FIELDS = [
+const STORE_PHOTO_ALL_FILTER_FIELDS = [
   ...STORE_PHOTO_STRING_FILTER_FIELDS,
   ...STORE_PHOTO_ENUM_FILTER_FIELDS,
   ...STORE_PHOTO_DATE_FILTER_FIELDS,
 ] as const;
 
-export type StorePhotoFilterField =
-  (typeof STORE_PHOTO_ALL_FILTER_FIELDS)[number];
+type StorePhotoFilterField = (typeof STORE_PHOTO_ALL_FILTER_FIELDS)[number];
 
-export const STORE_PHOTO_SORT_FIELDS = [
+const STORE_PHOTO_SORT_FIELDS = [
   'alt',
   'isActive',
   'createdAt',
   'updatedAt',
 ] as const;
 
-export type StorePhotoSortField = (typeof STORE_PHOTO_SORT_FIELDS)[number];
+type StorePhotoSortField = (typeof STORE_PHOTO_SORT_FIELDS)[number];
 
 export class StorePhotoPaginationQueryDto {
   @IsOptional()

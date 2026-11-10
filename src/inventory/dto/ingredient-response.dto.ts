@@ -41,6 +41,8 @@ export class IngredientResponseDto {
   @ApiPropertyOptional() note: string | null;
   @ApiPropertyOptional({ description: '自製半成品的來源食譜' })
   recipeId: string | null;
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
+  recipeName: LocalizedText | null;
   @ApiPropertyOptional({ description: '每基準單位價格' })
   unitPrice?: number | null;
   @ApiPropertyOptional({ description: '包裝量，與 eligibleQuantity 相同' })
