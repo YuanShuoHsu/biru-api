@@ -96,6 +96,11 @@ describe('CreateBannerDto', () => {
     expect(await errorsOf({ endsAt: value })).toEqual(['endsAt']);
   });
 
+  it('accepts a sortOrder up to 9999 and rejects 10000', async () => {
+    expect(await errorsOf({ sortOrder: 9999 })).toEqual([]);
+    expect(await errorsOf({ sortOrder: 10000 })).toEqual(['sortOrder']);
+  });
+
   it('turns an all-blank alt into null', () => {
     expect(
       plainToInstance(UpdateBannerDto, { alt: { en: ' ', 'zh-TW': '' } }).alt,
@@ -122,6 +127,10 @@ describe('UpdateBannerDto', () => {
       expect(await updateErrorsOf({ [field]: null })).toEqual([]);
     },
   );
+
+  it('rejects a sortOrder over 9999', async () => {
+    expect(await updateErrorsOf({ sortOrder: 10000 })).toEqual(['sortOrder']);
+  });
 
   it('accepts a partial update', async () => {
     expect(await updateErrorsOf({ isActive: false })).toEqual([]);

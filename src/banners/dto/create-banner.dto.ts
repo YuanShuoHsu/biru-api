@@ -9,6 +9,7 @@ import {
   IsRFC3339,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
   Validate,
@@ -96,6 +97,7 @@ export class CreateBannerDto {
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(9999)
   sortOrder?: number;
 }
 
