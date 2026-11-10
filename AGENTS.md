@@ -344,7 +344,14 @@ organization, whatever their own `member` row says. When a feature or notificati
 give it to every role above, and never grant a lower role something a higher one lacks.
 `permissions.ts` already keeps `owner` a superset of `admin` and `admin` of `member`;
 `RolesGuard` and `findOrganizationRoles` (which the events gateway uses for its store-room joins and pushes) apply the
-platform-admin step, the notification recipients don't yet.
+platform-admin step.
+For notifications the hierarchy governs what a role learns, not how it is sent. A platform admin gets one platform
+daily digest (`notifyPlatformDailyDigest`, `src/orders/order-notifications.service.ts`) in place of every store's
+daily digests, so it must carry everything the per-store digests (`notifyDailySalesDigest`, `notifyLowStockDigest`)
+carry, and a per-store digest may leave out members with `joined_as_platform_admin` only for what the platform digest
+already carries. Notifications about a single event, such as an attendance request to review, reach a platform admin
+only in the stores they joined, where their `owner` member row already makes them a recipient; the other stores'
+events are not sent to them, because they can open any store as `owner` instead.
 A platform admin who joins a store gets `owner` with `member.joined_as_platform_admin` set; every
 store must keep an owner without that flag, which `assertKeepsOwner` (`src/auth/owner-guards.ts`)
 enforces on member removal, demotion and leave.
