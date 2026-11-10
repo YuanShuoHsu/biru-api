@@ -27,20 +27,19 @@ export const ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS = [
   'paidPercent',
 ] as const;
 
-export const ATTENDANCE_LEAVE_CASE_FILTER_FIELDS = [
+const ATTENDANCE_LEAVE_CASE_FILTER_FIELDS = [
   ...ATTENDANCE_LEAVE_CASE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_CASE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_CASE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_LEAVE_CASE_NUMBER_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceLeaveCaseFilterField =
+type AttendanceLeaveCaseFilterField =
   (typeof ATTENDANCE_LEAVE_CASE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_LEAVE_CASE_SORT_FIELDS =
-  ATTENDANCE_LEAVE_CASE_FILTER_FIELDS;
+const ATTENDANCE_LEAVE_CASE_SORT_FIELDS = ATTENDANCE_LEAVE_CASE_FILTER_FIELDS;
 
-export type AttendanceLeaveCaseSortField =
+type AttendanceLeaveCaseSortField =
   (typeof ATTENDANCE_LEAVE_CASE_SORT_FIELDS)[number];
 
 export class AttendanceLeaveCasePaginationQueryDto extends PaginationQueryDto {

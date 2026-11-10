@@ -1,7 +1,6 @@
 export * from './attendance.js';
 export * from './audit.js';
 export * from './banners.js';
-export * from './cash-drawer.js';
 export * from './coupons.js';
 export * from './deleted-records.js';
 export * from './ecpay-callback-logs.js';
@@ -17,5 +16,7 @@ export * from './points.js';
 export * from './printers.js';
 export * from './quant.js';
 export * from './refunds.js';
+export * from './store-layout.js';
+export * from './store-photos.js';
 export * from './users.js';
 export * from './waitlist.js';

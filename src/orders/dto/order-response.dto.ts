@@ -27,7 +27,7 @@ import {
   type PaymentMethod,
 } from '../../db/schema/orders.js';
 
-export class OrderItemModifierSnapshotDto {
+class OrderItemModifierSnapshotDto {
   @ApiProperty() modifierGroupId: string;
   @ApiProperty() modifierGroupName: string;
   @ApiProperty() modifierId: string;
@@ -35,7 +35,7 @@ export class OrderItemModifierSnapshotDto {
   @ApiPropertyOptional() priceAdjustment?: string | null;
 }
 
-export class OrderItemAddOnSnapshotDto {
+class OrderItemAddOnSnapshotDto {
   @ApiProperty() menuItemId: string;
   @ApiProperty() menuItemName: string;
   @ApiProperty() unitPrice: string;
@@ -55,7 +55,7 @@ export class OrderItemAddOnSnapshotDto {
   sweetnessLevel?: SweetnessLevel | null;
 }
 
-export class OrderItemResponseDto {
+class OrderItemResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() orderId: string;
   @ApiProperty() menuItemId: string;
@@ -84,7 +84,7 @@ export class OrderItemResponseDto {
 }
 
 // https://schema.org/customer
-export class OrderCustomerDto {
+class OrderCustomerDto {
   @ApiPropertyOptional() email?: string | null;
   @ApiProperty() name: string;
   @ApiPropertyOptional() remark?: string | null;
@@ -169,7 +169,15 @@ export class OrderReceiptResponseDto extends OmitType(OrderResponseDto, [
   'customer',
   'sellerId',
   'userId',
-] as const) {}
+] as const) {
+  @ApiProperty({
+    description:
+      '這張單可得的點數，與實際入點同一算法；未付款訂單依目前點數設定、已付款訂單依付款時的快照計算。訪客訂單、終止狀態（取消／異常／退貨）或未付款且點數未啟用時為 null',
+    nullable: true,
+    type: Number,
+  })
+  expectedPoints: number | null;
+}
 
 export class CreateOrderResponseDto extends OrderReceiptResponseDto {
   @ApiProperty({
@@ -180,7 +188,7 @@ export class CreateOrderResponseDto extends OrderReceiptResponseDto {
 }
 
 // https://schema.org/seller
-export class OrderSellerDto {
+class OrderSellerDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiProperty() slug: string;

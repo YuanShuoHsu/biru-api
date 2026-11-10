@@ -24,24 +24,17 @@ export class AuthBatchService {
     private readonly authService: AuthService<Auth>,
   ) {}
 
-  private async run<T>(
-    resolve: (tx: Transaction) => Promise<T[]>,
-    call: (api: Auth['api'], item: T) => Promise<unknown>,
-  ) {
+  private async inTransaction<R>(
+    fn: (api: Auth['api'], tx: Transaction) => Promise<R>,
+  ): Promise<R> {
     try {
-      await this.db.transaction(async (tx) => {
+      return await this.db.transaction(async (tx) => {
         const { api } = betterAuth({
           ...this.authService.instance.options,
           database: authDatabase(tx),
         });
 
-        await runInAuthTransaction(tx, async () => {
-          for (const item of await resolve(tx)) {
-            await startDeletedRecordBatch(tx);
-            await runWithAuthHookState(() => call(api, item));
-          }
-        });
-        await tx.execute(sql`SELECT 1`);
+        return runInAuthTransaction(tx, () => fn(api, tx));
       });
     } catch (error) {
       if (isAPIError(error))
@@ -52,6 +45,41 @@ export class AuthBatchService {
 
       throw error;
     }
+  }
+
+  private run<T>(
+    resolve: (tx: Transaction) => Promise<T[]>,
+    call: (api: Auth['api'], item: T) => Promise<unknown>,
+  ) {
+    return this.inTransaction(async (api, tx) => {
+      for (const item of await resolve(tx)) {
+        await startDeletedRecordBatch(tx);
+        await runWithAuthHookState(() => call(api, item));
+      }
+      await tx.execute(sql`SELECT 1`);
+    });
+  }
+
+  addPlatformAdminMember(
+    headers: IncomingHttpHeaders,
+    organizationId: string,
+    userId: string,
+  ) {
+    return this.inTransaction(async (api, tx) => {
+      const added = await runWithAuthHookState(() =>
+        api.addMember({
+          headers: fromNodeHeaders(headers),
+          body: { organizationId, userId, role: 'owner' },
+        }),
+      );
+      const [joined] = await tx
+        .update(member)
+        .set({ joinedAsPlatformAdmin: true })
+        .where(eq(member.id, added.id))
+        .returning();
+
+      return joined;
+    });
   }
 
   removeUsers(headers: IncomingHttpHeaders, ids: string[]) {

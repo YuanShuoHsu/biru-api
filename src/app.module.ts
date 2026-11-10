@@ -4,36 +4,36 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
+import {
+  AuthModule as BetterAuthModule,
+  AuthService,
+} from '@thallesp/nestjs-better-auth';
 
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
-import {
-  AcceptLanguageResolver,
-  HeaderResolver,
-  I18nModule,
-  I18nService,
-  QueryResolver,
-} from 'nestjs-i18n';
+import { I18nModule, I18nService } from 'nestjs-i18n';
 import { join } from 'node:path';
 
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AttendanceModule } from './attendance/attendance.module.js';
 import { AuditModule } from './audit/audit.module.js';
-import { createAuth } from './auth/index.js';
+import { createAuth, type Auth } from './auth/index.js';
 import { AuthModule } from './auth/auth.module.js';
 import { runWithAuthHookState } from './auth/hooks.js';
 import { createAuthI18n } from './auth/i18n.js';
 import { BannersModule } from './banners/banners.module.js';
+import { throttleTracker, THROTTLERS } from './common/constants/throttle.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
+import { LanguageResolver } from './common/resolvers/language.resolver.js';
+import { setAuthClientIpHeader } from './common/trusted-proxy.js';
 import { CouponsModule } from './coupons/coupons.module.js';
+import { CouponsService } from './coupons/coupons.service.js';
 import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
 import { DeletedRecordsModule } from './deleted-records/deleted-records.module.js';
 import { DrizzleModule } from './drizzle/drizzle.module.js';
 import { EcpayModule } from './ecpay/ecpay.module.js';
 import { EventsModule } from './events/events.module.js';
 import { GcisModule } from './gcis/gcis.module.js';
+import { ImagesModule } from './images/images.module.js';
 import type { I18nTranslations } from './generated/i18n.generated.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { MailsModule } from './mails/mails.module.js';
@@ -45,6 +45,9 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { PointsModule } from './points/points.module.js';
 import { QuantModule } from './quant/quant.module.js';
+import { ReportsModule } from './reports/reports.module.js';
+import { StoreLayoutModule } from './store-layout/store-layout.module.js';
+import { StorePhotosModule } from './store-photos/store-photos.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { UsersModule } from './users/users.module.js';
 import { WaitlistModule } from './waitlist/waitlist.module.js';
@@ -56,15 +59,23 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     AuthModule,
     BannersModule,
     BetterAuthModule.forRootAsync({
-      imports: [MailsModule],
-      inject: [MailsService, I18nService],
+      imports: [CouponsModule, MailsModule],
+      inject: [MailsService, CouponsService, I18nService],
       useFactory: (
         mailsService: MailsService,
+        couponsService: CouponsService,
         i18nService: I18nService<I18nTranslations>,
       ) => ({
-        auth: createAuth(mailsService, createAuthI18n(i18nService)),
+        auth: createAuth(
+          mailsService,
+          couponsService,
+          createAuthI18n(i18nService),
+        ),
         bodyParser: { json: { limit: '2mb' } },
-        middleware: (_req, _res, next) => runWithAuthHookState(next),
+        middleware: (req, _res, next) => {
+          setAuthClientIpHeader(req);
+          return runWithAuthHookState(next);
+        },
       }),
     }),
     ClsModule.forRoot({
@@ -85,6 +96,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     EventEmitterModule.forRoot(),
     EventsModule,
     GcisModule,
+    ImagesModule,
     I18nModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -98,11 +110,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
           '../src/generated/i18n.generated.ts',
         ),
       }),
-      resolvers: [
-        { use: QueryResolver, options: ['lang'] },
-        AcceptLanguageResolver,
-        new HeaderResolver(['x-lang']),
-      ],
+      resolvers: [LanguageResolver],
       inject: [ConfigService],
     }),
     InventoryModule,
@@ -113,22 +121,22 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     PayrollModule,
     PointsModule,
     QuantModule,
+    ReportsModule,
     ScheduleModule.forRoot(),
+    StoreLayoutModule,
+    StorePhotosModule,
     TasksModule,
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60000,
-          limit: 100,
-        },
-      ],
+    ThrottlerModule.forRootAsync({
+      inject: [AuthService],
+      useFactory: (auth: AuthService<Auth>) => ({
+        throttlers: THROTTLERS,
+        getTracker: throttleTracker(auth),
+      }),
     }),
     UsersModule,
     WaitlistModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: RolesGuard,

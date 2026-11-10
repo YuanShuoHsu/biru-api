@@ -1,0 +1,303 @@
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
+
+import { createPGlite } from '../../test/pglite.js';
+import * as schema from '../db/schema/index.js';
+import { banner } from '../db/schema/banners.js';
+import { deletedRecord } from '../db/schema/deleted-records.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+
+import { DeletedRecordsService } from './deleted-records.service.js';
+
+describe('DeletedRecordsService.restore', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: DeletedRecordsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventEmitter2,
+      {} as never,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('還原 commit 後才失敗的異動紀錄不會讓請求失敗', async () => {
+    await db.insert(banner).values({ id: 'b1', image: 'banner' });
+    await db.delete(banner);
+    const [{ batchId }] = await db.select().from(deletedRecord);
+    vi.spyOn(
+      service as unknown as { resolveOrganizationId: () => Promise<never> },
+      'resolveOrganizationId',
+    ).mockRejectedValue(new Error('lookup failed'));
+
+    await expect(
+      service.restore([batchId], {
+        id: 'admin',
+        name: 'admin',
+        email: 'admin@example.com',
+      }),
+    ).resolves.toBeUndefined();
+    expect(await db.select({ id: banner.id }).from(banner)).toEqual([
+      { id: 'b1' },
+    ]);
+  });
+
+  it('不符合目前必填規則的門市無法還原，回 409 而不是 500', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 99,
+      tableName: 'organization',
+      recordId: 'old',
+      data: {
+        id: 'old',
+        name: '舊門市',
+        slug: 'old',
+        created_at: '2026-01-01T00:00:00',
+      },
+    });
+
+    await expect(
+      service.restore([99], {
+        id: 'admin',
+        name: 'admin',
+        email: 'admin@example.com',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'restoreInvalid', error: 'Conflict' },
+      status: 409,
+    });
+  });
+  it('平台管理員經由服務還原時以 owner 身分操作', async () => {
+    const createShiftType = vi.fn();
+    const serviceRestored = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      { createShiftType } as never,
+      { emit: vi.fn() } as unknown as EventEmitter2,
+      {} as never,
+    );
+    await db.insert(deletedRecord).values({
+      batchId: 100,
+      tableName: 'attendance_shift_type',
+      recordId: 'st1',
+      data: {
+        id: 'st1',
+        organization_id: 'org1',
+        name: '早班',
+        start_time: '08:00',
+        end_time: '16:00',
+      },
+    });
+
+    await serviceRestored.restore([100], {
+      id: 'admin',
+      name: 'admin',
+      email: 'admin@example.com',
+    });
+
+    expect(createShiftType).toHaveBeenCalledWith(
+      { organizationId: 'org1', userId: 'admin', role: 'owner' },
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+});
+
+describe('DeletedRecordsService.list', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: DeletedRecordsService;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as EventEmitter2,
+      {} as never,
+    );
+    await db.insert(deletedRecord).values([
+      {
+        batchId: 1,
+        tableName: 'menu_item',
+        recordId: 'i1',
+        data: { name: { 'zh-TW': '拿鐵', en: 'Latte' } },
+        deletedAt: new Date('2026-10-01T02:00:00Z'),
+      },
+      {
+        batchId: 2,
+        tableName: 'supplier',
+        recordId: 's1',
+        data: { name: '北區豆商', organization_id: 'org1' },
+        deletedAt: new Date('2026-10-01T17:00:00Z'),
+      },
+      {
+        batchId: 3,
+        tableName: 'supplier',
+        recordId: 's2',
+        data: { name: '南區豆商', organization_id: 'org2' },
+        deletedAt: new Date('2026-10-03T02:00:00Z'),
+      },
+      {
+        batchId: 4,
+        tableName: 'organization',
+        recordId: 'org3',
+        data: { name: '信義門市', slug: 'xinyi' },
+        deletedAt: new Date('2026-09-30T02:00:00Z'),
+      },
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  const ids = (result: { data: { batchId: number }[] }) =>
+    result.data.map(({ batchId }) => batchId);
+
+  it('快速搜尋比對多語名稱', async () => {
+    const result = await service.list({ quickFilterValue: '拿鐵' });
+
+    expect(ids(result)).toEqual([1]);
+    expect(result.total).toBe(1);
+  });
+
+  it('快速搜尋不比對多語名稱的語言代碼', async () => {
+    const result = await service.list({ quickFilterValue: 'zh-TW' });
+
+    expect(ids(result)).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('快速搜尋比對純文字名稱', async () => {
+    const result = await service.list({ quickFilterValue: '北區' });
+
+    expect(ids(result)).toEqual([2]);
+  });
+
+  it('依資料類型篩選並依刪除時間排序', async () => {
+    const result = await service.list({
+      filterField: 'tableName',
+      filterOperator: 'is',
+      filterValue: 'supplier',
+      sortBy: 'deletedAt',
+      sortDirection: 'asc',
+    });
+
+    expect(ids(result)).toEqual([2, 3]);
+    expect(result.total).toBe(2);
+  });
+
+  it('依台北日期篩選刪除時間', async () => {
+    const result = await service.list({
+      filterField: 'deletedAt',
+      filterOperator: 'is',
+      filterValue: '2026-10-02',
+    });
+
+    expect(ids(result)).toEqual([2]);
+  });
+
+  it('依組織名稱篩選時涵蓋被刪除的門市本身', async () => {
+    const result = await service.list({
+      filterField: 'organizationName',
+      filterOperator: 'contains',
+      filterValue: '信義',
+    });
+
+    expect(result.data).toMatchObject([
+      { batchId: 4, organizationName: '信義門市' },
+    ]);
+  });
+
+  it('店家視角的篩選只在本店資料內生效', async () => {
+    const result = await service.list(
+      {
+        filterField: 'tableName',
+        filterOperator: 'is',
+        filterValue: 'supplier',
+      },
+      { organizationId: 'org1', role: 'owner', closed: false },
+    );
+
+    expect(ids(result)).toEqual([2]);
+    expect(result.total).toBe(1);
+  });
+
+  it('店家視角標出不能還原的原因', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 5,
+      tableName: 'member',
+      recordId: 'm1',
+      data: { id: 'm1', organization_id: 'org1', user_id: 'u1', role: 'owner' },
+      deletedAt: new Date('2026-10-04T02:00:00Z'),
+    });
+    const reasons = async (role: string, closed: boolean) =>
+      Object.fromEntries(
+        (
+          await service.list({}, { organizationId: 'org1', role, closed })
+        ).data.map(({ batchId, canRestore, restoreBlockedBy }) => [
+          batchId,
+          { canRestore, restoreBlockedBy },
+        ]),
+      );
+
+    expect(await reasons('owner', false)).toEqual({
+      2: { canRestore: true, restoreBlockedBy: null },
+      5: { canRestore: true, restoreBlockedBy: null },
+    });
+    expect(await reasons('admin', false)).toMatchObject({
+      2: { canRestore: true, restoreBlockedBy: null },
+      5: { canRestore: false, restoreBlockedBy: 'ownerOnly' },
+    });
+    expect(await reasons('owner', true)).toMatchObject({
+      2: { canRestore: false, restoreBlockedBy: 'closed' },
+    });
+  });
+
+  it('店家視角還原被擋下時回 403 forbidden', async () => {
+    await db.insert(deletedRecord).values({
+      batchId: 5,
+      tableName: 'member',
+      recordId: 'm1',
+      data: { id: 'm1', organization_id: 'org1', user_id: 'u1', role: 'owner' },
+      deletedAt: new Date('2026-10-04T02:00:00Z'),
+    });
+
+    await expect(
+      service.restore(
+        [5],
+        { id: 'admin', name: 'admin', email: 'admin@example.com' },
+        { organizationId: 'org1', role: 'admin', closed: false },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
+  });
+
+  it('平台視角一律可以還原', async () => {
+    const result = await service.list({});
+
+    expect(result.data.every(({ restoreBlockedBy }) => !restoreBlockedBy)).toBe(
+      true,
+    );
+  });
+});

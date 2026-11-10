@@ -106,3 +106,8 @@ export class AuditLogResponseDto {
 
   @ApiProperty() createdAt: Date;
 }
+
+export class AuditLogListResponseDto {
+  @ApiProperty({ type: [AuditLogResponseDto] }) data: AuditLogResponseDto[];
+  @ApiProperty() total: number;
+}

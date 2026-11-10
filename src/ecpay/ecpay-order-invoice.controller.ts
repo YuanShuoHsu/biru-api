@@ -3,6 +3,7 @@ import { OrderInvoiceDto } from '../orders/dto/order-response.dto.js';
 import { OrderInvoicePrintDto } from './dto/order-invoice-print.dto.js';
 import { ResetInvoicePrintDto } from './dto/reset-invoice-print.dto.js';
 import { VoidInvoiceDto } from './dto/void-invoice.dto.js';
+import { VoidedInvoiceDto } from './dto/voided-invoice.dto.js';
 import { OrderInvoiceVerificationDto } from './dto/order-invoice-verification.dto.js';
 
 import { EcpayOrderInvoiceService } from './services/ecpay-order-invoice.service.js';
@@ -23,6 +24,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -143,8 +145,22 @@ export class EcpayOrderInvoiceController {
     );
   }
 
+  @Get('voided')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOkResponse({ type: [VoidedInvoiceDto] })
+  @ApiOperation({ summary: '查詢訂單已作廢的發票與作廢人員、原因' })
+  findVoided(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+  ): Promise<VoidedInvoiceDto[]> {
+    return this.ecpayOrderInvoiceService.findVoidedForOrder(
+      organizationSlug,
+      orderId,
+    );
+  }
+
   @Post('void')
-  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Roles({ invoice: ['void'] }, 'organizationSlug')
   @Audit('invoice', { column: 'orderId', param: 'orderId' })
   @ApiCreatedResponse({ type: OrderInvoiceDto })
   @ApiOperation({
@@ -154,11 +170,13 @@ export class EcpayOrderInvoiceController {
     @Param('organizationSlug') organizationSlug: string,
     @Param('orderId') orderId: string,
     @Body() dto: VoidInvoiceDto,
+    @Session() session: UserSession | null,
   ): Promise<OrderInvoiceDto> {
     return this.ecpayOrderInvoiceService.voidForOrder(
       organizationSlug,
       orderId,
       dto,
+      session?.user.id,
     );
   }
 

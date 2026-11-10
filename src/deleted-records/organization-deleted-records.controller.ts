@@ -23,7 +23,7 @@ import {
   DeletedRecordsService,
 } from './deleted-records.service.js';
 import {
-  DeletedRecordBatchResponseDto,
+  DeletedRecordBatchListResponseDto,
   DeletedRecordPaginationQueryDto,
   DeletedRecordPermissionDto,
   RestoreDeletedRecordsDto,
@@ -38,10 +38,11 @@ export class OrganizationDeletedRecordsController {
   @Get()
   @OrganizationMember('organizationSlug')
   @ApiOperation({ summary: '查詢本店最近 30 天內刪除的資料' })
+  @ApiOkResponse({ type: DeletedRecordBatchListResponseDto })
   async findAll(
     @Query() query: DeletedRecordPaginationQueryDto,
     @Req() req: AuthRequest,
-  ): Promise<{ data: DeletedRecordBatchResponseDto[]; total: number }> {
+  ): Promise<DeletedRecordBatchListResponseDto> {
     return this.deletedRecordsService.list(
       query,
       await this.deletedRecordsService.getScope(

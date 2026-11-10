@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { and, asc, desc, eq, gt, like, lt, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, like, lt, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
@@ -87,6 +87,21 @@ const plausibleLadder = (next: number[], base: number[]) => {
   );
 };
 
+const staleRuleSet = (
+  checkedAt: Date | null,
+  latest: boolean,
+  month: string,
+) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+
+  return (
+    latest &&
+    (!checkedAt || checkedAt < platformMonthStart(year, monthNumber - 1))
+  );
+};
+
+const platformMonth = () => platformDateString(new Date()).slice(0, 7);
+
 export async function currentOccupationalIndustryRates(
   tx: DrizzleDB | Transaction,
 ) {
@@ -96,10 +111,7 @@ export async function currentOccupationalIndustryRates(
     .where(
       and(
         eq(payrollRuleSet.jurisdiction, JURISDICTION),
-        lte(
-          payrollRuleSet.effectiveFrom,
-          platformDateString(new Date()).slice(0, 7),
-        ),
+        lte(payrollRuleSet.effectiveFrom, platformMonth()),
       ),
     )
     .orderBy(desc(payrollRuleSet.effectiveFrom))
@@ -127,25 +139,33 @@ export class PayrollRulesService {
       .orderBy(desc(payrollRuleSet.effectiveFrom))
       .limit(1);
     if (!row) return null;
+
+    return {
+      ...row,
+      stale: staleRuleSet(
+        row.checkedAt,
+        !(await this.hasSuccessor(tx, row.effectiveFrom)),
+        month,
+      ),
+    };
+  }
+
+  private async hasSuccessor(
+    tx: DrizzleDB | Transaction,
+    effectiveFrom: string,
+  ) {
     const [successor] = await tx
       .select({ id: payrollRuleSet.id })
       .from(payrollRuleSet)
       .where(
         and(
           eq(payrollRuleSet.jurisdiction, JURISDICTION),
-          gt(payrollRuleSet.effectiveFrom, row.effectiveFrom),
+          gt(payrollRuleSet.effectiveFrom, effectiveFrom),
         ),
       )
       .limit(1);
-    const [year, monthNumber] = month.split('-').map(Number);
 
-    return {
-      ...row,
-      stale:
-        !successor &&
-        (!row.checkedAt ||
-          row.checkedAt < platformMonthStart(year, monthNumber - 1)),
-    };
+    return !!successor;
   }
 
   async confirm(effectiveFrom: string, dto: ConfirmRuleSetDto) {
@@ -196,16 +216,29 @@ export class PayrollRulesService {
         .where(eq(payrollRuleSet.id, row.id))
         .returning();
 
-      return updated;
+      return {
+        ...updated,
+        stale: staleRuleSet(
+          updated.checkedAt,
+          !(await this.hasSuccessor(tx, effectiveFrom)),
+          platformMonth(),
+        ),
+      };
     });
   }
 
-  list() {
-    return this.db
+  async list() {
+    const rows = await this.db
       .select()
       .from(payrollRuleSet)
       .where(eq(payrollRuleSet.jurisdiction, JURISDICTION))
       .orderBy(desc(payrollRuleSet.effectiveFrom));
+    const month = platformMonth();
+
+    return rows.map((row, index) => ({
+      ...row,
+      stale: staleRuleSet(row.checkedAt, index === 0, month),
+    }));
   }
 
   async ingest() {
@@ -501,10 +534,13 @@ export class PayrollRulesService {
 
   async ingestHolidays() {
     const currentYear = Number(platformDateString(new Date()).slice(0, 4));
+    const earliestYear = (await this.hasHolidays(this.db, currentYear - 1))
+      ? currentYear
+      : currentYear - 1;
     const latest = new Map<number, { revision: number; url: string }>();
     for (const resource of await this.resources(HOLIDAY_CALENDAR_DATASET)) {
       const calendar = holidayCalendarYear(resource.description);
-      if (!calendar || calendar.year < currentYear) continue;
+      if (!calendar || calendar.year < earliestYear) continue;
       const known = latest.get(calendar.year);
       if (!known || calendar.revision > known.revision)
         latest.set(calendar.year, {
@@ -515,18 +551,37 @@ export class PayrollRulesService {
     const written: number[] = [];
     for (const [year, { url }] of latest) {
       const csv = await this.fetchText(url);
-      const holidays = csv ? parseHolidayCalendar(csv) : [];
+      const holidays = (csv ? parseHolidayCalendar(csv) : []).filter(
+        ({ date }) => date.startsWith(`${year}-`),
+      );
       if (!holidays.length) continue;
-      await this.db.transaction(async (tx) => {
+      const wrote = await this.db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`statutory_holiday:${year}`}, 0))`,
+        );
+        if (year < currentYear && (await this.hasHolidays(tx, year)))
+          return false;
         await tx
           .delete(statutoryHoliday)
           .where(like(statutoryHoliday.date, `${year}-%`));
         await tx.insert(statutoryHoliday).values(holidays);
+
+        return true;
       });
-      written.push(year);
+      if (wrote) written.push(year);
     }
 
     return { written };
+  }
+
+  private async hasHolidays(db: DrizzleDB | Transaction, year: number) {
+    const [row] = await db
+      .select({ date: statutoryHoliday.date })
+      .from(statutoryHoliday)
+      .where(like(statutoryHoliday.date, `${year}-%`))
+      .limit(1);
+
+    return !!row;
   }
 
   private async occupationalFeed(): Promise<GradeFeed> {

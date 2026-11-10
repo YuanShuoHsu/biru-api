@@ -23,7 +23,7 @@ export const toSymbolSpec = (symbol: PionexSymbol): SymbolSpec => ({
 });
 
 // 合約市價單以數量下單，沒有另外的金額精度
-export const toPerpSymbolSpec = (symbol: PionexPerpSymbol): SymbolSpec => ({
+const toPerpSymbolSpec = (symbol: PionexPerpSymbol): SymbolSpec => ({
   amountPrecision: symbol.quotePrecision,
   base: symbol.baseCurrency,
   maxTradeSize: Number(symbol.maxSizeLimit),

@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsUUID,
   Matches,
@@ -24,12 +25,12 @@ export const ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS = [
   'substituteStartsAt',
 ] as const;
 
-export const ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS = [
+const ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS = [
   ...ATTENDANCE_HOLIDAY_SUBSTITUTE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceHolidaySubstituteFilterField =
+type AttendanceHolidaySubstituteFilterField =
   (typeof ATTENDANCE_HOLIDAY_SUBSTITUTE_FILTER_FIELDS)[number];
 
 export class AttendanceHolidaySubstitutePaginationQueryDto extends PaginationQueryDto {
@@ -52,7 +53,9 @@ export class AttendanceHolidaySubstitutePaginationQueryDto extends PaginationQue
 
 export class CreateAttendanceHolidaySubstituteDto {
   @IsUUID() employeeId: string;
-  @Matches(/^\d{4}-\d{2}-\d{2}$/) holidayDate: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
+  holidayDate: string;
   @IsUUID() shiftId: string;
 }
 

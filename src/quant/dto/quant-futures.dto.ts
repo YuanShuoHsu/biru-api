@@ -14,6 +14,7 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -47,7 +48,7 @@ const ISOLATED_POSITION_MODES = PIONEX_ISOLATED_MODES.filter(
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 
-export class QuantFuturesBalanceDto {
+class QuantFuturesBalanceDto {
   @ApiProperty() coin: string;
   @ApiProperty({ description: '總資產＝可用＋凍結' }) assets: number;
   @ApiProperty({ description: '可用保證金' }) available: number;
@@ -313,7 +314,7 @@ export class PlaceFuturesOrderDto {
   reduceOnly?: boolean;
 }
 
-export class QuantLiquidationEstimateDto {
+class QuantLiquidationEstimateDto {
   @ApiPropertyOptional({
     description: '成交後的預估強平價；不會被強平時不回傳',
   })
@@ -342,7 +343,7 @@ export class PreviewFuturesOrderDto {
   size: string;
 
   @ApiPropertyOptional({ description: '市價單以外必填' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @Matches(DECIMAL_PATTERN)
   price?: string;
 }

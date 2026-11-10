@@ -24,7 +24,7 @@ import {
 } from './create-offer.dto.js';
 import { NutritionInformationDto } from './nutrition-information.dto.js';
 
-export class OrderMenuOfferResponseDto {
+class OrderMenuOfferResponseDto {
   @ApiProperty()
   id: string;
 
@@ -65,7 +65,7 @@ export class OrderMenuOfferResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuModifierResponseDto {
+class OrderMenuModifierResponseDto {
   @ApiProperty()
   id: string;
 
@@ -74,6 +74,9 @@ export class OrderMenuModifierResponseDto {
 
   @ApiProperty()
   displayName: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ description: '加價金額；null 代表不影響價格' })
   priceAdjustment: string | null;
@@ -105,7 +108,7 @@ export class OrderMenuModifierResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuModifierGroupResponseDto {
+class OrderMenuModifierGroupResponseDto {
   @ApiProperty()
   id: string;
 
@@ -131,15 +134,15 @@ export class OrderMenuModifierGroupResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuAddOnItemResponseDto {
+class OrderMenuAddOnItemResponseDto {
   @ApiProperty()
   id: string;
 
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty({
     description: '可販售的點餐模式',
@@ -195,7 +198,7 @@ export class OrderMenuAddOnItemResponseDto {
   modifierGroups: OrderMenuModifierGroupResponseDto[];
 }
 
-export class OrderMenuAddOnResponseDto {
+class OrderMenuAddOnResponseDto {
   @ApiProperty()
   id: string;
 
@@ -224,7 +227,7 @@ export class OrderMenuAddOnResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuItemResponseDto {
+class OrderMenuItemResponseDto {
   @ApiProperty()
   id: string;
 
@@ -240,8 +243,8 @@ export class OrderMenuItemResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
@@ -321,7 +324,7 @@ export class OrderMenuItemResponseDto {
   updatedAt: Date;
 }
 
-export class OrderMenuSectionResponseDto {
+class OrderMenuSectionResponseDto {
   @ApiProperty()
   id: string;
 
@@ -337,8 +340,8 @@ export class OrderMenuSectionResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty()
   sortOrder: number;
@@ -363,8 +366,8 @@ export class OrderMenuResponseDto {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty({ description: '店家定價幣別；整份菜單共用一個' })
   currency: string;

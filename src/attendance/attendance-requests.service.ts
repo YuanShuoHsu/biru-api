@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -29,6 +29,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -54,6 +55,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
   runBatch,
 } from './attendance-errors.js';
 import { AttendanceLeavesService } from './attendance-leaves.service.js';
@@ -321,13 +323,19 @@ export class AttendanceRequestsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceLeaveType.name, `%${value}%`),
-          ilike(attendanceRequest.reason, `%${value}%`),
-          ilike(attendanceRequest.reviewReason, `%${value}%`),
-          ilike(localTimeText(attendanceRequest.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceRequest.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceRequest.reason, `%${escapeLike(value)}%`),
+          ilike(attendanceRequest.reviewReason, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceRequest.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceRequest.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -567,7 +575,7 @@ export class AttendanceRequestsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       await this.assertRequestPayrollUnlocked(tx, {
         kind: dto.kind,
         organizationId: actor.organizationId,
@@ -662,7 +670,7 @@ export class AttendanceRequestsService {
             eq(attendanceRequest.organizationId, actor.organizationId),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'attendanceRequest', [
         row.userId,
       ]);
@@ -757,7 +765,7 @@ export class AttendanceRequestsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertIndependentReview(tx, actor, 'attendanceRequest', [
         row.userId,
       ]);
@@ -1058,7 +1066,7 @@ export class AttendanceRequestsService {
           eq(attendanceShift.employeeId, request.employeeId),
         ),
       );
-    if (!shift) throw new NotFoundException();
+    if (!shift) throw notFoundError();
     if (shift.dayKind !== 'regularLeave') {
       if (dto.emergency) throw badRequestError('invalidEmergencyDetails');
       return;
@@ -1548,7 +1556,7 @@ export class AttendanceRequestsService {
             eq(attendanceRequest.employeeId, employee.id),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       await assertNoParentalReturn(tx, row.id);
       if (
         row.status !== 'pending' &&

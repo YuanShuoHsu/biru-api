@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -22,11 +22,13 @@ import { randomUUID } from 'node:crypto';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
   attendanceEmployee,
   attendanceEvent,
+  attendanceHolidaySubstitute,
   attendanceLeaveType,
   attendanceRequest,
   attendanceSettings,
@@ -62,6 +64,7 @@ import {
   cancelIrreversibleError,
   conflictError,
   forbiddenError,
+  notFoundError,
   attendanceErrorCodeOf,
 } from './attendance-errors.js';
 import {
@@ -120,6 +123,7 @@ import {
 } from './dto/create-attendance-shifts.dto.js';
 import { requireActiveEmployee, requireEmployee } from './employee-lookup.js';
 import {
+  holidayDatesAmong,
   loadAgreedHolidays,
   loadHolidaySubstitutes,
 } from './holiday-substitutes.js';
@@ -130,7 +134,7 @@ import {
   plannedWorkDays,
 } from './overtime-limit.js';
 import { parseInterval, scheduledBreaks } from './shift-intervals.js';
-import { unfinishedShift } from './shift-queries.js';
+import { shiftStartDate, unfinishedShift } from './shift-queries.js';
 
 const shiftStateCase = sql.join(
   Object.entries(SHIFT_STATE_BY_LAST_ACTION).map(
@@ -162,6 +166,7 @@ const clockOutAt = sql<Date | null>`CASE
   END`.mapWith(attendanceShift.startsAt);
 
 const CALENDAR_SHIFT_LIMIT = 500;
+const CALENDAR_MAX_DAYS = 62;
 
 const shiftMonth = (time: SQL | typeof attendanceShift.startsAt) =>
   sql`to_char((${time}) AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY-MM')`;
@@ -295,11 +300,17 @@ export class AttendanceShiftsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(team.name, `%${value}%`),
-          ilike(localTimeText(attendanceShift.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceShift.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(team.name, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceShift.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceShift.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -652,6 +663,11 @@ export class AttendanceShiftsService {
     actor: AttendanceActor,
     { from, to }: AttendanceShiftRangeQueryDto,
   ) {
+    if (
+      new Date(to).getTime() - new Date(from).getTime() >
+      CALENDAR_MAX_DAYS * DAY_MS
+    )
+      throw badRequestError('calendarRangeTooLong');
     const fromDate = platformDateString(new Date(from));
     const toDate = platformDateString(new Date(to));
     const [employees, statutory] = await Promise.all([
@@ -775,8 +791,6 @@ export class AttendanceShiftsService {
     { from, weeks, dryRun = false }: CopyAttendanceWeekDto,
   ) {
     const sourceStart = new Date(`${from}T00:00:00${STORE_UTC_OFFSET}`);
-    if (!Number.isFinite(sourceStart.getTime()))
-      throw badRequestError('invalidInterval');
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const source = await tx
@@ -906,14 +920,14 @@ export class AttendanceShiftsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       await assertShiftWithoutRecords(tx, shift);
       await assertPayrollUnlocked(
         tx,
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
-        shift.endsAt,
+        shift.dayKind === 'workday' ? undefined : shift.endsAt,
       );
       const { dryRun, ...change } = dto;
       const [value] = await this.prepareShifts(
@@ -1049,6 +1063,17 @@ export class AttendanceShiftsService {
     ) =>
       holidays.some((holiday) => holiday.date === date) ||
       employee.indigenousHolidays.includes(date);
+    const [replacedSubstitute] = replacing
+      ? (
+          await tx
+            .select({ employeeId: attendanceHolidaySubstitute.employeeId })
+            .from(attendanceHolidaySubstitute)
+            .where(eq(attendanceHolidaySubstitute.shiftId, replacing.id))
+        ).map(({ employeeId }) => ({
+          employeeId,
+          date: platformDateString(replacing.startsAt),
+        }))
+      : [];
     const weekStart = (date: Date) =>
       platformMidnight(date.getTime()) -
       ((toPlatformTime(date).getUTCDay() + 6) % 7) * DAY_MS;
@@ -1236,6 +1261,13 @@ export class AttendanceShiftsService {
         if (!scheduledKind) throw badRequestError('dayKindRequired');
         if (dto.dayKind && dto.dayKind !== scheduledKind)
           throw badRequestError('restDayDesignationConflict');
+        if (
+          replacedSubstitute &&
+          (replacedSubstitute.employeeId !== dto.employeeId ||
+            replacedSubstitute.date !== dates[index] ||
+            scheduledKind !== 'workday')
+        )
+          throw badRequestError('holidaySubstituteInvalid');
         const sameDayKinds = new Set(
           [...existingShifts, ...values]
             .filter(
@@ -1247,7 +1279,9 @@ export class AttendanceShiftsService {
         );
         const dayKind =
           scheduledKind === 'workday' &&
-          (isHoliday(employee, dates[index]) || sameDayKinds.has('holiday'))
+          (isHoliday(employee, dates[index]) ||
+            sameDayKinds.has('holiday') ||
+            replacedSubstitute !== undefined)
             ? 'holiday'
             : scheduledKind;
         if (skip && dayKind !== 'workday') {
@@ -1282,7 +1316,7 @@ export class AttendanceShiftsService {
           actor.organizationId,
           dto.employeeId,
           interval.startsAt,
-          interval.endsAt,
+          dayKind === 'workday' ? undefined : interval.endsAt,
         );
         if (
           reservedRest.some(
@@ -1419,7 +1453,7 @@ export class AttendanceShiftsService {
             eq(attendanceShift.organizationId, actor.organizationId),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       if (shift.status === 'cancelled') return { id };
       const reason = rawReason.trim();
       if (shift.startsAt <= new Date() && !reason)
@@ -1430,7 +1464,7 @@ export class AttendanceShiftsService {
         actor.organizationId,
         shift.employeeId,
         shift.startsAt,
-        shift.endsAt,
+        shift.dayKind === 'workday' ? undefined : shift.endsAt,
       );
       if (!irreversible)
         try {
@@ -1444,12 +1478,69 @@ export class AttendanceShiftsService {
         .update(attendanceShift)
         .set({ status: 'cancelled' })
         .where(eq(attendanceShift.id, id));
+      if (shift.dayKind === 'holiday') {
+        const date = platformDateString(shift.startsAt);
+        const [employee] = await tx
+          .select({ indigenousHolidays: attendanceEmployee.indigenousHolidays })
+          .from(attendanceEmployee)
+          .where(eq(attendanceEmployee.id, shift.employeeId));
+        const stillHolidays = await holidayDatesAmong(
+          tx,
+          { id: shift.employeeId, ...employee },
+          [date],
+        );
+        if (!stillHolidays.has(date))
+          await this.setOtherSameDayShiftsKind(
+            tx,
+            actor,
+            shift,
+            'holiday',
+            'workday',
+          );
+      }
       await writeAudit(tx, actor, 'shift.cancel', id, {
         ...(reason && { reason }),
         ...(irreversible && { irreversible }),
       });
       return { id };
     });
+  }
+
+  private async setOtherSameDayShiftsKind(
+    tx: Transaction,
+    actor: AttendanceActor,
+    shift: typeof attendanceShift.$inferSelect,
+    from: AttendanceDayKind,
+    to: AttendanceDayKind,
+  ) {
+    const others = await tx
+      .select({ id: attendanceShift.id })
+      .from(attendanceShift)
+      .where(
+        and(
+          eq(attendanceShift.employeeId, shift.employeeId),
+          ne(attendanceShift.id, shift.id),
+          ne(attendanceShift.status, 'cancelled'),
+          eq(attendanceShift.dayKind, from),
+          eq(shiftStartDate, platformDateString(shift.startsAt)),
+        ),
+      );
+    if (!others.length) return;
+    await assertPayrollUnlocked(
+      tx,
+      actor.organizationId,
+      shift.employeeId,
+      shift.startsAt,
+    );
+    await tx
+      .update(attendanceShift)
+      .set({ dayKind: to })
+      .where(
+        inArray(
+          attendanceShift.id,
+          others.map(({ id }) => id),
+        ),
+      );
   }
 
   private prepareRestore(
@@ -1484,8 +1575,20 @@ export class AttendanceShiftsService {
             eq(attendanceShift.organizationId, actor.organizationId),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       if (shift.status !== 'cancelled') return { id };
+      const [substitute] = await tx
+        .select({ id: attendanceHolidaySubstitute.id })
+        .from(attendanceHolidaySubstitute)
+        .where(eq(attendanceHolidaySubstitute.shiftId, id));
+      if (substitute)
+        await this.setOtherSameDayShiftsKind(
+          tx,
+          actor,
+          shift,
+          'workday',
+          'holiday',
+        );
       const [{ breaks, dayKind }] = await this.prepareRestore(tx, actor, shift);
       await tx
         .update(attendanceShift)
@@ -1570,7 +1673,7 @@ export class AttendanceShiftsService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!shift) throw new NotFoundException();
+      if (!shift) throw notFoundError();
       const events = await tx
         .select()
         .from(attendanceEvent)

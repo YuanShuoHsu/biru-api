@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "はじめる",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のメールアドレスを認証いただきありがとうございます。ご参加いただき大変嬉しく思います。今すぐ {productName} の使用を開始いただけます。",
     "preheader": "{productName}へようこそ！メールアドレスが確認されました。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "サインイン",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "あなたのメールアドレスを使用して {productName} アカウントへの登録が試みられました。ご本人の操作であれば、そのままサインインしてください。お客様の {productName} アカウントは引き続き安全にご利用いただけます。",
     "preheader": "ご本人でない場合も、{productName} アカウントは安全です。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "サインイン",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のパスワードが正常にリセットされました。新しいパスワードでサインインできます。",
     "preheader": "{productName} のパスワードが正常に変更されました。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -34,9 +34,14 @@
   },
   "organization_invitation": {
     "action_button": "招待を承認する",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} さんが {productName} の {organizationName} に {role} として招待しています。下のボタンをクリックして招待を承認してください。",
     "preheader": "{productName} の {organizationName} に招待されました。",
+    "roles": {
+      "admin": "管理者",
+      "member": "メンバー",
+      "owner": "オーナー"
+    },
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "security_notice": "セキュリティのため、この招待は {inviterName} さんが {productName} アカウントから送信しました。この招待に心当たりがない場合は、このメールを無視するか、質問がある場合は<a href=\"{support_url}\">サポートにお問い合わせ</a>ください。",
     "subject": "{productName} の {organizationName} に招待されました",
@@ -45,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "メールアドレス変更を確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} アカウントのメールアドレスを <strong>{newEmail}</strong> に変更するリクエストを受け付けました。下のボタンをクリックして変更を確認してください。このリンクは1時間有効です。",
     "preheader": "{productName} のメールアドレス変更を確認してください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -56,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "パスワードをリセット",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} のパスワードリセットをリクエストしました。下のボタンをクリックして新しいパスワードを設定してください。このリンクは1時間有効です。",
     "preheader": "{productName} のパスワードをリセットします。このリンクは1時間で期限切れになります。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -67,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "アカウント削除を確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} アカウントの永久削除リクエストを受け付けました。下のボタンをクリックして操作を確認してください。このリンクの有効期限は1時間です。確認しない場合、アカウントは削除されません。",
     "preheader": "{productName} アカウントの削除リクエストを確認してください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -78,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "メールアドレスを確認",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}をお試しいただきありがとうございます。ご参加いただき大変嬉しく思います。{productName}の使用を開始するには、アカウントを確認してください。",
     "preheader": "{productName}へようこそ！メールアドレスをご確認ください。",
     "salutation": "ありがとうございます。<br>{productName} チーム",
@@ -125,6 +130,13 @@
     "salutation": "ありがとうございます。<br>{productName} チーム",
     "trouble_hint": "上記のボタンをクリックできない場合は、以下のURLをコピーしてブラウザに貼り付けてください。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：{period} のシフトの退勤打刻がありません",
+    "title": "退勤打刻を修正してください",
+    "intro": "{organizationName} の {period} のシフトで出勤打刻はありますが、退勤打刻がなく、打刻できる時間を過ぎています。",
+    "rules": "実際の退勤時刻で打刻修正を申請してください。勤怠記録と給与計算に影響する場合があります。",
+    "action": "打刻修正を申請する"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：順番待ち番号 {ticketNumber}",
@@ -142,5 +154,65 @@
     },
     "salutation": "よろしくお願いいたします。<br>{productName} チーム",
     "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}：{count} 件の食材が在庫警告量を下回っています",
+    "title": "在庫不足のお知らせ",
+    "intro": "{organizationName} では {count} 件の食材の在庫が警告量以下になっています。仕入先ごとに発注をご検討ください。",
+    "item": "{name}：残り {level} {unit}（警告量 {threshold} {unit}、不足 {shortage} {unit}）",
+    "no_supplier": "仕入先未指定",
+    "action": "在庫不足の食材を見る",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "個"
+    },
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} の営業サマリー",
+    "title": "昨日の営業サマリー",
+    "intro": "{organizationName} の {date} の営業状況です。",
+    "overview": "概要",
+    "revenue": "売上：{revenue}（前日 {previousRevenue}）",
+    "orders": "注文：{orders} 件（前日 {previousOrders} 件）",
+    "average": "客単価：{average}",
+    "peak_hour": "ピーク時間帯：{peakHour}（{peakOrders} 件）",
+    "refunds": "返金：{refundedOrders} 件",
+    "top_items": "売れ筋商品",
+    "item": "{name}：{sold} 点",
+    "point_adjustments": "ポイントの手動調整（{count} 件、合計 {total} ポイント）",
+    "point_adjustment": "{adjuster} が {member} のポイントを {points} 調整：{reason}",
+    "action": "ダッシュボードを開く",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} の全店舗サマリー",
+    "title": "昨日の全店舗サマリー",
+    "intro": "{date} に売上・ポイント調整があった店舗、または現在在庫不足の店舗は {count} 店です。店舗名から各店のダッシュボードを開けます。",
+    "revenue": "売上：{revenue}",
+    "orders": "注文：{orders} 件",
+    "refunds": "返金：{refundedOrders} 件",
+    "point_adjustments": "ポイントの手動調整：{adjustments} 件、合計 {points} ポイント",
+    "low_stock": "現在在庫不足の食材：{lowStock} 品目",
+    "action": "すべての店舗を見る",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "points_expiry_reminder": {
+    "subject": "{points} ポイントが {date} に失効します",
+    "title": "ポイントの有効期限が近づいています",
+    "intro": "{points} ポイントが {date} に失効し、それ以降はご利用いただけません。有効期限までに交換してください。",
+    "action": "マイポイントを見る",
+    "salutation": "よろしくお願いいたします。<br>{productName} チーム",
+    "trouble_hint": "上のボタンがクリックできない場合は、以下の URL をコピーしてブラウザに貼り付けてください。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP テスト",
+    "text": "このメールが届いていれば、SMTP の設定は正しく行われています。"
   }
 }

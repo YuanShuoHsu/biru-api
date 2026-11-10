@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { and, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import type { IssueInvoiceEcpayDecryptedRequestDto } from '../dto/issue-invoice-ecpay.dto.js';
@@ -15,17 +15,16 @@ import {
 import { OrderInvoicePrintDto } from '../dto/order-invoice-print.dto.js';
 import { OrderInvoiceVerificationDto } from '../dto/order-invoice-verification.dto.js';
 import { VoidInvoiceDto } from '../dto/void-invoice.dto.js';
+import type { VoidedInvoiceDto } from '../dto/voided-invoice.dto.js';
 
-import { I18nContext, I18nService } from 'nestjs-i18n';
-import type { InvoiceStatus } from '../../db/schema/invoices.js';
 import type { PrintCopy } from '../../db/schema/printers.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
 import {
   isPrintable,
   type PrintableInvoice,
   toActiveInvoice,
+  toInvoiceBuyer,
   toPrintJobDto,
 } from '../../common/utils/invoices.js';
 
@@ -37,7 +36,17 @@ import {
   toGetIssueQuery,
   toInvoiceDateText,
 } from '../utils/ecpay.js';
-import { earliestVoidableInvoiceDate } from '../utils/refund-plan.js';
+import {
+  earliestVoidableInvoiceDate,
+  lineAmountCents,
+} from '../utils/refund-plan.js';
+import {
+  badRequestError,
+  conflictError,
+  internalServerError,
+  invoiceStatusText,
+  notFoundError as invoiceNotFoundError,
+} from '../invoice-errors.js';
 
 import { EcpayGetIssueInvoiceService } from './ecpay-get-issue-invoice.service.js';
 import { EcpayInvalidInvoiceService } from './ecpay-invalid-invoice.service.js';
@@ -53,9 +62,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  InternalServerErrorException,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -64,6 +71,7 @@ import type { Invoice } from '../../db/schema/invoices.js';
 import { invoice } from '../../db/schema/invoices.js';
 import { order } from '../../db/schema/orders.js';
 import { organization } from '../../db/schema/organizations.js';
+import { user } from '../../db/schema/users.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 
@@ -73,6 +81,12 @@ import {
 } from '../../events/order-updated.event.js';
 import type { OrderPaidEvent } from '../../events/order-paid.event.js';
 import { ORDER_PAID_EVENT } from '../../events/order-paid.event.js';
+import {
+  COUNTED_ORDER_STATUSES,
+  isCountedOrder,
+} from '../../orders/counted-orders.js';
+import { organizationNotFoundError } from '../../common/utils/organizations.js';
+import { notFoundError } from '../../orders/order-errors.js';
 import type { PrintJobDto } from '../../printers/dto/printer.dto.js';
 
 type IssuePayload = Omit<
@@ -134,37 +148,7 @@ export class EcpayOrderInvoiceService {
     private readonly ecpayInvalidInvoiceService: EcpayInvalidInvoiceService,
     private readonly invoicePrinterService: InvoicePrinterService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
   ) {}
-
-  private tInvoice(
-    key:
-      | 'allowanceIssued'
-      | 'alreadyIssuing'
-      | 'notIssued'
-      | 'notPaid'
-      | 'notPending'
-      | 'notPrintable'
-      | 'notVoidable'
-      | 'orderRefunded'
-      | 'pastVoidablePeriod'
-      | 'printing'
-      | 'printJobNotQueued'
-      | 'printJobResolved'
-      | 'voidWriteFailed',
-    args?: Record<string, string | number>,
-  ): string {
-    return this.i18n.t(`common.invoices.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  private invoiceStatusText(status: InvoiceStatus): string {
-    return this.i18n.t(`common.invoices.status.${status}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private emitOrderUpdated(organizationId: string, orderId: string) {
     this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
@@ -193,8 +177,11 @@ export class EcpayOrderInvoiceService {
           eq(invoice.status, 'pending'),
           lt(invoice.updatedAt, staleBefore),
           isNotNull(order.paymentDate),
+          isCountedOrder,
+          ne(order.orderStatus, 'OrderReturned'),
         ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [index, { orderId }] of candidates.entries()) {
@@ -215,27 +202,24 @@ export class EcpayOrderInvoiceService {
       .from(invoice)
       .innerJoin(order, eq(order.id, invoice.orderId))
       .where(
-        and(eq(invoice.status, 'issuing'), lt(invoice.updatedAt, staleBefore)),
+        and(
+          eq(invoice.status, 'issuing'),
+          lt(invoice.updatedAt, staleBefore),
+          isNotNull(invoice.relateNumber),
+        ),
       )
+      .orderBy(asc(invoice.updatedAt))
       .limit(RETRY_BATCH_SIZE);
 
     for (const [
       index,
       { id, orderId, organizationId, relateNumber },
     ] of stuck.entries()) {
-      if (!relateNumber) {
-        this.logger.error(
-          `發票 ${id} 卡在開立中且沒有 RelateNumber，無從查證，需人工至綠界後台確認`,
-        );
-
-        continue;
-      }
-
       if (index > 0) await sleep(QUERY_INTERVAL_MS);
 
       try {
         const result = await this.ecpayGetIssueInvoiceService.getIssue({
-          RelateNumber: relateNumber,
+          RelateNumber: relateNumber!,
         });
 
         const [updated] = await this.db
@@ -263,6 +247,11 @@ export class EcpayOrderInvoiceService {
           `發票 ${id} 查證失敗，維持開立中待人工確認`,
           error instanceof Error ? error.stack : String(error),
         );
+
+        await this.db
+          .update(invoice)
+          .set({ updatedAt: new Date() })
+          .where(and(eq(invoice.id, id), eq(invoice.status, 'issuing')));
       }
     }
   }
@@ -275,7 +264,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return this.issue(orderId, org.id);
   }
@@ -314,21 +303,23 @@ export class EcpayOrderInvoiceService {
       },
     });
 
-    if (!row) throw new NotFoundException('Order not found');
-    if (!row.paymentDate) throw new ConflictException(this.tInvoice('notPaid'));
+    if (!row) throw notFoundError('orderNotFound');
+    if (
+      !row.paymentDate ||
+      !(COUNTED_ORDER_STATUSES as readonly string[]).includes(row.orderStatus)
+    )
+      throw conflictError('notPaid');
     if (row.orderStatus === 'OrderReturned')
-      throw new ConflictException(this.tInvoice('orderRefunded'));
+      throw conflictError('orderRefunded');
 
     const found = toActiveInvoice(row);
 
     const { invoice: data } = found;
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (data.status !== 'pending')
-      throw new ConflictException(
-        this.tInvoice('notPending', {
-          status: this.invoiceStatusText(data.status),
-        }),
-      );
+      throw conflictError('notPending', {
+        status: invoiceStatusText(data.status),
+      });
 
     // 綠界以 RelateNumber 唯一性防重複開立，所以要在呼叫前落地、重試時沿用同一組
     const relateNumber = data.relateNumber ?? randomUUID().replace(/-/g, '');
@@ -339,7 +330,7 @@ export class EcpayOrderInvoiceService {
       .where(and(eq(invoice.id, data.id), eq(invoice.status, 'pending')))
       .returning();
 
-    if (!claimed) throw new ConflictException(this.tInvoice('alreadyIssuing'));
+    if (!claimed) throw conflictError('alreadyIssuing');
 
     const result = await this.issueOrRelease(claimed, found, relateNumber);
 
@@ -434,7 +425,7 @@ export class EcpayOrderInvoiceService {
       organizationId,
       copy,
     );
-    if (!job) throw new ConflictException(this.tInvoice('printing'));
+    if (!job) throw conflictError('printing');
 
     return { printJob: toPrintJobDto(job) };
   }
@@ -455,8 +446,7 @@ export class EcpayOrderInvoiceService {
       data.id,
       printed,
     );
-    if (!resolved)
-      throw new ConflictException(this.tInvoice('printJobResolved'));
+    if (!resolved) throw conflictError('printJobResolved');
 
     this.emitOrderUpdated(organizationId, orderId);
 
@@ -478,7 +468,7 @@ export class EcpayOrderInvoiceService {
     );
 
     const job = await this.invoicePrinterService.cancelQueued(jobId, data.id);
-    if (!job) throw new ConflictException(this.tInvoice('printJobNotQueued'));
+    if (!job) throw conflictError('printJobNotQueued');
 
     this.emitOrderUpdated(organizationId, orderId);
   }
@@ -521,7 +511,7 @@ export class EcpayOrderInvoiceService {
       .where(and(eq(invoice.id, data.id), eq(invoice.status, 'issued')))
       .returning();
 
-    if (!updated) throw new ConflictException(this.tInvoice('notPrintable'));
+    if (!updated) throw conflictError('notPrintable');
 
     this.emitOrderUpdated(organizationId, orderId);
 
@@ -543,12 +533,13 @@ export class EcpayOrderInvoiceService {
     organizationSlug: string,
     orderId: string,
     { customerIdentifier, customerName, reason }: VoidInvoiceDto,
+    operatorId?: string,
   ): Promise<Invoice> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -556,17 +547,16 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (data.status !== 'issued' || !data.invoiceNumber || !data.invoiceDate)
-      throw new ConflictException(
-        this.tInvoice('notVoidable', {
-          status: this.invoiceStatusText(data.status),
-        }),
-      );
-    if (data.allowances.length)
-      throw new ConflictException(this.tInvoice('allowanceIssued'));
+      throw conflictError('notVoidable', {
+        status: invoiceStatusText(data.status),
+      });
+    if (data.allowances.length) throw conflictError('allowanceIssued');
     if (data.invoiceDate < earliestVoidableInvoiceDate(new Date()))
-      throw new ConflictException(this.tInvoice('pastVoidablePeriod'));
+      throw conflictError('pastVoidablePeriod');
+    if (customerName && !customerIdentifier && data.type !== 'company')
+      throw badRequestError('customerNameRequiresIdentifier');
 
     await this.ecpayInvalidInvoiceService.invalidInvoice({
       InvoiceDate: toInvoiceDateText(data.invoiceDate),
@@ -580,7 +570,12 @@ export class EcpayOrderInvoiceService {
       reissued = await this.db.transaction(async (tx) => {
         await tx
           .update(invoice)
-          .set({ status: 'voided', voidedAt: new Date() })
+          .set({
+            status: 'voided',
+            voidedAt: new Date(),
+            voidedBy: operatorId,
+            voidReason: reason,
+          })
           .where(eq(invoice.id, data.id));
 
         const [created] = await tx
@@ -588,15 +583,14 @@ export class EcpayOrderInvoiceService {
           .values({
             id: randomUUID(),
             orderId,
-            // 開統編就是公司戶，載具與捐贈碼不能並存
-            type: customerIdentifier ? 'company' : data.type,
-            carrierType: customerIdentifier ? null : data.carrierType,
-            carrierNum: customerIdentifier ? null : data.carrierNum,
-            donateCode: customerIdentifier ? null : data.donateCode,
             email: data.email,
-            customerIdentifier: customerIdentifier ?? data.customerIdentifier,
-            customerName: customerName ?? data.customerName,
-            customerAddr: data.customerAddr,
+            ...toInvoiceBuyer({
+              ...data,
+              // 開統編就是公司戶，載具與捐贈碼不能並存
+              type: customerIdentifier ? 'company' : data.type,
+              customerIdentifier: customerIdentifier ?? data.customerIdentifier,
+              customerName: customerName ?? data.customerName,
+            }),
           })
           .returning();
 
@@ -608,11 +602,9 @@ export class EcpayOrderInvoiceService {
         error instanceof Error ? error.stack : String(error),
       );
 
-      throw new InternalServerErrorException(
-        this.tInvoice('voidWriteFailed', {
-          invoiceNumber: data.invoiceNumber,
-        }),
-      );
+      throw internalServerError('voidWriteFailed', {
+        invoiceNumber: data.invoiceNumber,
+      });
     }
 
     this.emitOrderUpdated(org.id, orderId);
@@ -628,7 +620,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -640,12 +632,12 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found?.invoices.find(({ invoiceNumber }) => invoiceNumber);
-    if (!data) throw new NotFoundException('Invoice not found');
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
     if (!data.invoiceNumber || !data.invoiceDate)
-      throw new ConflictException(this.tInvoice('notIssued'));
+      throw conflictError('notIssued');
 
     const query = toGetIssueQuery(data);
-    if (!query) throw new ConflictException(this.tInvoice('notIssued'));
+    if (!query) throw conflictError('notIssued');
 
     const result = await this.ecpayGetIssueInvoiceService.getIssue(query);
 
@@ -661,6 +653,41 @@ export class EcpayOrderInvoiceService {
     };
   }
 
+  async findVoidedForOrder(
+    organizationSlug: string,
+    orderId: string,
+  ): Promise<VoidedInvoiceDto[]> {
+    const org = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
+    });
+    if (!org) throw organizationNotFoundError();
+
+    const found = await this.db.query.order.findFirst({
+      where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
+      columns: { id: true },
+    });
+    if (!found) throw notFoundError('orderNotFound');
+
+    return this.db
+      .select({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        voidedAt: invoice.voidedAt,
+        reason: invoice.voidReason,
+        operatorName: user.name,
+        operatorDeleted: sql<boolean>`${invoice.voidedBy} IS NOT NULL AND ${user.id} IS NULL`,
+      })
+      .from(invoice)
+      .leftJoin(user, eq(user.id, invoice.voidedBy))
+      .where(and(eq(invoice.orderId, orderId), eq(invoice.status, 'voided')))
+      .orderBy(
+        sql`${invoice.voidedAt} desc nulls last`,
+        desc(invoice.createdAt),
+      );
+  }
+
   private async findPrintableInvoice(
     organizationSlug: string,
     orderId: string,
@@ -669,7 +696,7 @@ export class EcpayOrderInvoiceService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
@@ -677,9 +704,8 @@ export class EcpayOrderInvoiceService {
     });
 
     const data = found && toActiveInvoice(found).invoice;
-    if (!data) throw new NotFoundException('Invoice not found');
-    if (!isPrintable(data))
-      throw new ConflictException(this.tInvoice('notPrintable'));
+    if (!data) throw invoiceNotFoundError('invoiceNotFound');
+    if (!isPrintable(data)) throw conflictError('notPrintable');
 
     return { data, organizationId: org.id };
   }
@@ -694,7 +720,7 @@ export class EcpayOrderInvoiceService {
       organizationId,
       copy,
     );
-    if (!job) throw new ConflictException(this.tInvoice('printing'));
+    if (!job) throw conflictError('printing');
 
     try {
       const printUrl = await this.ecpayInvoicePrintService.getPrintUrl(
@@ -731,12 +757,12 @@ export class EcpayOrderInvoiceService {
   }): IssuePayload {
     const { customer, invoice: data, items, seller } = found;
 
-    const itemAmounts = items.map(
-      (item) =>
-        Math.round(Number(item.unitPrice) * item.orderQuantity * 100) / 100,
+    const itemCents = items.map((item) =>
+      lineAmountCents(item.unitPrice, item.orderQuantity),
     );
+    const itemAmounts = itemCents.map((cents) => cents / 100);
     const itemTotal = Math.round(
-      itemAmounts.reduce((sum, amount) => sum + amount, 0),
+      itemCents.reduce((sum, cents) => sum + cents, 0) / 100,
     );
     const salesAmount = Math.round(Number(found.total));
     const discount = itemTotal - salesAmount;
@@ -748,7 +774,6 @@ export class EcpayOrderInvoiceService {
 
     return {
       CustomerEmail: data.email || customer.email || undefined,
-      CustomerName: data.customerName || customer.name,
       CustomerPhone: toLocalPhoneNumber(customer.telephone),
       Items: [
         ...items.map((item, index) => ({
@@ -776,12 +801,13 @@ export class EcpayOrderInvoiceService {
       SalesAmount: salesAmount,
       TaxType: IssueInvoiceEcpayTaxType.Taxable,
       vat: IssueInvoiceEcpayVatType.TaxIncluded,
-      ...this.buildRecipient(data, seller),
+      ...this.buildRecipient(data, customer.name, seller),
     };
   }
 
   private buildRecipient(
     data: Invoice,
+    customerName: string,
     seller: SellerAddress,
   ): Pick<
     IssuePayload,
@@ -789,6 +815,7 @@ export class EcpayOrderInvoiceService {
     | 'CarrierType'
     | 'CustomerAddr'
     | 'CustomerIdentifier'
+    | 'CustomerName'
     | 'Donation'
     | 'LoveCode'
     | 'Print'
@@ -799,12 +826,14 @@ export class EcpayOrderInvoiceService {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
           CustomerAddr: data.customerAddr ?? undefined,
           CustomerIdentifier: data.customerIdentifier ?? undefined,
+          CustomerName: data.customerName || customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.Yes,
         };
       case 'donate':
         return {
           CarrierType: IssueInvoiceEcpayCarrierType.None,
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.Yes,
           LoveCode: data.donateCode ?? undefined,
           Print: IssueInvoiceEcpayPrint.No,
@@ -816,6 +845,7 @@ export class EcpayOrderInvoiceService {
           return {
             CarrierType: IssueInvoiceEcpayCarrierType.None,
             CustomerAddr: toAddressText(seller),
+            CustomerName: customerName,
             Donation: IssueInvoiceEcpayDonation.No,
             Print: IssueInvoiceEcpayPrint.Yes,
           };
@@ -826,6 +856,7 @@ export class EcpayOrderInvoiceService {
               ? ''
               : (data.carrierNum ?? undefined),
           CarrierType: CARRIER_TYPE[data.carrierType],
+          CustomerName: customerName,
           Donation: IssueInvoiceEcpayDonation.No,
           Print: IssueInvoiceEcpayPrint.No,
         };

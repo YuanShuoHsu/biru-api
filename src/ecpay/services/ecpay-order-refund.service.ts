@@ -30,11 +30,11 @@ import {
   toGetIssueQuery,
   toInvoiceDateText,
 } from '../utils/ecpay.js';
-import type { RefundPlanTranslate } from '../utils/refund-plan.js';
 import {
   buildRefundPlan,
   earliestVoidableInvoiceDate,
 } from '../utils/refund-plan.js';
+import { conflictError, serviceUnavailableError } from '../refund-errors.js';
 
 import { EcpayAllowanceInvoiceService } from './ecpay-allowance-invoice.service.js';
 import {
@@ -51,7 +51,6 @@ import {
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -76,6 +75,7 @@ import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import { CRON_ENABLED } from '../../common/constants/cron.js';
 import { toActiveInvoice } from '../../common/utils/invoices.js';
+import { organizationNotFoundError } from '../../common/utils/organizations.js';
 import { CouponsService } from '../../coupons/coupons.service.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../../events/order-status-updated.event.js';
 import {
@@ -83,6 +83,8 @@ import {
   type OrderUpdatedEvent,
 } from '../../events/order-updated.event.js';
 import { InventoryTransactionsService } from '../../inventory/inventory-transactions.service.js';
+import { MenuStockService } from '../../inventory/menu-stock.service.js';
+import { notFoundError } from '../../orders/order-errors.js';
 import { OrderTicketService } from '../../orders/order-ticket.service.js';
 import {
   getRefundChannel,
@@ -173,26 +175,8 @@ export class EcpayOrderRefundService {
     private readonly pointsService: PointsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly i18n: I18nService<I18nTranslations>,
+    private readonly menuStockService: MenuStockService,
   ) {}
-
-  private readonly t: RefundPlanTranslate = (key, args) =>
-    this.i18n.t(`common.refunds.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-
-  private tRefunds(
-    key:
-      | 'alreadyRefunded'
-      | 'noEcpayTransaction'
-      | 'notPaid'
-      | 'notRefundable'
-      | 'resultUnknown',
-  ): string {
-    return this.i18n.t(`common.refunds.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   async previewRefund(
     organizationSlug: string,
@@ -202,7 +186,7 @@ export class EcpayOrderRefundService {
     const found = await this.findRefundableOrder(organizationSlug, orderId);
 
     const previous = await this.db
-      .select({ items: refund.items })
+      .select({ amount: refund.amount, items: refund.items })
       .from(refund)
       .where(eq(refund.orderId, orderId));
 
@@ -210,7 +194,6 @@ export class EcpayOrderRefundService {
       found,
       previous,
       dto.items,
-      this.t,
     );
 
     return { allocatedDiscount, amount, isFull };
@@ -221,15 +204,34 @@ export class EcpayOrderRefundService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db.query.order.findFirst({
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
       with: { invoices: true, items: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
-    return toActiveInvoice(found);
+    const inferred =
+      found.items.some((item) => item.discount === null) &&
+      !(await this.db.query.refund.findFirst({
+        where: eq(refund.orderId, orderId),
+        columns: { id: true },
+      }))
+        ? await this.couponsService.inferItemDiscounts(found)
+        : null;
+
+    return toActiveInvoice(
+      inferred
+        ? {
+            ...found,
+            items: found.items.map((item, index) => ({
+              ...item,
+              discount: inferred[index].toFixed(2),
+            })),
+          }
+        : found,
+    );
   }
 
   async refundOrder(
@@ -250,28 +252,28 @@ export class EcpayOrderRefundService {
         .where(eq(order.id, orderId))
         .for('update');
 
-      if (!locked) throw new NotFoundException('Order not found');
-      if (!locked.paymentDate)
-        throw new ConflictException(this.tRefunds('notPaid'));
+      if (!locked) throw notFoundError('orderNotFound');
+      if (!locked.paymentDate) throw conflictError('notPaid');
       if (locked.orderStatus === 'OrderReturned')
-        throw new ConflictException(this.tRefunds('alreadyRefunded'));
-      if (!isRefundable(locked))
-        throw new ConflictException(this.tRefunds('notRefundable'));
+        throw conflictError('alreadyRefunded');
+      if (!isRefundable(locked)) throw conflictError('notRefundable');
 
       const previous = await tx
-        .select({ items: refund.items })
+        .select({ amount: refund.amount, items: refund.items })
         .from(refund)
         .where(eq(refund.orderId, orderId));
 
-      const plan = buildRefundPlan(found, previous, dto.items, this.t);
+      const plan = buildRefundPlan(found, previous, dto.items);
 
+      const channel =
+        plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual';
       const [created] = await tx
         .insert(refund)
         .values({
           id: randomUUID(),
           amount: String(plan.amount),
-          channel:
-            plan.amount > 0 ? getRefundChannel(found.paymentMethod) : 'manual',
+          channel,
+          status: channel === 'manual' ? 'refunded' : 'pending',
           items: plan.items,
           operatorId,
           orderId,
@@ -290,7 +292,7 @@ export class EcpayOrderRefundService {
       if (!found.merchantTradeNo || !found.tradeNo) {
         await this.db.delete(refund).where(eq(refund.id, created.id));
 
-        throw new ConflictException(this.tRefunds('noEcpayTransaction'));
+        throw conflictError('noEcpayTransaction');
       }
 
       try {
@@ -316,19 +318,13 @@ export class EcpayOrderRefundService {
             error,
           );
 
-          throw new ServiceUnavailableException(this.tRefunds('resultUnknown'));
+          throw serviceUnavailableError('resultUnknown');
         }
 
         await this.db.delete(refund).where(eq(refund.id, created.id));
 
         throw this.toRefundFailure(error);
       }
-    } else {
-      [refunded] = await this.db
-        .update(refund)
-        .set({ status: 'refunded' })
-        .where(eq(refund.id, created.id))
-        .returning();
     }
 
     await this.settle(refunded, found, plan).catch((error) =>
@@ -350,6 +346,7 @@ export class EcpayOrderRefundService {
 
     if (claimed.invoiceAction === null) {
       const invoiceResult = await this.settleInvoiceReconciled(found, plan, {
+        operatorId: claimed.operatorId ?? undefined,
         reason: claimed.reason ?? undefined,
         reconcile: created.status === 'settling',
         refundId: claimed.id,
@@ -361,6 +358,7 @@ export class EcpayOrderRefundService {
         .where(eq(refund.id, claimed.id));
     }
 
+    let offerStockChanged = false;
     await this.db.transaction(async (tx) => {
       const [locked] = await tx
         .select({ orderStatus: order.orderStatus })
@@ -390,7 +388,10 @@ export class EcpayOrderRefundService {
         });
 
       if (plan.isFull) {
-        await this.inventoryTransactionsService.restoreAll(claimed.orderId, tx);
+        offerStockChanged = await this.inventoryTransactionsService.restoreAll(
+          claimed.orderId,
+          tx,
+        );
 
         await tx
           .update(order)
@@ -404,13 +405,14 @@ export class EcpayOrderRefundService {
         .where(eq(refund.id, claimed.id));
     });
 
-    if (plan.isFull)
+    if (plan.isFull) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
         orderId: claimed.orderId,
         orderStatus: 'OrderReturned',
         organizationId: found.sellerId,
       });
-    else
+      void this.menuStockService.refresh(found.sellerId, offerStockChanged);
+    } else
       this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
         orderId: claimed.orderId,
         organizationId: found.sellerId,
@@ -622,6 +624,7 @@ export class EcpayOrderRefundService {
       found,
       this.toSettlement(claimed, found),
       {
+        operatorId: claimed.operatorId ?? undefined,
         reason: claimed.reason ?? undefined,
         reconcile: true,
         refundId: claimed.id,
@@ -640,10 +643,16 @@ export class EcpayOrderRefundService {
     found: SettlementOrder,
     plan: RefundSettlement,
     {
+      operatorId,
       reason,
       reconcile,
       refundId,
-    }: { reason?: string; reconcile: boolean; refundId: string },
+    }: {
+      operatorId?: string;
+      reason?: string;
+      reconcile: boolean;
+      refundId: string;
+    },
   ): Promise<InvoiceSettlement> {
     const issued = await this.allowanceForRefund(refundId);
     if (issued)
@@ -680,6 +689,7 @@ export class EcpayOrderRefundService {
         latest,
         notifyEmail:
           reconciled.data?.email || found.customer.email || undefined,
+        operatorId,
         reason,
         refundId,
       });
@@ -896,13 +906,13 @@ export class EcpayOrderRefundService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     const found = await this.db
       .select({ id: order.id })
       .from(order)
       .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)));
-    if (!found.length) throw new NotFoundException('Order not found');
+    if (!found.length) throw notFoundError('orderNotFound');
 
     return this.selectRefunds(eq(refund.orderId, orderId));
   }
@@ -950,12 +960,14 @@ export class EcpayOrderRefundService {
       allowance,
       latest,
       notifyEmail,
+      operatorId,
       reason,
       refundId,
     }: {
       allowance?: AllowanceState;
       latest: { remainingAmount: string } | undefined;
       notifyEmail?: string;
+      operatorId?: string;
       reason?: string;
       refundId: string;
     },
@@ -983,20 +995,27 @@ export class EcpayOrderRefundService {
 
     try {
       if (voidable) {
+        const voidReason = (reason || DEFAULT_INVOICE_REASON).slice(
+          0,
+          INVALID_REASON_MAX_LENGTH,
+        );
+
         try {
           await this.ecpayInvalidInvoiceService.invalidInvoice({
             InvoiceDate: invoiceDateText,
             InvoiceNo: data.invoiceNumber,
-            Reason: (reason || DEFAULT_INVOICE_REASON).slice(
-              0,
-              INVALID_REASON_MAX_LENGTH,
-            ),
+            Reason: voidReason,
           });
 
           try {
             await this.db
               .update(invoice)
-              .set({ status: 'voided', voidedAt: new Date() })
+              .set({
+                status: 'voided',
+                voidedAt: new Date(),
+                voidedBy: operatorId,
+                voidReason,
+              })
               .where(eq(invoice.id, data.id));
           } catch (writeError) {
             this.logger.error(
@@ -1139,11 +1158,11 @@ export class EcpayOrderRefundService {
       }),
     );
 
-    if (plan.allocatedDiscount > 0)
+    if (plan.allocatedDiscount !== 0)
       items.push({
         ItemAmount: -plan.allocatedDiscount,
         ItemCount: 1,
-        ItemName: '折扣',
+        ItemName: plan.allocatedDiscount > 0 ? '折扣' : '尾差',
         ItemPrice: -plan.allocatedDiscount,
         ItemSeq: items.length + 1,
         ItemWord: ITEM_WORD,

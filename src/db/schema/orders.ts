@@ -113,17 +113,17 @@ export const order = pgTable(
     sellerId: text('seller_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'restrict' }),
-    // additional fields
     subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
     total: numeric('total', { precision: 10, scale: 2 })
       .notNull()
       .generatedAlwaysAs(sql`"subtotal" - coalesce("discount", 0)`),
     amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    pointsValidityYears: integer('points_validity_years'),
     idempotencyKey: text('idempotency_key'),
     idempotencyFingerprint: text('idempotency_fingerprint'),
+    heldOfferStock: jsonb('held_offer_stock').$type<Record<string, number>>(),
     partySize: integer('party_size'),
     pickupTime: timestamp('pickup_time'),
+    readyAt: timestamp('ready_at'),
     tableNumber: integer('table_number'),
     merchantTradeNo: text('merchant_trade_no'),
     tradeNo: text('trade_no'),
@@ -150,6 +150,7 @@ export const order = pgTable(
       table.sellerId,
       sql`COALESCE(${table.pickupTime}, ${table.createdAt})`,
     ),
+    index('order_sellerId_readyAt_idx').on(table.sellerId, table.readyAt),
     index('order_paymentDue_createdAt_idx')
       .on(table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
@@ -173,6 +174,7 @@ export const orderItem = pgTable(
   {
     id: text('id').primaryKey(),
     addOns: jsonb('add_ons').$type<OrderItemAddOnSnapshot[]>(),
+    discount: numeric('discount', { precision: 10, scale: 2 }),
     menuItemId: text('menu_item_id').notNull(),
     menuItemName: text('menu_item_name').notNull(),
     modifiers: jsonb('modifiers').$type<OrderItemModifierSnapshot[]>(),

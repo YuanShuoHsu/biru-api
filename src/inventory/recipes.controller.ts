@@ -7,8 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -25,12 +26,15 @@ import {
 } from './dto/create-recipe.dto.js';
 import { RecipeIngredientPaginationQueryDto } from './dto/recipe-ingredient-pagination-query.dto.js';
 import {
+  RecipeIngredientListResponseDto,
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
+import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 import { RecipesService } from './recipes.service.js';
 
 @ApiTags('inventory')
+@UseInterceptors(MenuStockInterceptor)
 @Controller('recipes/:recipeId')
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
@@ -67,11 +71,12 @@ export class RecipesController {
   @Get('recipe-ingredients')
   @Roles({ inventory: ['read'] }, 'recipeId')
   @ApiOperation({ summary: '查詢食譜材料' })
+  @ApiOkResponse({ type: RecipeIngredientListResponseDto })
   findAllIngredients(
     @Param('recipeId') recipeId: string,
     @Query() query: RecipeIngredientPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
-  ): Promise<{ data: RecipeIngredientResponseDto[]; total: number }> {
+  ): Promise<RecipeIngredientListResponseDto> {
     return this.recipesService.findAllIngredients(
       recipeId,
       query,
@@ -104,9 +109,9 @@ export class RecipesController {
   @ApiOperation({ summary: '重新排序食譜材料' })
   reorderIngredients(
     @Param('recipeId') recipeId: string,
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
   ): Promise<void> {
-    return this.recipesService.reorderIngredients(recipeId, ids, offset);
+    return this.recipesService.reorderIngredients(recipeId, ids);
   }
 
   @Patch('recipe-ingredients/:recipeIngredientId')

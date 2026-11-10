@@ -20,7 +20,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  ForbiddenException,
   Get,
   HttpCode,
   Logger,
@@ -31,14 +30,21 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { hours, minutes, SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import { I18nContext } from 'nestjs-i18n';
 
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 @Controller('ecpay')
 export class EcpayController {
@@ -147,6 +153,10 @@ export class EcpayController {
 
   @Post()
   @AllowAnonymous()
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiCreatedResponse({ type: CheckoutEcpayResponseDto })
   async checkout(
     @Body() dto: CheckoutEcpayDto,
@@ -155,16 +165,23 @@ export class EcpayController {
     const { accessToken, orderId, returnUrl, ...base } = dto;
 
     if (returnUrl && !this.isAllowedUrl(returnUrl))
-      throw new BadRequestException('returnUrl is not allowed');
+      throw new BadRequestException({
+        error: 'Bad Request',
+        code: 'returnUrlNotAllowed',
+        message:
+          I18nContext.current<I18nTranslations>()?.t(
+            'common.exceptions.returnUrlNotAllowed',
+          ) ?? 'returnUrlNotAllowed',
+      });
 
     if (
       !(await this.ordersService.canReadOrderById(
         orderId,
-        session?.user.id ?? null,
+        session?.user ?? null,
         accessToken ?? null,
       ))
     )
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     const order = await this.ordersService.createPaymentAttempt(
       orderId,
@@ -176,6 +193,10 @@ export class EcpayController {
 
   @Post('check-barcode')
   @AllowAnonymous()
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiCreatedResponse({ type: CheckBarcodeEcpayResponseDto })
   async checkBarcode(
     @Body() { barCode }: CheckBarcodeEcpayDto,

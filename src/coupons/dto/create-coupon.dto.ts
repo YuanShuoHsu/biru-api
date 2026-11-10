@@ -1,17 +1,22 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
   IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsNumber,
   IsOptional,
+  IsRFC3339,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
+  IsNotEmpty,
+  ValidateIf,
 } from 'class-validator';
 import { CURRENCY_REGEX } from '../../common/utils/currency.js';
 import {
@@ -22,6 +27,7 @@ import {
   type CouponIssueTrigger,
   type CouponScope,
 } from '../../db/schema/coupons.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateCouponDto {
   @ApiPropertyOptional({
@@ -37,13 +43,15 @@ export class CreateCouponDto {
   @ApiProperty()
   @IsString()
   @MaxLength(64)
+  @Transform(trim)
+  @IsNotEmpty()
   code: string;
 
   @ApiPropertyOptional({
     description:
       '幣別（ISO 4217）；限定單一店家時一律採用該店設定，此欄只對跨店與全平台券生效',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @Matches(CURRENCY_REGEX)
   discountCurrency?: string;
@@ -58,29 +66,31 @@ export class CreateCouponDto {
   @ApiProperty({
     description: 'fixed: 折抵金額；percentage: 折扣百分比（0 < value ≤ 100）',
   })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(99999999.99)
   discountValue: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
 
   @ApiPropertyOptional({ description: '會員可於店家頁領取進錢包' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isClaimable?: boolean;
 
   @ApiPropertyOptional({ description: '結帳頁對所有人（含訪客）顯示' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isPublic?: boolean;
 
   @ApiPropertyOptional({ description: 'issueTrigger=spend 的單筆滿額門檻' })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(99999999.99)
   issueMinSpend?: number;
 
   @ApiPropertyOptional({
@@ -99,28 +109,30 @@ export class CreateCouponDto {
   issueTrigger?: CouponIssueTrigger | null;
 
   @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   menuItemIds?: string[];
 
   @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   menuSectionIds?: string[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  minSubtotal?: number;
+  @Max(99999999.99)
+  minSubtotal?: number | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()
   @Min(1)
-  perUserLimit?: number;
+  @Max(9999)
+  perUserLimit?: number | null;
 
   @ApiPropertyOptional({
     description: '兌換所需點數；null = 不可用點數兌換',
@@ -129,31 +141,37 @@ export class CreateCouponDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100000)
   pointsCost?: number | null;
 
   @ApiPropertyOptional({
     enum: couponScopeEnum.enumValues,
     enumName: 'CouponScope',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(couponScopeEnum.enumValues)
   scope?: CouponScope;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsInt()
   @Min(1)
-  totalLimit?: number;
+  @Max(1000000)
+  totalLimit?: number | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   validFrom?: string | null;
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   validThrough?: string | null;
 }
 
-export class UpdateCouponDto extends PartialType(CreateCouponDto) {}
+export class UpdateCouponDto extends PartialType(CreateCouponDto, {
+  skipNullProperties: false,
+}) {}

@@ -7,11 +7,20 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
+import {
+  IsLocalizedText,
+  IsCompleteLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
   servingTemperatureEnum,
@@ -41,21 +50,27 @@ const servingTemperatureOrder = (value: ServingTemperature) => {
 };
 
 export class CreateMenuItemDto {
-  @ApiProperty({ example: { 'zh-TW': '拿鐵', en: 'Latte' } })
-  @IsObject()
+  @ApiProperty({
+    type: LocalizedTextDto,
+    example: { 'zh-TW': '拿鐵', en: 'Latte' },
+  })
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   name: LocalizedText;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   @IsOptional()
-  @IsObject()
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   description?: LocalizedText | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
-  image?: string;
+  @Matches(IMAGE_DATA_URL_PATTERN)
+  image?: string | null;
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   @IsOptional()

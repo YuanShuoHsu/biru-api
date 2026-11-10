@@ -29,7 +29,10 @@ export class PointTransactionDto {
   orderNumber?: string | null;
   @ApiPropertyOptional({ description: '交易發生店家；redeem 屬品牌層為 null' })
   organizationName?: string | null;
-  @ApiProperty({ description: 'earn 為正、redeem 為負' }) points: number;
+  @ApiProperty({
+    description: 'earn 為正；redeem、revoke 為負；adjust 正負皆可',
+  })
+  points: number;
   @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
   type: PointTransactionType;
 }
@@ -40,8 +43,11 @@ export class OrganizationPointTransactionDto {
   @ApiPropertyOptional() expiresAt: Date | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
-  @ApiProperty({ description: 'earn 為正、revoke 為負' }) points: number;
-  @ApiProperty({ description: '尚未被兌換或收回的點數' })
+  @ApiPropertyOptional({ description: 'adjust 的調整原因' })
+  note: string | null;
+  @ApiProperty({ description: 'earn 為正、revoke 為負，adjust 正負皆可' })
+  points: number;
+  @ApiProperty({ description: '尚未被兌換、收回或扣除的點數' })
   remainingPoints: number;
   @ApiProperty({ enum: pointTransactionTypeEnum.enumValues })
   type: PointTransactionType;
@@ -55,11 +61,39 @@ export class OrganizationPointTransactionListResponseDto {
   @ApiProperty() total: number;
 }
 
+export class ExpiringPointsDto {
+  @ApiProperty({ description: '當天（台灣時間）最早到期的時間' })
+  expiresAt: Date;
+  @ApiProperty({
+    description:
+      '當天（台灣時間）到期的剩餘點數，已扣除同日收回的點數，合計不超過餘額',
+  })
+  points: number;
+}
+
 export class MyPointsDto {
   @ApiProperty({ description: '全店家合併餘額' }) balance: number;
+  @ApiProperty({
+    description:
+      '今天起 30 天內（台灣日期）到期的剩餘點數，依到期日分組，由近到遠',
+    type: [ExpiringPointsDto],
+  })
+  expiringSoon: ExpiringPointsDto[];
   @ApiProperty({ type: [PointsCouponDto] })
   redeemableCoupons: PointsCouponDto[];
   @ApiProperty({ type: [PointTransactionDto] })
   transactions: PointTransactionDto[];
   @ApiProperty({ description: '明細總筆數' }) transactionsTotal: number;
+}
+
+export class PointAdjustmentLimitDto {
+  @ApiProperty({ description: '點數是否已啟用；未啟用時無法補點或扣點' })
+  enabled: boolean;
+  @ApiProperty({
+    description:
+      '非 owner 在本店對同一會員每個台灣日可補扣的合計點數上限（NT$3,000 依每點金額換算，補點與扣點都以絕對值累計）；超過只有 owner 能做，0 = 只有 owner 能調整；呼叫者是 owner（含平台管理員）時為 null，不受上限限制',
+    nullable: true,
+    type: Number,
+  })
+  ownerOnlyAbovePoints: number | null;
 }

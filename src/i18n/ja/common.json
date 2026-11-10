@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "支給率は法定基準を下回れません。",
     "calendarLeaveInterval": "法定日数を暦日で指定してください（午前0時から午前0時、終了日を含まない）。",
     "calendarLeavePayRequired": "産休の事由は owner が確認済みの日額賃金を設定してください。支給率は勤続期間から自動計算されます。",
+    "calendarRangeTooLong": "カレンダーで一度に表示できるのは最大 62 日です。",
     "cancelIrreversible": "このシフトは現在のシフト規則を満たしていないため、取り消すと元に戻せません。",
     "cancelReasonRequired": "開始済みのシフトを取り消すには理由が必要です。",
     "cannotReviewOwnDraft": "自分が作成した給与明細は確認できません。別の管理者が確認してください。",
@@ -42,7 +43,6 @@
     "childcareReductionInvalid": "育児短時間勤務の期間は入社日以降で、登録済みの子どもの出生日から 3 歳の誕生日までの間である必要があります。先に従業員管理の「子どもの情報」で登録してください。",
     "indigenousHolidayInvalid": "歳時祭儀の休日は年 3 日までで、在職期間内・重複なし・国定休日以外の日にしてください。",
     "insufficientLeaveBalance": "休暇残数が不足しています。管理者に確認してください。",
-    "invalidBusinessNumber": "統一番号のチェックディジットが正しくありません。",
     "invalidEarningType": "この加算項目が見つかりません。",
     "invalidEmergencyDetails": "報告日時と連続 24 時間以上の代休を確認してください。",
     "invalidEventSequence": "打刻順序または時刻が不正です。出退勤時刻を確認してください。",
@@ -73,6 +73,7 @@
     "menstrualDayLimit": "生理休暇は月に 1 暦日までです。",
     "monthlyOvertimeExceeded": "当月の残業上限（通常 46 時間、延長期間は 54 時間）を超えます。",
     "noShifts": "対象月にシフトがありません。",
+    "notFound": "該当するデータが見つかりません。削除された可能性があります。",
     "occupationalIndustryInvalid": "この職災保険の業種が見つかりません。選び直してください。",
     "outsideShiftWindow": "現在このシフトに出勤打刻できません。",
     "overlappingAttendance": "この期間には既に別の出勤記録があります。",
@@ -127,10 +128,18 @@
     "withholdingUnitRequired": "先に申告単位情報を入力してください。",
     "workPermitRequired": "この従業員の法的身分では有効な就労許可が必要ですが、シフトまたは出勤日が許可期間外です。"
   },
+  "banners": {
+    "bannerNotFound": "バナーが見つかりません。削除された可能性があります",
+    "scheduleInvalid": "開始日時は終了日時より前にしてください"
+  },
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
+    "applicableOrganizationNotFound": "選択した店舗の一部が見つかりません。削除された可能性があります",
     "codeExists": "このクーポンコードはすでに存在します",
+    "couponNotFound": "クーポンが見つかりません。削除された可能性があります",
     "expired": "クーポンコードの有効期限が切れています",
+    "grantExpired": "このクーポンは有効期限が切れているため、配布できません",
+    "grantInactive": "このクーポンは無効になっているため、配布できません",
     "inUse": "このクーポンはすでにお客様が受け取っているため削除できません。無効化してください。",
     "issueMinSpendRequired": "金額達成特典には達成金額の設定が必要です",
     "itemScopeSingleOrganization": "商品指定クーポンは1店舗のみに適用できます",
@@ -147,30 +156,60 @@
     "perUserLimitReached": "このクーポンコードは既にご利用済みです",
     "percentageTooHigh": "パーセント割引は100を超えられません",
     "pointsOnly": "このクーポンコードはポイントと交換してからご利用いただけます",
+    "scheduleInvalid": "開始日時は終了日時より前にしてください",
     "usedUp": "このクーポンコードは利用上限に達しました"
   },
   "deletedRecords": {
     "restoreConflict": "復元できません：同じデータがすでに存在します（店舗スラッグ、クーポンコード、メールアドレスの重複、またはメンバーがすでに店舗に所属しているなど）。",
-    "restoreMissingReference": "復元できません：所属する上位データが存在しません。先に上位データを復元してください。"
+    "restoreMissingReference": "復元できません：所属する上位データが存在しません。先に上位データを復元してください。",
+    "restoreInvalid": "復元できません：現在の必須項目の条件を満たしていません（例：住所のない店舗）。新しく作成し直してください。",
+    "batchNotFound": "この削除記録が見つかりません。保存期間を過ぎた可能性があります。"
   },
   "exceptions": {
+    "badRequest": "リクエストが正しくありません",
+    "forbidden": "このデータにアクセスする権限がありません",
     "internalServerError": "内部サーバーエラー",
     "organizationClosed": "この店舗は営業を終了しました",
     "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
+    "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
+    "returnUrlNotAllowed": "この戻り先 URL は使用できません",
+    "smtpTestFailed": "テストメールを送信できませんでした。SMTP の設定を確認してから再度お試しください",
+    "statsSinceNotMonthStart": "開始時刻はプラットフォームのタイムゾーンで月初めにしてください",
     "tooManyRequests": "リクエストが多すぎます"
   },
   "gcis": {
-    "invalidBusinessNo": "統一編號の形式が正しくありません。8桁の数字で入力してください"
+    "companyNotFound": "この統一編号に該当する会社・商業登記が見つかりません。名称と住所を入力してください",
+    "lookupUnavailable": "現在、会社登記の照会を利用できません。名称と住所を入力してください"
   },
   "inventory": {
-    "packageRequired": "内容量、内容量の単位、価格、在庫単位はすべて入力が必要で、空にできません",
+    "ingredientInUse": "この食材はまだレシピで使われています。先にレシピから外してください",
+    "ingredientNotFound": "食材が見つかりません。削除された可能性があります",
+    "insufficientStock": "このバッチに必要な食材の在庫が足りません。先に仕入れるか棚卸ししてください",
+    "modifierRecipeYieldNotOne": "オプションに紐づけるレシピの出来高は 1 にしてください",
+    "packageRequired": "元レシピのない食材には、包装の価格・内容量・単位を入力してください",
     "packageUnitIncompatible": "内容量の単位と在庫単位に互換性がありません",
-    "recipeIngredientExists": "この材料はすでに追加されています"
+    "purchaseFieldsOnSourcedIngredient": "元レシピから作る食材には、包装の価格・内容量・仕入先を設定できません",
+    "recipeInUseAsSource": "次の自家製食材がまだこのレシピを元レシピにしています：{names}。先にこれらの食材から元レシピを外してください",
+    "recipeIngredientExists": "この材料はすでに追加されています",
+    "recipeIngredientNotFound": "レシピの材料が見つかりません。削除された可能性があります",
+    "recipeMenuItemAndModifier": "レシピはメニュー品目かオプションのどちらか一方にしか紐づけられません",
+    "recipeMenuItemTaken": "このメニュー品目にはすでにレシピがあります",
+    "recipeModifierTaken": "このオプションにはすでにレシピがあります",
+    "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
+    "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
+    "sourceRecipeHasModifier": "オプションに紐づいたレシピは食材の元レシピにできません",
+    "sourceRecipeNested": "元レシピには、別のレシピから作る食材を使えません",
+    "sourceRecipeRequired": "この食材には元レシピがないため、バッチで作れません",
+    "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
+    "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
+    "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"
   },
   "invoices": {
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",
     "alreadyIssuing": "このインボイスは発行処理中です。しばらくしてからお試しください",
+    "customerNameRequiresIdentifier": "個人・寄付のインボイスでは、買い手の名称は統一編号と一緒に入力した場合のみ訂正できます",
+    "invoiceNotFound": "この注文のインボイスが見つかりません",
     "notIssued": "このインボイスはまだ発行されていません",
     "notPaid": "注文が未払いのため、インボイスを発行できません",
     "notPending": "このインボイスは{status}のため、発行できません",
@@ -190,9 +229,20 @@
     "voidWriteFailed": "インボイス {invoiceNumber} は ECPay で無効化されましたが、システムに記録できませんでした。照会機能で確認のうえ手動で修正してください"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "追加セクションが見つかりません。削除された可能性があります",
     "addOnSelf": "追加購入商品に商品自身は指定できません",
+    "addOnTargetRequired": "追加購入には商品かカテゴリをどちらか一つだけ指定してください",
+    "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
+    "menuItemNotFound": "品目が見つかりません。削除された可能性があります",
+    "menuSectionNotFound": "セクションが見つかりません。削除された可能性があります",
+    "modifierGroupAttached": "このオプショングループはすでにこの商品に紐付けられています",
+    "modifierGroupNotFound": "オプショングループが見つかりません。削除された可能性があります",
+    "modifierNotFound": "オプションが見つかりません。削除された可能性があります",
+    "offerNotFound": "品目の価格が見つかりません。削除された可能性があります",
     "parentSectionDescendant": "カテゴリを自身のサブカテゴリの下に移動できません",
+    "parentSectionNotFound": "親セクションが見つかりません。削除された可能性があります",
     "parentSectionSelf": "カテゴリを自身の親カテゴリに設定できません",
+    "printerNotFound": "プリンターが見つかりません。削除された可能性があります",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
   "orderTickets": {
@@ -208,6 +258,7 @@
     "otherPrinters": "他の担当：{printers}",
     "pickupTime": "受取 {time}",
     "printJobResolved": "この伝票は確認済みです。再読み込みしてからもう一度お試しください",
+    "printerBusy": "削除中にこのプリンターへ新しい伝票が送られました。もう一度お試しください",
     "refund": "返品",
     "reprint": "再印刷",
     "servingTemperatureLevels": {
@@ -229,26 +280,52 @@
     "tableNumber": "テーブル {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "この注文方法では現金でお支払いいただけません",
     "idempotencyConflict": "注文内容が変更されました。もう一度送信してください。",
     "inStoreQrCodeRequired": "店内の QR コードを読み取ってご注文ください",
     "invalidTable": "テーブルの QR コードが無効です。テーブルの QR コードを読み取り直してください",
+    "menuChanged": "メニューが更新されました。カートの内容をご確認ください",
+    "menuItemInsufficientStock": "「{name}」の残りが足りません。数量を減らすか、別の品目をお選びください",
+    "menuItemOptionsInvalid": "「{name}」のオプションをもう一度ご確認ください",
     "menuItemUnavailable": "「{name}」は現在ご提供できません",
     "menuItemUnavailableAtTime": "「{name}」は選択した受取時間にはご提供できません",
     "menuItemUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
+    "modifierInsufficientStock": "「{name}」の残りが足りません。数量を減らすか、別のオプションをお選びください",
     "modifierUnavailable": "「{name}」は現在ご提供できません",
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
+    "onlinePaymentNotRequired": "この注文はオンライン決済の必要がありません",
+    "orderNotFound": "この注文が見つかりません",
+    "orderQrSecretNeverRotated": "QR コードはまだ再発行されていないため、元に戻せる以前のバージョンはありません",
+    "orderQrSessionNotFound": "注文セッションの有効期限が切れました。QR コードをもう一度読み取ってください",
     "orderTotalTooLarge": "注文金額が上限を超えています。商品を減らすか、注文を分けてください",
+    "paymentAttemptsExhausted": "この注文はお支払いの試行回数が上限に達しました。店舗にお問い合わせいただくか、お支払い期限を過ぎて注文が自動キャンセルされるまでお待ちください",
     "pickupOutsideOpeningHours": "この受取時間は店舗の営業時間外です。別の時間を選択してください",
+    "pickupTimeInvalid": "有効な受取時間を選択してください",
+    "pickupTimeUnavailableForMode": "受取時間を指定できるのはオンライン受取の注文のみです",
     "pickupTooCloseToClosing": "この受取時間は閉店時間に近すぎます。別の時間を選択してください",
     "pickupTooFarAhead": "この受取時間は予約可能な範囲を超えています。別の時間を選択してください",
     "pickupTooSoon": "この受取時間では準備が間に合いません。別の時間を選択してください",
-    "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください"
+    "statusChanged": "注文のステータスが変更されました。ページを更新してもう一度お試しください",
+    "tableNumberOutOfRange": "テーブル番号は 1 から店内テーブル数までの範囲で指定してください"
+  },
+  "organizations": {
+    "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
+    "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。",
+    "specialHoursEnded": "すでに終了した期間の特別営業日は追加・変更できません。",
+    "specialHoursInvalidRange": "特別営業日の開始日は終了日より後にできません。",
+    "specialHoursNotFound": "この特別営業日が見つかりません。削除された可能性があります。",
+    "specialHoursOverlap": "この期間は設定済みの特別営業日（{validFrom}〜{validThrough}）と重複しています。",
+    "specialHoursTooLong": "特別営業日は最長 1 年までです。"
   },
   "points": {
+    "adjustOwnerOnly": "この店舗で同じ会員へのポイント付与と減算が 1 日の合計で {maxPoints} ポイントを超える場合は、オーナーのみ調整できます",
+    "adjustSelf": "自分のポイントは調整できません",
     "insufficient": "ポイントが不足しています",
+    "notEnabled": "ポイント機能はまだ有効になっていません",
     "notRedeemable": "このクーポンはポイントと交換できません",
-    "perUserLimitReached": "このクーポンは既に交換済みです"
+    "perUserLimitReached": "このクーポンは既に交換済みです",
+    "settingNotFound": "ポイントのルールがまだ設定されていません"
   },
   "quant": {
     "aiKeyInvalid": "Claude API キーの検証に失敗しました：{message}",
@@ -302,6 +379,7 @@
   "refunds": {
     "allowanceExceeded": "返品値引金額 {amount} が、この領収書の残り値引可能額 {remaining} を超えています。ECPay管理画面で値引履歴をご確認ください",
     "alreadyRefunded": "この注文はすでに全額返金済みです",
+    "cardRefundUnavailable": "ECPay のクレジットカード返金にはテスト環境がないため、本番環境でのみ返金できます",
     "invalidAmount": "返金額を算出できません。注文金額をご確認ください",
     "itemNotInOrder": "返金対象の商品はこの注文に含まれていません",
     "noEcpayTransaction": "この注文には返金できる ECPay 取引がありません",
@@ -311,25 +389,99 @@
     "quantityExceeded": "「{name}」は残り {remaining} 点のみ返金できます",
     "resultUnknown": "返金を送信しましたが、ECPay からの結果がまだ届いていません。再操作はしないでください。システムが自動的に照合し、確認後にこの返金の状態を更新します。"
   },
+  "reports": {
+    "csv": {
+      "actualConsumption": "実消費量",
+      "adjusted": "調整",
+      "category": "カテゴリ",
+      "closing": "期末在庫",
+      "consumed": "消費",
+      "day": "日付",
+      "discount": "割引",
+      "employerInsurance": "雇用主負担保険料",
+      "employerPension": "雇用主年金拠出",
+      "gross": "総支給額",
+      "headcount": "人数",
+      "hour": "時間帯",
+      "ingredient": "食材",
+      "jobTitle": "職種",
+      "menuItem": "商品",
+      "missingEmployerInsurance": "雇用主負担保険料なしの明細数",
+      "mode": "注文方法",
+      "net": "純売上",
+      "noJobTitle": "職種未設定",
+      "opening": "期首在庫",
+      "orders": "注文数",
+      "paymentMethod": "支払方法",
+      "personnelCost": "人件費",
+      "quantity": "数量",
+      "received": "入庫",
+      "refunded": "返金",
+      "refundedQuantity": "返金数量",
+      "revenue": "売上",
+      "theoreticalConsumption": "理論消費量",
+      "total": "合計",
+      "uncategorized": "未分類",
+      "unit": "単位",
+      "variance": "差異"
+    },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "現金",
+      "Credit": "クレジットカード",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口Pay",
+      "TWQR": "モバイル決済",
+      "WeiXin": "WeChat Pay"
+    },
+    "rangeInvalid": "終了日時は開始日時より後にしてください。",
+    "rangeTooLong": "レポートの期間は最大 366 日です。",
+    "units": {
+      "GRM": "グラム",
+      "H87": "個",
+      "KGM": "キログラム",
+      "LTR": "リットル",
+      "MLT": "ミリリットル"
+    }
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
+    "notFound": "この店舗のフロアプランはまだありません。"
+  },
+  "storePhotos": {
+    "storePhotoNotFound": "店舗写真が見つかりません。削除された可能性があります"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "営業時間外のため、受付を停止しています。",
       "waitlistCutoff": "まもなく閉店のため、順番待ちの受付を終了しました。",
       "waitlistDisabled": "当店では店頭の順番待ち受付を行っていません。",
+      "waitlistGroupChanged": "この整理券は元に戻せません。もう一度番号札をお取りください。",
+      "waitlistGroupsInUse": "人数区分を変更中です。しばらくしてからもう一度お試しください。",
       "waitlistGroupsInvalid": "人数区分の設定が正しくありません。",
+      "waitlistIdempotencyConflict": "順番待ちの内容が変更されました。もう一度受付してください。",
       "waitlistPartySizeUnavailable": "この人数では受付できません。スタッフにお声がけください。",
       "waitlistPaused": "ただいま受付を一時停止しています。スタッフにお声がけください。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
+      "waitlistQrSessionNotFound": "店内のQRコードを読み取ってから番号札をお取りください。",
+      "waitlistTicketNotFound": "この整理券が見つかりません。もう一度番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
       "waitlistClosed": "営業時間外のため、受付を停止しています。",
       "waitlistCutoff": "まもなく閉店のため、順番待ちの受付を終了しました。",
       "waitlistDisabled": "この店舗では店頭の順番待ちがオフになっています。",
+      "waitlistGroupChanged": "この整理券の終了後に人数区分が変更されたため、元に戻せません。代理登録で新しく登録してください。",
+      "waitlistGroupsInUse": "待機中または呼び出し中の整理券がある間は人数区分を変更できません。先に案内済み、スキップ、キャンセルのいずれかにしてください。",
       "waitlistGroupsInvalid": "人数区分は 1 から連続し、重複しないように設定してください。",
+      "waitlistIdempotencyConflict": "登録内容が変更されました。フォームを閉じてもう一度操作してください。",
       "waitlistPartySizeUnavailable": "この人数に該当する区分がありません。",
       "waitlistPaused": "受付を一時停止しています。",
       "waitlistPhoneInQueue": "この電話番号はすでに順番待ちに登録されています。",
+      "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
+      "waitlistQrSessionNotFound": "QRコードの受付が見つからないか、有効期限が切れています。",
+      "waitlistTicketNotFound": "整理券が見つかりません。再読み込みしてください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

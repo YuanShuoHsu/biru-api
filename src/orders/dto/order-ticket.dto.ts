@@ -1,5 +1,8 @@
+import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayNotEmpty,
+  ArrayUnique,
   IsArray,
   IsNotEmpty,
   IsString,
@@ -13,6 +16,7 @@ import {
   type OrderTicketKind,
 } from '../../db/schema/printers.js';
 import { PrintJobDto, PrinterDto } from '../../printers/dto/printer.dto.js';
+import { trim } from '../../common/utils/trim.js';
 
 export class OrderTicketJobDto extends PrintJobDto {
   @ApiProperty({
@@ -34,6 +38,7 @@ export class CreateOrderTicketPrinterDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @Transform(trim)
   name: string;
 }
 
@@ -55,6 +60,8 @@ export class ReprintOrderTicketDto {
   @ApiProperty({ description: '要補印的工作單印表機', type: [String] })
   @IsArray()
   @ArrayNotEmpty()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
   @IsString({ each: true })
   printerIds: string[];
 }

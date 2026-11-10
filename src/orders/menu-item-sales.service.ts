@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { eq, sql } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
@@ -7,6 +7,7 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { orderItemMovements } from './counted-orders.js';
 import type { MenuItemSalesResponseDto } from './dto/menu-item-sales.dto.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 export const SALES_WINDOW_DAYS = 30;
 
@@ -17,16 +18,17 @@ export const getSalesWindowStart = (days: number): Date =>
 export class MenuItemSalesService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  private async querySales(
+  async querySales(
     organizationId: string,
     since: Date,
+    until?: Date,
   ): Promise<MenuItemSalesResponseDto[]> {
     const { rows } = await this.db.execute<{
       menuItemId: string;
       menuItemName: string;
       sold: number;
     }>(sql`
-      WITH movements AS (${orderItemMovements(organizationId, since)}),
+      WITH movements AS (${orderItemMovements(organizationId, since, until)}),
       sales AS (
         SELECT entry.menu_item_id, entry.menu_item_name, m.quantity, oi.created_at
         FROM movements m
@@ -64,12 +66,14 @@ export class MenuItemSalesService {
   async getSalesBySlug(
     organizationSlug: string,
     since: Date,
+    until?: Date,
   ): Promise<MenuItemSalesResponseDto[]> {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
+      columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
-    return this.querySales(org.id, since);
+    return this.querySales(org.id, since, until);
   }
 }

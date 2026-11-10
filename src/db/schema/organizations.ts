@@ -1,5 +1,8 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
+  check,
+  date,
   index,
   integer,
   numeric,
@@ -17,6 +20,7 @@ export const memberRoleEnum = pgEnum('member_role', [
 ]);
 export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
+import { timestamps } from './columns.helpers.js';
 import { user } from './users.js';
 
 export const organization = pgTable(
@@ -30,12 +34,12 @@ export const organization = pgTable(
     metadata: text('metadata'),
     // additional fields
     // https://schema.org/PostalAddress
-    addressCountry: text('address_country'),
-    addressLocality: text('address_locality'),
-    addressRegion: text('address_region'),
+    addressCountry: text('address_country').notNull(),
+    addressLocality: text('address_locality').notNull(),
+    addressRegion: text('address_region').notNull(),
     extendedAddress: text('extended_address'),
     postalCode: text('postal_code'),
-    streetAddress: text('street_address'),
+    streetAddress: text('street_address').notNull(),
 
     // https://schema.org/LocalBusiness
     hasMap: text('has_map'),
@@ -44,9 +48,6 @@ export const organization = pgTable(
 
     currency: text('currency').notNull().default('TWD'),
 
-    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
-    pointsEnabledAt: timestamp('points_enabled_at'),
-    pointsValidityYears: integer('points_validity_years'),
     pickupLeadMinutes: integer('pickup_lead_minutes').notNull().default(15),
     pickupMaxAdvanceDays: integer('pickup_max_advance_days')
       .notNull()
@@ -55,7 +56,16 @@ export const organization = pgTable(
     dineInTableCount: integer('dine_in_table_count'),
     closedAt: timestamp('closed_at'),
   },
-  (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
+  (table) => [
+    check(
+      'organization_name_slug_not_blank',
+      sql`btrim(${table.name}) <> '' and btrim(${table.slug}) <> ''`,
+    ),
+    check(
+      'organization_address_not_blank',
+      sql`btrim(${table.addressCountry}) <> '' and btrim(${table.addressLocality}) <> '' and btrim(${table.addressRegion}) <> '' and btrim(${table.streetAddress}) <> ''`,
+    ),
+  ],
 );
 
 export type Organization = typeof organization.$inferSelect;
@@ -88,6 +98,31 @@ export const organizationQrSecret = pgTable('organization_qr_secret', {
   rotatedAt: timestamp('rotated_at').notNull().defaultNow(),
 });
 
+// 同一門市的區間不可重疊：EXCLUDE 約束手寫在 migration，drizzle schema 表達不出來
+export const organizationSpecialHours = pgTable(
+  'organization_special_hours',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    validFrom: date('valid_from').notNull(),
+    validThrough: date('valid_through').notNull(),
+    openingHours: text('opening_hours'),
+    note: text('note'),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'organization_special_hours_valid_range',
+      sql`${table.validFrom} <= ${table.validThrough}`,
+    ),
+  ],
+);
+
+export type OrganizationSpecialHours =
+  typeof organizationSpecialHours.$inferSelect;
+
 export const team = pgTable(
   'team',
   {
@@ -100,7 +135,10 @@ export const team = pgTable(
     createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').$onUpdate(() => new Date()),
   },
-  (table) => [index('team_organizationId_idx').on(table.organizationId)],
+  (table) => [
+    index('team_organizationId_idx').on(table.organizationId),
+    check('team_name_not_blank', sql`btrim(${table.name}) <> ''`),
+  ],
 );
 
 export type Team = typeof team.$inferSelect;
@@ -142,6 +180,10 @@ export const member = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: memberRoleEnum('role').default('member').notNull(),
+    showcase: boolean('showcase').default(false).notNull(),
+    joinedAsPlatformAdmin: boolean('joined_as_platform_admin')
+      .default(false)
+      .notNull(),
     createdAt: timestamp('created_at').notNull(),
   },
   (table) => [

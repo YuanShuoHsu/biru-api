@@ -38,20 +38,20 @@ export interface PionexSpotGridData {
   top?: string;
 }
 
-export interface PionexSpotGridCheck {
+interface PionexSpotGridCheck {
   estimateFee?: string;
   estimatePerVolume?: string;
   maxInvestment?: string;
   minInvestment?: string;
 }
 
-export interface PionexSpotGridOrder {
+interface PionexSpotGridOrder {
   buOrderData: PionexSpotGridData;
   buOrderId: string;
   status: string;
 }
 
-export interface PionexSpotGridAiStrategy {
+interface PionexSpotGridAiStrategy {
   annualized: string;
   gridCount: number;
   high: string;

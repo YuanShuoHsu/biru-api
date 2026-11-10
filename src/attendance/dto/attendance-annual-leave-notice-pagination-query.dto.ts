@@ -37,20 +37,20 @@ export const ATTENDANCE_ANNUAL_LEAVE_NOTICE_NUMBER_FILTER_FIELDS = [
   'unusedMinutes',
 ] as const;
 
-export const ATTENDANCE_ANNUAL_LEAVE_NOTICE_FILTER_FIELDS = [
+const ATTENDANCE_ANNUAL_LEAVE_NOTICE_FILTER_FIELDS = [
   ...ATTENDANCE_ANNUAL_LEAVE_NOTICE_STRING_FILTER_FIELDS,
   ...ATTENDANCE_ANNUAL_LEAVE_NOTICE_ENUM_FILTER_FIELDS,
   ...ATTENDANCE_ANNUAL_LEAVE_NOTICE_DATE_FILTER_FIELDS,
   ...ATTENDANCE_ANNUAL_LEAVE_NOTICE_NUMBER_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceAnnualLeaveNoticeFilterField =
+type AttendanceAnnualLeaveNoticeFilterField =
   (typeof ATTENDANCE_ANNUAL_LEAVE_NOTICE_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_ANNUAL_LEAVE_NOTICE_SORT_FIELDS =
+const ATTENDANCE_ANNUAL_LEAVE_NOTICE_SORT_FIELDS =
   ATTENDANCE_ANNUAL_LEAVE_NOTICE_FILTER_FIELDS;
 
-export type AttendanceAnnualLeaveNoticeSortField =
+type AttendanceAnnualLeaveNoticeSortField =
   (typeof ATTENDANCE_ANNUAL_LEAVE_NOTICE_SORT_FIELDS)[number];
 
 export class AttendanceAnnualLeaveNoticePaginationQueryDto extends PaginationQueryDto {

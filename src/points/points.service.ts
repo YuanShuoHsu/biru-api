@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
   and,
@@ -14,6 +14,8 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lt,
+  ne,
   notInArray,
   or,
   sql,
@@ -21,7 +23,6 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { coupon, userCoupon, type Coupon } from '../db/schema/coupons.js';
 import {
   ORDER_TERMINAL_STATUSES,
@@ -29,22 +30,44 @@ import {
   orderItem,
 } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
-import { pointTransaction } from '../db/schema/points.js';
+import {
+  POINT_SETTING_ID,
+  pointSetting,
+  pointTransaction,
+  type PointTransaction,
+} from '../db/schema/points.js';
 import { user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { MailsService } from '../mails/mails.service.js';
 
-import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
+import {
+  DAY_MS,
+  platformDayNumber,
+  platformMidnight,
+  toPlatformTime,
+} from '../common/constants/timezone.js';
+import {
+  isCouponDeleted,
+  withinCapacity,
+  withinValidity,
+} from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 
+import {
+  badRequestError as couponBadRequestError,
+  notFoundError as couponNotFoundError,
+} from '../coupons/coupon-errors.js';
 import type { UserCouponResponseDto } from '../coupons/dto/coupon-response.dto.js';
 
+import type { AdjustPointsDto } from './dto/adjust-points.dto.js';
+import { badRequestError, forbiddenError } from './point-errors.js';
 import {
   POINT_TRANSACTION_DATE_FILTER_FIELDS,
   POINT_TRANSACTION_ENUM_FILTER_FIELDS,
@@ -54,21 +77,110 @@ import {
 } from './dto/organization-point-transaction-query.dto.js';
 import type { PointsPaginationQueryDto } from './dto/points-pagination-query.dto.js';
 import type {
+  ExpiringPointsDto,
   MyPointsDto,
+  OrganizationPointTransactionDto,
   OrganizationPointTransactionListResponseDto,
+  PointAdjustmentLimitDto,
   PointsCouponDto,
 } from './dto/points-response.dto.js';
 
-const toExpiresAt = (
-  paymentDate: Date,
-  validityYears: number | null,
-): Date | null =>
-  validityYears
-    ? new Date(
-        new Date(paymentDate).setFullYear(
-          paymentDate.getFullYear() + validityYears,
-        ),
-      )
+const OWNER_ONLY_ADJUSTMENT_AMOUNT = 3000;
+
+const EXPIRING_SOON_DAYS = 30;
+
+const EXPIRY_REMINDER_FIRST_DAY = 24;
+
+const POINTS_VALIDITY_YEARS = 1;
+
+const maxNonOwnerAdjustPoints = (amountPerPoint: string | null | undefined) => {
+  const centsPerPoint = Math.round(Number(amountPerPoint) * 100);
+  return centsPerPoint > 0
+    ? Math.floor((OWNER_ONLY_ADJUSTMENT_AMOUNT * 100) / centsPerPoint)
+    : 0;
+};
+
+const isOwnerRole = (memberRole: string) =>
+  memberRole.split(',').some((role) => role.trim() === 'owner');
+
+// 沒有快照的訂單只認啟用點數之後付款的，避免回溯補發整段歷史
+const earnedFromSnapshotOr = <T>(snapshot: Column, current: Column) =>
+  sql<T>`CASE WHEN ${order.amountPerPoint} IS NOT NULL THEN ${snapshot} WHEN ${order.paymentDate} >= ${pointSetting.pointsEnabledAt} THEN ${current} END`;
+
+const EARN_AMOUNT_PER_POINT = earnedFromSnapshotOr<string | null>(
+  order.amountPerPoint,
+  pointSetting.amountPerPoint,
+);
+
+// 未付款訂單付款時才快照目前設定，所以預估用目前設定
+const EXPECTED_AMOUNT_PER_POINT = sql<
+  string | null
+>`CASE WHEN ${order.paymentDate} IS NULL THEN ${pointSetting.amountPerPoint} ELSE ${EARN_AMOUNT_PER_POINT} END`;
+
+const EARN_SUBTOTAL = sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`;
+
+const toExpiresAt = (earnedAt: Date): Date => {
+  const earnedDay = toPlatformTime(earnedAt);
+  const year = earnedDay.getUTCFullYear() + POINTS_VALIDITY_YEARS;
+  const month = earnedDay.getUTCMonth();
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const anniversary = Date.UTC(
+    year,
+    month,
+    Math.min(earnedDay.getUTCDate(), lastDayOfMonth),
+  );
+
+  return new Date(platformMidnight(anniversary) + DAY_MS - 1);
+};
+
+const expiringByPlatformDay = (
+  lots: { expiresAt: Date; remainingPoints: number }[],
+  balance: number,
+): ExpiringPointsDto[] => {
+  const days = new Map<number, ExpiringPointsDto>();
+  for (const { expiresAt, remainingPoints } of lots) {
+    const day = platformDayNumber(expiresAt.getTime());
+    const group = days.get(day) ?? { expiresAt, points: 0 };
+    group.points += remainingPoints;
+    days.set(day, group);
+  }
+
+  let available = Math.max(balance, 0);
+  return [...days.values()].flatMap(({ expiresAt, points }) => {
+    const shown = Math.min(points, available);
+    if (shown <= 0) return [];
+    available -= shown;
+    return [{ expiresAt, points: shown }];
+  });
+};
+
+const LOT_CONSUMPTION_ORDER = [
+  asc(pointTransaction.expiresAt),
+  asc(pointTransaction.createdAt),
+  asc(pointTransaction.id),
+];
+
+const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
+
+const earnedPoints = (
+  subtotal: string,
+  discount: string | null,
+  amountPerPoint: string | null,
+): number => {
+  const centsPerPoint = toCents(amountPerPoint);
+
+  return centsPerPoint > 0
+    ? Math.floor((toCents(subtotal) - toCents(discount)) / centsPerPoint)
+    : 0;
+};
+
+const expectedPointsFor = (
+  subtotal: string,
+  discount: string | null,
+  amountPerPoint: string | null,
+): number | null =>
+  Number(amountPerPoint) > 0
+    ? Math.max(earnedPoints(subtotal, discount, amountPerPoint), 0)
     : null;
 
 const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
@@ -87,45 +199,29 @@ const toPointsCoupon = (found: Coupon): PointsCouponDto => ({
 
 @Injectable()
 export class PointsService {
+  private readonly logger = new Logger(PointsService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly mails: MailsService,
   ) {}
 
-  private t(
-    key: 'insufficient' | 'notRedeemable' | 'perUserLimitReached',
-  ): string {
-    return this.i18n.t(`common.points.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  private tCoupons(key: 'usedUp'): string {
-    return this.i18n.t(`common.coupons.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的未用點數收回
+  // Lazy 入點：已付款且未取消的訂單補入 earn；已取消訂單的點數收回
   private async syncEarned(
     scope: { userId: string } | { organizationId: string },
   ): Promise<void> {
-    // 費率以付款當下的訂單快照為準；早於快照欄位的歷史訂單 fallback 組織現值
     const unrecorded = await this.db
       .select({
-        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
+        amountPerPoint: EARN_AMOUNT_PER_POINT,
         discount: order.discount,
         orderId: order.id,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: sql<
-          number | null
-        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
-      .innerJoin(organization, eq(order.sellerId, organization.id))
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
       .leftJoin(orderItem, eq(orderItem.orderId, order.id))
       .leftJoin(
         pointTransaction,
@@ -144,23 +240,24 @@ export class PointsService {
               ),
           isNotNull(order.paymentDate),
           notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
-          sql`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint}) > 0`,
-          // 僅累計啟用點數之後付款的訂單，避免回溯補發整段歷史
-          gte(order.paymentDate, organization.pointsEnabledAt),
+          sql`${EARN_AMOUNT_PER_POINT} > 0`,
           isNull(pointTransaction.id),
         ),
       )
-      .groupBy(order.id, organization.id);
+      .groupBy(order.id, pointSetting.id);
 
     const earns = unrecorded.flatMap((row) => {
-      const total = Number(row.subtotal) - Number(row.discount || 0);
-      const points = Math.floor(total / Number(row.amountPerPoint));
+      const points = earnedPoints(
+        row.subtotal,
+        row.discount,
+        row.amountPerPoint,
+      );
       if (points <= 0) return [];
 
       return [
         {
           id: randomUUID(),
-          expiresAt: toExpiresAt(row.paymentDate!, row.pointsValidityYears),
+          expiresAt: toExpiresAt(row.paymentDate!),
           orderId: row.orderId,
           organizationId: row.organizationId,
           points,
@@ -170,17 +267,22 @@ export class PointsService {
         },
       ];
     });
-    if (earns.length > 0)
+    if (earns.length > 0) {
       await this.db
         .insert(pointTransaction)
         .values(earns)
         .onConflictDoNothing();
+      for (const userId of new Set(earns.map((earn) => earn.userId)))
+        await this.db.transaction((tx) => this.settleDebts(tx, userId));
+    }
 
     const revoked = alias(pointTransaction, 'revoked');
 
     const revocable = await this.db
       .select({
         id: pointTransaction.id,
+        orderId: order.id,
+        orderStatus: order.orderStatus,
         points: pointTransaction.points,
         remainingPoints: pointTransaction.remainingPoints,
       })
@@ -196,7 +298,7 @@ export class PointsService {
             ? eq(pointTransaction.userId, scope.userId)
             : eq(pointTransaction.organizationId, scope.organizationId),
           eq(pointTransaction.type, 'earn'),
-          gt(pointTransaction.remainingPoints, 0),
+          gte(pointTransaction.remainingPoints, 0),
           isNull(revoked.id),
           or(
             inArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
@@ -209,9 +311,13 @@ export class PointsService {
     const removableIds = revocable
       .filter((r) => r.remainingPoints === r.points)
       .map((r) => r.id);
-    const drainableIds = revocable
-      .filter((r) => r.remainingPoints !== r.points)
-      .map((r) => r.id);
+    const drainableOrderIds = revocable
+      .filter(
+        (r) =>
+          r.remainingPoints !== r.points &&
+          ORDER_TERMINAL_STATUSES.some((status) => status === r.orderStatus),
+      )
+      .map((r) => r.orderId);
 
     if (removableIds.length > 0)
       await this.db
@@ -222,17 +328,120 @@ export class PointsService {
             eq(pointTransaction.remainingPoints, pointTransaction.points),
           ),
         );
-    for (const id of drainableIds) {
-      const target = revocable.find((r) => r.id === id)!;
+    for (const orderId of drainableOrderIds)
+      await this.db.transaction((tx) =>
+        this.revokeForOrder(tx, {
+          orderBecomesTerminal: true,
+          orderId,
+          ratio: 1,
+        }),
+      );
+  }
 
-      await this.db
+  private lockPoints(
+    tx: Pick<DrizzleDB, 'select'>,
+    userId: string,
+    orderId?: string,
+  ) {
+    return tx
+      .select({
+        id: pointTransaction.id,
+        createdAt: pointTransaction.createdAt,
+        expiresAt: pointTransaction.expiresAt,
+        orderId: pointTransaction.orderId,
+        organizationId: pointTransaction.organizationId,
+        points: pointTransaction.points,
+        remainingPoints: pointTransaction.remainingPoints,
+        type: pointTransaction.type,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.userId, userId),
+          or(
+            and(this.notExpired(), ne(pointTransaction.remainingPoints, 0)),
+            orderId ? eq(pointTransaction.orderId, orderId) : undefined,
+          ),
+        ),
+      )
+      .orderBy(...LOT_CONSUMPTION_ORDER)
+      .for('update');
+  }
+
+  private async settleDebts(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    userId: string,
+  ): Promise<void> {
+    const rows = await this.lockPoints(tx, userId);
+
+    const lots = rows.filter((row) => row.remainingPoints > 0);
+    const debts = [];
+    for (const row of rows.filter((row) => row.remainingPoints < 0))
+      debts.push(
+        row.type === 'earn'
+          ? {
+              ...row,
+              id: await this.separateLegacyDebt(tx, { ...row, userId }),
+            }
+          : row,
+      );
+    debts.sort(
+      (a, b) =>
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    );
+    const settled = new Map<string, number>();
+    for (const debt of debts)
+      for (const lot of lots) {
+        if (debt.remainingPoints === 0) break;
+        if (lot.remainingPoints <= 0) continue;
+        const consumed = Math.min(lot.remainingPoints, -debt.remainingPoints);
+        lot.remainingPoints -= consumed;
+        debt.remainingPoints += consumed;
+        settled.set(lot.id, lot.remainingPoints);
+        settled.set(debt.id, debt.remainingPoints);
+      }
+
+    for (const [id, remainingPoints] of settled)
+      await tx
         .update(pointTransaction)
-        .set({
-          remainingPoints: target.remainingPoints - target.points,
-          updatedAt: new Date(),
-        })
+        .set({ remainingPoints, updatedAt: new Date() })
         .where(eq(pointTransaction.id, id));
-    }
+  }
+
+  private async separateLegacyDebt(
+    tx: Pick<DrizzleDB, 'insert' | 'select' | 'update'>,
+    earn: Pick<
+      PointTransaction,
+      | 'id'
+      | 'expiresAt'
+      | 'orderId'
+      | 'organizationId'
+      | 'points'
+      | 'remainingPoints'
+      | 'userId'
+    >,
+  ): Promise<string> {
+    if (!earn.orderId || (await this.revokedForOrder(tx, earn.orderId)) > 0)
+      return earn.id;
+
+    const id = randomUUID();
+    await tx.insert(pointTransaction).values({
+      id,
+      expiresAt: earn.expiresAt,
+      orderId: earn.orderId,
+      organizationId: earn.organizationId,
+      points: -earn.points,
+      remainingPoints: earn.remainingPoints,
+      type: 'revoke',
+      userId: earn.userId,
+    });
+    await tx
+      .update(pointTransaction)
+      .set({ remainingPoints: 0, updatedAt: new Date() })
+      .where(eq(pointTransaction.id, earn.id));
+
+    return id;
   }
 
   async revokeForOrder(
@@ -243,6 +452,12 @@ export class PointsService {
       ratio,
     }: { orderBecomesTerminal: boolean; orderId: string; ratio: number },
   ): Promise<void> {
+    const [buyer] = await tx
+      .select({ userId: order.userId })
+      .from(order)
+      .where(eq(order.id, orderId));
+    if (buyer?.userId) await this.lockPoints(tx, buyer.userId, orderId);
+
     const [earned] = await tx
       .select({
         id: pointTransaction.id,
@@ -278,7 +493,10 @@ export class PointsService {
       const pending = await this.calculatePendingEarn(tx, orderId);
       if (!pending || pending.points <= 0) return;
 
-      const revoking = Math.round(pending.points * ratio);
+      const revoking = Math.min(
+        Math.round(pending.points * ratio),
+        pending.points - (await this.revokedForOrder(tx, orderId)),
+      );
       if (revoking <= 0) return;
 
       await tx.insert(pointTransaction).values({
@@ -291,11 +509,18 @@ export class PointsService {
         type: 'revoke',
         userId: pending.userId,
       });
+      await this.settleDebts(tx, pending.userId);
 
       return;
     }
 
-    const revoking = Math.round(earned.points * ratio);
+    if (earned.remainingPoints < 0)
+      await this.separateLegacyDebt(tx, { ...earned, orderId });
+
+    const unrevoked = earned.points - (await this.revokedForOrder(tx, orderId));
+    const revoking = orderBecomesTerminal
+      ? unrevoked
+      : Math.min(Math.round(earned.points * ratio), unrevoked);
     if (revoking <= 0) return;
 
     const deductible = Math.max(earned.remainingPoints, 0);
@@ -321,6 +546,29 @@ export class PointsService {
       type: 'revoke',
       userId: earned.userId,
     });
+    if (deducted < revoking) await this.settleDebts(tx, earned.userId);
+  }
+
+  private async revokedForOrder(
+    tx: Pick<DrizzleDB, 'select'>,
+    orderId: string,
+  ): Promise<number> {
+    const [{ revoked }] = await tx
+      .select({
+        revoked:
+          sql<number>`-COALESCE(SUM(${pointTransaction.points}), 0)`.mapWith(
+            Number,
+          ),
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.orderId, orderId),
+          eq(pointTransaction.type, 'revoke'),
+        ),
+      );
+
+    return revoked;
   }
 
   /** 尚未 lazy 入點的訂單，依付款當下的快照算出它應得多少點 */
@@ -335,44 +583,122 @@ export class PointsService {
   } | null> {
     const [found] = await tx
       .select({
-        amountPerPoint: sql<string>`COALESCE(${order.amountPerPoint}, ${organization.amountPerPoint})`,
+        amountPerPoint: EARN_AMOUNT_PER_POINT,
         discount: order.discount,
         organizationId: order.sellerId,
         paymentDate: order.paymentDate,
-        pointsValidityYears: sql<
-          number | null
-        >`COALESCE(${order.pointsValidityYears}, ${organization.pointsValidityYears})`,
-        subtotal: sql<string>`COALESCE(SUM(${orderItem.unitPrice} * ${orderItem.orderQuantity}), 0)`,
+        subtotal: EARN_SUBTOTAL,
         userId: order.userId,
       })
       .from(order)
-      .innerJoin(organization, eq(order.sellerId, organization.id))
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
       .leftJoin(orderItem, eq(orderItem.orderId, order.id))
       .where(eq(order.id, orderId))
-      .groupBy(order.id, organization.id);
+      .groupBy(order.id, pointSetting.id);
 
     if (!found?.userId) return null;
 
-    const amountPerPoint = Number(found.amountPerPoint);
-    if (!amountPerPoint) return null;
-
-    const total = Number(found.subtotal) - Number(found.discount || 0);
+    if (!Number(found.amountPerPoint)) return null;
 
     return {
-      expiresAt: found.paymentDate
-        ? toExpiresAt(found.paymentDate, found.pointsValidityYears)
-        : null,
+      expiresAt: found.paymentDate ? toExpiresAt(found.paymentDate) : null,
       organizationId: found.organizationId,
-      points: Math.floor(total / amountPerPoint),
+      points: earnedPoints(
+        found.subtotal,
+        found.discount,
+        found.amountPerPoint,
+      ),
       userId: found.userId,
     };
+  }
+
+  async expectedPoints(orderIds: string[]): Promise<Map<string, number>> {
+    if (orderIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        amountPerPoint: EXPECTED_AMOUNT_PER_POINT,
+        discount: order.discount,
+        orderId: order.id,
+        subtotal: EARN_SUBTOTAL,
+      })
+      .from(order)
+      .leftJoin(pointSetting, eq(pointSetting.id, POINT_SETTING_ID))
+      .leftJoin(orderItem, eq(orderItem.orderId, order.id))
+      .where(
+        and(
+          inArray(order.id, orderIds),
+          isNotNull(order.userId),
+          notInArray(order.orderStatus, [...ORDER_TERMINAL_STATUSES]),
+        ),
+      )
+      .groupBy(order.id, pointSetting.id);
+
+    return new Map(
+      rows.flatMap((row) => {
+        const points = expectedPointsFor(
+          row.subtotal,
+          row.discount,
+          row.amountPerPoint,
+        );
+
+        return points === null ? [] : [[row.orderId, points] as const];
+      }),
+    );
+  }
+
+  async estimatePoints(
+    subtotal: number,
+    discount: number,
+  ): Promise<number | null> {
+    const setting = await this.db.query.pointSetting.findFirst();
+
+    return expectedPointsFor(
+      subtotal.toFixed(2),
+      discount.toFixed(2),
+      setting?.amountPerPoint ?? null,
+    );
   }
 
   private notExpired() {
     return or(
       isNull(pointTransaction.expiresAt),
       gt(pointTransaction.expiresAt, new Date()),
+      lt(pointTransaction.remainingPoints, 0),
     );
+  }
+
+  private balance() {
+    return sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
+      Number,
+    );
+  }
+
+  private expiringLots(userIds: string[]) {
+    return this.db
+      .select({
+        id: pointTransaction.id,
+        expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+          pointTransaction.expiresAt,
+        ),
+        remainingPoints: pointTransaction.remainingPoints,
+        userId: pointTransaction.userId,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          inArray(pointTransaction.userId, userIds),
+          gt(pointTransaction.remainingPoints, 0),
+          this.notExpired(),
+          lt(
+            pointTransaction.expiresAt,
+            new Date(
+              platformMidnight(Date.now()) + (EXPIRING_SOON_DAYS + 1) * DAY_MS,
+            ),
+          ),
+        ),
+      )
+      .orderBy(asc(pointTransaction.expiresAt));
   }
 
   async findAllForOrganization(
@@ -436,10 +762,13 @@ export class PointsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.email, `%${value}%`),
-          ilike(user.name, `%${value}%`),
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(localTimeText(pointTransaction.createdAt), `%${value}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(pointTransaction.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -451,6 +780,7 @@ export class PointsService {
           createdAt: pointTransaction.createdAt,
           expiresAt: pointTransaction.expiresAt,
           orderId: pointTransaction.orderId,
+          note: pointTransaction.note,
           orderNumber: order.orderNumber,
           points: pointTransaction.points,
           remainingPoints: pointTransaction.remainingPoints,
@@ -476,6 +806,179 @@ export class PointsService {
     return { data, total };
   }
 
+  private async isCustomerOf(
+    organizationId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const [paidOrder] = await this.db
+      .select({ id: order.id })
+      .from(order)
+      .where(
+        and(
+          eq(order.sellerId, organizationId),
+          eq(order.userId, userId),
+          isNotNull(order.paymentDate),
+        ),
+      )
+      .limit(1);
+    if (paidOrder) return true;
+    const [transaction] = await this.db
+      .select({ id: pointTransaction.id })
+      .from(pointTransaction)
+      .where(
+        and(
+          eq(pointTransaction.organizationId, organizationId),
+          eq(pointTransaction.userId, userId),
+        ),
+      )
+      .limit(1);
+    return !!transaction;
+  }
+
+  async getAdjustmentLimit(
+    memberRole: string,
+  ): Promise<PointAdjustmentLimitDto> {
+    const setting = await this.db.query.pointSetting.findFirst();
+    return {
+      enabled: !!setting?.pointsEnabledAt,
+      ownerOnlyAbovePoints: isOwnerRole(memberRole)
+        ? null
+        : maxNonOwnerAdjustPoints(setting?.amountPerPoint),
+    };
+  }
+
+  async adjustForOrganization(
+    organizationSlug: string,
+    { email, note, points }: AdjustPointsDto,
+    adjustedBy: string,
+    adjusterRole: string,
+  ): Promise<OrganizationPointTransactionDto> {
+    const organizationId = await getOrganizationIdBySlug(
+      this.db,
+      organizationSlug,
+    );
+    const setting = await this.db.query.pointSetting.findFirst();
+    if (!setting?.pointsEnabledAt) throw badRequestError('notEnabled');
+    const { amountPerPoint } = setting;
+
+    const maxNonOwnerPoints = maxNonOwnerAdjustPoints(amountPerPoint);
+    if (Math.abs(points) > maxNonOwnerPoints && !isOwnerRole(adjusterRole))
+      throw forbiddenError('adjustOwnerOnly', {
+        maxPoints: maxNonOwnerPoints,
+      });
+
+    const target = await this.db.query.user.findFirst({
+      where: sql`lower(${user.email}) = lower(${email.trim()})`,
+    });
+    if (!target) throw couponNotFoundError('memberNotFound');
+    if (target.id === adjustedBy) throw badRequestError('adjustSelf');
+    if (!(await this.isCustomerOf(organizationId, target.id)))
+      throw couponNotFoundError('memberNotFound');
+
+    await this.syncEarned({ userId: target.id });
+
+    const created = await this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`points_adjust:${organizationId}:${target.id}`}, 0))`,
+      );
+      if (!isOwnerRole(adjusterRole)) {
+        const [{ adjustedToday }] = await tx
+          .select({
+            adjustedToday: sql<number>`COALESCE(SUM(ABS(${pointTransaction.points})), 0)::int`,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.organizationId, organizationId),
+              eq(pointTransaction.userId, target.id),
+              eq(pointTransaction.type, 'adjust'),
+              gte(
+                pointTransaction.createdAt,
+                new Date(platformMidnight(Date.now())),
+              ),
+            ),
+          );
+        if (adjustedToday + Math.abs(points) > maxNonOwnerPoints)
+          throw forbiddenError('adjustOwnerOnly', {
+            maxPoints: maxNonOwnerPoints,
+          });
+      }
+
+      if (points < 0) {
+        const holdings = await tx
+          .select({
+            id: pointTransaction.id,
+            remainingPoints: pointTransaction.remainingPoints,
+          })
+          .from(pointTransaction)
+          .where(
+            and(
+              eq(pointTransaction.userId, target.id),
+              eq(pointTransaction.organizationId, organizationId),
+              inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
+              this.notExpired(),
+            ),
+          )
+          .orderBy(...LOT_CONSUMPTION_ORDER)
+          .for('update');
+
+        const balance = holdings.reduce(
+          (sum, row) => sum + row.remainingPoints,
+          0,
+        );
+        if (balance < -points) throw badRequestError('insufficient');
+
+        let deficit = -points;
+        for (const holding of holdings) {
+          if (deficit === 0) break;
+          if (holding.remainingPoints <= 0) continue;
+          const consumed = Math.min(holding.remainingPoints, deficit);
+          await tx
+            .update(pointTransaction)
+            .set({
+              remainingPoints: holding.remainingPoints - consumed,
+              updatedAt: new Date(),
+            })
+            .where(eq(pointTransaction.id, holding.id));
+          deficit -= consumed;
+        }
+      }
+
+      const [row] = await tx
+        .insert(pointTransaction)
+        .values({
+          id: randomUUID(),
+          adjustedBy,
+          createdAt: new Date(),
+          expiresAt: points > 0 ? toExpiresAt(new Date()) : null,
+          note: note.trim(),
+          organizationId,
+          points,
+          remainingPoints: Math.max(points, 0),
+          type: 'adjust',
+          userId: target.id,
+        })
+        .returning();
+      if (points > 0) await this.settleDebts(tx, target.id);
+
+      return row;
+    });
+
+    return {
+      id: created.id,
+      createdAt: created.createdAt,
+      expiresAt: created.expiresAt,
+      note: created.note,
+      orderId: null,
+      orderNumber: null,
+      points: created.points,
+      remainingPoints: created.remainingPoints,
+      type: created.type,
+      userEmail: target.email,
+      userName: target.name,
+    };
+  }
+
   async getAllMine(
     userId: string,
     query: PointsPaginationQueryDto = {},
@@ -484,38 +987,40 @@ export class PointsService {
 
     await this.syncEarned({ userId });
 
-    const [transactions, [{ balance, transactionsTotal }]] = await Promise.all([
-      this.db
-        .select({
-          confirmationNumber: order.confirmationNumber,
-          couponCode: coupon.code,
-          orderNumber: order.orderNumber,
-          organizationName: organization.name,
-          transaction: pointTransaction,
-        })
-        .from(pointTransaction)
-        .leftJoin(
-          organization,
-          eq(pointTransaction.organizationId, organization.id),
-        )
-        .leftJoin(order, eq(pointTransaction.orderId, order.id))
-        .leftJoin(userCoupon, eq(pointTransaction.userCouponId, userCoupon.id))
-        .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
-        .where(eq(pointTransaction.userId, userId))
-        .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
-        .limit(limit)
-        .offset(offset),
-      this.db
-        .select({
-          balance:
-            sql<number>`COALESCE(SUM(${pointTransaction.remainingPoints}) FILTER (WHERE ${this.notExpired()}), 0)`.mapWith(
-              Number,
-            ),
-          transactionsTotal: count(),
-        })
-        .from(pointTransaction)
-        .where(eq(pointTransaction.userId, userId)),
-    ]);
+    const [transactions, [{ balance, transactionsTotal }], expiringLots] =
+      await Promise.all([
+        this.db
+          .select({
+            confirmationNumber: order.confirmationNumber,
+            couponCode: coupon.code,
+            orderNumber: order.orderNumber,
+            organizationName: organization.name,
+            transaction: pointTransaction,
+          })
+          .from(pointTransaction)
+          .leftJoin(
+            organization,
+            eq(pointTransaction.organizationId, organization.id),
+          )
+          .leftJoin(order, eq(pointTransaction.orderId, order.id))
+          .leftJoin(
+            userCoupon,
+            eq(pointTransaction.userCouponId, userCoupon.id),
+          )
+          .leftJoin(coupon, eq(userCoupon.couponId, coupon.id))
+          .where(eq(pointTransaction.userId, userId))
+          .orderBy(desc(pointTransaction.createdAt), desc(pointTransaction.id))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({
+            balance: this.balance(),
+            transactionsTotal: count(),
+          })
+          .from(pointTransaction)
+          .where(eq(pointTransaction.userId, userId)),
+        this.expiringLots([userId]),
+      ]);
 
     const redeemables = await this.db.query.coupon.findMany({
       where: and(
@@ -542,6 +1047,7 @@ export class PointsService {
 
     return {
       balance,
+      expiringSoon: expiringByPlatformDay(expiringLots, balance),
       redeemableCoupons: redeemables.map((c) => ({
         ...toPointsCoupon(c),
         applicableOrganizationNames: c.applicableOrganizationIds
@@ -573,6 +1079,97 @@ export class PointsService {
     };
   }
 
+  async notifyExpiringPoints(): Promise<number> {
+    const organizations = await this.db
+      .select({ id: organization.id })
+      .from(organization);
+    for (const { id } of organizations)
+      await this.syncEarned({ organizationId: id }).catch((error: unknown) =>
+        this.logger.error(error),
+      );
+
+    const today = platformMidnight(Date.now());
+    const due = await this.db
+      .select({
+        expiresAt: sql<Date>`${pointTransaction.expiresAt}`.mapWith(
+          pointTransaction.expiresAt,
+        ),
+        userId: pointTransaction.userId,
+      })
+      .from(pointTransaction)
+      .where(
+        and(
+          gt(pointTransaction.remainingPoints, 0),
+          isNull(pointTransaction.expiryRemindedAt),
+          gte(
+            pointTransaction.expiresAt,
+            new Date(today + EXPIRY_REMINDER_FIRST_DAY * DAY_MS),
+          ),
+          lt(
+            pointTransaction.expiresAt,
+            new Date(today + (EXPIRING_SOON_DAYS + 1) * DAY_MS),
+          ),
+        ),
+      );
+    if (!due.length) return 0;
+
+    const dueDays = new Set(
+      due.map(
+        ({ expiresAt, userId }) =>
+          `${userId}:${platformDayNumber(expiresAt.getTime())}`,
+      ),
+    );
+    const userIds = [...new Set(due.map(({ userId }) => userId))];
+    const [lots, balances] = await Promise.all([
+      this.expiringLots(userIds),
+      this.db
+        .select({ userId: pointTransaction.userId, balance: this.balance() })
+        .from(pointTransaction)
+        .where(inArray(pointTransaction.userId, userIds))
+        .groupBy(pointTransaction.userId),
+    ]);
+
+    let notified = 0;
+    for (const { userId, balance } of balances) {
+      const userLots = lots.filter((lot) => lot.userId === userId);
+      for (const { expiresAt, points } of expiringByPlatformDay(
+        userLots,
+        balance,
+      )) {
+        const day = platformDayNumber(expiresAt.getTime());
+        if (!dueDays.has(`${userId}:${day}`)) continue;
+
+        const lotIds = userLots
+          .filter((lot) => platformDayNumber(lot.expiresAt.getTime()) === day)
+          .map(({ id }) => id);
+        try {
+          await this.db.transaction(async (tx) => {
+            const marked = await tx
+              .update(pointTransaction)
+              .set({ expiryRemindedAt: new Date() })
+              .where(
+                and(
+                  inArray(pointTransaction.id, lotIds),
+                  isNull(pointTransaction.expiryRemindedAt),
+                ),
+              )
+              .returning({ id: pointTransaction.id });
+            if (!marked.length) return;
+            const sent = await this.mails.sendPointsExpiryReminder({
+              userId,
+              expiresAt,
+              points,
+            });
+            if (sent) notified += 1;
+          });
+        } catch (error) {
+          this.logger.error(error);
+        }
+      }
+    }
+    return notified;
+  }
+
   async redeem(
     userId: string,
     couponId: string,
@@ -587,8 +1184,7 @@ export class PointsService {
         withinValidity(),
       ),
     });
-    if (!found?.pointsCost)
-      throw new BadRequestException(this.t('notRedeemable'));
+    if (!found?.pointsCost) throw badRequestError('notRedeemable');
     const pointsCost = found.pointsCost;
 
     const created = await this.db.transaction(async (tx) => {
@@ -598,6 +1194,7 @@ export class PointsService {
           .from(coupon)
           .where(eq(coupon.id, found.id))
           .for('update');
+        if (!locked) throw badRequestError('notRedeemable');
 
         const [{ value: reserved }] = await tx
           .select({ value: count() })
@@ -606,9 +1203,26 @@ export class PointsService {
             and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
           );
         if (locked.usedCount + reserved >= found.totalLimit)
-          throw new BadRequestException(this.tCoupons('usedUp'));
+          throw couponBadRequestError('usedUp');
       }
 
+      const earns = await tx
+        .select({
+          id: pointTransaction.id,
+          remainingPoints: pointTransaction.remainingPoints,
+        })
+        .from(pointTransaction)
+        .where(
+          and(
+            eq(pointTransaction.userId, userId),
+            inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
+            this.notExpired(),
+          ),
+        )
+        .orderBy(...LOT_CONSUMPTION_ORDER)
+        .for('update');
+
+      // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
       if (found.perUserLimit !== null) {
         const [{ value: redeemed }] = await tx
           .select({ value: count() })
@@ -621,31 +1235,11 @@ export class PointsService {
             ),
           );
         if (redeemed >= found.perUserLimit)
-          throw new BadRequestException(this.t('perUserLimitReached'));
+          throw badRequestError('perUserLimitReached');
       }
 
-      const earns = await tx
-        .select({
-          id: pointTransaction.id,
-          remainingPoints: pointTransaction.remainingPoints,
-        })
-        .from(pointTransaction)
-        .where(
-          and(
-            eq(pointTransaction.userId, userId),
-            inArray(pointTransaction.type, ['earn', 'revoke']),
-            this.notExpired(),
-          ),
-        )
-        .orderBy(
-          asc(pointTransaction.expiresAt),
-          asc(pointTransaction.createdAt),
-        )
-        .for('update');
-
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);
-      if (balance < pointsCost)
-        throw new BadRequestException(this.t('insufficient'));
+      if (balance < pointsCost) throw badRequestError('insufficient');
 
       let deficit = pointsCost;
       for (const earn of earns) {
@@ -670,7 +1264,11 @@ export class PointsService {
           source: 'redeemed',
           userId,
         })
-        .returning();
+        .returning()
+        .catch((error: unknown) => {
+          if (isCouponDeleted(error)) throw badRequestError('notRedeemable');
+          throw error;
+        });
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),

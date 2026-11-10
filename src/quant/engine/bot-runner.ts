@@ -21,7 +21,7 @@ import { createFuturesStrategy, createStrategy } from './strategies/index.js';
 import type { AiAdvisor, AiDecision } from './strategies/ai.strategy.js';
 import type { BotFill, SymbolSpec, WebhookSignal } from './types.js';
 
-export interface RunnerDependencies {
+interface RunnerDependencies {
   account: FuturesAccount | SpotAccount;
   advisor?: AiAdvisor;
   broker: Broker &

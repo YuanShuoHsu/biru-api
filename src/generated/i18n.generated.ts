@@ -11,6 +11,7 @@ export type I18nTranslations = {
         "EMAIL_ALREADY_VERIFIED": string;
         "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION": string;
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
+        "FIRST_NAME_REQUIRED": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
         "INVALID_PASSWORD": string;
         "INVALID_SESSION_TOKEN": string;
@@ -23,9 +24,11 @@ export type I18nTranslations = {
         "ORGANIZATION_CLOSED": string;
         "ORGANIZATION_HAS_BUSINESS_RECORDS": string;
         "ORGANIZATION_NOT_FOUND": string;
+        "ORGANIZATION_REQUIRES_AN_OWNER": string;
         "ORGANIZATION_SLUG_ALREADY_TAKEN": string;
         "PASSWORD_TOO_LONG": string;
         "PHONE_NUMBER_ALREADY_EXISTS": string;
+        "PLATFORM_ADMIN_MEMBER_PROTECTED": string;
         "TEAM_NOT_FOUND": string;
         "TOKEN_EXPIRED": string;
         "UNAUTHORIZED": string;
@@ -57,6 +60,7 @@ export type I18nTranslations = {
             "belowStatutoryPaidPercent": string;
             "calendarLeaveInterval": string;
             "calendarLeavePayRequired": string;
+            "calendarRangeTooLong": string;
             "cancelIrreversible": string;
             "cancelReasonRequired": string;
             "cannotReviewOwnDraft": string;
@@ -92,7 +96,6 @@ export type I18nTranslations = {
             "childcareReductionInvalid": string;
             "indigenousHolidayInvalid": string;
             "insufficientLeaveBalance": string;
-            "invalidBusinessNumber": string;
             "invalidEarningType": string;
             "invalidEmergencyDetails": string;
             "invalidEventSequence": string;
@@ -123,6 +126,7 @@ export type I18nTranslations = {
             "menstrualDayLimit": string;
             "monthlyOvertimeExceeded": string;
             "noShifts": string;
+            "notFound": string;
             "occupationalIndustryInvalid": string;
             "outsideShiftWindow": string;
             "overlappingAttendance": string;
@@ -177,10 +181,18 @@ export type I18nTranslations = {
             "withholdingUnitRequired": string;
             "workPermitRequired": string;
         };
+        "banners": {
+            "bannerNotFound": string;
+            "scheduleInvalid": string;
+        };
         "coupons": {
             "alreadyClaimed": string;
+            "applicableOrganizationNotFound": string;
             "codeExists": string;
+            "couponNotFound": string;
             "expired": string;
+            "grantExpired": string;
+            "grantInactive": string;
             "inUse": string;
             "issueMinSpendRequired": string;
             "itemScopeSingleOrganization": string;
@@ -197,30 +209,60 @@ export type I18nTranslations = {
             "perUserLimitReached": string;
             "percentageTooHigh": string;
             "pointsOnly": string;
+            "scheduleInvalid": string;
             "usedUp": string;
         };
         "deletedRecords": {
             "restoreConflict": string;
             "restoreMissingReference": string;
+            "restoreInvalid": string;
+            "batchNotFound": string;
         };
         "exceptions": {
+            "badRequest": string;
+            "forbidden": string;
             "internalServerError": string;
             "organizationClosed": string;
             "organizationHasOpenWork": string;
+            "organizationNotFound": string;
             "organizationReadOnly": string;
+            "returnUrlNotAllowed": string;
+            "smtpTestFailed": string;
+            "statsSinceNotMonthStart": string;
             "tooManyRequests": string;
         };
         "gcis": {
-            "invalidBusinessNo": string;
+            "companyNotFound": string;
+            "lookupUnavailable": string;
         };
         "inventory": {
+            "ingredientInUse": string;
+            "ingredientNotFound": string;
+            "insufficientStock": string;
+            "modifierRecipeYieldNotOne": string;
             "packageRequired": string;
             "packageUnitIncompatible": string;
+            "purchaseFieldsOnSourcedIngredient": string;
+            "recipeInUseAsSource": string;
             "recipeIngredientExists": string;
+            "recipeIngredientNotFound": string;
+            "recipeMenuItemAndModifier": string;
+            "recipeMenuItemTaken": string;
+            "recipeModifierTaken": string;
+            "recipeNotFound": string;
+            "sourceRecipeHasMenuItem": string;
+            "sourceRecipeHasModifier": string;
+            "sourceRecipeNested": string;
+            "sourceRecipeRequired": string;
+            "sourceRecipeUnitIncompatible": string;
+            "sourceRecipeYieldMissing": string;
+            "supplierNotFound": string;
         };
         "invoices": {
             "allowanceIssued": string;
             "alreadyIssuing": string;
+            "customerNameRequiresIdentifier": string;
+            "invoiceNotFound": string;
             "notIssued": string;
             "notPaid": string;
             "notPending": string;
@@ -240,9 +282,20 @@ export type I18nTranslations = {
             "voidWriteFailed": string;
         };
         "menus": {
+            "addOnMenuSectionNotFound": string;
             "addOnSelf": string;
+            "addOnTargetRequired": string;
+            "fixedSweetnessLevelRequired": string;
+            "menuItemNotFound": string;
+            "menuSectionNotFound": string;
+            "modifierGroupAttached": string;
+            "modifierGroupNotFound": string;
+            "modifierNotFound": string;
+            "offerNotFound": string;
             "parentSectionDescendant": string;
+            "parentSectionNotFound": string;
             "parentSectionSelf": string;
+            "printerNotFound": string;
             "selectionCountInvalid": string;
         };
         "orderTickets": {
@@ -258,6 +311,7 @@ export type I18nTranslations = {
             "otherPrinters": string;
             "pickupTime": string;
             "printJobResolved": string;
+            "printerBusy": string;
             "refund": string;
             "reprint": string;
             "servingTemperatureLevels": {
@@ -279,26 +333,52 @@ export type I18nTranslations = {
             "tableNumber": string;
         };
         "orders": {
+            "cashUnavailableForMode": string;
             "idempotencyConflict": string;
             "inStoreQrCodeRequired": string;
             "invalidTable": string;
+            "menuChanged": string;
+            "menuItemInsufficientStock": string;
+            "menuItemOptionsInvalid": string;
             "menuItemUnavailable": string;
             "menuItemUnavailableAtTime": string;
             "menuItemUnavailableForMode": string;
+            "modifierInsufficientStock": string;
             "modifierUnavailable": string;
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
+            "onlinePaymentNotRequired": string;
+            "orderNotFound": string;
+            "orderQrSecretNeverRotated": string;
+            "orderQrSessionNotFound": string;
             "orderTotalTooLarge": string;
+            "paymentAttemptsExhausted": string;
             "pickupOutsideOpeningHours": string;
+            "pickupTimeInvalid": string;
+            "pickupTimeUnavailableForMode": string;
             "pickupTooCloseToClosing": string;
             "pickupTooFarAhead": string;
             "pickupTooSoon": string;
             "statusChanged": string;
+            "tableNumberOutOfRange": string;
+        };
+        "organizations": {
+            "notJoinedAsPlatformAdmin": string;
+            "showcaseOpenSelfOnly": string;
+            "specialHoursEnded": string;
+            "specialHoursInvalidRange": string;
+            "specialHoursNotFound": string;
+            "specialHoursOverlap": string;
+            "specialHoursTooLong": string;
         };
         "points": {
+            "adjustOwnerOnly": string;
+            "adjustSelf": string;
             "insufficient": string;
+            "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
+            "settingNotFound": string;
         };
         "quant": {
             "aiKeyInvalid": string;
@@ -352,6 +432,7 @@ export type I18nTranslations = {
         "refunds": {
             "allowanceExceeded": string;
             "alreadyRefunded": string;
+            "cardRefundUnavailable": string;
             "invalidAmount": string;
             "itemNotInOrder": string;
             "noEcpayTransaction": string;
@@ -361,25 +442,99 @@ export type I18nTranslations = {
             "quantityExceeded": string;
             "resultUnknown": string;
         };
+        "reports": {
+            "csv": {
+                "actualConsumption": string;
+                "adjusted": string;
+                "category": string;
+                "closing": string;
+                "consumed": string;
+                "day": string;
+                "discount": string;
+                "employerInsurance": string;
+                "employerPension": string;
+                "gross": string;
+                "headcount": string;
+                "hour": string;
+                "ingredient": string;
+                "jobTitle": string;
+                "menuItem": string;
+                "missingEmployerInsurance": string;
+                "mode": string;
+                "net": string;
+                "noJobTitle": string;
+                "opening": string;
+                "orders": string;
+                "paymentMethod": string;
+                "personnelCost": string;
+                "quantity": string;
+                "received": string;
+                "refunded": string;
+                "refundedQuantity": string;
+                "revenue": string;
+                "theoreticalConsumption": string;
+                "total": string;
+                "uncategorized": string;
+                "unit": string;
+                "variance": string;
+            };
+            "paymentMethods": {
+                "ApplePay": string;
+                "Cash": string;
+                "Credit": string;
+                "iPASS": string;
+                "Jkopay": string;
+                "TWQR": string;
+                "WeiXin": string;
+            };
+            "rangeInvalid": string;
+            "rangeTooLong": string;
+            "units": {
+                "GRM": string;
+                "H87": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+            };
+        };
+        "storeLayout": {
+            "duplicateTableNumber": string;
+            "notFound": string;
+        };
+        "storePhotos": {
+            "storePhotoNotFound": string;
+        };
         "waitlist": {
             "guest": {
                 "waitlistClosed": string;
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
+                "waitlistGroupChanged": string;
+                "waitlistGroupsInUse": string;
                 "waitlistGroupsInvalid": string;
+                "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
                 "waitlistClosed": string;
                 "waitlistCutoff": string;
                 "waitlistDisabled": string;
+                "waitlistGroupChanged": string;
+                "waitlistGroupsInUse": string;
                 "waitlistGroupsInvalid": string;
+                "waitlistIdempotencyConflict": string;
                 "waitlistPartySizeUnavailable": string;
                 "waitlistPaused": string;
                 "waitlistPhoneInQueue": string;
+                "waitlistQrRequired": string;
+                "waitlistQrSessionNotFound": string;
+                "waitlistTicketNotFound": string;
                 "waitlistTransitionInvalid": string;
             };
         };
@@ -423,6 +578,11 @@ export type I18nTranslations = {
             "address": string;
             "intro": string;
             "preheader": string;
+            "roles": {
+                "admin": string;
+                "member": string;
+                "owner": string;
+            };
             "salutation": string;
             "security_notice": string;
             "subject": string;
@@ -511,6 +671,13 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
+        "missing_clock_out": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "rules": string;
+            "action": string;
+        };
         "waitlist_notification": {
             "joined": {
                 "subject": string;
@@ -529,11 +696,72 @@ export type I18nTranslations = {
             "salutation": string;
             "trouble_hint": string;
         };
-    };
-    "test": {
-        "hello": string;
+        "low_stock_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "item": string;
+            "no_supplier": string;
+            "action": string;
+            "units": {
+                "GRM": string;
+                "KGM": string;
+                "LTR": string;
+                "MLT": string;
+                "H87": string;
+            };
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "daily_sales_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "overview": string;
+            "revenue": string;
+            "orders": string;
+            "average": string;
+            "peak_hour": string;
+            "refunds": string;
+            "top_items": string;
+            "item": string;
+            "point_adjustments": string;
+            "point_adjustment": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "platform_daily_digest": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "revenue": string;
+            "orders": string;
+            "refunds": string;
+            "point_adjustments": string;
+            "low_stock": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "points_expiry_reminder": {
+            "subject": string;
+            "title": string;
+            "intro": string;
+            "action": string;
+            "salutation": string;
+            "trouble_hint": string;
+        };
+        "smtp_test": {
+            "subject": string;
+            "text": string;
+        };
     };
     "validation": {
+        "businessNumber": string;
+        "invoiceCertificate": string;
+        "invoiceDonateCode": string;
+        "invoiceMobileBarcode": string;
         "isEmail": string;
         "isNotEmpty": string;
         "isNumber": string;

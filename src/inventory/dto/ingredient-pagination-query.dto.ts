@@ -19,28 +19,27 @@ export const INGREDIENT_DATE_FILTER_FIELDS = [
   'createdAt',
   'updatedAt',
 ] as const;
-export const INGREDIENT_ALL_FILTER_FIELDS = [
+const INGREDIENT_ALL_FILTER_FIELDS = [
   ...INGREDIENT_STRING_FILTER_FIELDS,
   ...INGREDIENT_ENUM_FILTER_FIELDS,
   ...INGREDIENT_NUMBER_FILTER_FIELDS,
   ...INGREDIENT_DATE_FILTER_FIELDS,
 ] as const;
 
-export type IngredientFilterField =
-  (typeof INGREDIENT_ALL_FILTER_FIELDS)[number];
+type IngredientFilterField = (typeof INGREDIENT_ALL_FILTER_FIELDS)[number];
 
-export const INGREDIENT_SORT_ONLY_FIELDS = [
+const INGREDIENT_SORT_ONLY_FIELDS = [
   'price',
   'eligibleQuantity',
   'unitPrice',
 ] as const;
 
-export const INGREDIENT_SORT_FIELDS = [
+const INGREDIENT_SORT_FIELDS = [
   ...INGREDIENT_ALL_FILTER_FIELDS,
   ...INGREDIENT_SORT_ONLY_FIELDS,
 ] as const;
 
-export type IngredientSortField = (typeof INGREDIENT_SORT_FIELDS)[number];
+type IngredientSortField = (typeof INGREDIENT_SORT_FIELDS)[number];
 
 export class IngredientPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({

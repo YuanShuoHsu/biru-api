@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -8,8 +8,12 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
+  isNull,
+  lte,
   max,
+  or,
   sql,
   type Column,
   type SQL,
@@ -18,34 +22,67 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { banner } from '../db/schema/banners.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
+import {
+  imageRefQuery,
+  withImageRefs,
+  withImageRefUrl,
+  withImageUrl,
+} from '../images/image-url.js';
 
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
   BANNER_DATE_FILTER_FIELDS,
   BANNER_ENUM_FILTER_FIELDS,
   type BannerPaginationQueryDto,
 } from './dto/banner-pagination-query.dto.js';
+import { badRequestError, notFoundError } from './banner-errors.js';
 import type { BannerResponseDto } from './dto/banner-response.dto.js';
 import type {
   CreateBannerDto,
   UpdateBannerDto,
 } from './dto/create-banner.dto.js';
 
+const toTimestamp = (
+  value: string | null | undefined,
+): Date | null | undefined => (value == null ? value : new Date(value));
+
+const assertSchedule = (
+  startsAt: Date | null | undefined,
+  endsAt: Date | null | undefined,
+): void => {
+  if (startsAt && endsAt && startsAt >= endsAt)
+    throw badRequestError('scheduleInvalid');
+};
+
 @Injectable()
 export class BannersService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly imageStorage: ImageStorageService,
+  ) {}
 
-  // 前台輪播:僅啟用的圖,依排序顯示
-  findAllActive(): Promise<BannerResponseDto[]> {
-    return this.db.query.banner.findMany({
-      where: eq(banner.isActive, true),
-      orderBy: [asc(banner.sortOrder), asc(banner.createdAt)],
+  async findAllActive(): Promise<BannerResponseDto[]> {
+    const now = new Date();
+
+    const rows = await this.db.query.banner.findMany({
+      ...imageRefQuery,
+      where: and(
+        eq(banner.isActive, true),
+        or(isNull(banner.startsAt), lte(banner.startsAt, now)),
+        or(isNull(banner.endsAt), gt(banner.endsAt, now)),
+      ),
+      orderBy: [asc(banner.sortOrder), asc(banner.createdAt), asc(banner.id)],
     });
+
+    return rows.map((row) => withImageRefUrl('banner', row));
   }
 
   async findAll(
@@ -65,14 +102,16 @@ export class BannersService {
 
     const bannerFieldMap: Record<string, Column | SQL> = {
       isActive: sql`${banner.isActive}::text`,
+      startsAt: banner.startsAt,
+      endsAt: banner.endsAt,
       createdAt: banner.createdAt,
       updatedAt: banner.updatedAt,
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(bannerFieldMap[sortBy]), asc(banner.createdAt)]
-      : [asc(banner.sortOrder), asc(banner.createdAt)];
+      ? [dir(bannerFieldMap[sortBy]), asc(banner.createdAt), asc(banner.id)]
+      : [asc(banner.sortOrder), asc(banner.createdAt), asc(banner.id)];
 
     const where = and(
       filterField && filterOperator
@@ -92,21 +131,36 @@ export class BannersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(localTimeText(banner.createdAt), `%${value}%`),
-          ilike(localTimeText(banner.updatedAt), `%${value}%`),
+          ilike(localTimeText(banner.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(banner.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
 
     const [data, [{ total }]] = await Promise.all([
-      this.db.query.banner.findMany({ where, orderBy, limit, offset }),
+      this.db.query.banner.findMany({
+        columns: { image: false },
+        where,
+        orderBy,
+        limit,
+        offset,
+      }),
       this.db.select({ total: count() }).from(banner).where(where),
     ]);
 
-    return { data, total };
+    return {
+      data: (await withImageRefs(this.db, banner, data)).map((row) =>
+        withImageRefUrl('banner', row),
+      ),
+      total,
+    };
   }
 
   async create(dto: CreateBannerDto): Promise<BannerResponseDto> {
+    const startsAt = toTimestamp(dto.startsAt);
+    const endsAt = toTimestamp(dto.endsAt);
+    assertSchedule(startsAt, endsAt);
+
     const [{ maxSortOrder }] = await this.db
       .select({ maxSortOrder: max(banner.sortOrder) })
       .from(banner);
@@ -115,27 +169,50 @@ export class BannersService {
       .insert(banner)
       .values({
         id: randomUUID(),
-        image: dto.image,
+        image: await this.imageStorage.store('banner', dto.image),
+        alt: dto.alt,
+        url: dto.url,
         isActive: dto.isActive ?? true,
+        startsAt,
+        endsAt,
         sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
       })
       .returning();
 
-    return created;
+    return withImageUrl('banner', created);
   }
 
   async update(
     bannerId: string,
     dto: UpdateBannerDto,
   ): Promise<BannerResponseDto> {
+    const { startsAt, endsAt, ...fields } = dto;
+    if (startsAt !== undefined || endsAt !== undefined) {
+      const current = await this.db.query.banner.findFirst({
+        where: eq(banner.id, bannerId),
+        columns: { startsAt: true, endsAt: true },
+      });
+      if (!current) throw notFoundError('bannerNotFound');
+
+      assertSchedule(
+        startsAt === undefined ? current.startsAt : toTimestamp(startsAt),
+        endsAt === undefined ? current.endsAt : toTimestamp(endsAt),
+      );
+    }
+
     const [updated] = await this.db
       .update(banner)
-      .set(dto)
+      .set({
+        ...fields,
+        image: await this.imageStorage.store('banner', fields.image),
+        startsAt: toTimestamp(startsAt),
+        endsAt: toTimestamp(endsAt),
+      })
       .where(eq(banner.id, bannerId))
       .returning();
-    if (!updated) throw new NotFoundException('Banner not found');
+    if (!updated) throw notFoundError('bannerNotFound');
 
-    return updated;
+    return withImageUrl('banner', updated);
   }
 
   async remove(bannerId: string): Promise<void> {
@@ -143,7 +220,7 @@ export class BannersService {
       .delete(banner)
       .where(eq(banner.id, bannerId))
       .returning({ id: banner.id });
-    if (deleted.length === 0) throw new NotFoundException('Banner not found');
+    if (deleted.length === 0) throw notFoundError('bannerNotFound');
   }
 
   async removeMany(ids: string[]): Promise<void> {
@@ -154,19 +231,12 @@ export class BannersService {
           .delete(banner)
           .where(eq(banner.id, id))
           .returning({ id: banner.id });
-        if (!deleted.length) throw new NotFoundException('Banner not found');
+        if (!deleted.length) throw notFoundError('bannerNotFound');
       }
     });
   }
 
-  async reorder(ids: string[], offset: number): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(banner)
-          .set({ sortOrder: offset + i })
-          .where(eq(banner.id, id));
-      }
-    });
+  async reorder(ids: string[]): Promise<void> {
+    await reorderSortOrders(this.db, banner, ids);
   }
 }

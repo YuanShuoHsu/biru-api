@@ -12,7 +12,7 @@ import { toPionexStop } from './pionex-grid.service.js';
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
 // 文件的回應範例是 snake_case，實際回傳是 camelCase
-export interface PionexFuturesGridCheck {
+interface PionexFuturesGridCheck {
   estimateLiquidationPriceDown?: string;
   estimateLiquidationPriceUp?: string;
   estimatePerVolume?: string;
@@ -56,7 +56,7 @@ export interface PionexFuturesGridData {
   usdtInvestment?: string;
 }
 
-export interface PionexFuturesGridOrder {
+interface PionexFuturesGridOrder {
   buOrderData: PionexFuturesGridData;
   buOrderId?: string;
   status?: string;
@@ -87,7 +87,7 @@ export interface PionexFuturesGridOperationCheck {
   reducePnl?: string;
 }
 
-export const PIONEX_FUTURES_GRID_CLOSING = 'close_position';
+const PIONEX_FUTURES_GRID_CLOSING = 'close_position';
 
 // 合約網格以 BTC.PERP／USDT 表示交易對，和行情的 BTC_USDT_PERP 不同
 const botBase = (spec: SymbolSpec) => `${spec.base}.PERP`;

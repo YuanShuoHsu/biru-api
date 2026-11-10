@@ -43,7 +43,6 @@ import type {
 import { lineCents, salaryIncomeCents } from './salary-income.js';
 import { foreignTaxIdentityRequired } from './taiwan-rules.js';
 import {
-  isValidBusinessNumber,
   isValidNationalId,
   isValidPassportDerivedId,
   isValidResidentCertificateId,
@@ -183,8 +182,6 @@ export class PayrollWithholdingService {
   }
 
   async saveUnit(actor: AttendanceActor, dto: PayrollWithholdingUnitDto) {
-    if (!isValidBusinessNumber(dto.businessNumber))
-      throw badRequestError('invalidBusinessNumber');
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const values = { ...dto, updatedAt: new Date() };

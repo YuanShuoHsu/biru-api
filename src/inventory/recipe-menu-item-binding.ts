@@ -2,14 +2,15 @@ import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
-import { recipe } from '../db/schema/inventory.js';
+import { ingredient, recipe } from '../db/schema/inventory.js';
 import { menu, menuItem } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 type Tx = Pick<DrizzleDB, 'select' | 'transaction' | 'update'>;
 
-export type BoundRecipe = {
+type BoundRecipe = {
   id: string;
   name: LocalizedText;
   recipeYield: number;
@@ -41,17 +42,23 @@ const claim = async (
   menuItemId: string,
 ): Promise<boolean> => {
   try {
-    await tx.transaction(async (savepoint) => {
-      await savepoint
+    const claimed = await tx.transaction((savepoint) =>
+      savepoint
         .update(recipe)
         .set({ menuItemId, updatedAt: new Date() })
-        .where(eq(recipe.id, recipeId));
-    });
+        .where(
+          and(
+            eq(recipe.id, recipeId),
+            isNull(recipe.menuItemId),
+            isNull(recipe.modifierId),
+          ),
+        )
+        .returning({ id: recipe.id }),
+    );
 
-    return true;
+    return claimed.length > 0;
   } catch (error) {
-    if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-      return false;
+    if (isUniqueViolation(error)) return false;
     throw error;
   }
 };
@@ -76,7 +83,9 @@ export const bindRecipeByMenuItemName = async (
         and(
           eq(recipe.organizationId, params.organizationId),
           isNull(recipe.menuItemId),
+          isNull(recipe.modifierId),
           sameName(recipe.name, params.name),
+          sql`not exists (select 1 from ${ingredient} where ${ingredient.recipeId} = ${recipe.id})`,
         ),
       )
       .limit(2),
@@ -110,6 +119,7 @@ export const bindMenuItemByRecipeName = async (
         eq(menu.organizationId, params.organizationId),
         sameName(menuItem.name, params.name),
         sql`not exists (select 1 from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`,
+        sql`not exists (select 1 from ${ingredient} where ${ingredient.recipeId} = ${params.recipeId})`,
       ),
     )
     .limit(2);

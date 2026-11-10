@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { PICKUP_MAX_ADVANCE_DAYS } from '../../common/constants/pickup.js';
+
+import { PublicSpecialHoursDto } from './special-hours.dto.js';
+
 export class OrganizationResponseDto {
   @ApiProperty()
   id: string;
@@ -20,14 +24,14 @@ export class OrganizationResponseDto {
   metadata: string | null;
 
   // https://schema.org/PostalAddress
-  @ApiPropertyOptional()
-  addressCountry: string | null;
+  @ApiProperty()
+  addressCountry: string;
 
-  @ApiPropertyOptional()
-  addressLocality: string | null;
+  @ApiProperty()
+  addressLocality: string;
 
-  @ApiPropertyOptional()
-  addressRegion: string | null;
+  @ApiProperty()
+  addressRegion: string;
 
   @ApiPropertyOptional()
   extendedAddress: string | null;
@@ -35,8 +39,8 @@ export class OrganizationResponseDto {
   @ApiPropertyOptional()
   postalCode: string | null;
 
-  @ApiPropertyOptional()
-  streetAddress: string | null;
+  @ApiProperty()
+  streetAddress: string;
 
   // https://schema.org/LocalBusiness
   @ApiPropertyOptional()
@@ -50,12 +54,6 @@ export class OrganizationResponseDto {
 
   @ApiProperty({ description: '店家目錄定價幣別', example: 'TWD' })
   currency: string;
-
-  @ApiPropertyOptional()
-  amountPerPoint: string | null;
-
-  @ApiPropertyOptional()
-  pointsValidityYears: number | null;
 
   @ApiProperty()
   pickupLeadMinutes: number;
@@ -78,6 +76,14 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   closedAt: Date | null;
+}
+
+export class OrganizationDetailResponseDto extends OrganizationResponseDto {
+  @ApiProperty({
+    type: [PublicSpecialHoursDto],
+    description: `與今天到 ${PICKUP_MAX_ADVANCE_DAYS} 天後（含兩端）重疊的特殊營業日，不隨店家的自取預約天數設定變動`,
+  })
+  specialHours: PublicSpecialHoursDto[];
 }
 
 export class MyOrganizationListItemDto extends OrganizationResponseDto {

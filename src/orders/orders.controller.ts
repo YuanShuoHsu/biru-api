@@ -11,7 +11,14 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiHeader,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { hours, minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
@@ -19,19 +26,35 @@ import {
 } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
-import { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
+import {
+  AdminOrderListResponseDto,
+  AdminOrderResponseDto,
+} from './dto/admin-order-response.dto.js';
 import { ApplyTransitionsDto } from './dto/apply-transitions.dto.js';
 import {
   CreateOrderCustomerDto,
   CreateOrderDto,
 } from './dto/create-order.dto.js';
+import {
+  ExpectedPointsDto,
+  ExpectedPointsResponseDto,
+} from './dto/expected-points.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
+import { PrepEstimateQueryDto } from './dto/prep-estimate-query.dto.js';
+import {
+  PrepEstimateResponseDto,
+  PrepTimeResponseDto,
+} from './dto/prep-estimate-response.dto.js';
 import {
   CreateOrderResponseDto,
   OrderReceiptResponseDto,
@@ -44,6 +67,7 @@ import {
 } from './order-qr-token.js';
 import { OrderQrService } from './order-qr.service.js';
 import { OrdersService } from './orders.service.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
 
 @AllowAnonymous()
 @ApiTags('orders')
@@ -52,9 +76,14 @@ export class OrdersController {
   constructor(
     private readonly orderQrService: OrderQrService,
     private readonly ordersService: OrdersService,
+    private readonly prepEstimateService: PrepEstimateService,
   ) {}
 
   @Post()
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiHeader({
     description: '同一次結帳重試請帶同一把鍵，重送會回傳既有訂單',
     name: 'Idempotency-Key',
@@ -90,13 +119,28 @@ export class OrdersController {
     return { ...created, accessToken: orderAccessToken(created.id) };
   }
 
+  @Post('expected-points')
+  @ApiOperation({ summary: '預估這張單登入會員可得的點數' })
+  estimatePoints(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() dto: ExpectedPointsDto,
+    @Session() session: UserSession | null,
+  ): Promise<ExpectedPointsResponseDto> {
+    return this.ordersService.estimatePoints(
+      organizationSlug,
+      dto,
+      session?.user.id || null,
+    );
+  }
+
   @Get()
   @Roles({ order: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '查詢訂單列表' })
+  @ApiOkResponse({ type: AdminOrderListResponseDto })
   findAll(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: OrderPaginationQueryDto,
-  ): Promise<{ data: AdminOrderResponseDto[]; total: number }> {
+  ): Promise<AdminOrderListResponseDto> {
     return this.ordersService.listOrders(organizationSlug, query);
   }
 
@@ -117,6 +161,24 @@ export class OrdersController {
     return this.ordersService.listAdminBoard(organizationSlug);
   }
 
+  @Get('prep-estimate')
+  @ApiOperation({ summary: '查詢目前出餐約需幾分鐘（公開）' })
+  findPrepEstimate(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() { leadMinutes }: PrepEstimateQueryDto,
+  ): Promise<PrepEstimateResponseDto> {
+    return this.prepEstimateService.findBySlug(organizationSlug, leadMinutes);
+  }
+
+  @Get('prep-times')
+  @Roles({ order: ['read'] }, 'organizationSlug')
+  @ApiOperation({ summary: '查詢各品項設定的備餐時間與近 14 天實際平均' })
+  findPrepTimes(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<PrepTimeResponseDto[]> {
+    return this.prepEstimateService.findPrepTimesBySlug(organizationSlug);
+  }
+
   @Get(':orderId')
   @ApiOperation({ summary: '查詢訂單' })
   @ApiQuery({ name: 'accessToken', required: false, type: String })
@@ -129,7 +191,7 @@ export class OrdersController {
     return this.ordersService.getOrder(
       organizationSlug,
       orderId,
-      session?.user.id || null,
+      session?.user ?? null,
       accessToken || null,
     );
   }

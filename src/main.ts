@@ -1,15 +1,17 @@
+import { Logger } from '@nestjs/common';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { I18nMiddleware, I18nValidationPipe } from 'nestjs-i18n';
+import { I18nValidationPipe } from 'nestjs-i18n';
 import { join } from 'node:path';
 
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
-import { trustedProxies } from './common/trusted-proxy.js';
+import { rateLimitEnabled, trustedProxies } from './common/trusted-proxy.js';
+import { fieldEncryptionKeys } from './common/utils/field-encryption.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -17,14 +19,21 @@ async function bootstrap() {
   });
 
   app.useStaticAssets(join(import.meta.dirname, '..', 'public'));
-  app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
-  app.setViewEngine('hbs');
 
   app.set('trust proxy', trustedProxies());
 
+  if (!fieldEncryptionKeys())
+    new Logger('FieldEncryption').warn(
+      'FIELD_ENCRYPTION_KEYS 未設定，欄位加密沿用 BETTER_AUTH_SECRET 推導的金鑰',
+    );
+
+  if (process.env.NODE_ENV === 'production' && !rateLimitEnabled())
+    new Logger('RateLimit').warn(
+      'CLIENT_IP_HEADER 與 TRUSTED_PROXIES 都未設定：Nest 的限流全部停用，better-auth 只剩登入、註冊等內建限流，且全平台共用同一個桶',
+    );
+
   app.use(cookieParser());
   app.use(helmet());
-  app.use(I18nMiddleware);
 
   app.enableCors({
     credentials: true,

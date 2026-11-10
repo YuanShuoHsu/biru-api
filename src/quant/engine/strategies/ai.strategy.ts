@@ -67,7 +67,7 @@ const compact = (candles: QuantCandleDto[]) =>
 
 const last = <T>(values: T[]) => values.at(-1);
 
-export const indicatorsOf = (closes: number[]) => ({
+const indicatorsOf = (closes: number[]) => ({
   bollinger20: last(
     BollingerBands.calculate({ period: 20, stdDev: 2, values: closes }),
   ),

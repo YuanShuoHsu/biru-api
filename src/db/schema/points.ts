@@ -1,7 +1,9 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -19,6 +21,7 @@ export const pointTransactionTypeEnum = pgEnum('point_transaction_type', [
   'earn',
   'redeem',
   'revoke',
+  'adjust',
 ]);
 export type PointTransactionType =
   (typeof pointTransactionTypeEnum.enumValues)[number];
@@ -27,13 +30,16 @@ export const pointTransaction = pgTable(
   'point_transaction',
   {
     id: text('id').primaryKey(),
+    adjustedBy: text('adjusted_by'),
     expiresAt: timestamp('expires_at'),
+    expiryRemindedAt: timestamp('expiry_reminded_at'),
     orderId: text('order_id').references(() => order.id, {
       onDelete: 'set null',
     }),
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade',
     }),
+    note: text('note'),
     points: integer('points').notNull(),
     remainingPoints: integer('remaining_points').notNull().default(0),
     type: pointTransactionTypeEnum('type').notNull(),
@@ -54,6 +60,7 @@ export const pointTransaction = pgTable(
       table.organizationId,
       table.createdAt,
     ),
+    index('pointTransaction_orderId_idx').on(table.orderId),
     uniqueIndex('pointTransaction_orderId_earn_unique')
       .on(table.orderId)
       .where(sql`"type" = 'earn'`),
@@ -61,6 +68,25 @@ export const pointTransaction = pgTable(
 );
 
 export type PointTransaction = typeof pointTransaction.$inferSelect;
+
+export const POINT_SETTING_ID = 'brand';
+
+export const pointSetting = pgTable(
+  'point_setting',
+  {
+    id: text('id').primaryKey().default(POINT_SETTING_ID),
+    amountPerPoint: numeric('amount_per_point', { precision: 10, scale: 2 }),
+    pointsEnabledAt: timestamp('points_enabled_at'),
+    accountingValuePerPoint: numeric('accounting_value_per_point', {
+      precision: 10,
+      scale: 2,
+    }),
+    ...timestamps,
+  },
+  (table) => [check('point_setting_single_row', sql`${table.id} = 'brand'`)],
+);
+
+export type PointSetting = typeof pointSetting.$inferSelect;
 
 export const pointTransactionRelations = relations(
   pointTransaction,

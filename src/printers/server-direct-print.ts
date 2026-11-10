@@ -72,8 +72,12 @@ export const toPrintRequest = (entries: PrintEntry[]) =>
       ].join('')
     : '';
 
+const XML_FORBIDDEN_CHARACTERS =
+  /[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu;
+
 export const escapeXml = (value: string): string =>
   value
+    .replace(XML_FORBIDDEN_CHARACTERS, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

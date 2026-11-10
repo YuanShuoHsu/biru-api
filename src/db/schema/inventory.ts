@@ -6,7 +6,10 @@
 
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
+  check,
   index,
+  type AnyPgColumn,
   integer,
   jsonb,
   numeric,
@@ -19,7 +22,7 @@ import {
 
 import { timestamps } from './columns.helpers.js';
 import { type LocalizedText } from './enums.js';
-import { menuItem } from './menus.js';
+import { menuItem, modifier } from './menus.js';
 import { order } from './orders.js';
 import { organization } from './organizations.js';
 
@@ -80,16 +83,22 @@ export const ingredient = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     price: numeric('price', { precision: 10, scale: 2 }),
+    // https://orm.drizzle.team/docs/indexes-constraints#foreign-key
+    recipeId: text('recipe_id').references((): AnyPgColumn => recipe.id, {
+      onDelete: 'no action',
+    }),
     sortOrder: integer('sort_order').notNull().default(0),
     supplierId: text('supplier_id').references(() => supplier.id, {
       onDelete: 'set null',
     }),
     unitCode: unitCodeEnum('unit_code').notNull(),
+    unlimitedStock: boolean('unlimited_stock').notNull().default(false),
     url: text('url'),
     ...timestamps,
   },
   (table) => [
     index('ingredient_organizationId_idx').on(table.organizationId),
+    index('ingredient_recipeId_idx').on(table.recipeId),
     index('ingredient_supplierId_idx').on(table.supplierId),
   ],
 );
@@ -100,6 +109,7 @@ export const inventoryTransaction = pgTable(
   'inventory_transaction',
   {
     id: text('id').primaryKey(),
+    productionBatchId: text('production_batch_id'),
     ingredientId: text('ingredient_id')
       .notNull()
       .references(() => ingredient.id, { onDelete: 'cascade' }),
@@ -120,6 +130,10 @@ export const inventoryTransaction = pgTable(
   (table) => [
     index('inventoryTransaction_ingredientId_idx').on(table.ingredientId),
     index('inventoryTransaction_organizationId_idx').on(table.organizationId),
+    index('inventoryTransaction_organizationId_createdAt_idx').on(
+      table.organizationId,
+      table.createdAt,
+    ),
     index('inventoryTransaction_orderId_idx').on(table.orderId),
   ],
 );
@@ -134,17 +148,30 @@ export const recipe = pgTable(
     menuItemId: text('menu_item_id').references(() => menuItem.id, {
       onDelete: 'set null',
     }),
+    modifierId: text('modifier_id').references(() => modifier.id, {
+      onDelete: 'set null',
+    }),
     name: jsonb('name').notNull().$type<LocalizedText>(),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     recipeInstructions: jsonb('recipe_instructions').$type<LocalizedText[]>(),
     recipeYield: integer('recipe_yield').notNull().default(1),
+    recipeYieldQuantity: numeric('recipe_yield_quantity', {
+      precision: 12,
+      scale: 3,
+    }),
+    recipeYieldUnitCode: unitCodeEnum('recipe_yield_unit_code'),
     ...timestamps,
   },
   (table) => [
     index('recipe_organizationId_idx').on(table.organizationId),
     uniqueIndex('recipe_menuItemId_uidx').on(table.menuItemId),
+    uniqueIndex('recipe_modifierId_uidx').on(table.modifierId),
+    check(
+      'recipe_menuItemId_modifierId_check',
+      sql`${table.menuItemId} is null or ${table.modifierId} is null`,
+    ),
   ],
 );
 
@@ -223,6 +250,10 @@ export const recipeRelations = relations(recipe, ({ one, many }) => ({
   menuItem: one(menuItem, {
     fields: [recipe.menuItemId],
     references: [menuItem.id],
+  }),
+  modifier: one(modifier, {
+    fields: [recipe.modifierId],
+    references: [modifier.id],
   }),
   organization: one(organization, {
     fields: [recipe.organizationId],

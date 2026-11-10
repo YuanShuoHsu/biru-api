@@ -1,32 +1,87 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
+  IsISO8601,
   IsOptional,
+  IsRFC3339,
   IsString,
+  Matches,
+  Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import {
+  IMAGE_ALT_MAX_LENGTH,
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
+import {
+  IsLocalizedText,
+  MaxLocalizedTextLength,
+} from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
+import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
+import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateBannerDto {
   @ApiProperty({ description: '圖片來源（data URL）' })
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
   image: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: LocalizedTextDto,
+    example: { 'zh-TW': '秋季新品上市', en: 'New autumn drinks' },
+    nullable: true,
+  })
   @IsOptional()
+  @IsLocalizedText()
+  @MaxLocalizedTextLength(IMAGE_ALT_MAX_LENGTH)
+  @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
+  alt?: LocalizedText | null;
+
+  @ApiPropertyOptional({
+    description: '點擊後前往的站內路徑（/ 開頭）或 https 網址',
+    example: '/order',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @Matches(/^(?:\/(?![/\\])|https:\/\/[^\s\\/])[^\s\\]*$/)
+  url?: string | null;
+
+  @ApiPropertyOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: '未帶時排在最後' })
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
   @IsOptional()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
+  startsAt?: string | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  @IsOptional()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
+  endsAt?: string | null;
+
+  @ApiPropertyOptional({ description: '未帶時排在最後' })
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(9999)
   sortOrder?: number;
 }
 
-export class UpdateBannerDto extends PartialType(CreateBannerDto) {}
+export class UpdateBannerDto extends PartialType(CreateBannerDto, {
+  skipNullProperties: false,
+}) {}

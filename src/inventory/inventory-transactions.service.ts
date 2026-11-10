@@ -1,9 +1,5 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -13,14 +9,18 @@ import {
   eq,
   ilike,
   inArray,
+  or,
   sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
 
+import { UNIT_FACTORS } from '../common/constants/units.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -28,10 +28,17 @@ import {
   inventoryTransaction,
   recipe,
   recipeIngredient,
+  type InventoryTransaction,
 } from '../db/schema/inventory.js';
+import { offer } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import {
+  LOW_STOCK_REACHED_EVENT,
+  type LowStockReachedEvent,
+} from '../events/low-stock-reached.event.js';
 
+import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
@@ -44,13 +51,26 @@ import {
   InventoryTransactionResponseDto,
   type InventoryTransactionReason,
 } from './dto/inventory-transaction-response.dto.js';
-import { unitPriceOf } from './pricing.js';
+import { badRequestError, notFoundError } from './inventory-errors.js';
+import { QUANTITY_TOLERANCE } from './menu-stock.service.js';
+import { unitPriceSql } from './pricing.js';
 
 type Tx = Pick<DrizzleDB, 'insert' | 'select' | 'update'>;
 
+export type StockSource = { menuItemId: string } | { modifierId: string };
+
+export class InsufficientStockError extends Error {
+  constructor(readonly source: StockSource) {
+    super(`Insufficient stock for ${JSON.stringify(source)}`);
+  }
+}
+
 @Injectable()
 export class InventoryTransactionsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(
     ingredientId: string,
@@ -71,9 +91,10 @@ export class InventoryTransactionsService {
 
     // 成本欄位剝掉後仍能被排序、篩選與快速搜尋反推，三條路要一起封
     if (!canReadPurchasing && [sortBy, filterField].includes('unitCost'))
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     const reason = sql<InventoryTransactionReason>`case
+      when ${inventoryTransaction.productionBatchId} is not null then 'batch'
       when ${inventoryTransaction.orderId} is null then 'count'
       when ${inventoryTransaction.quantity} <= 0 then 'consume'
       else 'restore'
@@ -127,13 +148,24 @@ export class InventoryTransactionsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${inventoryTransaction.quantity}::text`, `%${value}%`),
+          ilike(
+            sql`${inventoryTransaction.quantity}::text`,
+            `%${escapeLike(value)}%`,
+          ),
           ...(canReadPurchasing
-            ? [ilike(sql`${inventoryTransaction.unitCost}::text`, `%${value}%`)]
+            ? [
+                ilike(
+                  sql`${inventoryTransaction.unitCost}::text`,
+                  `%${escapeLike(value)}%`,
+                ),
+              ]
             : []),
-          ilike(inventoryTransaction.note, `%${value}%`),
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(localTimeText(inventoryTransaction.createdAt), `%${value}%`),
+          ilike(inventoryTransaction.note, `%${escapeLike(value)}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(inventoryTransaction.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -193,7 +225,9 @@ export class InventoryTransactionsService {
           this.write(ingredientId, dto, opened),
         );
 
-    return canReadPurchasing ? created : { ...created, unitCost: undefined };
+    const { unitCost, ...rest } = created;
+
+    return { ...rest, ...(canReadPurchasing && { unitCost }) };
   }
 
   private async write(
@@ -205,18 +239,16 @@ export class InventoryTransactionsService {
       .select({
         organizationId: ingredient.organizationId,
         inventoryLevel: ingredient.inventoryLevel,
-        eligibleQuantity: ingredient.eligibleQuantity,
-        eligibleQuantityUnitCode: ingredient.eligibleQuantityUnitCode,
-        price: ingredient.price,
+        unitPrice: unitPriceSql,
       })
       .from(ingredient)
       .where(eq(ingredient.id, ingredientId))
       .for('update');
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
 
     const inventoryLevel = Number(dto.inventoryLevel);
     const quantity = inventoryLevel - Number(found.inventoryLevel);
-    const unitPrice = unitPriceOf(found)?.toString() ?? null;
+    const unitPrice = found.unitPrice?.toString() ?? null;
 
     const [created] = await tx
       .insert(inventoryTransaction)
@@ -240,24 +272,169 @@ export class InventoryTransactionsService {
     return { ...created, balance, orderNumber: null, reason: 'count' };
   }
 
-  async consume(orderId: string, tx: Tx): Promise<void> {
+  async produceBatch(
+    organizationId: string,
+    ingredientId: string,
+    { note, quantity }: CreateIngredientBatchDto,
+    canReadPurchasing = true,
+  ): Promise<InventoryTransactionResponseDto> {
+    const { batch, balance, lowStock } = await this.db.transaction(
+      async (tx) => {
+        const [target] = await tx
+          .select({
+            recipeId: ingredient.recipeId,
+            recipeYieldQuantity: recipe.recipeYieldQuantity,
+            recipeYieldUnitCode: recipe.recipeYieldUnitCode,
+            unitPrice: unitPriceSql,
+          })
+          .from(ingredient)
+          .leftJoin(recipe, eq(recipe.id, ingredient.recipeId))
+          .where(
+            and(
+              eq(ingredient.id, ingredientId),
+              eq(ingredient.organizationId, organizationId),
+            ),
+          );
+        if (!target) throw notFoundError('ingredientNotFound');
+        if (!target.recipeId) throw badRequestError('sourceRecipeRequired');
+
+        const { recipeYieldQuantity, recipeYieldUnitCode } = target;
+        const yieldQuantity =
+          recipeYieldQuantity && recipeYieldUnitCode
+            ? Number(recipeYieldQuantity) * UNIT_FACTORS[recipeYieldUnitCode]
+            : 0;
+        if (!yieldQuantity) throw badRequestError('sourceRecipeYieldMissing');
+
+        const produced = Number(quantity);
+        const materials = await tx
+          .select({
+            ingredientId: recipeIngredient.ingredientId,
+            requiredQuantity: recipeIngredient.requiredQuantity,
+          })
+          .from(recipeIngredient)
+          .innerJoin(
+            ingredient,
+            eq(ingredient.id, recipeIngredient.ingredientId),
+          )
+          .where(
+            and(
+              eq(recipeIngredient.recipeId, target.recipeId),
+              eq(ingredient.unlimitedStock, false),
+            ),
+          )
+          .orderBy(asc(recipeIngredient.sortOrder), asc(recipeIngredient.id));
+        const used = materials.map(({ ingredientId, requiredQuantity }) => ({
+          ingredientId,
+          quantity: (Number(requiredQuantity) * produced) / yieldQuantity,
+        }));
+
+        const locked = await tx
+          .select({
+            id: ingredient.id,
+            inventoryLevel: ingredient.inventoryLevel,
+            name: ingredient.name,
+          })
+          .from(ingredient)
+          .where(
+            inArray(ingredient.id, [
+              ingredientId,
+              ...used.map(({ ingredientId }) => ingredientId),
+            ]),
+          )
+          .orderBy(asc(ingredient.id))
+          .for('update');
+
+        const shortfalls = used.flatMap(({ ingredientId, quantity }) => {
+          const material = locked.find(({ id }) => id === ingredientId);
+          const shortfall = quantity - Number(material?.inventoryLevel);
+          return material && shortfall > QUANTITY_TOLERANCE
+            ? [
+                {
+                  id: material.id,
+                  name: material.name,
+                  shortfall: shortfall.toFixed(3),
+                },
+              ]
+            : [];
+        });
+        if (shortfalls.length)
+          throw badRequestError('insufficientStock', {
+            ingredients: shortfalls,
+          });
+
+        const { created, lowStock } = await this.record(
+          [
+            ...used.map(({ ingredientId, quantity }) => ({
+              ingredientId,
+              quantity: -quantity,
+            })),
+            {
+              ingredientId,
+              quantity: produced,
+              unitCost: target.unitPrice?.toString() ?? null,
+            },
+          ],
+          { productionBatchId: randomUUID(), note, organizationId },
+          tx,
+        );
+
+        const [{ balance }] = await tx
+          .select({ balance: ingredient.inventoryLevel })
+          .from(ingredient)
+          .where(eq(ingredient.id, ingredientId));
+
+        return {
+          batch: created.find((row) => row.ingredientId === ingredientId)!,
+          balance,
+          lowStock,
+        };
+      },
+    );
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
+
+    const { unitCost, ...rest } = batch;
+
+    return {
+      ...rest,
+      ...(canReadPurchasing && { unitCost }),
+      balance,
+      orderNumber: null,
+      reason: 'batch',
+    };
+  }
+
+  async consume(
+    orderId: string,
+    tx: Tx,
+    { enforceStock = false }: { enforceStock?: boolean } = {},
+  ): Promise<{
+    lowStock: LowStockReachedEvent['ingredients'];
+    offerStockChanged: boolean;
+  }> {
     const [placed] = await tx
       .select({ sellerId: order.sellerId })
       .from(order)
       .where(eq(order.id, orderId));
-    if (!placed?.sellerId) return;
+    if (!placed?.sellerId) return { lowStock: [], offerStockChanged: false };
 
     const items = await tx
       .select({
         addOns: orderItem.addOns,
         menuItemId: orderItem.menuItemId,
+        modifiers: orderItem.modifiers,
         orderQuantity: orderItem.orderQuantity,
       })
       .from(orderItem)
       .where(eq(orderItem.orderId, orderId));
 
     const servingsByMenuItemId = new Map<string, number>();
-    for (const { addOns, menuItemId, orderQuantity } of items)
+    const servingsByModifierId = new Map<string, number>();
+    for (const { addOns, menuItemId, modifiers, orderQuantity } of items) {
       for (const id of [
         menuItemId,
         ...(addOns ?? []).map((addOn) => addOn.menuItemId),
@@ -266,32 +443,72 @@ export class InventoryTransactionsService {
           id,
           (servingsByMenuItemId.get(id) ?? 0) + orderQuantity,
         );
-    if (!servingsByMenuItemId.size) return;
+      for (const { modifierId } of [
+        ...(modifiers ?? []),
+        ...(addOns ?? []).flatMap((addOn) => addOn.modifiers ?? []),
+      ])
+        servingsByModifierId.set(
+          modifierId,
+          (servingsByModifierId.get(modifierId) ?? 0) + orderQuantity,
+        );
+    }
+    if (!servingsByMenuItemId.size)
+      return { lowStock: [], offerStockChanged: false };
+
+    const offerStockChanged = await this.holdOfferStock(
+      orderId,
+      servingsByMenuItemId,
+      enforceStock,
+      tx,
+    );
 
     const recipes = await tx
       .select({
         id: recipe.id,
         menuItemId: recipe.menuItemId,
+        modifierId: recipe.modifierId,
         recipeYield: recipe.recipeYield,
       })
       .from(recipe)
-      .where(inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]));
-    if (!recipes.length) return;
+      .where(
+        or(
+          inArray(recipe.menuItemId, [...servingsByMenuItemId.keys()]),
+          inArray(recipe.modifierId, [...servingsByModifierId.keys()]),
+        ),
+      )
+      .orderBy(asc(recipe.menuItemId), asc(recipe.modifierId));
+    if (!recipes.length) return { lowStock: [], offerStockChanged };
 
     const materials = await tx
-      .select()
+      .select({
+        ingredientId: recipeIngredient.ingredientId,
+        recipeId: recipeIngredient.recipeId,
+        requiredQuantity: recipeIngredient.requiredQuantity,
+      })
       .from(recipeIngredient)
+      .innerJoin(ingredient, eq(ingredient.id, recipeIngredient.ingredientId))
       .where(
-        inArray(
-          recipeIngredient.recipeId,
-          recipes.map(({ id }) => id),
+        and(
+          inArray(
+            recipeIngredient.recipeId,
+            recipes.map(({ id }) => id),
+          ),
+          eq(ingredient.unlimitedStock, false),
         ),
       );
 
     const quantities = new Map<string, number>();
-    for (const { id, menuItemId, recipeYield } of recipes) {
+    const sourceByIngredientId = new Map<string, StockSource>();
+    for (const { id, menuItemId, modifierId, recipeYield } of recipes) {
+      const source = menuItemId
+        ? { menuItemId }
+        : modifierId
+          ? { modifierId }
+          : null;
       const servings =
-        (menuItemId && servingsByMenuItemId.get(menuItemId)) || 0;
+        (menuItemId
+          ? servingsByMenuItemId.get(menuItemId)
+          : modifierId && servingsByModifierId.get(modifierId)) || 0;
 
       for (const material of materials.filter(
         ({ recipeId }) => recipeId === id,
@@ -302,20 +519,30 @@ export class InventoryTransactionsService {
           material.ingredientId,
           (quantities.get(material.ingredientId) ?? 0) + used,
         );
+        if (source && !sourceByIngredientId.has(material.ingredientId))
+          sourceByIngredientId.set(material.ingredientId, source);
       }
     }
 
-    await this.record(
+    const { lowStock } = await this.record(
       [...quantities].map(([ingredientId, used]) => ({
         ingredientId,
         quantity: -used,
       })),
-      { orderId, organizationId: placed.sellerId },
+      {
+        ...(enforceStock && { sourceByIngredientId }),
+        orderId,
+        organizationId: placed.sellerId,
+      },
       tx,
     );
+
+    return { lowStock, offerStockChanged };
   }
 
-  async restoreAll(orderId: string, tx: Tx): Promise<void> {
+  async restoreAll(orderId: string, tx: Tx): Promise<boolean> {
+    const offerStockChanged = await this.releaseOfferStock(orderId, tx);
+
     const rows = await tx
       .select({
         ingredientId: inventoryTransaction.ingredientId,
@@ -336,30 +563,176 @@ export class InventoryTransactionsService {
         ingredientId,
         quantity: -quantity,
       }));
-    if (!entries.length) return;
+    if (!entries.length) return offerStockChanged;
 
     await this.record(
       entries,
       { orderId, organizationId: rows[0].organizationId },
       tx,
     );
+
+    return offerStockChanged;
+  }
+
+  async lockHeldOfferStock(orderIds: string[], tx: Tx): Promise<void> {
+    const orders = await tx
+      .select({ heldOfferStock: order.heldOfferStock })
+      .from(order)
+      .where(inArray(order.id, orderIds));
+    const offerIds = [
+      ...new Set(
+        orders.flatMap(({ heldOfferStock }) =>
+          Object.keys(heldOfferStock ?? {}),
+        ),
+      ),
+    ];
+    if (!offerIds.length) return;
+
+    await tx
+      .select({ id: offer.id })
+      .from(offer)
+      .where(inArray(offer.id, offerIds))
+      .orderBy(asc(offer.id))
+      .for('update');
+  }
+
+  private async holdOfferStock(
+    orderId: string,
+    servingsByMenuItemId: Map<string, number>,
+    enforceStock: boolean,
+    tx: Tx,
+  ): Promise<boolean> {
+    const offers = await tx
+      .select({ id: offer.id, menuItemId: offer.menuItemId })
+      .from(offer)
+      .where(inArray(offer.menuItemId, [...servingsByMenuItemId.keys()]))
+      .orderBy(asc(offer.createdAt));
+
+    const offerIdByMenuItemId = new Map<string, string>();
+    for (const { id, menuItemId } of offers)
+      if (menuItemId && !offerIdByMenuItemId.has(menuItemId))
+        offerIdByMenuItemId.set(menuItemId, id);
+    if (!offerIdByMenuItemId.size) return false;
+
+    const locked = await tx
+      .select({ id: offer.id, inventoryLevel: offer.inventoryLevel })
+      .from(offer)
+      .where(inArray(offer.id, [...offerIdByMenuItemId.values()]))
+      .orderBy(asc(offer.id))
+      .for('update');
+
+    const held: Record<string, number> = {};
+    for (const [menuItemId, offerId] of offerIdByMenuItemId) {
+      const inventoryLevel = locked.find(
+        ({ id }) => id === offerId,
+      )?.inventoryLevel;
+      const remaining = inventoryLevel?.value;
+      if (typeof remaining !== 'number') continue;
+
+      const servings = servingsByMenuItemId.get(menuItemId) ?? 0;
+      if (enforceStock && remaining < servings)
+        throw new InsufficientStockError({ menuItemId });
+
+      const taken = Math.min(remaining, servings);
+      if (taken <= 0) continue;
+
+      await tx
+        .update(offer)
+        .set({
+          inventoryLevel: { ...inventoryLevel, value: remaining - taken },
+          updatedAt: new Date(),
+        })
+        .where(eq(offer.id, offerId));
+      held[offerId] = taken;
+    }
+    if (!Object.keys(held).length) return false;
+
+    await tx
+      .update(order)
+      .set({ heldOfferStock: held })
+      .where(eq(order.id, orderId));
+
+    return true;
+  }
+
+  private async releaseOfferStock(orderId: string, tx: Tx): Promise<boolean> {
+    const [found] = await tx
+      .select({ heldOfferStock: order.heldOfferStock })
+      .from(order)
+      .where(eq(order.id, orderId))
+      .for('update');
+    const held = Object.entries(found?.heldOfferStock ?? {});
+    if (!held.length) return false;
+
+    const locked = await tx
+      .select({ id: offer.id, inventoryLevel: offer.inventoryLevel })
+      .from(offer)
+      .where(
+        inArray(
+          offer.id,
+          held.map(([offerId]) => offerId),
+        ),
+      )
+      .orderBy(asc(offer.id))
+      .for('update');
+
+    for (const { id, inventoryLevel } of locked) {
+      const remaining = inventoryLevel?.value;
+      if (typeof remaining !== 'number') continue;
+
+      await tx
+        .update(offer)
+        .set({
+          inventoryLevel: {
+            ...inventoryLevel,
+            value: remaining + (found?.heldOfferStock?.[id] ?? 0),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(offer.id, id));
+    }
+
+    await tx
+      .update(order)
+      .set({ heldOfferStock: null })
+      .where(eq(order.id, orderId));
+
+    return true;
   }
 
   private async record(
-    entries: { ingredientId: string; quantity: number }[],
+    entries: {
+      ingredientId: string;
+      quantity: number;
+      unitCost?: string | null;
+    }[],
     {
+      productionBatchId,
+      sourceByIngredientId,
+      note,
       orderId,
       organizationId,
     }: {
-      orderId: string;
+      productionBatchId?: string;
+      sourceByIngredientId?: Map<string, StockSource>;
+      note?: string | null;
+      orderId?: string;
       organizationId: string;
     },
     tx: Tx,
-  ): Promise<void> {
-    if (!entries.length) return;
+  ): Promise<{
+    created: InventoryTransaction[];
+    lowStock: LowStockReachedEvent['ingredients'];
+  }> {
+    if (!entries.length) return { created: [], lowStock: [] };
 
-    await tx
-      .select({ id: ingredient.id })
+    const locked = await tx
+      .select({
+        id: ingredient.id,
+        inventoryLevel: ingredient.inventoryLevel,
+        lowStockThreshold: ingredient.lowStockThreshold,
+        name: ingredient.name,
+      })
       .from(ingredient)
       .where(
         inArray(
@@ -370,23 +743,65 @@ export class InventoryTransactionsService {
       .orderBy(asc(ingredient.id))
       .for('update');
 
-    await tx.insert(inventoryTransaction).values(
-      entries.map(({ ingredientId, quantity }) => ({
-        id: randomUUID(),
-        ingredientId,
-        orderId,
-        organizationId,
-        quantity: String(quantity),
-      })),
-    );
+    if (sourceByIngredientId)
+      for (const { ingredientId, quantity } of entries) {
+        const before = locked.find(({ id }) => id === ingredientId);
+        const source = sourceByIngredientId.get(ingredientId);
+        if (
+          before &&
+          source &&
+          Number(before.inventoryLevel) + quantity < -QUANTITY_TOLERANCE
+        )
+          throw new InsufficientStockError(source);
+      }
 
+    const created = await tx
+      .insert(inventoryTransaction)
+      .values(
+        entries.map(({ ingredientId, quantity, unitCost }) => ({
+          id: randomUUID(),
+          productionBatchId,
+          ingredientId,
+          note,
+          orderId,
+          organizationId,
+          quantity: String(quantity),
+          unitCost,
+        })),
+      )
+      .returning();
+
+    const lowStock: LowStockReachedEvent['ingredients'] = [];
     for (const { ingredientId, quantity } of entries) {
-      await tx
+      const [updated] = await tx
         .update(ingredient)
         .set({
           inventoryLevel: sql`${ingredient.inventoryLevel} + ${quantity}`,
         })
-        .where(eq(ingredient.id, ingredientId));
+        .where(eq(ingredient.id, ingredientId))
+        .returning({ inventoryLevel: ingredient.inventoryLevel });
+
+      const before = locked.find(({ id }) => id === ingredientId);
+      if (!updated || !before) continue;
+
+      const level = Number(before.inventoryLevel);
+      const nextLevel = Number(updated.inventoryLevel);
+      const oversold =
+        level >= -QUANTITY_TOLERANCE && nextLevel < -QUANTITY_TOLERANCE;
+      const threshold = before.lowStockThreshold;
+      const reachedThreshold =
+        threshold !== null &&
+        level > Number(threshold) &&
+        nextLevel <= Number(threshold);
+
+      if (oversold || reachedThreshold)
+        lowStock.push({
+          id: before.id,
+          name: before.name,
+          ...(oversold && { oversold }),
+        });
     }
+
+    return { created, lowStock };
   }
 }

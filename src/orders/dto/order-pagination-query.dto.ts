@@ -30,16 +30,16 @@ export const ORDER_DATE_FILTER_FIELDS = [
   'createdAt',
 ] as const;
 export const ORDER_NUMBER_FILTER_FIELDS = ['tableNumber', 'total'] as const;
-export const ORDER_ALL_FILTER_FIELDS = [
+const ORDER_ALL_FILTER_FIELDS = [
   ...ORDER_STRING_FILTER_FIELDS,
   ...ORDER_ENUM_FILTER_FIELDS,
   ...ORDER_DATE_FILTER_FIELDS,
   ...ORDER_NUMBER_FILTER_FIELDS,
 ] as const;
 
-export type OrderFilterField = (typeof ORDER_ALL_FILTER_FIELDS)[number];
+type OrderFilterField = (typeof ORDER_ALL_FILTER_FIELDS)[number];
 
-export const ORDER_SORT_FIELDS = [
+const ORDER_SORT_FIELDS = [
   'orderNumber',
   'mode',
   'paymentMethod',
@@ -56,7 +56,7 @@ export const ORDER_SORT_FIELDS = [
   'invoiceStatus',
 ] as const;
 
-export type OrderSortField = (typeof ORDER_SORT_FIELDS)[number];
+type OrderSortField = (typeof ORDER_SORT_FIELDS)[number];
 
 export class OrderPaginationQueryDto {
   @IsOptional()

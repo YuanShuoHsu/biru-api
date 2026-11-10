@@ -15,20 +15,20 @@ export const ADD_ON_STRING_FILTER_FIELDS = [
   'addOnMenuItemName',
 ] as const;
 export const ADD_ON_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
-export const ADD_ON_ALL_FILTER_FIELDS = [
+const ADD_ON_ALL_FILTER_FIELDS = [
   ...ADD_ON_STRING_FILTER_FIELDS,
   ...ADD_ON_DATE_FILTER_FIELDS,
 ] as const;
 
-export const ADD_ON_SORT_FIELDS = [
+const ADD_ON_SORT_FIELDS = [
   'addOnMenuSectionName',
   'addOnMenuItemName',
   'createdAt',
   'updatedAt',
 ] as const;
 
-export type AddOnFilterField = (typeof ADD_ON_ALL_FILTER_FIELDS)[number];
-export type AddOnSortField = (typeof ADD_ON_SORT_FIELDS)[number];
+type AddOnFilterField = (typeof ADD_ON_ALL_FILTER_FIELDS)[number];
+type AddOnSortField = (typeof ADD_ON_SORT_FIELDS)[number];
 
 export class AddOnPaginationQueryDto {
   @IsOptional()

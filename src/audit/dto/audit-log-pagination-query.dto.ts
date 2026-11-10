@@ -1,14 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
-import {
-  FILTER_OPERATORS,
-  SORT_DIRECTIONS,
-  type FilterOperator,
-  type SortDirection,
-} from '../../common/constants/pagination.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 import {
   AUDIT_LOG_RESOURCES,
@@ -28,37 +22,26 @@ export const AUDIT_LOG_ENUM_FILTER_FIELDS = [
   'action',
 ] as const;
 export const AUDIT_LOG_DATE_FILTER_FIELDS = ['createdAt'] as const;
-export const AUDIT_LOG_ALL_FILTER_FIELDS = [
+const AUDIT_LOG_ALL_FILTER_FIELDS = [
   ...AUDIT_LOG_STRING_FILTER_FIELDS,
   ...AUDIT_LOG_ENUM_FILTER_FIELDS,
   ...AUDIT_LOG_DATE_FILTER_FIELDS,
 ] as const;
 
-export type AuditLogFilterField = (typeof AUDIT_LOG_ALL_FILTER_FIELDS)[number];
+type AuditLogFilterField = (typeof AUDIT_LOG_ALL_FILTER_FIELDS)[number];
 
-export const AUDIT_LOG_SORT_FIELDS = [
+const AUDIT_LOG_SORT_FIELDS = [
+  'organizationId',
   'actorName',
+  'actorEmail',
   'resource',
   'action',
   'createdAt',
 ] as const;
 
-export type AuditLogSortField = (typeof AUDIT_LOG_SORT_FIELDS)[number];
+type AuditLogSortField = (typeof AUDIT_LOG_SORT_FIELDS)[number];
 
-export class AuditLogPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number = 0;
-
+export class AuditLogPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: AUDIT_LOG_RESOURCES, enumName: 'AuditResource' })
   @IsOptional()
   @IsIn(AUDIT_LOG_RESOURCES)
@@ -68,6 +51,11 @@ export class AuditLogPaginationQueryDto {
   @IsOptional()
   @IsString()
   resourceId?: string;
+
+  @ApiPropertyOptional({ description: '只列出此操作者的紀錄' })
+  @IsOptional()
+  @IsString()
+  actorId?: string;
 
   @ApiPropertyOptional({
     description: '篩出祖先含此 id 的紀錄,例如某張券的所有發放',
@@ -85,43 +73,10 @@ export class AuditLogPaginationQueryDto {
   filterField?: AuditLogFilterField;
 
   @ApiPropertyOptional({
-    enum: FILTER_OPERATORS,
-    enumName: 'FilterOperator',
-  })
-  @IsOptional()
-  @IsIn(FILTER_OPERATORS)
-  filterOperator?: FilterOperator;
-
-  @IsOptional()
-  @IsString()
-  filterValue?: string;
-
-  @IsOptional()
-  @IsString()
-  quickFilterValue?: string;
-
-  @ApiPropertyOptional({
-    description: '快速搜尋命中的列舉條件,格式為 field:value1,value2',
-    isArray: true,
-    type: String,
-  })
-  @IsOptional()
-  @Transform(({ value }: { value: string | string[] }) =>
-    Array.isArray(value) ? value : [value],
-  )
-  @IsString({ each: true })
-  quickFilterEnums?: string[];
-
-  @ApiPropertyOptional({
     enum: AUDIT_LOG_SORT_FIELDS,
     enumName: 'AuditLogSortField',
   })
   @IsOptional()
   @IsIn(AUDIT_LOG_SORT_FIELDS)
   sortBy?: AuditLogSortField;
-
-  @ApiPropertyOptional({ enum: SORT_DIRECTIONS, enumName: 'SortDirection' })
-  @IsOptional()
-  @IsIn(SORT_DIRECTIONS)
-  sortDirection?: SortDirection;
 }

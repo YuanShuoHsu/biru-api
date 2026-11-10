@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -6,6 +6,7 @@ import {
   desc,
   asc,
   eq,
+  exists,
   gte,
   isNotNull,
   lt,
@@ -39,6 +40,7 @@ import type {
   OrderStatsResponseDto,
   OrderStatsTotalsDto,
 } from './dto/order-stats.dto.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 const COUPON_LIMIT = 10;
 const MODIFIER_LIMIT = 10;
@@ -57,10 +59,16 @@ export class OrderStatsService {
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
 
     const counted = and(eq(order.sellerId, org.id), isCountedOrder);
     const inRange = (from: Date, to: Date) =>
@@ -133,6 +141,7 @@ export class OrderStatsService {
       refundBucketRows,
       [previousRefunded],
       firstRefundBucketRows,
+      [{ refundedPeriodOrders }],
       hourRows,
       modes,
       paymentMethods,
@@ -149,7 +158,10 @@ export class OrderStatsService {
         .from(order)
         .where(inPeriod)
         .groupBy(sql`1`),
-      this.db.select(totals).from(order).where(inRange(previousSince, since)),
+      this.db
+        .select(totals)
+        .from(order)
+        .where(inRange(previousSince, previousUntil)),
       this.db
         .select({ index: bucketIndexOf(refund.createdAt), ...refunded })
         .from(refund)
@@ -160,7 +172,7 @@ export class OrderStatsService {
         .select(refunded)
         .from(refund)
         .innerJoin(order, eq(order.id, refund.orderId))
-        .where(refundsInRange(previousSince, since)),
+        .where(refundsInRange(previousSince, previousUntil)),
       this.db
         .select({
           index: bucketIndexOf(sql`${firstRefunds.firstRefundedAt}`),
@@ -174,6 +186,20 @@ export class OrderStatsService {
           ),
         )
         .groupBy(sql`1`),
+      this.db
+        .select({ refundedPeriodOrders: count() })
+        .from(order)
+        .where(
+          and(
+            inPeriod,
+            exists(
+              this.db
+                .select({ id: refund.id })
+                .from(refund)
+                .where(and(eq(refund.orderId, order.id), isConfirmedRefund)),
+            ),
+          ),
+        ),
       this.db
         .select({ hour: localHour, orders: count() })
         .from(order)
@@ -290,6 +316,7 @@ export class OrderStatsService {
         (sum, { orders }) => sum + orders,
         0,
       ),
+      refundedPeriodOrders,
       refundedItems: refundedItemRows.rows,
       refundReasons,
       hourlyOrders,

@@ -84,7 +84,6 @@ export class PionexBroker implements Broker {
     }
   }
 
-  /** 查交易所上的訂單狀態，回傳尚未記錄過的成交 */
   async sync(
     order: SubmittedOrder,
     knownFillIds: ReadonlySet<string>,

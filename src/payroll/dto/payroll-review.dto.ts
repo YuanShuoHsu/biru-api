@@ -4,10 +4,10 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
-  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -16,13 +16,16 @@ import {
 } from '../../db/schema/payroll.js';
 
 export class PayrollReviewDto {
-  @IsOptional() @IsString() @MaxLength(1000) reason?: string;
+  @ValidateIf((_, value) => value !== undefined)
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
   @ApiPropertyOptional({
     enum: PAYROLL_VIOLATIONS,
     enumName: 'PayrollViolation',
     isArray: true,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsIn(PAYROLL_VIOLATIONS, { each: true })
   acknowledgedViolations?: PayrollViolation[];

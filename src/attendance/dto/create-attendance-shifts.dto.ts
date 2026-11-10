@@ -6,13 +6,15 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsIn,
+  IsISO8601,
   IsOptional,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 
 import {
@@ -22,8 +24,8 @@ import {
 
 export class CreateAttendanceShiftDto {
   @IsUUID() employeeId: string;
-  @IsDateString() startsAt: string;
-  @IsDateString() endsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) startsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) endsAt: string;
   @ApiPropertyOptional({
     description: '員工設有固定例假日與休息日時由星期推得，未設定者必填',
     enum: ATTENDANCE_SCHEDULED_DAY_KINDS,
@@ -95,7 +97,7 @@ export class CancelAttendanceShiftDto {
   @IsBoolean()
   irreversible?: boolean;
   @ApiPropertyOptional({ description: '班次已開始後取消時必填，寫入稽核紀錄' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MaxLength(1000)
   reason?: string;

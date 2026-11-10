@@ -1,13 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { UNIT_FACTORS } from '../../common/constants/units.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
 
 export class IngredientResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
-  @ApiProperty() name: LocalizedText;
+  @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
   @ApiPropertyOptional() brand: string | null;
   @ApiPropertyOptional() image: string | null;
   @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
@@ -17,6 +18,7 @@ export class IngredientResponseDto {
   @ApiProperty({ enum: Object.keys(UNIT_FACTORS), enumName: 'UnitCode' })
   unitCode: UnitCode;
   @ApiProperty() inventoryLevel: string;
+  @ApiProperty() unlimitedStock: boolean;
   @ApiPropertyOptional({
     description: 'inventoryLevel 顯示用的單位；不參與 unitCode 的換算',
   })
@@ -37,6 +39,8 @@ export class IngredientResponseDto {
   @ApiPropertyOptional({ description: '採購連結；無 purchasing 權限時不回傳' })
   url?: string | null;
   @ApiPropertyOptional() note: string | null;
+  @ApiPropertyOptional({ description: '自製半成品的來源食譜' })
+  recipeId: string | null;
   @ApiPropertyOptional({ description: '每基準單位價格' })
   unitPrice?: number | null;
   @ApiPropertyOptional({ description: '包裝量，與 eligibleQuantity 相同' })
@@ -51,4 +55,9 @@ export class IngredientResponseDto {
   packageBaseQuantity: number | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+}
+
+export class IngredientListResponseDto {
+  @ApiProperty({ type: [IngredientResponseDto] }) data: IngredientResponseDto[];
+  @ApiProperty() total: number;
 }

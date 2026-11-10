@@ -101,7 +101,7 @@ export class OrderQrController {
   @Audit(ORDER_QR_SECRET_AUDIT)
   @ApiOperation({
     summary:
-      '更換店內 QR code 金鑰：已印出的桌號／櫃台／得來速 QR code 立即失效',
+      '更換店內 QR code 金鑰：已印出的桌號／櫃台／得來速點餐與門市現場候位 QR code 立即失效',
   })
   rotateSecret(
     @Param('organizationSlug') organizationSlug: string,
@@ -113,7 +113,7 @@ export class OrderQrController {
   @Roles({ organization: ['update'] }, 'organizationSlug')
   @Audit(ORDER_QR_SECRET_AUDIT)
   @ApiOperation({
-    summary: '換回上一把金鑰：更換前印出的 QR code 恢復有效',
+    summary: '換回上一把金鑰：更換前印出的點餐與門市現場候位 QR code 恢復有效',
   })
   restoreSecret(
     @Param('organizationSlug') organizationSlug: string,

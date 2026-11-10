@@ -159,6 +159,7 @@ export const attendanceEmployee = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
+    jobTitle: text('job_title'),
     birthDate: text('birth_date'),
     taiwanStaySince: text('taiwan_stay_since'),
     legalStatus: text('legal_status')
@@ -316,6 +317,7 @@ export const attendanceShift = pgTable(
   (t) => [
     index('attendance_shift_org_start_idx').on(t.organizationId, t.startsAt),
     index('attendance_shift_employee_start_idx').on(t.employeeId, t.startsAt),
+    index('attendance_shift_ends_at_idx').on(t.endsAt),
     check('attendance_shift_interval', sql`${t.endsAt} > ${t.startsAt}`),
   ],
 );
@@ -426,6 +428,11 @@ export const attendanceAudit = pgTable(
   },
   (t) => [
     index('attendance_audit_org_idx').on(t.organizationId, t.createdAt),
+    index('attendance_audit_org_resource_idx').on(
+      t.organizationId,
+      t.resourceId,
+      t.createdAt,
+    ),
     index('attendance_audit_created_idx').on(t.createdAt),
   ],
 );
@@ -672,6 +679,10 @@ export const attendanceParentalReturn = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index('attendance_parental_return_org_idx').on(
+      t.organizationId,
+      t.createdAt,
+    ),
     uniqueIndex('attendance_parental_return_pending_uidx')
       .on(t.requestId)
       .where(sql`${t.status} = 'pending'`),

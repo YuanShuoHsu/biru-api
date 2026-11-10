@@ -1,6 +1,4 @@
 import {
-  BadRequestException,
-  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -26,7 +24,6 @@ import {
   notInArray,
   sql,
 } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
   createHash,
   randomBytes,
@@ -45,11 +42,11 @@ import {
 } from '../../db/schema/quant.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../../common/utils/data-grid-filters.js';
 
@@ -74,7 +71,6 @@ import {
   type GridCheckResultDto,
   type GridConfigDto,
   type GridOperationDto,
-  type IndicatorConditionDto,
   type IndicatorConfigDto,
   futuresMarginOf,
   type FuturesPositionConfigDto,
@@ -108,6 +104,7 @@ import {
   type WebhookSignalDto,
 } from '../dto/quant-bot.dto.js';
 import { SpotAccount } from '../engine/account.js';
+import { isConditionComplete } from '../engine/strategies/indicator-conditions.js';
 import { FUNDING_EVENT, toBotFill } from '../engine/bot-store.js';
 import { FuturesAccount } from '../engine/futures-account.js';
 import { toDecimalString } from '../engine/precision.js';
@@ -130,6 +127,12 @@ import {
 } from '../pionex/pionex-rest.client.js';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
 import { quantEnvironment } from '../quant-environment.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+  type QuantErrorCode,
+} from '../quant-errors.js';
 
 import {
   type FuturesGridOperationPath,
@@ -197,8 +200,6 @@ const toOperationCheck = (
   reduceAmount: optionalNumber(check?.reduceAmount),
   reducePnl: optionalNumber(check?.reducePnl),
 });
-
-type ErrorKey = keyof I18nTranslations['common']['quant'];
 
 const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
@@ -284,7 +285,6 @@ export class QuantBotsService {
     private readonly aiKeys: QuantAiKeyService,
     private readonly engine: QuantEngineService,
     private readonly futures: QuantFuturesService,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly market: QuantMarketService,
     private readonly marketCache: MarketCacheService,
     private readonly pionexFuturesGrid: PionexFuturesGridService,
@@ -293,15 +293,8 @@ export class QuantBotsService {
     private readonly symbols: PionexSymbolsService,
   ) {}
 
-  private t(key: ErrorKey, args?: Record<string, unknown>) {
-    return this.i18n.t(`common.quant.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
-
-  private invalid(key: ErrorKey, args?: Record<string, unknown>): never {
-    throw new BadRequestException(this.t(key, args));
+  private invalid(key: QuantErrorCode, args?: Record<string, unknown>): never {
+    throw badRequestError(key, args);
   }
 
   async list(
@@ -363,10 +356,10 @@ export class QuantBotsService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(quantBot.name, `%${value}%`),
-          ilike(pair, `%${value}%`),
-          ilike(sql`${quantBot.investment}::text`, `%${value}%`),
-          ilike(localTimeText(quantBot.startedAt), `%${value}%`),
+          ilike(quantBot.name, `%${escapeLike(value)}%`),
+          ilike(pair, `%${escapeLike(value)}%`),
+          ilike(sql`${quantBot.investment}::text`, `%${escapeLike(value)}%`),
+          ilike(localTimeText(quantBot.startedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -470,7 +463,7 @@ export class QuantBotsService {
   // 停止的機器人不能再啟動：掛單已撤、網格佈局已失效，要改參數請另建一個
   async start(userId: string, id: string): Promise<QuantBotDto> {
     const bot = await this.owned(userId, id);
-    if (bot.startedAt) throw new ConflictException(this.t('botAlreadyStarted'));
+    if (bot.startedAt) throw conflictError('botAlreadyStarted');
     if (bot.mode === 'live' && bot.type === 'ai' && isFuturesBot(bot))
       await this.prepareLiveFutures(bot);
 
@@ -584,8 +577,7 @@ export class QuantBotsService {
 
   async archive(userId: string, id: string): Promise<void> {
     const bot = await this.owned(userId, id);
-    if (bot.status === 'running')
-      throw new ConflictException(this.t('botStillRunning'));
+    if (bot.status === 'running') throw conflictError('botStillRunning');
 
     await this.db
       .update(quantBot)
@@ -786,8 +778,7 @@ export class QuantBotsService {
       !timingSafeEqual(Buffer.from(expected), Buffer.from(actual))
     )
       throw new UnauthorizedException();
-    if (bot.status !== 'running')
-      throw new ConflictException(this.t('botNotRunning'));
+    if (bot.status !== 'running') throw conflictError('botNotRunning');
 
     if (id) {
       const duplicate = await this.db.query.quantBotEvent.findFirst({
@@ -873,8 +864,7 @@ export class QuantBotsService {
       !bot.credentialId
     )
       this.invalid('botNotPionexGrid');
-    if (bot.status !== 'running')
-      throw new ConflictException(this.t('botNotRunning'));
+    if (bot.status !== 'running') throw conflictError('botNotRunning');
 
     const spec = await botSymbolSpec(this.symbols, bot);
     const credentials = await this.account.resolveCredentials(
@@ -973,8 +963,7 @@ export class QuantBotsService {
       !bot.credentialId
     )
       this.invalid('botNotPionexFuturesGrid');
-    if (bot.status !== 'running')
-      throw new ConflictException(this.t('botNotRunning'));
+    if (bot.status !== 'running') throw conflictError('botNotRunning');
 
     const spec = await botSymbolSpec(this.symbols, bot);
     const credentials = await this.account.resolveCredentials(
@@ -1565,7 +1554,7 @@ export class QuantBotsService {
         eq(quantBot.environment, quantEnvironment()),
       ),
     });
-    if (!bot) throw new NotFoundException(this.t('botNotFound'));
+    if (!bot) throw notFoundError('botNotFound');
 
     return bot;
   }
@@ -1791,8 +1780,7 @@ export class QuantBotsService {
     const bot = await this.owned(userId, id);
     if (bot.type !== 'signal' || !bot.pionexSignalType || !bot.credentialId)
       this.invalid('botNotSignal');
-    if (bot.status !== 'running')
-      throw new ConflictException(this.t('botNotRunning'));
+    if (bot.status !== 'running') throw conflictError('botNotRunning');
 
     const spec = await botSymbolSpec(this.symbols, bot);
     const price = await this.priceOf(bot.symbol);
@@ -1828,7 +1816,7 @@ export class QuantBotsService {
     } catch (error) {
       if (!(error instanceof PionexApiError)) throw error;
 
-      throw new BadRequestException(this.t(key, { message: error.message }));
+      throw badRequestError(key, { message: error.message });
     }
   }
 
@@ -1932,7 +1920,7 @@ export class QuantBotsService {
         if (config.orderAmount > investment * leverage)
           this.invalid('orderAmountAboveInvestment');
         for (const condition of [...config.entry, ...config.exit])
-          if (!this.conditionComplete(condition))
+          if (!isConditionComplete(condition))
             this.invalid('indicatorConditionIncomplete');
         return;
       }
@@ -1944,27 +1932,6 @@ export class QuantBotsService {
           this.invalid('orderAmountAboveInvestment');
         return;
       }
-    }
-  }
-
-  private conditionComplete(condition: IndicatorConditionDto) {
-    switch (condition.kind) {
-      case 'rsi':
-        return (
-          condition.operator !== undefined && condition.value !== undefined
-        );
-      case 'maCross':
-      case 'emaCross':
-        return (
-          condition.fast !== undefined &&
-          condition.slow !== undefined &&
-          condition.fast < condition.slow &&
-          condition.direction !== undefined
-        );
-      case 'macdCross':
-        return condition.direction !== undefined;
-      case 'bollinger':
-        return condition.band !== undefined;
     }
   }
 

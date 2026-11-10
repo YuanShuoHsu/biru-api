@@ -35,8 +35,6 @@ export const quantCredential = pgTable(
   (table) => [index('quant_credential_user_id_idx').on(table.userId)],
 );
 
-export type QuantCredential = typeof quantCredential.$inferSelect;
-
 // 每位平台管理員自己的 Claude API key；和交易所金鑰一樣依環境分開，別環境的解不開
 export const quantAiKey = pgTable(
   'quant_ai_key',

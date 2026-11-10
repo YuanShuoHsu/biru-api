@@ -10,10 +10,16 @@ import {
   Query,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
+import { withImageRefUrl, withImageUrl } from '../images/image-url.js';
 import { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import { OrganizationId } from './decorators/organization-id.decorator.js';
@@ -27,17 +33,35 @@ import { CreateMenuSectionDto } from './dto/create-menu-section.dto.js';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto.js';
 import { CreateModifierDto } from './dto/create-modifier.dto.js';
 import { CreateOfferDto } from './dto/create-offer.dto.js';
-import { MenuItemAddOnResponseDto } from './dto/menu-item-add-on-response.dto.js';
-import { MenuItemModifierGroupResponseDto } from './dto/menu-item-modifier-group-response.dto.js';
+import {
+  MenuItemAddOnListResponseDto,
+  MenuItemAddOnResponseDto,
+} from './dto/menu-item-add-on-response.dto.js';
+import {
+  MenuItemModifierGroupListResponseDto,
+  MenuItemModifierGroupResponseDto,
+} from './dto/menu-item-modifier-group-response.dto.js';
 import { MenuItemPaginationQueryDto } from './dto/menu-item-pagination-query.dto.js';
-import { MenuItemResponseDto } from './dto/menu-item-response.dto.js';
+import {
+  MenuItemListResponseDto,
+  MenuItemResponseDto,
+} from './dto/menu-item-response.dto.js';
 import { MenuResponseDto } from './dto/menu-response.dto.js';
 import { MenuSectionPaginationQueryDto } from './dto/menu-section-pagination-query.dto.js';
-import { MenuSectionResponseDto } from './dto/menu-section-response.dto.js';
+import {
+  MenuSectionListResponseDto,
+  MenuSectionResponseDto,
+} from './dto/menu-section-response.dto.js';
 import { ModifierGroupPaginationQueryDto } from './dto/modifier-group-pagination-query.dto.js';
-import { ModifierGroupResponseDto } from './dto/modifier-group-response.dto.js';
+import {
+  ModifierGroupListResponseDto,
+  ModifierGroupResponseDto,
+} from './dto/modifier-group-response.dto.js';
 import { ModifierPaginationQueryDto } from './dto/modifier-pagination-query.dto.js';
-import { ModifierResponseDto } from './dto/modifier-response.dto.js';
+import {
+  ModifierListResponseDto,
+  ModifierResponseDto,
+} from './dto/modifier-response.dto.js';
 import { OfferResponseDto } from './dto/offer-response.dto.js';
 import { ReorderDto } from './dto/reorder.dto.js';
 import { UpdateItemAvailabilityDto } from './dto/update-item-availability.dto.js';
@@ -59,15 +83,15 @@ import { MenusService } from './menus.service.js';
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 
-  // ── Menu ──────────────────────────────────────────────────────────
-
   @Get('organizations/:organizationId/menus')
   @Roles({ menu: ['read'] }, 'organizationId')
   @ApiOperation({ summary: '取得組織所有菜單' })
-  findAllMenus(
+  async findAllMenus(
     @Param('organizationId') organizationId: string,
   ): Promise<MenuResponseDto[]> {
-    return this.menusService.menus(organizationId);
+    const menus = await this.menusService.menus(organizationId);
+
+    return menus.map((row) => withImageRefUrl('menu', row));
   }
 
   @Get('menus/:menuId')
@@ -77,44 +101,55 @@ export class MenusController {
     const result = await this.menusService.menu({ id: menuId });
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menu', result);
   }
 
   @Patch('menus/:menuId')
   @Roles({ menu: ['update'] }, 'menuId')
   @Audit('menu', { param: 'menuId' })
   @ApiOperation({ summary: '更新菜單' })
-  updateMenu(
+  async updateMenu(
     @Body() updateMenuDto: UpdateMenuDto,
     @Param('menuId') menuId: string,
   ): Promise<MenuResponseDto> {
-    return this.menusService.updateMenu({
+    const updated = await this.menusService.updateMenu({
       where: { id: menuId },
       data: updateMenuDto,
     });
-  }
 
-  // ── MenuSection ───────────────────────────────────────────────────
+    return withImageUrl('menu', updated);
+  }
 
   @Post('menus/:menuId/menu-sections')
   @Roles({ menu: ['create'] }, 'menuId')
   @Audit('menuSection', { response: true })
   @ApiOperation({ summary: '建立菜單分類' })
-  createMenuSection(
+  async createMenuSection(
     @Body() createMenuSectionDto: CreateMenuSectionDto,
     @Param('menuId') menuId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.createMenuSection(menuId, createMenuSectionDto);
+    const created = await this.menusService.createMenuSection(
+      menuId,
+      createMenuSectionDto,
+    );
+
+    return withImageUrl('menuSection', created);
   }
 
   @Get('menus/:menuId/menu-sections')
   @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有分類' })
-  findAllMenuSections(
+  @ApiOkResponse({ type: MenuSectionListResponseDto })
+  async findAllMenuSections(
     @Param('menuId') menuId: string,
     @Query() query: MenuSectionPaginationQueryDto,
-  ): Promise<{ data: MenuSectionResponseDto[]; total: number }> {
-    return this.menusService.menuSections(menuId, query);
+  ): Promise<MenuSectionListResponseDto> {
+    const { data, total } = await this.menusService.menuSections(menuId, query);
+
+    return {
+      data: data.map((row) => withImageRefUrl('menuSection', row)),
+      total,
+    };
   }
 
   @Get('menus/:menuId/order-ticket-printers')
@@ -131,10 +166,10 @@ export class MenusController {
   @Audit('menuSection', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單分類' })
   reorderMenuSections(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuId') menuId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuSections(menuId, ids, offset);
+    return this.menusService.reorderMenuSections(menuId, ids);
   }
 
   @Get('menu-sections/:sectionId')
@@ -146,21 +181,23 @@ export class MenusController {
     const result = await this.menusService.menuSection({ id: sectionId });
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menuSection', result);
   }
 
   @Patch('menu-sections/:sectionId')
   @Roles({ menu: ['update'] }, 'sectionId')
   @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '更新菜單分類' })
-  updateMenuSection(
+  async updateMenuSection(
     @Body() updateMenuSectionDto: UpdateMenuSectionDto,
     @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.updateMenuSection({
+    const updated = await this.menusService.updateMenuSection({
       where: { id: sectionId },
       data: updateMenuSectionDto,
     });
+
+    return withImageUrl('menuSection', updated);
   }
 
   @Delete('menus/:menuId/menu-sections')
@@ -178,13 +215,15 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'sectionId')
   @Audit('menuSection', { param: 'sectionId' })
   @ApiOperation({ summary: '刪除菜單分類' })
-  deleteMenuSection(
+  async deleteMenuSection(
     @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
-    return this.menusService.deleteMenuSection({ id: sectionId });
-  }
+    const deleted = await this.menusService.deleteMenuSection({
+      id: sectionId,
+    });
 
-  // ── MenuItem ──────────────────────────────────────────────────────
+    return withImageUrl('menuSection', deleted);
+  }
 
   @Post('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['create'] }, 'sectionId')
@@ -198,33 +237,41 @@ export class MenusController {
     },
   )
   @ApiOperation({ summary: '建立菜單品項' })
-  createMenuItem(
+  async createMenuItem(
     @Body() createMenuItemDto: CreateMenuItemDto,
     @Param('sectionId') sectionId: string,
     @OrganizationId() organizationId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.createMenuItem(
+    const created = await this.menusService.createMenuItem(
       sectionId,
       organizationId,
       createMenuItemDto,
     );
+
+    return withImageUrl('menuItem', created);
   }
 
   @Get('menu-sections/:sectionId/menu-items')
   @Roles({ menu: ['read'] }, 'sectionId')
   @ApiOperation({ summary: '取得分類所有品項' })
-  findAllMenuSectionItems(
+  @ApiOkResponse({ type: MenuItemListResponseDto })
+  async findAllMenuSectionItems(
     @Param('sectionId') sectionId: string,
     @Query() query: MenuItemPaginationQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
     @OrganizationId() organizationId: string,
-  ): Promise<{ data: MenuItemResponseDto[]; total: number }> {
-    return this.menusService.menuSectionItems(
+  ): Promise<MenuItemListResponseDto> {
+    const { data, total } = await this.menusService.menuSectionItems(
       sectionId,
       organizationId,
       query,
       canReadPurchasing,
     );
+
+    return {
+      data: data.map((row) => withImageRefUrl('menuItem', row)),
+      total,
+    };
   }
 
   @Patch('menu-sections/:sectionId/menu-items/reorder')
@@ -232,10 +279,10 @@ export class MenusController {
   @Audit('menuItem', { body: 'ids' })
   @ApiOperation({ summary: '重新排序菜單品項' })
   reorderMenuItems(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('sectionId') sectionId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItems(sectionId, ids, offset);
+    return this.menusService.reorderMenuItems(sectionId, ids);
   }
 
   @Get('menu-items/:menuItemId')
@@ -253,7 +300,7 @@ export class MenusController {
     );
     if (!result) throw new NotFoundException();
 
-    return result;
+    return withImageUrl('menuItem', result);
   }
 
   @Patch('menu-items/:menuItemId')
@@ -268,16 +315,18 @@ export class MenusController {
     },
   )
   @ApiOperation({ summary: '更新菜單品項' })
-  updateMenuItem(
+  async updateMenuItem(
     @Body() updateMenuItemDto: UpdateMenuItemDto,
     @Param('menuItemId') menuItemId: string,
     @OrganizationId() organizationId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.updateMenuItem({
+    const updated = await this.menusService.updateMenuItem({
       where: { id: menuItemId },
       organizationId,
       data: updateMenuItemDto,
     });
+
+    return withImageUrl('menuItem', updated);
   }
 
   @Delete('menu-sections/:sectionId/menu-items')
@@ -295,13 +344,13 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'menuItemId')
   @Audit('menuItem', { param: 'menuItemId' })
   @ApiOperation({ summary: '刪除菜單品項' })
-  deleteMenuItem(
+  async deleteMenuItem(
     @Param('menuItemId') menuItemId: string,
   ): Promise<MenuItemResponseDto> {
-    return this.menusService.deleteMenuItem({ id: menuItemId });
-  }
+    const deleted = await this.menusService.deleteMenuItem({ id: menuItemId });
 
-  // ── Offer ─────────────────────────────────────────────────────────
+    return withImageUrl('menuItem', deleted);
+  }
 
   @Post('menu-items/:menuItemId/offers')
   @Roles({ menu: ['create'] }, 'menuItemId')
@@ -388,8 +437,6 @@ export class MenusController {
     return this.menusService.deleteOffer({ id: offerId, organizationId });
   }
 
-  // ── MenuItemAddOn ─────────────────────────────────────────────────
-
   @Post('menu-items/:menuItemId/add-ons')
   @Roles({ menu: ['create'] }, 'menuItemId')
   @Audit('menuItemAddOn', { response: true })
@@ -407,10 +454,11 @@ export class MenusController {
   @Get('menu-items/:menuItemId/add-ons')
   @Roles({ menu: ['read'] }, 'menuItemId')
   @ApiOperation({ summary: '取得品項所有加購' })
+  @ApiOkResponse({ type: MenuItemAddOnListResponseDto })
   findAllMenuItemAddOns(
     @Param('menuItemId') menuItemId: string,
     @Query() query: AddOnPaginationQueryDto,
-  ): Promise<{ data: MenuItemAddOnResponseDto[]; total: number }> {
+  ): Promise<MenuItemAddOnListResponseDto> {
     return this.menusService.menuItemAddOns(menuItemId, query);
   }
 
@@ -419,10 +467,10 @@ export class MenusController {
   @Audit('menuItemAddOn', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項加購' })
   reorderMenuItemAddOns(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuItemId') menuItemId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItemAddOns(menuItemId, ids, offset);
+    return this.menusService.reorderMenuItemAddOns(menuItemId, ids);
   }
 
   @Patch('menu-items/:menuItemId/add-ons/:addOnId')
@@ -462,8 +510,6 @@ export class MenusController {
     return this.menusService.deleteMenuItemAddOn({ id: addOnId, menuItemId });
   }
 
-  // ── ModifierGroup ─────────────────────────────────────────────────
-
   @Post('menus/:menuId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuId')
   @Audit('modifierGroup', { response: true })
@@ -481,10 +527,11 @@ export class MenusController {
   @Get('menus/:menuId/modifier-groups')
   @Roles({ menu: ['read'] }, 'menuId')
   @ApiOperation({ summary: '取得菜單所有選項群組' })
+  @ApiOkResponse({ type: ModifierGroupListResponseDto })
   findAllModifierGroups(
     @Param('menuId') menuId: string,
     @Query() query: ModifierGroupPaginationQueryDto,
-  ): Promise<{ data: ModifierGroupResponseDto[]; total: number }> {
+  ): Promise<ModifierGroupListResponseDto> {
     return this.menusService.modifierGroups(menuId, query);
   }
 
@@ -493,10 +540,10 @@ export class MenusController {
   @Audit('modifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項群組' })
   reorderModifierGroups(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuId') menuId: string,
   ): Promise<void> {
-    return this.menusService.reorderModifierGroups(menuId, ids, offset);
+    return this.menusService.reorderModifierGroups(menuId, ids);
   }
 
   @Get('modifier-groups/:groupId')
@@ -546,33 +593,43 @@ export class MenusController {
     return this.menusService.deleteModifierGroup({ id: groupId });
   }
 
-  // ── Modifier ──────────────────────────────────────────────────────
-
   @Post('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['create'] }, 'groupId')
   @Audit('modifier', { response: true })
   @ApiOperation({ summary: '建立選項' })
-  createModifier(
+  async createModifier(
     @Body() createModifierDto: CreateModifierDto,
     @Param('groupId') groupId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.createModifier(
+    const created = await this.menusService.createModifier(
       groupId,
       organizationId,
       createModifierDto,
     );
+
+    return withImageUrl('modifier', created);
   }
 
   @Get('modifier-groups/:groupId/modifiers')
   @Roles({ menu: ['read'] }, 'groupId')
   @ApiOperation({ summary: '取得群組所有選項' })
-  findAllModifiers(
+  @ApiOkResponse({ type: ModifierListResponseDto })
+  async findAllModifiers(
     @Param('groupId') groupId: string,
     @Query() query: ModifierPaginationQueryDto,
     @OrganizationId() organizationId: string,
-  ): Promise<{ data: ModifierResponseDto[]; total: number }> {
-    return this.menusService.modifiers(groupId, organizationId, query);
+  ): Promise<ModifierListResponseDto> {
+    const { data, total } = await this.menusService.modifiers(
+      groupId,
+      organizationId,
+      query,
+    );
+
+    return {
+      data: data.map((row) => withImageRefUrl('modifier', row)),
+      total,
+    };
   }
 
   @Patch('modifier-groups/:groupId/modifiers/reorder')
@@ -580,42 +637,61 @@ export class MenusController {
   @Audit('modifier', { body: 'ids' })
   @ApiOperation({ summary: '重新排序選項' })
   reorderModifiers(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('groupId') groupId: string,
   ): Promise<void> {
-    return this.menusService.reorderModifiers(groupId, ids, offset);
+    return this.menusService.reorderModifiers(groupId, ids);
+  }
+
+  @Get('modifiers/:modifierId')
+  @Roles({ menu: ['read'] }, 'modifierId')
+  @ApiOperation({ summary: '取得選項詳情' })
+  async findModifier(
+    @Param('modifierId') modifierId: string,
+    @OrganizationId() organizationId: string,
+  ): Promise<ModifierResponseDto> {
+    const result = await this.menusService.modifier(
+      { id: modifierId },
+      organizationId,
+    );
+
+    return withImageUrl('modifier', result);
   }
 
   @Patch('modifiers/:modifierId')
   @Roles({ menu: ['update'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '更新選項' })
-  updateModifier(
+  async updateModifier(
     @Body() updateModifierDto: UpdateModifierDto,
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.updateModifier({
+    const updated = await this.menusService.updateModifier({
       where: { id: modifierId },
       organizationId,
       data: updateModifierDto,
     });
+
+    return withImageUrl('modifier', updated);
   }
 
   @Patch('modifiers/:modifierId/availability')
   @Roles({ itemAvailability: ['update'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '更新選項供應狀態' })
-  updateModifierAvailability(
+  async updateModifierAvailability(
     @Body() updateItemAvailabilityDto: UpdateItemAvailabilityDto,
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.updateModifier({
+    const updated = await this.menusService.updateModifier({
       where: { id: modifierId },
       organizationId,
       data: updateItemAvailabilityDto,
     });
+
+    return withImageUrl('modifier', updated);
   }
 
   @Delete('modifier-groups/:groupId/modifiers')
@@ -633,14 +709,17 @@ export class MenusController {
   @Roles({ menu: ['delete'] }, 'modifierId')
   @Audit('modifier', { param: 'modifierId' })
   @ApiOperation({ summary: '刪除選項' })
-  deleteModifier(
+  async deleteModifier(
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
   ): Promise<ModifierResponseDto> {
-    return this.menusService.deleteModifier({ id: modifierId, organizationId });
-  }
+    const deleted = await this.menusService.deleteModifier({
+      id: modifierId,
+      organizationId,
+    });
 
-  // ── MenuItemModifierGroup ─────────────────────────────────────────
+    return withImageUrl('modifier', deleted);
+  }
 
   @Post('menu-items/:menuItemId/modifier-groups')
   @Roles({ menu: ['create'] }, 'menuItemId')
@@ -659,10 +738,11 @@ export class MenusController {
   @Get('menu-items/:menuItemId/modifier-groups')
   @Roles({ menu: ['read'] }, 'menuItemId')
   @ApiOperation({ summary: '取得品項已掛上的選項群組' })
+  @ApiOkResponse({ type: MenuItemModifierGroupListResponseDto })
   findAllMenuItemModifierGroups(
     @Param('menuItemId') menuItemId: string,
     @Query() query: ModifierGroupPaginationQueryDto,
-  ): Promise<{ data: MenuItemModifierGroupResponseDto[]; total: number }> {
+  ): Promise<MenuItemModifierGroupListResponseDto> {
     return this.menusService.menuItemModifierGroups(menuItemId, query);
   }
 
@@ -671,14 +751,10 @@ export class MenusController {
   @Audit('menuItemModifierGroup', { body: 'ids' })
   @ApiOperation({ summary: '重新排序品項的選項群組' })
   reorderMenuItemModifierGroups(
-    @Body() { ids, offset }: ReorderDto,
+    @Body() { ids }: ReorderDto,
     @Param('menuItemId') menuItemId: string,
   ): Promise<void> {
-    return this.menusService.reorderMenuItemModifierGroups(
-      menuItemId,
-      ids,
-      offset,
-    );
+    return this.menusService.reorderMenuItemModifierGroups(menuItemId, ids);
   }
 
   @Delete('menu-items/:menuItemId/modifier-groups')

@@ -3,24 +3,22 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { lt, sql } from 'drizzle-orm';
 import { AttendanceNotificationsService } from '../attendance/attendance-notifications.service.js';
+import { anniversary } from '../attendance/leave-rules.js';
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { CouponsService } from '../coupons/coupons.service.js';
+import { AUDIT_LOG_RETENTION_MONTHS } from '../db/schema/audit.js';
 import * as schema from '../db/schema/index.js';
 import { DeletedRecordsService } from '../deleted-records/deleted-records.service.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
+import { InventoryNotificationsService } from '../inventory/inventory-notifications.service.js';
+import { OrderNotificationsService } from '../orders/order-notifications.service.js';
 import { PayrollRulesService } from '../payroll/payroll-rules.service.js';
+import { PointsService } from '../points/points.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
-const AUDIT_LOG_RETENTION_MONTHS = 12;
 const ECPAY_CALLBACK_LOG_RETENTION_MONTHS = 6;
 const ATTENDANCE_AUDIT_RETENTION_MONTHS = 60;
-
-const monthsAgo = (months: number): Date => {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - months);
-
-  return cutoff;
-};
 
 @Injectable()
 export class TasksService {
@@ -29,8 +27,12 @@ export class TasksService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly attendanceNotificationsService: AttendanceNotificationsService,
+    private readonly couponsService: CouponsService,
     private readonly deletedRecordsService: DeletedRecordsService,
+    private readonly inventoryNotificationsService: InventoryNotificationsService,
+    private readonly orderNotificationsService: OrderNotificationsService,
     private readonly payrollRulesService: PayrollRulesService,
+    private readonly pointsService: PointsService,
     private readonly waitlistService: WaitlistService,
   ) {}
 
@@ -61,6 +63,20 @@ export class TasksService {
     }
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleBirthdayCouponsCron() {
+    try {
+      const members = await this.couponsService.issueBirthdayCoupons();
+
+      if (members) this.logger.log(`為 ${members} 位當月壽星發放生日券`);
+    } catch (error) {
+      this.logger.error('發放生日券失敗', error);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_4AM, {
     disabled: !CRON_ENABLED,
     timeZone: PLATFORM_TIMEZONE,
@@ -84,6 +100,51 @@ export class TasksService {
     }
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleLowStockDigestCron() {
+    try {
+      const notified =
+        await this.inventoryNotificationsService.notifyLowStockDigest();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封低庫存摘要`);
+    } catch (error) {
+      this.logger.error('寄送低庫存摘要失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handleDailySalesDigestCron() {
+    try {
+      const notified =
+        await this.orderNotificationsService.notifyDailySalesDigest();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封營業摘要`);
+    } catch (error) {
+      this.logger.error('寄送營業摘要失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handlePlatformDailyDigestCron() {
+    try {
+      const notified =
+        await this.orderNotificationsService.notifyPlatformDailyDigest();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封全平台每日總覽`);
+    } catch (error) {
+      this.logger.error('寄送全平台每日總覽失敗', error);
+    }
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_9AM, {
     disabled: !CRON_ENABLED,
     timeZone: PLATFORM_TIMEZONE,
@@ -96,6 +157,40 @@ export class TasksService {
       if (notified) this.logger.log(`寄出 ${notified} 封特休取得通知`);
     } catch (error) {
       this.logger.error('寄送特休取得通知失敗', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_10AM, {
+    disabled: !CRON_ENABLED,
+    timeZone: PLATFORM_TIMEZONE,
+  })
+  async handlePointsExpiryReminderCron() {
+    try {
+      const notified = await this.pointsService.notifyExpiringPoints();
+
+      if (notified) this.logger.log(`寄出 ${notified} 封點數到期提醒`);
+    } catch (error) {
+      this.logger.error('寄送點數到期提醒失敗', error);
+    }
+  }
+
+  private lastMissingClockOutCheck = new Date();
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { disabled: !CRON_ENABLED })
+  async handleMissingClockOutCron() {
+    const since = this.lastMissingClockOutCheck;
+    this.lastMissingClockOutCheck = new Date();
+
+    try {
+      const notified =
+        await this.attendanceNotificationsService.notifyMissingClockOuts(
+          since,
+          this.lastMissingClockOutCheck,
+        );
+
+      if (notified) this.logger.log(`寄出 ${notified} 封補打下班卡提醒`);
+    } catch (error) {
+      this.logger.error('寄送補打下班卡提醒失敗', error);
     }
   }
 
@@ -165,7 +260,7 @@ export class TasksService {
     await this.purge(
       '異動紀錄',
       schema.auditLog,
-      monthsAgo(AUDIT_LOG_RETENTION_MONTHS),
+      anniversary(new Date(), -AUDIT_LOG_RETENTION_MONTHS),
     );
   }
 
@@ -177,7 +272,7 @@ export class TasksService {
     await this.purge(
       '綠界回調紀錄',
       schema.ecpayCallbackLog,
-      monthsAgo(ECPAY_CALLBACK_LOG_RETENTION_MONTHS),
+      anniversary(new Date(), -ECPAY_CALLBACK_LOG_RETENTION_MONTHS),
     );
   }
 
@@ -189,7 +284,7 @@ export class TasksService {
     await this.purge(
       '出勤稽核紀錄',
       schema.attendanceAudit,
-      monthsAgo(ATTENDANCE_AUDIT_RETENTION_MONTHS),
+      anniversary(new Date(), -ATTENDANCE_AUDIT_RETENTION_MONTHS),
     );
   }
 

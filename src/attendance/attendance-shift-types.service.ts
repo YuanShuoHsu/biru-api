@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -17,6 +17,7 @@ import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { attendanceShiftType } from '../db/schema/attendance.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -28,7 +29,11 @@ import {
   writeAudit,
   type RestoredRecord,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import {
   MAX_DAILY_WORK_SECONDS,
   scheduledWorkSeconds,
@@ -81,9 +86,9 @@ export class AttendanceShiftTypesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceShiftType.name, `%${value}%`),
-          ilike(attendanceShiftType.startTime, `%${value}%`),
-          ilike(attendanceShiftType.endTime, `%${value}%`),
+          ilike(attendanceShiftType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceShiftType.startTime, `%${escapeLike(value)}%`),
+          ilike(attendanceShiftType.endTime, `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -200,7 +205,7 @@ export class AttendanceShiftTypesService {
           eq(attendanceShiftType.organizationId, actor.organizationId),
         ),
       );
-    if (!row) throw new NotFoundException();
+    if (!row) throw notFoundError();
     return row;
   }
 

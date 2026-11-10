@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiExtraModels,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -20,14 +20,13 @@ import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { DeletedRecordsService } from './deleted-records.service.js';
 import {
-  DeletedRecordBatchResponseDto,
+  DeletedRecordBatchListResponseDto,
   DeletedRecordPaginationQueryDto,
   RestoreDeletedRecordsDto,
 } from './dto/deleted-record-batch.dto.js';
 
 @ApiTags('deleted-records')
 @ApiBearerAuth()
-@ApiExtraModels(DeletedRecordBatchResponseDto)
 @UseGuards(AdminGuard)
 @Controller('deleted-records')
 export class DeletedRecordsController {
@@ -35,9 +34,10 @@ export class DeletedRecordsController {
 
   @Get()
   @ApiOperation({ summary: '查詢最近 30 天內可還原的刪除' })
+  @ApiOkResponse({ type: DeletedRecordBatchListResponseDto })
   findAll(
     @Query() query: DeletedRecordPaginationQueryDto,
-  ): Promise<{ data: DeletedRecordBatchResponseDto[]; total: number }> {
+  ): Promise<DeletedRecordBatchListResponseDto> {
     return this.deletedRecordsService.list(query);
   }
 

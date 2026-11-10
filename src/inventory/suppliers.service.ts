@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   and,
@@ -12,18 +12,20 @@ import {
   ne,
   notInArray,
   or,
-  sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
@@ -40,6 +42,7 @@ import {
   SupplierIngredientResponseDto,
   SupplierResponseDto,
 } from './dto/supplier-response.dto.js';
+import { badRequestError, notFoundError } from './inventory-errors.js';
 
 type Tx = Pick<DrizzleDB, 'update'>;
 
@@ -48,7 +51,7 @@ export class SuppliersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: SupplierPaginationQueryDto = {},
   ): Promise<{ data: SupplierResponseDto[]; total: number }> {
     const {
@@ -62,10 +65,6 @@ export class SuppliersService {
       sortBy,
       sortDirection = 'asc',
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
       name: supplier.name,
@@ -77,7 +76,9 @@ export class SuppliersService {
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy = sortBy ? [dir(fieldMap[sortBy])] : [asc(supplier.name)];
+    const orderBy = sortBy
+      ? [dir(fieldMap[sortBy]), asc(supplier.id)]
+      : [asc(supplier.name), asc(supplier.id)];
 
     const where = and(
       eq(supplier.organizationId, organizationId),
@@ -96,12 +97,12 @@ export class SuppliersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(supplier.name, `%${value}%`),
-          ilike(supplier.telephone, `%${value}%`),
-          ilike(supplier.url, `%${value}%`),
-          ilike(supplier.note, `%${value}%`),
-          ilike(localTimeText(supplier.createdAt), `%${value}%`),
-          ilike(localTimeText(supplier.updatedAt), `%${value}%`),
+          ilike(supplier.name, `%${escapeLike(value)}%`),
+          ilike(supplier.telephone, `%${escapeLike(value)}%`),
+          ilike(supplier.url, `%${escapeLike(value)}%`),
+          ilike(supplier.note, `%${escapeLike(value)}%`),
+          ilike(localTimeText(supplier.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(supplier.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -135,7 +136,14 @@ export class SuppliersService {
       })
       .from(ingredient)
       .where(inArray(ingredient.supplierId, supplierIds))
-      .orderBy(asc(sql`${ingredient.name}::text`));
+      .orderBy(
+        asc(
+          localizedTextSql(
+            ingredient.name,
+            toLanguage(I18nContext.current()?.lang),
+          ),
+        ),
+      );
 
     const ingredients = new Map<string, SupplierIngredientResponseDto[]>();
     for (const { supplierId, ...row } of rows) {
@@ -150,15 +158,19 @@ export class SuppliersService {
     return ingredients;
   }
 
+  async findOne(supplierId: string): Promise<SupplierResponseDto> {
+    const row = await this.db.query.supplier.findFirst({
+      where: eq(supplier.id, supplierId),
+    });
+    if (!row) throw notFoundError('supplierNotFound');
+
+    return this.withIngredients(row);
+  }
+
   async create(
-    organizationSlug: string,
+    organizationId: string,
     { ingredientIds, ...dto }: CreateSupplierDto,
   ): Promise<SupplierResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-
     await this.assertIngredientsInOrganization(ingredientIds, organizationId);
 
     const created = await this.db.transaction(async (tx) => {
@@ -183,11 +195,12 @@ export class SuppliersService {
       .select({ organizationId: supplier.organizationId })
       .from(supplier)
       .where(eq(supplier.id, supplierId));
-    if (!existing) throw new NotFoundException('Supplier not found');
+    if (!existing) throw notFoundError('supplierNotFound');
 
     await this.assertIngredientsInOrganization(
       ingredientIds,
       existing.organizationId,
+      supplierId,
     );
 
     const updated = await this.db.transaction(async (tx) => {
@@ -199,7 +212,7 @@ export class SuppliersService {
               .where(eq(supplier.id, supplierId))
               .returning()
           : await tx.select().from(supplier).where(eq(supplier.id, supplierId));
-      if (!row) throw new NotFoundException('Supplier not found');
+      if (!row) throw notFoundError('supplierNotFound');
 
       if (ingredientIds)
         await this.bindIngredients(tx, supplierId, ingredientIds);
@@ -221,12 +234,16 @@ export class SuppliersService {
   private async assertIngredientsInOrganization(
     ingredientIds: string[] | undefined,
     organizationId: string,
+    supplierId?: string,
   ): Promise<void> {
     const unique = [...new Set(ingredientIds)];
     if (!unique.length) return;
 
     const found = await this.db
-      .select({ id: ingredient.id })
+      .select({
+        recipeId: ingredient.recipeId,
+        supplierId: ingredient.supplierId,
+      })
       .from(ingredient)
       .where(
         and(
@@ -235,7 +252,9 @@ export class SuppliersService {
         ),
       );
     if (found.length !== unique.length)
-      throw new NotFoundException('Ingredient not found');
+      throw notFoundError('ingredientNotFound');
+    if (found.some((row) => row.recipeId && row.supplierId !== supplierId))
+      throw badRequestError('purchaseFieldsOnSourcedIngredient');
   }
 
   private async bindIngredients(
@@ -276,7 +295,7 @@ export class SuppliersService {
       .delete(supplier)
       .where(eq(supplier.id, supplierId))
       .returning({ id: supplier.id });
-    if (!deleted.length) throw new NotFoundException('Supplier not found');
+    if (!deleted.length) throw notFoundError('supplierNotFound');
   }
 
   async removeMany(organizationId: string, ids: string[]): Promise<void> {
@@ -292,7 +311,7 @@ export class SuppliersService {
             ),
           )
           .returning({ id: supplier.id });
-        if (!deleted.length) throw new NotFoundException('Supplier not found');
+        if (!deleted.length) throw notFoundError('supplierNotFound');
       }
     });
   }

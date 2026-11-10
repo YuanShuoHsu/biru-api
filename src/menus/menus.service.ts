@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   Column,
@@ -22,12 +17,17 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v4 as uuidv4 } from 'uuid';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
-import { isSameLocalizedText } from '../common/utils/localized-text.js';
+import { toLanguage } from '../common/utils/language.js';
+import {
+  isSameLocalizedText,
+  localizedTextSql,
+} from '../common/utils/localized-text.js';
 import { getOrganizationCurrency } from '../common/utils/organizations.js';
+import { isUniqueViolation, pgConstraint } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
@@ -55,18 +55,27 @@ import { printer } from '../db/schema/printers.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { ImageStorageService } from '../images/image-storage.service.js';
+import {
+  imageRefQuery,
+  withImageRefs,
+  withoutImage,
+  type WithImageRef,
+} from '../images/image-url.js';
 import { bindRecipeByMenuItemName } from '../inventory/recipe-menu-item-binding.js';
+import { keepAutoSoldOut } from '../inventory/menu-stock.service.js';
 import { RecipesService } from '../inventory/recipes.service.js';
 import type { OrderTicketPrinterOptionDto } from '../orders/dto/order-ticket.dto.js';
 
 import {
   buildArrayOverlapCondition,
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
-  buildStringFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 
 import {
   ADD_ON_DATE_FILTER_FIELDS,
@@ -118,6 +127,11 @@ import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js'
 import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
 import type { UpdateOfferDto } from './dto/update-offer.dto.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './menu-errors.js';
 
 type RecipeSummary = {
   id: string;
@@ -181,9 +195,7 @@ const resolveDrinkOptions = (
   const fixedSweetnessLevel =
     sweetness === 'Fixed' ? next('fixedSweetnessLevel') : null;
   if (sweetness === 'Fixed' && !fixedSweetnessLevel)
-    throw new BadRequestException(
-      'fixedSweetnessLevel is required when sweetness is Fixed',
-    );
+    throw badRequestError('fixedSweetnessLevelRequired');
 
   return {
     recommendedServingTemperatureLevel:
@@ -209,14 +221,8 @@ export class MenusService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly recipesService: RecipesService,
-    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly imageStorage: ImageStorageService,
   ) {}
-
-  private t(key: keyof I18nTranslations['common']['menus']): string {
-    return this.i18n.t(`common.menus.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   private async recipeWithCost(
     found: RecipeSummary | null | undefined,
@@ -232,8 +238,9 @@ export class MenusService {
 
   // ── Menu ──────────────────────────────────────────────────────────
 
-  async menus(organizationId: string): Promise<Menu[]> {
+  async menus(organizationId: string): Promise<WithImageRef<Menu>[]> {
     return this.db.query.menu.findMany({
+      ...imageRefQuery,
       where: eq(menu.organizationId, organizationId),
     });
   }
@@ -252,7 +259,11 @@ export class MenusService {
   }): Promise<Menu> {
     const [updated] = await this.db
       .update(menu)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        image: await this.imageStorage.store('menu', params.data.image),
+        updatedAt: new Date(),
+      })
       .where(eq(menu.id, params.where.id))
       .returning();
 
@@ -269,7 +280,7 @@ export class MenusService {
   ): Promise<void> {
     if (!parentSectionId) return;
     if (parentSectionId === sectionId)
-      throw new BadRequestException(this.t('parentSectionSelf'));
+      throw badRequestError('parentSectionSelf');
 
     await tx
       .select({ id: menu.id })
@@ -292,9 +303,9 @@ export class MenusService {
     `);
 
     if (ancestors.find(({ id }) => id === parentSectionId)?.menu_id !== menuId)
-      throw new NotFoundException('Parent section not found');
+      throw notFoundError('parentSectionNotFound');
     if (sectionId && ancestors.some(({ id }) => id === sectionId))
-      throw new BadRequestException(this.t('parentSectionDescendant'));
+      throw badRequestError('parentSectionDescendant');
   }
 
   private async validateOrderTicketPrinter(
@@ -314,8 +325,9 @@ export class MenusService {
           eq(printer.id, printerId),
           eq(printer.purpose, 'orderTicket'),
         ),
-      );
-    if (!found) throw new NotFoundException('Printer not found');
+      )
+      .for('key share', { of: printer });
+    if (!found) throw notFoundError('printerNotFound');
   }
 
   orderTicketPrinters(menuId: string): Promise<OrderTicketPrinterOptionDto[]> {
@@ -335,6 +347,8 @@ export class MenusService {
     menuId: string,
     data: CreateMenuSectionDto,
   ): Promise<MenuSection> {
+    const image = await this.imageStorage.store('menuSection', data.image);
+
     return this.db.transaction(async (tx) => {
       await this.validateParentSection(tx, menuId, data.parentSectionId);
       await this.validateOrderTicketPrinter(
@@ -350,7 +364,7 @@ export class MenusService {
 
       const [created] = await tx
         .insert(menuSection)
-        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data })
+        .values({ id: uuidv4(), menuId, sortOrder: 0, ...data, image })
         .returning();
 
       return created;
@@ -360,7 +374,7 @@ export class MenusService {
   async menuSections(
     menuId: string,
     query: MenuSectionPaginationQueryDto = {},
-  ): Promise<{ data: MenuSection[]; total: number }> {
+  ): Promise<{ data: WithImageRef<MenuSection>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -375,50 +389,73 @@ export class MenusService {
       sortDirection = 'desc',
     } = query;
 
+    const localizedFields: Record<string, Column> = {
+      name: menuSection.name,
+      description: menuSection.description,
+    };
+
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortBy
-      ? [dir(menuSection[sortBy])]
+      ? [
+          dir(
+            localizedFields[sortBy]
+              ? localizedTextSql(
+                  localizedFields[sortBy],
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : menuSection[sortBy],
+          ),
+        ]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
     const sectionFieldMap: Record<string, Column | SQL> = {
-      name: sql`${menuSection.name}::text`,
-      description: sql`${menuSection.description}::text`,
       createdAt: menuSection.createdAt,
       updatedAt: menuSection.updatedAt,
     };
 
     const where = and(
       eq(menuSection.menuId, menuId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            sectionFieldMap,
-            MENU_SECTION_STRING_FILTER_FIELDS,
-            MENU_SECTION_DATE_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              sectionFieldMap,
+              MENU_SECTION_STRING_FILTER_FIELDS,
+              MENU_SECTION_DATE_FILTER_FIELDS,
+            )
+          : undefined,
       quickFilterValue
         ? or(
-            ilike(sql`${menuSection.name}::text`, `%${quickFilterValue}%`),
-            ilike(
-              sql`${menuSection.description}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              menuSection.name,
+              'contains',
+              quickFilterValue,
+            ),
+            buildLocalizedTextFilterCondition(
+              menuSection.description,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               localTimeText(menuSection.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuSection.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
       searchField && searchOperator && searchValue
-        ? buildStringFilterCondition(
-            sectionFieldMap[searchField],
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[searchField],
             searchOperator,
             searchValue,
           )
@@ -427,7 +464,7 @@ export class MenusService {
 
     const [data, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(menuSection)))
         .from(menuSection)
         .where(where)
         .orderBy(...orderBy)
@@ -436,22 +473,16 @@ export class MenusService {
       this.db.select({ total: count() }).from(menuSection).where(where),
     ]);
 
-    return { data, total };
+    return { data: await withImageRefs(this.db, menuSection, data), total };
   }
 
-  async reorderMenuSections(
-    menuId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuSection)
-          .set({ sortOrder: offset + i })
-          .where(and(eq(menuSection.id, id), eq(menuSection.menuId, menuId)));
-      }
-    });
+  async reorderMenuSections(menuId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      menuSection,
+      ids,
+      eq(menuSection.menuId, menuId),
+    );
   }
 
   async menuSection(where: { id: string }): Promise<MenuSection | null> {
@@ -466,12 +497,17 @@ export class MenusService {
     where: { id: string };
     data: UpdateMenuSectionDto;
   }): Promise<MenuSection> {
+    const image = await this.imageStorage.store(
+      'menuSection',
+      params.data.image,
+    );
+
     return this.db.transaction(async (tx) => {
       const [current] = await tx
         .select({ menuId: menuSection.menuId })
         .from(menuSection)
         .where(eq(menuSection.id, params.where.id));
-      if (!current) throw new NotFoundException('Menu section not found');
+      if (!current) throw notFoundError('menuSectionNotFound');
       await this.validateParentSection(
         tx,
         current.menuId,
@@ -486,7 +522,7 @@ export class MenusService {
 
       const [updated] = await tx
         .update(menuSection)
-        .set({ ...params.data, updatedAt: new Date() })
+        .set({ ...params.data, image, updatedAt: new Date() })
         .where(eq(menuSection.id, params.where.id))
         .returning();
 
@@ -530,7 +566,9 @@ export class MenusService {
       columns: { menuId: true },
       with: { menu: { columns: { organizationId: true } } },
     });
-    if (!section) throw new NotFoundException('Menu section not found');
+    if (!section) throw notFoundError('menuSectionNotFound');
+
+    const image = await this.imageStorage.store('menuItem', itemData.image);
 
     const result = await this.db.transaction(async (tx) => {
       await this.validateOrderTicketPrinter(
@@ -552,6 +590,7 @@ export class MenusService {
           menuId: section.menuId,
           sortOrder: 0,
           ...itemData,
+          image,
           ...resolveDrinkOptions(NEW_MENU_ITEM_DRINK_OPTIONS, itemData),
         })
         .returning();
@@ -626,7 +665,7 @@ export class MenusService {
     organizationId: string,
     query: MenuItemPaginationQueryDto = {},
     canReadPurchasing = true,
-  ): Promise<{ data: MenuItemWithRecipe[]; total: number }> {
+  ): Promise<{ data: WithImageRef<MenuItemWithRecipe>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -645,12 +684,13 @@ export class MenusService {
     const offerValue = (column: Column | SQL): SQL =>
       sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc limit 1)`;
 
-    const recipeName = sql`(select ${recipe.name}::text from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`;
+    const localizedFields: Record<string, Column | SQL> = {
+      name: menuItem.name,
+      description: menuItem.description,
+      recipe: sql`(select ${recipe.name} from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`,
+    };
 
     const itemFieldMap: Record<string, Column | SQL> = {
-      name: sql`${menuItem.name}::text`,
-      recipe: recipeName,
-      description: sql`${menuItem.description}::text`,
       price: offerValue(sql`${offer.price}::numeric`),
       availability: offerValue(sql`${offer.availability}::text`),
       availableModes: menuItem.availableModes,
@@ -673,28 +713,41 @@ export class MenusService {
       updatedAt: menuItem.updatedAt,
     };
 
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const sortColumn =
+      sortBy === 'recipe'
+        ? sql`(select ${localizedTextSql(recipe.name, lang)} from ${recipe} where ${recipe.menuItemId} = ${menuItem.id})`
+        : sortBy && localizedFields[sortBy]
+          ? localizedTextSql(localizedFields[sortBy], lang)
+          : sortBy && itemFieldMap[sortBy];
+
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] =
-      sortBy && itemFieldMap[sortBy]
-        ? [dir(itemFieldMap[sortBy])]
-        : [asc(menuItem.sortOrder), asc(menuItem.id)];
+    const orderBy: SQL[] = sortColumn
+      ? [dir(sortColumn)]
+      : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
       eq(menuItem.menuSectionId, sectionId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            itemFieldMap,
-            MENU_ITEM_STRING_FILTER_FIELDS,
-            MENU_ITEM_DATE_FILTER_FIELDS,
-            MENU_ITEM_ENUM_FILTER_FIELDS,
-            MENU_ITEM_NUMBER_FILTER_FIELDS,
-            MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
-            MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              itemFieldMap,
+              MENU_ITEM_STRING_FILTER_FIELDS,
+              MENU_ITEM_DATE_FILTER_FIELDS,
+              MENU_ITEM_ENUM_FILTER_FIELDS,
+              MENU_ITEM_NUMBER_FILTER_FIELDS,
+              MENU_ITEM_PLAIN_DATE_FILTER_FIELDS,
+              MENU_ITEM_ARRAY_ENUM_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         customConditions: {
           availableModes: (value) =>
@@ -707,31 +760,31 @@ export class MenusService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${menuItem.name}::text`, `%${value}%`),
-          ilike(sql`${menuItem.description}::text`, `%${value}%`),
+          ...Object.values(localizedFields).map((column) =>
+            buildLocalizedTextFilterCondition(column, 'contains', value),
+          ),
           ilike(
             offerValue(
               sql`concat_ws(' ', ${offer.price}::text, ${offer.inventoryLevel}->>'value', ${offer.inventoryLevel}->>'unitText', ${offer.deliveryLeadTimeMinutes}::text, ${offer.priceSpecification}->>'price', ${offer.priceSpecification}->>'validFrom', ${offer.priceSpecification}->>'validThrough')`,
             ),
-            `%${value}%`,
+            `%${escapeLike(value)}%`,
           ),
-          ilike(recipeName, `%${value}%`),
-          ilike(localTimeText(menuItem.createdAt), `%${value}%`),
-          ilike(localTimeText(menuItem.updatedAt), `%${value}%`),
+          ilike(localTimeText(menuItem.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(menuItem.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
       searchField && searchOperator && searchValue
-        ? buildStringFilterCondition(
-            itemFieldMap[searchField],
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[searchField],
             searchOperator,
             searchValue,
           )
         : undefined,
     );
 
-    const [data, [{ total }], priceCurrency] = await Promise.all([
+    const [rows, [{ total }], priceCurrency] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(menuItem)))
         .from(menuItem)
         .where(where)
         .orderBy(...orderBy)
@@ -741,10 +794,11 @@ export class MenusService {
       getOrganizationCurrency(this.db, organizationId),
     ]);
 
-    const itemIds = data.map((item) => item.id);
-    const [offers, recipes] =
+    const itemIds = rows.map((item) => item.id);
+    const [data, [offers, recipes]] = await Promise.all([
+      withImageRefs(this.db, menuItem, rows),
       itemIds.length > 0
-        ? await Promise.all([
+        ? Promise.all([
             this.db
               .select()
               .from(offer)
@@ -760,7 +814,8 @@ export class MenusService {
               .from(recipe)
               .where(inArray(recipe.menuItemId, itemIds)),
           ])
-        : [[], []];
+        : [[], []],
+    ]);
 
     const offerByItemId = new Map<string, Offer>();
     for (const o of offers) {
@@ -801,21 +856,13 @@ export class MenusService {
     };
   }
 
-  async reorderMenuItems(
-    sectionId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItem)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(eq(menuItem.id, id), eq(menuItem.menuSectionId, sectionId)),
-          );
-      }
-    });
+  async reorderMenuItems(sectionId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      menuItem,
+      ids,
+      eq(menuItem.menuSectionId, sectionId),
+    );
   }
 
   async updateMenuItem(params: {
@@ -829,13 +876,15 @@ export class MenusService {
       (field) => itemData[field] !== undefined,
     );
 
+    const image = await this.imageStorage.store('menuItem', itemData.image);
+
     const result = await this.db.transaction(async (tx) => {
       if (itemData.orderTicketPrinterId) {
         const [current] = await tx
           .select({ menuId: menuItem.menuId })
           .from(menuItem)
           .where(eq(menuItem.id, params.where.id));
-        if (!current) throw new NotFoundException('Menu item not found');
+        if (!current) throw notFoundError('menuItemNotFound');
 
         await this.validateOrderTicketPrinter(
           tx,
@@ -866,6 +915,7 @@ export class MenusService {
           .update(menuItem)
           .set({
             ...itemData,
+            image,
             ...(touchesDrinkOptions &&
               previous &&
               resolveDrinkOptions(previous, itemData)),
@@ -880,7 +930,7 @@ export class MenusService {
           .orderBy(asc(offer.createdAt))
           .limit(1),
       ]);
-      if (!updated) throw new NotFoundException('Menu item not found');
+      if (!updated) throw notFoundError('menuItemNotFound');
 
       const renamed =
         !!itemData.name &&
@@ -931,7 +981,11 @@ export class MenusService {
       if (existingOffer) {
         const [updatedOffer] = await tx
           .update(offer)
-          .set({ ...offerData, updatedAt: new Date() })
+          .set({
+            ...offerData,
+            ...keepAutoSoldOut(offerData.availability, offer),
+            updatedAt: new Date(),
+          })
           .where(eq(offer.id, existingOffer.id))
           .returning();
         resultOffer = updatedOffer;
@@ -1025,10 +1079,14 @@ export class MenusService {
   }): Promise<OfferWithCurrency> {
     const [updated] = await this.db
       .update(offer)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        ...keepAutoSoldOut(params.data.availability, offer),
+        updatedAt: new Date(),
+      })
       .where(eq(offer.id, params.where.id))
       .returning();
-    if (!updated) throw new NotFoundException('Offer not found');
+    if (!updated) throw notFoundError('offerNotFound');
 
     return {
       ...updated,
@@ -1052,7 +1110,7 @@ export class MenusService {
         .select({ inventoryLevel: offer.inventoryLevel })
         .from(offer)
         .where(eq(offer.id, params.where.id));
-      if (!current) throw new NotFoundException('Offer not found');
+      if (!current) throw notFoundError('offerNotFound');
 
       // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
       const unitText = current.inventoryLevel?.unitText;
@@ -1071,6 +1129,7 @@ export class MenusService {
       .update(offer)
       .set({
         ...availability,
+        ...keepAutoSoldOut(availability.availability, offer),
         ...(nextInventoryLevel !== undefined && {
           inventoryLevel: nextInventoryLevel,
         }),
@@ -1096,7 +1155,7 @@ export class MenusService {
       .delete(offer)
       .where(eq(offer.id, where.id))
       .returning();
-    if (!deleted) throw new NotFoundException('Offer not found');
+    if (!deleted) throw notFoundError('offerNotFound');
 
     return {
       ...deleted,
@@ -1158,7 +1217,7 @@ export class MenusService {
       .select({ menuId: menuItem.menuId })
       .from(menuItem)
       .where(eq(menuItem.id, menuItemId));
-    if (!row) throw new NotFoundException('Menu item not found');
+    if (!row) throw notFoundError('menuItemNotFound');
 
     return row.menuId;
   }
@@ -1170,8 +1229,11 @@ export class MenusService {
       addOnMenuSectionId,
     }: CreateMenuItemAddOnDto | UpdateMenuItemAddOnDto,
   ): Promise<void> {
+    if (!addOnMenuItemId === !addOnMenuSectionId)
+      throw badRequestError('addOnTargetRequired');
+
     if (addOnMenuItemId === menuItemId) {
-      throw new BadRequestException(this.t('addOnSelf'));
+      throw badRequestError('addOnSelf');
     }
 
     const menuId = await this.menuIdOfItem(menuItemId);
@@ -1180,7 +1242,7 @@ export class MenusService {
       addOnMenuItemId &&
       (await this.menuIdOfItem(addOnMenuItemId)) !== menuId
     )
-      throw new NotFoundException('Menu item not found');
+      throw notFoundError('menuItemNotFound');
 
     if (addOnMenuSectionId) {
       const [target] = await this.db
@@ -1192,7 +1254,7 @@ export class MenusService {
             eq(menuSection.menuId, menuId),
           ),
         );
-      if (!target) throw new NotFoundException('Add-on menu section not found');
+      if (!target) throw notFoundError('addOnMenuSectionNotFound');
     }
   }
 
@@ -1252,50 +1314,68 @@ export class MenusService {
       sortDirection = 'asc',
     } = query;
 
+    const localizedFields: Record<string, Column | SQL> = {
+      addOnMenuSectionName: sql`COALESCE(${addOnMenuSection.name}, ${addOnMenuItemSection.name})`,
+      addOnMenuItemName: addOnMenuItem.name,
+    };
+
     const addOnFieldMap: Record<string, SQL> = {
-      addOnMenuSectionName: sql<
-        string | null
-      >`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
-      addOnMenuItemName: sql`${addOnMenuItem.name}::text`,
       createdAt: sql`${menuItemAddOn.createdAt}`,
       updatedAt: sql`${menuItemAddOn.updatedAt}`,
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField && filterOperator && localizedFields[filterField]
+        ? buildLocalizedTextFilterCondition(
+            localizedFields[filterField],
             filterOperator,
             filterValue,
-            addOnFieldMap,
-            ADD_ON_STRING_FILTER_FIELDS,
-            ADD_ON_DATE_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              addOnFieldMap,
+              ADD_ON_STRING_FILTER_FIELDS,
+              ADD_ON_DATE_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && addOnFieldMap[sortBy]
-        ? [dir(addOnFieldMap[sortBy])]
-        : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
+      sortBy && localizedFields[sortBy]
+        ? [
+            dir(
+              localizedTextSql(
+                localizedFields[sortBy],
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && addOnFieldMap[sortBy]
+          ? [dir(addOnFieldMap[sortBy])]
+          : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
 
     const where = and(
       eq(menuItemAddOn.menuItemId, menuItemId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`COALESCE(${addOnMenuSection.name}::text, ${addOnMenuItemSection.name}::text)`,
-              `%${quickFilterValue}%`,
+            ...Object.values(localizedFields).map((column) =>
+              buildLocalizedTextFilterCondition(
+                column,
+                'contains',
+                quickFilterValue,
+              ),
             ),
-            ilike(sql`${addOnMenuItem.name}::text`, `%${quickFilterValue}%`),
             ilike(
               localTimeText(menuItemAddOn.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemAddOn.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -1351,21 +1431,13 @@ export class MenusService {
   async reorderMenuItemAddOns(
     menuItemId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItemAddOn)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(menuItemAddOn.id, id),
-              eq(menuItemAddOn.menuItemId, menuItemId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      menuItemAddOn,
+      ids,
+      eq(menuItemAddOn.menuItemId, menuItemId),
+    );
   }
 
   async updateMenuItemAddOn(
@@ -1380,8 +1452,18 @@ export class MenusService {
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
-    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
-    await this.validateAddOnTargets(where.menuItemId, data);
+    if (!found || found.menuItemId !== where.menuItemId)
+      throw new NotFoundException();
+    await this.validateAddOnTargets(where.menuItemId, {
+      addOnMenuItemId:
+        data.addOnMenuItemId === undefined
+          ? found.addOnMenuItemId
+          : data.addOnMenuItemId,
+      addOnMenuSectionId:
+        data.addOnMenuSectionId === undefined
+          ? found.addOnMenuSectionId
+          : data.addOnMenuSectionId,
+    });
 
     await this.db
       .update(menuItemAddOn)
@@ -1400,7 +1482,8 @@ export class MenusService {
     }
   > {
     const found = await this.findMenuItemAddOnById(where.id);
-    if (found.menuItemId !== where.menuItemId) throw new NotFoundException();
+    if (!found || found.menuItemId !== where.menuItemId)
+      throw new NotFoundException();
     await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
     return found;
@@ -1431,7 +1514,7 @@ export class MenusService {
     maxSelectionCount: number | null,
   ): void {
     if (maxSelectionCount !== null && maxSelectionCount < minSelectionCount) {
-      throw new BadRequestException(this.t('selectionCountInvalid'));
+      throw badRequestError('selectionCountInvalid');
     }
   }
 
@@ -1477,7 +1560,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: modifierGroup.createdAt,
@@ -1485,49 +1567,65 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifierGroup.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_GROUP_STRING_FILTER_FIELDS,
-            MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
-            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_GROUP_STRING_FILTER_FIELDS,
+              MODIFIER_GROUP_DATE_FILTER_FIELDS,
+              [],
+              MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifierGroup.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
 
     const where = and(
       eq(modifierGroup.menuId, menuId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`${modifierGroup.displayName}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              modifierGroup.displayName,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               sql`${modifierGroup.maxSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(modifierGroup.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(modifierGroup.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -1547,21 +1645,13 @@ export class MenusService {
     return { data, total };
   }
 
-  async reorderModifierGroups(
-    menuId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(modifierGroup)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(eq(modifierGroup.id, id), eq(modifierGroup.menuId, menuId)),
-          );
-      }
-    });
+  async reorderModifierGroups(menuId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      modifierGroup,
+      ids,
+      eq(modifierGroup.menuId, menuId),
+    );
   }
 
   async modifierGroup(where: { id: string }): Promise<ModifierGroup | null> {
@@ -1631,6 +1721,7 @@ export class MenusService {
     organizationId: string,
     data: CreateModifierDto,
   ): Promise<ModifierWithCurrency> {
+    const image = await this.imageStorage.store('modifier', data.image);
     const created = await this.db.transaction(async (tx) => {
       await tx
         .update(modifier)
@@ -1639,7 +1730,7 @@ export class MenusService {
 
       const [row] = await tx
         .insert(modifier)
-        .values({ id: uuidv4(), modifierGroupId, sortOrder: 0, ...data })
+        .values({ id: uuidv4(), modifierGroupId, sortOrder: 0, ...data, image })
         .returning();
 
       return row;
@@ -1655,7 +1746,7 @@ export class MenusService {
     modifierGroupId: string,
     organizationId: string,
     query: ModifierPaginationQueryDto = {},
-  ): Promise<{ data: ModifierWithCurrency[]; total: number }> {
+  ): Promise<{ data: WithImageRef<ModifierWithCurrency>[]; total: number }> {
     const {
       limit = 10,
       offset = 0,
@@ -1669,7 +1760,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifier.displayName}::text`,
       priceAdjustment: modifier.priceAdjustment,
       availability: sql`${modifier.availability}::text`,
       availableModes: modifier.availableModes,
@@ -1678,26 +1768,41 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifier.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_STRING_FILTER_FIELDS,
-            MODIFIER_DATE_FILTER_FIELDS,
-            MODIFIER_ENUM_FILTER_FIELDS,
-            MODIFIER_NUMBER_FILTER_FIELDS,
-            [],
-            MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_STRING_FILTER_FIELDS,
+              MODIFIER_DATE_FILTER_FIELDS,
+              MODIFIER_ENUM_FILTER_FIELDS,
+              MODIFIER_NUMBER_FILTER_FIELDS,
+              [],
+              MODIFIER_ARRAY_ENUM_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(modifier.sortOrder), asc(modifier.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifier.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [asc(modifier.sortOrder), asc(modifier.id)];
 
     const where = and(
       eq(modifier.modifierGroupId, modifierGroupId),
@@ -1712,17 +1817,24 @@ export class MenusService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${modifier.displayName}::text`, `%${value}%`),
-          ilike(sql`${modifier.priceAdjustment}::text`, `%${value}%`),
-          ilike(localTimeText(modifier.createdAt), `%${value}%`),
-          ilike(localTimeText(modifier.updatedAt), `%${value}%`),
+          buildLocalizedTextFilterCondition(
+            modifier.displayName,
+            'contains',
+            value,
+          ),
+          ilike(
+            sql`${modifier.priceAdjustment}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(localTimeText(modifier.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(modifier.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
 
     const [data, [{ total }], priceCurrency] = await Promise.all([
       this.db
-        .select()
+        .select(withoutImage(getTableColumns(modifier)))
         .from(modifier)
         .where(where)
         .orderBy(...orderBy)
@@ -1733,7 +1845,10 @@ export class MenusService {
     ]);
 
     return {
-      data: data.map((row) => ({ ...row, priceCurrency })),
+      data: (await withImageRefs(this.db, modifier, data)).map((row) => ({
+        ...row,
+        priceCurrency,
+      })),
       total,
     };
   }
@@ -1741,21 +1856,26 @@ export class MenusService {
   async reorderModifiers(
     modifierGroupId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(modifier)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(modifier.id, id),
-              eq(modifier.modifierGroupId, modifierGroupId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      modifier,
+      ids,
+      eq(modifier.modifierGroupId, modifierGroupId),
+    );
+  }
+
+  async modifier(
+    where: { id: string },
+    organizationId: string,
+  ): Promise<ModifierWithCurrency> {
+    const [found, priceCurrency] = await Promise.all([
+      this.db.query.modifier.findFirst({ where: eq(modifier.id, where.id) }),
+      getOrganizationCurrency(this.db, organizationId),
+    ]);
+    if (!found) throw notFoundError('modifierNotFound');
+
+    return { ...found, priceCurrency };
   }
 
   async updateModifier(params: {
@@ -1763,12 +1883,18 @@ export class MenusService {
     organizationId: string;
     data: UpdateModifierDto;
   }): Promise<ModifierWithCurrency> {
+    const image = await this.imageStorage.store('modifier', params.data.image);
     const [updated] = await this.db
       .update(modifier)
-      .set({ ...params.data, updatedAt: new Date() })
+      .set({
+        ...params.data,
+        image,
+        ...keepAutoSoldOut(params.data.availability, modifier),
+        updatedAt: new Date(),
+      })
       .where(eq(modifier.id, params.where.id))
       .returning();
-    if (!updated) throw new NotFoundException('Modifier not found');
+    if (!updated) throw notFoundError('modifierNotFound');
 
     return {
       ...updated,
@@ -1787,7 +1913,7 @@ export class MenusService {
       .delete(modifier)
       .where(eq(modifier.id, where.id))
       .returning();
-    if (!deleted) throw new NotFoundException('Modifier not found');
+    if (!deleted) throw notFoundError('modifierNotFound');
 
     return {
       ...deleted,
@@ -1829,26 +1955,36 @@ export class MenusService {
           eq(modifierGroup.menuId, menuId),
         ),
       );
-    if (!group) throw new NotFoundException('Modifier group not found');
+    if (!group) throw notFoundError('modifierGroupNotFound');
 
-    return this.db.transaction(async (tx) => {
-      await tx
-        .update(menuItemModifierGroup)
-        .set({ sortOrder: sql`${menuItemModifierGroup.sortOrder} + 1` })
-        .where(eq(menuItemModifierGroup.menuItemId, menuItemId));
+    try {
+      return await this.db.transaction(async (tx) => {
+        await tx
+          .update(menuItemModifierGroup)
+          .set({ sortOrder: sql`${menuItemModifierGroup.sortOrder} + 1` })
+          .where(eq(menuItemModifierGroup.menuItemId, menuItemId));
 
-      const [created] = await tx
-        .insert(menuItemModifierGroup)
-        .values({
-          id: uuidv4(),
-          menuItemId,
-          modifierGroupId: data.modifierGroupId,
-          sortOrder: 0,
-        })
-        .returning();
+        const [created] = await tx
+          .insert(menuItemModifierGroup)
+          .values({
+            id: uuidv4(),
+            menuItemId,
+            modifierGroupId: data.modifierGroupId,
+            sortOrder: 0,
+          })
+          .returning();
 
-      return created;
-    });
+        return created;
+      });
+    } catch (error) {
+      if (
+        isUniqueViolation(error) &&
+        pgConstraint(error) ===
+          'menuItemModifierGroup_menuItemId_modifierGroupId_uidx'
+      )
+        throw conflictError('modifierGroupAttached');
+      throw error;
+    }
   }
 
   async menuItemModifierGroups(
@@ -1870,7 +2006,6 @@ export class MenusService {
     } = query;
 
     const fieldMap: Record<string, Column | SQL> = {
-      displayName: sql`${modifierGroup.displayName}::text`,
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
       createdAt: menuItemModifierGroup.createdAt,
@@ -1878,49 +2013,68 @@ export class MenusService {
     };
 
     const filterCondition =
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'displayName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            modifierGroup.displayName,
             filterOperator,
             filterValue,
-            fieldMap,
-            MODIFIER_GROUP_STRING_FILTER_FIELDS,
-            MODIFIER_GROUP_DATE_FILTER_FIELDS,
-            [],
-            MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
           )
-        : undefined;
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              MODIFIER_GROUP_STRING_FILTER_FIELDS,
+              MODIFIER_GROUP_DATE_FILTER_FIELDS,
+              [],
+              MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
+            )
+          : undefined;
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] =
-      sortBy && fieldMap[sortBy]
-        ? [dir(fieldMap[sortBy])]
-        : [asc(menuItemModifierGroup.sortOrder), asc(menuItemModifierGroup.id)];
+      sortBy === 'displayName'
+        ? [
+            dir(
+              localizedTextSql(
+                modifierGroup.displayName,
+                toLanguage(I18nContext.current()?.lang),
+              ),
+            ),
+          ]
+        : sortBy && fieldMap[sortBy]
+          ? [dir(fieldMap[sortBy])]
+          : [
+              asc(menuItemModifierGroup.sortOrder),
+              asc(menuItemModifierGroup.id),
+            ];
 
     const where = and(
       eq(menuItemModifierGroup.menuItemId, menuItemId),
       filterCondition,
       quickFilterValue
         ? or(
-            ilike(
-              sql`${modifierGroup.displayName}::text`,
-              `%${quickFilterValue}%`,
+            buildLocalizedTextFilterCondition(
+              modifierGroup.displayName,
+              'contains',
+              quickFilterValue,
             ),
             ilike(
               sql`${modifierGroup.minSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               sql`${modifierGroup.maxSelectionCount}::text`,
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemModifierGroup.createdAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
               localTimeText(menuItemModifierGroup.updatedAt),
-              `%${quickFilterValue}%`,
+              `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
@@ -1971,21 +2125,13 @@ export class MenusService {
   async reorderMenuItemModifierGroups(
     menuItemId: string,
     ids: string[],
-    offset: number,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(menuItemModifierGroup)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(menuItemModifierGroup.id, id),
-              eq(menuItemModifierGroup.menuItemId, menuItemId),
-            ),
-          );
-      }
-    });
+    await reorderSortOrders(
+      this.db,
+      menuItemModifierGroup,
+      ids,
+      eq(menuItemModifierGroup.menuItemId, menuItemId),
+    );
   }
 
   async deleteMenuItemModifierGroup(where: {

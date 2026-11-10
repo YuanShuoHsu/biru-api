@@ -1,17 +1,13 @@
 import {
-  ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { and, asc, eq, ilike, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AttendanceActor } from '../attendance/attendance-actor.js';
@@ -26,12 +22,20 @@ import { AttendanceShiftTypesService } from '../attendance/attendance-shift-type
 import { isAuthorized } from '../auth/permissions.js';
 import { platformDateString } from '../common/constants/timezone.js';
 import type { AuditSubTable } from '../common/decorators/audit.decorator.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { diffAuditRows } from '../common/utils/audit-diff.js';
 import {
   AUDIT_IGNORED_COLUMNS,
   resolveAuditLabels,
   resolveChangeLabels,
 } from '../common/utils/audit-resources.js';
+import {
+  buildFilterCondition,
+  buildLocalizedTextFilterCondition,
+  buildQuickFilterCondition,
+  escapeLike,
+} from '../common/utils/data-grid-filters.js';
+import { pgErrorCode } from '../common/utils/pg-errors.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
@@ -40,14 +44,13 @@ import {
 import { auditLog, type AuditResource } from '../db/schema/audit.js';
 import { deletedRecord } from '../db/schema/deleted-records.js';
 import type { LocalizedText } from '../db/schema/enums.js';
-import { member, organization } from '../db/schema/organizations.js';
+import { organization } from '../db/schema/organizations.js';
 import { PAYROLL_EARNING_CATEGORIES } from '../db/schema/payroll.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   MENU_UPDATED_EVENT,
   type MenuUpdatedEvent,
 } from '../events/menu-updated.event.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { CLOSED_WRITABLE_RESOURCES } from '../menus/guards/roles.guard.js';
 import { PayrollEarningsService } from '../payroll/payroll-earnings.service.js';
 import {
@@ -67,10 +70,15 @@ import {
   UNTRACKED_TABLES,
   type RestorableTable,
 } from './deleted-record-tables.js';
-import type {
-  DeletedRecordBatchResponseDto,
-  DeletedRecordPaginationQueryDto,
+import {
+  DELETED_RECORD_DATE_FILTER_FIELDS,
+  DELETED_RECORD_ENUM_FILTER_FIELDS,
+  DELETED_RECORD_STRING_FILTER_FIELDS,
+  type DeletedRecordBatchResponseDto,
+  type DeletedRecordRestoreBlockedBy,
+  type DeletedRecordPaginationQueryDto,
 } from './dto/deleted-record-batch.dto.js';
+import { conflictError, notFoundError } from './deleted-record-errors.js';
 import {
   isPreDeletedChild,
   preDeletedChildCondition,
@@ -106,28 +114,42 @@ const grantsOwner = (rows: Pick<Row, 'tableName' | 'data'>[]) =>
         .includes('owner'),
   );
 
-const canRestoreTables = (
+const restoreBlockedBy = (
   tables: string[],
   scope: RestoreScope,
   restoresOwner: boolean,
-) => {
-  if (restoresOwner && scope.role !== 'owner') return false;
+): DeletedRecordRestoreBlockedBy | null => {
+  if (restoresOwner && scope.role !== 'owner') return 'ownerOnly';
 
   const required = tables.map((table) => RESTORE_PERMISSIONS[table]);
-  if (!required.length || required.some((action) => !action)) return false;
+  if (!required.length || required.some((action) => !action))
+    return 'forbidden';
 
   const action: Record<string, string[]> = {};
   for (const entry of required)
     for (const [resource, verbs] of Object.entries(entry ?? {}))
       action[resource] = [...new Set([...(action[resource] ?? []), ...verbs])];
 
-  return (
-    isAuthorized(scope.role, action) &&
-    (!scope.closed ||
-      Object.keys(action).every((resource) =>
-        CLOSED_WRITABLE_RESOURCES.has(resource),
-      ))
-  );
+  if (!isAuthorized(scope.role, action)) return 'forbidden';
+
+  return scope.closed &&
+    !Object.keys(action).every((resource) =>
+      CLOSED_WRITABLE_RESOURCES.has(resource),
+    )
+    ? 'closed'
+    : null;
+};
+
+const restoreState = (
+  tables: string[],
+  restoresOwner: boolean,
+  scope?: RestoreScope,
+) => {
+  const blockedBy = scope
+    ? restoreBlockedBy(tables, scope, restoresOwner)
+    : null;
+
+  return { canRestore: !blockedBy, restoreBlockedBy: blockedBy };
 };
 
 const AUDIT_TARGETS: Partial<
@@ -141,6 +163,7 @@ const AUDIT_TARGETS: Partial<
   >
 > = {
   banner: { resource: 'banner' },
+  store_photo: { resource: 'storePhoto' },
   coupon: { resource: 'coupon' },
   ingredient: { resource: 'ingredient' },
   invitation: { resource: 'invitation' },
@@ -199,9 +222,6 @@ const getLabel = (data: Row['data']): string | LocalizedText | null => {
   return null;
 };
 
-const pgErrorCode = (error: unknown) =>
-  (error as { cause?: { code?: string } }).cause?.code;
-
 const organizationIdOf = (tableName: SQL, recordId: SQL, data: SQL) => sql`
   COALESCE(
     CASE WHEN ${tableName} = 'organization' THEN ${recordId} END,
@@ -237,15 +257,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     private readonly attendanceParental: AttendanceParentalService,
     private readonly attendanceShiftTypes: AttendanceShiftTypesService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly payrollEarnings: PayrollEarningsService,
   ) {}
-
-  private t(key: 'restoreConflict' | 'restoreMissingReference'): string {
-    return this.i18n.t(`common.deletedRecords.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
 
   async onApplicationBootstrap() {
     try {
@@ -277,7 +290,17 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   async list(
-    { limit = 10, offset = 0 }: DeletedRecordPaginationQueryDto,
+    {
+      limit = 10,
+      offset = 0,
+      filterField,
+      filterOperator,
+      filterValue,
+      quickFilterEnums,
+      quickFilterValue,
+      sortBy,
+      sortDirection = 'asc',
+    }: DeletedRecordPaginationQueryDto,
     scope?: RestoreScope,
   ): Promise<{
     data: DeletedRecordBatchResponseDto[];
@@ -311,24 +334,49 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ORDER BY d.batch_id, ${preDeletedChildCondition('d')}, d.id
     `;
 
-    const [{ rows }, { rows: totals }] = await Promise.all([
-      this.db.execute<{
-        batch_id: string;
-        deleted_at: Date;
-        table_name: string;
-        record_id: string | null;
-        data: Row['data'];
-        related_count: number;
-        organization_name: string | null;
-        user_name: string | null;
-        deleted_by: string | null;
-        tables: string[];
-        restores_owner: boolean;
-      }>(sql`
-        WITH roots AS (${roots})
+    const fieldMap: Record<string, SQL> = {
+      organizationName: sql`l.organization_name`,
+      tableName: sql`l.table_name`,
+      deletedAt: sql`l.deleted_at_utc`,
+    };
+
+    const where = and(
+      filterField && filterOperator
+        ? buildFilterCondition(
+            filterField,
+            filterOperator,
+            filterValue,
+            fieldMap,
+            DELETED_RECORD_STRING_FILTER_FIELDS,
+            DELETED_RECORD_DATE_FILTER_FIELDS,
+            DELETED_RECORD_ENUM_FILTER_FIELDS,
+          )
+        : undefined,
+      buildQuickFilterCondition({
+        enumFields: DELETED_RECORD_ENUM_FILTER_FIELDS,
+        fieldMap,
+        quickFilterEnums,
+        quickFilterValue,
+        textConditions: (value) => [
+          ...LABEL_COLUMNS.map(
+            (column) => sql`CASE
+              WHEN jsonb_typeof(l.data -> ${column}) = 'object'
+                THEN ${buildLocalizedTextFilterCondition(sql`l.data -> ${column}`, 'contains', value)}
+              ELSE ${ilike(sql`l.data ->> ${column}`, `%${escapeLike(value)}%`)}
+            END`,
+          ),
+          ilike(sql`l.user_name`, `%${escapeLike(value)}%`),
+          ilike(sql`l.deleted_by`, `%${escapeLike(value)}%`),
+        ],
+      }),
+    );
+
+    const listed = sql`
+      WITH roots AS (${roots}), listed AS (
         SELECT
           r.batch_id,
           r.deleted_at AT TIME ZONE 'UTC' AS deleted_at,
+          r.deleted_at AS deleted_at_utc,
           r.table_name,
           r.record_id,
           r.data,
@@ -342,7 +390,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 SELECT trim(role) FROM unnest(string_to_array(m.data ->> 'role', ',')) AS role
               )
           ) AS restores_owner,
-          o.name AS organization_name,
+          COALESCE(
+            o.name,
+            CASE WHEN r.table_name = 'organization' THEN r.data ->> 'name' END
+          ) AS organization_name,
           u.name AS user_name,
           COALESCE(
             (
@@ -375,11 +426,33 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           r.data ->> 'user_id',
           (SELECT e.user_id FROM attendance_employee e WHERE e.id = r.data ->> 'employee_id')
         )
-        ORDER BY r.deleted_at DESC, r.batch_id DESC
+      )
+      SELECT * FROM listed l
+      ${where ? sql`WHERE ${where}` : sql``}
+    `;
+
+    const direction = sql.raw(sortDirection === 'desc' ? 'DESC' : 'ASC');
+
+    const [{ rows }, { rows: totals }] = await Promise.all([
+      this.db.execute<{
+        batch_id: string;
+        deleted_at: Date;
+        table_name: string;
+        record_id: string | null;
+        data: Row['data'];
+        related_count: number;
+        organization_name: string | null;
+        user_name: string | null;
+        deleted_by: string | null;
+        tables: string[];
+        restores_owner: boolean;
+      }>(sql`
+        ${listed}
+        ORDER BY ${sortBy ? sql`${fieldMap[sortBy]} ${direction} NULLS LAST, ` : sql``}l.deleted_at DESC, l.batch_id DESC
         LIMIT ${sql.raw(String(limit))} OFFSET ${sql.raw(String(offset))}
       `),
       this.db.execute<{ total: number }>(
-        sql`SELECT count(*)::int AS total FROM (${roots}) roots`,
+        sql`SELECT count(*)::int AS total FROM (${listed}) filtered`,
       ),
     ]);
 
@@ -393,17 +466,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
                 tableName: row.table_name,
                 recordId: row.record_id,
                 label: getLabel(row.data) ?? row.user_name,
-                organizationName:
-                  row.organization_name ??
-                  (row.table_name === 'organization' &&
-                  typeof row.data.name === 'string'
-                    ? row.data.name
-                    : null),
+                organizationName: row.organization_name,
                 relatedCount: row.related_count,
                 deletedBy: row.deleted_by,
-                canRestore:
-                  !scope ||
-                  canRestoreTables(row.tables, scope, row.restores_owner),
+                ...restoreState(row.tables, row.restores_owner, scope),
               },
             ]
           : [],
@@ -427,7 +493,13 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       await this.db.transaction(async (tx) => {
         for (const { root, batch } of batches) {
           if (SERVICE_RESTORED_TABLES.has(root.tableName)) {
-            await this.restoreThroughService(root, batch, actor, tx);
+            await this.restoreThroughService(
+              root,
+              batch,
+              actor,
+              scope?.role ?? 'owner',
+              tx,
+            );
             continue;
           }
 
@@ -444,22 +516,24 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       throw this.toRestoreError(error);
     }
 
-    for (const { root } of batches) {
-      if (SERVICE_RESTORED_TABLES.has(root.tableName)) continue;
+    await Promise.all(
+      batches
+        .filter(({ root }) => !SERVICE_RESTORED_TABLES.has(root.tableName))
+        .map(async ({ root }) => {
+          try {
+            const organizationId = await this.resolveOrganizationId(root);
 
-      const organizationId = await this.resolveOrganizationId(root);
+            if (organizationId && MENU_TABLES.has(root.tableName))
+              this.eventEmitter.emit(MENU_UPDATED_EVENT, {
+                organizationId,
+              } satisfies MenuUpdatedEvent);
 
-      if (organizationId && MENU_TABLES.has(root.tableName))
-        this.eventEmitter.emit(MENU_UPDATED_EVENT, {
-          organizationId,
-        } satisfies MenuUpdatedEvent);
-
-      try {
-        await this.writeRestoreAudit(root, organizationId, actor);
-      } catch (error) {
-        this.logger.error('Failed to write audit log', error);
-      }
-    }
+            await this.writeRestoreAudit(root, organizationId, actor);
+          } catch (error) {
+            this.logger.error('Failed to finish restore follow-up', error);
+          }
+        }),
+    );
   }
 
   private async loadBatch(batchId: number, scope?: RestoreScope) {
@@ -474,13 +548,13 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ({ tableName }) =>
         isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
     );
-    if (!root) throw new NotFoundException('Deleted record batch not found');
+    if (!root) throw notFoundError('batchNotFound');
 
     if (scope) {
       if ((await this.resolveOrganizationId(root)) !== scope.organizationId)
-        throw new NotFoundException('Deleted record batch not found');
-      if (!canRestoreTables([...batchTables], scope, grantsOwner(batch)))
-        throw new ForbiddenException();
+        throw notFoundError('batchNotFound');
+      if (restoreBlockedBy([...batchTables], scope, grantsOwner(batch)))
+        throw accessForbiddenError();
     }
 
     return { root, batch };
@@ -497,10 +571,10 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
 
   private toRestoreError(error: unknown) {
     const code = pgErrorCode(error);
-    if (code === '23505')
-      return new ConflictException(this.t('restoreConflict'));
-    if (code === '23503')
-      return new ConflictException(this.t('restoreMissingReference'));
+    if (code === '23505') return conflictError('restoreConflict');
+    if (code === '23503') return conflictError('restoreMissingReference');
+    if (code === '23502' || code === '23514')
+      return conflictError('restoreInvalid');
 
     return error;
   }
@@ -509,26 +583,17 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     root: Row,
     batch: Row[],
     admin: Actor,
+    role: string,
     tx: Transaction,
   ) {
     const data = toCamelRow(root.tableName, root.data);
     const organizationId = asString(data.organizationId);
-    if (!organizationId || !root.recordId)
-      throw new NotFoundException('Deleted record batch not found');
+    if (!organizationId || !root.recordId) throw notFoundError('batchNotFound');
 
-    const [membership] = await tx
-      .select({ role: member.role })
-      .from(member)
-      .where(
-        and(
-          eq(member.organizationId, organizationId),
-          eq(member.userId, admin.id),
-        ),
-      );
     const actor: AttendanceActor = {
       organizationId,
       userId: admin.id,
-      role: membership?.role ?? '',
+      role,
     };
     const removeRetained = async (tx: Transaction) => {
       await tx
@@ -554,7 +619,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
               eq(attendanceEmployee.userId, userId),
             ),
           );
-        if (current) throw new ConflictException(this.t('restoreConflict'));
+        if (current) throw conflictError('restoreConflict');
 
         const toDay = (value: unknown) => {
           const text = asString(value);
@@ -566,6 +631,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           actor,
           {
             userId,
+            jobTitle: asString(data.jobTitle) ?? undefined,
             birthDate: asString(data.birthDate) ?? '',
             taiwanStaySince: asString(data.taiwanStaySince) ?? undefined,
             legalStatus:
@@ -611,7 +677,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
           {
             name: asString(data.name) ?? '',
             paidPercent: asNumber(data.paidPercent),
-            requiresBalance: asBoolean(data.requiresBalance),
+            requiresBalance: asBoolean(data.requiresBalance) ?? undefined,
             enabled: asBoolean(data.enabled) ?? true,
           },
           undefined,

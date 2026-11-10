@@ -73,6 +73,8 @@ export const invoice = pgTable(
     randomNumber: text('random_number'),
     relateNumber: text('relate_number'),
     voidedAt: timestamp('voided_at'),
+    voidedBy: text('voided_by'),
+    voidReason: text('void_reason'),
     printedAt: timestamp('printed_at'),
     printResetCount: integer('print_reset_count').notNull().default(0),
     printResetReason: text('print_reset_reason'),

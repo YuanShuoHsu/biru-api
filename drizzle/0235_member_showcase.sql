@@ -1,0 +1,1 @@
+ALTER TABLE "member" ADD COLUMN "showcase" boolean DEFAULT false NOT NULL;

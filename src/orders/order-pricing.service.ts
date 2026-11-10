@@ -1,14 +1,10 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { Inject, Injectable } from '@nestjs/common';
+import { I18nContext } from 'nestjs-i18n';
 
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import { platformDateString } from '../common/constants/timezone.js';
 import { toLanguage } from '../common/utils/language.js';
 import { isWithinOpeningHours } from '../common/utils/opening-hours.js';
 
@@ -25,6 +21,7 @@ import {
   menuItem,
   menuItemAddOn,
   menuItemModifierGroup,
+  menuSection,
   modifier,
   offer,
 } from '../db/schema/menus.js';
@@ -35,16 +32,41 @@ import type {
 } from '../db/schema/orders.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { localize } from '../menus/menus-public.service.js';
 
 import type {
   CreateOrderItemAddOnDto,
   CreateOrderItemDto,
 } from './dto/create-order.dto.js';
+import { badRequestError, notFoundError } from './order-errors.js';
+import { itemLeadTimeMinutes } from './prep-estimate.js';
+
+export const sectionAncestry = (
+  parentSectionIdOf: Map<string, string | null>,
+  sectionId: string | null,
+): string[] => {
+  const ids: string[] = [];
+  for (
+    let id = sectionId;
+    id && !ids.includes(id);
+    id = parentSectionIdOf.get(id) ?? null
+  )
+    ids.push(id);
+  return ids;
+};
 
 const getName = (text: LocalizedText | null | undefined): string =>
   text?.[DEFAULT_LANGUAGE] || Object.values(text || {}).find(Boolean) || '';
+
+// 店面判斷促銷是否進行中用同一個格式，改這裡要一起改
+const PROMO_DATE_PATTERN =
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$/;
+
+const platformDateOf = (value: string): string | null => {
+  if (!PROMO_DATE_PATTERN.test(value)) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : platformDateString(date);
+};
 
 const activePromoPrice = (
   priceSpecification: PriceSpecification | null | undefined,
@@ -53,9 +75,16 @@ const activePromoPrice = (
   if (!priceSpecification) return null;
 
   const { price, validFrom, validThrough } = priceSpecification;
+  const today = platformDateString(at);
 
-  if (validFrom && at < new Date(validFrom)) return null;
-  if (validThrough && at > new Date(validThrough)) return null;
+  if (validFrom) {
+    const firstDay = platformDateOf(validFrom);
+    if (!firstDay || today < firstDay) return null;
+  }
+  if (validThrough) {
+    const lastDay = platformDateOf(validThrough);
+    if (!lastDay || today > lastDay) return null;
+  }
 
   return price || null;
 };
@@ -82,20 +111,7 @@ export interface ResolvedOrderItem {
 
 @Injectable()
 export class OrderPricingService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
-
-  private t(
-    key: keyof I18nTranslations['common']['orders'],
-    args?: Record<string, unknown>,
-  ): string {
-    return this.i18n.t(`common.orders.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   private localName(text: LocalizedText | null | undefined): string {
     return localize(text, toLanguage(I18nContext.current()?.lang)) ?? '';
@@ -132,15 +148,23 @@ export class OrderPricingService {
       itemAddOns,
     ] = await Promise.all([
       this.db.query.menu.findFirst({
+        columns: { id: true },
         where: eq(menu.organizationId, organizationId),
         with: { organization: { columns: { currency: true } } },
       }),
       this.db.query.menuItem.findMany({
+        columns: { image: false },
         where: inArray(menuItem.id, allMenuItemIds),
-        with: { menuSection: { with: { parentSection: true } } },
+        with: {
+          menuSection: {
+            columns: { menuId: true },
+            with: { parentSection: { columns: { menuId: true } } },
+          },
+        },
       }),
       allModifierIds.length > 0
         ? this.db.query.modifier.findMany({
+            columns: { image: false },
             where: inArray(modifier.id, allModifierIds),
             with: { modifierGroup: true },
           })
@@ -151,7 +175,15 @@ export class OrderPricingService {
       }),
       this.db.query.menuItemModifierGroup.findMany({
         where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),
-        with: { modifierGroup: true },
+        with: {
+          modifierGroup: {
+            with: {
+              modifiers: {
+                columns: { availability: true, availableModes: true },
+              },
+            },
+          },
+        },
       }),
       this.db.query.menuItemAddOn.findMany({
         where: inArray(
@@ -160,7 +192,15 @@ export class OrderPricingService {
         ),
       }),
     ]);
-    if (!orgMenu) throw new NotFoundException('Menu not found');
+    if (!orgMenu) throw notFoundError('menuChanged');
+
+    const sections = await this.db.query.menuSection.findMany({
+      columns: { id: true, parentSectionId: true },
+      where: eq(menuSection.menuId, orgMenu.id),
+    });
+    const parentSectionIdOf = new Map(
+      sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
+    );
 
     const priceCurrency = orgMenu.organization.currency;
 
@@ -201,25 +241,20 @@ export class OrderPricingService {
 
     const getMenuItem = (menuItemId: string) => {
       const item = menuItemMap.get(menuItemId);
-      if (!item)
-        throw new BadRequestException(`MenuItem ${menuItemId} not found`);
+      if (!item) throw badRequestError('menuChanged');
       if (!item.availableModes.includes(mode))
-        throw new BadRequestException(
-          this.t('menuItemUnavailableForMode', {
-            name: this.localName(item.name),
-          }),
-        );
+        throw badRequestError('menuItemUnavailableForMode', {
+          name: this.localName(item.name),
+        });
       if (outsideAvailableHours.has(menuItemId))
-        throw new BadRequestException(
-          this.t('menuItemUnavailableAtTime', {
-            name: this.localName(item.name),
-          }),
-        );
+        throw badRequestError('menuItemUnavailableAtTime', {
+          name: this.localName(item.name),
+        });
       const availability = offerMap.get(menuItemId)?.availability;
       if (availability === 'SoldOut' || availability === 'Discontinued')
-        throw new BadRequestException(
-          this.t('menuItemUnavailable', { name: this.localName(item.name) }),
-        );
+        throw badRequestError('menuItemUnavailable', {
+          name: this.localName(item.name),
+        });
       return item;
     };
 
@@ -228,15 +263,20 @@ export class OrderPricingService {
 
     const orderedAt = new Date();
 
-    const getOfferPrice = (menuItemId: string): string => {
-      const offerRow = offerMap.get(menuItemId);
+    const optionsInvalid = (item: ReturnType<typeof getMenuItem>) =>
+      badRequestError('menuItemOptionsInvalid', {
+        name: this.localName(item.name),
+      });
+
+    const getOfferPrice = (item: ReturnType<typeof getMenuItem>): string => {
+      const offerRow = offerMap.get(item.id);
       const price =
         activePromoPrice(offerRow?.priceSpecification, orderedAt) ??
         offerRow?.price;
       if (!price)
-        throw new BadRequestException(
-          `MenuItem ${menuItemId} has no offer price`,
-        );
+        throw badRequestError('menuItemUnavailable', {
+          name: this.localName(item.name),
+        });
       return price;
     };
 
@@ -245,22 +285,14 @@ export class OrderPricingService {
       level: ServingTemperatureLevel | null | undefined,
     ): ServingTemperatureLevel | null => {
       if (item.servingTemperatures.length === 0) {
-        if (level)
-          throw new BadRequestException(
-            `MenuItem ${item.id} has no serving temperatures`,
-          );
+        if (level) throw optionsInvalid(item);
         return null;
       }
-      if (!level)
-        throw new BadRequestException(
-          `MenuItem ${item.id} requires a serving temperature level`,
-        );
+      if (!level) throw optionsInvalid(item);
       if (
         !item.servingTemperatures.includes(SERVING_TEMPERATURE_OF_LEVEL[level])
       )
-        throw new BadRequestException(
-          `MenuItem ${item.id} does not offer ${level}`,
-        );
+        throw optionsInvalid(item);
       return level;
     };
 
@@ -270,10 +302,7 @@ export class OrderPricingService {
       level: SweetnessLevel | null | undefined,
     ): SweetnessLevel | null => {
       if (item.sweetness !== 'Adjustable') return item.fixedSweetnessLevel;
-      if (!level)
-        throw new BadRequestException(
-          `MenuItem ${item.id} requires a sweetness level`,
-        );
+      if (!level) throw optionsInvalid(item);
       return level;
     };
 
@@ -286,48 +315,48 @@ export class OrderPricingService {
       for (const [groupId, modIds] of Object.entries(modifiersInput)) {
         if (modIds.length === 0) continue;
         if (!groups.some(({ id }) => id === groupId))
-          throw new BadRequestException(
-            `ModifierGroup ${groupId} is unavailable for MenuItem ${item.id}`,
-          );
-        if (new Set(modIds).size !== modIds.length)
-          throw new BadRequestException(
-            `ModifierGroup ${groupId} has duplicate modifiers`,
-          );
+          throw optionsInvalid(item);
+        if (new Set(modIds).size !== modIds.length) throw optionsInvalid(item);
       }
 
-      for (const { id, maxSelectionCount, minSelectionCount } of groups) {
+      for (const {
+        id,
+        maxSelectionCount,
+        minSelectionCount,
+        modifiers,
+      } of groups) {
         const count = modifiersInput[id]?.length ?? 0;
+        const listed = modifiers.filter(
+          ({ availability }) => availability !== 'Discontinued',
+        );
+        const requiredCount =
+          listed.length === 0 ||
+          listed.some(({ availableModes }) => availableModes.includes(mode))
+            ? minSelectionCount
+            : 0;
         if (
-          count < minSelectionCount ||
+          count < requiredCount ||
           (maxSelectionCount != null && count > maxSelectionCount)
         )
-          throw new BadRequestException(
-            `ModifierGroup ${id} selection count ${count} is out of range`,
-          );
+          throw optionsInvalid(item);
       }
 
       return Object.entries(modifiersInput).flatMap(([groupId, modIds]) =>
         modIds.map((modId) => {
           const mod = modifierMap.get(modId);
           if (!mod || mod.modifierGroupId !== groupId)
-            throw new BadRequestException(
-              `Modifier ${modId} not found in ModifierGroup ${groupId}`,
-            );
+            throw optionsInvalid(item);
           if (!mod.availableModes.includes(mode))
-            throw new BadRequestException(
-              this.t('modifierUnavailableForMode', {
-                name: this.localName(mod.displayName),
-              }),
-            );
+            throw badRequestError('modifierUnavailableForMode', {
+              name: this.localName(mod.displayName),
+            });
           if (
             mod.availability === 'SoldOut' ||
             mod.availability === 'Discontinued'
           )
-            throw new BadRequestException(
-              this.t('modifierUnavailable', {
-                name: this.localName(mod.displayName),
-              }),
-            );
+            throw badRequestError('modifierUnavailable', {
+              name: this.localName(mod.displayName),
+            });
           return {
             modifierGroupId: mod.modifierGroupId,
             modifierGroupName: getName(mod.modifierGroup?.displayName),
@@ -354,9 +383,7 @@ export class OrderPricingService {
                 link.addOnMenuSectionId === item.menuSectionId)),
         )
       )
-        throw new BadRequestException(
-          `MenuItem ${item.id} is not an add-on of MenuItem ${parent.id}`,
-        );
+        throw optionsInvalid(parent);
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
         addOn.servingTemperatureLevel,
@@ -365,7 +392,7 @@ export class OrderPricingService {
       return {
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        unitPrice: getOfferPrice(addOn.menuItemId),
+        unitPrice: getOfferPrice(item),
         modifiers: resolveModifierSnapshots(item, addOn.modifiers),
         servingTemperatureLevel,
         sweetnessLevel,
@@ -388,7 +415,7 @@ export class OrderPricingService {
       );
 
       const unitPrice =
-        Number(getOfferPrice(cartItem.menuItemId)) +
+        Number(getOfferPrice(item)) +
         sumModifierAdjustments(itemModifiers) +
         addOns.reduce(
           (sum, addOn) =>
@@ -400,16 +427,14 @@ export class OrderPricingService {
 
       return {
         id: randomUUID(),
-        leadTimeMinutes: Math.max(
-          leadTimeOf(item.id),
-          ...cartItem.addOns.map((addOn) => leadTimeOf(addOn.menuItemId)),
+        leadTimeMinutes: itemLeadTimeMinutes(
+          leadTimeOf,
+          item.id,
+          cartItem.addOns,
         ),
         menuItemId: item.id,
         menuItemName: getName(item.name),
-        menuSectionIds: [
-          item.menuSectionId,
-          item.menuSection?.parentSectionId,
-        ].filter((id): id is string => !!id),
+        menuSectionIds: sectionAncestry(parentSectionIdOf, item.menuSectionId),
         unitPrice: unitPrice.toFixed(2),
         // 訂單成立當下的幣別快照；店家日後改幣別不影響已成立的訂單
         priceCurrency,

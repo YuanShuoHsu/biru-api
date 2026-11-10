@@ -17,20 +17,19 @@ export const WAITLIST_TICKET_DATE_FILTER_FIELDS = [
   'calledAt',
   'endedAt',
 ] as const;
-export const WAITLIST_TICKET_ALL_FILTER_FIELDS = [
+const WAITLIST_TICKET_ALL_FILTER_FIELDS = [
   ...WAITLIST_TICKET_STRING_FILTER_FIELDS,
   ...WAITLIST_TICKET_ENUM_FILTER_FIELDS,
   ...WAITLIST_TICKET_NUMBER_FILTER_FIELDS,
   ...WAITLIST_TICKET_DATE_FILTER_FIELDS,
 ] as const;
 
-export type WaitlistTicketFilterField =
+type WaitlistTicketFilterField =
   (typeof WAITLIST_TICKET_ALL_FILTER_FIELDS)[number];
 
-export const WAITLIST_TICKET_SORT_FIELDS = WAITLIST_TICKET_ALL_FILTER_FIELDS;
+const WAITLIST_TICKET_SORT_FIELDS = WAITLIST_TICKET_ALL_FILTER_FIELDS;
 
-export type WaitlistTicketSortField =
-  (typeof WAITLIST_TICKET_SORT_FIELDS)[number];
+type WaitlistTicketSortField = (typeof WAITLIST_TICKET_SORT_FIELDS)[number];
 
 export class WaitlistTicketPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({

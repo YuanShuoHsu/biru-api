@@ -12,13 +12,14 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsIn,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
+  IsRFC3339,
   IsString,
   Max,
   MaxLength,
@@ -34,6 +35,7 @@ import {
   PIONEX_KLINE_INTERVALS,
   type PionexKlineInterval,
 } from '../pionex/pionex.types.js';
+import { trim } from '../../common/utils/trim.js';
 
 export const QUANT_BOT_TYPES = [
   'grid',
@@ -44,11 +46,11 @@ export const QUANT_BOT_TYPES = [
   'signal',
   'ai',
 ] as const;
-export const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
+const FUTURES_BOT_TYPES = ['futures_grid', 'signal'] as const;
 /** 可以設單筆金額上限的自建策略；AI 的上限在自己的設定裡，網格的每格金額由投入決定 */
 export const ORDER_LIMIT_BOT_TYPES = ['dca', 'indicator', 'webhook'] as const;
-export const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
-export const QUANT_BOT_MODES = ['paper', 'live'] as const;
+const QUANT_BOT_EXECUTORS = ['pionex', 'engine'] as const;
+const QUANT_BOT_MODES = ['paper', 'live'] as const;
 export const QUANT_BOT_STATUSES = ['running', 'stopped', 'error'] as const;
 export const GRID_TYPES = ['arithmetic', 'geometric'] as const;
 export const GRID_STOP_TYPES = [
@@ -61,7 +63,7 @@ export const FUTURES_GRID_STOP_TYPES = [
   'price_limit',
 ] as const;
 export const GRID_CLOSE_MODELS = ['NOT_SELL', 'TO_QUOTE'] as const;
-export const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
+const TRIGGER_DIRECTIONS = ['above', 'below'] as const;
 export const FUTURES_GRID_TRENDS = ['long', 'short', 'no_trend'] as const;
 export const FUTURES_DIRECTIONS = ['long', 'short'] as const;
 export const INDICATOR_KINDS = [
@@ -77,13 +79,12 @@ export const BOLLINGER_BANDS = ['upper', 'lower'] as const;
 export const WEBHOOK_ACTIONS = ['buy', 'sell', 'close'] as const;
 export const SIGNAL_ACTIONS = ['buy', 'sell'] as const;
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-export const AI_SOURCES = ['claude_api', 'claude_code'] as const;
-export type AiSource = (typeof AI_SOURCES)[number];
+const AI_SOURCES = ['claude_api', 'claude_code'] as const;
+type AiSource = (typeof AI_SOURCES)[number];
 export const AI_LOCALES = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko'] as const;
 
 export type QuantBotType = (typeof QUANT_BOT_TYPES)[number];
-export type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
-export type SpotBotType = Exclude<QuantBotType, FuturesBotType>;
+type FuturesBotType = (typeof FUTURES_BOT_TYPES)[number];
 
 export const isFuturesBotType = (type: QuantBotType): type is FuturesBotType =>
   (FUTURES_BOT_TYPES as readonly string[]).includes(type);
@@ -114,8 +115,8 @@ export const futuresMarginOf = ({ config, type }: BotShape) => {
     leverage,
   };
 };
-export type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
-export type QuantBotExecutor = (typeof QUANT_BOT_EXECUTORS)[number];
+type QuantBotMode = (typeof QUANT_BOT_MODES)[number];
+type QuantBotExecutor = (typeof QUANT_BOT_EXECUTORS)[number];
 
 /** 實盤的網格、合約網格、訊號機器人交給 Pionex 執行，其餘由本系統的引擎執行 */
 export const executorOf = ({
@@ -129,9 +130,6 @@ export const executorOf = ({
   (type === 'grid' || type === 'futures_grid' || type === 'signal')
     ? 'pionex'
     : 'engine';
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class GridStopDto {
   @ApiProperty({ enum: GRID_STOP_TYPES, enumName: 'QuantGridStopType' })
@@ -164,13 +162,13 @@ export class FuturesGridStopDto {
   value: number;
 
   @ApiPropertyOptional({ description: 'price_limit：觸發後掛限價單平倉的價格' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   limitPrice?: number;
 }
 
-export class TriggerDto {
+class TriggerDto {
   @ApiProperty() @IsNumber() @IsPositive() price: number;
 
   @ApiProperty({
@@ -229,7 +227,7 @@ export class GridConfigDto {
     description:
       '實盤：初始買入價格最多高於下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   slippage?: number;
@@ -269,7 +267,7 @@ export class FuturesGridConfigDto {
   @ApiPropertyOptional({
     description: '額外保證金（計價幣），不參與網格交易、只用來拉遠強平價',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   extraMargin?: number;
@@ -284,7 +282,7 @@ export class FuturesGridConfigDto {
   lossStop?: FuturesGridStopDto;
 
   @ApiPropertyOptional({ description: '中性網格的上方停損價' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   lossStopHigh?: number;
@@ -292,7 +290,7 @@ export class FuturesGridConfigDto {
   @ApiPropertyOptional({
     description: '中性網格的上方停損限價，停損方式為 price_limit 時使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   lossStopLimitHigh?: number;
@@ -317,7 +315,7 @@ export class FuturesGridConfigDto {
     description:
       '實盤：開倉成交價最多偏離下單時價格的 %；省略時依 Pionex 預設，模擬盤與回測不使用',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   slippage?: number;
@@ -331,14 +329,14 @@ export class SignalBotConfigDto {
   leverage: number;
 
   @ApiPropertyOptional({ description: '停利（%，相對投入），由 Pionex 執行' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(10000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對投入），由 Pionex 執行' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -403,7 +401,7 @@ export class DcaConfigDto {
   takeProfit: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -424,21 +422,21 @@ export class IndicatorConditionDto {
   kind: (typeof INDICATOR_KINDS)[number];
 
   @ApiPropertyOptional({ description: 'RSI／布林通道週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(500)
   period?: number;
 
   @ApiPropertyOptional({ description: '均線交叉的快線週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(1)
   @Max(500)
   fast?: number;
 
   @ApiPropertyOptional({ description: '均線交叉的慢線週期' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(500)
@@ -449,12 +447,12 @@ export class IndicatorConditionDto {
     enumName: 'QuantConditionOperator',
     description: 'RSI 高於／低於門檻；布林通道為收盤價突破上軌／跌破下軌',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(CONDITION_OPERATORS)
   operator?: (typeof CONDITION_OPERATORS)[number];
 
   @ApiPropertyOptional({ description: 'RSI 門檻' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -464,12 +462,12 @@ export class IndicatorConditionDto {
     enum: CROSS_DIRECTIONS,
     enumName: 'QuantCrossDirection',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(CROSS_DIRECTIONS)
   direction?: (typeof CROSS_DIRECTIONS)[number];
 
   @ApiPropertyOptional({ description: '布林通道標準差倍數' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(10)
@@ -479,7 +477,7 @@ export class IndicatorConditionDto {
     enum: BOLLINGER_BANDS,
     enumName: 'QuantBollingerBand',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(BOLLINGER_BANDS)
   band?: (typeof BOLLINGER_BANDS)[number];
 }
@@ -516,14 +514,14 @@ export class IndicatorConfigDto {
   orderAmount: number;
 
   @ApiPropertyOptional({ description: '停利（%，相對進場均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(1000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對進場均價）' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -574,7 +572,10 @@ export class AiConfigDto {
   @ApiPropertyOptional({
     description: 'claude_api 必填：每月 AI 費用上限（美元），超過就停止機器人',
   })
-  @ValidateIf((config: AiConfigDto) => config.source === 'claude_api')
+  @ValidateIf(
+    (config: AiConfigDto, value) =>
+      config.source === 'claude_api' || value !== undefined,
+  )
   @IsNumber()
   @IsPositive()
   monthlyCostLimit?: number;
@@ -606,14 +607,14 @@ export class AiConfigDto {
   locale: (typeof AI_LOCALES)[number];
 
   @ApiPropertyOptional({ description: '停利（%，相對持倉均價），由系統強制' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(1000)
   takeProfit?: number;
 
   @ApiPropertyOptional({ description: '停損（%，相對持倉均價），由系統強制' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   @Max(100)
@@ -854,7 +855,7 @@ export class StopQuantBotDto {
     description:
       '現貨網格省略時依建立時的設定；現貨 DCA／指標／Webhook／AI 傳 TO_QUOTE 會市價平倉，省略時保留倉位；合約一律平倉',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(GRID_CLOSE_MODELS)
   closeModel?: (typeof GRID_CLOSE_MODELS)[number];
 }
@@ -916,7 +917,7 @@ export class WebhookSignalDto {
   action: (typeof WEBHOOK_ACTIONS)[number];
 
   @ApiPropertyOptional({ description: '買入金額（計價幣），省略則用預設' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   amount?: number;
@@ -985,12 +986,12 @@ export type BacktestDto =
   | DcaBacktestDto
   | IndicatorBacktestDto;
 
-export class BacktestPointDto {
+class BacktestPointDto {
   @ApiProperty() time: number;
   @ApiProperty() value: number;
 }
 
-export class BacktestTradeDto {
+class BacktestTradeDto {
   @ApiProperty({ enum: ['BUY', 'SELL'], enumName: 'QuantOrderSide' })
   side: 'BUY' | 'SELL';
   @ApiProperty() price: number;
@@ -1099,13 +1100,13 @@ export class GridOperationDto {
   amount?: number;
 
   @ApiPropertyOptional({ description: 'range：新上界' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   top?: number;
 
   @ApiPropertyOptional({ description: 'range：新下界' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   bottom?: number;
@@ -1115,7 +1116,7 @@ export class GridOperationDto {
     minimum: 2,
     maximum: 200,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(2)
   @Max(200)
@@ -1149,7 +1150,7 @@ export class SendSignalDto {
   positionSize: number;
 }
 
-export const FUTURES_GRID_OPERATIONS = [
+const FUTURES_GRID_OPERATIONS = [
   'invest',
   'range',
   'reinvest',
@@ -1162,7 +1163,7 @@ export const FUTURES_GRID_OPERATIONS = [
 ] as const;
 export const FUTURES_GRID_PAUSE_MODES = ['immediate', 'conditional'] as const;
 
-export type FuturesGridOperation = (typeof FUTURES_GRID_OPERATIONS)[number];
+type FuturesGridOperation = (typeof FUTURES_GRID_OPERATIONS)[number];
 
 // https://www.pionex.com/docs/api-docs/bot-api/futures-grid
 export class FuturesGridOperationDto {
@@ -1464,7 +1465,7 @@ export class ResumeAiBacktestDto {
     description:
       'claude_api：調整這次回測的費用上限（美元），已花費用達到上限時必須調高',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsNumber()
   @IsPositive()
   monthlyCostLimit?: number;
@@ -1510,19 +1511,19 @@ export const QUANT_BOT_ENUM_FILTER_FIELDS = [
 ] as const;
 export const QUANT_BOT_NUMBER_FILTER_FIELDS = ['investment'] as const;
 export const QUANT_BOT_DATE_FILTER_FIELDS = ['startedAt'] as const;
-export const QUANT_BOT_ALL_FILTER_FIELDS = [
+const QUANT_BOT_ALL_FILTER_FIELDS = [
   ...QUANT_BOT_STRING_FILTER_FIELDS,
   ...QUANT_BOT_ENUM_FILTER_FIELDS,
   ...QUANT_BOT_NUMBER_FILTER_FIELDS,
   ...QUANT_BOT_DATE_FILTER_FIELDS,
 ] as const;
 
-export type QuantBotFilterField = (typeof QUANT_BOT_ALL_FILTER_FIELDS)[number];
+type QuantBotFilterField = (typeof QUANT_BOT_ALL_FILTER_FIELDS)[number];
 
 // 損益要即時算，不在資料庫裡，無法排序或篩選
-export const QUANT_BOT_SORT_FIELDS = QUANT_BOT_ALL_FILTER_FIELDS;
+const QUANT_BOT_SORT_FIELDS = QUANT_BOT_ALL_FILTER_FIELDS;
 
-export type QuantBotSortField = (typeof QUANT_BOT_SORT_FIELDS)[number];
+type QuantBotSortField = (typeof QUANT_BOT_SORT_FIELDS)[number];
 
 export class QuantBotPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
@@ -1619,8 +1620,13 @@ export class QuantBotEventPaginationQueryDto extends BotRecordPaginationQueryDto
 }
 
 export class QuantBotFillMarkerQueryDto {
-  @ApiProperty({ description: '只回傳此時間之後的成交', format: 'date-time' })
-  @IsDateString()
+  @ApiProperty({
+    description: '只回傳此時間之後的成交，須帶時區',
+    example: '2026-11-01T00:00:00+08:00',
+    format: 'date-time',
+  })
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   since: string;
 }
 
@@ -1635,4 +1641,24 @@ export class QuantBotEquityPointDto {
   @ApiProperty() time: Date;
   @ApiProperty({ description: '權益（計價幣）' }) equity: number;
   @ApiProperty({ description: '總損益（計價幣）' }) pnl: number;
+}
+
+export class QuantBotListResponseDto {
+  @ApiProperty({ type: [QuantBotDto] }) data: QuantBotDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotOrderListResponseDto {
+  @ApiProperty({ type: [QuantBotOrderDto] }) data: QuantBotOrderDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotFillListResponseDto {
+  @ApiProperty({ type: [QuantBotFillDto] }) data: QuantBotFillDto[];
+  @ApiProperty() total: number;
+}
+
+export class QuantBotEventListResponseDto {
+  @ApiProperty({ type: [QuantBotEventDto] }) data: QuantBotEventDto[];
+  @ApiProperty() total: number;
 }

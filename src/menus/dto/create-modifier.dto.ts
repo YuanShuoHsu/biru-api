@@ -4,10 +4,22 @@ import {
   IsArray,
   IsEnum,
   IsNumberString,
-  IsObject,
   IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  ValidateIf,
 } from 'class-validator';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
 
+import {
+  IsLocalizedText,
+  IsCompleteLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import {
   itemAvailabilityEnum,
@@ -17,25 +29,37 @@ import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 export class CreateModifierDto {
   @ApiProperty({
+    type: LocalizedTextDto,
     description: '選項名稱，如「半糖」「珍珠」',
     example: { 'zh-TW': '半糖', en: 'Half Sugar' },
   })
-  @IsObject()
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   displayName: LocalizedText;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
+  @Matches(IMAGE_DATA_URL_PATTERN)
+  image?: string | null;
 
   @ApiPropertyOptional({
     description: '加價金額；省略代表不影響價格',
     example: '10.00',
+    nullable: true,
+    type: String,
   })
   @IsOptional()
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/)
   @IsNumberString()
-  priceAdjustment?: string;
+  priceAdjustment?: string | null;
 
   @ApiPropertyOptional({
     enum: itemAvailabilityEnum.enumValues,
     enumName: 'ItemAvailability',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsEnum(itemAvailabilityEnum.enumValues)
   availability?: ItemAvailability;
 
@@ -45,7 +69,7 @@ export class CreateModifierDto {
     enumName: 'OrderMode',
     isArray: true,
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsArray()
   @IsEnum(orderModeEnum.enumValues, { each: true })
   availableModes?: OrderMode[];

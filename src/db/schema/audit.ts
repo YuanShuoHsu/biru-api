@@ -34,6 +34,9 @@ export const auditResourceEnum = pgEnum('audit_resource', [
   'invitation',
   'user',
   'team',
+  'pointTransaction',
+  'pointSetting',
+  'storePhoto',
 ]);
 export type AuditResource = (typeof auditResourceEnum.enumValues)[number];
 
@@ -43,6 +46,8 @@ export const auditActionEnum = pgEnum('audit_action', [
   'delete',
 ]);
 export type AuditAction = (typeof auditActionEnum.enumValues)[number];
+
+export const AUDIT_LOG_RETENTION_MONTHS = 12;
 
 export type AuditChanges = Record<string, { before: unknown; after: unknown }>;
 
@@ -84,6 +89,8 @@ export const auditLog = pgTable(
       table.createdAt,
     ),
     index('auditLog_actorId_idx').on(table.actorId),
+    index('auditLog_createdAt_idx').on(table.createdAt),
+    index('auditLog_ancestorIds_idx').using('gin', table.ancestorIds),
   ],
 );
 

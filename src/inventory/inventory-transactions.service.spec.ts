@@ -1,0 +1,821 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
+import { PGlite } from '@electric-sql/pglite';
+import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+
+import { createPGlite } from '../../test/pglite.js';
+import * as schema from '../db/schema/index.js';
+import { modifier, offer } from '../db/schema/menus.js';
+import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { MENU_UPDATED_EVENT } from '../events/menu-updated.event.js';
+
+import {
+  InsufficientStockError,
+  InventoryTransactionsService,
+} from './inventory-transactions.service.js';
+import { MenuStockService, keepAutoSoldOut } from './menu-stock.service.js';
+
+const ORG = 'org';
+
+describe('庫存扣除、還原與自動售完', () => {
+  let client: PGlite;
+  let db: DrizzleDB;
+  let service: InventoryTransactionsService;
+  let menuStock: MenuStockService;
+  let eventEmitter: EventEmitter2;
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    db = pglite as unknown as DrizzleDB;
+    service = new InventoryTransactionsService(db, new EventEmitter2());
+    eventEmitter = new EventEmitter2();
+    menuStock = new MenuStockService(db, eventEmitter);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    await client.exec(
+      'truncate "order", recipe, ingredient, menu, organization cascade',
+    );
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('${ORG}', 'biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into menu (id, organization_id, name) values ('menu', '${ORG}', '{"zh-TW":"菜單"}');`,
+    );
+  });
+
+  const addItem = async (
+    id: string,
+    {
+      autoSoldOut = false,
+      availability = 'InStock',
+      remaining,
+    }: {
+      autoSoldOut?: boolean;
+      availability?: 'InStock' | 'SoldOut';
+      remaining?: number | null;
+    } = {},
+  ) => {
+    await client.query(
+      `insert into menu_item (id, menu_id, name) values ($1, 'menu', $2)`,
+      [id, JSON.stringify({ 'zh-TW': id })],
+    );
+    await client.query(
+      `insert into offer (id, menu_item_id, price, availability, auto_sold_out, inventory_level)
+       values ($1, $2, 100, $3, $4, $5)`,
+      [
+        `${id}-offer`,
+        id,
+        availability,
+        autoSoldOut,
+        remaining === undefined ? null : JSON.stringify({ value: remaining }),
+      ],
+    );
+  };
+
+  const addIngredient = (
+    id: string,
+    inventoryLevel: string,
+    lowStockThreshold: string | null = null,
+  ) =>
+    client.query(
+      `insert into ingredient (id, organization_id, name, unit_code, inventory_level, low_stock_threshold)
+       values ($1, $2, $3, 'MLT', $4, $5)`,
+      [
+        id,
+        ORG,
+        JSON.stringify({ 'zh-TW': id }),
+        inventoryLevel,
+        lowStockThreshold,
+      ],
+    );
+
+  const setUnlimited = (id: string, unlimited = true) =>
+    client.query(`update ingredient set unlimited_stock = $2 where id = $1`, [
+      id,
+      unlimited,
+    ]);
+
+  const addRecipe = async (
+    menuItemId: string,
+    materials: Record<string, string>,
+    recipeYield = 1,
+  ) => {
+    await client.query(
+      `insert into recipe (id, organization_id, menu_item_id, name, recipe_yield)
+       values ($1, $2, $3, '{"zh-TW":"食譜"}', $4)`,
+      [`${menuItemId}-recipe`, ORG, menuItemId, recipeYield],
+    );
+    for (const [ingredientId, requiredQuantity] of Object.entries(materials))
+      await client.query(
+        `insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity)
+         values ($1, $2, $3, $4)`,
+        [
+          `${menuItemId}-${ingredientId}`,
+          `${menuItemId}-recipe`,
+          ingredientId,
+          requiredQuantity,
+        ],
+      );
+  };
+
+  const addModifier = async (
+    id: string,
+    {
+      autoSoldOut = false,
+      availability = 'InStock',
+    }: { autoSoldOut?: boolean; availability?: 'InStock' | 'SoldOut' } = {},
+  ) => {
+    await client.query(
+      `insert into modifier_group (id, menu_id, display_name) values ($1, 'menu', '{"zh-TW":"群組"}')
+       on conflict do nothing`,
+      ['group'],
+    );
+    await client.query(
+      `insert into modifier (id, modifier_group_id, display_name, availability, auto_sold_out) values ($1, 'group', $2, $3, $4)`,
+      [id, JSON.stringify({ 'zh-TW': id }), availability, autoSoldOut],
+    );
+  };
+
+  const addModifierRecipe = async (
+    modifierId: string,
+    materials: Record<string, string>,
+  ) => {
+    await client.query(
+      `insert into recipe (id, organization_id, modifier_id, name) values ($1, $2, $3, '{"zh-TW":"選項食譜"}')`,
+      [`${modifierId}-recipe`, ORG, modifierId],
+    );
+    for (const [ingredientId, requiredQuantity] of Object.entries(materials))
+      await client.query(
+        `insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity)
+         values ($1, $2, $3, $4)`,
+        [
+          `${modifierId}-${ingredientId}`,
+          `${modifierId}-recipe`,
+          ingredientId,
+          requiredQuantity,
+        ],
+      );
+  };
+
+  const modifierSnapshot = (modifierId: string) => ({
+    modifierGroupId: 'group',
+    modifierGroupName: '群組',
+    modifierId,
+    modifierName: modifierId,
+    priceAdjustment: null,
+  });
+
+  const addOrder = async (
+    id: string,
+    items: {
+      menuItemId: string;
+      quantity: number;
+      addOns?: string[];
+      addOnModifiers?: string[];
+      modifiers?: string[];
+    }[],
+  ) => {
+    await client.query(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal)
+       values ($1, '{"name":"客人"}', 'pickup', '1', 'Cash', $2, 100)`,
+      [id, ORG],
+    );
+    for (const [
+      index,
+      {
+        addOns = [],
+        addOnModifiers = [],
+        menuItemId,
+        modifiers = [],
+        quantity,
+      },
+    ] of items.entries())
+      await client.query(
+        `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, add_ons, modifiers)
+         values ($1, $2, $3, $3, $4, 100, $5, $6)`,
+        [
+          `${id}-${index}`,
+          id,
+          menuItemId,
+          quantity,
+          JSON.stringify(
+            addOns.map((addOnId) => ({
+              menuItemId: addOnId,
+              menuItemName: addOnId,
+              modifiers: addOnModifiers.map(modifierSnapshot),
+              unitPrice: '10',
+            })),
+          ),
+          JSON.stringify(modifiers.map(modifierSnapshot)),
+        ],
+      );
+  };
+
+  const remainingOf = async (menuItemId: string) => {
+    const {
+      rows: [row],
+    } = await client.query<{ inventory_level: { value?: number } | null }>(
+      `select inventory_level from offer where menu_item_id = $1`,
+      [menuItemId],
+    );
+    return row.inventory_level?.value;
+  };
+
+  const availabilityOf = async (menuItemId: string) => {
+    const {
+      rows: [row],
+    } = await client.query<{ availability: string; auto_sold_out: boolean }>(
+      `select availability, auto_sold_out from offer where menu_item_id = $1`,
+      [menuItemId],
+    );
+    return row;
+  };
+
+  const modifierAvailabilityOf = async (modifierId: string) => {
+    const {
+      rows: [row],
+    } = await client.query<{ availability: string; auto_sold_out: boolean }>(
+      `select availability, auto_sold_out from modifier where id = $1`,
+      [modifierId],
+    );
+    return row;
+  };
+
+  const levelOf = async (ingredientId: string) => {
+    const {
+      rows: [row],
+    } = await client.query<{ inventory_level: string }>(
+      `select inventory_level from ingredient where id = $1`,
+      [ingredientId],
+    );
+    return Number(row.inventory_level);
+  };
+
+  const consume = (orderId: string, enforceStock = false) =>
+    db.transaction((tx) => service.consume(orderId, tx, { enforceStock }));
+
+  const restore = (orderId: string) =>
+    db.transaction((tx) => service.restoreAll(orderId, tx));
+
+  describe('定價的剩餘數量', () => {
+    it('下單扣掉主品項與加購的份數，取消後照扣掉的份數還回去', async () => {
+      await addItem('cake', { remaining: 5 });
+      await addItem('cream', { remaining: 3 });
+      await addOrder('o1', [
+        { menuItemId: 'cake', quantity: 2, addOns: ['cream'] },
+      ]);
+
+      const { offerStockChanged } = await consume('o1', true);
+
+      expect(offerStockChanged).toBe(true);
+      expect(await remainingOf('cake')).toBe(3);
+      expect(await remainingOf('cream')).toBe(1);
+
+      await expect(restore('o1')).resolves.toBe(true);
+      expect(await remainingOf('cake')).toBe(5);
+      expect(await remainingOf('cream')).toBe(3);
+    });
+
+    it('同一筆訂單還原兩次只會還一次', async () => {
+      await addItem('cake', { remaining: 5 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 2 }]);
+      await consume('o1', true);
+
+      await restore('o1');
+      await expect(restore('o1')).resolves.toBe(false);
+
+      expect(await remainingOf('cake')).toBe(5);
+    });
+
+    it('剩餘數量不夠時建單會被擋下，數量不變', async () => {
+      await addItem('cake', { remaining: 1 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 2 }]);
+
+      await expect(consume('o1', true)).rejects.toEqual(
+        new InsufficientStockError({ menuItemId: 'cake' }),
+      );
+      expect(await remainingOf('cake')).toBe(1);
+    });
+
+    it('不檢查時（已付款的異常單補回）最多扣到 0，還原時只還實際扣掉的份數', async () => {
+      await addItem('cake', { remaining: 1 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 3 }]);
+
+      await consume('o1');
+      expect(await remainingOf('cake')).toBe(0);
+
+      await restore('o1');
+      expect(await remainingOf('cake')).toBe(1);
+    });
+
+    it('不限量的品項不扣也不記', async () => {
+      await addItem('latte', { remaining: null });
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 2 }]);
+
+      const { offerStockChanged } = await consume('o1', true);
+
+      expect(offerStockChanged).toBe(false);
+      expect(await remainingOf('latte')).toBeNull();
+    });
+  });
+
+  describe('食材', () => {
+    it('盤點回應只在有採購權限時帶進價', async () => {
+      await addIngredient('milk', '0.000');
+      await client.query(
+        `update ingredient set price = 100, eligible_quantity = 1000, eligible_quantity_unit_code = 'MLT' where id = 'milk'`,
+      );
+
+      const visible = await service.create('milk', { inventoryLevel: '500' });
+      const hidden = await service.create(
+        'milk',
+        { inventoryLevel: '1000' },
+        { canReadPurchasing: false },
+      );
+
+      expect(visible.unitCost).toEqual(expect.any(String));
+      expect(hidden.unitCost).toBeUndefined();
+      expect(hidden).toMatchObject({ balance: '1000.000', reason: 'count' });
+    });
+
+    it('只回傳這次從高於門檻跌到門檻以下的食材', async () => {
+      await addItem('latte');
+      await addIngredient('crossed', '10.200', '10');
+      await addIngredient('alreadyAtThreshold', '10.000', '10');
+      await addIngredient('stillAbove', '20.000', '10');
+      await addIngredient('noThreshold', '5');
+      await addRecipe(
+        'latte',
+        {
+          alreadyAtThreshold: '1',
+          crossed: '1',
+          noThreshold: '1',
+          stillAbove: '1',
+        },
+        3,
+      );
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      const { lowStock } = await consume('o1');
+
+      expect(lowStock).toEqual([
+        { id: 'crossed', name: { 'zh-TW': 'crossed' } },
+      ]);
+      expect(await levelOf('noThreshold')).toBeCloseTo(4.667, 3);
+    });
+
+    it('多個品項共用的食材合計不夠時建單會被擋下，食材不變', async () => {
+      await addItem('latte');
+      await addItem('cappuccino');
+      await addIngredient('milk', '300');
+      await addRecipe('latte', { milk: '200' });
+      await addRecipe('cappuccino', { milk: '150' });
+      await addOrder('o1', [
+        { menuItemId: 'latte', quantity: 1 },
+        { menuItemId: 'cappuccino', quantity: 1 },
+      ]);
+
+      await expect(consume('o1', true)).rejects.toBeInstanceOf(
+        InsufficientStockError,
+      );
+      expect(await levelOf('milk')).toBe(300);
+    });
+
+    it('已付款訂單不檢查庫存，超賣時扣成負數並標記提醒', async () => {
+      await addItem('latte');
+      await addIngredient('milk', '100');
+      await addRecipe('latte', { milk: '300' });
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      const { lowStock } = await consume('o1');
+
+      expect(await levelOf('milk')).toBe(-200);
+      expect(lowStock).toEqual([
+        { id: 'milk', name: { 'zh-TW': 'milk' }, oversold: true },
+      ]);
+    });
+
+    it('已經是負數時再超賣不重複提醒', async () => {
+      await addItem('latte');
+      await addIngredient('milk', '-200');
+      await addRecipe('latte', { milk: '300' });
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      const { lowStock } = await consume('o1');
+
+      expect(await levelOf('milk')).toBe(-500);
+      expect(lowStock).toEqual([]);
+    });
+
+    it('不限量的食材不擋單、不扣也不記', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await addIngredient('leaves', '10');
+      await setUnlimited('water');
+      await addRecipe('tea', { leaves: '1', water: '300' });
+      await addOrder('o1', [{ menuItemId: 'tea', quantity: 2 }]);
+
+      await expect(consume('o1', true)).resolves.toBeDefined();
+
+      expect(await levelOf('water')).toBe(0);
+      expect(await levelOf('leaves')).toBe(8);
+      const { rows } = await client.query(
+        `select 1 from inventory_transaction where ingredient_id = 'water'`,
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('選項的食譜依份數扣，加料內的選項也算，取消時一起還回去', async () => {
+      await addItem('pasta');
+      await addItem('meatball');
+      await addModifier('large');
+      await addModifier('cheese');
+      await addIngredient('noodle', '1000');
+      await addIngredient('parmesan', '100');
+      await addRecipe('pasta', { noodle: '100' });
+      await addModifierRecipe('large', { noodle: '50' });
+      await addModifierRecipe('cheese', { parmesan: '10' });
+      await addOrder('o1', [
+        {
+          menuItemId: 'pasta',
+          quantity: 2,
+          modifiers: ['large', 'cheese'],
+          addOns: ['meatball'],
+          addOnModifiers: ['cheese'],
+        },
+      ]);
+
+      await consume('o1', true);
+
+      expect(await levelOf('noodle')).toBe(700);
+      expect(await levelOf('parmesan')).toBe(60);
+
+      await restore('o1');
+
+      expect(await levelOf('noodle')).toBe(1000);
+      expect(await levelOf('parmesan')).toBe(100);
+    });
+
+    it('沒有食譜的選項不扣庫存', async () => {
+      await addItem('pasta');
+      await addModifier('large');
+      await addIngredient('noodle', '1000');
+      await addRecipe('pasta', { noodle: '100' });
+      await addOrder('o1', [
+        { menuItemId: 'pasta', quantity: 1, modifiers: ['large'] },
+      ]);
+
+      await consume('o1', true);
+
+      expect(await levelOf('noodle')).toBe(900);
+    });
+
+    it('選項的食材不夠時建單會被擋下並指出是哪個選項', async () => {
+      await addItem('pasta');
+      await addModifier('cheese');
+      await addIngredient('parmesan', '15');
+      await addModifierRecipe('cheese', { parmesan: '10' });
+      await addOrder('o1', [
+        { menuItemId: 'pasta', quantity: 2, modifiers: ['cheese'] },
+      ]);
+
+      await expect(consume('o1', true)).rejects.toEqual(
+        new InsufficientStockError({ modifierId: 'cheese' }),
+      );
+      expect(await levelOf('parmesan')).toBe(15);
+    });
+
+    it('品項與選項共用的食材不夠時指出品項', async () => {
+      await addItem('pasta');
+      await addModifier('cheese');
+      await addIngredient('parmesan', '15');
+      await addModifierRecipe('cheese', { parmesan: '10' });
+      await addRecipe('pasta', { parmesan: '10' });
+      await addOrder('o1', [
+        { menuItemId: 'pasta', quantity: 1, modifiers: ['cheese'] },
+      ]);
+
+      await expect(consume('o1', true)).rejects.toEqual(
+        new InsufficientStockError({ menuItemId: 'pasta' }),
+      );
+    });
+
+    it('用量四捨五入到小數第三位的最後一份仍然賣得出去', async () => {
+      await addItem('latte');
+      await addIngredient('beans', '0.333');
+      await addRecipe('latte', { beans: '1' }, 3);
+      await addOrder('o1', [{ menuItemId: 'latte', quantity: 1 }]);
+
+      await expect(consume('o1', true)).resolves.toBeDefined();
+    });
+  });
+
+  describe('MenuStockService.sync', () => {
+    it('食材不夠一份或剩餘數量為 0 時自動售完', async () => {
+      await addItem('latte');
+      await addItem('cake', { remaining: 0 });
+      await addItem('tea');
+      await addIngredient('milk', '100');
+      await addRecipe('latte', { milk: '200' });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await availabilityOf('latte')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+      expect(await availabilityOf('tea')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('不限量的食材庫存為 0 也不會讓品項售完', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await setUnlimited('water');
+      await addRecipe('tea', { water: '300' });
+
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('tea')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('食材改回追蹤庫存後，不夠一份的品項會自動售完', async () => {
+      await addItem('tea');
+      await addIngredient('water', '0');
+      await setUnlimited('water');
+      await addRecipe('tea', { water: '300' });
+      await menuStock.sync(ORG);
+
+      await setUnlimited('water', false);
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('tea')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('補貨後只恢復系統自動售完的，店員手動售完的不動', async () => {
+      await addItem('latte', { autoSoldOut: true, availability: 'SoldOut' });
+      await addItem('mocha', { availability: 'SoldOut' });
+      await addIngredient('milk', '1000');
+      await addRecipe('latte', { milk: '200' });
+      await addRecipe('mocha', { milk: '200' });
+
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('latte')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(await availabilityOf('mocha')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('狀態沒變時不改資料也不通知', async () => {
+      await addItem('latte');
+      await addIngredient('milk', '1000');
+      await addRecipe('latte', { milk: '200' });
+      const emit = vi.spyOn(eventEmitter, 'emit');
+
+      await menuStock.refresh(ORG);
+
+      expect(emit).not.toHaveBeenCalled();
+      emit.mockRestore();
+    });
+
+    it('有變動時通知前台重新載入菜單', async () => {
+      await addItem('cake', { remaining: 0 });
+      const emit = vi.spyOn(eventEmitter, 'emit');
+
+      await menuStock.refresh(ORG);
+
+      expect(emit).toHaveBeenCalledWith(MENU_UPDATED_EVENT, {
+        organizationId: ORG,
+      });
+      emit.mockRestore();
+    });
+
+    it('剩餘數量不到一份也算售完', async () => {
+      await addItem('cake', { remaining: 0.5 });
+
+      await menuStock.sync(ORG);
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('賣到剩餘數量為 0 後自動售完，取消訂單還回來後自動恢復', async () => {
+      await addItem('cake', { remaining: 1 });
+      await addOrder('o1', [{ menuItemId: 'cake', quantity: 1 }]);
+
+      await consume('o1', true);
+      await menuStock.sync(ORG);
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+
+      await restore('o1');
+      await menuStock.sync(ORG);
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+  });
+
+  describe('MenuStockService.sync 選項', () => {
+    it('選項食譜的食材不夠一份時自動售完並通知前台，沒有食譜的選項不動', async () => {
+      await addModifier('cheese');
+      await addModifier('large');
+      await addIngredient('cheddar', '10');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+      const emit = vi.spyOn(eventEmitter, 'emit');
+
+      await menuStock.refresh(ORG);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+      expect(await modifierAvailabilityOf('large')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(emit).toHaveBeenCalledWith(MENU_UPDATED_EVENT, {
+        organizationId: ORG,
+      });
+      emit.mockRestore();
+    });
+
+    it('補貨後只恢復系統自動售完的選項，店員手動售完的不動', async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+      await addModifier('bacon', { availability: 'SoldOut' });
+      await addIngredient('cheddar', '100');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+      await addModifierRecipe('bacon', { cheddar: '20' });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+      expect(await modifierAvailabilityOf('bacon')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('食譜解除綁定後，系統自動售完的選項恢復供應', async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(true);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('食材不夠時店員手動售完的選項不算自動售完', async () => {
+      await addModifier('cheese', { availability: 'SoldOut' });
+      await addIngredient('cheddar', '0');
+      await addModifierRecipe('cheese', { cheddar: '20' });
+
+      await expect(menuStock.sync(ORG)).resolves.toBe(false);
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'SoldOut',
+      });
+    });
+  });
+
+  describe('keepAutoSoldOut 選項', () => {
+    const save = (availability: 'InStock' | 'SoldOut') =>
+      db
+        .update(modifier)
+        .set({ availability, ...keepAutoSoldOut(availability, modifier) })
+        .where(eq(modifier.id, 'cheese'));
+
+    beforeEach(async () => {
+      await addModifier('cheese', {
+        autoSoldOut: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('送出與目前相同的供應狀態時保留自動售完', async () => {
+      await save('SoldOut');
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('店員改了供應狀態就不再算自動售完', async () => {
+      await save('InStock');
+
+      expect(await modifierAvailabilityOf('cheese')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+  });
+
+  describe('keepAutoSoldOut', () => {
+    const save = (availability?: 'InStock' | 'SoldOut') =>
+      db
+        .update(offer)
+        .set({
+          ...(availability && { availability }),
+          ...keepAutoSoldOut(availability, offer),
+          price: '120',
+        })
+        .where(eq(offer.menuItemId, 'cake'));
+
+    beforeEach(async () => {
+      await addItem('cake', { autoSoldOut: true, availability: 'SoldOut' });
+    });
+
+    it('送出與目前相同的供應狀態時保留自動售完', async () => {
+      await save('SoldOut');
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+
+    it('店員改了供應狀態就不再算自動售完', async () => {
+      await save('InStock');
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: false,
+        availability: 'InStock',
+      });
+    });
+
+    it('沒有送供應狀態時不動', async () => {
+      await save();
+
+      expect(await availabilityOf('cake')).toEqual({
+        auto_sold_out: true,
+        availability: 'SoldOut',
+      });
+    });
+  });
+
+  it('批次還原前依 id 順序鎖住所有訂單扣過的定價', async () => {
+    await addItem('cake', { remaining: 5 });
+    await addItem('cream', { remaining: 5 });
+    await addOrder('o1', [{ menuItemId: 'cream', quantity: 1 }]);
+    await addOrder('o2', [{ menuItemId: 'cake', quantity: 1 }]);
+    await consume('o1', true);
+    await consume('o2', true);
+
+    await db.transaction(async (tx) => {
+      await service.lockHeldOfferStock(['o1', 'o2'], tx);
+      await service.restoreAll('o1', tx);
+      await service.restoreAll('o2', tx);
+    });
+
+    expect(await remainingOf('cake')).toBe(5);
+    expect(await remainingOf('cream')).toBe(5);
+  });
+
+  it('沒有採購權限時依單位成本排序異動回 403 forbidden', async () => {
+    await expect(
+      service.findAll('cake', { sortBy: 'unitCost' }, false),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
+});

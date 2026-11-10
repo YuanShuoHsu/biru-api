@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "給薪比例不得低於法定標準。",
     "calendarLeaveInterval": "產假事件期間須為法定天數的完整曆日（起訖 00:00，結束日不含）。",
     "calendarLeavePayRequired": "產假事件須由 owner 設定核定每日全薪，給薪比例由年資自動計算。",
+    "calendarRangeTooLong": "班表一次最多顯示 62 天。",
     "cancelIrreversible": "此班次目前不符合排班規則，取消後無法復原。",
     "cancelReasonRequired": "已開始的班次須填寫取消原因。",
     "cannotReviewOwnDraft": "不能覆核自己建立的薪資單，請由另一位管理者處理。",
@@ -42,7 +43,6 @@
     "childcareReductionInvalid": "育兒減少工時期間須在到職後，且落在已登記子女出生後至滿三歲前；請先在員工管理的「子女資料」登記子女。",
     "indigenousHolidayInvalid": "歲時祭儀放假日每年最多 3 天，須在任職期間內、不可重複，也不可與國定假日同一天。",
     "insufficientLeaveBalance": "休假額度不足，請由主管確認年度額度。",
-    "invalidBusinessNumber": "統一編號檢查碼不正確。",
     "invalidEarningType": "找不到這個加項名目。",
     "invalidEmergencyDetails": "請確認報備時間與至少連續 24 小時的補假。",
     "invalidEventSequence": "打卡順序或時間不正確，請確認上下班時間。",
@@ -73,6 +73,7 @@
     "menstrualDayLimit": "生理假每月限一個曆日，請確認日期。",
     "monthlyOvertimeExceeded": "加班時數將超過當月上限（一般 46 小時，同意延長期間 54 小時）。",
     "noShifts": "此月份沒有班表。",
+    "notFound": "找不到這筆資料，可能已被刪除。",
     "occupationalIndustryInvalid": "找不到這個職災保險行業別，請重新選擇。",
     "outsideShiftWindow": "目前不在此班次可上班打卡的時間內。",
     "overlappingAttendance": "這段時間已有其他出勤記錄。",
@@ -127,10 +128,18 @@
     "withholdingUnitRequired": "請先填寫申報單位資料。",
     "workPermitRequired": "此員工的法定身分須持有有效工作許可，班次或出勤日期不在工作許可期間內。"
   },
+  "banners": {
+    "bannerNotFound": "找不到這則橫幅，可能已被刪除",
+    "scheduleInvalid": "開始時間必須早於結束時間"
+  },
   "coupons": {
     "alreadyClaimed": "您已領取過此優惠券",
+    "applicableOrganizationNotFound": "找不到部分所選店家，可能已被刪除",
     "codeExists": "此優惠碼已存在",
+    "couponNotFound": "找不到這張優惠券，可能已被刪除",
     "expired": "優惠碼已過期",
+    "grantExpired": "此優惠券已過期，無法發放",
+    "grantInactive": "此優惠券已停用，無法發放",
     "inUse": "已有顧客領取此優惠券，無法刪除，請改為停用。",
     "issueMinSpendRequired": "滿額回饋須設定滿額門檻",
     "itemScopeSingleOrganization": "指定品項券僅適用單一店家",
@@ -147,30 +156,60 @@
     "perUserLimitReached": "您已使用過此優惠碼",
     "percentageTooHigh": "百分比折扣不能超過 100",
     "pointsOnly": "此優惠碼需以點數兌換後才能使用",
+    "scheduleInvalid": "開始時間必須早於結束時間",
     "usedUp": "此優惠碼已達使用上限"
   },
   "deletedRecords": {
     "restoreConflict": "無法還原：系統中已有相同的資料（例如店家代稱、優惠碼、電子郵件重複，或該成員已在店內）。",
-    "restoreMissingReference": "無法還原：它所屬的上層資料已不存在，請先還原上層資料。"
+    "restoreMissingReference": "無法還原：它所屬的上層資料已不存在，請先還原上層資料。",
+    "restoreInvalid": "無法還原：這筆資料不符合目前的必填規則（例如沒有地址的門市），請改為重新建立。",
+    "batchNotFound": "找不到這筆刪除紀錄，可能已超過保留期限。"
   },
   "exceptions": {
+    "badRequest": "請求格式不正確",
+    "forbidden": "你沒有權限存取此資料",
     "internalServerError": "內部伺服器錯誤",
     "organizationClosed": "此門市已停止營業",
     "organizationHasOpenWork": "尚有 {orders} 筆未完成的訂單、{tickets} 張候位中的號碼牌，請先完成或取消後再停業",
+    "organizationNotFound": "找不到此門市。",
     "organizationReadOnly": "此門市已停業，菜單、庫存、優惠券、候位與店家設定僅供查看",
+    "returnUrlNotAllowed": "不允許使用此返回網址",
+    "smtpTestFailed": "測試郵件寄送失敗，請檢查 SMTP 設定後再試一次",
+    "statsSinceNotMonthStart": "開始時間必須是平台時區的月初",
     "tooManyRequests": "請求過多"
   },
   "gcis": {
-    "invalidBusinessNo": "統一編號格式錯誤，需為 8 位數字"
+    "companyNotFound": "找不到這個統一編號的公司或商業登記資料，請手動填寫名稱與地址",
+    "lookupUnavailable": "目前無法查詢公司登記資料，請手動填寫名稱與地址"
   },
   "inventory": {
-    "packageRequired": "內容量、內容量單位、價格與庫存單位須一併填寫，不能清空",
+    "ingredientInUse": "這項食材仍被食譜使用，請先從食譜中移除",
+    "ingredientNotFound": "找不到這項食材，可能已被刪除",
+    "insufficientStock": "部分原料庫存不足，無法製作這一批。請先進貨或盤點",
+    "modifierRecipeYieldNotOne": "綁定選項的食譜份量必須為 1",
+    "packageRequired": "沒有來源食譜的食材須填寫包裝價格、內容量與單位",
     "packageUnitIncompatible": "內容量單位與庫存單位不相容",
-    "recipeIngredientExists": "這項材料已經加入過了"
+    "purchaseFieldsOnSourcedIngredient": "由來源食譜製成的食材不能設定包裝價格、內容量或供應商",
+    "recipeInUseAsSource": "以下自製食材仍以這份食譜為來源食譜：{names}。請先在這些食材取消來源食譜",
+    "recipeIngredientExists": "這項材料已經加入過了",
+    "recipeIngredientNotFound": "找不到這項食譜材料，可能已被移除",
+    "recipeMenuItemAndModifier": "食譜只能綁定菜單品項或選項其中之一",
+    "recipeMenuItemTaken": "這個菜單品項已經有食譜了",
+    "recipeModifierTaken": "這個選項已經有食譜了",
+    "recipeNotFound": "找不到這份食譜，可能已被刪除",
+    "sourceRecipeHasMenuItem": "已綁定菜單品項的食譜不能作為食材的來源食譜",
+    "sourceRecipeHasModifier": "已綁定選項的食譜不能作為食材的來源食譜",
+    "sourceRecipeNested": "來源食譜不能使用由其他食譜製成的食材",
+    "sourceRecipeRequired": "這項食材沒有來源食譜，無法製作批次",
+    "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
+    "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
+    "supplierNotFound": "找不到這個供應商，可能已被刪除"
   },
   "invoices": {
     "allowanceIssued": "此發票已開立折讓，無法作廢",
     "alreadyIssuing": "這張發票正在開立中，請稍候再試",
+    "customerNameRequiresIdentifier": "個人或捐贈發票須同時填寫統一編號，才能更正買受人抬頭",
+    "invoiceNotFound": "此訂單查無發票",
     "notIssued": "此發票尚未開立",
     "notPaid": "訂單尚未付款，無法開立發票",
     "notPending": "此發票目前為{status}，無法開立",
@@ -190,9 +229,20 @@
     "voidWriteFailed": "發票 {invoiceNumber} 已於綠界作廢，但本機未寫入，請以查證功能確認後人工補正"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "找不到這個加購分組，可能已被刪除",
     "addOnSelf": "加購品項不能是品項本身",
+    "addOnTargetRequired": "加購要指定一個品項或一個分類，只能擇一",
+    "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
+    "menuItemNotFound": "找不到這個品項，可能已被刪除",
+    "menuSectionNotFound": "找不到這個分類，可能已被刪除",
+    "modifierGroupAttached": "這個選項群組已經掛載到這個品項",
+    "modifierGroupNotFound": "找不到這個選項群組，可能已被刪除",
+    "modifierNotFound": "找不到這個選項，可能已被刪除",
+    "offerNotFound": "找不到這個品項價格，可能已被刪除",
     "parentSectionDescendant": "分類不能移到自己的子分類底下",
+    "parentSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentSectionSelf": "分類不能設為自己的上層分類",
+    "printerNotFound": "找不到這台印表機，可能已被移除",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
   "orderTickets": {
@@ -208,6 +258,7 @@
     "otherPrinters": "另有：{printers}",
     "pickupTime": "取餐 {time}",
     "printJobResolved": "這筆工作單已確認過，請重新整理後再試",
+    "printerBusy": "移除時有新的工作單正送往這台印表機，請再試一次",
     "refund": "退品",
     "reprint": "補印",
     "servingTemperatureLevels": {
@@ -229,26 +280,52 @@
     "tableNumber": "桌號 {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "此點餐方式無法使用現金付款",
     "idempotencyConflict": "訂單內容已變更，請再送出一次。",
     "inStoreQrCodeRequired": "請掃描店內的 QR code 點餐",
     "invalidTable": "桌號 QR code 無效，請重新掃描桌上的 QR code",
+    "menuChanged": "菜單已更新，請重新確認購物車內容",
+    "menuItemInsufficientStock": "「{name}」剩餘數量不足，請減少數量或改點其他品項",
+    "menuItemOptionsInvalid": "請重新確認「{name}」的選項",
     "menuItemUnavailable": "「{name}」目前無法供應",
     "menuItemUnavailableAtTime": "「{name}」在所選取餐時間不供應",
     "menuItemUnavailableForMode": "「{name}」不適用此點餐方式",
+    "modifierInsufficientStock": "「{name}」剩餘數量不足，請減少數量或改選其他選項",
     "modifierUnavailable": "「{name}」目前無法供應",
     "modifierUnavailableForMode": "「{name}」不適用此點餐方式",
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
+    "onlinePaymentNotRequired": "這筆訂單不需要線上付款",
+    "orderNotFound": "找不到這筆訂單",
+    "orderQrSecretNeverRotated": "QR code 尚未更換過，沒有可還原的舊版",
+    "orderQrSessionNotFound": "點餐連線已失效，請重新掃描 QR code",
     "orderTotalTooLarge": "訂單金額超過上限，請減少品項或分開下單",
+    "paymentAttemptsExhausted": "這張訂單的付款次數已達上限，請洽詢門市，或等待訂單逾時自動取消",
     "pickupOutsideOpeningHours": "這個取餐時間不在門市營業時間內，請重新選擇",
+    "pickupTimeInvalid": "請選擇有效的取餐時間",
+    "pickupTimeUnavailableForMode": "只有自取訂單可以指定取餐時間",
     "pickupTooCloseToClosing": "這個取餐時間太接近打烊，請重新選擇",
     "pickupTooFarAhead": "這個取餐時間超出可預訂的範圍，請重新選擇",
     "pickupTooSoon": "這個取餐時間已來不及準備，請重新選擇",
-    "statusChanged": "訂單狀態已變更，請重新整理後再試"
+    "statusChanged": "訂單狀態已變更，請重新整理後再試",
+    "tableNumberOutOfRange": "桌號必須介於 1 到門市內用桌數之間"
+  },
+  "organizations": {
+    "notJoinedAsPlatformAdmin": "這位成員不是以平台管理員身分加入的擁有者。",
+    "showcaseOpenSelfOnly": "只有成員本人能開啟在團隊介紹的公開顯示。",
+    "specialHoursEnded": "不能新增或改成已經結束的特殊營業日。",
+    "specialHoursInvalidRange": "特殊營業日的開始日期不能晚於結束日期。",
+    "specialHoursNotFound": "找不到這個特殊營業日，可能已被刪除。",
+    "specialHoursOverlap": "這段期間和已設定的特殊營業日（{validFrom}～{validThrough}）重疊。",
+    "specialHoursTooLong": "特殊營業日最長只能設定一年。"
   },
   "points": {
+    "adjustOwnerOnly": "本店對同一會員當日補點與扣點合計超過 {maxPoints} 點，只有擁有者能調整",
+    "adjustSelf": "不能調整自己的點數",
     "insufficient": "點數不足",
+    "notEnabled": "點數功能尚未啟用",
     "notRedeemable": "此優惠券無法用點數兌換",
-    "perUserLimitReached": "您已兌換過此優惠券"
+    "perUserLimitReached": "您已兌換過此優惠券",
+    "settingNotFound": "點數規則尚未設定"
   },
   "quant": {
     "aiKeyInvalid": "Claude API key 驗證失敗：{message}",
@@ -302,6 +379,7 @@
   "refunds": {
     "allowanceExceeded": "折讓金額 {amount} 超過此發票剩餘可折讓金額 {remaining}，請至綠界後台確認折讓紀錄",
     "alreadyRefunded": "此訂單已全額退款",
+    "cardRefundUnavailable": "綠界信用卡退刷沒有測試環境，只能在正式環境退款",
     "invalidAmount": "退款金額計算異常，請確認訂單金額",
     "itemNotInOrder": "退款品項不屬於此訂單",
     "noEcpayTransaction": "此訂單沒有可退刷的綠界交易",
@@ -311,25 +389,99 @@
     "quantityExceeded": "「{name}」只剩 {remaining} 份可退",
     "resultUnknown": "退款已送出但綠界尚未回覆結果，請勿重複操作。系統會自動核對，確認後這筆退款會更新狀態。"
   },
+  "reports": {
+    "csv": {
+      "actualConsumption": "實際耗用",
+      "adjusted": "調整",
+      "category": "分類",
+      "closing": "期末",
+      "consumed": "耗用",
+      "day": "日期",
+      "discount": "折扣",
+      "employerInsurance": "雇主勞健保",
+      "employerPension": "雇主勞退提繳",
+      "gross": "應發薪資",
+      "headcount": "人數",
+      "hour": "小時",
+      "ingredient": "食材",
+      "jobTitle": "職位",
+      "menuItem": "品項",
+      "missingEmployerInsurance": "未含雇主勞健保張數",
+      "mode": "點餐方式",
+      "net": "淨額",
+      "noJobTitle": "未設定職位",
+      "opening": "期初",
+      "orders": "訂單數",
+      "paymentMethod": "付款方式",
+      "personnelCost": "人事成本",
+      "quantity": "份數",
+      "received": "入庫",
+      "refunded": "退款",
+      "refundedQuantity": "退款份數",
+      "revenue": "營收",
+      "theoreticalConsumption": "理論耗用",
+      "total": "合計",
+      "uncategorized": "未分類",
+      "unit": "單位",
+      "variance": "差異"
+    },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "現金",
+      "Credit": "信用卡",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "街口支付",
+      "TWQR": "行動支付",
+      "WeiXin": "微信支付"
+    },
+    "rangeInvalid": "結束時間必須晚於開始時間。",
+    "rangeTooLong": "報表區間最多 366 天。",
+    "units": {
+      "GRM": "公克",
+      "H87": "個",
+      "KGM": "公斤",
+      "LTR": "公升",
+      "MLT": "毫升"
+    }
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "桌號 {tableNumber} 重複了。",
+    "notFound": "這家門市還沒有平面圖。"
+  },
+  "storePhotos": {
+    "storePhotoNotFound": "找不到這張門市照片，可能已被刪除"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "目前非營業時間，暫不開放取號。",
       "waitlistCutoff": "已接近打烊時間，現場候位已停止取號。",
       "waitlistDisabled": "本店目前未開放現場候位。",
+      "waitlistGroupChanged": "這張號碼牌已無法恢復，請重新取號。",
+      "waitlistGroupsInUse": "候位分組正在調整，請稍後再試。",
       "waitlistGroupsInvalid": "候位分組設定有誤。",
+      "waitlistIdempotencyConflict": "取號內容已變更，請重新取號。",
       "waitlistPartySizeUnavailable": "無法受理此用餐人數的候位，請洽現場服務人員。",
       "waitlistPaused": "目前暫停取號，請洽現場服務人員。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中，請勿重複取號。",
+      "waitlistQrRequired": "請掃描門市現場的 QR code 取號。",
+      "waitlistQrSessionNotFound": "請先掃描門市現場的 QR code 再取號。",
+      "waitlistTicketNotFound": "找不到這張號碼牌，請重新取號。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理頁面。"
     },
     "staff": {
       "waitlistClosed": "目前非營業時間，暫不開放取號。",
       "waitlistCutoff": "已接近打烊時間，現場候位已停止取號。",
       "waitlistDisabled": "本店尚未開啟現場候位。",
+      "waitlistGroupChanged": "這張號碼牌結束後人數分組已變更，無法退回，請改為代客重新登記。",
+      "waitlistGroupsInUse": "還有候位中或已叫號的號碼牌時不能修改人數分組，請先將它們入座、過號或取消。",
       "waitlistGroupsInvalid": "人數分組須從 1 開始連續且不可重疊。",
+      "waitlistIdempotencyConflict": "登記內容已變更，請關閉表單重新操作。",
       "waitlistPartySizeUnavailable": "沒有符合此人數的分組。",
       "waitlistPaused": "目前暫停取號。",
       "waitlistPhoneInQueue": "此電話號碼已在候位中。",
+      "waitlistQrRequired": "顧客須掃描門市現場的 QR code 才能取號。",
+      "waitlistQrSessionNotFound": "找不到取號連線或已逾時。",
+      "waitlistTicketNotFound": "找不到這張號碼牌，請重新整理。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理。"
     }
   }

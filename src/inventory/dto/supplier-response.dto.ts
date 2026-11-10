@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class SupplierIngredientResponseDto {
   @ApiProperty() id: string;
-  @ApiProperty() name: LocalizedText;
+  @ApiProperty({ type: LocalizedTextDto }) name: LocalizedText;
 }
 
 export class SupplierResponseDto {
@@ -22,4 +23,9 @@ export class SupplierResponseDto {
   ingredients: SupplierIngredientResponseDto[];
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+}
+
+export class SupplierListResponseDto {
+  @ApiProperty({ type: [SupplierResponseDto] }) data: SupplierResponseDto[];
+  @ApiProperty() total: number;
 }

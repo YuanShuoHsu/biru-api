@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "立即開始",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感謝您完成 {productName} 的電子郵件驗證。我們很高興您的加入。您現在可以開始使用 {productName}。",
     "preheader": "歡迎使用 {productName}！您的電子郵件已驗證。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "立即登入",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "有人嘗試使用您的電子郵件地址註冊 {productName} 帳號。如果這是您本人的操作，您可以直接登入。您的 {productName} 帳號仍然安全無虞。",
     "preheader": "這不是您嗎？您的 {productName} 帳號仍然安全。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "立即登入",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您的 {productName} 密碼已成功重設。您現在可以使用新密碼登入。",
     "preheader": "您的 {productName} 密碼已成功變更。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -34,9 +34,14 @@
   },
   "organization_invitation": {
     "action_button": "接受邀請",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} 邀請您以 {role} 身份加入 {productName} 上的 {organizationName}。請點擊下方按鈕接受邀請。",
     "preheader": "您已被邀請加入 {productName} 上的 {organizationName}。",
+    "roles": {
+      "admin": "管理員",
+      "member": "成員",
+      "owner": "擁有者"
+    },
     "salutation": "謝謝，<br>{productName} 團隊",
     "security_notice": "基於安全考量，此邀請由 {inviterName} 透過 {productName} 帳號發送。如果您不認識此邀請，請忽略此郵件，如有疑問請<a href=\"{support_url}\">聯繫客服</a>。",
     "subject": "您已被邀請加入 {productName} 上的 {organizationName}",
@@ -45,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "確認更換電子郵件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我們收到將您 {productName} 帳號的電子郵件更換為 <strong>{newEmail}</strong> 的申請。請點擊下方按鈕確認此更換，此連結有效期為 1 小時。",
     "preheader": "請確認您的 {productName} 電子郵件地址變更。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -56,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "重置密碼",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您申請了重置 {productName} 密碼。請點擊下方按鈕設定新密碼，此連結有效期為 1 小時。",
     "preheader": "重置您的 {productName} 密碼，此連結將在 1 小時後過期。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -67,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "確認刪除帳號",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我們收到永久刪除您 {productName} 帳號的申請。請點擊下方按鈕確認此操作，此連結有效期為 1 小時。如果您未確認，帳號將不會被刪除。",
     "preheader": "請確認您的 {productName} 帳號刪除申請。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -78,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "確認電子郵件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感謝您試用 {productName}。我們很高興您的加入。若要開始使用 {productName}，請確認您的帳戶。",
     "preheader": "歡迎來到 {productName}！請確認您的電子郵件地址。",
     "salutation": "謝謝，<br>{productName} 團隊",
@@ -125,6 +130,13 @@
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：您 {period} 的班次還沒打下班卡",
+    "title": "請補登下班打卡",
+    "intro": "您在 {organizationName} {period} 的班次有上班打卡，但沒有下班打卡，而且已經超過可以打卡的時間。",
+    "rules": "請送出補打卡申請，填上實際下班時間，以免影響出勤紀錄與薪資計算。",
+    "action": "前往補打卡"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：您的候位號碼 {ticketNumber}",
@@ -142,5 +154,65 @@
     },
     "salutation": "謝謝，<br>{productName} 團隊",
     "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}：{count} 項食材低於警示量",
+    "title": "低庫存提醒",
+    "intro": "{organizationName} 目前有 {count} 項食材的庫存已降到警示量以下，請依供應商安排叫貨。",
+    "item": "{name}：剩 {level} {unit}（警示量 {threshold} {unit}，缺 {shortage} {unit}）",
+    "no_supplier": "未指定供應商",
+    "action": "查看低庫存食材",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "個"
+    },
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} 營業摘要",
+    "title": "昨日營業摘要",
+    "intro": "{organizationName} 在 {date} 的營業概況如下。",
+    "overview": "營運概況",
+    "revenue": "營收：{revenue}（前一日 {previousRevenue}）",
+    "orders": "訂單：{orders} 筆（前一日 {previousOrders} 筆）",
+    "average": "客單價：{average}",
+    "peak_hour": "尖峰時段：{peakHour}（{peakOrders} 筆）",
+    "refunds": "退款：{refundedOrders} 筆",
+    "top_items": "熱銷品項",
+    "item": "{name}：{sold} 份",
+    "point_adjustments": "點數人工調整（{count} 筆，合計 {total} 點）",
+    "point_adjustment": "{adjuster} 為 {member} 調整 {points} 點：{reason}",
+    "action": "查看營運儀表板",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 全平台營業總覽",
+    "title": "昨日全平台總覽",
+    "intro": "{date} 共有 {count} 家門市有營業或點數調整，或目前有低庫存食材，各門市概況如下；點門市名稱可開啟該店的儀表板。",
+    "revenue": "營收：{revenue}",
+    "orders": "訂單：{orders} 筆",
+    "refunds": "退款：{refundedOrders} 筆",
+    "point_adjustments": "點數人工調整：{adjustments} 筆，合計 {points} 點",
+    "low_stock": "目前低庫存食材：{lowStock} 項",
+    "action": "查看所有門市",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "points_expiry_reminder": {
+    "subject": "{points} 點將於 {date} 到期",
+    "title": "點數即將到期",
+    "intro": "您有 {points} 點將於 {date} 到期，到期後無法再使用，請在到期前兌換。",
+    "action": "查看我的點數",
+    "salutation": "謝謝，<br>{productName} 團隊",
+    "trouble_hint": "如果您無法點擊上方的按鈕，請將下方網址複製並貼上到您的瀏覽器中。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 測試",
+    "text": "如果您收到這封郵件，代表 SMTP 設定正確。"
   }
 }

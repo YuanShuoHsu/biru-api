@@ -1,0 +1,3 @@
+UPDATE "user" SET "last_name" = NULL WHERE btrim("last_name") = '';--> statement-breakpoint
+UPDATE "user" SET "phone_number" = NULL, "phone_number_verified" = false WHERE btrim("phone_number") = '';--> statement-breakpoint
+ALTER TABLE "user" ADD CONSTRAINT "user_name_phone_not_blank" CHECK (btrim("user"."first_name") <> '' and btrim("user"."last_name") <> '' and btrim("user"."phone_number") <> '');

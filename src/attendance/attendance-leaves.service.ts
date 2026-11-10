@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -26,6 +26,8 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
+  isCalendarDate,
   localTimeText,
   parseQuickFilterEnums,
 } from '../common/utils/data-grid-filters.js';
@@ -56,7 +58,11 @@ import {
   type RestoredRecord,
   type Transaction,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import { countedRequestStatuses } from './attendance-rules.js';
 import {
   ATTENDANCE_HOLIDAY_SUBSTITUTE_DATE_FILTER_FIELDS,
@@ -103,7 +109,10 @@ import {
   weeklyMinutesOf,
 } from './employee-hours.js';
 import { requireEmployee } from './employee-lookup.js';
-import { loadHolidaySubstitutes } from './holiday-substitutes.js';
+import {
+  holidayDatesAmong,
+  loadHolidaySubstitutes,
+} from './holiday-substitutes.js';
 import {
   annualLeaveDeferrals,
   countedLeaves,
@@ -186,7 +195,8 @@ const memoryDateMatch = (
 ): boolean => {
   if (operator === 'isEmpty') return raw == null;
   if (operator === 'isNotEmpty') return raw != null;
-  if (raw == null || !value) return false;
+  if (!isCalendarDate(value)) return true;
+  if (raw == null) return false;
 
   const current = platformDateString(new Date(raw as string | Date));
 
@@ -215,19 +225,22 @@ const memoryNumberMatch = (
 ): boolean => {
   if (operator === 'isEmpty') return raw == null;
   if (operator === 'isNotEmpty') return raw != null;
+
+  if (operator === 'isAnyOf') {
+    const targets = value
+      .split(',')
+      .filter(Boolean)
+      .map(Number)
+      .filter(Number.isFinite);
+
+    return !targets.length || (raw != null && targets.includes(Number(raw)));
+  }
+
+  const target = Number(value);
+  if (!value || !Number.isFinite(target)) return true;
   if (raw == null) return false;
 
   const current = Number(raw);
-
-  if (operator === 'isAnyOf')
-    return value
-      .split(',')
-      .map(Number)
-      .filter((entry) => !Number.isNaN(entry))
-      .includes(current);
-
-  const target = Number(value);
-  if (!value || Number.isNaN(target)) return true;
 
   switch (operator) {
     case '=':
@@ -279,7 +292,7 @@ const compareValues = (first: unknown, second: unknown): number => {
   return scalarText(first).localeCompare(scalarText(second));
 };
 
-const pageInMemory = <Row extends Record<string, unknown>>(
+export const pageInMemory = <Row extends Record<string, unknown>>(
   rows: Row[],
   query: PaginationQueryDto & { filterField?: string; sortBy?: string },
   {
@@ -434,13 +447,19 @@ export class AttendanceLeavesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(attendanceLeaveType.name, `%${value}%`),
-          ilike(attendanceLeaveCase.reference, `%${value}%`),
-          ilike(attendanceLeaveCase.reason, `%${value}%`),
-          ilike(localTimeText(attendanceLeaveCase.startsAt), `%${value}%`),
-          ilike(localTimeText(attendanceLeaveCase.endsAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveCase.reference, `%${escapeLike(value)}%`),
+          ilike(attendanceLeaveCase.reason, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceLeaveCase.startsAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceLeaveCase.endsAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -758,7 +777,7 @@ export class AttendanceLeavesService {
             eq(attendanceLeaveCase.organizationId, actor.organizationId),
           ),
         );
-      if (!current) throw new NotFoundException();
+      if (!current) throw notFoundError();
       const { policy, values } = await this.resolveLeaveCase(
         tx,
         actor,
@@ -874,7 +893,7 @@ export class AttendanceLeavesService {
               eq(attendanceLeaveCase.organizationId, actor.organizationId),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         await assertIndependentReview(tx, actor, 'leaveCase', [
           row.employee.userId,
         ]);
@@ -954,7 +973,7 @@ export class AttendanceLeavesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(attendanceLeaveType.name, `%${value}%`),
+          ilike(attendanceLeaveType.name, `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -995,7 +1014,7 @@ export class AttendanceLeavesService {
               ),
             )
         : [];
-      if (id && !current) throw new NotFoundException();
+      if (id && !current) throw notFoundError();
       const statutoryKind = current?.statutoryKind ?? 'custom';
       if (statutoryKind === 'custom' && dto.paidPercent == null)
         throw badRequestError('leavePolicyRulesRequired');
@@ -1072,7 +1091,7 @@ export class AttendanceLeavesService {
               eq(attendanceLeaveType.organizationId, actor.organizationId),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         if (row.statutoryKind !== 'custom')
           throw conflictError('statutoryLeaveTypeLocked');
         const [request] = await tx
@@ -1287,7 +1306,7 @@ export class AttendanceLeavesService {
             eq(attendanceLeaveType.organizationId, actor.organizationId),
           ),
         );
-      if (!employee || !policy) throw new NotFoundException();
+      if (!employee || !policy) throw notFoundError();
       if (policy.statutoryKind !== 'custom')
         throw badRequestError('statutoryBalanceAutomatic');
       const [previous] = await tx
@@ -1540,7 +1559,7 @@ export class AttendanceLeavesService {
             eq(attendanceEmployee.organizationId, actor.organizationId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       const periodStart = new Date(dto.periodStart);
       const period = annualLeaveLedger(
         employee.hiredAt,
@@ -1617,7 +1636,7 @@ export class AttendanceLeavesService {
               ),
             ),
           );
-        if (!row) throw new NotFoundException();
+        if (!row) throw notFoundError();
         const { deferral, employee } = row;
         const annualIds = new Set(
           (
@@ -1809,7 +1828,7 @@ export class AttendanceLeavesService {
             ne(attendanceShift.status, 'cancelled'),
           ),
         );
-      if (!employee || !shift) throw new NotFoundException();
+      if (!employee || !shift) throw notFoundError();
       const { owed } = await loadHolidaySubstitutes(
         tx,
         [employee],
@@ -1826,7 +1845,6 @@ export class AttendanceLeavesService {
         actor.organizationId,
         employee.id,
         shift.startsAt,
-        new Date(shift.startsAt.getTime() + 1),
       );
       const [row] = await tx
         .insert(attendanceHolidaySubstitute)
@@ -1882,6 +1900,7 @@ export class AttendanceLeavesService {
             substitute: attendanceHolidaySubstitute,
             shiftStartsAt: attendanceShift.startsAt,
             terminatedAt: attendanceEmployee.terminatedAt,
+            indigenousHolidays: attendanceEmployee.indigenousHolidays,
           })
           .from(attendanceHolidaySubstitute)
           .innerJoin(
@@ -1901,8 +1920,9 @@ export class AttendanceLeavesService {
               ),
             ),
           );
-        if (!row) throw new NotFoundException();
-        const { substitute, shiftStartsAt, terminatedAt } = row;
+        if (!row) throw notFoundError();
+        const { substitute, shiftStartsAt, terminatedAt, indigenousHolidays } =
+          row;
         // 離職最後一期的結算已確認補假都指定了，發布後撤銷會讓它失真
         for (const at of terminatedAt
           ? [shiftStartsAt, new Date(terminatedAt.getTime() - 1)]
@@ -1912,21 +1932,27 @@ export class AttendanceLeavesService {
             actor.organizationId,
             substitute.employeeId,
             at,
-            new Date(at.getTime() + 1),
           );
         await tx
           .delete(attendanceHolidaySubstitute)
           .where(eq(attendanceHolidaySubstitute.id, id));
-        await tx
-          .update(attendanceShift)
-          .set({ dayKind: 'workday' })
-          .where(
-            and(
-              eq(attendanceShift.employeeId, substitute.employeeId),
-              eq(attendanceShift.dayKind, 'holiday'),
-              eq(shiftStartDate, platformDateString(shiftStartsAt)),
-            ),
-          );
+        const shiftDate = platformDateString(shiftStartsAt);
+        const stillHolidays = await holidayDatesAmong(
+          tx,
+          { id: substitute.employeeId, indigenousHolidays },
+          [shiftDate],
+        );
+        if (!stillHolidays.has(shiftDate))
+          await tx
+            .update(attendanceShift)
+            .set({ dayKind: 'workday' })
+            .where(
+              and(
+                eq(attendanceShift.employeeId, substitute.employeeId),
+                eq(attendanceShift.dayKind, 'holiday'),
+                eq(shiftStartDate, shiftDate),
+              ),
+            );
         await writeAudit(tx, actor, 'holidaySubstitute.delete', id, {
           employeeId: substitute.employeeId,
           holidayDate: substitute.holidayDate,

@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
@@ -26,6 +26,7 @@ import {
   ADMIN_BOARD_DONE_COLUMN_LIMIT,
 } from '../common/constants/board.js';
 import {
+  DAY_MS,
   PLATFORM_TIMEZONE,
   platformDateString,
   platformMidnight,
@@ -33,9 +34,17 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
+import {
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { isUniqueViolation } from '../common/utils/pg-errors.js';
 import type { Language } from '../db/schema/enums.js';
 import { organization } from '../db/schema/organizations.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -53,6 +62,8 @@ import {
   WAITLIST_UPDATED_EVENT,
   type WaitlistUpdatedEvent,
 } from '../events/waitlist-updated.event.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
+import type { PublicSpecialHoursDto } from '../organizations/dto/special-hours.dto.js';
 
 import type { CreateWaitlistTicketDto } from './dto/create-waitlist-ticket.dto.js';
 import type {
@@ -78,8 +89,15 @@ import type {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
   type WaitlistAudience,
 } from './waitlist-errors.js';
+import {
+  isValidWaitlistQrToken,
+  issueWaitlistQrSession,
+  verifyWaitlistQrSession,
+  waitlistQrToken,
+} from './waitlist-qr-token.js';
 import {
   canTransition,
   DEFAULT_CUTOFF_MINUTES,
@@ -100,6 +118,7 @@ import {
 
 const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
 const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const PUBLIC_CALLED_TICKET_LIMIT = 5;
 
 const inTodayQueue = (organizationId: string) =>
   and(
@@ -118,9 +137,12 @@ const isActive = (status: WaitlistTicketStatus) =>
 
 @Injectable()
 export class WaitlistService {
+  private readonly logger = new Logger(WaitlistService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly eventEmitter: EventEmitter2,
+    private readonly orderQrService: OrderQrService,
   ) {}
 
   private async getOrgBySlug(slug: string) {
@@ -128,8 +150,55 @@ export class WaitlistService {
       where: eq(organization.slug, slug),
       columns: { closedAt: true, id: true, openingHours: true },
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
+  }
+
+  private async verifyQrSession(organizationSlug: string, value: unknown) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const secret = await this.orderQrService.secretOf(org.id);
+    return {
+      org,
+      secret,
+      session: verifyWaitlistQrSession(org.id, secret, value),
+    };
+  }
+
+  async scanQr(organizationSlug: string, token: string | undefined) {
+    const org = await this.orderQrService.findBySlugOrHistory(organizationSlug);
+    if (!org) return null;
+
+    return {
+      issued:
+        token && isValidWaitlistQrToken(org.id, org.secret, token)
+          ? issueWaitlistQrSession(org.id, org.secret)
+          : null,
+      slug: org.slug,
+    };
+  }
+
+  async findQrSession(organizationSlug: string, value: unknown) {
+    const { session } = await this.verifyQrSession(organizationSlug, value);
+    if (!session) throw notFoundError('waitlistQrSessionNotFound', 'guest');
+    return session;
+  }
+
+  async renewQrSession(organizationSlug: string, value: unknown) {
+    const { org, secret, session } = await this.verifyQrSession(
+      organizationSlug,
+      value,
+    );
+    return session ? issueWaitlistQrSession(org.id, secret) : null;
+  }
+
+  async getQrToken(organizationSlug: string) {
+    const org = await this.getOrgBySlug(organizationSlug);
+    return {
+      token: waitlistQrToken(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+      ),
+    };
   }
 
   private async getSettings(
@@ -149,7 +218,11 @@ export class WaitlistService {
     };
   }
 
-  private async findTicket(organizationSlug: string, ticketId: string) {
+  private async findTicket(
+    organizationSlug: string,
+    ticketId: string,
+    audience: WaitlistAudience,
+  ) {
     const org = await this.getOrgBySlug(organizationSlug);
     const ticket = await this.db.query.waitlistTicket.findFirst({
       where: and(
@@ -157,7 +230,7 @@ export class WaitlistService {
         eq(waitlistTicket.organizationId, org.id),
       ),
     });
-    if (!ticket) throw new NotFoundException('Waitlist ticket not found');
+    if (!ticket) throw notFoundError('waitlistTicketNotFound', audience);
     return ticket;
   }
 
@@ -199,6 +272,36 @@ export class WaitlistService {
     };
   }
 
+  private specialHoursAround(organizationId: string, now: Date) {
+    return findSpecialHours(
+      this.db,
+      organizationId,
+      new Date(now.getTime() - DAY_MS),
+      new Date(now.getTime() + DAY_MS),
+    );
+  }
+
+  private availabilityAt(
+    openingHours: string | null,
+    specialHours: PublicSpecialHoursDto[],
+    cutoffMinutes: number,
+    now: Date,
+  ) {
+    const today = platformDateString(now);
+
+    return {
+      ...getAvailability(
+        openingCalendar(openingHours, specialHours),
+        cutoffMinutes,
+        now,
+      ),
+      specialHours: specialHours.filter(
+        ({ validFrom, validThrough }) =>
+          validFrom <= today && today <= validThrough,
+      ),
+    };
+  }
+
   private emitUpdated(
     organizationId: string,
     ticket: WaitlistUpdatedEvent['ticket'],
@@ -212,7 +315,8 @@ export class WaitlistService {
   async getPublicStatusByOrganizationId(
     organizationId: string,
   ): Promise<WaitlistStatusResponseDto> {
-    const [org, settings, tickets] = await Promise.all([
+    const now = new Date();
+    const [org, settings, tickets, specialHours] = await Promise.all([
       this.db.query.organization.findFirst({
         where: eq(organization.id, organizationId),
         columns: { openingHours: true },
@@ -228,11 +332,17 @@ export class WaitlistService {
         .from(waitlistTicket)
         .where(inTodayQueue(organizationId))
         .orderBy(desc(waitlistTicket.calledAt)),
+      this.specialHoursAround(organizationId, now),
     ]);
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
 
     return {
-      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
+      ...this.availabilityAt(
+        org.openingHours,
+        specialHours,
+        settings.cutoffMinutes,
+        now,
+      ),
       enabled: settings.enabled,
       groups: settings.groups.map((group) => {
         const groupTickets = tickets.filter(
@@ -242,6 +352,10 @@ export class WaitlistService {
 
         return {
           ...group,
+          calledTicketNumbers: groupTickets
+            .filter(({ status }) => status === 'called')
+            .slice(0, PUBLIC_CALLED_TICKET_LIMIT)
+            .map((ticket) => formatTicketNumber(ticket.prefix, ticket.number)),
           currentTicketNumber: current
             ? formatTicketNumber(current.prefix, current.number)
             : null,
@@ -268,18 +382,31 @@ export class WaitlistService {
     locale: Language,
     idempotencyKey: string | null,
     byStaff: boolean,
+    qrSessionValue?: unknown,
   ): Promise<WaitlistTicketResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const findReplay = (db: Pick<DrizzleDB, 'query'>) =>
-      idempotencyKey
-        ? db.query.waitlistTicket.findFirst({
-            where: and(
-              eq(waitlistTicket.organizationId, org.id),
-              eq(waitlistTicket.idempotencyKey, idempotencyKey),
-            ),
-          })
-        : undefined;
+    const idempotencyFingerprint = idempotencyKey
+      ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
+      : null;
+    const findReplay = async (db: Pick<DrizzleDB, 'query'>) => {
+      if (!idempotencyKey) return undefined;
+      const existing = await db.query.waitlistTicket.findFirst({
+        where: and(
+          eq(waitlistTicket.organizationId, org.id),
+          eq(waitlistTicket.idempotencyKey, idempotencyKey),
+        ),
+      });
+      if (
+        existing?.idempotencyFingerprint &&
+        existing.idempotencyFingerprint !== idempotencyFingerprint
+      )
+        throw conflictError(
+          'waitlistIdempotencyConflict',
+          byStaff ? 'staff' : 'guest',
+        );
+      return existing;
+    };
 
     const settings = await this.getSettings(org.id);
 
@@ -297,13 +424,26 @@ export class WaitlistService {
     // 暫停、營業時間與打烊前停止取號只限制顧客自助取號，店員代客登記不受限
     if (!byStaff && settings.paused)
       throw badRequestError('waitlistPaused', 'guest');
-    const { cutoff, open } = getAvailability(
-      org.openingHours,
-      settings.cutoffMinutes,
-      new Date(),
-    );
-    if (!byStaff && !open) throw badRequestError('waitlistClosed', 'guest');
-    if (!byStaff && cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    if (!byStaff) {
+      const now = new Date();
+      const { cutoff, open } = this.availabilityAt(
+        org.openingHours,
+        await this.specialHoursAround(org.id, now),
+        settings.cutoffMinutes,
+        now,
+      );
+      if (!open) throw badRequestError('waitlistClosed', 'guest');
+      if (cutoff) throw badRequestError('waitlistCutoff', 'guest');
+    }
+    if (
+      !byStaff &&
+      !verifyWaitlistQrSession(
+        org.id,
+        await this.orderQrService.secretOf(org.id),
+        qrSessionValue,
+      )
+    )
+      throw badRequestError('waitlistQrRequired', 'guest');
 
     const group = findGroup(settings.groups, dto.partySize);
     if (!group)
@@ -338,6 +478,17 @@ export class WaitlistService {
           byStaff ? 'staff' : 'guest',
         );
 
+      const saved = await tx.query.waitlistSetting.findFirst({
+        where: eq(waitlistSetting.organizationId, org.id),
+        columns: { groups: true },
+      });
+      const lockedGroup = findGroup(
+        saved?.groups.length ? saved.groups : DEFAULT_WAITLIST_GROUPS,
+        dto.partySize,
+      );
+      if (lockedGroup?.prefix !== group.prefix)
+        throw conflictError('waitlistGroupsInUse', byStaff ? 'staff' : 'guest');
+
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)
@@ -363,6 +514,7 @@ export class WaitlistService {
           email: dto.email || null,
           locale,
           idempotencyKey,
+          idempotencyFingerprint,
           userId,
         })
         .returning();
@@ -404,19 +556,17 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketDetailResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
-    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
+    const [{ holdMinutes }, aheadCount, currentTicketNumber] =
+      await Promise.all([
+        this.getSettings(ticket.organizationId),
+        this.countAhead(ticket),
+        this.getCurrentTicketNumber(ticket.organizationId, ticket.prefix),
+      ]);
 
     return {
-      ...this.toTicketResponse(
-        ticket,
-        await this.countAhead(ticket),
-        holdMinutes,
-      ),
-      currentTicketNumber: await this.getCurrentTicketNumber(
-        ticket.organizationId,
-        ticket.prefix,
-      ),
+      ...this.toTicketResponse(ticket, aheadCount, holdMinutes),
+      currentTicketNumber,
     };
   }
 
@@ -430,29 +580,63 @@ export class WaitlistService {
 
     const now = new Date();
     const revert = isRevert(ticket.status, status);
-    const [updated] = await this.db
-      .update(waitlistTicket)
-      .set(
-        status === 'waiting'
-          ? { calledAt: null, confirmedAt: null, endedAt: null, status }
-          : revert
-            ? { calledAt: now, endedAt: null, status }
-            : status === 'called'
-              ? { calledAt: now, status }
-              : { endedAt: now, status },
-      )
-      .where(
-        and(
-          eq(waitlistTicket.id, ticket.id),
-          eq(waitlistTicket.status, ticket.status),
-        ),
-      )
-      .returning()
-      .catch((error: unknown) => {
-        if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-          throw conflictError('waitlistPhoneInQueue', audience);
-        throw error;
-      });
+    const [updated] = await this.db.transaction(async (tx) => {
+      if (!isActive(ticket.status) && isActive(status)) {
+        await tx
+          .select({ id: organization.id })
+          .from(organization)
+          .where(eq(organization.id, ticket.organizationId))
+          .for('update');
+
+        const saved = await tx.query.waitlistSetting.findFirst({
+          where: eq(waitlistSetting.organizationId, ticket.organizationId),
+          columns: { groups: true },
+        });
+        const group = findGroup(
+          saved?.groups.length ? saved.groups : DEFAULT_WAITLIST_GROUPS,
+          ticket.partySize,
+        );
+        if (group?.prefix !== ticket.prefix)
+          throw conflictError('waitlistGroupChanged', audience);
+
+        const inQueue =
+          ticket.phoneNumber &&
+          (await tx.query.waitlistTicket.findFirst({
+            where: and(
+              eq(waitlistTicket.organizationId, ticket.organizationId),
+              eq(waitlistTicket.phoneNumber, ticket.phoneNumber),
+              inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+              ne(waitlistTicket.id, ticket.id),
+            ),
+            columns: { id: true },
+          }));
+        if (inQueue) throw conflictError('waitlistPhoneInQueue', audience);
+      }
+
+      return tx
+        .update(waitlistTicket)
+        .set(
+          status === 'waiting'
+            ? { calledAt: null, confirmedAt: null, endedAt: null, status }
+            : revert
+              ? { calledAt: now, endedAt: null, status }
+              : status === 'called'
+                ? { calledAt: now, confirmedAt: null, status }
+                : { endedAt: now, status },
+        )
+        .where(
+          and(
+            eq(waitlistTicket.id, ticket.id),
+            eq(waitlistTicket.status, ticket.status),
+          ),
+        )
+        .returning()
+        .catch((error: unknown) => {
+          if (isUniqueViolation(error))
+            throw conflictError('waitlistPhoneInQueue', audience);
+          throw error;
+        });
+    });
     if (!updated) throw badRequestError('waitlistTransitionInvalid', audience);
 
     // 退回不帶號碼牌狀態，避免通知服務把它當成新取號、新叫號而重寄信
@@ -468,7 +652,7 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
     if (!isActive(ticket.status))
       throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
@@ -484,7 +668,7 @@ export class WaitlistService {
     organizationSlug: string,
     ticketId: string,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
     if (ticket.status !== 'called')
       throw badRequestError('waitlistTransitionInvalid', 'guest');
     const { holdMinutes } = await this.getSettings(ticket.organizationId);
@@ -498,6 +682,9 @@ export class WaitlistService {
         and(
           eq(waitlistTicket.id, ticket.id),
           eq(waitlistTicket.status, 'called'),
+          ticket.calledAt
+            ? eq(waitlistTicket.calledAt, ticket.calledAt)
+            : undefined,
         ),
       )
       .returning();
@@ -513,15 +700,14 @@ export class WaitlistService {
     ticketId: string,
     status: StaffTransitionStatus,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'staff');
     const updated = await this.updateStatus(ticket, status, 'staff');
-    const { holdMinutes } = await this.getSettings(ticket.organizationId);
+    const [{ holdMinutes }, aheadCount] = await Promise.all([
+      this.getSettings(ticket.organizationId),
+      this.countAhead(updated),
+    ]);
 
-    return this.toTicketResponse(
-      updated,
-      await this.countAhead(updated),
-      holdMinutes,
-    );
+    return this.toTicketResponse(updated, aheadCount, holdMinutes);
   }
 
   async updateTicket(
@@ -529,7 +715,7 @@ export class WaitlistService {
     ticketId: string,
     dto: CreateWaitlistTicketDto,
   ): Promise<WaitlistTicketResponseDto> {
-    const ticket = await this.findTicket(organizationSlug, ticketId);
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'staff');
     if (!isActive(ticket.status))
       throw badRequestError('waitlistTransitionInvalid', 'staff');
 
@@ -598,7 +784,7 @@ export class WaitlistService {
         )
         .returning()
         .catch((error: unknown) => {
-          if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+          if (isUniqueViolation(error))
             throw conflictError('waitlistPhoneInQueue', 'staff');
           throw error;
         });
@@ -625,13 +811,14 @@ export class WaitlistService {
     const org = await this.getOrgBySlug(organizationSlug);
     const now = new Date();
 
-    const [settings, tickets] = await Promise.all([
+    const [settings, tickets, specialHours] = await Promise.all([
       this.getSettings(org.id),
       this.db
         .select()
         .from(waitlistTicket)
         .where(inTodayQueue(org.id))
         .orderBy(asc(waitlistTicket.createdAt)),
+      this.specialHoursAround(org.id, now),
     ]);
 
     const waitingRank = new Map<string, number>();
@@ -654,7 +841,12 @@ export class WaitlistService {
 
     return {
       ...settings,
-      ...getAvailability(org.openingHours, settings.cutoffMinutes, new Date()),
+      ...this.availabilityAt(
+        org.openingHours,
+        specialHours,
+        settings.cutoffMinutes,
+        now,
+      ),
       tickets: boardTickets.map((ticket): AdminWaitlistTicketDto => {
         const rank = waitingRank.get(ticket.prefix) || 0;
         if (ticket.status === 'waiting')
@@ -732,14 +924,26 @@ export class WaitlistService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(ticketNumber, `%${value}%`),
-          ilike(waitlistTicket.name, `%${value}%`),
-          ilike(waitlistTicket.phoneNumber, `%${value}%`),
-          ilike(waitlistTicket.email, `%${value}%`),
-          ilike(sql`${waitlistTicket.partySize}::text`, `%${value}%`),
-          ilike(localTimeText(waitlistTicket.createdAt), `%${value}%`),
-          ilike(localTimeText(waitlistTicket.calledAt), `%${value}%`),
-          ilike(localTimeText(waitlistTicket.endedAt), `%${value}%`),
+          ilike(ticketNumber, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.name, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.phoneNumber, `%${escapeLike(value)}%`),
+          ilike(waitlistTicket.email, `%${escapeLike(value)}%`),
+          ilike(
+            sql`${waitlistTicket.partySize}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.calledAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(waitlistTicket.endedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -804,13 +1008,50 @@ export class WaitlistService {
       holdMinutes: dto.holdMinutes,
     };
 
-    await this.db
-      .insert(waitlistSetting)
-      .values({ ...values, organizationId: org.id })
-      .onConflictDoUpdate({
-        target: waitlistSetting.organizationId,
-        set: values,
+    await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, org.id))
+        .for('update');
+
+      const current = await tx.query.waitlistSetting.findFirst({
+        where: eq(waitlistSetting.organizationId, org.id),
+        columns: { groups: true },
       });
+      const currentGroups = current?.groups.length
+        ? current.groups
+        : DEFAULT_WAITLIST_GROUPS;
+      const regrouped =
+        currentGroups.length !== groups.length ||
+        groups.some(({ maxPartySize, minPartySize, prefix }) => {
+          const before = currentGroups.find((group) => group.prefix === prefix);
+
+          return (
+            before?.minPartySize !== minPartySize ||
+            before.maxPartySize !== maxPartySize
+          );
+        });
+
+      if (regrouped) {
+        const queued = await tx.query.waitlistTicket.findFirst({
+          where: and(
+            eq(waitlistTicket.organizationId, org.id),
+            inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          ),
+          columns: { id: true },
+        });
+        if (queued) throw conflictError('waitlistGroupsInUse', 'staff');
+      }
+
+      await tx
+        .insert(waitlistSetting)
+        .values({ ...values, organizationId: org.id })
+        .onConflictDoUpdate({
+          target: waitlistSetting.organizationId,
+          set: values,
+        });
+    });
 
     this.emitUpdated(org.id, null);
 
@@ -865,7 +1106,10 @@ export class WaitlistService {
       if (autoNoShowAt && autoNoShowAt <= now) {
         await this.updateStatus(ticket, 'noShow', 'staff').then(
           () => skipped++,
-          () => {},
+          (error: unknown) => {
+            if (!(error instanceof HttpException))
+              this.logger.error(`自動過號失敗：${ticket.id}`, error);
+          },
         );
       } else if (
         isOverdue(ticket, hold, now) &&
@@ -884,8 +1128,12 @@ export class WaitlistService {
   async getStats(
     organizationSlug: string,
     since: Date,
+    until?: Date,
   ): Promise<WaitlistStatsResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
+    const inPeriod = sql`organization_id = ${org.id} AND created_at >= ${utcTimestampParam(since)}${
+      until ? sql` AND created_at < ${utcTimestampParam(until)}` : sql``
+    }`;
 
     const [{ rows: summaryRows }, { rows: hourlyRows }] = await Promise.all([
       this.db.execute<{
@@ -906,14 +1154,14 @@ export class WaitlistService {
             ORDER BY EXTRACT(EPOCH FROM ended_at - created_at)
           ) FILTER (WHERE status = 'seated') AS "medianWaitSeconds"
         FROM waitlist_ticket
-        WHERE organization_id = ${org.id} AND created_at >= ${since}
+        WHERE ${inPeriod}
       `),
       this.db.execute<{ count: number; hour: number }>(sql`
         SELECT
           EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})::int AS hour,
           COUNT(*)::int AS count
         FROM waitlist_ticket
-        WHERE organization_id = ${org.id} AND created_at >= ${since}
+        WHERE ${inPeriod}
         GROUP BY hour
       `),
     ]);
@@ -942,7 +1190,12 @@ export class WaitlistService {
           lt(waitlistTicket.createdAt, new Date(Date.now() - STALE_TICKET_MS)),
         ),
       )
-      .returning({ id: waitlistTicket.id });
+      .returning({ organizationId: waitlistTicket.organizationId });
+
+    for (const organizationId of new Set(
+      expired.map(({ organizationId }) => organizationId),
+    ))
+      this.emitUpdated(organizationId, null);
 
     return expired.length;
   }
@@ -954,7 +1207,12 @@ export class WaitlistService {
     return this.db.transaction(async (tx) => {
       const erased = await tx
         .update(waitlistTicket)
-        .set({ email: null, name: null, phoneNumber: null })
+        .set({
+          email: null,
+          idempotencyFingerprint: null,
+          name: null,
+          phoneNumber: null,
+        })
         .where(
           and(
             inArray(waitlistTicket.status, [...WAITLIST_ENDED_STATUSES]),

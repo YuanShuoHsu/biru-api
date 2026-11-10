@@ -7,6 +7,7 @@
 import { relations, sql } from 'drizzle-orm';
 import {
   AnyPgColumn,
+  boolean,
   check,
   index,
   integer,
@@ -16,6 +17,7 @@ import {
   pgTable,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
@@ -95,7 +97,6 @@ export const menuSection = pgTable(
       (): AnyPgColumn => printer.id,
       { onDelete: 'set null' },
     ),
-    // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
@@ -150,7 +151,6 @@ export const menuItem = pgTable(
     recommendedServingTemperatureLevel: servingTemperatureLevelEnum(
       'recommended_serving_temperature_level',
     ),
-    // 甜度：不適用（如餐點）、固定（如預調飲）、可調
     sweetness: sweetnessEnum('sweetness').notNull().default('NotApplicable'),
     // 甜度固定時的等級；其他情況為 null
     fixedSweetnessLevel: sweetnessLevelEnum('fixed_sweetness_level'),
@@ -158,7 +158,6 @@ export const menuItem = pgTable(
     recommendedSweetnessLevel: sweetnessLevelEnum(
       'recommended_sweetness_level',
     ),
-    // 可販售的點餐模式；預設四種全開
     availableModes: orderModeEnum('available_modes')
       .array()
       .notNull()
@@ -169,7 +168,6 @@ export const menuItem = pgTable(
       (): AnyPgColumn => printer.id,
       { onDelete: 'set null' },
     ),
-    // additional fields
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
   },
@@ -216,6 +214,8 @@ export const offer = pgTable(
     }),
     price: numeric('price', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
+    // 系統因剩餘數量歸零或食材不足而改成售完；補貨後只會自動恢復這種，不動店員手動設的售完
+    autoSoldOut: boolean('auto_sold_out').notNull().default(false),
     availableHours: text('available_hours'),
     deliveryLeadTimeMinutes: integer('delivery_lead_time_minutes'),
     inventoryLevel: jsonb('inventory_level').$type<QuantitativeValue>(),
@@ -287,9 +287,10 @@ export const modifier = pgTable(
       .notNull()
       .references(() => modifierGroup.id, { onDelete: 'cascade' }),
     displayName: jsonb('display_name').notNull().$type<LocalizedText>(),
+    image: text('image'),
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 }),
     availability: itemAvailabilityEnum('availability').default('InStock'),
-    // 可販售的點餐模式；預設四種全開
+    autoSoldOut: boolean('auto_sold_out').notNull().default(false),
     availableModes: orderModeEnum('available_modes')
       .array()
       .notNull()
@@ -319,6 +320,10 @@ export const menuItemModifierGroup = pgTable(
   (table) => [
     index('menuItemModifierGroup_menuItemId_idx').on(table.menuItemId),
     index('menuItemModifierGroup_modifierGroupId_idx').on(
+      table.modifierGroupId,
+    ),
+    uniqueIndex('menuItemModifierGroup_menuItemId_modifierGroupId_uidx').on(
+      table.menuItemId,
       table.modifierGroupId,
     ),
   ],

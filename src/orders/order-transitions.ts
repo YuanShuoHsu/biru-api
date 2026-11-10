@@ -67,6 +67,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   },
   {
     direction: 'advance',
+    extraSet: () => ({ readyAt: new Date() }),
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPickupAvailable',
     triggers: ['admin'],
@@ -83,7 +84,6 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
     extraSet: () => ({
       amountPerPoint: null,
       paymentDate: null,
-      pointsValidityYears: null,
     }),
     fromStatus: 'OrderProcessing',
     toStatus: 'OrderPaymentDue',
@@ -92,6 +92,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   },
   {
     direction: 'revert',
+    extraSet: () => ({ readyAt: null }),
     fromStatus: 'OrderPickupAvailable',
     toStatus: 'OrderProcessing',
     triggers: ['admin'],

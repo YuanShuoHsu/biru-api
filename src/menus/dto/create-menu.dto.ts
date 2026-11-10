@@ -1,25 +1,39 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { Transform } from 'class-transformer';
-import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import { IMAGE_DATA_URL_MAX_LENGTH } from '../../common/constants/image.js';
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../../common/constants/image.js';
+import {
+  IsLocalizedText,
+  IsCompleteLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateMenuDto {
-  @ApiProperty({ example: { 'zh-TW': '午餐菜單', en: 'Lunch Menu' } })
-  @IsObject()
+  @ApiProperty({
+    type: LocalizedTextDto,
+    example: { 'zh-TW': '午餐菜單', en: 'Lunch Menu' },
+  })
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   name: LocalizedText;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   @IsOptional()
-  @IsObject()
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   @Transform(({ value }: { value: unknown }) => emptyLocalizedTextToNull(value))
   description?: LocalizedText | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(IMAGE_DATA_URL_MAX_LENGTH)
-  image?: string;
+  @Matches(IMAGE_DATA_URL_PATTERN)
+  image?: string | null;
 }

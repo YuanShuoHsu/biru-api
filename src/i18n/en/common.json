@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "The paid percentage cannot be below the statutory rate.",
     "calendarLeaveInterval": "Use the statutory number of full calendar days, from midnight to midnight (exclusive end).",
     "calendarLeavePayRequired": "An owner must provide the verified full daily wage for maternity leave. The paid percentage is calculated from seniority.",
+    "calendarRangeTooLong": "The calendar can show at most 62 days at a time.",
     "cancelIrreversible": "This shift no longer passes scheduling rules and cannot be restored once cancelled.",
     "cancelReasonRequired": "A reason is required to cancel a shift that has already started.",
     "cannotReviewOwnDraft": "You cannot review a payslip you drafted. Another manager must review it.",
@@ -42,7 +43,6 @@
     "childcareReductionInvalid": "Reduced childcare hours must start after the hire date and fall between a registered child's birth and third birthday. Register the child under Children in Employees first.",
     "indigenousHolidayInvalid": "Ceremony holidays are limited to 3 per year, must fall within employment, cannot repeat, and cannot coincide with a national holiday.",
     "insufficientLeaveBalance": "Insufficient leave balance. Ask a manager to check the allowance.",
-    "invalidBusinessNumber": "The business ID number check digit is invalid.",
     "invalidEarningType": "This pay item no longer exists.",
     "invalidEmergencyDetails": "Check the report time and at least 24 continuous hours of make-up rest.",
     "invalidEventSequence": "Invalid punch sequence or times. Check the clock-in and clock-out times.",
@@ -73,6 +73,7 @@
     "menstrualDayLimit": "Menstrual leave is limited to one calendar day per month.",
     "monthlyOvertimeExceeded": "This would exceed the monthly overtime limit (46 hours, or 54 hours in an approved extension period).",
     "noShifts": "No shifts exist for this month.",
+    "notFound": "This record was not found. It may have been deleted.",
     "occupationalIndustryInvalid": "This occupational accident insurance industry was not found. Select it again.",
     "outsideShiftWindow": "Clock-in is not available for this shift at this time.",
     "overlappingAttendance": "Another attendance record already covers this period.",
@@ -127,10 +128,18 @@
     "withholdingUnitRequired": "Fill in the withholding unit details first.",
     "workPermitRequired": "This employee's legal status requires a valid work permit, and a shift or workday falls outside the permit period."
   },
+  "banners": {
+    "bannerNotFound": "The banner wasn't found. It may have been deleted",
+    "scheduleInvalid": "The start time must be earlier than the end time"
+  },
   "coupons": {
     "alreadyClaimed": "You have already claimed this coupon",
+    "applicableOrganizationNotFound": "One of the selected stores wasn't found. It may have been deleted",
     "codeExists": "This promo code already exists",
+    "couponNotFound": "The coupon wasn't found. It may have been deleted",
     "expired": "This promo code has expired",
+    "grantExpired": "This coupon has expired and can't be granted",
+    "grantInactive": "This coupon has been deactivated and can't be granted",
     "inUse": "Customers have already claimed this coupon, so it can't be deleted. Deactivate it instead.",
     "issueMinSpendRequired": "A minimum spend is required for spend rewards",
     "itemScopeSingleOrganization": "An item-specific coupon can only apply to one store",
@@ -147,30 +156,60 @@
     "perUserLimitReached": "You have already used this promo code",
     "percentageTooHigh": "A percentage discount can't exceed 100",
     "pointsOnly": "This promo code must be redeemed with points before use",
+    "scheduleInvalid": "The start time must be earlier than the end time",
     "usedUp": "This promo code has reached its usage limit"
   },
   "deletedRecords": {
     "restoreConflict": "Can't restore: matching data already exists (for example, a duplicate store slug, coupon code, or email, or the member is already in the store).",
-    "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first."
+    "restoreMissingReference": "Can't restore: the record it belongs to no longer exists. Restore that record first.",
+    "restoreInvalid": "Can't restore: the record no longer meets the current required-field rules (for example, a store without an address). Create it again instead.",
+    "batchNotFound": "This deleted record could not be found. It may be past its retention period."
   },
   "exceptions": {
+    "badRequest": "Invalid request",
+    "forbidden": "You do not have permission to access this",
     "internalServerError": "Internal server error",
     "organizationClosed": "This store is closed.",
     "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
+    "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
+    "returnUrlNotAllowed": "This return URL is not allowed",
+    "smtpTestFailed": "The test email could not be sent. Check the SMTP settings and try again.",
+    "statsSinceNotMonthStart": "The start time must be the first day of a month in the platform time zone.",
     "tooManyRequests": "Too many requests"
   },
   "gcis": {
-    "invalidBusinessNo": "Invalid tax ID number. It must be 8 digits."
+    "companyNotFound": "No company or business registration was found for this tax ID number. Please enter the name and address.",
+    "lookupUnavailable": "The company registry lookup is unavailable right now. Please enter the name and address."
   },
   "inventory": {
-    "packageRequired": "Package quantity, quantity unit, price and stock unit must all be filled in and can't be cleared",
+    "ingredientInUse": "This ingredient is still used in a recipe. Remove it from the recipe first",
+    "ingredientNotFound": "The ingredient wasn't found. It may have been deleted",
+    "insufficientStock": "Not enough stock of some ingredients for this batch. Restock or recount them first",
+    "modifierRecipeYieldNotOne": "A recipe linked to an option must have a yield of 1",
+    "packageRequired": "Enter the package price, quantity and unit for an ingredient without a source recipe",
     "packageUnitIncompatible": "The quantity unit isn't compatible with the stock unit",
-    "recipeIngredientExists": "This ingredient has already been added"
+    "purchaseFieldsOnSourcedIngredient": "An ingredient made from a source recipe can't have a package price, quantity or supplier",
+    "recipeInUseAsSource": "These house-made ingredients still use this recipe as their source recipe: {names}. Unlink it from them first",
+    "recipeIngredientExists": "This ingredient has already been added",
+    "recipeIngredientNotFound": "This recipe ingredient wasn't found. It may have been removed",
+    "recipeMenuItemAndModifier": "A recipe can be linked to a menu item or an option, not both",
+    "recipeMenuItemTaken": "This menu item already has a recipe",
+    "recipeModifierTaken": "This option already has a recipe",
+    "recipeNotFound": "The recipe wasn't found. It may have been deleted",
+    "sourceRecipeHasMenuItem": "A recipe linked to a menu item can't be an ingredient's source recipe",
+    "sourceRecipeHasModifier": "A recipe linked to an option can't be an ingredient's source recipe",
+    "sourceRecipeNested": "A source recipe can't use ingredients that are made from another recipe",
+    "sourceRecipeRequired": "This ingredient has no source recipe, so it can't be made in batches",
+    "sourceRecipeUnitIncompatible": "The recipe's yield unit isn't compatible with the ingredient's stock unit",
+    "sourceRecipeYieldMissing": "Set the recipe's yield quantity and unit before using it as an ingredient's source recipe",
+    "supplierNotFound": "The supplier wasn't found. It may have been deleted"
   },
   "invoices": {
     "allowanceIssued": "This invoice already has a credit note and cannot be voided",
     "alreadyIssuing": "This invoice is currently being issued. Please try again shortly",
+    "customerNameRequiresIdentifier": "A buyer name can only be corrected together with a tax ID number on a personal or donated invoice",
+    "invoiceNotFound": "No invoice was found for this order",
     "notIssued": "This invoice has not been issued yet",
     "notPaid": "The order has not been paid, so no invoice can be issued",
     "notPending": "This invoice is {status} and cannot be issued",
@@ -190,9 +229,20 @@
     "voidWriteFailed": "Invoice {invoiceNumber} was voided at ECPay but could not be recorded locally. Verify it and fix the record manually"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "The add-on section wasn't found. It may have been deleted",
     "addOnSelf": "An add-on can't be the item itself",
+    "addOnTargetRequired": "An add-on needs exactly one item or one category",
+    "fixedSweetnessLevelRequired": "Please choose a fixed sweetness level when sweetness is fixed",
+    "menuItemNotFound": "The item wasn't found. It may have been deleted",
+    "menuSectionNotFound": "The section wasn't found. It may have been deleted",
+    "modifierGroupAttached": "This option group is already attached to the item",
+    "modifierGroupNotFound": "The option group wasn't found. It may have been deleted",
+    "modifierNotFound": "The option wasn't found. It may have been deleted",
+    "offerNotFound": "The item's price wasn't found. It may have been deleted",
     "parentSectionDescendant": "A section can't be moved under its own subsection",
+    "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
+    "printerNotFound": "The printer wasn't found. It may have been removed",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orderTickets": {
@@ -208,6 +258,7 @@
     "otherPrinters": "Also at: {printers}",
     "pickupTime": "Pickup {time}",
     "printJobResolved": "This ticket has already been confirmed. Please refresh and try again",
+    "printerBusy": "New tickets were sent to this printer while it was being removed. Please try again",
     "refund": "REFUND",
     "reprint": "REPRINT",
     "servingTemperatureLevels": {
@@ -229,26 +280,52 @@
     "tableNumber": "Table {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "Cash payment isn't available for this ordering method.",
     "idempotencyConflict": "Your order details have changed. Please submit again.",
     "inStoreQrCodeRequired": "Please order by scanning the QR code in store.",
     "invalidTable": "This table QR code is invalid. Please scan the QR code on your table again.",
+    "menuChanged": "The menu has changed. Please review your cart",
+    "menuItemInsufficientStock": "Not enough \"{name}\" left. Please order fewer or choose another item",
+    "menuItemOptionsInvalid": "Please review the options for \"{name}\"",
     "menuItemUnavailable": "\"{name}\" is currently unavailable",
     "menuItemUnavailableAtTime": "\"{name}\" isn't available at the selected pickup time",
     "menuItemUnavailableForMode": "\"{name}\" isn't available for this ordering method",
+    "modifierInsufficientStock": "Not enough \"{name}\" left. Please order fewer or choose another option",
     "modifierUnavailable": "\"{name}\" is currently unavailable",
     "modifierUnavailableForMode": "\"{name}\" isn't available for this ordering method",
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
+    "onlinePaymentNotRequired": "This order does not need to be paid online.",
+    "orderNotFound": "This order could not be found.",
+    "orderQrSecretNeverRotated": "The QR codes have never been regenerated, so there is no previous version to restore.",
+    "orderQrSessionNotFound": "Your ordering session has expired. Please scan the QR code again.",
     "orderTotalTooLarge": "The order total exceeds the limit. Please remove some items or split it into separate orders.",
+    "paymentAttemptsExhausted": "This order has reached its limit of payment attempts. Please contact the store, or wait for the order to be cancelled automatically when its payment deadline passes.",
     "pickupOutsideOpeningHours": "This pickup time is outside the store's opening hours. Please choose another time.",
+    "pickupTimeInvalid": "Please choose a valid pickup time",
+    "pickupTimeUnavailableForMode": "A pickup time can only be set for pickup orders.",
     "pickupTooCloseToClosing": "This pickup time is too close to closing. Please choose another time.",
     "pickupTooFarAhead": "This pickup time is too far in advance. Please choose another time.",
     "pickupTooSoon": "This pickup time is too soon to prepare your order. Please choose another time.",
-    "statusChanged": "The order status has changed. Refresh and try again."
+    "statusChanged": "The order status has changed. Refresh and try again.",
+    "tableNumberOutOfRange": "The table number must be between 1 and the number of dine-in tables."
+  },
+  "organizations": {
+    "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",
+    "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section.",
+    "specialHoursEnded": "Special hours cannot be added or changed to a period that has already ended.",
+    "specialHoursInvalidRange": "The start date of special hours cannot be later than the end date.",
+    "specialHoursNotFound": "Special hours not found. They may have been deleted.",
+    "specialHoursOverlap": "These dates overlap existing special hours ({validFrom} – {validThrough}).",
+    "specialHoursTooLong": "Special hours can cover at most one year."
   },
   "points": {
+    "adjustOwnerOnly": "Only the store owner can add and deduct more than {maxPoints} points in total for one member at this store in a day.",
+    "adjustSelf": "You cannot adjust your own points",
     "insufficient": "Not enough points",
+    "notEnabled": "Points are not enabled yet",
     "notRedeemable": "This coupon cannot be redeemed with points",
-    "perUserLimitReached": "You have already redeemed this coupon"
+    "perUserLimitReached": "You have already redeemed this coupon",
+    "settingNotFound": "Point rules have not been set up yet"
   },
   "quant": {
     "aiKeyInvalid": "Claude API key verification failed: {message}",
@@ -302,6 +379,7 @@
   "refunds": {
     "allowanceExceeded": "The allowance amount {amount} exceeds the invoice's remaining allowance of {remaining}. Check the existing allowances in the ECPay portal.",
     "alreadyRefunded": "This order has already been fully refunded",
+    "cardRefundUnavailable": "ECPay card refunds have no test environment and can only be issued in production",
     "invalidAmount": "The refund amount could not be calculated; please check the order total",
     "itemNotInOrder": "The item to refund does not belong to this order",
     "noEcpayTransaction": "This order has no ECPay transaction to refund against",
@@ -311,25 +389,99 @@
     "quantityExceeded": "Only {remaining} of \"{name}\" can still be refunded",
     "resultUnknown": "The refund was submitted but ECPay has not confirmed the result. Do not retry — the system will reconcile it automatically and update this refund once confirmed."
   },
+  "reports": {
+    "csv": {
+      "actualConsumption": "Actual consumption",
+      "adjusted": "Adjusted",
+      "category": "Category",
+      "closing": "Closing",
+      "consumed": "Consumed",
+      "day": "Date",
+      "discount": "Discount",
+      "employerInsurance": "Employer insurance",
+      "employerPension": "Employer pension",
+      "gross": "Gross pay",
+      "headcount": "Headcount",
+      "hour": "Hour",
+      "ingredient": "Ingredient",
+      "jobTitle": "Job title",
+      "menuItem": "Item",
+      "missingEmployerInsurance": "Payslips without employer insurance",
+      "mode": "Order mode",
+      "net": "Net",
+      "noJobTitle": "No job title",
+      "opening": "Opening",
+      "orders": "Orders",
+      "paymentMethod": "Payment method",
+      "personnelCost": "Personnel cost",
+      "quantity": "Quantity",
+      "received": "Received",
+      "refunded": "Refunded",
+      "refundedQuantity": "Refunded quantity",
+      "revenue": "Revenue",
+      "theoreticalConsumption": "Theoretical consumption",
+      "total": "Total",
+      "uncategorized": "Uncategorized",
+      "unit": "Unit",
+      "variance": "Variance"
+    },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "Cash",
+      "Credit": "Credit Card",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "Mobile Payment",
+      "WeiXin": "WeChat Pay"
+    },
+    "rangeInvalid": "The end time must be later than the start time.",
+    "rangeTooLong": "The report can cover at most 366 days.",
+    "units": {
+      "GRM": "g",
+      "H87": "pcs",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "ml"
+    }
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
+    "notFound": "This store has no floor plan yet."
+  },
+  "storePhotos": {
+    "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "We're closed right now, so the waitlist isn't open.",
       "waitlistCutoff": "We're close to closing time, so the waitlist is no longer taking new parties.",
       "waitlistDisabled": "This store doesn't offer a walk-in waitlist.",
+      "waitlistGroupChanged": "This ticket can no longer be restored. Please take a new number.",
+      "waitlistGroupsInUse": "The party size groups are being updated. Please try again shortly.",
       "waitlistGroupsInvalid": "The party size groups are invalid.",
+      "waitlistIdempotencyConflict": "Your waitlist details have changed. Please take a number again.",
       "waitlistPartySizeUnavailable": "We can't take this party size on the waitlist. Please ask a member of staff.",
       "waitlistPaused": "The waitlist is paused. Please ask a member of staff.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
+      "waitlistQrSessionNotFound": "Please scan the QR code in the store to take a number.",
+      "waitlistTicketNotFound": "We couldn't find this ticket. Please take a new number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },
     "staff": {
       "waitlistClosed": "The store is closed, so the waitlist isn't open.",
       "waitlistCutoff": "It's close to closing time, so guests can no longer join the waitlist.",
       "waitlistDisabled": "The walk-in waitlist is off for this store.",
+      "waitlistGroupChanged": "The party size groups changed after this ticket ended, so it can't go back into the queue. Add the party as a new ticket.",
+      "waitlistGroupsInUse": "Party size groups can't change while tickets are waiting or called. Seat, skip or cancel them first.",
       "waitlistGroupsInvalid": "Party size groups must start at 1 and be continuous without overlaps.",
+      "waitlistIdempotencyConflict": "The waitlist details have changed. Close the form and try again.",
       "waitlistPartySizeUnavailable": "No group covers this party size.",
       "waitlistPaused": "The waitlist is paused.",
       "waitlistPhoneInQueue": "This phone number is already on the waitlist.",
+      "waitlistQrRequired": "Guests must scan the QR code in the store to take a number.",
+      "waitlistQrSessionNotFound": "The QR code session wasn't found or has expired.",
+      "waitlistTicketNotFound": "The ticket wasn't found. Please refresh.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh."
     }
   }

@@ -9,20 +9,30 @@ import {
   Post,
   Put,
   Query,
+  Redirect,
+  Req,
+  Res,
 } from '@nestjs/common';
 import {
   ApiExtraModels,
   ApiHeader,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { hours, minutes, Throttle } from '@nestjs/throttler';
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import type { Request, Response } from 'express';
 
 import { I18nLang } from 'nestjs-i18n';
+import {
+  ANONYMOUS_THROTTLER,
+  HOURLY_THROTTLER,
+} from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { toLanguage } from '../common/utils/language.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
@@ -33,13 +43,18 @@ import {
   WaitlistErrorResponseDto,
   WaitlistStatusResponseDto,
   WaitlistTicketDetailResponseDto,
-  WaitlistTicketListItemDto,
+  WaitlistTicketListResponseDto,
   WaitlistTicketResponseDto,
 } from './dto/waitlist-response.dto.js';
 import {
   WaitlistStatsQueryDto,
   WaitlistStatsResponseDto,
 } from './dto/waitlist-stats.dto.js';
+import {
+  WaitlistQrQueryDto,
+  WaitlistQrSessionResponseDto,
+  WaitlistQrTokenResponseDto,
+} from './dto/waitlist-qr.dto.js';
 import { WaitlistTicketPaginationQueryDto } from './dto/waitlist-ticket-pagination-query.dto.js';
 import {
   UpdateWaitlistPausedDto,
@@ -50,11 +65,15 @@ import {
   STAFF_TRANSITION_STATUSES,
   type StaffTransitionStatus,
 } from './waitlist-rules.js';
+import {
+  setWaitlistQrSessionCookie,
+  WAITLIST_QR_SESSION_COOKIE,
+} from './waitlist-qr-token.js';
 import { WaitlistService } from './waitlist.service.js';
 
 @AllowAnonymous()
 @ApiTags('waitlist')
-@ApiExtraModels(WaitlistErrorResponseDto, WaitlistTicketListItemDto)
+@ApiExtraModels(WaitlistErrorResponseDto)
 @Controller('organizations/:organizationSlug/waitlist')
 export class WaitlistController {
   constructor(private readonly waitlistService: WaitlistService) {}
@@ -67,28 +86,85 @@ export class WaitlistController {
     return this.waitlistService.getPublicStatus(organizationSlug);
   }
 
+  @Get('qr')
+  @Redirect()
+  @ApiOperation({
+    summary:
+      '掃描門市現場候位 QR code：簽章換成短效 cookie 後轉回不帶簽章的候位頁',
+  })
+  async scanQr(
+    @Param('organizationSlug') organizationSlug: string,
+    @Query() { token }: WaitlistQrQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const scanned = await this.waitlistService.scanQr(organizationSlug, token);
+    if (scanned?.issued) setWaitlistQrSessionCookie(res, scanned.issued);
+
+    return {
+      statusCode: 303,
+      url: `/waitlist/${encodeURIComponent(scanned?.slug || organizationSlug)}`,
+    };
+  }
+
+  @Get('qr-session')
+  @ApiOperation({ summary: '目前瀏覽器持有的門市現場取號資格' })
+  findQrSession(
+    @Param('organizationSlug') organizationSlug: string,
+    @Req() req: Request,
+  ): Promise<WaitlistQrSessionResponseDto> {
+    return this.waitlistService.findQrSession(
+      organizationSlug,
+      req.cookies?.[WAITLIST_QR_SESSION_COOKIE],
+    );
+  }
+
+  @Get('qr-token')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @ApiOperation({ summary: '產生門市現場候位 QR code 的簽章' })
+  findQrToken(
+    @Param('organizationSlug') organizationSlug: string,
+  ): Promise<WaitlistQrTokenResponseDto> {
+    return this.waitlistService.getQrToken(organizationSlug);
+  }
+
   @Post('tickets')
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiHeader({
     description: '同一次取號重試請帶同一把鍵，重送會回傳既有號碼牌',
     name: 'Idempotency-Key',
     required: false,
   })
-  @ApiOperation({ summary: '取號' })
-  createTicket(
+  @ApiOperation({ summary: '取號（須先掃描門市現場候位 QR code）' })
+  async createTicket(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateWaitlistTicketDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @I18nLang() lang: string,
     @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<WaitlistTicketResponseDto> {
-    return this.waitlistService.createTicket(
+    const qrSessionValue: unknown = req.cookies?.[WAITLIST_QR_SESSION_COOKIE];
+    const ticket = await this.waitlistService.createTicket(
       organizationSlug,
       dto,
       session?.user.id || null,
       toLanguage(lang),
       idempotencyKey || null,
       false,
+      qrSessionValue,
     );
+
+    const renewed = await this.waitlistService.renewQrSession(
+      organizationSlug,
+      qrSessionValue,
+    );
+    if (renewed) setWaitlistQrSessionCookie(res, renewed);
+
+    return ticket;
   }
 
   @Post('tickets/admin')
@@ -131,10 +207,11 @@ export class WaitlistController {
   @Get('tickets/list')
   @Roles({ waitlist: ['read'] }, 'organizationSlug')
   @ApiOperation({ summary: '後台號碼牌歷史列表' })
+  @ApiOkResponse({ type: WaitlistTicketListResponseDto })
   listTickets(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: WaitlistTicketPaginationQueryDto,
-  ): Promise<{ data: WaitlistTicketListItemDto[]; total: number }> {
+  ): Promise<WaitlistTicketListResponseDto> {
     return this.waitlistService.listTickets(organizationSlug, query);
   }
 
@@ -143,9 +220,13 @@ export class WaitlistController {
   @ApiOperation({ summary: '候位統計' })
   stats(
     @Param('organizationSlug') organizationSlug: string,
-    @Query() { since }: WaitlistStatsQueryDto,
+    @Query() { since, until }: WaitlistStatsQueryDto,
   ): Promise<WaitlistStatsResponseDto> {
-    return this.waitlistService.getStats(organizationSlug, new Date(since));
+    return this.waitlistService.getStats(
+      organizationSlug,
+      new Date(since),
+      until ? new Date(until) : undefined,
+    );
   }
 
   @Get('tickets/:ticketId')

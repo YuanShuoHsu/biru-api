@@ -28,14 +28,12 @@ import {
   type PionexTransferAccount,
   type PionexTransferStatus,
 } from '../pionex/pionex.types.js';
+import { trim } from '../../common/utils/trim.js';
 
 const ORDER_STATUSES = ['OPEN', 'CLOSED'] as const;
 const FILL_ROLES = ['MAKER', 'TAKER'] as const;
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class QuantCredentialDto {
   @ApiProperty() id: string;
@@ -265,7 +263,7 @@ export class QuantTransferPageDto {
   nextEndTime: number | null;
 }
 
-export class QuantAssetCategoryDto {
+class QuantAssetCategoryDto {
   @ApiProperty({ description: 'Pionex 的分類代碼' }) type: string;
   @ApiProperty({ description: 'Pionex 依語系翻譯的分類名稱' }) title: string;
   @ApiProperty() totalInUsdt: number;

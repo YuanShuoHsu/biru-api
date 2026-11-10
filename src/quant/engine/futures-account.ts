@@ -28,7 +28,7 @@ export interface FuturesLedger {
   realizedPnl: number;
 }
 
-export interface FuturesAccountOptions {
+interface FuturesAccountOptions {
   fills?: readonly BotFill[];
   fundings?: readonly FundingPayment[];
   investment: number;

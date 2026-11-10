@@ -2,15 +2,13 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
-  ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import {
   Column,
@@ -25,11 +23,12 @@ import {
   inArray,
   isNull,
   lt,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 import { ecpayPaymentAttempt } from '../db/schema/ecpay-payment-attempts.js';
 import type { Invoice, InvoicePrintJob } from '../db/schema/invoices.js';
 import { invoice } from '../db/schema/invoices.js';
@@ -38,9 +37,9 @@ import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
+import { menuItem, modifier } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import {
   ADMIN_BOARD_COLUMN_LIMIT,
@@ -52,32 +51,48 @@ import {
 } from '../common/constants/timezone.js';
 
 import { isAuthorized } from '../auth/permissions.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
+import { toLanguage } from '../common/utils/language.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
   IN_FLIGHT_PRINT_JOB_STATUSES,
   toActiveInvoice,
+  toInvoiceBuyer,
   withPrintJob,
 } from '../common/utils/invoices.js';
 import { organizationClosedError } from '../common/utils/organization-closure.js';
 import {
-  getMinutesUntilClose,
-  isWithinOpeningHours,
-} from '../common/utils/opening-hours.js';
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
+import { openingCalendar } from '../common/utils/opening-hours.js';
 import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import {
+  LOW_STOCK_REACHED_EVENT,
+  type LowStockReachedEvent,
+} from '../events/low-stock-reached.event.js';
 import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
 import {
   ORDER_UPDATED_EVENT,
   type OrderUpdatedEvent,
 } from '../events/order-updated.event.js';
-import { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import {
+  InsufficientStockError,
+  InventoryTransactionsService,
+  type StockSource,
+} from '../inventory/inventory-transactions.service.js';
+import { MenuStockService } from '../inventory/menu-stock.service.js';
+import { localize } from '../menus/menus-public.service.js';
+import { PointsService } from '../points/points.service.js';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
@@ -85,6 +100,10 @@ import type {
   CreateOrderCustomerDto,
   CreateOrderDto,
 } from './dto/create-order.dto.js';
+import type {
+  ExpectedPointsDto,
+  ExpectedPointsResponseDto,
+} from './dto/expected-points.dto.js';
 import {
   ORDER_BOARD_STATUSES,
   type OrderBoardItemDto,
@@ -121,6 +140,16 @@ import {
   type OrderTransitionRule,
   toAdminOrder,
 } from './order-transitions.js';
+import { BOARD_AT, BOARD_WINDOW_MS } from './order-board-window.js';
+import { pickupHoursError } from './pickup-hours.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
+import { orderPrepMinutes } from './prep-estimate.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './order-errors.js';
 
 const dateStamp = (at: Date = new Date()): string =>
   new Date(at.getTime() + STORE_UTC_OFFSET_MS)
@@ -148,9 +177,11 @@ const PICKUP_MINUTES_STEP = 15;
 
 const PICKUP_LEAD_TOLERANCE_MS = 60 * 1000;
 
-export const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
 
 const MIN_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
+
+export const MAX_PAYMENT_ATTEMPTS_PER_ORDER = 10;
 
 // 金額欄位是 numeric(10,2)，超過會在寫入時變成 500
 const MAX_ORDER_AMOUNT = 99_999_999.99;
@@ -179,7 +210,9 @@ const paymentDeadlineOf = (
   );
 };
 
-export type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
+type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
+
+type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
 const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -263,10 +296,6 @@ const toAdminOrderWithInvoice = <
   });
 };
 
-const BOARD_AT = sql`COALESCE(${order.pickupTime}, ${order.createdAt})`;
-
-const BOARD_WINDOW_MS = 24 * 60 * 60 * 1000;
-
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
 const ADMIN_BOARD_LEAD_MS = 24 * 60 * 60 * 1000;
 
@@ -282,20 +311,40 @@ export class OrdersService {
     private readonly orderQrService: OrderQrService,
     private readonly orderTicketService: OrderTicketService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly menuStockService: MenuStockService,
+    private readonly prepEstimateService: PrepEstimateService,
+    private readonly pointsService: PointsService,
   ) {}
 
-  private t(key: keyof I18nTranslations['common']['orders']): string {
-    return this.i18n.t(`common.orders.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
+  private async insufficientStockError(
+    source: StockSource,
+  ): Promise<BadRequestException> {
+    const [found] =
+      'menuItemId' in source
+        ? await this.db
+            .select({ name: menuItem.name })
+            .from(menuItem)
+            .where(eq(menuItem.id, source.menuItemId))
+        : await this.db
+            .select({ name: modifier.displayName })
+            .from(modifier)
+            .where(eq(modifier.id, source.modifierId));
+
+    return badRequestError(
+      'menuItemId' in source
+        ? 'menuItemInsufficientStock'
+        : 'modifierInsufficientStock',
+      {
+        name: localize(found?.name, toLanguage(I18nContext.current()?.lang)),
+      },
+    );
   }
 
   private async getOrgBySlug(slug: string) {
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, slug),
     });
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
   }
 
@@ -316,7 +365,7 @@ export class OrdersService {
       existing?.idempotencyFingerprint &&
       existing.idempotencyFingerprint !== fingerprint
     )
-      throw new ConflictException(this.t('idempotencyConflict'));
+      throw conflictError('idempotencyConflict');
     return existing;
   }
 
@@ -332,38 +381,78 @@ export class OrdersService {
         items: true,
       },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
-    return toActiveInvoice(found);
+    const expectedPoints = await this.pointsService.expectedPoints([found.id]);
+
+    return {
+      ...toActiveInvoice(found),
+      expectedPoints: expectedPoints.get(found.id) ?? null,
+    };
   }
 
-  private resolvePickupTime(org: Organization, value?: string): Date {
-    if (!value) throw new BadRequestException('pickupTime is required');
+  async estimatePoints(
+    organizationSlug: string,
+    dto: ExpectedPointsDto,
+    userId: string | null,
+  ): Promise<ExpectedPointsResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+    const items = await this.orderPricingService.resolveOrderItems(
+      org.id,
+      dto.items,
+      dto.mode,
+    );
+    // 無效優惠碼當作沒折扣，否則這個不限流的端點會變成猜優惠碼的入口
+    const applied = dto.discountCode
+      ? await this.couponsService
+          .getApplicableCoupon(org.id, dto.discountCode, items, userId)
+          .catch((error: unknown) => {
+            if (error instanceof BadRequestException) return null;
+            throw error;
+          })
+      : null;
 
-    const now = Date.now();
-    const leadMs = Math.max(org.pickupLeadMinutes, 0) * 60 * 1000;
+    return {
+      expectedPoints: await this.pointsService.estimatePoints(
+        sumOrderItems(items),
+        applied?.discount ?? 0,
+      ),
+    };
+  }
+
+  private async resolvePickupTime(
+    org: Organization,
+    value?: string,
+  ): Promise<Date> {
+    if (!value) throw badRequestError('pickupTimeInvalid');
 
     const pickupTime = new Date(value);
 
     if (pickupTime.getTime() % (PICKUP_MINUTES_STEP * 60 * 1000) !== 0)
-      throw new BadRequestException('pickupTime is not on the pickup interval');
-
-    if (pickupTime.getTime() < now + leadMs - PICKUP_LEAD_TOLERANCE_MS)
-      throw new BadRequestException(this.t('pickupTooSoon'));
+      throw badRequestError('pickupTimeInvalid');
 
     const advanceDays = Math.max(org.pickupMaxAdvanceDays, 0);
     const advanceLimit = startOfDay().getTime() + (advanceDays + 1) * DAY_MS;
     if (pickupTime.getTime() >= advanceLimit)
-      throw new BadRequestException(this.t('pickupTooFarAhead'));
+      throw badRequestError('pickupTooFarAhead');
 
-    if (!isWithinOpeningHours(org.openingHours, pickupTime))
-      throw new BadRequestException(this.t('pickupOutsideOpeningHours'));
+    const specialHours = await findSpecialHours(
+      this.db,
+      org.id,
+      new Date(pickupTime.getTime() - DAY_MS),
+      new Date(
+        pickupTime.getTime() +
+          Math.max(org.pickupCutoffMinutes, 0) * 60_000 +
+          DAY_MS,
+      ),
+    );
 
-    if (
-      getMinutesUntilClose(org.openingHours, pickupTime) <
-      Math.max(org.pickupCutoffMinutes, 0)
-    )
-      throw new BadRequestException(this.t('pickupTooCloseToClosing'));
+    const hoursError = pickupHoursError(
+      openingCalendar(org.openingHours, specialHours),
+      org.pickupCutoffMinutes,
+      pickupTime,
+    );
+    if (hoursError) throw badRequestError(hoursError);
 
     return pickupTime;
   }
@@ -376,15 +465,13 @@ export class OrdersService {
     qrSessionValue?: string,
   ): Promise<OrderReceiptResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
-      throw new BadRequestException('Cash is unavailable for this order mode');
+      throw badRequestError('cashUnavailableForMode');
 
     const isDineIn = dto.mode === 'dineIn';
     const isPickup = dto.mode === 'pickup';
 
     if (!isPickup && dto.pickupTime)
-      throw new BadRequestException(
-        'pickupTime is unavailable for this order mode',
-      );
+      throw badRequestError('pickupTimeUnavailableForMode');
 
     const org = await this.getOrgBySlug(organizationSlug);
 
@@ -401,10 +488,10 @@ export class OrdersService {
         qrSession.tableNumber !== dto.tableNumber ||
         !isOpenDineInTable(org.dineInTableCount, dto.tableNumber))
     )
-      throw new BadRequestException(this.t('invalidTable'));
+      throw badRequestError('invalidTable');
 
     if ((dto.mode === 'counter' || dto.mode === 'driveThru') && !hasQrSession)
-      throw new BadRequestException(this.t('inStoreQrCodeRequired'));
+      throw badRequestError('inStoreQrCodeRequired');
 
     const idempotencyFingerprint = idempotencyKey
       ? createHash('sha256').update(JSON.stringify(dto)).digest('hex')
@@ -424,7 +511,7 @@ export class OrdersService {
     if (org.closedAt) throw organizationClosedError();
 
     const pickupTime = isPickup
-      ? this.resolvePickupTime(org, dto.pickupTime)
+      ? await this.resolvePickupTime(org, dto.pickupTime)
       : null;
 
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
@@ -434,17 +521,24 @@ export class OrdersService {
       pickupTime ?? new Date(),
     );
 
-    const itemLeadMs =
-      Math.max(0, ...orderItemsData.map((i) => i.leadTimeMinutes)) * 60 * 1000;
-    if (
-      pickupTime &&
-      pickupTime.getTime() < Date.now() + itemLeadMs - PICKUP_LEAD_TOLERANCE_MS
-    )
-      throw new BadRequestException(this.t('pickupTooSoon'));
+    if (pickupTime) {
+      const prepMinutes = await this.prepEstimateService.prepMinutesWith(
+        org,
+        orderPrepMinutes(
+          org.pickupLeadMinutes,
+          orderItemsData.map((i) => i.leadTimeMinutes),
+        ),
+      );
+      if (
+        pickupTime.getTime() <
+        Date.now() + prepMinutes * 60 * 1000 - PICKUP_LEAD_TOLERANCE_MS
+      )
+        throw badRequestError('pickupTooSoon');
+    }
 
     const subtotal = Math.round(sumOrderItems(orderItemsData));
     if (subtotal > MAX_ORDER_AMOUNT)
-      throw new BadRequestException(this.t('orderTotalTooLarge'));
+      throw badRequestError('orderTotalTooLarge');
     const applied = dto.discountCode
       ? await this.couponsService.getApplicableCoupon(
           org.id,
@@ -458,131 +552,145 @@ export class OrdersService {
     const orderId = randomUUID();
     const confirmationNumber = generateConfirmationNumber();
 
-    const result = await this.db.transaction(async (tx) => {
-      await tx
-        .select({ id: organization.id })
-        .from(organization)
-        .where(eq(organization.id, org.id))
-        .for('update');
+    let lowStock: LowStockReachedEvent['ingredients'] = [];
+    let offerStockChanged = false;
+    const result = await this.db
+      .transaction(async (tx) => {
+        await tx
+          .select({ id: organization.id })
+          .from(organization)
+          .where(eq(organization.id, org.id))
+          .for('update');
 
-      const duplicate =
-        idempotencyKey && idempotencyFingerprint
-          ? await this.findOrderByIdempotencyKey(
-              tx,
-              org.id,
-              idempotencyKey,
-              idempotencyFingerprint,
-            )
-          : null;
-      if (duplicate) return duplicate;
+        const duplicate =
+          idempotencyKey && idempotencyFingerprint
+            ? await this.findOrderByIdempotencyKey(
+                tx,
+                org.id,
+                idempotencyKey,
+                idempotencyFingerprint,
+              )
+            : null;
+        if (duplicate) return duplicate;
 
-      const pickupDayStart = startOfDay(pickupTime ?? undefined);
-      const [{ value: pickupDayCount }] = await tx
-        .select({ value: count() })
-        .from(order)
-        .where(
-          and(
-            eq(order.sellerId, org.id),
-            gte(BOARD_AT, utcTimestampParam(pickupDayStart)),
-            lt(
-              BOARD_AT,
-              utcTimestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+        const pickupDayStart = startOfDay(pickupTime ?? undefined);
+        const [{ value: pickupDayCount }] = await tx
+          .select({ value: count() })
+          .from(order)
+          .where(
+            and(
+              eq(order.sellerId, org.id),
+              gte(BOARD_AT, utcTimestampParam(pickupDayStart)),
+              lt(
+                BOARD_AT,
+                utcTimestampParam(new Date(pickupDayStart.getTime() + DAY_MS)),
+              ),
             ),
-          ),
-        );
+          );
 
-      const [created] = await tx
-        .insert(order)
-        .values({
-          id: orderId,
-          sellerId: org.id,
-          idempotencyKey,
-          idempotencyFingerprint,
-          mode: dto.mode,
-          orderNumber: String(pickupDayCount + 1),
-          customer: dto.customer,
-          paymentMethod: dto.payment,
-          orderStatus: 'OrderPaymentDue',
-          confirmationNumber,
-          subtotal: subtotal.toFixed(2),
-          userId,
-          partySize: isDineIn ? dto.partySize : null,
-          pickupTime,
-          tableNumber: isDineIn ? dto.tableNumber : null,
-          ...(applied && {
-            discount: applied.discount.toFixed(2),
-            discountCode: applied.coupon.code,
-            discountCurrency: org.currency,
-          }),
-          ...(total <= 0 && {
-            orderStatus: 'OrderProcessing' as const,
-            paymentDate: new Date(),
-            amountPerPoint: org.amountPerPoint,
-            pointsValidityYears: org.pointsValidityYears,
-          }),
-        })
-        .returning();
+        const [created] = await tx
+          .insert(order)
+          .values({
+            id: orderId,
+            sellerId: org.id,
+            idempotencyKey,
+            idempotencyFingerprint,
+            mode: dto.mode,
+            orderNumber: String(pickupDayCount + 1),
+            customer: dto.customer,
+            paymentMethod: dto.payment,
+            orderStatus: 'OrderPaymentDue',
+            confirmationNumber,
+            subtotal: subtotal.toFixed(2),
+            userId,
+            partySize: isDineIn ? dto.partySize : null,
+            pickupTime,
+            tableNumber: isDineIn ? dto.tableNumber : null,
+            ...(applied && {
+              discount: applied.discount.toFixed(2),
+              discountCode: applied.coupon.code,
+              discountCurrency: org.currency,
+            }),
+            ...(total <= 0 && {
+              orderStatus: 'OrderProcessing' as const,
+              paymentDate: new Date(),
+              ...POINTS_SNAPSHOT_SET,
+            }),
+          })
+          .returning();
 
-      if (applied)
-        await this.couponsService.redeem(tx, {
-          coupon: applied.coupon,
-          orderId,
-          userCouponId: applied.userCouponId,
-          userId,
-        });
-
-      const items = await tx
-        .insert(orderItem)
-        .values(
-          orderItemsData.map((i) => ({
-            id: i.id,
-            addOns: i.addOns,
-            menuItemId: i.menuItemId,
-            menuItemName: i.menuItemName,
-            modifiers: i.modifiers,
+        if (applied)
+          await this.couponsService.redeem(tx, {
+            coupon: applied.coupon,
             orderId,
-            orderQuantity: i.orderQuantity,
-            priceCurrency: i.priceCurrency,
-            servingTemperatureLevel: i.servingTemperatureLevel,
-            sweetnessLevel: i.sweetnessLevel,
-            unitPrice: i.unitPrice,
-          })),
-        )
-        .returning();
+            userCouponId: applied.userCouponId,
+            userId,
+          });
 
-      await this.inventoryTransactionsService.consume(orderId, tx);
+        const items = await tx
+          .insert(orderItem)
+          .values(
+            orderItemsData.map((i, index) => ({
+              id: i.id,
+              addOns: i.addOns,
+              discount: (applied?.itemDiscounts[index] ?? 0).toFixed(2),
+              menuItemId: i.menuItemId,
+              menuItemName: i.menuItemName,
+              modifiers: i.modifiers,
+              orderId,
+              orderQuantity: i.orderQuantity,
+              priceCurrency: i.priceCurrency,
+              servingTemperatureLevel: i.servingTemperatureLevel,
+              sweetnessLevel: i.sweetnessLevel,
+              unitPrice: i.unitPrice,
+            })),
+          )
+          .returning();
 
-      if (created.orderStatus === 'OrderProcessing')
-        await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
+        ({ lowStock, offerStockChanged } =
+          await this.inventoryTransactionsService.consume(orderId, tx, {
+            enforceStock: true,
+          }));
 
-      const [createdInvoice] =
-        total > 0
-          ? await tx
-              .insert(invoice)
-              .values({
-                id: randomUUID(),
-                orderId,
-                type: dto.invoice.type,
-                carrierType: dto.invoice.carrierType,
-                carrierNum: dto.invoice.carrierNum,
-                email: dto.invoice.email,
-                customerIdentifier: dto.invoice.customerIdentifier,
-                customerName: dto.invoice.customerName,
-                customerAddr: dto.invoice.customerAddr,
-                donateCode: dto.invoice.donateCode,
-              })
-              .returning()
-          : [null];
+        if (created.orderStatus === 'OrderProcessing')
+          await this.orderTicketService.enqueueOrder(tx, orderId, org.id);
 
-      return { ...created, invoice: createdInvoice, items };
-    });
+        const [createdInvoice] =
+          total > 0
+            ? await tx
+                .insert(invoice)
+                .values({
+                  id: randomUUID(),
+                  orderId,
+                  email: dto.invoice.email,
+                  ...toInvoiceBuyer(dto.invoice),
+                })
+                .returning()
+            : [null];
 
-    if (result.id === orderId)
+        return { ...created, invoice: createdInvoice, items };
+      })
+      .catch(async (error: unknown) => {
+        if (error instanceof InsufficientStockError)
+          throw await this.insufficientStockError(error.source);
+        throw error;
+      });
+
+    if (result.id === orderId) {
+      void this.menuStockService.refresh(org.id, offerStockChanged);
+
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
         orderId: result.id,
         orderStatus: result.orderStatus,
         organizationId: org.id,
       });
+    }
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId: org.id,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
 
     return this.findOrderReceipt(org.id, result.id);
   }
@@ -648,16 +756,16 @@ export class OrdersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(order.orderNumber, `%${value}%`),
-          ilike(sql`${order.confirmationNumber}`, `%${value}%`),
-          ilike(sql`${order.customer}->>'name'`, `%${value}%`),
-          ilike(sql`${order.customer}->>'telephone'`, `%${value}%`),
-          ilike(sql`${order.customer}->>'email'`, `%${value}%`),
-          ilike(sql`${order.tableNumber}::text`, `%${value}%`),
-          ilike(localTimeText(order.paymentDate), `%${value}%`),
-          ilike(localTimeText(order.pickupTime), `%${value}%`),
-          ilike(localTimeText(order.createdAt), `%${value}%`),
-          ilike(sql`${order.total}::text`, `%${value}%`),
+          ilike(order.orderNumber, `%${escapeLike(value)}%`),
+          ilike(sql`${order.confirmationNumber}`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'name'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'telephone'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.customer}->>'email'`, `%${escapeLike(value)}%`),
+          ilike(sql`${order.tableNumber}::text`, `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.paymentDate), `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.pickupTime), `%${escapeLike(value)}%`),
+          ilike(localTimeText(order.createdAt), `%${escapeLike(value)}%`),
+          ilike(sql`${order.total}::text`, `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -728,28 +836,38 @@ export class OrdersService {
       this.db.select({ total: count() }).from(order).where(where),
     ]);
 
-    return { data: data.map(toActiveInvoice), total };
+    const expectedPoints = await this.pointsService.expectedPoints(
+      data.map(({ id }) => id),
+    );
+
+    return {
+      data: data.map((found) => ({
+        ...toActiveInvoice(found),
+        expectedPoints: expectedPoints.get(found.id) ?? null,
+      })),
+      total,
+    };
   }
 
   async getOrder(
     organizationSlug: string,
     orderId: string,
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<OrderReceiptResponseDto> {
     const org = await this.getOrgBySlug(organizationSlug);
 
     const receipt = await this.findOrderReceipt(org.id, orderId);
 
-    if (!(await this.canReadOrderById(orderId, userId, accessToken)))
-      throw new ForbiddenException();
+    if (!(await this.canReadOrderById(orderId, viewer, accessToken)))
+      throw accessForbiddenError();
 
     return receipt;
   }
 
   async canReadOrderById(
     orderId: string,
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<boolean> {
     const found = await this.db.query.order.findFirst({
@@ -757,7 +875,7 @@ export class OrdersService {
       columns: { id: true, sellerId: true, userId: true },
     });
 
-    return !!found && (await this.canReadOrder(found, userId, accessToken));
+    return !!found && (await this.canReadOrder(found, viewer, accessToken));
   }
 
   private async canReadOrder(
@@ -766,17 +884,17 @@ export class OrdersService {
       sellerId,
       userId: ownerId,
     }: { id: string; sellerId: string; userId: string | null },
-    userId: string | null,
+    viewer: OrderViewer | null,
     accessToken: string | null,
   ): Promise<boolean> {
     if (isValidOrderAccessToken(id, accessToken)) return true;
-    if (!userId) return false;
-    if (ownerId === userId) return true;
+    if (!viewer) return false;
+    if (ownerId === viewer.id || viewer.role === 'admin') return true;
 
     const membership = await this.db.query.member.findFirst({
       where: and(
         eq(member.organizationId, sellerId),
-        eq(member.userId, userId),
+        eq(member.userId, viewer.id),
       ),
       columns: { role: true },
     });
@@ -871,6 +989,10 @@ export class OrdersService {
             lt(order.pickupTime, new Date(now + PUBLIC_BOARD_LEAD_MS)),
           ),
           inArray(order.orderStatus, [...ORDER_BOARD_STATUSES]),
+          or(
+            ne(order.orderStatus, 'OrderPaymentDue'),
+            eq(order.paymentMethod, 'Cash'),
+          ),
         ),
       )
       .orderBy(asc(BOARD_AT));
@@ -885,27 +1007,32 @@ export class OrdersService {
 
     const found = await this.db.query.order.findMany({
       where: and(inArray(order.id, orderIds), eq(order.sellerId, org.id)),
+      orderBy: asc(order.id),
       with: { items: true },
     });
-    if (found.length !== orderIds.length)
-      throw new NotFoundException('Order not found');
+    if (found.length !== orderIds.length) throw notFoundError('orderNotFound');
 
     const planned = found.map((current) => {
       const rule = getAvailableTransitions(current).find(
         (available) => available.toStatus === toStatus,
       );
-      if (!rule) throw new BadRequestException(this.t('statusChanged'));
+      if (!rule) throw badRequestError('statusChanged');
 
       return { current, rule };
     });
 
+    const changedOfferStock = new Set<string>();
     const updated = await this.db.transaction(async (tx) => {
       const results: AdminOrderResponseDto[] = [];
 
       for (const { current, rule } of planned) {
-        const [updated] = await this.runTransition(tx, rule, [current.id]);
-        if (!updated) throw new BadRequestException(this.t('statusChanged'));
+        const {
+          offerStockChanged,
+          updated: [updated],
+        } = await this.runTransition(tx, rule, [current.id]);
+        if (!updated) throw badRequestError('statusChanged');
 
+        if (offerStockChanged.size) changedOfferStock.add(current.id);
         results.push(toAdminOrder({ ...current, ...updated }));
       }
 
@@ -913,7 +1040,12 @@ export class OrdersService {
     });
 
     for (const { current, rule } of planned)
-      this.emitTransitioned(rule, [{ id: current.id, sellerId: org.id }]);
+      this.emitTransitioned(
+        rule,
+        [{ id: current.id, sellerId: org.id }],
+        [],
+        changedOfferStock.has(current.id) ? new Set([org.id]) : undefined,
+      );
 
     return updated;
   }
@@ -937,6 +1069,14 @@ export class OrdersService {
       )
       .returning();
 
+    const lowStock: LowStockReachedEvent[] = [];
+    const offerStockChanged = new Set<string>();
+    if (rule.restoresInventory && updated.length > 1)
+      await this.inventoryTransactionsService.lockHeldOfferStock(
+        updated.map(({ id }) => id),
+        tx,
+      );
+
     for (const { discountCode, id, sellerId } of updated) {
       if (rule.printsOrderTicket)
         await this.orderTicketService.enqueueOrder(tx, id, sellerId);
@@ -950,19 +1090,35 @@ export class OrdersService {
           orderId: id,
         });
 
-      if (rule.restoresInventory)
-        await this.inventoryTransactionsService.restoreAll(id, tx);
+      if (
+        rule.restoresInventory &&
+        (await this.inventoryTransactionsService.restoreAll(id, tx))
+      )
+        offerStockChanged.add(sellerId);
 
-      if (rule.consumesInventory)
-        await this.inventoryTransactionsService.consume(id, tx);
+      if (rule.consumesInventory) {
+        // 客人已付款，庫存不足也不能退回訂單，只能超賣並提醒店員
+        const consumed = await this.inventoryTransactionsService.consume(
+          id,
+          tx,
+        );
+        if (consumed.offerStockChanged) offerStockChanged.add(sellerId);
+        if (consumed.lowStock.length)
+          lowStock.push({
+            organizationId: sellerId,
+            ingredients: consumed.lowStock,
+          });
+      }
     }
 
-    return updated;
+    return { lowStock, offerStockChanged, updated };
   }
 
   private emitTransitioned(
     rule: OrderTransitionRule,
     orders: { id: string; sellerId: string }[],
+    lowStock: LowStockReachedEvent[] = [],
+    offerStockChanged = new Set<string>(),
   ): void {
     for (const { id, sellerId } of orders) {
       this.eventEmitter.emit(ORDER_STATUS_UPDATED_EVENT, {
@@ -974,6 +1130,16 @@ export class OrdersService {
       if (rule.recordsPayment)
         this.eventEmitter.emit(ORDER_PAID_EVENT, { orderId: id });
     }
+
+    for (const event of lowStock)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, event);
+
+    if (rule.consumesInventory || rule.restoresInventory)
+      for (const sellerId of new Set(orders.map(({ sellerId }) => sellerId)))
+        void this.menuStockService.refresh(
+          sellerId,
+          offerStockChanged.has(sellerId),
+        );
   }
 
   async updateOrderCustomer(
@@ -987,7 +1153,7 @@ export class OrdersService {
       where: and(eq(order.id, orderId), eq(order.sellerId, org.id)),
       with: { items: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const [updated] = await this.db
       .update(order)
@@ -1013,28 +1179,43 @@ export class OrdersService {
       where: eq(order.id, orderId),
       with: { items: true, seller: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
 
     const { confirmationNumber } = found;
     if (found.paymentMethod === 'Cash' || !confirmationNumber)
-      throw new BadRequestException('Order does not require online payment');
+      throw badRequestError('onlinePaymentNotRequired');
 
     const deadline = paymentDeadlineOf(
       found.createdAt,
       found.pickupTime,
       found.seller.pickupLeadMinutes,
     );
-    if (
-      found.orderStatus !== 'OrderPaymentDue' ||
-      Date.now() > deadline.getTime()
-    )
-      throw new BadRequestException(this.t('notAwaitingPayment'));
 
     const merchantTradeNo = generateMerchantTradeNo();
 
-    await this.db
-      .insert(ecpayPaymentAttempt)
-      .values({ merchantTradeNo, orderId, returnUrl });
+    await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('update');
+      if (
+        locked?.orderStatus !== 'OrderPaymentDue' ||
+        Date.now() > deadline.getTime()
+      )
+        throw badRequestError('notAwaitingPayment');
+
+      const [{ attempts }] = await tx
+        .select({ attempts: count() })
+        .from(ecpayPaymentAttempt)
+        .where(eq(ecpayPaymentAttempt.orderId, orderId));
+      if (attempts >= MAX_PAYMENT_ATTEMPTS_PER_ORDER)
+        throw conflictError('paymentAttemptsExhausted');
+
+      await tx
+        .insert(ecpayPaymentAttempt)
+        .values({ merchantTradeNo, orderId, returnUrl });
+    });
 
     return { ...found, confirmationNumber, merchantTradeNo };
   }
@@ -1077,25 +1258,36 @@ export class OrdersService {
         current && findTransition('payment', current.orderStatus, toStatus);
       if (!rule) return undefined;
 
-      const [updated] = await this.runTransition(tx, rule, [current.id], {
+      const {
+        lowStock,
+        offerStockChanged,
+        updated: [updated],
+      } = await this.runTransition(tx, rule, [current.id], {
         set: {
-          authorizationNo: body.gwsr || undefined,
-          paymentDate: toPaymentDate(body.PaymentDate),
           merchantTradeNo: body.MerchantTradeNo,
-          paymentMethodId: body.card4no || undefined,
           tradeNo: body.TradeNo,
+          ...(succeeded && {
+            authorizationNo: body.gwsr || undefined,
+            paymentDate: toPaymentDate(body.PaymentDate),
+            paymentMethodId: body.card4no || undefined,
+          }),
         },
         where: succeeded
           ? sql`${order.total} = ${Number(body.TradeAmt)}`
           : undefined,
       });
 
-      return updated && { rule, updated };
+      return updated && { lowStock, offerStockChanged, rule, updated };
     });
 
     if (!transitioned) return this.classifyUnmatchedPayment(body, succeeded);
 
-    this.emitTransitioned(transitioned.rule, [transitioned.updated]);
+    this.emitTransitioned(
+      transitioned.rule,
+      [transitioned.updated],
+      transitioned.lowStock,
+      transitioned.offerStockChanged,
+    );
 
     return 'handled';
   }
@@ -1239,20 +1431,43 @@ export class OrdersService {
   async markReconciled(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    await this.db
-      .update(order)
-      .set({ reconciledAt: new Date() })
-      .where(inArray(order.id, orderIds));
+    await this.db.transaction(async (tx) => {
+      await this.lockOrders(tx, orderIds);
+
+      await tx
+        .update(order)
+        .set({ reconciledAt: new Date() })
+        .where(inArray(order.id, orderIds));
+    });
+  }
+
+  // 多筆訂單一律依 id 順序上鎖，和移除出單機鎖訂單的順序一致，否則兩邊各握一部分會死結
+  private async lockOrders(tx: Pick<DrizzleDB, 'select'>, orderIds: string[]) {
+    await tx
+      .select({ id: order.id })
+      .from(order)
+      .where(inArray(order.id, orderIds))
+      .orderBy(asc(order.id))
+      .for('update');
   }
 
   async cancelOrders(orderIds: string[]): Promise<void> {
     if (!orderIds.length) return;
 
-    const cancelled = await this.db.transaction((tx) =>
-      this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds),
+    const { offerStockChanged, updated: cancelled } = await this.db.transaction(
+      async (tx) => {
+        await this.lockOrders(tx, orderIds);
+
+        return this.runTransition(tx, CANCEL_UNPAID_ORDER, orderIds);
+      },
     );
 
-    this.emitTransitioned(CANCEL_UNPAID_ORDER, cancelled);
+    this.emitTransitioned(
+      CANCEL_UNPAID_ORDER,
+      cancelled,
+      [],
+      offerStockChanged,
+    );
 
     if (cancelled.length)
       this.logger.log(`自動取消 ${cancelled.length} 筆逾時未付款訂單`);

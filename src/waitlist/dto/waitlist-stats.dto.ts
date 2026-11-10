@@ -1,14 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsDateString } from 'class-validator';
+import { IsISO8601, IsOptional, IsRFC3339 } from 'class-validator';
 
 export class WaitlistStatsQueryDto {
   @ApiProperty({
-    description: '統計起始時間（以取號時間計）',
+    description: '統計起始時間（以取號時間計），須帶時區',
+    example: '2026-11-01T00:00:00+08:00',
     format: 'date-time',
   })
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   since: string;
+
+  @ApiPropertyOptional({
+    description: '統計結束時間（不含），須帶時區；預設為現在',
+    example: '2026-12-01T00:00:00+08:00',
+    format: 'date-time',
+  })
+  @IsOptional()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
+  until?: string;
 }
 
 export class WaitlistStatsResponseDto {

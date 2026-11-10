@@ -1,10 +1,20 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
-import { IsArray, IsOptional, IsString, IsUrl } from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsNotEmpty,
+} from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateSupplierDto {
   @ApiProperty({ example: '全國食材廣場' })
   @IsString()
+  @Transform(trim)
+  @IsNotEmpty()
   name: string;
 
   @ApiPropertyOptional()
@@ -33,4 +43,6 @@ export class CreateSupplierDto {
   ingredientIds?: string[];
 }
 
-export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {}
+export class UpdateSupplierDto extends PartialType(CreateSupplierDto, {
+  skipNullProperties: false,
+}) {}

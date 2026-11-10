@@ -1,15 +1,21 @@
 import { createHash } from 'crypto';
 
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
+import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import { invoice } from '../db/schema/invoices.js';
-import { order } from '../db/schema/orders.js';
+import { order, orderItem } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
-import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
+import {
+  InsufficientStockError,
+  type InventoryTransactionsService,
+} from '../inventory/inventory-transactions.service.js';
+import type { MenuStockService } from '../inventory/menu-stock.service.js';
+import type { PointsService } from '../points/points.service.js';
 
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import { issueOrderQrSession } from './order-qr-token.js';
@@ -17,6 +23,8 @@ import type { OrderQrService } from './order-qr.service.js';
 import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
+import { POINTS_SNAPSHOT_SET } from './points-snapshot.js';
+import type { PrepEstimateService } from './prep-estimate.service.js';
 
 const ORG_ID = 'org';
 const QR_SECRET = 'qr-secret';
@@ -72,14 +80,30 @@ const selectChain = (rows: unknown[]) => {
 const createService = ({
   applied = null,
   closedAt = null,
+  consumeError,
+  lowStock = [],
+  offerStockChanged = false,
+  openingHours = null,
   qrSecret = QR_SECRET,
+  queuedPrepMinutes = 0,
   replayed,
+  specialHours = [],
   txDuplicate,
 }: {
-  applied?: { coupon: { code: string }; discount: number } | null;
+  applied?: {
+    coupon: { code: string };
+    discount: number;
+    itemDiscounts: number[];
+  } | null;
   closedAt?: Date | null;
+  consumeError?: Error;
+  lowStock?: { id: string; name: Record<string, string> }[];
+  offerStockChanged?: boolean;
+  openingHours?: string | null;
   qrSecret?: string | null;
+  queuedPrepMinutes?: number;
   replayed?: { id: string; idempotencyFingerprint: string | null };
+  specialHours?: SpecialOpeningHours[];
   txDuplicate?: { id: string; orderStatus: string };
 } = {}) => {
   const inserted = new Map<unknown, unknown>();
@@ -113,21 +137,28 @@ const createService = ({
       },
       organization: {
         findFirst: vi.fn().mockResolvedValue({
-          amountPerPoint: '100',
           closedAt,
           currency: 'TWD',
           dineInTableCount: 12,
           id: ORG_ID,
-          openingHours: null,
+          openingHours,
           pickupCutoffMinutes: 15,
           pickupLeadMinutes: 15,
           pickupMaxAdvanceDays: 7,
-          pointsValidityYears: 1,
         }),
       },
+      organizationSpecialHours: {
+        findMany: vi.fn().mockResolvedValue(specialHours),
+      },
     },
+    select: vi.fn(() => selectChain([{ name: { 'zh-TW': '蛋糕' } }])),
     transaction: vi.fn((callback: (t: typeof tx) => unknown) => callback(tx)),
   };
+
+  const consume = consumeError
+    ? vi.fn().mockRejectedValue(consumeError)
+    : vi.fn().mockResolvedValue({ lowStock, offerStockChanged });
+  const menuStock = { refresh: vi.fn() };
 
   const couponsService = {
     getApplicableCoupon: vi
@@ -140,6 +171,10 @@ const createService = ({
   };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
+  const pointsService = {
+    estimatePoints: vi.fn().mockResolvedValue(155),
+    expectedPoints: vi.fn().mockResolvedValue(new Map([['receipt', 12]])),
+  };
 
   return {
     couponsService,
@@ -147,21 +182,40 @@ const createService = ({
     emit,
     inserted,
     orderPricingService,
+    pointsService,
     service: new OrdersService(
       db as unknown as DrizzleDB,
       couponsService as unknown as CouponsService,
-      { consume: vi.fn() } as unknown as InventoryTransactionsService,
+      { consume } as unknown as InventoryTransactionsService,
       orderPricingService as unknown as OrderPricingService,
       {
         secretOf: vi.fn().mockResolvedValue(qrSecret),
       } as unknown as OrderQrService,
       { enqueueOrder: vi.fn() } as unknown as OrderTicketService,
       eventEmitter,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      menuStock as unknown as MenuStockService,
+      {
+        prepMinutesWith: (_: unknown, ownPrepMinutes: number) =>
+          Promise.resolve(queuedPrepMinutes + ownPrepMinutes),
+      } as unknown as PrepEstimateService,
+      pointsService as unknown as PointsService,
     ),
+    consume,
+    menuStock,
     tx,
   };
 };
+
+beforeEach(() => {
+  vi.spyOn(I18nContext, 'current').mockReturnValue({
+    t: (key: string, options?: { args?: { name?: string } }) =>
+      options?.args?.name ? `${key}:${options.args.name}` : key,
+  } as unknown as I18nContext);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('OrdersService.createOrder', () => {
   beforeAll(() => {
@@ -183,7 +237,7 @@ describe('OrdersService.createOrder', () => {
           null,
           null,
         ),
-      ).rejects.toThrow('Cash is unavailable');
+      ).rejects.toThrow('cashUnavailableForMode');
       expect(db.query.organization.findFirst).not.toHaveBeenCalled();
     });
 
@@ -197,7 +251,7 @@ describe('OrdersService.createOrder', () => {
           null,
           null,
         ),
-      ).rejects.toThrow('pickupTime is unavailable');
+      ).rejects.toThrow('pickupTimeUnavailableForMode');
     });
 
     it.each([
@@ -376,6 +430,34 @@ describe('OrdersService.createOrder', () => {
       });
     });
 
+    it('早於門市備餐時間的取餐時間會被擋', async () => {
+      const { db, service } = createService();
+
+      await expect(
+        service.createOrder('slug', pickupDto(0), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('製作中的訂單把最早可取餐時間往後推', async () => {
+      const { db, service } = createService({ queuedPrepMinutes: 20 });
+
+      await expect(
+        service.createOrder('slug', pickupDto(30), null, null),
+      ).rejects.toThrow('common.orders.pickupTooSoon');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('取餐時間留足佇列與本單製作時間可以下單', async () => {
+      const { inserted, service } = createService({ queuedPrepMinutes: 20 });
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
     it('品項備餐時間比門市短時，仍以門市備餐時間為準', async () => {
       const { inserted, service } = createService();
 
@@ -384,6 +466,80 @@ describe('OrdersService.createOrder', () => {
       expect(inserted.get(order)).toMatchObject({
         pickupTime: new Date(pickupAt(15)),
       });
+    });
+
+    it('特殊營業日整天公休時拒絕自取', async () => {
+      const { db, service } = createService({
+        specialHours: [
+          {
+            openingHours: null,
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await expect(
+        service.createOrder('slug', pickupDto(45), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('特殊營業日的時段內可以自取，即使每週營業時間沒開', async () => {
+      const { inserted, service } = createService({
+        openingHours: 'Mo 09:00-18:00',
+        specialHours: [
+          {
+            openingHours: 'We 10:00-18:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await service.createOrder('slug', pickupDto(45), null, null);
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(45)),
+      });
+    });
+
+    it('前一天特殊營業日的跨夜時段延到今天凌晨，可以在凌晨自取', async () => {
+      const { inserted, service } = createService({
+        openingHours: 'Mo 09:00-18:00',
+        specialHours: [
+          {
+            openingHours: 'We 20:00-02:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await service.createOrder('slug', pickupDto(15 * 60), null, null);
+      await expect(
+        service.createOrder('slug', pickupDto(16 * 60 + 30), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
+
+      expect(inserted.get(order)).toMatchObject({
+        pickupTime: new Date(pickupAt(15 * 60)),
+      });
+    });
+
+    it('取餐時間在特殊營業日的時段外會被擋', async () => {
+      const { service } = createService({
+        specialHours: [
+          {
+            openingHours: 'We 14:00-18:00',
+            validFrom: '2026-10-28',
+            validThrough: '2026-10-28',
+          },
+        ],
+      });
+
+      await expect(
+        service.createOrder('slug', pickupDto(45), null, null),
+      ).rejects.toThrow('common.orders.pickupOutsideOpeningHours');
     });
   });
 
@@ -493,9 +649,102 @@ describe('OrdersService.createOrder', () => {
       expect(emit).toHaveBeenCalledOnce();
     });
 
+    it('回傳的收據帶上這張單付款後可得的點數', async () => {
+      const { pointsService, service } = createService();
+
+      await expect(
+        service.createOrder(
+          'slug',
+          baseDto,
+          'member',
+          null,
+          sessionOf('counter'),
+        ),
+      ).resolves.toMatchObject({ expectedPoints: 12 });
+      expect(pointsService.expectedPoints).toHaveBeenCalledWith(['receipt']);
+    });
+
+    it('扣庫存後跌破門檻的食材在交易完成後廣播', async () => {
+      const lowStock = [{ id: 'milk', name: { 'zh-TW': '鮮奶' } }];
+      const { emit, service } = createService({ lowStock });
+
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
+        organizationId: ORG_ID,
+        ingredients: lowStock,
+      });
+    });
+
+    it('建單時檢查剩餘數量，交易完成後同步售完狀態', async () => {
+      const { consume, menuStock, service } = createService({
+        offerStockChanged: true,
+      });
+
+      await service.createOrder(
+        'slug',
+        baseDto,
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(consume).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.anything(),
+        {
+          enforceStock: true,
+        },
+      );
+      expect(menuStock.refresh).toHaveBeenCalledWith(ORG_ID, true);
+    });
+
+    it('剩餘數量不足時回傳品項名稱，不同步售完狀態', async () => {
+      const { menuStock, service } = createService({
+        consumeError: new InsufficientStockError({ menuItemId: 'cake' }),
+      });
+
+      await expect(
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'menuItemInsufficientStock',
+          message: 'common.orders.menuItemInsufficientStock:蛋糕',
+        },
+      });
+      expect(menuStock.refresh).not.toHaveBeenCalled();
+    });
+
+    it('選項的剩餘數量不足時回傳選項名稱', async () => {
+      const { service } = createService({
+        consumeError: new InsufficientStockError({ modifierId: 'cheese' }),
+      });
+
+      await expect(
+        service.createOrder('slug', baseDto, null, null, sessionOf('counter')),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'modifierInsufficientStock',
+          message: 'common.orders.modifierInsufficientStock:蛋糕',
+        },
+      });
+    });
+
     it('折扣寫入訂單並核銷優惠券', async () => {
       const { couponsService, inserted, service } = createService({
-        applied: { coupon: { code: 'SAVE30' }, discount: 30 },
+        applied: {
+          coupon: { code: 'SAVE30' },
+          discount: 30,
+          itemDiscounts: [30, 0],
+        },
       });
 
       await service.createOrder(
@@ -519,13 +768,21 @@ describe('OrdersService.createOrder', () => {
         orderStatus: 'OrderPaymentDue',
         subtotal: '156.00',
       });
+      expect(inserted.get(orderItem)).toMatchObject([
+        { discount: '30.00', id: 'i1' },
+        { discount: '0.00', id: 'i2' },
+      ]);
       expect(couponsService.redeem).toHaveBeenCalledOnce();
       expect(inserted.has(invoice)).toBe(true);
     });
 
     it('全額折抵直接成立且不開發票', async () => {
       const { inserted, service } = createService({
-        applied: { coupon: { code: 'FREE' }, discount: 156 },
+        applied: {
+          coupon: { code: 'FREE' },
+          discount: 156,
+          itemDiscounts: [120, 36],
+        },
       });
 
       await service.createOrder(
@@ -537,7 +794,7 @@ describe('OrdersService.createOrder', () => {
       );
 
       expect(inserted.get(order)).toMatchObject({
-        amountPerPoint: '100',
+        ...POINTS_SNAPSHOT_SET,
         orderStatus: 'OrderProcessing',
         paymentDate: expect.any(Date),
       });
@@ -555,5 +812,203 @@ describe('OrdersService.createOrder', () => {
       ).rejects.toThrow('common.orders.orderTotalTooLarge');
       expect(db.transaction).not.toHaveBeenCalled();
     });
+  });
+
+  describe('發票買受人', () => {
+    const stray = {
+      carrierNum: '/ABC1234',
+      carrierType: 'mobile',
+      customerAddr: '台北市信義區',
+      customerIdentifier: '12345678',
+      customerName: '比如股份有限公司',
+      donateCode: '168',
+      email: 'amy@example.com',
+    } as const;
+
+    const insertedInvoiceOf = async (
+      type: 'company' | 'donate' | 'personal',
+    ) => {
+      const { inserted, service } = createService();
+
+      await service.createOrder(
+        'slug',
+        dtoOf({ invoice: { ...stray, type } }),
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      return inserted.get(invoice);
+    };
+
+    it('個人發票只留載具，丟掉公司抬頭與捐贈碼', async () => {
+      expect(await insertedInvoiceOf('personal')).toMatchObject({
+        carrierNum: '/ABC1234',
+        carrierType: 'mobile',
+        customerAddr: null,
+        customerIdentifier: null,
+        customerName: null,
+        donateCode: null,
+        email: 'amy@example.com',
+        type: 'personal',
+      });
+    });
+
+    it('捐贈發票只留捐贈碼', async () => {
+      expect(await insertedInvoiceOf('donate')).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+        customerAddr: null,
+        customerIdentifier: null,
+        customerName: null,
+        donateCode: '168',
+        type: 'donate',
+      });
+    });
+
+    it('公司發票只留統編、抬頭與地址', async () => {
+      expect(await insertedInvoiceOf('company')).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+        customerAddr: '台北市信義區',
+        customerIdentifier: '12345678',
+        customerName: '比如股份有限公司',
+        donateCode: null,
+        type: 'company',
+      });
+    });
+
+    it('個人發票沒選載具時不留載具號碼', async () => {
+      const { inserted, service } = createService();
+
+      await service.createOrder(
+        'slug',
+        dtoOf({ invoice: { carrierNum: '/ABC1234', type: 'personal' } }),
+        null,
+        null,
+        sessionOf('counter'),
+      );
+
+      expect(inserted.get(invoice)).toMatchObject({
+        carrierNum: null,
+        carrierType: null,
+      });
+    });
+  });
+});
+
+describe('OrdersService.estimatePoints', () => {
+  const dto = { items: [], mode: 'pickup' as const };
+
+  it('沒帶優惠碼時以品項小計估點', async () => {
+    const { couponsService, pointsService, service } = createService();
+
+    await expect(service.estimatePoints('slug', dto, null)).resolves.toEqual({
+      expectedPoints: 155,
+    });
+    expect(couponsService.getApplicableCoupon).not.toHaveBeenCalled();
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 0);
+  });
+
+  it('部分品項優惠碼以折扣後金額估點', async () => {
+    const { couponsService, pointsService, service } = createService({
+      applied: {
+        coupon: { code: 'LATTE' },
+        discount: 36,
+        itemDiscounts: [0, 36],
+      },
+    });
+
+    await service.estimatePoints(
+      'slug',
+      { ...dto, discountCode: 'latte' },
+      'user',
+    );
+
+    expect(couponsService.getApplicableCoupon).toHaveBeenCalledWith(
+      ORG_ID,
+      'latte',
+      resolvedItems,
+      'user',
+    );
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 36);
+  });
+
+  it('點數未啟用時回 null', async () => {
+    const { pointsService, service } = createService();
+    pointsService.estimatePoints.mockResolvedValue(null);
+
+    await expect(service.estimatePoints('slug', dto, null)).resolves.toEqual({
+      expectedPoints: null,
+    });
+  });
+
+  it('優惠碼無效時當作沒折扣估點', async () => {
+    const { couponsService, pointsService, service } = createService();
+    couponsService.getApplicableCoupon.mockRejectedValue(
+      new BadRequestException('notFound'),
+    );
+
+    await expect(
+      service.estimatePoints('slug', { ...dto, discountCode: 'nope' }, null),
+    ).resolves.toEqual({ expectedPoints: 155 });
+    expect(pointsService.estimatePoints).toHaveBeenCalledWith(155.5, 0);
+  });
+
+  it('優惠碼檢查出其他錯誤時照樣拋出', async () => {
+    const { couponsService, pointsService, service } = createService();
+    couponsService.getApplicableCoupon.mockRejectedValue(new Error('db'));
+
+    await expect(
+      service.estimatePoints('slug', { ...dto, discountCode: 'nope' }, null),
+    ).rejects.toThrow('db');
+    expect(pointsService.estimatePoints).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrdersService.canReadOrderById', () => {
+  const serviceWith = (role: string | null) => {
+    const { db, service } = createService();
+    const findMember = vi.fn().mockResolvedValue(role && { role });
+    Object.assign(db.query, {
+      member: { findFirst: findMember },
+      order: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'o1',
+          sellerId: ORG_ID,
+          userId: 'customer',
+        }),
+      },
+    });
+    return { findMember, service };
+  };
+
+  it('沒有成員資格的平台管理員可以讀', async () => {
+    const { findMember, service } = serviceWith(null);
+
+    await expect(
+      service.canReadOrderById('o1', { id: 'platform', role: 'admin' }, null),
+    ).resolves.toBe(true);
+    expect(findMember).not.toHaveBeenCalled();
+  });
+
+  it('沒有成員資格的一般使用者不能讀', async () => {
+    await expect(
+      serviceWith(null).service.canReadOrderById(
+        'o1',
+        { id: 'stranger', role: 'user' },
+        null,
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it('門市成員可以讀', async () => {
+    await expect(
+      serviceWith('member').service.canReadOrderById(
+        'o1',
+        { id: 'staff', role: 'user' },
+        null,
+      ),
+    ).resolves.toBe(true);
   });
 });

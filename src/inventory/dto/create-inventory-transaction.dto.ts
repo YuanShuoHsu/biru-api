@@ -1,12 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsNumberString, IsOptional, IsString } from 'class-validator';
+import { IsNumberString, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateInventoryTransactionDto {
   @ApiProperty({
     example: '500.000',
     description: '清點後的現有數量；異動量由系統與帳上數量相減求得',
   })
+  @Matches(/^\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
   inventoryLevel: string;
 

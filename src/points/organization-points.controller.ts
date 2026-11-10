@@ -1,10 +1,24 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
+import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
+import type { AuthRequest } from '../menus/guards/roles.guard.js';
 
+import { AdjustPointsDto } from './dto/adjust-points.dto.js';
 import { OrganizationPointTransactionQueryDto } from './dto/organization-point-transaction-query.dto.js';
-import { OrganizationPointTransactionListResponseDto } from './dto/points-response.dto.js';
+import {
+  OrganizationPointTransactionDto,
+  OrganizationPointTransactionListResponseDto,
+  PointAdjustmentLimitDto,
+} from './dto/points-response.dto.js';
 import { PointsService } from './points.service.js';
 
 @ApiTags('points')
@@ -21,5 +35,40 @@ export class OrganizationPointsController {
     @Query() query: OrganizationPointTransactionQueryDto,
   ): Promise<OrganizationPointTransactionListResponseDto> {
     return this.pointsService.findAllForOrganization(organizationSlug, query);
+  }
+
+  @Get('adjustment-limit')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @ApiOperation({
+    summary: '查詢目前使用者在本店對同一會員每日可補點或扣點的合計上限',
+  })
+  @ApiParam({ name: 'organizationSlug', type: String })
+  @ApiOkResponse({ type: PointAdjustmentLimitDto })
+  getAdjustmentLimit(
+    @Req() req: AuthRequest,
+  ): Promise<PointAdjustmentLimitDto> {
+    return this.pointsService.getAdjustmentLimit(req.memberRole!);
+  }
+
+  @Post('adjustments')
+  @Roles({ organization: ['update'] }, 'organizationSlug')
+  @Audit('pointTransaction', { response: true })
+  @ApiOperation({
+    summary:
+      '為本店顧客（在本店有已付款訂單或點數明細）手動補點或扣點，其他 email 與不存在的一樣回 404；扣點只扣本店發出且未過期的剩餘點數；同一會員在本店當日合計超過 NT$3,000 換算點數只有 owner 能做',
+  })
+  @ApiCreatedResponse({ type: OrganizationPointTransactionDto })
+  adjust(
+    @Param('organizationSlug') organizationSlug: string,
+    @Body() dto: AdjustPointsDto,
+    @Session() session: UserSession,
+    @Req() req: AuthRequest,
+  ): Promise<OrganizationPointTransactionDto> {
+    return this.pointsService.adjustForOrganization(
+      organizationSlug,
+      dto,
+      session.user.id,
+      req.memberRole!,
+    );
   }
 }

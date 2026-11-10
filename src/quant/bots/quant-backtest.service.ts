@@ -1,8 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-
-import { I18nContext, I18nService } from 'nestjs-i18n';
-
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
+import { Injectable } from '@nestjs/common';
 
 import {
   type BacktestDto,
@@ -23,8 +19,10 @@ import {
   runBacktest,
 } from '../engine/backtest.js';
 import { botSymbolSpec, toRiskTiers } from '../engine/symbol-spec.js';
+import { isConditionComplete } from '../engine/strategies/indicator-conditions.js';
 import { QuantMarketService } from '../market/quant-market.service.js';
 import { PionexSymbolsService } from '../pionex/pionex-symbols.service.js';
+import { badRequestError } from '../quant-errors.js';
 
 const FUNDING_PAGE_SIZE = 500;
 
@@ -53,7 +51,6 @@ export const toBacktestResultDto = (
 @Injectable()
 export class QuantBacktestService {
   constructor(
-    private readonly i18n: I18nService<I18nTranslations>,
     private readonly market: QuantMarketService,
     private readonly symbols: PionexSymbolsService,
   ) {}
@@ -62,6 +59,15 @@ export class QuantBacktestService {
     type: Exclude<QuantBotType, 'webhook'>,
     { candleCount, config, interval, investment, symbol }: BacktestDto,
   ): Promise<BacktestResultDto> {
+    if (
+      type === 'indicator' &&
+      ![
+        ...(config as IndicatorConfigDto).entry,
+        ...(config as IndicatorConfigDto).exit,
+      ].every(isConditionComplete)
+    )
+      throw badRequestError('indicatorConditionIncomplete');
+
     const spec = await botSymbolSpec(this.symbols, { config, symbol, type });
     const isFutures =
       isFuturesBot({ config, type }) ||
@@ -71,11 +77,7 @@ export class QuantBacktestService {
       (type === 'grid' || type === 'futures_grid') &&
       range.top <= range.bottom
     )
-      throw new BadRequestException(
-        this.i18n.t('common.quant.gridRangeInvalid', {
-          lang: I18nContext.current()?.lang,
-        }),
-      );
+      throw badRequestError('gridRangeInvalid');
 
     // 指標策略的訊號只在自己的週期收盤時判斷，撮合也用同一個週期
     const candleInterval =

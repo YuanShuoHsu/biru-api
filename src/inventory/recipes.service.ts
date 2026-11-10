@@ -1,10 +1,4 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import {
@@ -13,22 +7,37 @@ import {
   count,
   desc,
   eq,
+  exists,
   ilike,
   inArray,
+  isNotNull,
+  isNull,
   max,
   sql,
   type Column,
   type SQL,
 } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
+import { I18nContext } from 'nestjs-i18n';
 
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
+import { COMPATIBLE_UNIT_CODES } from '../common/constants/units.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
+import {
+  isCheckViolation,
+  isForeignKeyViolation,
+  isUniqueViolation,
+  pgConstraint,
+} from '../common/utils/pg-errors.js';
+import { reorderSortOrders } from '../common/utils/sort-order.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import {
   ingredient,
@@ -38,9 +47,16 @@ import {
   type Recipe,
   type RecipeIngredient,
 } from '../db/schema/inventory.js';
-import { menu, menuItem, offer } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../db/schema/menus.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
+import { localize } from '../menus/menus-public.service.js';
 
 import {
   CreateRecipeDto,
@@ -64,7 +80,12 @@ import {
   RecipeIngredientResponseDto,
   RecipeResponseDto,
 } from './dto/recipe-response.dto.js';
-import { unitPriceOf, unitPriceSql } from './pricing.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './inventory-errors.js';
+import { unitPriceSql } from './pricing.js';
 import { bindMenuItemByRecipeName } from './recipe-menu-item-binding.js';
 
 const totalCostOf = (
@@ -76,21 +97,26 @@ const totalCostOf = (
 
 const PURCHASING_FIELDS: string[] = ['unitPrice', 'cost'];
 
+const rethrowBindingConflict = (error: unknown): never => {
+  const constraint = pgConstraint(error);
+  if (isUniqueViolation(error) && constraint === 'recipe_menuItemId_uidx')
+    throw conflictError('recipeMenuItemTaken');
+  if (isUniqueViolation(error) && constraint === 'recipe_modifierId_uidx')
+    throw conflictError('recipeModifierTaken');
+  if (
+    isCheckViolation(error) &&
+    constraint === 'recipe_menuItemId_modifierId_check'
+  )
+    throw conflictError('recipeMenuItemAndModifier');
+  throw error;
+};
+
 @Injectable()
 export class RecipesService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
-
-  private t(key: keyof I18nTranslations['common']['inventory']): string {
-    return this.i18n.t(`common.inventory.${key}`, {
-      lang: I18nContext.current()?.lang,
-    });
-  }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findAll(
-    organizationSlug: string,
+    organizationId: string,
     query: RecipePaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: RecipeResponseDto[]; total: number }> {
@@ -104,46 +130,60 @@ export class RecipesService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
+      hasMenuItem,
     } = query;
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
 
     const fieldMap: Record<string, Column | SQL> = {
-      name: sql`${recipe.name}::text`,
       recipeYield: recipe.recipeYield,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
     };
 
+    const localizedName = localizedTextSql(
+      recipe.name,
+      toLanguage(I18nContext.current()?.lang),
+    );
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy])]
-      : [asc(sql`${recipe.name}::text`)];
+      ? [
+          dir(sortBy === 'name' ? localizedName : fieldMap[sortBy]),
+          asc(recipe.id),
+        ]
+      : [asc(localizedName), asc(recipe.id)];
 
     const where = and(
       eq(recipe.organizationId, organizationId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      hasMenuItem === undefined
+        ? undefined
+        : hasMenuItem
+          ? isNotNull(recipe.menuItemId)
+          : and(isNull(recipe.menuItemId), isNull(recipe.modifierId)),
+      filterField === 'name' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            recipe.name,
             filterOperator,
             filterValue,
-            fieldMap,
-            RECIPE_STRING_FILTER_FIELDS,
-            RECIPE_DATE_FILTER_FIELDS,
-            [],
-            RECIPE_NUMBER_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              RECIPE_STRING_FILTER_FIELDS,
+              RECIPE_DATE_FILTER_FIELDS,
+              [],
+              RECIPE_NUMBER_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${recipe.name}::text`, `%${value}%`),
-          ilike(localTimeText(recipe.createdAt), `%${value}%`),
-          ilike(localTimeText(recipe.updatedAt), `%${value}%`),
+          buildLocalizedTextFilterCondition(recipe.name, 'contains', value),
+          ilike(localTimeText(recipe.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(recipe.updatedAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -173,7 +213,9 @@ export class RecipesService {
       materials,
     );
 
-    return { ...response, recipeIngredients: materials.get(found.id) ?? [] };
+    return Object.assign(response, {
+      recipeIngredients: materials.get(found.id) ?? [],
+    });
   }
 
   async findOne(
@@ -183,7 +225,7 @@ export class RecipesService {
     const found = await this.db.query.recipe.findFirst({
       where: eq(recipe.id, recipeId),
     });
-    if (!found) throw new NotFoundException('Recipe not found');
+    if (!found) throw notFoundError('recipeNotFound');
 
     return this.detailOf(found, canReadPurchasing);
   }
@@ -199,31 +241,50 @@ export class RecipesService {
     return found ? this.detailOf(found, canReadPurchasing) : null;
   }
 
+  async findOneByModifier(
+    modifierId: string,
+    canReadPurchasing = true,
+  ): Promise<RecipeResponseDto | null> {
+    const found = await this.db.query.recipe.findFirst({
+      where: eq(recipe.modifierId, modifierId),
+    });
+
+    return found ? this.detailOf(found, canReadPurchasing) : null;
+  }
+
   async create(
-    organizationSlug: string,
-    dto: CreateRecipeDto,
+    organizationId: string,
+    { menuItemId, modifierId, ...dto }: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
-    await this.assertMenuItemInOrganization(organizationId, dto.menuItemId);
+    if (menuItemId && modifierId)
+      throw badRequestError('recipeMenuItemAndModifier');
+    if (modifierId && (dto.recipeYield ?? 1) !== 1)
+      throw badRequestError('modifierRecipeYieldNotOne');
+    await this.assertMenuItemInOrganization(organizationId, menuItemId);
+    await this.assertModifierInOrganization(organizationId, modifierId);
 
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(recipe)
-        .values({ ...dto, id: randomUUID(), organizationId })
-        .returning();
+        .values({
+          ...dto,
+          id: randomUUID(),
+          menuItemId,
+          modifierId,
+          organizationId,
+        })
+        .returning()
+        .catch(rethrowBindingConflict);
 
-      if (dto.menuItemId !== undefined) return row;
+      if (menuItemId !== undefined || modifierId) return row;
 
-      const menuItemId = await bindMenuItemByRecipeName(tx, {
+      const boundMenuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
         organizationId,
         recipeId: row.id,
       });
 
-      return { ...row, menuItemId };
+      return { ...row, menuItemId: boundMenuItemId };
     });
 
     const [response] = await this.toResponse([created], true);
@@ -235,35 +296,60 @@ export class RecipesService {
     recipeId: string,
     dto: UpdateRecipeDto,
   ): Promise<RecipeResponseDto> {
-    if (dto.menuItemId) {
-      const [current] = await this.db
-        .select({ organizationId: recipe.organizationId })
-        .from(recipe)
-        .where(eq(recipe.id, recipeId));
-      if (!current) throw new NotFoundException('Recipe not found');
-      await this.assertMenuItemInOrganization(
-        current.organizationId,
-        dto.menuItemId,
-      );
-    }
+    await this.assertSourceRecipeUpdate(recipeId, dto);
+
+    const [current] = await this.db
+      .select({
+        menuItemId: recipe.menuItemId,
+        modifierId: recipe.modifierId,
+        organizationId: recipe.organizationId,
+        recipeYield: recipe.recipeYield,
+      })
+      .from(recipe)
+      .where(eq(recipe.id, recipeId));
+    if (!current) throw notFoundError('recipeNotFound');
+
+    const modifierId =
+      dto.modifierId === undefined ? current.modifierId : dto.modifierId;
+    const menuItemId =
+      dto.menuItemId === undefined ? current.menuItemId : dto.menuItemId;
+    if (menuItemId && modifierId)
+      throw badRequestError('recipeMenuItemAndModifier');
+    if (modifierId && (dto.recipeYield ?? current.recipeYield) !== 1)
+      throw badRequestError('modifierRecipeYieldNotOne');
+    await this.assertMenuItemInOrganization(
+      current.organizationId,
+      dto.menuItemId,
+    );
+    await this.assertModifierInOrganization(
+      current.organizationId,
+      dto.modifierId,
+    );
 
     const updated = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .update(recipe)
         .set(dto)
         .where(eq(recipe.id, recipeId))
-        .returning();
-      if (!row) throw new NotFoundException('Recipe not found');
+        .returning()
+        .catch(rethrowBindingConflict);
+      if (!row) throw notFoundError('recipeNotFound');
 
-      if (dto.menuItemId !== undefined || row.menuItemId) return row;
+      if (
+        dto.menuItemId !== undefined ||
+        dto.modifierId !== undefined ||
+        row.menuItemId ||
+        row.modifierId
+      )
+        return row;
 
-      const menuItemId = await bindMenuItemByRecipeName(tx, {
+      const boundMenuItemId = await bindMenuItemByRecipeName(tx, {
         name: row.name,
         organizationId: row.organizationId,
         recipeId: row.id,
       });
 
-      return { ...row, menuItemId };
+      return { ...row, menuItemId: boundMenuItemId };
     });
 
     const [response] = await this.toResponse([updated], true);
@@ -275,8 +361,31 @@ export class RecipesService {
     const deleted = await this.db
       .delete(recipe)
       .where(eq(recipe.id, recipeId))
-      .returning({ id: recipe.id });
-    if (!deleted.length) throw new NotFoundException('Recipe not found');
+      .returning({ id: recipe.id })
+      .catch(async (error: unknown) => {
+        if (isForeignKeyViolation(error))
+          throw await this.recipeInUseAsSourceError(recipeId);
+        throw error;
+      });
+    if (!deleted.length) throw notFoundError('recipeNotFound');
+  }
+
+  private async recipeInUseAsSourceError(recipeId: string) {
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const ingredients = await this.db
+      .select({ id: ingredient.id, name: ingredient.name })
+      .from(ingredient)
+      .where(eq(ingredient.recipeId, recipeId))
+      .orderBy(asc(ingredient.sortOrder), asc(ingredient.id));
+    const names = ingredients.map(({ name }) => localize(name, lang) ?? '');
+
+    return conflictError(
+      'recipeInUseAsSource',
+      { ingredients },
+      {
+        names: new Intl.ListFormat(lang, { type: 'conjunction' }).format(names),
+      },
+    );
   }
 
   async findAllIngredients(
@@ -297,10 +406,9 @@ export class RecipesService {
     } = query;
 
     if (!canReadPurchasing && sortBy && PURCHASING_FIELDS.includes(sortBy))
-      throw new ForbiddenException();
+      throw accessForbiddenError();
 
     const fieldMap: Record<string, Column | SQL> = {
-      ingredientName: sql`${ingredient.name}::text`,
       requiredQuantity: recipeIngredient.requiredQuantity,
       createdAt: recipeIngredient.createdAt,
       updatedAt: recipeIngredient.updatedAt,
@@ -310,39 +418,72 @@ export class RecipesService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy])]
-      : [asc(recipeIngredient.sortOrder), asc(recipeIngredient.createdAt)];
+      ? [
+          dir(
+            sortBy === 'ingredientName'
+              ? localizedTextSql(
+                  ingredient.name,
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : fieldMap[sortBy],
+          ),
+          asc(recipeIngredient.id),
+        ]
+      : [
+          asc(recipeIngredient.sortOrder),
+          asc(recipeIngredient.createdAt),
+          asc(recipeIngredient.id),
+        ];
 
     const where = and(
       eq(recipeIngredient.recipeId, recipeId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'ingredientName' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            ingredient.name,
             filterOperator,
             filterValue,
-            fieldMap,
-            RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
-            RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
-            undefined,
-            RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              fieldMap,
+              RECIPE_INGREDIENT_STRING_FILTER_FIELDS,
+              RECIPE_INGREDIENT_DATE_FILTER_FIELDS,
+              undefined,
+              RECIPE_INGREDIENT_NUMBER_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         fieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(sql`${ingredient.name}::text`, `%${value}%`),
-          ilike(sql`${recipeIngredient.requiredQuantity}::text`, `%${value}%`),
-          ilike(localTimeText(recipeIngredient.createdAt), `%${value}%`),
-          ilike(localTimeText(recipeIngredient.updatedAt), `%${value}%`),
+          buildLocalizedTextFilterCondition(ingredient.name, 'contains', value),
+          ilike(
+            sql`${recipeIngredient.requiredQuantity}::text`,
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(recipeIngredient.createdAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(recipeIngredient.updatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select({ material: recipeIngredient, ingredient })
+        .select({
+          material: recipeIngredient,
+          ingredient,
+          unitPrice: unitPriceSql,
+        })
         .from(recipeIngredient)
         .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
         .where(where)
@@ -375,7 +516,88 @@ export class RecipesService {
           eq(menu.organizationId, organizationId),
         ),
       );
-    if (!found) throw new NotFoundException('Menu item not found');
+    if (!found) throw menuNotFoundError('menuItemNotFound');
+  }
+
+  private async assertModifierInOrganization(
+    organizationId: string,
+    modifierId: string | null | undefined,
+  ): Promise<void> {
+    if (!modifierId) return;
+
+    const [found] = await this.db
+      .select({ id: modifier.id })
+      .from(modifier)
+      .innerJoin(modifierGroup, eq(modifierGroup.id, modifier.modifierGroupId))
+      .innerJoin(menu, eq(menu.id, modifierGroup.menuId))
+      .where(
+        and(
+          eq(modifier.id, modifierId),
+          eq(menu.organizationId, organizationId),
+        ),
+      );
+    if (!found) throw menuNotFoundError('modifierNotFound');
+  }
+
+  private async assertSourceRecipeUpdate(
+    recipeId: string,
+    {
+      menuItemId,
+      modifierId,
+      recipeYieldQuantity,
+      recipeYieldUnitCode,
+    }: UpdateRecipeDto,
+  ): Promise<void> {
+    if (
+      !menuItemId &&
+      !modifierId &&
+      recipeYieldQuantity === undefined &&
+      recipeYieldUnitCode === undefined
+    )
+      return;
+
+    const sourced = await this.db
+      .select({ unitCode: ingredient.unitCode })
+      .from(ingredient)
+      .where(eq(ingredient.recipeId, recipeId));
+    if (!sourced.length) return;
+
+    if (menuItemId) throw badRequestError('sourceRecipeHasMenuItem');
+    if (modifierId) throw badRequestError('sourceRecipeHasModifier');
+    if (recipeYieldQuantity === null || recipeYieldUnitCode === null)
+      throw badRequestError('sourceRecipeYieldMissing');
+    if (
+      recipeYieldUnitCode &&
+      sourced.some(
+        ({ unitCode }) =>
+          !COMPATIBLE_UNIT_CODES[unitCode].includes(recipeYieldUnitCode),
+      )
+    )
+      throw badRequestError('sourceRecipeUnitIncompatible');
+  }
+
+  private async assertMaterialNotSourced(
+    recipeId: string,
+    ingredientId: string | undefined,
+  ): Promise<void> {
+    if (!ingredientId) return;
+
+    const [nested] = await this.db
+      .select({ id: ingredient.id })
+      .from(ingredient)
+      .where(
+        and(
+          eq(ingredient.id, ingredientId),
+          isNotNull(ingredient.recipeId),
+          exists(
+            this.db
+              .select({ id: ingredient.id })
+              .from(ingredient)
+              .where(eq(ingredient.recipeId, recipeId)),
+          ),
+        ),
+      );
+    if (nested) throw badRequestError('sourceRecipeNested');
   }
 
   private async assertIngredientInRecipeOrganization(
@@ -389,7 +611,7 @@ export class RecipesService {
       .from(ingredient)
       .innerJoin(recipe, eq(recipe.organizationId, ingredient.organizationId))
       .where(and(eq(ingredient.id, ingredientId), eq(recipe.id, recipeId)));
-    if (!found) throw new NotFoundException('Ingredient not found');
+    if (!found) throw notFoundError('ingredientNotFound');
   }
 
   // 同一食材重複成兩列時，consume() 會依每一列各扣一次庫存
@@ -411,7 +633,7 @@ export class RecipesService {
       );
 
     if (duplicates.some(({ id }) => id !== exceptId)) {
-      throw new ConflictException(this.t('recipeIngredientExists'));
+      throw conflictError('recipeIngredientExists');
     }
   }
 
@@ -419,17 +641,18 @@ export class RecipesService {
     try {
       return await write();
     } catch (error) {
-      if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-        throw new ConflictException(this.t('recipeIngredientExists'));
+      if (isUniqueViolation(error))
+        throw conflictError('recipeIngredientExists');
       throw error;
     }
   }
 
   async createIngredient(
     recipeId: string,
-    dto: CreateRecipeIngredientDto,
+    { sortOrder, ...dto }: CreateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
+    await this.assertMaterialNotSourced(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(recipeId, dto.ingredientId);
 
     const [{ maxSortOrder }] = await this.db
@@ -444,7 +667,7 @@ export class RecipesService {
           ...dto,
           id: randomUUID(),
           recipeId,
-          sortOrder: dto.sortOrder ?? (maxSortOrder ?? -1) + 1,
+          sortOrder: sortOrder ?? (maxSortOrder ?? -1) + 1,
         })
         .returning(),
     );
@@ -458,6 +681,7 @@ export class RecipesService {
     dto: UpdateRecipeIngredientDto,
   ): Promise<RecipeIngredientResponseDto> {
     await this.assertIngredientInRecipeOrganization(recipeId, dto.ingredientId);
+    await this.assertMaterialNotSourced(recipeId, dto.ingredientId);
     await this.assertIngredientNotUsed(
       recipeId,
       dto.ingredientId,
@@ -476,7 +700,7 @@ export class RecipesService {
         )
         .returning(),
     );
-    if (!updated) throw new NotFoundException('Recipe ingredient not found');
+    if (!updated) throw notFoundError('recipeIngredientNotFound');
 
     return this.toMaterial(updated.id);
   }
@@ -494,8 +718,7 @@ export class RecipesService {
         ),
       )
       .returning({ id: recipeIngredient.id });
-    if (!deleted.length)
-      throw new NotFoundException('Recipe ingredient not found');
+    if (!deleted.length) throw notFoundError('recipeIngredientNotFound');
   }
 
   async removeIngredients(recipeId: string, ids: string[]): Promise<void> {
@@ -511,30 +734,18 @@ export class RecipesService {
             ),
           )
           .returning({ id: recipeIngredient.id });
-        if (!deleted.length)
-          throw new NotFoundException('Recipe ingredient not found');
+        if (!deleted.length) throw notFoundError('recipeIngredientNotFound');
       }
     });
   }
 
-  async reorderIngredients(
-    recipeId: string,
-    ids: string[],
-    offset: number,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      for (const [i, id] of ids.entries()) {
-        await tx
-          .update(recipeIngredient)
-          .set({ sortOrder: offset + i })
-          .where(
-            and(
-              eq(recipeIngredient.id, id),
-              eq(recipeIngredient.recipeId, recipeId),
-            ),
-          );
-      }
-    });
+  async reorderIngredients(recipeId: string, ids: string[]): Promise<void> {
+    await reorderSortOrders(
+      this.db,
+      recipeIngredient,
+      ids,
+      eq(recipeIngredient.recipeId, recipeId),
+    );
   }
 
   private async toMaterial(
@@ -549,7 +760,7 @@ export class RecipesService {
     const material = materials
       .get(row.recipeId)
       ?.find(({ id }) => id === recipeIngredientId);
-    if (!material) throw new NotFoundException('Recipe ingredient not found');
+    if (!material) throw notFoundError('recipeIngredientNotFound');
 
     return material;
   }
@@ -607,7 +818,11 @@ export class RecipesService {
     if (!recipeIds.length) return new Map();
 
     const rows = await this.db
-      .select({ material: recipeIngredient, ingredient })
+      .select({
+        material: recipeIngredient,
+        ingredient,
+        unitPrice: unitPriceSql,
+      })
       .from(recipeIngredient)
       .innerJoin(ingredient, eq(recipeIngredient.ingredientId, ingredient.id))
       .where(inArray(recipeIngredient.recipeId, recipeIds))
@@ -630,12 +845,14 @@ export class RecipesService {
   }
 
   private priced(
-    rows: { material: RecipeIngredient; ingredient: Ingredient }[],
+    rows: {
+      material: RecipeIngredient;
+      ingredient: Ingredient;
+      unitPrice: number | null;
+    }[],
     canReadPurchasing: boolean,
   ): RecipeIngredientResponseDto[] {
-    return rows.map(({ material, ingredient: source }) => {
-      const unitPrice = unitPriceOf(source);
-
+    return rows.map(({ material, ingredient: source, unitPrice }) => {
       return {
         ...material,
         ...(canReadPurchasing && {

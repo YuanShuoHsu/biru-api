@@ -1632,6 +1632,265 @@
       "when": 1792759330862,
       "tag": "0232_cash_drawer",
       "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1792772115460,
+      "tag": "0233_point_adjustments",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1792780150731,
+      "tag": "0234_banner_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1792830121212,
+      "tag": "0235_member_showcase",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1793079246942,
+      "tag": "0236_user_coupon_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1793098989729,
+      "tag": "0237_member_joined_as_platform_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1793117389296,
+      "tag": "0238_remove_cash_drawer",
+      "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1793122763582,
+      "tag": "0239_offer_auto_sold_out",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1793129106825,
+      "tag": "0240_point_setting",
+      "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1793165292738,
+      "tag": "0241_organization_special_hours",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1793171156406,
+      "tag": "0242_store_photos",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1793173280934,
+      "tag": "0243_organization_address_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1793179482575,
+      "tag": "0244_order_ready_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1793222190636,
+      "tag": "0245_store_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1793286275069,
+      "tag": "0246_organization_team_name_not_blank",
+      "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1793344047962,
+      "tag": "0247_user_name_phone_not_blank",
+      "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1793367598575,
+      "tag": "0248_order_item_discount",
+      "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1793609802861,
+      "tag": "0249_audit_lookup_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1793689618576,
+      "tag": "0250_invoice_void_operator",
+      "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1793766693378,
+      "tag": "0251_points_rolling_one_year_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1793772348958,
+      "tag": "0252_points_expiry_reminded_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1793774329417,
+      "tag": "0253_drop_organization_slug_uidx",
+      "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1793800271904,
+      "tag": "0254_ingredient_unlimited_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1793814642288,
+      "tag": "0255_ingredient_source_recipe",
+      "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1793860276363,
+      "tag": "0256_inventory_transaction_production_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1793865284803,
+      "tag": "0257_waitlist_idempotency_fingerprint_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1793894058118,
+      "tag": "0258_attendance_employee_job_title",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1793896457253,
+      "tag": "0259_recipe_modifier",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1793896572893,
+      "tag": "0260_source_recipe_no_action",
+      "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1793944371898,
+      "tag": "0261_item_modifier_group_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1794021389735,
+      "tag": "0262_attendance_shift_ends_at_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 263,
+      "version": "7",
+      "when": 1794024025773,
+      "tag": "0263_drop_organization_point_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 264,
+      "version": "7",
+      "when": 1794027144617,
+      "tag": "0264_attendance_parental_return_org_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1794046616531,
+      "tag": "0265_clear_supplier_on_sourced_ingredients",
+      "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1794082592301,
+      "tag": "0266_inventory_transaction_org_created_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1794223515474,
+      "tag": "0267_modifier_image",
+      "breakpoints": true
+    },
+    {
+      "idx": 268,
+      "version": "7",
+      "when": 1794281038109,
+      "tag": "0268_point_transaction_order_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1794291510565,
+      "tag": "0269_audit_log_created_index",
+      "breakpoints": true
     }
   ]
 }

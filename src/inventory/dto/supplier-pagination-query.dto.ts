@@ -11,16 +11,16 @@ export const SUPPLIER_STRING_FILTER_FIELDS = [
   'note',
 ] as const;
 export const SUPPLIER_DATE_FILTER_FIELDS = ['createdAt', 'updatedAt'] as const;
-export const SUPPLIER_ALL_FILTER_FIELDS = [
+const SUPPLIER_ALL_FILTER_FIELDS = [
   ...SUPPLIER_STRING_FILTER_FIELDS,
   ...SUPPLIER_DATE_FILTER_FIELDS,
 ] as const;
 
-export type SupplierFilterField = (typeof SUPPLIER_ALL_FILTER_FIELDS)[number];
+type SupplierFilterField = (typeof SUPPLIER_ALL_FILTER_FIELDS)[number];
 
-export const SUPPLIER_SORT_FIELDS = SUPPLIER_ALL_FILTER_FIELDS;
+const SUPPLIER_SORT_FIELDS = SUPPLIER_ALL_FILTER_FIELDS;
 
-export type SupplierSortField = (typeof SUPPLIER_SORT_FIELDS)[number];
+type SupplierSortField = (typeof SUPPLIER_SORT_FIELDS)[number];
 
 export class SupplierPaginationQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({

@@ -1,14 +1,12 @@
 import {
   IsDefined,
-  IsIn,
   IsInt,
   IsNotEmpty,
-  IsOptional,
   IsString,
   Length,
 } from 'class-validator';
 
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
 export enum InvoicePrintEcpayPrintStyle {
   SinglePage = 1,
@@ -21,84 +19,6 @@ export enum InvoicePrintEcpayPrintStyle {
 export enum InvoicePrintEcpayShowingDetail {
   Show = 1,
   Hide = 2,
-}
-
-export class InvoicePrintEcpayDecryptedRequestDto {
-  @ApiProperty({
-    description: '特店編號（必填）',
-    example: '2000132',
-    maxLength: 10,
-    minLength: 1,
-  })
-  @IsDefined()
-  @IsNotEmpty()
-  @IsString()
-  @Length(1, 10)
-  MerchantID: string;
-
-  @ApiProperty({
-    description: `發票號碼（必填）
-2 碼字軌 + 8 碼數字`,
-    example: 'AB12345678',
-    maxLength: 10,
-    minLength: 10,
-  })
-  @IsDefined()
-  @IsNotEmpty()
-  @IsString()
-  @Length(10, 10)
-  InvoiceNo: string;
-
-  @ApiProperty({
-    description: `發票開立日期（必填）
-格式為 yyyy-MM-dd 或 yyyy/MM/dd`,
-    example: '2026-08-17',
-    maxLength: 10,
-    minLength: 10,
-  })
-  @IsDefined()
-  @IsNotEmpty()
-  @IsString()
-  @Length(10, 10)
-  InvoiceDate: string;
-
-  @ApiProperty({
-    description: `列印格式
-1：一般列印（單面）
-2：一般列印（雙面）
-3：熱感應紙列印
-4：B2B A4
-5：B2B A5`,
-    enum: InvoicePrintEcpayPrintStyle,
-    example: InvoicePrintEcpayPrintStyle.ThermalPaper,
-  })
-  @IsDefined()
-  @IsInt()
-  PrintStyle: InvoicePrintEcpayPrintStyle;
-
-  @ApiPropertyOptional({
-    description: `是否顯示補印字樣
-帶 Y 時抬頭印「電子發票證明聯補印」，僅 PrintStyle 為 1、2、3 時有效。
-未帶時印為「電子發票證明聯」。`,
-    enum: ['Y'],
-    example: 'Y',
-  })
-  @IsOptional()
-  @IsIn(['Y'])
-  IsReprintInvoice?: 'Y';
-
-  @ApiPropertyOptional({
-    description: `是否顯示明細
-1：顯示明細
-2：隱藏明細
-帶統編的發票一律顯示，此參數無效。
-未帶時：帶統編顯示、不帶統編不顯示。`,
-    enum: InvoicePrintEcpayShowingDetail,
-    example: InvoicePrintEcpayShowingDetail.Show,
-  })
-  @IsOptional()
-  @IsInt()
-  IsShowingDetail?: InvoicePrintEcpayShowingDetail;
 }
 
 export class InvoicePrintEcpayEncryptedResponseDto {

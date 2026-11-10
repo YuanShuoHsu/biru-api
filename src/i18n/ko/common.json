@@ -7,6 +7,7 @@
     "belowStatutoryPaidPercent": "지급 비율은 법정 기준보다 낮을 수 없습니다.",
     "calendarLeaveInterval": "법정 일수의 전체 날짜를 입력하세요(자정부터 자정, 종료일 제외).",
     "calendarLeavePayRequired": "출산 휴가 사유는 owner가 확인된 일일 전액 임금을 설정해야 합니다. 지급 비율은 근속 기간으로 자동 계산됩니다.",
+    "calendarRangeTooLong": "캘린더는 한 번에 최대 62일까지 표시할 수 있습니다.",
     "cancelIrreversible": "이 근무는 현재 근무 편성 규칙을 충족하지 않아 취소하면 복원할 수 없습니다.",
     "cancelReasonRequired": "이미 시작된 근무를 취소하려면 사유가 필요합니다.",
     "cannotReviewOwnDraft": "직접 작성한 급여명세서는 검토할 수 없습니다. 다른 관리자가 검토해야 합니다.",
@@ -42,7 +43,6 @@
     "childcareReductionInvalid": "육아 근로시간 단축 기간은 입사일 이후이며 등록된 자녀의 출생일부터 만 3세 전까지여야 합니다. 먼저 직원 관리의 「자녀 정보」에서 자녀를 등록하세요.",
     "indigenousHolidayInvalid": "세시 제의 휴일은 연 3일까지이며 재직 기간 내에서 중복 없이, 국경일과 겹치지 않아야 합니다.",
     "insufficientLeaveBalance": "휴가 잔여량이 부족합니다. 관리자에게 확인하세요.",
-    "invalidBusinessNumber": "사업자 번호 검증 숫자가 올바르지 않습니다.",
     "invalidEarningType": "가산 항목을 찾을 수 없습니다.",
     "invalidEmergencyDetails": "신고 일시와 연속 24시간 이상의 보상 휴일을 확인하세요.",
     "invalidEventSequence": "기록 순서 또는 시간이 잘못되었습니다. 출퇴근 시간을 확인하세요.",
@@ -73,6 +73,7 @@
     "menstrualDayLimit": "생리 휴가는 월 1일로 제한됩니다.",
     "monthlyOvertimeExceeded": "당월 연장 근무 상한(일반 46시간, 동의 기간 54시간)을 초과합니다.",
     "noShifts": "해당 월에 근무 일정이 없습니다.",
+    "notFound": "해당 데이터를 찾을 수 없습니다. 삭제되었을 수 있습니다.",
     "occupationalIndustryInvalid": "이 산재보험 업종을 찾을 수 없습니다. 다시 선택하세요.",
     "outsideShiftWindow": "현재 이 근무의 출근 기록 시간이 아닙니다.",
     "overlappingAttendance": "이 기간에 이미 다른 출근 기록이 있습니다.",
@@ -127,10 +128,18 @@
     "withholdingUnitRequired": "먼저 신고 단위 정보를 입력하세요.",
     "workPermitRequired": "이 직원의 법적 신분은 유효한 취업 허가가 필요하지만 근무 또는 출근일이 허가 기간 밖입니다."
   },
+  "banners": {
+    "bannerNotFound": "배너를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다"
+  },
   "coupons": {
     "alreadyClaimed": "이미 받은 쿠폰입니다",
+    "applicableOrganizationNotFound": "선택한 매장 중 일부를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "codeExists": "이미 존재하는 쿠폰 코드입니다",
+    "couponNotFound": "쿠폰을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "expired": "쿠폰 코드가 만료되었습니다",
+    "grantExpired": "이 쿠폰은 만료되어 발급할 수 없습니다",
+    "grantInactive": "이 쿠폰은 비활성화되어 발급할 수 없습니다",
     "inUse": "이미 고객이 받은 쿠폰이라 삭제할 수 없습니다. 대신 비활성화하세요.",
     "issueMinSpendRequired": "금액 달성 보상에는 달성 금액을 설정해야 합니다",
     "itemScopeSingleOrganization": "상품 지정 쿠폰은 한 매장에만 적용할 수 있습니다",
@@ -147,30 +156,60 @@
     "perUserLimitReached": "이미 사용한 쿠폰 코드입니다",
     "percentageTooHigh": "퍼센트 할인은 100을 초과할 수 없습니다",
     "pointsOnly": "이 쿠폰 코드는 포인트로 교환한 후 사용할 수 있습니다",
+    "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다",
     "usedUp": "이 쿠폰 코드는 사용 한도에 도달했습니다"
   },
   "deletedRecords": {
     "restoreConflict": "복원할 수 없습니다: 같은 데이터가 이미 있습니다(매장 슬러그, 쿠폰 코드, 이메일 중복 또는 멤버가 이미 매장에 있는 경우 등).",
-    "restoreMissingReference": "복원할 수 없습니다: 소속된 상위 데이터가 없습니다. 상위 데이터를 먼저 복원하세요."
+    "restoreMissingReference": "복원할 수 없습니다: 소속된 상위 데이터가 없습니다. 상위 데이터를 먼저 복원하세요.",
+    "restoreInvalid": "복원할 수 없습니다: 현재 필수 항목 규칙을 충족하지 않습니다(예: 주소가 없는 매장). 새로 만들어 주세요.",
+    "batchNotFound": "이 삭제 기록을 찾을 수 없습니다. 보관 기간이 지났을 수 있습니다."
   },
   "exceptions": {
+    "badRequest": "잘못된 요청입니다",
+    "forbidden": "이 데이터에 접근할 권한이 없습니다",
     "internalServerError": "내부 서버 오류",
     "organizationClosed": "이 매장은 영업을 종료했습니다",
     "organizationHasOpenWork": "완료되지 않은 주문 {orders}건과 대기 중인 번호표 {tickets}장이 있습니다. 완료하거나 취소한 후 폐점하세요",
+    "organizationNotFound": "매장을 찾을 수 없습니다.",
     "organizationReadOnly": "이 매장은 폐점되었습니다. 메뉴, 재고, 쿠폰, 대기, 매장 설정은 조회만 가능합니다",
+    "returnUrlNotAllowed": "이 리디렉션 URL은 사용할 수 없습니다",
+    "smtpTestFailed": "테스트 이메일을 보내지 못했습니다. SMTP 설정을 확인한 후 다시 시도해 주세요",
+    "statsSinceNotMonthStart": "시작 시간은 플랫폼 시간대 기준 매월 1일이어야 합니다",
     "tooManyRequests": "요청이 너무 많습니다"
   },
   "gcis": {
-    "invalidBusinessNo": "사업자 등록번호 형식이 올바르지 않습니다. 8자리 숫자여야 합니다"
+    "companyNotFound": "이 사업자 등록번호에 해당하는 회사 또는 상업 등록 정보를 찾을 수 없습니다. 상호와 주소를 직접 입력해 주세요",
+    "lookupUnavailable": "지금은 회사 등록 정보를 조회할 수 없습니다. 상호와 주소를 직접 입력해 주세요"
   },
   "inventory": {
-    "packageRequired": "내용량, 내용량 단위, 가격, 재고 단위는 모두 입력해야 하며 비울 수 없습니다",
+    "ingredientInUse": "이 식자재는 아직 레시피에 사용되고 있습니다. 먼저 레시피에서 제거해 주세요",
+    "ingredientNotFound": "식자재를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "insufficientStock": "이 배치에 필요한 재료의 재고가 부족합니다. 먼저 입고하거나 재고를 실사하세요",
+    "modifierRecipeYieldNotOne": "옵션에 연결하는 레시피의 생산량은 1이어야 합니다",
+    "packageRequired": "원본 레시피가 없는 재료는 포장 가격, 용량, 단위를 입력하세요",
     "packageUnitIncompatible": "내용량 단위와 재고 단위가 호환되지 않습니다",
-    "recipeIngredientExists": "이미 추가된 재료입니다"
+    "purchaseFieldsOnSourcedIngredient": "원본 레시피로 만드는 재료에는 포장 가격, 용량, 공급업체를 설정할 수 없습니다",
+    "recipeInUseAsSource": "다음 자체 제조 식자재가 아직 이 레시피를 원본 레시피로 사용하고 있습니다: {names}. 먼저 이 식자재에서 원본 레시피를 해제해 주세요",
+    "recipeIngredientExists": "이미 추가된 재료입니다",
+    "recipeIngredientNotFound": "레시피 재료를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "recipeMenuItemAndModifier": "레시피는 메뉴 품목과 옵션 중 하나에만 연결할 수 있습니다",
+    "recipeMenuItemTaken": "이 메뉴 품목에는 이미 레시피가 있습니다",
+    "recipeModifierTaken": "이 옵션에는 이미 레시피가 있습니다",
+    "recipeNotFound": "레시피를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "sourceRecipeHasMenuItem": "메뉴 품목에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
+    "sourceRecipeHasModifier": "옵션에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
+    "sourceRecipeNested": "원본 레시피에는 다른 레시피로 만든 재료를 사용할 수 없습니다",
+    "sourceRecipeRequired": "이 재료에는 원본 레시피가 없어 배치로 만들 수 없습니다",
+    "sourceRecipeUnitIncompatible": "레시피 생산량 단위와 재료의 재고 단위가 호환되지 않습니다",
+    "sourceRecipeYieldMissing": "재료의 원본 레시피로 사용하려면 레시피의 생산량과 단위를 설정하세요",
+    "supplierNotFound": "공급업체를 찾을 수 없습니다. 삭제되었을 수 있습니다"
   },
   "invoices": {
     "allowanceIssued": "이 세금계산서는 에누리가 발행되어 취소할 수 없습니다",
     "alreadyIssuing": "이 세금계산서는 발행 처리 중입니다. 잠시 후 다시 시도하세요",
+    "customerNameRequiresIdentifier": "개인 또는 기부 세금계산서는 사업자 번호와 함께 입력해야 구매자 상호를 정정할 수 있습니다",
+    "invoiceNotFound": "이 주문의 세금계산서를 찾을 수 없습니다",
     "notIssued": "이 세금계산서는 아직 발행되지 않았습니다",
     "notPaid": "주문이 결제되지 않아 세금계산서를 발행할 수 없습니다",
     "notPending": "이 세금계산서는 {status} 상태여서 발행할 수 없습니다",
@@ -190,9 +229,20 @@
     "voidWriteFailed": "세금계산서 {invoiceNumber}는 ECPay에서 취소되었으나 시스템에 기록되지 않았습니다. 조회 기능으로 확인 후 수동으로 정정하세요"
   },
   "menus": {
+    "addOnMenuSectionNotFound": "추가 섹션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "addOnSelf": "추가 구매 상품으로 상품 자신을 지정할 수 없습니다",
+    "addOnTargetRequired": "추가 구매에는 상품 또는 카테고리 중 하나만 지정해야 합니다",
+    "fixedSweetnessLevelRequired": "당도를 고정으로 설정한 경우 고정 당도를 선택해 주세요",
+    "menuItemNotFound": "품목을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "menuSectionNotFound": "섹션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "modifierGroupAttached": "이 옵션 그룹은 이미 이 상품에 연결되어 있습니다",
+    "modifierGroupNotFound": "옵션 그룹을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "modifierNotFound": "옵션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "offerNotFound": "항목 가격을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "parentSectionDescendant": "카테고리를 자신의 하위 카테고리 아래로 옮길 수 없습니다",
+    "parentSectionNotFound": "상위 섹션을 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "parentSectionSelf": "카테고리를 자신의 상위 카테고리로 설정할 수 없습니다",
+    "printerNotFound": "프린터를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "selectionCountInvalid": "최대 선택 수는 최소 선택 수보다 작을 수 없습니다"
   },
   "orderTickets": {
@@ -208,6 +258,7 @@
     "otherPrinters": "다른 스테이션: {printers}",
     "pickupTime": "픽업 {time}",
     "printJobResolved": "이 주문서는 이미 확인되었습니다. 새로고침 후 다시 시도해 주세요",
+    "printerBusy": "삭제하는 동안 이 프린터로 새 주문서가 전송되었습니다. 다시 시도해 주세요",
     "refund": "반품",
     "reprint": "재출력",
     "servingTemperatureLevels": {
@@ -229,26 +280,52 @@
     "tableNumber": "테이블 {tableNumber}"
   },
   "orders": {
+    "cashUnavailableForMode": "이 주문 방식에서는 현금 결제를 사용할 수 없습니다",
     "idempotencyConflict": "주문 내용이 변경되었습니다. 다시 제출해 주세요.",
     "inStoreQrCodeRequired": "매장 내 QR 코드를 스캔하여 주문하세요",
     "invalidTable": "테이블 QR 코드가 유효하지 않습니다. 테이블의 QR 코드를 다시 스캔하세요",
+    "menuChanged": "메뉴가 변경되었습니다. 장바구니를 다시 확인해 주세요",
+    "menuItemInsufficientStock": "'{name}'의 남은 수량이 부족합니다. 수량을 줄이거나 다른 메뉴를 선택해 주세요",
+    "menuItemOptionsInvalid": "'{name}'의 옵션을 다시 확인해 주세요",
     "menuItemUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "menuItemUnavailableAtTime": "'{name}'은(는) 선택한 픽업 시간에 제공되지 않습니다",
     "menuItemUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
+    "modifierInsufficientStock": "'{name}'의 남은 수량이 부족합니다. 수량을 줄이거나 다른 옵션을 선택해 주세요",
     "modifierUnavailable": "'{name}'은(는) 현재 제공할 수 없습니다",
     "modifierUnavailableForMode": "'{name}'은(는) 이 주문 방식에서 이용할 수 없습니다",
     "notAwaitingPayment": "결제 기한이 지났거나 상태가 변경되어 이 주문은 결제할 수 없습니다",
+    "onlinePaymentNotRequired": "이 주문은 온라인 결제가 필요하지 않습니다",
+    "orderNotFound": "이 주문을 찾을 수 없습니다",
+    "orderQrSecretNeverRotated": "QR 코드를 재발급한 적이 없어 되돌릴 이전 버전이 없습니다",
+    "orderQrSessionNotFound": "주문 세션이 만료되었습니다. QR 코드를 다시 스캔해 주세요",
     "orderTotalTooLarge": "주문 금액이 한도를 초과했습니다. 품목을 줄이거나 주문을 나눠 주세요",
+    "paymentAttemptsExhausted": "이 주문은 결제 시도 횟수 한도에 도달했습니다. 매장에 문의하시거나 결제 기한이 지나 주문이 자동 취소될 때까지 기다려 주세요",
     "pickupOutsideOpeningHours": "이 픽업 시간은 매장 영업시간이 아닙니다. 다른 시간을 선택하세요",
+    "pickupTimeInvalid": "유효한 픽업 시간을 선택하세요",
+    "pickupTimeUnavailableForMode": "픽업 시간은 픽업 주문에서만 지정할 수 있습니다",
     "pickupTooCloseToClosing": "이 픽업 시간은 마감 시간에 너무 가깝습니다. 다른 시간을 선택하세요",
     "pickupTooFarAhead": "이 픽업 시간은 예약 가능한 범위를 벗어났습니다. 다른 시간을 선택하세요",
     "pickupTooSoon": "이 픽업 시간에는 준비가 어렵습니다. 다른 시간을 선택하세요",
-    "statusChanged": "주문 상태가 변경되었습니다. 새로고침 후 다시 시도하세요"
+    "statusChanged": "주문 상태가 변경되었습니다. 새로고침 후 다시 시도하세요",
+    "tableNumberOutOfRange": "테이블 번호는 1부터 매장 테이블 수 사이여야 합니다"
+  },
+  "organizations": {
+    "notJoinedAsPlatformAdmin": "이 구성원은 플랫폼 관리자로 참여한 소유자가 아닙니다.",
+    "showcaseOpenSelfOnly": "구성원 본인만 팀 소개에 공개로 설정할 수 있습니다.",
+    "specialHoursEnded": "이미 종료된 기간으로 특별 영업일을 추가하거나 변경할 수 없습니다.",
+    "specialHoursInvalidRange": "특별 영업일의 시작일은 종료일보다 늦을 수 없습니다.",
+    "specialHoursNotFound": "이 특별 영업일을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
+    "specialHoursOverlap": "이 기간은 이미 설정된 특별 영업일({validFrom}~{validThrough})과 겹칩니다.",
+    "specialHoursTooLong": "특별 영업일은 최대 1년까지 설정할 수 있습니다."
   },
   "points": {
+    "adjustOwnerOnly": "이 매장에서 한 회원에 대한 하루 포인트 적립과 차감 합계가 {maxPoints}포인트를 초과하면 소유자만 조정할 수 있습니다",
+    "adjustSelf": "본인의 포인트는 조정할 수 없습니다",
     "insufficient": "포인트가 부족합니다",
+    "notEnabled": "포인트 기능이 아직 활성화되지 않았습니다",
     "notRedeemable": "이 쿠폰은 포인트로 교환할 수 없습니다",
-    "perUserLimitReached": "이미 교환한 쿠폰입니다"
+    "perUserLimitReached": "이미 교환한 쿠폰입니다",
+    "settingNotFound": "포인트 규칙이 아직 설정되지 않았습니다"
   },
   "quant": {
     "aiKeyInvalid": "Claude API 키 확인 실패: {message}",
@@ -302,6 +379,7 @@
   "refunds": {
     "allowanceExceeded": "에누리 금액 {amount}이(가) 이 세금계산서의 잔여 에누리 가능 금액 {remaining}을(를) 초과합니다. ECPay 관리자 페이지에서 에누리 내역을 확인해 주세요",
     "alreadyRefunded": "이 주문은 이미 전액 환불되었습니다",
+    "cardRefundUnavailable": "ECPay 신용카드 환불은 테스트 환경이 없어 운영 환경에서만 처리할 수 있습니다",
     "invalidAmount": "환불 금액을 계산할 수 없습니다. 주문 금액을 확인해 주세요",
     "itemNotInOrder": "환불 품목이 이 주문에 속하지 않습니다",
     "noEcpayTransaction": "이 주문에는 환불할 ECPay 거래가 없습니다",
@@ -311,25 +389,99 @@
     "quantityExceeded": "'{name}'은(는) {remaining}개만 환불할 수 있습니다",
     "resultUnknown": "환불을 전송했지만 ECPay의 결과가 아직 도착하지 않았습니다. 다시 시도하지 마세요. 시스템이 자동으로 대조한 뒤 확인되면 이 환불의 상태를 갱신합니다."
   },
+  "reports": {
+    "csv": {
+      "actualConsumption": "실제 소모량",
+      "adjusted": "조정",
+      "category": "카테고리",
+      "closing": "기말 재고",
+      "consumed": "소모",
+      "day": "날짜",
+      "discount": "할인",
+      "employerInsurance": "고용주 부담 보험료",
+      "employerPension": "고용주 연금",
+      "gross": "총 지급액",
+      "headcount": "인원",
+      "hour": "시간대",
+      "ingredient": "식자재",
+      "jobTitle": "직책",
+      "menuItem": "품목",
+      "missingEmployerInsurance": "고용주 부담 보험료 없는 명세서 수",
+      "mode": "주문 방식",
+      "net": "순매출",
+      "noJobTitle": "직책 미설정",
+      "opening": "기초 재고",
+      "orders": "주문 수",
+      "paymentMethod": "결제 수단",
+      "personnelCost": "인건비",
+      "quantity": "수량",
+      "received": "입고",
+      "refunded": "환불",
+      "refundedQuantity": "환불 수량",
+      "revenue": "매출",
+      "theoreticalConsumption": "이론 소모량",
+      "total": "합계",
+      "uncategorized": "미분류",
+      "unit": "단위",
+      "variance": "차이"
+    },
+    "paymentMethods": {
+      "ApplePay": "Apple Pay",
+      "Cash": "현금",
+      "Credit": "신용카드",
+      "iPASS": "iPASS MONEY",
+      "Jkopay": "JKO Pay",
+      "TWQR": "모바일 결제",
+      "WeiXin": "위챗페이"
+    },
+    "rangeInvalid": "종료 시간은 시작 시간보다 늦어야 합니다.",
+    "rangeTooLong": "보고서 기간은 최대 366일입니다.",
+    "units": {
+      "GRM": "그램",
+      "H87": "개",
+      "KGM": "킬로그램",
+      "LTR": "리터",
+      "MLT": "밀리리터"
+    }
+  },
+  "storeLayout": {
+    "duplicateTableNumber": "테이블 번호 {tableNumber}이(가) 중복되었습니다.",
+    "notFound": "이 매장에는 아직 평면도가 없습니다."
+  },
+  "storePhotos": {
+    "storePhotoNotFound": "매장 사진을 찾을 수 없습니다. 삭제되었을 수 있습니다"
+  },
   "waitlist": {
     "guest": {
       "waitlistClosed": "지금은 영업시간이 아니라 대기 등록을 받지 않습니다.",
       "waitlistCutoff": "곧 영업이 종료되어 현장 대기 등록이 마감되었습니다.",
       "waitlistDisabled": "이 매장은 현장 대기를 운영하지 않습니다.",
+      "waitlistGroupChanged": "이 번호표는 더 이상 복원할 수 없습니다. 번호표를 다시 받아 주세요.",
+      "waitlistGroupsInUse": "인원 그룹을 조정하고 있습니다. 잠시 후 다시 시도해 주세요.",
       "waitlistGroupsInvalid": "인원 그룹 설정이 올바르지 않습니다.",
+      "waitlistIdempotencyConflict": "대기 정보가 변경되었습니다. 다시 번호표를 받아 주세요.",
       "waitlistPartySizeUnavailable": "이 인원으로는 대기 등록을 받을 수 없습니다. 직원에게 문의해 주세요.",
       "waitlistPaused": "현재 대기 등록이 일시 중지되었습니다. 직원에게 문의해 주세요.",
       "waitlistPhoneInQueue": "이 전화번호는 이미 대기 중입니다.",
+      "waitlistQrRequired": "매장 내 QR 코드를 스캔하여 번호표를 받아 주세요.",
+      "waitlistQrSessionNotFound": "매장 내 QR 코드를 스캔한 후 번호표를 받아 주세요.",
+      "waitlistTicketNotFound": "이 번호표를 찾을 수 없습니다. 번호표를 다시 받아 주세요.",
       "waitlistTransitionInvalid": "번호표 상태가 변경되었습니다. 페이지를 새로고침해 주세요."
     },
     "staff": {
       "waitlistClosed": "영업시간이 아니라 대기 등록을 받지 않습니다.",
       "waitlistCutoff": "곧 영업이 종료되어 현장 대기 등록이 마감되었습니다.",
       "waitlistDisabled": "이 매장은 현장 대기가 꺼져 있습니다.",
+      "waitlistGroupChanged": "이 번호표가 종료된 후 인원 그룹이 변경되어 되돌릴 수 없습니다. 대리 등록으로 새로 등록해 주세요.",
+      "waitlistGroupsInUse": "대기 중이거나 호출된 번호표가 있는 동안에는 인원 그룹을 변경할 수 없습니다. 먼저 착석 완료, 순서 지남 또는 취소로 처리해 주세요.",
       "waitlistGroupsInvalid": "인원 그룹은 1부터 연속되고 겹치지 않아야 합니다.",
+      "waitlistIdempotencyConflict": "등록 내용이 변경되었습니다. 양식을 닫고 다시 시도해 주세요.",
       "waitlistPartySizeUnavailable": "이 인원에 해당하는 그룹이 없습니다.",
       "waitlistPaused": "대기 등록이 일시 중지되었습니다.",
       "waitlistPhoneInQueue": "이 전화번호는 이미 대기 중입니다.",
+      "waitlistQrRequired": "고객은 매장 내 QR 코드를 스캔해야 번호표를 받을 수 있습니다.",
+      "waitlistQrSessionNotFound": "QR 코드 세션을 찾을 수 없거나 만료되었습니다.",
+      "waitlistTicketNotFound": "번호표를 찾을 수 없습니다. 새로고침해 주세요.",
       "waitlistTransitionInvalid": "번호표 상태가 변경되었습니다. 새로고침해 주세요."
     }
   }

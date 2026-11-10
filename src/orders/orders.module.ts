@@ -2,12 +2,15 @@ import { Module } from '@nestjs/common';
 
 import { CouponsModule } from '../coupons/coupons.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
+import { MailsModule } from '../mails/mails.module.js';
+import { PointsModule } from '../points/points.module.js';
 import { PrintersModule } from '../printers/printers.module.js';
 
 import { DineInTablesController } from './dine-in-tables.controller.js';
 import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
+import { OrderNotificationsService } from './order-notifications.service.js';
 import { OrderPricingModule } from './order-pricing.module.js';
 import { OrderQrController } from './order-qr.controller.js';
 import { OrderQrService } from './order-qr.service.js';
@@ -17,10 +20,18 @@ import { OrderTicketPrintersController } from './order-ticket-printers.controlle
 import { OrderTicketService } from './order-ticket.service.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+import { PrepEstimateService } from './prep-estimate.service.js';
 import { UserOrdersController } from './user-orders.controller.js';
 
 @Module({
-  imports: [CouponsModule, InventoryModule, OrderPricingModule, PrintersModule],
+  imports: [
+    CouponsModule,
+    InventoryModule,
+    MailsModule,
+    OrderPricingModule,
+    PointsModule,
+    PrintersModule,
+  ],
   controllers: [
     DineInTablesController,
     MenuItemSalesController,
@@ -33,11 +44,20 @@ import { UserOrdersController } from './user-orders.controller.js';
   ],
   providers: [
     MenuItemSalesService,
+    OrderNotificationsService,
     OrderQrService,
     OrderStatsService,
     OrderTicketService,
     OrdersService,
+    PrepEstimateService,
   ],
-  exports: [MenuItemSalesService, OrderTicketService, OrdersService],
+  exports: [
+    MenuItemSalesService,
+    OrderNotificationsService,
+    OrderQrService,
+    OrderTicketService,
+    OrdersService,
+    PrepEstimateService,
+  ],
 })
 export class OrdersModule {}

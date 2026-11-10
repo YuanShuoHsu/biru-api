@@ -1,14 +1,17 @@
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   IsBoolean,
-  IsDateString,
+  IsISO8601,
   IsOptional,
+  IsRFC3339,
   IsString,
   IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { trim } from '../../common/utils/trim.js';
 
 export class CreateAttendanceLeaveCaseDto {
   @IsOptional() @IsUUID() childId?: string;
@@ -26,15 +29,17 @@ export class CreateAttendanceLeaveCaseDto {
     description: '育嬰留職停薪取子女出生日，其他事件假必填',
   })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   eventDate?: string;
-  @IsDateString() startsAt: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) startsAt: string;
   @ApiPropertyOptional({
     description: '產假、流產假由開始日加法定天數推得，其他假別必填',
   })
   @IsOptional()
-  @IsDateString()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
   endsAt?: string;
-  @IsString() @MinLength(1) @MaxLength(1000) reason: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason: string;
   @IsOptional() @IsBoolean() extensionAgreed?: boolean;
 }

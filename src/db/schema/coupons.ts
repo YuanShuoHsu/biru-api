@@ -99,6 +99,11 @@ export const userCoupon = pgTable(
   },
   (table) => [
     index('userCoupon_userId_couponId_idx').on(table.userId, table.couponId),
+    index('userCoupon_couponId_createdAt_idx').on(
+      table.couponId,
+      table.createdAt,
+    ),
+    index('userCoupon_orderId_idx').on(table.orderId),
     // 領取與註冊禮每人每券限一張；granted 可重複補發、birthday 每年重發、spend 可累積
     uniqueIndex('userCoupon_couponId_userId_source_unique')
       .on(table.couponId, table.userId, table.source)

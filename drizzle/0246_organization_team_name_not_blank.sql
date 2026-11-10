@@ -1,0 +1,2 @@
+ALTER TABLE "organization" ADD CONSTRAINT "organization_name_slug_not_blank" CHECK (btrim("organization"."name") <> '' and btrim("organization"."slug") <> '');--> statement-breakpoint
+ALTER TABLE "team" ADD CONSTRAINT "team_name_not_blank" CHECK (btrim("team"."name") <> '');

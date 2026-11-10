@@ -1,14 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { I18nService } from 'nestjs-i18n';
 
 import type { OrderStatus, PaymentMethod } from '../db/schema/orders.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { LOW_STOCK_REACHED_EVENT } from '../events/low-stock-reached.event.js';
 import { ORDER_PAID_EVENT } from '../events/order-paid.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from '../events/order-status-updated.event.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { InventoryTransactionsService } from '../inventory/inventory-transactions.service.js';
+import type { MenuStockService } from '../inventory/menu-stock.service.js';
+import type { PointsService } from '../points/points.service.js';
 
 import {
   findTransition,
@@ -21,6 +22,7 @@ import type { OrderPricingService } from './order-pricing.service.js';
 import type { OrderQrService } from './order-qr.service.js';
 import type { OrderTicketService } from './order-ticket.service.js';
 import { OrdersService } from './orders.service.js';
+import type { PrepEstimateService } from './prep-estimate.service.js';
 
 const available = (orderStatus: OrderStatus, paymentMethod: PaymentMethod) =>
   getAvailableTransitions({ orderStatus, paymentMethod }).map(
@@ -95,7 +97,6 @@ describe('訂單狀態轉換規則表', () => {
 
     expect(rule?.recordsPayment).toBe(true);
     expect(rule?.extraSet?.()).toHaveProperty('amountPerPoint');
-    expect(rule?.extraSet?.()).toHaveProperty('pointsValidityYears');
   });
 
   it('付款失敗轉異常時還券、還庫存', () => {
@@ -121,8 +122,36 @@ describe('訂單狀態轉換規則表', () => {
     expect(rule?.extraSet?.()).toEqual({
       amountPerPoint: null,
       paymentDate: null,
-      pointsValidityYears: null,
     });
+  });
+
+  it('製作完成記下出餐時間，退回製作中清除，從已取餐退回保留原值', () => {
+    expect(
+      findTransition(
+        'admin',
+        'OrderProcessing',
+        'OrderPickupAvailable',
+      )?.extraSet?.(),
+    ).toEqual({ readyAt: expect.any(Date) });
+    expect(
+      findTransition(
+        'admin',
+        'OrderPickupAvailable',
+        'OrderProcessing',
+      )?.extraSet?.(),
+    ).toEqual({ readyAt: null });
+    expect(
+      findTransition('admin', 'OrderDelivered', 'OrderPickupAvailable')
+        ?.extraSet,
+    ).toBeUndefined();
+  });
+
+  it('只有製作完成會寫入出餐時間', () => {
+    expect(
+      ORDER_TRANSITIONS.filter(
+        (rule) => rule.extraSet?.().readyAt instanceof Date,
+      ).map(({ fromStatus, toStatus }) => [fromStatus, toStatus]),
+    ).toEqual([['OrderProcessing', 'OrderPickupAvailable']]);
   });
 
   it('凡是會還券的規則也會還庫存', () => {
@@ -209,6 +238,7 @@ const createService = ({
 
   const couponsService = { restore: vi.fn() };
   const inventory = { consume: vi.fn(), restoreAll: vi.fn() };
+  const menuStock = { refresh: vi.fn() };
   const orderTickets = { enqueueOrder: vi.fn(), withdrawOrder: vi.fn() };
   const eventEmitter = new EventEmitter2();
   const emit = vi.spyOn(eventEmitter, 'emit');
@@ -226,7 +256,9 @@ const createService = ({
       {} as OrderQrService,
       orderTickets as unknown as OrderTicketService,
       eventEmitter,
-      { t: (key: string) => key } as unknown as I18nService<I18nTranslations>,
+      menuStock as unknown as MenuStockService,
+      {} as PrepEstimateService,
+      {} as PointsService,
     ),
     sets,
   };
@@ -295,6 +327,25 @@ describe('OrdersService.applyTransitions', () => {
       'o1',
     );
     expect(orderTickets.enqueueOrder).not.toHaveBeenCalled();
+  });
+
+  it('店員標為可取餐時寫入出餐時間', async () => {
+    const processing: OrderRow = {
+      ...unpaid,
+      orderStatus: 'OrderProcessing',
+      paymentMethod: 'Credit',
+    };
+    const { sets, service } = createService({
+      current: processing,
+      updated: [{ ...processing, orderStatus: 'OrderPickupAvailable' }],
+    });
+
+    await service.applyTransitions('slug', ['o1'], 'OrderPickupAvailable');
+
+    expect(sets[0]).toEqual({
+      orderStatus: 'OrderPickupAvailable',
+      readyAt: expect.any(Date),
+    });
   });
 
   it('線上付款的待付款訂單不能手動推進', async () => {
@@ -391,6 +442,72 @@ describe('OrdersService.recordPaymentResult', () => {
       service.recordPaymentResult(paymentBody({ RtnCode: '10100058' })),
     ).resolves.toBe('handled');
     expect(inventory.restoreAll).toHaveBeenCalledWith('o1', expect.anything());
+  });
+
+  it('付款失敗只記下綠界交易編號，不寫入付款憑據', async () => {
+    const { service, sets } = createService({
+      current: pending,
+      updated: [{ ...pending, orderStatus: 'OrderProblem' }],
+    });
+
+    await service.recordPaymentResult(
+      paymentBody({ RtnCode: '10100058', card4no: '4242', gwsr: '123' }),
+    );
+
+    expect(sets[0]).toMatchObject({
+      merchantTradeNo: 'mtn1',
+      orderStatus: 'OrderProblem',
+      tradeNo: 'tn1',
+    });
+    expect(sets[0]).not.toHaveProperty('paymentDate');
+    expect(sets[0]).not.toHaveProperty('authorizationNo');
+    expect(sets[0]).not.toHaveProperty('paymentMethodId');
+  });
+
+  it('異常訂單補付款重新扣庫存，跌破門檻的食材在交易後推播', async () => {
+    const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
+    const { emit, inventory, service, sets } = createService({
+      current: problem,
+      updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
+    });
+    const ingredients = [{ id: 'i1', name: { 'zh-TW': '牛奶' } }];
+    inventory.consume.mockResolvedValue({
+      lowStock: ingredients,
+      offerStockChanged: false,
+    });
+
+    await expect(
+      service.recordPaymentResult(
+        paymentBody({ card4no: '4242', gwsr: '123' }),
+      ),
+    ).resolves.toBe('handled');
+    expect(sets[0]).toMatchObject({
+      authorizationNo: '123',
+      orderStatus: 'OrderProcessing',
+      paymentDate: expect.any(Date),
+      paymentMethodId: '4242',
+    });
+    expect(inventory.consume).toHaveBeenCalledWith('o1', expect.anything());
+    expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, {
+      ingredients,
+      organizationId: 'org',
+    });
+  });
+
+  it('重新扣庫存沒有跌破門檻時不推播', async () => {
+    const problem: OrderRow = { ...pending, orderStatus: 'OrderProblem' };
+    const { emit, inventory, service } = createService({
+      current: problem,
+      updated: [{ ...problem, orderStatus: 'OrderProcessing' }],
+    });
+    inventory.consume.mockResolvedValue({
+      lowStock: [],
+      offerStockChanged: false,
+    });
+
+    await service.recordPaymentResult(paymentBody());
+
+    expect(emittedEvents(emit)).not.toContain(LOW_STOCK_REACHED_EVENT);
   });
 
   it('金額不符時不認列', async () => {

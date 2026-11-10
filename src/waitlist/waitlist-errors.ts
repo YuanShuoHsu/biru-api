@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
 
@@ -8,10 +12,16 @@ export const waitlistErrorCodes = [
   'waitlistClosed',
   'waitlistCutoff',
   'waitlistDisabled',
+  'waitlistGroupChanged',
+  'waitlistGroupsInUse',
   'waitlistGroupsInvalid',
+  'waitlistIdempotencyConflict',
   'waitlistPartySizeUnavailable',
   'waitlistPaused',
   'waitlistPhoneInQueue',
+  'waitlistQrRequired',
+  'waitlistQrSessionNotFound',
+  'waitlistTicketNotFound',
   'waitlistTransitionInvalid',
 ] as const;
 
@@ -40,3 +50,9 @@ export const conflictError = (
   code: WaitlistErrorCode,
   audience: WaitlistAudience,
 ) => new ConflictException({ error: 'Conflict', ...errorBody(code, audience) });
+
+export const notFoundError = (
+  code: WaitlistErrorCode,
+  audience: WaitlistAudience,
+) =>
+  new NotFoundException({ error: 'Not Found', ...errorBody(code, audience) });

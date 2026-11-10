@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "立即开始",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感谢您完成 {productName} 的电子邮件验证。我们很高兴您的加入。您现在可以开始使用 {productName}。",
     "preheader": "欢迎使用 {productName}！您的电子邮件已验证。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "立即登录",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "有人尝试使用您的电子邮件地址注册 {productName} 账号。如果这是您本人的操作，您可以直接登录。您的 {productName} 账号仍然安全无虞。",
     "preheader": "这不是您吗？您的 {productName} 账号仍然安全。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "立即登录",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您的 {productName} 密码已成功重置。您现在可以使用新密码登录。",
     "preheader": "您的 {productName} 密码已成功更改。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -34,9 +34,14 @@
   },
   "organization_invitation": {
     "action_button": "接受邀请",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName} 邀请您以 {role} 身份加入 {productName} 上的 {organizationName}。请点击下方按钮接受邀请。",
     "preheader": "您已被邀请加入 {productName} 上的 {organizationName}。",
+    "roles": {
+      "admin": "管理员",
+      "member": "成员",
+      "owner": "拥有者"
+    },
     "salutation": "谢谢，<br>{productName} 团队",
     "security_notice": "出于安全考量，此邀请由 {inviterName} 通过 {productName} 账号发送。如果您不认识此邀请，请忽略此邮件，如有疑问请<a href=\"{support_url}\">联系客服</a>。",
     "subject": "您已被邀请加入 {productName} 上的 {organizationName}",
@@ -45,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "确认更换电子邮件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我们收到将您 {productName} 账号的电子邮件更换为 <strong>{newEmail}</strong> 的申请。请点击下方按钮确认此更换，此链接有效期为 1 小时。",
     "preheader": "请确认您的 {productName} 电子邮件地址变更。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -56,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "重置密码",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "您申请了重置 {productName} 密码。请点击下方按钮设置新密码，此链接有效期为 1 小时。",
     "preheader": "重置您的 {productName} 密码，此链接将在 1 小时后过期。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -67,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "确认删除账号",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "我们收到永久删除您 {productName} 账号的申请。请点击下方按钮确认此操作，此链接有效期为 1 小时。如果您未确认，账号将不会被删除。",
     "preheader": "请确认您的 {productName} 账号删除申请。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -78,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "确认电子邮件",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "感谢您试用 {productName}。我们很高兴您的加入。若要开始使用 {productName}，请确认您的帐户。",
     "preheader": "欢迎来到 {productName}！请确认您的电子邮件地址。",
     "salutation": "谢谢，<br>{productName} 团队",
@@ -125,6 +130,13 @@
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}：您 {period} 的班次还没打下班卡",
+    "title": "请补登下班打卡",
+    "intro": "您在 {organizationName} {period} 的班次有上班打卡，但没有下班打卡，而且已经超过可以打卡的时间。",
+    "rules": "请提交补打卡申请，填写实际下班时间，以免影响出勤记录与薪资计算。",
+    "action": "前往补打卡"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}：您的排队号码 {ticketNumber}",
@@ -142,5 +154,65 @@
     },
     "salutation": "谢谢，<br>{productName} 团队",
     "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}：{count} 项食材低于警示量",
+    "title": "低库存提醒",
+    "intro": "{organizationName} 目前有 {count} 项食材的库存已降到警示量以下，请依供应商安排订货。",
+    "item": "{name}：剩 {level} {unit}（警示量 {threshold} {unit}，缺 {shortage} {unit}）",
+    "no_supplier": "未指定供应商",
+    "action": "查看低库存食材",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "个"
+    },
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}：{date} 营业摘要",
+    "title": "昨日营业摘要",
+    "intro": "{organizationName} 在 {date} 的营业概况如下。",
+    "overview": "运营概况",
+    "revenue": "营收：{revenue}（前一日 {previousRevenue}）",
+    "orders": "订单：{orders} 笔（前一日 {previousOrders} 笔）",
+    "average": "客单价：{average}",
+    "peak_hour": "高峰时段：{peakHour}（{peakOrders} 笔）",
+    "refunds": "退款：{refundedOrders} 笔",
+    "top_items": "热销品项",
+    "item": "{name}：{sold} 份",
+    "point_adjustments": "积分人工调整（{count} 笔，合计 {total} 点）",
+    "point_adjustment": "{adjuster} 为 {member} 调整 {points} 点：{reason}",
+    "action": "查看运营仪表板",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 全平台营业总览",
+    "title": "昨日全平台总览",
+    "intro": "{date} 共有 {count} 家门店有营业或积分调整，或目前有低库存食材，各门店概况如下；点击门店名称可打开该店的仪表板。",
+    "revenue": "营收：{revenue}",
+    "orders": "订单：{orders} 笔",
+    "refunds": "退款：{refundedOrders} 笔",
+    "point_adjustments": "积分人工调整：{adjustments} 笔，合计 {points} 点",
+    "low_stock": "目前低库存食材：{lowStock} 项",
+    "action": "查看所有门店",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "points_expiry_reminder": {
+    "subject": "{points} 点将于 {date} 到期",
+    "title": "积分即将到期",
+    "intro": "您有 {points} 点将于 {date} 到期，到期后将无法使用，请在到期前兑换。",
+    "action": "查看我的积分",
+    "salutation": "谢谢，<br>{productName} 团队",
+    "trouble_hint": "如果您无法点击上方的按钮，请将下方网址复制并粘贴到您的浏览器中。"
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 测试",
+    "text": "如果您收到这封邮件，说明 SMTP 设置正确。"
   }
 }

@@ -1,11 +1,6 @@
 import { randomBytes } from 'crypto';
 
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { eq, or, sql } from 'drizzle-orm';
 
@@ -31,6 +26,8 @@ import {
   verifyOrderQrSession,
   type ModeTokenOrderMode,
 } from './order-qr-token.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
+import { badRequestError, notFoundError } from './order-errors.js';
 
 const QR_SECRET_BYTES = 32;
 
@@ -51,7 +48,7 @@ export class OrderQrService {
         eq(organizationQrSecret.organizationId, organization.id),
       )
       .where(eq(organization.slug, slug));
-    if (!org) throw new NotFoundException('Organization not found');
+    if (!org) throw organizationNotFoundError();
     return org;
   }
 
@@ -66,9 +63,7 @@ export class OrderQrService {
   async getDineInTableToken(organizationSlug: string, tableNumber: number) {
     const org = await this.getOrgBySlug(organizationSlug);
     if (!isOpenDineInTable(org.dineInTableCount, tableNumber))
-      throw new BadRequestException(
-        'Table number must be from 1 to the dine-in table count',
-      );
+      throw badRequestError('tableNumberOutOfRange');
     return { token: dineInTableToken(org.id, org.secret, tableNumber) };
   }
 
@@ -77,11 +72,8 @@ export class OrderQrService {
     return { token: orderModeToken(org.id, org.secret, mode) };
   }
 
-  async scan(
-    organizationSlug: string,
-    { mode, modeToken, tableNumber, tableToken }: OrderQrQueryDto,
-  ) {
-    // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+  // 已印出的 QR code 不會重印，店家改 slug 後舊網址仍要換得到
+  async findBySlugOrHistory(organizationSlug: string) {
     const [org] = await this.db
       .select({
         dineInTableCount: organization.dineInTableCount,
@@ -105,6 +97,14 @@ export class OrderQrService {
         ),
       )
       .limit(1);
+    return org ?? null;
+  }
+
+  async scan(
+    organizationSlug: string,
+    { mode, modeToken, tableNumber, tableToken }: OrderQrQueryDto,
+  ) {
+    const org = await this.findBySlugOrHistory(organizationSlug);
     if (!org) return null;
 
     const token = mode === 'dineIn' ? tableToken : modeToken;
@@ -146,7 +146,7 @@ export class OrderQrService {
   async findSession(organizationSlug: string, value: string | undefined) {
     const org = await this.getOrgBySlug(organizationSlug);
     const session = verifyOrderQrSession(org.id, org.secret, value);
-    if (!session) throw new NotFoundException('Order QR session not found');
+    if (!session) throw notFoundError('orderQrSessionNotFound');
     return session;
   }
 
@@ -191,8 +191,7 @@ export class OrderQrService {
       })
       .where(eq(organizationQrSecret.organizationId, org.id))
       .returning({ organizationId: organizationQrSecret.organizationId });
-    if (!restored)
-      throw new NotFoundException('Order QR secret has never been rotated');
+    if (!restored) throw notFoundError('orderQrSecretNeverRotated');
     return this.getSecretStatus(organizationSlug);
   }
 }

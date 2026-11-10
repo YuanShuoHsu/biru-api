@@ -6,6 +6,8 @@ import {
   eq,
   inArray,
   ne,
+  or,
+  sql,
 } from 'drizzle-orm';
 import { I18nService, type Path } from 'nestjs-i18n';
 
@@ -20,14 +22,7 @@ import {
 } from './order-ticket-receipt.js';
 import { isOrderTicketPrintable } from './order-transitions.js';
 
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 
@@ -73,6 +68,12 @@ import {
   type PrintEntry,
   type PrintResult,
 } from '../printers/server-direct-print.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './order-errors.js';
 
 export const IN_FLIGHT_ORDER_TICKET_STATUSES = [
   'queued',
@@ -88,6 +89,8 @@ const LEFT_QUEUE_STATUSES = [
 ] as const satisfies PrintJobStatus[];
 
 const MAX_JOBS_PER_POLL = 20;
+
+const PRINTER_REMOVAL_ATTEMPTS = 3;
 
 const OFFLINE_SWEEP_MS = 10_000;
 
@@ -229,6 +232,8 @@ export class OrderTicketService implements PrintJobSource {
 
     const { password, printer, queued } = await this.db.transaction(
       async (tx) => {
+        await this.lockPrinters(tx, organizationId);
+
         const existing = await this.printersService.list(
           organizationId,
           'orderTicket',
@@ -259,7 +264,7 @@ export class OrderTicketService implements PrintJobSource {
               eq(order.orderStatus, 'OrderProcessing'),
             ),
           )
-          .orderBy(asc(order.createdAt))
+          .orderBy(asc(order.id))
           .for('update');
 
         const queued: OrderTicketJob[] = [];
@@ -306,6 +311,8 @@ export class OrderTicketService implements PrintJobSource {
       await this.printersService.findOrganizationId(organizationSlug);
 
     const updated = await this.db.transaction(async (tx) => {
+      await this.lockPrinters(tx, organizationId);
+
       await tx
         .update(printerTable)
         .set({ isDefault: false })
@@ -328,7 +335,7 @@ export class OrderTicketService implements PrintJobSource {
           ),
         )
         .returning();
-      if (!updated) throw new NotFoundException('Printer not found');
+      if (!updated) throw menuNotFoundError('printerNotFound');
 
       return updated;
     });
@@ -347,88 +354,174 @@ export class OrderTicketService implements PrintJobSource {
     const organizationId =
       await this.printersService.findOrganizationId(organizationSlug);
 
-    const changed = await this.db.transaction(async (tx) => {
-      const [deleted] = await tx
-        .select({ isDefault: printerTable.isDefault })
-        .from(printerTable)
-        .where(
-          and(
-            eq(printerTable.id, printerId),
-            eq(printerTable.organizationId, organizationId),
-            eq(printerTable.purpose, 'orderTicket'),
-          ),
-        )
-        .for('update');
-      if (!deleted) throw new NotFoundException('Printer not found');
+    let orderIds: string[] = [];
+    for (let attempt = 0; attempt < PRINTER_REMOVAL_ATTEMPTS; attempt++) {
+      const outcome = await this.db.transaction(
+        async (
+          tx,
+        ): Promise<{ changed: string[] } | { retryWith: string[] }> => {
+          await this.lockPrinters(tx, organizationId);
 
-      const stranded = await tx
-        .update(orderTicketJob)
-        .set({ finishedAt: new Date(), status: 'cancelled' })
-        .where(
-          and(
-            eq(orderTicketJob.printerId, printerId),
-            eq(orderTicketJob.status, 'queued'),
-          ),
-        )
-        .returning();
+          // 訂單要比印表機先鎖，和排單的順序一致；鎖住印表機後才冒出的訂單不能再等它的鎖，只能整筆重來
+          const locked = await tx
+            .select({ id: order.id, orderStatus: order.orderStatus })
+            .from(order)
+            .where(
+              or(
+                inArray(order.id, this.strandedOrderIds(tx, printerId)),
+                inArray(order.id, orderIds),
+              ),
+            )
+            .orderBy(asc(order.id))
+            .for('update');
 
-      const unanswered = await tx
-        .update(orderTicketJob)
-        .set({ status: 'unknown' })
-        .where(
-          and(
-            eq(orderTicketJob.printerId, printerId),
-            eq(orderTicketJob.status, 'sent'),
-          ),
-        )
-        .returning({ orderId: orderTicketJob.orderId });
+          const [deleted] = await tx
+            .select({ isDefault: printerTable.isDefault })
+            .from(printerTable)
+            .where(
+              and(
+                eq(printerTable.id, printerId),
+                eq(printerTable.organizationId, organizationId),
+                eq(printerTable.purpose, 'orderTicket'),
+              ),
+            )
+            .for('update');
+          if (!deleted) throw menuNotFoundError('printerNotFound');
 
-      await tx.delete(printerTable).where(eq(printerTable.id, printerId));
-
-      if (deleted.isDefault)
-        await tx
-          .update(printerTable)
-          .set({ isDefault: true })
-          .where(
-            inArray(
-              printerTable.id,
-              tx
-                .select({ id: printerTable.id })
-                .from(printerTable)
-                .where(
-                  and(
-                    eq(printerTable.organizationId, organizationId),
-                    eq(printerTable.purpose, 'orderTicket'),
-                  ),
-                )
-                .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
-                .limit(1),
-            ),
+          const unlocked = (await this.strandedOrderIds(tx, printerId)).filter(
+            ({ orderId }) => !locked.some(({ id }) => id === orderId),
           );
+          if (unlocked.length)
+            return {
+              retryWith: [
+                ...locked.map(({ id }) => id),
+                ...unlocked.map(({ orderId }) => orderId),
+              ],
+            };
 
-      const reroutes = new Map<string, string[]>();
-      for (const job of stranded)
-        if (job.kind === 'order' && job.copy === 'original')
-          reroutes.set(job.orderId, [
-            ...(reroutes.get(job.orderId) ?? []),
-            ...job.orderItemIds,
-          ]);
+          // 同一交易改過的列再被外鍵 set null 時會重檢訂單外鍵而等到已鎖訂單的排單交易，所以這裡先清掉印表機
+          const stranded = await tx
+            .update(orderTicketJob)
+            .set({
+              finishedAt: new Date(),
+              printerId: null,
+              status: 'cancelled',
+            })
+            .where(
+              and(
+                eq(orderTicketJob.printerId, printerId),
+                eq(orderTicketJob.status, 'queued'),
+              ),
+            )
+            .returning();
 
-      for (const [orderId, orderItemIds] of reroutes) {
-        const [locked] = await tx
-          .select({ orderStatus: order.orderStatus })
-          .from(order)
-          .where(eq(order.id, orderId))
-          .for('update');
+          const unanswered = await tx
+            .update(orderTicketJob)
+            .set({ printerId: null, status: 'unknown' })
+            .where(
+              and(
+                eq(orderTicketJob.printerId, printerId),
+                eq(orderTicketJob.status, 'sent'),
+              ),
+            )
+            .returning({ orderId: orderTicketJob.orderId });
 
-        if (locked && isOrderTicketPrintable(locked.orderStatus))
-          await this.enqueueOrder(tx, orderId, organizationId, orderItemIds);
+          await tx.delete(printerTable).where(eq(printerTable.id, printerId));
+
+          if (deleted.isDefault)
+            await tx
+              .update(printerTable)
+              .set({ isDefault: true })
+              .where(
+                inArray(
+                  printerTable.id,
+                  tx
+                    .select({ id: printerTable.id })
+                    .from(printerTable)
+                    .where(
+                      and(
+                        eq(printerTable.organizationId, organizationId),
+                        eq(printerTable.purpose, 'orderTicket'),
+                      ),
+                    )
+                    .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
+                    .limit(1),
+                ),
+              );
+
+          const reroutes = new Map<string, string[]>();
+          for (const job of stranded)
+            if (job.kind === 'order' && job.copy === 'original')
+              reroutes.set(job.orderId, [
+                ...(reroutes.get(job.orderId) ?? []),
+                ...job.orderItemIds,
+              ]);
+
+          for (const [orderId, orderItemIds] of reroutes) {
+            const found = locked.find(({ id }) => id === orderId);
+            if (found && isOrderTicketPrintable(found.orderStatus))
+              await this.enqueueOrder(
+                tx,
+                orderId,
+                organizationId,
+                orderItemIds,
+              );
+          }
+
+          return {
+            changed: [...stranded, ...unanswered].map(({ orderId }) => orderId),
+          };
+        },
+      );
+
+      if ('changed' in outcome) {
+        this.emitOrdersUpdated(organizationId, outcome.changed);
+
+        return;
       }
 
-      return [...stranded, ...unanswered].map(({ orderId }) => orderId);
-    });
+      orderIds = outcome.retryWith;
+    }
 
-    this.emitOrdersUpdated(organizationId, changed);
+    throw conflictError('printerBusy');
+  }
+
+  private strandedOrderIds(tx: Tx, printerId: string) {
+    return tx
+      .selectDistinct({ orderId: orderTicketJob.orderId })
+      .from(orderTicketJob)
+      .where(
+        and(
+          eq(orderTicketJob.printerId, printerId),
+          eq(orderTicketJob.kind, 'order'),
+          eq(orderTicketJob.copy, 'original'),
+          eq(orderTicketJob.status, 'queued'),
+        ),
+      );
+  }
+
+  // 改工作單前先取得印表機的鎖：先鎖工作單再等印表機，會和移除印表機時外鍵 set null 等這張工作單互鎖
+  private async lockJobPrinter(tx: Tx, jobId: string) {
+    await tx
+      .select({ id: printerTable.id })
+      .from(printerTable)
+      .where(
+        eq(
+          printerTable.id,
+          tx
+            .select({ printerId: orderTicketJob.printerId })
+            .from(orderTicketJob)
+            .where(eq(orderTicketJob.id, jobId)),
+        ),
+      )
+      .for('key share');
+  }
+
+  // https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS
+  private async lockPrinters(tx: Tx, organizationId: string) {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`order_ticket_printers:${organizationId}`}, 0))`,
+    );
   }
 
   /** 品項自己的設定 → 最近一層有設定的上層分類 → 預設印表機 */
@@ -446,7 +539,8 @@ export class OrderTicketService implements PrintJobSource {
           eq(printerTable.purpose, 'orderTicket'),
         ),
       )
-      .orderBy(asc(printerTable.createdAt), asc(printerTable.id));
+      .orderBy(asc(printerTable.createdAt), asc(printerTable.id))
+      .for('key share');
 
     const fallback = (
       printers.find(({ isDefault }) => isDefault) ?? printers.at(0)
@@ -636,15 +730,22 @@ export class OrderTicketService implements PrintJobSource {
     }
     if (!byPrinter.size) return;
 
+    const live = await tx
+      .select({ id: printerTable.id })
+      .from(printerTable)
+      .where(inArray(printerTable.id, [...byPrinter.keys()]))
+      .for('key share');
+    if (!live.length) return;
+
     await tx
       .insert(orderTicketJob)
       .values(
-        [...byPrinter].map(([printerId, orderItemIds]) => ({
+        live.map(({ id: printerId }) => ({
           copy: 'original' as const,
           id: newPrintJobId(),
           kind: 'refund' as const,
           orderId,
-          orderItemIds,
+          orderItemIds: byPrinter.get(printerId)!,
           organizationId,
           printerId,
           refundId,
@@ -665,15 +766,15 @@ export class OrderTicketService implements PrintJobSource {
       where: and(eq(order.id, orderId), eq(order.sellerId, organizationId)),
       columns: { orderStatus: true },
     });
-    if (!found) throw new NotFoundException('Order not found');
+    if (!found) throw notFoundError('orderNotFound');
     if (!isOrderTicketPrintable(found.orderStatus))
-      throw new BadRequestException(this.t('notReprintable'));
+      throw badRequestError('notReprintable');
 
     const configured = await this.printersService.list(
       organizationId,
       'orderTicket',
     );
-    if (!configured.length) throw new BadRequestException(this.t('noPrinter'));
+    if (!configured.length) throw badRequestError('noPrinter');
 
     const originals = await this.db
       .select({
@@ -705,22 +806,43 @@ export class OrderTicketService implements PrintJobSource {
         : [];
     });
     if (printers.length !== new Set(printerIds).size)
-      throw new NotFoundException('Printer not found');
+      throw menuNotFoundError('printerNotFound');
 
-    const created = await this.db
-      .insert(orderTicketJob)
-      .values(
-        printers.map(({ orderItemIds, printer }) => ({
-          copy: 'reprint' as const,
-          id: newPrintJobId(),
-          kind: 'order' as const,
-          orderId,
-          orderItemIds,
-          organizationId,
-          printerId: printer.id,
-        })),
-      )
-      .returning();
+    const created = await this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: order.id })
+        .from(order)
+        .where(eq(order.id, orderId))
+        .for('key share');
+
+      const live = await tx
+        .select({ id: printerTable.id })
+        .from(printerTable)
+        .where(
+          inArray(
+            printerTable.id,
+            printers.map(({ printer }) => printer.id),
+          ),
+        )
+        .for('key share');
+      if (live.length !== printers.length)
+        throw menuNotFoundError('printerNotFound');
+
+      return tx
+        .insert(orderTicketJob)
+        .values(
+          printers.map(({ orderItemIds, printer }) => ({
+            copy: 'reprint' as const,
+            id: newPrintJobId(),
+            kind: 'order' as const,
+            orderId,
+            orderItemIds,
+            organizationId,
+            printerId: printer.id,
+          })),
+        )
+        .returning();
+    });
 
     this.emitOrdersUpdated(organizationId, [orderId]);
 
@@ -797,6 +919,8 @@ export class OrderTicketService implements PrintJobSource {
 
     const resolved = await this.db.transaction(async (tx) => {
       if (printed) {
+        await this.lockJobPrinter(tx, jobId);
+
         const job = await this.markPrinted(
           tx,
           jobId,
@@ -812,6 +936,8 @@ export class OrderTicketService implements PrintJobSource {
         .from(order)
         .where(eq(order.id, orderId))
         .for('update');
+
+      await this.lockJobPrinter(tx, jobId);
 
       const [job] = await tx
         .update(orderTicketJob)
@@ -860,7 +986,7 @@ export class OrderTicketService implements PrintJobSource {
       return reprint ?? job;
     });
 
-    if (!resolved) throw new ConflictException(this.t('printJobResolved'));
+    if (!resolved) throw conflictError('printJobResolved');
 
     this.emitOrdersUpdated(organizationId, [orderId]);
 
@@ -1136,6 +1262,8 @@ export class OrderTicketService implements PrintJobSource {
 
     for (const { code, printJobId, success } of results) {
       const job = await this.db.transaction(async (tx) => {
+        await this.lockJobPrinter(tx, printJobId);
+
         if (success)
           return this.markPrinted(tx, printJobId, { printerId: printer.id }, [
             'sent',

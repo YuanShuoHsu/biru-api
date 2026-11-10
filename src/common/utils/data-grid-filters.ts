@@ -12,14 +12,19 @@ import {
   lt,
   lte,
   ne,
+  not,
   notIlike,
   or,
   sql,
 } from 'drizzle-orm';
+import { isISO8601 } from 'class-validator';
 
 import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
 
 export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
+
+// https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-LIKE
+export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 export const localTimeText = (column: Column | SQL): SQL =>
   sql`TO_CHAR(${column} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY/MM/DD HH24:MI:SS')`;
@@ -33,17 +38,17 @@ export const buildStringFilterCondition = (
 
   switch (operator) {
     case 'contains':
-      return ilike(colSql, `%${value}%`);
+      return ilike(colSql, `%${escapeLike(value)}%`);
     case 'doesNotContain':
-      return notIlike(colSql, `%${value}%`);
+      return notIlike(colSql, `%${escapeLike(value)}%`);
     case 'equals':
       return eq(colSql, value);
     case 'doesNotEqual':
       return ne(colSql, value);
     case 'startsWith':
-      return ilike(colSql, `${value}%`);
+      return ilike(colSql, `${escapeLike(value)}%`);
     case 'endsWith':
-      return ilike(colSql, `%${value}`);
+      return ilike(colSql, `%${escapeLike(value)}`);
     case 'isEmpty':
       return or(isNull(colSql), eq(colSql, ''));
     case 'isNotEmpty':
@@ -59,6 +64,35 @@ export const buildStringFilterCondition = (
   }
 };
 
+const NEGATED_STRING_OPERATORS: Record<string, string> = {
+  doesNotContain: 'contains',
+  doesNotEqual: 'equals',
+  isEmpty: 'isNotEmpty',
+};
+
+export const buildLocalizedTextFilterCondition = (
+  column: Column | SQL,
+  operator: string,
+  value: string | undefined,
+): SQL | undefined => {
+  if (!value && !NO_VALUE_OPERATORS.includes(operator)) return undefined;
+
+  const matchOperator = NEGATED_STRING_OPERATORS[operator] ?? operator;
+  const valueMatches = buildStringFilterCondition(
+    sql`entry.value`,
+    matchOperator,
+    value || '',
+  );
+  if (!valueMatches) return undefined;
+
+  const anyValueMatches = sql`exists (select 1 from jsonb_each_text(${column}) as entry where ${valueMatches})`;
+
+  return matchOperator === operator ? anyValueMatches : not(anyValueMatches);
+};
+
+export const isCalendarDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && isISO8601(value, { strict: true });
+
 export const buildDateFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -68,7 +102,7 @@ export const buildDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const localDate = sql`DATE(${colSql} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})`;
   const targetDate = sql`${value}::date`;
@@ -89,6 +123,8 @@ export const buildDateFilterCondition = (
   }
 };
 
+const asNumeric = (value: number) => sql`${value}::numeric`;
+
 export const buildNumberFilterCondition = (
   column: Column | SQL,
   operator: string,
@@ -102,8 +138,10 @@ export const buildNumberFilterCondition = (
   if (operator === 'isAnyOf') {
     const values = value
       .split(',')
+      .filter(Boolean)
       .map(Number)
-      .filter((v) => !Number.isNaN(v));
+      .filter(Number.isFinite)
+      .map(asNumeric);
     if (values.length === 0) return undefined;
 
     return values.length === 1
@@ -112,25 +150,27 @@ export const buildNumberFilterCondition = (
   }
 
   const num = Number(value);
-  if (!value || Number.isNaN(num)) return undefined;
+  if (!value || !Number.isFinite(num)) return undefined;
+
+  const target = asNumeric(num);
 
   switch (operator) {
     case '=':
-      return eq(colSql, num);
+      return eq(colSql, target);
     case '!=':
-      return ne(colSql, num);
+      return ne(colSql, target);
     case '>':
-      return gt(colSql, num);
+      return gt(colSql, target);
     case '>=':
-      return gte(colSql, num);
+      return gte(colSql, target);
     case '<':
-      return lt(colSql, num);
+      return lt(colSql, target);
     case '<=':
-      return lte(colSql, num);
+      return lte(colSql, target);
   }
 };
 
-export const buildEnumFilterCondition = (
+const buildEnumFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -155,7 +195,7 @@ export const buildEnumFilterCondition = (
   }
 };
 
-export const buildBooleanFilterCondition = (
+const buildBooleanFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -181,7 +221,7 @@ export const buildPlainDateFilterCondition = (
 
   if (operator === 'isEmpty') return isNull(colSql);
   if (operator === 'isNotEmpty') return isNotNull(colSql);
-  if (!value) return undefined;
+  if (!isCalendarDate(value)) return undefined;
 
   const targetDate = sql`${value}::date`;
 
@@ -201,7 +241,7 @@ export const buildPlainDateFilterCondition = (
   }
 };
 
-export const buildMonthFilterCondition = (
+const buildMonthFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,
@@ -239,7 +279,7 @@ export const buildArrayOverlapCondition = (
   )}]::text[]`;
 };
 
-export const buildArrayEnumFilterCondition = (
+const buildArrayEnumFilterCondition = (
   column: Column | SQL,
   operator: string,
   value: string,

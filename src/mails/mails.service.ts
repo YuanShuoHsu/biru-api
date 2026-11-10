@@ -1,39 +1,194 @@
-import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable } from '@nestjs/common';
+import { MailerService, type ISendMailOptions } from '@nestjs-modules/mailer';
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { I18nService } from 'nestjs-i18n';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { I18nContext, I18nService } from 'nestjs-i18n';
+import type { NodemailerError } from 'nodemailer';
 import type { AttendanceNotificationKind } from '../attendance/attendance-notification.events.js';
 import { PRODUCT_NAME } from '../common/constants/product.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
-import { toLanguage } from '../common/utils/language.js';
+import { isLanguage, pickLanguage } from '../common/utils/language.js';
 import { type Language } from '../db/schema/enums.js';
-import type { User } from '../db/schema/users.js';
+import type { UnitCode } from '../db/schema/inventory.js';
+import {
+  memberRoleEnum,
+  organization,
+  type MemberRole,
+} from '../db/schema/organizations.js';
+import { user, type User } from '../db/schema/users.js';
+import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import { I18nTranslations } from '../generated/i18n.generated.js';
 import { UAParser } from 'ua-parser-js';
 
 import { SendTestEmailDto } from './dto/send-test-email.dto.js';
 
+const redact = (text: string) =>
+  text
+    .replace(/https?:\/\/\S+/g, '[url]')
+    .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
+
+const countryName = (code: string, lang: Language) => {
+  try {
+    return new Intl.DisplayNames(lang, { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+
+const formatAddress = (
+  address: Pick<
+    typeof organization.$inferSelect,
+    | 'addressCountry'
+    | 'addressLocality'
+    | 'addressRegion'
+    | 'extendedAddress'
+    | 'postalCode'
+    | 'streetAddress'
+  >,
+  lang: Language,
+) => {
+  const groups = [
+    [address.streetAddress, address.extendedAddress],
+    [address.addressLocality],
+    [address.addressRegion],
+    [address.postalCode],
+    [countryName(address.addressCountry, lang)],
+  ];
+
+  return (lang === 'en' ? groups : groups.reverse())
+    .flat()
+    .filter(Boolean)
+    .join(', ');
+};
+
+const sendFailure = (template: string, to: string, error: unknown) =>
+  redact(
+    `Failed to send ${template} email to ${to}: ${error instanceof Error ? error.message : String(error)}`,
+  );
+
 @Injectable()
 export class MailsService {
+  private readonly logger = new Logger(MailsService.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly mailerService: MailerService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
+
+  private languageFor(
+    recipientLang: Language | undefined,
+    request?: Request,
+  ): Language {
+    if (isLanguage(recipientLang)) return recipientLang;
+
+    return (
+      pickLanguage(request?.headers.get('accept-language')) ??
+      this.configService.getOrThrow<Language>('FALLBACK_LANGUAGE')
+    );
+  }
+
+  private async send(
+    options: ISendMailOptions & { to: string; template: string },
+  ): Promise<void> {
+    await this.mailerService.sendMail(options).catch((error: unknown) => {
+      this.logger.error(sendFailure(options.template, options.to, error));
+    });
+  }
+
+  private async sendOrThrow(
+    options: ISendMailOptions & { to: string; template: string },
+  ): Promise<void> {
+    await this.mailerService.sendMail(options).catch((error: unknown) => {
+      throw new Error(sendFailure(options.template, options.to, error));
+    });
+  }
+
+  public async sendPointsExpiryReminder({
+    userId,
+    points,
+    expiresAt,
+  }: {
+    userId: string;
+    points: number;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    const member = await this.db.query.user.findFirst({
+      columns: { email: true, lang: true },
+      where: and(
+        eq(user.id, userId),
+        or(
+          isNull(user.banned),
+          eq(user.banned, false),
+          lt(user.banExpires, new Date()),
+        ),
+      ),
+    });
+    if (!member) return false;
+
+    const productName = PRODUCT_NAME;
+    const template = 'points-expiry-reminder';
+    const lang = this.languageFor(member.lang);
+    const baseUrl = this.configService.get<string>('NEXT_URL');
+    const url = `${baseUrl}/${lang}/auth/points/transactions`;
+    const options = { lang };
+    const translate = {
+      args: {
+        date: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          timeZone: PLATFORM_TIMEZONE,
+        }).format(expiresAt),
+        points: new Intl.NumberFormat(lang).format(points),
+        productName,
+      },
+      lang,
+    };
+
+    await this.sendOrThrow({
+      to: member.email,
+      subject: this.i18n.t('mail.points_expiry_reminder.subject', translate),
+      template,
+      context: {
+        action: this.i18n.t('mail.points_expiry_reminder.action', options),
+        home_url: `${baseUrl}/${lang}`,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.points_expiry_reminder.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.points_expiry_reminder.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.points_expiry_reminder.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.points_expiry_reminder.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+
+    return true;
+  }
 
   public async afterEmailVerification(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -43,40 +198,38 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.after_email_verification.subject', {
-          args: { productName },
-        }),
-        template: 'after-email-verification',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: home_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.after_email_verification.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'after-email-verification',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: home_url,
+      },
+    });
   }
 
   public async onExistingUserSignUp(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -87,40 +240,38 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
-          args: { productName },
-        }),
-        template: 'on-existing-user-sign-up',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          sign_in_url,
-          support_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.on_existing_user_sign_up.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'on-existing-user-sign-up',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        sign_in_url,
+        support_url,
+      },
+    });
   }
 
   public async onPasswordReset(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
     },
     request?: Request,
   ): Promise<void> {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
@@ -131,36 +282,34 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.on_password_reset.subject', {
-          args: { productName },
-        }),
-        template: 'on-password-reset',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          sign_in_url,
-          support_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.on_password_reset.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'on-password-reset',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        sign_in_url,
+        support_url,
+      },
+    });
   }
 
   public async sendChangeEmailConfirmation(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       newEmail,
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       newEmail: string;
       url: string;
       token: string;
@@ -170,7 +319,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -189,36 +338,34 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
-          args: { productName },
-        }),
-        template: 'send-change-email-confirmation',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          newEmail,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_change_email_confirmation.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-change-email-confirmation',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        newEmail,
+        operating_system,
+        productName,
+        support_url,
+        url: verifyEmailUrl,
+      },
+    });
   }
 
   public async sendDeleteAccountVerification(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },
@@ -227,7 +374,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -246,26 +393,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_delete_account_verification.subject', {
-          args: { productName },
-        }),
-        template: 'send-delete-account-verification',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: deleteAccountUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_delete_account_verification.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-delete-account-verification',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: deleteAccountUrl,
+      },
+    });
   }
 
   public async sendInvitationEmail(
@@ -273,7 +418,7 @@ export class MailsService {
       id,
       email,
       role,
-      organization: { name: organizationName },
+      organization: { id: organizationId, name: organizationName },
       inviter: {
         user: { name: inviterName },
       },
@@ -281,7 +426,7 @@ export class MailsService {
       id: string;
       email: string;
       role: string;
-      organization: { name: string };
+      organization: { id: string; name: string };
       inviter: { user: { name: string; email: string } };
     },
     request?: Request,
@@ -289,42 +434,61 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const invitee = await this.db.query.user.findFirst({
+      columns: { lang: true },
+      where: sql`lower(${user.email}) = lower(${email})`,
+    });
+    const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
+    const store = await this.db.query.organization.findFirst({
+      columns: {
+        addressCountry: true,
+        addressLocality: true,
+        addressRegion: true,
+        extendedAddress: true,
+        postalCode: true,
+        streetAddress: true,
+      },
+      where: eq(organization.id, organizationId),
+    });
 
     const inviteParams = new URLSearchParams({ email, id });
     const invite_url = `${baseUrl}/${lang}/auth/accept-invitation?${inviteParams.toString()}`;
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.organization_invitation.subject', {
-          args: { organizationName, productName },
-        }),
-        template: 'organization-invitation',
-        context: {
-          home_url,
-          i18nLang: lang,
-          inviterName,
-          organizationName,
-          productName,
-          role,
-          support_url,
-          url: invite_url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.organization_invitation.subject', {
+        args: { organizationName, productName },
+        lang,
+      }),
+      template: 'organization-invitation',
+      context: {
+        home_url,
+        i18nLang: lang,
+        inviterName,
+        organizationAddress: store ? formatAddress(store, lang) : '',
+        organizationName,
+        productName,
+        role: (memberRoleEnum.enumValues as readonly string[]).includes(role)
+          ? this.i18n.t(
+              `mail.organization_invitation.roles.${role as MemberRole}`,
+              { lang },
+            )
+          : role,
+        support_url,
+        url: invite_url,
+      },
+    });
   }
 
   public async sendResetPassword(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },
@@ -333,7 +497,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -352,47 +516,63 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_reset_password.subject', {
-          args: { productName },
-        }),
-        template: 'send-reset-password',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: resetPasswordUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_reset_password.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-reset-password',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: resetPasswordUrl,
+      },
+    });
   }
 
-  public async sendTestEmail({ email }: SendTestEmailDto): Promise<void> {
+  public async sendTestEmail(
+    { email }: SendTestEmailDto,
+    recipientLang: Language | undefined,
+  ): Promise<void> {
+    const lang = this.languageFor(recipientLang);
+    const text = this.i18n.t('mail.smtp_test.text', { lang });
+
     await this.mailerService
       .sendMail({
         to: email,
-        subject: 'Biru Coffee SMTP Test',
-        text: 'If you receive this email, your SMTP configuration is correct!',
-        html: '<b>If you receive this email, your SMTP configuration is correct!</b>',
+        subject: this.i18n.t('mail.smtp_test.subject', {
+          args: { productName: PRODUCT_NAME },
+          lang,
+        }),
+        text,
+        html: `<b>${text}</b>`,
       })
-      .then(() => {})
-      .catch(() => {});
+      .catch((error: unknown) => {
+        const { code, responseCode }: Partial<NodemailerError> =
+          error instanceof Error ? error : {};
+        throw new BadGatewayException({
+          error: 'Bad Gateway',
+          message: this.i18n.t('common.exceptions.smtpTestFailed', {
+            lang: I18nContext.current()?.lang,
+          }),
+          smtp: { code, responseCode },
+        });
+      });
   }
 
   public async sendVerificationEmail(
     {
-      user: { email, name },
+      user: { email, name, lang: recipientLang },
       url,
       token,
     }: {
-      user: Pick<User, 'email' | 'name'>;
+      user: Pick<User, 'email' | 'name'> & Partial<Pick<User, 'lang'>>;
       url: string;
       token: string;
     },
@@ -401,7 +581,7 @@ export class MailsService {
     const productName = PRODUCT_NAME;
 
     const baseUrl = this.configService.get<string>('NEXT_URL');
-    const lang = toLanguage(request?.headers.get('accept-language'));
+    const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const support_url = `${baseUrl}/${lang}/company/contact`;
 
@@ -420,26 +600,24 @@ export class MailsService {
     const browser_name = result.browser?.name || 'Unknown';
     const operating_system = result.os?.name || 'Unknown';
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t('mail.send_verification_email.subject', {
-          args: { productName },
-        }),
-        template: 'send-verification-email',
-        context: {
-          browser_name,
-          home_url,
-          i18nLang: lang,
-          name,
-          operating_system,
-          productName,
-          support_url,
-          url: verifyEmailUrl,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.send_verification_email.subject', {
+        args: { productName },
+        lang,
+      }),
+      template: 'send-verification-email',
+      context: {
+        browser_name,
+        home_url,
+        i18nLang: lang,
+        name,
+        operating_system,
+        productName,
+        support_url,
+        url: verifyEmailUrl,
+      },
+    });
   }
 
   public async sendAttendanceNotification({
@@ -492,49 +670,46 @@ export class MailsService {
     };
     const translate = { args, lang };
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t(
-          `mail.attendance_notification.${direction}.subject`,
+    await this.send({
+      to: email,
+      subject: this.i18n.t(
+        `mail.attendance_notification.${direction}.subject`,
+        translate,
+      ),
+      template: 'attendance-notification',
+      context: {
+        action: this.i18n.t(
+          `mail.attendance_notification.${direction}.action`,
+          options,
+        ),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t(
+          `mail.attendance_notification.${direction}.intro`,
           translate,
         ),
-        template: 'attendance-notification',
-        context: {
-          action: this.i18n.t(
-            `mail.attendance_notification.${direction}.action`,
-            options,
-          ),
-          home_url: url,
-          i18nLang: lang,
-          intro: this.i18n.t(
-            `mail.attendance_notification.${direction}.intro`,
-            translate,
-          ),
-          productName,
-          reason:
-            reason &&
-            this.i18n.t('mail.attendance_notification.reason', {
-              args: { reason },
-              lang,
-            }),
-          salutation: this.i18n.t(
-            'mail.attendance_notification.salutation',
-            translate,
-          ),
-          title: this.i18n.t(
-            `mail.attendance_notification.${direction}.title`,
-            translate,
-          ),
-          trouble_hint: this.i18n.t(
-            'mail.attendance_notification.trouble_hint',
-            options,
-          ),
-          url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+        productName,
+        reason:
+          reason &&
+          this.i18n.t('mail.attendance_notification.reason', {
+            args: { reason },
+            lang,
+          }),
+        salutation: this.i18n.t(
+          'mail.attendance_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t(
+          `mail.attendance_notification.${direction}.title`,
+          translate,
+        ),
+        trouble_hint: this.i18n.t(
+          'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
   }
 
   public async sendAnnualLeaveEntitlement({
@@ -573,7 +748,7 @@ export class MailsService {
     };
     const translate = { args, lang };
 
-    await this.mailerService.sendMail({
+    await this.sendOrThrow({
       to: email,
       subject: this.i18n.t('mail.annual_leave_entitlement.subject', translate),
       template: 'attendance-notification',
@@ -591,6 +766,406 @@ export class MailsService {
         title: this.i18n.t('mail.annual_leave_entitlement.title', translate),
         trouble_hint: this.i18n.t(
           'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendMissingClockOut({
+    recipient: { email, lang },
+    organizationName,
+    path,
+    startsAt,
+    endsAt,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    path: string;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const translate = {
+      args: {
+        organizationName,
+        period: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          hourCycle: 'h23',
+          timeStyle: 'short',
+          timeZone: PLATFORM_TIMEZONE,
+        }).formatRange(startsAt, endsAt),
+        productName,
+      },
+      lang,
+    };
+
+    await this.sendOrThrow({
+      to: email,
+      subject: this.i18n.t('mail.missing_clock_out.subject', translate),
+      template: 'attendance-notification',
+      context: {
+        action: this.i18n.t('mail.missing_clock_out.action', options),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.missing_clock_out.intro', translate),
+        productName,
+        reason: this.i18n.t('mail.missing_clock_out.rules', options),
+        salutation: this.i18n.t(
+          'mail.attendance_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.missing_clock_out.title', translate),
+        trouble_hint: this.i18n.t(
+          'mail.attendance_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendLowStockDigest({
+    recipient: { email, lang },
+    organizationName,
+    path,
+    ingredients,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    path: string;
+    ingredients: {
+      name: string;
+      inventoryLevel: string;
+      lowStockThreshold: string;
+      unitCode: UnitCode;
+      supplierId: string | null;
+      supplierName: string | null;
+    }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const translate = {
+      args: { count: ingredients.length, organizationName, productName },
+      lang,
+    };
+    const numberFormat = new Intl.NumberFormat(lang, {
+      maximumFractionDigits: 3,
+    });
+    const groups = new Map<
+      string | null,
+      { supplierName: string | null; items: string[] }
+    >();
+
+    for (const {
+      name,
+      inventoryLevel,
+      lowStockThreshold,
+      unitCode,
+      supplierId,
+      supplierName,
+    } of ingredients) {
+      const unit = this.i18n.t(
+        `mail.low_stock_digest.units.${unitCode}`,
+        options,
+      );
+      const item = this.i18n.t('mail.low_stock_digest.item', {
+        args: {
+          level: numberFormat.format(Number(inventoryLevel)),
+          name,
+          shortage: numberFormat.format(
+            Number(lowStockThreshold) - Number(inventoryLevel),
+          ),
+          threshold: numberFormat.format(Number(lowStockThreshold)),
+          unit,
+        },
+        lang,
+      });
+
+      groups.set(supplierId, {
+        supplierName,
+        items: [...(groups.get(supplierId)?.items ?? []), item],
+      });
+    }
+
+    await this.sendOrThrow({
+      to: email,
+      subject: this.i18n.t('mail.low_stock_digest.subject', translate),
+      template: 'digest',
+      context: {
+        action: this.i18n.t('mail.low_stock_digest.action', options),
+        groups: [...groups.values()].map(({ supplierName, items }) => ({
+          heading:
+            supplierName ??
+            this.i18n.t('mail.low_stock_digest.no_supplier', options),
+          items,
+        })),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.low_stock_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t('mail.low_stock_digest.salutation', translate),
+        title: this.i18n.t('mail.low_stock_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.low_stock_digest.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendDailySalesDigest({
+    recipient: { email, lang },
+    organizationName,
+    currency,
+    date,
+    path,
+    current,
+    previous,
+    peakHour,
+    pointAdjustments,
+    refundedOrders,
+    topItems,
+  }: {
+    recipient: { email: string; lang: Language };
+    organizationName: string;
+    currency: string;
+    date: Date;
+    path: string;
+    current: { orders: number; revenue: number };
+    previous: { orders: number; revenue: number };
+    peakHour: { hour: number; orders: number };
+    pointAdjustments: {
+      adjuster: string | null;
+      member: string;
+      points: number;
+      reason: string | null;
+    }[];
+    refundedOrders: number;
+    topItems: { name: string; sold: number }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const url = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}${path}`;
+    const options = { lang };
+    const money = new Intl.NumberFormat(lang, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    });
+    const args = {
+      average: money.format(
+        current.orders ? current.revenue / current.orders : 0,
+      ),
+      date: new Intl.DateTimeFormat(lang, {
+        dateStyle: 'medium',
+        timeZone: PLATFORM_TIMEZONE,
+      }).format(date),
+      orders: current.orders,
+      organizationName,
+      peakHour: `${String(peakHour.hour).padStart(2, '0')}:00–${String(peakHour.hour + 1).padStart(2, '0')}:00`,
+      peakOrders: peakHour.orders,
+      previousOrders: previous.orders,
+      previousRevenue: money.format(previous.revenue),
+      productName,
+      refundedOrders,
+      revenue: money.format(current.revenue),
+    };
+    const translate = { args, lang };
+    const groups = [
+      {
+        heading: this.i18n.t('mail.daily_sales_digest.overview', options),
+        items: (
+          [
+            'mail.daily_sales_digest.revenue',
+            'mail.daily_sales_digest.orders',
+            'mail.daily_sales_digest.average',
+            'mail.daily_sales_digest.peak_hour',
+            'mail.daily_sales_digest.refunds',
+          ] as const
+        )
+          .filter(
+            (key) =>
+              current.orders > 0 ||
+              (key !== 'mail.daily_sales_digest.average' &&
+                key !== 'mail.daily_sales_digest.peak_hour'),
+          )
+          .map((key) => this.i18n.t(key, translate)),
+      },
+    ];
+    if (topItems.length)
+      groups.push({
+        heading: this.i18n.t('mail.daily_sales_digest.top_items', options),
+        items: topItems.map(({ name, sold }) =>
+          this.i18n.t('mail.daily_sales_digest.item', {
+            args: { name, sold },
+            lang,
+          }),
+        ),
+      });
+    if (pointAdjustments.length) {
+      const signed = new Intl.NumberFormat(lang, { signDisplay: 'always' });
+      groups.push({
+        heading: this.i18n.t('mail.daily_sales_digest.point_adjustments', {
+          args: {
+            count: pointAdjustments.length,
+            total: signed.format(
+              pointAdjustments.reduce((sum, { points }) => sum + points, 0),
+            ),
+          },
+          lang,
+        }),
+        items: pointAdjustments.map(({ adjuster, member, points, reason }) =>
+          this.i18n.t('mail.daily_sales_digest.point_adjustment', {
+            args: {
+              adjuster: adjuster ?? '—',
+              member,
+              points: signed.format(points),
+              reason: reason ?? '',
+            },
+            lang,
+          }),
+        ),
+      });
+    }
+
+    await this.sendOrThrow({
+      to: email,
+      subject: this.i18n.t('mail.daily_sales_digest.subject', translate),
+      template: 'digest',
+      context: {
+        action: this.i18n.t('mail.daily_sales_digest.action', options),
+        groups,
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.daily_sales_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.daily_sales_digest.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.daily_sales_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.daily_sales_digest.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendPlatformDailyDigest({
+    recipient: { email, lang },
+    date,
+    path,
+    stores,
+  }: {
+    recipient: { email: string; lang: Language };
+    date: Date;
+    path: string;
+    stores: {
+      organizationName: string;
+      currency: string;
+      path: string;
+      orders: number;
+      revenue: number;
+      refundedOrders: number;
+      pointAdjustments: { count: number; total: number };
+      lowStock: number;
+    }[];
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const adminUrl = `${this.configService.get<string>('NEXT_ADMIN_URL')}/${lang}`;
+    const url = `${adminUrl}${path}`;
+    const options = { lang };
+    const signed = new Intl.NumberFormat(lang, { signDisplay: 'always' });
+    const translate = {
+      args: {
+        count: stores.length,
+        date: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          timeZone: PLATFORM_TIMEZONE,
+        }).format(date),
+        productName,
+      },
+      lang,
+    };
+
+    await this.sendOrThrow({
+      to: email,
+      subject: this.i18n.t('mail.platform_daily_digest.subject', translate),
+      template: 'digest',
+      context: {
+        action: this.i18n.t('mail.platform_daily_digest.action', options),
+        groups: stores.map(
+          ({
+            organizationName,
+            currency,
+            path: storePath,
+            pointAdjustments,
+            ...store
+          }) => {
+            const args = {
+              ...store,
+              revenue: new Intl.NumberFormat(lang, {
+                style: 'currency',
+                currency,
+                maximumFractionDigits: 0,
+              }).format(store.revenue),
+              adjustments: pointAdjustments.count,
+              points: signed.format(pointAdjustments.total),
+            };
+            return {
+              heading: organizationName,
+              url: `${adminUrl}${storePath}`,
+              items: [
+                this.i18n.t('mail.platform_daily_digest.revenue', {
+                  args,
+                  lang,
+                }),
+                this.i18n.t('mail.platform_daily_digest.orders', {
+                  args,
+                  lang,
+                }),
+                this.i18n.t('mail.platform_daily_digest.refunds', {
+                  args,
+                  lang,
+                }),
+                ...(pointAdjustments.count
+                  ? [
+                      this.i18n.t(
+                        'mail.platform_daily_digest.point_adjustments',
+                        { args, lang },
+                      ),
+                    ]
+                  : []),
+                ...(store.lowStock
+                  ? [
+                      this.i18n.t('mail.platform_daily_digest.low_stock', {
+                        args,
+                        lang,
+                      }),
+                    ]
+                  : []),
+              ],
+            };
+          },
+        ),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.platform_daily_digest.intro', translate),
+        productName,
+        salutation: this.i18n.t(
+          'mail.platform_daily_digest.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.platform_daily_digest.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.platform_daily_digest.trouble_hint',
           options,
         ),
         url,
@@ -638,46 +1213,43 @@ export class MailsService {
       lang,
     };
 
-    await this.mailerService
-      .sendMail({
-        to: email,
-        subject: this.i18n.t(
-          `mail.waitlist_notification.${kind}.subject`,
+    await this.send({
+      to: email,
+      subject: this.i18n.t(
+        `mail.waitlist_notification.${kind}.subject`,
+        translate,
+      ),
+      template: 'waitlist-notification',
+      context: {
+        action: this.i18n.t(
+          `mail.waitlist_notification.${kind}.action`,
+          options,
+        ),
+        detail: this.i18n.t(
+          `mail.waitlist_notification.${kind}.detail`,
           translate,
         ),
-        template: 'waitlist-notification',
-        context: {
-          action: this.i18n.t(
-            `mail.waitlist_notification.${kind}.action`,
-            options,
-          ),
-          detail: this.i18n.t(
-            `mail.waitlist_notification.${kind}.detail`,
-            translate,
-          ),
-          home_url: url,
-          i18nLang: lang,
-          intro: this.i18n.t(
-            `mail.waitlist_notification.${kind}.intro`,
-            translate,
-          ),
-          productName,
-          salutation: this.i18n.t(
-            'mail.waitlist_notification.salutation',
-            translate,
-          ),
-          title: this.i18n.t(
-            `mail.waitlist_notification.${kind}.title`,
-            translate,
-          ),
-          trouble_hint: this.i18n.t(
-            'mail.waitlist_notification.trouble_hint',
-            options,
-          ),
-          url,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t(
+          `mail.waitlist_notification.${kind}.intro`,
+          translate,
+        ),
+        productName,
+        salutation: this.i18n.t(
+          'mail.waitlist_notification.salutation',
+          translate,
+        ),
+        title: this.i18n.t(
+          `mail.waitlist_notification.${kind}.title`,
+          translate,
+        ),
+        trouble_hint: this.i18n.t(
+          'mail.waitlist_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
   }
 }

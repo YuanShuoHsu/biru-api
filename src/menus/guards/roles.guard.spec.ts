@@ -1,0 +1,295 @@
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+
+import type { PGlite } from '@electric-sql/pglite';
+import type { AuthService } from '@thallesp/nestjs-better-auth';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+
+import { createPGlite } from '../../../test/pglite.js';
+import type { Auth } from '../../auth/index.js';
+import * as schema from '../../db/schema/index.js';
+import {
+  menu,
+  menuItem,
+  menuItemAddOn,
+  menuSection,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../../db/schema/menus.js';
+import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
+
+import { type AuthRequest, RolesGuard } from './roles.guard.js';
+
+const guardFor = ({
+  userRole,
+  memberRole,
+  closed = false,
+}: {
+  userRole: string;
+  memberRole?: 'owner' | 'admin' | 'member';
+  closed?: boolean;
+}) => {
+  const authService = {
+    api: {
+      getSession: vi
+        .fn()
+        .mockResolvedValue({ user: { id: 'user', role: userRole } }),
+    },
+  };
+  const db = {
+    query: {
+      member: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue(memberRole ? { role: memberRole } : undefined),
+      },
+      organization: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ closedAt: closed ? new Date() : null }),
+      },
+    },
+  };
+
+  return new RolesGuard(
+    new Reflector(),
+    authService as unknown as AuthService<Auth>,
+    db as unknown as DrizzleDB,
+  );
+};
+
+const contextFor = (
+  action: Record<string, string[]> | undefined,
+  method = 'GET',
+) => {
+  const request = {
+    headers: {},
+    method,
+    params: { organizationId: 'org' },
+  } as unknown as AuthRequest;
+  const handler = () => undefined;
+  Reflect.defineMetadata(
+    'roles',
+    { action, organizationParam: 'organizationId' },
+    handler,
+  );
+
+  const context = {
+    getClass: () => class {},
+    getHandler: () => handler,
+    getType: () => 'http',
+    switchToHttp: () => ({ getRequest: () => request }),
+  } as unknown as ExecutionContext;
+
+  return { context, request };
+};
+
+describe('RolesGuard', () => {
+  it('lets a platform admin who is not a member act as the owner', async () => {
+    const { context, request } = contextFor({ organization: ['update'] });
+
+    await expect(
+      guardFor({ userRole: 'admin' }).canActivate(context),
+    ).resolves.toBe(true);
+    expect(request.memberRole).toBe('owner');
+    expect(request.organizationId).toBe('org');
+  });
+
+  it('lets a platform admin who is a lower-role member act as the owner', async () => {
+    const { context, request } = contextFor({ organization: ['update'] });
+
+    await expect(
+      guardFor({ userRole: 'admin', memberRole: 'member' }).canActivate(
+        context,
+      ),
+    ).resolves.toBe(true);
+    expect(request.memberRole).toBe('owner');
+  });
+
+  it('rejects a user who is not a member', async () => {
+    const { context } = contextFor(undefined);
+
+    await expect(
+      guardFor({ userRole: 'user' }).canActivate(context),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects a member without the action', async () => {
+    const { context } = contextFor({ organization: ['update'] });
+
+    await expect(
+      guardFor({ userRole: 'user', memberRole: 'member' }).canActivate(context),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects with the forbidden code', async () => {
+    const { context } = contextFor({ organization: ['update'] });
+
+    await expect(
+      guardFor({ userRole: 'user', memberRole: 'member' }).canActivate(context),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
+
+  it.each<Record<string, string[]>>([
+    { refund: ['create'] },
+    { invoice: ['void'] },
+  ])(
+    'still lets a closed organization refund and void invoices (%o)',
+    async (action) => {
+      const { context } = contextFor(action, 'POST');
+
+      await expect(
+        guardFor({
+          userRole: 'user',
+          memberRole: 'member',
+          closed: true,
+        }).canActivate(context),
+      ).resolves.toBe(true);
+    },
+  );
+
+  it('keeps a closed organization read-only for a platform admin', async () => {
+    const { context } = contextFor({ menu: ['update'] }, 'PATCH');
+
+    await expect(
+      guardFor({ userRole: 'admin', closed: true }).canActivate(context),
+    ).rejects.toThrow(/read-only/);
+  });
+});
+
+describe('RolesGuard 由路由參數找門市', () => {
+  let client: PGlite;
+  let db: DrizzleDB;
+
+  const guardAs = (userId: string, role = 'user') =>
+    new RolesGuard(
+      new Reflector(),
+      {
+        api: {
+          getSession: vi.fn().mockResolvedValue({ user: { id: userId, role } }),
+        },
+      } as unknown as AuthService<Auth>,
+      db,
+    );
+
+  const paramContext = (organizationParam: string, value: string) => {
+    const request = {
+      headers: {},
+      method: 'GET',
+      params: { [organizationParam]: value },
+    } as unknown as AuthRequest;
+    const handler = () => undefined;
+    Reflect.defineMetadata(
+      'roles',
+      { action: { menu: ['read'] }, organizationParam },
+      handler,
+    );
+    const context = {
+      getClass: () => class {},
+      getHandler: () => handler,
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+
+    return { context, request };
+  };
+
+  const itemContext = (menuItemId: string) =>
+    paramContext('menuItemId', menuItemId);
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    db = pglite as unknown as DrizzleDB;
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+      insert into "user" (id, name, email, first_name) values
+        ('amy', 'amy', 'amy@example.com', 'Amy'),
+        ('bob', 'bob', 'bob@example.com', 'Bob');
+      insert into member (id, organization_id, user_id, role, created_at) values
+        ('amy-biru', 'biru', 'amy', 'member', now()),
+        ('bob-other', 'other', 'bob', 'member', now());
+    `);
+    await pglite.insert(menu).values({
+      id: 'menu',
+      organizationId: 'biru',
+      name: { 'zh-TW': '菜單' },
+    });
+    await pglite.insert(menuItem).values({
+      id: 'unsectioned',
+      menuId: 'menu',
+      name: { 'zh-TW': '未分類品項' },
+      sortOrder: 0,
+    });
+    await pglite.insert(menuSection).values({
+      id: 'drinks',
+      menuId: 'menu',
+      name: { 'zh-TW': '飲品' },
+    });
+    await pglite.insert(menuItem).values({
+      id: 'latte',
+      menuId: 'menu',
+      menuSectionId: 'drinks',
+      name: { 'zh-TW': '拿鐵' },
+      sortOrder: 0,
+    });
+    await pglite.insert(offer).values([
+      { id: 'latte-offer', menuItemId: 'latte' },
+      { id: 'drinks-offer', menuSectionId: 'drinks' },
+    ]);
+    await pglite.insert(menuItemAddOn).values({
+      id: 'latte-addon',
+      menuItemId: 'latte',
+      addOnMenuItemId: 'unsectioned',
+    });
+    await pglite.insert(modifierGroup).values({
+      id: 'sizes',
+      menuId: 'menu',
+      displayName: { 'zh-TW': '尺寸' },
+    });
+    await pglite.insert(modifier).values({
+      id: 'large',
+      modifierGroupId: 'sizes',
+      displayName: { 'zh-TW': '大杯' },
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('沒有分類的品項也從它的菜單找到門市', async () => {
+    const { context, request } = itemContext('unsectioned');
+
+    await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
+    expect(request.organizationId).toBe('biru');
+  });
+
+  it.each([
+    ['sectionId', 'drinks'],
+    ['menuItemId', 'latte'],
+    ['offerId', 'latte-offer'],
+    ['offerId', 'drinks-offer'],
+    ['addOnId', 'latte-addon'],
+    ['groupId', 'sizes'],
+    ['modifierId', 'large'],
+  ])('%s %s 沿著菜單找到門市', async (organizationParam, value) => {
+    const { context, request } = paramContext(organizationParam, value);
+
+    await expect(guardAs('amy').canActivate(context)).resolves.toBe(true);
+    expect(request.organizationId).toBe('biru');
+  });
+
+  it('別家門市的成員仍然不能讀這個品項', async () => {
+    const { context } = itemContext('unsectioned');
+
+    await expect(guardAs('bob').canActivate(context)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class MenuSectionResponseDto {
@@ -12,14 +13,14 @@ export class MenuSectionResponseDto {
   @ApiPropertyOptional()
   parentSectionId: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   description: LocalizedText | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiProperty({
     description:
@@ -34,4 +35,10 @@ export class MenuSectionResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+}
+
+export class MenuSectionListResponseDto {
+  @ApiProperty({ type: [MenuSectionResponseDto] })
+  data: MenuSectionResponseDto[];
+  @ApiProperty() total: number;
 }

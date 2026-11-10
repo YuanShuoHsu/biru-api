@@ -12,6 +12,9 @@ export const languagesEnum = pgEnum('languages', [
 ]);
 export type Language = (typeof languagesEnum.enumValues)[number];
 
+export const cancelReasonEnum = pgEnum('cancel_reason', ['storeClosed']);
+export type CancelReason = (typeof cancelReasonEnum.enumValues)[number];
+
 export const servingTemperatureEnum = pgEnum('serving_temperature', [
   'Iced',
   'Hot',

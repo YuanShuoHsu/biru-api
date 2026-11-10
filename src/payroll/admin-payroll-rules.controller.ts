@@ -32,9 +32,13 @@ export class AdminPayrollRulesController {
   }
 
   @Post('ingest')
-  @ApiOperation({ summary: '從政府開放資料更新投保級距' })
-  ingest(): Promise<PayrollRuleIngestResponseDto> {
-    return this.payrollRulesService.ingest();
+  @ApiOperation({ summary: '從政府開放資料更新投保級距與國定假日' })
+  async ingest(): Promise<PayrollRuleIngestResponseDto> {
+    const result = await this.payrollRulesService.ingest();
+    const { written: holidayYears } =
+      await this.payrollRulesService.ingestHolidays();
+
+    return { ...result, holidayYears };
   }
 
   @Patch(':effectiveFrom')

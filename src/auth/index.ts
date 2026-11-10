@@ -9,6 +9,7 @@
 
 import { Logger } from '@nestjs/common';
 
+import type { GenericEndpointContext } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
@@ -22,9 +23,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { authDb, runInAuthSavepoint } from './auth-transaction.js';
 import { assertOrganizationDeletable } from './deletion-guards.js';
+import { cancelExpiredInvitations } from './expired-invitations.js';
 import { authHookState, createAuthHooks } from './hooks.js';
 import type { createAuthI18n } from './i18n.js';
+import { assertKeepsOwner } from './owner-guards.js';
 import { ac, admin, member, owner } from './permissions.js';
+import { signUpLanguage } from './sign-up-language.js';
+import { normalizeUserFields } from './user-fields.js';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js';
@@ -35,14 +40,25 @@ import {
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_CUTOFF_MINUTES,
 } from '../common/constants/pickup.js';
+import {
+  AUTH_CLIENT_IP_HEADER,
+  rateLimitEnabled,
+} from '../common/trusted-proxy.js';
 import { diffAuditRows } from '../common/utils/audit-diff.js';
 import { isValidCurrency } from '../common/utils/currency.js';
 import { isValidOpeningHours } from '../common/utils/opening-hours.js';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import type { CouponsService } from '../coupons/coupons.service.js';
 import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
+const signupCouponLogger = new Logger('SignupCoupons');
+
+const updatedUserId = (context: GenericEndpointContext | null) =>
+  context?.path === '/admin/update-user'
+    ? (context.body as { userId?: string } | undefined)?.userId
+    : context?.context.session?.user.id;
 
 const getInitialOrganization = async (userId: string) => {
   const membership = await authDb().query.member.findFirst({
@@ -60,6 +76,15 @@ const PICKUP_FIELD_MAXIMUMS = {
   pickupCutoffMinutes: PICKUP_MAX_CUTOFF_MINUTES,
 };
 
+const REQUIRED_TEXT_FIELDS = [
+  'name',
+  'slug',
+  'addressCountry',
+  'addressLocality',
+  'addressRegion',
+  'streetAddress',
+] as const;
+
 const assertValidOrganizationInput = (
   data: Record<string, unknown>,
   current?: Pick<
@@ -67,6 +92,17 @@ const assertValidOrganizationInput = (
     'pickupLeadMinutes' | 'pickupMaxAdvanceDays'
   >,
 ) => {
+  for (const field of REQUIRED_TEXT_FIELDS) {
+    const value = data[field];
+    if (
+      Object.hasOwn(data, field) &&
+      (typeof value !== 'string' || !value.trim())
+    )
+      throw new APIError('BAD_REQUEST', {
+        message: `${field} is required`,
+      });
+  }
+
   if (
     typeof data.openingHours === 'string' &&
     !isValidOpeningHours(data.openingHours)
@@ -122,6 +158,11 @@ const assertValidOrganizationInput = (
     });
 };
 
+const assertTeamNameNotBlank = (name: unknown) => {
+  if (typeof name !== 'string' || !name.trim())
+    throw new APIError('BAD_REQUEST', { message: 'name is required' });
+};
+
 const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
   if (typeof slug !== 'string') return;
 
@@ -136,11 +177,25 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
     });
 };
 
+const AUTH_RATE_LIMIT = { window: 10, max: 100 };
+
 export const authDatabase = (database: typeof db | Transaction) =>
   drizzleAdapter(database, { provider: 'pg', schema });
 
+const issueSignupCoupons = async (
+  couponsService: CouponsService,
+  userId: string,
+) => {
+  try {
+    await couponsService.issueSignupCoupons(userId);
+  } catch (error) {
+    signupCouponLogger.error(error);
+  }
+};
+
 export const createAuth = (
   mailsService: MailsService,
+  couponsService: CouponsService,
   authI18n: ReturnType<typeof createAuthI18n>,
 ) =>
   betterAuth({
@@ -153,6 +208,8 @@ export const createAuth = (
       },
     },
     advanced: {
+      // https://www.better-auth.com/docs/concepts/rate-limit
+      ipAddress: { ipAddressHeaders: [AUTH_CLIENT_IP_HEADER] },
       crossSubDomainCookies: {
         enabled: process.env.NODE_ENV === 'production',
         domain: '.birucoffee.com',
@@ -175,20 +232,34 @@ export const createAuth = (
         },
       },
       user: {
-        update: {
+        create: {
           before: async (user, context) => {
-            if (!('phoneNumber' in user)) return;
+            const lang = await signUpLanguage(context);
 
-            const phoneNumber =
-              typeof user.phoneNumber === 'string' && user.phoneNumber
-                ? user.phoneNumber
-                : null;
+            return {
+              data: normalizeUserFields(
+                lang ? { ...user, lang } : user,
+                'create',
+              ),
+            };
+          },
+          after: async (user) => {
+            if (user.emailVerified)
+              await issueSignupCoupons(couponsService, user.id);
+          },
+        },
+        update: {
+          before: async (input, context) => {
+            const user = normalizeUserFields(input, 'update');
+            if (user.phoneNumber === undefined) return { data: user };
+
+            const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
               const owner = await authDb().query.user.findFirst({
                 where: eq(schema.user.phoneNumber, phoneNumber),
               });
 
-              if (owner && owner.id !== context?.context.session?.user.id)
+              if (owner && owner.id !== updatedUserId(context))
                 throw new APIError('BAD_REQUEST', {
                   code: 'PHONE_NUMBER_ALREADY_EXISTS',
                   message: 'Phone number already exists',
@@ -198,8 +269,7 @@ export const createAuth = (
             return {
               data: {
                 ...user,
-                phoneNumber,
-                ...(!('phoneNumberVerified' in user) && {
+                ...(user.phoneNumberVerified === undefined && {
                   phoneNumberVerified: false,
                 }),
               },
@@ -233,6 +303,7 @@ export const createAuth = (
     },
     emailVerification: {
       afterEmailVerification: async (user, request) => {
+        await issueSignupCoupons(couponsService, user.id);
         await mailsService.afterEmailVerification(
           {
             user,
@@ -262,7 +333,12 @@ export const createAuth = (
                   .values({
                     id: uuidv4(),
                     organizationId: organization.id,
-                    name: { 'zh-TW': organization.name },
+                    name: Object.fromEntries(
+                      schema.languagesEnum.enumValues.map((language) => [
+                        language,
+                        organization.name,
+                      ]),
+                    ),
                   })
                   .onConflictDoNothing();
                 await tx
@@ -280,6 +356,21 @@ export const createAuth = (
                 cause: error,
               });
             }
+          },
+          beforeRemoveMember: ({ member }) => assertKeepsOwner(member.id),
+          beforeUpdateMemberRole: async ({ member, newRole }) => {
+            if (!newRole.split(',').includes('owner'))
+              await assertKeepsOwner(member.id);
+          },
+          beforeCreateInvitation: async ({ invitation, organization }) => {
+            await cancelExpiredInvitations(organization.id, invitation.email);
+          },
+          beforeCreateTeam: async ({ team }) => {
+            assertTeamNameNotBlank(team.name);
+          },
+          beforeUpdateTeam: async ({ updates }) => {
+            if (updates.name !== undefined)
+              assertTeamNameNotBlank(updates.name);
           },
           beforeDeleteOrganization: ({ organization: target }) =>
             assertOrganizationDeletable(target.id),
@@ -311,23 +402,6 @@ export const createAuth = (
                 })
                 .onConflictDoNothing();
             }
-
-            const touchesPoints =
-              Object.hasOwn(data, 'amountPerPoint') ||
-              Object.hasOwn(data, 'pointsEnabledAt');
-            if (!touchesPoints) return;
-
-            const enabled = Object.hasOwn(data, 'amountPerPoint')
-              ? data.amountPerPoint != null
-              : current?.amountPerPoint != null;
-            if (!enabled)
-              return {
-                data: { pointsEnabledAt: null, pointsValidityYears: null },
-              };
-
-            return {
-              data: { pointsEnabledAt: current?.pointsEnabledAt ?? new Date() },
-            };
           },
           afterUpdateOrganization: async ({
             organization: updated,
@@ -369,20 +443,36 @@ export const createAuth = (
         requireEmailVerificationOnInvitation: true,
         roles: { owner, admin, member },
         schema: {
+          member: {
+            additionalFields: {
+              showcase: {
+                type: 'boolean',
+                required: false,
+                defaultValue: false,
+                input: false,
+              },
+              joinedAsPlatformAdmin: {
+                type: 'boolean',
+                required: false,
+                defaultValue: false,
+                input: false,
+              },
+            },
+          },
           organization: {
             additionalFields: {
               // https://schema.org/PostalAddress
               addressCountry: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               addressLocality: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               addressRegion: {
                 type: 'string',
-                required: false,
+                required: true,
               },
               extendedAddress: {
                 type: 'string',
@@ -394,7 +484,7 @@ export const createAuth = (
               },
               streetAddress: {
                 type: 'string',
-                required: false,
+                required: true,
               },
 
               // https://schema.org/LocalBusiness
@@ -416,25 +506,12 @@ export const createAuth = (
                 required: false,
               },
 
-              amountPerPoint: {
-                type: 'number',
-                required: false,
-              },
-              pointsEnabledAt: {
-                type: 'date',
-                required: false,
-              },
               // 停業／復業只走平台管理員端點，店家不能經由 organization.update 自行改
               closedAt: {
                 type: 'date',
                 required: false,
                 input: false,
               },
-              pointsValidityYears: {
-                type: 'number',
-                required: false,
-              },
-
               pickupLeadMinutes: {
                 type: 'number',
                 required: false,
@@ -472,6 +549,12 @@ export const createAuth = (
     ],
     rateLimit: {
       enabled: true,
+      window: AUTH_RATE_LIMIT.window,
+      max: AUTH_RATE_LIMIT.max,
+      customRules: {
+        '/**': (_request, rule) =>
+          rateLimitEnabled() || rule.max < AUTH_RATE_LIMIT.max ? rule : false,
+      },
     },
     socialProviders: {
       google: {

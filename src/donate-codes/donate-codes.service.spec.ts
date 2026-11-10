@@ -13,7 +13,74 @@ describe('DonateCodesService', () => {
     service = module.get<DonateCodesService>(DonateCodesService);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('電子發票 API 沒有回應時逾時放棄，保留原本的捐贈碼', async () => {
+    const loaded = [{ donateCode: '919', donateNm: '社團法人範例協會' }];
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(loaded)),
+    );
+    await service.refresh();
+    expect(service.getAll()).toEqual(loaded);
+
+    const timeout = new AbortController();
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeout.signal);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () =>
+              reject(init.signal?.reason),
+            ),
+          ),
+      );
+
+    const refresh = service.refresh();
+    timeout.abort(new DOMException('timed out', 'TimeoutError'));
+    await refresh;
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+    expect(fetchSpy).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: timeout.signal }),
+    );
+    expect(service.getAll()).toEqual(loaded);
+  });
+
+  it('上次更新失敗時重試，成功後不再重試', async () => {
+    const loaded = [{ donateCode: '919', donateNm: '社團法人範例協會' }];
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response(JSON.stringify(loaded)));
+
+    await service.refresh();
+    expect(service.getAll()).toEqual([]);
+
+    await service.retryFailedRefresh();
+    expect(service.getAll()).toEqual(loaded);
+
+    await service.retryFailedRefresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('上次更新成功時不重試', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('[]'));
+
+    await service.refresh();
+    await service.retryFailedRefresh();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

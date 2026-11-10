@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export const ECPAY_ATTENTION_TYPES = [
+const ECPAY_ATTENTION_TYPES = [
   'invoiceSettlementFailed',
   'refundUnconfirmed',
   'invoiceStuck',

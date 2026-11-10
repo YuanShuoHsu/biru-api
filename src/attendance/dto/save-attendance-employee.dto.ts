@@ -4,13 +4,15 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsDateString,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
+  IsRFC3339,
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -24,15 +26,19 @@ import {
 } from '../../db/schema/attendance.js';
 
 export class DatePeriodDto {
-  @Matches(/^\d{4}-\d{2}-\d{2}$/) from: string;
-  @Matches(/^\d{4}-\d{2}-\d{2}$/) to: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsISO8601({ strict: true }) from: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsISO8601({ strict: true }) to: string;
 }
 
 export class SaveAttendanceEmployeeDto {
   @IsString() @MinLength(1) userId: string;
-  @Matches(/^\d{4}-\d{2}-\d{2}$/) birthDate: string;
+  @IsOptional() @IsString() @MaxLength(50) jobTitle?: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
+  birthDate: string;
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsISO8601({ strict: true })
   taiwanStaySince?: string;
   @ApiProperty({
     enum: ATTENDANCE_LEGAL_STATUSES,
@@ -79,11 +85,12 @@ export class SaveAttendanceEmployeeDto {
   @IsArray()
   @ArrayMaxSize(60)
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true })
+  @IsISO8601({ strict: true }, { each: true })
   indigenousHolidays: string[];
   @IsOptional() @IsInt() @Min(0) @Max(6) regularLeaveWeekday?: number;
   @IsOptional() @IsInt() @Min(0) @Max(6) restDayWeekday?: number;
-  @IsDateString() hiredAt: string;
-  @IsOptional() @IsDateString() terminatedAt?: string;
+  @IsRFC3339() @IsISO8601({ strict: true }) hiredAt: string;
+  @IsOptional() @IsRFC3339() @IsISO8601({ strict: true }) terminatedAt?: string;
   @ApiPropertyOptional({
     enum: ATTENDANCE_TERMINATION_REASONS,
     enumName: 'AttendanceTerminationReason',
@@ -91,5 +98,8 @@ export class SaveAttendanceEmployeeDto {
   @IsOptional()
   @IsIn(ATTENDANCE_TERMINATION_REASONS)
   terminationReason?: AttendanceTerminationReason;
-  @IsOptional() @IsDateString() terminationNoticedAt?: string;
+  @IsOptional()
+  @IsRFC3339()
+  @IsISO8601({ strict: true })
+  terminationNoticedAt?: string;
 }

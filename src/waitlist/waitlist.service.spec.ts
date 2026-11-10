@@ -1,7 +1,18 @@
+import { createHash } from 'crypto';
+
+import { BadRequestException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { I18nContext } from 'nestjs-i18n';
 
+import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { OrderQrService } from '../orders/order-qr.service.js';
 
+import {
+  issueWaitlistQrSession,
+  verifyWaitlistQrSession,
+  waitlistQrToken,
+} from './waitlist-qr-token.js';
 import { WaitlistService } from './waitlist.service.js';
 
 const ALWAYS_OPEN = null;
@@ -11,10 +22,14 @@ const CLOSING_SOON = 'Tu 09:00-12:30';
 
 const createService = ({
   openingHours = ALWAYS_OPEN,
+  qrSecret = null,
   setting,
+  specialHours = [],
   ticket,
 }: {
   openingHours?: string | null;
+  qrSecret?: string | null;
+  specialHours?: SpecialOpeningHours[];
   setting?: {
     enabled: boolean;
     groups: unknown[];
@@ -29,6 +44,14 @@ const createService = ({
       organization: {
         findFirst: vi.fn().mockResolvedValue({ id: 'org', openingHours }),
       },
+      organizationQrSecret: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue(qrSecret ? { secret: qrSecret } : undefined),
+      },
+      organizationSpecialHours: {
+        findMany: vi.fn().mockResolvedValue(specialHours),
+      },
       waitlistSetting: { findFirst: vi.fn().mockResolvedValue(setting) },
       waitlistTicket: { findFirst: vi.fn().mockResolvedValue(ticket) },
     },
@@ -41,6 +64,7 @@ const createService = ({
     service: new WaitlistService(
       db as unknown as DrizzleDB,
       new EventEmitter2(),
+      new OrderQrService(db as unknown as DrizzleDB),
     ),
   };
 };
@@ -48,13 +72,20 @@ const createService = ({
 const dto = { name: '王小明', partySize: 2, phoneNumber: '+886912345678' };
 const groups = [{ maxPartySize: 4, minPartySize: 1, prefix: 'A' }];
 
+const openSetting = { enabled: true, groups, paused: false };
+
 describe('WaitlistService.createTicket', () => {
+  let qrSession: string;
+
   beforeAll(() => {
     vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
+    qrSession = issueWaitlistQrSession('org', null).value;
   });
 
   afterAll(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it.each([
@@ -66,12 +97,33 @@ describe('WaitlistService.createTicket', () => {
     ['waitlistPaused', { enabled: true, groups, paused: true }, ALWAYS_OPEN],
     ['waitlistClosed', { enabled: true, groups, paused: false }, NEVER_OPEN],
     ['waitlistCutoff', { enabled: true, groups, paused: false }, CLOSING_SOON],
-  ])('rejects with %s', async (code, setting, openingHours) => {
-    const { db, service } = createService({ openingHours, setting });
+  ])(
+    'rejects with %s before asking for a QR session',
+    async (code, setting, openingHours) => {
+      const { db, service } = createService({ openingHours, setting });
+
+      await expect(
+        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+      ).rejects.toThrow(code);
+      expect(db.transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects with waitlistClosed on a closed special day', async () => {
+    const { db, service } = createService({
+      setting: { enabled: true, groups, paused: false },
+      specialHours: [
+        {
+          openingHours: null,
+          validFrom: '2026-10-06',
+          validThrough: '2026-10-06',
+        },
+      ],
+    });
 
     await expect(
-      service.createTicket('slug', dto, null, 'zh-TW', null, false),
-    ).rejects.toThrow(code);
+      service.createTicket('slug', dto, null, 'zh-TW', null, false, qrSession),
+    ).rejects.toThrow('waitlistClosed');
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
@@ -85,7 +137,15 @@ describe('WaitlistService.createTicket', () => {
       db.transaction.mockRejectedValue(new Error('reached transaction'));
 
       await expect(
-        service.createTicket('slug', dto, null, 'zh-TW', null, false),
+        service.createTicket(
+          'slug',
+          dto,
+          null,
+          'zh-TW',
+          null,
+          false,
+          qrSession,
+        ),
       ).rejects.toThrow('reached transaction');
     },
   );
@@ -103,8 +163,175 @@ describe('WaitlistService.createTicket', () => {
         'zh-TW',
         null,
         false,
+        qrSession,
       ),
     ).rejects.toThrow('waitlistPartySizeUnavailable');
+  });
+
+  it.each([
+    ['no session', null, () => undefined],
+    ['a tampered session', null, () => `${qrSession.split('.')[0]}.forged`],
+    [
+      "another organization's session",
+      null,
+      () => issueWaitlistQrSession('other-org', null).value,
+    ],
+    [
+      'an expired session',
+      null,
+      () => {
+        vi.setSystemTime(new Date('2026-10-06T01:59:00Z'));
+        const value = issueWaitlistQrSession('org', null).value;
+        vi.setSystemTime(new Date('2026-10-06T04:00:00Z'));
+        return value;
+      },
+    ],
+    [
+      'a session signed before the secret was rotated',
+      'rotated-secret',
+      () => qrSession,
+    ],
+  ])('rejects a guest with %s', async (_, qrSecret, value) => {
+    const { db, service } = createService({ qrSecret, setting: openSetting });
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, false, value()),
+    ).rejects.toThrow('waitlistQrRequired');
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts a session signed with the rotated secret', async () => {
+    const { db, service } = createService({
+      qrSecret: 'rotated-secret',
+      setting: openSetting,
+    });
+    db.transaction.mockRejectedValue(new Error('reached transaction'));
+
+    await expect(
+      service.createTicket(
+        'slug',
+        dto,
+        null,
+        'zh-TW',
+        null,
+        false,
+        issueWaitlistQrSession('org', 'rotated-secret').value,
+      ),
+    ).rejects.toThrow('reached transaction');
+  });
+
+  it('replays an existing ticket without a session', async () => {
+    const { db, service } = createService({
+      setting: openSetting,
+      ticket: {
+        calledAt: null,
+        confirmedAt: null,
+        id: 't',
+        number: 1,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', 'key', false),
+    ).resolves.toMatchObject({ id: 't', ticketNumber: 'A001' });
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the same request', dto, 'resolves'],
+    ['a different request', { ...dto, partySize: 3 }, 'rejects'],
+  ] as const)(
+    'replays a ticket for %s with the same key',
+    async (_, retried, outcome) => {
+      const fingerprint = createHash('sha256')
+        .update(JSON.stringify(dto))
+        .digest('hex');
+      const { service } = createService({
+        setting: openSetting,
+        ticket: {
+          calledAt: null,
+          confirmedAt: null,
+          id: 't',
+          idempotencyFingerprint: fingerprint,
+          number: 1,
+          organizationId: 'org',
+          prefix: 'A',
+          status: 'called',
+        },
+      });
+
+      const result = service.createTicket(
+        'slug',
+        retried,
+        null,
+        'zh-TW',
+        'key',
+        false,
+      );
+
+      if (outcome === 'resolves')
+        await expect(result).resolves.toMatchObject({ id: 't' });
+      else
+        await expect(result).rejects.toMatchObject({
+          message: 'waitlistIdempotencyConflict',
+          status: 409,
+        });
+    },
+  );
+
+  it('refuses a ticket whose group changed while it waited for the store lock', async () => {
+    const { db, service } = createService({ setting: openSetting });
+    const tx = {
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({
+            groups: [{ maxPartySize: 4, minPartySize: 1, prefix: 'B' }],
+          }),
+        },
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(undefined) },
+      },
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([]) }) }),
+      }),
+    };
+    db.query.waitlistTicket.findFirst.mockResolvedValue(undefined);
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, true),
+    ).rejects.toMatchObject({ message: 'waitlistGroupsInUse', status: 409 });
+  });
+
+  it('replays a ticket recorded without a fingerprint for any request', async () => {
+    const { service } = createService({
+      setting: openSetting,
+      ticket: {
+        calledAt: null,
+        confirmedAt: null,
+        id: 't',
+        idempotencyFingerprint: null,
+        number: 1,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+
+    await expect(
+      service.createTicket(
+        'slug',
+        { ...dto, partySize: 3 },
+        null,
+        'zh-TW',
+        'key',
+        false,
+      ),
+    ).resolves.toMatchObject({ id: 't' });
   });
 });
 
@@ -132,6 +359,17 @@ describe('WaitlistService.createTicket by staff', () => {
       ).rejects.toThrow('reached transaction');
     },
   );
+
+  it('does not require a QR session', async () => {
+    const { db, service } = createService({ setting: openSetting });
+    db.transaction.mockRejectedValue(new Error('reached transaction'));
+
+    await expect(
+      service.createTicket('slug', dto, null, 'zh-TW', null, true),
+    ).rejects.toThrow('reached transaction');
+    expect(db.query.organizationQrSecret.findFirst).not.toHaveBeenCalled();
+    expect(db.query.organizationSpecialHours.findMany).not.toHaveBeenCalled();
+  });
 
   it('still rejects when the waitlist is disabled', async () => {
     const { service } = createService({
@@ -195,6 +433,158 @@ describe('WaitlistService.confirmTicket', () => {
   });
 });
 
+describe('WaitlistService.transitionTicket', () => {
+  const transition = (
+    from: string,
+    to: 'called' | 'waiting' = 'called',
+    queued?: { id: string },
+    phoneNumber: string | null = '+886912345678',
+    savedGroups: typeof groups = groups,
+  ) => {
+    const ticket = {
+      calledAt: new Date('2026-10-06T12:00:00Z'),
+      confirmedAt: new Date('2026-10-06T12:01:00Z'),
+      id: 't',
+      number: 3,
+      organizationId: 'org',
+      partySize: 2,
+      phoneNumber,
+      prefix: 'A',
+      status: from,
+    };
+    const set = vi.fn((values: Record<string, unknown>) => ({
+      where: () => ({
+        returning: () => Promise.resolve([{ ...ticket, ...values }]),
+      }),
+    }));
+    const lock = vi.fn(() => Promise.resolve([]));
+    const findQueued = vi.fn().mockResolvedValue(queued);
+    const tx = {
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({ groups: savedGroups }),
+        },
+        waitlistTicket: { findFirst: findQueued },
+      },
+      select: () => ({ from: () => ({ where: () => ({ for: lock }) }) }),
+      update: () => ({ set }),
+    };
+    const { db, service } = createService({
+      setting: { enabled: true, groups, holdMinutes: 15, paused: false },
+      ticket,
+    });
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+    vi.spyOn(
+      service as unknown as { countAhead: () => Promise<number> },
+      'countAhead',
+    ).mockResolvedValue(0);
+
+    return {
+      findQueued,
+      lock,
+      result: service.transitionTicket('slug', 't', to),
+      set,
+    };
+  };
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket while its phone is queued on another ticket',
+    async (from, to) => {
+      const { lock, result, set } = transition(from, to, { id: 'other' });
+
+      await expect(result).rejects.toThrow('waitlistPhoneInQueue');
+      expect(lock).toHaveBeenCalledWith('update');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reverts a cancelled ticket when its phone is not queued', async () => {
+    const { result, set } = transition('cancelled', 'waiting');
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(set).toHaveBeenCalled();
+  });
+
+  it('reverts a ticket whose phone was erased without checking the queue', async () => {
+    const { findQueued, result } = transition(
+      'cancelled',
+      'waiting',
+      { id: 'other' },
+      null,
+    );
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(findQueued).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket whose party size now falls in another group',
+    async (from, to) => {
+      const { result, set } = transition(from, to, undefined, undefined, [
+        { maxPartySize: 1, minPartySize: 1, prefix: 'A' },
+        { maxPartySize: 4, minPartySize: 2, prefix: 'B' },
+      ]);
+
+      await expect(result).rejects.toThrow('waitlistGroupChanged');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses a ticket whose phone was erased when its group changed', async () => {
+    const { result, set } = transition(
+      'cancelled',
+      'waiting',
+      undefined,
+      null,
+      [
+        { maxPartySize: 1, minPartySize: 1, prefix: 'A' },
+        { maxPartySize: 4, minPartySize: 2, prefix: 'B' },
+      ],
+    );
+
+    await expect(result).rejects.toThrow('waitlistGroupChanged');
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('does not lock the store for a transition within the queue', async () => {
+    const { lock, result } = transition('called', 'waiting');
+
+    await expect(result).resolves.toMatchObject({ status: 'waiting' });
+    expect(lock).not.toHaveBeenCalled();
+  });
+
+  it('clears the confirmation when a called ticket is called again', async () => {
+    const { result, set } = transition('called');
+
+    await expect(result).resolves.toMatchObject({ confirmedAt: null });
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmedAt: null, status: 'called' }),
+    );
+  });
+
+  it.each(['noShow', 'seated'])(
+    'keeps the confirmation when a %s ticket is reverted to called',
+    async (from) => {
+      const { result, set } = transition(from);
+
+      await expect(result).resolves.toMatchObject({
+        confirmedAt: new Date('2026-10-06T12:01:00Z'),
+      });
+      expect(set.mock.calls[0][0]).not.toHaveProperty('confirmedAt');
+    },
+  );
+});
+
 describe('WaitlistService.getPublicStatusByOrganizationId', () => {
   const selectReturning = (rows: unknown[]) =>
     vi.fn(() => ({
@@ -243,6 +633,79 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
     });
   });
 
+  it('lists up to five numbers still on call per group, latest first', async () => {
+    const { db, service } = createService({
+      setting: {
+        enabled: true,
+        groups: [
+          { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
+          { maxPartySize: 4, minPartySize: 3, prefix: 'B' },
+        ],
+        paused: false,
+      },
+    });
+    const calledAt = (minute: number) =>
+      new Date(`2026-10-06T04:${String(minute).padStart(2, '0')}:00Z`);
+    Object.assign(db, {
+      select: selectReturning([
+        { calledAt: calledAt(50), number: 14, prefix: 'A', status: 'seated' },
+        { calledAt: calledAt(45), number: 13, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(40), number: 12, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(35), number: 11, prefix: 'A', status: 'noShow' },
+        { calledAt: calledAt(30), number: 10, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(25), number: 9, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(20), number: 8, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(15), number: 7, prefix: 'A', status: 'called' },
+        { calledAt: calledAt(10), number: 1, prefix: 'B', status: 'seated' },
+        { calledAt: null, number: 15, prefix: 'A', status: 'waiting' },
+        { calledAt: null, number: 2, prefix: 'B', status: 'waiting' },
+      ]),
+    });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('org'),
+    ).resolves.toMatchObject({
+      groups: [
+        {
+          calledTicketNumbers: ['A013', 'A012', 'A010', 'A009', 'A008'],
+          currentTicketNumber: 'A014',
+          prefix: 'A',
+        },
+        { calledTicketNumbers: [], currentTicketNumber: 'B001', prefix: 'B' },
+      ],
+    });
+  });
+
+  it("applies and returns today's special hours only", async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    const today = {
+      id: 'today',
+      note: '颱風停業',
+      openingHours: null,
+      validFrom: '2026-10-06',
+      validThrough: '2026-10-06',
+    };
+    const { db, service } = createService({
+      setting: { enabled: true, groups: [], paused: false },
+      specialHours: [
+        {
+          id: 'yesterday',
+          note: null,
+          openingHours: null,
+          validFrom: '2026-10-05',
+          validThrough: '2026-10-05',
+        },
+        today,
+      ] as SpecialOpeningHours[],
+    });
+    Object.assign(db, { select: selectReturning([]) });
+
+    await expect(
+      service.getPublicStatusByOrganizationId('org'),
+    ).resolves.toMatchObject({ open: false, specialHours: [today] });
+    vi.useRealTimers();
+  });
+
   it('rejects an unknown organization', async () => {
     const { db, service } = createService({});
     db.query.organization.findFirst.mockResolvedValue(undefined);
@@ -250,6 +713,282 @@ describe('WaitlistService.getPublicStatusByOrganizationId', () => {
 
     await expect(
       service.getPublicStatusByOrganizationId('missing'),
-    ).rejects.toThrow('Organization not found');
+    ).rejects.toMatchObject({
+      response: { code: 'organizationNotFound' },
+      status: 404,
+    });
+  });
+});
+
+describe('WaitlistService.getTicket', () => {
+  it('combines the hold deadline, queue position and current number', async () => {
+    const { db, service } = createService({
+      setting: { enabled: true, groups, holdMinutes: 10, paused: false },
+      ticket: {
+        calledAt: new Date('2026-10-06T12:00:00Z'),
+        confirmedAt: null,
+        id: 't',
+        number: 3,
+        organizationId: 'org',
+        prefix: 'A',
+        status: 'called',
+      },
+    });
+    Object.assign(db, {
+      select: vi.fn(() => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => Promise.resolve([{ number: 4, prefix: 'A' }]),
+            }),
+          }),
+        }),
+      })),
+    });
+
+    await expect(service.getTicket('slug', 't')).resolves.toMatchObject({
+      aheadCount: 0,
+      currentTicketNumber: 'A004',
+      holdUntil: new Date('2026-10-06T12:10:00Z'),
+      ticketNumber: 'A003',
+    });
+  });
+
+  it('rejects a missing ticket with a coded, translated 404', async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string) => `translated:${key}`,
+    } as unknown as I18nContext);
+    const { service } = createService({});
+
+    await expect(service.getTicket('slug', 'missing')).rejects.toMatchObject({
+      response: {
+        code: 'waitlistTicketNotFound',
+        message: 'translated:common.waitlist.guest.waitlistTicketNotFound',
+      },
+      status: 404,
+    });
+    await expect(
+      service.transitionTicket('slug', 'missing', 'seated'),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'translated:common.waitlist.staff.waitlistTicketNotFound',
+      },
+    });
+    vi.restoreAllMocks();
+  });
+});
+
+describe('WaitlistService.scanQr', () => {
+  beforeEach(() => {
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const withOrgRows = (rows: unknown[]) => {
+    const { db, service } = createService({});
+    const query = {
+      from: () => query,
+      leftJoin: () => query,
+      limit: () => Promise.resolve(rows),
+      where: () => query,
+    };
+    Object.assign(db, { select: vi.fn(() => query) });
+    return service;
+  };
+
+  it('issues a session and redirects an old slug to the current one', async () => {
+    const service = withOrgRows([{ id: 'org', secret: null, slug: 'shop' }]);
+
+    const scanned = await service.scanQr(
+      'old-shop',
+      waitlistQrToken('org', null),
+    );
+
+    expect(scanned?.slug).toBe('shop');
+    expect(
+      verifyWaitlistQrSession('org', null, scanned?.issued?.value),
+    ).not.toBeNull();
+  });
+
+  it('refuses a token signed with a rotated-out secret', async () => {
+    const service = withOrgRows([
+      { id: 'org', secret: 'new-secret', slug: 'shop' },
+    ]);
+
+    await expect(
+      service.scanQr('shop', waitlistQrToken('org', null)),
+    ).resolves.toEqual({ issued: null, slug: 'shop' });
+  });
+
+  it('redirects without a session when the token is missing', async () => {
+    const service = withOrgRows([{ id: 'org', secret: null, slug: 'shop' }]);
+
+    await expect(service.scanQr('shop', undefined)).resolves.toEqual({
+      issued: null,
+      slug: 'shop',
+    });
+  });
+
+  it('returns null for an unknown organization', async () => {
+    await expect(withOrgRows([]).scanQr('missing', 'x')).resolves.toBeNull();
+  });
+});
+
+describe('WaitlistService.processOverdueTickets', () => {
+  const overdueRow = {
+    graceMinutes: 5,
+    holdMinutes: 10,
+    ticket: {
+      calledAt: new Date('2026-10-06T03:00:00Z'),
+      id: 'ticket',
+      organizationId: 'org',
+      status: 'called',
+    },
+  };
+
+  const run = (failure: unknown) => {
+    const { db, service } = createService({});
+    Object.assign(db, {
+      select: () => ({
+        from: () => ({
+          leftJoin: () => ({ where: () => Promise.resolve([overdueRow]) }),
+        }),
+      }),
+    });
+    vi.spyOn(
+      service as unknown as { updateStatus: () => Promise<unknown> },
+      'updateStatus',
+    ).mockRejectedValue(failure);
+    const error = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => error.mockRestore());
+
+    return { error, result: service.processOverdueTickets(new Date(0)) };
+  };
+
+  it('自動過號遇到非預期錯誤時記錄，不往外丟', async () => {
+    const failure = new Error('connection terminated');
+    const { error, result } = run(failure);
+
+    await expect(result).resolves.toBe(0);
+    expect(error).toHaveBeenCalledWith('自動過號失敗：ticket', failure);
+  });
+
+  it('號碼已被店員改狀態（轉換不合法）時不記錄', async () => {
+    const { error, result } = run(new BadRequestException());
+
+    await expect(result).resolves.toBe(0);
+    expect(error).not.toHaveBeenCalled();
+  });
+});
+
+describe('WaitlistService.updateSettings', () => {
+  const stored = [
+    { maxPartySize: 2, minPartySize: 1, prefix: 'A' },
+    { maxPartySize: 10, minPartySize: 3, prefix: 'B' },
+  ];
+  const settingsDto = (
+    groups: { maxPartySize: number; minPartySize: number }[],
+  ) => ({
+    cutoffMinutes: 30,
+    enabled: true,
+    graceMinutes: 0,
+    groups,
+    holdMinutes: 10,
+  });
+
+  const update = (
+    groups: { maxPartySize: number; minPartySize: number }[],
+    queued?: { id: string },
+  ) => {
+    const insert = vi.fn(() => ({
+      values: () => ({ onConflictDoUpdate: () => Promise.resolve() }),
+    }));
+    const tx = {
+      insert,
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({ groups: stored }),
+        },
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(queued) },
+      },
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([]) }) }),
+      }),
+    };
+    const { db, service } = createService({
+      setting: { enabled: true, groups: stored, paused: false },
+    });
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+
+    return {
+      insert,
+      result: service.updateSettings('slug', settingsDto(groups)),
+    };
+  };
+
+  it('refuses to change the party size ranges while tickets are queued', async () => {
+    const { insert, result } = update(
+      [
+        { maxPartySize: 4, minPartySize: 1 },
+        { maxPartySize: 10, minPartySize: 5 },
+      ],
+      { id: 'queued' },
+    );
+
+    await expect(result).rejects.toThrow('waitlistGroupsInUse');
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('saves other settings while tickets are queued if the ranges stay', async () => {
+    const { insert, result } = update(
+      [
+        { maxPartySize: 10, minPartySize: 3 },
+        { maxPartySize: 2, minPartySize: 1 },
+      ],
+      { id: 'queued' },
+    );
+
+    await expect(result).resolves.toBeDefined();
+    expect(insert).toHaveBeenCalled();
+  });
+
+  it('changes the party size ranges when no ticket is queued', async () => {
+    const { insert, result } = update([{ maxPartySize: 10, minPartySize: 1 }]);
+
+    await expect(result).resolves.toBeDefined();
+    expect(insert).toHaveBeenCalled();
+  });
+});
+
+describe('WaitlistService.expireStaleTickets', () => {
+  it('作廢後通知每間受影響門市的候位看板一次', async () => {
+    const { db, service } = createService({});
+    db.update.mockReturnValue({
+      set: () => ({
+        where: () => ({
+          returning: () =>
+            Promise.resolve([
+              { id: 't1', organizationId: 'org-a' },
+              { id: 't2', organizationId: 'org-a' },
+              { id: 't3', organizationId: 'org-b' },
+            ]),
+        }),
+      }),
+    });
+    const emit = vi.spyOn(EventEmitter2.prototype, 'emit');
+    onTestFinished(() => emit.mockRestore());
+
+    await expect(service.expireStaleTickets()).resolves.toBe(3);
+    expect(emit.mock.calls).toEqual([
+      ['waitlist.updated', { organizationId: 'org-a', ticket: null }],
+      ['waitlist.updated', { organizationId: 'org-b', ticket: null }],
+    ]);
   });
 });

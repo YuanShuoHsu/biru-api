@@ -1,16 +1,22 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
+import {
+  IsLocalizedText,
+  IsCompleteLocalizedText,
+} from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class UpdateModifierGroupDto {
-  @ApiPropertyOptional({ description: '群組名稱' })
-  @IsOptional()
-  @IsObject()
+  @ApiPropertyOptional({ type: LocalizedTextDto, description: '群組名稱' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsLocalizedText()
+  @IsCompleteLocalizedText()
   displayName?: LocalizedText;
 
   @ApiPropertyOptional({ description: '最少選擇數量；>= 1 代表必選' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
   minSelectionCount?: number;

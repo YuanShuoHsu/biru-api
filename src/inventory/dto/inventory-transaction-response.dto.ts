@@ -4,6 +4,7 @@ export const INVENTORY_TRANSACTION_REASONS = [
   'count',
   'consume',
   'restore',
+  'batch',
 ] as const;
 
 export type InventoryTransactionReason =
@@ -22,9 +23,17 @@ export class InventoryTransactionResponseDto {
   reason: InventoryTransactionReason;
   @ApiPropertyOptional({ description: '無 purchasing 權限時不回傳' })
   unitCost?: string | null;
+  @ApiPropertyOptional({ description: '同一次製作批次的異動共用' })
+  productionBatchId: string | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+}
+
+export class InventoryTransactionListResponseDto {
+  @ApiProperty({ type: [InventoryTransactionResponseDto] })
+  data: InventoryTransactionResponseDto[];
+  @ApiProperty() total: number;
 }

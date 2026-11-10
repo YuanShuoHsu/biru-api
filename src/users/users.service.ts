@@ -7,11 +7,14 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
+  isNull,
   lt,
   ne,
+  not,
   or,
   sql,
 } from 'drizzle-orm';
@@ -20,7 +23,9 @@ import {
   buildFilterCondition,
   buildQuickFilterCondition,
   buildStringFilterCondition,
+  escapeLike,
   localTimeText,
+  NO_VALUE_OPERATORS,
 } from '../common/utils/data-grid-filters.js';
 import { getDeletableUserIds } from '../auth/deletion-guards.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
@@ -29,7 +34,7 @@ import {
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
 import * as schema from '../db/schema/index.js';
-import type { CreateUser, User, UserRole } from '../db/schema/users.js';
+import type { UserRole } from '../db/schema/users.js';
 import { user, userRoles } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -52,7 +57,6 @@ import {
   ENUM_FILTER_OPERATORS,
   STRING_FILTER_FIELDS,
 } from './dto/list-users-query.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
 import type { UserListResponseDto } from './dto/user-response.dto.js';
 import {
   USER_SESSION_DATE_FILTER_FIELDS,
@@ -61,8 +65,6 @@ import {
 } from './dto/user-session-pagination-query.dto.js';
 import type { UserSessionListResponseDto } from './dto/user-session-response.dto.js';
 import type { UserStatsResponseDto } from './dto/user-stats.dto.js';
-
-const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 
 const buildEnumFilterCondition = (
   field: typeof user.role,
@@ -88,6 +90,21 @@ const buildEnumFilterCondition = (
   }
 };
 
+const isBannedNow = (): SQL =>
+  and(
+    sql`coalesce(${user.banned}, false)`,
+    or(isNull(user.banExpires), gt(user.banExpires, new Date())),
+  )!;
+
+const booleanEquals = (
+  field: typeof user.banned | typeof user.emailSubscribed,
+  value: boolean,
+): SQL => {
+  if (field !== user.banned) return eq(field, value);
+
+  return value ? isBannedNow() : not(isBannedNow());
+};
+
 const buildBooleanFilterCondition = (
   field: typeof user.banned | typeof user.emailSubscribed,
   operator: EnumFilterOperator,
@@ -101,12 +118,12 @@ const buildBooleanFilterCondition = (
 
   switch (operator) {
     case 'is':
-      return eq(field, boolValues[0]);
+      return booleanEquals(field, boolValues[0]);
     case 'not':
-      return ne(field, boolValues[0]);
+      return booleanEquals(field, !boolValues[0]);
     case 'isAnyOf':
       if (boolValues.length >= 2) return undefined;
-      return eq(field, boolValues[0]);
+      return booleanEquals(field, boolValues[0]);
   }
 };
 
@@ -117,11 +134,11 @@ const buildSearchCondition = (
 ): SQL | undefined => {
   switch (operator) {
     case 'contains':
-      return ilike(field, `%${value}%`);
+      return ilike(field, `%${escapeLike(value)}%`);
     case 'startsWith':
-      return ilike(field, `${value}%`);
+      return ilike(field, `${escapeLike(value)}%`);
     case 'endsWith':
-      return ilike(field, `%${value}`);
+      return ilike(field, `%${escapeLike(value)}`);
   }
 };
 
@@ -132,7 +149,7 @@ const buildBooleanQuickFilterCondition = (
 ): SQL | undefined => {
   const values = value.split(',').filter(Boolean);
 
-  return or(...values.map((entry) => eq(column, entry === 'true')));
+  return or(...values.map((entry) => booleanEquals(column, entry === 'true')));
 };
 
 const buildColumnFilterCondition = (
@@ -187,35 +204,6 @@ const buildColumnFilterCondition = (
 export class UsersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async user(where: Partial<User>): Promise<User | null> {
-    const result = await this.db.query.user.findFirst({
-      where: (user) => {
-        const conditions = Object.entries(where)
-          .filter(([, value]) => value !== undefined)
-          .map(([key, value]) => eq(user[key as keyof User], value!));
-        return and(...conditions);
-      },
-    });
-    return result || null;
-  }
-
-  async users(params: {
-    offset?: number;
-    limit?: number;
-    cursor?: { id: string };
-    where?: SQL;
-    orderBy?: SQL | SQL[];
-  }): Promise<User[]> {
-    const { offset, limit, cursor, where, orderBy } = params;
-    return await this.db.query.user.findMany({
-      where: (user) =>
-        and(where, cursor?.id ? gte(user.id, cursor.id) : undefined),
-      orderBy,
-      limit,
-      offset,
-    });
-  }
-
   async listUsers(query: ListUsersQueryDto): Promise<UserListResponseDto> {
     const {
       limit = 10,
@@ -243,10 +231,10 @@ export class UsersService {
       quickFilterEnums,
       quickFilterValue,
       textConditions: (value) => [
-        ilike(user.name, `%${value}%`),
-        ilike(user.bio, `%${value}%`),
-        ilike(user.email, `%${value}%`),
-        ilike(localTimeText(user.createdAt), `%${value}%`),
+        ilike(user.name, `%${escapeLike(value)}%`),
+        ilike(user.bio, `%${escapeLike(value)}%`),
+        ilike(user.email, `%${escapeLike(value)}%`),
+        ilike(localTimeText(user.createdAt), `%${escapeLike(value)}%`),
       ],
     });
 
@@ -266,15 +254,16 @@ export class UsersService {
       searchCondition,
     );
 
+    const sortColumn = sortBy === 'banned' ? isBannedNow() : user[sortBy];
     const orderBy =
-      sortDirection === 'asc' ? asc(user[sortBy]) : desc(user[sortBy]);
+      sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(user)
         .where(where)
-        .orderBy(orderBy)
+        .orderBy(orderBy, asc(user.id))
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(user).where(where),
@@ -344,10 +333,10 @@ export class UsersService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(session.userAgent, `%${value}%`),
-          ilike(session.ipAddress, `%${value}%`),
-          ilike(localTimeText(session.createdAt), `%${value}%`),
-          ilike(localTimeText(session.expiresAt), `%${value}%`),
+          ilike(session.userAgent, `%${escapeLike(value)}%`),
+          ilike(session.ipAddress, `%${escapeLike(value)}%`),
+          ilike(localTimeText(session.createdAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(session.expiresAt), `%${escapeLike(value)}%`),
         ],
       }),
     );
@@ -374,45 +363,15 @@ export class UsersService {
     return { data, total };
   }
 
-  async createUser(data: CreateUser): Promise<User> {
-    const results = await this.db.insert(schema.user).values(data).returning();
-    return results[0];
-  }
-
-  async updateUser(params: {
-    where: { id: string };
-    data: UpdateUserDto;
-  }): Promise<User> {
-    const { where, data } = params;
-    const [user] = await this.db
-      .update(schema.user)
-      .set(
-        data.phoneNumber === undefined
-          ? data
-          : {
-              ...data,
-              phoneNumber: data.phoneNumber || null,
-              phoneNumberVerified: false,
-            },
-      )
-      .where(eq(schema.user.id, where.id))
-      .returning();
-
-    return user;
-  }
-
-  async deleteUser(where: { id: string }): Promise<User> {
-    const [user] = await this.db
-      .delete(schema.user)
-      .where(eq(schema.user.id, where.id))
-      .returning();
-
-    return user;
-  }
-
   async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
     const createdIn = (from: Date, to: Date) =>
       and(
         gte(user.createdAt, utcTimestampParam(from)),
@@ -429,7 +388,7 @@ export class UsersService {
       this.db
         .select({ previous: count() })
         .from(user)
-        .where(createdIn(previousSince, since)),
+        .where(createdIn(previousSince, previousUntil)),
     ]);
 
     const usersByIndex = new Map(

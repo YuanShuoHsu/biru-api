@@ -1,0 +1,1 @@
+ALTER TABLE "member" ADD COLUMN "joined_as_platform_admin" boolean DEFAULT false NOT NULL;

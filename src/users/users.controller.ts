@@ -3,9 +3,7 @@ import {
   Controller,
   Delete,
   Get,
-  NotFoundException,
   Param,
-  Patch,
   Query,
   Req,
   UseGuards,
@@ -15,17 +13,12 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { AuthBatchService } from '../auth/auth-batch.service.js';
-import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
 import { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 
 import { ListUsersQueryDto } from './dto/list-users-query.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
-import {
-  UserListResponseDto,
-  UserResponseDto,
-} from './dto/user-response.dto.js';
+import { UserListResponseDto } from './dto/user-response.dto.js';
 import { UserSessionPaginationQueryDto } from './dto/user-session-pagination-query.dto.js';
 import { UserSessionListResponseDto } from './dto/user-session-response.dto.js';
 import { UserStatsResponseDto } from './dto/user-stats.dto.js';
@@ -39,12 +32,6 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly authBatchService: AuthBatchService,
   ) {}
-
-  @Get()
-  @ApiOperation({ summary: '查詢所有使用者' })
-  findAll(): Promise<UserResponseDto[]> {
-    return this.usersService.users({});
-  }
 
   @Get('list')
   @ApiOperation({ summary: '查詢所有使用者' })
@@ -87,34 +74,5 @@ export class UsersController {
     @Body() { ids }: IdsDto,
   ): Promise<void> {
     return this.authBatchService.revokeUserSessions(headers, id, ids);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: '查詢使用者' })
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.user({ id });
-    if (!user) throw new NotFoundException();
-
-    return user;
-  }
-
-  @Patch(':id')
-  @Audit('user', { param: 'id' })
-  @ApiOperation({ summary: '更新使用者' })
-  update(
-    @Body() updateUserDto: UpdateUserDto,
-    @Param('id') id: string,
-  ): Promise<UserResponseDto> {
-    return this.usersService.updateUser({
-      where: { id },
-      data: updateUserDto,
-    });
-  }
-
-  @Delete(':id')
-  @Audit('user', { param: 'id' })
-  @ApiOperation({ summary: '刪除使用者' })
-  remove(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.deleteUser({ id });
   }
 }

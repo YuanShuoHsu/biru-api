@@ -3,13 +3,13 @@ import { Logger } from '@nestjs/common';
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30 * 1000;
 
-export interface PionexSubscription {
+interface PionexSubscription {
   extra?: Record<string, unknown>;
   symbol?: string;
   topic: string;
 }
 
-export interface PionexSocketMessage {
+interface PionexSocketMessage {
   code?: string;
   data?: unknown;
   op?: string;
@@ -21,7 +21,6 @@ export interface PionexSocketMessage {
 const subscriptionKey = ({ symbol, topic }: PionexSubscription) =>
   `${topic}:${symbol ?? ''}`;
 
-// 一條 Pionex WS 連線：依訂閱引用計數、斷線指數退避重連、重連後重送訂閱
 export class PionexSocket {
   private readonly logger: Logger;
   private readonly subscriptions = new Map<

@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -31,6 +31,7 @@ import {
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
+  escapeLike,
   localTimeText,
 } from '../common/utils/data-grid-filters.js';
 import {
@@ -63,7 +64,11 @@ import {
   type Transaction,
   type RestoredRecord,
 } from './attendance-audit.js';
-import { badRequestError, conflictError } from './attendance-errors.js';
+import {
+  badRequestError,
+  conflictError,
+  notFoundError,
+} from './attendance-errors.js';
 import {
   ageOn,
   hasOverlappingOvertimeExtensions,
@@ -93,6 +98,7 @@ import {
   weeklyMinutesAt,
 } from './employee-hours.js';
 import { findEmployee } from './employee-lookup.js';
+import { holidayDatesAmong } from './holiday-substitutes.js';
 import { anniversary } from './leave-rules.js';
 import { shiftStartDate } from './shift-queries.js';
 import {
@@ -216,6 +222,7 @@ export class AttendanceEmployeesService {
     const fieldMap: Record<string, Column | SQL> = {
       name: user.name,
       email: user.email,
+      jobTitle: attendanceEmployee.jobTitle,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
@@ -242,10 +249,17 @@ export class AttendanceEmployeesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceEmployee.jobTitle, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceEmployee.hiredAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceEmployee.terminatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -307,6 +321,7 @@ export class AttendanceEmployeesService {
     const fieldMap: Record<string, Column | SQL> = {
       name: user.name,
       email: user.email,
+      jobTitle: attendanceEmployee.jobTitle,
       hiredAt: attendanceEmployee.hiredAt,
       terminatedAt: attendanceEmployee.terminatedAt,
       status: employeeStatusSql,
@@ -333,10 +348,17 @@ export class AttendanceEmployeesService {
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
-          ilike(user.name, `%${value}%`),
-          ilike(user.email, `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.hiredAt), `%${value}%`),
-          ilike(localTimeText(attendanceEmployee.terminatedAt), `%${value}%`),
+          ilike(user.name, `%${escapeLike(value)}%`),
+          ilike(user.email, `%${escapeLike(value)}%`),
+          ilike(attendanceEmployee.jobTitle, `%${escapeLike(value)}%`),
+          ilike(
+            localTimeText(attendanceEmployee.hiredAt),
+            `%${escapeLike(value)}%`,
+          ),
+          ilike(
+            localTimeText(attendanceEmployee.terminatedAt),
+            `%${escapeLike(value)}%`,
+          ),
         ],
       }),
     );
@@ -356,6 +378,7 @@ export class AttendanceEmployeesService {
           email: user.email,
           joinedAt: member.createdAt,
           deletable: employeeDeletableSql,
+          jobTitle: attendanceEmployee.jobTitle,
           employmentType: employmentTypeSql,
           legalStatus: attendanceEmployee.legalStatus,
           workPermits: attendanceEmployee.workPermits,
@@ -399,6 +422,7 @@ export class AttendanceEmployeesService {
           employmentType,
           hiredAt,
           id,
+          jobTitle,
           joinedAt,
           legalStatus,
           name,
@@ -426,6 +450,7 @@ export class AttendanceEmployeesService {
               ? null
               : {
                   id,
+                  jobTitle,
                   employmentType,
                   legalStatus,
                   workPermits,
@@ -454,7 +479,7 @@ export class AttendanceEmployeesService {
           eq(attendanceEmployee.organizationId, actor.organizationId),
         ),
       );
-    if (!employee) throw new NotFoundException();
+    if (!employee) throw notFoundError();
     return {
       ...employee,
       ...legalStatusObligations(employee.legalStatus),
@@ -750,14 +775,52 @@ export class AttendanceEmployeesService {
         const removedHolidays = current.indigenousHolidays.filter(
           (date) => !indigenousHolidays.includes(date),
         );
-        for (const date of [...addedHolidays, ...removedHolidays]) {
+        const stillHolidays = removedHolidays.length
+          ? await holidayDatesAmong(
+              tx,
+              { id: current.id, indigenousHolidays },
+              removedHolidays,
+            )
+          : new Set<string>();
+        const revertedDates = removedHolidays.filter(
+          (date) => !stillHolidays.has(date),
+        );
+        const changedHolidays = [...addedHolidays, ...removedHolidays];
+        const flippedDates = new Set(
+          changedHolidays.length
+            ? (
+                await tx
+                  .select({ date: shiftStartDate })
+                  .from(attendanceShift)
+                  .where(
+                    and(
+                      eq(attendanceShift.employeeId, current.id),
+                      ne(attendanceShift.status, 'cancelled'),
+                      or(
+                        and(
+                          eq(attendanceShift.dayKind, 'workday'),
+                          inArray(shiftStartDate, addedHolidays),
+                        ),
+                        and(
+                          eq(attendanceShift.dayKind, 'holiday'),
+                          inArray(shiftStartDate, revertedDates),
+                        ),
+                      ),
+                    ),
+                  )
+              ).map(({ date }) => date)
+            : [],
+        );
+        for (const date of changedHolidays) {
           const dayStart = new Date(`${date}T00:00:00${STORE_UTC_OFFSET}`);
           await assertPayrollUnlocked(
             tx,
             actor.organizationId,
             current.id,
             dayStart,
-            new Date(dayStart.getTime() + DAY_MS),
+            flippedDates.has(date)
+              ? undefined
+              : new Date(dayStart.getTime() + DAY_MS),
           );
         }
         if (removedHolidays.length) {
@@ -787,7 +850,7 @@ export class AttendanceEmployeesService {
                 inArray(shiftStartDate, addedHolidays),
               ),
             );
-        if (removedHolidays.length)
+        if (revertedDates.length)
           await tx
             .update(attendanceShift)
             .set({ dayKind: 'workday' })
@@ -795,7 +858,7 @@ export class AttendanceEmployeesService {
               and(
                 eq(attendanceShift.employeeId, current.id),
                 eq(attendanceShift.dayKind, 'holiday'),
-                inArray(shiftStartDate, removedHolidays),
+                inArray(shiftStartDate, revertedDates),
               ),
             );
         for (const [before, after] of [
@@ -815,6 +878,7 @@ export class AttendanceEmployeesService {
       const values = {
         organizationId: actor.organizationId,
         userId: dto.userId,
+        jobTitle: dto.jobTitle?.trim() || null,
         birthDate: dto.birthDate,
         taiwanStaySince:
           dto.legalStatus === 'national' ? null : (dto.taiwanStaySince ?? null),
@@ -895,7 +959,7 @@ export class AttendanceEmployeesService {
                 eq(attendanceEmployee.organizationId, actor.organizationId),
               ),
             );
-          if (!row) throw new NotFoundException();
+          if (!row) throw notFoundError();
           await writeAudit(tx, actor, 'employee.delete', id, {
             userId: row.userId,
           });
@@ -916,7 +980,7 @@ export class AttendanceEmployeesService {
       .select()
       .from(attendanceSettings)
       .where(eq(attendanceSettings.organizationId, actor.organizationId));
-    if (!row) throw new NotFoundException();
+    if (!row) throw notFoundError();
     return row;
   }
 

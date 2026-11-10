@@ -25,7 +25,11 @@ import {
   type RefundStatus,
 } from '../../db/schema/refunds.js';
 
-export class RefundItemInputDto {
+const STAFF_REFUND_REASON_CODES = refundReasonCodeEnum.enumValues.filter(
+  (code) => code !== 'storeClosed',
+);
+
+class RefundItemInputDto {
   @ApiProperty({ description: '訂單品項 ID' })
   @IsDefined()
   @IsString()
@@ -38,7 +42,7 @@ export class RefundItemInputDto {
   quantity: number;
 }
 
-export class RefundItemSnapshotDto {
+class RefundItemSnapshotDto {
   @ApiProperty({ description: '訂單品項 ID' })
   orderItemId: string;
 
@@ -72,11 +76,11 @@ export class PreviewOrderRefundDto {
 export class CreateOrderRefundDto extends PreviewOrderRefundDto {
   @ApiProperty({
     description: '退款原因分類，用於統計出錯比例',
-    enum: refundReasonCodeEnum.enumValues,
-    enumName: 'RefundReasonCode',
+    enum: STAFF_REFUND_REASON_CODES,
+    enumName: 'StaffRefundReasonCode',
   })
   @IsDefined()
-  @IsIn(refundReasonCodeEnum.enumValues)
+  @IsIn(STAFF_REFUND_REASON_CODES)
   reasonCode: RefundReasonCode;
 
   @ApiPropertyOptional({

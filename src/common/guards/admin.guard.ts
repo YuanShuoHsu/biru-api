@@ -1,14 +1,10 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import { Request } from 'express';
 
-// 平台管理員（better-auth admin plugin 的 user.role）
+import { accessForbiddenError } from '../utils/access-forbidden-error.js';
+
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(private authService: AuthService) {}
@@ -20,7 +16,7 @@ export class AdminGuard implements CanActivate {
     });
 
     const role = (session?.user as { role?: string } | undefined)?.role;
-    if (role !== 'admin') throw new ForbiddenException();
+    if (role !== 'admin') throw accessForbiddenError(context);
 
     return true;
   }

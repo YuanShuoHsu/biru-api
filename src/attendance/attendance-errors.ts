@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   HttpException,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { I18nContext } from 'nestjs-i18n';
@@ -17,6 +18,7 @@ export const attendanceErrorCodes = [
   'belowStatutoryPaidPercent',
   'calendarLeaveInterval',
   'calendarLeavePayRequired',
+  'calendarRangeTooLong',
   'cancelIrreversible',
   'cancelReasonRequired',
   'cannotReviewOwnDraft',
@@ -52,7 +54,6 @@ export const attendanceErrorCodes = [
   'childcareReductionInvalid',
   'indigenousHolidayInvalid',
   'insufficientLeaveBalance',
-  'invalidBusinessNumber',
   'invalidEarningType',
   'invalidEmergencyDetails',
   'invalidEventSequence',
@@ -83,6 +84,7 @@ export const attendanceErrorCodes = [
   'menstrualDayLimit',
   'monthlyOvertimeExceeded',
   'noShifts',
+  'notFound',
   'outsideShiftWindow',
   'occupationalIndustryInvalid',
   'overlappingAttendance',
@@ -166,10 +168,14 @@ export const cancelIrreversibleError = (reason: AttendanceErrorCode) =>
 export const forbiddenError = (code: AttendanceErrorCode) =>
   new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });
 
+export const notFoundError = () =>
+  new NotFoundException({ error: 'Not Found', ...errorBody('notFound') });
+
 export const attendanceErrorCodeOf = (
   error: unknown,
 ): AttendanceErrorCode | undefined => {
-  if (!(error instanceof HttpException)) return undefined;
+  if (!(error instanceof HttpException) || error instanceof NotFoundException)
+    return undefined;
 
   const response = error.getResponse();
   const code =
@@ -190,7 +196,7 @@ export const runBatch = async (
     message: string;
     reason: AttendanceErrorCode;
   }[] = [];
-  for (const id of [...new Set(ids)]) {
+  for (const id of new Set(ids)) {
     try {
       await run(id);
       succeeded.push(id);

@@ -18,6 +18,27 @@ const crossed = (
 const lastTwo = (values: (number | undefined)[]) =>
   values.slice(-2).filter((value): value is number => value !== undefined);
 
+export const isConditionComplete = (
+  condition: IndicatorConditionDto,
+): boolean => {
+  switch (condition.kind) {
+    case 'rsi':
+      return condition.operator != null && condition.value != null;
+    case 'maCross':
+    case 'emaCross':
+      return (
+        condition.fast != null &&
+        condition.slow != null &&
+        condition.fast < condition.slow &&
+        condition.direction != null
+      );
+    case 'macdCross':
+      return condition.direction != null;
+    case 'bollinger':
+      return condition.band != null;
+  }
+};
+
 // 只看已收盤的 K 線，避免訊號在同一根 K 線內反覆出現又消失
 export const conditionMet = (
   condition: IndicatorConditionDto,
@@ -79,7 +100,6 @@ export const conditionMet = (
   }
 };
 
-/** 指標暖機需要的 K 線數量 */
 export const requiredCandles = (conditions: IndicatorConditionDto[]) =>
   Math.max(
     50,

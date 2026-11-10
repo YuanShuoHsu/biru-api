@@ -32,10 +32,14 @@ import {
   member,
   organization,
   organizationQrSecret,
+  organizationSpecialHours,
   team,
 } from '../../db/schema/organizations.js';
+import { pointSetting, pointTransaction } from '../../db/schema/points.js';
 import { printer } from '../../db/schema/printers.js';
 import { refund } from '../../db/schema/refunds.js';
+import { storeLayout } from '../../db/schema/store-layout.js';
+import { storePhoto } from '../../db/schema/store-photos.js';
 import { user } from '../../db/schema/users.js';
 import { waitlistSetting, waitlistTicket } from '../../db/schema/waitlist.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
@@ -77,6 +81,9 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   invitation,
   user,
   team,
+  pointTransaction,
+  pointSetting,
+  storePhoto,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -85,16 +92,20 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   printer,
   recipeIngredient,
   refund,
+  specialHours: organizationSpecialHours,
+  storeLayout,
   waitlistSetting,
 };
 
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
   orderQrSecret: 'organizationId',
+  storeLayout: 'organizationId',
   waitlistSetting: 'organizationId',
 };
 
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
+    order: ['heldOfferStock'],
     orderQrSecret: ['previousSecret', 'secret'],
     printer: ['digestHa1', 'lastSeenAt', 'pollGapsMs'],
     refund: [
@@ -176,6 +187,10 @@ const FK_LABEL_SOURCES: Partial<
   },
   team: {
     member: { table: user, column: 'name' },
+  },
+  pointTransaction: {
+    adjustedBy: { table: user, column: 'name' },
+    userId: { table: user, column: 'name' },
   },
 };
 
@@ -326,6 +341,45 @@ export const resolveAuditLabels = async (
   )
     return resolveLinked(db, resource, resolved);
 
+  if (resource === 'member') {
+    const users = await selectByIds(
+      db,
+      user,
+      [...resolved.values()].map(({ userId }) => asId(userId)),
+    );
+
+    return new Map(
+      [...resolved].map(([resourceId, row]) => [
+        resourceId,
+        {
+          resourceLabel: asLabel(users.get(asId(row.userId) ?? '')?.name),
+          ancestorIds: [],
+        },
+      ]),
+    );
+  }
+
+  if (resource === 'recipe') {
+    const menuItems = await selectByIds(
+      db,
+      menuItem,
+      [...resolved.values()].map(({ menuItemId }) => asId(menuItemId)),
+    );
+
+    return new Map(
+      [...resolved].map(([resourceId, row]) => [
+        resourceId,
+        {
+          resourceLabel: asLabel(row.name),
+          ancestorIds: compact(
+            asId(menuItems.get(asId(row.menuItemId) ?? '')?.menuSectionId),
+            asId(row.menuItemId),
+          ),
+        },
+      ]),
+    );
+  }
+
   return new Map(
     [...resolved].map(([resourceId, row]) => {
       switch (resource) {
@@ -364,7 +418,13 @@ export const resolveAuditLabels = async (
             { resourceLabel: asLabel(row.code), ancestorIds: [] },
           ];
         case 'banner':
+        case 'pointTransaction':
           return [resourceId, { resourceLabel: null, ancestorIds: [] }];
+        case 'storePhoto':
+          return [
+            resourceId,
+            { resourceLabel: asLabel(row.alt), ancestorIds: [] },
+          ];
         case 'waitlistTicket':
           return [
             resourceId,

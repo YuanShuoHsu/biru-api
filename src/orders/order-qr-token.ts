@@ -27,14 +27,18 @@ export type QrOrderMode = (typeof qrOrderModes)[number];
 
 const ORDER_QR_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
-export type OrderQrSession = {
+type OrderQrSession = {
   expiresAt: Date;
   mode: QrOrderMode;
   tableNumber: number | null;
 };
 
 // qrSecret 為 NULL 時 salt 必須維持 purpose，已印出的 QR code 才會繼續有效
-const sign = (purpose: string, qrSecret: string | null, message: string) => {
+export const sign = (
+  purpose: string,
+  qrSecret: string | null,
+  message: string,
+) => {
   const secret = process.env.BETTER_AUTH_SECRET;
   if (!secret) throw new Error('BETTER_AUTH_SECRET is required');
   const key = Buffer.from(
@@ -43,7 +47,7 @@ const sign = (purpose: string, qrSecret: string | null, message: string) => {
   return createHmac('sha256', key).update(message).digest('base64url');
 };
 
-const isSameToken = (expected: string, token: string) => {
+export const isSameToken = (expected: string, token: string) => {
   const expectedBuffer = Buffer.from(expected);
   const actualBuffer = Buffer.from(token);
   return (
@@ -86,7 +90,7 @@ export const isValidQrToken = (
   );
 };
 
-export type IssuedOrderQrSession = { session: OrderQrSession; value: string };
+type IssuedOrderQrSession = { session: OrderQrSession; value: string };
 
 export const issueOrderQrSession = (
   organizationId: string,

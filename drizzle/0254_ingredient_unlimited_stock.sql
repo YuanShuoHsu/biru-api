@@ -1,0 +1,1 @@
+ALTER TABLE "ingredient" ADD COLUMN "unlimited_stock" boolean DEFAULT false NOT NULL;

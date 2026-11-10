@@ -1,13 +1,26 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { and, count, desc, eq, gte, inArray, lt, SQL, sql } from 'drizzle-orm';
 import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  sql,
+} from 'drizzle-orm';
+import {
+  Member,
   member,
   Organization,
   organization,
   organizationSlugHistory,
 } from '../db/schema/organizations.js';
 import { order } from '../db/schema/orders.js';
+import { user } from '../db/schema/users.js';
 import {
   WAITLIST_ACTIVE_STATUSES,
   waitlistTicket,
@@ -18,42 +31,49 @@ import { DRIZZLE } from '../drizzle/drizzle.module.js';
 import { getDeletableOrganizationIds } from '../auth/deletion-guards.js';
 import { isAuthorized } from '../auth/permissions.js';
 
+import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
+import { DAY_MS } from '../common/constants/timezone.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
+import {
+  findSpecialHours,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
 import {
   getStatsWindow,
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
 
-import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto.js';
+import type {
+  OrganizationMemberResponseDto,
+  OrganizationTeamMemberResponseDto,
+} from './dto/organization-member-response.dto.js';
 import type { MyOrganizationListItemDto } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
+import { conflictError, forbiddenError } from './organization-errors.js';
 
 @Injectable()
 export class OrganizationsService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async organizations(params: {
-    offset?: number;
-    limit?: number;
-    where?: SQL;
-    orderBy?: SQL | SQL[];
-  }): Promise<Organization[]> {
-    const { offset, limit, where, orderBy } = params;
-
-    return await this.db.query.organization.findMany({
-      where,
-      orderBy,
-      limit,
-      offset,
+  organizations(includeClosed?: boolean): Promise<Organization[]> {
+    return this.db.query.organization.findMany({
+      where: includeClosed ? undefined : isNull(organization.closedAt),
+      orderBy: [asc(organization.createdAt)],
     });
   }
 
   async organizationMembers(
     organizationId: string,
+    { showcasedOnly = false } = {},
   ): Promise<OrganizationMemberResponseDto[]> {
     const members = await this.db.query.member.findMany({
-      where: eq(member.organizationId, organizationId),
+      where: and(
+        eq(member.organizationId, organizationId),
+        showcasedOnly ? eq(member.showcase, true) : undefined,
+      ),
+      orderBy: [asc(member.createdAt)],
       with: {
         user: {
           with: {
@@ -65,19 +85,138 @@ export class OrganizationsService {
       },
     });
 
-    return members.map(({ id, role, createdAt, user }) => ({
-      id,
-      role,
-      createdAt,
-      userId: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName || null,
-      image: user.image || null,
-      bio: user.bio || null,
-      teams: user.teamMembers
-        .filter(({ team }) => team.organizationId === organizationId)
-        .map(({ team }) => ({ id: team.id, name: team.name })),
-    }));
+    const now = new Date();
+
+    return members
+      .filter(
+        ({ user: { banned, banExpires } }) =>
+          !showcasedOnly || !banned || (!!banExpires && banExpires <= now),
+      )
+      .map(({ id, role, showcase, createdAt, user }) => ({
+        id,
+        role,
+        showcase,
+        createdAt,
+        userId: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName || null,
+        image: user.image || null,
+        bio: user.bio || null,
+        teams: user.teamMembers
+          .filter(({ team }) => team.organizationId === organizationId)
+          .map(({ team }) => ({ id: team.id, name: team.name })),
+      }));
+  }
+
+  async organizationTeam(
+    slug: string,
+  ): Promise<OrganizationTeamMemberResponseDto[]> {
+    const org = await this.organizationBySlug(slug);
+    if (!org) throw new NotFoundException();
+    if (org.closedAt) return [];
+
+    const members = await this.organizationMembers(org.id, {
+      showcasedOnly: true,
+    });
+
+    return members.map(
+      ({ bio, firstName, id, image, lastName, role, teams }) => ({
+        bio,
+        firstName,
+        id,
+        image,
+        lastName,
+        role,
+        teams,
+      }),
+    );
+  }
+
+  async setMemberShowcase(
+    organizationId: string,
+    memberId: string,
+    showcase: boolean,
+    actor: { role: string; userId: string },
+  ): Promise<{ id: string; showcase: boolean }> {
+    const target = await this.db.query.member.findFirst({
+      where: and(
+        eq(member.id, memberId),
+        eq(member.organizationId, organizationId),
+      ),
+      columns: { userId: true },
+    });
+    if (!target) throw new NotFoundException();
+
+    const isSelf = target.userId === actor.userId;
+    if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
+      throw accessForbiddenError();
+    if (showcase && !isSelf) throw forbiddenError('showcaseOpenSelfOnly');
+
+    const [updated] = await this.db
+      .update(member)
+      .set({ showcase })
+      .where(
+        and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
+      )
+      .returning({ id: member.id, showcase: member.showcase });
+    if (!updated) throw new NotFoundException();
+
+    return updated;
+  }
+
+  async confirmOwner(
+    organizationId: string,
+    memberId: string,
+    actor: { platformAdmin: boolean; userId: string },
+  ): Promise<Member> {
+    if (!actor.platformAdmin) {
+      const own = await this.db.query.member.findFirst({
+        where: and(
+          eq(member.organizationId, organizationId),
+          eq(member.userId, actor.userId),
+        ),
+        columns: { joinedAsPlatformAdmin: true, role: true },
+      });
+      if (own?.role !== 'owner' || own.joinedAsPlatformAdmin)
+        throw accessForbiddenError();
+    }
+
+    const [confirmed] = await this.db
+      .update(member)
+      .set({ joinedAsPlatformAdmin: false })
+      .where(
+        and(
+          eq(member.id, memberId),
+          eq(member.organizationId, organizationId),
+          eq(member.role, 'owner'),
+          eq(member.joinedAsPlatformAdmin, true),
+        ),
+      )
+      .returning();
+    if (confirmed) return confirmed;
+
+    const target = await this.db.query.member.findFirst({
+      where: and(
+        eq(member.id, memberId),
+        eq(member.organizationId, organizationId),
+      ),
+      columns: { id: true },
+    });
+    if (!target) throw new NotFoundException();
+
+    throw conflictError('notJoinedAsPlatformAdmin');
+  }
+
+  async platformAdminMemberIds(organizationId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: member.id })
+      .from(member)
+      .innerJoin(user, eq(user.id, member.userId))
+      .where(
+        and(eq(member.organizationId, organizationId), eq(user.role, 'admin')),
+      );
+
+    return rows.map(({ id }) => id);
   }
 
   async setClosed(
@@ -118,25 +257,9 @@ export class OrganizationsService {
       .set({ closedAt: closed ? new Date() : null })
       .where(eq(organization.id, organizationId))
       .returning();
-    if (!updated) throw new NotFoundException('Organization not found');
+    if (!updated) throw organizationNotFoundError();
 
     return updated;
-  }
-
-  async organization(
-    where: Partial<Organization>,
-  ): Promise<Organization | null> {
-    const result = await this.db.query.organization.findFirst({
-      where: (organization) => {
-        const conditions = Object.entries(where)
-          .filter(([, value]) => value !== undefined)
-          .map(([key, value]) =>
-            eq(organization[key as keyof Organization], value!),
-          );
-        return and(...conditions);
-      },
-    });
-    return result || null;
   }
 
   async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {
@@ -161,7 +284,9 @@ export class OrganizationsService {
   }
 
   async organizationBySlug(slug: string): Promise<Organization | null> {
-    const current = await this.organization({ slug });
+    const current = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, slug),
+    });
     if (current) return current;
 
     const previous = await this.db.query.organizationSlugHistory.findFirst({
@@ -169,15 +294,38 @@ export class OrganizationsService {
       columns: { organizationId: true },
     });
 
-    return previous ? this.organization({ id: previous.organizationId }) : null;
+    if (!previous) return null;
+
+    return (
+      (await this.db.query.organization.findFirst({
+        where: eq(organization.id, previous.organizationId),
+      })) ?? null
+    );
+  }
+
+  upcomingSpecialHours(organizationId: string) {
+    const now = new Date();
+
+    return findSpecialHours(
+      this.db,
+      organizationId,
+      now,
+      new Date(now.getTime() + PICKUP_MAX_ADVANCE_DAYS * DAY_MS),
+    );
   }
 
   async getStats(
     memberUserId: string | null,
     query: StatsBucketQueryDto,
   ): Promise<OrganizationStatsResponseDto> {
-    const { bucketIndexOf, bucketStarts, previousSince, since, until } =
-      getStatsWindow(query);
+    const {
+      bucketIndexOf,
+      bucketStarts,
+      previousSince,
+      previousUntil,
+      since,
+      until,
+    } = getStatsWindow(query);
     const visible = memberUserId
       ? inArray(
           organization.id,
@@ -207,7 +355,7 @@ export class OrganizationsService {
       this.db
         .select({ previous: count() })
         .from(organization)
-        .where(createdIn(previousSince, since)),
+        .where(createdIn(previousSince, previousUntil)),
     ]);
 
     const organizationsByIndex = new Map(

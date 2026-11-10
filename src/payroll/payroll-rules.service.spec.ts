@@ -27,7 +27,15 @@ function setup(rows: unknown[][]) {
     return query;
   });
   const onConflictDoUpdate = vi.fn(() => Promise.resolve());
-  const insert = vi.fn(() => ({ values: () => ({ onConflictDoUpdate }) }));
+  const inserted: unknown[] = [];
+  const insert = vi.fn(() => ({
+    values: (values: unknown) => {
+      inserted.push(values);
+      return { onConflictDoUpdate };
+    },
+  }));
+  const deleteRows = vi.fn(() => ({ where: () => Promise.resolve() }));
+  const execute = vi.fn(() => Promise.resolve());
   const updates: Record<string, unknown>[] = [];
   const update = vi.fn(() => ({
     set: (values: Record<string, unknown>) => {
@@ -43,11 +51,22 @@ function setup(rows: unknown[][]) {
     select,
     insert,
     update,
+    delete: deleteRows,
+    execute,
     transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };
   const service = new PayrollRulesService(db as unknown as DrizzleDB);
 
-  return { service, db, onConflictDoUpdate, update, updates };
+  return {
+    service,
+    db,
+    onConflictDoUpdate,
+    update,
+    updates,
+    inserted,
+    deleteRows,
+    execute,
+  };
 }
 
 describe('Payroll rule set resolution', () => {
@@ -86,6 +105,42 @@ describe('Payroll rule set resolution', () => {
         '2025-12',
       ),
     ).resolves.toBeNull();
+  });
+});
+
+describe('Rule set listing', () => {
+  const older = { ...seed, id: 'older', effectiveFrom: '2025-01' };
+  const list = async (latest: typeof seed) => {
+    const { service } = setup([[latest, older]]);
+    return service.list();
+  };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-28T04:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('is not stale when the latest period was checked this platform month', async () => {
+    const [latest] = await list({
+      ...seed,
+      checkedAt: new Date('2026-09-30T16:00:00Z'),
+    });
+    expect(latest.stale).toBe(false);
+  });
+  it('is stale when the latest period was last checked before this platform month', async () => {
+    const [latest] = await list({
+      ...seed,
+      checkedAt: new Date('2026-09-30T15:59:59Z'),
+    });
+    expect(latest.stale).toBe(true);
+  });
+  it('is stale when the latest period was never checked', async () => {
+    const [latest] = await list(seed);
+    expect(latest.stale).toBe(true);
+  });
+  it('never marks an older period stale', async () => {
+    const [, previous] = await list(seed);
+    expect(previous.stale).toBe(false);
   });
 });
 
@@ -434,6 +489,156 @@ describe('Official grade ingestion', () => {
   });
 });
 
+describe('National holiday ingestion', () => {
+  const fetchOk = (body: string) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(body),
+    });
+  const calendar = (rows: string[]) =>
+    '\uFEFF西元日期,星期,是否放假,備註\n' + rows.join('\n') + '\n';
+  const resource = (description: string, url: string) => ({
+    resourceDescription: description,
+    resourceFormat: 'CSV',
+    resourceDownloadUrl: url,
+  });
+  const dataset = JSON.stringify({
+    result: {
+      distribution: [
+        resource(
+          '113年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2024.csv',
+        ),
+        resource(
+          '114年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2025.csv',
+        ),
+        resource(
+          '115年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2026.csv',
+        ),
+        resource(
+          '116年中華民國政府行政機關辦公日曆表(1160615更新)',
+          'https://example.test/2027-revised.csv',
+        ),
+        resource(
+          '116年中華民國政府行政機關辦公日曆表',
+          'https://example.test/2027.csv',
+        ),
+      ],
+    },
+  });
+  const csvs: Record<string, string> = {
+    'https://example.test/2024.csv': calendar(['20240101,一,2,開國紀念日']),
+    'https://example.test/2025.csv': calendar([
+      '20250101,三,2,開國紀念日',
+      '20250102,四,0,',
+    ]),
+    'https://example.test/2026.csv': calendar([
+      '20260101,四,2,開國紀念日',
+      '20270101,五,2,開國紀念日',
+    ]),
+    'https://example.test/2027.csv': calendar(['20270101,五,2,開國紀念日']),
+    'https://example.test/2027-revised.csv': calendar([
+      '20270101,五,2,開國紀念日',
+      '20270208,一,2,春節',
+    ]),
+  };
+  const ingest = async (
+    rows: unknown[][],
+    overrides: Record<string, string | null> = {},
+  ) => {
+    const mocks = setup(rows);
+    const bodies = { ...csvs, ...overrides };
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((input) => {
+      const url = input as string;
+      if (url.endsWith('/14718'))
+        return fetchOk(dataset) as ReturnType<typeof fetch>;
+      if (bodies[url] === null)
+        return Promise.resolve({ ok: false, status: 404 }) as ReturnType<
+          typeof fetch
+        >;
+      if (bodies[url]) return fetchOk(bodies[url]) as ReturnType<typeof fetch>;
+
+      throw new Error(`unexpected ${url}`);
+    });
+    const result = await mocks.service.ingestHolidays();
+
+    return {
+      ...mocks,
+      ...result,
+      fetched: fetchSpy.mock.calls.map(([url]) => url),
+    };
+  };
+  const lastYearStored = [{ date: '2025-01-01' }];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-04T04:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('rewrites the current and later years on every run', async () => {
+    const { written, inserted, deleteRows, execute, fetched } = await ingest([
+      lastYearStored,
+    ]);
+
+    expect(written).toEqual([2026, 2027]);
+    expect(fetched).not.toContain('https://example.test/2025.csv');
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(inserted).toEqual([
+      [{ date: '2026-01-01', name: '開國紀念日' }],
+      [
+        { date: '2027-01-01', name: '開國紀念日' },
+        { date: '2027-02-08', name: '春節' },
+      ],
+    ]);
+  });
+  it('backfills last year when it is missing from the calendar', async () => {
+    const { written, inserted } = await ingest([[], []]);
+
+    expect(written).toEqual([2025, 2026, 2027]);
+    expect(inserted[0]).toEqual([{ date: '2025-01-01', name: '開國紀念日' }]);
+  });
+  it('neither fetches nor writes a year older than last year', async () => {
+    const { written, fetched } = await ingest([[], []]);
+
+    expect(written).not.toContain(2024);
+    expect(fetched).not.toContain('https://example.test/2024.csv');
+  });
+  it('leaves last year untouched when its calendar is unreachable', async () => {
+    const { written, deleteRows } = await ingest([[]], {
+      'https://example.test/2025.csv': null,
+    });
+
+    expect(written).toEqual([2026, 2027]);
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+  });
+  it('skips last year when another run wrote it before the lock', async () => {
+    const { written, deleteRows, inserted } = await ingest([
+      [],
+      lastYearStored,
+    ]);
+
+    expect(written).toEqual([2026, 2027]);
+    expect(deleteRows).toHaveBeenCalledTimes(2);
+    expect(inserted.flat()).not.toContainEqual(
+      expect.objectContaining({ date: '2025-01-01' }),
+    );
+  });
+  it('fetches only the latest revision of a year', async () => {
+    const { fetched } = await ingest([lastYearStored]);
+
+    expect(fetched).toContain('https://example.test/2027-revised.csv');
+    expect(fetched).not.toContain('https://example.test/2027.csv');
+  });
+});
+
 describe('Minimum wage confirmation', () => {
   const pending = {
     ...seed,
@@ -459,6 +664,14 @@ describe('Minimum wage confirmation', () => {
       label: dto.sourceLabel,
       url: dto.sourceUrl,
     });
+  });
+  it('reports the confirmed period as stale only while it is the latest unchecked one', async () => {
+    const confirm = async (successor: unknown[]) => {
+      const { service } = setup([[pending], [], successor]);
+      return service.confirm('2026-01', dto);
+    };
+    expect((await confirm([]))?.stale).toBe(true);
+    expect((await confirm([{ id: 'next' }]))?.stale).toBe(false);
   });
   it('refuses an hourly wage below the previous period', async () => {
     const { service, update } = setup([

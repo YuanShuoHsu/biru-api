@@ -1,18 +1,16 @@
-import { BadRequestException } from '@nestjs/common';
-
 import type { RefundItemSnapshot } from '../../db/schema/refunds.js';
 
 import { STORE_UTC_OFFSET } from '../../common/constants/timezone.js';
 
+import { badRequestError } from '../refund-errors.js';
+
 const round = (value: number): number => Math.round(value);
 
-export type RefundPlanErrorKey =
-  'invalidAmount' | 'itemNotInOrder' | 'nothingToRefund' | 'quantityExceeded';
+export const lineAmountCents = (unitPrice: string, quantity: number): number =>
+  Math.round(Number(unitPrice) * 100) * quantity;
 
-export type RefundPlanTranslate = (
-  key: RefundPlanErrorKey,
-  args?: Record<string, number | string>,
-) => string;
+const lineAmount = (unitPrice: string, quantity: number): number =>
+  round(lineAmountCents(unitPrice, quantity) / 100);
 
 export interface RefundPlan {
   allocatedDiscount: number;
@@ -24,6 +22,7 @@ export interface RefundPlan {
 
 export interface RefundableOrder {
   items: {
+    discount: string | null;
     id: string;
     menuItemName: string;
     orderQuantity: number;
@@ -40,13 +39,12 @@ const allocate = (discount: number, part: number, total: number): number =>
 
 /**
  * 折讓明細的金額必須精準等於折讓總額，且原發票把優惠券折扣開成一筆負數品項，
- * 所以部分退款要把折扣按原價比例分攤回去，否則多次折讓的總和會超出發票金額。
+ * 所以部分退款要把折扣分攤回去，否則多次折讓的總和會超出發票金額。
  */
 export const buildRefundPlan = (
   found: RefundableOrder,
-  previous: { items: RefundItemSnapshot[] | null }[],
+  previous: { amount: string; items: RefundItemSnapshot[] | null }[],
   requestedItems: { orderItemId: string; quantity: number }[] | undefined,
-  t: RefundPlanTranslate,
 ): RefundPlan => {
   const refundedQuantities = new Map<string, number>();
   for (const row of previous)
@@ -68,7 +66,6 @@ export const buildRefundPlan = (
     : found.items
         .map((item) => ({
           orderItemId: item.id,
-          // 先前已部分退過時，這裡要退的是剩下的數量
           quantity: item.orderQuantity - (refundedQuantities.get(item.id) ?? 0),
         }))
         .filter((item) => item.quantity > 0);
@@ -76,23 +73,22 @@ export const buildRefundPlan = (
   const items: RefundItemSnapshot[] = requested.map((input) => {
     const source = found.items.find((item) => item.id === input.orderItemId);
     if (!source)
-      throw new BadRequestException(
-        t('itemNotInOrder', { orderItemId: input.orderItemId }),
-      );
+      throw badRequestError('itemNotInOrder', {
+        orderItemId: input.orderItemId,
+      });
 
     const refunded = refundedQuantities.get(source.id) ?? 0;
     const remaining = source.orderQuantity - refunded;
     if (input.quantity > remaining)
-      throw new BadRequestException(
-        t('quantityExceeded', { name: source.menuItemName, remaining }),
-      );
-
-    const unitPrice = Number(source.unitPrice);
+      throw badRequestError('quantityExceeded', {
+        name: source.menuItemName,
+        remaining,
+      });
 
     return {
       amount: String(
-        round(unitPrice * (refunded + input.quantity)) -
-          round(unitPrice * refunded),
+        lineAmount(source.unitPrice, refunded + input.quantity) -
+          lineAmount(source.unitPrice, refunded),
       ),
       menuItemName: source.menuItemName,
       orderItemId: source.id,
@@ -101,10 +97,10 @@ export const buildRefundPlan = (
     };
   });
 
-  if (!items.length) throw new BadRequestException(t('nothingToRefund'));
+  if (!items.length) throw badRequestError('nothingToRefund');
 
   const itemTotal = found.items.reduce(
-    (sum, item) => sum + round(Number(item.unitPrice) * item.orderQuantity),
+    (sum, item) => sum + lineAmount(item.unitPrice, item.orderQuantity),
     0,
   );
   const salesAmount = round(Number(found.total));
@@ -119,17 +115,32 @@ export const buildRefundPlan = (
 
   // 退到最後一筆時把折扣的取整餘數一次補齊，總和才會剛好等於實收金額
   const previouslyAllocated = previous.reduce(
-    (sum, row) =>
-      sum + allocate(discount, sumRefundItems(row.items ?? []), itemTotal),
+    (sum, row) => sum + sumRefundItems(row.items ?? []) - Number(row.amount),
     0,
   );
   const allocatedDiscount = isFull
     ? discount - previouslyAllocated
-    : allocate(discount, sumRefundItems(items), itemTotal);
+    : found.items.every((item) => item.discount !== null)
+      ? round(
+          found.items.reduce((sum, item) => {
+            const quantity =
+              (refundedQuantities.get(item.id) ?? 0) +
+              (items.find((i) => i.orderItemId === item.id)?.quantity ?? 0);
+            const cents = round(
+              (Math.round(Number(item.discount) * 100) * quantity) /
+                item.orderQuantity,
+            );
+
+            return (
+              sum + Math.min(cents, lineAmount(item.unitPrice, quantity) * 100)
+            );
+          }, 0) / 100,
+        ) - previouslyAllocated
+      : allocate(discount, sumRefundItems(items), itemTotal);
 
   const amount = sumRefundItems(items) - allocatedDiscount;
   if (!Number.isFinite(amount) || amount < 0)
-    throw new BadRequestException(t('invalidAmount'));
+    throw badRequestError('invalidAmount');
 
   return {
     allocatedDiscount,

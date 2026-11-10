@@ -44,7 +44,6 @@ export class EcpayGetIssueInvoiceService {
     this.apiUrl = getEcpayGetIssueInvoiceApiUrl(getEcpayMode(configService));
   }
 
-  /** 以發票號碼或開立時的自訂編號擇一查詢 */
   async getIssue(
     query:
       { InvoiceDate: string; InvoiceNo: string } | { RelateNumber: string },

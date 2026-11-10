@@ -35,6 +35,7 @@ export const refundReasonCodeEnum = pgEnum('refund_reason_code', [
   'longWait',
   'customerMistake',
   'customerCancelled',
+  'storeClosed',
   'other',
 ]);
 export type RefundReasonCode = (typeof refundReasonCodeEnum.enumValues)[number];

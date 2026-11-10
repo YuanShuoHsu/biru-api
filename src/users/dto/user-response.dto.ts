@@ -113,7 +113,7 @@ export class UserResponseDto {
   updatedAt: Date;
 }
 
-export class UserListItemDto extends UserResponseDto {
+class UserListItemDto extends UserResponseDto {
   @ApiProperty({
     description: '有出勤或薪資紀錄、或是某組織唯一的擁有者時不可刪除',
   })

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import {
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
@@ -38,14 +39,14 @@ export class MenuItemResponseDto {
   })
   orderTicketPrinterId: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedText;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: LocalizedTextDto, nullable: true })
   description: LocalizedText | null;
 
-  @ApiPropertyOptional()
-  image: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  imageUrl: string | null;
 
   @ApiPropertyOptional({ enum: restrictedDietEnum.enumValues, isArray: true })
   suitableForDiet: RestrictedDiet[] | null;
@@ -111,4 +112,9 @@ export class MenuItemResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+}
+
+export class MenuItemListResponseDto {
+  @ApiProperty({ type: [MenuItemResponseDto] }) data: MenuItemResponseDto[];
+  @ApiProperty() total: number;
 }

@@ -1,7 +1,7 @@
 {
   "after_email_verification": {
     "action_button": "시작하기",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}의 이메일 주소를 인증해 주셔서 감사합니다. 함께하게 되어 기쁩니다. 이제 {productName}를 시작하실 수 있습니다.",
     "preheader": "{productName}에 오신 것을 환영합니다! 이메일이 인증되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -12,7 +12,7 @@
   },
   "on_existing_user_sign_up": {
     "action_button": "로그인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "누군가 귀하의 이메일 주소로 {productName} 계정 가입을 시도했습니다. 본인이 시도하셨다면 바로 로그인하시면 됩니다. 귀하의 {productName} 계정은 안전하게 유지되고 있습니다.",
     "preheader": "본인이 아니어도 {productName} 계정은 안전합니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -23,7 +23,7 @@
   },
   "on_password_reset": {
     "action_button": "로그인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 비밀번호가 성공적으로 재설정되었습니다. 새 비밀번호로 로그인하실 수 있습니다.",
     "preheader": "{productName} 비밀번호가 성공적으로 변경되었습니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -34,9 +34,14 @@
   },
   "organization_invitation": {
     "action_button": "초대 수락",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{organizationName}<br />{organizationAddress}",
     "intro": "{inviterName}님이 {productName}의 {organizationName}에 {role}(으)로 참여하도록 초대했습니다. 아래 버튼을 클릭하여 초대를 수락하세요.",
     "preheader": "{productName}의 {organizationName}에 초대되었습니다.",
+    "roles": {
+      "admin": "관리자",
+      "member": "멤버",
+      "owner": "소유자"
+    },
     "salutation": "감사합니다.<br>{productName} 팀",
     "security_notice": "보안을 위해 이 초대는 {inviterName}이(가) {productName} 계정에서 보냈습니다. 초대를 예상하지 않으셨다면 이 이메일을 무시하시거나, 질문이 있으시면 <a href=\"{support_url}\">지원팀에 문의</a>해주세요.",
     "subject": "{productName}의 {organizationName}에 초대되었습니다",
@@ -45,7 +50,7 @@
   },
   "send_change_email_confirmation": {
     "action_button": "이메일 변경 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 계정 이메일을 <strong>{newEmail}</strong>(으)로 변경하는 요청을 받았습니다. 아래 버튼을 클릭하여 변경을 확인하세요. 이 링크는 1시간 동안 유효합니다.",
     "preheader": "{productName} 이메일 주소 변경을 확인해주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -56,7 +61,7 @@
   },
   "send_reset_password": {
     "action_button": "비밀번호 재설정",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 비밀번호 재설정을 요청하셨습니다. 아래 버튼을 클릭하여 새 비밀번호를 설정하세요. 이 링크는 1시간 동안 유효합니다.",
     "preheader": "{productName} 비밀번호를 재설정하세요. 이 링크는 1시간 후에 만료됩니다.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -67,7 +72,7 @@
   },
   "send_delete_account_verification": {
     "action_button": "계정 삭제 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName} 계정을 영구적으로 삭제하려는 요청을 받았습니다. 아래 버튼을 클릭하여 이 작업을 확인하세요. 이 링크는 1시간 동안 유효합니다. 확인하지 않으면 계정이 삭제되지 않습니다.",
     "preheader": "{productName} 계정 삭제 요청을 확인해 주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -78,7 +83,7 @@
   },
   "send_verification_email": {
     "action_button": "이메일 확인",
-    "address": "{productName}<br />1234 Street Rd.<br />Suite 1234",
+    "address": "{productName}",
     "intro": "{productName}를 이용해 주셔서 감사합니다. 함께하게 되어 기쁩니다. {productName}를 시작하려면 계정을 확인해주세요.",
     "preheader": "{productName}에 오신 것을 환영합니다! 이메일 주소를 확인해주세요.",
     "salutation": "감사합니다.<br>{productName} 팀",
@@ -125,6 +130,13 @@
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우, 아래 URL을 복사하여 브라우저에 붙여넣어 주세요."
   },
+  "missing_clock_out": {
+    "subject": "{organizationName}: {period} 근무의 퇴근 기록이 없습니다",
+    "title": "퇴근 기록을 정정해 주세요",
+    "intro": "{organizationName}에서 {period} 근무의 출근 기록은 있지만 퇴근 기록이 없으며, 기록할 수 있는 시간이 지났습니다.",
+    "rules": "실제 퇴근 시간으로 출퇴근 정정을 신청해 주세요. 근태 기록과 급여 계산에 영향을 줄 수 있습니다.",
+    "action": "출퇴근 정정 신청하기"
+  },
   "waitlist_notification": {
     "joined": {
       "subject": "{organizationName}: 대기 번호 {ticketNumber}",
@@ -142,5 +154,65 @@
     },
     "salutation": "감사합니다.<br>{productName} 팀",
     "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "low_stock_digest": {
+    "subject": "{organizationName}: 재고 경고량 이하 식재료 {count}개",
+    "title": "재고 부족 알림",
+    "intro": "{organizationName}에 재고가 경고량 이하로 떨어진 식재료가 {count}개 있습니다. 공급업체별로 발주를 준비해 주세요.",
+    "item": "{name}: {level} {unit} 남음 (경고량 {threshold} {unit}, 부족 {shortage} {unit})",
+    "no_supplier": "공급업체 미지정",
+    "action": "재고 부족 식재료 보기",
+    "units": {
+      "GRM": "g",
+      "KGM": "kg",
+      "LTR": "L",
+      "MLT": "mL",
+      "H87": "개"
+    },
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "daily_sales_digest": {
+    "subject": "{organizationName}: {date} 영업 요약",
+    "title": "어제 영업 요약",
+    "intro": "{organizationName}의 {date} 영업 현황입니다.",
+    "overview": "개요",
+    "revenue": "매출: {revenue} (전일 {previousRevenue})",
+    "orders": "주문: {orders}건 (전일 {previousOrders}건)",
+    "average": "객단가: {average}",
+    "peak_hour": "피크 시간대: {peakHour} ({peakOrders}건)",
+    "refunds": "환불: {refundedOrders}건",
+    "top_items": "인기 메뉴",
+    "item": "{name}: {sold}개",
+    "point_adjustments": "포인트 수동 조정({count}건, 합계 {total}포인트)",
+    "point_adjustment": "{adjuster}님이 {member}님의 포인트를 {points} 조정: {reason}",
+    "action": "대시보드 열기",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "platform_daily_digest": {
+    "subject": "{date} 전체 매장 요약",
+    "title": "어제 전체 매장 요약",
+    "intro": "{date}에 매출 또는 포인트 조정이 있었거나 현재 재고가 부족한 매장은 {count}곳입니다. 매장 이름을 누르면 해당 매장의 대시보드가 열립니다.",
+    "revenue": "매출: {revenue}",
+    "orders": "주문: {orders}건",
+    "refunds": "환불: {refundedOrders}건",
+    "point_adjustments": "포인트 수동 조정: {adjustments}건, 합계 {points}포인트",
+    "low_stock": "현재 재고 부족 식재료: {lowStock}개",
+    "action": "전체 매장 보기",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "points_expiry_reminder": {
+    "subject": "{points}포인트가 {date}에 만료됩니다",
+    "title": "포인트 만료 예정 안내",
+    "intro": "{points}포인트가 {date}에 만료되며 이후에는 사용할 수 없습니다. 만료 전에 교환해 주세요.",
+    "action": "내 포인트 보기",
+    "salutation": "감사합니다.<br>{productName} 팀",
+    "trouble_hint": "위 버튼을 클릭할 수 없는 경우 아래 URL을 복사하여 브라우저에 붙여 넣으세요."
+  },
+  "smtp_test": {
+    "subject": "{productName} SMTP 테스트",
+    "text": "이 이메일을 받으셨다면 SMTP 설정이 올바르게 되어 있습니다."
   }
 }

@@ -1,7 +1,6 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Inject,
   Injectable,
 } from '@nestjs/common';
@@ -11,7 +10,12 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { and, eq } from 'drizzle-orm';
 import { Request } from 'express';
 
-import { isAuthorized } from '../../auth/permissions.js';
+import type { Auth } from '../../auth/index.js';
+import {
+  isAuthorized,
+  type PermissionRequest,
+} from '../../auth/permissions.js';
+import { accessForbiddenError } from '../../common/utils/access-forbidden-error.js';
 import { organizationReadOnlyError } from '../../common/utils/organization-closure.js';
 import { ingredient, recipe, supplier } from '../../db/schema/inventory.js';
 import {
@@ -45,6 +49,7 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
   'attendanceRequest',
   'attendanceSetting',
   'employee',
+  'invoice',
   'leaveBalance',
   'leaveCase',
   'leaveType',
@@ -53,6 +58,7 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
   'parentalReturn',
   'payrollTerm',
   'payslip',
+  'refund',
   'shift',
   'shiftType',
 ]);
@@ -61,13 +67,13 @@ export const CLOSED_WRITABLE_RESOURCES = new Set([
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private authService: AuthService,
+    private authService: AuthService<Auth>,
     @Inject(DRIZZLE) private db: DrizzleDB,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<{
-      action?: Record<string, string[]>;
+      action?: PermissionRequest;
       organizationParam: OrganizationParam;
     }>(ROLES_KEY, [context.getHandler(), context.getClass()]);
     if (!requiredRoles || context.getType() !== 'http') return true;
@@ -78,13 +84,13 @@ export class RolesGuard implements CanActivate {
       headers: fromNodeHeaders(headers),
     });
     const userId = session?.user.id;
-    if (!userId) throw new ForbiddenException();
+    if (!userId) throw accessForbiddenError(context);
 
     const organizationId = await this.resolveOrganizationId(
       requiredRoles.organizationParam,
       params,
     );
-    if (!organizationId) throw new ForbiddenException();
+    if (!organizationId) throw accessForbiddenError(context);
 
     request.organizationId = organizationId;
 
@@ -101,22 +107,24 @@ export class RolesGuard implements CanActivate {
       if (org?.closedAt) throw organizationReadOnlyError(context);
     }
 
-    const membership = await this.db.query.member.findFirst({
-      where: and(
-        eq(member.organizationId, organizationId),
-        eq(member.userId, userId),
-      ),
-      columns: { role: true },
-    });
-    if (!membership) throw new ForbiddenException();
+    const role =
+      session.user.role === 'admin'
+        ? ('owner' as const)
+        : (
+            await this.db.query.member.findFirst({
+              where: and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId),
+              ),
+              columns: { role: true },
+            })
+          )?.role;
+    if (!role) throw accessForbiddenError(context);
 
-    request.memberRole = membership.role;
+    request.memberRole = role;
 
-    if (
-      requiredRoles.action &&
-      !isAuthorized(membership.role, requiredRoles.action)
-    )
-      throw new ForbiddenException();
+    if (requiredRoles.action && !isAuthorized(role, requiredRoles.action))
+      throw accessForbiddenError(context);
 
     return true;
   }
@@ -149,6 +157,7 @@ export class RolesGuard implements CanActivate {
 
       case 'sectionId': {
         const row = await this.db.query.menuSection.findFirst({
+          columns: {},
           where: eq(menuSection.id, params.sectionId),
           with: { menu: { columns: { organizationId: true } } },
         });
@@ -158,30 +167,31 @@ export class RolesGuard implements CanActivate {
 
       case 'menuItemId': {
         const row = await this.db.query.menuItem.findFirst({
+          columns: {},
           where: eq(menuItem.id, params.menuItemId),
-          with: {
-            menuSection: {
-              with: { menu: { columns: { organizationId: true } } },
-            },
-          },
+          with: { menu: { columns: { organizationId: true } } },
         });
 
-        return row?.menuSection?.menu?.organizationId;
+        return row?.menu?.organizationId;
       }
 
       case 'offerId': {
         const row = await this.db.query.offer.findFirst({
+          columns: {},
           where: eq(offer.id, params.offerId),
           with: {
             menuItem: {
+              columns: {},
               with: {
                 menu: { columns: { organizationId: true } },
                 menuSection: {
+                  columns: {},
                   with: { menu: { columns: { organizationId: true } } },
                 },
               },
             },
             menuSection: {
+              columns: {},
               with: { menu: { columns: { organizationId: true } } },
             },
           },
@@ -196,12 +206,15 @@ export class RolesGuard implements CanActivate {
 
       case 'addOnId': {
         const row = await this.db.query.menuItemAddOn.findFirst({
+          columns: {},
           where: eq(menuItemAddOn.id, params.addOnId),
           with: {
             menuItem: {
+              columns: {},
               with: {
                 menu: { columns: { organizationId: true } },
                 menuSection: {
+                  columns: {},
                   with: { menu: { columns: { organizationId: true } } },
                 },
               },
@@ -217,6 +230,7 @@ export class RolesGuard implements CanActivate {
 
       case 'groupId': {
         const row = await this.db.query.modifierGroup.findFirst({
+          columns: {},
           where: eq(modifierGroup.id, params.groupId),
           with: { menu: { columns: { organizationId: true } } },
         });
@@ -226,9 +240,11 @@ export class RolesGuard implements CanActivate {
 
       case 'modifierId': {
         const row = await this.db.query.modifier.findFirst({
+          columns: {},
           where: eq(modifier.id, params.modifierId),
           with: {
             modifierGroup: {
+              columns: {},
               with: { menu: { columns: { organizationId: true } } },
             },
           },

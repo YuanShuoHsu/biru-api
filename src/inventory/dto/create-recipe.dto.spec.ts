@@ -1,0 +1,116 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+
+import {
+  CreateRecipeDto,
+  CreateRecipeIngredientDto,
+  UpdateRecipeDto,
+  UpdateRecipeIngredientDto,
+} from './create-recipe.dto.js';
+
+const errorsOf = async (requiredQuantity: string) =>
+  (
+    await validate(
+      plainToInstance(CreateRecipeIngredientDto, {
+        ingredientId: 'milk',
+        requiredQuantity,
+      }),
+    )
+  ).map(({ property }) => property);
+
+describe('CreateRecipeIngredientDto', () => {
+  it.each(['0', '4', '4.000', '999999999.999'])(
+    'accepts requiredQuantity %s',
+    async (requiredQuantity) => {
+      expect(await errorsOf(requiredQuantity)).toEqual([]);
+    },
+  );
+
+  it.each(['-1', '1000000000', '1.2345', '+1'])(
+    'rejects requiredQuantity %s',
+    async (requiredQuantity) => {
+      expect(await errorsOf(requiredQuantity)).toEqual(['requiredQuantity']);
+    },
+  );
+});
+
+describe('CreateRecipeDto recipeYieldQuantity', () => {
+  const yieldErrorsOf = async (
+    dto: typeof CreateRecipeDto | typeof UpdateRecipeDto,
+    fields: object,
+  ) =>
+    (
+      await validate(
+        plainToInstance(dto, { name: { 'zh-TW': '番茄醬' }, ...fields }),
+      )
+    ).map(({ property }) => property);
+
+  it.each([
+    {},
+    { recipeYieldQuantity: '0.001', recipeYieldUnitCode: 'GRM' },
+    { recipeYieldQuantity: '1500.000', recipeYieldUnitCode: 'KGM' },
+    { recipeYieldQuantity: null, recipeYieldUnitCode: null },
+  ])('accepts %o', async (fields) => {
+    expect(await yieldErrorsOf(CreateRecipeDto, fields)).toEqual([]);
+    expect(await yieldErrorsOf(UpdateRecipeDto, fields)).toEqual([]);
+  });
+
+  it.each([
+    [{ recipeYieldQuantity: '1' }, ['recipeYieldQuantity']],
+    [{ recipeYieldUnitCode: 'GRM' }, ['recipeYieldUnitCode']],
+    [
+      { recipeYieldQuantity: '1', recipeYieldUnitCode: null },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '-1', recipeYieldUnitCode: 'GRM' },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '0', recipeYieldUnitCode: 'GRM' },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '0.000', recipeYieldUnitCode: 'GRM' },
+      ['recipeYieldQuantity'],
+    ],
+    [
+      { recipeYieldQuantity: '1', recipeYieldUnitCode: 'TNE' },
+      ['recipeYieldUnitCode'],
+    ],
+  ])('rejects %o', async (fields, properties) => {
+    expect(await yieldErrorsOf(CreateRecipeDto, fields)).toEqual(properties);
+    expect(await yieldErrorsOf(UpdateRecipeDto, fields)).toEqual(properties);
+  });
+});
+
+describe('CreateRecipeDto integer columns', () => {
+  const errorsOf = async (dto: object) =>
+    (await validate(dto)).map(({ property }) => property);
+
+  it.each([
+    ['CreateRecipeDto', CreateRecipeDto],
+    ['UpdateRecipeDto', UpdateRecipeDto],
+  ] as const)('%s 的 recipeYield 超過 9999 時拒絕', async (_, dto) => {
+    const recipeOf = (recipeYield: number) =>
+      plainToInstance(dto, { name: { 'zh-TW': '番茄醬' }, recipeYield });
+
+    expect(await errorsOf(recipeOf(9999))).toEqual([]);
+    expect(await errorsOf(recipeOf(10000))).toEqual(['recipeYield']);
+  });
+
+  it.each([
+    ['CreateRecipeIngredientDto', CreateRecipeIngredientDto],
+    ['UpdateRecipeIngredientDto', UpdateRecipeIngredientDto],
+  ] as const)('%s 的 sortOrder 超過 9999 時拒絕', async (_, dto) => {
+    const ingredientOf = (sortOrder: number) =>
+      plainToInstance(dto, {
+        ingredientId: 'milk',
+        requiredQuantity: '1',
+        sortOrder,
+      });
+
+    expect(await errorsOf(ingredientOf(9999))).toEqual([]);
+    expect(await errorsOf(ingredientOf(10000))).toEqual(['sortOrder']);
+  });
+});

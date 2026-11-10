@@ -23,18 +23,18 @@ export const ATTENDANCE_REQUEST_ENUM_FILTER_FIELDS = [
   'status',
 ] as const;
 
-export const ATTENDANCE_REQUEST_FILTER_FIELDS = [
+const ATTENDANCE_REQUEST_FILTER_FIELDS = [
   ...ATTENDANCE_REQUEST_STRING_FILTER_FIELDS,
   ...ATTENDANCE_REQUEST_DATE_FILTER_FIELDS,
   ...ATTENDANCE_REQUEST_ENUM_FILTER_FIELDS,
 ] as const;
 
-export type AttendanceRequestFilterField =
+type AttendanceRequestFilterField =
   (typeof ATTENDANCE_REQUEST_FILTER_FIELDS)[number];
 
-export const ATTENDANCE_REQUEST_SORT_FIELDS = ATTENDANCE_REQUEST_FILTER_FIELDS;
+const ATTENDANCE_REQUEST_SORT_FIELDS = ATTENDANCE_REQUEST_FILTER_FIELDS;
 
-export type AttendanceRequestSortField =
+type AttendanceRequestSortField =
   (typeof ATTENDANCE_REQUEST_SORT_FIELDS)[number];
 
 export class AttendanceRequestPaginationQueryDto extends PaginationQueryDto {

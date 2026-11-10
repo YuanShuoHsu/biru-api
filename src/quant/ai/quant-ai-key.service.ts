@@ -1,13 +1,7 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import Anthropic from '@anthropic-ai/sdk';
 import { and, eq } from 'drizzle-orm';
-import { I18nContext, I18nService } from 'nestjs-i18n';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -17,29 +11,16 @@ import {
 import { quantAiKey } from '../../db/schema/quant.js';
 import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../../generated/i18n.generated.js';
 
 import type { QuantAiKeyDto } from '../dto/quant-bot.dto.js';
 import { quantEnvironment } from '../quant-environment.js';
+import { badRequestError, notFoundError } from '../quant-errors.js';
 
 import { DEFAULT_AI_MODEL } from './ai-model.js';
 
 @Injectable()
 export class QuantAiKeyService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly i18n: I18nService<I18nTranslations>,
-  ) {}
-
-  private t(
-    key: 'aiKeyInvalid' | 'aiKeyMissing',
-    args?: Record<string, unknown>,
-  ) {
-    return this.i18n.t(`common.quant.${key}`, {
-      args,
-      lang: I18nContext.current()?.lang,
-    });
-  }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   private scope(userId: string) {
     return and(
@@ -67,9 +48,7 @@ export class QuantAiKeyService {
     } catch (error) {
       if (!(error instanceof Anthropic.APIError)) throw error;
 
-      throw new BadRequestException(
-        this.t('aiKeyInvalid', { message: error.message }),
-      );
+      throw badRequestError('aiKeyInvalid', { message: error.message });
     }
 
     const values = {
@@ -105,7 +84,7 @@ export class QuantAiKeyService {
       columns: { encryptedApiKey: true },
       where: this.scope(userId),
     });
-    if (!row) throw new NotFoundException(this.t('aiKeyMissing'));
+    if (!row) throw notFoundError('aiKeyMissing');
 
     return decryptField(row.encryptedApiKey, 'quantAiKey');
   }
