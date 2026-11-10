@@ -1065,11 +1065,13 @@ export class MailsService {
       organizationName: string;
       currency: string;
       path: string;
-      current: { orders: number; revenue: number };
-      previous: { orders: number; revenue: number };
-      peakHour: { hour: number; orders: number };
-      refundedOrders: number;
-      topItems: { name: string; sold: number }[];
+      sales: {
+        current: { orders: number; revenue: number };
+        previous: { orders: number; revenue: number };
+        peakHour: { hour: number; orders: number };
+        refundedOrders: number;
+        topItems: { name: string; sold: number }[];
+      } | null;
       pointAdjustments: PointAdjustmentLine[];
       lowStock: (LowStockLine & { supplierName: string | null })[];
     }[];
@@ -1104,11 +1106,7 @@ export class MailsService {
             organizationName,
             currency,
             path: storePath,
-            current,
-            previous,
-            peakHour,
-            refundedOrders,
-            topItems,
+            sales,
             pointAdjustments,
             lowStock,
           }) => {
@@ -1117,62 +1115,82 @@ export class MailsService {
               currency,
               maximumFractionDigits: 0,
             });
+            const salesArgs = sales && {
+              average: money.format(
+                sales.current.orders
+                  ? sales.current.revenue / sales.current.orders
+                  : 0,
+              ),
+              orders: sales.current.orders,
+              peakHour: hourRange(sales.peakHour.hour),
+              peakOrders: sales.peakHour.orders,
+              previousOrders: sales.previous.orders,
+              previousRevenue: money.format(sales.previous.revenue),
+              refundedOrders: sales.refundedOrders,
+              revenue: money.format(sales.current.revenue),
+              topItems: sales.topItems.length
+                ? list.format(
+                    sales.topItems.map(({ name, sold }) =>
+                      this.i18n.t('mail.platform_daily_digest.item', {
+                        args: { name, sold },
+                        lang,
+                      }),
+                    ),
+                  )
+                : null,
+            };
             const args = {
               adjustments: pointAdjustments.length,
-              average: money.format(
-                current.orders ? current.revenue / current.orders : 0,
-              ),
               lowStock: lowStock.length,
-              orders: current.orders,
-              peakHour: hourRange(peakHour.hour),
-              peakOrders: peakHour.orders,
               points: signed.format(
                 pointAdjustments.reduce((sum, { points }) => sum + points, 0),
               ),
-              previousOrders: previous.orders,
-              previousRevenue: money.format(previous.revenue),
-              refundedOrders,
-              revenue: money.format(current.revenue),
             };
             return {
               heading: organizationName,
               url: `${adminUrl}${storePath}`,
               items: [
-                this.i18n.t('mail.daily_sales_digest.revenue', { args, lang }),
-                this.i18n.t('mail.daily_sales_digest.orders', { args, lang }),
-                ...(current.orders
+                ...(salesArgs
                   ? [
-                      this.i18n.t('mail.daily_sales_digest.average', {
-                        args,
+                      this.i18n.t('mail.daily_sales_digest.revenue', {
+                        args: salesArgs,
                         lang,
                       }),
-                      this.i18n.t('mail.daily_sales_digest.peak_hour', {
-                        args,
+                      this.i18n.t('mail.daily_sales_digest.orders', {
+                        args: salesArgs,
                         lang,
                       }),
-                    ]
-                  : []),
-                this.i18n.t('mail.platform_daily_digest.refunds', {
-                  args,
-                  lang,
-                }),
-                ...(topItems.length
-                  ? [
-                      this.i18n.t('mail.platform_daily_digest.top_items', {
-                        args: {
-                          items: list.format(
-                            topItems.map(({ name, sold }) =>
-                              this.i18n.t('mail.platform_daily_digest.item', {
-                                args: { name, sold },
-                                lang,
-                              }),
+                      ...(salesArgs.orders
+                        ? [
+                            this.i18n.t('mail.daily_sales_digest.average', {
+                              args: salesArgs,
+                              lang,
+                            }),
+                            this.i18n.t('mail.daily_sales_digest.peak_hour', {
+                              args: salesArgs,
+                              lang,
+                            }),
+                          ]
+                        : []),
+                      this.i18n.t('mail.platform_daily_digest.refunds', {
+                        args: salesArgs,
+                        lang,
+                      }),
+                      ...(salesArgs.topItems
+                        ? [
+                            this.i18n.t(
+                              'mail.platform_daily_digest.top_items',
+                              { args: { items: salesArgs.topItems }, lang },
                             ),
-                          ),
-                        },
-                        lang,
-                      }),
+                          ]
+                        : []),
                     ]
-                  : []),
+                  : [
+                      this.i18n.t(
+                        'mail.platform_daily_digest.sales_unavailable',
+                        options,
+                      ),
+                    ]),
                 ...(pointAdjustments.length
                   ? [
                       this.i18n.t(

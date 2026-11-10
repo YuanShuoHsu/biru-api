@@ -257,17 +257,15 @@ export class OrderNotificationsService {
 
     const sections = [];
     for (const { id, name, slug, currency } of stores) {
+      let sales = null;
       try {
-        const [{ buckets, hourlyOrders, previous, refundedOrders }, sales] =
+        const [{ buckets, hourlyOrders, previous, refundedOrders }, items] =
           await Promise.all([
             this.dailyStats(slug, since),
             this.menuItemSales.querySales(id, since, until),
           ]);
         const peakOrders = Math.max(...hourlyOrders);
-        sections.push({
-          organizationName: name,
-          currency,
-          path: dashboardPath(slug),
+        sales = {
           current: { orders: buckets[0].orders, revenue: buckets[0].revenue! },
           previous: { orders: previous.orders, revenue: previous.revenue! },
           peakHour: {
@@ -275,24 +273,30 @@ export class OrderNotificationsService {
             orders: peakOrders,
           },
           refundedOrders,
-          topItems: sales
+          topItems: items
             .filter(({ sold }) => sold > 0)
             .slice(0, TOP_ITEM_LIMIT)
             .map(({ menuItemName, sold }) => ({ name: menuItemName, sold })),
-          pointAdjustments: adjustments.flatMap(
-            ({ organizationId, ...adjustment }) =>
-              organizationId === id ? [adjustment] : [],
-          ),
-          lowStock: lowStock.flatMap(
-            ({ organizationId, lowStockThreshold, ...row }) =>
-              organizationId === id
-                ? [{ ...row, lowStockThreshold: lowStockThreshold! }]
-                : [],
-          ),
-        });
+        };
       } catch (error) {
         this.logger.error(error);
       }
+      sections.push({
+        organizationName: name,
+        currency,
+        path: dashboardPath(slug),
+        sales,
+        pointAdjustments: adjustments.flatMap(
+          ({ organizationId, ...adjustment }) =>
+            organizationId === id ? [adjustment] : [],
+        ),
+        lowStock: lowStock.flatMap(
+          ({ organizationId, lowStockThreshold, ...row }) =>
+            organizationId === id
+              ? [{ ...row, lowStockThreshold: lowStockThreshold! }]
+              : [],
+        ),
+      });
     }
     if (!sections.length) return 0;
 

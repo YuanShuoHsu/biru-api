@@ -200,6 +200,7 @@
     "point_adjustments": "Manual point adjustments: {adjustments}, {points} points in total",
     "low_stock": "Currently low-stock ingredients: {lowStock}",
     "low_stock_item": "{item}, supplier: {supplier}",
+    "sales_unavailable": "Sales figures for this store couldn't be loaded; check its dashboard.",
     "action": "View all stores",
     "salutation": "Thanks,<br>The {productName} team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
