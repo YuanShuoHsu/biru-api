@@ -375,6 +375,42 @@ describe('SharedCartsService', () => {
       ).resolves.toMatchObject({ cart: { me: { status: 'pending' } } });
     });
 
+    it('keeps a request approved while its requester moves on', async () => {
+      const first = await startPickup();
+      const second = await startPickup();
+      const guest = await requestToJoin(first.cart.code);
+      const findMembership = vi.spyOn(
+        service as unknown as { findMembership: () => Promise<unknown> },
+        'findMembership',
+      );
+      const stale = { ...guest.issued.session, status: 'pending' };
+      await db
+        .update(sharedCartParticipant)
+        .set({ status: 'active' })
+        .where(
+          eq(sharedCartParticipant.id, guest.issued.session.participantId),
+        );
+
+      for (const attempt of [
+        () => requestToJoin(second.cart.code, cookiesOf(guest.issued)),
+        () => startPickup(cookiesOf(guest.issued)),
+      ]) {
+        findMembership.mockResolvedValueOnce(stale);
+        await expect(attempt()).rejects.toMatchObject({
+          response: { code: 'sharedCartAlreadyJoined' },
+        });
+      }
+
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(guest.issued))).cart,
+      ).toMatchObject({ code: first.cart.code, me: { status: 'active' } });
+      expect(await db.select().from(sharedCart)).toHaveLength(2);
+      expect(
+        (await service.findCurrent(SLUG, cookiesOf(second.issued))).cart
+          .requests,
+      ).toEqual([]);
+    });
+
     it('refuses the creator another cart until they leave', async () => {
       const host = await startPickup();
 

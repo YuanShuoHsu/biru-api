@@ -248,6 +248,34 @@ export class SharedCartsService {
       .for('update');
   }
 
+  private async dropPending(
+    tx: Tx,
+    { participantId, sharedCartId }: Membership,
+  ) {
+    await this.lockCarts(tx, [sharedCartId]);
+    const dropped = await tx
+      .delete(sharedCartParticipant)
+      .where(
+        and(
+          eq(sharedCartParticipant.id, participantId),
+          eq(sharedCartParticipant.status, 'pending'),
+        ),
+      )
+      .returning({ id: sharedCartParticipant.id });
+    if (dropped.length) return;
+
+    const [approved] = await tx
+      .select({ id: sharedCartParticipant.id })
+      .from(sharedCartParticipant)
+      .where(
+        and(
+          eq(sharedCartParticipant.id, participantId),
+          eq(sharedCartParticipant.status, 'active'),
+        ),
+      );
+    if (approved) throw conflictError('sharedCartAlreadyJoined');
+  }
+
   private async leave(tx: Tx, { participantId, sharedCartId }: Membership) {
     await this.lockCarts(tx, [sharedCartId]);
     await tx
@@ -406,7 +434,7 @@ export class SharedCartsService {
       throw conflictError('sharedCartAlreadyJoined');
 
     const membership = await this.db.transaction(async (tx) => {
-      if (previous) await this.leave(tx, previous);
+      if (previous) await this.dropPending(tx, previous);
       const sharedCartId = await this.insertCart(
         tx,
         org.id,
@@ -470,7 +498,7 @@ export class SharedCartsService {
         throw orderBadRequestError('invalidTable');
 
       if (previous?.sharedCartId === cart.id) return previous;
-      if (previous) await this.leave(tx, previous);
+      if (previous) await this.dropPending(tx, previous);
 
       if ((await countActive(tx, cart.id)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
