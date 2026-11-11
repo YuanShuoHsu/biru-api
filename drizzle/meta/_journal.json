@@ -1933,6 +1933,13 @@
       "when": 1794385413434,
       "tag": "0275_order_shared_cart",
       "breakpoints": true
+    },
+    {
+      "idx": 276,
+      "version": "7",
+      "when": 1794394473730,
+      "tag": "0276_user_created_at_index",
+      "breakpoints": true
     }
   ]
 }
