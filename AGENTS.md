@@ -272,8 +272,9 @@ who once had a URL keeps seeing the row's current image until the row or its ima
 
 Member avatars (`user.image`) and store logos (`organization.logo`) are uploaded the same way, by the better-auth hooks in
 `src/auth/index.ts`, keyed `user/` and `organization/`; an avatar or logo data URL that does not match
-`IMAGE_DATA_URL_PATTERN` / `IMAGE_DATA_URL_MAX_LENGTH` (`src/common/constants/image.ts`) is rejected. They are not
-`IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
+`IMAGE_DATA_URL_PATTERN` / `IMAGE_DATA_URL_MAX_LENGTH` (`src/common/constants/image.ts`) is rejected; a string that
+does not start with `data:` (ignoring case and leading whitespace), such as an OAuth `https://` URL, is not checked.
+They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
 
 ### Points Expiry
 

@@ -208,11 +208,12 @@ const withStoredImage = async <T extends Record<string, unknown>>(
   if (typeof image !== 'string') return data;
 
   if (
-    image.startsWith('data:') &&
+    /^\s*data:/i.test(image) &&
     (image.length > IMAGE_DATA_URL_MAX_LENGTH ||
       !IMAGE_DATA_URL_PATTERN.test(image))
   )
     throw new APIError('BAD_REQUEST', {
+      code: 'INVALID_IMAGE',
       message: `${field} must be a png, jpeg or webp data URL of at most ${IMAGE_DATA_URL_MAX_LENGTH} characters`,
     });
 

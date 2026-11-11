@@ -45,7 +45,10 @@ const INVALID_IMAGES = [
   ['非 base64', 'data:image/png;base64,<script>alert(1)</script>'],
   ['text/html', 'data:text/html,<script>alert(1)</script>'],
   ['大寫 MIME', 'data:IMAGE/PNG;base64,iVBORw0KGgo='],
+  ['大寫 scheme', `DATA:image/svg+xml;base64,${'A'.repeat(700_000)}`],
+  ['開頭空白', ' data:text/html,<script>alert(1)</script>'],
 ];
+const MAX_LENGTH_IMAGE = `data:image/png;base64,${'A'.repeat(600_000 - 'data:image/png;base64,'.length)}`;
 
 const storedUrl = (kind: string, image: string, extension: string) =>
   `https://images.example.com/${kind}/${imageVersion(image)}.${extension}`;
@@ -184,7 +187,7 @@ describe.each([
     expect(send).not.toHaveBeenCalled();
   });
 
-  it.each([[HTTPS_IMAGE], [null]])('頭像 %j 原樣寫入', async (image) => {
+  it.each([[HTTPS_IMAGE], [null], ['']])('頭像 %j 原樣寫入', async (image) => {
     const response = await request('/update-user', { image });
 
     expect(response.status).toBe(200);
@@ -267,7 +270,7 @@ describe.each([
     expect(send).not.toHaveBeenCalled();
   });
 
-  it.each([[HTTPS_IMAGE], [null]])('logo %j 原樣寫入', async (logo) => {
+  it.each([[HTTPS_IMAGE], [null], ['']])('logo %j 原樣寫入', async (logo) => {
     const response = await request('/organization/update', {
       organizationId,
       data: { logo },
@@ -281,6 +284,7 @@ describe.each([
   const expectRejected = async (response: Response, field: string) => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
+      code: 'INVALID_IMAGE',
       message: `${field} must be a png, jpeg or webp data URL of at most 600000 characters`,
     });
     expect(send).not.toHaveBeenCalled();
@@ -315,6 +319,39 @@ describe.each([
       expect(await userImage('ann@example.com')).toBe(before);
     });
 
+    it('平台管理員建立會員時拒絕且不建立會員', async () => {
+      const email = `admin-invalid-${emailIndex++}@example.com`;
+
+      const response = await request('/admin/create-user', {
+        email,
+        name: 'Eve',
+        password: 'password-1234',
+        data: { firstName: 'Eve', image },
+      });
+
+      await expectRejected(response, 'image');
+      const { rows } = await client.query(
+        'select id from "user" where email = $1',
+        [email],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('平台管理員更新會員頭像時拒絕且不動原本的頭像', async () => {
+      const before = await userImage('bo@example.com');
+      const { rows } = await client.query<{ id: string }>(
+        `select id from "user" where email = 'bo@example.com'`,
+      );
+
+      const response = await request('/admin/update-user', {
+        userId: rows[0].id,
+        data: { image },
+      });
+
+      await expectRejected(response, 'image');
+      expect(await userImage('bo@example.com')).toBe(before);
+    });
+
     it('建立門市時拒絕且不建立門市', async () => {
       const slug = `invalid-${slugIndex++}`;
 
@@ -344,6 +381,17 @@ describe.each([
       await expectRejected(response, 'logo');
       expect(await organizationLogo(organizationId)).toBe(before);
     });
+  });
+
+  it('長度剛好達上限的 data URL 可以寫入', async () => {
+    const response = await request('/update-user', {
+      image: MAX_LENGTH_IMAGE,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await userImage('ann@example.com')).toBe(
+      s3 ? storedUrl('user', MAX_LENGTH_IMAGE, 'png') : MAX_LENGTH_IMAGE,
+    );
   });
 
   it.runIf(s3)('註冊時上傳失敗不建立會員', async () => {

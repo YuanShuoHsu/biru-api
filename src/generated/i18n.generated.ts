@@ -13,6 +13,7 @@ export type I18nTranslations = {
         "FAILED_TO_UNLINK_LAST_ACCOUNT": string;
         "FIRST_NAME_REQUIRED": string;
         "INVALID_EMAIL_OR_PASSWORD": string;
+        "INVALID_IMAGE": string;
         "INVALID_PASSWORD": string;
         "INVALID_SESSION_TOKEN": string;
         "INVALID_TOKEN": string;
