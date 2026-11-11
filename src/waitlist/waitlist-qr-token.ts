@@ -8,9 +8,9 @@ const WAITLIST_QR_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
 export const WAITLIST_QR_SESSION_COOKIE = 'biru_waitlist_qr_session';
 
-export type WaitlistQrSession = { expiresAt: Date };
+type WaitlistQrSession = { expiresAt: Date };
 
-export type IssuedWaitlistQrSession = {
+type IssuedWaitlistQrSession = {
   session: WaitlistQrSession;
   value: string;
 };
