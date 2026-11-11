@@ -96,7 +96,7 @@ describe('RecipesService', () => {
       await client.exec(`update offer set price = 90 where id = 'unpriced'`);
       expect((await service.findOne('latte')).price).toBe(90);
     } finally {
-      await client.exec(`delete from offer`);
+      await client.exec(`delete from offer where id in ('unpriced', 'priced')`);
     }
   });
 
