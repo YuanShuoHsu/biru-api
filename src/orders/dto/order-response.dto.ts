@@ -26,6 +26,10 @@ import {
   type OrderStatus,
   type PaymentMethod,
 } from '../../db/schema/orders.js';
+import {
+  sharedCartAvatarEnum,
+  type SharedCartAvatar,
+} from '../../db/schema/shared-carts.js';
 
 class OrderItemModifierSnapshotDto {
   @ApiProperty() modifierGroupId: string;
@@ -79,6 +83,16 @@ class OrderItemResponseDto {
   modifiers?: OrderItemModifierSnapshotDto[] | null;
   @ApiPropertyOptional({ type: [OrderItemAddOnSnapshotDto] })
   addOns?: OrderItemAddOnSnapshotDto[] | null;
+  @ApiPropertyOptional({
+    description: '從共享點餐單送單時，點這個品項的參與者送單當下顯示的頭像',
+    enum: sharedCartAvatarEnum.enumValues,
+    enumName: 'SharedCartAvatar',
+  })
+  participantAvatar?: SharedCartAvatar | null;
+  @ApiPropertyOptional({
+    description: '從共享點餐單送單時，點這個品項的參與者送單當下顯示的暱稱',
+  })
+  participantNickname?: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

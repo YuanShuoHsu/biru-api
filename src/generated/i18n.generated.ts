@@ -518,11 +518,14 @@ export type I18nTranslations = {
             "sharedCartCheckoutLocked": string;
             "sharedCartCheckoutNotFound": string;
             "sharedCartCodeNotFound": string;
+            "sharedCartEmpty": string;
             "sharedCartFull": string;
             "sharedCartItemNotFound": string;
+            "sharedCartItemsChanged": string;
             "sharedCartItemsFull": string;
             "sharedCartLimitReached": string;
             "sharedCartMemberAvatarSignInRequired": string;
+            "sharedCartModeMismatch": string;
             "sharedCartNotFound": string;
             "sharedCartParticipantNotFound": string;
             "sharedCartPending": string;

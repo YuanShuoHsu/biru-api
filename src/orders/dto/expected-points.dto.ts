@@ -1,12 +1,27 @@
 import { ApiProperty, PickType } from '@nestjs/swagger';
 
-import { CreateOrderDto } from './create-order.dto.js';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+
+import { CreateOrderDto, CreateOrderItemDto } from './create-order.dto.js';
 
 export class ExpectedPointsDto extends PickType(CreateOrderDto, [
   'discountCode',
-  'items',
   'mode',
-] as const) {}
+] as const) {
+  @ApiProperty({ type: [CreateOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
+}
 
 export class ExpectedPointsResponseDto {
   @ApiProperty({

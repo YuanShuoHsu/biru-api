@@ -21,6 +21,7 @@ import {
 import { invoice } from './invoices.js';
 import { organization } from './organizations.js';
 import { orderTicketJob } from './printers.js';
+import type { SharedCartAvatar } from './shared-carts.js';
 import { user } from './users.js';
 
 // counter＝現場外帶、pickup＝線上外帶；kiosk 是收現金的機台不是點餐模式，故不在此列
@@ -129,6 +130,8 @@ export const order = pgTable(
     tradeNo: text('trade_no'),
     authorizationNo: text('authorization_no'),
     reconciledAt: timestamp('reconciled_at'),
+    // 不設外鍵：共享單閒置兩小時就刪除，之後仍要靠這個 id 認出同一群組的各輪訂單
+    sharedCartId: text('shared_cart_id'),
     // https://schema.org/customer
     userId: text('user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -151,6 +154,7 @@ export const order = pgTable(
       sql`COALESCE(${table.pickupTime}, ${table.createdAt})`,
     ),
     index('order_sellerId_readyAt_idx').on(table.sellerId, table.readyAt),
+    index('order_sharedCartId_idx').on(table.sharedCartId),
     index('order_paymentDue_createdAt_idx')
       .on(table.createdAt)
       .where(sql`${table.orderStatus} = 'OrderPaymentDue'`),
@@ -190,6 +194,8 @@ export const orderItem = pgTable(
     // https://schema.org/priceCurrency
     priceCurrency: text('price_currency').default('TWD'),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
+    participantAvatar: text('participant_avatar').$type<SharedCartAvatar>(),
+    participantNickname: text('participant_nickname'),
     ...timestamps,
   },
   (table) => [index('orderItem_orderId_idx').on(table.orderId)],
