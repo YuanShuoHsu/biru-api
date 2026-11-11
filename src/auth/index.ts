@@ -50,6 +50,7 @@ import { isValidOpeningHours } from '../common/utils/opening-hours.js';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
+import type { ImageStorageService } from '../images/image-storage.service.js';
 import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
@@ -191,6 +192,21 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
     });
 };
 
+const IMAGE_FIELDS = { user: 'image', organization: 'logo' } as const;
+
+const withStoredImage = async <T extends Record<string, unknown>>(
+  imageStorage: ImageStorageService,
+  kind: keyof typeof IMAGE_FIELDS,
+  data: T,
+): Promise<T> => {
+  const field = IMAGE_FIELDS[kind];
+  const image = data[field];
+
+  return typeof image === 'string'
+    ? { ...data, [field]: await imageStorage.store(kind, image) }
+    : data;
+};
+
 const AUTH_RATE_LIMIT = { window: 10, max: 100 };
 
 export const authDatabase = (database: typeof db | Transaction) =>
@@ -211,6 +227,7 @@ export const createAuth = (
   mailsService: MailsService,
   couponsService: CouponsService,
   authI18n: ReturnType<typeof createAuthI18n>,
+  imageStorage: ImageStorageService,
 ) =>
   betterAuth({
     account: {
@@ -251,9 +268,10 @@ export const createAuth = (
             const lang = await signUpLanguage(context);
 
             return {
-              data: normalizeUserFields(
-                lang ? { ...user, lang } : user,
-                'create',
+              data: await withStoredImage(
+                imageStorage,
+                'user',
+                normalizeUserFields(lang ? { ...user, lang } : user, 'create'),
               ),
             };
           },
@@ -265,7 +283,10 @@ export const createAuth = (
         update: {
           before: async (input, context) => {
             const user = normalizeUserFields(input, 'update');
-            if (user.phoneNumber === undefined) return { data: user };
+            if (user.phoneNumber === undefined)
+              return {
+                data: await withStoredImage(imageStorage, 'user', user),
+              };
 
             const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
@@ -281,12 +302,12 @@ export const createAuth = (
             }
 
             return {
-              data: {
+              data: await withStoredImage(imageStorage, 'user', {
                 ...user,
                 ...(user.phoneNumberVerified === undefined && {
                   phoneNumberVerified: false,
                 }),
-              },
+              }),
             };
           },
         },
@@ -391,6 +412,10 @@ export const createAuth = (
           beforeCreateOrganization: async ({ organization: data }) => {
             assertValidOrganizationInput(data);
             await assertSlugAvailable(data.slug);
+
+            return {
+              data: await withStoredImage(imageStorage, 'organization', data),
+            };
           },
           beforeUpdateOrganization: async ({ organization: data, member }) => {
             const current = await authDb().query.organization.findFirst({
@@ -416,6 +441,10 @@ export const createAuth = (
                 })
                 .onConflictDoNothing();
             }
+
+            return {
+              data: await withStoredImage(imageStorage, 'organization', data),
+            };
           },
           afterUpdateOrganization: async ({
             organization: updated,

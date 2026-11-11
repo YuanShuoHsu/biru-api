@@ -47,7 +47,7 @@ export class ImageStorageService {
   }
 
   async store<T extends string | null | undefined>(
-    kind: ImageKind,
+    kind: ImageKind | 'user' | 'organization',
     image: T,
   ): Promise<T | string> {
     const parsed = image ? parseImageDataUrl(image) : null;
