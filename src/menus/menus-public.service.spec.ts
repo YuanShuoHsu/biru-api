@@ -30,10 +30,14 @@ const BOBA_IMAGE = 'data:image/png;base64,Qm9iYQ==';
 describe('PublicMenusService.findOrderMenu', () => {
   let client: PGlite;
   let service: PublicMenusService;
+  const queries: string[] = [];
 
   beforeAll(async () => {
     client = createPGlite();
-    const db = drizzle(client, { schema });
+    const db = drizzle(client, {
+      schema,
+      logger: { logQuery: (query) => queries.push(query) },
+    });
     await migrate(db, { migrationsFolder: './drizzle' });
     service = new PublicMenusService(
       db as unknown as DrizzleDB,
@@ -165,6 +169,15 @@ describe('PublicMenusService.findOrderMenu', () => {
     expect(latte?.addOns[0].menuItems[0].imageUrl).toBeNull();
     expect(latte).not.toHaveProperty('image');
     expect(latte).not.toHaveProperty('imageRef');
+  });
+
+  it('never selects the image of a section offered as an add-on', async () => {
+    queries.length = 0;
+    await service.findOrderMenu(ORG, 'zh-TW');
+
+    const sql = queries.join('\n');
+    expect(sql).toMatch(/_addOnMenuSection"\./);
+    expect(sql).not.toMatch(/_addOnMenuSection"\."image"/);
   });
 
   it('returns modifier image urls instead of the image, also under add-on items', async () => {
