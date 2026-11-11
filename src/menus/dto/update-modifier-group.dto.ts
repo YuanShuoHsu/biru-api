@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
+import { IsInt, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 import {
   IsLocalizedText,
   IsCompleteLocalizedText,
@@ -19,6 +19,7 @@ export class UpdateModifierGroupDto {
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(99)
   minSelectionCount?: number;
 
   @ApiPropertyOptional({
@@ -28,5 +29,6 @@ export class UpdateModifierGroupDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(99)
   maxSelectionCount?: number | null;
 }
