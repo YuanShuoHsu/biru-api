@@ -80,7 +80,7 @@ export const envSchema = z
     FIELD_ENCRYPTION_KEYS: z.string().optional(),
     PORT: z
       .string()
-      .regex(/^\d+$/, 'must be a port number')
+      .regex(/^[1-9]\d*$/, 'must be a port number')
       .refine((value) => Number(value) <= 65535, 'must be a port number')
       .optional(),
     NODE_ENV: z.string().optional(),

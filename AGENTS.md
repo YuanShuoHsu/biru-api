@@ -458,7 +458,7 @@ value). A new variable must be added to that schema with the rule the code actua
 - `DATABASE_URL` — PostgreSQL connection string (read directly via `process.env` in `src/db/index.ts`)
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — read implicitly by better-auth
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth
-- `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS` — SMTP; `MAIL_PREVIEW=true` switches to jsonTransport + local preview
+- `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS` — SMTP, required unless `MAIL_PREVIEW=true`, which switches to jsonTransport + local preview
 - `ECPAY_BASE_MERCHANT_ID` / `ECPAY_BASE_HASH_KEY` / `ECPAY_BASE_HASH_IV` / `ECPAY_BASE_RETURN_URL` — AIO checkout
 - `ECPAY_INVOICE_MERCHANT_ID` / `ECPAY_INVOICE_HASH_KEY` / `ECPAY_INVOICE_HASH_IV` — invoicing
 - `ECPAY_OPERATION_MODE` — ECPay stage vs. production endpoint selection. Also gates every
@@ -486,8 +486,8 @@ value). A new variable must be added to that schema with the rule the code actua
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
   until it is re-encrypted; a later PR provides that script
 - `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
-  (Supabase Storage, path-style) for menu, banner and store photo images; all six S3 variables must be set, or new images
-  stay base64 data URLs in Postgres
+  (Supabase Storage, path-style) for menu, banner and store photo images; set all six S3 variables or none: none keeps new
+  images as base64 data URLs in Postgres, and a partial set stops the app at boot
 - `S3_PUBLIC_URL` — Public URL prefix of that bucket (`https://<project_ref>.supabase.co/storage/v1/object/public/<bucket>`);
   the uploaded image URL is this plus the key
 - `PORT` — HTTP port (default 3001)

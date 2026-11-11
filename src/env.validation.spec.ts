@@ -116,6 +116,8 @@ describe('envSchema', () => {
     ['ECPAY_OPERATION_MODE', 'production'],
     ['PORT', 'abc'],
     ['PORT', '65536'],
+    ['PORT', '0'],
+    ['PORT', '03001'],
     ['CLIENT_IP_FORWARD_SECRET', 'x'.repeat(31)],
   ])('fails when %s is %j', (name, value) => {
     expect(failing({ ...FULL, [name]: value })).toEqual([name]);
