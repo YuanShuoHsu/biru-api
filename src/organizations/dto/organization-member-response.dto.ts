@@ -5,7 +5,7 @@ import {
   type MemberRole,
 } from '../../db/schema/organizations.js';
 
-export class OrganizationMemberTeamDto {
+class OrganizationMemberTeamDto {
   @ApiProperty()
   id: string;
 
