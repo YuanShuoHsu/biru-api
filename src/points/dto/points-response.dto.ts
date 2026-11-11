@@ -17,7 +17,7 @@ export class PointsCouponDto extends CustomerCouponDto {
   @ApiProperty({ description: '兌換所需點數' }) pointsCost: number;
 }
 
-export class PointTransactionDto {
+class PointTransactionDto {
   @ApiProperty() id: string;
   @ApiPropertyOptional({ description: 'earn 來源訂單的取餐編號' })
   confirmationNumber?: string | null;
