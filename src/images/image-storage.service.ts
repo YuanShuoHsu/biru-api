@@ -11,7 +11,7 @@ import {
 
 @Injectable()
 export class ImageStorageService {
-  private readonly storage: {
+  readonly storage: {
     client: S3Client;
     bucket: string;
     publicUrl: string;
