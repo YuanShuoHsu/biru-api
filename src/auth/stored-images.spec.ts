@@ -36,6 +36,14 @@ const ADDRESS = {
 const IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
 const OTHER_IMAGE = 'data:image/webp;base64,UklGRg==';
 const HTTPS_IMAGE = 'https://lh3.googleusercontent.com/a/avatar';
+const INVALID_IMAGES = [
+  [
+    'svg',
+    `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64')}`,
+  ],
+  ['過長', `data:image/png;base64,${'A'.repeat(600_000)}`],
+  ['非 base64', 'data:image/png;base64,<script>alert(1)</script>'],
+];
 
 const storedUrl = (kind: string, image: string, extension: string) =>
   `https://images.example.com/${kind}/${imageVersion(image)}.${extension}`;
@@ -51,6 +59,7 @@ describe.each([
   let cookie = '';
   let organizationId: string;
   let slugIndex = 0;
+  let emailIndex = 0;
   let send: ReturnType<typeof vi.spyOn>;
 
   const request = (path: string, body: unknown) =>
@@ -265,5 +274,120 @@ describe.each([
     expect(response.status).toBe(200);
     expect(await organizationLogo(organizationId)).toBe(logo);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  const expectRejected = async (response: Response, field: string) => {
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      message: `${field} must be a png, jpeg or webp data URL of at most 600000 characters`,
+    });
+    expect(send).not.toHaveBeenCalled();
+  };
+
+  describe.each(INVALID_IMAGES)('%s 的 data URL', (_kind, image) => {
+    it(s3 ? '註冊時拒絕且不建立會員' : '註冊時原樣寫入', async () => {
+      const email = `invalid-${emailIndex++}@example.com`;
+
+      const response = await request('/sign-up/email', {
+        email,
+        firstName: 'Dee',
+        name: 'Dee',
+        password: 'password-1234',
+        image,
+      });
+
+      if (s3) {
+        await expectRejected(response, 'image');
+        const { rows } = await client.query(
+          'select id from "user" where email = $1',
+          [email],
+        );
+        expect(rows).toHaveLength(0);
+      } else {
+        expect(response.status).toBe(200);
+        expect(await userImage(email)).toBe(image);
+      }
+    });
+
+    it(
+      s3 ? '更新頭像時拒絕且不動原本的頭像' : '更新頭像時原樣寫入',
+      async () => {
+        const before = await userImage('ann@example.com');
+
+        const response = await request('/update-user', { image });
+
+        if (s3) {
+          await expectRejected(response, 'image');
+          expect(await userImage('ann@example.com')).toBe(before);
+        } else {
+          expect(response.status).toBe(200);
+          expect(await userImage('ann@example.com')).toBe(image);
+        }
+      },
+    );
+
+    it(s3 ? '建立門市時拒絕且不建立門市' : '建立門市時原樣寫入', async () => {
+      const slug = `invalid-${slugIndex++}`;
+
+      const response = await request('/organization/create', {
+        name: 'Invalid',
+        slug,
+        ...ADDRESS,
+        logo: image,
+      });
+
+      const { rows } = await client.query<{ logo: string | null }>(
+        'select logo from organization where slug = $1',
+        [slug],
+      );
+      if (s3) {
+        await expectRejected(response, 'logo');
+        expect(rows).toHaveLength(0);
+      } else {
+        expect(response.status).toBe(200);
+        expect(rows[0].logo).toBe(image);
+      }
+    });
+
+    it(
+      s3 ? '更新門市 logo 時拒絕且不動原本的 logo' : '更新門市 logo 時原樣寫入',
+      async () => {
+        const before = await organizationLogo(organizationId);
+
+        const response = await request('/organization/update', {
+          organizationId,
+          data: { logo: image },
+        });
+
+        if (s3) {
+          await expectRejected(response, 'logo');
+          expect(await organizationLogo(organizationId)).toBe(before);
+        } else {
+          expect(response.status).toBe(200);
+          expect(await organizationLogo(organizationId)).toBe(image);
+        }
+      },
+    );
+  });
+
+  it.runIf(s3)('註冊時上傳失敗不建立會員', async () => {
+    send.mockRejectedValue(new Error('storage unavailable'));
+
+    const response = await request('/sign-up/email', {
+      email: 'fail@example.com',
+      firstName: 'Fay',
+      name: 'Fay',
+      password: 'password-1234',
+      image: IMAGE,
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      code: 'FAILED_TO_CREATE_USER',
+    });
+    const { rows } = await client.query(
+      `select id from "user" where email = 'fail@example.com'`,
+    );
+    expect(rows).toHaveLength(0);
   });
 });

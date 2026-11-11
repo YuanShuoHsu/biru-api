@@ -36,6 +36,10 @@ import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js'
 
 import { DINE_IN_MAX_TABLE_COUNT } from '../common/constants/dine-in.js';
 import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../common/constants/image.js';
+import {
   getPickupMaxLeadMinutes,
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_CUTOFF_MINUTES,
@@ -201,10 +205,18 @@ const withStoredImage = async <T extends Record<string, unknown>>(
 ): Promise<T> => {
   const field = IMAGE_FIELDS[kind];
   const image = data[field];
+  if (typeof image !== 'string') return data;
 
-  return typeof image === 'string'
-    ? { ...data, [field]: await imageStorage.store(kind, image) }
-    : data;
+  if (
+    imageStorage.uploads(image) &&
+    (image.length > IMAGE_DATA_URL_MAX_LENGTH ||
+      !IMAGE_DATA_URL_PATTERN.test(image))
+  )
+    throw new APIError('BAD_REQUEST', {
+      message: `${field} must be a png, jpeg or webp data URL of at most ${IMAGE_DATA_URL_MAX_LENGTH} characters`,
+    });
+
+  return { ...data, [field]: await imageStorage.store(kind, image) };
 };
 
 const AUTH_RATE_LIMIT = { window: 10, max: 100 };

@@ -268,6 +268,11 @@ check whether the row is published: the URL is only handed out by endpoints that
 Next's image optimizer fetches the source without the viewer's cookies. The version is not an access check: anyone
 who once had a URL keeps seeing the row's current image until the row or its image is deleted.
 
+Member avatars (`user.image`) and store logos (`organization.logo`) are uploaded the same way, by the better-auth hooks in
+`src/auth/index.ts`, keyed `user/` and `organization/`; with storage configured, a data URL that does not match
+`IMAGE_DATA_URL_PATTERN` / `IMAGE_DATA_URL_MAX_LENGTH` (`src/common/constants/image.ts`) is rejected. They are not
+`IMAGE_KINDS`, so they are neither served by `/api/images/:kind` nor covered by the orphan sweep.
+
 `pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
 
 ### Points Expiry
@@ -470,7 +475,7 @@ missing variable fails at request time rather than at boot. Required in `.env`:
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
   until it is re-encrypted; a later PR provides that script
 - `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
-  (Supabase Storage, path-style) for menu, banner and store photo images; all six S3 variables must be set, or new images
+  (Supabase Storage, path-style) for menu, banner and store photo images, member avatars and store logos; all six S3 variables must be set, or new images
   stay base64 data URLs in Postgres
 - `S3_PUBLIC_URL` — Public URL prefix of that bucket (`https://<project_ref>.supabase.co/storage/v1/object/public/<bucket>`);
   the uploaded image URL is this plus the key
