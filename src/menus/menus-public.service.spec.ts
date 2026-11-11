@@ -12,6 +12,7 @@ import {
   menuSection,
   modifier,
   modifierGroup,
+  offer,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { withImageUrl } from '../images/image-url.js';
@@ -196,5 +197,80 @@ describe('PublicMenusService.findOrderMenu', () => {
       sections.get('tea')?.menuItems[0].addOns[0].menuItems[0].modifierGroups[0]
         .modifiers[0].imageUrl,
     ).toBe(boba.imageUrl);
+  });
+
+  it('排序值與 offer 建立時間相同時，依 id 排出固定順序', async () => {
+    const db = drizzle(client, { schema });
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('tied', 'Tied', 'tied', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await db
+      .insert(menu)
+      .values({ id: 'tied-menu', organizationId: 'tied', name: {} });
+    await db.insert(menuSection).values(
+      ['s-c', 's-a', 's-b'].map((id) => ({
+        id,
+        menuId: 'tied-menu',
+        name: {},
+      })),
+    );
+    await db.insert(menuItem).values(
+      [
+        ['i-c', 's-a'],
+        ['i-a', 's-a'],
+        ['i-b', 's-a'],
+        ['i-in-b', 's-b'],
+        ['i-in-c', 's-c'],
+      ].map(([id, menuSectionId]) => ({
+        id,
+        menuId: 'tied-menu',
+        menuSectionId,
+        name: {},
+      })),
+    );
+    const createdAt = new Date('2026-01-01T00:00:00Z');
+    await db.insert(offer).values(
+      ['o-c', 'o-a', 'o-b'].map((id) => ({
+        id,
+        menuItemId: 'i-a',
+        createdAt,
+      })),
+    );
+    await db
+      .insert(modifierGroup)
+      .values({ id: 'tied-group', menuId: 'tied-menu', displayName: {} });
+    await db.insert(menuItemModifierGroup).values({
+      id: 'tied-link',
+      menuItemId: 'i-a',
+      modifierGroupId: 'tied-group',
+    });
+    await db.insert(modifier).values(
+      ['m-c', 'm-a', 'm-b'].map((id) => ({
+        id,
+        modifierGroupId: 'tied-group',
+        displayName: {},
+      })),
+    );
+
+    const orderMenu = await service.findOrderMenu('tied', 'zh-TW');
+    const section = orderMenu?.sections.find(({ id }) => id === 's-a');
+    const item = section?.menuItems.find(({ id }) => id === 'i-a');
+
+    expect(orderMenu?.sections.map(({ id }) => id)).toEqual([
+      's-a',
+      's-b',
+      's-c',
+    ]);
+    expect(section?.menuItems.map(({ id }) => id)).toEqual([
+      'i-a',
+      'i-b',
+      'i-c',
+    ]);
+    expect(item?.offers.map(({ id }) => id)).toEqual(['o-a', 'o-b', 'o-c']);
+    expect(item?.modifierGroups[0].modifiers.map(({ id }) => id)).toEqual([
+      'm-a',
+      'm-b',
+      'm-c',
+    ]);
   });
 });

@@ -405,6 +405,7 @@ export class MenusService {
                 )
               : menuSection[sortBy],
           ),
+          asc(menuSection.id),
         ]
       : [asc(menuSection.sortOrder), asc(menuSection.id)];
 
@@ -638,7 +639,7 @@ export class MenusService {
         .select()
         .from(offer)
         .where(eq(offer.menuItemId, where.id))
-        .orderBy(asc(offer.createdAt))
+        .orderBy(asc(offer.createdAt), asc(offer.id))
         .limit(1),
       this.db
         .select({
@@ -682,7 +683,7 @@ export class MenusService {
     } = query;
 
     const offerValue = (column: Column | SQL): SQL =>
-      sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc limit 1)`;
+      sql`(select ${column} from ${offer} where ${offer.menuItemId} = ${menuItem.id} order by ${offer.createdAt} asc, ${offer.id} asc limit 1)`;
 
     const localizedFields: Record<string, Column | SQL> = {
       name: menuItem.name,
@@ -723,7 +724,7 @@ export class MenusService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy: SQL[] = sortColumn
-      ? [dir(sortColumn)]
+      ? [dir(sortColumn), asc(menuItem.id)]
       : [asc(menuItem.sortOrder), asc(menuItem.id)];
 
     const where = and(
@@ -803,7 +804,7 @@ export class MenusService {
               .select()
               .from(offer)
               .where(inArray(offer.menuItemId, itemIds))
-              .orderBy(asc(offer.createdAt)),
+              .orderBy(asc(offer.createdAt), asc(offer.id)),
             this.db
               .select({
                 id: recipe.id,
@@ -927,7 +928,7 @@ export class MenusService {
           .select()
           .from(offer)
           .where(eq(offer.menuItemId, params.where.id))
-          .orderBy(asc(offer.createdAt))
+          .orderBy(asc(offer.createdAt), asc(offer.id))
           .limit(1),
       ]);
       if (!updated) throw notFoundError('menuItemNotFound');
@@ -1065,7 +1066,7 @@ export class MenusService {
         .select()
         .from(offer)
         .where(eq(offer.menuItemId, menuItemId))
-        .orderBy(asc(offer.createdAt)),
+        .orderBy(asc(offer.createdAt), asc(offer.id)),
       getOrganizationCurrency(this.db, organizationId),
     ]);
 
@@ -1352,9 +1353,10 @@ export class MenusService {
                 toLanguage(I18nContext.current()?.lang),
               ),
             ),
+            asc(menuItemAddOn.id),
           ]
         : sortBy && addOnFieldMap[sortBy]
-          ? [dir(addOnFieldMap[sortBy])]
+          ? [dir(addOnFieldMap[sortBy]), asc(menuItemAddOn.id)]
           : [asc(menuItemAddOn.sortOrder), asc(menuItemAddOn.id)];
 
     const where = and(
@@ -1596,9 +1598,10 @@ export class MenusService {
                 toLanguage(I18nContext.current()?.lang),
               ),
             ),
+            asc(modifierGroup.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy])]
+          ? [dir(fieldMap[sortBy]), asc(modifierGroup.id)]
           : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
 
     const where = and(
@@ -1799,9 +1802,10 @@ export class MenusService {
                 toLanguage(I18nContext.current()?.lang),
               ),
             ),
+            asc(modifier.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy])]
+          ? [dir(fieldMap[sortBy]), asc(modifier.id)]
           : [asc(modifier.sortOrder), asc(modifier.id)];
 
     const where = and(
@@ -2042,9 +2046,10 @@ export class MenusService {
                 toLanguage(I18nContext.current()?.lang),
               ),
             ),
+            asc(menuItemModifierGroup.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy])]
+          ? [dir(fieldMap[sortBy]), asc(menuItemModifierGroup.id)]
           : [
               asc(menuItemModifierGroup.sortOrder),
               asc(menuItemModifierGroup.id),

@@ -171,7 +171,7 @@ export class OrderPricingService {
         : Promise.resolve([]),
       this.db.query.offer.findMany({
         where: inArray(offer.menuItemId, allMenuItemIds),
-        orderBy: [asc(offer.createdAt)],
+        orderBy: [asc(offer.createdAt), asc(offer.id)],
       }),
       this.db.query.menuItemModifierGroup.findMany({
         where: inArray(menuItemModifierGroup.menuItemId, allMenuItemIds),

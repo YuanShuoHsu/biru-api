@@ -606,7 +606,7 @@ export class InventoryTransactionsService {
       .select({ id: offer.id, menuItemId: offer.menuItemId })
       .from(offer)
       .where(inArray(offer.menuItemId, [...servingsByMenuItemId.keys()]))
-      .orderBy(asc(offer.createdAt));
+      .orderBy(asc(offer.createdAt), asc(offer.id));
 
     const offerIdByMenuItemId = new Map<string, string>();
     for (const { id, menuItemId } of offers)
