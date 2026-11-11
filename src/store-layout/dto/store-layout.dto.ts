@@ -23,7 +23,7 @@ import {
   type StoreLayoutItemKind,
 } from '../../db/schema/store-layout.js';
 
-export class StoreLayoutBoxDto {
+class StoreLayoutBoxDto {
   @ApiProperty({ enum: STORE_LAYOUT_FLOORS, enumName: 'StoreLayoutFloor' })
   @IsIn(STORE_LAYOUT_FLOORS)
   floor: StoreLayoutFloor;
@@ -89,7 +89,7 @@ export class StoreLayoutBoxDto {
   label: string;
 }
 
-export class StoreLayoutItemDto extends StoreLayoutBoxDto {
+class StoreLayoutItemDto extends StoreLayoutBoxDto {
   @ApiProperty({
     enum: STORE_LAYOUT_ITEM_KINDS,
     enumName: 'StoreLayoutItemKind',
@@ -109,7 +109,7 @@ export class StoreLayoutItemDto extends StoreLayoutBoxDto {
   tableNumber?: number;
 }
 
-export class StoreLayoutSeatDto extends StoreLayoutBoxDto {}
+class StoreLayoutSeatDto extends StoreLayoutBoxDto {}
 
 export class StoreLayoutDataDto {
   @ApiProperty({ type: [StoreLayoutItemDto], maxItems: 2000 })

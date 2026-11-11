@@ -162,6 +162,16 @@ describe('BannersService', () => {
     vi.restoreAllMocks();
   });
 
+  it('更新不存在的橫幅並帶新圖片時，先回 404，不上傳圖片', async () => {
+    const store = vi.spyOn(ImageStorageService.prototype, 'store');
+
+    await expect(
+      service.update('missing', { image: 'data:image/webp;base64,UklGRg==' }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(store).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
   it('排序值與建立時間相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
     await client.exec(
       `insert into banner (id, image) values ('c', 'c'), ('a', 'a'), ('b', 'b')`,

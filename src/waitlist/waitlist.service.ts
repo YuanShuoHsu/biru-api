@@ -234,6 +234,13 @@ export class WaitlistService {
     return ticket;
   }
 
+  async findActiveTicket(organizationSlug: string, ticketId: string) {
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
+    if (!isActive(ticket.status))
+      throw badRequestError('waitlistTransitionInvalid', 'guest');
+    return ticket;
+  }
+
   private async countAhead(ticket: WaitlistTicket): Promise<number> {
     if (ticket.status !== 'waiting') return 0;
 

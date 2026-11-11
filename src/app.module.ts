@@ -44,6 +44,7 @@ import { OrdersModule } from './orders/orders.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { PointsModule } from './points/points.module.js';
+import { PushModule } from './push/push.module.js';
 import { QuantModule } from './quant/quant.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { SharedCartsModule } from './shared-carts/shared-carts.module.js';
@@ -121,6 +122,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     OrganizationsModule,
     PayrollModule,
     PointsModule,
+    PushModule,
     QuantModule,
     ReportsModule,
     ScheduleModule.forRoot(),

@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
+import { plainToInstance } from 'class-transformer';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext } from 'nestjs-i18n';
@@ -12,6 +13,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 import { withImageUrl } from '../images/image-url.js';
 
+import { UpdateStorePhotoDto } from './dto/create-store-photo.dto.js';
 import { StorePhotosService } from './store-photos.service.js';
 
 describe('StorePhotosService.findAll alt', () => {
@@ -99,6 +101,39 @@ describe('StorePhotosService.findAll alt', () => {
       'patio',
       'door',
     ]);
+  });
+
+  it('更新不存在的門市照片並帶新圖片時，先回 404，不上傳圖片', async () => {
+    const store = vi.spyOn(ImageStorageService.prototype, 'store');
+
+    await expect(
+      service.update('missing', { image: 'data:image/jpeg;base64,/9j/4AAQ' }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(store).not.toHaveBeenCalled();
+  });
+
+  it('更新時只寫入有送的欄位，沒送圖片就保留原圖', async () => {
+    try {
+      const updated = await service.update(
+        'door',
+        plainToInstance(UpdateStorePhotoDto, { isActive: false }),
+      );
+      expect(updated).toMatchObject({
+        id: 'door',
+        isActive: false,
+        sortOrder: 2,
+        alt: { 'zh-TW': '門口' },
+      });
+      expect(
+        (
+          await db.query.storePhoto.findFirst({
+            where: (t, { eq }) => eq(t.id, 'door'),
+          })
+        )?.image,
+      ).toBe('door.jpg');
+    } finally {
+      await service.update('door', { isActive: true });
+    }
   });
 
   it('排序值與建立時間相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
