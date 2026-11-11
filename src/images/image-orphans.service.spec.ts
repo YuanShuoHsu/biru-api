@@ -8,6 +8,7 @@ import {
   type _Object,
 } from '@aws-sdk/client-s3';
 import { PGlite } from '@electric-sql/pglite';
+import { inArray, sql, type SQL } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -187,12 +188,12 @@ describe('ImageOrphansService', () => {
     );
   });
 
-  it('7 天內才被換下的舊圖不刪，超過 7 天或不屬於圖片種類的異動不算參照', async () => {
+  it('7 天內才被換下的舊圖不刪；超過 7 天、不屬於圖片種類、data URL 或只有新圖的異動不算參照', async () => {
     const audit = (
       id: string,
       resource: 'modifier' | 'coupon',
-      before: string,
-      createdAt: Date,
+      image: { before: string | null; after: string | null },
+      createdAt: SQL,
     ) => ({
       id,
       actorName: 'Admin',
@@ -200,30 +201,69 @@ describe('ImageOrphansService', () => {
       resource,
       resourceId: `${resource}-1`,
       action: 'update' as const,
-      changes: {
-        image: { before: `${PUBLIC_URL}/${before}`, after: null },
-      },
+      changes: { image },
       createdAt,
     });
-    await db
-      .insert(schema.auditLog)
-      .values([
-        audit('audit-1', 'modifier', 'modifier/replaced-recently.png', RECENT),
-        audit('audit-2', 'modifier', 'modifier/replaced-long-ago.png', OLD),
-        audit('audit-3', 'coupon', 'modifier/other-resource.png', RECENT),
-      ]);
+    const sixDaysAgo = sql`now() - interval '6 days'`;
+    const eightDaysAgo = sql`now() - interval '8 days'`;
+    const rows = [
+      audit(
+        'audit-1',
+        'modifier',
+        { before: `${PUBLIC_URL}/modifier/replaced-recently.png`, after: null },
+        sixDaysAgo,
+      ),
+      audit(
+        'audit-2',
+        'modifier',
+        { before: `${PUBLIC_URL}/modifier/replaced-long-ago.png`, after: null },
+        eightDaysAgo,
+      ),
+      audit(
+        'audit-3',
+        'coupon',
+        { before: `${PUBLIC_URL}/modifier/other-resource.png`, after: null },
+        sixDaysAgo,
+      ),
+      audit(
+        'audit-4',
+        'modifier',
+        { before: 'data:image/png;base64,iVBO/modifier/dataurl', after: null },
+        sixDaysAgo,
+      ),
+      audit(
+        'audit-5',
+        'modifier',
+        { before: null, after: `${PUBLIC_URL}/modifier/after-only.png` },
+        sixDaysAgo,
+      ),
+    ];
     objects['modifier/'] = [
       { Key: 'modifier/replaced-recently.png', LastModified: OLD },
       { Key: 'modifier/replaced-long-ago.png', LastModified: OLD },
       { Key: 'modifier/other-resource.png', LastModified: OLD },
+      { Key: 'modifier/dataurl', LastModified: OLD },
+      { Key: 'modifier/after-only.png', LastModified: OLD },
     ];
 
-    const result = await createService().sweep(false);
+    await db.insert(schema.auditLog).values(rows);
+    try {
+      const result = await createService().sweep(false);
 
-    expect(kindOf(result, 'modifier')?.keys).toEqual([
-      'modifier/replaced-long-ago.png',
-      'modifier/other-resource.png',
-    ]);
+      expect(kindOf(result, 'modifier')?.keys).toEqual([
+        'modifier/replaced-long-ago.png',
+        'modifier/other-resource.png',
+        'modifier/dataurl',
+        'modifier/after-only.png',
+      ]);
+    } finally {
+      await db.delete(schema.auditLog).where(
+        inArray(
+          schema.auditLog.id,
+          rows.map(({ id }) => id),
+        ),
+      );
+    }
   });
 
   it('只列出各圖片種類的 prefix，並依 continuation token 讀完每一頁', async () => {

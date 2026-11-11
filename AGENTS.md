@@ -270,6 +270,13 @@ who once had a URL keeps seeing the row's current image until the row or its ima
 
 `pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
 
+Nothing deletes a stored object on replace or delete; `POST /api/images/orphans/sweep` (platform admin, dry-run unless
+`apply: true`) removes objects under each kind's prefix that are over 7 days old and not referenced. References are the
+tables' `image` columns, the `image` of `deleted_record` rows from these tables, and the `image.before` of `audit_log`
+rows for these resources from the last 7 days, so a replaced image survives 7 days after the swap. A new path that
+writes `image` must carry `@Audit` (and `image` must stay out of `AUDIT_IGNORED_COLUMNS`), or the old image can be
+swept as soon as it is replaced.
+
 ### Points Expiry
 
 Points expire one year after they are earned — the end of the Taiwan day one calendar year after the
