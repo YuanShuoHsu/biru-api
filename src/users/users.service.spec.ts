@@ -1,10 +1,12 @@
 import { PGlite } from '@electric-sql/pglite';
+import { NotFoundException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
+import { imageVersion } from '../images/image-url.js';
 
 import { UsersService } from './users.service.js';
 
@@ -136,4 +138,104 @@ describe('UsersService.listUsers banned filter', () => {
       ...(await page(4)),
     ]).toEqual(['active', 'expired', 'forever', 'legacy', 'until']);
   });
+});
+
+describe('UsersService 頭像', () => {
+  let client: PGlite;
+  let service: UsersService;
+  const image = 'data:image/webp;base64,UklGRg==';
+  const url = 'https://lh3.googleusercontent.com/a/avatar';
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new UsersService(db as unknown as DrizzleDB);
+
+    await db.insert(schema.user).values([
+      {
+        id: 'data',
+        name: 'Data',
+        email: 'data@example.com',
+        firstName: 'A',
+        image,
+      },
+      {
+        id: 'https',
+        name: 'Https',
+        email: 'https@example.com',
+        firstName: 'A',
+        image: url,
+      },
+      { id: 'none', name: 'None', email: 'none@example.com', firstName: 'A' },
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('列表不回 image，改回頭像端點或原本的 https 網址', async () => {
+    const { data } = await service.listUsers({
+      limit: 10,
+      sortBy: 'email',
+      sortDirection: 'asc',
+    } as Parameters<UsersService['listUsers']>[0]);
+
+    expect(data).toEqual([
+      expect.objectContaining({
+        id: 'data',
+        imageUrl: `/api/users/data/image/${imageVersion(image)}.webp`,
+      }),
+      expect.objectContaining({ id: 'https', imageUrl: url }),
+      expect.objectContaining({ id: 'none', imageUrl: null }),
+    ]);
+    expect(Object.keys(data[0]).sort()).toEqual([
+      'banExpires',
+      'banReason',
+      'banned',
+      'bio',
+      'createdAt',
+      'deletable',
+      'email',
+      'emailSubscribed',
+      'firstName',
+      'hasSession',
+      'id',
+      'imageUrl',
+      'lastName',
+      'name',
+      'role',
+    ]);
+  });
+
+  it.each([
+    [imageVersion(image), 'webp', true],
+    ['0123456789abcdef', 'webp', false],
+    [imageVersion(image), 'png', false],
+  ])(
+    '版本 %s、副檔名 %s 時回目前的頭像，current 為 %s',
+    async (version, extension, current) => {
+      expect(
+        await service.findImage({ id: 'data', version, extension }),
+      ).toEqual({
+        current,
+        mimeType: 'image/webp',
+        data: Buffer.from('UklGRg==', 'base64'),
+      });
+    },
+  );
+
+  it.each(['https', 'none', 'missing'])(
+    '%s 沒有存在資料庫的頭像時回 404',
+    async (id) => {
+      await expect(
+        service.findImage({
+          id,
+          version: imageVersion(image),
+          extension: 'webp',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
 });
