@@ -74,6 +74,7 @@ describe('WaitlistService.createTicket number after midnight', () => {
     number: number,
     status: 'waiting' | 'seated',
     prefix = 'A',
+    endedAt: Date | null = null,
   ) =>
     db.insert(schema.waitlistTicket).values({
       id: `yesterday-${prefix}${number}`,
@@ -84,6 +85,7 @@ describe('WaitlistService.createTicket number after midnight', () => {
       partySize: 2,
       locale: 'zh-TW',
       status,
+      endedAt,
     });
 
   it('continues after a ticket from yesterday that is still in the queue', async () => {
@@ -102,8 +104,19 @@ describe('WaitlistService.createTicket number after midnight', () => {
     ).toBe(today);
   });
 
-  it('starts from 1 once yesterday’s queue has ended', async () => {
-    await seedYesterday(20, 'seated');
+  it('continues after a ticket from yesterday that ended today and is still on the board', async () => {
+    await seedYesterday(7, 'seated', 'A', new Date());
+
+    expect((await takeTicket('+886912345671')).ticketNumber).toBe('A008');
+  });
+
+  it('starts from 1 once yesterday’s queue ended before midnight', async () => {
+    await seedYesterday(
+      20,
+      'seated',
+      'A',
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
 
     expect((await takeTicket('+886912345679')).ticketNumber).toBe('A001');
   });

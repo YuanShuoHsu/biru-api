@@ -130,20 +130,6 @@ const inTodayQueue = (organizationId: string) =>
     ),
   );
 
-const numberedInQueue = (
-  organizationId: string,
-  prefix: string,
-  serviceDate: string,
-) =>
-  and(
-    eq(waitlistTicket.organizationId, organizationId),
-    eq(waitlistTicket.prefix, prefix),
-    or(
-      eq(waitlistTicket.serviceDate, serviceDate),
-      inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-    ),
-  );
-
 const isActive = (status: WaitlistTicketStatus) =>
   (WAITLIST_ACTIVE_STATUSES as readonly WaitlistTicketStatus[]).includes(
     status,
@@ -503,10 +489,13 @@ export class WaitlistService {
       if (lockedGroup?.prefix !== group.prefix)
         throw conflictError('waitlistGroupsInUse', byStaff ? 'staff' : 'guest');
 
+      // 號碼要接在看板上所有號碼之後，只算今天的話跨午夜會出現兩張同號
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)
-        .where(numberedInQueue(org.id, group.prefix, serviceDate));
+        .where(
+          and(inTodayQueue(org.id), eq(waitlistTicket.prefix, group.prefix)),
+        );
 
       const [inserted] = await tx
         .insert(waitlistTicket)
@@ -758,7 +747,10 @@ export class WaitlistService {
             .select({ value: max(waitlistTicket.number) })
             .from(waitlistTicket)
             .where(
-              numberedInQueue(ticket.organizationId, group.prefix, serviceDate),
+              and(
+                inTodayQueue(ticket.organizationId),
+                eq(waitlistTicket.prefix, group.prefix),
+              ),
             )
         : [{ value: null }];
 
