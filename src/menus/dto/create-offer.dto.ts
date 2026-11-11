@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   Validate,
   ValidateNested,
@@ -18,6 +19,10 @@ import {
   ValidatorConstraintInterface,
   ValidateIf,
 } from 'class-validator';
+import {
+  getPickupMaxLeadMinutes,
+  PICKUP_MAX_ADVANCE_DAYS,
+} from '../../common/constants/pickup.js';
 import { isValidOpeningHours } from '../../common/utils/opening-hours.js';
 import {
   itemAvailabilityEnum,
@@ -124,6 +129,7 @@ export class CreateOfferDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(getPickupMaxLeadMinutes(PICKUP_MAX_ADVANCE_DAYS))
   deliveryLeadTimeMinutes?: number | null;
 
   @ApiPropertyOptional({

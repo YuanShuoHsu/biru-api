@@ -85,6 +85,21 @@ describe('RecipesService', () => {
       ({ ingredientId }) => ingredientId,
     );
 
+  it('售價取品項的第一筆 offer，第一筆沒有價格時不改用後面的 offer', async () => {
+    try {
+      await client.exec(`
+        insert into offer (id, menu_item_id, created_at) values ('unpriced', 'latte-item', '2026-01-01');
+        insert into offer (id, menu_item_id, price, created_at) values ('priced', 'latte-item', 120, '2026-01-02');
+      `);
+      expect((await service.findOne('latte')).price).toBeNull();
+
+      await client.exec(`update offer set price = 90 where id = 'unpriced'`);
+      expect((await service.findOne('latte')).price).toBe(90);
+    } finally {
+      await client.exec(`delete from offer where id in ('unpriced', 'priced')`);
+    }
+  });
+
   it('食譜名稱的快速搜尋與篩選不比對語系鍵', async () => {
     expect(await recipeIds({ quickFilterValue: 'zh' })).toEqual([]);
     expect(await recipeIds({ quickFilterValue: '摩卡' })).toEqual(['mocha']);

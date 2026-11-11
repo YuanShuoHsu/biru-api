@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import {
@@ -51,6 +51,20 @@ export const getOrganizationCurrency = async (
   return row.currency;
 };
 
+const overlappingSpecialHours = (from: Date, through: Date) =>
+  and(
+    lte(organizationSpecialHours.validFrom, platformDateString(through)),
+    gte(organizationSpecialHours.validThrough, platformDateString(from)),
+  );
+
+const specialHoursColumns = {
+  id: true,
+  note: true,
+  openingHours: true,
+  validFrom: true,
+  validThrough: true,
+} as const;
+
 export const findSpecialHours = (
   db: DrizzleDB,
   organizationId: string,
@@ -60,15 +74,36 @@ export const findSpecialHours = (
   db.query.organizationSpecialHours.findMany({
     where: and(
       eq(organizationSpecialHours.organizationId, organizationId),
-      lte(organizationSpecialHours.validFrom, platformDateString(through)),
-      gte(organizationSpecialHours.validThrough, platformDateString(from)),
+      overlappingSpecialHours(from, through),
     ),
-    columns: {
-      id: true,
-      note: true,
-      openingHours: true,
-      validFrom: true,
-      validThrough: true,
-    },
+    columns: specialHoursColumns,
     orderBy: asc(organizationSpecialHours.validFrom),
   });
+
+export const findSpecialHoursByOrganization = async (
+  db: DrizzleDB,
+  organizationIds: string[],
+  from: Date,
+  through: Date,
+) => {
+  const rows = await db.query.organizationSpecialHours.findMany({
+    where: and(
+      inArray(organizationSpecialHours.organizationId, organizationIds),
+      overlappingSpecialHours(from, through),
+    ),
+    columns: { ...specialHoursColumns, organizationId: true },
+    orderBy: asc(organizationSpecialHours.validFrom),
+  });
+
+  const byOrganization = new Map<
+    string,
+    Omit<(typeof rows)[number], 'organizationId'>[]
+  >();
+  for (const { organizationId, ...specialHours } of rows) {
+    const list = byOrganization.get(organizationId);
+    if (list) list.push(specialHours);
+    else byOrganization.set(organizationId, [specialHours]);
+  }
+
+  return byOrganization;
+};

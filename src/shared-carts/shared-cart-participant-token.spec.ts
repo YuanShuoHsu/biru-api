@@ -3,10 +3,12 @@ import type { Response } from 'express';
 import {
   clearSharedCartParticipantCookie,
   issueSharedCartParticipant,
+  issueSharedCartSocketToken,
   newSharedCartDeviceKey,
   setSharedCartParticipantCookie,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
+  verifySharedCartSocketToken,
 } from './shared-cart-participant-token.js';
 
 describe('shared cart participant cookie', () => {
@@ -118,5 +120,35 @@ describe('shared cart participant cookie', () => {
       sameSite: 'lax',
       secure: false,
     });
+  });
+});
+
+describe('shared cart socket token', () => {
+  beforeEach(() => {
+    vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it('carries the device key of its store until it expires', () => {
+    vi.useFakeTimers({ now: new Date('2026-11-10T04:00:00Z') });
+    const token = issueSharedCartSocketToken('org', 'secret', 'device', 1000);
+
+    expect(verifySharedCartSocketToken('org', 'secret', token)).toBe('device');
+    expect(verifySharedCartSocketToken('other', 'secret', token)).toBeNull();
+    expect(verifySharedCartSocketToken('org', 'rotated', token)).toBeNull();
+    vi.advanceTimersByTime(1000);
+    expect(verifySharedCartSocketToken('org', 'secret', token)).toBeNull();
+  });
+
+  it('is not interchangeable with the participant cookie', () => {
+    const token = issueSharedCartSocketToken('org', 'secret', 'device', 1000);
+    const cookie = issueSharedCartParticipant('org', 'secret', 'device').value;
+
+    expect(verifySharedCartParticipant('org', 'secret', token)).toBeNull();
+    expect(verifySharedCartSocketToken('org', 'secret', cookie)).toBeNull();
   });
 });

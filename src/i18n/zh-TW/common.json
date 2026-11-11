@@ -166,6 +166,9 @@
     "batchNotFound": "找不到這筆刪除紀錄，可能已超過保留期限。",
     "restoreRevokedPlatformAdmin": "無法還原：這位成員是以平台管理員身分加入的，但該使用者已不是平台管理員。"
   },
+  "donateCodes": {
+    "listUnavailable": "目前無法取得捐贈碼清單，請稍後再試，或改選其他發票類型"
+  },
   "exceptions": {
     "badRequest": "請求格式不正確",
     "forbidden": "你沒有權限存取此資料",

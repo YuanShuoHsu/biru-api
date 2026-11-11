@@ -88,7 +88,7 @@ export class PayrollWithholdingYearQueryDto {
   @Type(() => Number) @IsInt() @Min(2000) @Max(2100) year: number;
 }
 
-export class PayrollWithholdingCertificateResponseDto {
+class PayrollWithholdingCertificateResponseDto {
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
   @ApiProperty({
@@ -110,7 +110,7 @@ export class PayrollWithholdingCertificateResponseDto {
   @ApiProperty() retirementWithholdingCents: string;
 }
 
-export class PayrollNonResidentPaymentResponseDto {
+class PayrollNonResidentPaymentResponseDto {
   @ApiProperty() paymentDate: string;
   @ApiProperty({ description: '代扣稅款之日起 10 日內' }) deadline: string;
   @ApiProperty() employeeId: string;
@@ -146,10 +146,12 @@ export class PayrollWithholdingFileResponseDto {
   @ApiProperty() content: string;
 }
 
-export class MyWithholdingUnitResponseDto extends PickType(
-  PayrollWithholdingUnitDto,
-  ['businessNumber', 'name', 'address', 'agentName'] as const,
-) {}
+class MyWithholdingUnitResponseDto extends PickType(PayrollWithholdingUnitDto, [
+  'businessNumber',
+  'name',
+  'address',
+  'agentName',
+] as const) {}
 
 export class MyWithholdingCertificateResponseDto {
   @ApiProperty({

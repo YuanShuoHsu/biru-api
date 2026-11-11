@@ -17,6 +17,7 @@ import { I18n, I18nContext } from 'nestjs-i18n';
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
+import { JoinSharedCartDto } from './dto/join-shared-cart.dto.js';
 import type { LowStockReachedEvent } from './low-stock-reached.event.js';
 import { LOW_STOCK_REACHED_EVENT } from './low-stock-reached.event.js';
 import type { MenuUpdatedEvent } from './menu-updated.event.js';
@@ -25,6 +26,8 @@ import type { OrderStatusUpdatedEvent } from './order-status-updated.event.js';
 import { ORDER_STATUS_UPDATED_EVENT } from './order-status-updated.event.js';
 import type { OrderUpdatedEvent } from './order-updated.event.js';
 import { ORDER_UPDATED_EVENT } from './order-updated.event.js';
+import type { SharedCartUpdatedEvent } from './shared-cart-updated.event.js';
+import { SHARED_CART_UPDATED_EVENT } from './shared-cart-updated.event.js';
 import type { WaitlistUpdatedEvent } from './waitlist-updated.event.js';
 import { WAITLIST_UPDATED_EVENT } from './waitlist-updated.event.js';
 
@@ -40,6 +43,7 @@ import { PublicMenusService } from '../menus/menus-public.service.js';
 import type { PrepEstimateResponseDto } from '../orders/dto/prep-estimate-response.dto.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { PrepEstimateService } from '../orders/prep-estimate.service.js';
+import { SharedCartsService } from '../shared-carts/shared-carts.service.js';
 import type { WaitlistStatusResponseDto } from '../waitlist/dto/waitlist-response.dto.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
@@ -66,6 +70,10 @@ const publicWaitlistRoom = (organizationId: string) =>
 
 const inventoryRoom = (organizationId: string) => `inventory:${organizationId}`;
 
+const sharedCartRoom = (sharedCartId: string) => `shared-cart:${sharedCartId}`;
+const sharedCartsRequest = (organizationId: string) =>
+  `shared-carts:${organizationId}`;
+
 const PUBLIC_BOARD_REFRESH_MS = 60 * 1000;
 
 const MAX_REQUESTED_ROOMS = 100;
@@ -77,6 +85,8 @@ const isRoomRequestField = (value: unknown): value is string =>
 type GatewaySocketData = {
   userId?: string;
   requestedRooms?: Map<string, string>;
+  sharedCarts?: Map<string, { organizationId: string; participantId: string }>;
+  sharedCartJoins?: number;
 };
 
 type RoomRequest = { room: string; accessToken: string };
@@ -104,6 +114,7 @@ const ROOM_REQUESTS = new Map<
   ['OrdersBoard', byOrganization(ordersBoardRoom)],
   ['Waitlist', byOrganization(waitlistRoom)],
   ['Inventory', byOrganization(inventoryRoom)],
+  ['SharedCart', byOrganization(sharedCartsRequest)],
 ]);
 
 const requestedRooms = (client: Socket) =>
@@ -133,6 +144,7 @@ export class EventsGateway implements OnGatewayConnection {
     private readonly ordersService: OrdersService,
     private readonly prepEstimateService: PrepEstimateService,
     private readonly waitlistService: WaitlistService,
+    private readonly sharedCartsService: SharedCartsService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
@@ -451,6 +463,85 @@ export class EventsGateway implements OnGatewayConnection {
     );
   }
 
+  @SubscribeMessage('joinSharedCart')
+  joinSharedCart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { accessToken, organizationId }: JoinSharedCartDto,
+    @I18n() i18n: I18nContext<I18nTranslations>,
+  ) {
+    const data = client.data as GatewaySocketData;
+    const room = sharedCartsRequest(organizationId);
+    const ticket = `#${(data.sharedCartJoins = (data.sharedCartJoins ?? 0) + 1)}`;
+    const requested = requestedRooms(client);
+    if (requested.has(room)) requested.set(room, ticket);
+
+    let carts: { participantId: string; sharedCartId: string }[] = [];
+    return this.settleJoin(
+      client,
+      room,
+      i18n,
+      async () => {
+        carts = await this.sharedCartsService.socketCartsOf(
+          organizationId,
+          accessToken,
+        );
+        return carts.length > 0;
+      },
+      ticket,
+      async () => {
+        await this.leaveSharedCarts(client, organizationId);
+        const joined = (data.sharedCarts ??= new Map());
+        for (const { participantId, sharedCartId } of carts)
+          joined.set(sharedCartId, { organizationId, participantId });
+        await client.join(
+          carts.map(({ sharedCartId }) => sharedCartRoom(sharedCartId)),
+        );
+      },
+      () => this.leaveSharedCarts(client, organizationId),
+    );
+  }
+
+  @SubscribeMessage('leaveSharedCart')
+  async leaveSharedCart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+  ) {
+    await this.leaveUnlessRequestedAgain(
+      client,
+      sharedCartsRequest(organizationId),
+      () => this.leaveSharedCarts(client, organizationId),
+    );
+  }
+
+  @OnEvent(SHARED_CART_UPDATED_EVENT)
+  async handleSharedCartUpdated({ sharedCartId }: SharedCartUpdatedEvent) {
+    const room = sharedCartRoom(sharedCartId);
+    try {
+      const sockets = await this.server.in(room).fetchSockets();
+      if (!sockets.length) return;
+      this.server.to(room).emit('sharedCartUpdated');
+
+      const live =
+        await this.sharedCartsService.liveParticipantIdsOf(sharedCartId);
+      for (const socket of sockets) {
+        const joined = (socket.data as GatewaySocketData).sharedCarts;
+        if (!live.has(joined?.get(sharedCartId)?.participantId ?? ''))
+          socket.leave(room);
+      }
+    } catch (error) {
+      this.logger.error(`推播失敗：${room} sharedCartUpdated`, error);
+    }
+  }
+
+  private async leaveSharedCarts(client: Socket, organizationId: string) {
+    const joined = (client.data as GatewaySocketData).sharedCarts;
+    for (const [sharedCartId, cart] of joined ?? [])
+      if (cart.organizationId === organizationId) {
+        joined?.delete(sharedCartId);
+        await client.leave(sharedCartRoom(sharedCartId));
+      }
+  }
+
   private async joinStoreRoom(
     client: Socket,
     organizationId: string,
@@ -481,6 +572,8 @@ export class EventsGateway implements OnGatewayConnection {
     i18n: I18nContext<I18nTranslations>,
     authorize: () => Promise<boolean>,
     accessToken = '',
+    enter = () => client.join(room),
+    exit = () => client.leave(room),
   ) {
     const result = await authorize().then(
       (authorized) => ({ authorized }),
@@ -489,10 +582,10 @@ export class EventsGateway implements OnGatewayConnection {
 
     const requested = requestedRooms(client);
     if (requested.get(room) === accessToken) {
-      if (result.authorized) await client.join(room);
+      if (result.authorized) await enter();
       else {
         requested.delete(room);
-        await client.leave(room);
+        await exit();
       }
     }
 
@@ -507,8 +600,12 @@ export class EventsGateway implements OnGatewayConnection {
     return true;
   }
 
-  private async leaveUnlessRequestedAgain(client: Socket, room: string) {
-    if (!requestedRooms(client).has(room)) await client.leave(room);
+  private async leaveUnlessRequestedAgain(
+    client: Socket,
+    room: string,
+    exit = () => client.leave(room),
+  ) {
+    if (!requestedRooms(client).has(room)) await exit();
   }
 
   private async emitToAuthorized(

@@ -277,6 +277,13 @@ https URL in its canonical form (`URL.href`), such as Google's avatar, or a data
 with `INVALID_IMAGE`.
 They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
 
+Nothing deletes a stored object on replace or delete; `POST /api/images/orphans/sweep` (platform admin, dry-run unless
+`apply: true`) removes objects under each kind's prefix that are over 7 days old and not referenced. References are the
+tables' `image` columns, the `image` of `deleted_record` rows from these tables, and the `image.before` of `audit_log`
+rows for these resources from the last 7 days, so a replaced image survives 7 days after the swap. A new path that
+writes `image` must carry `@Audit` (and `image` must stay out of `AUDIT_IGNORED_COLUMNS`), or the old image can be
+swept as soon as it is replaced.
+
 ### Points Expiry
 
 Points expire one year after they are earned — the end of the Taiwan day one calendar year after the
@@ -437,6 +444,14 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   `CLIENT_IP_HEADER` to give them per-client buckets.
 - Also applied: `helmet`, `cookieParser`, CORS restricted to
   `NEXT_URL` + `NEXT_ADMIN_URL` with credentials
+- Cookies this API sets without `domain` (the order and waitlist QR sessions, the shared-cart participant) are host-only
+  ([MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#define_where_cookies_are_sent)): set through a
+  frontend's `/api` rewrite, they belong to that frontend's host, so the Socket.io client, which connects to
+  `NEXT_PUBLIC_NEST_URL` directly, never sends them in its handshake. Locally both hosts are `localhost` and cookies
+  ignore the port ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)), so this only breaks once
+  deployed. Only better-auth's cookies reach both, through `crossSubDomainCookies` (production only). When a socket
+  needs what such a cookie proves, return a signed token in the HTTP response and send it in the message body as
+  `accessToken`, as `joinOrder` does — the WebSocket filter strips that key from `cause.data`, so name it nothing else
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
   `app.use(I18nMiddleware)` here — Express receives the class, treats it as an error handler
   (constructor arity > 3) and never runs it on normal requests

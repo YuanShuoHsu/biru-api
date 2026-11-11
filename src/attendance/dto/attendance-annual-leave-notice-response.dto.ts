@@ -5,13 +5,13 @@ import {
   type AttendanceAnnualLeaveSettlement,
 } from './attendance-annual-leave-notice-pagination-query.dto.js';
 
-export class AttendanceAnnualLeaveNoticeLeaveDto {
+class AttendanceAnnualLeaveNoticeLeaveDto {
   @ApiProperty() startsAt: Date;
   @ApiProperty() endsAt: Date;
   @ApiProperty() leaveMinutes: number;
 }
 
-export class AttendanceAnnualLeaveNoticePayoutDto {
+class AttendanceAnnualLeaveNoticePayoutDto {
   @ApiProperty() month: string;
   @ApiPropertyOptional({
     description: '舊薪資單只記錄當月特休未休工資合計，沒有逐年度時數',
@@ -24,7 +24,7 @@ export class AttendanceAnnualLeaveNoticePayoutDto {
   paidOn: string | null;
 }
 
-export class AttendanceAnnualLeaveNoticeResponseDto {
+class AttendanceAnnualLeaveNoticeResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;

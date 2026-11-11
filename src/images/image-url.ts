@@ -54,8 +54,8 @@ const imagePath = (
   kind: ImageKind,
   id: string,
   version: string,
-  mimeType: ImageMimeType,
-) => `/api/images/${kind}/${id}/${version}.${IMAGE_EXTENSIONS[mimeType]}`;
+  extension: string,
+) => `/api/images/${kind}/${id}/${version}.${extension}`;
 
 export const withImageUrl = <T extends { id: string; image: string | null }>(
   kind: ImageKind,
@@ -69,7 +69,7 @@ export const withImageUrl = <T extends { id: string; image: string | null }>(
     ...row,
     imageUrl:
       image && parsed
-        ? imagePath(kind, row.id, imageVersion(image), parsed.mimeType)
+        ? imagePath(kind, row.id, imageVersion(image), parsed.extension)
         : null,
   };
 };
@@ -125,21 +125,27 @@ export const withImageRefs = async <T extends { id: string }>(
   return rows.map((row) => ({ ...row, imageRef: refById.get(row.id) ?? null }));
 };
 
+export const imageRefUrl = (
+  imageRef: string | null,
+  path: (version: string, extension: string) => string,
+): string | null => {
+  if (imageRef?.startsWith('https://')) return imageRef;
+
+  const [mimeType, version] = imageRef?.split(' ') ?? [];
+
+  return mimeType && version && isImageMimeType(mimeType)
+    ? path(version, IMAGE_EXTENSIONS[mimeType])
+    : null;
+};
+
 export const withImageRefUrl = <
   T extends { id: string; imageRef: string | null },
 >(
   kind: ImageKind,
   { imageRef, ...row }: T,
-): Omit<T, 'imageRef'> & { imageUrl: string | null } => {
-  if (imageRef?.startsWith('https://')) return { ...row, imageUrl: imageRef };
-
-  const [mimeType, version] = imageRef?.split(' ') ?? [];
-
-  return {
-    ...row,
-    imageUrl:
-      mimeType && version && isImageMimeType(mimeType)
-        ? imagePath(kind, row.id, version, mimeType)
-        : null,
-  };
-};
+): Omit<T, 'imageRef'> & { imageUrl: string | null } => ({
+  ...row,
+  imageUrl: imageRefUrl(imageRef, (version, extension) =>
+    imagePath(kind, row.id, version, extension),
+  ),
+});

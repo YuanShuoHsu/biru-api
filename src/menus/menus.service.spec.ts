@@ -17,6 +17,7 @@ import {
   menuSection,
   modifier,
   modifierGroup,
+  offer,
 } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
@@ -324,6 +325,41 @@ describe('MenusService localized text filters and sorting', () => {
       expect(
         await itemIds({ sortBy: 'recipe', sortDirection: 'desc' }),
       ).toEqual(['mocha', 'latte', 'americano']);
+    });
+
+    it('排序值相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
+      const pages = [];
+      for (const offset of [0, 1, 2])
+        pages.push(
+          ...(await itemIds({ limit: 1, offset, sortBy: 'createdAt' })),
+        );
+      expect(pages).toEqual(['americano', 'latte', 'mocha']);
+    });
+
+    it('同一品項的 offer 建立時間相同時，列表、單筆與價格排序都取 id 較小的那筆', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00Z');
+      await db.insert(offer).values([
+        { id: 'offer-b', menuItemId: 'mocha', price: '80', createdAt },
+        { id: 'offer-a', menuItemId: 'mocha', price: '60', createdAt },
+        { id: 'latte-offer', menuItemId: 'latte', price: '70', createdAt },
+      ]);
+      try {
+        const { data } = await service.menuSectionItems('drinks', ORG, {});
+        expect(data.find(({ id }) => id === 'mocha')?.offer?.id).toBe(
+          'offer-a',
+        );
+        expect((await service.menuItem({ id: 'mocha' }, ORG))?.offer?.id).toBe(
+          'offer-a',
+        );
+        expect(
+          (await service.menuItemOffers('mocha', ORG)).map(({ id }) => id),
+        ).toEqual(['offer-a', 'offer-b']);
+        expect(
+          await itemIds({ sortBy: 'price', sortDirection: 'asc' }),
+        ).toEqual(['mocha', 'latte', 'americano']);
+      } finally {
+        await client.exec(`delete from offer`);
+      }
     });
   });
 

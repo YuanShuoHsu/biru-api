@@ -57,6 +57,7 @@ describe('OrdersService.createOrder from a shared cart', () => {
   let orderPricing: OrderPricingService;
   let orders: OrdersService;
   let carts: SharedCartsService;
+  const eventEmitter = new EventEmitter2();
 
   const counterSession = () =>
     issueOrderQrSession(ORG, null, 'counter', null).value;
@@ -127,6 +128,7 @@ describe('OrdersService.createOrder from a shared cart', () => {
       db as unknown as DrizzleDB,
       orderQr,
       orderPricing,
+      eventEmitter,
     );
     orders = new OrdersService(
       db as unknown as DrizzleDB,
@@ -138,7 +140,7 @@ describe('OrdersService.createOrder from a shared cart', () => {
       orderPricing,
       orderQr,
       {} as never,
-      new EventEmitter2(),
+      eventEmitter,
       { refresh: () => Promise.resolve() } as never,
       {} as never,
       { expectedPoints: () => Promise.resolve(new Map()) } as never,
@@ -225,6 +227,23 @@ describe('OrdersService.createOrder from a shared cart', () => {
       (await carts.findCurrent(SLUG, null, cookiesOf(host.issued))).cart,
     ).toMatchObject({ checkout: null, code: host.cart.code, items: [] });
     expect(await db.select().from(sharedCartParticipant)).toHaveLength(2);
+  });
+
+  it('tells the cart once the order is placed, and not for a replay or a refusal', async () => {
+    const host = await startCart();
+    const guest = await joinApproved(host);
+    await addItems(host, [item('latte')]);
+    await lock(host);
+    const emit = vi.spyOn(eventEmitter, 'emit');
+
+    await expect(submit(guest)).rejects.toMatchObject({ status: 409 });
+    await submit(host, dtoOf(), 'key-1');
+    await submit(host, dtoOf(), 'key-1');
+
+    const [row] = await db.select().from(sharedCart);
+    expect(
+      emit.mock.calls.filter(([event]) => event === 'sharedCart.updated'),
+    ).toEqual([['sharedCart.updated', { sharedCartId: row.id }]]);
   });
 
   it('rejects a participant who does not hold the checkout lock', async () => {

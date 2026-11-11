@@ -86,6 +86,10 @@ import {
   type OrderUpdatedEvent,
 } from '../events/order-updated.event.js';
 import {
+  SHARED_CART_UPDATED_EVENT,
+  type SharedCartUpdatedEvent,
+} from '../events/shared-cart-updated.event.js';
+import {
   InsufficientStockError,
   InventoryTransactionsService,
   type StockSource,
@@ -701,6 +705,10 @@ export class OrdersService {
         orderStatus: result.orderStatus,
         organizationId: org.id,
       });
+      if (sharedCartOrder)
+        this.eventEmitter.emit(SHARED_CART_UPDATED_EVENT, {
+          sharedCartId: sharedCartOrder.sharedCartId,
+        } satisfies SharedCartUpdatedEvent);
     }
 
     if (lowStock.length)

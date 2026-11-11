@@ -220,6 +220,9 @@ export type I18nTranslations = {
             "batchNotFound": string;
             "restoreRevokedPlatformAdmin": string;
         };
+        "donateCodes": {
+            "listUnavailable": string;
+        };
         "exceptions": {
             "badRequest": string;
             "forbidden": string;

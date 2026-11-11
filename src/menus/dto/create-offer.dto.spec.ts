@@ -44,6 +44,24 @@ describe('CreateOfferDto', () => {
     ).toEqual(['inventoryLevel.value']);
   });
 
+  it.each([0, 44639])(
+    'accepts a lead time of %i minutes',
+    async (deliveryLeadTimeMinutes) => {
+      expect(await errorsOf({ price: '100', deliveryLeadTimeMinutes })).toEqual(
+        [],
+      );
+    },
+  );
+
+  it.each([44640, 3000000000])(
+    'rejects a lead time of %i minutes, longer than the pickup window',
+    async (deliveryLeadTimeMinutes) => {
+      expect(await errorsOf({ price: '100', deliveryLeadTimeMinutes })).toEqual(
+        ['deliveryLeadTimeMinutes'],
+      );
+    },
+  );
+
   it.each([
     ['2025-06-01', '2025-06-30'],
     ['2025-06-01', '2025-06-01'],

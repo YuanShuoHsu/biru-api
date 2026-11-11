@@ -38,6 +38,7 @@ import { accessForbiddenError } from '../common/utils/access-forbidden-error.js'
 import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
 import {
   findSpecialHours,
+  findSpecialHoursByOrganization,
   organizationNotFoundError,
 } from '../common/utils/organizations.js';
 import {
@@ -49,19 +50,47 @@ import type {
   OrganizationMemberResponseDto,
   OrganizationTeamMemberResponseDto,
 } from './dto/organization-member-response.dto.js';
-import type { MyOrganizationListItemDto } from './dto/organization-response.dto.js';
+import type {
+  MyOrganizationListItemDto,
+  OrganizationDetailResponseDto,
+} from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
 import { conflictError, forbiddenError } from './organization-errors.js';
+
+const upcomingSpecialHoursWindow = () => {
+  const now = Date.now();
+
+  return {
+    from: new Date(now - DAY_MS),
+    through: new Date(now + (PICKUP_MAX_ADVANCE_DAYS + 1) * DAY_MS),
+  };
+};
 
 @Injectable()
 export class OrganizationsService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  organizations(includeClosed?: boolean): Promise<Organization[]> {
-    return this.db.query.organization.findMany({
+  async organizations(
+    includeClosed?: boolean,
+  ): Promise<OrganizationDetailResponseDto[]> {
+    const organizations = await this.db.query.organization.findMany({
       where: includeClosed ? undefined : isNull(organization.closedAt),
       orderBy: [asc(organization.createdAt)],
     });
+    if (organizations.length === 0) return [];
+
+    const { from, through } = upcomingSpecialHoursWindow();
+    const specialHours = await findSpecialHoursByOrganization(
+      this.db,
+      organizations.map(({ id }) => id),
+      from,
+      through,
+    );
+
+    return organizations.map((org) => ({
+      ...org,
+      specialHours: specialHours.get(org.id) ?? [],
+    }));
   }
 
   async organizationMembers(
@@ -311,14 +340,9 @@ export class OrganizationsService {
   }
 
   upcomingSpecialHours(organizationId: string) {
-    const now = new Date();
+    const { from, through } = upcomingSpecialHoursWindow();
 
-    return findSpecialHours(
-      this.db,
-      organizationId,
-      now,
-      new Date(now.getTime() + PICKUP_MAX_ADVANCE_DAYS * DAY_MS),
-    );
+    return findSpecialHours(this.db, organizationId, from, through);
   }
 
   async getStats(

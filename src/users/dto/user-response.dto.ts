@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import {
-  DEFAULT_LANGUAGE,
-  languagesEnum,
-  type Language,
-} from '../../db/schema/enums.js';
 import { userRoles, type UserRole } from '../../db/schema/users.js';
 
 export class UserResponseDto {
@@ -63,12 +58,6 @@ export class UserResponseDto {
   emailSubscribed: boolean;
 
   @ApiProperty({
-    description: '是否已驗證電子郵件',
-    example: true,
-  })
-  emailVerified: boolean;
-
-  @ApiProperty({
     description: '名',
     example: 'Coffee',
   })
@@ -82,35 +71,19 @@ export class UserResponseDto {
   // gender: Gender;
 
   @ApiProperty({
-    description: '頭像 URL',
-    example: 'https://example.com/avatar.png',
+    description: '頭像網址',
+    example:
+      '/api/users/123e4567-e89b-12d3-a456-426614174000/image/0123456789abcdef.webp',
+    nullable: true,
+    type: String,
   })
-  image?: string | null;
-
-  @ApiProperty({
-    description: '語言',
-    enum: languagesEnum.enumValues,
-    example: DEFAULT_LANGUAGE,
-  })
-  lang: Language;
+  imageUrl: string | null;
 
   @ApiProperty({
     description: '姓',
     example: 'Biru',
   })
   lastName?: string | null;
-
-  @ApiProperty({ description: '電話（E.164 格式）', example: '+886912345678' })
-  phoneNumber?: string | null;
-
-  @ApiProperty({ description: '是否已驗證電話', example: false })
-  phoneNumberVerified: boolean;
-
-  @ApiProperty({
-    description: '最後更新時間',
-    example: '2025-10-14T12:34:56.000Z',
-  })
-  updatedAt: Date;
 }
 
 class UserListItemDto extends UserResponseDto {

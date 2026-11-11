@@ -18,7 +18,7 @@ import {
 
 import { PayrollTermsValuesDto } from './payroll-terms-response.dto.js';
 
-export class PayrollEarningLineResponseDto {
+class PayrollEarningLineResponseDto {
   @ApiProperty({
     enum: PAYROLL_EARNING_LINE_CODES,
     enumName: 'PayrollEarningLineCode',
@@ -29,7 +29,7 @@ export class PayrollEarningLineResponseDto {
   @ApiPropertyOptional() name?: string;
 }
 
-export class PayrollDeductionLineResponseDto {
+class PayrollDeductionLineResponseDto {
   @ApiProperty({
     enum: PAYROLL_DEDUCTION_LINE_CODES,
     enumName: 'PayrollDeductionLineCode',
@@ -39,7 +39,7 @@ export class PayrollDeductionLineResponseDto {
   @ApiPropertyOptional() seconds?: number;
 }
 
-export class PayrollEmployerCostResponseDto {
+class PayrollEmployerCostResponseDto {
   @ApiProperty({
     enum: PAYROLL_EMPLOYER_COST_CODES,
     enumName: 'PayrollEmployerCostCode',
@@ -48,7 +48,7 @@ export class PayrollEmployerCostResponseDto {
   @ApiProperty() amountCents: string;
 }
 
-export class PayrollSnapshotResponseDto {
+class PayrollSnapshotResponseDto {
   @ApiProperty({ type: PayrollTermsValuesDto }) terms: PayrollTermsValuesDto;
   @ApiProperty() ruleVersion: string;
   @ApiProperty({ isArray: true, type: PayrollEarningLineResponseDto })
@@ -105,7 +105,7 @@ export class PayrollStatementResponseDto {
   @ApiProperty() createdAt: Date;
 }
 
-export class PayrollStatementListItemResponseDto extends PayrollStatementResponseDto {
+class PayrollStatementListItemResponseDto extends PayrollStatementResponseDto {
   @ApiProperty() employeeEmail: string;
 }
 

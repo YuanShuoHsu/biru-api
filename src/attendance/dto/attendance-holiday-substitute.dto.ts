@@ -59,7 +59,7 @@ export class CreateAttendanceHolidaySubstituteDto {
   @IsUUID() shiftId: string;
 }
 
-export class AttendanceHolidaySubstituteResponseDto {
+class AttendanceHolidaySubstituteResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;

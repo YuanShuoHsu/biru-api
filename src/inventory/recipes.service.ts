@@ -868,19 +868,21 @@ export class RecipesService {
     });
   }
 
-  private async pricesOf(menuItemIds: string[]): Promise<Map<string, number>> {
+  private async pricesOf(
+    menuItemIds: string[],
+  ): Promise<Map<string, number | null>> {
     if (!menuItemIds.length) return new Map();
 
     const offers = await this.db
       .select()
       .from(offer)
       .where(inArray(offer.menuItemId, menuItemIds))
-      .orderBy(asc(offer.createdAt));
+      .orderBy(asc(offer.createdAt), asc(offer.id));
 
-    const prices = new Map<string, number>();
+    const prices = new Map<string, number | null>();
     for (const row of offers) {
-      if (row.menuItemId && row.price && !prices.has(row.menuItemId))
-        prices.set(row.menuItemId, Number(row.price));
+      if (row.menuItemId && !prices.has(row.menuItemId))
+        prices.set(row.menuItemId, row.price ? Number(row.price) : null);
     }
 
     return prices;

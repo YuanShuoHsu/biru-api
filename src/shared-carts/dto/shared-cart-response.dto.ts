@@ -115,4 +115,10 @@ export class SharedCartResponseDto {
     type: [SharedCartItemResponseDto],
   })
   items: SharedCartItemResponseDto[];
+
+  @ApiProperty({
+    description:
+      '以 joinSharedCart 的 accessToken 送出，訂閱這個裝置已加入與待允許的單的 sharedCartUpdated；2 小時後失效，之後的回應會換發新的',
+  })
+  socketToken: string;
 }

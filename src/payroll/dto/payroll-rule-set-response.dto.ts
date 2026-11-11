@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class WithholdingBracketResponseDto {
+class WithholdingBracketResponseDto {
   @ApiPropertyOptional({ nullable: true, type: Number }) upTo: number | null;
   @ApiProperty() rateBp: number;
 }
 
-export class WithholdingTableResponseDto {
+class WithholdingTableResponseDto {
   @ApiProperty() year: number;
   @ApiProperty() exemption: number;
   @ApiProperty() standardDeduction: number;
@@ -24,7 +24,7 @@ export class OccupationalIndustryRateResponseDto {
   rateMicros: number;
 }
 
-export class TaiwanRuleSetResponseDto {
+class TaiwanRuleSetResponseDto {
   @ApiProperty() laborPercentBp: number;
   @ApiProperty() employmentPercentBp: number;
   @ApiProperty() healthPercentBp: number;
@@ -54,7 +54,7 @@ export class TaiwanRuleSetResponseDto {
   occupationalIndustryRates?: OccupationalIndustryRateResponseDto[];
 }
 
-export class PayrollRuleSourceResponseDto {
+class PayrollRuleSourceResponseDto {
   @ApiProperty() label: string;
   @ApiProperty() url: string;
 }
