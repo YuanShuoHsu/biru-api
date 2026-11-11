@@ -43,6 +43,8 @@ const INVALID_IMAGES = [
   ],
   ['過長', `data:image/png;base64,${'A'.repeat(600_000)}`],
   ['非 base64', 'data:image/png;base64,<script>alert(1)</script>'],
+  ['text/html', 'data:text/html,<script>alert(1)</script>'],
+  ['大寫 MIME', 'data:IMAGE/PNG;base64,iVBORw0KGgo='],
 ];
 
 const storedUrl = (kind: string, image: string, extension: string) =>
@@ -285,7 +287,7 @@ describe.each([
   };
 
   describe.each(INVALID_IMAGES)('%s 的 data URL', (_kind, image) => {
-    it(s3 ? '註冊時拒絕且不建立會員' : '註冊時原樣寫入', async () => {
+    it('註冊時拒絕且不建立會員', async () => {
       const email = `invalid-${emailIndex++}@example.com`;
 
       const response = await request('/sign-up/email', {
@@ -296,37 +298,24 @@ describe.each([
         image,
       });
 
-      if (s3) {
-        await expectRejected(response, 'image');
-        const { rows } = await client.query(
-          'select id from "user" where email = $1',
-          [email],
-        );
-        expect(rows).toHaveLength(0);
-      } else {
-        expect(response.status).toBe(200);
-        expect(await userImage(email)).toBe(image);
-      }
+      await expectRejected(response, 'image');
+      const { rows } = await client.query(
+        'select id from "user" where email = $1',
+        [email],
+      );
+      expect(rows).toHaveLength(0);
     });
 
-    it(
-      s3 ? '更新頭像時拒絕且不動原本的頭像' : '更新頭像時原樣寫入',
-      async () => {
-        const before = await userImage('ann@example.com');
+    it('更新頭像時拒絕且不動原本的頭像', async () => {
+      const before = await userImage('ann@example.com');
 
-        const response = await request('/update-user', { image });
+      const response = await request('/update-user', { image });
 
-        if (s3) {
-          await expectRejected(response, 'image');
-          expect(await userImage('ann@example.com')).toBe(before);
-        } else {
-          expect(response.status).toBe(200);
-          expect(await userImage('ann@example.com')).toBe(image);
-        }
-      },
-    );
+      await expectRejected(response, 'image');
+      expect(await userImage('ann@example.com')).toBe(before);
+    });
 
-    it(s3 ? '建立門市時拒絕且不建立門市' : '建立門市時原樣寫入', async () => {
+    it('建立門市時拒絕且不建立門市', async () => {
       const slug = `invalid-${slugIndex++}`;
 
       const response = await request('/organization/create', {
@@ -336,38 +325,25 @@ describe.each([
         logo: image,
       });
 
-      const { rows } = await client.query<{ logo: string | null }>(
-        'select logo from organization where slug = $1',
+      await expectRejected(response, 'logo');
+      const { rows } = await client.query(
+        'select id from organization where slug = $1',
         [slug],
       );
-      if (s3) {
-        await expectRejected(response, 'logo');
-        expect(rows).toHaveLength(0);
-      } else {
-        expect(response.status).toBe(200);
-        expect(rows[0].logo).toBe(image);
-      }
+      expect(rows).toHaveLength(0);
     });
 
-    it(
-      s3 ? '更新門市 logo 時拒絕且不動原本的 logo' : '更新門市 logo 時原樣寫入',
-      async () => {
-        const before = await organizationLogo(organizationId);
+    it('更新門市 logo 時拒絕且不動原本的 logo', async () => {
+      const before = await organizationLogo(organizationId);
 
-        const response = await request('/organization/update', {
-          organizationId,
-          data: { logo: image },
-        });
+      const response = await request('/organization/update', {
+        organizationId,
+        data: { logo: image },
+      });
 
-        if (s3) {
-          await expectRejected(response, 'logo');
-          expect(await organizationLogo(organizationId)).toBe(before);
-        } else {
-          expect(response.status).toBe(200);
-          expect(await organizationLogo(organizationId)).toBe(image);
-        }
-      },
-    );
+      await expectRejected(response, 'logo');
+      expect(await organizationLogo(organizationId)).toBe(before);
+    });
   });
 
   it.runIf(s3)('註冊時上傳失敗不建立會員', async () => {

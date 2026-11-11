@@ -208,7 +208,7 @@ const withStoredImage = async <T extends Record<string, unknown>>(
   if (typeof image !== 'string') return data;
 
   if (
-    imageStorage.uploads(image) &&
+    image.startsWith('data:') &&
     (image.length > IMAGE_DATA_URL_MAX_LENGTH ||
       !IMAGE_DATA_URL_PATTERN.test(image))
   )

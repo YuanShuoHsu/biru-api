@@ -46,10 +46,6 @@ export class ImageStorageService {
         : null;
   }
 
-  uploads(image: string) {
-    return this.storage !== null && parseImageDataUrl(image) !== null;
-  }
-
   async store<T extends string | null | undefined>(
     kind: ImageKind | 'user' | 'organization',
     image: T,
