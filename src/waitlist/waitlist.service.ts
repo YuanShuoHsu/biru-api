@@ -218,7 +218,7 @@ export class WaitlistService {
     };
   }
 
-  private async findTicket(
+  async findTicket(
     organizationSlug: string,
     ticketId: string,
     audience: WaitlistAudience,

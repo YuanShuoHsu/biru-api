@@ -1,0 +1,51 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+
+import { CreatePushSubscriptionDto } from './push-subscription.dto.js';
+
+const errorsOf = async (body: object) =>
+  (
+    await validate(plainToInstance(CreatePushSubscriptionDto, body), {
+      forbidNonWhitelisted: true,
+      whitelist: true,
+    })
+  ).map(({ property }) => property);
+
+const BROWSER_JSON = {
+  endpoint: 'https://fcm.googleapis.com/fcm/send/abc:APA91bE',
+  expirationTime: null,
+  keys: { p256dh: 'BNc', auth: 'tBH' },
+};
+
+describe('CreatePushSubscriptionDto', () => {
+  it('accepts the keys of PushSubscription.toJSON() with an app', async () => {
+    const { endpoint, keys } = BROWSER_JSON;
+    expect(await errorsOf({ endpoint, keys, app: 'storefront' })).toEqual([]);
+  });
+
+  it('rejects a non-https endpoint and missing keys', async () => {
+    expect(
+      await errorsOf({ endpoint: 'http://push.example.com/x', app: 'admin' }),
+    ).toEqual(expect.arrayContaining(['endpoint', 'keys']));
+  });
+
+  it('requires the store and the ticket together', async () => {
+    const { endpoint, keys } = BROWSER_JSON;
+    expect(
+      await errorsOf({
+        endpoint,
+        keys,
+        app: 'storefront',
+        waitlistTicketId: 't1',
+      }),
+    ).toEqual(['organizationSlug']);
+    expect(
+      await errorsOf({
+        endpoint,
+        keys,
+        app: 'storefront',
+        organizationSlug: 'biru',
+      }),
+    ).toEqual(['waitlistTicketId']);
+  });
+});
