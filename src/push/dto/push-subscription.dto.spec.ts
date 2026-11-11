@@ -29,6 +29,20 @@ describe('CreatePushSubscriptionDto', () => {
     ).toEqual(expect.arrayContaining(['endpoint', 'keys']));
   });
 
+  it.each([
+    'https://169.254.169.254/latest/meta-data',
+    'https://10.0.0.1/push',
+    'https://[::1]/push',
+    'https://[::ffff:127.0.0.1]/push',
+    'https://localhost/push',
+    'https://user:pass@push.example.com/push',
+  ])('rejects the endpoint %s', async (endpoint) => {
+    const { keys } = BROWSER_JSON;
+    expect(await errorsOf({ endpoint, keys, app: 'storefront' })).toEqual([
+      'endpoint',
+    ]);
+  });
+
   it('requires the store and the ticket together', async () => {
     const { endpoint, keys } = BROWSER_JSON;
     expect(

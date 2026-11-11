@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { isIP } from 'node:net';
+
 import { Type } from 'class-transformer';
 import {
   IsDefined,
@@ -40,8 +42,23 @@ class HasNoOrderTarget implements ValidatorConstraintInterface {
   }
 }
 
+// https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html#case-2-application-can-send-requests-to-any-external-ip-address-or-domain-name
+@ValidatorConstraint({ name: 'hasDomainHost' })
+class HasDomainHost implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (typeof value !== 'string' || !URL.canParse(value)) return false;
+
+    return !isIP(new URL(value).hostname.replace(/^\[|\]$/g, ''));
+  }
+
+  defaultMessage(): string {
+    return 'endpoint 必須是網域名稱，不可為 IP';
+  }
+}
+
 export class DeletePushSubscriptionDto {
-  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @IsUrl({ protocols: ['https'], require_protocol: true, disallow_auth: true })
+  @Validate(HasDomainHost)
   @MaxLength(2048)
   endpoint: string;
 }
