@@ -143,6 +143,7 @@ export class PublicMenusService {
                         with: { offers: { orderBy: [asc(offer.createdAt)] } },
                       },
                       addOnMenuSection: {
+                        columns: { id: true },
                         with: {
                           menuItems: {
                             ...imageRefQuery,
