@@ -9,6 +9,7 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { PublicMenusService } from '../menus/menus-public.service.js';
 import type { OrdersService } from '../orders/orders.service.js';
 import type { PrepEstimateService } from '../orders/prep-estimate.service.js';
+import type { SharedCartsService } from '../shared-carts/shared-carts.service.js';
 import type { WaitlistService } from '../waitlist/waitlist.service.js';
 
 import { EventsGateway } from './events.gateway.js';
@@ -45,6 +46,7 @@ describe('EventsGateway prepEstimateUpdated', () => {
         findByOrganizationId,
       } as unknown as PrepEstimateService,
       {} as WaitlistService,
+      {} as SharedCartsService,
       {} as DrizzleDB,
     );
     gateway.server = {
@@ -176,6 +178,7 @@ describe('EventsGateway protected rooms', () => {
         findByOrganizationId: () => Promise.resolve(null),
       } as unknown as PrepEstimateService,
       {} as WaitlistService,
+      {} as SharedCartsService,
       { query: { user: { findMany } } } as unknown as DrizzleDB,
     );
     gateway.server = {
@@ -396,6 +399,7 @@ describe('EventsGateway room joins', () => {
       { canReadOrderById } as unknown as OrdersService,
       {} as PrepEstimateService,
       {} as WaitlistService,
+      {} as SharedCartsService,
       {
         query: {
           user: {
@@ -708,4 +712,201 @@ describe('EventsGateway room joins', () => {
       expect(context.client.data.requestedRooms?.size).toBe(0);
     },
   );
+});
+
+describe('EventsGateway shared carts', () => {
+  type Cart = { participantId: string; sharedCartId: string };
+
+  const setup = (carts: Cart[] = [], live: string[] = []) => {
+    const socketCartsOf = vi.fn((_organizationId: string, _cookie?: string) =>
+      Promise.resolve(carts),
+    );
+    const liveParticipantIdsOf = vi.fn(() => Promise.resolve(new Set(live)));
+    const gateway = new EventsGateway(
+      {} as AuthService,
+      {} as PublicMenusService,
+      {} as OrdersService,
+      {} as PrepEstimateService,
+      {} as WaitlistService,
+      {
+        liveParticipantIdsOf,
+        socketCartsOf,
+      } as unknown as SharedCartsService,
+      {} as DrizzleDB,
+    );
+
+    const rooms = new Map<string, Set<string>>();
+    const received = new Map<string, unknown[][]>();
+    const sockets = new Map<string, { data: object }>();
+    gateway.server = {
+      in: (room: string) => ({
+        fetchSockets: () =>
+          Promise.resolve(
+            [...(rooms.get(room) ?? [])].map((id) => ({
+              id,
+              data: sockets.get(id)!.data,
+              leave: (left: string) => rooms.get(left)?.delete(id),
+            })),
+          ),
+      }),
+      to: (room: string) => ({
+        emit: (...args: unknown[]) => {
+          for (const id of rooms.get(room) ?? [])
+            received.set(id, [...(received.get(id) ?? []), args]);
+        },
+      }),
+    } as unknown as Namespace;
+
+    const connect = (id: string, cookie?: string) => {
+      let onAny: (event: unknown, body: unknown) => void = () => {};
+      const client = {
+        id,
+        data: {},
+        handshake: { headers: { cookie } },
+        join: (joined: string | string[]) => {
+          for (const room of [joined].flat())
+            rooms.set(room, (rooms.get(room) ?? new Set()).add(id));
+        },
+        leave: (left: string) => void rooms.get(left)?.delete(id),
+        onAny: (listener: typeof onAny) => {
+          onAny = listener;
+        },
+      };
+      sockets.set(id, client);
+      gateway.handleConnection(client as unknown as Socket);
+      const send = (event: 'joinSharedCart' | 'leaveSharedCart') => {
+        onAny(event, { organizationId: 'org' });
+        return gateway[event](
+          client as unknown as Socket,
+          { organizationId: 'org' },
+          { t: (key: string) => `translated:${key}` } as never,
+        );
+      };
+      return { client, send };
+    };
+
+    const inRoom = (sharedCartId: string) => [
+      ...(rooms.get(`shared-cart:${sharedCartId}`) ?? []),
+    ];
+    const receivedBy = (id: string) => received.get(id) ?? [];
+
+    return {
+      connect,
+      gateway,
+      inRoom,
+      liveParticipantIdsOf,
+      receivedBy,
+      socketCartsOf,
+    };
+  };
+
+  const forbidden = {
+    status: 403,
+    response: {
+      error: 'Forbidden',
+      code: 'forbidden',
+      message: 'translated:common.exceptions.forbidden',
+    },
+  };
+
+  it('joinSharedCart 以握手時的 cookie 加入裝置已加入與申請中的群組', async () => {
+    const context = setup([
+      { participantId: 'p1', sharedCartId: 'joined' },
+      { participantId: 'p2', sharedCartId: 'pending' },
+    ]);
+    const { send } = context.connect('a', 'biru=1');
+
+    await expect(send('joinSharedCart')).resolves.toBe(true);
+
+    expect(context.socketCartsOf).toHaveBeenCalledWith('org', 'biru=1');
+    expect(context.inRoom('joined')).toEqual(['a']);
+    expect(context.inRoom('pending')).toEqual(['a']);
+  });
+
+  it('沒有 cookie 或不在任何群組時丟出已翻譯的 403', async () => {
+    const context = setup();
+    const { client, send } = context.connect('a');
+
+    await expect(send('joinSharedCart')).rejects.toMatchObject(forbidden);
+    expect(context.socketCartsOf).toHaveBeenCalledWith('org', undefined);
+    expect(
+      (client.data as { requestedRooms?: Map<string, string> }).requestedRooms
+        ?.size,
+    ).toBe(0);
+  });
+
+  it('再次加入時離開已不在的群組，leaveSharedCart 離開全部', async () => {
+    const context = setup([{ participantId: 'p1', sharedCartId: 'old' }]);
+    const { send } = context.connect('a', 'biru=1');
+    await send('joinSharedCart');
+
+    context.socketCartsOf.mockResolvedValueOnce([
+      { participantId: 'p2', sharedCartId: 'new' },
+    ]);
+    await send('joinSharedCart');
+    expect(context.inRoom('old')).toEqual([]);
+    expect(context.inRoom('new')).toEqual(['a']);
+
+    await send('leaveSharedCart');
+    expect(context.inRoom('new')).toEqual([]);
+  });
+
+  it('驗證期間收到 leaveSharedCart 時最後不在群組', async () => {
+    const context = setup([{ participantId: 'p1', sharedCartId: 'cart' }]);
+    const { send } = context.connect('a', 'biru=1');
+
+    const joined = send('joinSharedCart');
+    await send('leaveSharedCart');
+
+    await expect(joined).resolves.toBe(true);
+    expect(context.inRoom('cart')).toEqual([]);
+  });
+
+  it('群組更新推給 room 裡每個 socket，再移出已不屬於群組的', async () => {
+    const context = setup([], ['stay']);
+    context.socketCartsOf.mockResolvedValueOnce([
+      { participantId: 'stay', sharedCartId: 'cart' },
+    ]);
+    await context.connect('a', 'a=1').send('joinSharedCart');
+    context.socketCartsOf.mockResolvedValueOnce([
+      { participantId: 'removed', sharedCartId: 'cart' },
+    ]);
+    await context.connect('b', 'b=1').send('joinSharedCart');
+
+    await context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' });
+    await context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' });
+
+    expect(context.liveParticipantIdsOf).toHaveBeenCalledWith('cart');
+    expect(context.receivedBy('a')).toEqual([
+      ['sharedCartUpdated'],
+      ['sharedCartUpdated'],
+    ]);
+    expect(context.receivedBy('b')).toEqual([['sharedCartUpdated']]);
+    expect(context.inRoom('cart')).toEqual(['a']);
+  });
+
+  it('room 沒人時不查詢參與者', async () => {
+    const context = setup();
+
+    await context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' });
+
+    expect(context.liveParticipantIdsOf).not.toHaveBeenCalled();
+  });
+
+  it('查詢參與者失敗時只記錄錯誤，不拋出', async () => {
+    const context = setup([{ participantId: 'p1', sharedCartId: 'cart' }]);
+    await context.connect('a', 'a=1').send('joinSharedCart');
+    const logError = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    context.liveParticipantIdsOf.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(
+      context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' }),
+    ).resolves.toBeUndefined();
+
+    expect(context.receivedBy('a')).toEqual([['sharedCartUpdated']]);
+    expect(logError).toHaveBeenCalledOnce();
+    logError.mockRestore();
+  });
 });
