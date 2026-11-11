@@ -9,8 +9,12 @@ import {
   IsString,
   IsUrl,
   MaxLength,
+  Validate,
   ValidateIf,
   ValidateNested,
+  ValidatorConstraint,
+  type ValidationArguments,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 import { languagesEnum, type Language } from '../../db/schema/enums.js';
@@ -18,6 +22,23 @@ import {
   pushSubscriptionAppEnum,
   type PushSubscriptionApp,
 } from '../../db/schema/push.js';
+
+const hasWaitlistTarget = ({
+  organizationSlug,
+  waitlistTicketId,
+}: CreatePushSubscriptionDto) =>
+  organizationSlug !== undefined || waitlistTicketId !== undefined;
+
+@ValidatorConstraint({ name: 'hasNoOrderTarget' })
+class HasNoOrderTarget implements ValidatorConstraintInterface {
+  validate(_: unknown, { object }: ValidationArguments): boolean {
+    return (object as CreatePushSubscriptionDto).orderId === undefined;
+  }
+
+  defaultMessage(): string {
+    return 'orderId 與 waitlistTicketId 不可同時帶';
+  }
+}
 
 export class DeletePushSubscriptionDto {
   @IsUrl({ protocols: ['https'], require_protocol: true })
@@ -72,15 +93,19 @@ export class CreatePushSubscriptionDto extends DeletePushSubscriptionDto {
   @MaxLength(256)
   accessToken?: string;
 
-  @ValidateIf((dto: CreatePushSubscriptionDto) => !!dto.waitlistTicketId)
+  @ValidateIf(hasWaitlistTarget)
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
   organizationSlug?: string;
 
-  @ValidateIf((dto: CreatePushSubscriptionDto) => !!dto.organizationSlug)
+  @ApiPropertyOptional({
+    description: '須與 organizationSlug 一起帶，且不可與 orderId 同時帶',
+  })
+  @ValidateIf(hasWaitlistTarget)
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
+  @Validate(HasNoOrderTarget)
   waitlistTicketId?: string;
 }

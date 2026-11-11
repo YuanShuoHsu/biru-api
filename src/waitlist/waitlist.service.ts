@@ -218,7 +218,7 @@ export class WaitlistService {
     };
   }
 
-  async findTicket(
+  private async findTicket(
     organizationSlug: string,
     ticketId: string,
     audience: WaitlistAudience,
@@ -231,6 +231,13 @@ export class WaitlistService {
       ),
     });
     if (!ticket) throw notFoundError('waitlistTicketNotFound', audience);
+    return ticket;
+  }
+
+  async findActiveTicket(organizationSlug: string, ticketId: string) {
+    const ticket = await this.findTicket(organizationSlug, ticketId, 'guest');
+    if (!isActive(ticket.status))
+      throw badRequestError('waitlistTransitionInvalid', 'guest');
     return ticket;
   }
 

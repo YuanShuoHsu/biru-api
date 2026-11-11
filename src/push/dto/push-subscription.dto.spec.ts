@@ -48,4 +48,21 @@ describe('CreatePushSubscriptionDto', () => {
       }),
     ).toEqual(['waitlistTicketId']);
   });
+
+  it.each([
+    [
+      { organizationSlug: '', waitlistTicketId: '' },
+      ['organizationSlug', 'waitlistTicketId'],
+    ],
+    [{ orderId: '' }, ['orderId']],
+    [
+      { orderId: 'o1', organizationSlug: 'biru', waitlistTicketId: 't1' },
+      ['waitlistTicketId'],
+    ],
+  ])('rejects %o', async (target, properties) => {
+    const { endpoint, keys } = BROWSER_JSON;
+    expect(
+      await errorsOf({ endpoint, keys, app: 'storefront', ...target }),
+    ).toEqual(properties);
+  });
 });

@@ -55,10 +55,11 @@ describe('PushService', () => {
       ),
     );
     await client.exec(
-      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'), ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
        insert into "user" (id, name, first_name, email, lang) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'zh-TW');
        insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, order_status) values ('o1', '{"name":"客人"}', 'pickup', '1', 'Cash', 'org', 100, 'OrderPaymentDue');
-       insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale) values ('t1', 'org', current_date, 'A', 1, 2, 'zh-TW');`,
+       insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale) values ('t1', 'org', current_date, 'A', 1, 2, 'zh-TW');
+       insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status) values ('seated', 'org', current_date, 'A', 2, 2, 'zh-TW', 'seated');`,
     );
   }, 120_000);
 
@@ -132,13 +133,17 @@ describe('PushService', () => {
     ]);
   });
 
-  it('rejects an unknown waitlist ticket', async () => {
+  it.each([
+    ['an unknown ticket', 'biru', 'nope', NotFoundException],
+    ['a ticket of another store', 'other', 't1', NotFoundException],
+    ['a ticket that has ended', 'biru', 'seated', BadRequestException],
+  ])('rejects %s', async (_, organizationSlug, waitlistTicketId, error) => {
     await expect(
       service.subscribe(
-        subscription({ organizationSlug: 'biru', waitlistTicketId: 'nope' }),
+        subscription({ organizationSlug, waitlistTicketId }),
         null,
       ),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(error);
     expect(await rows()).toEqual([]);
   });
 
@@ -146,22 +151,28 @@ describe('PushService', () => {
     await expect(
       service.subscribe(subscription(), null),
     ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.subscribe(subscription({ accessToken: 'token' }), null),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(canReadOrderById).not.toHaveBeenCalled();
     expect(await rows()).toEqual([]);
   });
 
-  it('rejects binding an order and a waitlist ticket at once', async () => {
+  it('only lets a signed-in caller subscribe the admin app', async () => {
     canReadOrderById.mockResolvedValue(true);
 
     await expect(
       service.subscribe(
-        subscription({
-          orderId: 'o1',
-          organizationSlug: 'biru',
-          waitlistTicketId: 't1',
-        }),
-        AMY,
+        subscription({ app: 'admin', orderId: 'o1', accessToken: 'token' }),
+        null,
       ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(await rows()).toEqual([]);
+
+    await service.subscribe(subscription({ app: 'admin' }), AMY);
+    expect(await rows()).toEqual([
+      expect.objectContaining({ app: 'admin', userId: 'amy' }),
+    ]);
   });
 
   it('replaces the row when the same endpoint subscribes again', async () => {

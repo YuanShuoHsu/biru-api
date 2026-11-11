@@ -43,6 +43,10 @@ export class PushController {
 
   @Delete('subscriptions')
   @HttpCode(204)
+  @Throttle({
+    [ANONYMOUS_THROTTLER]: { limit: 30, ttl: minutes(1) },
+    [HOURLY_THROTTLER]: { limit: 150, ttl: hours(1) },
+  })
   @ApiOperation({ summary: '刪除瀏覽器的推播訂閱（不存在也回 204）' })
   unsubscribe(@Body() dto: DeletePushSubscriptionDto): Promise<void> {
     return this.pushService.unsubscribe(dto);

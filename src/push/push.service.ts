@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { eq } from 'drizzle-orm';
@@ -11,7 +11,6 @@ import { toLanguage } from '../common/utils/language.js';
 import { pushSubscription } from '../db/schema/push.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
-import type { I18nTranslations } from '../generated/i18n.generated.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { WaitlistService } from '../waitlist/waitlist.service.js';
 
@@ -43,17 +42,8 @@ export class PushService {
     }: CreatePushSubscriptionDto,
     viewer: PushViewer | null,
   ): Promise<void> {
-    if (orderId && waitlistTicketId)
-      throw new BadRequestException({
-        error: 'Bad Request',
-        code: 'badRequest',
-        message:
-          I18nContext.current<I18nTranslations>()?.t(
-            'common.exceptions.badRequest',
-          ) ?? 'badRequest',
-      });
-
-    if (!viewer && !orderId && !waitlistTicketId) throw accessForbiddenError();
+    if (!viewer && (app === 'admin' || (!orderId && !waitlistTicketId)))
+      throw accessForbiddenError();
 
     if (
       orderId &&
@@ -66,10 +56,9 @@ export class PushService {
       throw accessForbiddenError();
 
     if (organizationSlug && waitlistTicketId)
-      await this.waitlistService.findTicket(
+      await this.waitlistService.findActiveTicket(
         organizationSlug,
         waitlistTicketId,
-        'guest',
       );
 
     const values = {
