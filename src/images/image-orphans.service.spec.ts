@@ -187,6 +187,45 @@ describe('ImageOrphansService', () => {
     );
   });
 
+  it('7 天內才被換下的舊圖不刪，超過 7 天或不屬於圖片種類的異動不算參照', async () => {
+    const audit = (
+      id: string,
+      resource: 'modifier' | 'coupon',
+      before: string,
+      createdAt: Date,
+    ) => ({
+      id,
+      actorName: 'Admin',
+      actorEmail: 'admin@example.com',
+      resource,
+      resourceId: `${resource}-1`,
+      action: 'update' as const,
+      changes: {
+        image: { before: `${PUBLIC_URL}/${before}`, after: null },
+      },
+      createdAt,
+    });
+    await db
+      .insert(schema.auditLog)
+      .values([
+        audit('audit-1', 'modifier', 'modifier/replaced-recently.png', RECENT),
+        audit('audit-2', 'modifier', 'modifier/replaced-long-ago.png', OLD),
+        audit('audit-3', 'coupon', 'modifier/other-resource.png', RECENT),
+      ]);
+    objects['modifier/'] = [
+      { Key: 'modifier/replaced-recently.png', LastModified: OLD },
+      { Key: 'modifier/replaced-long-ago.png', LastModified: OLD },
+      { Key: 'modifier/other-resource.png', LastModified: OLD },
+    ];
+
+    const result = await createService().sweep(false);
+
+    expect(kindOf(result, 'modifier')?.keys).toEqual([
+      'modifier/replaced-long-ago.png',
+      'modifier/other-resource.png',
+    ]);
+  });
+
   it('只列出各圖片種類的 prefix，並依 continuation token 讀完每一頁', async () => {
     await createService().sweep(false);
 

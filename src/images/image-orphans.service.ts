@@ -1,7 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import type { _Object } from '@aws-sdk/client-s3';
-import { and, getTableName, inArray, sql } from 'drizzle-orm';
+import { and, getTableName, gte, inArray, sql } from 'drizzle-orm';
+
+import { auditLog } from '../db/schema/audit.js';
 
 import { deletedRecord } from '../db/schema/deleted-records.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -34,8 +36,8 @@ export class ImageOrphansService {
     }
 
     // 參照必須在列出物件之後才查：同內容重新上傳會覆寫同一個 key，先查參照會把剛寫入的參照漏掉
-    const referenced = await this.referencedKeys();
-    const cutoff = Date.now() - GRACE_PERIOD_MS;
+    const cutoff = new Date(Date.now() - GRACE_PERIOD_MS);
+    const referenced = await this.referencedKeys(cutoff);
     const orphans = listings.map(({ kind, objects }) => ({
       kind,
       scanned: objects.length,
@@ -43,7 +45,7 @@ export class ImageOrphansService {
         Key &&
         !referenced.has(Key) &&
         LastModified &&
-        LastModified.getTime() < cutoff
+        LastModified.getTime() < cutoff.getTime()
           ? [Key]
           : [],
       ),
@@ -73,7 +75,7 @@ export class ImageOrphansService {
     return { applied: apply, kinds };
   }
 
-  private async referencedKeys() {
+  private async referencedKeys(replacedSince: Date) {
     const urls = await Promise.all([
       ...Object.values(IMAGE_TABLES).map((table) =>
         this.db
@@ -91,6 +93,18 @@ export class ImageOrphansService {
               Object.values(IMAGE_TABLES).map((table) => getTableName(table)),
             ),
             sql`starts_with(${deletedRecord.data}->>'image', 'https://')`,
+          ),
+        ),
+      this.db
+        .select({
+          image: sql<string>`${auditLog.changes}->'image'->>'before'`,
+        })
+        .from(auditLog)
+        .where(
+          and(
+            gte(auditLog.createdAt, replacedSince),
+            inArray(auditLog.resource, [...IMAGE_KINDS]),
+            sql`starts_with(${auditLog.changes}->'image'->>'before', 'https://')`,
           ),
         ),
     ]);
