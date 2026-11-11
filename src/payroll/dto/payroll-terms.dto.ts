@@ -90,7 +90,7 @@ export class TaiwanInsuranceDto {
   @ApiPropertyOptional() voluntaryHealthInsurance?: boolean;
 }
 
-export class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
+class TaiwanInsuranceInputDto extends PickType(TaiwanInsuranceDto, [
   'laborInsuranceExemption',
   'healthInsuranceExemption',
   'employmentInsuranceExemption',

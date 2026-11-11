@@ -65,7 +65,7 @@ export class CreatePayrollEarningTypeDto extends RenamePayrollEarningTypeDto {
   category: PayrollEarningCategory;
 }
 
-export class PayrollEarningTypeResponseDto {
+class PayrollEarningTypeResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiProperty({
