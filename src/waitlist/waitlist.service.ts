@@ -901,8 +901,12 @@ export class WaitlistService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), desc(waitlistTicket.createdAt)]
-      : [desc(waitlistTicket.createdAt)];
+      ? [
+          dir(fieldMap[sortBy]),
+          desc(waitlistTicket.createdAt),
+          desc(waitlistTicket.id),
+        ]
+      : [desc(waitlistTicket.createdAt), desc(waitlistTicket.id)];
 
     const where = and(
       eq(waitlistTicket.organizationId, org.id),
