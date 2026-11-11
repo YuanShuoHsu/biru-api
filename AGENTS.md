@@ -270,10 +270,11 @@ who once had a URL keeps seeing the row's current image until the row or its ima
 
 `pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
 
-Member avatars (`user.image`) and store logos (`organization.logo`) are uploaded the same way, by the better-auth hooks in
-`src/auth/index.ts`, keyed `user/` and `organization/`. The hooks accept only an empty string, a URL that parses as
-`https:` (Google's avatar) or a data URL matching `IMAGE_DATA_URL_PATTERN` / `IMAGE_DATA_URL_MAX_LENGTH`
-(`src/common/constants/image.ts`); any other string is rejected with `INVALID_IMAGE`.
+Member avatar (`user.image`) and store logo (`organization.logo`) data URLs are uploaded the same way, by the
+better-auth hooks in `src/auth/index.ts`, keyed `user/` and `organization/`. The hooks accept only an empty string, any
+https URL in its canonical form (`URL.href`), such as Google's avatar, or a data URL matching `IMAGE_DATA_URL_PATTERN`
+(`src/common/constants/image.ts`), and nothing longer than `IMAGE_DATA_URL_MAX_LENGTH`; any other string is rejected
+with `INVALID_IMAGE`.
 They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
 
 ### Points Expiry

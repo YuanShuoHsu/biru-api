@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
+import { languagesEnum } from '../db/schema/enums.js';
 import * as schema from '../db/schema/index.js';
 import { ImageStorageService } from '../images/image-storage.service.js';
 import { imageVersion } from '../images/image-url.js';
@@ -37,6 +38,8 @@ const ADDRESS = {
 const IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
 const OTHER_IMAGE = 'data:image/webp;base64,UklGRg==';
 const HTTPS_IMAGE = 'https://lh3.googleusercontent.com/a/avatar';
+const GOOGLE_IMAGE =
+  'https://lh3.googleusercontent.com/a/ACg8ocJ_xYz-AbC123=s96-c';
 const INVALID_IMAGES = [
   [
     'svg',
@@ -52,6 +55,11 @@ const INVALID_IMAGES = [
   ['scheme 中的換行', 'd\nata:text/html,<script>alert(1)</script>'],
   ['http', 'http://example.com/avatar.png'],
   ['javascript', 'javascript:alert(1)'],
+  ['過長的 https', `https://a.example/#${'A'.repeat(1_500_000)}`],
+  ['開頭控制字元的 https', '\x01https://a.example/avatar.png'],
+  ['前後空白的 https', ' https://a.example/avatar.png\n'],
+  ['反斜線的 https', 'https:\\\\evil.example'],
+  ['省略斜線的 https', 'https:a.com'],
 ];
 const MAX_LENGTH_IMAGE = `data:image/png;base64,${'A'.repeat(600_000 - 'data:image/png;base64,'.length)}`;
 
@@ -199,13 +207,16 @@ describe.each([
     expect(send).not.toHaveBeenCalled();
   });
 
-  it.each([[HTTPS_IMAGE], [null], ['']])('頭像 %j 原樣寫入', async (image) => {
-    const response = await request('/update-user', { image });
+  it.each([[HTTPS_IMAGE], [GOOGLE_IMAGE], [null], ['']])(
+    '頭像 %j 原樣寫入',
+    async (image) => {
+      const response = await request('/update-user', { image });
 
-    expect(response.status).toBe(200);
-    expect(await userImage('ann@example.com')).toBe(image);
-    expect(send).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(200);
+      expect(await userImage('ann@example.com')).toBe(image);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
 
   it('平台管理員更新其他會員的頭像', async () => {
     const { rows } = await client.query<{ id: string }>(
@@ -297,7 +308,7 @@ describe.each([
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       code: 'INVALID_IMAGE',
-      message: `${field} must be an https URL or a png, jpeg or webp data URL of at most 600000 characters`,
+      message: `${field} must be a canonical https URL or a png, jpeg or webp data URL of at most 600000 characters`,
     });
     expect(send).not.toHaveBeenCalled();
   };
@@ -409,6 +420,27 @@ describe.each([
     });
   });
 
+  it('OAuth 建立與更新會員時寫入 Google 頭像網址', async () => {
+    const { internalAdapter } = await auth.$context;
+
+    const created = await runInAuthTransaction(db, () =>
+      internalAdapter.createUser({
+        email: 'google@example.com',
+        emailVerified: true,
+        firstName: 'Gia',
+        name: 'Gia',
+        image: GOOGLE_IMAGE,
+      }),
+    );
+    expect(await userImage('google@example.com')).toBe(GOOGLE_IMAGE);
+
+    await runInAuthTransaction(db, () =>
+      internalAdapter.updateUser(created.id, { image: HTTPS_IMAGE }),
+    );
+    expect(await userImage('google@example.com')).toBe(HTTPS_IMAGE);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('長度剛好達上限的 data URL 可以寫入', async () => {
     const response = await request('/update-user', {
       image: MAX_LENGTH_IMAGE,
@@ -439,5 +471,15 @@ describe.each([
       `select id from "user" where email = 'fail@example.com'`,
     );
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe('INVALID_IMAGE 的翻譯', () => {
+  it.each(languagesEnum.enumValues)('%s 有非空的翻譯', (language) => {
+    const messages = JSON.parse(
+      readFileSync(`src/i18n/${language}/auth.json`, 'utf8'),
+    ) as Record<string, unknown>;
+
+    expect(messages.INVALID_IMAGE).toEqual(expect.stringMatching(/\S/));
   });
 });
