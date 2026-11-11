@@ -166,6 +166,9 @@
     "batchNotFound": "이 삭제 기록을 찾을 수 없습니다. 보관 기간이 지났을 수 있습니다.",
     "restoreRevokedPlatformAdmin": "복원할 수 없습니다: 이 멤버는 플랫폼 관리자로 참여했지만 해당 사용자는 더 이상 플랫폼 관리자가 아닙니다."
   },
+  "donateCodes": {
+    "listUnavailable": "지금은 기부 코드 목록을 가져올 수 없습니다. 잠시 후 다시 시도하거나 다른 영수증 유형을 선택해 주세요."
+  },
   "exceptions": {
     "badRequest": "잘못된 요청입니다",
     "forbidden": "이 데이터에 접근할 권한이 없습니다",

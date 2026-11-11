@@ -166,6 +166,9 @@
     "batchNotFound": "This deleted record could not be found. It may be past its retention period.",
     "restoreRevokedPlatformAdmin": "Can't restore: this member joined as a platform admin, and that user is no longer a platform admin."
   },
+  "donateCodes": {
+    "listUnavailable": "The donation code list is unavailable right now. Please try again later or choose another invoice type."
+  },
   "exceptions": {
     "badRequest": "Invalid request",
     "forbidden": "You do not have permission to access this",

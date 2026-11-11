@@ -166,6 +166,9 @@
     "batchNotFound": "找不到这笔删除记录，可能已超过保留期限。",
     "restoreRevokedPlatformAdmin": "无法还原：这位成员是以平台管理员身份加入的，但该用户已不是平台管理员。"
   },
+  "donateCodes": {
+    "listUnavailable": "目前无法获取捐赠码列表，请稍后再试，或改选其他发票类型"
+  },
   "exceptions": {
     "badRequest": "请求格式不正确",
     "forbidden": "你没有权限访问此数据",
