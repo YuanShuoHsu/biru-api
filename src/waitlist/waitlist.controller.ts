@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   Param,
   ParseEnumPipe,
   Patch,
@@ -34,6 +33,7 @@ import {
   HOURLY_THROTTLER,
 } from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator.js';
 import { toLanguage } from '../common/utils/language.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
@@ -141,7 +141,7 @@ export class WaitlistController {
   async createTicket(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateWaitlistTicketDto,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @IdempotencyKey() idempotencyKey: string | null,
     @I18nLang() lang: string,
     @Session() session: UserSession | null,
     @Req() req: Request,
@@ -153,7 +153,7 @@ export class WaitlistController {
       dto,
       session?.user.id || null,
       toLanguage(lang),
-      idempotencyKey || null,
+      idempotencyKey,
       false,
       qrSessionValue,
     );
@@ -182,7 +182,7 @@ export class WaitlistController {
   createTicketByStaff(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateWaitlistTicketDto,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @IdempotencyKey() idempotencyKey: string | null,
     @I18nLang() lang: string,
   ): Promise<WaitlistTicketResponseDto> {
     return this.waitlistService.createTicket(
@@ -190,7 +190,7 @@ export class WaitlistController {
       dto,
       null,
       toLanguage(lang),
-      idempotencyKey || null,
+      idempotencyKey,
       true,
     );
   }

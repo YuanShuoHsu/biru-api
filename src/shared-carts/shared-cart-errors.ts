@@ -10,6 +10,11 @@ import { I18nContext } from 'nestjs-i18n';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const sharedCartErrorCodes = [
+  'sharedCartApplicantCheckoutLocked',
+  'sharedCartCheckoutExpired',
+  'sharedCartCheckoutLeaveBlocked',
+  'sharedCartCheckoutLocked',
+  'sharedCartCheckoutNotFound',
   'sharedCartCodeNotFound',
   'sharedCartFull',
   'sharedCartItemNotFound',
@@ -24,7 +29,7 @@ export const sharedCartErrorCodes = [
   'sharedCartRequestsFull',
 ] as const;
 
-type SharedCartErrorCode = (typeof sharedCartErrorCodes)[number];
+export type SharedCartErrorCode = (typeof sharedCartErrorCodes)[number];
 
 const errorBody = (
   code: SharedCartErrorCode,
