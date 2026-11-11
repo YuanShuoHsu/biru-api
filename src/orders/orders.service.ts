@@ -952,8 +952,8 @@ export class OrdersService {
             ),
             orderBy:
               orderStatus === 'OrderDelivered'
-                ? [desc(order.updatedAt)]
-                : [asc(BOARD_AT)],
+                ? [desc(order.updatedAt), asc(order.id)]
+                : [asc(BOARD_AT), asc(order.createdAt), asc(order.id)],
             limit:
               orderStatus === 'OrderDelivered'
                 ? ADMIN_BOARD_DONE_COLUMN_LIMIT
@@ -1020,7 +1020,7 @@ export class OrdersService {
           ),
         ),
       )
-      .orderBy(asc(BOARD_AT));
+      .orderBy(asc(BOARD_AT), asc(order.createdAt), asc(order.id));
   }
 
   async applyTransitions(
