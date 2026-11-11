@@ -100,6 +100,25 @@ describe('StorePhotosService.findAll alt', () => {
       'door',
     ]);
   });
+
+  it('排序值與建立時間相同時，依 id 排出固定順序，分頁不重複也不漏', async () => {
+    const pages = [];
+    for (const offset of [0, 1, 2])
+      pages.push(...(await photoIds({ limit: 1, offset, sortBy: 'isActive' })));
+    expect(pages).toEqual(['bar', 'door', 'patio']);
+
+    await client.exec('update store_photo set sort_order = 0');
+    try {
+      expect(await photoIds({})).toEqual(['bar', 'door', 'patio']);
+      expect(
+        (await service.findAllActive('zh-TW')).map(({ id }) => id),
+      ).toEqual(['bar', 'door', 'patio']);
+    } finally {
+      await client.exec(
+        `update store_photo set sort_order = case id when 'bar' then 0 when 'patio' then 1 else 2 end`,
+      );
+    }
+  });
 });
 
 describe('StorePhotosService 圖片網址', () => {
