@@ -875,7 +875,7 @@ export class RecipesService {
       .select()
       .from(offer)
       .where(inArray(offer.menuItemId, menuItemIds))
-      .orderBy(asc(offer.createdAt));
+      .orderBy(asc(offer.createdAt), asc(offer.id));
 
     const prices = new Map<string, number>();
     for (const row of offers) {

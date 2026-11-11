@@ -247,7 +247,7 @@ export class PrepEstimateService {
     const offers = menuItemIds.length
       ? await this.db.query.offer.findMany({
           columns: { deliveryLeadTimeMinutes: true, menuItemId: true },
-          orderBy: [asc(offer.createdAt)],
+          orderBy: [asc(offer.createdAt), asc(offer.id)],
           where: inArray(offer.menuItemId, menuItemIds),
         })
       : [];

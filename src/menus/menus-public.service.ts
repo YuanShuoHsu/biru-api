@@ -69,11 +69,17 @@ const getActiveAddOnMenuItems = <
   );
 
 const modifierGroupsQuery = {
-  orderBy: [asc(menuItemModifierGroup.sortOrder)],
+  orderBy: [
+    asc(menuItemModifierGroup.sortOrder),
+    asc(menuItemModifierGroup.id),
+  ],
   with: {
     modifierGroup: {
       with: {
-        modifiers: { ...imageRefQuery, orderBy: [asc(modifier.sortOrder)] },
+        modifiers: {
+          ...imageRefQuery,
+          orderBy: [asc(modifier.sortOrder), asc(modifier.id)],
+        },
       },
     },
   },
@@ -128,27 +134,39 @@ export class PublicMenusService {
           organization: { columns: { currency: true } },
           menuSections: {
             ...imageRefQuery,
-            orderBy: [asc(menuSection.sortOrder)],
+            orderBy: [asc(menuSection.sortOrder), asc(menuSection.id)],
             with: {
               menuItems: {
                 ...imageRefQuery,
-                orderBy: [asc(menuItem.sortOrder)],
+                orderBy: [asc(menuItem.sortOrder), asc(menuItem.id)],
                 with: {
-                  offers: { orderBy: [asc(offer.createdAt)] },
+                  offers: { orderBy: [asc(offer.createdAt), asc(offer.id)] },
                   addOns: {
-                    orderBy: [asc(menuItemAddOn.sortOrder)],
+                    orderBy: [
+                      asc(menuItemAddOn.sortOrder),
+                      asc(menuItemAddOn.id),
+                    ],
                     with: {
                       addOnMenuItem: {
                         ...imageRefQuery,
-                        with: { offers: { orderBy: [asc(offer.createdAt)] } },
+                        with: {
+                          offers: {
+                            orderBy: [asc(offer.createdAt), asc(offer.id)],
+                          },
+                        },
                       },
                       addOnMenuSection: {
                         with: {
                           menuItems: {
                             ...imageRefQuery,
-                            orderBy: [asc(menuItem.sortOrder)],
+                            orderBy: [
+                              asc(menuItem.sortOrder),
+                              asc(menuItem.id),
+                            ],
                             with: {
-                              offers: { orderBy: [asc(offer.createdAt)] },
+                              offers: {
+                                orderBy: [asc(offer.createdAt), asc(offer.id)],
+                              },
                             },
                           },
                         },
