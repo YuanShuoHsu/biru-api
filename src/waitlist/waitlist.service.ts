@@ -130,6 +130,20 @@ const inTodayQueue = (organizationId: string) =>
     ),
   );
 
+const numberedInQueue = (
+  organizationId: string,
+  prefix: string,
+  serviceDate: string,
+) =>
+  and(
+    eq(waitlistTicket.organizationId, organizationId),
+    eq(waitlistTicket.prefix, prefix),
+    or(
+      eq(waitlistTicket.serviceDate, serviceDate),
+      inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+    ),
+  );
+
 const isActive = (status: WaitlistTicketStatus) =>
   (WAITLIST_ACTIVE_STATUSES as readonly WaitlistTicketStatus[]).includes(
     status,
@@ -492,13 +506,7 @@ export class WaitlistService {
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)
-        .where(
-          and(
-            eq(waitlistTicket.organizationId, org.id),
-            eq(waitlistTicket.serviceDate, serviceDate),
-            eq(waitlistTicket.prefix, group.prefix),
-          ),
-        );
+        .where(numberedInQueue(org.id, group.prefix, serviceDate));
 
       const [inserted] = await tx
         .insert(waitlistTicket)
@@ -750,11 +758,7 @@ export class WaitlistService {
             .select({ value: max(waitlistTicket.number) })
             .from(waitlistTicket)
             .where(
-              and(
-                eq(waitlistTicket.organizationId, ticket.organizationId),
-                eq(waitlistTicket.serviceDate, serviceDate),
-                eq(waitlistTicket.prefix, group.prefix),
-              ),
+              numberedInQueue(ticket.organizationId, group.prefix, serviceDate),
             )
         : [{ value: null }];
 
