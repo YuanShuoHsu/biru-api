@@ -516,6 +516,7 @@ export class WaitlistService {
           idempotencyKey,
           idempotencyFingerprint,
           userId,
+          createdAt: new Date(),
         })
         .returning();
 
