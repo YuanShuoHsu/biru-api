@@ -48,11 +48,13 @@ class HasDomainHost implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     if (typeof value !== 'string' || !URL.canParse(value)) return false;
 
-    return !isIP(new URL(value).hostname.replace(/^\[|\]$/g, ''));
+    const { hostname, port } = new URL(value);
+
+    return !port && !isIP(hostname.replace(/^\[|\]$/g, ''));
   }
 
   defaultMessage(): string {
-    return 'endpoint 必須是網域名稱，不可為 IP';
+    return 'endpoint 必須是網域名稱，不可為 IP 或指定連接埠';
   }
 }
 

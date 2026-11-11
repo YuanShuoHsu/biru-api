@@ -23,6 +23,15 @@ describe('CreatePushSubscriptionDto', () => {
     expect(await errorsOf({ endpoint, keys, app: 'storefront' })).toEqual([]);
   });
 
+  it.each([
+    'https://updates.push.services.mozilla.com/wpush/v2/gAAAAAB',
+    'https://web.push.apple.com/QGuQyavXutnMH',
+    'https://db5p.notify.windows.com/w/?token=BQYAAAB%2b',
+  ])('accepts the endpoint %s', async (endpoint) => {
+    const { keys } = BROWSER_JSON;
+    expect(await errorsOf({ endpoint, keys, app: 'storefront' })).toEqual([]);
+  });
+
   it('rejects a non-https endpoint and missing keys', async () => {
     expect(
       await errorsOf({ endpoint: 'http://push.example.com/x', app: 'admin' }),
@@ -34,6 +43,8 @@ describe('CreatePushSubscriptionDto', () => {
     'https://10.0.0.1/push',
     'https://[::1]/push',
     'https://[::ffff:127.0.0.1]/push',
+    'https://[fe80::1%25eth0]/push',
+    'https://push.example.com:6379/push',
     'https://localhost/push',
     'https://user:pass@push.example.com/push',
   ])('rejects the endpoint %s', async (endpoint) => {
