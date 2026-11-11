@@ -59,7 +59,7 @@ class OrderItemAddOnSnapshotDto {
   sweetnessLevel?: SweetnessLevel | null;
 }
 
-class OrderItemResponseDto {
+export class OrderItemResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() orderId: string;
   @ApiProperty() menuItemId: string;
@@ -93,6 +93,10 @@ class OrderItemResponseDto {
     description: '從共享點餐單送單時，點這個品項的參與者送單當下顯示的暱稱',
   })
   participantNickname?: string | null;
+  @ApiPropertyOptional({
+    description: '廚房標記這個品項做好的時間；未完成為 null',
+  })
+  preparedAt?: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

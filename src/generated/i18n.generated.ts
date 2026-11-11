@@ -353,6 +353,7 @@ export type I18nTranslations = {
             "modifierUnavailableForMode": string;
             "notAwaitingPayment": string;
             "onlinePaymentNotRequired": string;
+            "orderItemNotFound": string;
             "orderNotFound": string;
             "orderQrSecretNeverRotated": string;
             "orderQrSessionNotFound": string;
