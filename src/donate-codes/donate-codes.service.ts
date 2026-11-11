@@ -1,8 +1,15 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
+import { I18nContext } from 'nestjs-i18n';
 
 import { CRON_ENABLED } from '../common/constants/cron.js';
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 import type { DonateCodeResponseDto } from './dto/donate-code-response.dto.js';
 
@@ -45,6 +52,7 @@ export class DonateCodesService implements OnModuleInit {
         if (page.length < PAGE_SIZE) break;
         offset += PAGE_SIZE;
       }
+      if (!entries.length) throw new Error('empty donate code list');
 
       this.donateCodes = entries;
       this.refreshFailed = false;
@@ -63,6 +71,16 @@ export class DonateCodesService implements OnModuleInit {
   }
 
   getAll(): DonateCodeResponseDto[] {
+    if (!this.donateCodes.length)
+      throw new ServiceUnavailableException({
+        error: 'Service Unavailable',
+        code: 'donateCodesUnavailable',
+        message:
+          I18nContext.current<I18nTranslations>()?.t(
+            'common.donateCodes.listUnavailable',
+          ) ?? 'donateCodesUnavailable',
+      });
+
     return this.donateCodes;
   }
 }
