@@ -1,10 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import {
-  DeleteObjectsCommand,
-  ListObjectsV2Command,
-  type _Object,
-} from '@aws-sdk/client-s3';
+import type { _Object } from '@aws-sdk/client-s3';
 import { and, getTableName, inArray, sql } from 'drizzle-orm';
 
 import { deletedRecord } from '../db/schema/deleted-records.js';
@@ -12,12 +8,10 @@ import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import type { ImageOrphanSweepResponseDto } from './dto/image-orphan-sweep.dto.js';
 import { ImageStorageService } from './image-storage.service.js';
-import { IMAGE_KINDS } from './image-url.js';
+import { IMAGE_KINDS, type ImageKind } from './image-url.js';
 import { IMAGE_TABLES } from './images.service.js';
 
 const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
-// https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
-const DELETE_BATCH_SIZE = 1000;
 
 const keyOf = (url: string) =>
   new URL(url).pathname.split('/').slice(-2).join('/');
@@ -32,43 +26,48 @@ export class ImageOrphansService {
   ) {}
 
   async sweep(apply: boolean): Promise<ImageOrphanSweepResponseDto> {
-    const { storage } = this.imageStorageService;
-    if (!storage) return { applied: apply, kinds: [] };
+    const listings: { kind: ImageKind; objects: _Object[] }[] = [];
+    for (const kind of IMAGE_KINDS) {
+      const objects = await this.imageStorageService.list(`${kind}/`);
+      if (!objects) return { applied: apply, kinds: [] };
+      listings.push({ kind, objects });
+    }
 
+    // 參照必須在列出物件之後才查：同內容重新上傳會覆寫同一個 key，先查參照會把剛寫入的參照漏掉
     const referenced = await this.referencedKeys();
     const cutoff = Date.now() - GRACE_PERIOD_MS;
-    const kinds: ImageOrphanSweepResponseDto['kinds'] = [];
-
-    for (const kind of IMAGE_KINDS) {
-      const objects: _Object[] = [];
-      let continuationToken: string | undefined;
-      do {
-        const page = await storage.client.send(
-          new ListObjectsV2Command({
-            Bucket: storage.bucket,
-            Prefix: `${kind}/`,
-            ContinuationToken: continuationToken,
-          }),
-        );
-        objects.push(...(page.Contents ?? []));
-        continuationToken = page.NextContinuationToken;
-      } while (continuationToken);
-
-      const orphans = objects.flatMap(({ Key, LastModified }) =>
+    const orphans = listings.map(({ kind, objects }) => ({
+      kind,
+      scanned: objects.length,
+      keys: objects.flatMap(({ Key, LastModified }) =>
         Key &&
         !referenced.has(Key) &&
         LastModified &&
         LastModified.getTime() < cutoff
           ? [Key]
           : [],
-      );
+      ),
+    }));
 
-      const keys = apply ? await this.delete(orphans) : orphans;
-      kinds.push({ kind, scanned: objects.length, count: keys.length, keys });
+    const errors = apply
+      ? await this.imageStorageService.delete(
+          orphans.flatMap(({ keys }) => keys),
+        )
+      : [];
+    if (errors.length > 0) {
+      this.logger.warn(
+        `刪除 ${errors.length} 個孤兒圖片失敗：${errors.map(({ Key, Code }) => `${Key} (${Code})`).join(', ')}`,
+      );
     }
 
+    const failed = new Set(errors.map(({ Key }) => Key));
+    const kinds = orphans.map(({ kind, scanned, keys }) => {
+      const remaining = keys.filter((key) => !failed.has(key));
+      return { kind, scanned, count: remaining.length, keys: remaining };
+    });
+
     this.logger.log(
-      `${apply ? 'Deleted' : 'Found'} ${kinds.reduce((sum, { count }) => sum + count, 0)} orphan images (${kinds.map(({ kind, count }) => `${kind}: ${count}`).join(', ')})`,
+      `${apply ? '已刪除' : '找到'} ${kinds.reduce((sum, { count }) => sum + count, 0)} 個孤兒圖片（${kinds.map(({ kind, count }) => `${kind} ${count}`).join('、')}）`,
     );
 
     return { applied: apply, kinds };
@@ -99,34 +98,5 @@ export class ImageOrphansService {
     return new Set(
       urls.flat().flatMap(({ image }) => (image ? [keyOf(image)] : [])),
     );
-  }
-
-  private async delete(keys: string[]) {
-    const { storage } = this.imageStorageService;
-    const deleted: string[] = [];
-
-    for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
-      const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
-      const { Errors = [] } = await storage!.client.send(
-        new DeleteObjectsCommand({
-          Bucket: storage!.bucket,
-          Delete: {
-            Objects: batch.map((Key) => ({ Key })),
-            Quiet: true,
-          },
-        }),
-      );
-
-      if (Errors.length > 0) {
-        this.logger.warn(
-          `Failed to delete ${Errors.length} orphan images: ${Errors.map(({ Key, Code }) => `${Key} (${Code})`).join(', ')}`,
-        );
-      }
-
-      const failed = new Set(Errors.map(({ Key }) => Key));
-      deleted.push(...batch.filter((key) => !failed.has(key)));
-    }
-
-    return deleted;
   }
 }

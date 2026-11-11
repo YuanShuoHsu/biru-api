@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+  type _Error,
+  type _Object,
+} from '@aws-sdk/client-s3';
 
 import {
   imageVersion,
@@ -9,9 +16,12 @@ import {
   type ImageKind,
 } from './image-url.js';
 
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
+const DELETE_BATCH_SIZE = 1000;
+
 @Injectable()
 export class ImageStorageService {
-  readonly storage: {
+  private readonly storage: {
     client: S3Client;
     bucket: string;
     publicUrl: string;
@@ -65,5 +75,47 @@ export class ImageStorageService {
     );
 
     return `${this.storage.publicUrl}/${key}`;
+  }
+
+  async list(prefix: string): Promise<_Object[] | null> {
+    if (!this.storage) return null;
+
+    const objects: _Object[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const page = await this.storage.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.storage.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      objects.push(...(page.Contents ?? []));
+      continuationToken = page.NextContinuationToken;
+    } while (continuationToken);
+
+    return objects;
+  }
+
+  async delete(keys: string[]): Promise<_Error[]> {
+    if (!this.storage) return [];
+
+    const errors: _Error[] = [];
+    for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
+      const { Errors = [] } = await this.storage.client.send(
+        new DeleteObjectsCommand({
+          Bucket: this.storage.bucket,
+          Delete: {
+            Objects: keys
+              .slice(i, i + DELETE_BATCH_SIZE)
+              .map((Key) => ({ Key })),
+            Quiet: true,
+          },
+        }),
+      );
+      errors.push(...Errors);
+    }
+
+    return errors;
   }
 }
