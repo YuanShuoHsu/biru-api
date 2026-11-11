@@ -309,3 +309,37 @@ describe('CreateOrderDto pickupTime', () => {
     },
   );
 });
+
+describe('CreateOrderDto sharedCart', () => {
+  const item = { addOns: [], menuItemId: 'latte', modifiers: {}, quantity: 1 };
+  const propertiesOf = async (overrides: Record<string, unknown>) =>
+    (
+      await validate(
+        plainToInstance(CreateOrderDto, {
+          customer: { name: 'Amy' },
+          invoice: { type: 'personal' },
+          mode: 'counter',
+          payment: 'Credit',
+          ...overrides,
+        }),
+      )
+    ).map(({ property }) => property);
+
+  it('takes the items from the shared cart instead of the body', async () => {
+    expect(await propertiesOf({ sharedCart: true })).toEqual([]);
+  });
+
+  it('rejects items sent along with sharedCart', async () => {
+    expect(await propertiesOf({ items: [item], sharedCart: true })).toEqual([
+      'sharedCart',
+    ]);
+  });
+
+  it.each([{}, { sharedCart: false }])(
+    'still requires items without a shared cart (%j)',
+    async (overrides) => {
+      expect(await propertiesOf(overrides)).toEqual(['items']);
+      expect(await propertiesOf({ ...overrides, items: [item] })).toEqual([]);
+    },
+  );
+});

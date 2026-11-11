@@ -93,6 +93,11 @@ import {
 import { MenuStockService } from '../inventory/menu-stock.service.js';
 import { localize } from '../menus/menus-public.service.js';
 import { PointsService } from '../points/points.service.js';
+import {
+  claimSharedCartOrder,
+  sharedCartOrderOf,
+  type SharedCartCookies,
+} from '../shared-carts/shared-carts.service.js';
 
 import { type AdminOrderBoardColumnDto } from './dto/admin-order-board-response.dto.js';
 import type { AdminOrderResponseDto } from './dto/admin-order-response.dto.js';
@@ -463,6 +468,7 @@ export class OrdersService {
     userId: string | null,
     idempotencyKey: string | null,
     qrSessionValue?: string,
+    sharedCartCookies?: SharedCartCookies,
   ): Promise<OrderReceiptResponseDto> {
     if (dto.mode === 'pickup' && dto.payment === 'Cash')
       throw badRequestError('cashUnavailableForMode');
@@ -475,11 +481,8 @@ export class OrdersService {
 
     const org = await this.getOrgBySlug(organizationSlug);
 
-    const qrSession = verifyOrderQrSession(
-      org.id,
-      await this.orderQrService.secretOf(org.id),
-      qrSessionValue,
-    );
+    const qrSecret = await this.orderQrService.secretOf(org.id);
+    const qrSession = verifyOrderQrSession(org.id, qrSecret, qrSessionValue);
     const hasQrSession = qrSession?.mode === dto.mode;
 
     if (
@@ -514,9 +517,19 @@ export class OrdersService {
       ? await this.resolvePickupTime(org, dto.pickupTime)
       : null;
 
+    const sharedCartOrder = dto.sharedCart
+      ? await sharedCartOrderOf(
+          this.db,
+          org.id,
+          qrSecret,
+          sharedCartCookies,
+          dto,
+        )
+      : null;
+
     const orderItemsData = await this.orderPricingService.resolveOrderItems(
       org.id,
-      dto.items,
+      sharedCartOrder?.items ?? dto.items ?? [],
       dto.mode,
       pickupTime ?? new Date(),
     );
@@ -573,6 +586,8 @@ export class OrdersService {
             : null;
         if (duplicate) return duplicate;
 
+        if (sharedCartOrder) await claimSharedCartOrder(tx, sharedCartOrder);
+
         const pickupDayStart = startOfDay(pickupTime ?? undefined);
         const [{ value: pickupDayCount }] = await tx
           .select({ value: count() })
@@ -605,6 +620,7 @@ export class OrdersService {
             userId,
             partySize: isDineIn ? dto.partySize : null,
             pickupTime,
+            sharedCartId: sharedCartOrder?.sharedCartId ?? null,
             tableNumber: isDineIn ? dto.tableNumber : null,
             ...(applied && {
               discount: applied.discount.toFixed(2),
@@ -643,6 +659,7 @@ export class OrdersService {
               servingTemperatureLevel: i.servingTemperatureLevel,
               sweetnessLevel: i.sweetnessLevel,
               unitPrice: i.unitPrice,
+              ...sharedCartOrder?.participants[index],
             })),
           )
           .returning();

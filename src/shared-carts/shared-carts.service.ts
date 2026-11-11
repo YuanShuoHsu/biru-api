@@ -32,6 +32,7 @@ import {
   sharedCartItem,
   sharedCartParticipant,
   type SharedCartAnimalAvatar,
+  type SharedCartAvatar,
   type SharedCartParticipantStatus,
 } from '../db/schema/shared-carts.js';
 import { session, user } from '../db/schema/users.js';
@@ -277,6 +278,138 @@ const countActive = async (tx: Tx, sharedCartId: string) => {
       ),
     );
   return active;
+};
+
+const shownProfile = (person: {
+  anonymousAvatar: SharedCartAnimalAvatar;
+  avatar: SharedCartAvatar;
+  memberProfile: boolean;
+  nickname: string;
+  sessionId: string | null;
+}): { avatar: SharedCartAvatar; nickname: string } =>
+  person.memberProfile && !person.sessionId
+    ? {
+        avatar: person.anonymousAvatar,
+        nickname: anonymousNickname(person.anonymousAvatar),
+      }
+    : { avatar: person.avatar, nickname: person.nickname };
+
+const orderItemsOf = (db: DrizzleDB | Tx, sharedCartId: string) =>
+  db
+    .select({
+      addOns: sharedCartItem.addOns,
+      anonymousAvatar,
+      avatar: sharedCartParticipant.avatar,
+      id: sharedCartItem.id,
+      memberProfile: sharedCartParticipant.memberProfile,
+      menuItemId: sharedCartItem.menuItemId,
+      modifiers: sharedCartItem.modifiers,
+      nickname: sharedCartParticipant.nickname,
+      quantity: sharedCartItem.quantity,
+      servingTemperatureLevel: sharedCartItem.servingTemperatureLevel,
+      sessionId: session.id,
+      sweetnessLevel: sharedCartItem.sweetnessLevel,
+    })
+    .from(sharedCartItem)
+    .innerJoin(
+      sharedCartParticipant,
+      eq(sharedCartParticipant.id, sharedCartItem.participantId),
+    )
+    .leftJoin(session, liveSessionOf())
+    .where(eq(sharedCartItem.sharedCartId, sharedCartId))
+    .orderBy(asc(sharedCartItem.createdAt), asc(sharedCartItem.id));
+
+const contentsOf = (rows: Awaited<ReturnType<typeof orderItemsOf>>) =>
+  JSON.stringify(rows.map((row) => [row.id, itemValues(row)]));
+
+export type SharedCartOrder = {
+  contents: string;
+  items: CreateOrderItemDto[];
+  participantId: string;
+  participants: {
+    participantAvatar: SharedCartAvatar;
+    participantNickname: string;
+  }[];
+  sharedCartId: string;
+};
+
+export const sharedCartOrderOf = async (
+  db: DrizzleDB,
+  organizationId: string,
+  qrSecret: string | null,
+  cookies: SharedCartCookies,
+  { mode, tableNumber }: { mode: OrderMode; tableNumber?: number },
+): Promise<SharedCartOrder> => {
+  const deviceKey = verifySharedCartParticipant(
+    organizationId,
+    qrSecret,
+    cookies?.[sharedCartParticipantCookie(organizationId)],
+  );
+  if (!deviceKey) throw notFoundError('sharedCartNotFound');
+  const { active, pending } = await deviceOf(db, organizationId, deviceKey);
+  if (!active)
+    throw pending
+      ? forbiddenError('sharedCartPending')
+      : notFoundError('sharedCartNotFound');
+
+  const [cart] = await db
+    .select({ tableNumber: sharedCart.tableNumber })
+    .from(sharedCart)
+    .where(eq(sharedCart.id, active.sharedCartId));
+  if (!cart) throw notFoundError('sharedCartNotFound');
+  if (
+    active.mode !== mode ||
+    (mode === 'dineIn' && cart.tableNumber !== tableNumber)
+  )
+    throw badRequestError('sharedCartModeMismatch');
+
+  const rows = await orderItemsOf(db, active.sharedCartId);
+  if (!rows.length) throw badRequestError('sharedCartEmpty');
+  return {
+    contents: contentsOf(rows),
+    items: rows.map(itemValues),
+    participantId: active.participantId,
+    participants: rows.map((row) => {
+      const { avatar, nickname } = shownProfile(row);
+      return { participantAvatar: avatar, participantNickname: nickname };
+    }),
+    sharedCartId: active.sharedCartId,
+  };
+};
+
+export const claimSharedCartOrder = async (
+  tx: Tx,
+  { contents, participantId, sharedCartId }: SharedCartOrder,
+) => {
+  const [cart] = await tx
+    .select({
+      checkoutLockedAt: sharedCart.checkoutLockedAt,
+      checkoutParticipantId: sharedCart.checkoutParticipantId,
+      checkoutStartedAt: sharedCart.checkoutStartedAt,
+    })
+    .from(sharedCart)
+    .where(eq(sharedCart.id, sharedCartId))
+    .for('update');
+  const holder = cart && liveCheckout(cart)?.participantId;
+  if (holder !== participantId)
+    throw holder
+      ? conflictError('sharedCartCheckoutLocked')
+      : notFoundError('sharedCartCheckoutNotFound');
+  if (contentsOf(await orderItemsOf(tx, sharedCartId)) !== contents)
+    throw conflictError('sharedCartItemsChanged');
+
+  await tx
+    .delete(sharedCartItem)
+    .where(eq(sharedCartItem.sharedCartId, sharedCartId));
+  await tx
+    .update(sharedCart)
+    .set({
+      checkoutLockedAt: null,
+      checkoutParticipantId: null,
+      checkoutStartedAt: null,
+      lastActivityAt: new Date(),
+    })
+    .where(eq(sharedCart.id, sharedCartId));
 };
 
 @Injectable()
@@ -623,18 +756,11 @@ export class SharedCartsService {
       : [];
 
     const profileOf = (person: (typeof people)[number]) => {
-      if (person.memberProfile && !person.sessionId)
-        return {
-          avatar: person.anonymousAvatar,
-          id: person.id,
-          image: null,
-          nickname: anonymousNickname(person.anonymousAvatar),
-        };
+      const shown = shownProfile(person);
       return {
-        avatar: person.avatar,
+        ...shown,
         id: person.id,
-        image: person.avatar === 'member' ? person.image : null,
-        nickname: person.nickname,
+        image: shown.avatar === 'member' ? person.image : null,
       };
     };
     const visible = isActive ? people : [];

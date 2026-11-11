@@ -107,6 +107,7 @@ export class OrdersController {
       session?.user.id || null,
       idempotencyKey,
       qrSessionValue,
+      req.cookies as Record<string, unknown> | undefined,
     );
 
     const renewed = await this.orderQrService.renewSession(

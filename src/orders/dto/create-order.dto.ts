@@ -6,6 +6,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsDefined,
   IsEmail,
   IsEnum,
@@ -60,6 +61,17 @@ class IsModifierSelections implements ValidatorConstraintInterface {
 
   defaultMessage(): string {
     return 'modifiers 的每個值都必須是 modifierId 字串陣列';
+  }
+}
+
+@ValidatorConstraint({ name: 'isWithoutItems' })
+class IsWithoutItems implements ValidatorConstraintInterface {
+  validate(value: unknown, { object }: ValidationArguments): boolean {
+    return value !== true || (object as CreateOrderDto).items === undefined;
+  }
+
+  defaultMessage(): string {
+    return '從共享點餐單送單時品項取自共享點餐單，不可另帶 items';
   }
 }
 
@@ -295,13 +307,26 @@ export class CreateOrderDto {
   @Type(() => CreateOrderInvoiceDto)
   invoice: CreateOrderInvoiceDto;
 
-  @ApiProperty({ type: [CreateOrderItemDto] })
+  @ApiPropertyOptional({
+    description:
+      '從呼叫者所在的共享點餐單送單：品項取自共享點餐單，呼叫者須持有有效的結帳鎖定',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Validate(IsWithoutItems)
+  sharedCart?: boolean;
+
+  @ApiPropertyOptional({
+    description: '未帶 sharedCart 時必填；帶 sharedCart 時不可帶',
+    type: [CreateOrderItemDto],
+  })
+  @ValidateIf((dto: CreateOrderDto) => dto.sharedCart !== true)
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
-  items: CreateOrderItemDto[];
+  items?: CreateOrderItemDto[];
 
   @ApiPropertyOptional()
   @IsOptional()
