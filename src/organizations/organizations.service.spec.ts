@@ -446,8 +446,11 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
         ('ongoing', 'biru', '${day(-1)}', '${day(0)}', null, '颱風停業'),
         ('last', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', 'Mo-Su 10:00-15:00', null),
         ('beyond', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', null, null),
-        ('other-yesterday', 'other', '${day(-2)}', '${day(-1)}', null, null),
-        ('other', 'other', '${day(1)}', '${day(1)}', null, null);
+        ('other-ended', 'other', '${day(-3)}', '${day(-2)}', null, null),
+        ('other-yesterday', 'other', '${day(-1)}', '${day(-1)}', null, null),
+        ('other', 'other', '${day(1)}', '${day(1)}', null, null),
+        ('other-day-after-last', 'other', '${day(PICKUP_MAX_ADVANCE_DAYS + 1)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 1)}', null, null),
+        ('other-beyond', 'other', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', null, null);
     `);
   }, 60_000);
 
@@ -455,7 +458,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     await client.close();
   });
 
-  it('從今天到可預約自取的最遠日期，只回這家店的特殊營業日', async () => {
+  it('從昨天到可預約自取最遠日期的隔天，只回這家店的特殊營業日', async () => {
     await expect(service.upcomingSpecialHours('biru')).resolves.toEqual([
       {
         id: 'ongoing',
@@ -474,10 +477,14 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     ]);
   });
 
-  it('昨天結束的特殊營業日不列出', async () => {
+  it('列出昨天結束與最遠日期隔天開始的特殊營業日，前天結束與再隔一天開始的不列出', async () => {
     const specialHours = await service.upcomingSpecialHours('other');
 
-    expect(specialHours.map(({ id }) => id)).toEqual(['other']);
+    expect(specialHours.map(({ id }) => id)).toEqual([
+      'other-yesterday',
+      'other',
+      'other-day-after-last',
+    ]);
   });
 
   it('門市列表以一次查詢帶出各店的特殊營業日，沒有的店為空陣列', async () => {
@@ -494,7 +501,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
         ]),
       ).toEqual([
         ['biru', ['ongoing', 'last']],
-        ['other', ['other']],
+        ['other', ['other-yesterday', 'other', 'other-day-after-last']],
         ['quiet', []],
       ]);
       expect(organizations[0].specialHours[0]).toEqual({
@@ -506,6 +513,21 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
       });
     } finally {
       findMany.mockRestore();
+    }
+  });
+
+  it('沒有門市時不查特殊營業日', async () => {
+    const findMany = vi.spyOn(db.query.organizationSpecialHours, 'findMany');
+    await client.exec(
+      `update organization set closed_at = now() where id in ('biru', 'other', 'quiet')`,
+    );
+
+    try {
+      await expect(service.organizations()).resolves.toEqual([]);
+      expect(findMany).not.toHaveBeenCalled();
+    } finally {
+      findMany.mockRestore();
+      await client.exec(`update organization set closed_at = null`);
     }
   });
 });

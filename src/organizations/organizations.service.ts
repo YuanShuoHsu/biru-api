@@ -58,11 +58,11 @@ import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.
 import { conflictError, forbiddenError } from './organization-errors.js';
 
 const upcomingSpecialHoursWindow = () => {
-  const from = new Date();
+  const now = Date.now();
 
   return {
-    from,
-    through: new Date(from.getTime() + PICKUP_MAX_ADVANCE_DAYS * DAY_MS),
+    from: new Date(now - DAY_MS),
+    through: new Date(now + (PICKUP_MAX_ADVANCE_DAYS + 1) * DAY_MS),
   };
 };
 
@@ -77,6 +77,8 @@ export class OrganizationsService {
       where: includeClosed ? undefined : isNull(organization.closedAt),
       orderBy: [asc(organization.createdAt)],
     });
+    if (organizations.length === 0) return [];
+
     const { from, through } = upcomingSpecialHoursWindow();
     const specialHours = await findSpecialHoursByOrganization(
       this.db,
