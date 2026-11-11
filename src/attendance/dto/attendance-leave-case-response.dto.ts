@@ -5,7 +5,7 @@ import {
 
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-export class AttendanceLeaveCaseResponseDto {
+class AttendanceLeaveCaseResponseDto {
   @ApiPropertyOptional() childId: string | null;
   @ApiProperty() id: string;
   @ApiProperty() employeeId: string;

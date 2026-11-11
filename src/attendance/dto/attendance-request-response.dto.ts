@@ -9,7 +9,7 @@ import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { AttendanceEventResponseDto } from './attendance-shift-response.dto.js';
 
-export class EmergencyWorkResponseDto {
+class EmergencyWorkResponseDto {
   @ApiProperty({
     enum: ['disaster', 'incident', 'unexpected'],
     enumName: 'AttendanceEmergencyCause',

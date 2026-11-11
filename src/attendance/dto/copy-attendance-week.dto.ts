@@ -52,7 +52,7 @@ export class CopyAttendanceWeekDto {
   dryRun?: boolean;
 }
 
-export class AttendanceCopyWeekShiftResponseDto {
+class AttendanceCopyWeekShiftResponseDto {
   @ApiProperty() sourceShiftId: string;
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
@@ -60,11 +60,11 @@ export class AttendanceCopyWeekShiftResponseDto {
   @ApiProperty() endsAt: string;
 }
 
-export class AttendanceCopiedShiftResponseDto extends AttendanceCopyWeekShiftResponseDto {
+class AttendanceCopiedShiftResponseDto extends AttendanceCopyWeekShiftResponseDto {
   @ApiPropertyOptional({ description: 'dryRun 時不回傳' }) id?: string;
 }
 
-export class AttendanceSkippedShiftResponseDto extends AttendanceCopyWeekShiftResponseDto {
+class AttendanceSkippedShiftResponseDto extends AttendanceCopyWeekShiftResponseDto {
   @ApiProperty({
     enum: ATTENDANCE_COPY_SKIP_REASONS,
     enumName: 'AttendanceCopySkipReason',

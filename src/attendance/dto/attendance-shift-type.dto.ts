@@ -59,7 +59,7 @@ export class SaveAttendanceShiftTypeDto {
   endTime: string;
 }
 
-export class AttendanceShiftTypeResponseDto {
+class AttendanceShiftTypeResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiProperty() startTime: string;
