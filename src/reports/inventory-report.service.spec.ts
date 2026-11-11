@@ -220,6 +220,23 @@ describe('InventoryReportService', () => {
     ]);
   });
 
+  it('排序值與名稱相同時，依 id 排出固定順序', async () => {
+    await client.exec(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+         ('tie', 'Tie', 'tie', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+       insert into ingredient (id, organization_id, name, unit_code, sort_order) values
+         ('tie-b', 'tie', '{"zh-TW":"牛奶"}', 'MLT', 0),
+         ('tie-a', 'tie', '{"zh-TW":"牛奶"}', 'MLT', 0);`,
+    );
+
+    const { rows } = await service.getInventoryReport('tie', range);
+
+    expect(rows.map(({ ingredientId }) => ingredientId)).toEqual([
+      'tie-a',
+      'tie-b',
+    ]);
+  });
+
   it('不含不限量的食材', async () => {
     await client.query(
       `insert into ingredient (id, organization_id, name, unit_code, unlimited_stock)
