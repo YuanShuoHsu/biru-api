@@ -3,6 +3,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { betterAuth } from 'better-auth/minimal';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { readFileSync } from 'node:fs';
 
 import { createPGlite } from '../../test/pglite.js';
 import type { Transaction } from '../attendance/attendance-audit.js';
@@ -47,6 +48,10 @@ const INVALID_IMAGES = [
   ['大寫 MIME', 'data:IMAGE/PNG;base64,iVBORw0KGgo='],
   ['大寫 scheme', `DATA:image/svg+xml;base64,${'A'.repeat(700_000)}`],
   ['開頭空白', ' data:text/html,<script>alert(1)</script>'],
+  ['開頭控制字元', '\x01data:text/html,<script>alert(1)</script>'],
+  ['scheme 中的換行', 'd\nata:text/html,<script>alert(1)</script>'],
+  ['http', 'http://example.com/avatar.png'],
+  ['javascript', 'javascript:alert(1)'],
 ];
 const MAX_LENGTH_IMAGE = `data:image/png;base64,${'A'.repeat(600_000 - 'data:image/png;base64,'.length)}`;
 
@@ -67,13 +72,14 @@ describe.each([
   let emailIndex = 0;
   let send: ReturnType<typeof vi.spyOn>;
 
-  const request = (path: string, body: unknown) =>
+  const request = (path: string, body: unknown, language = 'en') =>
     runWithAuthHookState(() =>
       runInAuthTransaction(db, () =>
         auth.handler(
           new Request(`${BASE_URL}/api/auth${path}`, {
             method: 'POST',
             headers: {
+              'accept-language': language,
               'content-type': 'application/json',
               origin: BASE_URL,
               ...(cookie && { cookie }),
@@ -108,10 +114,16 @@ describe.each([
     await migrate(pglite, { migrationsFolder: './drizzle' });
     db = pglite as unknown as Transaction;
 
+    const zhTW = JSON.parse(
+      readFileSync('src/i18n/zh-TW/auth.json', 'utf8'),
+    ) as Record<string, string>;
     const { options } = createAuth(
       { sendVerificationEmail: vi.fn() } as never,
       { issueSignupCoupons: vi.fn() } as never,
-      createAuthI18n({ t: () => ({}) } as never),
+      createAuthI18n({
+        t: (_key: string, { lang }: { lang: string }) =>
+          lang === 'zh-TW' ? zhTW : {},
+      } as never),
       new ImageStorageService({ get: (key: string) => env[key] } as never),
     );
     auth = betterAuth({
@@ -285,7 +297,7 @@ describe.each([
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       code: 'INVALID_IMAGE',
-      message: `${field} must be a png, jpeg or webp data URL of at most 600000 characters`,
+      message: `${field} must be an https URL or a png, jpeg or webp data URL of at most 600000 characters`,
     });
     expect(send).not.toHaveBeenCalled();
   };
@@ -380,6 +392,20 @@ describe.each([
 
       await expectRejected(response, 'logo');
       expect(await organizationLogo(organizationId)).toBe(before);
+    });
+  });
+
+  it('不合格的圖片以請求語系翻譯錯誤訊息', async () => {
+    const response = await request(
+      '/update-user',
+      { image: 'javascript:alert(1)' },
+      'zh-TW',
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'INVALID_IMAGE',
+      message: '請上傳 PNG、JPEG 或 WebP 格式、不超過 400 KB 的圖片',
     });
   });
 
