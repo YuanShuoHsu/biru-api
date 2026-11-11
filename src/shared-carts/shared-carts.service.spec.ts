@@ -751,6 +751,7 @@ describe('SharedCartsService', () => {
         outgoingRequest: null,
         participants: [],
         requests: [],
+        socketToken: expect.any(String),
         tableNumber: null,
       });
       expect(
@@ -2309,9 +2310,6 @@ describe('SharedCartsService', () => {
       (await service.findCurrent(SLUG, null, cookiesOf(host.issued))).cart
         .requests[0].id;
 
-    const cookieHeader = ({ name, value }: IssuedSharedCartParticipant) =>
-      `other=1; ${name}=${encodeURIComponent(value)}`;
-
     it('tells the cart about requests, decisions, profiles, items and removals', async () => {
       const host = await startPickup();
       const hostCart = await cartIdOf(host);
@@ -2440,7 +2438,7 @@ describe('SharedCartsService', () => {
       expect(updated()).toEqual([]);
     });
 
-    it('finds the joined and the pending cart of a socket from its cookie header', async () => {
+    it('finds the joined and the pending cart of a socket from its socket token', async () => {
       const host = await startPickup();
       const elsewhere = await startPickup();
       const pending = await requestToJoin(
@@ -2448,10 +2446,8 @@ describe('SharedCartsService', () => {
         cookiesOf(host.issued),
       );
 
-      const carts = await service.socketCartsOf(
-        ORG,
-        cookieHeader(pending.issued),
-      );
+      const { socketToken } = pending.cart;
+      const carts = await service.socketCartsOf(ORG, socketToken);
 
       expect(carts).toHaveLength(2);
       expect(carts).toEqual(
@@ -2466,11 +2462,23 @@ describe('SharedCartsService', () => {
           },
         ]),
       );
-      await expect(service.socketCartsOf(ORG)).resolves.toEqual([]);
-      await expect(service.socketCartsOf(ORG, 'other=1')).resolves.toEqual([]);
+      await expect(service.socketCartsOf(ORG, 'forged')).resolves.toEqual([]);
       await expect(
-        service.socketCartsOf('elsewhere', cookieHeader(pending.issued)),
+        service.socketCartsOf(ORG, pending.issued.value),
       ).resolves.toEqual([]);
+      await expect(
+        service.socketCartsOf('elsewhere', socketToken),
+      ).resolves.toEqual([]);
+    });
+
+    it('refuses the socket token in place of the participant cookie', async () => {
+      const host = await startPickup();
+
+      await expect(
+        service.findCurrent(SLUG, null, {
+          [host.issued.name]: host.cart.socketToken,
+        }),
+      ).rejects.toMatchObject({ status: 404 });
     });
 
     it('lists the joined and live pending participants of a cart', async () => {

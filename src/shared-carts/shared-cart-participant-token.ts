@@ -5,6 +5,7 @@ import type { Response } from 'express';
 import { isSameToken, sign } from '../orders/order-qr-token.js';
 
 const SHARED_CART_DEVICE_PURPOSE = 'biru-shared-cart-device-v1';
+const SHARED_CART_SOCKET_PURPOSE = 'biru-shared-cart-socket-v1';
 
 export const sharedCartParticipantCookie = (organizationId: string) =>
   `biru_shared_cart_participant_${Buffer.from(organizationId).toString('base64url')}`;
@@ -55,6 +56,41 @@ export const verifySharedCartParticipant = (
   ) as [string, string];
 
   return sessionOrganizationId === organizationId ? deviceKey : null;
+};
+
+export const issueSharedCartSocketToken = (
+  organizationId: string,
+  qrSecret: string | null,
+  deviceKey: string,
+  ttlMs: number,
+) => {
+  const payload = Buffer.from(
+    JSON.stringify([organizationId, deviceKey, Date.now() + ttlMs]),
+  ).toString('base64url');
+  return `${payload}.${sign(SHARED_CART_SOCKET_PURPOSE, qrSecret, payload)}`;
+};
+
+export const verifySharedCartSocketToken = (
+  organizationId: string,
+  qrSecret: string | null,
+  value: string,
+): string | null => {
+  const [payload, signature, ...rest] = value.split('.');
+  if (
+    !payload ||
+    !signature ||
+    rest.length ||
+    !isSameToken(sign(SHARED_CART_SOCKET_PURPOSE, qrSecret, payload), signature)
+  )
+    return null;
+
+  const [tokenOrganizationId, deviceKey, expiresAt] = JSON.parse(
+    Buffer.from(payload, 'base64url').toString(),
+  ) as [string, string, number];
+
+  return tokenOrganizationId === organizationId && expiresAt > Date.now()
+    ? deviceKey
+    : null;
 };
 
 const cookieOptions = () =>

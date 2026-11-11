@@ -718,8 +718,9 @@ describe('EventsGateway shared carts', () => {
   type Cart = { participantId: string; sharedCartId: string };
 
   const setup = (carts: Cart[] = [], live: string[] = []) => {
-    const socketCartsOf = vi.fn((_organizationId: string, _cookie?: string) =>
-      Promise.resolve(carts),
+    const socketCartsOf = vi.fn(
+      (_organizationId: string, _token: string): Promise<Cart[]> =>
+        Promise.resolve(carts),
     );
     const liveParticipantIdsOf = vi.fn(() => Promise.resolve(new Set(live)));
     const gateway = new EventsGateway(
@@ -757,12 +758,11 @@ describe('EventsGateway shared carts', () => {
       }),
     } as unknown as Namespace;
 
-    const connect = (id: string, cookie?: string) => {
+    const connect = (id: string, accessToken = 'token') => {
       let onAny: (event: unknown, body: unknown) => void = () => {};
       const client = {
         id,
         data: {},
-        handshake: { headers: { cookie } },
         join: (joined: string | string[]) => {
           for (const room of [joined].flat())
             rooms.set(room, (rooms.get(room) ?? new Set()).add(id));
@@ -775,12 +775,11 @@ describe('EventsGateway shared carts', () => {
       sockets.set(id, client);
       gateway.handleConnection(client as unknown as Socket);
       const send = (event: 'joinSharedCart' | 'leaveSharedCart') => {
-        onAny(event, { organizationId: 'org' });
-        return gateway[event](
-          client as unknown as Socket,
-          { organizationId: 'org' },
-          { t: (key: string) => `translated:${key}` } as never,
-        );
+        const body = { accessToken, organizationId: 'org' };
+        onAny(event, body);
+        return gateway[event](client as unknown as Socket, body, {
+          t: (key: string) => `translated:${key}`,
+        } as never);
       };
       return { client, send };
     };
@@ -809,26 +808,26 @@ describe('EventsGateway shared carts', () => {
     },
   };
 
-  it('joinSharedCart 以握手時的 cookie 加入裝置已加入與申請中的群組', async () => {
+  it('joinSharedCart 以 socketToken 加入裝置已加入與申請中的群組', async () => {
     const context = setup([
       { participantId: 'p1', sharedCartId: 'joined' },
       { participantId: 'p2', sharedCartId: 'pending' },
     ]);
-    const { send } = context.connect('a', 'biru=1');
+    const { send } = context.connect('a', 'signed');
 
     await expect(send('joinSharedCart')).resolves.toBe(true);
 
-    expect(context.socketCartsOf).toHaveBeenCalledWith('org', 'biru=1');
+    expect(context.socketCartsOf).toHaveBeenCalledWith('org', 'signed');
     expect(context.inRoom('joined')).toEqual(['a']);
     expect(context.inRoom('pending')).toEqual(['a']);
   });
 
-  it('沒有 cookie 或不在任何群組時丟出已翻譯的 403', async () => {
+  it('token 無效或不在任何群組時丟出已翻譯的 403', async () => {
     const context = setup();
-    const { client, send } = context.connect('a');
+    const { client, send } = context.connect('a', 'forged');
 
     await expect(send('joinSharedCart')).rejects.toMatchObject(forbidden);
-    expect(context.socketCartsOf).toHaveBeenCalledWith('org', undefined);
+    expect(context.socketCartsOf).toHaveBeenCalledWith('org', 'forged');
     expect(
       (client.data as { requestedRooms?: Map<string, string> }).requestedRooms
         ?.size,
@@ -837,7 +836,7 @@ describe('EventsGateway shared carts', () => {
 
   it('再次加入時離開已不在的群組，leaveSharedCart 離開全部', async () => {
     const context = setup([{ participantId: 'p1', sharedCartId: 'old' }]);
-    const { send } = context.connect('a', 'biru=1');
+    const { send } = context.connect('a');
     await send('joinSharedCart');
 
     context.socketCartsOf.mockResolvedValueOnce([
@@ -851,9 +850,55 @@ describe('EventsGateway shared carts', () => {
     expect(context.inRoom('new')).toEqual([]);
   });
 
+  it('較早的 joinSharedCart 較晚完成時不蓋掉較新的結果', async () => {
+    const context = setup();
+    let resolveOlder: (carts: Cart[]) => void = () => {};
+    context.socketCartsOf
+      .mockReturnValueOnce(
+        new Promise<Cart[]>((resolve) => {
+          resolveOlder = resolve;
+        }),
+      )
+      .mockResolvedValueOnce([
+        { participantId: 'p1', sharedCartId: 'joined' },
+        { participantId: 'p2', sharedCartId: 'pending' },
+      ]);
+    const { send } = context.connect('a');
+
+    const older = send('joinSharedCart');
+    await expect(send('joinSharedCart')).resolves.toBe(true);
+    resolveOlder([{ participantId: 'p1', sharedCartId: 'joined' }]);
+    await expect(older).resolves.toBe(true);
+
+    expect(context.inRoom('joined')).toEqual(['a']);
+    expect(context.inRoom('pending')).toEqual(['a']);
+  });
+
+  it('較早的 joinSharedCart 較晚被拒時不離開較新的群組', async () => {
+    const context = setup();
+    let resolveOlder: (carts: Cart[]) => void = () => {};
+    context.socketCartsOf
+      .mockReturnValueOnce(
+        new Promise<Cart[]>((resolve) => {
+          resolveOlder = resolve;
+        }),
+      )
+      .mockResolvedValueOnce([{ participantId: 'p1', sharedCartId: 'cart' }]);
+    const { send } = context.connect('a');
+
+    const older = send('joinSharedCart');
+    await send('joinSharedCart');
+    resolveOlder([]);
+    await expect(older).rejects.toMatchObject(forbidden);
+
+    expect(context.inRoom('cart')).toEqual(['a']);
+    await send('leaveSharedCart');
+    expect(context.inRoom('cart')).toEqual([]);
+  });
+
   it('驗證期間收到 leaveSharedCart 時最後不在群組', async () => {
     const context = setup([{ participantId: 'p1', sharedCartId: 'cart' }]);
-    const { send } = context.connect('a', 'biru=1');
+    const { send } = context.connect('a');
 
     const joined = send('joinSharedCart');
     await send('leaveSharedCart');
@@ -867,11 +912,11 @@ describe('EventsGateway shared carts', () => {
     context.socketCartsOf.mockResolvedValueOnce([
       { participantId: 'stay', sharedCartId: 'cart' },
     ]);
-    await context.connect('a', 'a=1').send('joinSharedCart');
+    await context.connect('a').send('joinSharedCart');
     context.socketCartsOf.mockResolvedValueOnce([
       { participantId: 'removed', sharedCartId: 'cart' },
     ]);
-    await context.connect('b', 'b=1').send('joinSharedCart');
+    await context.connect('b').send('joinSharedCart');
 
     await context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' });
     await context.gateway.handleSharedCartUpdated({ sharedCartId: 'cart' });
@@ -895,7 +940,7 @@ describe('EventsGateway shared carts', () => {
 
   it('查詢參與者失敗時只記錄錯誤，不拋出', async () => {
     const context = setup([{ participantId: 'p1', sharedCartId: 'cart' }]);
-    await context.connect('a', 'a=1').send('joinSharedCart');
+    await context.connect('a').send('joinSharedCart');
     const logError = vi
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);

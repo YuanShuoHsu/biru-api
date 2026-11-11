@@ -3,8 +3,6 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { parseCookies } from 'better-auth/cookies';
-
 import {
   and,
   asc,
@@ -74,9 +72,11 @@ import {
 } from './shared-cart-errors.js';
 import {
   issueSharedCartParticipant,
+  issueSharedCartSocketToken,
   newSharedCartDeviceKey,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
+  verifySharedCartSocketToken,
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 
@@ -812,6 +812,12 @@ export class SharedCartsService {
             ...profileOf(person),
             requestedAt: person.requestedAt,
           })),
+        socketToken: issueSharedCartSocketToken(
+          org.id,
+          org.qrSecret,
+          deviceKey,
+          SHARED_CART_TTL_MS,
+        ),
         tableNumber: cart.tableNumber,
       },
       issued: issueSharedCartParticipant(org.id, org.qrSecret, deviceKey),
@@ -1324,13 +1330,11 @@ export class SharedCartsService {
     );
   }
 
-  async socketCartsOf(organizationId: string, cookieHeader = '') {
-    const deviceKey = verifySharedCartParticipant(
+  async socketCartsOf(organizationId: string, socketToken: string) {
+    const deviceKey = verifySharedCartSocketToken(
       organizationId,
       await this.orderQrService.secretOf(organizationId),
-      parseCookies(cookieHeader).get(
-        sharedCartParticipantCookie(organizationId),
-      ),
+      socketToken,
     );
     if (!deviceKey) return [];
     const rows = await deviceRows(this.db, organizationId, deviceKey);

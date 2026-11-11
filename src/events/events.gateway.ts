@@ -17,6 +17,7 @@ import { I18n, I18nContext } from 'nestjs-i18n';
 import { FindOrderMenuDto } from './dto/find-order-menu.dto.js';
 import { JoinOrderDto } from './dto/join-order.dto.js';
 import { JoinOrdersBoardDto } from './dto/join-orders-board.dto.js';
+import { JoinSharedCartDto } from './dto/join-shared-cart.dto.js';
 import type { LowStockReachedEvent } from './low-stock-reached.event.js';
 import { LOW_STOCK_REACHED_EVENT } from './low-stock-reached.event.js';
 import type { MenuUpdatedEvent } from './menu-updated.event.js';
@@ -85,6 +86,7 @@ type GatewaySocketData = {
   userId?: string;
   requestedRooms?: Map<string, string>;
   sharedCarts?: Map<string, { organizationId: string; participantId: string }>;
+  sharedCartJoins?: number;
 };
 
 type RoomRequest = { room: string; accessToken: string };
@@ -464,26 +466,31 @@ export class EventsGateway implements OnGatewayConnection {
   @SubscribeMessage('joinSharedCart')
   joinSharedCart(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { organizationId }: JoinOrdersBoardDto,
+    @MessageBody() { accessToken, organizationId }: JoinSharedCartDto,
     @I18n() i18n: I18nContext<I18nTranslations>,
   ) {
+    const data = client.data as GatewaySocketData;
+    const room = sharedCartsRequest(organizationId);
+    const ticket = `#${(data.sharedCartJoins = (data.sharedCartJoins ?? 0) + 1)}`;
+    const requested = requestedRooms(client);
+    if (requested.has(room)) requested.set(room, ticket);
+
     let carts: { participantId: string; sharedCartId: string }[] = [];
     return this.settleJoin(
       client,
-      sharedCartsRequest(organizationId),
+      room,
       i18n,
       async () => {
         carts = await this.sharedCartsService.socketCartsOf(
           organizationId,
-          client.handshake.headers.cookie,
+          accessToken,
         );
         return carts.length > 0;
       },
-      '',
+      ticket,
       async () => {
         await this.leaveSharedCarts(client, organizationId);
-        const joined = ((client.data as GatewaySocketData).sharedCarts ??=
-          new Map());
+        const joined = (data.sharedCarts ??= new Map());
         for (const { participantId, sharedCartId } of carts)
           joined.set(sharedCartId, { organizationId, participantId });
         await client.join(
