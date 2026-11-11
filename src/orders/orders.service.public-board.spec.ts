@@ -69,9 +69,6 @@ describe('OrdersService.listPublicBoard', () => {
   it('同一取餐時段的訂單依建立時間排序，每次重新整理都同一順序', async () => {
     const board = await service.listPublicBoard('other');
 
-    expect(board.map(({ orderId }) => orderId)).toEqual([
-      'slot-b',
-      'slot-a',
-    ]);
+    expect(board.map(({ orderId }) => orderId)).toEqual(['slot-b', 'slot-a']);
   });
 });
