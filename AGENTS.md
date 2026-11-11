@@ -80,6 +80,7 @@ Branch from `develop` and open every PR against `develop`. GitHub's default bran
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
 | ReportsModule        | `src/reports/`         | Sales and inventory reports and their CSV exports                                                      |
+| PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -104,6 +105,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
+- `push.ts` — `pushSubscription`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables
