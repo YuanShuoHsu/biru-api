@@ -31,6 +31,7 @@ import { DonateCodesModule } from './donate-codes/donate-codes.module.js';
 import { DeletedRecordsModule } from './deleted-records/deleted-records.module.js';
 import { DrizzleModule } from './drizzle/drizzle.module.js';
 import { EcpayModule } from './ecpay/ecpay.module.js';
+import { envSchema } from './env.validation.js';
 import { EventsModule } from './events/events.module.js';
 import { GcisModule } from './gcis/gcis.module.js';
 import { ImagesModule } from './images/images.module.js';
@@ -89,7 +90,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
         },
       },
     }),
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validationSchema: envSchema }),
     CouponsModule,
     DeletedRecordsModule,
     DonateCodesModule,

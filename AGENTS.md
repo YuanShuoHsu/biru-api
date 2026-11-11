@@ -451,8 +451,9 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 
 ### Environment Variables
 
-There is no `.env.example` and `ConfigModule.forRoot` runs without a `validationSchema`, so a
-missing variable fails at request time rather than at boot. Required in `.env`:
+There is no `.env.example`. `ConfigModule.forRoot` validates the environment at boot against the Zod schema in
+`src/env.validation.ts`, so a missing or malformed variable stops the app, listing every failing name (never its
+value). A new variable must be added to that schema with the rule the code actually needs. Required in `.env`:
 
 - `DATABASE_URL` — PostgreSQL connection string (read directly via `process.env` in `src/db/index.ts`)
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — read implicitly by better-auth
