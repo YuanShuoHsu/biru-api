@@ -460,6 +460,7 @@
       "rabbit": "兔兔"
     },
     "sharedCartApplicantCheckoutLocked": "对方原本的单正在结账，请稍后再允许",
+    "sharedCartCheckoutExpired": "结账时间已用完，请稍候 2 分钟再重新结账，让其他人有机会修改或离开",
     "sharedCartCheckoutLeaveBlocked": "你所在的共享点餐单正在结账，请等结账完成再离开",
     "sharedCartCheckoutLocked": "有人正在结账，请等结账完成再修改",
     "sharedCartCheckoutNotFound": "你没有在结账，或结账锁定已超时",

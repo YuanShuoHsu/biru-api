@@ -460,6 +460,7 @@
       "rabbit": "토끼"
     },
     "sharedCartApplicantCheckoutLocked": "상대방이 참여 중인 주문이 결제 중입니다. 잠시 후 다시 허용해 주세요",
+    "sharedCartCheckoutExpired": "결제 시간이 끝났습니다. 다른 참여자가 수정하거나 나갈 수 있도록 2분 후에 다시 결제해 주세요",
     "sharedCartCheckoutLeaveBlocked": "참여 중인 공유 주문이 결제 중입니다. 결제가 끝난 후 나가 주세요",
     "sharedCartCheckoutLocked": "결제 중인 사람이 있습니다. 결제가 끝난 후 수정해 주세요",
     "sharedCartCheckoutNotFound": "결제 중이 아니거나 결제 잠금이 만료되었습니다",

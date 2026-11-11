@@ -513,6 +513,7 @@ export type I18nTranslations = {
                 "rabbit": string;
             };
             "sharedCartApplicantCheckoutLocked": string;
+            "sharedCartCheckoutExpired": string;
             "sharedCartCheckoutLeaveBlocked": string;
             "sharedCartCheckoutLocked": string;
             "sharedCartCheckoutNotFound": string;

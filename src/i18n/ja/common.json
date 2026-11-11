@@ -460,6 +460,7 @@
       "rabbit": "ウサギ"
     },
     "sharedCartApplicantCheckoutLocked": "相手が参加中の注文は会計中です。しばらくしてから許可してください",
+    "sharedCartCheckoutExpired": "会計の制限時間が過ぎました。ほかの参加者が変更や退出をできるよう、2 分ほど待ってから会計し直してください",
     "sharedCartCheckoutLeaveBlocked": "参加中の共有注文は会計中です。会計が終わるまでお待ちください",
     "sharedCartCheckoutLocked": "会計中の人がいます。会計が終わってから変更してください",
     "sharedCartCheckoutNotFound": "会計中ではないか、会計のロックが期限切れです",

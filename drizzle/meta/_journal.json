@@ -1912,6 +1912,13 @@
       "when": 1794334294050,
       "tag": "0272_order_ticket_printer_name_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 273,
+      "version": "7",
+      "when": 1794373960616,
+      "tag": "0273_shared_cart_checkout_started_at",
+      "breakpoints": true
     }
   ]
 }

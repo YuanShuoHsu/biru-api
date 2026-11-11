@@ -78,6 +78,8 @@ export const SHARED_CART_MAX_PER_STORE = 3_000;
 export const SHARED_CART_TTL_MS = 2 * 60 * 60 * 1000;
 export const SHARED_CART_REQUEST_TTL_MS = 10 * 60 * 1000;
 export const SHARED_CART_CHECKOUT_LOCK_MS = 2 * 60 * 1000;
+export const SHARED_CART_CHECKOUT_MAX_MS = 10 * 60 * 1000;
+export const SHARED_CART_CHECKOUT_COOLDOWN_MS = 2 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
 
 export type SharedCartUser = { id: string; name: string; sessionId: string };
@@ -136,23 +138,49 @@ const requestedSince = (now = Date.now()) =>
 const checkoutLockedSince = () =>
   new Date(Date.now() - SHARED_CART_CHECKOUT_LOCK_MS);
 
+const checkoutStartedSince = () =>
+  new Date(Date.now() - SHARED_CART_CHECKOUT_MAX_MS);
+
+type CheckoutState = {
+  checkoutLockedAt: Date | null;
+  checkoutParticipantId: string | null;
+  checkoutStartedAt: Date | null;
+};
+
 const liveCheckout = ({
   checkoutLockedAt,
   checkoutParticipantId,
-}: {
-  checkoutLockedAt: Date | null;
-  checkoutParticipantId: string | null;
-}) =>
+  checkoutStartedAt,
+}: CheckoutState) =>
   checkoutLockedAt &&
   checkoutParticipantId &&
-  checkoutLockedAt > checkoutLockedSince()
+  checkoutStartedAt &&
+  checkoutLockedAt > checkoutLockedSince() &&
+  checkoutStartedAt > checkoutStartedSince()
     ? {
         lockedUntil: new Date(
-          checkoutLockedAt.getTime() + SHARED_CART_CHECKOUT_LOCK_MS,
+          Math.min(
+            checkoutLockedAt.getTime() + SHARED_CART_CHECKOUT_LOCK_MS,
+            checkoutStartedAt.getTime() + SHARED_CART_CHECKOUT_MAX_MS,
+          ),
         ),
         participantId: checkoutParticipantId,
       }
     : null;
+
+const checkoutStartFor = (
+  { checkoutParticipantId, checkoutStartedAt }: CheckoutState,
+  participantId: string,
+  now: Date,
+) =>
+  checkoutParticipantId === participantId &&
+  checkoutStartedAt &&
+  checkoutStartedAt.getTime() >
+    now.getTime() -
+      SHARED_CART_CHECKOUT_MAX_MS -
+      SHARED_CART_CHECKOUT_COOLDOWN_MS
+    ? checkoutStartedAt
+    : now;
 
 const isLiveParticipant = (now = Date.now()) =>
   or(
@@ -391,6 +419,7 @@ export class SharedCartsService {
       .select({
         checkoutLockedAt: sharedCart.checkoutLockedAt,
         checkoutParticipantId: sharedCart.checkoutParticipantId,
+        checkoutStartedAt: sharedCart.checkoutStartedAt,
         code: sharedCart.code,
         id: sharedCart.id,
         lastActivityAt: sharedCart.lastActivityAt,
@@ -899,6 +928,9 @@ export class SharedCartsService {
         await this.rotateCode(tx, org.id, sharedCartId);
         return;
       }
+      const holder = liveCheckout(locked[0])?.participantId;
+      if (holder && holder !== approver.participantId)
+        throw conflictError('sharedCartCheckoutLocked');
       if ((await countActive(tx, sharedCartId)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
 
@@ -1086,14 +1118,28 @@ export class SharedCartsService {
       organizationSlug,
       member,
       cookies,
-      (tx, { participantId, sharedCartId }) =>
-        tx
+      async (tx, { participantId, sharedCartId }) => {
+        const [cart] = await tx
+          .select({
+            checkoutLockedAt: sharedCart.checkoutLockedAt,
+            checkoutParticipantId: sharedCart.checkoutParticipantId,
+            checkoutStartedAt: sharedCart.checkoutStartedAt,
+          })
+          .from(sharedCart)
+          .where(eq(sharedCart.id, sharedCartId));
+        const now = new Date();
+        const startedAt = checkoutStartFor(cart, participantId, now);
+        if (startedAt <= checkoutStartedSince())
+          throw conflictError('sharedCartCheckoutExpired');
+        await tx
           .update(sharedCart)
           .set({
-            checkoutLockedAt: new Date(),
+            checkoutLockedAt: now,
             checkoutParticipantId: participantId,
+            checkoutStartedAt: startedAt,
           })
-          .where(eq(sharedCart.id, sharedCartId)),
+          .where(eq(sharedCart.id, sharedCartId));
+      },
     );
   }
 
@@ -1109,12 +1155,13 @@ export class SharedCartsService {
       async (tx, { participantId, sharedCartId }) => {
         const released = await tx
           .update(sharedCart)
-          .set({ checkoutLockedAt: null, checkoutParticipantId: null })
+          .set({ checkoutLockedAt: null })
           .where(
             and(
               eq(sharedCart.id, sharedCartId),
               eq(sharedCart.checkoutParticipantId, participantId),
               gt(sharedCart.checkoutLockedAt, checkoutLockedSince()),
+              gt(sharedCart.checkoutStartedAt, checkoutStartedSince()),
             ),
           )
           .returning({ id: sharedCart.id });

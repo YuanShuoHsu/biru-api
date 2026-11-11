@@ -61,6 +61,7 @@ export const sharedCart = pgTable(
     tableNumber: integer('table_number'),
     checkoutParticipantId: text('checkout_participant_id'),
     checkoutLockedAt: timestamp('checkout_locked_at', { withTimezone: true }),
+    checkoutStartedAt: timestamp('checkout_started_at', { withTimezone: true }),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

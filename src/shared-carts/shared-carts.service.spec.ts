@@ -26,7 +26,9 @@ import {
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 import {
+  SHARED_CART_CHECKOUT_COOLDOWN_MS,
   SHARED_CART_CHECKOUT_LOCK_MS,
+  SHARED_CART_CHECKOUT_MAX_MS,
   SHARED_CART_MAX_PARTICIPANTS,
   SHARED_CART_MAX_PENDING,
   SHARED_CART_MAX_PER_STORE,
@@ -1930,6 +1932,14 @@ describe('SharedCartsService', () => {
       db
         .update(sharedCart)
         .set({ checkoutLockedAt: new Date(Date.now() - ms) });
+    const ageCheckoutStart = (ms: number) =>
+      db
+        .update(sharedCart)
+        .set({ checkoutStartedAt: new Date(Date.now() - ms) });
+    const expired = {
+      response: { code: 'sharedCartCheckoutExpired' },
+      status: 409,
+    };
     const locked = {
       response: { code: 'sharedCartCheckoutLocked' },
       status: 409,
@@ -2122,6 +2132,102 @@ describe('SharedCartsService', () => {
         cookiesOf(host.issued),
       );
       expect(cart.participants).toHaveLength(2);
+    });
+
+    it('never renews the lock past the cap from its start', async () => {
+      const host = await startPickup();
+      await acquire(host);
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS - 30_000);
+      const [{ checkoutStartedAt }] = await db.select().from(sharedCart);
+
+      const { cart } = await acquire(host);
+
+      expect(cart.checkout!.lockedUntil).toEqual(
+        new Date(checkoutStartedAt!.getTime() + SHARED_CART_CHECKOUT_MAX_MS),
+      );
+    });
+
+    it('frees the cart once the cap is reached and makes the holder wait out the cooldown', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await acquire(host);
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS);
+
+      expect((await current(guest)).checkout).toBeNull();
+      await expect(
+        service.addItems(
+          SLUG,
+          { items: [item] },
+          null,
+          cookiesOf(guest.issued),
+        ),
+      ).resolves.toBeDefined();
+      await expect(acquire(host)).rejects.toMatchObject(expired);
+
+      await ageCheckoutStart(
+        SHARED_CART_CHECKOUT_MAX_MS + SHARED_CART_CHECKOUT_COOLDOWN_MS,
+      );
+      const before = Date.now();
+      const { cart } = await acquire(host);
+      expect(cart.checkout!.participantId).toBe(host.cart.me.id);
+      expect(cart.checkout!.lockedUntil.getTime()).toBeGreaterThanOrEqual(
+        before + SHARED_CART_CHECKOUT_LOCK_MS,
+      );
+    });
+
+    it('lets another participant take the lock right after the cap', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await acquire(host);
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS);
+
+      const { cart } = await acquire(guest);
+
+      expect(cart.checkout!.participantId).toBe(guest.cart.me.id);
+    });
+
+    it('keeps the cap clock when the holder releases or lets the lock lapse and takes it again', async () => {
+      const host = await startPickup();
+      await acquire(host);
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS - 30_000);
+      await release(host);
+      const { cart: released } = await acquire(host);
+      await ageCheckout(SHARED_CART_CHECKOUT_LOCK_MS);
+      const { cart: lapsed } = await acquire(host);
+
+      expect(released.checkout!.lockedUntil).toEqual(
+        lapsed.checkout!.lockedUntil,
+      );
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS);
+      await expect(acquire(host)).rejects.toMatchObject(expired);
+    });
+
+    it('lets only the holder approve a request while the cart is locked, and anyone decline one', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await acquire(host);
+      const [first, second] = [await startPickup(), await startPickup()];
+      await requestToJoin(host.cart.code, cookiesOf(first.issued));
+      const [request] = (await current(host)).requests;
+
+      await expect(
+        service.approveRequest(SLUG, request.id, null, cookiesOf(guest.issued)),
+      ).rejects.toMatchObject(locked);
+      expect((await current(host)).requests).toHaveLength(1);
+
+      const { cart } = await service.approveRequest(
+        SLUG,
+        request.id,
+        null,
+        cookiesOf(host.issued),
+      );
+      expect(cart.participants).toHaveLength(3);
+
+      await requestToJoin(cart.code, cookiesOf(second.issued));
+      const [declined] = (await current(host)).requests;
+      await expect(
+        service.rejectRequest(SLUG, declined.id, null, cookiesOf(guest.issued)),
+      ).resolves.toBeDefined();
     });
   });
 });

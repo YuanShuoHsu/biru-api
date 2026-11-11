@@ -84,7 +84,7 @@ export class SharedCartResponseDto {
 
   @ApiProperty({
     description:
-      '正在結帳的人與鎖定的失效時間；鎖定期間只有他能修改品項或移除參與者，單內任何人都不能離開。沒有人在結帳或待允許時為 null',
+      '正在結帳的人與鎖定的失效時間：最後一次延長後 2 分鐘，且不超過開始結帳後 10 分鐘。鎖定期間只有他能修改品項、移除參與者或允許加入，單內任何人都不能離開。沒有人在結帳或待允許時為 null',
     nullable: true,
     type: SharedCartCheckoutDto,
   })
