@@ -60,7 +60,7 @@ export class CouponResponseDto {
   @ApiProperty() updatedAt: Date;
 }
 
-export class CouponListItemDto extends CouponResponseDto {
+class CouponListItemDto extends CouponResponseDto {
   @ApiProperty({ description: '已有顧客持有，不可刪除（只能停用）' })
   claimed: boolean;
 }
@@ -139,7 +139,7 @@ export class MyClaimableCouponDto extends CustomerCouponDto {
   applicableOrganizationSlugs?: string[] | null;
 }
 
-export class CouponRecipientResponseDto {
+class CouponRecipientResponseDto {
   @ApiProperty() id: string;
   @ApiPropertyOptional({ nullable: true }) grantedByEmail?: string | null;
   @ApiProperty({ description: '發放者帳號已刪除（email 因此為 null）' })

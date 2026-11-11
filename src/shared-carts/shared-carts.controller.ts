@@ -303,6 +303,46 @@ export class SharedCartsController {
     );
   }
 
+  @Post('current/checkout')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      '開始結帳並鎖定共享點餐單，鎖定中再呼叫即延長；鎖定期間只有自己能修改，任何人都不能離開。一張單從開始結帳起最多鎖 10 分鐘（中途換人接手也算在內），到期後 2 分鐘內任何人都不能再鎖',
+  })
+  async acquireCheckout(
+    @Param('organizationSlug') organizationSlug: string,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.acquireCheckout(
+        organizationSlug,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
+  @Delete('current/checkout')
+  @ApiOperation({ summary: '結束自己的結帳鎖定' })
+  async releaseCheckout(
+    @Param('organizationSlug') organizationSlug: string,
+    @Session() session: UserSession | null,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SharedCartResponseDto> {
+    return respond(
+      res,
+      await this.sharedCartsService.releaseCheckout(
+        organizationSlug,
+        memberOf(session),
+        cookiesOf(req),
+      ),
+    );
+  }
+
   @Delete('current/me')
   @HttpCode(204)
   @ApiOperation({

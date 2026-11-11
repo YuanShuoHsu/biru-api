@@ -307,6 +307,50 @@ describe('WaitlistService.createTicket', () => {
     ).rejects.toMatchObject({ message: 'waitlistGroupsInUse', status: 409 });
   });
 
+  it('stamps the queue time once the store lock is held, so a ticket that waited for the lock queues behind the numbers issued before it', async () => {
+    const { db, service } = createService({ setting: openSetting });
+    const lockedAt = new Date('2026-10-06T04:00:05Z');
+    const values = vi.fn((row: Record<string, unknown>) => ({
+      returning: () => Promise.resolve([{ ...row, status: 'waiting' }]),
+    }));
+    const tx = {
+      query: {
+        waitlistSetting: {
+          findFirst: vi.fn().mockResolvedValue({ groups }),
+        },
+        waitlistTicket: { findFirst: vi.fn().mockResolvedValue(undefined) },
+      },
+      select: () => ({
+        from: () => ({
+          where: () =>
+            Object.assign(Promise.resolve([{ value: 1 }]), {
+              for: () => {
+                vi.setSystemTime(lockedAt);
+                return Promise.resolve([]);
+              },
+            }),
+        }),
+      }),
+      insert: () => ({ values }),
+    };
+    db.query.waitlistTicket.findFirst.mockResolvedValue(undefined);
+    db.transaction.mockImplementation((run: (t: typeof tx) => unknown) =>
+      run(tx),
+    );
+    Object.assign(db, {
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ value: 0 }]) }),
+      }),
+    });
+
+    await service.createTicket('slug', dto, null, 'zh-TW', null, true);
+    vi.setSystemTime(new Date('2026-10-06T04:00:00Z'));
+
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: lockedAt, number: 2 }),
+    );
+  });
+
   it('replays a ticket recorded without a fingerprint for any request', async () => {
     const { service } = createService({
       setting: openSetting,

@@ -16,7 +16,7 @@ import {
 } from '../waitlist-rules.js';
 import { WaitlistGroupDto } from './waitlist-group.dto.js';
 
-export class WaitlistGroupStatusDto extends WaitlistGroupDto {
+class WaitlistGroupStatusDto extends WaitlistGroupDto {
   @ApiProperty({
     type: [String],
     description: '叫號中尚未入座、過號或取消的號碼，最近叫號的在前，最多 5 筆',
