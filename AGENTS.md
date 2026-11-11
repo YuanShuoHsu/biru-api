@@ -81,6 +81,7 @@ Branch from `develop` and open every PR against `develop`. GitHub's default bran
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
 | ReportsModule        | `src/reports/`         | Sales and inventory reports and their CSV exports                                                      |
 | PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
+| HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -396,6 +397,10 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
   400 `badRequest`, so values bound for Postgres need no NUL check of their own; text sent elsewhere (ECPay, mail)
   still does
 - Global guards (`AppModule`): `RolesGuard`, then `ThrottlerGuard`
+- Health check: `GET /api/health` answers 200, or 503 when `select 1` fails or takes over 3 seconds (only the status, the
+  pg error goes to the log). It is anonymous and skips throttling because Render's checks don't come through Cloudflare,
+  so they carry no client IP and would all share the `ip:missing` bucket. Render only uses it once the service's
+  Settings → Health Checks path is set to `/api/health`
 - Rate limiting: 100 req / 60s globally (`THROTTLERS` in `src/common/constants/throttle.ts`). `throttleTracker` buckets
   signed-in requests by user id and the rest by `clientIp`; requests without a usable IP share one `ip:missing`
   bucket. It looks the session up itself because `AppModule`'s guards run before better-auth's `AuthGuard`, so

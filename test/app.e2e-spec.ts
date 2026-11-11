@@ -87,6 +87,9 @@ describe('App (e2e)', () => {
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));
 
+  it('匿名可讀取健康檢查', () =>
+    request(app.getHttpServer()).get('/api/health').expect(200));
+
   describe('共享點餐單', () => {
     beforeAll(() =>
       pglite.$client.query(
