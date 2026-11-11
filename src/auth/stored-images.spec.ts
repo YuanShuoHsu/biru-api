@@ -38,6 +38,10 @@ const ADDRESS = {
 const IMAGE = 'data:image/png;base64,iVBORw0KGgo=';
 const OTHER_IMAGE = 'data:image/webp;base64,UklGRg==';
 const HTTPS_IMAGE = 'https://lh3.googleusercontent.com/a/avatar';
+const GOOGLE_SOURCE = {
+  method: 'oauth',
+  oauth: { providerId: 'google' },
+} as const;
 const GOOGLE_IMAGE =
   'https://lh3.googleusercontent.com/a/ACg8ocJ_xYz-AbC123=s96-c';
 const INVALID_IMAGES = [
@@ -424,13 +428,16 @@ describe.each([
     const { internalAdapter } = await auth.$context;
 
     const created = await runInAuthTransaction(db, () =>
-      internalAdapter.createUser({
-        email: 'google@example.com',
-        emailVerified: true,
-        firstName: 'Gia',
-        name: 'Gia',
-        image: GOOGLE_IMAGE,
-      }),
+      internalAdapter.createUser(
+        {
+          email: 'google@example.com',
+          emailVerified: true,
+          firstName: 'Gia',
+          name: 'Gia',
+          image: GOOGLE_IMAGE,
+        },
+        GOOGLE_SOURCE,
+      ),
     );
     expect(await userImage('google@example.com')).toBe(GOOGLE_IMAGE);
 
@@ -438,6 +445,49 @@ describe.each([
       internalAdapter.updateUser(created.id, { image: HTTPS_IMAGE }),
     );
     expect(await userImage('google@example.com')).toBe(HTTPS_IMAGE);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('OAuth 建立與更新會員時拒絕不合格的頭像', async () => {
+    const { internalAdapter } = await auth.$context;
+    const created = await runInAuthTransaction(db, () =>
+      internalAdapter.createUser(
+        {
+          email: 'google-invalid@example.com',
+          emailVerified: true,
+          firstName: 'Gil',
+          name: 'Gil',
+          image: GOOGLE_IMAGE,
+        },
+        GOOGLE_SOURCE,
+      ),
+    );
+
+    await expect(
+      runInAuthTransaction(db, () =>
+        internalAdapter.updateUser(created.id, { image: 'https:a.com' }),
+      ),
+    ).rejects.toMatchObject({ body: { code: 'INVALID_IMAGE' } });
+    expect(await userImage('google-invalid@example.com')).toBe(GOOGLE_IMAGE);
+
+    await expect(
+      runInAuthTransaction(db, () =>
+        internalAdapter.createUser(
+          {
+            email: 'google-invalid-2@example.com',
+            emailVerified: true,
+            firstName: 'Gus',
+            name: 'Gus',
+            image: 'javascript:alert(1)',
+          },
+          GOOGLE_SOURCE,
+        ),
+      ),
+    ).rejects.toMatchObject({ body: { code: 'INVALID_IMAGE' } });
+    const { rows } = await client.query(
+      `select id from "user" where email = 'google-invalid-2@example.com'`,
+    );
+    expect(rows).toHaveLength(0);
     expect(send).not.toHaveBeenCalled();
   });
 

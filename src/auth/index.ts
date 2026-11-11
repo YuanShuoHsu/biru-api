@@ -198,6 +198,12 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
 
 const IMAGE_FIELDS = { user: 'image', organization: 'logo' } as const;
 
+const isCanonicalHttpsUrl = (value: string) => {
+  const url = URL.parse(value);
+
+  return url?.protocol === 'https:' && url.href === value;
+};
+
 const withStoredImage = async <T extends Record<string, unknown>>(
   imageStorage: ImageStorageService,
   kind: keyof typeof IMAGE_FIELDS,
@@ -207,12 +213,10 @@ const withStoredImage = async <T extends Record<string, unknown>>(
   const image = data[field];
   if (typeof image !== 'string') return data;
 
-  const url = URL.parse(image);
-  const isHttpsUrl = url?.protocol === 'https:' && url.href === image;
   if (
     image !== '' &&
     (image.length > IMAGE_DATA_URL_MAX_LENGTH ||
-      !(isHttpsUrl || IMAGE_DATA_URL_PATTERN.test(image)))
+      !(isCanonicalHttpsUrl(image) || IMAGE_DATA_URL_PATTERN.test(image)))
   )
     throw new APIError('BAD_REQUEST', {
       code: 'INVALID_IMAGE',
