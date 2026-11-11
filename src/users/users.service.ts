@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   SQL,
@@ -38,6 +38,12 @@ import type { UserRole } from '../db/schema/users.js';
 import { user, userRoles } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import {
+  imageRefUrl,
+  imageVersion,
+  parseImageDataUrl,
+  withImageRefs,
+} from '../images/image-url.js';
 
 import type {
   BooleanFilterField,
@@ -57,6 +63,7 @@ import {
   ENUM_FILTER_OPERATORS,
   STRING_FILTER_FIELDS,
 } from './dto/list-users-query.dto.js';
+import type { UserImageParamsDto } from './dto/user-image-params.dto.js';
 import type { UserListResponseDto } from './dto/user-response.dto.js';
 import {
   USER_SESSION_DATE_FILTER_FIELDS,
@@ -260,7 +267,20 @@ export class UsersService {
 
     const [data, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select({
+          id: user.id,
+          role: user.role,
+          banned: user.banned,
+          banReason: user.banReason,
+          banExpires: user.banExpires,
+          bio: user.bio,
+          name: user.name,
+          createdAt: user.createdAt,
+          email: user.email,
+          emailSubscribed: user.emailSubscribed,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
         .from(user)
         .where(where)
         .orderBy(orderBy, asc(user.id))
@@ -270,7 +290,8 @@ export class UsersService {
     ]);
 
     const userIds = data.map(({ id }) => id);
-    const [sessions, deletableUserIds] = await Promise.all([
+    const [rows, sessions, deletableUserIds] = await Promise.all([
+      withImageRefs(this.db, user, data),
       userIds.length
         ? this.db
             .selectDistinct({ userId: schema.session.userId })
@@ -282,8 +303,13 @@ export class UsersService {
     const sessionUserIds = new Set(sessions.map(({ userId }) => userId));
 
     return {
-      data: data.map((row) => ({
+      data: rows.map(({ imageRef, ...row }) => ({
         ...row,
+        imageUrl: imageRefUrl(
+          imageRef,
+          (version, extension) =>
+            `/api/users/${row.id}/image/${version}.${extension}`,
+        ),
         deletable: deletableUserIds.has(row.id),
         hasSession: sessionUserIds.has(row.id),
       })),
@@ -361,6 +387,23 @@ export class UsersService {
     ]);
 
     return { data, total };
+  }
+
+  async findImage({ id, version, extension }: UserImageParamsDto) {
+    const [row] = await this.db
+      .select({ image: user.image })
+      .from(user)
+      .where(eq(user.id, id));
+
+    const parsed = row?.image ? parseImageDataUrl(row.image) : null;
+    if (!row?.image || !parsed) throw new NotFoundException();
+
+    return {
+      current:
+        imageVersion(row.image) === version && parsed.extension === extension,
+      mimeType: parsed.mimeType,
+      data: Buffer.from(parsed.base64, 'base64'),
+    };
   }
 
   async getStats(query: StatsBucketQueryDto): Promise<UserStatsResponseDto> {
