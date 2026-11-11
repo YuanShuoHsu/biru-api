@@ -119,6 +119,17 @@ appended at max `sortOrder` + 1 or prepended at 0 with every existing row shifte
 2147483647, or the overflow 500 only moves to the next insert.
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
+On a brand-new database `drizzle-kit migrate` fails (exit 1, no message): it applies every pending migration in one
+transaction, and `0098` / `0105` use enum values added by `0084` / `0103`, which Postgres refuses before they commit. Apply
+each file in `drizzle/meta/_journal.json` order instead, e.g. `sed 's/--> statement-breakpoint/;/' drizzle/<tag>.sql | psql -v ON_ERROR_STOP=1 -1`. That
+writes no `drizzle.__drizzle_migrations` rows, so `drizzle-kit migrate` can never be run on that database afterwards
+(it re-applies `0000` and fails on `type "order_status" already exists`): use it only for throwaway databases.
+
+`pnpm tsx scripts/seed-e2e.ts` seeds such a database for end-to-end tests: one store (`e2e-store`, open all day every
+day) with a menu, modifiers, an add-on and ingredients, and five verified accounts — platform admin, store `owner`,
+`admin`, `member`, and a customer in no store. It needs `DATABASE_URL` in the environment (a `.env` is never used for
+it) and `E2E_{PLATFORM_ADMIN,OWNER,ADMIN,MEMBER,CUSTOMER}_{EMAIL,PASSWORD}`, and refuses to run once the database has
+any organization, so it can never write to the shared database.
 
 Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; batches whose root table is in `RESTORABLE_TABLES` can be restored by platform admins, or by store members whose role holds that table's `RESTORE_PERMISSIONS` action (restoring an owner member or invitation needs `owner`). Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
 
