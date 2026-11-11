@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   Param,
   ParseEnumPipe,
   Patch,
@@ -31,6 +30,7 @@ import {
   HOURLY_THROTTLER,
 } from '../common/constants/throttle.js';
 import { Audit } from '../common/decorators/audit.decorator.js';
+import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator.js';
 import { orderStatusEnum, type OrderStatus } from '../db/schema/orders.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
@@ -93,7 +93,7 @@ export class OrdersController {
   async create(
     @Param('organizationSlug') organizationSlug: string,
     @Body() dto: CreateOrderDto,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @IdempotencyKey() idempotencyKey: string | null,
     @Session() session: UserSession | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -105,7 +105,7 @@ export class OrdersController {
       organizationSlug,
       dto,
       session?.user.id || null,
-      idempotencyKey || null,
+      idempotencyKey,
       qrSessionValue,
     );
 

@@ -1,5 +1,5 @@
 {
-  "id": "650d007a-a1ed-413e-98d6-eb633c407819",
+  "id": "09abc408-e5d8-4795-b79b-c1cc548c3922",
   "prevId": "bc6be0b3-0728-473e-9f1c-3c820e9601c0",
   "version": "7",
   "dialect": "postgresql",
@@ -8777,190 +8777,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.push_subscription": {
-      "name": "push_subscription",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "endpoint": {
-          "name": "endpoint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "p256dh": {
-          "name": "p256dh",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "auth": {
-          "name": "auth",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lang": {
-          "name": "lang",
-          "type": "languages",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "app": {
-          "name": "app",
-          "type": "push_subscription_app",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "order_id": {
-          "name": "order_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "waitlist_ticket_id": {
-          "name": "waitlist_ticket_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "push_subscription_endpoint_unique": {
-          "name": "push_subscription_endpoint_unique",
-          "columns": [
-            {
-              "expression": "endpoint",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "push_subscription_userId_idx": {
-          "name": "push_subscription_userId_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "push_subscription_orderId_idx": {
-          "name": "push_subscription_orderId_idx",
-          "columns": [
-            {
-              "expression": "order_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "push_subscription_waitlistTicketId_idx": {
-          "name": "push_subscription_waitlistTicketId_idx",
-          "columns": [
-            {
-              "expression": "waitlist_ticket_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "push_subscription_user_id_user_id_fk": {
-          "name": "push_subscription_user_id_user_id_fk",
-          "tableFrom": "push_subscription",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "push_subscription_order_id_order_id_fk": {
-          "name": "push_subscription_order_id_order_id_fk",
-          "tableFrom": "push_subscription",
-          "tableTo": "order",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "push_subscription_waitlist_ticket_id_waitlist_ticket_id_fk": {
-          "name": "push_subscription_waitlist_ticket_id_waitlist_ticket_id_fk",
-          "tableFrom": "push_subscription",
-          "tableTo": "waitlist_ticket",
-          "columnsFrom": [
-            "waitlist_ticket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.quant_ai_agent_token": {
       "name": "quant_ai_agent_token",
       "schema": "",
@@ -10573,6 +10389,12 @@
         },
         "checkout_locked_at": {
           "name": "checkout_locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checkout_started_at": {
+          "name": "checkout_started_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -12350,14 +12172,6 @@
       "values": [
         "invoice",
         "orderTicket"
-      ]
-    },
-    "public.push_subscription_app": {
-      "name": "push_subscription_app",
-      "schema": "public",
-      "values": [
-        "storefront",
-        "admin"
       ]
     },
     "public.quant_ai_backtest_status": {
