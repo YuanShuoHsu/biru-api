@@ -175,7 +175,9 @@ describe('PublicMenusService.findOrderMenu', () => {
     queries.length = 0;
     await service.findOrderMenu(ORG, 'zh-TW');
 
-    expect(queries.join('\n')).not.toMatch(/_addOnMenuSection"\."image"/);
+    const sql = queries.join('\n');
+    expect(sql).toMatch(/_addOnMenuSection"\./);
+    expect(sql).not.toMatch(/_addOnMenuSection"\."image"/);
   });
 
   it('returns modifier image urls instead of the image, also under add-on items', async () => {
