@@ -13,24 +13,23 @@ const idsOf = (count: number) =>
 
 describe('ReorderDto', () => {
   it('accepts a full page of distinct ids', async () => {
-    expect(await errorsOf({ ids: idsOf(100), offset: 0 })).toEqual([]);
+    expect(await errorsOf({ ids: idsOf(100) })).toEqual([]);
   });
 
   it('rejects more ids than a page holds', async () => {
-    expect(await errorsOf({ ids: idsOf(101), offset: 0 })).toEqual(['ids']);
+    expect(await errorsOf({ ids: idsOf(101) })).toEqual(['ids']);
   });
 
   it('rejects a repeated id', async () => {
-    expect(await errorsOf({ ids: ['a', 'b', 'a'], offset: 0 })).toEqual([
-      'ids',
-    ]);
+    expect(await errorsOf({ ids: ['a', 'b', 'a'] })).toEqual(['ids']);
   });
 
-  it('accepts a reorder without the offset', async () => {
-    expect(await errorsOf({ ids: ['a', 'b'] })).toEqual([]);
-  });
+  it('rejects the removed offset like the global validation pipe', async () => {
+    const errors = await validate(
+      plainToInstance(ReorderDto, { ids: ['a', 'b'], offset: 0 }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
 
-  it('still rejects a negative offset', async () => {
-    expect(await errorsOf({ ids: ['a', 'b'], offset: -1 })).toEqual(['offset']);
+    expect(errors.map(({ property }) => property)).toEqual(['offset']);
   });
 });
