@@ -2175,15 +2175,29 @@ describe('SharedCartsService', () => {
       );
     });
 
-    it('lets another participant take the lock right after the cap', async () => {
+    it('makes everyone wait out the cooldown once a lock reached the cap', async () => {
       const host = await startPickup();
       const guest = await joinApproved(host);
       await acquire(host);
       await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS);
 
+      await expect(acquire(guest)).rejects.toMatchObject(expired);
+    });
+
+    it('gives another participant a fresh lock when the holder let it lapse before the cap', async () => {
+      const host = await startPickup();
+      const guest = await joinApproved(host);
+      await acquire(host);
+      await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS - 60_000);
+      await ageCheckout(SHARED_CART_CHECKOUT_LOCK_MS);
+
+      const before = Date.now();
       const { cart } = await acquire(guest);
 
       expect(cart.checkout!.participantId).toBe(guest.cart.me.id);
+      expect(cart.checkout!.lockedUntil.getTime()).toBeGreaterThanOrEqual(
+        before + SHARED_CART_CHECKOUT_LOCK_MS,
+      );
     });
 
     it('keeps the cap clock when the holder releases or lets the lock lapse and takes it again', async () => {
@@ -2206,27 +2220,66 @@ describe('SharedCartsService', () => {
       const host = await startPickup();
       const guest = await joinApproved(host);
       await acquire(host);
-      const [first, second] = [await startPickup(), await startPickup()];
-      await requestToJoin(host.cart.code, cookiesOf(first.issued));
-      const [request] = (await current(host)).requests;
+      const applicants: (SharedCartResult & { sortsBefore: boolean })[] = [];
+      const sortsBefore = async (applicant: SharedCartResult) => {
+        const [own] = await db
+          .select({ id: sharedCart.id })
+          .from(sharedCart)
+          .where(eq(sharedCart.code, applicant.cart.code!));
+        const [hostCart] = await db
+          .select({ id: sharedCart.id })
+          .from(sharedCart)
+          .where(eq(sharedCart.code, host.cart.code!));
+        return own.id < hostCart.id;
+      };
+      while (!(
+        applicants.some((applicant) => applicant.sortsBefore) &&
+        applicants.some((applicant) => !applicant.sortsBefore)
+      )) {
+        const applicant = await startPickup();
+        applicants.push(
+          Object.assign(applicant, {
+            sortsBefore: await sortsBefore(applicant),
+          }),
+        );
+      }
 
+      for (const sorted of [true, false]) {
+        const applicant = applicants.find(
+          (candidate) => candidate.sortsBefore === sorted,
+        )!;
+        await requestToJoin(
+          (await current(host)).code,
+          cookiesOf(applicant.issued),
+        );
+        const [request] = (await current(host)).requests;
+
+        await expect(
+          service.approveRequest(
+            SLUG,
+            request.id,
+            null,
+            cookiesOf(guest.issued),
+          ),
+        ).rejects.toMatchObject(locked);
+        expect((await current(host)).requests).toHaveLength(1);
+        await service.approveRequest(
+          SLUG,
+          request.id,
+          null,
+          cookiesOf(host.issued),
+        );
+      }
+      expect((await current(host)).participants).toHaveLength(4);
+
+      const declined = await requestToJoin((await current(host)).code);
       await expect(
-        service.approveRequest(SLUG, request.id, null, cookiesOf(guest.issued)),
-      ).rejects.toMatchObject(locked);
-      expect((await current(host)).requests).toHaveLength(1);
-
-      const { cart } = await service.approveRequest(
-        SLUG,
-        request.id,
-        null,
-        cookiesOf(host.issued),
-      );
-      expect(cart.participants).toHaveLength(3);
-
-      await requestToJoin(cart.code, cookiesOf(second.issued));
-      const [declined] = (await current(host)).requests;
-      await expect(
-        service.rejectRequest(SLUG, declined.id, null, cookiesOf(guest.issued)),
+        service.rejectRequest(
+          SLUG,
+          declined.cart.me.id,
+          null,
+          cookiesOf(guest.issued),
+        ),
       ).resolves.toBeDefined();
     });
   });

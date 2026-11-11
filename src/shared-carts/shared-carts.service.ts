@@ -169,18 +169,26 @@ const liveCheckout = ({
     : null;
 
 const checkoutStartFor = (
-  { checkoutParticipantId, checkoutStartedAt }: CheckoutState,
+  { checkoutLockedAt, checkoutParticipantId, checkoutStartedAt }: CheckoutState,
   participantId: string,
   now: Date,
-) =>
-  checkoutParticipantId === participantId &&
-  checkoutStartedAt &&
-  checkoutStartedAt.getTime() >
-    now.getTime() -
-      SHARED_CART_CHECKOUT_MAX_MS -
-      SHARED_CART_CHECKOUT_COOLDOWN_MS
+) => {
+  if (
+    !checkoutStartedAt ||
+    checkoutStartedAt.getTime() <=
+      now.getTime() -
+        SHARED_CART_CHECKOUT_MAX_MS -
+        SHARED_CART_CHECKOUT_COOLDOWN_MS
+  )
+    return now;
+  const reachedCap =
+    !!checkoutLockedAt &&
+    checkoutLockedAt.getTime() + SHARED_CART_CHECKOUT_LOCK_MS >=
+      checkoutStartedAt.getTime() + SHARED_CART_CHECKOUT_MAX_MS;
+  return reachedCap || checkoutParticipantId === participantId
     ? checkoutStartedAt
     : now;
+};
 
 const isLiveParticipant = (now = Date.now()) =>
   or(
@@ -928,7 +936,8 @@ export class SharedCartsService {
         await this.rotateCode(tx, org.id, sharedCartId);
         return;
       }
-      const holder = liveCheckout(locked[0])?.participantId;
+      const cart = locked.find(({ id }) => id === sharedCartId);
+      const holder = cart && liveCheckout(cart)?.participantId;
       if (holder && holder !== approver.participantId)
         throw conflictError('sharedCartCheckoutLocked');
       if ((await countActive(tx, sharedCartId)) >= SHARED_CART_MAX_PARTICIPANTS)
@@ -1129,7 +1138,7 @@ export class SharedCartsService {
           .where(eq(sharedCart.id, sharedCartId));
         const now = new Date();
         const startedAt = checkoutStartFor(cart, participantId, now);
-        if (startedAt <= checkoutStartedSince())
+        if (startedAt.getTime() <= now.getTime() - SHARED_CART_CHECKOUT_MAX_MS)
           throw conflictError('sharedCartCheckoutExpired');
         await tx
           .update(sharedCart)
