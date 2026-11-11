@@ -26,9 +26,7 @@ describe('HealthController', () => {
         DatabaseHealthIndicator,
         { provide: DRIZZLE, useValue: { execute } },
       ],
-    })
-      .setLogger(false)
-      .compile();
+    }).compile();
 
     app = moduleRef.createNestApplication({ logger: false });
     app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
