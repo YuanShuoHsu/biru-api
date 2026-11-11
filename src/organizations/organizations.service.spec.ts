@@ -424,6 +424,7 @@ describe('OrganizationsService 轉為真正店主', () => {
 
 describe('OrganizationsService.upcomingSpecialHours', () => {
   let client: PGlite;
+  let db: DrizzleDB;
   let service: OrganizationsService;
 
   const day = (offset: number) =>
@@ -433,18 +434,23 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     client = createPGlite();
     const pglite = drizzle(client, { schema });
     await migrate(pglite, { migrationsFolder: './drizzle' });
-    service = new OrganizationsService(pglite as unknown as DrizzleDB);
+    db = pglite as unknown as DrizzleDB;
+    service = new OrganizationsService(db);
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+        ('biru', 'Biru', 'biru', '2026-01-01', 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', '2026-01-02', 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('quiet', 'Quiet', 'quiet', '2026-01-03', 'TW', '桃園市', '大園區', '中正東路一段');
       insert into organization_special_hours (id, organization_id, valid_from, valid_through, opening_hours, note) values
         ('ended', 'biru', '${day(-4)}', '${day(-2)}', null, null),
         ('ongoing', 'biru', '${day(-1)}', '${day(0)}', null, '颱風停業'),
         ('last', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', 'Mo-Su 10:00-15:00', null),
         ('beyond', 'biru', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 3)}', null, null),
-        ('other-yesterday', 'other', '${day(-2)}', '${day(-1)}', null, null),
-        ('other', 'other', '${day(1)}', '${day(1)}', null, null);
+        ('other-ended', 'other', '${day(-3)}', '${day(-2)}', null, null),
+        ('other-yesterday', 'other', '${day(-1)}', '${day(-1)}', null, null),
+        ('other', 'other', '${day(1)}', '${day(1)}', null, null),
+        ('other-day-after-last', 'other', '${day(PICKUP_MAX_ADVANCE_DAYS + 1)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 1)}', null, null),
+        ('other-beyond', 'other', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', '${day(PICKUP_MAX_ADVANCE_DAYS + 2)}', null, null);
     `);
   }, 60_000);
 
@@ -452,7 +458,7 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     await client.close();
   });
 
-  it('從今天到可預約自取的最遠日期，只回這家店的特殊營業日', async () => {
+  it('從昨天到可預約自取最遠日期的隔天，只回這家店的特殊營業日', async () => {
     await expect(service.upcomingSpecialHours('biru')).resolves.toEqual([
       {
         id: 'ongoing',
@@ -471,10 +477,58 @@ describe('OrganizationsService.upcomingSpecialHours', () => {
     ]);
   });
 
-  it('昨天結束的特殊營業日不列出', async () => {
+  it('列出昨天結束與最遠日期隔天開始的特殊營業日，前天結束與再隔一天開始的不列出', async () => {
     const specialHours = await service.upcomingSpecialHours('other');
 
-    expect(specialHours.map(({ id }) => id)).toEqual(['other']);
+    expect(specialHours.map(({ id }) => id)).toEqual([
+      'other-yesterday',
+      'other',
+      'other-day-after-last',
+    ]);
+  });
+
+  it('門市列表以一次查詢帶出各店的特殊營業日，沒有的店為空陣列', async () => {
+    const findMany = vi.spyOn(db.query.organizationSpecialHours, 'findMany');
+
+    try {
+      const organizations = await service.organizations();
+
+      expect(findMany).toHaveBeenCalledTimes(1);
+      expect(
+        organizations.map(({ id, specialHours }) => [
+          id,
+          specialHours.map((row) => row.id),
+        ]),
+      ).toEqual([
+        ['biru', ['ongoing', 'last']],
+        ['other', ['other-yesterday', 'other', 'other-day-after-last']],
+        ['quiet', []],
+      ]);
+      expect(organizations[0].specialHours[0]).toEqual({
+        id: 'ongoing',
+        note: '颱風停業',
+        openingHours: null,
+        validFrom: day(-1),
+        validThrough: day(0),
+      });
+    } finally {
+      findMany.mockRestore();
+    }
+  });
+
+  it('沒有門市時不查特殊營業日', async () => {
+    const findMany = vi.spyOn(db.query.organizationSpecialHours, 'findMany');
+    await client.exec(
+      `update organization set closed_at = now() where id in ('biru', 'other', 'quiet')`,
+    );
+
+    try {
+      await expect(service.organizations()).resolves.toEqual([]);
+      expect(findMany).not.toHaveBeenCalled();
+    } finally {
+      findMany.mockRestore();
+      await client.exec(`update organization set closed_at = null`);
+    }
   });
 });
 
