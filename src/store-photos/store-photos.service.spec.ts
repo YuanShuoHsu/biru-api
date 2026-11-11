@@ -103,6 +103,15 @@ describe('StorePhotosService.findAll alt', () => {
     ]);
   });
 
+  it('更新不存在的門市照片並帶新圖片時，先回 404，不上傳圖片', async () => {
+    const store = vi.spyOn(ImageStorageService.prototype, 'store');
+
+    await expect(
+      service.update('missing', { image: 'data:image/jpeg;base64,/9j/4AAQ' }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(store).not.toHaveBeenCalled();
+  });
+
   it('更新時只寫入有送的欄位，沒送圖片就保留原圖', async () => {
     try {
       const updated = await service.update(

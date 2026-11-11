@@ -187,7 +187,7 @@ export class BannersService {
     dto: UpdateBannerDto,
   ): Promise<BannerResponseDto> {
     const { startsAt, endsAt, ...fields } = dto;
-    if (startsAt !== undefined || endsAt !== undefined) {
+    if (startsAt !== undefined || endsAt !== undefined || fields.image) {
       const current = await this.db.query.banner.findFirst({
         where: eq(banner.id, bannerId),
         columns: { startsAt: true, endsAt: true },

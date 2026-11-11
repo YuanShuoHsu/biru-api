@@ -196,6 +196,14 @@ export class StorePhotosService {
     dto: UpdateStorePhotoDto,
   ): Promise<StorePhotoResponseDto> {
     const { image, ...fields } = dto;
+    if (image) {
+      const found = await this.db.query.storePhoto.findFirst({
+        where: eq(storePhoto.id, storePhotoId),
+        columns: { id: true },
+      });
+      if (!found) throw notFoundError('storePhotoNotFound');
+    }
+
     const [updated] = await this.db
       .update(storePhoto)
       .set({
