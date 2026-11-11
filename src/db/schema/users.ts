@@ -54,6 +54,7 @@ export const user = pgTable(
       'user_name_phone_not_blank',
       sql`btrim(${table.firstName}) <> '' and btrim(${table.lastName}) <> '' and btrim(${table.phoneNumber}) <> ''`,
     ),
+    index('user_createdAt_idx').on(table.createdAt),
   ],
 );
 
