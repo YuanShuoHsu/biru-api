@@ -195,7 +195,8 @@ export class StorePhotosService {
     storePhotoId: string,
     dto: UpdateStorePhotoDto,
   ): Promise<StorePhotoResponseDto> {
-    if (dto.image) {
+    const { image, ...fields } = dto;
+    if (image) {
       const found = await this.db.query.storePhoto.findFirst({
         where: eq(storePhoto.id, storePhotoId),
         columns: { id: true },
@@ -206,8 +207,8 @@ export class StorePhotosService {
     const [updated] = await this.db
       .update(storePhoto)
       .set({
-        ...dto,
-        image: await this.imageStorage.store('storePhoto', dto.image),
+        ...fields,
+        image: await this.imageStorage.store('storePhoto', image),
       })
       .where(eq(storePhoto.id, storePhotoId))
       .returning();
