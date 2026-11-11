@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
   and,
@@ -38,6 +39,10 @@ import {
 import { session, user } from '../db/schema/users.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import {
+  SHARED_CART_UPDATED_EVENT,
+  type SharedCartUpdatedEvent,
+} from '../events/shared-cart-updated.event.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 import type { CreateOrderItemDto } from '../orders/dto/create-order.dto.js';
 import { badRequestError as orderBadRequestError } from '../orders/order-errors.js';
@@ -67,9 +72,11 @@ import {
 } from './shared-cart-errors.js';
 import {
   issueSharedCartParticipant,
+  issueSharedCartSocketToken,
   newSharedCartDeviceKey,
   sharedCartParticipantCookie,
   verifySharedCartParticipant,
+  verifySharedCartSocketToken,
   type IssuedSharedCartParticipant,
 } from './shared-cart-participant-token.js';
 
@@ -418,7 +425,16 @@ export class SharedCartsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly orderQrService: OrderQrService,
     private readonly orderPricingService: OrderPricingService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private emitUpdated(...sharedCartIds: (string | undefined)[]) {
+    for (const sharedCartId of new Set(sharedCartIds))
+      if (sharedCartId)
+        this.eventEmitter.emit(SHARED_CART_UPDATED_EVENT, {
+          sharedCartId,
+        } satisfies SharedCartUpdatedEvent);
+  }
 
   private async getOrg(slug: string): Promise<Org> {
     const org = await this.db.query.organization.findFirst({
@@ -796,6 +812,12 @@ export class SharedCartsService {
             ...profileOf(person),
             requestedAt: person.requestedAt,
           })),
+        socketToken: issueSharedCartSocketToken(
+          org.id,
+          org.qrSecret,
+          deviceKey,
+          SHARED_CART_TTL_MS,
+        ),
         tableNumber: cart.tableNumber,
       },
       issued: issueSharedCartParticipant(org.id, org.qrSecret, deviceKey),
@@ -816,7 +838,7 @@ export class SharedCartsService {
     const deviceKey =
       this.deviceKeyOf(org, cookies) ?? newSharedCartDeviceKey();
 
-    await this.db.transaction(async (tx) => {
+    const left = await this.db.transaction(async (tx) => {
       const { device } = await this.lockDevice(tx, org.id, deviceKey);
       if (device.active) await this.leave(tx, device.active);
       if (device.pending)
@@ -850,7 +872,9 @@ export class SharedCartsService {
         sharedCartId,
         status: 'active',
       });
+      return [device.active?.sharedCartId, device.pending?.sharedCartId];
     });
+    this.emitUpdated(...left);
 
     return this.view(org, deviceKey, member);
   }
@@ -869,7 +893,7 @@ export class SharedCartsService {
     const deviceKey =
       this.deviceKeyOf(org, cookies) ?? newSharedCartDeviceKey();
 
-    await this.db.transaction(async (tx) => {
+    const changed = await this.db.transaction(async (tx) => {
       const [found] = await tx
         .select({ id: sharedCart.id })
         .from(sharedCart)
@@ -904,7 +928,7 @@ export class SharedCartsService {
         device.active?.sharedCartId === cart.id ||
         device.pending?.sharedCartId === cart.id
       )
-        return;
+        return [];
 
       if ((await countActive(tx, cart.id)) >= SHARED_CART_MAX_PARTICIPANTS)
         throw conflictError('sharedCartFull');
@@ -933,7 +957,9 @@ export class SharedCartsService {
         sharedCartId: cart.id,
         status: 'pending',
       });
+      return [cart.id, device.pending?.sharedCartId];
     });
+    this.emitUpdated(...changed);
 
     return this.view(org, deviceKey, member);
   }
@@ -988,6 +1014,8 @@ export class SharedCartsService {
             }),
         })
         .where(eq(sharedCartParticipant.id, active.participantId));
+    if (avatar !== undefined || nickname !== undefined)
+      this.emitUpdated(active.sharedCartId);
 
     return this.view(org, deviceKey, member);
   }
@@ -995,22 +1023,27 @@ export class SharedCartsService {
   async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
     const deviceKey = this.requireDeviceKey(org, cookies);
-    await this.db.transaction(async (tx) => {
+    const left = await this.db.transaction(async (tx) => {
       const { device } = await this.lockDevice(tx, org.id, deviceKey);
-      if (device.active) return this.leave(tx, device.active);
-      if (!device.pending) throw notFoundError('sharedCartNotFound');
-      await deleteParticipant(tx, device.pending.participantId);
+      const mine = device.active ?? device.pending;
+      if (!mine) throw notFoundError('sharedCartNotFound');
+      if (device.active) await this.leave(tx, device.active);
+      else await deleteParticipant(tx, mine.participantId);
+      return mine.sharedCartId;
     });
+    this.emitUpdated(left);
   }
 
   async cancelRequest(organizationSlug: string, cookies: SharedCartCookies) {
     const org = await this.getOrg(organizationSlug);
     const deviceKey = this.requireDeviceKey(org, cookies);
-    await this.db.transaction(async (tx) => {
+    const cancelled = await this.db.transaction(async (tx) => {
       const { device } = await this.lockDevice(tx, org.id, deviceKey);
       if (!device.pending) throw notFoundError('sharedCartRequestNotFound');
       await deleteParticipant(tx, device.pending.participantId);
+      return device.pending.sharedCartId;
     });
+    this.emitUpdated(cancelled);
   }
 
   private async decide(
@@ -1028,7 +1061,7 @@ export class SharedCartsService {
     );
     const { sharedCartId } = approver;
 
-    await this.db.transaction(async (tx) => {
+    const changed = await this.db.transaction(async (tx) => {
       const liveRequest = () =>
         tx
           .select({ deviceKey: sharedCartParticipant.deviceKey })
@@ -1047,7 +1080,7 @@ export class SharedCartsService {
       if (!approve) {
         await deleteParticipant(tx, requestId);
         await this.rotateCode(tx, org.id, sharedCartId);
-        return;
+        return [sharedCartId];
       }
       const cart = locked.find(({ id }) => id === sharedCartId);
       const holder = cart && liveCheckout(cart)?.participantId;
@@ -1062,7 +1095,9 @@ export class SharedCartsService {
         .update(sharedCartParticipant)
         .set({ joinedAt: new Date(), status: 'active' })
         .where(eq(sharedCartParticipant.id, requestId));
+      return [sharedCartId, left?.sharedCartId];
     });
+    this.emitUpdated(...changed);
 
     return this.view(org, deviceKey, member);
   }
@@ -1089,7 +1124,7 @@ export class SharedCartsService {
     organizationSlug: string,
     member: SharedCartUser | null,
     cookies: SharedCartCookies,
-    change: (tx: Tx, active: DeviceRow, org: Org) => Promise<unknown>,
+    change: (tx: Tx, active: DeviceRow, org: Org) => Promise<boolean | void>,
     items?: CreateOrderItemDto[],
   ) {
     const org = await this.getOrg(organizationSlug);
@@ -1102,14 +1137,15 @@ export class SharedCartsService {
         active.mode,
       );
 
-    await this.db.transaction(async (tx) => {
+    const changed = await this.db.transaction(async (tx) => {
       const locked = await this.lockCarts(tx, [active.sharedCartId]);
       await this.assertStillActive(tx, locked, active);
       const holder = liveCheckout(locked[0])?.participantId;
       if (holder && holder !== active.participantId)
         throw conflictError('sharedCartCheckoutLocked');
-      await change(tx, active, org);
+      return change(tx, active, org);
     });
+    if (changed !== false) this.emitUpdated(active.sharedCartId);
 
     return this.view(org, deviceKey, member);
   }
@@ -1249,6 +1285,7 @@ export class SharedCartsService {
           })
           .from(sharedCart)
           .where(eq(sharedCart.id, sharedCartId));
+        const renewed = liveCheckout(cart)?.participantId === participantId;
         const now = new Date();
         const startedAt = checkoutStartFor(cart, now);
         if (startedAt.getTime() <= now.getTime() - SHARED_CART_CHECKOUT_MAX_MS)
@@ -1261,6 +1298,7 @@ export class SharedCartsService {
             checkoutStartedAt: startedAt,
           })
           .where(eq(sharedCart.id, sharedCartId));
+        return !renewed;
       },
     );
   }
@@ -1290,6 +1328,33 @@ export class SharedCartsService {
         if (!released.length) throw notFoundError('sharedCartCheckoutNotFound');
       },
     );
+  }
+
+  async socketCartsOf(organizationId: string, socketToken: string) {
+    const deviceKey = verifySharedCartSocketToken(
+      organizationId,
+      await this.orderQrService.secretOf(organizationId),
+      socketToken,
+    );
+    if (!deviceKey) return [];
+    const rows = await deviceRows(this.db, organizationId, deviceKey);
+    return rows.map(({ participantId, sharedCartId }) => ({
+      participantId,
+      sharedCartId,
+    }));
+  }
+
+  async liveParticipantIdsOf(sharedCartId: string) {
+    const rows = await this.db
+      .select({ id: sharedCartParticipant.id })
+      .from(sharedCartParticipant)
+      .where(
+        and(
+          eq(sharedCartParticipant.sharedCartId, sharedCartId),
+          isLiveParticipant(),
+        ),
+      );
+    return new Set(rows.map(({ id }) => id));
   }
 
   async purgeExpired() {
