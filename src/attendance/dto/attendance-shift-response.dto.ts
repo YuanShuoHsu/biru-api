@@ -17,12 +17,12 @@ export class AttendanceEventResponseDto {
   @ApiProperty() occurredAt: string;
 }
 
-export class AttendanceIntervalResponseDto {
+class AttendanceIntervalResponseDto {
   @ApiProperty() startsAt: string;
   @ApiProperty() endsAt: string;
 }
 
-export class ShiftBreakDto {
+class ShiftBreakDto {
   @ApiProperty() startsAt: string;
   @ApiProperty() endsAt: string;
 }
@@ -121,7 +121,7 @@ export class AttendanceShiftsResponseDto {
   @ApiProperty() total: number;
 }
 
-export class AttendanceCalendarDayKindResponseDto {
+class AttendanceCalendarDayKindResponseDto {
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
   @ApiProperty() date: string;
@@ -130,12 +130,12 @@ export class AttendanceCalendarDayKindResponseDto {
   @ApiPropertyOptional() holidayName?: string;
 }
 
-export class AttendanceCalendarHolidayResponseDto {
+class AttendanceCalendarHolidayResponseDto {
   @ApiProperty() date: string;
   @ApiProperty() name: string;
 }
 
-export class AttendanceCalendarPendingSubstituteResponseDto {
+class AttendanceCalendarPendingSubstituteResponseDto {
   @ApiProperty() employeeId: string;
   @ApiProperty() employeeName: string;
   @ApiProperty() date: string;

@@ -15,7 +15,7 @@ import {
   type AttendanceWorkPermitStatus,
 } from '../../db/schema/attendance.js';
 
-export class AttendanceEmploymentResponseDto {
+class AttendanceEmploymentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() organizationId: string;
   @ApiProperty() userId: string;
@@ -80,7 +80,7 @@ export class AttendanceEmployeeResponseDto extends AttendanceEmploymentResponseD
   status: AttendanceEmployeeStatus;
 }
 
-export class AttendanceEmployeeSummaryResponseDto extends PickType(
+class AttendanceEmployeeSummaryResponseDto extends PickType(
   AttendanceEmployeeResponseDto,
   [
     'id',
@@ -100,7 +100,7 @@ export class AttendanceEmployeesResponseDto {
   @ApiProperty() total: number;
 }
 
-export class AttendanceMemberEmploymentResponseDto extends PickType(
+class AttendanceMemberEmploymentResponseDto extends PickType(
   AttendanceEmploymentResponseDto,
   [
     'id',
@@ -117,7 +117,7 @@ export class AttendanceMemberEmploymentResponseDto extends PickType(
   ] as const,
 ) {}
 
-export class AttendanceMemberResponseDto {
+class AttendanceMemberResponseDto {
   @ApiProperty() userId: string;
   @ApiProperty() name: string;
   @ApiProperty() email: string;
@@ -151,7 +151,7 @@ export class AttendanceMembersResponseDto {
   @ApiProperty() total: number;
 }
 
-export class AttendanceSelfReviewAllowanceDto {
+class AttendanceSelfReviewAllowanceDto {
   @ApiProperty() attendanceRequest: boolean;
   @ApiProperty() leaveCase: boolean;
   @ApiProperty() parentalChild: boolean;
