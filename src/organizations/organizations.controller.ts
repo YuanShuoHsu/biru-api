@@ -26,10 +26,7 @@ import {
   MemberShowcaseResponseDto,
   OrganizationTeamMemberResponseDto,
 } from './dto/organization-member-response.dto.js';
-import {
-  OrganizationDetailResponseDto,
-  OrganizationResponseDto,
-} from './dto/organization-response.dto.js';
+import { OrganizationDetailResponseDto } from './dto/organization-response.dto.js';
 import { UpdateMemberShowcaseDto } from './dto/update-member-showcase.dto.js';
 import { OrganizationsService } from './organizations.service.js';
 
@@ -43,10 +40,11 @@ export class OrganizationsController {
   @ApiOperation({
     summary: '查詢營業中的組織；平台管理員可帶 includeClosed 含停業',
   })
+  @ApiOkResponse({ type: [OrganizationDetailResponseDto] })
   findAll(
     @Query() { includeClosed }: OrganizationListQueryDto,
     @Session() session: UserSession | null,
-  ): Promise<OrganizationResponseDto[]> {
+  ): Promise<OrganizationDetailResponseDto[]> {
     if (includeClosed && session?.user.role !== 'admin')
       throw accessForbiddenError();
 
