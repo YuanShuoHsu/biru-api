@@ -168,27 +168,14 @@ const liveCheckout = ({
       }
     : null;
 
-const checkoutStartFor = (
-  { checkoutLockedAt, checkoutParticipantId, checkoutStartedAt }: CheckoutState,
-  participantId: string,
-  now: Date,
-) => {
-  if (
-    !checkoutStartedAt ||
-    checkoutStartedAt.getTime() <=
-      now.getTime() -
-        SHARED_CART_CHECKOUT_MAX_MS -
-        SHARED_CART_CHECKOUT_COOLDOWN_MS
-  )
-    return now;
-  const reachedCap =
-    !!checkoutLockedAt &&
-    checkoutLockedAt.getTime() + SHARED_CART_CHECKOUT_LOCK_MS >=
-      checkoutStartedAt.getTime() + SHARED_CART_CHECKOUT_MAX_MS;
-  return reachedCap || checkoutParticipantId === participantId
+const checkoutStartFor = ({ checkoutStartedAt }: CheckoutState, now: Date) =>
+  checkoutStartedAt &&
+  checkoutStartedAt.getTime() >
+    now.getTime() -
+      SHARED_CART_CHECKOUT_MAX_MS -
+      SHARED_CART_CHECKOUT_COOLDOWN_MS
     ? checkoutStartedAt
     : now;
-};
 
 const isLiveParticipant = (now = Date.now()) =>
   or(
@@ -1137,7 +1124,7 @@ export class SharedCartsService {
           .from(sharedCart)
           .where(eq(sharedCart.id, sharedCartId));
         const now = new Date();
-        const startedAt = checkoutStartFor(cart, participantId, now);
+        const startedAt = checkoutStartFor(cart, now);
         if (startedAt.getTime() <= now.getTime() - SHARED_CART_CHECKOUT_MAX_MS)
           throw conflictError('sharedCartCheckoutExpired');
         await tx

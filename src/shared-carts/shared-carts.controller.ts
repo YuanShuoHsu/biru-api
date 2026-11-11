@@ -307,7 +307,7 @@ export class SharedCartsController {
   @HttpCode(200)
   @ApiOperation({
     summary:
-      '開始結帳並鎖定共享點餐單，鎖定中再呼叫即延長；鎖定期間只有自己能修改，任何人都不能離開。從開始起最多鎖 10 分鐘，到期後要等 2 分鐘才能再鎖',
+      '開始結帳並鎖定共享點餐單，鎖定中再呼叫即延長；鎖定期間只有自己能修改，任何人都不能離開。一張單從開始結帳起最多鎖 10 分鐘（中途換人接手也算在內），到期後 2 分鐘內任何人都不能再鎖',
   })
   async acquireCheckout(
     @Param('organizationSlug') organizationSlug: string,

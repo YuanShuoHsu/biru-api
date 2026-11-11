@@ -2184,20 +2184,20 @@ describe('SharedCartsService', () => {
       await expect(acquire(guest)).rejects.toMatchObject(expired);
     });
 
-    it('gives another participant a fresh lock when the holder let it lapse before the cap', async () => {
+    it('keeps the cart’s cap clock when another participant takes over a released or lapsed lock', async () => {
       const host = await startPickup();
       const guest = await joinApproved(host);
       await acquire(host);
       await ageCheckoutStart(SHARED_CART_CHECKOUT_MAX_MS - 60_000);
-      await ageCheckout(SHARED_CART_CHECKOUT_LOCK_MS);
-
-      const before = Date.now();
-      const { cart } = await acquire(guest);
-
-      expect(cart.checkout!.participantId).toBe(guest.cart.me.id);
-      expect(cart.checkout!.lockedUntil.getTime()).toBeGreaterThanOrEqual(
-        before + SHARED_CART_CHECKOUT_LOCK_MS,
+      const [{ checkoutStartedAt }] = await db.select().from(sharedCart);
+      const capped = new Date(
+        checkoutStartedAt!.getTime() + SHARED_CART_CHECKOUT_MAX_MS,
       );
+      await release(host);
+
+      expect((await acquire(guest)).cart.checkout!.lockedUntil).toEqual(capped);
+      await ageCheckout(SHARED_CART_CHECKOUT_LOCK_MS);
+      expect((await acquire(host)).cart.checkout!.lockedUntil).toEqual(capped);
     });
 
     it('keeps the cap clock when the holder releases or lets the lock lapse and takes it again', async () => {
