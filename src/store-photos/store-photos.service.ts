@@ -67,7 +67,11 @@ export class StorePhotosService {
       columns: { id: true, alt: true },
       extras: imageRefQuery.extras,
       where: eq(storePhoto.isActive, true),
-      orderBy: [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)],
+      orderBy: [
+        asc(storePhoto.sortOrder),
+        asc(storePhoto.createdAt),
+        asc(storePhoto.id),
+      ],
     });
 
     return rows.map(({ alt, ...row }) => ({
@@ -110,8 +114,13 @@ export class StorePhotosService {
               : storePhotoFieldMap[sortBy],
           ),
           asc(storePhoto.createdAt),
+          asc(storePhoto.id),
         ]
-      : [asc(storePhoto.sortOrder), asc(storePhoto.createdAt)];
+      : [
+          asc(storePhoto.sortOrder),
+          asc(storePhoto.createdAt),
+          asc(storePhoto.id),
+        ];
 
     const where = and(
       filterField === 'alt' && filterOperator

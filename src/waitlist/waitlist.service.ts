@@ -489,15 +489,12 @@ export class WaitlistService {
       if (lockedGroup?.prefix !== group.prefix)
         throw conflictError('waitlistGroupsInUse', byStaff ? 'staff' : 'guest');
 
+      // 號碼要接在看板上所有號碼之後，只算今天的話跨午夜會出現兩張同號
       const [{ value: lastNumber }] = await tx
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)
         .where(
-          and(
-            eq(waitlistTicket.organizationId, org.id),
-            eq(waitlistTicket.serviceDate, serviceDate),
-            eq(waitlistTicket.prefix, group.prefix),
-          ),
+          and(inTodayQueue(org.id), eq(waitlistTicket.prefix, group.prefix)),
         );
 
       const [inserted] = await tx
@@ -516,6 +513,7 @@ export class WaitlistService {
           idempotencyKey,
           idempotencyFingerprint,
           userId,
+          createdAt: new Date(),
         })
         .returning();
 
@@ -751,8 +749,7 @@ export class WaitlistService {
             .from(waitlistTicket)
             .where(
               and(
-                eq(waitlistTicket.organizationId, ticket.organizationId),
-                eq(waitlistTicket.serviceDate, serviceDate),
+                inTodayQueue(ticket.organizationId),
                 eq(waitlistTicket.prefix, group.prefix),
               ),
             )
@@ -901,8 +898,12 @@ export class WaitlistService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(fieldMap[sortBy]), desc(waitlistTicket.createdAt)]
-      : [desc(waitlistTicket.createdAt)];
+      ? [
+          dir(fieldMap[sortBy]),
+          desc(waitlistTicket.createdAt),
+          desc(waitlistTicket.id),
+        ]
+      : [desc(waitlistTicket.createdAt), desc(waitlistTicket.id)];
 
     const where = and(
       eq(waitlistTicket.organizationId, org.id),
