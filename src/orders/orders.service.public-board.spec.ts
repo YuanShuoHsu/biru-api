@@ -47,8 +47,8 @@ describe('OrdersService.listPublicBoard', () => {
     await addOrder('ready-cash', 'OrderPickupAvailable', 'Cash');
     await client.exec(
       `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, pickup_time, created_at) values
-         ('slot-later', '{"name":"客人"}', 'pickup', '3', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '1 minute'),
-         ('slot-earlier', '{"name":"客人"}', 'pickup', '2', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '2 minutes');`,
+         ('slot-a', '{"name":"客人"}', 'pickup', '3', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '1 minute'),
+         ('slot-b', '{"name":"客人"}', 'pickup', '2', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '2 minutes');`,
     );
   }, 60_000);
 
@@ -70,8 +70,8 @@ describe('OrdersService.listPublicBoard', () => {
     const board = await service.listPublicBoard('other');
 
     expect(board.map(({ orderId }) => orderId)).toEqual([
-      'slot-earlier',
-      'slot-later',
+      'slot-b',
+      'slot-a',
     ]);
   });
 });
