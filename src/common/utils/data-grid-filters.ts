@@ -7,6 +7,7 @@ import {
   gte,
   ilike,
   inArray,
+  is,
   isNotNull,
   isNull,
   lt,
@@ -17,6 +18,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { PgTimestamp, PgTimestampString } from 'drizzle-orm/pg-core';
 import { isISO8601 } from 'class-validator';
 
 import { PLATFORM_TIMEZONE } from '../constants/timezone.js';
@@ -26,8 +28,25 @@ export const NO_VALUE_OPERATORS: readonly string[] = ['isEmpty', 'isNotEmpty'];
 // https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-LIKE
 export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
+// SQL 輸入必須是存 UTC 牆上時間的 timestamp without time zone；timestamptz 的運算式要先 AT TIME ZONE 'UTC'
+const storesInstant = (column: Column | SQL) =>
+  (is(column, PgTimestamp) || is(column, PgTimestampString)) &&
+  column.withTimezone;
+
+// https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-ZONECONVERT
+const platformTime = (column: Column | SQL) =>
+  storesInstant(column)
+    ? sql`${column} AT TIME ZONE ${PLATFORM_TIMEZONE}`
+    : sql`${column} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}`;
+
+const platformDayStart = (column: Column | SQL, date: SQL) => {
+  const instant = sql`(${date}::timestamp AT TIME ZONE ${PLATFORM_TIMEZONE})`;
+
+  return storesInstant(column) ? instant : sql`(${instant} AT TIME ZONE 'UTC')`;
+};
+
 export const localTimeText = (column: Column | SQL): SQL =>
-  sql`TO_CHAR(${column} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE}, 'YYYY/MM/DD HH24:MI:SS')`;
+  sql`TO_CHAR(${platformTime(column)}, 'YYYY/MM/DD HH24:MI:SS')`;
 
 export const buildStringFilterCondition = (
   column: Column | SQL,
@@ -104,22 +123,22 @@ export const buildDateFilterCondition = (
   if (operator === 'isNotEmpty') return isNotNull(colSql);
   if (!isCalendarDate(value)) return undefined;
 
-  const localDate = sql`DATE(${colSql} AT TIME ZONE 'UTC' AT TIME ZONE ${PLATFORM_TIMEZONE})`;
-  const targetDate = sql`${value}::date`;
+  const start = platformDayStart(column, sql`${value}::date`);
+  const nextStart = platformDayStart(column, sql`(${value}::date + 1)`);
 
   switch (operator) {
     case 'is':
-      return sql`${localDate} = ${targetDate}`;
+      return and(gte(colSql, start), lt(colSql, nextStart));
     case 'not':
-      return sql`${localDate} != ${targetDate}`;
+      return or(lt(colSql, start), gte(colSql, nextStart));
     case 'after':
-      return sql`${localDate} > ${targetDate}`;
+      return gte(colSql, nextStart);
     case 'onOrAfter':
-      return sql`${localDate} >= ${targetDate}`;
+      return gte(colSql, start);
     case 'before':
-      return sql`${localDate} < ${targetDate}`;
+      return lt(colSql, start);
     case 'onOrBefore':
-      return sql`${localDate} <= ${targetDate}`;
+      return lt(colSql, nextStart);
   }
 };
 
