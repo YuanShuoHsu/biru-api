@@ -3,6 +3,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { I18nContext } from 'nestjs-i18n';
 
 import { createPGlite } from '../../test/pglite.js';
 import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
@@ -421,6 +422,100 @@ describe('OrganizationsService 轉為真正店主', () => {
     ).rejects.toMatchObject({
       response: { code: 'memberNotFound' },
       status: 404,
+    });
+  });
+});
+
+describe('OrganizationsService.setClosed', () => {
+  let client: PGlite;
+  let service: OrganizationsService;
+
+  const openWork = (orders: number, unreconciledOrders: number) => ({
+    response: {
+      code: 'organizationHasOpenWork',
+      message: expect.stringContaining(
+        JSON.stringify({ orders, unreconciledOrders, tickets: 0 }),
+      ),
+    },
+    status: 409,
+  });
+
+  beforeAll(async () => {
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    service = new OrganizationsService(pglite as unknown as DrizzleDB);
+    await client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+    `);
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  beforeEach(async () => {
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      t: (key: string, options?: { args?: unknown }) =>
+        `${key}${JSON.stringify(options?.args)}`,
+    } as unknown as I18nContext);
+    await client.exec(`
+      truncate "order" cascade;
+      update organization set closed_at = null;
+    `);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const insertOrder = (
+    id: string,
+    status: string,
+    {
+      reconciled = false,
+      createdDaysAgo = 0,
+      discountCode = null as string | null,
+      sellerId = 'biru',
+    } = {},
+  ) =>
+    client.query(
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at, reconciled_at, discount_code)
+       values ($1, '{}', 'pickup', $1, $2, 'Credit', $4, 100, now() - make_interval(days => $3), ${reconciled ? 'now()' : 'null'}, $5)`,
+      [id, status, createdDaysAgo, sellerId, discountCode],
+    );
+
+  it('對帳期內還沒對帳的異常訂單會擋下停業，數量另外列出', async () => {
+    await insertOrder('problem', 'OrderProblem');
+    await insertOrder('processing', 'OrderProcessing');
+
+    await expect(service.setClosed('biru', true)).rejects.toMatchObject(
+      openWork(1, 1),
+    );
+  });
+
+  it('已對帳、超過對帳期、帶優惠券或別家門市的異常訂單，以及已完成、已取消的訂單不擋停業', async () => {
+    await insertOrder('reconciled', 'OrderProblem', { reconciled: true });
+    await insertOrder('expired', 'OrderProblem', { createdDaysAgo: 8 });
+    await insertOrder('with-coupon', 'OrderProblem', {
+      discountCode: 'SAVE10',
+    });
+    await insertOrder('other-store', 'OrderProblem', { sellerId: 'other' });
+    await insertOrder('delivered', 'OrderDelivered');
+    await insertOrder('cancelled', 'OrderCancelled');
+
+    await expect(service.setClosed('biru', true)).resolves.toMatchObject({
+      closedAt: expect.any(Date),
+    });
+  });
+
+  it('重新營業不檢查未完成的工作', async () => {
+    await insertOrder('problem', 'OrderProblem');
+
+    await expect(service.setClosed('biru', false)).resolves.toMatchObject({
+      closedAt: null,
     });
   });
 });

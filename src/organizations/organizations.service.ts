@@ -45,6 +45,7 @@ import {
   getStatsWindow,
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
+import { isProblemAwaitingRecheck } from '../orders/problem-recheck.js';
 
 import type {
   OrganizationMemberResponseDto,
@@ -264,32 +265,44 @@ export class OrganizationsService {
     closed: boolean,
   ): Promise<Organization> {
     if (closed) {
-      const [[{ orders }], [{ tickets }]] = await Promise.all([
-        this.db
-          .select({ orders: count() })
-          .from(order)
-          .where(
-            and(
-              eq(order.sellerId, organizationId),
-              inArray(order.orderStatus, [
-                'OrderPaymentDue',
-                'OrderProcessing',
-                'OrderPickupAvailable',
-              ]),
+      const [[{ orders }], [{ unreconciledOrders }], [{ tickets }]] =
+        await Promise.all([
+          this.db
+            .select({ orders: count() })
+            .from(order)
+            .where(
+              and(
+                eq(order.sellerId, organizationId),
+                inArray(order.orderStatus, [
+                  'OrderPaymentDue',
+                  'OrderProcessing',
+                  'OrderPickupAvailable',
+                ]),
+              ),
             ),
-          ),
-        this.db
-          .select({ tickets: count() })
-          .from(waitlistTicket)
-          .where(
-            and(
-              eq(waitlistTicket.organizationId, organizationId),
-              inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          this.db
+            .select({ unreconciledOrders: count() })
+            .from(order)
+            .where(
+              and(
+                eq(order.sellerId, organizationId),
+                isProblemAwaitingRecheck(Date.now()),
+                // 帶券的異常單查到已付款也不會自動轉回製作中，等不到結果，不擋停業
+                isNull(order.discountCode),
+              ),
             ),
-          ),
-      ]);
-      if (orders || tickets)
-        throw organizationHasOpenWorkError(orders, tickets);
+          this.db
+            .select({ tickets: count() })
+            .from(waitlistTicket)
+            .where(
+              and(
+                eq(waitlistTicket.organizationId, organizationId),
+                inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+              ),
+            ),
+        ]);
+      if (orders || unreconciledOrders || tickets)
+        throw organizationHasOpenWorkError(orders, unreconciledOrders, tickets);
     }
 
     const [updated] = await this.db

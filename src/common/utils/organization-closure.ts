@@ -28,13 +28,18 @@ export const organizationReadOnlyError = (host: ArgumentsHost) =>
       ) ?? 'This store is closed. Its data is read-only.',
   });
 
-export const organizationHasOpenWorkError = (orders: number, tickets: number) =>
+export const organizationHasOpenWorkError = (
+  orders: number,
+  unreconciledOrders: number,
+  tickets: number,
+) =>
   new ConflictException({
     error: 'Conflict',
     code: 'organizationHasOpenWork',
     message:
       I18nContext.current<I18nTranslations>()?.t(
         'common.exceptions.organizationHasOpenWork',
-        { args: { orders, tickets } },
-      ) ?? 'Complete or cancel open orders and waitlist tickets first.',
+        { args: { orders, unreconciledOrders, tickets } },
+      ) ??
+      'Complete or cancel open orders and waitlist tickets, and wait for unconfirmed payments to be checked, first.',
   });

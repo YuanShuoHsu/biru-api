@@ -27,11 +27,11 @@ import type { DrizzleDB } from '../../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../../drizzle/drizzle.module.js';
 import { organizationNotFoundError } from '../../common/utils/organizations.js';
 import { isCountedOrder } from '../../orders/counted-orders.js';
+import { isProblemAwaitingRecheck } from '../../orders/problem-recheck.js';
 
 const SETTLE_GRACE_MS = 30 * 60 * 1000;
 const ISSUE_GRACE_MS = 60 * 60 * 1000;
 const CALLBACK_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
-const PROBLEM_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const LIMIT_PER_TYPE = 50;
 
 const resolved = alias(ecpayCallbackLog, 'resolved');
@@ -112,14 +112,7 @@ export class EcpayAttentionService {
           orderNumber: order.orderNumber,
         })
         .from(order)
-        .where(
-          and(
-            eq(order.sellerId, org.id),
-            eq(order.orderStatus, 'OrderProblem'),
-            isNull(order.reconciledAt),
-            gte(order.createdAt, new Date(now - PROBLEM_LOOKBACK_MS)),
-          ),
-        )
+        .where(and(eq(order.sellerId, org.id), isProblemAwaitingRecheck(now)))
         .orderBy(desc(order.updatedAt))
         .limit(LIMIT_PER_TYPE),
 

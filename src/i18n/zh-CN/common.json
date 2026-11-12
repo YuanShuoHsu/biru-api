@@ -174,7 +174,7 @@
     "forbidden": "你没有权限访问此数据",
     "internalServerError": "内部服务器错误",
     "organizationClosed": "此门店已停止营业",
-    "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{tickets} 张候位中的号码牌，请先完成或取消后再停业",
+    "organizationHasOpenWork": "尚有 {orders} 笔未完成的订单、{unreconciledOrders} 笔仍在向绿界确认付款结果的异常订单、{tickets} 张候位中的号码牌，请先完成或取消订单与号码牌，并等付款结果确认完毕后再停业",
     "organizationNotFound": "找不到此门店。",
     "organizationReadOnly": "此门店已停业，菜单、库存、优惠券、候位与店家设置仅供查看",
     "returnUrlNotAllowed": "不允许使用此返回网址",
