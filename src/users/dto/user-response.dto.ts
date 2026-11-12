@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import { userRoles, type UserRole } from '../../db/schema/users.js';
 
-export class UserResponseDto {
+class UserResponseDto {
   @ApiProperty({
     description: 'ID',
     example: '123e4567-e89b-12d3-a456-426614174000',

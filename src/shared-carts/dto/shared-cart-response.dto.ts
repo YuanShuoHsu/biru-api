@@ -9,7 +9,7 @@ import {
 } from '../../db/schema/shared-carts.js';
 import { CreateOrderItemDto } from '../../orders/dto/create-order.dto.js';
 
-export class SharedCartProfileResponseDto {
+class SharedCartProfileResponseDto {
   id: string;
 
   @ApiProperty({
@@ -28,7 +28,7 @@ export class SharedCartProfileResponseDto {
   image: string | null;
 }
 
-export class SharedCartMeResponseDto extends SharedCartProfileResponseDto {
+class SharedCartMeResponseDto extends SharedCartProfileResponseDto {
   @ApiProperty({
     description:
       'pending 時看不到單內的參與者、品項與加入請求，也不能修改或送單',
@@ -38,25 +38,25 @@ export class SharedCartMeResponseDto extends SharedCartProfileResponseDto {
   status: SharedCartParticipantStatus;
 }
 
-export class SharedCartParticipantResponseDto extends SharedCartProfileResponseDto {
+class SharedCartParticipantResponseDto extends SharedCartProfileResponseDto {
   isMe: boolean;
 }
 
-export class SharedCartRequestResponseDto extends SharedCartProfileResponseDto {
+class SharedCartRequestResponseDto extends SharedCartProfileResponseDto {
   requestedAt: Date;
 }
 
-export class SharedCartItemResponseDto extends CreateOrderItemDto {
+class SharedCartItemResponseDto extends CreateOrderItemDto {
   id: string;
   participantId: string;
 }
 
-export class SharedCartOutgoingRequestDto {
+class SharedCartOutgoingRequestDto {
   requestedAt: Date;
   expiresAt: Date;
 }
 
-export class SharedCartCheckoutDto {
+class SharedCartCheckoutDto {
   participantId: string;
   lockedUntil: Date;
 }
