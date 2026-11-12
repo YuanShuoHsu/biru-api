@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
+import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
 import { OrganizationResponseDto } from './dto/organization-response.dto.js';
 import { UpdateOperatingTypeDto } from './dto/update-operating-type.dto.js';
@@ -15,6 +16,7 @@ export class OrganizationOperatingTypeController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Patch('operating-type')
+  @OrganizationMember('organizationId')
   @Audit('organization', { param: 'organizationId' })
   @ApiOperation({ summary: '設定門市經營型態（直營、加盟、未分類）' })
   @ApiOkResponse({ type: OrganizationResponseDto })
