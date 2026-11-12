@@ -1675,6 +1675,27 @@ export class CouponsService {
       if (used > perUserLimit) throw badRequestError('perUserLimitReached');
     }
 
+    if (!applied.userCouponId) {
+      const [locked] = await db
+        .select({ totalLimit: coupon.totalLimit, usedCount: coupon.usedCount })
+        .from(coupon)
+        .where(eq(coupon.id, applied.coupon.id))
+        .for('update');
+      if (locked?.totalLimit != null) {
+        const [{ value: reserved }] = await db
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(
+              eq(userCoupon.couponId, applied.coupon.id),
+              isNull(userCoupon.usedAt),
+            ),
+          );
+        if (locked.usedCount + reserved >= locked.totalLimit)
+          throw badRequestError('usedUp');
+      }
+    }
+
     const updated = await db
       .update(coupon)
       .set({ updatedAt: new Date(), usedCount: sql`${coupon.usedCount} + 1` })
