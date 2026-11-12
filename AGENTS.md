@@ -120,12 +120,12 @@ appended at max `sortOrder` + 1 or prepended at 0 with every existing row shifte
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
 On a brand-new database `drizzle-kit migrate` fails (exit 1, no message): it applies every pending migration in one
-transaction, and `0098` / `0105` use enum values added by `0084` / `0103`, which Postgres refuses before they commit. Apply
-each file in `drizzle/meta/_journal.json` order instead, e.g. `sed 's/--> statement-breakpoint/;/' drizzle/<tag>.sql | psql -v ON_ERROR_STOP=1 -1`. That
-writes no `drizzle.__drizzle_migrations` rows, so `drizzle-kit migrate` can never be run on that database afterwards
-(it re-applies `0000` and fails on `type "order_status" already exists`): use it only for throwaway databases.
+transaction, and `0098` / `0105` use enum values added by `0084` / `0103`, which Postgres refuses before they commit. Build
+an empty database with `pnpm tsx scripts/migrate-fresh-db.ts` instead: it applies each migration in its own transaction and
+records it in `drizzle.__drizzle_migrations` as `drizzle-kit migrate` would, so later migrations still go through
+`drizzle-kit migrate`. It needs `DATABASE_URL` in the environment and refuses a database that already has tables.
 
-`pnpm tsx scripts/seed-e2e.ts` seeds such a database for end-to-end tests: one store (`e2e-store`, open all day every
+`pnpm tsx scripts/seed-e2e.ts` then seeds it for end-to-end tests: one store (`e2e-store`, open all day every
 day) with a menu, modifiers, an add-on and ingredients, and five verified accounts — platform admin, store `owner`,
 `admin`, `member`, and a customer in no store. It needs `DATABASE_URL` in the environment (a `.env` is never used for
 it) and `E2E_{PLATFORM_ADMIN,OWNER,ADMIN,MEMBER,CUSTOMER}_{EMAIL,PASSWORD}`, and refuses to run once the database has
