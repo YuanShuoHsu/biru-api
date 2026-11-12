@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { PICKUP_MAX_ADVANCE_DAYS } from '../../common/constants/pickup.js';
+import {
+  type OrganizationOperatingType,
+  organizationOperatingTypeEnum,
+} from '../../db/schema/organizations.js';
 
 import { PublicSpecialHoursDto } from './special-hours.dto.js';
 
@@ -76,6 +80,13 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   closedAt: Date | null;
+
+  @ApiProperty({
+    enum: organizationOperatingTypeEnum.enumValues,
+    enumName: 'OrganizationOperatingType',
+    description: '經營型態，只有平台管理員能設定；新門市為 unclassified',
+  })
+  operatingType: OrganizationOperatingType;
 }
 
 export class OrganizationDetailResponseDto extends OrganizationResponseDto {

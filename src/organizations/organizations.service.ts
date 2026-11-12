@@ -17,6 +17,7 @@ import {
   member,
   Organization,
   organization,
+  OrganizationOperatingType,
   organizationSlugHistory,
 } from '../db/schema/organizations.js';
 import { order } from '../db/schema/orders.js';
@@ -308,6 +309,20 @@ export class OrganizationsService {
     const [updated] = await this.db
       .update(organization)
       .set({ closedAt: closed ? new Date() : null })
+      .where(eq(organization.id, organizationId))
+      .returning();
+    if (!updated) throw organizationNotFoundError();
+
+    return updated;
+  }
+
+  async setOperatingType(
+    organizationId: string,
+    operatingType: OrganizationOperatingType,
+  ): Promise<Organization> {
+    const [updated] = await this.db
+      .update(organization)
+      .set({ operatingType })
       .where(eq(organization.id, organizationId))
       .returning();
     if (!updated) throw organizationNotFoundError();

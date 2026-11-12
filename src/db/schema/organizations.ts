@@ -20,6 +20,13 @@ export const memberRoleEnum = pgEnum('member_role', [
 ]);
 export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
+export const organizationOperatingTypeEnum = pgEnum(
+  'organization_operating_type',
+  ['direct', 'franchise', 'unclassified'],
+);
+export type OrganizationOperatingType =
+  (typeof organizationOperatingTypeEnum.enumValues)[number];
+
 import { timestamps } from './columns.helpers.js';
 import { user } from './users.js';
 
@@ -59,6 +66,9 @@ export const organization = pgTable(
       .notNull()
       .default(false),
     allowLocalPricing: boolean('allow_local_pricing').notNull().default(false),
+    operatingType: organizationOperatingTypeEnum('operating_type')
+      .notNull()
+      .default('unclassified'),
   },
   (table) => [
     check(
