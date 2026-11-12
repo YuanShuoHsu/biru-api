@@ -169,7 +169,7 @@ PR 9 以前舊的分類外鍵都還在，而且都是 cascade：`menu_item.menu_
 
 - 資源對照表（`:199-230`）加入六張目錄表對應的異動資源。
 - `MENU_TABLES`（`:232-240`）加入目錄表，還原後送出 `menuUpdated`；目錄列的門市為 null，要改成推給有上架受影響品項的門市（見「即時推播」）。
-- `organizationIdOf`（`:258-283`）目前只認 `organization_id`、`seller_id` 與沿 `menu_id` 往上找；要加入 `owner_organization_id`，以及 `catalog_item_id`、`catalog_modifier_group_id` 往上找擁有者。不加的話門市獨家品項的刪除紀錄會被當成平台層級，門市看不到。
+- `organizationIdOf`（`:258-283`）目前只認 `organization_id`、`seller_id` 與沿 `menu_id` 往上找；要加入 `owner_organization_id`，以及 `catalog_item_id`、`catalog_modifier_group_id` 往上找擁有者。不加的話門市獨家品項的刪除紀錄會被當成平台層級，平台列表顯示不出所屬門市，還原時的異動紀錄也記不到門市。門市成員依問題 10 不能還原目錄列，而門市範圍的列表只列出該角色能還原的批次（`deleted-records.service.ts` 的 `list`），所以門市看不到這些紀錄，要還原請平台管理員處理。
 
 ## 既有資料搬移（PR 2）
 
