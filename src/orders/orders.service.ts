@@ -757,9 +757,16 @@ export class OrdersService {
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] = sortBy
-      ? [dir(orderFieldMap[sortBy]), desc(order.createdAt)]
-      : [desc(order.createdAt)];
+    const sortColumns =
+      sortBy === 'orderNumber'
+        ? [sql`length(${order.orderNumber})`, order.orderNumber]
+        : sortBy
+          ? [orderFieldMap[sortBy]]
+          : [];
+    const orderBy: SQL[] = [
+      ...sortColumns.map((column) => dir(column)),
+      desc(order.createdAt),
+    ];
 
     const where = and(
       eq(order.sellerId, org.id),
