@@ -151,6 +151,7 @@ export const sharedCartItem = pgTable(
       .notNull()
       .references(() => sharedCartParticipant.id, { onDelete: 'cascade' }),
     menuItemId: text('menu_item_id').notNull(),
+    catalogItemId: text('catalog_item_id'),
     quantity: integer('quantity').notNull(),
     modifiers: jsonb('modifiers').$type<Record<string, string[]>>().notNull(),
     addOns: jsonb('add_ons').$type<SharedCartItemAddOn[]>().notNull(),

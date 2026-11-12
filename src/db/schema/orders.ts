@@ -180,6 +180,7 @@ export const orderItem = pgTable(
     addOns: jsonb('add_ons').$type<OrderItemAddOnSnapshot[]>(),
     discount: numeric('discount', { precision: 10, scale: 2 }),
     menuItemId: text('menu_item_id').notNull(),
+    catalogItemId: text('catalog_item_id'),
     menuItemName: text('menu_item_name').notNull(),
     modifiers: jsonb('modifiers').$type<OrderItemModifierSnapshot[]>(),
     orderId: text('order_id')

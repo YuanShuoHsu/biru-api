@@ -2,15 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
   itemAvailabilityEnum,
-  restrictedDietEnum,
   type ItemAvailability,
-  type RestrictedDiet,
 } from '../../db/schema/menus.js';
 import {
+  restrictedDietEnum,
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
+  type RestrictedDiet,
   type ServingTemperature,
   type ServingTemperatureLevel,
   type Sweetness,

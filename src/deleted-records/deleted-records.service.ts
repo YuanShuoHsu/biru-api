@@ -199,6 +199,12 @@ const AUDIT_TARGETS: Partial<
   >
 > = {
   banner: { resource: 'banner' },
+  catalog_item: { resource: 'catalogItem' },
+  catalog_item_add_on: { resource: 'catalogItemAddOn' },
+  catalog_item_modifier_group: { resource: 'catalogItemModifierGroup' },
+  catalog_modifier: { resource: 'catalogModifier' },
+  catalog_modifier_group: { resource: 'catalogModifierGroup' },
+  catalog_section: { resource: 'catalogSection' },
   store_photo: { resource: 'storePhoto' },
   coupon: { resource: 'coupon' },
   ingredient: { resource: 'ingredient' },
@@ -278,6 +284,12 @@ const organizationIdOf = (tableName: SQL, recordId: SQL, data: SQL) => sql`
         ),
         (SELECT menu_id FROM modifier_group WHERE id = ${data} ->> 'modifier_group_id')
       )
+    ),
+    ${data} ->> 'owner_organization_id',
+    (SELECT owner_organization_id FROM catalog_item WHERE id = ${data} ->> 'catalog_item_id'),
+    (
+      SELECT owner_organization_id FROM catalog_modifier_group
+      WHERE id = ${data} ->> 'catalog_modifier_group_id'
     )
   )
 `;

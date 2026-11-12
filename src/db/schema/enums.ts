@@ -15,6 +15,22 @@ export type Language = (typeof languagesEnum.enumValues)[number];
 export const cancelReasonEnum = pgEnum('cancel_reason', ['storeClosed']);
 export type CancelReason = (typeof cancelReasonEnum.enumValues)[number];
 
+// https://schema.org/RestrictedDiet
+export const restrictedDietEnum = pgEnum('restricted_diet', [
+  'DiabeticDiet',
+  'GlutenFreeDiet',
+  'HalalDiet',
+  'HinduDiet',
+  'KosherDiet',
+  'LowCalorieDiet',
+  'LowFatDiet',
+  'LowLactoseDiet',
+  'LowSaltDiet',
+  'VeganDiet',
+  'VegetarianDiet',
+]);
+export type RestrictedDiet = (typeof restrictedDietEnum.enumValues)[number];
+
 export const servingTemperatureEnum = pgEnum('serving_temperature', [
   'Iced',
   'Hot',

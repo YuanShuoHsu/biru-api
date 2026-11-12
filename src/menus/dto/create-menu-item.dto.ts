@@ -23,21 +23,19 @@ import {
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import { emptyLocalizedTextToNull } from '../../common/utils/localized-text.js';
 import {
+  restrictedDietEnum,
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
   sweetnessEnum,
   sweetnessLevelEnum,
   type LocalizedText,
+  type RestrictedDiet,
   type ServingTemperature,
   type ServingTemperatureLevel,
   type Sweetness,
   type SweetnessLevel,
 } from '../../db/schema/enums.js';
-import {
-  restrictedDietEnum,
-  type NutritionInformation,
-  type RestrictedDiet,
-} from '../../db/schema/menus.js';
+import { type NutritionInformation } from '../../db/schema/menus.js';
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
 import { CreateOfferDto } from './create-offer.dto.js';

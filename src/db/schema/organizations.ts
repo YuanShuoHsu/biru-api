@@ -55,6 +55,10 @@ export const organization = pgTable(
     pickupCutoffMinutes: integer('pickup_cutoff_minutes').notNull().default(15),
     dineInTableCount: integer('dine_in_table_count'),
     closedAt: timestamp('closed_at'),
+    allowLocalMenuItems: boolean('allow_local_menu_items')
+      .notNull()
+      .default(false),
+    allowLocalPricing: boolean('allow_local_pricing').notNull().default(false),
   },
   (table) => [
     check(

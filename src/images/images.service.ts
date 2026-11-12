@@ -3,6 +3,11 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 import { banner } from '../db/schema/banners.js';
+import {
+  catalogItem,
+  catalogModifier,
+  catalogSection,
+} from '../db/schema/catalog.js';
 import { menu, menuItem, menuSection, modifier } from '../db/schema/menus.js';
 import { storePhoto } from '../db/schema/store-photos.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -23,6 +28,9 @@ export const IMAGE_TABLES = {
   modifier,
   banner,
   storePhoto,
+  catalogSection,
+  catalogItem,
+  catalogModifier,
 } satisfies Record<ImageKind, unknown>;
 
 @Injectable()

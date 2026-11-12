@@ -278,12 +278,31 @@ describe('ImageOrphansService', () => {
       'banner/',
       'banner/',
       'storePhoto/',
+      'catalogSection/',
+      'catalogItem/',
+      'catalogModifier/',
     ]);
     expect(
       listCalls()
         .filter(({ input }) => input.Prefix === 'banner/')
         .map(({ input }) => input.ContinuationToken),
     ).toEqual([undefined, '2']);
+  });
+
+  it('目錄品項沿用舊前綴的圖片不會被刪', async () => {
+    await db.insert(schema.catalogItem).values({
+      id: 'catalog-latte',
+      name: { 'zh-TW': '拿鐵' },
+      image: `${PUBLIC_URL}/menuItem/copied.png`,
+    });
+    objects['menuItem/'].push({
+      Key: 'menuItem/copied.png',
+      LastModified: OLD,
+    });
+
+    await createService().sweep(true);
+
+    expect(deletedKeys()).not.toContain('menuItem/copied.png');
   });
 
   it('其他 prefix 的物件不會被刪', async () => {
