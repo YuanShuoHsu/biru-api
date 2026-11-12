@@ -126,6 +126,7 @@ import {
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto.js';
 import type {
+  OrderItemResponseDto,
   OrderReceiptResponseDto,
   OrderResponseDto,
   UserOrderResponseDto,
@@ -1192,6 +1193,48 @@ export class OrdersService {
     } satisfies OrderUpdatedEvent);
 
     return { ...found, ...updated };
+  }
+
+  async setOrderItemPrepared(
+    organizationSlug: string,
+    orderId: string,
+    orderItemId: string,
+    prepared: boolean,
+  ): Promise<OrderItemResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const updated = await this.db.transaction(async (tx) => {
+      const [found] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)))
+        .for('share');
+      if (!found) throw notFoundError('orderNotFound');
+      if (found.orderStatus !== 'OrderProcessing')
+        throw badRequestError('statusChanged');
+
+      const [item] = await tx
+        .update(orderItem)
+        .set({
+          preparedAt: prepared
+            ? sql`coalesce(${orderItem.preparedAt}, now())`
+            : null,
+        })
+        .where(
+          and(eq(orderItem.id, orderItemId), eq(orderItem.orderId, orderId)),
+        )
+        .returning();
+      if (!item) throw notFoundError('orderItemNotFound');
+
+      return item;
+    });
+
+    this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      orderId,
+      organizationId: org.id,
+    } satisfies OrderUpdatedEvent);
+
+    return updated;
   }
 
   async createPaymentAttempt(

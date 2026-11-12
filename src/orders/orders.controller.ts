@@ -57,9 +57,11 @@ import {
 } from './dto/prep-estimate-response.dto.js';
 import {
   CreateOrderResponseDto,
+  OrderItemResponseDto,
   OrderReceiptResponseDto,
   OrderResponseDto,
 } from './dto/order-response.dto.js';
+import { SetOrderItemPreparedDto } from './dto/set-order-item-prepared.dto.js';
 import { orderAccessToken } from './order-access-token.js';
 import {
   ORDER_QR_SESSION_COOKIE,
@@ -210,6 +212,31 @@ export class OrdersController {
       organizationSlug,
       orderId,
       dto,
+    );
+  }
+
+  @Patch(':orderId/items/:orderItemId/prepared')
+  @Roles({ order: ['update'] }, 'organizationSlug')
+  @Audit({
+    resource: 'order',
+    idSource: { param: 'orderItemId' },
+    via: { table: 'orderItem', ownerColumn: 'orderId' },
+  })
+  @ApiOperation({
+    summary: '標記品項做好或取消標記（訂單製作中才可，整張出餐仍走狀態轉換）',
+  })
+  @ApiOkResponse({ type: OrderItemResponseDto })
+  setItemPrepared(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('orderId') orderId: string,
+    @Param('orderItemId') orderItemId: string,
+    @Body() { prepared }: SetOrderItemPreparedDto,
+  ): Promise<OrderItemResponseDto> {
+    return this.ordersService.setOrderItemPrepared(
+      organizationSlug,
+      orderId,
+      orderItemId,
+      prepared,
     );
   }
 
