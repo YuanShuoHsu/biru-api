@@ -88,6 +88,27 @@ describe('CouponsService.redeem 總量上限', () => {
     expect((await load()).usedCount).toBe(0);
   });
 
+  it('下單途中改設上限時，以鎖定後讀到的上限為準', async () => {
+    await db
+      .update(coupon)
+      .set({ totalLimit: null })
+      .where(eq(coupon.id, 'limited'));
+    const stale = await load();
+    await db
+      .update(coupon)
+      .set({ totalLimit: 1 })
+      .where(eq(coupon.id, 'limited'));
+    await reserve('a');
+    await expect(
+      service.redeem(db as unknown as DrizzleDB, {
+        coupon: stale,
+        orderId: 'order',
+        userCouponId: null,
+        userId: null,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'usedUp' } });
+  });
+
   it('沒有總量上限時不檢查', async () => {
     await db
       .update(coupon)
