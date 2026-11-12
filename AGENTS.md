@@ -551,7 +551,7 @@ When a change makes an existing comment false, fix or delete it in the same chan
 Decide in this order:
 
 1. **Official docs for the installed version** — check the version in `package.json` / `node_modules` first, never rely on memory. Next.js (`node_modules/next/dist/docs/`, next-devtools MCP), MUI (mui-mcp), better-auth, Drizzle, NestJS, next-intl, SWR, Zod, etc. Use the documented pattern over a workaround; never use APIs the docs mark deprecated.
-2. **The existing pattern in this repo** — when the docs leave room, match how the codebase already does it.
+2. **The existing pattern in this repo** — when the docs leave room, match how the codebase already does it. Before copying it, check it doesn't have the defect you are fixing; if it does, don't copy that part, and name the copy in the PR so it gets fixed too.
 3. **The most mainstream option** — when neither settles it.
 
 ## Behavioral Guidelines
