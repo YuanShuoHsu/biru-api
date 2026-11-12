@@ -5,6 +5,7 @@ import {
   CheckoutEcpayResponseDto,
 } from '../dto/checkout-ecpay.dto.js';
 import { getEcpayMode } from '../ecpay.config.js';
+import { ECPAY_PAYMENT_ROUTES } from '../ecpay-payment-routes.js';
 
 import { EcpayMode } from '../types/ecpay.types.js';
 
@@ -20,15 +21,6 @@ const getEcpayBaseApiUrl = (mode: EcpayMode): string => {
   return mode === 'Test'
     ? 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
     : 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5';
-};
-
-const ECPAY_CHOOSE_PAYMENT: Record<string, string> = {
-  ApplePay: 'ApplePay',
-  Credit: 'Credit',
-  iPASS: 'DigitalPayment',
-  Jkopay: 'DigitalPayment',
-  TWQR: 'TWQR',
-  WeiXin: 'WeiXin',
 };
 
 const ITEM_NAME_MAX_LENGTH = 400;
@@ -80,6 +72,23 @@ const buildItemName = (items: OrderResponseDto['items']): string =>
     )
     .join('#');
 
+export const toEcpayTradeFields = (
+  order: Pick<OrderResponseDto, 'discount' | 'items'>,
+  tradeDesc: string,
+) => ({
+  ItemName: truncateItemName(buildItemName(order.items)),
+  TotalAmount:
+    Math.round(sumOrderItems(order.items)) -
+    Math.round(Number(order.discount || 0)),
+  TradeDesc: truncate(sanitize(tradeDesc), TRADE_DESC_MAX_LENGTH),
+});
+
+export const toEcpayTradeDate = (): string => {
+  const taipei = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+  return taipei.toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/');
+};
+
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
   Object.fromEntries(
     Object.entries(input).map(([key, val]) => [key, String(val)]),
@@ -105,16 +114,6 @@ export class EcpayBaseService {
     this.returnUrl = configService.getOrThrow('ECPAY_BASE_RETURN_URL');
     this.resultUrl = new URL('./result', this.returnUrl).toString();
     this.backUrl = new URL('./back/', this.returnUrl).toString();
-  }
-
-  private getEcpayDateString(): string {
-    const taipei = new Date(Date.now() + 8 * 60 * 60 * 1000);
-
-    return taipei
-      .toISOString()
-      .slice(0, 19)
-      .replace('T', ' ')
-      .replace(/-/g, '/');
   }
 
   generateCheckMacValue(params: Record<string, string>): string {
@@ -152,12 +151,12 @@ export class EcpayBaseService {
     base: Pick<CheckoutEcpayDto, 'Language' | 'TradeDesc'>,
     hasReturnUrl: boolean,
   ): CheckoutEcpayResponseDto {
-    const choosePayment = ECPAY_CHOOSE_PAYMENT[order.paymentMethod];
+    const choosePayment =
+      ECPAY_PAYMENT_ROUTES[order.paymentMethod]?.choosePayment;
 
     const raw = {
       ...base,
-      ItemName: truncateItemName(buildItemName(order.items)),
-      TradeDesc: truncate(sanitize(base.TradeDesc), TRADE_DESC_MAX_LENGTH),
+      ...toEcpayTradeFields(order, base.TradeDesc),
       ChoosePayment: choosePayment,
       // 每次付款的 MerchantTradeNo 都不同，帶訂單編號讓綠界後台對得回訂單
       CustomField1: order.confirmationNumber,
@@ -166,7 +165,7 @@ export class EcpayBaseService {
       }),
       EncryptType: '1',
       MerchantID: this.merchantId,
-      MerchantTradeDate: this.getEcpayDateString(),
+      MerchantTradeDate: toEcpayTradeDate(),
       MerchantTradeNo: order.merchantTradeNo,
       NeedExtraPaidInfo: 'Y',
       // 綠界拒收含 & 的網址，前台網址存在付款嘗試上，這裡只給以交易編號查回的後端網址
@@ -179,9 +178,6 @@ export class EcpayBaseService {
         Remark: truncate(order.customer.remark, REMARK_MAX_LENGTH),
       }),
       ReturnURL: this.returnUrl,
-      TotalAmount:
-        Math.round(sumOrderItems(order.items)) -
-        Math.round(Number(order.discount || 0)),
     };
 
     const payload = toStringRecord(raw);

@@ -12,6 +12,7 @@ import { EcpayBaseService } from './services/ecpay-base.service.js';
 import { EcpayCallbackLogService } from './services/ecpay-callback-log.service.js';
 import { EcpayCheckBarcodeService } from './services/ecpay-check-barcode.service.js';
 import { EcpayDoActionService } from './services/ecpay-do-action.service.js';
+import { EcpayEmbeddedService } from './services/ecpay-embedded.service.js';
 import { EcpayGetGovInvoiceWordSettingService } from './services/ecpay-get-gov-invoice-word-setting.service.js';
 import { EcpayGetInvoiceWordSettingService } from './services/ecpay-get-invoice-word-setting.service.js';
 import { EcpayGetIssueInvoiceService } from './services/ecpay-get-issue-invoice.service.js';
@@ -62,6 +63,7 @@ const ECPAY_HTTP_TIMEOUT_MS = 15_000;
     EcpayCallbackLogService,
     EcpayCheckBarcodeService,
     EcpayDoActionService,
+    EcpayEmbeddedService,
     EcpayInvalidInvoiceService,
     EcpayOrderRefundService,
     EcpayQueryCreditDetailService,
