@@ -207,7 +207,8 @@
     "sourceRecipeRequired": "这项食材没有来源食谱，无法制作批次",
     "sourceRecipeUnitIncompatible": "食谱产量单位与食材库存单位不兼容",
     "sourceRecipeYieldMissing": "请先设定食谱的产量与单位，才能作为食材的来源食谱",
-    "supplierNotFound": "找不到这个供应商，可能已被删除"
+    "supplierNotFound": "找不到这个供应商，可能已被删除",
+    "wasteExceedsStock": "报废量超过账上数量，请先盘点"
   },
   "invoices": {
     "allowanceIssued": "此发票已开立折让，无法作废",

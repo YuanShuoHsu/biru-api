@@ -47,8 +47,7 @@ export class InventoryReportService {
     );
     const isOrder = sql`${inventoryTransaction.orderId} IS NOT NULL`;
     const isBatch = sql`${inventoryTransaction.productionBatchId} IS NOT NULL`;
-    const isWaste = sql`${inventoryTransaction.wasteReason} IS NOT NULL`;
-    const isCount = sql`NOT ${isOrder} AND NOT ${isBatch} AND NOT ${isWaste}`;
+    const isCount = sql`NOT ${isOrder} AND NOT ${isBatch}`;
     const quantity = inventoryTransaction.quantity;
 
     const round = (value: SQL) => sql`ROUND(${value}, 3)`;

@@ -116,12 +116,12 @@ describe('登記食材報廢', () => {
     ).toBe(1);
   });
 
-  it('報廢量超過帳上庫存時以 insufficientStock 擋下且不寫入異動', async () => {
+  it('報廢量超過帳上庫存時以 wasteExceedsStock 擋下且不寫入異動', async () => {
     const response = await responseOf(
       service.waste('milk', { quantity: '2000.001', wasteReason: 'spilled' }),
     );
 
-    expect(response.code).toBe('insufficientStock');
+    expect(response.code).toBe('wasteExceedsStock');
     expect(response.ingredients).toEqual([
       { id: 'milk', name: { 'zh-TW': '牛奶' }, shortfall: '0.001' },
     ]);

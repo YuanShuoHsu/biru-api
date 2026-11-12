@@ -262,6 +262,7 @@ export type I18nTranslations = {
             "sourceRecipeUnitIncompatible": string;
             "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;
+            "wasteExceedsStock": string;
         };
         "invoices": {
             "allowanceIssued": string;

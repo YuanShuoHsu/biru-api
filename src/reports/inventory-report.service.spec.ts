@@ -283,7 +283,7 @@ describe('InventoryReportService', () => {
     ]);
   });
 
-  it('報廢不算盤點調整', async () => {
+  it('報廢在加入報廢欄前計入調整，讓期末仍等於期初加進貨減耗用加調整', async () => {
     await client.exec(
       `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
          ('cream', 'org', '{"zh-TW":"cream"}', 'MLT', 690, 6);
@@ -301,10 +301,10 @@ describe('InventoryReportService', () => {
     expect(rows.find(({ ingredientId }) => ingredientId === 'cream')).toEqual(
       row('cream', 'MLT', {
         opening: '1000.000',
-        adjusted: '-10.000',
+        adjusted: '-310.000',
         closing: '690.000',
-        actualConsumption: '10.000',
-        variance: '10.000',
+        actualConsumption: '310.000',
+        variance: '310.000',
       }),
     );
   });

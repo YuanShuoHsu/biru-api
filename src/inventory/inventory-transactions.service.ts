@@ -433,7 +433,7 @@ export class InventoryTransactionsService {
 
         const shortfall = Number(quantity) - Number(found.inventoryLevel);
         if (shortfall > QUANTITY_TOLERANCE)
-          throw badRequestError('insufficientStock', {
+          throw badRequestError('wasteExceedsStock', {
             ingredients: [
               {
                 id: found.id,

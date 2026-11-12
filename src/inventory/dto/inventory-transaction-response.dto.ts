@@ -37,6 +37,12 @@ export class InventoryTransactionResponseDto {
     nullable: true,
   })
   wasteReason: WasteReason | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  wasteBatchId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  wasteMenuItemId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  wasteServings: number | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;
