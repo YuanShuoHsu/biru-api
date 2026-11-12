@@ -29,6 +29,10 @@ describe('FrequentItemsQueryDto', () => {
     expect((await parse({ limit })).errors).toHaveLength(1);
   });
 
+  it('rejects an empty store slug', async () => {
+    expect((await parse({ organizationSlug: '' })).errors).toHaveLength(1);
+  });
+
   it('rejects an unknown mode', async () => {
     expect((await parse({ mode: 'kiosk' })).errors).toHaveLength(1);
   });

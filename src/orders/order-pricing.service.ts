@@ -43,6 +43,7 @@ import type {
   CreateOrderItemAddOnDto,
   CreateOrderItemDto,
 } from './dto/create-order.dto.js';
+import type { FrequentItemDto } from './dto/frequent-items.dto.js';
 import { badRequestError, notFoundError } from './order-errors.js';
 import { itemLeadTimeMinutes } from './prep-estimate.js';
 
@@ -150,12 +151,7 @@ const sumModifierAdjustments = (
 ): number =>
   modifiers.reduce((sum, mod) => sum + Number(mod.priceAdjustment ?? 0), 0);
 
-export type Customization = Omit<CreateOrderItemDto, 'quantity'>;
-
-export interface ReconciledCustomization extends Customization {
-  customizationChanged: boolean;
-  soldOut: boolean;
-}
+type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 
 export interface ResolvedOrderItem {
   id: string;
@@ -503,7 +499,7 @@ export class OrderPricingService {
     organizationId: string,
     items: Customization[],
     mode: OrderMode,
-  ): Promise<ReconciledCustomization[]> {
+  ): Promise<FrequentItemDto[]> {
     const catalog =
       items.length > 0 ? await this.loadCatalog(organizationId, items) : null;
     if (!catalog) return [];

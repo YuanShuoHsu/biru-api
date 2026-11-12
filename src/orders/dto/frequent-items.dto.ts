@@ -1,7 +1,15 @@
 import { ApiProperty, OmitType } from '@nestjs/swagger';
 
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 import { orderModeEnum, type OrderMode } from '../../db/schema/orders.js';
 
@@ -9,6 +17,7 @@ import { CreateOrderItemDto } from './create-order.dto.js';
 
 export class FrequentItemsQueryDto {
   @IsString()
+  @IsNotEmpty()
   organizationSlug: string;
 
   @ApiProperty({ enum: orderModeEnum.enumValues })

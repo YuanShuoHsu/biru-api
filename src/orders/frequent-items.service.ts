@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { and, asc, desc, eq, gte, ne, sql } from 'drizzle-orm';
+import { DAY_MS } from '../common/constants/timezone.js';
 import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
 import {
   order,
@@ -18,7 +19,7 @@ import type {
 } from './dto/frequent-items.dto.js';
 import { OrderPricingService } from './order-pricing.service.js';
 
-export const FREQUENT_ITEMS_WINDOW_DAYS = 90;
+const FREQUENT_ITEMS_WINDOW_DAYS = 90;
 
 const toSelections = (modifiers: OrderItemModifierSnapshot[] | null) => {
   const selections: Record<string, string[]> = {};
@@ -70,9 +71,7 @@ export class FrequentItemsService {
           eq(order.userId, userId),
           gte(
             order.createdAt,
-            new Date(
-              Date.now() - FREQUENT_ITEMS_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-            ),
+            new Date(Date.now() - FREQUENT_ITEMS_WINDOW_DAYS * DAY_MS),
           ),
           eq(order.sellerId, organizationId),
           isCountedOrder,
