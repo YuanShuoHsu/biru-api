@@ -31,6 +31,7 @@ describe.each(['database', 'cookie'] as const)(
         { sendVerificationEmail: vi.fn() } as never,
         { issueSignupCoupons: vi.fn() } as never,
         createAuthI18n({ t: () => ({}) } as never),
+        {} as never,
       );
       auth = betterAuth({
         ...options,

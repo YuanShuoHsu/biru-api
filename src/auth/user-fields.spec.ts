@@ -127,6 +127,7 @@ describe('經由 Better Auth 更新使用者', () => {
       { sendVerificationEmail: vi.fn() } as never,
       { issueSignupCoupons: vi.fn() } as never,
       createAuthI18n({ t: () => zhTW } as never),
+      {} as never,
     );
     auth = betterAuth({
       ...options,
