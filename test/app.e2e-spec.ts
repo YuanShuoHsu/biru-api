@@ -29,6 +29,11 @@ vi.hoisted(() => {
     ECPAY_INVOICE_MERCHANT_ID: 'e2e',
     ECPAY_OPERATION_MODE: 'Test',
     FALLBACK_LANGUAGE: 'zh-TW',
+    GOOGLE_CLIENT_ID: 'e2e',
+    GOOGLE_CLIENT_SECRET: 'e2e',
+    MAIL_HOST: 'smtp.e2e.invalid',
+    MAIL_PASS: 'e2e',
+    MAIL_USER: 'e2e@e2e.invalid',
     NEXT_ADMIN_URL: 'http://localhost:3002',
     NEXT_URL: 'http://localhost:3000',
   });
