@@ -370,6 +370,7 @@ export type I18nTranslations = {
             "tableNumberOutOfRange": string;
         };
         "organizations": {
+            "memberNotFound": string;
             "notJoinedAsPlatformAdmin": string;
             "showcaseJoinedAsPlatformAdmin": string;
             "showcaseOpenSelfOnly": string;

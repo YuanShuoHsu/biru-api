@@ -316,6 +316,7 @@
     "tableNumberOutOfRange": "The table number must be between 1 and the number of dine-in tables."
   },
   "organizations": {
+    "memberNotFound": "That organization member was not found.",
     "notJoinedAsPlatformAdmin": "This member is not an owner who joined as a platform admin.",
     "showcaseJoinedAsPlatformAdmin": "Members who joined as a platform admin can't be shown on the public team section.",
     "showcaseOpenSelfOnly": "Only the member themselves can show their profile on the public team section.",
