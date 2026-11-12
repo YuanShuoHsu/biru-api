@@ -3,12 +3,14 @@ import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { from, lastValueFrom } from 'rxjs';
 
 import { createPGlite } from '../../test/pglite.js';
+import { AdminGuard } from '../common/guards/admin.guard.js';
 import { AuditInterceptor } from '../common/interceptors/audit.interceptor.js';
 import * as schema from '../db/schema/index.js';
 import { auditLog } from '../db/schema/audit.js';
@@ -108,6 +110,26 @@ describe('StoreLayoutService', () => {
     await expect(service.get('biru')).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('不同樓層使用同一桌號也回 400', async () => {
+    const data = layout([5, 5]);
+    data.items[1] = { ...data.items[1], floor: 'upper' };
+
+    await expect(service.update('biru', data)).rejects.toMatchObject({
+      response: { code: 'duplicateTableNumber' },
+    });
+  });
+
+  it('沒有任何桌號時照常寫入', async () => {
+    const data: StoreLayoutData = {
+      items: [{ ...box, kind: 'plant', label: 'plant' }],
+      seats: [],
+    };
+
+    await expect(service.update('biru', data)).resolves.toMatchObject({
+      data,
+    });
+  });
+
   it('刪除門市時一併刪除平面圖', async () => {
     await service.update('biru', layout([1]));
     await client.exec(`delete from organization where id = '${ORG}'`);
@@ -177,6 +199,12 @@ describe('StoreLayoutService', () => {
           }),
         }),
       ]),
+    );
+  });
+
+  it('GET 與 PUT 都只有平台管理員能呼叫', () => {
+    expect(Reflect.getMetadata(GUARDS_METADATA, StoreLayoutController)).toEqual(
+      [AdminGuard],
     );
   });
 
