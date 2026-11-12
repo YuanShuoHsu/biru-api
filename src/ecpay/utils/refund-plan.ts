@@ -37,20 +37,6 @@ const sumRefundItems = (items: RefundItemSnapshot[]): number =>
 const allocate = (discount: number, part: number, total: number): number =>
   total ? round((discount * part) / total) : 0;
 
-export const refundedQuantitiesOf = (
-  refunds: { items: RefundItemSnapshot[] | null }[],
-): Map<string, number> => {
-  const refundedQuantities = new Map<string, number>();
-  for (const row of refunds)
-    for (const item of row.items ?? [])
-      refundedQuantities.set(
-        item.orderItemId,
-        (refundedQuantities.get(item.orderItemId) ?? 0) + item.quantity,
-      );
-
-  return refundedQuantities;
-};
-
 /**
  * 折讓明細的金額必須精準等於折讓總額，且原發票把優惠券折扣開成一筆負數品項，
  * 所以部分退款要把折扣分攤回去，否則多次折讓的總和會超出發票金額。
@@ -60,7 +46,13 @@ export const buildRefundPlan = (
   previous: { amount: string; items: RefundItemSnapshot[] | null }[],
   requestedItems: { orderItemId: string; quantity: number }[] | undefined,
 ): RefundPlan => {
-  const refundedQuantities = refundedQuantitiesOf(previous);
+  const refundedQuantities = new Map<string, number>();
+  for (const row of previous)
+    for (const item of row.items ?? [])
+      refundedQuantities.set(
+        item.orderItemId,
+        (refundedQuantities.get(item.orderItemId) ?? 0) + item.quantity,
+      );
 
   const merged = new Map<string, number>();
   for (const item of requestedItems ?? [])

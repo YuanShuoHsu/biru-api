@@ -39,6 +39,7 @@ import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
 import { orderTicketJob } from '../db/schema/printers.js';
+import type { RefundItemSnapshot } from '../db/schema/refunds.js';
 import { refund } from '../db/schema/refunds.js';
 import { menuItem, modifier } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -78,7 +79,6 @@ import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
-import { refundedQuantitiesOf } from '../ecpay/utils/refund-plan.js';
 import {
   LOW_STOCK_REACHED_EVENT,
   type LowStockReachedEvent,
@@ -312,6 +312,20 @@ const toAdminOrderWithInvoice = <
       .map(toOrderTicketJobDto),
     orderTicketPrinterIds: orderTicketPrinterIdsOf(orderTicketJobs),
   });
+};
+
+const refundedQuantitiesOf = (
+  refunds: { items: RefundItemSnapshot[] | null }[],
+): Map<string, number> => {
+  const refundedQuantities = new Map<string, number>();
+  for (const { items } of refunds)
+    for (const { orderItemId, quantity } of items ?? [])
+      refundedQuantities.set(
+        orderItemId,
+        (refundedQuantities.get(orderItemId) ?? 0) + quantity,
+      );
+
+  return refundedQuantities;
 };
 
 const PUBLIC_BOARD_LEAD_MS = 60 * 60 * 1000;
