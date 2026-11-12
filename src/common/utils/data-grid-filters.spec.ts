@@ -128,11 +128,12 @@ describe('buildDateFilterCondition 依台北日界比對原欄位', () => {
       buildDateFilterCondition(column, 'is', '2026-11-12')!,
     );
     await client.exec('set enable_seqscan = off');
-    const { rows } = await client.query<{ 'QUERY PLAN': string }>(
-      `explain select id from filter_dates where ${where}`,
-      params,
-    );
-    await client.exec('reset enable_seqscan');
+    const { rows } = await client
+      .query<{ 'QUERY PLAN': string }>(
+        `explain select id from filter_dates where ${where}`,
+        params,
+      )
+      .finally(() => client.exec('reset enable_seqscan'));
 
     expect(rows.map((row) => row['QUERY PLAN']).join('\n')).toMatch(
       /Index (Only )?Scan|Bitmap Index Scan/,
