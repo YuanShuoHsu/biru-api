@@ -25,6 +25,7 @@ export const orderErrorCodes = [
   'notAwaitingPayment',
   'onlinePaymentNotRequired',
   'orderItemNotFound',
+  'orderItemRefunded',
   'orderNotFound',
   'orderQrSecretNeverRotated',
   'orderQrSessionNotFound',

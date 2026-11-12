@@ -356,6 +356,7 @@ export type I18nTranslations = {
             "notAwaitingPayment": string;
             "onlinePaymentNotRequired": string;
             "orderItemNotFound": string;
+            "orderItemRefunded": string;
             "orderNotFound": string;
             "orderQrSecretNeverRotated": string;
             "orderQrSessionNotFound": string;

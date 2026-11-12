@@ -302,6 +302,7 @@
     "notAwaitingPayment": "此订单已超过付款期限或状态已变更，无法付款",
     "onlinePaymentNotRequired": "这笔订单不需要在线付款",
     "orderItemNotFound": "这笔订单里找不到这个品项",
+    "orderItemRefunded": "这个品项已全数退款",
     "orderNotFound": "找不到这笔订单",
     "orderQrSecretNeverRotated": "二维码尚未更换过，没有可还原的旧版",
     "orderQrSessionNotFound": "点餐会话已失效，请重新扫描二维码",

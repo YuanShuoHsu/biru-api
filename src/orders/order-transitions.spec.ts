@@ -184,6 +184,7 @@ describe('訂單狀態轉換規則表', () => {
 type OrderRow = {
   discountCode: string | null;
   id: string;
+  items?: { id: string; preparedAt: Date | null }[];
   orderStatus: OrderStatus;
   paymentDate?: Date | null;
   paymentMethod: PaymentMethod;
@@ -314,7 +315,11 @@ describe('OrdersService.applyTransitions', () => {
   });
 
   it('退回待付款會撤下還沒送出的工作單，不再排新的', async () => {
-    const processing: OrderRow = { ...unpaid, orderStatus: 'OrderProcessing' };
+    const processing: OrderRow = {
+      ...unpaid,
+      items: [{ id: 'i1', preparedAt: new Date() }],
+      orderStatus: 'OrderProcessing',
+    };
     const { orderTickets, service } = createService({
       current: processing,
       updated: [{ ...processing, orderStatus: 'OrderPaymentDue' }],
