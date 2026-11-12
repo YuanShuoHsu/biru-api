@@ -36,6 +36,15 @@ export const unitCodeEnum = pgEnum('unit_code', [
 ]);
 export type UnitCode = (typeof unitCodeEnum.enumValues)[number];
 
+export const wasteReasonEnum = pgEnum('waste_reason', [
+  'expired',
+  'spilled',
+  'madeWrong',
+  'damaged',
+  'other',
+]);
+export type WasteReason = (typeof wasteReasonEnum.enumValues)[number];
+
 // https://schema.org/Organization
 export const supplier = pgTable(
   'supplier',
@@ -122,6 +131,12 @@ export const inventoryTransaction = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     quantity: numeric('quantity', { precision: 12, scale: 3 }).notNull(),
     unitCost: numeric('unit_cost', { precision: 16, scale: 6 }),
+    wasteBatchId: text('waste_batch_id'),
+    wasteMenuItemId: text('waste_menu_item_id').references(() => menuItem.id, {
+      onDelete: 'set null',
+    }),
+    wasteReason: wasteReasonEnum('waste_reason'),
+    wasteServings: integer('waste_servings'),
     createdAt: timestamp('created_at')
       .default(sql`clock_timestamp()`)
       .notNull(),
@@ -135,6 +150,7 @@ export const inventoryTransaction = pgTable(
       table.createdAt,
     ),
     index('inventoryTransaction_orderId_idx').on(table.orderId),
+    index('inventoryTransaction_wasteMenuItemId_idx').on(table.wasteMenuItemId),
   ],
 );
 
