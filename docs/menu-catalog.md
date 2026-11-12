@@ -448,7 +448,7 @@ PR 6 與 5a 同時上線，PR 6 的上架頁在 5c 上線前不顯示「上架�
 10. **目錄表的刪除還原權限？**
     預設：只有平台管理員（不列入 `RESTORE_PERMISSIONS`）。
     理由：`RESTORE_PERMISSIONS` 只能表達角色權限（`deleted-records.service.ts:124-133`），表達不了 `allow_local_menu_items`；門市成員還原上架列、分類設定與選項覆寫仍照舊。
-11. **PR 5a 停用舊的內容寫入端點（回錯誤碼），同意以破壞性 API 變更處理嗎？**
+11. **PR 5a 停用舊的內容寫入端點（回錯誤碼），並把 `PATCH menu-sections/:sectionId` 限縮為只接受 `orderTicketPrinterId`，同意以破壞性 API 變更處理嗎？**
     預設：同意後才合併；PR 5a 與 PR 6 同時上線，PR 9 再刪除端點。
     理由：繼續接受寫入會改到已經沒人讀的舊欄位，使用者以為改成功了；但舊版 biru-admin 呼叫它們會失敗，所以和 PR 9 一樣需要明確同意。
     PR 5c 同樣需要同意：它在共用資料庫上清空舊分類欄位（無法還原），並停用三個舊的分類讀取端點。
