@@ -697,6 +697,19 @@ describe('MenusService localized text filters and sorting', () => {
       ).resolves.toMatchObject({ availability: 'Discontinued' });
     });
 
+    it('沒有 menu:update 時不能改已下架品項的剩餘數量', async () => {
+      await setOffer('Discontinued');
+
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'americano-offer' },
+          organizationId: ORG,
+          data: { availability: 'Discontinued', inventoryLevel: { value: 5 } },
+          canUpdateMenu: false,
+        }),
+      ).rejects.toMatchObject(forbidden);
+    });
+
     it('有 menu:update 時可以下架與重新上架', async () => {
       await setOffer('InStock');
       await setModifier('InStock');

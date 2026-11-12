@@ -121,12 +121,12 @@ import {
   MODIFIER_STRING_FILTER_FIELDS,
   type ModifierPaginationQueryDto,
 } from './dto/modifier-pagination-query.dto.js';
+import type { UpdateItemAvailabilityDto } from './dto/update-item-availability.dto.js';
 import type { UpdateMenuItemAddOnDto } from './dto/update-menu-item-add-on.dto.js';
 import type { UpdateMenuItemDto } from './dto/update-menu-item.dto.js';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto.js';
 import type { UpdateMenuDto } from './dto/update-menu.dto.js';
 import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js';
-import type { UpdateItemAvailabilityDto } from './dto/update-item-availability.dto.js';
 import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
 import type { UpdateOfferDto } from './dto/update-offer.dto.js';
@@ -1130,8 +1130,11 @@ export class MenusService {
         .from(offer)
         .where(eq(offer.id, params.where.id));
       if (!current) throw notFoundError('offerNotFound');
-      if (!params.canUpdateMenu)
+      if (!params.canUpdateMenu) {
         assertKeepsListing(current.availability, availability.availability);
+        if (current.availability === 'Discontinued' && inventoryLevel)
+          throw accessForbiddenError();
+      }
 
       if (inventoryLevel) {
         // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
