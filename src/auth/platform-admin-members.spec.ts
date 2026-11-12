@@ -31,6 +31,7 @@ describe('以平台管理員身分加入門市', () => {
       {} as never,
       {} as never,
       createAuthI18n({ t: () => ({}) } as never),
+      {} as never,
     );
     service = new AuthBatchService(db, { instance: auth } as never);
     await client.exec(`

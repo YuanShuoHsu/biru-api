@@ -126,6 +126,7 @@ import {
   type OrderPaginationQueryDto,
 } from './dto/order-pagination-query.dto.js';
 import type {
+  OrderItemResponseDto,
   OrderReceiptResponseDto,
   OrderResponseDto,
   UserOrderResponseDto,
@@ -757,9 +758,16 @@ export class OrdersService {
     };
 
     const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] = sortBy
-      ? [dir(orderFieldMap[sortBy]), desc(order.createdAt)]
-      : [desc(order.createdAt)];
+    const orderBy: SQL[] =
+      sortBy === 'orderNumber'
+        ? [
+            dir(sql`length(${order.orderNumber})`),
+            dir(order.orderNumber),
+            desc(order.createdAt),
+          ]
+        : sortBy
+          ? [dir(orderFieldMap[sortBy]), desc(order.createdAt)]
+          : [desc(order.createdAt)];
 
     const where = and(
       eq(order.sellerId, org.id),
@@ -952,8 +960,8 @@ export class OrdersService {
             ),
             orderBy:
               orderStatus === 'OrderDelivered'
-                ? [desc(order.updatedAt)]
-                : [asc(BOARD_AT)],
+                ? [desc(order.updatedAt), asc(order.id)]
+                : [asc(BOARD_AT), asc(order.createdAt), asc(order.id)],
             limit:
               orderStatus === 'OrderDelivered'
                 ? ADMIN_BOARD_DONE_COLUMN_LIMIT
@@ -1020,7 +1028,7 @@ export class OrdersService {
           ),
         ),
       )
-      .orderBy(asc(BOARD_AT));
+      .orderBy(asc(BOARD_AT), asc(order.createdAt), asc(order.id));
   }
 
   async applyTransitions(
@@ -1192,6 +1200,48 @@ export class OrdersService {
     } satisfies OrderUpdatedEvent);
 
     return { ...found, ...updated };
+  }
+
+  async setOrderItemPrepared(
+    organizationSlug: string,
+    orderId: string,
+    orderItemId: string,
+    prepared: boolean,
+  ): Promise<OrderItemResponseDto> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    const updated = await this.db.transaction(async (tx) => {
+      const [found] = await tx
+        .select({ orderStatus: order.orderStatus })
+        .from(order)
+        .where(and(eq(order.id, orderId), eq(order.sellerId, org.id)))
+        .for('share');
+      if (!found) throw notFoundError('orderNotFound');
+      if (found.orderStatus !== 'OrderProcessing')
+        throw badRequestError('statusChanged');
+
+      const [item] = await tx
+        .update(orderItem)
+        .set({
+          preparedAt: prepared
+            ? sql`coalesce(${orderItem.preparedAt}, now())`
+            : null,
+        })
+        .where(
+          and(eq(orderItem.id, orderItemId), eq(orderItem.orderId, orderId)),
+        )
+        .returning();
+      if (!item) throw notFoundError('orderItemNotFound');
+
+      return item;
+    });
+
+    this.eventEmitter.emit(ORDER_UPDATED_EVENT, {
+      orderId,
+      organizationId: org.id,
+    } satisfies OrderUpdatedEvent);
+
+    return updated;
   }
 
   async createPaymentAttempt(

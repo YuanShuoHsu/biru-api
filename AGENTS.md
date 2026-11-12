@@ -34,6 +34,8 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 Branch from `develop` and open every PR against `develop`. GitHub's default branch is `master`, so set the base explicitly (`gh pr create --base develop`): a PR merged only into `master` never reaches `develop`, so work branched from `develop` misses it and conflicts when `master` is merged back.
 
+Every PR against `develop` or `master`, and every push to `develop`, runs `lint`, `build`, `test` and `test:e2e` in GitHub Actions (`.github/workflows/ci.yml`), with no secrets and no database; run the four locally before opening a PR.
+
 ## Architecture
 
 **Biru Coffee** is a multi-language coffee shop management API (NestJS 12, TypeScript, PostgreSQL).
@@ -119,6 +121,17 @@ appended at max `sortOrder` + 1 or prepended at 0 with every existing row shifte
 2147483647, or the overflow 500 only moves to the next insert.
 
 Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
+On a brand-new database `drizzle-kit migrate` fails (exit 1, no message): it applies every pending migration in one
+transaction, and `0098` / `0105` use enum values added by `0084` / `0103`, which Postgres refuses before they commit. Build
+an empty database with `pnpm tsx scripts/migrate-fresh-db.ts` instead: it applies each migration in its own transaction and
+records it in `drizzle.__drizzle_migrations` as `drizzle-kit migrate` would, so later migrations still go through
+`drizzle-kit migrate`. It needs `DATABASE_URL` in the environment and refuses a database that already has tables.
+
+`pnpm tsx scripts/seed-e2e.ts` then seeds it for end-to-end tests: one store (`e2e-store`, open all day every
+day) with a menu, modifiers, an add-on and ingredients, and five verified accounts — platform admin, store `owner`,
+`admin`, `member`, and a customer in no store. It needs `DATABASE_URL` in the environment (a `.env` is never used for
+it) and `E2E_{PLATFORM_ADMIN,OWNER,ADMIN,MEMBER,CUSTOMER}_{EMAIL,PASSWORD}`, and refuses to run once the database has
+any organization, so it can never write to the shared database.
 
 Every business table has a `record_deleted_row` BEFORE DELETE trigger that copies the row into `deleted_record` (cascaded children land in the same `batch_id`, i.e. the same transaction). The trigger was attached in `0190` to the tables that existed then, so **a new table needs its own `CREATE TRIGGER` in the migration that creates it**, unless it belongs in `UNTRACKED_TABLES` (`src/deleted-records/deleted-record-tables.ts`, kept in sync with the migration). The app logs a warning at startup for tables missing the trigger. Rows are purged after 30 days; batches whose root table is in `RESTORABLE_TABLES` can be restored by platform admins, or by store members whose role holds that table's `RESTORE_PERMISSIONS` action (restoring an owner member or invitation needs `owner`). Scheduled retention purges must run `set_config('app.skip_deleted_record', 'on', true)` inside their transaction so expiry isn't captured as a deletion (see `TasksService.purge`); never use a session-level `SET` on the pool.
 
@@ -269,6 +282,13 @@ Next's image optimizer fetches the source without the viewer's cookies. The vers
 who once had a URL keeps seeing the row's current image until the row or its image is deleted.
 
 `pnpm tsx scripts/migrate-images-to-storage.ts` counts the data URLs left in these tables; `--apply` moves them to storage. Every environment shares the database, so set `NEXT_PUBLIC_IMAGE_HOST` on every frontend deployment first, or next/image refuses the moved URLs.
+
+Member avatar (`user.image`) and store logo (`organization.logo`) data URLs are uploaded the same way, by the
+better-auth hooks in `src/auth/index.ts`, keyed `user/` and `organization/`. The hooks accept only an empty string, any
+https URL in its canonical form (`URL.href`), such as Google's avatar, or a data URL matching `IMAGE_DATA_URL_PATTERN`
+(`src/common/constants/image.ts`), and nothing longer than `IMAGE_DATA_URL_MAX_LENGTH`; any other string is rejected
+with `INVALID_IMAGE`.
+They are not `IMAGE_KINDS`, so `/api/images/:kind` does not serve them and the migration script does not move them.
 
 Nothing deletes a stored object on replace or delete; `POST /api/images/orphans/sweep` (platform admin, dry-run unless
 `apply: true`) removes objects under each kind's prefix that are over 7 days old and not referenced. References are the
@@ -486,8 +506,8 @@ value). A new variable must be added to that schema with the rule the code actua
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
   until it is re-encrypted; a later PR provides that script
 - `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
-  (Supabase Storage, path-style) for menu, banner and store photo images; set all six S3 variables or none: none keeps new
-  images as base64 data URLs in Postgres, and a partial set stops the app at boot
+  (Supabase Storage, path-style) for menu, banner and store photo images, member avatars and store logos; set all six S3
+  variables or none: none keeps new images as base64 data URLs in Postgres, and a partial set stops the app at boot
 - `S3_PUBLIC_URL` — Public URL prefix of that bucket (`https://<project_ref>.supabase.co/storage/v1/object/public/<bucket>`);
   the uploaded image URL is this plus the key
 - `PORT` — HTTP port (default 3001)

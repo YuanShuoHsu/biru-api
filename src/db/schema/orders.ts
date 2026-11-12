@@ -196,6 +196,7 @@ export const orderItem = pgTable(
     unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
     participantAvatar: text('participant_avatar').$type<SharedCartAvatar>(),
     participantNickname: text('participant_nickname'),
+    preparedAt: timestamp('prepared_at'),
     ...timestamps,
   },
   (table) => [index('orderItem_orderId_idx').on(table.orderId)],

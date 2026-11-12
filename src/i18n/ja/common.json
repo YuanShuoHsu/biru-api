@@ -300,6 +300,7 @@
     "modifierUnavailableForMode": "「{name}」はこの注文方法ではご利用いただけません",
     "notAwaitingPayment": "支払期限を過ぎたか、状態が変更されたため、この注文はお支払いできません",
     "onlinePaymentNotRequired": "この注文はオンライン決済の必要がありません",
+    "orderItemNotFound": "この注文にその品目が見つかりません",
     "orderNotFound": "この注文が見つかりません",
     "orderQrSecretNeverRotated": "QR コードはまだ再発行されていないため、元に戻せる以前のバージョンはありません",
     "orderQrSessionNotFound": "注文セッションの有効期限が切れました。QR コードをもう一度読み取ってください",

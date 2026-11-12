@@ -266,8 +266,8 @@ export class AttendanceShiftsService {
       teamName: team.name,
       startsAt: attendanceShift.startsAt,
       endsAt: attendanceShift.endsAt,
-      clockInAt,
-      clockOutAt,
+      clockInAt: sql`(${clockInAt}) AT TIME ZONE 'UTC'`,
+      clockOutAt: sql`(${clockOutAt}) AT TIME ZONE 'UTC'`,
       dayKind: attendanceShift.dayKind,
       state: sql`CASE COALESCE(
         ${approvedCorrectedEvents} -> -1 ->> 'action',
