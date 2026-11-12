@@ -414,11 +414,13 @@ export class MenusController {
     @Body() updateOfferAvailabilityDto: UpdateOfferAvailabilityDto,
     @Param('offerId') offerId: string,
     @OrganizationId() organizationId: string,
+    @HasPermission({ menu: ['update'] }) canUpdateMenu: boolean,
   ): Promise<OfferResponseDto> {
     return this.menusService.updateOfferAvailability({
       where: { id: offerId },
       organizationId,
       data: updateOfferAvailabilityDto,
+      canUpdateMenu,
     });
   }
 
@@ -684,11 +686,13 @@ export class MenusController {
     @Body() updateItemAvailabilityDto: UpdateItemAvailabilityDto,
     @Param('modifierId') modifierId: string,
     @OrganizationId() organizationId: string,
+    @HasPermission({ menu: ['update'] }) canUpdateMenu: boolean,
   ): Promise<ModifierResponseDto> {
-    const updated = await this.menusService.updateModifier({
+    const updated = await this.menusService.updateModifierAvailability({
       where: { id: modifierId },
       organizationId,
       data: updateItemAvailabilityDto,
+      canUpdateMenu,
     });
 
     return withImageUrl('modifier', updated);
