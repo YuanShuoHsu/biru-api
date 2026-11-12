@@ -112,7 +112,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables
-- `enums.ts` — shared pgEnums (`genders`, `languages`) plus `LocalizedText`, `DEFAULT_LANGUAGE`
+- `enums.ts` — shared pgEnums (`genders`, `languages`, `restrictedDiet`, serving temperature and sweetness) plus `LocalizedText`, `DEFAULT_LANGUAGE`
 - `columns.helpers.ts` — shared column builders. Its `timestamps` are `timestamp` **without** time zone;
   the attendance and payroll tables use `withTimezone: true` instead, so don't switch them to the helper.
 
@@ -260,7 +260,7 @@ defined in `src/db/schema/enums.ts`. Input DTOs type them as `LocalizedText` wit
 
 ### Images
 
-Menu, section, item, modifier, banner and store photo images are stored as base64 data URLs, unless S3-compatible storage is configured (see
+Menu, section, item, modifier, catalog section, item and modifier, banner and store photo images are stored as base64 data URLs, unless S3-compatible storage is configured (see
 Environment Variables): then `ImageStorageService` (`src/images/image-storage.service.ts`) uploads each new image before
 the write, keyed `<kind>/<imageVersion>.<ext>`, and the column stores its public `https://` URL, which every helper below
 returns as `imageUrl` unchanged. For data URLs, their endpoints return `imageUrl` from `withImageUrl`

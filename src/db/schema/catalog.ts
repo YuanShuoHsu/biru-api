@@ -24,6 +24,7 @@ import {
 import type { NutritionInformation, PriceSpecification } from './menus.js';
 import { organization } from './organizations.js';
 
+// https://schema.org/MenuSection
 export const catalogSection = pgTable(
   'catalog_section',
   {
@@ -54,6 +55,7 @@ export const catalogSection = pgTable(
 
 export type CatalogSection = typeof catalogSection.$inferSelect;
 
+// https://schema.org/MenuItem
 export const catalogItem = pgTable(
   'catalog_item',
   {
@@ -70,15 +72,19 @@ export const catalogItem = pgTable(
     description: jsonb('description').$type<LocalizedText>(),
     image: text('image'),
     suitableForDiet: restrictedDietEnum('suitable_for_diet').array(),
+    // 可供應的溫度；空陣列代表不適用（如餐點）
     servingTemperatures: servingTemperatureEnum('serving_temperatures')
       .array()
       .notNull()
       .default([]),
+    // 推薦的溫度細項，須屬於可供應的冷熱；只在點餐時標示，不自動帶入
     recommendedServingTemperatureLevel: servingTemperatureLevelEnum(
       'recommended_serving_temperature_level',
     ),
     sweetness: sweetnessEnum('sweetness').notNull().default('NotApplicable'),
+    // 甜度固定時的等級；其他情況為 null
     fixedSweetnessLevel: sweetnessLevelEnum('fixed_sweetness_level'),
+    // 推薦的甜度，僅甜度可調時可設；只在點餐時標示，不自動帶入
     recommendedSweetnessLevel: sweetnessLevelEnum(
       'recommended_sweetness_level',
     ),
@@ -107,6 +113,7 @@ export const catalogItem = pgTable(
 
 export type CatalogItem = typeof catalogItem.$inferSelect;
 
+// https://schema.org/MenuItem menuAddOn property
 export const catalogItemAddOn = pgTable(
   'catalog_item_add_on',
   {
@@ -138,6 +145,7 @@ export const catalogItemAddOn = pgTable(
 
 export type CatalogItemAddOn = typeof catalogItemAddOn.$inferSelect;
 
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#ModifierGroup
 export const catalogModifierGroup = pgTable(
   'catalog_modifier_group',
   {
@@ -161,6 +169,7 @@ export const catalogModifierGroup = pgTable(
 
 export type CatalogModifierGroup = typeof catalogModifierGroup.$inferSelect;
 
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#Modifier
 export const catalogModifier = pgTable(
   'catalog_modifier',
   {
@@ -183,6 +192,7 @@ export const catalogModifier = pgTable(
 
 export type CatalogModifier = typeof catalogModifier.$inferSelect;
 
+// https://docs.cloud.google.com/food-ai/reference/rest/v1beta/projects.locations.menus#Item
 export const catalogItemModifierGroup = pgTable(
   'catalog_item_modifier_group',
   {
