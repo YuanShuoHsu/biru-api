@@ -745,6 +745,22 @@ describe('MenusService localized text filters and sorting', () => {
           canUpdateMenu: false,
         }),
       ).rejects.toMatchObject({ response: { code: 'modifierNotFound' } });
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'missing' },
+          organizationId: ORG,
+          data: { availability: 'SoldOut' },
+          canUpdateMenu: true,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'offerNotFound' } });
+      await expect(
+        service.updateModifierAvailability({
+          where: { id: 'missing' },
+          organizationId: ORG,
+          data: { availability: 'SoldOut' },
+          canUpdateMenu: true,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'modifierNotFound' } });
     });
   });
 });

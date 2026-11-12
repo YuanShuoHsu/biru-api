@@ -1120,49 +1120,55 @@ export class MenusService {
   }): Promise<OfferWithCurrency> {
     const { inventoryLevel, ...availability } = params.data;
 
-    let nextInventoryLevel: QuantitativeValue | null | undefined;
-    if (inventoryLevel || !params.canUpdateMenu) {
-      const [current] = await this.db
-        .select({
-          availability: offer.availability,
-          inventoryLevel: offer.inventoryLevel,
+    const updated = await this.db.transaction(async (tx) => {
+      let nextInventoryLevel: QuantitativeValue | null | undefined;
+      if (inventoryLevel || !params.canUpdateMenu) {
+        const [current] = await tx
+          .select({
+            availability: offer.availability,
+            inventoryLevel: offer.inventoryLevel,
+          })
+          .from(offer)
+          .where(eq(offer.id, params.where.id))
+          .for('update');
+        if (!current) throw notFoundError('offerNotFound');
+        if (!params.canUpdateMenu) {
+          assertKeepsListing(current.availability, availability.availability);
+          if (current.availability === 'Discontinued' && inventoryLevel)
+            throw accessForbiddenError();
+        }
+
+        if (inventoryLevel) {
+          // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
+          const unitText = current.inventoryLevel?.unitText;
+          nextInventoryLevel =
+            inventoryLevel.value == null && !unitText
+              ? null
+              : {
+                  ...(unitText && { unitText }),
+                  ...(inventoryLevel.value != null && {
+                    value: inventoryLevel.value,
+                  }),
+                };
+        }
+      }
+
+      const [row] = await tx
+        .update(offer)
+        .set({
+          ...availability,
+          ...keepAutoSoldOut(availability.availability, offer),
+          ...(nextInventoryLevel !== undefined && {
+            inventoryLevel: nextInventoryLevel,
+          }),
+          updatedAt: new Date(),
         })
-        .from(offer)
-        .where(eq(offer.id, params.where.id));
-      if (!current) throw notFoundError('offerNotFound');
-      if (!params.canUpdateMenu) {
-        assertKeepsListing(current.availability, availability.availability);
-        if (current.availability === 'Discontinued' && inventoryLevel)
-          throw accessForbiddenError();
-      }
+        .where(eq(offer.id, params.where.id))
+        .returning();
 
-      if (inventoryLevel) {
-        // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
-        const unitText = current.inventoryLevel?.unitText;
-        nextInventoryLevel =
-          inventoryLevel.value == null && !unitText
-            ? null
-            : {
-                ...(unitText && { unitText }),
-                ...(inventoryLevel.value != null && {
-                  value: inventoryLevel.value,
-                }),
-              };
-      }
-    }
-
-    const [updated] = await this.db
-      .update(offer)
-      .set({
-        ...availability,
-        ...keepAutoSoldOut(availability.availability, offer),
-        ...(nextInventoryLevel !== undefined && {
-          inventoryLevel: nextInventoryLevel,
-        }),
-        updatedAt: new Date(),
-      })
-      .where(eq(offer.id, params.where.id))
-      .returning();
+      return row;
+    });
+    if (!updated) throw notFoundError('offerNotFound');
 
     return {
       ...updated,
@@ -1940,16 +1946,38 @@ export class MenusService {
     data: UpdateItemAvailabilityDto;
     canUpdateMenu: boolean;
   }): Promise<ModifierWithCurrency> {
-    if (!params.canUpdateMenu) {
-      const [current] = await this.db
-        .select({ availability: modifier.availability })
-        .from(modifier)
-        .where(eq(modifier.id, params.where.id));
-      if (!current) throw notFoundError('modifierNotFound');
-      assertKeepsListing(current.availability, params.data.availability);
-    }
+    const updated = await this.db.transaction(async (tx) => {
+      if (!params.canUpdateMenu) {
+        const [current] = await tx
+          .select({ availability: modifier.availability })
+          .from(modifier)
+          .where(eq(modifier.id, params.where.id))
+          .for('update');
+        if (!current) throw notFoundError('modifierNotFound');
+        assertKeepsListing(current.availability, params.data.availability);
+      }
 
-    return this.updateModifier(params);
+      const [row] = await tx
+        .update(modifier)
+        .set({
+          availability: params.data.availability,
+          ...keepAutoSoldOut(params.data.availability, modifier),
+          updatedAt: new Date(),
+        })
+        .where(eq(modifier.id, params.where.id))
+        .returning();
+
+      return row;
+    });
+    if (!updated) throw notFoundError('modifierNotFound');
+
+    return {
+      ...updated,
+      priceCurrency: await getOrganizationCurrency(
+        this.db,
+        params.organizationId,
+      ),
+    };
   }
 
   async deleteModifier(where: {
