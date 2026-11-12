@@ -21,6 +21,7 @@ import { I18nContext } from 'nestjs-i18n';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
 import { SERVING_TEMPERATURE_OF_LEVEL } from '../common/constants/serving-temperature.js';
+import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
 import { toLanguage } from '../common/utils/language.js';
 import {
   isSameLocalizedText,
@@ -31,6 +32,7 @@ import { isUniqueViolation, pgConstraint } from '../common/utils/pg-errors.js';
 import type { LocalizedText } from '../db/schema/enums.js';
 import { recipe } from '../db/schema/inventory.js';
 import type {
+  ItemAvailability,
   Menu,
   MenuItem,
   MenuItemAddOn,
@@ -124,6 +126,7 @@ import type { UpdateMenuItemDto } from './dto/update-menu-item.dto.js';
 import type { UpdateMenuSectionDto } from './dto/update-menu-section.dto.js';
 import type { UpdateMenuDto } from './dto/update-menu.dto.js';
 import type { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js';
+import type { UpdateItemAvailabilityDto } from './dto/update-item-availability.dto.js';
 import type { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import type { UpdateOfferAvailabilityDto } from './dto/update-offer-availability.dto.js';
 import type { UpdateOfferDto } from './dto/update-offer.dto.js';
@@ -132,6 +135,17 @@ import {
   conflictError,
   notFoundError,
 } from './menu-errors.js';
+
+const assertKeepsListing = (
+  current: ItemAvailability | null,
+  next: ItemAvailability,
+) => {
+  if (
+    current !== next &&
+    (current === 'Discontinued' || next === 'Discontinued')
+  )
+    throw accessForbiddenError();
+};
 
 type RecipeSummary = {
   id: string;
@@ -1102,28 +1116,36 @@ export class MenusService {
     where: { id: string };
     organizationId: string;
     data: UpdateOfferAvailabilityDto;
+    canUpdateMenu: boolean;
   }): Promise<OfferWithCurrency> {
     const { inventoryLevel, ...availability } = params.data;
 
     let nextInventoryLevel: QuantitativeValue | null | undefined;
-    if (inventoryLevel) {
+    if (inventoryLevel || !params.canUpdateMenu) {
       const [current] = await this.db
-        .select({ inventoryLevel: offer.inventoryLevel })
+        .select({
+          availability: offer.availability,
+          inventoryLevel: offer.inventoryLevel,
+        })
         .from(offer)
         .where(eq(offer.id, params.where.id));
       if (!current) throw notFoundError('offerNotFound');
+      if (!params.canUpdateMenu)
+        assertKeepsListing(current.availability, availability.availability);
 
-      // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
-      const unitText = current.inventoryLevel?.unitText;
-      nextInventoryLevel =
-        inventoryLevel.value == null && !unitText
-          ? null
-          : {
-              ...(unitText && { unitText }),
-              ...(inventoryLevel.value != null && {
-                value: inventoryLevel.value,
-              }),
-            };
+      if (inventoryLevel) {
+        // 單位屬菜單定義，itemAvailability 權限改不得，因此併回既有值而非整包覆寫
+        const unitText = current.inventoryLevel?.unitText;
+        nextInventoryLevel =
+          inventoryLevel.value == null && !unitText
+            ? null
+            : {
+                ...(unitText && { unitText }),
+                ...(inventoryLevel.value != null && {
+                  value: inventoryLevel.value,
+                }),
+              };
+      }
     }
 
     const [updated] = await this.db
@@ -1907,6 +1929,24 @@ export class MenusService {
         params.organizationId,
       ),
     };
+  }
+
+  async updateModifierAvailability(params: {
+    where: { id: string };
+    organizationId: string;
+    data: UpdateItemAvailabilityDto;
+    canUpdateMenu: boolean;
+  }): Promise<ModifierWithCurrency> {
+    if (!params.canUpdateMenu) {
+      const [current] = await this.db
+        .select({ availability: modifier.availability })
+        .from(modifier)
+        .where(eq(modifier.id, params.where.id));
+      if (!current) throw notFoundError('modifierNotFound');
+      assertKeepsListing(current.availability, params.data.availability);
+    }
+
+    return this.updateModifier(params);
   }
 
   async deleteModifier(where: {

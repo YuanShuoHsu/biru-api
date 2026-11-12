@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { I18nContext } from 'nestjs-i18n';
@@ -616,6 +617,121 @@ describe('MenusService localized text filters and sorting', () => {
         addOnMenuItemId: 'americano',
         addOnMenuSectionId: null,
       });
+    });
+  });
+
+  describe('下架權限', () => {
+    const forbidden = { status: 403 };
+
+    beforeAll(async () => {
+      await db.insert(offer).values({
+        id: 'americano-offer',
+        menuItemId: 'americano',
+        price: '60',
+      });
+    });
+
+    const setOffer = (availability: 'InStock' | 'SoldOut' | 'Discontinued') =>
+      db
+        .update(offer)
+        .set({ availability })
+        .where(eq(offer.id, 'americano-offer'));
+    const setModifier = (
+      availability: 'InStock' | 'SoldOut' | 'Discontinued',
+    ) =>
+      db.update(modifier).set({ availability }).where(eq(modifier.id, 'jelly'));
+    const updateOffer = (
+      availability: 'InStock' | 'SoldOut' | 'Discontinued',
+      canUpdateMenu: boolean,
+    ) =>
+      service.updateOfferAvailability({
+        where: { id: 'americano-offer' },
+        organizationId: ORG,
+        data: { availability },
+        canUpdateMenu,
+      });
+    const updateModifier = (
+      availability: 'InStock' | 'SoldOut' | 'Discontinued',
+      canUpdateMenu: boolean,
+    ) =>
+      service.updateModifierAvailability({
+        where: { id: 'jelly' },
+        organizationId: ORG,
+        data: { availability },
+        canUpdateMenu,
+      });
+
+    it('沒有 menu:update 時只能在供應中與售完之間切換', async () => {
+      await setOffer('InStock');
+      await setModifier('InStock');
+
+      await expect(updateOffer('SoldOut', false)).resolves.toMatchObject({
+        availability: 'SoldOut',
+      });
+      await expect(updateModifier('SoldOut', false)).resolves.toMatchObject({
+        availability: 'SoldOut',
+      });
+      await expect(updateOffer('Discontinued', false)).rejects.toMatchObject(
+        forbidden,
+      );
+      await expect(updateModifier('Discontinued', false)).rejects.toMatchObject(
+        forbidden,
+      );
+    });
+
+    it('沒有 menu:update 時不能把已下架的改回，維持下架則通過', async () => {
+      await setOffer('Discontinued');
+      await setModifier('Discontinued');
+
+      await expect(updateOffer('InStock', false)).rejects.toMatchObject(
+        forbidden,
+      );
+      await expect(updateModifier('SoldOut', false)).rejects.toMatchObject(
+        forbidden,
+      );
+      await expect(updateOffer('Discontinued', false)).resolves.toMatchObject({
+        availability: 'Discontinued',
+      });
+      await expect(
+        updateModifier('Discontinued', false),
+      ).resolves.toMatchObject({ availability: 'Discontinued' });
+    });
+
+    it('有 menu:update 時可以下架與重新上架', async () => {
+      await setOffer('InStock');
+      await setModifier('InStock');
+
+      await expect(updateOffer('Discontinued', true)).resolves.toMatchObject({
+        availability: 'Discontinued',
+      });
+      await expect(updateModifier('Discontinued', true)).resolves.toMatchObject(
+        { availability: 'Discontinued' },
+      );
+      await expect(updateOffer('InStock', true)).resolves.toMatchObject({
+        availability: 'InStock',
+      });
+      await expect(updateModifier('InStock', true)).resolves.toMatchObject({
+        availability: 'InStock',
+      });
+    });
+
+    it('品項或選項不存在時回 404', async () => {
+      await expect(
+        service.updateOfferAvailability({
+          where: { id: 'missing' },
+          organizationId: ORG,
+          data: { availability: 'SoldOut' },
+          canUpdateMenu: false,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'offerNotFound' } });
+      await expect(
+        service.updateModifierAvailability({
+          where: { id: 'missing' },
+          organizationId: ORG,
+          data: { availability: 'SoldOut' },
+          canUpdateMenu: false,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'modifierNotFound' } });
     });
   });
 });
