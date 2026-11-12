@@ -1336,6 +1336,7 @@ export class CouponsService {
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
         withinValidity(),
+        withinCapacity(),
       ),
       orderBy: [desc(coupon.createdAt)],
     });
