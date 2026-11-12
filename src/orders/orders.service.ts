@@ -224,7 +224,7 @@ type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
 type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
 
-const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+export const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const toPaymentDate = (value?: string): Date | undefined => {
   if (!value) return undefined;

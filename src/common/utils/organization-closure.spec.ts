@@ -53,14 +53,14 @@ describe('門市停業的錯誤', () => {
   });
 
   it('organizationHasOpenWorkError 回 409、帶代碼並代入未完成的數量', () => {
-    const error = organizationHasOpenWorkError(2, 3);
+    const error = organizationHasOpenWorkError(2, 1, 3);
 
     expect(error).toBeInstanceOf(ConflictException);
     expect(error.getResponse()).toEqual({
       error: 'Conflict',
       code: 'organizationHasOpenWork',
       message:
-        'translated:common.exceptions.organizationHasOpenWork{"orders":2,"tickets":3}',
+        'translated:common.exceptions.organizationHasOpenWork{"orders":2,"unreconciledOrders":1,"tickets":3}',
     });
   });
 

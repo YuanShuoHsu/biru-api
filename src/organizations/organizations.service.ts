@@ -55,6 +55,8 @@ import type {
   OrganizationDetailResponseDto,
 } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
+import { PROBLEM_RECHECK_WINDOW_MS } from '../orders/orders.service.js';
+
 import { conflictError, forbiddenError } from './organization-errors.js';
 
 const upcomingSpecialHoursWindow = () => {
@@ -260,32 +262,47 @@ export class OrganizationsService {
     closed: boolean,
   ): Promise<Organization> {
     if (closed) {
-      const [[{ orders }], [{ tickets }]] = await Promise.all([
-        this.db
-          .select({ orders: count() })
-          .from(order)
-          .where(
-            and(
-              eq(order.sellerId, organizationId),
-              inArray(order.orderStatus, [
-                'OrderPaymentDue',
-                'OrderProcessing',
-                'OrderPickupAvailable',
-              ]),
+      const [[{ orders }], [{ unreconciledOrders }], [{ tickets }]] =
+        await Promise.all([
+          this.db
+            .select({ orders: count() })
+            .from(order)
+            .where(
+              and(
+                eq(order.sellerId, organizationId),
+                inArray(order.orderStatus, [
+                  'OrderPaymentDue',
+                  'OrderProcessing',
+                  'OrderPickupAvailable',
+                ]),
+              ),
             ),
-          ),
-        this.db
-          .select({ tickets: count() })
-          .from(waitlistTicket)
-          .where(
-            and(
-              eq(waitlistTicket.organizationId, organizationId),
-              inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+          this.db
+            .select({ unreconciledOrders: count() })
+            .from(order)
+            .where(
+              and(
+                eq(order.sellerId, organizationId),
+                eq(order.orderStatus, 'OrderProblem'),
+                isNull(order.reconciledAt),
+                gte(
+                  order.createdAt,
+                  new Date(Date.now() - PROBLEM_RECHECK_WINDOW_MS),
+                ),
+              ),
             ),
-          ),
-      ]);
-      if (orders || tickets)
-        throw organizationHasOpenWorkError(orders, tickets);
+          this.db
+            .select({ tickets: count() })
+            .from(waitlistTicket)
+            .where(
+              and(
+                eq(waitlistTicket.organizationId, organizationId),
+                inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
+              ),
+            ),
+        ]);
+      if (orders || unreconciledOrders || tickets)
+        throw organizationHasOpenWorkError(orders, unreconciledOrders, tickets);
     }
 
     const [updated] = await this.db

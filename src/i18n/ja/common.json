@@ -174,7 +174,7 @@
     "forbidden": "このデータにアクセスする権限がありません",
     "internalServerError": "内部サーバーエラー",
     "organizationClosed": "この店舗は営業を終了しました",
-    "organizationHasOpenWork": "未完了の注文が {orders} 件、順番待ち中の整理券が {tickets} 枚あります。完了またはキャンセルしてから閉店してください",
+    "organizationHasOpenWork": "未完了の注文が {orders} 件、ECPay で支払い結果を確認中の異常注文が {unreconciledOrders} 件、順番待ち中の整理券が {tickets} 枚あります。注文と整理券を完了またはキャンセルし、支払い結果の確認が終わってから閉店してください",
     "organizationNotFound": "店舗が見つかりません。",
     "organizationReadOnly": "この店舗は閉店しています。メニュー、在庫、クーポン、順番待ち、店舗設定は閲覧のみ可能です",
     "returnUrlNotAllowed": "この戻り先 URL は使用できません",

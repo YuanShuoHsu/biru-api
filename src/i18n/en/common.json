@@ -174,7 +174,7 @@
     "forbidden": "You do not have permission to access this",
     "internalServerError": "Internal server error",
     "organizationClosed": "This store is closed.",
-    "organizationHasOpenWork": "There are still {orders} unfinished orders and {tickets} active waitlist tickets. Complete or cancel them before closing the store.",
+    "organizationHasOpenWork": "There are still {orders} unfinished orders, {unreconciledOrders} failed-payment orders whose payment result is still being checked with ECPay, and {tickets} active waitlist tickets. Complete or cancel the orders and tickets, and wait for the payment checks to finish, before closing the store.",
     "organizationNotFound": "The store wasn't found.",
     "organizationReadOnly": "This store is closed. Menus, inventory, coupons, waitlist, and store settings are read-only.",
     "returnUrlNotAllowed": "This return URL is not allowed",
