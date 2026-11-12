@@ -444,7 +444,8 @@ describe('OrganizationsService.setClosed', () => {
     service = new OrganizationsService(pglite as unknown as DrizzleDB);
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+        ('biru', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+        ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');
     `);
   }, 60_000);
 
@@ -470,12 +471,17 @@ describe('OrganizationsService.setClosed', () => {
   const insertOrder = (
     id: string,
     status: string,
-    { reconciled = false, createdDaysAgo = 0 } = {},
+    {
+      reconciled = false,
+      createdDaysAgo = 0,
+      discountCode = null as string | null,
+      sellerId = 'biru',
+    } = {},
   ) =>
     client.query(
-      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at, reconciled_at)
-       values ($1, '{}', 'pickup', $1, $2, 'Credit', 'biru', 100, now() - make_interval(days => $3), ${reconciled ? 'now()' : 'null'})`,
-      [id, status, createdDaysAgo],
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, created_at, reconciled_at, discount_code)
+       values ($1, '{}', 'pickup', $1, $2, 'Credit', $4, 100, now() - make_interval(days => $3), ${reconciled ? 'now()' : 'null'}, $5)`,
+      [id, status, createdDaysAgo, sellerId, discountCode],
     );
 
   it('對帳期內還沒對帳的異常訂單會擋下停業，數量另外列出', async () => {
@@ -487,9 +493,13 @@ describe('OrganizationsService.setClosed', () => {
     );
   });
 
-  it('已對帳或超過對帳期的異常訂單，以及已完成、已取消的訂單不擋停業', async () => {
+  it('已對帳、超過對帳期、帶優惠券或別家門市的異常訂單，以及已完成、已取消的訂單不擋停業', async () => {
     await insertOrder('reconciled', 'OrderProblem', { reconciled: true });
     await insertOrder('expired', 'OrderProblem', { createdDaysAgo: 8 });
+    await insertOrder('with-coupon', 'OrderProblem', {
+      discountCode: 'SAVE10',
+    });
+    await insertOrder('other-store', 'OrderProblem', { sellerId: 'other' });
     await insertOrder('delivered', 'OrderDelivered');
     await insertOrder('cancelled', 'OrderCancelled');
 

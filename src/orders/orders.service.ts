@@ -135,6 +135,7 @@ import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-qu
 
 import { isValidOrderAccessToken } from './order-access-token.js';
 import { OrderPricingService } from './order-pricing.service.js';
+import { isProblemAwaitingRecheck } from './problem-recheck.js';
 import {
   IN_FLIGHT_ORDER_TICKET_STATUSES,
   orderTicketPrinterIdsOf,
@@ -223,8 +224,6 @@ const paymentDeadlineOf = (
 type PaymentResultOutcome = 'handled' | 'ignored' | 'unmatched';
 
 type OrderViewer = Pick<UserSession['user'], 'id' | 'role'>;
-
-export const PROBLEM_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const toPaymentDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
@@ -1469,11 +1468,7 @@ export class OrdersService {
             eq(order.orderStatus, 'OrderPaymentDue'),
             lt(PAYMENT_DEADLINE, utcTimestampParam(new Date(now))),
           ),
-          and(
-            eq(order.orderStatus, 'OrderProblem'),
-            isNull(order.reconciledAt),
-            gte(order.createdAt, new Date(now - PROBLEM_RECHECK_WINDOW_MS)),
-          ),
+          isProblemAwaitingRecheck(now),
         ),
       )
       .orderBy(asc(order.createdAt))

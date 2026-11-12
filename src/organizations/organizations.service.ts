@@ -45,6 +45,7 @@ import {
   getStatsWindow,
   utcTimestampParam,
 } from '../common/utils/stats-buckets.js';
+import { isProblemAwaitingRecheck } from '../orders/problem-recheck.js';
 
 import type {
   OrganizationMemberResponseDto,
@@ -55,8 +56,6 @@ import type {
   OrganizationDetailResponseDto,
 } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
-import { PROBLEM_RECHECK_WINDOW_MS } from '../orders/orders.service.js';
-
 import { conflictError, forbiddenError } from './organization-errors.js';
 
 const upcomingSpecialHoursWindow = () => {
@@ -283,12 +282,9 @@ export class OrganizationsService {
             .where(
               and(
                 eq(order.sellerId, organizationId),
-                eq(order.orderStatus, 'OrderProblem'),
-                isNull(order.reconciledAt),
-                gte(
-                  order.createdAt,
-                  new Date(Date.now() - PROBLEM_RECHECK_WINDOW_MS),
-                ),
+                isProblemAwaitingRecheck(Date.now()),
+                // 帶券的異常單查到已付款也不會自動轉回製作中，等不到結果，不擋停業
+                isNull(order.discountCode),
               ),
             ),
           this.db
