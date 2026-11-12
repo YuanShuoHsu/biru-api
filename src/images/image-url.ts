@@ -12,6 +12,9 @@ export const IMAGE_KINDS = [
   'modifier',
   'banner',
   'storePhoto',
+  'catalogSection',
+  'catalogItem',
+  'catalogModifier',
 ] as const;
 
 export type ImageKind = (typeof IMAGE_KINDS)[number];

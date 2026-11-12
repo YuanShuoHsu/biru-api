@@ -20,8 +20,10 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
+import { catalogItem, catalogModifier, catalogSection } from './catalog.js';
 import { timestamps } from './columns.helpers.js';
 import {
+  restrictedDietEnum,
   servingTemperatureEnum,
   servingTemperatureLevelEnum,
   sweetnessEnum,
@@ -31,22 +33,6 @@ import {
 import { orderModeEnum } from './orders.js';
 import { organization } from './organizations.js';
 import { printer } from './printers.js';
-
-// https://schema.org/RestrictedDiet
-export const restrictedDietEnum = pgEnum('restricted_diet', [
-  'DiabeticDiet',
-  'GlutenFreeDiet',
-  'HalalDiet',
-  'HinduDiet',
-  'KosherDiet',
-  'LowCalorieDiet',
-  'LowFatDiet',
-  'LowLactoseDiet',
-  'LowSaltDiet',
-  'VeganDiet',
-  'VegetarianDiet',
-]);
-export type RestrictedDiet = (typeof restrictedDietEnum.enumValues)[number];
 
 // https://schema.org/ItemAvailability
 export const itemAvailabilityEnum = pgEnum('item_availability', [
@@ -98,10 +84,19 @@ export const menuSection = pgTable(
       { onDelete: 'set null' },
     ),
     sortOrder: integer('sort_order').notNull().default(0),
+    catalogSectionId: text('catalog_section_id').references(
+      () => catalogSection.id,
+    ),
+    hidden: boolean('hidden').notNull().default(false),
     ...timestamps,
   },
   (table) => [
     index('menuSection_menuId_idx').on(table.menuId),
+    index('menuSection_catalogSectionId_idx').on(table.catalogSectionId),
+    uniqueIndex('menuSection_menuId_catalogSectionId_uidx').on(
+      table.menuId,
+      table.catalogSectionId,
+    ),
     index('menuSection_parentSectionId_idx').on(table.parentSectionId),
     index('menuSection_orderTicketPrinterId_idx').on(
       table.orderTicketPrinterId,
@@ -169,10 +164,16 @@ export const menuItem = pgTable(
       { onDelete: 'set null' },
     ),
     sortOrder: integer('sort_order').notNull().default(0),
+    catalogItemId: text('catalog_item_id').references(() => catalogItem.id),
     ...timestamps,
   },
   (table) => [
     index('menuItem_menuId_idx').on(table.menuId),
+    index('menuItem_catalogItemId_idx').on(table.catalogItemId),
+    uniqueIndex('menuItem_menuId_catalogItemId_uidx').on(
+      table.menuId,
+      table.catalogItemId,
+    ),
     index('menuItem_menuSectionId_idx').on(table.menuSectionId),
     index('menuItem_orderTicketPrinterId_idx').on(table.orderTicketPrinterId),
     check(
@@ -296,9 +297,20 @@ export const modifier = pgTable(
       .notNull()
       .default(orderModeEnum.enumValues),
     sortOrder: integer('sort_order').notNull().default(0),
+    menuId: text('menu_id').references(() => menu.id, { onDelete: 'cascade' }),
+    catalogModifierId: text('catalog_modifier_id').references(
+      () => catalogModifier.id,
+    ),
     ...timestamps,
   },
-  (table) => [index('modifier_modifierGroupId_idx').on(table.modifierGroupId)],
+  (table) => [
+    index('modifier_modifierGroupId_idx').on(table.modifierGroupId),
+    index('modifier_catalogModifierId_idx').on(table.catalogModifierId),
+    uniqueIndex('modifier_menuId_catalogModifierId_uidx').on(
+      table.menuId,
+      table.catalogModifierId,
+    ),
+  ],
 );
 
 export type Modifier = typeof modifier.$inferSelect;

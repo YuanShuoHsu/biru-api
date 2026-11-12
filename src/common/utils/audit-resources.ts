@@ -8,6 +8,14 @@ import type {
   AuditResourceLabel,
 } from '../../db/schema/audit.js';
 import { banner } from '../../db/schema/banners.js';
+import {
+  catalogItem,
+  catalogItemAddOn,
+  catalogItemModifierGroup,
+  catalogModifier,
+  catalogModifierGroup,
+  catalogSection,
+} from '../../db/schema/catalog.js';
 import { coupon, userCoupon } from '../../db/schema/coupons.js';
 import {
   ingredient,
@@ -84,6 +92,12 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   pointTransaction,
   pointSetting,
   storePhoto,
+  catalogSection,
+  catalogItem,
+  catalogModifierGroup,
+  catalogModifier,
+  catalogItemModifierGroup,
+  catalogItemAddOn,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
@@ -125,11 +139,13 @@ const FK_LABEL_SOURCES: Partial<
   Record<AuditLabelScope, Record<string, LabelSource>>
 > = {
   menuSection: {
+    catalogSectionId: { table: catalogSection, column: 'name' },
     menuId: { table: menu, column: 'name' },
     orderTicketPrinterId: { table: printer, column: 'name' },
     parentSectionId: { table: menuSection, column: 'name' },
   },
   menuItem: {
+    catalogItemId: { table: catalogItem, column: 'name' },
     menuId: { table: menu, column: 'name' },
     menuSectionId: { table: menuSection, column: 'name' },
     orderTicketPrinterId: { table: printer, column: 'name' },
@@ -147,11 +163,37 @@ const FK_LABEL_SOURCES: Partial<
     menuId: { table: menu, column: 'name' },
   },
   modifier: {
+    catalogModifierId: { table: catalogModifier, column: 'displayName' },
+    menuId: { table: menu, column: 'name' },
     modifierGroupId: { table: modifierGroup, column: 'displayName' },
   },
   menuItemModifierGroup: {
     menuItemId: { table: menuItem, column: 'name' },
     modifierGroupId: { table: modifierGroup, column: 'displayName' },
+  },
+  catalogSection: {
+    parentCatalogSectionId: { table: catalogSection, column: 'name' },
+  },
+  catalogItem: {
+    catalogSectionId: { table: catalogSection, column: 'name' },
+  },
+  catalogModifier: {
+    catalogModifierGroupId: {
+      table: catalogModifierGroup,
+      column: 'displayName',
+    },
+  },
+  catalogItemModifierGroup: {
+    catalogItemId: { table: catalogItem, column: 'name' },
+    catalogModifierGroupId: {
+      table: catalogModifierGroup,
+      column: 'displayName',
+    },
+  },
+  catalogItemAddOn: {
+    addOnCatalogItemId: { table: catalogItem, column: 'name' },
+    addOnCatalogSectionId: { table: catalogSection, column: 'name' },
+    catalogItemId: { table: catalogItem, column: 'name' },
   },
   order: {
     userId: { table: user, column: 'name' },
@@ -400,7 +442,24 @@ export const resolveAuditLabels = async (
               ancestorIds: compact(asId(row.modifierGroupId)),
             },
           ];
+        case 'catalogItem':
+          return [
+            resourceId,
+            {
+              resourceLabel: asLabel(row.name),
+              ancestorIds: compact(asId(row.catalogSectionId)),
+            },
+          ];
+        case 'catalogModifier':
+          return [
+            resourceId,
+            {
+              resourceLabel: asLabel(row.displayName),
+              ancestorIds: compact(asId(row.catalogModifierGroupId)),
+            },
+          ];
         case 'modifierGroup':
+        case 'catalogModifierGroup':
           return [
             resourceId,
             { resourceLabel: asLabel(row.displayName), ancestorIds: [] },

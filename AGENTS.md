@@ -94,6 +94,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `users.ts` — `user`, `session`, `account`, `verification` (managed by better-auth)
 - `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `team`, `teamMember`, `member`, `invitation`
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
+- `catalog.ts` — `catalogSection`, `catalogItem`, `catalogItemAddOn`, `catalogModifierGroup`, `catalogModifier`, `catalogItemModifierGroup` (the brand catalog, `docs/menu-catalog.md`)
 - `orders.ts` — `order`, `orderItem`
 - `coupons.ts` — `coupon`, `userCoupon`
 - `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules)

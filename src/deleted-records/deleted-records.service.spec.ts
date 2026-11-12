@@ -681,3 +681,91 @@ describe('DeletedRecordsService 還原平台管理員身分加入的成員', () 
     });
   });
 });
+
+describe('DeletedRecordsService 目錄資料', () => {
+  let client: PGlite;
+  let db: ReturnType<typeof drizzle<typeof schema>>;
+  let service: DeletedRecordsService;
+  const admin = { id: 'admin', name: 'admin', email: 'admin@example.com' };
+  const storeScope = { organizationId: 'org1', role: 'owner', closed: false };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    service = new DeletedRecordsService(
+      db as unknown as DrizzleDB,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventEmitter2,
+      {} as never,
+    );
+    await client.query(
+      `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org1', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+    );
+    await db.insert(schema.catalogItem).values([
+      { id: 'brand', name: { 'zh-TW': '品牌拿鐵' } },
+      { id: 'local', ownerOrganizationId: 'org1', name: { 'zh-TW': '獨家' } },
+    ]);
+    await db.insert(schema.catalogModifierGroup).values({
+      id: 'group',
+      ownerOrganizationId: 'org1',
+      displayName: { 'zh-TW': '甜度' },
+    });
+    await db.insert(schema.catalogModifier).values({
+      id: 'sugar',
+      catalogModifierGroupId: 'group',
+      displayName: { 'zh-TW': '半糖' },
+    });
+
+    await db
+      .delete(schema.catalogItem)
+      .where(eq(schema.catalogItem.id, 'brand'));
+    await db
+      .delete(schema.catalogItem)
+      .where(eq(schema.catalogItem.id, 'local'));
+    await db
+      .delete(schema.catalogModifier)
+      .where(eq(schema.catalogModifier.id, 'sugar'));
+  }, 60_000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it('門市獨家的目錄資料歸在擁有的門市，但只有平台管理員能還原', async () => {
+    expect((await service.list({}, storeScope)).data).toEqual([]);
+    expect(
+      Object.fromEntries(
+        (await service.list({})).data.map(
+          ({ recordId, organizationName, canRestore }) => [
+            recordId,
+            { organizationName, canRestore },
+          ],
+        ),
+      ),
+    ).toEqual({
+      brand: { organizationName: null, canRestore: true },
+      local: { organizationName: 'Biru', canRestore: true },
+      sugar: { organizationName: 'Biru', canRestore: true },
+    });
+  });
+
+  it('平台管理員還原品牌品項', async () => {
+    const [{ batchId }] = await db
+      .select({ batchId: deletedRecord.batchId })
+      .from(deletedRecord)
+      .where(eq(deletedRecord.recordId, 'brand'));
+
+    await service.restore([batchId], admin);
+
+    expect(
+      await db
+        .select({ id: schema.catalogItem.id })
+        .from(schema.catalogItem)
+        .where(eq(schema.catalogItem.id, 'brand')),
+    ).toEqual([{ id: 'brand' }]);
+  });
+});
