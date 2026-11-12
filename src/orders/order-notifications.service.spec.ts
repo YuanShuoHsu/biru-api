@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createPGlite } from '../../test/pglite.js';
 import * as schema from '../db/schema/index.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
+import { menu, menuItem } from '../db/schema/menus.js';
 import { order, orderItem, type OrderStatus } from '../db/schema/orders.js';
 import { member } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
@@ -18,6 +19,15 @@ import { OrderStatsService } from './order-stats.service.js';
 
 const NOW = new Date('2026-10-23T02:00:00Z');
 const YESTERDAY_START = new Date('2026-10-21T16:00:00Z');
+
+const insertLatte = async (db: ReturnType<typeof drizzle<typeof schema>>) => {
+  await db.insert(menu).values({ id: 'menu', organizationId: 'org', name: {} });
+  await db.insert(menuItem).values({
+    id: 'latte',
+    menuId: 'menu',
+    name: { 'zh-TW': '拿鐵', en: 'Latte' },
+  });
+};
 
 describe('OrderNotificationsService.notifyDailySalesDigest', () => {
   let client: PGlite;
@@ -291,6 +301,27 @@ describe('OrderNotificationsService.notifyDailySalesDigest', () => {
     ).toEqual(['admin@example.com', 'owner@example.com']);
   });
 
+  it('熱銷品項依收件人語言顯示目前品名，已刪除的品項沿用訂單上的品名', async () => {
+    await insertLatte(db);
+
+    await service.notifyDailySalesDigest(NOW);
+
+    const topItems = Object.fromEntries(
+      sendDailySalesDigest.mock.calls.map(([digest]) => [
+        digest.recipient.email,
+        digest.topItems,
+      ]),
+    );
+    expect(topItems['owner@example.com']).toEqual([
+      { name: 'Latte', sold: 2 },
+      { name: 'mocha', sold: 1 },
+    ]);
+    expect(topItems['admin@example.com']).toEqual([
+      { name: '拿鐵', sold: 2 },
+      { name: 'mocha', sold: 1 },
+    ]);
+  });
+
   it('單一收件人寄送失敗時，其他收件人照常寄出', async () => {
     sendDailySalesDigest.mockRejectedValueOnce(new Error('smtp'));
 
@@ -523,6 +554,27 @@ describe('OrderNotificationsService.notifyPlatformDailyDigest', () => {
         ([{ recipient }]) => recipient.email === 'unbannedRoot@example.com',
       )![0].stores[1].lowStock[0].name,
     ).toBe('milk');
+  });
+
+  it('熱銷品項依每位平台管理員的語言顯示目前品名，已刪除的品項沿用訂單上的品名', async () => {
+    await insertLatte(db);
+
+    await service.notifyPlatformDailyDigest(NOW);
+
+    const topItems = Object.fromEntries(
+      sendPlatformDailyDigest.mock.calls.map(([digest]) => [
+        digest.recipient.email,
+        digest.stores[0].sales.topItems,
+      ]),
+    );
+    expect(topItems['unbannedRoot@example.com']).toEqual([
+      { name: 'Latte', sold: 2 },
+      { name: 'mocha', sold: 1 },
+    ]);
+    expect(topItems['root@example.com']).toEqual([
+      { name: '拿鐵', sold: 2 },
+      { name: 'mocha', sold: 1 },
+    ]);
   });
 
   it('門市統計失敗時仍列入該店的點數調整與低庫存，營業統計記為無法取得', async () => {

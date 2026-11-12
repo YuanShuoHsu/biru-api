@@ -17,7 +17,9 @@ import { alias } from 'drizzle-orm/pg-core';
 import { isAuthorized } from '../auth/permissions.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import type { Language, LocalizedText } from '../db/schema/enums.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
+import { menuItem } from '../db/schema/menus.js';
 import { order } from '../db/schema/orders.js';
 import { member, organization } from '../db/schema/organizations.js';
 import { pointTransaction } from '../db/schema/points.js';
@@ -51,6 +53,19 @@ const notBanned = (now: Date) =>
 
 const dashboardPath = (slug: string) =>
   `${DASHBOARD_PAGE}?${new URLSearchParams({ organization: slug, range: 'yesterday' })}`;
+
+const localizeTopItems = (
+  items: {
+    name: LocalizedText | undefined;
+    menuItemName: string;
+    sold: number;
+  }[],
+  lang: Language,
+) =>
+  items.map(({ name, menuItemName, sold }) => ({
+    name: localize(name, lang) ?? menuItemName,
+    sold,
+  }));
 
 @Injectable()
 export class OrderNotificationsService {
@@ -122,10 +137,10 @@ export class OrderNotificationsService {
       if (!recipients.length) continue;
 
       try {
-        const [{ buckets, hourlyOrders, previous, refundedOrders }, sales] =
+        const [{ buckets, hourlyOrders, previous, refundedOrders }, topItems] =
           await Promise.all([
             this.dailyStats(seller.slug, since),
-            this.menuItemSales.querySales(seller.id, since, until),
+            this.topItems(seller.id, since, until),
           ]);
         const peakOrders = Math.max(...hourlyOrders);
         const sellerAdjustments = adjustments.flatMap(
@@ -162,13 +177,7 @@ export class OrderNotificationsService {
               },
               pointAdjustments,
               refundedOrders,
-              topItems: sales
-                .filter(({ sold }) => sold > 0)
-                .slice(0, TOP_ITEM_LIMIT)
-                .map(({ menuItemName, sold }) => ({
-                  name: menuItemName,
-                  sold,
-                })),
+              topItems: localizeTopItems(topItems, recipient.lang),
             });
             notified += 1;
           } catch (error) {
@@ -259,10 +268,10 @@ export class OrderNotificationsService {
     for (const { id, name, slug, currency } of stores) {
       let sales = null;
       try {
-        const [{ buckets, hourlyOrders, previous, refundedOrders }, items] =
+        const [{ buckets, hourlyOrders, previous, refundedOrders }, topItems] =
           await Promise.all([
             this.dailyStats(slug, since),
-            this.menuItemSales.querySales(id, since, until),
+            this.topItems(id, since, until),
           ]);
         const peakOrders = Math.max(...hourlyOrders);
         sales = {
@@ -273,10 +282,7 @@ export class OrderNotificationsService {
             orders: peakOrders,
           },
           refundedOrders,
-          topItems: items
-            .filter(({ sold }) => sold > 0)
-            .slice(0, TOP_ITEM_LIMIT)
-            .map(({ menuItemName, sold }) => ({ name: menuItemName, sold })),
+          topItems,
         };
       } catch (error) {
         this.logger.error(error);
@@ -309,6 +315,13 @@ export class OrderNotificationsService {
           path: ORGANIZATIONS_PAGE,
           stores: sections.map((section) => ({
             ...section,
+            sales: section.sales && {
+              ...section.sales,
+              topItems: localizeTopItems(
+                section.sales.topItems,
+                recipient.lang,
+              ),
+            },
             lowStock: section.lowStock.map(({ name, ...row }) => ({
               ...row,
               name: localize(name, recipient.lang) ?? '',
@@ -347,6 +360,34 @@ export class OrderNotificationsService {
           .where(adjustedBetween(since, until)),
       ),
     );
+  }
+
+  private async topItems(organizationId: string, since: Date, until: Date) {
+    const top = (
+      await this.menuItemSales.querySales(organizationId, since, until)
+    )
+      .filter(({ sold }) => sold > 0)
+      .slice(0, TOP_ITEM_LIMIT);
+    if (!top.length) return [];
+
+    const names = new Map(
+      (
+        await this.db
+          .select({ id: menuItem.id, name: menuItem.name })
+          .from(menuItem)
+          .where(
+            inArray(
+              menuItem.id,
+              top.map(({ menuItemId }) => menuItemId),
+            ),
+          )
+      ).map(({ id, name }) => [id, name]),
+    );
+    return top.map(({ menuItemId, menuItemName, sold }) => ({
+      name: names.get(menuItemId),
+      menuItemName,
+      sold,
+    }));
   }
 
   private dailyStats(slug: string, since: Date) {
