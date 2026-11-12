@@ -96,7 +96,8 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `organizationOperatingType`, `organizationSpecialHours`, `team`, `teamMember`, `member`, `invitation`
   — data about a store that must not be public goes in its own table keyed by `organization_id`, never on `organization`: the
   anonymous store list and lookup (`GET /api/organizations`, `/api/organizations/:slug`) return the whole row.
-  `organizationOperatingType` holds the platform-admin-only 直營／加盟 classification; a store without a row is `unclassified`
+  `organizationOperatingType` holds the 直營／加盟 classification, which only platform admins read and set through the API (its
+  changes are still in the store's own audit log); a store without a row is `unclassified`
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
 - `catalog.ts` — `catalogSection`, `catalogItem`, `catalogItemAddOn`, `catalogModifierGroup`, `catalogModifier`, `catalogItemModifierGroup` (the brand catalog, `docs/menu-catalog.md`)
 - `orders.ts` — `order`, `orderItem`
