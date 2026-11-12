@@ -34,6 +34,7 @@ import { EcpayModule } from './ecpay/ecpay.module.js';
 import { EventsModule } from './events/events.module.js';
 import { GcisModule } from './gcis/gcis.module.js';
 import { HealthModule } from './health/health.module.js';
+import { ImageStorageService } from './images/image-storage.service.js';
 import { ImagesModule } from './images/images.module.js';
 import type { I18nTranslations } from './generated/i18n.generated.js';
 import { InventoryModule } from './inventory/inventory.module.js';
@@ -62,17 +63,19 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     AuthModule,
     BannersModule,
     BetterAuthModule.forRootAsync({
-      imports: [CouponsModule, MailsModule],
-      inject: [MailsService, CouponsService, I18nService],
+      imports: [CouponsModule, ImagesModule, MailsModule],
+      inject: [MailsService, CouponsService, I18nService, ImageStorageService],
       useFactory: (
         mailsService: MailsService,
         couponsService: CouponsService,
         i18nService: I18nService<I18nTranslations>,
+        imageStorage: ImageStorageService,
       ) => ({
         auth: createAuth(
           mailsService,
           couponsService,
           createAuthI18n(i18nService),
+          imageStorage,
         ),
         bodyParser: { json: { limit: '2mb' } },
         middleware: (req, _res, next) => {

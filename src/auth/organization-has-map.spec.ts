@@ -56,6 +56,7 @@ describe('門市地圖連結只接受 Google 地圖嵌入網址', () => {
       { sendVerificationEmail: vi.fn() } as never,
       { issueSignupCoupons: vi.fn() } as never,
       createAuthI18n({ t: () => ({}) } as never),
+      {} as never,
     );
     auth = betterAuth({
       ...options,

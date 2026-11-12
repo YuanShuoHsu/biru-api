@@ -56,6 +56,7 @@ describe('門市與團隊名稱不能只有空白', () => {
       { sendVerificationEmail: vi.fn() } as never,
       { issueSignupCoupons: vi.fn() } as never,
       createAuthI18n({ t: () => ({}) } as never),
+      {} as never,
     );
     auth = betterAuth({
       ...options,

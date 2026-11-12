@@ -91,5 +91,6 @@
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
     "vitest": "^4.1.12"
-  }
+  },
+  "packageManager": "pnpm@12.4.2"
 }

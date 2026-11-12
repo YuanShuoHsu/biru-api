@@ -15,7 +15,12 @@ import {
   type ServingTemperatureLevel,
   type SweetnessLevel,
 } from '../db/schema/enums.js';
-import type { PriceSpecification } from '../db/schema/menus.js';
+import type {
+  ItemAvailability,
+  MenuItemAddOn,
+  ModifierGroup,
+  PriceSpecification,
+} from '../db/schema/menus.js';
 import {
   menu,
   menuItem,
@@ -38,6 +43,7 @@ import type {
   CreateOrderItemAddOnDto,
   CreateOrderItemDto,
 } from './dto/create-order.dto.js';
+import type { FrequentItemDto } from './dto/frequent-items.dto.js';
 import { badRequestError, notFoundError } from './order-errors.js';
 import { itemLeadTimeMinutes } from './prep-estimate.js';
 
@@ -89,10 +95,63 @@ const activePromoPrice = (
   return price || null;
 };
 
+const offerPrice = (
+  offerRow:
+    | { price: string | null; priceSpecification: PriceSpecification | null }
+    | undefined,
+  at: Date,
+): string | null =>
+  activePromoPrice(offerRow?.priceSpecification, at) ?? offerRow?.price ?? null;
+
+const isUnavailable = (availability: ItemAvailability | null | undefined) =>
+  availability === 'SoldOut' || availability === 'Discontinued';
+
+const servesTemperature = (
+  item: { servingTemperatures: string[] },
+  level: ServingTemperatureLevel,
+) => item.servingTemperatures.includes(SERVING_TEMPERATURE_OF_LEVEL[level]);
+
+const isAddOnOf = (
+  links: MenuItemAddOn[],
+  parentId: string,
+  item: { id: string; menuSectionId: string | null },
+) =>
+  item.id !== parentId &&
+  links.some(
+    (link) =>
+      link.menuItemId === parentId &&
+      (link.addOnMenuItemId === item.id ||
+        (!!item.menuSectionId &&
+          link.addOnMenuSectionId === item.menuSectionId)),
+  );
+
+const requiredSelectionCount = (
+  {
+    minSelectionCount,
+    modifiers,
+  }: Pick<ModifierGroup, 'minSelectionCount'> & {
+    modifiers: {
+      availability: ItemAvailability | null;
+      availableModes: OrderMode[];
+    }[];
+  },
+  mode: OrderMode,
+) => {
+  const listed = modifiers.filter(
+    ({ availability }) => availability !== 'Discontinued',
+  );
+  return listed.length === 0 ||
+    listed.some(({ availableModes }) => availableModes.includes(mode))
+    ? minSelectionCount
+    : 0;
+};
+
 const sumModifierAdjustments = (
   modifiers: OrderItemModifierSnapshot[],
 ): number =>
   modifiers.reduce((sum, mod) => sum + Number(mod.priceAdjustment ?? 0), 0);
+
+type Customization = Omit<CreateOrderItemDto, 'quantity'>;
 
 export interface ResolvedOrderItem {
   id: string;
@@ -117,12 +176,7 @@ export class OrderPricingService {
     return localize(text, toLanguage(I18nContext.current()?.lang)) ?? '';
   }
 
-  async resolveOrderItems(
-    organizationId: string,
-    items: CreateOrderItemDto[],
-    mode: OrderMode,
-    availableAt: Date | null = null,
-  ): Promise<ResolvedOrderItem[]> {
+  private async loadCatalog(organizationId: string, items: Customization[]) {
     const allMenuItemIds = [
       ...new Set([
         ...items.map((i) => i.menuItemId),
@@ -192,17 +246,7 @@ export class OrderPricingService {
         ),
       }),
     ]);
-    if (!orgMenu) throw notFoundError('menuChanged');
-
-    const sections = await this.db.query.menuSection.findMany({
-      columns: { id: true, parentSectionId: true },
-      where: eq(menuSection.menuId, orgMenu.id),
-    });
-    const parentSectionIdOf = new Map(
-      sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
-    );
-
-    const priceCurrency = orgMenu.organization.currency;
+    if (!orgMenu) return null;
 
     const menuItemMap = new Map(
       menuItems
@@ -229,15 +273,52 @@ export class OrderPricingService {
       ]);
     }
     const offerMap = new Map<string, (typeof offers)[number]>();
-    const outsideAvailableHours = new Set<string>();
-    for (const o of offers) {
-      if (o.menuItemId && !offerMap.has(o.menuItemId)) {
+    for (const o of offers)
+      if (o.menuItemId && !offerMap.has(o.menuItemId))
         offerMap.set(o.menuItemId, o);
 
-        if (availableAt && !isWithinOpeningHours(o.availableHours, availableAt))
-          outsideAvailableHours.add(o.menuItemId);
-      }
-    }
+    return {
+      groupsByMenuItemId,
+      itemAddOns,
+      menuItemMap,
+      modifierMap,
+      offerMap,
+      orgMenu,
+    };
+  }
+
+  async resolveOrderItems(
+    organizationId: string,
+    items: CreateOrderItemDto[],
+    mode: OrderMode,
+    availableAt: Date | null = null,
+  ): Promise<ResolvedOrderItem[]> {
+    const catalog = await this.loadCatalog(organizationId, items);
+    if (!catalog) throw notFoundError('menuChanged');
+    const {
+      groupsByMenuItemId,
+      itemAddOns,
+      menuItemMap,
+      modifierMap,
+      offerMap,
+      orgMenu,
+    } = catalog;
+
+    const sections = await this.db.query.menuSection.findMany({
+      columns: { id: true, parentSectionId: true },
+      where: eq(menuSection.menuId, orgMenu.id),
+    });
+    const parentSectionIdOf = new Map(
+      sections.map(({ id, parentSectionId }) => [id, parentSectionId]),
+    );
+
+    const priceCurrency = orgMenu.organization.currency;
+
+    const outsideAvailableHours = new Set<string>();
+    if (availableAt)
+      for (const [menuItemId, o] of offerMap)
+        if (!isWithinOpeningHours(o.availableHours, availableAt))
+          outsideAvailableHours.add(menuItemId);
 
     const getMenuItem = (menuItemId: string) => {
       const item = menuItemMap.get(menuItemId);
@@ -250,8 +331,7 @@ export class OrderPricingService {
         throw badRequestError('menuItemUnavailableAtTime', {
           name: this.localName(item.name),
         });
-      const availability = offerMap.get(menuItemId)?.availability;
-      if (availability === 'SoldOut' || availability === 'Discontinued')
+      if (isUnavailable(offerMap.get(menuItemId)?.availability))
         throw badRequestError('menuItemUnavailable', {
           name: this.localName(item.name),
         });
@@ -269,10 +349,7 @@ export class OrderPricingService {
       });
 
     const getOfferPrice = (item: ReturnType<typeof getMenuItem>): string => {
-      const offerRow = offerMap.get(item.id);
-      const price =
-        activePromoPrice(offerRow?.priceSpecification, orderedAt) ??
-        offerRow?.price;
+      const price = offerPrice(offerMap.get(item.id), orderedAt);
       if (!price)
         throw badRequestError('menuItemUnavailable', {
           name: this.localName(item.name),
@@ -289,10 +366,7 @@ export class OrderPricingService {
         return null;
       }
       if (!level) throw optionsInvalid(item);
-      if (
-        !item.servingTemperatures.includes(SERVING_TEMPERATURE_OF_LEVEL[level])
-      )
-        throw optionsInvalid(item);
+      if (!servesTemperature(item, level)) throw optionsInvalid(item);
       return level;
     };
 
@@ -319,24 +393,11 @@ export class OrderPricingService {
         if (new Set(modIds).size !== modIds.length) throw optionsInvalid(item);
       }
 
-      for (const {
-        id,
-        maxSelectionCount,
-        minSelectionCount,
-        modifiers,
-      } of groups) {
-        const count = modifiersInput[id]?.length ?? 0;
-        const listed = modifiers.filter(
-          ({ availability }) => availability !== 'Discontinued',
-        );
-        const requiredCount =
-          listed.length === 0 ||
-          listed.some(({ availableModes }) => availableModes.includes(mode))
-            ? minSelectionCount
-            : 0;
+      for (const group of groups) {
+        const count = modifiersInput[group.id]?.length ?? 0;
         if (
-          count < requiredCount ||
-          (maxSelectionCount != null && count > maxSelectionCount)
+          count < requiredSelectionCount(group, mode) ||
+          (group.maxSelectionCount != null && count > group.maxSelectionCount)
         )
           throw optionsInvalid(item);
       }
@@ -350,10 +411,7 @@ export class OrderPricingService {
             throw badRequestError('modifierUnavailableForMode', {
               name: this.localName(mod.displayName),
             });
-          if (
-            mod.availability === 'SoldOut' ||
-            mod.availability === 'Discontinued'
-          )
+          if (isUnavailable(mod.availability))
             throw badRequestError('modifierUnavailable', {
               name: this.localName(mod.displayName),
             });
@@ -373,17 +431,7 @@ export class OrderPricingService {
       addOn: CreateOrderItemAddOnDto,
     ): OrderItemAddOnSnapshot => {
       const item = getMenuItem(addOn.menuItemId);
-      if (
-        item.id === parent.id ||
-        !itemAddOns.some(
-          (link) =>
-            link.menuItemId === parent.id &&
-            (link.addOnMenuItemId === item.id ||
-              (!!item.menuSectionId &&
-                link.addOnMenuSectionId === item.menuSectionId)),
-        )
-      )
-        throw optionsInvalid(parent);
+      if (!isAddOnOf(itemAddOns, parent.id, item)) throw optionsInvalid(parent);
       const servingTemperatureLevel = resolveServingTemperatureLevel(
         item,
         addOn.servingTemperatureLevel,
@@ -444,6 +492,131 @@ export class OrderPricingService {
         servingTemperatureLevel,
         sweetnessLevel,
       };
+    });
+  }
+
+  async reconcileCustomizations(
+    organizationId: string,
+    items: Customization[],
+    mode: OrderMode,
+  ): Promise<FrequentItemDto[]> {
+    const catalog =
+      items.length > 0 ? await this.loadCatalog(organizationId, items) : null;
+    if (!catalog) return [];
+    const {
+      groupsByMenuItemId,
+      itemAddOns,
+      menuItemMap,
+      modifierMap,
+      offerMap,
+    } = catalog;
+
+    const now = new Date();
+    const availabilityOf = (menuItemId: string) =>
+      offerMap.get(menuItemId)?.availability;
+    const listedItem = (menuItemId: string) => {
+      const item = menuItemMap.get(menuItemId);
+      return item?.availableModes.includes(mode) &&
+        offerPrice(offerMap.get(menuItemId), now)
+        ? item
+        : undefined;
+    };
+
+    return items.flatMap((input) => {
+      const item = listedItem(input.menuItemId);
+      if (!item || availabilityOf(item.id) === 'Discontinued') return [];
+
+      let changed = false;
+
+      const keepModifiers = (
+        target: { id: string },
+        selections: Record<string, string[]>,
+      ) => {
+        const kept: Record<string, string[]> = {};
+        for (const group of groupsByMenuItemId.get(target.id) ?? []) {
+          const ids = (selections[group.id] ?? []).filter((id) => {
+            const mod = modifierMap.get(id);
+            return (
+              mod?.modifierGroupId === group.id &&
+              mod.availableModes.includes(mode) &&
+              !isUnavailable(mod.availability)
+            );
+          });
+          if (ids.length < requiredSelectionCount(group, mode)) changed = true;
+          if (
+            ids.length > 0 &&
+            (group.maxSelectionCount == null ||
+              ids.length <= group.maxSelectionCount)
+          )
+            kept[group.id] = ids;
+        }
+        if (
+          Object.values(kept).flat().length !==
+          Object.values(selections).flat().length
+        )
+          changed = true;
+        return kept;
+      };
+
+      const keepTemperature = (
+        target: typeof item,
+        level: ServingTemperatureLevel | null | undefined,
+      ) => {
+        if (level && servesTemperature(target, level)) return level;
+        if (level || target.servingTemperatures.length > 0) changed = true;
+        return null;
+      };
+
+      const keepSweetness = (
+        target: typeof item,
+        level: SweetnessLevel | null | undefined,
+      ) => {
+        if (target.sweetness !== 'Adjustable')
+          return target.fixedSweetnessLevel;
+        if (!level) changed = true;
+        return level ?? null;
+      };
+
+      const addOns = input.addOns.flatMap((addOn) => {
+        const addOnItem = listedItem(addOn.menuItemId);
+        if (
+          !addOnItem ||
+          isUnavailable(availabilityOf(addOnItem.id)) ||
+          !isAddOnOf(itemAddOns, item.id, addOnItem)
+        ) {
+          changed = true;
+          return [];
+        }
+        return [
+          {
+            menuItemId: addOnItem.id,
+            modifiers: keepModifiers(addOnItem, addOn.modifiers),
+            servingTemperatureLevel: keepTemperature(
+              addOnItem,
+              addOn.servingTemperatureLevel,
+            ),
+            sweetnessLevel: keepSweetness(addOnItem, addOn.sweetnessLevel),
+          },
+        ];
+      });
+      const modifiers = keepModifiers(item, input.modifiers);
+      const servingTemperatureLevel = keepTemperature(
+        item,
+        input.servingTemperatureLevel,
+      );
+      const sweetnessLevel = keepSweetness(item, input.sweetnessLevel);
+
+      return [
+        {
+          menuItemId: item.id,
+          modifiers,
+          addOns,
+          servingTemperatureLevel,
+          sweetnessLevel,
+          customizationChanged: changed,
+          soldOut: availabilityOf(item.id) === 'SoldOut',
+        },
+      ];
     });
   }
 }

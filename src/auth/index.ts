@@ -36,6 +36,10 @@ import { statutoryLeaveTypeSeeds } from '../attendance/statutory-leave-types.js'
 
 import { DINE_IN_MAX_TABLE_COUNT } from '../common/constants/dine-in.js';
 import {
+  IMAGE_DATA_URL_MAX_LENGTH,
+  IMAGE_DATA_URL_PATTERN,
+} from '../common/constants/image.js';
+import {
   getPickupMaxLeadMinutes,
   PICKUP_MAX_ADVANCE_DAYS,
   PICKUP_MAX_CUTOFF_MINUTES,
@@ -50,6 +54,7 @@ import { isValidOpeningHours } from '../common/utils/opening-hours.js';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import type { CouponsService } from '../coupons/coupons.service.js';
+import type { ImageStorageService } from '../images/image-storage.service.js';
 import type { MailsService } from '../mails/mails.service.js';
 
 const logger = new Logger('OrganizationAudit');
@@ -191,6 +196,36 @@ const assertSlugAvailable = async (slug: unknown, organizationId?: string) => {
     });
 };
 
+const IMAGE_FIELDS = { user: 'image', organization: 'logo' } as const;
+
+const isCanonicalHttpsUrl = (value: string) => {
+  const url = URL.parse(value);
+
+  return url?.protocol === 'https:' && url.href === value;
+};
+
+const withStoredImage = async <T extends Record<string, unknown>>(
+  imageStorage: ImageStorageService,
+  kind: keyof typeof IMAGE_FIELDS,
+  data: T,
+): Promise<T> => {
+  const field = IMAGE_FIELDS[kind];
+  const image = data[field];
+  if (typeof image !== 'string') return data;
+
+  if (
+    image !== '' &&
+    (image.length > IMAGE_DATA_URL_MAX_LENGTH ||
+      !(isCanonicalHttpsUrl(image) || IMAGE_DATA_URL_PATTERN.test(image)))
+  )
+    throw new APIError('BAD_REQUEST', {
+      code: 'INVALID_IMAGE',
+      message: `${field} must be a canonical https URL or a png, jpeg or webp data URL of at most ${IMAGE_DATA_URL_MAX_LENGTH} characters`,
+    });
+
+  return { ...data, [field]: await imageStorage.store(kind, image) };
+};
+
 const AUTH_RATE_LIMIT = { window: 10, max: 100 };
 
 export const authDatabase = (database: typeof db | Transaction) =>
@@ -211,6 +246,7 @@ export const createAuth = (
   mailsService: MailsService,
   couponsService: CouponsService,
   authI18n: ReturnType<typeof createAuthI18n>,
+  imageStorage: ImageStorageService,
 ) =>
   betterAuth({
     account: {
@@ -251,9 +287,10 @@ export const createAuth = (
             const lang = await signUpLanguage(context);
 
             return {
-              data: normalizeUserFields(
-                lang ? { ...user, lang } : user,
-                'create',
+              data: await withStoredImage(
+                imageStorage,
+                'user',
+                normalizeUserFields(lang ? { ...user, lang } : user, 'create'),
               ),
             };
           },
@@ -265,7 +302,10 @@ export const createAuth = (
         update: {
           before: async (input, context) => {
             const user = normalizeUserFields(input, 'update');
-            if (user.phoneNumber === undefined) return { data: user };
+            if (user.phoneNumber === undefined)
+              return {
+                data: await withStoredImage(imageStorage, 'user', user),
+              };
 
             const phoneNumber = user.phoneNumber as string | null;
             if (phoneNumber) {
@@ -281,12 +321,12 @@ export const createAuth = (
             }
 
             return {
-              data: {
+              data: await withStoredImage(imageStorage, 'user', {
                 ...user,
                 ...(user.phoneNumberVerified === undefined && {
                   phoneNumberVerified: false,
                 }),
-              },
+              }),
             };
           },
         },
@@ -391,6 +431,10 @@ export const createAuth = (
           beforeCreateOrganization: async ({ organization: data }) => {
             assertValidOrganizationInput(data);
             await assertSlugAvailable(data.slug);
+
+            return {
+              data: await withStoredImage(imageStorage, 'organization', data),
+            };
           },
           beforeUpdateOrganization: async ({ organization: data, member }) => {
             const current = await authDb().query.organization.findFirst({
@@ -416,6 +460,10 @@ export const createAuth = (
                 })
                 .onConflictDoNothing();
             }
+
+            return {
+              data: await withStoredImage(imageStorage, 'organization', data),
+            };
           },
           afterUpdateOrganization: async ({
             organization: updated,

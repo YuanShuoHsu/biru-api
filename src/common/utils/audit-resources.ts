@@ -26,7 +26,7 @@ import {
   modifierGroup,
   offer,
 } from '../../db/schema/menus.js';
-import { order } from '../../db/schema/orders.js';
+import { order, orderItem } from '../../db/schema/orders.js';
 import {
   invitation,
   member,
@@ -88,6 +88,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   offer,
+  orderItem,
   orderQrSecret: organizationQrSecret,
   printer,
   recipeIngredient,

@@ -48,7 +48,7 @@ export class MenuItemSalesService {
       WHERE menu_item_id IS NOT NULL
       GROUP BY menu_item_id
       HAVING SUM(quantity) <> 0
-      ORDER BY sold DESC
+      ORDER BY sold DESC, 1
     `);
 
     return rows;
