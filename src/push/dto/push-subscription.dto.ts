@@ -65,7 +65,7 @@ export class DeletePushSubscriptionDto {
   endpoint: string;
 }
 
-export class PushSubscriptionKeysDto {
+class PushSubscriptionKeysDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)

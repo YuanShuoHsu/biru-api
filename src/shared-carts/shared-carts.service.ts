@@ -90,7 +90,7 @@ export const SHARED_CART_CHECKOUT_MAX_MS = 10 * 60 * 1000;
 export const SHARED_CART_CHECKOUT_COOLDOWN_MS = 2 * 60 * 1000;
 const CODE_ATTEMPTS = 10;
 
-export type SharedCartUser = { id: string; name: string; sessionId: string };
+type SharedCartUser = { id: string; name: string; sessionId: string };
 
 type Org = {
   closedAt: Date | null;
@@ -329,7 +329,7 @@ const orderItemsOf = (db: DrizzleDB | Tx, sharedCartId: string) =>
 const contentsOf = (rows: Awaited<ReturnType<typeof orderItemsOf>>) =>
   JSON.stringify(rows.map((row) => [row.id, itemValues(row)]));
 
-export type SharedCartOrder = {
+type SharedCartOrder = {
   contents: string;
   items: CreateOrderItemDto[];
   participantId: string;
