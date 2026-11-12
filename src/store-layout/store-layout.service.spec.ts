@@ -117,17 +117,21 @@ describe('StoreLayoutService', () => {
     await expect(service.update('biru', data)).rejects.toMatchObject({
       response: { code: 'duplicateTableNumber' },
     });
+    await expect(service.get('biru')).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('沒有任何桌號時照常寫入', async () => {
+  it('多個沒有桌號的項目不算重複桌號', async () => {
     const data: StoreLayoutData = {
-      items: [{ ...box, kind: 'plant', label: 'plant' }],
+      items: [
+        { ...box, kind: 'plant', label: 'plant' },
+        { ...box, kind: 'plant', label: 'plant' },
+        ...layout([1]).items,
+      ],
       seats: [],
     };
 
-    await expect(service.update('biru', data)).resolves.toMatchObject({
-      data,
-    });
+    await service.update('biru', data);
+    expect((await service.get('biru')).data).toEqual(data);
   });
 
   it('刪除門市時一併刪除平面圖', async () => {
@@ -202,7 +206,7 @@ describe('StoreLayoutService', () => {
     );
   });
 
-  it('GET 與 PUT 都只有平台管理員能呼叫', () => {
+  it('controller 層級掛 AdminGuard，GET 與 PUT 都只有平台管理員能呼叫', () => {
     expect(Reflect.getMetadata(GUARDS_METADATA, StoreLayoutController)).toEqual(
       [AdminGuard],
     );
