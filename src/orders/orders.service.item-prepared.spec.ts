@@ -35,7 +35,7 @@ describe('OrdersService.setOrderItemPrepared', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      { withdrawOrder: vi.fn() } as never,
       eventEmitter,
       {} as never,
       {} as never,
@@ -49,12 +49,15 @@ describe('OrdersService.setOrderItemPrepared', () => {
        insert into "order" (id, customer, mode, order_number, order_status, payment_method, confirmation_number, seller_id, subtotal, created_at) values
          ('processing', '{"name":"客人"}', 'counter', '1', 'OrderProcessing', 'Cash', 'c1', 'org', 100, now()),
          ('ready', '{"name":"客人"}', 'counter', '2', 'OrderPickupAvailable', 'Cash', 'c2', 'org', 100, now()),
-         ('elsewhere', '{"name":"客人"}', 'counter', '3', 'OrderProcessing', 'Cash', 'c3', 'other', 100, now());
+         ('elsewhere', '{"name":"客人"}', 'counter', '3', 'OrderProcessing', 'Cash', 'c3', 'other', 100, now()),
+         ('reverting', '{"name":"客人"}', 'counter', '4', 'OrderProcessing', 'Cash', 'c4', 'org', 100, now());
        insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price) values
          ('latte', 'processing', 'm1', '拿鐵', 1, 100),
          ('mocha', 'processing', 'm2', '摩卡', 1, 100),
          ('served', 'ready', 'm1', '拿鐵', 1, 100),
-         ('foreign', 'elsewhere', 'm1', '拿鐵', 1, 100);`,
+         ('foreign', 'elsewhere', 'm1', '拿鐵', 1, 100),
+         ('reverted-latte', 'reverting', 'm1', '拿鐵', 1, 100),
+         ('reverted-mocha', 'reverting', 'm2', '摩卡', 1, 100);`,
     );
   }, 60_000);
 
@@ -126,5 +129,21 @@ describe('OrdersService.setOrderItemPrepared', () => {
       response: { code: 'orderNotFound' },
     });
     expect(await preparedAtOf('foreign')).toBeNull();
+  });
+
+  it('訂單退回待付款時清空已做好的標記，其他訂單不受影響', async () => {
+    await service.setOrderItemPrepared(
+      'biru',
+      'reverting',
+      'reverted-latte',
+      true,
+    );
+    await service.setOrderItemPrepared('biru', 'processing', 'latte', true);
+
+    await service.applyTransitions('biru', ['reverting'], 'OrderPaymentDue');
+
+    expect(await preparedAtOf('reverted-latte')).toBeNull();
+    expect(await preparedAtOf('reverted-mocha')).toBeNull();
+    expect(await preparedAtOf('latte')).toBeInstanceOf(Date);
   });
 });

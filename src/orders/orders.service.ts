@@ -18,6 +18,7 @@ import {
   count,
   desc,
   eq,
+  exists,
   gte,
   ilike,
   inArray,
@@ -37,6 +38,7 @@ import { ORDER_FLOW_STATUSES, order, orderItem } from '../db/schema/orders.js';
 import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
+import { orderTicketJob } from '../db/schema/printers.js';
 import { menuItem, modifier } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -131,6 +133,7 @@ import type {
   OrderResponseDto,
   UserOrderResponseDto,
 } from './dto/order-response.dto.js';
+import type { KitchenOrdersQueryDto } from './dto/kitchen-orders-query.dto.js';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto.js';
 
 import { isValidOrderAccessToken } from './order-access-token.js';
@@ -990,6 +993,60 @@ export class OrdersService {
     );
   }
 
+  async listKitchenOrders(
+    organizationSlug: string,
+    { printerId }: KitchenOrdersQueryDto,
+  ): Promise<AdminOrderResponseDto[]> {
+    const org = await this.getOrgBySlug(organizationSlug);
+
+    return (
+      await this.db.query.order.findMany({
+        where: and(
+          eq(order.sellerId, org.id),
+          eq(order.orderStatus, 'OrderProcessing'),
+          printerId
+            ? exists(
+                this.db
+                  .select({ id: orderTicketJob.id })
+                  .from(orderTicketJob)
+                  .where(
+                    and(
+                      eq(orderTicketJob.orderId, order.id),
+                      eq(orderTicketJob.printerId, printerId),
+                      ne(orderTicketJob.status, 'cancelled'),
+                    ),
+                  ),
+              )
+            : undefined,
+        ),
+        orderBy: [
+          asc(sql`COALESCE(${order.pickupTime}, ${order.paymentDate})`),
+          asc(order.createdAt),
+          asc(order.id),
+        ],
+        limit: ADMIN_BOARD_COLUMN_LIMIT,
+        with: {
+          invoices: {
+            with: {
+              printJobs: {
+                where: (jobs, { inArray }) =>
+                  inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
+                orderBy: (jobs, { desc }) => desc(jobs.createdAt),
+                limit: 1,
+              },
+            },
+          },
+          items: true,
+          orderTicketJobs: {
+            where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
+            orderBy: (jobs, { asc }) => asc(jobs.createdAt),
+            with: { printer: { columns: { name: true } } },
+          },
+        },
+      })
+    ).map(toAdminOrderWithInvoice);
+  }
+
   async listPublicBoard(
     organizationSlug: string,
   ): Promise<OrderBoardItemDto[]> {
@@ -1101,6 +1158,17 @@ export class OrdersService {
         ),
       )
       .returning();
+
+    if (rule.toStatus === 'OrderPaymentDue' && updated.length)
+      await tx
+        .update(orderItem)
+        .set({ preparedAt: null })
+        .where(
+          inArray(
+            orderItem.orderId,
+            updated.map(({ id }) => id),
+          ),
+        );
 
     const lowStock: LowStockReachedEvent[] = [];
     const offerStockChanged = new Set<string>();
