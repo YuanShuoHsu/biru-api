@@ -1,10 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import {
+  type WasteReason,
+  wasteReasonEnum,
+} from '../../db/schema/inventory.js';
+
 export const INVENTORY_TRANSACTION_REASONS = [
   'count',
   'consume',
   'restore',
   'batch',
+  'waste',
 ] as const;
 
 export type InventoryTransactionReason =
@@ -25,6 +31,18 @@ export class InventoryTransactionResponseDto {
   unitCost?: string | null;
   @ApiPropertyOptional({ description: '同一次製作批次的異動共用' })
   productionBatchId: string | null;
+  @ApiPropertyOptional({
+    enum: wasteReasonEnum.enumValues,
+    enumName: 'WasteReason',
+    nullable: true,
+  })
+  wasteReason: WasteReason | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  wasteBatchId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  wasteMenuItemId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  wasteServings: number | null;
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;

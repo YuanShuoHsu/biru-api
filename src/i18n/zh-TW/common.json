@@ -207,7 +207,8 @@
     "sourceRecipeRequired": "這項食材沒有來源食譜，無法製作批次",
     "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
     "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
-    "supplierNotFound": "找不到這個供應商，可能已被刪除"
+    "supplierNotFound": "找不到這個供應商，可能已被刪除",
+    "wasteExceedsStock": "報廢量超過帳上數量，請先盤點"
   },
   "invoices": {
     "allowanceIssued": "此發票已開立折讓，無法作廢",

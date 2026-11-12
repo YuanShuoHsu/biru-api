@@ -16,6 +16,7 @@ import { Audit } from '../common/decorators/audit.decorator.js';
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
+import { CreateIngredientWasteDto } from './dto/create-ingredient-waste.dto.js';
 import { UpdateIngredientDto } from './dto/create-ingredient.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
@@ -94,5 +95,21 @@ export class IngredientsController {
     return this.inventoryTransactionsService.create(ingredientId, dto, {
       canReadPurchasing,
     });
+  }
+
+  @Post('waste')
+  @Roles({ inventoryTransaction: ['create'] }, 'ingredientId')
+  @Audit('ingredient', { param: 'ingredientId' })
+  @ApiOperation({ summary: '登記食材報廢' })
+  createWaste(
+    @Param('ingredientId') ingredientId: string,
+    @Body() dto: CreateIngredientWasteDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+  ): Promise<InventoryTransactionResponseDto> {
+    return this.inventoryTransactionsService.waste(
+      ingredientId,
+      dto,
+      canReadPurchasing,
+    );
   }
 }

@@ -207,7 +207,8 @@
     "sourceRecipeRequired": "この食材には元レシピがないため、バッチで作れません",
     "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
     "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
-    "supplierNotFound": "仕入先が見つかりません。削除された可能性があります"
+    "supplierNotFound": "仕入先が見つかりません。削除された可能性があります",
+    "wasteExceedsStock": "廃棄量が帳簿上の在庫を超えています。先に棚卸ししてください"
   },
   "invoices": {
     "allowanceIssued": "このインボイスは値引伝票を発行済みのため、無効化できません",

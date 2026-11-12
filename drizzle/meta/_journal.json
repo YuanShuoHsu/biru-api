@@ -1954,6 +1954,13 @@
       "when": 1794474949049,
       "tag": "0278_catalog_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 279,
+      "version": "7",
+      "when": 1794495400812,
+      "tag": "0279_ingredient_waste",
+      "breakpoints": true
     }
   ]
 }

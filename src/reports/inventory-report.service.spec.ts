@@ -283,6 +283,32 @@ describe('InventoryReportService', () => {
     ]);
   });
 
+  it('報廢在加入報廢欄前計入調整，讓期末仍等於期初加進貨減耗用加調整', async () => {
+    await client.exec(
+      `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
+         ('cream', 'org', '{"zh-TW":"cream"}', 'MLT', 690, 6);
+       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, waste_reason, created_at) values
+         ('cream-stock', 'cream', 'org', 1000, null, '2026-10-21T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-waste', 'cream', 'org', -300, 'expired', '2026-10-22T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-loss', 'cream', 'org', -10, null, '2026-10-22T03:00:00Z'::timestamptz at time zone 'UTC');`,
+    );
+
+    const { rows } = await service.getInventoryReport('biru', {
+      since: '2026-10-22T00:00:00+08:00',
+      until: '2026-10-23T00:00:00+08:00',
+    });
+
+    expect(rows.find(({ ingredientId }) => ingredientId === 'cream')).toEqual(
+      row('cream', 'MLT', {
+        opening: '1000.000',
+        adjusted: '-310.000',
+        closing: '690.000',
+        actualConsumption: '310.000',
+        variance: '310.000',
+      }),
+    );
+  });
+
   it('理論耗用計入品項與加料上客製選項的食譜', async () => {
     await client.exec(
       `insert into modifier_group (id, menu_id, display_name) values ('flavor', 'menu', '{"zh-TW":"口味"}');

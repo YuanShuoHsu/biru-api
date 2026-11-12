@@ -29,6 +29,7 @@ import {
   recipe,
   recipeIngredient,
   type InventoryTransaction,
+  type WasteReason,
 } from '../db/schema/inventory.js';
 import { offer } from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
@@ -39,6 +40,7 @@ import {
 } from '../events/low-stock-reached.event.js';
 
 import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
+import { CreateIngredientWasteDto } from './dto/create-ingredient-waste.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
@@ -95,6 +97,7 @@ export class InventoryTransactionsService {
 
     const reason = sql<InventoryTransactionReason>`case
       when ${inventoryTransaction.productionBatchId} is not null then 'batch'
+      when ${inventoryTransaction.wasteReason} is not null then 'waste'
       when ${inventoryTransaction.orderId} is null then 'count'
       when ${inventoryTransaction.quantity} <= 0 then 'consume'
       else 'restore'
@@ -408,6 +411,83 @@ export class InventoryTransactionsService {
     };
   }
 
+  async waste(
+    ingredientId: string,
+    { note, quantity, wasteReason }: CreateIngredientWasteDto,
+    canReadPurchasing = true,
+  ): Promise<InventoryTransactionResponseDto> {
+    const { wasted, balance, lowStock, organizationId } =
+      await this.db.transaction(async (tx) => {
+        const [found] = await tx
+          .select({
+            id: ingredient.id,
+            inventoryLevel: ingredient.inventoryLevel,
+            name: ingredient.name,
+            organizationId: ingredient.organizationId,
+            unitPrice: unitPriceSql,
+          })
+          .from(ingredient)
+          .where(eq(ingredient.id, ingredientId))
+          .for('update');
+        if (!found) throw notFoundError('ingredientNotFound');
+
+        const shortfall = Number(quantity) - Number(found.inventoryLevel);
+        if (shortfall > QUANTITY_TOLERANCE)
+          throw badRequestError('wasteExceedsStock', {
+            ingredients: [
+              {
+                id: found.id,
+                name: found.name,
+                shortfall: shortfall.toFixed(3),
+              },
+            ],
+          });
+
+        const {
+          created: [wasted],
+          lowStock,
+        } = await this.record(
+          [
+            {
+              ingredientId,
+              quantity: -Number(quantity),
+              unitCost: found.unitPrice?.toString() ?? null,
+            },
+          ],
+          { note, organizationId: found.organizationId, wasteReason },
+          tx,
+        );
+
+        const [{ balance }] = await tx
+          .select({ balance: ingredient.inventoryLevel })
+          .from(ingredient)
+          .where(eq(ingredient.id, ingredientId));
+
+        return {
+          wasted,
+          balance,
+          lowStock,
+          organizationId: found.organizationId,
+        };
+      });
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
+
+    const { unitCost, ...rest } = wasted;
+
+    return {
+      ...rest,
+      ...(canReadPurchasing && { unitCost }),
+      balance,
+      orderNumber: null,
+      reason: 'waste',
+    };
+  }
+
   async consume(
     orderId: string,
     tx: Tx,
@@ -712,12 +792,14 @@ export class InventoryTransactionsService {
       note,
       orderId,
       organizationId,
+      wasteReason,
     }: {
       productionBatchId?: string;
       sourceByIngredientId?: Map<string, StockSource>;
       note?: string | null;
       orderId?: string;
       organizationId: string;
+      wasteReason?: WasteReason;
     },
     tx: Tx,
   ): Promise<{
@@ -767,6 +849,7 @@ export class InventoryTransactionsService {
           organizationId,
           quantity: String(quantity),
           unitCost,
+          wasteReason,
         })),
       )
       .returning();
