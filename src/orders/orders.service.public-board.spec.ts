@@ -38,12 +38,18 @@ describe('OrdersService.listPublicBoard', () => {
 
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-         ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
+         ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
     );
     await addOrder('due-cash', 'OrderPaymentDue', 'Cash');
     await addOrder('due-credit', 'OrderPaymentDue', 'Credit');
     await addOrder('processing-credit', 'OrderProcessing', 'Credit');
     await addOrder('ready-cash', 'OrderPickupAvailable', 'Cash');
+    await client.exec(
+      `insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, pickup_time, created_at) values
+         ('slot-a', '{"name":"客人"}', 'pickup', '3', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '1 minute'),
+         ('slot-b', '{"name":"客人"}', 'pickup', '2', 'OrderProcessing', 'Credit', 'other', 100, now() + interval '1 hour', now() - interval '2 minutes');`,
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -58,5 +64,11 @@ describe('OrdersService.listPublicBoard', () => {
       'processing-credit',
       'ready-cash',
     ]);
+  });
+
+  it('同一取餐時段的訂單依建立時間排序，每次重新整理都同一順序', async () => {
+    const board = await service.listPublicBoard('other');
+
+    expect(board.map(({ orderId }) => orderId)).toEqual(['slot-b', 'slot-a']);
   });
 });
