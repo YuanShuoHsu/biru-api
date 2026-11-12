@@ -1,5 +1,5 @@
 {
-  "id": "02407488-46f3-46d3-b96d-93387ba96ee1",
+  "id": "a812c2f7-83db-4cc9-bca0-88e75df6451a",
   "prevId": "43295cfa-64dd-43ea-927b-4894d31346ed",
   "version": "7",
   "dialect": "postgresql",
@@ -7839,14 +7839,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "operating_type": {
-          "name": "operating_type",
-          "type": "organization_operating_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unclassified'"
         }
       },
       "indexes": {},
@@ -7872,6 +7864,60 @@
           "value": "btrim(\"organization\".\"address_country\") <> '' and btrim(\"organization\".\"address_locality\") <> '' and btrim(\"organization\".\"address_region\") <> '' and btrim(\"organization\".\"street_address\") <> ''"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.organization_operating_type": {
+      "name": "organization_operating_type",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "operating_type": {
+          "name": "operating_type",
+          "type": "operating_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "organization_operating_type_organization_id_organization_id_fk": {
+          "name": "organization_operating_type_organization_id_organization_id_fk",
+          "tableFrom": "organization_operating_type",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.organization_qr_secret": {
@@ -13461,8 +13507,8 @@
         "owner"
       ]
     },
-    "public.organization_operating_type": {
-      "name": "organization_operating_type",
+    "public.operating_type": {
+      "name": "operating_type",
       "schema": "public",
       "values": [
         "direct",

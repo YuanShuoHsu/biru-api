@@ -16,6 +16,7 @@ export type AuditIdSource =
 
 export type AuditSubTable =
   | 'offer'
+  | 'operatingType'
   | 'orderItem'
   | 'orderQrSecret'
   | 'printer'

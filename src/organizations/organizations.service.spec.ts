@@ -661,15 +661,21 @@ describe('organization.slug 唯一', () => {
   });
 });
 
-describe('OrganizationsService.setOperatingType', () => {
+describe('OrganizationsService 經營型態', () => {
   let client: PGlite;
   let service: OrganizationsService;
-  let previousMigrations: string;
+  let migrationsBefore: string;
+
+  const insertOrganization = (id: string) =>
+    client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('${id}', '${id}', '${id}', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+    `);
 
   beforeAll(async () => {
-    previousMigrations = await mkdtemp(join(tmpdir(), 'drizzle-'));
-    await cp('./drizzle', previousMigrations, { recursive: true });
-    const journalPath = join(previousMigrations, 'meta', '_journal.json');
+    migrationsBefore = await mkdtemp(join(tmpdir(), 'drizzle-'));
+    await cp('./drizzle', migrationsBefore, { recursive: true });
+    const journalPath = join(migrationsBefore, 'meta', '_journal.json');
     const journal = JSON.parse(await readFile(journalPath, 'utf8')) as {
       entries: { tag: string }[];
     };
@@ -680,54 +686,56 @@ describe('OrganizationsService.setOperatingType', () => {
 
     client = createPGlite();
     const pglite = drizzle(client, { schema });
-    await migrate(pglite, { migrationsFolder: previousMigrations });
-    await client.exec(`
-      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-        ('existing', 'Existing', 'existing', now(), 'TW', '桃園市', '大園區', '中正東路一段');
-    `);
+    await migrate(pglite, { migrationsFolder: migrationsBefore });
+    await insertOrganization('existing');
     await migrate(pglite, { migrationsFolder: './drizzle' });
-    await client.exec(`
-      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
-        ('created', 'Created', 'created', now(), 'TW', '桃園市', '大園區', '中正東路一段');
-    `);
+    await insertOrganization('created');
     service = new OrganizationsService(pglite as unknown as DrizzleDB);
   }, 120_000);
 
   afterAll(async () => {
     await client.close();
-    await rm(previousMigrations, { recursive: true, force: true });
+    await rm(migrationsBefore, { recursive: true, force: true });
   });
-
-  const operatingTypes = async () =>
-    (
-      await client.query<{ id: string; operating_type: string }>(
-        'select id, operating_type from organization order by id',
-      )
-    ).rows;
 
   it('既有門市在 migration 時設為直營，之後新建的門市為未分類', async () => {
-    await expect(operatingTypes()).resolves.toEqual([
-      { id: 'created', operating_type: 'unclassified' },
-      { id: 'existing', operating_type: 'direct' },
-    ]);
+    await expect(service.operatingType('existing')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+    await expect(service.operatingType('created')).resolves.toEqual({
+      operatingType: 'unclassified',
+    });
   });
 
-  it('只改指定門市的經營型態', async () => {
-    await expect(
-      service.setOperatingType('created', 'franchise'),
-    ).resolves.toMatchObject({ id: 'created', operatingType: 'franchise' });
-    await expect(operatingTypes()).resolves.toEqual([
-      { id: 'created', operating_type: 'franchise' },
-      { id: 'existing', operating_type: 'direct' },
-    ]);
+  it('設定後只改到指定門市，再設定一次會覆寫', async () => {
+    await service.setOperatingType('created', 'franchise');
+    await service.setOperatingType('created', 'direct');
+
+    await expect(service.operatingType('created')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+    await expect(service.operatingType('existing')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+  });
+
+  it('經營型態不在公開的門市資料裡', async () => {
+    const [found] = await service.organizations();
+
+    expect(found).not.toHaveProperty('operatingType');
   });
 
   it('門市不存在時回 404', async () => {
-    await expect(
-      service.setOperatingType('missing', 'direct'),
-    ).rejects.toMatchObject({
+    const notFound = {
       response: { code: 'organizationNotFound' },
       status: 404,
-    });
+    };
+
+    await expect(service.operatingType('missing')).rejects.toMatchObject(
+      notFound,
+    );
+    await expect(
+      service.setOperatingType('missing', 'direct'),
+    ).rejects.toMatchObject(notFound);
   });
 });

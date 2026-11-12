@@ -15,3 +15,12 @@ export class UpdateOperatingTypeDto {
   @IsEnum(organizationOperatingTypeEnum.enumValues)
   operatingType: OrganizationOperatingType;
 }
+
+export class OperatingTypeResponseDto {
+  @ApiProperty({
+    enum: organizationOperatingTypeEnum.enumValues,
+    enumName: 'OrganizationOperatingType',
+    description: '尚未分類的門市為 unclassified',
+  })
+  operatingType: OrganizationOperatingType;
+}

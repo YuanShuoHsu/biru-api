@@ -1,29 +1,44 @@
-import { Body, Controller, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { AdminGuard } from '../common/guards/admin.guard.js';
 import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
 
-import { OrganizationResponseDto } from './dto/organization-response.dto.js';
-import { UpdateOperatingTypeDto } from './dto/update-operating-type.dto.js';
+import {
+  OperatingTypeResponseDto,
+  UpdateOperatingTypeDto,
+} from './dto/operating-type.dto.js';
 import { OrganizationsService } from './organizations.service.js';
 
 @ApiTags('organizations')
 @UseGuards(AdminGuard)
-@Controller('organizations/:organizationId')
+@Controller('organizations/:organizationId/operating-type')
 export class OrganizationOperatingTypeController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
-  @Patch('operating-type')
+  @Get()
+  @ApiOperation({ summary: '門市經營型態（直營、加盟、未分類）' })
+  @ApiOkResponse({ type: OperatingTypeResponseDto })
+  get(
+    @Param('organizationId') organizationId: string,
+  ): Promise<OperatingTypeResponseDto> {
+    return this.organizationsService.operatingType(organizationId);
+  }
+
+  @Put()
   @OrganizationMember('organizationId')
-  @Audit('organization', { param: 'organizationId' })
-  @ApiOperation({ summary: '設定門市經營型態（直營、加盟、未分類）' })
-  @ApiOkResponse({ type: OrganizationResponseDto })
+  @Audit({
+    resource: 'organization',
+    idSource: { column: 'organizationId', organization: true },
+    via: { table: 'operatingType', ownerColumn: 'organizationId' },
+  })
+  @ApiOperation({ summary: '設定門市經營型態' })
+  @ApiOkResponse({ type: OperatingTypeResponseDto })
   update(
     @Param('organizationId') organizationId: string,
     @Body() { operatingType }: UpdateOperatingTypeDto,
-  ): Promise<OrganizationResponseDto> {
+  ): Promise<OperatingTypeResponseDto> {
     return this.organizationsService.setOperatingType(
       organizationId,
       operatingType,

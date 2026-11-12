@@ -93,7 +93,10 @@ routes live under `users/me/...` (orders, coupons, points).
 Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 
 - `users.ts` — `user`, `session`, `account`, `verification` (managed by better-auth)
-- `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `team`, `teamMember`, `member`, `invitation`
+- `organizations.ts` — `organization`, `organizationSlugHistory`, `organizationQrSecret`, `organizationOperatingType`, `organizationSpecialHours`, `team`, `teamMember`, `member`, `invitation`
+  — data about a store that must not be public goes in its own table keyed by `organization_id`, never on `organization`: the
+  anonymous store list and lookup (`GET /api/organizations`, `/api/organizations/:slug`) return the whole row.
+  `organizationOperatingType` holds the platform-admin-only 直營／加盟 classification; a store without a row is `unclassified`
 - `menus.ts` — `menu`, `menuSection`, `menuItem`, `offer`, `menuItemAddOn`, `modifierGroup`, `modifier`, `menuItemModifierGroup`
 - `catalog.ts` — `catalogSection`, `catalogItem`, `catalogItemAddOn`, `catalogModifierGroup`, `catalogModifier`, `catalogItemModifierGroup` (the brand catalog, `docs/menu-catalog.md`)
 - `orders.ts` — `order`, `orderItem`
@@ -129,7 +132,7 @@ an empty database with `pnpm tsx scripts/migrate-fresh-db.ts` instead: it applie
 records it in `drizzle.__drizzle_migrations` as `drizzle-kit migrate` would, so later migrations still go through
 `drizzle-kit migrate`. It needs `DATABASE_URL` in the environment and refuses a database that already has tables.
 
-`pnpm tsx scripts/seed-e2e.ts` then seeds it for end-to-end tests: one store (`e2e-store`, open all day every
+`pnpm tsx scripts/seed-e2e.ts` then seeds it for end-to-end tests: one store (`e2e-store`, operating type `direct`, open all day every
 day) with a menu, modifiers, an add-on and ingredients, and five verified accounts — platform admin, store `owner`,
 `admin`, `member`, and a customer in no store. It needs `DATABASE_URL` in the environment (a `.env` is never used for
 it) and `E2E_{PLATFORM_ADMIN,OWNER,ADMIN,MEMBER,CUSTOMER}_{EMAIL,PASSWORD}`, and refuses to run once the database has
