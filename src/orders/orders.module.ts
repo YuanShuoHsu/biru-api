@@ -7,6 +7,7 @@ import { PointsModule } from '../points/points.module.js';
 import { PrintersModule } from '../printers/printers.module.js';
 
 import { DineInTablesController } from './dine-in-tables.controller.js';
+import { FrequentItemsService } from './frequent-items.service.js';
 import { MenuItemSalesController } from './menu-item-sales.controller.js';
 import { MenuItemSalesService } from './menu-item-sales.service.js';
 import { OrderModesController } from './order-modes.controller.js';
@@ -21,6 +22,7 @@ import { OrderTicketService } from './order-ticket.service.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
 import { PrepEstimateService } from './prep-estimate.service.js';
+import { UserFrequentItemsController } from './user-frequent-items.controller.js';
 import { UserOrdersController } from './user-orders.controller.js';
 
 @Module({
@@ -40,9 +42,11 @@ import { UserOrdersController } from './user-orders.controller.js';
     OrderStatsController,
     OrderTicketPrintersController,
     OrdersController,
+    UserFrequentItemsController,
     UserOrdersController,
   ],
   providers: [
+    FrequentItemsService,
     MenuItemSalesService,
     OrderNotificationsService,
     OrderQrService,
