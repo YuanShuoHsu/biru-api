@@ -12,7 +12,15 @@ interface CatalogCopy {
   from: string;
   menuIdColumn: string;
   columns: Record<string, string>;
+  conflict?: { target: string; match: string };
 }
+
+const ID_CONFLICT = { target: 'id', match: 'c.id = s.id' };
+
+const FIRST_OFFER = `LEFT JOIN LATERAL (
+  SELECT price, price_specification FROM offer
+  WHERE offer.menu_item_id = s.id ORDER BY offer.created_at, offer.id LIMIT 1
+) o ON true`;
 
 const CATALOG_COPIES: CatalogCopy[] = [
   {
@@ -31,10 +39,7 @@ const CATALOG_COPIES: CatalogCopy[] = [
   {
     catalog: 'catalog_item',
     source: 'menu_item',
-    from: `menu_item s LEFT JOIN LATERAL (
-      SELECT price, price_specification FROM offer
-      WHERE offer.menu_item_id = s.id ORDER BY offer.created_at, offer.id LIMIT 1
-    ) o ON true`,
+    from: `menu_item s ${FIRST_OFFER}`,
     menuIdColumn: 's.menu_id',
     columns: {
       catalog_section_id: 's.menu_section_id',
@@ -88,6 +93,11 @@ const CATALOG_COPIES: CatalogCopy[] = [
       catalog_item_id: 's.menu_item_id',
       catalog_modifier_group_id: 's.modifier_group_id',
       sort_order: 's.sort_order',
+    },
+    conflict: {
+      target: 'catalog_item_id, catalog_modifier_group_id',
+      match:
+        'c.catalog_item_id = s.menu_item_id AND c.catalog_modifier_group_id = s.modifier_group_id',
     },
   },
   {
@@ -170,6 +180,7 @@ async function migrateStore(
 ) {
   for (const copy of CATALOG_COPIES) {
     const where = sql`${sql.raw(copy.menuIdColumn)} = ${menuId}`;
+    const conflict = copy.conflict ?? ID_CONFLICT;
     const { rows } = await tx.execute<{ action: string; ids: string[] }>(sql`
       SELECT CASE
           WHEN c.id IS NULL THEN 'insert'
@@ -178,7 +189,7 @@ async function migrateStore(
           ELSE 'unchanged'
         END AS action, array_agg(s.id ORDER BY s.id) AS ids
       FROM ${sql.raw(copy.from)}
-      LEFT JOIN ${sql.raw(copy.catalog)} c ON c.id = s.id
+      LEFT JOIN ${sql.raw(copy.catalog)} c ON ${sql.raw(conflict.match)}
       WHERE ${where}
       GROUP BY 1`);
     const ids = Object.fromEntries(rows.map((row) => [row.action, row.ids]));
@@ -211,7 +222,7 @@ async function migrateStore(
         s.created_at, s.updated_at
       FROM ${sql.raw(copy.from)}
       WHERE ${where}
-      ON CONFLICT (id) DO UPDATE SET ${sql.raw(updates)}
+      ON CONFLICT (${sql.raw(conflict.target)}) DO UPDATE SET ${sql.raw(updates)}
       WHERE ${sql.raw(copy.catalog)}.updated_at < excluded.updated_at`);
   }
 
@@ -248,15 +259,51 @@ async function main() {
     WHERE EXISTS (SELECT 1 FROM menu_section WHERE menu_id = m.id)
        OR EXISTS (SELECT 1 FROM menu_item WHERE menu_id = m.id)
     ORDER BY m.created_at, m.id`);
-  const brand = stores.length === 1;
+  const rule = stores.length === 1 ? 'brand' : 'store-exclusive';
+  const { rows: owners } = await db.execute<{
+    brand: boolean | null;
+    exclusive: boolean | null;
+  }>(sql`
+    SELECT bool_or(owner_organization_id IS NULL) AS brand,
+      bool_or(owner_organization_id IS NOT NULL) AS exclusive
+    FROM (
+      SELECT c.owner_organization_id FROM catalog_section c JOIN menu_section s ON s.id = c.id
+      UNION ALL
+      SELECT c.owner_organization_id FROM catalog_item c JOIN menu_item s ON s.id = c.id
+      UNION ALL
+      SELECT c.owner_organization_id FROM catalog_modifier_group c JOIN modifier_group s ON s.id = c.id
+    ) migrated`);
+  const migratedRule = owners[0].exclusive
+    ? 'store-exclusive'
+    : owners[0].brand
+      ? 'brand'
+      : null;
   console.log(
-    `${stores.length} stores with menu content: ${brand ? 'brand items' : 'store-exclusive items'}`,
+    `${stores.length} stores with menu content: ${rule} items${migratedRule ? `; already migrated as ${migratedRule} items` : ''}`,
   );
+  printIds(
+    'stores',
+    stores.map((store) => store.slug),
+  );
+  if (migratedRule && migratedRule !== rule) {
+    throw new Error(
+      `Refusing to migrate: the catalog already holds ${migratedRule} items migrated from these menus, but with ${stores.length} stores the new rows would be ${rule} items.`,
+    );
+  }
 
   for (const store of stores) {
     console.log(`${store.slug} (${store.organizationId}):`);
-    await db.transaction((tx) =>
-      migrateStore(tx, store.menuId, brand ? null : store.organizationId),
+    await db.transaction(
+      (tx) =>
+        migrateStore(
+          tx,
+          store.menuId,
+          rule === 'brand' ? null : store.organizationId,
+        ),
+      {
+        isolationLevel: 'repeatable read',
+        accessMode: apply ? 'read write' : 'read only',
+      },
     );
   }
 
@@ -265,7 +312,7 @@ async function main() {
       printIds(
         `${copy.catalog} without a ${copy.source} row`,
         await list(
-          `SELECT id FROM ${copy.catalog} c WHERE NOT EXISTS (SELECT 1 FROM ${copy.source} s WHERE s.id = c.id) ORDER BY id`,
+          `SELECT id FROM ${copy.catalog} c WHERE NOT EXISTS (SELECT 1 FROM ${copy.source} s WHERE ${(copy.conflict ?? ID_CONFLICT).match}) ORDER BY id`,
         ),
       );
     }
@@ -273,6 +320,25 @@ async function main() {
       'menu_item with more than one offer',
       await list(
         'SELECT menu_item_id AS id FROM offer WHERE menu_item_id IS NOT NULL GROUP BY menu_item_id HAVING count(*) > 1 ORDER BY 1',
+      ),
+    );
+    printIds(
+      'catalog_item whose price differs from its first offer',
+      await list(
+        `SELECT c.id FROM catalog_item c JOIN menu_item s ON s.id = c.id ${FIRST_OFFER}
+        WHERE c.suggested_price IS DISTINCT FROM o.price
+          OR c.price_specification IS DISTINCT FROM o.price_specification
+        ORDER BY c.id`,
+      ),
+    );
+    printIds(
+      'stores with only modifier groups, not migrated',
+      await list(
+        `SELECT o.slug AS id FROM menu m JOIN organization o ON o.id = m.organization_id
+        WHERE EXISTS (SELECT 1 FROM modifier_group WHERE menu_id = m.id)
+          AND NOT EXISTS (SELECT 1 FROM menu_section WHERE menu_id = m.id)
+          AND NOT EXISTS (SELECT 1 FROM menu_item WHERE menu_id = m.id)
+        ORDER BY 1`,
       ),
     );
     printIds(
