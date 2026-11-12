@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 
 import type { PGlite } from '@electric-sql/pglite';
-import { sql } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
+import { Column, SQL, sql } from 'drizzle-orm';
+import { PgDialect, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { createPGlite } from '../../../test/pglite.js';
 
@@ -11,6 +11,7 @@ import {
   buildNumberFilterCondition,
   buildPlainDateFilterCondition,
   buildStringFilterCondition,
+  localTimeText,
 } from './data-grid-filters.js';
 
 const column = sql`created_at`;
@@ -38,6 +39,104 @@ describe.each([
 
   it('isEmpty 不需要值', () => {
     expect(build(column, 'isEmpty', '')).toBeDefined();
+  });
+});
+
+describe('buildDateFilterCondition 依台北日界比對原欄位', () => {
+  const filterDates = pgTable('filter_dates', {
+    id: text('id').primaryKey(),
+    plainAt: timestamp('plain_at'),
+    instantAt: timestamp('instant_at', { withTimezone: true }),
+  });
+  let client: PGlite;
+
+  const query = (condition: SQL) => new PgDialect().sqlToQuery(condition);
+
+  const matches = async (column: Column | SQL, operator: string) => {
+    const { sql: where, params } = query(
+      buildDateFilterCondition(column, operator, '2026-11-12')!,
+    );
+    const { rows } = await client.query<{ id: string }>(
+      `select id from filter_dates where ${where} order by id`,
+      params,
+    );
+    return rows.map(({ id }) => id);
+  };
+
+  beforeAll(async () => {
+    client = createPGlite();
+    await client.exec(`
+      create table filter_dates (id text primary key, plain_at timestamp, instant_at timestamptz);
+      create index on filter_dates (plain_at);
+      create index on filter_dates (instant_at);
+      insert into filter_dates values
+        ('a', '2026-11-11 15:59:59', '2026-11-11T15:59:59Z'),
+        ('b', '2026-11-11 16:00:00', '2026-11-11T16:00:00Z'),
+        ('c', '2026-11-12 15:59:59', '2026-11-12T15:59:59Z'),
+        ('d', '2026-11-12 16:00:00', '2026-11-12T16:00:00Z'),
+        ('e', null, null);
+    `);
+  });
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  describe.each(['UTC', 'America/New_York'])('連線時區 %s', (timeZone) => {
+    beforeAll(async () => {
+      await client.exec(`set timezone = '${timeZone}'`);
+    });
+
+    describe.each([
+      ['timestamp 欄位', filterDates.plainAt],
+      ['timestamp 運算式', sql`plain_at`],
+      ['timestamptz 欄位', filterDates.instantAt],
+      [
+        '轉成 UTC timestamp 的 timestamptz 運算式',
+        sql`(instant_at) AT TIME ZONE 'UTC'`,
+      ],
+    ])('%s', (_, column) => {
+      it.each([
+        ['is', ['b', 'c']],
+        ['not', ['a', 'd']],
+        ['after', ['d']],
+        ['onOrAfter', ['b', 'c', 'd']],
+        ['before', ['a']],
+        ['onOrBefore', ['a', 'b', 'c']],
+        ['isEmpty', ['e']],
+        ['isNotEmpty', ['a', 'b', 'c', 'd']],
+      ])('%s 2026-11-12', async (operator, expected) => {
+        expect(await matches(column, operator)).toEqual(expected);
+      });
+
+      it('localTimeText 顯示台北時間', async () => {
+        const { sql: text, params } = query(localTimeText(column));
+        const { rows } = await client.query<{ time: string }>(
+          `select ${text} as time from filter_dates where id = 'b'`,
+          params,
+        );
+        expect(rows).toEqual([{ time: '2026/11/12 00:00:00' }]);
+      });
+    });
+  });
+
+  it.each([
+    ['plain_at', filterDates.plainAt],
+    ['instant_at', filterDates.instantAt],
+  ])('%s 的索引能用於日期篩選', async (_, column) => {
+    const { sql: where, params } = query(
+      buildDateFilterCondition(column, 'is', '2026-11-12')!,
+    );
+    await client.exec('set enable_seqscan = off');
+    const { rows } = await client.query<{ 'QUERY PLAN': string }>(
+      `explain select id from filter_dates where ${where}`,
+      params,
+    );
+    await client.exec('reset enable_seqscan');
+
+    expect(rows.map((row) => row['QUERY PLAN']).join('\n')).toMatch(
+      /Index (Only )?Scan|Bitmap Index Scan/,
+    );
   });
 });
 
