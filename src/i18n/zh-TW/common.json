@@ -316,6 +316,7 @@
     "tableNumberOutOfRange": "桌號必須介於 1 到門市內用桌數之間"
   },
   "organizations": {
+    "memberNotFound": "找不到這位組織成員。",
     "notJoinedAsPlatformAdmin": "這位成員不是以平台管理員身分加入的擁有者。",
     "showcaseJoinedAsPlatformAdmin": "以平台管理員身分加入的成員不能在團隊介紹公開顯示。",
     "showcaseOpenSelfOnly": "只有成員本人能開啟在團隊介紹的公開顯示。",

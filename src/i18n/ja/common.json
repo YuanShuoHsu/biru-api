@@ -316,6 +316,7 @@
     "tableNumberOutOfRange": "テーブル番号は 1 から店内テーブル数までの範囲で指定してください"
   },
   "organizations": {
+    "memberNotFound": "該当する組織メンバーが見つかりません。",
     "notJoinedAsPlatformAdmin": "このメンバーはプラットフォーム管理者として参加したオーナーではありません。",
     "showcaseJoinedAsPlatformAdmin": "プラットフォーム管理者として参加したメンバーはチーム紹介に公開できません。",
     "showcaseOpenSelfOnly": "メンバー本人のみがチーム紹介での公開をオンにできます。",

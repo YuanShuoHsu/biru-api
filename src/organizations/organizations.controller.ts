@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
   Patch,
   Query,
@@ -17,6 +16,7 @@ import {
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
+import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { OrganizationId } from '../menus/decorators/organization-id.decorator.js';
 import type { AuthRequest } from '../menus/guards/roles.guard.js';
 import { OrganizationMember } from '../menus/decorators/roles.decorator.js';
@@ -58,7 +58,7 @@ export class OrganizationsController {
     @Param('slug') slug: string,
   ): Promise<OrganizationDetailResponseDto> {
     const org = await this.organizationsService.organizationBySlug(slug);
-    if (!org) throw new NotFoundException();
+    if (!org) throw organizationNotFoundError();
 
     return {
       ...org,

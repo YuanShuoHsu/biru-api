@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -55,7 +55,11 @@ import type {
   OrganizationDetailResponseDto,
 } from './dto/organization-response.dto.js';
 import type { OrganizationStatsResponseDto } from './dto/organization-stats.dto.js';
-import { conflictError, forbiddenError } from './organization-errors.js';
+import {
+  conflictError,
+  forbiddenError,
+  notFoundError,
+} from './organization-errors.js';
 
 const upcomingSpecialHoursWindow = () => {
   const now = Date.now();
@@ -146,7 +150,7 @@ export class OrganizationsService {
     slug: string,
   ): Promise<OrganizationTeamMemberResponseDto[]> {
     const org = await this.organizationBySlug(slug);
-    if (!org) throw new NotFoundException();
+    if (!org) throw organizationNotFoundError();
     if (org.closedAt) return [];
 
     const members = await this.organizationMembers(org.id, {
@@ -179,7 +183,7 @@ export class OrganizationsService {
       ),
       columns: { joinedAsPlatformAdmin: true, userId: true },
     });
-    if (!target) throw new NotFoundException();
+    if (!target) throw notFoundError('memberNotFound');
 
     const isSelf = target.userId === actor.userId;
     if (!isSelf && !isAuthorized(actor.role, { member: ['update'] }))
@@ -195,7 +199,7 @@ export class OrganizationsService {
         and(eq(member.id, memberId), eq(member.organizationId, organizationId)),
       )
       .returning({ id: member.id, showcase: member.showcase });
-    if (!updated) throw new NotFoundException();
+    if (!updated) throw notFoundError('memberNotFound');
 
     return updated;
   }
@@ -238,7 +242,7 @@ export class OrganizationsService {
       ),
       columns: { id: true },
     });
-    if (!target) throw new NotFoundException();
+    if (!target) throw notFoundError('memberNotFound');
 
     throw conflictError('notJoinedAsPlatformAdmin');
   }

@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -141,9 +137,10 @@ describe('OrganizationsService 團隊介紹', () => {
   });
 
   it('找不到門市時回 404', async () => {
-    await expect(service.organizationTeam('nope')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.organizationTeam('nope')).rejects.toMatchObject({
+      response: { code: 'organizationNotFound' },
+      status: 404,
+    });
   });
 
   it('依現行 slug 或舊 slug 找到門市，找不到時回 null', async () => {
@@ -204,7 +201,10 @@ describe('OrganizationsService 團隊介紹', () => {
   it('不能設定其他門市的成員', async () => {
     await expect(
       service.setMemberShowcase('biru', 'm-other', true, owner),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toMatchObject({
+      response: { code: 'memberNotFound' },
+      status: 404,
+    });
     expect(
       await service.organizationMembers('other', { showcasedOnly: true }),
     ).toEqual([]);
@@ -416,9 +416,12 @@ describe('OrganizationsService 轉為真正店主', () => {
     await expect(service.confirmOwner('biru', 'm-cat', root)).rejects.toThrow(
       ConflictException,
     );
-    await expect(service.confirmOwner('biru', 'm-sue', root)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.confirmOwner('biru', 'm-sue', root),
+    ).rejects.toMatchObject({
+      response: { code: 'memberNotFound' },
+      status: 404,
+    });
   });
 });
 
