@@ -301,6 +301,7 @@
     "notAwaitingPayment": "此訂單已超過付款期限或狀態已變更，無法付款",
     "onlinePaymentNotRequired": "這筆訂單不需要線上付款",
     "orderItemNotFound": "這筆訂單裡找不到這個品項",
+    "orderItemRefunded": "這個品項已全數退款",
     "orderNotFound": "找不到這筆訂單",
     "orderQrSecretNeverRotated": "QR code 尚未更換過，沒有可還原的舊版",
     "orderQrSessionNotFound": "點餐連線已失效，請重新掃描 QR code",

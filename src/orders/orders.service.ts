@@ -39,6 +39,7 @@ import type { Organization } from '../db/schema/organizations.js';
 import { member, organization } from '../db/schema/organizations.js';
 import type { OrderTicketJob, Printer } from '../db/schema/printers.js';
 import { orderTicketJob } from '../db/schema/printers.js';
+import { refund } from '../db/schema/refunds.js';
 import { menuItem, modifier } from '../db/schema/menus.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
@@ -77,6 +78,7 @@ import { sumOrderItems } from '../common/utils/order-items.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { ECPAY_PENDING_RTN_CODES } from '../ecpay/dto/return-ecpay.dto.js';
+import { refundedQuantitiesOf } from '../ecpay/utils/refund-plan.js';
 import {
   LOW_STOCK_REACHED_EVENT,
   type LowStockReachedEvent,
@@ -115,6 +117,10 @@ import type {
   ExpectedPointsDto,
   ExpectedPointsResponseDto,
 } from './dto/expected-points.dto.js';
+import type {
+  KitchenOrderResponseDto,
+  KitchenOrdersQueryDto,
+} from './dto/kitchen-orders.dto.js';
 import {
   ORDER_BOARD_STATUSES,
   type OrderBoardItemDto,
@@ -133,7 +139,6 @@ import type {
   OrderResponseDto,
   UserOrderResponseDto,
 } from './dto/order-response.dto.js';
-import type { KitchenOrdersQueryDto } from './dto/kitchen-orders-query.dto.js';
 import type { UserOrderPaginationQueryDto } from './dto/user-order-pagination-query.dto.js';
 
 import { isValidOrderAccessToken } from './order-access-token.js';
@@ -996,55 +1001,93 @@ export class OrdersService {
   async listKitchenOrders(
     organizationSlug: string,
     { printerId }: KitchenOrdersQueryDto,
-  ): Promise<AdminOrderResponseDto[]> {
+  ): Promise<KitchenOrderResponseDto[]> {
     const org = await this.getOrgBySlug(organizationSlug);
 
-    return (
-      await this.db.query.order.findMany({
-        where: and(
-          eq(order.sellerId, org.id),
-          eq(order.orderStatus, 'OrderProcessing'),
-          printerId
-            ? exists(
-                this.db
-                  .select({ id: orderTicketJob.id })
-                  .from(orderTicketJob)
-                  .where(
-                    and(
-                      eq(orderTicketJob.orderId, order.id),
-                      eq(orderTicketJob.printerId, printerId),
-                      ne(orderTicketJob.status, 'cancelled'),
-                    ),
+    const found = await this.db.query.order.findMany({
+      where: and(
+        eq(order.sellerId, org.id),
+        eq(order.orderStatus, 'OrderProcessing'),
+        printerId
+          ? exists(
+              this.db
+                .select({ id: orderTicketJob.id })
+                .from(orderTicketJob)
+                .where(
+                  and(
+                    eq(orderTicketJob.orderId, order.id),
+                    eq(orderTicketJob.printerId, printerId),
+                    eq(orderTicketJob.kind, 'order'),
+                    eq(orderTicketJob.copy, 'original'),
+                    ne(orderTicketJob.status, 'cancelled'),
                   ),
-              )
-            : undefined,
-        ),
-        orderBy: [
-          asc(sql`COALESCE(${order.pickupTime}, ${order.paymentDate})`),
-          asc(order.createdAt),
-          asc(order.id),
-        ],
-        limit: ADMIN_BOARD_COLUMN_LIMIT,
-        with: {
-          invoices: {
-            with: {
-              printJobs: {
-                where: (jobs, { inArray }) =>
-                  inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
-                orderBy: (jobs, { desc }) => desc(jobs.createdAt),
-                limit: 1,
-              },
+                ),
+            )
+          : undefined,
+      ),
+      orderBy: [
+        asc(sql`COALESCE(${order.pickupTime}, ${order.paymentDate})`),
+        asc(order.createdAt),
+        asc(order.id),
+      ],
+      limit: ADMIN_BOARD_COLUMN_LIMIT,
+      with: {
+        invoices: {
+          with: {
+            printJobs: {
+              where: (jobs, { inArray }) =>
+                inArray(jobs.status, [...IN_FLIGHT_PRINT_JOB_STATUSES]),
+              orderBy: (jobs, { desc }) => desc(jobs.createdAt),
+              limit: 1,
             },
           },
-          items: true,
-          orderTicketJobs: {
-            where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
-            orderBy: (jobs, { asc }) => asc(jobs.createdAt),
-            with: { printer: { columns: { name: true } } },
-          },
         },
-      })
-    ).map(toAdminOrderWithInvoice);
+        items: true,
+        orderTicketJobs: {
+          where: (jobs, { ne }) => ne(jobs.status, 'cancelled'),
+          orderBy: (jobs, { asc }) => asc(jobs.createdAt),
+          with: { printer: { columns: { name: true } } },
+        },
+      },
+    });
+
+    const refundedQuantities = refundedQuantitiesOf(
+      found.length
+        ? await this.db
+            .select({ items: refund.items })
+            .from(refund)
+            .where(
+              inArray(
+                refund.orderId,
+                found.map(({ id }) => id),
+              ),
+            )
+        : [],
+    );
+
+    return found.flatMap((current) => {
+      const stationItemIds =
+        printerId &&
+        new Set(
+          current.orderTicketJobs.flatMap((job) =>
+            job.printerId === printerId &&
+            job.kind === 'order' &&
+            job.copy === 'original'
+              ? job.orderItemIds
+              : [],
+          ),
+        );
+      const items = current.items
+        .filter(({ id }) => !stationItemIds || stationItemIds.has(id))
+        .map((item) => ({
+          ...item,
+          refundedQuantity: refundedQuantities.get(item.id) ?? 0,
+        }));
+
+      return stationItemIds && !items.length
+        ? []
+        : [Object.assign(toAdminOrderWithInvoice(current), { items })];
+    });
   }
 
   async listPublicBoard(
@@ -1123,7 +1166,18 @@ export class OrdersService {
         if (!updated) throw badRequestError('statusChanged');
 
         if (offerStockChanged.size) changedOfferStock.add(current.id);
-        results.push(toAdminOrder({ ...current, ...updated }));
+        results.push(
+          toAdminOrder({
+            ...current,
+            ...updated,
+            ...(rule.clearsPreparedItems && {
+              items: current.items.map((item) => ({
+                ...item,
+                preparedAt: null,
+              })),
+            }),
+          }),
+        );
       }
 
       return results;
@@ -1159,7 +1213,7 @@ export class OrdersService {
       )
       .returning();
 
-    if (rule.toStatus === 'OrderPaymentDue' && updated.length)
+    if (rule.clearsPreparedItems && updated.length)
       await tx
         .update(orderItem)
         .set({ preparedAt: null })
@@ -1300,6 +1354,17 @@ export class OrdersService {
         )
         .returning();
       if (!item) throw notFoundError('orderItemNotFound');
+
+      if (
+        prepared &&
+        (refundedQuantitiesOf(
+          await tx
+            .select({ items: refund.items })
+            .from(refund)
+            .where(eq(refund.orderId, orderId)),
+        ).get(item.id) ?? 0) >= item.orderQuantity
+      )
+        throw badRequestError('orderItemRefunded');
 
       return item;
     });

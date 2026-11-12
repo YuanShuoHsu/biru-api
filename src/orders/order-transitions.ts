@@ -22,6 +22,7 @@ export type OrderTransitionTrigger = 'admin' | 'expiry' | 'payment';
 
 export interface OrderTransitionRule {
   cashOnly?: boolean;
+  clearsPreparedItems?: boolean;
   consumesInventory?: boolean;
   direction: OrderTransitionDirection;
   extraSet?: () => PgUpdateSetSource<typeof order>;
@@ -80,6 +81,7 @@ export const ORDER_TRANSITIONS: OrderTransitionRule[] = [
   },
   {
     cashOnly: true,
+    clearsPreparedItems: true,
     direction: 'revert',
     extraSet: () => ({
       amountPerPoint: null,

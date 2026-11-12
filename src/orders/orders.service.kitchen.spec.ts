@@ -83,12 +83,20 @@ describe('OrdersService.listKitchenOrders', () => {
 
     await client.exec(
       `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, prepared_at) values
-         ('latte', 'paid-early', 'm1', '拿鐵', 1, 100, now());
+         ('latte', 'paid-early', 'm1', '拿鐵', 1, 100, now()),
+         ('cake', 'paid-early', 'm2', '蛋糕', 2, 100, null),
+         ('tea', 'paid-late', 'm3', '紅茶', 1, 100, null),
+         ('soda', 'scheduled', 'm4', '汽水', 1, 100, null),
+         ('elsewhere', 'other-store', 'm1', '拿鐵', 1, 100, null);
        insert into order_ticket_job (id, order_id, printer_id, organization_id, kind, order_item_ids, copy, status) values
-         ('early-bar', 'paid-early', 'bar', 'org', 'order', '{}', 'original', 'printed'),
-         ('late-kitchen', 'paid-late', 'kitchen', 'org', 'order', '{}', 'original', 'queued'),
-         ('scheduled-bar-cancelled', 'scheduled', 'bar', 'org', 'order', '{}', 'original', 'cancelled'),
-         ('other-bar', 'other-store', 'elsewhere-bar', 'other', 'order', '{}', 'original', 'printed');`,
+         ('early-bar', 'paid-early', 'bar', 'org', 'order', '{latte}', 'original', 'printed'),
+         ('early-kitchen', 'paid-early', 'kitchen', 'org', 'order', '{cake}', 'original', 'queued'),
+         ('late-kitchen', 'paid-late', 'kitchen', 'org', 'order', '{tea}', 'original', 'queued'),
+         ('scheduled-bar-cancelled', 'scheduled', 'bar', 'org', 'order', '{soda}', 'original', 'cancelled'),
+         ('scheduled-bar-reprint', 'scheduled', 'bar', 'org', 'order', '{soda}', 'reprint', 'printed'),
+         ('other-bar', 'other-store', 'elsewhere-bar', 'other', 'order', '{elsewhere}', 'original', 'printed');
+       insert into refund (id, order_id, amount, scope, channel, items, status) values
+         ('cake-refund', 'paid-early', 100, 'partial', 'manual', '[{"orderItemId":"cake","quantity":1,"amount":"100","menuItemName":"蛋糕","unitPrice":"100"}]', 'refunded');`,
     );
 
     await client.query(
@@ -113,18 +121,36 @@ describe('OrdersService.listKitchenOrders', () => {
     ]);
   });
 
-  it('帶出品項做好的標記與工作單印表機', async () => {
+  it('帶出品項做好的標記、已退款數量與工作單印表機', async () => {
     const [paidEarly] = await service.listKitchenOrders('biru', {});
 
-    expect(paidEarly.items).toEqual([
-      expect.objectContaining({ id: 'latte', preparedAt: expect.any(Date) }),
-    ]);
-    expect(paidEarly.orderTicketPrinterIds).toEqual(['bar']);
+    expect(paidEarly.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'latte',
+          preparedAt: expect.any(Date),
+          refundedQuantity: 0,
+        }),
+        expect.objectContaining({ id: 'cake', refundedQuantity: 1 }),
+      ]),
+    );
+    expect(paidEarly.items).toHaveLength(2);
+    expect(paidEarly.orderTicketPrinterIds).toEqual(['bar', 'kitchen']);
   });
 
-  it('指定印表機時只列有未取消工作單送到那台的訂單', async () => {
-    await expect(idsOf('biru', 'bar')).resolves.toEqual(['paid-early']);
-    await expect(idsOf('biru', 'kitchen')).resolves.toEqual(['paid-late']);
+  it('指定印表機時只列那台未取消正本工作單負責的品項，沒有品項的訂單不列', async () => {
+    const itemIdsOf = async (printerId: string) =>
+      (await service.listKitchenOrders('biru', { printerId })).map(
+        ({ id, items }) => [id, items.map((item) => item.id)],
+      );
+
+    await expect(itemIdsOf('bar')).resolves.toEqual([
+      ['paid-early', ['latte']],
+    ]);
+    await expect(itemIdsOf('kitchen')).resolves.toEqual([
+      ['paid-early', ['cake']],
+      ['paid-late', ['tea']],
+    ]);
   });
 
   it('別家店的印表機查不到任何訂單', async () => {

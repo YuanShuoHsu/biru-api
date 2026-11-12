@@ -48,8 +48,11 @@ import {
   ExpectedPointsDto,
   ExpectedPointsResponseDto,
 } from './dto/expected-points.dto.js';
+import {
+  KitchenOrderResponseDto,
+  KitchenOrdersQueryDto,
+} from './dto/kitchen-orders.dto.js';
 import { OrderBoardItemDto } from './dto/order-board-response.dto.js';
-import { KitchenOrdersQueryDto } from './dto/kitchen-orders-query.dto.js';
 import { OrderPaginationQueryDto } from './dto/order-pagination-query.dto.js';
 import { PrepEstimateQueryDto } from './dto/prep-estimate-query.dto.js';
 import {
@@ -170,11 +173,11 @@ export class OrdersController {
   @ApiOperation({
     summary: '查詢廚房顯示的製作中訂單（依預約取餐或付款時間排序）',
   })
-  @ApiOkResponse({ type: [AdminOrderResponseDto] })
+  @ApiOkResponse({ type: [KitchenOrderResponseDto] })
   findKitchenOrders(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: KitchenOrdersQueryDto,
-  ): Promise<AdminOrderResponseDto[]> {
+  ): Promise<KitchenOrderResponseDto[]> {
     return this.ordersService.listKitchenOrders(organizationSlug, query);
   }
 

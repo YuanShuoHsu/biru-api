@@ -301,6 +301,7 @@
     "notAwaitingPayment": "This order can no longer be paid. The payment deadline may have passed or its status has changed.",
     "onlinePaymentNotRequired": "This order does not need to be paid online.",
     "orderItemNotFound": "This item could not be found in the order.",
+    "orderItemRefunded": "This item has been fully refunded.",
     "orderNotFound": "This order could not be found.",
     "orderQrSecretNeverRotated": "The QR codes have never been regenerated, so there is no previous version to restore.",
     "orderQrSessionNotFound": "Your ordering session has expired. Please scan the QR code again.",
