@@ -211,14 +211,13 @@ export class TasksService {
     await Promise.all(
       cleanupTargets.map(async ({ label, table }) => {
         try {
-          const deleted = await this.db
+          const { rowCount } = await this.db
             .delete(table)
-            .where(lt(table.expiresAt, now))
-            .returning();
+            .where(lt(table.expiresAt, now));
 
-          if (!deleted.length) return;
+          if (!rowCount) return;
 
-          this.logger.log(`清除 ${deleted.length} 筆過期 ${label}`);
+          this.logger.log(`清除 ${rowCount} 筆過期 ${label}`);
         } catch (error) {
           this.logger.error(`清除過期 ${label} 失敗`, error);
         }
