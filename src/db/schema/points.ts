@@ -64,6 +64,9 @@ export const pointTransaction = pgTable(
     uniqueIndex('pointTransaction_orderId_earn_unique')
       .on(table.orderId)
       .where(sql`"type" = 'earn'`),
+    index('pointTransaction_expiresAt_remaining_idx')
+      .on(table.expiresAt)
+      .where(sql`"remaining_points" > 0`),
   ],
 );
 
