@@ -46,6 +46,7 @@ import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
   BANNER_DATE_FILTER_FIELDS,
   BANNER_ENUM_FILTER_FIELDS,
+  BANNER_STRING_FILTER_FIELDS,
   type BannerPaginationQueryDto,
 } from './dto/banner-pagination-query.dto.js';
 import { badRequestError, notFoundError } from './banner-errors.js';
@@ -142,7 +143,7 @@ export class BannersService {
               filterOperator,
               filterValue,
               bannerFieldMap,
-              [],
+              BANNER_STRING_FILTER_FIELDS,
               BANNER_DATE_FILTER_FIELDS,
               BANNER_ENUM_FILTER_FIELDS,
             )

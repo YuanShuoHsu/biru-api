@@ -202,7 +202,8 @@ describe('BannersService', () => {
       insert into banner (id, image, alt, starts_at, ends_at, sort_order) values
         ('bar', 'bar', '{"en":"Coffee bar","zh-TW":"吧台"}', '2026-12-01 02:00:00', null, 0),
         ('patio', 'patio', '{"en":"Patio","zh-TW":"中庭"}', null, '2027-01-05 02:00:00', 1),
-        ('door', 'door', '{"zh-TW":"門口"}', null, null, 2)
+        ('door', 'door', '{"zh-TW":"門口"}', null, null, 2),
+        ('blank', 'blank', null, null, null, 3)
     `);
     const ids = async (query: Parameters<BannersService['findAll']>[0]) =>
       (await service.findAll(query)).data.map(({ id }) => id);
@@ -218,10 +219,14 @@ describe('BannersService', () => {
         filterValue: '門口',
       }),
     ).toEqual(['door']);
+    expect(
+      await ids({ filterField: 'alt', filterOperator: 'isEmpty' }),
+    ).toEqual(['blank']);
     expect(await ids({ sortBy: 'alt', sortDirection: 'asc' })).toEqual([
       'patio',
       'bar',
       'door',
+      'blank',
     ]);
     vi.spyOn(I18nContext, 'current').mockReturnValue({
       lang: 'en',
@@ -230,6 +235,7 @@ describe('BannersService', () => {
       'bar',
       'patio',
       'door',
+      'blank',
     ]);
     vi.restoreAllMocks();
   });
