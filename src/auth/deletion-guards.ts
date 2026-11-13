@@ -114,7 +114,7 @@ const findBlockedIds = async (parentTable: string, ids: string[]) => {
   return new Set(rows.map(({ id }) => id));
 };
 
-export const hasBusinessRecords = async (organizationId: string) =>
+const hasBusinessRecords = async (organizationId: string) =>
   (await findBlockedIds('organization', [organizationId])).size > 0;
 
 export const getDeletableOrganizationIds = async (

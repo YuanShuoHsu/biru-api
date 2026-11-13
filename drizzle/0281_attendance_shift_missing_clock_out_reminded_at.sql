@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_shift" ADD COLUMN "missing_clock_out_reminded_at" timestamp with time zone;

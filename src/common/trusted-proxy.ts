@@ -25,8 +25,7 @@ export const trustedProxies = (
   return entries;
 };
 
-export const clientIpHeader = () =>
-  process.env.CLIENT_IP_HEADER?.trim() || undefined;
+const clientIpHeader = () => process.env.CLIENT_IP_HEADER?.trim() || undefined;
 
 const singleIp = (value: string | string[] | undefined) =>
   typeof value === 'string' && !value.includes('%') && isIP(value)

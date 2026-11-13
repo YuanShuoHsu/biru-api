@@ -1,1 +1,0 @@
-CREATE INDEX "pointTransaction_expiresAt_remaining_idx" ON "point_transaction" USING btree ("expires_at") WHERE "remaining_points" > 0;

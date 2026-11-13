@@ -1,5 +1,5 @@
 {
-  "id": "d179543f-72b1-4dc8-b9d2-dbc17d9449db",
+  "id": "902b5f8a-844e-4c40-99b3-83ff2dfd5163",
   "prevId": "a812c2f7-83db-4cc9-bca0-88e75df6451a",
   "version": "7",
   "dialect": "postgresql",
@@ -2116,6 +2116,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "missing_clock_out_reminded_at": {
+          "name": "missing_clock_out_reminded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9455,22 +9461,6 @@
           ],
           "isUnique": true,
           "where": "\"type\" = 'earn'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pointTransaction_expiresAt_remaining_idx": {
-          "name": "pointTransaction_expiresAt_remaining_idx",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"remaining_points\" > 0",
           "concurrently": false,
           "method": "btree",
           "with": {}
