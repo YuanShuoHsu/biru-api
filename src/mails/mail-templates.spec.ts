@@ -62,7 +62,7 @@ describe('mail templates', () => {
     i18nLang: 'zh-TW',
     productName: 'Biru Coffee',
     sign_in_url: 'http://localhost:3000/zh-TW/auth/sign-in',
-    support_url: 'http://localhost:3000/zh-TW/company/contact',
+    support_url: 'mailto:support@example.com',
     url: 'http://localhost:3000/zh-TW/auth',
   };
 
