@@ -43,33 +43,19 @@ describe('site cookies', () => {
     );
   });
 
-  it('scopes cookies to the parent domain in production and drops the host-only copy first', () => {
+  it('scopes cookies to the parent domain in production and clears them with the same options', () => {
     vi.stubEnv('NODE_ENV', 'production');
     const { clearCookie, cookie, res } = mockResponse();
+    const crossSubDomain = { ...hostOnly(true), domain: '.birucoffee.com' };
 
     setSiteCookie(res, 'name', 'value');
-
-    expect(clearCookie).toHaveBeenCalledExactlyOnceWith('name', hostOnly(true));
-    expect(cookie).toHaveBeenCalledExactlyOnceWith('name', 'value', {
-      ...hostOnly(true),
-      domain: '.birucoffee.com',
-    });
-    expect(clearCookie.mock.invocationCallOrder[0]).toBeLessThan(
-      cookie.mock.invocationCallOrder[0],
-    );
-  });
-
-  it('clears both the parent-domain and the host-only cookie in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    const { clearCookie, res } = mockResponse();
-
     clearSiteCookie(res, 'name');
 
-    expect(clearCookie).toHaveBeenCalledTimes(2);
-    expect(clearCookie).toHaveBeenCalledWith('name', hostOnly(true));
-    expect(clearCookie).toHaveBeenCalledWith('name', {
-      ...hostOnly(true),
-      domain: '.birucoffee.com',
-    });
+    expect(cookie).toHaveBeenCalledExactlyOnceWith(
+      'name',
+      'value',
+      crossSubDomain,
+    );
+    expect(clearCookie).toHaveBeenCalledExactlyOnceWith('name', crossSubDomain);
   });
 });

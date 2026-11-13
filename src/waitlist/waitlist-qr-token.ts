@@ -7,7 +7,7 @@ const WAITLIST_PURPOSE = 'biru-waitlist-v1';
 const WAITLIST_QR_SESSION_PURPOSE = 'biru-waitlist-qr-session-v1';
 const WAITLIST_QR_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
-export const WAITLIST_QR_SESSION_COOKIE = 'biru_waitlist_qr_session';
+export const WAITLIST_QR_SESSION_COOKIE = 'biru_waitlist_qr_session_v2';
 
 type WaitlistQrSession = { expiresAt: Date };
 

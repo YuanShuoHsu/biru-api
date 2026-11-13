@@ -10,7 +10,7 @@ const DINE_IN_TABLE_PURPOSE = 'biru-dine-in-table-v1';
 const ORDER_MODE_PURPOSE = 'biru-order-mode-v1';
 const ORDER_QR_SESSION_PURPOSE = 'biru-order-qr-session-v1';
 
-export const ORDER_QR_SESSION_COOKIE = 'biru_order_qr_session';
+export const ORDER_QR_SESSION_COOKIE = 'biru_order_qr_session_v2';
 
 export const modeTokenOrderModes = [
   'counter',

@@ -466,12 +466,15 @@ independently of `@AllowAnonymous`, so this combination is intentional, not a ho
 - The order and waitlist QR sessions and the shared-cart participant cookie go through `setSiteCookie` / `clearSiteCookie`
   (`src/common/utils/cookies.ts`): in production they are set on `.birucoffee.com`, the domain of better-auth's
   `crossSubDomainCookies`, so a cookie set through a frontend's `/api` rewrite also reaches the API host when the browser
-  calls it directly (#209); in production every set and clear also drops a host-only copy of the same name, which would
-  otherwise be sent first and shadow it. Outside production they are host-only, which works locally because cookies
-  ignore the port ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)). A new cookie the frontends
-  must see goes through the same helpers. When a socket needs what such a cookie proves, still return a signed token in
-  the HTTP response and send it in the message body as `accessToken`, as `joinOrder` does — the WebSocket filter strips
-  that key from `cause.data`, so name it nothing else
+  calls it directly (#209). Stage (`stage.birucoffee.com`, `stage-admin.birucoffee.com`) shares that domain with
+  production, so these cookies, like the session cookie, are sent to both. Outside production they are host-only, which
+  works locally because cookies ignore the port ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)).
+  A new cookie the frontends must see goes through the same helpers, and a cookie whose domain changes also gets a new
+  name (hence the `_v2` names): browsers keep the old copy and send it first, and `cookie-parser` keeps only the first
+  value of a name, so the old copy would shadow the new one. The Socket.io handshake only carries them where they are
+  domain-scoped, so when a socket needs what such a cookie proves, still return a signed token in the HTTP response and
+  send it in the message body as `accessToken`, as `joinOrder` does — the WebSocket filter strips that key from
+  `cause.data`, so name it nothing else
 - `I18nMiddleware` is mounted on every route by `I18nModule.configure()`; don't add
   `app.use(I18nMiddleware)` here — Express receives the class, treats it as an error handler
   (constructor arity > 3) and never runs it on normal requests
