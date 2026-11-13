@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   ilike,
@@ -201,9 +202,17 @@ const punchableShift = sql`${unfinishedShift}
   AND (EXISTS (SELECT 1 FROM ${attendanceEvent} started WHERE started.shift_id = ${attendanceShift.id})
     OR now() BETWEEN ${attendanceShift.startsAt} - ${punchLeewaySql} AND ${attendanceShift.endsAt})`;
 
+const { missingClockOutRemindedAt: _reminder, ...shiftRecordColumns } =
+  getTableColumns(attendanceShift);
+
+type ShiftRecord = Omit<
+  typeof attendanceShift.$inferSelect,
+  'missingClockOutRemindedAt'
+>;
+
 const assertShiftWithoutRecords = async (
   tx: Transaction,
-  shift: typeof attendanceShift.$inferSelect,
+  shift: ShiftRecord,
 ) => {
   const [event] = await tx
     .select({ id: attendanceEvent.id })
@@ -318,7 +327,7 @@ export class AttendanceShiftsService {
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select({
-          shift: attendanceShift,
+          shift: shiftRecordColumns,
           employeeName: user.name,
           employeeEmail: user.email,
           teamName: team.name,
@@ -889,7 +898,10 @@ export class AttendanceShiftsService {
     values: Awaited<ReturnType<typeof this.prepareShifts>>,
     changes: Record<string, unknown>[],
   ) {
-    const rows = await tx.insert(attendanceShift).values(values).returning();
+    const rows = await tx
+      .insert(attendanceShift)
+      .values(values)
+      .returning(shiftRecordColumns);
     await writeAudits(
       tx,
       actor,
@@ -911,7 +923,7 @@ export class AttendanceShiftsService {
     return this.db.transaction(async (tx) => {
       await lockOrganization(tx, actor.organizationId);
       const [shift] = await tx
-        .select()
+        .select(shiftRecordColumns)
         .from(attendanceShift)
         .where(
           and(
@@ -974,7 +986,7 @@ export class AttendanceShiftsService {
           dayKind,
         })
         .where(eq(attendanceShift.id, id))
-        .returning();
+        .returning(shiftRecordColumns);
       await writeAudit(tx, actor, 'shift.update', id, {
         before: {
           employeeId: shift.employeeId,
@@ -1003,7 +1015,7 @@ export class AttendanceShiftsService {
     tx: Transaction,
     actor: AttendanceActor,
     dtos: CreateAttendanceShiftDto[],
-    replacing?: typeof attendanceShift.$inferSelect,
+    replacing?: ShiftRecord,
     skip?: (index: number, reason: AttendanceCopySkipReason) => void,
   ) {
     const values: (typeof attendanceShift.$inferInsert & {

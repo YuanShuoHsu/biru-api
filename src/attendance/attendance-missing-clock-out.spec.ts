@@ -16,16 +16,18 @@ const HOUR = 60 * 60 * 1000;
 describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
   let client: PGlite;
   let service: AttendanceNotificationsService;
+  let shifts: AttendanceShiftsService;
   const sendMissingClockOut = vi.fn();
 
   beforeAll(async () => {
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
+    shifts = new AttendanceShiftsService(db as unknown as DrizzleDB);
     service = new AttendanceNotificationsService(
       db as unknown as DrizzleDB,
       { sendMissingClockOut } as unknown as MailsService,
-      new AttendanceShiftsService(db as unknown as DrizzleDB),
+      shifts,
     );
   }, 60_000);
 
@@ -70,14 +72,19 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
       [`${shiftId}-${action}`, ORG, shiftId, action, occurredAt],
     );
 
-  it('打卡時限剛過、沒有下班卡的班次通知員工補打卡', async () => {
+  const remindedAt = async (id: string) => {
+    const { rows } = await client.query<{ reminded: Date | null }>(
+      'select missing_clock_out_reminded_at as reminded from attendance_shift where id = $1',
+      [id],
+    );
+    return rows[0].reminded;
+  };
+
+  it('打卡時限已過、沒有下班卡的班次通知員工補打卡', async () => {
     const { endsAt, startsAt } = await addShift('forgot', 5);
     await punch('forgot', 'clockIn', startsAt);
 
-    const notified = await service.notifyMissingClockOuts(
-      new Date(now.getTime() - 2 * HOUR),
-      now,
-    );
+    const notified = await service.notifyMissingClockOuts(now);
 
     expect(notified).toBe(1);
     expect(sendMissingClockOut).toHaveBeenCalledWith({
@@ -87,18 +94,63 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
       startsAt,
       endsAt,
     });
+    await expect(remindedAt('forgot')).resolves.toBeInstanceOf(Date);
+  });
+
+  it('打卡時限在上一輪之前就過了的班次仍會通知（重啟或上一輪失敗）', async () => {
+    const { startsAt } = await addShift('missed', 3 * 24);
+    await punch('missed', 'clockIn', startsAt);
+
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(1);
   });
 
   it('同一個班次在下一輪不會再通知', async () => {
     const { startsAt } = await addShift('forgot', 5);
     await punch('forgot', 'clockIn', startsAt);
 
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(1);
     await expect(
-      service.notifyMissingClockOuts(
-        new Date(now.getTime() - 10 * 60 * 1000),
-        now,
-      ),
+      service.notifyMissingClockOuts(new Date(now.getTime() + 10 * 60 * 1000)),
     ).resolves.toBe(0);
+    expect(sendMissingClockOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('同時執行的兩輪只寄一次', async () => {
+    const { startsAt } = await addShift('forgot', 5);
+    await punch('forgot', 'clockIn', startsAt);
+
+    const notified = await Promise.all([
+      service.notifyMissingClockOuts(now),
+      service.notifyMissingClockOuts(now),
+    ]);
+
+    expect(notified[0] + notified[1]).toBe(1);
+    expect(sendMissingClockOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('寄信失敗的班次不標記，下一輪重寄', async () => {
+    const { startsAt } = await addShift('forgot', 5);
+    await punch('forgot', 'clockIn', startsAt);
+    sendMissingClockOut.mockRejectedValueOnce(new Error('smtp down'));
+
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
+    await expect(remindedAt('forgot')).resolves.toBeNull();
+
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(1);
+    expect(sendMissingClockOut).toHaveBeenCalledTimes(2);
+  });
+
+  it('下班超過回溯期的班次不通知', async () => {
+    const recent = await addShift('recent', 7 * 24 - 1);
+    await punch('recent', 'clockIn', recent.startsAt);
+    const old = await addShift('old', 7 * 24 + 1);
+    await punch('old', 'clockIn', old.startsAt);
+
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(1);
+    expect(sendMissingClockOut).toHaveBeenCalledWith(
+      expect.objectContaining({ endsAt: recent.endsAt }),
+    );
+    await expect(remindedAt('old')).resolves.toBeNull();
   });
 
   it('打卡時限晚於這一輪的時間點時留給下一輪，不會寄兩次', async () => {
@@ -106,22 +158,16 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
     await punch('justClosed', 'clockIn', startsAt);
     const earlier = new Date(now.getTime() - 2 * 60 * 1000);
 
-    await expect(
-      service.notifyMissingClockOuts(
-        new Date(earlier.getTime() - 10 * 60 * 1000),
-        earlier,
-      ),
-    ).resolves.toBe(0);
-    await expect(service.notifyMissingClockOuts(earlier, now)).resolves.toBe(1);
+    await expect(service.notifyMissingClockOuts(earlier)).resolves.toBe(0);
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(1);
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
   });
 
   it('還在可以打卡的時間內不通知', async () => {
     const { startsAt } = await addShift('stillOpen', 1);
     await punch('stillOpen', 'clockIn', startsAt);
 
-    await expect(
-      service.notifyMissingClockOuts(new Date(now.getTime() - 2 * HOUR), now),
-    ).resolves.toBe(0);
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
   });
 
   it('已打下班卡、完全沒打卡或已送出補打卡申請的班次都不通知', async () => {
@@ -137,9 +183,22 @@ describe('AttendanceNotificationsService.notifyMissingClockOuts', () => {
       [ORG, requested.startsAt, requested.endsAt],
     );
 
-    await expect(
-      service.notifyMissingClockOuts(new Date(now.getTime() - 2 * HOUR), now),
-    ).resolves.toBe(0);
+    await expect(service.notifyMissingClockOuts(now)).resolves.toBe(0);
     expect(sendMissingClockOut).not.toHaveBeenCalled();
+  });
+
+  it('提醒標記不出現在班次清單的回應', async () => {
+    const { startsAt } = await addShift('forgot', 5);
+    await punch('forgot', 'clockIn', startsAt);
+    await service.notifyMissingClockOuts(now);
+
+    const { data } = await shifts.shifts(
+      { organizationId: ORG, role: 'owner', userId: '' },
+      { limit: 10 },
+      false,
+    );
+
+    expect(data).toHaveLength(1);
+    expect(data[0]).not.toHaveProperty('missingClockOutRemindedAt');
   });
 });

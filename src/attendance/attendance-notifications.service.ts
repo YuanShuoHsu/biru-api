@@ -4,6 +4,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
+import { DAY_MS } from '../common/constants/timezone.js';
 import {
   attendanceAnnualLeaveNotice,
   attendanceEmployee,
@@ -21,7 +22,7 @@ import {
   type AttendanceRequestReviewedEvent,
   type AttendanceRequestSubmittedEvent,
 } from './attendance-notification.events.js';
-import { MAX_DAILY_WORK_SECONDS, punchLeewayMs } from './attendance-rules.js';
+import { punchLeewayMs } from './attendance-rules.js';
 import { AttendanceShiftsService } from './attendance-shifts.service.js';
 import { loadEmployeeHours, weeklyMinutesOf } from './employee-hours.js';
 import { anniversary, annualLeaveLedger } from './leave-rules.js';
@@ -41,6 +42,8 @@ const MY_SHIFTS_PAGE = '/attendance/mine/shifts';
 
 // 勞基法施行細則 §24 III：取得特休權利之日起 30 日內告知
 const ENTITLEMENT_NOTICE_DAYS = 30;
+
+const MISSING_CLOCK_OUT_LOOKBACK_MS = 7 * DAY_MS;
 
 @Injectable()
 export class AttendanceNotificationsService {
@@ -202,12 +205,13 @@ export class AttendanceNotificationsService {
     return notified;
   }
 
-  async notifyMissingClockOuts(since: Date, now = new Date()) {
+  async notifyMissingClockOuts(now = new Date()) {
     const scope = and(
       ne(attendanceShift.status, 'cancelled'),
+      isNull(attendanceShift.missingClockOutRemindedAt),
       gt(
         attendanceShift.endsAt,
-        new Date(since.getTime() - MAX_DAILY_WORK_SECONDS * 1000),
+        new Date(now.getTime() - MISSING_CLOCK_OUT_LOOKBACK_MS),
       ),
       lte(attendanceShift.endsAt, now),
       unfinishedShift,
@@ -242,14 +246,11 @@ export class AttendanceNotificationsService {
             `Organization ${store.id} has ${total} shifts to check for a missing clock-out; only ${data.length} were checked`,
           );
 
-        const due = data.filter((shift) => {
-          const punchClosesAt = shift.endsAt.getTime() + punchLeewayMs(shift);
-          return (
+        const due = data.filter(
+          (shift) =>
             shift.missingClockOut &&
-            punchClosesAt > since.getTime() &&
-            punchClosesAt <= now.getTime()
-          );
-        });
+            shift.endsAt.getTime() + punchLeewayMs(shift) <= now.getTime(),
+        );
         if (!due.length) continue;
 
         const recipients = await this.db
@@ -271,17 +272,29 @@ export class AttendanceNotificationsService {
           const recipient = recipients.find(
             ({ employeeId }) => employeeId === shift.employeeId,
           );
-          if (!recipient) continue;
 
           try {
-            await this.mails.sendMissingClockOut({
-              recipient: { email: recipient.email, lang: recipient.lang },
-              organizationName: store.name,
-              path: `${MY_SHIFTS_PAGE}?organization=${store.slug}`,
-              startsAt: shift.startsAt,
-              endsAt: shift.endsAt,
+            await this.db.transaction(async (tx) => {
+              const [claimed] = await tx
+                .update(attendanceShift)
+                .set({ missingClockOutRemindedAt: new Date() })
+                .where(
+                  and(
+                    eq(attendanceShift.id, shift.id),
+                    isNull(attendanceShift.missingClockOutRemindedAt),
+                  ),
+                )
+                .returning({ id: attendanceShift.id });
+              if (!claimed || !recipient) return;
+              await this.mails.sendMissingClockOut({
+                recipient: { email: recipient.email, lang: recipient.lang },
+                organizationName: store.name,
+                path: `${MY_SHIFTS_PAGE}?organization=${store.slug}`,
+                startsAt: shift.startsAt,
+                endsAt: shift.endsAt,
+              });
+              notified += 1;
             });
-            notified += 1;
           } catch (error) {
             this.logger.error(error);
           }
