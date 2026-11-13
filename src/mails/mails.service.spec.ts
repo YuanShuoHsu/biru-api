@@ -52,6 +52,7 @@ describe('MailsService 語系', () => {
             () => ({
               FALLBACK_LANGUAGE: 'zh-TW',
               MAIL_PREVIEW: 'true',
+              MAIL_USER: 'support@example.com',
               NEXT_URL: 'http://localhost:3000',
             }),
           ],
@@ -226,6 +227,13 @@ describe('MailsService 語系', () => {
     await sendVerificationEmail('en');
 
     expect(sent[0].html).not.toContain('Street Rd.');
+  });
+
+  it('聯絡客服的連結寄到寄件信箱，不指向前台不存在的頁面', async () => {
+    await sendVerificationEmail('en');
+
+    expect(sent[0].html).toContain('href="mailto:support@example.com"');
+    expect(sent[0].html).not.toContain('/company/contact');
   });
 
   it('邀請信以受邀者的語系顯示角色', async () => {

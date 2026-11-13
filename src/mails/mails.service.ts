@@ -100,6 +100,10 @@ export class MailsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {}
 
+  private get supportUrl(): string {
+    return `mailto:${this.configService.get<string>('MAIL_USER')}`;
+  }
+
   private languageFor(
     recipientLang: Language | undefined,
     request?: Request,
@@ -207,7 +211,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const userAgent = request?.headers.get('user-agent') || undefined;
     const parser = new UAParser(userAgent);
@@ -249,7 +253,7 @@ export class MailsService {
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const userAgent = request?.headers.get('user-agent') || undefined;
     const parser = new UAParser(userAgent);
@@ -291,7 +295,7 @@ export class MailsService {
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const userAgent = request?.headers.get('user-agent') || undefined;
     const parser = new UAParser(userAgent);
@@ -338,7 +342,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const parsedUrl = new URL(url);
     const callbackURL = parsedUrl.searchParams.get('callbackURL');
@@ -393,7 +397,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const parsedUrl = new URL(url);
     const callbackURL = parsedUrl.searchParams.get('callbackURL');
@@ -457,7 +461,7 @@ export class MailsService {
     });
     const lang = this.languageFor(invitee?.lang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
     const store = await this.db.query.organization.findFirst({
       columns: {
         addressCountry: true,
@@ -516,7 +520,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const parsedUrl = new URL(url);
     const callbackURL = parsedUrl.searchParams.get('callbackURL');
@@ -600,7 +604,7 @@ export class MailsService {
     const baseUrl = this.configService.get<string>('NEXT_URL');
     const lang = this.languageFor(recipientLang, request);
     const home_url = `${baseUrl}/${lang}`;
-    const support_url = `${baseUrl}/${lang}/company/contact`;
+    const support_url = this.supportUrl;
 
     const parsedUrl = new URL(url);
     const callbackURL = parsedUrl.searchParams.get('callbackURL');
