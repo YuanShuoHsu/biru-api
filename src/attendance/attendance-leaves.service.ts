@@ -292,7 +292,9 @@ const compareValues = (first: unknown, second: unknown): number => {
   return scalarText(first).localeCompare(scalarText(second));
 };
 
-export const pageInMemory = <Row extends Record<string, unknown>>(
+export const pageInMemory = <
+  Row extends Record<string, unknown> & { id: string },
+>(
   rows: Row[],
   query: PaginationQueryDto & { filterField?: string; sortBy?: string },
   {
@@ -350,11 +352,13 @@ export const pageInMemory = <Row extends Record<string, unknown>>(
     );
 
   const sorted = [...filtered].sort(
-    sortBy
-      ? (first, second) =>
-          (sortDirection === 'desc' ? -1 : 1) *
+    (first, second) =>
+      (sortBy
+        ? (sortDirection === 'desc' ? -1 : 1) *
           compareValues(first[sortBy], second[sortBy])
-      : defaultSort,
+        : 0) ||
+      defaultSort(first, second) ||
+      first.id.localeCompare(second.id),
   );
 
   return { data: sorted.slice(offset, offset + limit), total: sorted.length };
