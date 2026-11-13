@@ -80,7 +80,7 @@ export const withImageUrl = <T extends { id: string; image: string | null }>(
 // https://www.postgresql.org/docs/current/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 // https://www.postgresql.org/docs/current/functions-binarystring.html
 // https://www.postgresql.org/docs/current/functions-string.html
-export const imageRefSql = (image: AnyColumn) =>
+const imageRefSql = (image: AnyColumn) =>
   sql<
     string | null
   >`CASE WHEN starts_with(${image}, 'https://') THEN ${image} ELSE substring(left(${image}, 64) from ${DATA_URL_PREFIX}) || ' ' || left(encode(sha256(convert_to(${image}, 'UTF8')), 'hex'), 16) END`;

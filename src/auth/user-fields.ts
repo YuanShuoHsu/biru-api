@@ -2,7 +2,7 @@ import { APIError } from 'better-auth/api';
 
 const OPTIONAL_TEXT_FIELDS = ['lastName', 'phoneNumber'] as const;
 
-export const blankToNull = (value: string | null | undefined) =>
+const blankToNull = (value: string | null | undefined) =>
   value?.trim() ? value.trim() : null;
 
 export const normalizeUserFields = <T extends Record<string, unknown>>(
