@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 
+import { setSiteCookie } from '../common/utils/cookies.js';
 import { isSameToken, sign } from '../orders/order-qr-token.js';
 
 const WAITLIST_PURPOSE = 'biru-waitlist-v1';
@@ -73,11 +74,4 @@ export const verifyWaitlistQrSession = (
 export const setWaitlistQrSessionCookie = (
   res: Response,
   { session, value }: IssuedWaitlistQrSession,
-) =>
-  res.cookie(WAITLIST_QR_SESSION_COOKIE, value, {
-    expires: session.expiresAt,
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+) => setSiteCookie(res, WAITLIST_QR_SESSION_COOKIE, value, session.expiresAt);
