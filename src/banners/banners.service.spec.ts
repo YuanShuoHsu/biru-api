@@ -197,6 +197,43 @@ describe('BannersService', () => {
     ]);
   });
 
+  it('快速搜尋、篩選與排序以替代文字比對，快速搜尋也比對上下架時間', async () => {
+    await client.exec(`
+      insert into banner (id, image, alt, starts_at, ends_at, sort_order) values
+        ('bar', 'bar', '{"en":"Coffee bar","zh-TW":"吧台"}', '2026-12-01 02:00:00', null, 0),
+        ('patio', 'patio', '{"en":"Patio","zh-TW":"中庭"}', null, '2027-01-05 02:00:00', 1),
+        ('door', 'door', '{"zh-TW":"門口"}', null, null, 2)
+    `);
+    const ids = async (query: Parameters<BannersService['findAll']>[0]) =>
+      (await service.findAll(query)).data.map(({ id }) => id);
+
+    expect(await ids({ quickFilterValue: '中庭' })).toEqual(['patio']);
+    expect(await ids({ quickFilterValue: 'zh' })).toEqual([]);
+    expect(await ids({ quickFilterValue: '2026/12/01' })).toEqual(['bar']);
+    expect(await ids({ quickFilterValue: '2027/01/05' })).toEqual(['patio']);
+    expect(
+      await ids({
+        filterField: 'alt',
+        filterOperator: 'equals',
+        filterValue: '門口',
+      }),
+    ).toEqual(['door']);
+    expect(await ids({ sortBy: 'alt', sortDirection: 'asc' })).toEqual([
+      'patio',
+      'bar',
+      'door',
+    ]);
+    vi.spyOn(I18nContext, 'current').mockReturnValue({
+      lang: 'en',
+    } as I18nContext);
+    expect(await ids({ sortBy: 'alt', sortDirection: 'asc' })).toEqual([
+      'bar',
+      'patio',
+      'door',
+    ]);
+    vi.restoreAllMocks();
+  });
+
   describe('reorder', () => {
     const sortOrders = async () =>
       (

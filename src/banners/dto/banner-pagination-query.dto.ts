@@ -4,6 +4,7 @@ import { IsIn, IsOptional } from 'class-validator';
 
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
+export const BANNER_STRING_FILTER_FIELDS = ['alt'] as const;
 export const BANNER_ENUM_FILTER_FIELDS = ['isActive'] as const;
 export const BANNER_DATE_FILTER_FIELDS = [
   'startsAt',
@@ -12,6 +13,7 @@ export const BANNER_DATE_FILTER_FIELDS = [
   'updatedAt',
 ] as const;
 const BANNER_ALL_FILTER_FIELDS = [
+  ...BANNER_STRING_FILTER_FIELDS,
   ...BANNER_ENUM_FILTER_FIELDS,
   ...BANNER_DATE_FILTER_FIELDS,
 ] as const;
@@ -19,6 +21,7 @@ const BANNER_ALL_FILTER_FIELDS = [
 type BannerFilterField = (typeof BANNER_ALL_FILTER_FIELDS)[number];
 
 const BANNER_SORT_FIELDS = [
+  'alt',
   'isActive',
   'startsAt',
   'endsAt',
