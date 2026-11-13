@@ -1975,6 +1975,13 @@
       "when": 1794574415919,
       "tag": "0281_attendance_shift_missing_clock_out_reminded_at",
       "breakpoints": true
+    },
+    {
+      "idx": 282,
+      "version": "7",
+      "when": 1794595061210,
+      "tag": "0282_point_transaction_expires_at_index",
+      "breakpoints": true
     }
   ]
 }
