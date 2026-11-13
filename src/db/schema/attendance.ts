@@ -313,6 +313,9 @@ export const attendanceShift = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    missingClockOutRemindedAt: timestamp('missing_clock_out_reminded_at', {
+      withTimezone: true,
+    }),
   },
   (t) => [
     index('attendance_shift_org_start_idx').on(t.organizationId, t.startsAt),
