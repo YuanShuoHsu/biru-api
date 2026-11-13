@@ -133,6 +133,15 @@ describe('EcpayEmbeddedService.getTokenbyTrade', () => {
       { email: 'amy@example.com', name: 'Amy', telephone: '123' },
       { Email: 'amy@example.com' },
     ],
+    [
+      { email: 'amy@example.com', name: 'Amy', telephone: '+886223456789' },
+      { Email: 'amy@example.com' },
+    ],
+    [
+      { email: 'amy@example.com', name: 'Amy', telephone: '0912345678#12' },
+      { Email: 'amy@example.com' },
+    ],
+    [{ name: 'Amy', telephone: '0800123456' }, { Phone: '0800123456' }],
   ])(
     'ConsumerInfo 只帶符合綠界格式的 Email 與 Phone',
     async (customer, info) => {

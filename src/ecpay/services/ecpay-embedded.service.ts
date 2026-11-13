@@ -36,24 +36,34 @@ const getEcpayEmbeddedApiUrl = (mode: EcpayMode): string =>
 const CONSUMER_EMAIL_PATTERN =
   /^[a-zA-Z\d._%+-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,6}$/;
 const CONSUMER_EMAIL_MAX_LENGTH = 100;
-const CONSUMER_PHONE_PATTERN = /^(0[89]\d{8}|\d{10,20})$/;
+const CONSUMER_LOCAL_PHONE_PATTERN = /^0[89]\d{8}$/;
+const CONSUMER_OVERSEAS_PHONE_PATTERN = /^\d{10,20}$/;
+
+const toConsumerPhone = (telephone?: string | null): string | undefined => {
+  const parsed = telephone
+    ? parsePhoneNumberFromString(telephone, 'TW')
+    : undefined;
+  if (!parsed || parsed.ext) return undefined;
+
+  const [phone, pattern] =
+    parsed.country === 'TW'
+      ? [`0${parsed.nationalNumber}`, CONSUMER_LOCAL_PHONE_PATTERN]
+      : [parsed.number.slice(1), CONSUMER_OVERSEAS_PHONE_PATTERN];
+
+  return pattern.test(phone) ? phone : undefined;
+};
 
 const toConsumerInfo = ({
   email,
   telephone,
 }: OrderResponseDto['customer']): { Email?: string; Phone?: string } => {
-  const parsed = telephone
-    ? parsePhoneNumberFromString(telephone, 'TW')
-    : undefined;
-  const phone = (
-    parsed?.country === 'TW' ? parsed.formatNational() : parsed?.number
-  )?.replace(/\D/g, '');
+  const phone = toConsumerPhone(telephone);
 
   return {
     ...(email &&
       email.length <= CONSUMER_EMAIL_MAX_LENGTH &&
       CONSUMER_EMAIL_PATTERN.test(email) && { Email: email }),
-    ...(phone && CONSUMER_PHONE_PATTERN.test(phone) && { Phone: phone }),
+    ...(phone && { Phone: phone }),
   };
 };
 
