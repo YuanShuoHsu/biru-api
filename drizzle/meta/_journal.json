@@ -1961,6 +1961,13 @@
       "when": 1794495400812,
       "tag": "0279_ingredient_waste",
       "breakpoints": true
+    },
+    {
+      "idx": 280,
+      "version": "7",
+      "when": 1794512040955,
+      "tag": "0280_organization_operating_type",
+      "breakpoints": true
     }
   ]
 }

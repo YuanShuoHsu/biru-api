@@ -1,5 +1,9 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -654,5 +658,84 @@ describe('organization.slug 唯一', () => {
     await insert('first');
 
     await expect(insert('second')).rejects.toThrow(/organization_slug_unique/);
+  });
+});
+
+describe('OrganizationsService 經營型態', () => {
+  let client: PGlite;
+  let service: OrganizationsService;
+  let migrationsBefore: string;
+
+  const insertOrganization = (id: string) =>
+    client.exec(`
+      insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
+        ('${id}', '${id}', '${id}', now(), 'TW', '桃園市', '大園區', '中正東路一段');
+    `);
+
+  beforeAll(async () => {
+    migrationsBefore = await mkdtemp(join(tmpdir(), 'drizzle-'));
+    await cp('./drizzle', migrationsBefore, { recursive: true });
+    const journalPath = join(migrationsBefore, 'meta', '_journal.json');
+    const journal = JSON.parse(await readFile(journalPath, 'utf8')) as {
+      entries: { tag: string }[];
+    };
+    journal.entries = journal.entries.filter(
+      ({ tag }) => tag !== '0280_organization_operating_type',
+    );
+    await writeFile(journalPath, JSON.stringify(journal));
+
+    client = createPGlite();
+    const pglite = drizzle(client, { schema });
+    await migrate(pglite, { migrationsFolder: migrationsBefore });
+    await insertOrganization('existing');
+    await migrate(pglite, { migrationsFolder: './drizzle' });
+    await insertOrganization('created');
+    service = new OrganizationsService(pglite as unknown as DrizzleDB);
+  }, 120_000);
+
+  afterAll(async () => {
+    await client.close();
+    await rm(migrationsBefore, { recursive: true, force: true });
+  });
+
+  it('既有門市在 migration 時設為直營，之後新建的門市為未分類', async () => {
+    await expect(service.operatingType('existing')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+    await expect(service.operatingType('created')).resolves.toEqual({
+      operatingType: 'unclassified',
+    });
+  });
+
+  it('設定後只改到指定門市，再設定一次會覆寫', async () => {
+    await service.setOperatingType('created', 'franchise');
+    await service.setOperatingType('created', 'direct');
+
+    await expect(service.operatingType('created')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+    await expect(service.operatingType('existing')).resolves.toEqual({
+      operatingType: 'direct',
+    });
+  });
+
+  it('經營型態不在公開的門市資料裡', async () => {
+    const [found] = await service.organizations();
+
+    expect(found).not.toHaveProperty('operatingType');
+  });
+
+  it('門市不存在時回 404', async () => {
+    const notFound = {
+      response: { code: 'organizationNotFound' },
+      status: 404,
+    };
+
+    await expect(service.operatingType('missing')).rejects.toMatchObject(
+      notFound,
+    );
+    await expect(
+      service.setOperatingType('missing', 'direct'),
+    ).rejects.toMatchObject(notFound);
   });
 });
