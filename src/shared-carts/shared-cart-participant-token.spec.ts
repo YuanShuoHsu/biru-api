@@ -40,10 +40,10 @@ describe('shared cart participant cookie', () => {
 
   it('names the cookie per store with cookie-safe characters', () => {
     expect(sharedCartParticipantCookie('aB3')).toBe(
-      'biru_shared_cart_participant_YUIz',
+      'biru_shared_cart_participant_v2_YUIz',
     );
     expect(sharedCartParticipantCookie('a b;(c)')).toMatch(
-      /^biru_shared_cart_participant_[A-Za-z0-9_-]+$/,
+      /^biru_shared_cart_participant_v2_[A-Za-z0-9_-]+$/,
     );
     expect(sharedCartParticipantCookie('org-a')).not.toBe(
       sharedCartParticipantCookie('org-b'),
