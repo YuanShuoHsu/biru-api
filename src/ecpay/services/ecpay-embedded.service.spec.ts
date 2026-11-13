@@ -53,9 +53,9 @@ const order = (paymentMethod: string) =>
   }) as never;
 
 const sentRequest = () => {
-  const [url, body] = post.mock.calls[0];
+  const [url, body, options] = post.mock.calls[0];
 
-  return { url, body, data: decrypt(body.Data) };
+  return { url, body, options, data: decrypt(body.Data) };
 };
 
 beforeEach(() => {
@@ -81,10 +81,11 @@ describe('EcpayEmbeddedService.getTokenbyTrade', () => {
       service.getTokenbyTrade(order('Credit'), '碧露訂單'),
     ).resolves.toEqual(token);
 
-    const { url, body, data } = sentRequest();
+    const { url, body, options, data } = sentRequest();
     expect(url).toBe(
       'https://ecpg-stage.ecpay.com.tw/Merchant/GetTokenbyTrade',
     );
+    expect(options).toMatchObject({ timeout: 30_000 });
     expect(body).toMatchObject({
       MerchantID: '3002607',
       RqHeader: { Timestamp: 1735704000 },
@@ -110,17 +111,13 @@ describe('EcpayEmbeddedService.getTokenbyTrade', () => {
   });
 
   it.each([
-    ['ApplePay', '7', {}],
+    ['ApplePay', '7', undefined],
     [
       'TWQR',
       '11',
-      {
-        EPaymentInfo: {
-          OrderResultURL: 'https://api.example.com/api/ecpay/embedded/result',
-        },
-      },
+      { OrderResultURL: 'https://api.example.com/api/ecpay/embedded/result' },
     ],
-  ])('%s 帶 ChoosePaymentList %s', async (method, list, extra) => {
+  ])('%s 帶 ChoosePaymentList %s', async (method, list, ePaymentInfo) => {
     respond(token);
 
     await service.getTokenbyTrade(order(method), '碧露訂單');
@@ -128,7 +125,7 @@ describe('EcpayEmbeddedService.getTokenbyTrade', () => {
     const { data } = sentRequest();
     expect(data.ChoosePaymentList).toBe(list);
     expect(data.CardInfo).toBeUndefined();
-    expect(data).toMatchObject(extra);
+    expect(data.EPaymentInfo).toEqual(ePaymentInfo);
   });
 
   it.each(['Cash', 'Jkopay', 'iPASS', 'WeiXin'])(
@@ -185,6 +182,52 @@ describe('EcpayEmbeddedService.createPayment', () => {
       PayToken: 'pay-token',
       MerchantTradeNo: 'PAY20250101ABCD1234',
     });
+  });
+
+  it('TWQR 回傳 TWQRlInfo', async () => {
+    const twqr = {
+      QRcode: 'TWQRP://...',
+      RedirectURL: 'https://ecpg-stage.ecpay.com.tw/twqr',
+    };
+    respond({
+      RtnCode: 1,
+      RtnMsg: '成功',
+      OrderInfo: { MerchantTradeNo: 'PAY20250101ABCD1234' },
+      TWQRlInfo: twqr,
+    });
+
+    const result = await service.createPayment(
+      'pay-token',
+      'PAY20250101ABCD1234',
+    );
+
+    expect(result.TWQRlInfo).toEqual(twqr);
+    expect(result.ThreeDInfo).toBeUndefined();
+  });
+
+  it('TransCode 非 1 時拋出 TransMsg', async () => {
+    respond({}, 999, 'Fail');
+
+    await expect(
+      service.createPayment('pay-token', 'PAY20250101ABCD1234'),
+    ).rejects.toMatchObject({ name: 'EcpayRejectedError', message: 'Fail' });
+  });
+
+  it('正式環境打 ecpg.ecpay.com.tw', async () => {
+    const production = new EcpayEmbeddedService(
+      {
+        getOrThrow: (key: string) =>
+          key === 'ECPAY_OPERATION_MODE' ? 'Production' : config[key],
+      } as unknown as ConfigService,
+      { post } as unknown as HttpService,
+    );
+    respond({ RtnCode: 1, RtnMsg: '成功', OrderInfo: {} });
+
+    await production.createPayment('pay-token', 'PAY20250101ABCD1234');
+
+    expect(sentRequest().url).toBe(
+      'https://ecpg.ecpay.com.tw/Merchant/CreatePayment',
+    );
   });
 
   it('RtnCode 非 1 時拋出 RtnMsg', async () => {

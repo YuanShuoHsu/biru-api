@@ -9,9 +9,12 @@ import { ECPAY_PAYMENT_ROUTES } from '../ecpay-payment-routes.js';
 
 import { EcpayMode } from '../types/ecpay.types.js';
 
-import { SERVING_TEMPERATURE_LEVEL_NAMES } from '../../common/constants/serving-temperature.js';
-import { SWEETNESS_LEVEL_NAMES } from '../../common/constants/sweetness.js';
-import { sumOrderItems } from '../../common/utils/order-items.js';
+import {
+  toEcpayTradeDate,
+  toEcpayTradeFields,
+  truncate,
+} from '../utils/ecpay.js';
+
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto.js';
 
 import { Injectable } from '@nestjs/common';
@@ -23,71 +26,7 @@ const getEcpayBaseApiUrl = (mode: EcpayMode): string => {
     : 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5';
 };
 
-const ITEM_NAME_MAX_LENGTH = 400;
-const TRADE_DESC_MAX_LENGTH = 200;
 const REMARK_MAX_LENGTH = 100;
-
-const truncate = (value: string, maxLength: number): string =>
-  [...value].slice(0, maxLength).join('');
-
-const sanitize = (value: string): string =>
-  // eslint-disable-next-line no-control-regex
-  value.replace(/[#\u0000-\u001F]/g, ' ').trim();
-
-const truncateItemName = (value: string): string => {
-  const truncated = truncate(value, ITEM_NAME_MAX_LENGTH);
-  if (truncated === value) return truncated;
-
-  const lastSeparator = truncated.lastIndexOf('#');
-
-  return lastSeparator > 0 ? truncated.slice(0, lastSeparator) : truncated;
-};
-
-const buildItemName = (items: OrderResponseDto['items']): string =>
-  items
-    .map(
-      ({
-        addOns,
-        menuItemName,
-        modifiers,
-        orderQuantity,
-        servingTemperatureLevel,
-        sweetnessLevel,
-      }) => {
-        const choices = [
-          ...(servingTemperatureLevel
-            ? [SERVING_TEMPERATURE_LEVEL_NAMES[servingTemperatureLevel]]
-            : []),
-          ...(sweetnessLevel ? [SWEETNESS_LEVEL_NAMES[sweetnessLevel]] : []),
-          ...(modifiers ?? []).map(({ modifierName }) => modifierName),
-          ...(addOns ?? []).map(({ menuItemName: name }) => name),
-        ]
-          .map(sanitize)
-          .filter(Boolean);
-
-        const suffix = choices.length ? `(${choices.join('/')})` : '';
-
-        return `${sanitize(menuItemName)}${suffix} x${orderQuantity}`;
-      },
-    )
-    .join('#');
-
-export const toEcpayTradeFields = (
-  order: Pick<OrderResponseDto, 'discount' | 'items'>,
-  tradeDesc: string,
-) => ({
-  ItemName: truncateItemName(buildItemName(order.items)),
-  TotalAmount:
-    Math.round(sumOrderItems(order.items)) -
-    Math.round(Number(order.discount || 0)),
-  TradeDesc: truncate(sanitize(tradeDesc), TRADE_DESC_MAX_LENGTH),
-});
-
-export const toEcpayTradeDate = (): string => {
-  const taipei = new Date(Date.now() + 8 * 60 * 60 * 1000);
-
-  return taipei.toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/');
-};
 
 const toStringRecord = (input: Record<string, any>): Record<string, string> =>
   Object.fromEntries(

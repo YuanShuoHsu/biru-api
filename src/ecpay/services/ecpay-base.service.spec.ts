@@ -104,12 +104,49 @@ describe('EcpayBaseService.aioCheckOutAll', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  const checkout = (paymentMethod: string) =>
-    service.aioCheckOutAll(
+  it.each([
+    [
+      'ApplePay',
+      'ApplePay',
+      undefined,
+      '6FA5A0D81631228502C5475B6BB6856DD694501E9D5DF94A110C801546756EBE',
+    ],
+    [
+      'Credit',
+      'Credit',
+      undefined,
+      '09F54CCFCFDBA77FE9246BB7FCC25338FD7B19FD719E26011F5F064A5E35503E',
+    ],
+    [
+      'TWQR',
+      'TWQR',
+      undefined,
+      '665B5271394A1BDF06C63733533ED3723C92EA8A051F02A1282BF67AE2261714',
+    ],
+    [
+      'WeiXin',
+      'WeiXin',
+      undefined,
+      'E1C0C6298E67F1AB69303CA6255CD29C879D8A55DFEEDBAA8B01D2AED9736BF0',
+    ],
+    [
+      'Jkopay',
+      'DigitalPayment',
+      'Jkopay',
+      '3AEA8E6E36D0DD8D052F6A2FE4E98668F496D833D60FB7581183D48CE6E63AB5',
+    ],
+    [
+      'iPASS',
+      'DigitalPayment',
+      'iPASS',
+      '74A72F182B189EF47469CEE80D4B2BF5B9745472B7AF693AFAF7F50FD7C38D15',
+    ],
+  ])('%s 送出與改版前相同的欄位', (paymentMethod, choosePayment, sub, mac) => {
+    const { fields } = service.aioCheckOutAll(
       {
         confirmationNumber: 'ORD20250101ABCD1234',
-        customer: {},
-        discount: '10',
+        customer: { remark: '' },
+        discount: '10.6',
         items: [
           { menuItemName: '拿鐵', orderQuantity: 2, unitPrice: '60' },
           { menuItemName: '美式', orderQuantity: 1, unitPrice: '50' },
@@ -117,28 +154,26 @@ describe('EcpayBaseService.aioCheckOutAll', () => {
         merchantTradeNo: 'PAY20250101ABCD1234',
         paymentMethod,
       } as never,
-      { Language: undefined, TradeDesc: '碧露#訂單' } as never,
+      { TradeDesc: '碧露#訂單' } as never,
       false,
-    ).fields;
+    );
 
-  it.each([
-    ['ApplePay', 'ApplePay', undefined],
-    ['Credit', 'Credit', undefined],
-    ['TWQR', 'TWQR', undefined],
-    ['WeiXin', 'WeiXin', undefined],
-    ['Jkopay', 'DigitalPayment', 'Jkopay'],
-    ['iPASS', 'DigitalPayment', 'iPASS'],
-  ])('%s 帶 ChoosePayment %s', (paymentMethod, choosePayment, sub) => {
-    const fields = checkout(paymentMethod);
-
-    expect(fields.ChoosePayment).toBe(choosePayment);
-    expect(fields.ChooseSubPayment).toBe(sub);
-    expect(fields).toMatchObject({
+    expect(fields).toEqual({
+      ChoosePayment: choosePayment,
+      ...(sub && { ChooseSubPayment: sub }),
+      CheckMacValue: mac,
+      CustomField1: 'ORD20250101ABCD1234',
+      EncryptType: '1',
       ItemName: '拿鐵 x2#美式 x1',
+      MerchantID: '3002607',
       MerchantTradeDate: '2025/01/01 12:00:00',
-      TotalAmount: '160',
+      MerchantTradeNo: 'PAY20250101ABCD1234',
+      NeedExtraPaidInfo: 'Y',
+      OrderResultURL: 'https://api.example.com/api/ecpay/result',
+      PaymentType: 'aio',
+      ReturnURL: 'https://api.example.com/api/ecpay/return',
+      TotalAmount: '159',
       TradeDesc: '碧露 訂單',
     });
-    expect(service.isCheckMacValueValid(fields)).toBe('1|OK');
   });
 });

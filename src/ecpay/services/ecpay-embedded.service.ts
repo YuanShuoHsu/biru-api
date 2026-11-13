@@ -4,8 +4,6 @@
 
 import { firstValueFrom } from 'rxjs';
 
-import { toEcpayTradeDate, toEcpayTradeFields } from './ecpay-base.service.js';
-
 import { getEcpayMode } from '../ecpay.config.js';
 import {
   ECPAY_PAYMENT_ROUTES,
@@ -19,6 +17,8 @@ import {
   decryptData,
   EcpayRejectedError,
   encryptData,
+  toEcpayTradeDate,
+  toEcpayTradeFields,
 } from '../utils/ecpay.js';
 
 import type { OrderResponseDto } from '../../orders/dto/order-response.dto.js';
@@ -51,6 +51,8 @@ export interface EmbeddedTokenResult extends EmbeddedResult {
 export interface EmbeddedPaymentResult extends EmbeddedResult {
   OrderInfo: { MerchantTradeNo: string; TradeNo?: string };
   ThreeDInfo?: { ThreeDURL: string };
+  TWQRlInfo?: { QRcode: string; RedirectURL: string };
+  UnionPayInfo?: { UnionPayURL: string };
 }
 
 @Injectable()
@@ -102,7 +104,8 @@ export class EcpayEmbeddedService {
             this.hashIV,
           ),
         },
-        { headers: { 'Content-Type': 'application/json' } },
+        // https://developers.ecpay.com.tw/22762/
+        { headers: { 'Content-Type': 'application/json' }, timeout: 30_000 },
       ),
     );
 
