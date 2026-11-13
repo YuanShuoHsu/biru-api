@@ -182,6 +182,13 @@ PR 9 以前舊的分類外鍵都還在，而且都是 cascade：`menu_item.menu_
 - **只有一間**：它的分類、品項、客製群組全部成為品牌項目（`owner_organization_id = null`），`suggested_price` 取該品項的 `offer.price`，`catalog_item.price_specification` 取 `offer.price_specification`，`catalog_modifier.price_adjustment` 取 `modifier.price_adjustment`。
 - **兩間以上**：每間門市的內容各自成為該門市的獨家項目（`owner_organization_id = 該門市`），之後由平台管理員決定哪些升級為品牌項目。
 
+歸屬逐店決定，決定後重跑不變：
+
+- 門市已有搬過的根列（`catalog_section`、`catalog_item`、`catalog_modifier_group` 中 id 對得到該門市來源列的）時沿用它：只要有一列帶 `owner_organization_id` 就是獨家，全部為 null 就是品牌。
+- 門市還沒搬過時，只有它是唯一有菜單內容的門市、而且目錄裡沒有其他門市搬過、來源列仍在的根列，才成為品牌項目；否則成為該門市的獨家項目。
+- 所以第一次只有一間、之後第二間建了菜單再重跑時，第一間的新舊列都維持品牌，第二間成為獨家；第一次就是兩間以上時，之後即使只剩一間有內容也維持獨家。
+- 覆寫已搬過的列時不改 `owner_organization_id`。
+
 逐表對應（id 一律沿用來源列，`created_at`、`updated_at` 一律照抄來源列）：
 
 | 來源                       | 目錄                          | 門市端連結                                                               |

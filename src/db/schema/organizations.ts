@@ -20,6 +20,14 @@ export const memberRoleEnum = pgEnum('member_role', [
 ]);
 export type MemberRole = (typeof memberRoleEnum.enumValues)[number];
 
+export const organizationOperatingTypeEnum = pgEnum('operating_type', [
+  'direct',
+  'franchise',
+  'unclassified',
+]);
+export type OrganizationOperatingType =
+  (typeof organizationOperatingTypeEnum.enumValues)[number];
+
 import { timestamps } from './columns.helpers.js';
 import { user } from './users.js';
 
@@ -101,6 +109,18 @@ export const organizationQrSecret = pgTable('organization_qr_secret', {
   previousSecret: text('previous_secret'),
   rotatedAt: timestamp('rotated_at').notNull().defaultNow(),
 });
+
+// 不放進 organization：那張表整列會被公開查詢回傳。沒有資料列的門市視為 unclassified
+export const organizationOperatingType = pgTable(
+  'organization_operating_type',
+  {
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    operatingType: organizationOperatingTypeEnum('operating_type').notNull(),
+    ...timestamps,
+  },
+);
 
 // 同一門市的區間不可重疊：EXCLUDE 約束手寫在 migration，drizzle schema 表達不出來
 export const organizationSpecialHours = pgTable(

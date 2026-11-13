@@ -2,13 +2,14 @@ import { randomBytes } from 'node:crypto';
 
 import type { Response } from 'express';
 
+import { clearSiteCookie, setSiteCookie } from '../common/utils/cookies.js';
 import { isSameToken, sign } from '../orders/order-qr-token.js';
 
 const SHARED_CART_DEVICE_PURPOSE = 'biru-shared-cart-device-v1';
 const SHARED_CART_SOCKET_PURPOSE = 'biru-shared-cart-socket-v1';
 
 export const sharedCartParticipantCookie = (organizationId: string) =>
-  `biru_shared_cart_participant_${Buffer.from(organizationId).toString('base64url')}`;
+  `biru_shared_cart_participant_v2_${Buffer.from(organizationId).toString('base64url')}`;
 
 export const newSharedCartDeviceKey = () =>
   randomBytes(32).toString('base64url');
@@ -93,19 +94,11 @@ export const verifySharedCartSocketToken = (
     : null;
 };
 
-const cookieOptions = () =>
-  ({
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  }) as const;
-
 // 不設 expires：效期只看資料庫裡群組最後操作的時間，cookie 比群組早過期會讓同一人重複佔位
 export const setSharedCartParticipantCookie = (
   res: Response,
   { name, value }: IssuedSharedCartParticipant,
-) => res.cookie(name, value, cookieOptions());
+) => setSiteCookie(res, name, value);
 
 export const clearSharedCartParticipantCookie = (res: Response, name: string) =>
-  res.clearCookie(name, cookieOptions());
+  clearSiteCookie(res, name);

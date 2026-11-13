@@ -17,6 +17,8 @@ import {
   member,
   Organization,
   organization,
+  OrganizationOperatingType,
+  organizationOperatingType,
   organizationSlugHistory,
 } from '../db/schema/organizations.js';
 import { order } from '../db/schema/orders.js';
@@ -47,6 +49,7 @@ import {
 } from '../common/utils/stats-buckets.js';
 import { isProblemAwaitingRecheck } from '../orders/problem-recheck.js';
 
+import type { OperatingTypeResponseDto } from './dto/operating-type.dto.js';
 import type {
   OrganizationMemberResponseDto,
   OrganizationTeamMemberResponseDto,
@@ -313,6 +316,43 @@ export class OrganizationsService {
     if (!updated) throw organizationNotFoundError();
 
     return updated;
+  }
+
+  async operatingType(
+    organizationId: string,
+  ): Promise<OperatingTypeResponseDto> {
+    const [found] = await this.db
+      .select({ operatingType: organizationOperatingType.operatingType })
+      .from(organization)
+      .leftJoin(
+        organizationOperatingType,
+        eq(organizationOperatingType.organizationId, organization.id),
+      )
+      .where(eq(organization.id, organizationId));
+    if (!found) throw organizationNotFoundError();
+
+    return { operatingType: found.operatingType ?? 'unclassified' };
+  }
+
+  async setOperatingType(
+    organizationId: string,
+    operatingType: OrganizationOperatingType,
+  ): Promise<OperatingTypeResponseDto> {
+    const found = await this.db.query.organization.findFirst({
+      where: eq(organization.id, organizationId),
+      columns: { id: true },
+    });
+    if (!found) throw organizationNotFoundError();
+
+    await this.db
+      .insert(organizationOperatingType)
+      .values({ organizationId, operatingType })
+      .onConflictDoUpdate({
+        target: organizationOperatingType.organizationId,
+        set: { operatingType },
+      });
+
+    return { operatingType };
   }
 
   async myOrganizations(userId: string): Promise<MyOrganizationListItemDto[]> {

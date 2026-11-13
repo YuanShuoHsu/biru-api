@@ -2,6 +2,7 @@ import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 
 import type { Response } from 'express';
 
+import { setSiteCookie } from '../common/utils/cookies.js';
 import type { OrderMode } from '../db/schema/orders.js';
 
 const KEY_BYTES = 32;
@@ -9,7 +10,7 @@ const DINE_IN_TABLE_PURPOSE = 'biru-dine-in-table-v1';
 const ORDER_MODE_PURPOSE = 'biru-order-mode-v1';
 const ORDER_QR_SESSION_PURPOSE = 'biru-order-qr-session-v1';
 
-export const ORDER_QR_SESSION_COOKIE = 'biru_order_qr_session';
+export const ORDER_QR_SESSION_COOKIE = 'biru_order_qr_session_v2';
 
 export const modeTokenOrderModes = [
   'counter',
@@ -135,11 +136,4 @@ export const verifyOrderQrSession = (
 export const setOrderQrSessionCookie = (
   res: Response,
   { session, value }: IssuedOrderQrSession,
-) =>
-  res.cookie(ORDER_QR_SESSION_COOKIE, value, {
-    expires: session.expiresAt,
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+) => setSiteCookie(res, ORDER_QR_SESSION_COOKIE, value, session.expiresAt);

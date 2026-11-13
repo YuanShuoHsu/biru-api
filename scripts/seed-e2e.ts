@@ -62,6 +62,9 @@ async function main() {
         openingHours: 'Mo-Su 00:00-00:00',
       });
       await tx
+        .insert(schema.organizationOperatingType)
+        .values({ organizationId, operatingType: 'direct' });
+      await tx
         .insert(schema.attendanceLeaveType)
         .values(statutoryLeaveTypeSeeds(organizationId));
 

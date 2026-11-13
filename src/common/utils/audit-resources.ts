@@ -39,6 +39,7 @@ import {
   invitation,
   member,
   organization,
+  organizationOperatingType,
   organizationQrSecret,
   organizationSpecialHours,
   team,
@@ -102,6 +103,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
   offer,
+  operatingType: organizationOperatingType,
   orderItem,
   orderQrSecret: organizationQrSecret,
   printer,
@@ -113,6 +115,7 @@ export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
 };
 
 export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
+  operatingType: 'organizationId',
   orderQrSecret: 'organizationId',
   storeLayout: 'organizationId',
   waitlistSetting: 'organizationId',

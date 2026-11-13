@@ -42,7 +42,7 @@ describe('BannerPaginationQueryDto', () => {
     [{ offset: '-1' }, 'offset'],
     [{ filterOperator: 'like' }, 'filterOperator'],
     [{ sortDirection: 'up' }, 'sortDirection'],
-    [{ filterField: 'alt' }, 'filterField'],
+    [{ filterField: 'url' }, 'filterField'],
     [{ sortBy: 'sortOrder' }, 'sortBy'],
   ])('rejects %j', async (query, property) => {
     expect(await invalidProperties(query)).toEqual([property]);

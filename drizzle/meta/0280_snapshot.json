@@ -1,5 +1,5 @@
 {
-  "id": "d4a22a74-971f-47da-9f59-bc3445a41732",
+  "id": "a812c2f7-83db-4cc9-bca0-88e75df6451a",
   "prevId": "43295cfa-64dd-43ea-927b-4894d31346ed",
   "version": "7",
   "dialect": "postgresql",
@@ -2116,12 +2116,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "missing_clock_out_reminded_at": {
-          "name": "missing_clock_out_reminded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -7872,6 +7866,60 @@
       },
       "isRLSEnabled": false
     },
+    "public.organization_operating_type": {
+      "name": "organization_operating_type",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "operating_type": {
+          "name": "operating_type",
+          "type": "operating_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "organization_operating_type_organization_id_organization_id_fk": {
+          "name": "organization_operating_type_organization_id_organization_id_fk",
+          "tableFrom": "organization_operating_type",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.organization_qr_secret": {
       "name": "organization_qr_secret",
       "schema": "",
@@ -13457,6 +13505,15 @@
         "admin",
         "member",
         "owner"
+      ]
+    },
+    "public.operating_type": {
+      "name": "operating_type",
+      "schema": "public",
+      "values": [
+        "direct",
+        "franchise",
+        "unclassified"
       ]
     },
     "public.point_transaction_type": {

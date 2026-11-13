@@ -18,6 +18,10 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
+
+import { toLanguage } from '../common/utils/language.js';
+import { localizedTextSql } from '../common/utils/localized-text.js';
 import { startDeletedRecordBatch } from '../deleted-records/request-batch.js';
 import { banner } from '../db/schema/banners.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
@@ -32,6 +36,7 @@ import {
 
 import {
   buildFilterCondition,
+  buildLocalizedTextFilterCondition,
   buildQuickFilterCondition,
   escapeLike,
   localTimeText,
@@ -41,6 +46,7 @@ import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
   BANNER_DATE_FILTER_FIELDS,
   BANNER_ENUM_FILTER_FIELDS,
+  BANNER_STRING_FILTER_FIELDS,
   type BannerPaginationQueryDto,
 } from './dto/banner-pagination-query.dto.js';
 import { badRequestError, notFoundError } from './banner-errors.js';
@@ -110,27 +116,47 @@ export class BannersService {
 
     const dir = sortDirection === 'desc' ? desc : asc;
     const orderBy = sortBy
-      ? [dir(bannerFieldMap[sortBy]), asc(banner.createdAt), asc(banner.id)]
+      ? [
+          dir(
+            sortBy === 'alt'
+              ? localizedTextSql(
+                  banner.alt,
+                  toLanguage(I18nContext.current()?.lang),
+                )
+              : bannerFieldMap[sortBy],
+          ),
+          asc(banner.createdAt),
+          asc(banner.id),
+        ]
       : [asc(banner.sortOrder), asc(banner.createdAt), asc(banner.id)];
 
     const where = and(
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
+      filterField === 'alt' && filterOperator
+        ? buildLocalizedTextFilterCondition(
+            banner.alt,
             filterOperator,
             filterValue,
-            bannerFieldMap,
-            [],
-            BANNER_DATE_FILTER_FIELDS,
-            BANNER_ENUM_FILTER_FIELDS,
           )
-        : undefined,
+        : filterField && filterOperator
+          ? buildFilterCondition(
+              filterField,
+              filterOperator,
+              filterValue,
+              bannerFieldMap,
+              BANNER_STRING_FILTER_FIELDS,
+              BANNER_DATE_FILTER_FIELDS,
+              BANNER_ENUM_FILTER_FIELDS,
+            )
+          : undefined,
       buildQuickFilterCondition({
         enumFields: BANNER_ENUM_FILTER_FIELDS,
         fieldMap: bannerFieldMap,
         quickFilterEnums,
         quickFilterValue,
         textConditions: (value) => [
+          buildLocalizedTextFilterCondition(banner.alt, 'contains', value),
+          ilike(localTimeText(banner.startsAt), `%${escapeLike(value)}%`),
+          ilike(localTimeText(banner.endsAt), `%${escapeLike(value)}%`),
           ilike(localTimeText(banner.createdAt), `%${escapeLike(value)}%`),
           ilike(localTimeText(banner.updatedAt), `%${escapeLike(value)}%`),
         ],
