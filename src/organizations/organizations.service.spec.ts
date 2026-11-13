@@ -679,8 +679,11 @@ describe('OrganizationsService 經營型態', () => {
     const journal = JSON.parse(await readFile(journalPath, 'utf8')) as {
       entries: { tag: string }[];
     };
-    journal.entries = journal.entries.filter(
-      ({ tag }) => tag !== '0280_organization_operating_type',
+    journal.entries = journal.entries.slice(
+      0,
+      journal.entries.findIndex(
+        ({ tag }) => tag === '0280_organization_operating_type',
+      ),
     );
     await writeFile(journalPath, JSON.stringify(journal));
 
