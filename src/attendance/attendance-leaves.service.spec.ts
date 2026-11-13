@@ -44,3 +44,34 @@ describe('pageInMemory', () => {
     },
   );
 });
+
+describe('pageInMemory 排序', () => {
+  const tied = [
+    { id: 'b', name: 'Amy' },
+    { id: 'a', name: 'Amy' },
+    { id: 'c', name: 'Bob' },
+  ];
+  const page = (input: typeof tied, sortBy?: string) =>
+    pageInMemory(
+      input,
+      { sortBy, sortDirection: 'desc', limit: 2 },
+      {
+        defaultSort: (first, second) => first.name.localeCompare(second.name),
+        stringFields: ['name'],
+        dateFields: [],
+        enumFields: [],
+        numberFields: [],
+        textFields: [],
+      },
+    ).data.map(({ id }) => id);
+
+  it('預設排序同值時依 id 排，與輸入順序無關', () => {
+    expect(page(tied)).toEqual(['a', 'b']);
+    expect(page([...tied].reverse())).toEqual(['a', 'b']);
+  });
+
+  it('指定排序同值時依預設排序再依 id 排', () => {
+    expect(page(tied, 'name')).toEqual(['c', 'a']);
+    expect(page([...tied].reverse(), 'name')).toEqual(['c', 'a']);
+  });
+});
