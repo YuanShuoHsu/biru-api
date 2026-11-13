@@ -7,7 +7,7 @@ import { decodeUrlEncoded, decryptData, encryptData } from '../utils/ecpay.js';
 import type { HttpService } from '@nestjs/axios';
 import type { ConfigService } from '@nestjs/config';
 
-// https://developers.ecpay.com.tw/22867/
+// https://developers.ecpay.com.tw/8981/
 const config: Record<string, string> = {
   ECPAY_BASE_HASH_IV: 'EkRm7iFT261dpevs',
   ECPAY_BASE_HASH_KEY: 'pwFHCqoQZGmho4w6',
@@ -43,9 +43,17 @@ const respond = (data: unknown, transCode = 1, transMsg = '') =>
     }),
   );
 
-const order = (paymentMethod: string) =>
+const order = (
+  paymentMethod: string,
+  customer: Record<string, string> = {
+    email: 'amy@example.com',
+    name: 'Amy',
+    telephone: '+886912345678',
+  },
+) =>
   ({
     confirmationNumber: 'ORD20250101ABCD1234',
+    customer,
     discount: '10',
     items: [{ menuItemName: '拿鐵', orderQuantity: 2, unitPrice: '60' }],
     merchantTradeNo: 'PAY20250101ABCD1234',
@@ -106,8 +114,41 @@ describe('EcpayEmbeddedService.getTokenbyTrade', () => {
       CardInfo: {
         OrderResultURL: 'https://api.example.com/api/ecpay/embedded/result',
       },
+      ConsumerInfo: { Email: 'amy@example.com', Phone: '0912345678' },
       CustomField: 'ORD20250101ABCD1234',
     });
+  });
+
+  it.each([
+    [{ name: 'Amy', telephone: '+81312345678' }, { Phone: '81312345678' }],
+    [
+      {
+        email: 'amy@example.photography',
+        name: 'Amy',
+        telephone: '0912345678',
+      },
+      { Phone: '0912345678' },
+    ],
+    [
+      { email: 'amy@example.com', name: 'Amy', telephone: '123' },
+      { Email: 'amy@example.com' },
+    ],
+  ])(
+    'ConsumerInfo 只帶符合綠界格式的 Email 與 Phone',
+    async (customer, info) => {
+      respond(token);
+
+      await service.getTokenbyTrade(order('Credit', customer), '碧露訂單');
+
+      expect(sentRequest().data.ConsumerInfo).toEqual(info);
+    },
+  );
+
+  it('沒有可用的 Email 或 Phone 時不送出', async () => {
+    await expect(
+      service.getTokenbyTrade(order('Credit', { name: 'Amy' }), '碧露訂單'),
+    ).rejects.toThrow();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it.each([

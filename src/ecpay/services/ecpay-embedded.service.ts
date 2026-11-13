@@ -1,7 +1,8 @@
-// https://developers.ecpay.com.tw/22752/
-// https://developers.ecpay.com.tw/22762/
-// https://developers.ecpay.com.tw/23004/
+// https://developers.ecpay.com.tw/9040/
+// https://developers.ecpay.com.tw/9053/
+// https://developers.ecpay.com.tw/9103/
 
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { firstValueFrom } from 'rxjs';
 
 import { getEcpayMode } from '../ecpay.config.js';
@@ -31,6 +32,30 @@ const getEcpayEmbeddedApiUrl = (mode: EcpayMode): string =>
   mode === 'Test'
     ? 'https://ecpg-stage.ecpay.com.tw/Merchant/'
     : 'https://ecpg.ecpay.com.tw/Merchant/';
+
+const CONSUMER_EMAIL_PATTERN =
+  /^[a-zA-Z\d._%+-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,6}$/;
+const CONSUMER_EMAIL_MAX_LENGTH = 100;
+const CONSUMER_PHONE_PATTERN = /^(0[89]\d{8}|\d{10,20})$/;
+
+const toConsumerInfo = ({
+  email,
+  telephone,
+}: OrderResponseDto['customer']): { Email?: string; Phone?: string } => {
+  const parsed = telephone
+    ? parsePhoneNumberFromString(telephone, 'TW')
+    : undefined;
+  const phone = (
+    parsed?.country === 'TW' ? parsed.formatNational() : parsed?.number
+  )?.replace(/\D/g, '');
+
+  return {
+    ...(email &&
+      email.length <= CONSUMER_EMAIL_MAX_LENGTH &&
+      CONSUMER_EMAIL_PATTERN.test(email) && { Email: email }),
+    ...(phone && CONSUMER_PHONE_PATTERN.test(phone) && { Phone: phone }),
+  };
+};
 
 interface EmbeddedEncryptedResponse {
   TransCode: number;
@@ -104,7 +129,7 @@ export class EcpayEmbeddedService {
             this.hashIV,
           ),
         },
-        // https://developers.ecpay.com.tw/22762/
+        // https://developers.ecpay.com.tw/9053/
         { headers: { 'Content-Type': 'application/json' }, timeout: 30_000 },
       ),
     );
@@ -121,7 +146,10 @@ export class EcpayEmbeddedService {
   }
 
   async getTokenbyTrade(
-    order: Pick<OrderResponseDto, 'discount' | 'items' | 'paymentMethod'> & {
+    order: Pick<
+      OrderResponseDto,
+      'customer' | 'discount' | 'items' | 'paymentMethod'
+    > & {
       confirmationNumber: string;
       merchantTradeNo: string;
     },
@@ -133,6 +161,10 @@ export class EcpayEmbeddedService {
 
     const { choosePaymentList } = ECPAY_PAYMENT_ROUTES[paymentMethod];
     const resultUrl = { OrderResultURL: this.orderResultUrl };
+
+    const consumerInfo = toConsumerInfo(order.customer);
+    if (!consumerInfo.Email && !consumerInfo.Phone)
+      throw new Error('embedded checkout needs a customer email or phone');
 
     return this.post<EmbeddedTokenResult>('GetTokenbyTrade', {
       RememberCard: 0,
@@ -146,6 +178,7 @@ export class EcpayEmbeddedService {
       },
       ...(paymentMethod === 'Credit' && { CardInfo: resultUrl }),
       ...(paymentMethod === 'TWQR' && { EPaymentInfo: resultUrl }),
+      ConsumerInfo: consumerInfo,
       CustomField: order.confirmationNumber,
     });
   }

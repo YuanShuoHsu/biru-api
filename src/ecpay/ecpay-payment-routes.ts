@@ -3,7 +3,7 @@ import type { PaymentMethod } from '../db/schema/orders.js';
 type AioChoosePayment =
   'ApplePay' | 'Credit' | 'DigitalPayment' | 'TWQR' | 'WeiXin';
 
-// https://developers.ecpay.com.tw/22752/
+// https://developers.ecpay.com.tw/9040/
 type EmbeddedChoosePaymentList = '1' | '7' | '11';
 
 type EcpayPaymentRoute =
