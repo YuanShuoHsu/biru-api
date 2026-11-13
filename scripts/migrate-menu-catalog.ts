@@ -259,47 +259,31 @@ async function main() {
     WHERE EXISTS (SELECT 1 FROM menu_section WHERE menu_id = m.id)
        OR EXISTS (SELECT 1 FROM menu_item WHERE menu_id = m.id)
     ORDER BY m.created_at, m.id`);
-  const rule = stores.length === 1 ? 'brand' : 'store-exclusive';
-  const { rows: owners } = await db.execute<{
-    brand: boolean | null;
-    exclusive: boolean | null;
+  const { rows: migrated } = await db.execute<{
+    menuId: string;
+    exclusive: boolean;
   }>(sql`
-    SELECT bool_or(owner_organization_id IS NULL) AS brand,
-      bool_or(owner_organization_id IS NOT NULL) AS exclusive
+    SELECT menu_id AS "menuId", bool_or(owner_organization_id IS NOT NULL) AS exclusive
     FROM (
-      SELECT c.owner_organization_id FROM catalog_section c JOIN menu_section s ON s.id = c.id
+      SELECT s.menu_id, c.owner_organization_id FROM catalog_section c JOIN menu_section s ON s.id = c.id
       UNION ALL
-      SELECT c.owner_organization_id FROM catalog_item c JOIN menu_item s ON s.id = c.id
+      SELECT s.menu_id, c.owner_organization_id FROM catalog_item c JOIN menu_item s ON s.id = c.id
       UNION ALL
-      SELECT c.owner_organization_id FROM catalog_modifier_group c JOIN modifier_group s ON s.id = c.id
-    ) migrated`);
-  const migratedRule = owners[0].exclusive
-    ? 'store-exclusive'
-    : owners[0].brand
-      ? 'brand'
-      : null;
-  console.log(
-    `${stores.length} stores with menu content: ${rule} items${migratedRule ? `; already migrated as ${migratedRule} items` : ''}`,
-  );
-  printIds(
-    'stores',
-    stores.map((store) => store.slug),
-  );
-  if (migratedRule && migratedRule !== rule) {
-    throw new Error(
-      `Refusing to migrate: the catalog already holds ${migratedRule} items migrated from these menus, but with ${stores.length} stores the new rows would be ${rule} items.`,
-    );
-  }
+      SELECT s.menu_id, c.owner_organization_id FROM catalog_modifier_group c JOIN modifier_group s ON s.id = c.id
+    ) migrated
+    GROUP BY menu_id`);
+  console.log(`${stores.length} stores with menu content`);
 
   for (const store of stores) {
-    console.log(`${store.slug} (${store.organizationId}):`);
+    const exclusive =
+      migrated.find((row) => row.menuId === store.menuId)?.exclusive ??
+      (stores.length > 1 || migrated.length > 0);
+    console.log(
+      `${store.slug} (${store.organizationId}): ${exclusive ? 'store-exclusive' : 'brand'} items`,
+    );
     await db.transaction(
       (tx) =>
-        migrateStore(
-          tx,
-          store.menuId,
-          rule === 'brand' ? null : store.organizationId,
-        ),
+        migrateStore(tx, store.menuId, exclusive ? store.organizationId : null),
       {
         isolationLevel: 'repeatable read',
         accessMode: apply ? 'read write' : 'read only',
