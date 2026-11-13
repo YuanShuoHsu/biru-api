@@ -116,6 +116,45 @@ describe('登記食材報廢', () => {
     ).toBe(1);
   });
 
+  it('流水帳可依報廢原因篩選與排序', async () => {
+    await service.waste('milk', { quantity: '1', wasteReason: 'spilled' });
+    await service.waste('milk', { quantity: '2', wasteReason: 'expired' });
+
+    const filtered = await service.findAll('milk', {
+      filterField: 'wasteReason',
+      filterOperator: 'is',
+      filterValue: 'spilled',
+    });
+    expect(filtered.data.map(({ quantity }) => quantity)).toEqual(['-1.000']);
+    expect(filtered.total).toBe(1);
+
+    const sorted = await service.findAll('milk', {
+      sortBy: 'wasteReason',
+      sortDirection: 'asc',
+    });
+    expect(sorted.data.map(({ wasteReason }) => wasteReason)).toEqual([
+      'expired',
+      'spilled',
+    ]);
+
+    expect(
+      (
+        await service.findAll('milk', {
+          quickFilterEnums: ['wasteReason:expired'],
+        })
+      ).total,
+    ).toBe(1);
+    expect(
+      (
+        await service.findAll('milk', {
+          filterField: 'wasteReason',
+          filterOperator: 'is',
+          filterValue: 'unknown',
+        })
+      ).total,
+    ).toBe(0);
+  });
+
   it('報廢量超過帳上庫存時以 wasteExceedsStock 擋下且不寫入異動', async () => {
     const response = await responseOf(
       service.waste('milk', { quantity: '2000.001', wasteReason: 'spilled' }),

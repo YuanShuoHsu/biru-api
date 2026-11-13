@@ -119,6 +119,7 @@ export class InventoryTransactionsService {
       unitCost: inventoryTransaction.unitCost,
       note: inventoryTransaction.note,
       reason,
+      wasteReason: sql`${inventoryTransaction.wasteReason}::text`,
       createdAt: inventoryTransaction.createdAt,
     };
 
