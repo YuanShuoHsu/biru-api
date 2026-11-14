@@ -208,6 +208,7 @@
     "sourceRecipeUnitIncompatible": "The recipe's yield unit isn't compatible with the ingredient's stock unit",
     "sourceRecipeYieldMissing": "Set the recipe's yield quantity and unit before using it as an ingredient's source recipe",
     "supplierNotFound": "The supplier wasn't found. It may have been deleted",
+    "unlimitedStockWaste": "Stock isn't deducted for an ingredient with unlimited stock, so waste can't be recorded. Turn off unlimited stock and count the stock first",
     "wasteExceedsStock": "The amount wasted is more than the stock on record. Count the stock first"
   },
   "invoices": {
