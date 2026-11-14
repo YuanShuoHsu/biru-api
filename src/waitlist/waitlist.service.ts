@@ -832,14 +832,19 @@ export class WaitlistService {
           (ticket) => ticket.status === status,
         );
 
-        return status === 'seated'
-          ? statusTickets
+        return isActive(status)
+          ? statusTickets.slice(0, ADMIN_BOARD_COLUMN_LIMIT)
+          : statusTickets
               .sort(
                 (a, b) =>
                   (b.endedAt?.getTime() || 0) - (a.endedAt?.getTime() || 0),
               )
-              .slice(0, ADMIN_BOARD_DONE_COLUMN_LIMIT)
-          : statusTickets.slice(0, ADMIN_BOARD_COLUMN_LIMIT);
+              .slice(
+                0,
+                status === 'seated'
+                  ? ADMIN_BOARD_DONE_COLUMN_LIMIT
+                  : ADMIN_BOARD_COLUMN_LIMIT,
+              );
       },
     );
 
