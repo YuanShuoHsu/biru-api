@@ -3,6 +3,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { TerminusModule } from '@nestjs/terminus';
 
@@ -40,6 +41,17 @@ describe('HealthController', () => {
   afterEach(() => {
     execute.mockReset();
     vi.useRealTimers();
+  });
+
+  it('OpenAPI 文件不帶 Terminus 的回應 schema', () => {
+    const document = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder().build(),
+    );
+
+    expect(JSON.stringify(document.paths['/health'].get)).not.toContain(
+      'schema',
+    );
   });
 
   it('資料庫正常時回 200 與 ok', async () => {
