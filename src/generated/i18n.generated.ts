@@ -186,6 +186,10 @@ export type I18nTranslations = {
             "bannerNotFound": string;
             "scheduleInvalid": string;
         };
+        "checklists": {
+            "checklistItemInvalidRange": string;
+            "checklistTemplateNotFound": string;
+        };
         "coupons": {
             "alreadyClaimed": string;
             "applicableOrganizationNotFound": string;

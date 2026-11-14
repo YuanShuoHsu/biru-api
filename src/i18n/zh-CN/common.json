@@ -132,6 +132,10 @@
     "bannerNotFound": "找不到这则横幅，可能已被删除",
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
+  "checklists": {
+    "checklistItemInvalidRange": "数值项目的下限不能大于上限。",
+    "checklistTemplateNotFound": "找不到这份检查表模板，可能已被删除。"
+  },
   "coupons": {
     "alreadyClaimed": "您已领取过此优惠券",
     "applicableOrganizationNotFound": "找不到部分所选店家，可能已被删除",
