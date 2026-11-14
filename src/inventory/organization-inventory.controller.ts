@@ -15,6 +15,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 import { IdsDto } from '../common/dto/ids.dto.js';
@@ -86,8 +87,9 @@ export class OrganizationInventoryController {
   createIngredient(
     @OrganizationId() organizationId: string,
     @Body() dto: CreateIngredientDto,
+    @Session() session: UserSession,
   ): Promise<IngredientResponseDto> {
-    return this.ingredientsService.create(organizationId, dto);
+    return this.ingredientsService.create(organizationId, dto, session.user.id);
   }
 
   @Post('ingredients/:ingredientId/batches')
@@ -99,12 +101,14 @@ export class OrganizationInventoryController {
     @Param('ingredientId') ingredientId: string,
     @Body() dto: CreateIngredientBatchDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+    @Session() session: UserSession,
   ): Promise<InventoryTransactionResponseDto> {
     return this.inventoryTransactionsService.produceBatch(
       organizationId,
       ingredientId,
       dto,
       canReadPurchasing,
+      session.user.id,
     );
   }
 
@@ -115,11 +119,13 @@ export class OrganizationInventoryController {
     @OrganizationId() organizationId: string,
     @Body() dto: CreateProductWasteDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+    @Session() session: UserSession,
   ): Promise<InventoryTransactionResponseDto[]> {
     return this.inventoryTransactionsService.wasteProduct(
       organizationId,
       dto,
       canReadPurchasing,
+      session.user.id,
     );
   }
 

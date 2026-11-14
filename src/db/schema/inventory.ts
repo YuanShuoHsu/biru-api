@@ -118,6 +118,7 @@ export const inventoryTransaction = pgTable(
   'inventory_transaction',
   {
     id: text('id').primaryKey(),
+    createdBy: text('created_by'),
     productionBatchId: text('production_batch_id'),
     ingredientId: text('ingredient_id')
       .notNull()

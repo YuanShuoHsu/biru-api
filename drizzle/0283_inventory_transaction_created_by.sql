@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_transaction" ADD COLUMN "created_by" text;

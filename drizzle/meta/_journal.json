@@ -1982,6 +1982,13 @@
       "when": 1794595061210,
       "tag": "0282_point_transaction_expires_at_index",
       "breakpoints": true
+    },
+    {
+      "idx": 283,
+      "version": "7",
+      "when": 1794673253529,
+      "tag": "0283_inventory_transaction_created_by",
+      "breakpoints": true
     }
   ]
 }

@@ -228,13 +228,14 @@ export class InventoryTransactionsService {
     dto: CreateInventoryTransactionDto,
     {
       canReadPurchasing = true,
+      createdBy,
       tx,
-    }: { canReadPurchasing?: boolean; tx?: Tx } = {},
+    }: { canReadPurchasing?: boolean; createdBy?: string; tx?: Tx } = {},
   ): Promise<InventoryTransactionResponseDto> {
     const created = tx
-      ? await this.write(ingredientId, dto, tx)
+      ? await this.write(ingredientId, dto, tx, createdBy)
       : await this.db.transaction((opened) =>
-          this.write(ingredientId, dto, opened),
+          this.write(ingredientId, dto, opened, createdBy),
         );
 
     const { unitCost, ...rest } = created;
@@ -246,6 +247,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     dto: CreateInventoryTransactionDto,
     tx: Tx,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const [found] = await tx
       .select({
@@ -266,6 +268,7 @@ export class InventoryTransactionsService {
       .insert(inventoryTransaction)
       .values({
         id: randomUUID(),
+        createdBy,
         ingredientId,
         note: dto.note,
         organizationId: found.organizationId,
@@ -289,6 +292,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     { note, quantity }: CreateIngredientBatchDto,
     canReadPurchasing = true,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const { batch, balance, lowStock } = await this.db.transaction(
       async (tx) => {
@@ -386,7 +390,12 @@ export class InventoryTransactionsService {
               unitCost: target.unitPrice?.toString() ?? null,
             },
           ],
-          { productionBatchId: randomUUID(), note, organizationId },
+          {
+            createdBy,
+            productionBatchId: randomUUID(),
+            note,
+            organizationId,
+          },
           tx,
         );
 
@@ -424,6 +433,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     { note, quantity, wasteReason }: CreateIngredientWasteDto,
     canReadPurchasing = true,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const { wasted, balance, lowStock, organizationId } =
       await this.db.transaction(async (tx) => {
@@ -463,7 +473,12 @@ export class InventoryTransactionsService {
               unitCost: found.unitPrice?.toString() ?? null,
             },
           ],
-          { note, organizationId: found.organizationId, wasteReason },
+          {
+            createdBy,
+            note,
+            organizationId: found.organizationId,
+            wasteReason,
+          },
           tx,
         );
 
@@ -507,6 +522,7 @@ export class InventoryTransactionsService {
       wasteReason,
     }: CreateProductWasteDto,
     canReadPurchasing = true,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto[]> {
     const { wasted, balances, lowStock } = await this.db.transaction(
       async (tx) => {
@@ -588,6 +604,7 @@ export class InventoryTransactionsService {
                 ?.unitPrice?.toString() ?? null,
           })),
           {
+            createdBy,
             note,
             organizationId,
             wasteBatchId: randomUUID(),
@@ -939,6 +956,7 @@ export class InventoryTransactionsService {
       unitCost?: string | null;
     }[],
     {
+      createdBy,
       productionBatchId,
       sourceByIngredientId,
       note,
@@ -949,6 +967,7 @@ export class InventoryTransactionsService {
       wasteReason,
       wasteServings,
     }: {
+      createdBy?: string;
       productionBatchId?: string;
       sourceByIngredientId?: Map<string, StockSource>;
       note?: string | null;
@@ -1000,6 +1019,7 @@ export class InventoryTransactionsService {
       .values(
         entries.map(({ ingredientId, quantity, unitCost }) => ({
           id: randomUUID(),
+          createdBy,
           productionBatchId,
           ingredientId,
           note,

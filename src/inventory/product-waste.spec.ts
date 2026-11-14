@@ -261,6 +261,20 @@ describe('依食譜登記成品報廢', () => {
     });
   });
 
+  it('記下登記報廢的使用者', async () => {
+    const created = await service.wasteProduct(
+      ORG,
+      { menuItemId: LATTE, servings: 1, wasteReason: 'spilled' },
+      true,
+      'staff',
+    );
+
+    expect(created.map(({ createdBy }) => createdBy)).toEqual([
+      'staff',
+      'staff',
+    ]);
+  });
+
   it('沒有採購權限時不回傳進價', async () => {
     const created = await service.wasteProduct(
       ORG,

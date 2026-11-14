@@ -116,6 +116,19 @@ describe('登記食材報廢', () => {
     ).toBe(1);
   });
 
+  it('記下登記報廢的使用者，流水帳一併回傳', async () => {
+    const created = await service.waste(
+      'milk',
+      { quantity: '1', wasteReason: 'spilled' },
+      true,
+      'staff',
+    );
+    const { data } = await service.findAll('milk', {});
+
+    expect(created.createdBy).toBe('staff');
+    expect(data.map(({ createdBy }) => createdBy)).toEqual(['staff']);
+  });
+
   it('流水帳可依報廢原因篩選與排序', async () => {
     await service.waste('milk', { quantity: '1', wasteReason: 'spilled' });
     await service.waste('milk', { quantity: '2', wasteReason: 'expired' });

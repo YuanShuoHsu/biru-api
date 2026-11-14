@@ -46,6 +46,12 @@ export class InventoryTransactionResponseDto {
   @ApiPropertyOptional() orderId: string | null;
   @ApiPropertyOptional() orderNumber: string | null;
   @ApiPropertyOptional() note: string | null;
+  @ApiPropertyOptional({
+    description: '登記這筆異動的使用者；訂單扣料與還原沒有操作者',
+    nullable: true,
+    type: String,
+  })
+  createdBy: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

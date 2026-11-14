@@ -321,6 +321,10 @@ stock non-negative: placing an order uses `enforceStock`, and counts and opening
 the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
 orders, and don't accept negative counts.
 
+`inventory_transaction.created_by` is the user who recorded a count, batch or waste (`session.user.id`, passed down from the
+controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —
+product waste carries no `@Audit`, so this column is its only record of who did it.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
