@@ -84,6 +84,7 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | ReportsModule        | `src/reports/`         | Sales and inventory reports and their CSV exports                                                      |
 | PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
 | HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
+| ChecklistsModule     | `src/checklists/`      | 例行檢查表: per-store checklist templates and their runs                                               |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -114,6 +115,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
+- `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
 - `quant.ts` — `quantBot` and the other `quant*` tables

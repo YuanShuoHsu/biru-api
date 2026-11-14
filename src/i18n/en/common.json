@@ -132,6 +132,10 @@
     "bannerNotFound": "The banner wasn't found. It may have been deleted",
     "scheduleInvalid": "The start time must be earlier than the end time"
   },
+  "checklists": {
+    "checklistItemInvalidRange": "The minimum of a number item can't be greater than its maximum.",
+    "checklistTemplateNotFound": "The checklist template wasn't found. It may have been deleted."
+  },
   "coupons": {
     "alreadyClaimed": "You have already claimed this coupon",
     "applicableOrganizationNotFound": "One of the selected stores wasn't found. It may have been deleted",

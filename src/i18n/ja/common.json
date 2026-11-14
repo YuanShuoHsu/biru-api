@@ -132,6 +132,10 @@
     "bannerNotFound": "バナーが見つかりません。削除された可能性があります",
     "scheduleInvalid": "開始日時は終了日時より前にしてください"
   },
+  "checklists": {
+    "checklistItemInvalidRange": "数値項目の下限は上限を超えられません。",
+    "checklistTemplateNotFound": "チェックリストのテンプレートが見つかりません。削除された可能性があります。"
+  },
   "coupons": {
     "alreadyClaimed": "このクーポンはすでに受け取り済みです",
     "applicableOrganizationNotFound": "選択した店舗の一部が見つかりません。削除された可能性があります",

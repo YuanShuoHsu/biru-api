@@ -16,6 +16,10 @@ import {
   catalogModifierGroup,
   catalogSection,
 } from '../../db/schema/catalog.js';
+import {
+  checklistTemplate,
+  checklistTemplateItem,
+} from '../../db/schema/checklists.js';
 import { coupon, userCoupon } from '../../db/schema/coupons.js';
 import {
   ingredient,
@@ -99,9 +103,11 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   catalogModifier,
   catalogItemModifierGroup,
   catalogItemAddOn,
+  checklistTemplate,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
+  checklistTemplateItem,
   offer,
   operatingType: organizationOperatingType,
   orderItem,

@@ -132,6 +132,10 @@
     "bannerNotFound": "배너를 찾을 수 없습니다. 삭제되었을 수 있습니다",
     "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다"
   },
+  "checklists": {
+    "checklistItemInvalidRange": "숫자 항목의 최솟값은 최댓값보다 클 수 없습니다.",
+    "checklistTemplateNotFound": "체크리스트 템플릿을 찾을 수 없습니다. 삭제되었을 수 있습니다."
+  },
   "coupons": {
     "alreadyClaimed": "이미 받은 쿠폰입니다",
     "applicableOrganizationNotFound": "선택한 매장 중 일부를 찾을 수 없습니다. 삭제되었을 수 있습니다",
