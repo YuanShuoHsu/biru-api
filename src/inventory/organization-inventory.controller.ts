@@ -26,6 +26,7 @@ import { ReorderDto } from '../menus/dto/reorder.dto.js';
 
 import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateIngredientDto } from './dto/create-ingredient.dto.js';
+import { CreateProductWasteDto } from './dto/create-product-waste.dto.js';
 import { CreateRecipeDto } from './dto/create-recipe.dto.js';
 import { CreateSupplierDto } from './dto/create-supplier.dto.js';
 import { IngredientPaginationQueryDto } from './dto/ingredient-pagination-query.dto.js';
@@ -102,6 +103,21 @@ export class OrganizationInventoryController {
     return this.inventoryTransactionsService.produceBatch(
       organizationId,
       ingredientId,
+      dto,
+      canReadPurchasing,
+    );
+  }
+
+  @Post('inventory/waste')
+  @Roles({ inventoryTransaction: ['create'] }, 'organizationSlug')
+  @ApiOperation({ summary: '依食譜登記成品報廢' })
+  createProductWaste(
+    @OrganizationId() organizationId: string,
+    @Body() dto: CreateProductWasteDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+  ): Promise<InventoryTransactionResponseDto[]> {
+    return this.inventoryTransactionsService.wasteProduct(
+      organizationId,
       dto,
       canReadPurchasing,
     );
