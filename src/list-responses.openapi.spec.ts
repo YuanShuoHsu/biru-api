@@ -164,4 +164,17 @@ describe('list endpoints OpenAPI', () => {
       });
     },
   );
+
+  it.each(['StorePhotoResponseDto', 'CreateStorePhotoDto'])(
+    '%s documents alt as LocalizedTextDto',
+    (schema) => {
+      const { properties } = document.components?.schemas?.[schema] as {
+        properties: Record<string, unknown>;
+      };
+
+      expect(JSON.stringify(properties.alt)).toContain(
+        '"$ref":"#/components/schemas/LocalizedTextDto"',
+      );
+    },
+  );
 });
