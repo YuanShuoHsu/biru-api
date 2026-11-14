@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
@@ -49,7 +49,7 @@ export class ChecklistTemplatesService {
         organizationId,
         sortOrder: sql`(select coalesce(max(${checklistTemplate.sortOrder}) + 1, 0) from ${checklistTemplate} where ${checklistTemplate.organizationId} = ${organizationId})`,
       });
-      await this.replaceItems(tx, id, rows);
+      await this.syncItems(tx, id, rows);
     });
 
     return this.findOne(organizationId, id);
@@ -70,7 +70,7 @@ export class ChecklistTemplatesService {
         .returning({ id: checklistTemplate.id });
       if (!updated) throw notFoundError('checklistTemplateNotFound');
 
-      if (rows) await this.replaceItems(tx, id, rows);
+      if (rows) await this.syncItems(tx, id, rows);
     });
 
     return this.findOne(organizationId, id);
@@ -119,7 +119,7 @@ export class ChecklistTemplatesService {
   }
 
   private itemRows(items: ChecklistTemplateItemInputDto[]) {
-    return items.map(({ label, type, unit, minValue, maxValue }, index) => {
+    return items.map(({ id, label, type, unit, minValue, maxValue }, index) => {
       const isNumber = type === 'number';
       const min = isNumber ? (minValue ?? null) : null;
       const max = isNumber ? (maxValue ?? null) : null;
@@ -127,6 +127,7 @@ export class ChecklistTemplatesService {
         throw badRequestError('checklistItemInvalidRange');
 
       return {
+        id,
         label,
         type,
         unit: (isNumber && unit) || null,
@@ -137,17 +138,37 @@ export class ChecklistTemplatesService {
     });
   }
 
-  private async replaceItems(
-    tx: Pick<DrizzleDB, 'delete' | 'insert'>,
+  private async syncItems(
+    tx: Pick<DrizzleDB, 'delete' | 'insert' | 'select' | 'update'>,
     templateId: string,
     rows: ReturnType<ChecklistTemplatesService['itemRows']>,
   ): Promise<void> {
-    await tx
-      .delete(checklistTemplateItem)
+    const existing = await tx
+      .select({ id: checklistTemplateItem.id })
+      .from(checklistTemplateItem)
       .where(eq(checklistTemplateItem.templateId, templateId));
-    if (rows.length)
+    const removed = new Set(existing.map(({ id }) => id));
+
+    for (const { id } of rows)
+      if (id && !removed.delete(id))
+        throw notFoundError('checklistItemNotFound');
+
+    if (removed.size)
+      await tx
+        .delete(checklistTemplateItem)
+        .where(inArray(checklistTemplateItem.id, [...removed]));
+
+    for (const { id, ...row } of rows)
+      if (id)
+        await tx
+          .update(checklistTemplateItem)
+          .set(row)
+          .where(eq(checklistTemplateItem.id, id));
+
+    const added = rows.filter(({ id }) => !id);
+    if (added.length)
       await tx
         .insert(checklistTemplateItem)
-        .values(rows.map((row) => ({ ...row, id: randomUUID(), templateId })));
+        .values(added.map((row) => ({ ...row, id: randomUUID(), templateId })));
   }
 }

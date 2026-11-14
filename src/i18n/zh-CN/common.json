@@ -134,6 +134,7 @@
   },
   "checklists": {
     "checklistItemInvalidRange": "数值项目的下限不能大于上限。",
+    "checklistItemNotFound": "找不到要更新的检查项目，可能已被删除。请刷新后再试。",
     "checklistTemplateNotFound": "找不到这份检查表模板，可能已被删除。"
   },
   "coupons": {

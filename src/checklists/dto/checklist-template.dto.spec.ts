@@ -50,4 +50,20 @@ describe('ChecklistTemplate DTO', () => {
       }),
     ).resolves.toEqual([]);
   });
+
+  it.each([null, '', 'not-a-uuid', 1])(
+    '項目的 id 是 %j 時拒絕，uuid 或不傳可以',
+    async (id) => {
+      const item = { label: '冷藏庫', type: 'check' };
+
+      await expect(
+        errorsOf(UpdateChecklistTemplateDto, { items: [{ ...item, id }] }),
+      ).resolves.toEqual(['items']);
+      await expect(
+        errorsOf(UpdateChecklistTemplateDto, {
+          items: [item, { ...item, id: crypto.randomUUID() }],
+        }),
+      ).resolves.toEqual([]);
+    },
+  );
 });

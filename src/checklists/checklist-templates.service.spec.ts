@@ -95,23 +95,32 @@ describe('ChecklistTemplatesService', () => {
     await expect(service.findAll('biru')).resolves.toEqual([]);
   });
 
-  it('更新時帶 items 整組替換，不帶就保留', async () => {
+  it('更新時不帶 items 就保留；帶上時有 id 的保留 id 並更新、沒有 id 的新增、沒列出的刪除', async () => {
     const created = await service.create('biru', {
       name: '溫度',
       timing: 'anytime',
       items: [temperature, { label: '冷凍庫', type: 'number' }],
     });
+    const [fridge, freezer] = created.items;
 
     const renamed = await service.update('biru', created.id, { name: '設備' });
     expect(renamed.items).toEqual(created.items);
 
-    const replaced = await service.update('biru', created.id, {
-      items: [{ ...temperature, maxValue: 5 }],
+    const updated = await service.update('biru', created.id, {
+      items: [
+        { label: '開燈', type: 'check' },
+        { ...temperature, id: fridge.id, maxValue: 5 },
+      ],
     });
-    expect(replaced).toMatchObject({
+    expect(updated).toMatchObject({
       name: '設備',
-      items: [{ ...temperature, maxValue: 5, sortOrder: 0 }],
+      items: [
+        { label: '開燈', type: 'check', sortOrder: 0 },
+        { ...temperature, id: fridge.id, maxValue: 5, sortOrder: 1 },
+      ],
     });
+    expect(updated.items).toHaveLength(2);
+    expect(updated.items.map(({ id }) => id)).not.toContain(freezer.id);
 
     await expect(
       service.update('biru', created.id, {
@@ -120,6 +129,43 @@ describe('ChecklistTemplatesService', () => {
     ).rejects.toMatchObject({
       response: { code: 'checklistItemInvalidRange' },
     });
+  });
+
+  it('項目 id 不屬於這份範本、重複或在新增時帶上都回 404，不改到任何項目', async () => {
+    const created = await service.create('biru', {
+      name: '溫度',
+      timing: 'anytime',
+      items: [temperature],
+    });
+    const other = await service.create('biru', {
+      name: '開店',
+      timing: 'opening',
+      items: [{ label: '開燈', type: 'check' }],
+    });
+    const [own] = created.items;
+    const [foreign] = other.items;
+
+    for (const items of [
+      [{ ...temperature, id: foreign.id }],
+      [
+        { ...temperature, id: own.id },
+        { ...temperature, id: own.id },
+      ],
+    ])
+      await expect(
+        service.update('biru', created.id, { name: '改名', items }),
+      ).rejects.toMatchObject({
+        response: { code: 'checklistItemNotFound' },
+      });
+    await expect(
+      service.create('biru', {
+        name: '打烊',
+        timing: 'closing',
+        items: [{ ...temperature, id: own.id }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(service.findAll('biru')).resolves.toEqual([created, other]);
   });
 
   it('別店的範本更新與刪除都回 404，也不會被改到', async () => {

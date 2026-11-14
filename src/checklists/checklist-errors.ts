@@ -6,6 +6,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const checklistErrorCodes = [
   'checklistItemInvalidRange',
+  'checklistItemNotFound',
   'checklistTemplateNotFound',
 ] as const;
 

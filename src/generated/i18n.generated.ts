@@ -188,6 +188,7 @@ export type I18nTranslations = {
         };
         "checklists": {
             "checklistItemInvalidRange": string;
+            "checklistItemNotFound": string;
             "checklistTemplateNotFound": string;
         };
         "coupons": {

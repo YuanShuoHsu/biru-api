@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -28,6 +29,14 @@ import {
 const MEASUREMENT_LIMIT = 99999;
 
 export class ChecklistTemplateItemInputDto {
+  @ApiProperty({
+    required: false,
+    description: '既有項目的 id，帶上就更新該項目；不帶就新增',
+  })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsUUID()
+  id?: string;
+
   @IsString() @IsNotEmpty() @MaxLength(100) @Transform(trim) label: string;
 
   @ApiProperty({
@@ -90,7 +99,8 @@ export class CreateChecklistTemplateDto {
 
   @ApiProperty({
     type: [ChecklistTemplateItemInputDto],
-    description: '依陣列順序排列；更新時帶上就整組替換',
+    description:
+      '依陣列順序排列；更新時帶上就以這份為準：有 id 的更新、沒有 id 的新增、沒列出的刪除',
   })
   @IsArray()
   @ArrayMaxSize(50)
