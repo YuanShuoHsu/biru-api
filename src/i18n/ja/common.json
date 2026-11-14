@@ -208,7 +208,7 @@
     "sourceRecipeUnitIncompatible": "レシピの出来高の単位と食材の在庫単位に互換性がありません",
     "sourceRecipeYieldMissing": "食材の元レシピにするには、レシピの出来高と単位を設定してください",
     "supplierNotFound": "仕入先が見つかりません。削除された可能性があります",
-    "unlimitedStockWaste": "在庫制限なしの食材は在庫を引かないため、廃棄を登録できません。先に「在庫制限なし」を解除してください",
+    "unlimitedStockWaste": "在庫制限なしの食材は在庫を引かないため、廃棄を登録できません。先に「在庫制限なし」を解除して棚卸ししてください",
     "wasteExceedsStock": "廃棄量が帳簿上の在庫を超えています。先に棚卸ししてください"
   },
   "invoices": {
