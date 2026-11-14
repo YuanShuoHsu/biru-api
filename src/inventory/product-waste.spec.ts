@@ -193,6 +193,41 @@ describe('依食譜登記成品報廢', () => {
     ).toBe('wasteRecipeMissing');
   });
 
+  it('品項沒有食譜但選項有食譜時，只展開選項的用量', async () => {
+    const created = await service.wasteProduct(ORG, {
+      menuItemId: NO_RECIPE,
+      modifierIds: [OAT],
+      servings: 2,
+      wasteReason: 'spilled',
+    });
+
+    expect(await levels()).toEqual({ beans: 100, milk: 900, water: 0 });
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      ingredientId: 'milk',
+      wasteMenuItemId: NO_RECIPE,
+    });
+  });
+
+  it('食譜只用到無限庫存的食材時以 wasteRecipeMissing 擋下', async () => {
+    await client.exec(
+      `insert into recipe (id, organization_id, menu_item_id, name) values ('ice', '${ORG}', '${NO_RECIPE}', '{"zh-TW":"冰塊"}');
+       insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity) values ('ice-water', 'ice', 'water', 100);`,
+    );
+
+    expect(
+      (
+        await responseOf(
+          service.wasteProduct(ORG, {
+            menuItemId: NO_RECIPE,
+            servings: 1,
+            wasteReason: 'other',
+          }),
+        )
+      ).code,
+    ).toBe('wasteRecipeMissing');
+  });
+
   it('展開的用量超過帳上數量時列出短缺食材且不寫入異動', async () => {
     const response = await responseOf(
       service.wasteProduct(ORG, {

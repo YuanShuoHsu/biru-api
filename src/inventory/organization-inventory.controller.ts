@@ -110,7 +110,6 @@ export class OrganizationInventoryController {
 
   @Post('inventory/waste')
   @Roles({ inventoryTransaction: ['create'] }, 'organizationSlug')
-  @Audit('ingredient', { column: 'organizationId', organization: true })
   @ApiOperation({ summary: '依食譜登記成品報廢' })
   createProductWaste(
     @OrganizationId() organizationId: string,
