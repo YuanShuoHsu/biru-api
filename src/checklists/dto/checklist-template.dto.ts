@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -83,7 +84,9 @@ export class CreateChecklistTemplateDto {
   @IsIn(checklistTimingEnum.enumValues)
   timing: ChecklistTiming;
 
-  @IsOptional() @IsBoolean() enabled?: boolean;
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  enabled?: boolean;
 
   @ApiProperty({
     type: [ChecklistTemplateItemInputDto],
@@ -98,6 +101,7 @@ export class CreateChecklistTemplateDto {
 
 export class UpdateChecklistTemplateDto extends PartialType(
   CreateChecklistTemplateDto,
+  { skipNullProperties: false },
 ) {}
 
 export class ChecklistTemplateItemDto {
