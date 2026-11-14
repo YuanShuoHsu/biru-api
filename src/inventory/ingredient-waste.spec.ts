@@ -129,6 +129,20 @@ describe('登記食材報廢', () => {
     expect(data.map(({ createdBy }) => createdBy)).toEqual(['staff']);
   });
 
+  it('盤點記下登記的使用者，沒有操作者的異動維持 null', async () => {
+    const counted = await service.create(
+      'milk',
+      { inventoryLevel: '1500' },
+      { createdBy: 'staff' },
+    );
+    const unattributed = await service.create('milk', {
+      inventoryLevel: '1400',
+    });
+
+    expect(counted.createdBy).toBe('staff');
+    expect(unattributed.createdBy).toBeNull();
+  });
+
   it('流水帳可依報廢原因篩選與排序', async () => {
     await service.waste('milk', { quantity: '1', wasteReason: 'spilled' });
     await service.waste('milk', { quantity: '2', wasteReason: 'expired' });
