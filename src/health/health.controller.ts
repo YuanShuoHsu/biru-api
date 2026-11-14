@@ -19,8 +19,8 @@ export class HealthController {
   ) {}
 
   @Get()
-  // Terminus 的回應 schema 會讓 openapi-typescript --enum-values 產出編不過的常數，前端也不用這個端點
-  @HealthCheck({ swaggerDocumentation: false })
+  // Terminus 的回應 schema 會讓 openapi-typescript --enum-values 產出編不過的常數；只傳一個選項時 noCache 不再預設為 true
+  @HealthCheck({ noCache: true, swaggerDocumentation: false })
   @ApiOperation({ summary: '檢查服務與資料庫是否正常' })
   check() {
     return this.health.check([() => this.database.isHealthy('database')]);

@@ -49,9 +49,8 @@ describe('HealthController', () => {
       new DocumentBuilder().build(),
     );
 
-    expect(JSON.stringify(document.paths['/health'].get)).not.toContain(
-      'schema',
-    );
+    expect(document.paths['/health'].get?.responses).not.toHaveProperty('503');
+    expect(JSON.stringify(document.paths['/health'].get)).not.toContain('enum');
   });
 
   it('資料庫正常時回 200 與 ok', async () => {
@@ -59,7 +58,8 @@ describe('HealthController', () => {
 
     const response = await request(app.getHttpServer())
       .get('/health')
-      .expect(200);
+      .expect(200)
+      .expect('Cache-Control', 'no-cache, no-store, must-revalidate');
 
     expect(response.body).toEqual({
       status: 'ok',
