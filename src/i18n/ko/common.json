@@ -208,6 +208,7 @@
     "sourceRecipeUnitIncompatible": "레시피 생산량 단위와 재료의 재고 단위가 호환되지 않습니다",
     "sourceRecipeYieldMissing": "재료의 원본 레시피로 사용하려면 레시피의 생산량과 단위를 설정하세요",
     "supplierNotFound": "공급업체를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "unlimitedStockWaste": "재고 무제한 재료는 재고를 차감하지 않아 폐기를 등록할 수 없습니다. 먼저 재고 무제한을 해제하세요",
     "wasteExceedsStock": "폐기량이 장부상 재고보다 많습니다. 먼저 재고를 실사하세요"
   },
   "invoices": {

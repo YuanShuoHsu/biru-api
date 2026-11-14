@@ -168,6 +168,21 @@ describe('登記食材報廢', () => {
     expect(await db.select().from(inventoryTransaction)).toEqual([]);
   });
 
+  it('不限量的食材不能報廢，以 unlimitedStockWaste 擋下且不寫入異動', async () => {
+    await db
+      .update(ingredient)
+      .set({ unlimitedStock: true })
+      .where(eq(ingredient.id, 'milk'));
+
+    const response = await responseOf(
+      service.waste('milk', { quantity: '1', wasteReason: 'expired' }),
+    );
+
+    expect(response.code).toBe('unlimitedStockWaste');
+    expect(await levelOf()).toBe(2000);
+    expect(await db.select().from(inventoryTransaction)).toEqual([]);
+  });
+
   it('剛好報廢到 0 時可以登記', async () => {
     await service.waste('milk', { quantity: '2000', wasteReason: 'damaged' });
 

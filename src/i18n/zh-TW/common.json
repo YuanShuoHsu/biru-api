@@ -208,6 +208,7 @@
     "sourceRecipeUnitIncompatible": "食譜產量單位與食材庫存單位不相容",
     "sourceRecipeYieldMissing": "請先設定食譜的產量與單位，才能作為食材的來源食譜",
     "supplierNotFound": "找不到這個供應商，可能已被刪除",
+    "unlimitedStockWaste": "不限量的食材不扣庫存，無法登記報廢。如需報廢，請先取消「不限量」",
     "wasteExceedsStock": "報廢量超過帳上數量，請先盤點"
   },
   "invoices": {

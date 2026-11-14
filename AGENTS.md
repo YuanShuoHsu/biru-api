@@ -321,6 +321,9 @@ stock non-negative: placing an order uses `enforceStock`, and counts and opening
 the DTOs. A negative level means the books are wrong and staff must recount; don't turn it into a reason to reject paid
 orders, and don't accept negative counts.
 
+An ingredient with `unlimitedStock` is never deducted: order consumption, batches and low-stock checks skip it, and
+recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the

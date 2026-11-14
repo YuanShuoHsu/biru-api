@@ -208,6 +208,7 @@
     "sourceRecipeUnitIncompatible": "食谱产量单位与食材库存单位不兼容",
     "sourceRecipeYieldMissing": "请先设定食谱的产量与单位，才能作为食材的来源食谱",
     "supplierNotFound": "找不到这个供应商，可能已被删除",
+    "unlimitedStockWaste": "不限量的食材不扣库存，无法登记报废。如需报废，请先取消“不限量”",
     "wasteExceedsStock": "报废量超过账上数量，请先盘点"
   },
   "invoices": {
