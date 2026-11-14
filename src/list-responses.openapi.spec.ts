@@ -165,16 +165,18 @@ describe('list endpoints OpenAPI', () => {
     },
   );
 
-  it.each(['StorePhotoResponseDto', 'CreateStorePhotoDto'])(
-    '%s documents alt as LocalizedTextDto',
-    (schema) => {
-      const { properties } = document.components?.schemas?.[schema] as {
-        properties: Record<string, unknown>;
-      };
-
-      expect(JSON.stringify(properties.alt)).toContain(
-        '"$ref":"#/components/schemas/LocalizedTextDto"',
-      );
-    },
-  );
+  it.each([
+    [
+      'StorePhotoResponseDto',
+      { $ref: '#/components/schemas/LocalizedTextDto' },
+    ],
+    [
+      'CreateStorePhotoDto',
+      { allOf: [{ $ref: '#/components/schemas/LocalizedTextDto' }] },
+    ],
+  ])('%s documents alt as LocalizedTextDto', (schema, alt) => {
+    expect(document.components?.schemas?.[schema]).toMatchObject({
+      properties: { alt },
+    });
+  });
 });
