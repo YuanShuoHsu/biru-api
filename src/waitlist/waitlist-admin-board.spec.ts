@@ -20,6 +20,8 @@ describe('WaitlistService.listAdmin ended columns', () => {
   let service: WaitlistService;
 
   beforeAll(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-06T04:00:00Z'));
     client = createPGlite();
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
@@ -65,6 +67,7 @@ describe('WaitlistService.listAdmin ended columns', () => {
   }, 60_000);
 
   afterAll(async () => {
+    vi.useRealTimers();
     await client.close();
   });
 
