@@ -426,6 +426,7 @@
       "mode": "点餐方式",
       "net": "净额",
       "noJobTitle": "未设置职位",
+      "occurrences": "报废次数",
       "opening": "期初",
       "orders": "订单数",
       "paymentMethod": "付款方式",
@@ -439,7 +440,10 @@
       "total": "合计",
       "uncategorized": "未分类",
       "unit": "单位",
-      "variance": "差异"
+      "variance": "差异",
+      "wasted": "报废",
+      "wastedCost": "报废成本",
+      "wasteReason": "报废原因"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -458,6 +462,13 @@
       "KGM": "公斤",
       "LTR": "升",
       "MLT": "毫升"
+    },
+    "wasteReasons": {
+      "damaged": "损坏",
+      "expired": "过期",
+      "madeWrong": "做错",
+      "other": "其他",
+      "spilled": "打翻"
     }
   },
   "sharedCarts": {

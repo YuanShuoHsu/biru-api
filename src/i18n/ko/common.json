@@ -426,6 +426,7 @@
       "mode": "주문 방식",
       "net": "순매출",
       "noJobTitle": "직책 미설정",
+      "occurrences": "폐기 횟수",
       "opening": "기초 재고",
       "orders": "주문 수",
       "paymentMethod": "결제 수단",
@@ -439,7 +440,10 @@
       "total": "합계",
       "uncategorized": "미분류",
       "unit": "단위",
-      "variance": "차이"
+      "variance": "차이",
+      "wasted": "폐기",
+      "wastedCost": "폐기 비용",
+      "wasteReason": "폐기 사유"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -458,6 +462,13 @@
       "KGM": "킬로그램",
       "LTR": "리터",
       "MLT": "밀리리터"
+    },
+    "wasteReasons": {
+      "damaged": "파손",
+      "expired": "유통기한 경과",
+      "madeWrong": "잘못 만듦",
+      "other": "기타",
+      "spilled": "쏟음"
     }
   },
   "sharedCarts": {
