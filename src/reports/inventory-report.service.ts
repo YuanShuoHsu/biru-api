@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { type SQL, and, eq, gte, isNotNull, lt, or, sql } from 'drizzle-orm';
+import { type SQL, and, eq, gte, lt, or, sql } from 'drizzle-orm';
 import { I18nContext } from 'nestjs-i18n';
 
 import type { LocalizedText } from '../db/schema/enums.js';
@@ -49,7 +49,7 @@ export class InventoryReportService {
     );
     const isOrder = sql`${inventoryTransaction.orderId} IS NOT NULL`;
     const isBatch = sql`${inventoryTransaction.productionBatchId} IS NOT NULL`;
-    const isWaste = isNotNull(inventoryTransaction.wasteReason);
+    const isWaste = sql`${inventoryTransaction.wasteReason} IS NOT NULL`;
     const isCount = sql`NOT ${isOrder} AND NOT ${isBatch} AND NOT ${isWaste}`;
     const quantity = inventoryTransaction.quantity;
     const unitCost = inventoryTransaction.unitCost;
@@ -173,11 +173,20 @@ export class InventoryReportService {
         occurrences: sql<number>`COUNT(DISTINCT COALESCE(${inventoryTransaction.wasteBatchId}, ${inventoryTransaction.id}))::int`,
         cost: sql<
           string | null
-        >`CASE WHEN COUNT(*) = COUNT(${unitCost}) THEN ROUND(-SUM(${quantity} * ${unitCost}), 2)::text END`,
+        >`CASE WHEN COUNT(*) FILTER (WHERE ${unitCost} IS NULL) = 0 THEN ROUND(-SUM(${quantity} * ${unitCost}), 2)::text END`,
       })
       .from(inventoryTransaction)
+      .innerJoin(
+        ingredient,
+        eq(ingredient.id, inventoryTransaction.ingredientId),
+      )
       .where(
-        and(eq(inventoryTransaction.organizationId, org.id), inPeriod, isWaste),
+        and(
+          eq(inventoryTransaction.organizationId, org.id),
+          eq(ingredient.unlimitedStock, false),
+          inPeriod,
+          isWaste,
+        ),
       )
       .groupBy(inventoryTransaction.wasteReason)
       .orderBy(inventoryTransaction.wasteReason);
