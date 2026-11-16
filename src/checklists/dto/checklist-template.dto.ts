@@ -3,6 +3,7 @@ import { ApiProperty, PartialType } from '@nestjs/swagger';
 
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
@@ -29,10 +30,7 @@ import {
 const MEASUREMENT_LIMIT = 99999;
 
 export class ChecklistTemplateItemInputDto {
-  @ApiProperty({
-    required: false,
-    description: '既有項目的 id，帶上就更新該項目；不帶就新增',
-  })
+  @ApiProperty({ description: '既有項目的 id，帶上就更新該項目；不帶就新增' })
   @ValidateIf((_, value) => value !== undefined)
   @IsUUID()
   id?: string;
@@ -104,6 +102,7 @@ export class CreateChecklistTemplateDto {
   })
   @IsArray()
   @ArrayMaxSize(50)
+  @ArrayUnique((item?: ChecklistTemplateItemInputDto) => item?.id ?? item)
   @ValidateNested({ each: true })
   @Type(() => ChecklistTemplateItemInputDto)
   items: ChecklistTemplateItemInputDto[];

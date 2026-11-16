@@ -88,7 +88,7 @@ export class ChecklistTemplatesController {
     itemsAudit({ column: 'templateId', param: 'templateId' }),
   )
   @ApiOkResponse({ type: ChecklistTemplateDto })
-  @ApiOperation({ summary: '更新例行檢查表範本；帶 items 時整組替換項目' })
+  @ApiOperation({ summary: '更新例行檢查表範本；帶 items 時項目以這份為準' })
   update(
     @OrganizationId() organizationId: string,
     @Param('templateId') templateId: string,
