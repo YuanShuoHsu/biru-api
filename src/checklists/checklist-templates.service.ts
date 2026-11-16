@@ -1,16 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { reorderSortOrders } from '../common/utils/sort-order.js';
 import {
+  checklistSetting,
   checklistTemplate,
   checklistTemplateItem,
 } from '../db/schema/checklists.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { badRequestError, notFoundError } from './checklist-errors.js';
+import { DEFAULT_CHECKLIST_TEMPLATES } from './default-templates.js';
 import type {
   ChecklistTemplateDto,
   ChecklistTemplateItemInputDto,
@@ -47,12 +49,45 @@ export class ChecklistTemplatesService {
         ...dto,
         id,
         organizationId,
-        sortOrder: sql`(select coalesce(max(${checklistTemplate.sortOrder}) + 1, 0) from ${checklistTemplate} where ${checklistTemplate.organizationId} = ${organizationId})`,
+        sortOrder: this.nextSortOrder(organizationId),
       });
       await this.syncItems(tx, id, rows);
     });
 
     return this.findOne(organizationId, id);
+  }
+
+  async createDefaults(organizationId: string): Promise<void> {
+    const setting = await this.db.query.checklistSetting.findFirst({
+      where: eq(checklistSetting.organizationId, organizationId),
+      columns: { defaultTemplatesCreatedAt: true },
+    });
+    if (setting?.defaultTemplatesCreatedAt) return;
+
+    await this.db.transaction(async (tx) => {
+      const now = new Date();
+      const [claimed] = await tx
+        .insert(checklistSetting)
+        .values({ organizationId, defaultTemplatesCreatedAt: now })
+        .onConflictDoUpdate({
+          target: checklistSetting.organizationId,
+          set: { defaultTemplatesCreatedAt: now },
+          setWhere: isNull(checklistSetting.defaultTemplatesCreatedAt),
+        })
+        .returning({ organizationId: checklistSetting.organizationId });
+      if (!claimed) return;
+
+      for (const { items, ...template } of DEFAULT_CHECKLIST_TEMPLATES) {
+        const id = randomUUID();
+        await tx.insert(checklistTemplate).values({
+          ...template,
+          id,
+          organizationId,
+          sortOrder: this.nextSortOrder(organizationId),
+        });
+        await this.syncItems(tx, id, this.itemRows(items));
+      }
+    });
   }
 
   async update(
@@ -109,6 +144,10 @@ export class ChecklistTemplatesService {
     if (!found) throw notFoundError('checklistTemplateNotFound');
 
     return found;
+  }
+
+  private nextSortOrder(organizationId: string) {
+    return sql<number>`(select coalesce(max(${checklistTemplate.sortOrder}) + 1, 0) from ${checklistTemplate} where ${checklistTemplate.organizationId} = ${organizationId})`;
   }
 
   private ownTemplate(organizationId: string, id: string) {

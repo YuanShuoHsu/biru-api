@@ -133,8 +133,10 @@
     "scheduleInvalid": "The start time must be earlier than the end time"
   },
   "checklists": {
+    "checklistActionNoteRequired": "Enter what was done about the out-of-range value before saving.",
     "checklistItemInvalidRange": "The minimum of a number item can't be greater than its maximum.",
     "checklistItemNotFound": "A checklist item to update wasn't found. It may have been deleted. Refresh and try again.",
+    "checklistItemValueRequired": "Tick a check item, or enter a number for a number item.",
     "checklistTemplateNotFound": "The checklist template wasn't found. It may have been deleted."
   },
   "coupons": {

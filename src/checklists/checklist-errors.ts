@@ -5,8 +5,10 @@ import { I18nContext } from 'nestjs-i18n';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const checklistErrorCodes = [
+  'checklistActionNoteRequired',
   'checklistItemInvalidRange',
   'checklistItemNotFound',
+  'checklistItemValueRequired',
   'checklistTemplateNotFound',
 ] as const;
 
