@@ -24,9 +24,9 @@ import {
   type ChecklistTiming,
 } from '../../db/schema/checklists.js';
 
-import { MEASUREMENT_LIMIT } from './checklist-template.dto.js';
+import { DATE_PATTERN } from '../../organizations/dto/special-hours.dto.js';
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+import { MEASUREMENT_LIMIT } from './checklist-template.dto.js';
 
 export class FillChecklistItemDto {
   @ApiPropertyOptional({ description: '勾選項目必填，數值項目不能帶' })

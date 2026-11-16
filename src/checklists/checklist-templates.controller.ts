@@ -51,11 +51,10 @@ export class ChecklistTemplatesController {
   @ApiOperation({
     summary: '列出例行檢查表範本與項目；門市第一次讀取時建立預設範本',
   })
-  async findAll(
+  findAll(
     @OrganizationId() organizationId: string,
   ): Promise<ChecklistTemplateDto[]> {
-    await this.templatesService.createDefaults(organizationId);
-    return this.templatesService.findAll(organizationId);
+    return this.templatesService.findAllWithDefaults(organizationId);
   }
 
   @Post()

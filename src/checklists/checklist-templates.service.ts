@@ -9,6 +9,7 @@ import {
   checklistTemplate,
   checklistTemplateItem,
 } from '../db/schema/checklists.js';
+import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { badRequestError, notFoundError } from './checklist-errors.js';
@@ -45,6 +46,10 @@ export class ChecklistTemplatesService {
     const id = randomUUID();
 
     await this.db.transaction(async (tx) => {
+      await tx
+        .insert(checklistSetting)
+        .values({ organizationId, defaultTemplatesCreatedAt: new Date() })
+        .onConflictDoNothing();
       await tx.insert(checklistTemplate).values({
         ...dto,
         id,
@@ -57,12 +62,25 @@ export class ChecklistTemplatesService {
     return this.findOne(organizationId, id);
   }
 
-  async createDefaults(organizationId: string): Promise<void> {
-    const setting = await this.db.query.checklistSetting.findFirst({
-      where: eq(checklistSetting.organizationId, organizationId),
-      columns: { defaultTemplatesCreatedAt: true },
-    });
-    if (setting?.defaultTemplatesCreatedAt) return;
+  async findAllWithDefaults(
+    organizationId: string,
+  ): Promise<ChecklistTemplateDto[]> {
+    await this.createDefaults(organizationId);
+    return this.findAll(organizationId);
+  }
+
+  private async createDefaults(organizationId: string): Promise<void> {
+    const [setting, org] = await Promise.all([
+      this.db.query.checklistSetting.findFirst({
+        where: eq(checklistSetting.organizationId, organizationId),
+        columns: { defaultTemplatesCreatedAt: true },
+      }),
+      this.db.query.organization.findFirst({
+        where: eq(organization.id, organizationId),
+        columns: { closedAt: true },
+      }),
+    ]);
+    if (setting?.defaultTemplatesCreatedAt || org?.closedAt) return;
 
     await this.db.transaction(async (tx) => {
       const now = new Date();

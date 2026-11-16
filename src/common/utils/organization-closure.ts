@@ -18,7 +18,7 @@ export const organizationClosedError = () =>
       ) ?? 'This store is closed.',
   });
 
-export const organizationReadOnlyError = (host: ArgumentsHost) =>
+export const organizationReadOnlyError = (host?: ArgumentsHost) =>
   new ForbiddenException({
     error: 'Forbidden',
     code: 'organizationReadOnly',

@@ -71,7 +71,7 @@ describe('ChecklistRunsService', () => {
     await Promise.all([
       service.today('biru'),
       service.today('biru'),
-      templates.createDefaults('biru'),
+      templates.findAllWithDefaults('biru'),
     ]);
 
     const created = await templates.findAll('biru');
@@ -88,6 +88,37 @@ describe('ChecklistRunsService', () => {
     for (const { id } of created) await templates.remove('biru', id);
     await expect(service.today('biru')).resolves.toEqual([]);
     await expect(templates.findAll('cafe')).resolves.toEqual([]);
+  });
+
+  it('先自行新增範本的門市之後不會被加上預設範本', async () => {
+    await client.exec('truncate checklist_setting');
+    const template = await createTemplate();
+
+    await expect(service.today('biru')).resolves.toMatchObject([
+      { templateId: template.id },
+    ]);
+  });
+
+  it('停業門市不建立預設範本，也不能填寫', async () => {
+    const template = await createTemplate();
+    await client.exec(`
+      truncate checklist_setting;
+      update organization set closed_at = now();
+    `);
+
+    await expect(templates.findAllWithDefaults('cafe')).resolves.toEqual([]);
+    await expect(
+      service.fill(
+        'biru',
+        template.id,
+        template.items[0].id,
+        { checked: true },
+        amy,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'organizationReadOnly' } });
+    await expect(runCount()).resolves.toBe(0);
+    const { rows } = await client.query('select * from checklist_setting');
+    expect(rows).toEqual([]);
   });
 
   it('尚未開始的範本以範本現況呈現，停用的不列出', async () => {

@@ -20,7 +20,7 @@ import {
 import { IsOpeningHours } from '../../menus/dto/create-offer.dto.js';
 import { trim } from '../../common/utils/trim.js';
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export class CreateSpecialHoursDto {
   @ApiProperty({ example: '2027-02-05', description: '開始日期（平台時區）' })

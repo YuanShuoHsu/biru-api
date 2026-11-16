@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 import { platformDateString } from '../common/constants/timezone.js';
+import { organizationReadOnlyError } from '../common/utils/organization-closure.js';
 import {
   checklistRun,
   checklistRunItem,
@@ -11,6 +12,7 @@ import {
   checklistTemplateItem,
   type ChecklistItemSnapshot,
 } from '../db/schema/checklists.js';
+import { organization } from '../db/schema/organizations.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { badRequestError, notFoundError } from './checklist-errors.js';
@@ -58,11 +60,9 @@ export class ChecklistRunsService {
   ) {}
 
   async today(organizationId: string): Promise<ChecklistRunDto[]> {
-    await this.templatesService.createDefaults(organizationId);
-
     const businessDate = platformDateString(new Date());
     const templates = (
-      await this.templatesService.findAll(organizationId)
+      await this.templatesService.findAllWithDefaults(organizationId)
     ).filter(({ enabled }) => enabled);
     const runs = templates.length
       ? await this.db
@@ -105,6 +105,12 @@ export class ChecklistRunsService {
     const businessDate = platformDateString(new Date());
 
     const run = await this.db.transaction(async (tx) => {
+      const org = await tx.query.organization.findFirst({
+        where: eq(organization.id, organizationId),
+        columns: { closedAt: true },
+      });
+      if (org?.closedAt) throw organizationReadOnlyError();
+
       const template = await tx.query.checklistTemplate.findFirst({
         where: and(
           eq(checklistTemplate.organizationId, organizationId),
