@@ -426,11 +426,13 @@ export class InventoryTransactionsService {
             name: ingredient.name,
             organizationId: ingredient.organizationId,
             unitPrice: unitPriceSql,
+            unlimitedStock: ingredient.unlimitedStock,
           })
           .from(ingredient)
           .where(eq(ingredient.id, ingredientId))
           .for('update');
         if (!found) throw notFoundError('ingredientNotFound');
+        if (found.unlimitedStock) throw badRequestError('unlimitedStockWaste');
 
         const shortfall = Number(quantity) - Number(found.inventoryLevel);
         if (shortfall > QUANTITY_TOLERANCE)

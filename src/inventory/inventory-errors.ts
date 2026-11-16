@@ -30,6 +30,7 @@ export const inventoryErrorCodes = [
   'sourceRecipeUnitIncompatible',
   'sourceRecipeYieldMissing',
   'supplierNotFound',
+  'unlimitedStockWaste',
   'wasteExceedsStock',
 ] as const;
 
