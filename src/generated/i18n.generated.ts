@@ -267,6 +267,7 @@ export type I18nTranslations = {
             "sourceRecipeUnitIncompatible": string;
             "sourceRecipeYieldMissing": string;
             "supplierNotFound": string;
+            "unlimitedStockWaste": string;
             "wasteExceedsStock": string;
             "wasteRecipeMissing": string;
         };

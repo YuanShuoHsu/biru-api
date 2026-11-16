@@ -3,6 +3,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { TerminusModule } from '@nestjs/terminus';
 
@@ -42,12 +43,23 @@ describe('HealthController', () => {
     vi.useRealTimers();
   });
 
+  it('OpenAPI 文件不帶 Terminus 的回應 schema', () => {
+    const document = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder().build(),
+    );
+
+    expect(document.paths['/health'].get?.responses).not.toHaveProperty('503');
+    expect(JSON.stringify(document.paths['/health'].get)).not.toContain('enum');
+  });
+
   it('資料庫正常時回 200 與 ok', async () => {
     execute.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
 
     const response = await request(app.getHttpServer())
       .get('/health')
-      .expect(200);
+      .expect(200)
+      .expect('Cache-Control', 'no-cache, no-store, must-revalidate');
 
     expect(response.body).toEqual({
       status: 'ok',
