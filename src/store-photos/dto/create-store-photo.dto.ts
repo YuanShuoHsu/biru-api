@@ -21,6 +21,7 @@ import {
   IsLocalizedText,
   MaxLocalizedTextLength,
 } from '../../common/decorators/is-localized-text.decorator.js';
+import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
 export class CreateStorePhotoDto {
@@ -31,6 +32,7 @@ export class CreateStorePhotoDto {
   image: string;
 
   @ApiProperty({
+    type: LocalizedTextDto,
     description: '替代文字',
     example: { 'zh-TW': '門市外觀', en: 'Storefront' },
   })
