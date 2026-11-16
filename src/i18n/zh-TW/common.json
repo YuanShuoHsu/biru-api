@@ -132,6 +132,11 @@
     "bannerNotFound": "找不到這則橫幅，可能已被刪除",
     "scheduleInvalid": "開始時間必須早於結束時間"
   },
+  "checklists": {
+    "checklistItemInvalidRange": "數值項目的下限不能大於上限。",
+    "checklistItemNotFound": "找不到要更新的檢查項目，可能已被刪除。請重新整理後再試。",
+    "checklistTemplateNotFound": "找不到這份檢查表範本，可能已被刪除。"
+  },
   "coupons": {
     "alreadyClaimed": "您已領取過此優惠券",
     "applicableOrganizationNotFound": "找不到部分所選店家，可能已被刪除",

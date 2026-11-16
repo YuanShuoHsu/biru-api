@@ -21,6 +21,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { runWithAuthHookState } from './auth/hooks.js';
 import { createAuthI18n } from './auth/i18n.js';
 import { BannersModule } from './banners/banners.module.js';
+import { ChecklistsModule } from './checklists/checklists.module.js';
 import { throttleTracker, THROTTLERS } from './common/constants/throttle.js';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { LanguageResolver } from './common/resolvers/language.resolver.js';
@@ -94,6 +95,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
         },
       },
     }),
+    ChecklistsModule,
     ConfigModule.forRoot({ isGlobal: true, validationSchema: envSchema }),
     CouponsModule,
     DeletedRecordsModule,
