@@ -1996,6 +1996,13 @@
       "when": 1794827582943,
       "tag": "0284_inventory_transaction_created_by",
       "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1794910638597,
+      "tag": "0285_waitlist_ticket_ended_at_index",
+      "breakpoints": true
     }
   ]
 }

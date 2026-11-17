@@ -99,6 +99,10 @@ export const waitlistTicket = pgTable(
       table.organizationId,
       table.createdAt,
     ),
+    index('waitlist_ticket_organizationId_endedAt_idx').on(
+      table.organizationId,
+      table.endedAt,
+    ),
     index('waitlist_ticket_personal_data_idx')
       .on(sql`COALESCE(${table.endedAt}, ${table.createdAt})`)
       .where(
