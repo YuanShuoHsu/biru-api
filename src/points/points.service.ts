@@ -47,11 +47,7 @@ import {
   platformMidnight,
   toPlatformTime,
 } from '../common/constants/timezone.js';
-import {
-  isCouponDeleted,
-  withinCapacity,
-  withinValidity,
-} from '../common/utils/coupons.js';
+import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -1185,27 +1181,8 @@ export class PointsService {
       ),
     });
     if (!found?.pointsCost) throw badRequestError('notRedeemable');
-    const pointsCost = found.pointsCost;
 
-    const created = await this.db.transaction(async (tx) => {
-      if (found.totalLimit !== null) {
-        const [locked] = await tx
-          .select({ usedCount: coupon.usedCount })
-          .from(coupon)
-          .where(eq(coupon.id, found.id))
-          .for('update');
-        if (!locked) throw badRequestError('notRedeemable');
-
-        const [{ value: reserved }] = await tx
-          .select({ value: count() })
-          .from(userCoupon)
-          .where(
-            and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
-          );
-        if (locked.usedCount + reserved >= found.totalLimit)
-          throw couponBadRequestError('usedUp');
-      }
-
+    const { voucher, locked } = await this.db.transaction(async (tx) => {
       const earns = await tx
         .select({
           id: pointTransaction.id,
@@ -1222,8 +1199,34 @@ export class PointsService {
         .orderBy(...LOT_CONSUMPTION_ORDER)
         .for('update');
 
+      const [locked] = await tx
+        .select()
+        .from(coupon)
+        .where(
+          and(
+            eq(coupon.id, found.id),
+            eq(coupon.isActive, true),
+            isNotNull(coupon.pointsCost),
+            withinValidity(),
+          ),
+        )
+        .for('update');
+      if (!locked?.pointsCost) throw badRequestError('notRedeemable');
+      const pointsCost = locked.pointsCost;
+
+      if (locked.totalLimit !== null) {
+        const [{ value: reserved }] = await tx
+          .select({ value: count() })
+          .from(userCoupon)
+          .where(
+            and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+          );
+        if (locked.usedCount + reserved >= locked.totalLimit)
+          throw couponBadRequestError('usedUp');
+      }
+
       // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
-      if (found.perUserLimit !== null) {
+      if (locked.perUserLimit !== null) {
         const [{ value: redeemed }] = await tx
           .select({ value: count() })
           .from(userCoupon)
@@ -1234,7 +1237,7 @@ export class PointsService {
               eq(userCoupon.source, 'redeemed'),
             ),
           );
-        if (redeemed >= found.perUserLimit)
+        if (redeemed >= locked.perUserLimit)
           throw badRequestError('perUserLimitReached');
       }
 
@@ -1264,11 +1267,7 @@ export class PointsService {
           source: 'redeemed',
           userId,
         })
-        .returning()
-        .catch((error: unknown) => {
-          if (isCouponDeleted(error)) throw badRequestError('notRedeemable');
-          throw error;
-        });
+        .returning();
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),
@@ -1278,26 +1277,26 @@ export class PointsService {
         userId,
       });
 
-      return voucher;
+      return { voucher, locked };
     });
 
     return {
-      id: created.id,
+      id: voucher.id,
       coupon: {
-        id: found.id,
-        code: found.code,
-        discountCurrency: found.discountCurrency,
-        discountType: found.discountType,
-        discountValue: found.discountValue,
-        isActive: found.isActive,
-        minSubtotal: found.minSubtotal,
-        scope: found.scope,
-        validFrom: found.validFrom,
-        validThrough: found.validThrough,
+        id: locked.id,
+        code: locked.code,
+        discountCurrency: locked.discountCurrency,
+        discountType: locked.discountType,
+        discountValue: locked.discountValue,
+        isActive: locked.isActive,
+        minSubtotal: locked.minSubtotal,
+        scope: locked.scope,
+        validFrom: locked.validFrom,
+        validThrough: locked.validThrough,
       },
-      source: created.source,
-      usedAt: created.usedAt,
-      createdAt: created.createdAt,
+      source: voucher.source,
+      usedAt: voucher.usedAt,
+      createdAt: voucher.createdAt,
     };
   }
 }
