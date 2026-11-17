@@ -257,8 +257,24 @@ export class ChecklistRunsService {
           .where(inArray(checklistRunItem.runId, runIds))
       : [];
 
-    return runs.map(
-      ({ templateSnapshot: { name, timing, items }, ...run }) => ({
+    return runs.map(({ templateSnapshot: { name, timing, items }, ...run }) => {
+      const runItems = items.map((item) => {
+        const row = rows.find(
+          ({ runId, itemId }) => runId === run.id && itemId === item.id,
+        );
+
+        return {
+          ...item,
+          checked: row?.checked ?? null,
+          value: row?.value ?? null,
+          outOfRange: row?.outOfRange ?? false,
+          actionNote: row?.actionNote ?? null,
+          filledByName: row?.filledByName ?? null,
+          filledAt: row?.filledAt ?? null,
+        };
+      });
+
+      return {
         id: run.id,
         templateId: run.templateId,
         businessDate: run.businessDate,
@@ -266,27 +282,9 @@ export class ChecklistRunsService {
         completedAt: run.completedAt,
         name,
         timing,
-        filledCount: items.filter(({ id }) =>
-          rows.some(
-            (row) => row.runId === run.id && row.itemId === id && isFilled(row),
-          ),
-        ).length,
-        items: items.map((item) => {
-          const row = rows.find(
-            ({ runId, itemId }) => runId === run.id && itemId === item.id,
-          );
-
-          return {
-            ...item,
-            checked: row?.checked ?? null,
-            value: row?.value ?? null,
-            outOfRange: row?.outOfRange ?? false,
-            actionNote: row?.actionNote ?? null,
-            filledByName: row?.filledByName ?? null,
-            filledAt: row?.filledAt ?? null,
-          };
-        }),
-      }),
-    );
+        filledCount: runItems.filter(isFilled).length,
+        items: runItems,
+      };
+    });
   }
 }

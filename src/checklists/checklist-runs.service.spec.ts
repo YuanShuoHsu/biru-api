@@ -300,6 +300,7 @@ describe('ChecklistRunsService', () => {
     expect(run).toMatchObject({
       name: '開店',
       completedAt: expect.any(Date),
+      filledCount: 2,
       items: [
         { id: light.id, checked: true },
         { id: fridge.id, maxValue: 7, value: 6, outOfRange: false },
