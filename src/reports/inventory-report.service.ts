@@ -10,6 +10,7 @@ import {
   recipe,
   recipeIngredient,
   type UnitCode,
+  type WasteReason,
 } from '../db/schema/inventory.js';
 import { orderItem } from '../db/schema/orders.js';
 import { organization } from '../db/schema/organizations.js';
@@ -32,6 +33,7 @@ export class InventoryReportService {
   async getInventoryReport(
     organizationSlug: string,
     query: ReportRangeQueryDto,
+    canReadPurchasing = true,
   ): Promise<InventoryReportResponseDto> {
     const { since, until } = parseReportRange(query);
 
@@ -47,8 +49,10 @@ export class InventoryReportService {
     );
     const isOrder = sql`${inventoryTransaction.orderId} IS NOT NULL`;
     const isBatch = sql`${inventoryTransaction.productionBatchId} IS NOT NULL`;
-    const isCount = sql`NOT ${isOrder} AND NOT ${isBatch}`;
+    const isWaste = sql`${inventoryTransaction.wasteReason} IS NOT NULL`;
+    const isCount = sql`NOT ${isOrder} AND NOT ${isBatch} AND NOT ${isWaste}`;
     const quantity = inventoryTransaction.quantity;
+    const unitCost = inventoryTransaction.unitCost;
 
     const round = (value: SQL) => sql`ROUND(${value}, 3)`;
     const movement = (column: string) =>
@@ -69,6 +73,8 @@ export class InventoryReportService {
       opening: string;
       received: string;
       consumed: string;
+      wasted: string;
+      wastedCost: string | null;
       adjusted: string;
       closing: string;
       theoreticalConsumption: string;
@@ -82,6 +88,9 @@ export class InventoryReportService {
           SUM(${quantity}) FILTER (WHERE ${inventoryTransaction.createdAt} >= ${utcTimestampParam(until)}) AS until_now,
           SUM(${quantity}) FILTER (WHERE ${and(inPeriod, sql`${quantity} > 0`, or(isCount, isBatch))}) AS received,
           SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isCount, sql`${quantity} < 0`)}) AS adjusted,
+          -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isWaste)}) AS wasted,
+          -SUM(${quantity} * ${unitCost}) FILTER (WHERE ${and(inPeriod, isWaste)}) AS wasted_cost,
+          COUNT(*) FILTER (WHERE ${and(inPeriod, isWaste, sql`${unitCost} IS NULL`)}) AS unpriced_waste,
           -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, or(isOrder, and(isBatch, sql`${quantity} < 0`)))}) AS consumed,
           -SUM(${quantity}) FILTER (WHERE ${and(inPeriod, isBatch, sql`${quantity} < 0`)}) AS batch_consumed
         FROM ${inventoryTransaction}
@@ -144,6 +153,8 @@ export class InventoryReportService {
         ${round(opening)}::text AS opening,
         ${round(movement('received'))}::text AS received,
         ${round(movement('consumed'))}::text AS consumed,
+        ${round(movement('wasted'))}::text AS wasted,
+        CASE WHEN ${movement('unpriced_waste')} = 0 THEN ROUND(${movement('wasted_cost')}, 2)::text END AS "wastedCost",
         ${round(movement('adjusted'))}::text AS adjusted,
         ${round(closing)}::text AS closing,
         ${theoreticalConsumption}::text AS "theoreticalConsumption",
@@ -156,6 +167,39 @@ export class InventoryReportService {
       ORDER BY ${ingredient.sortOrder}, ${localizedTextSql(ingredient.name, toLanguage(I18nContext.current()?.lang))}, ${ingredient.id}
     `);
 
-    return { rows };
+    const wasteByReason = await this.db
+      .select({
+        reason: sql<WasteReason>`${inventoryTransaction.wasteReason}`,
+        occurrences: sql<number>`COUNT(DISTINCT COALESCE(${inventoryTransaction.wasteBatchId}, ${inventoryTransaction.id}))::int`,
+        cost: sql<
+          string | null
+        >`CASE WHEN COUNT(*) FILTER (WHERE ${unitCost} IS NULL) = 0 THEN ROUND(-SUM(${quantity} * ${unitCost}), 2)::text END`,
+      })
+      .from(inventoryTransaction)
+      .innerJoin(
+        ingredient,
+        eq(ingredient.id, inventoryTransaction.ingredientId),
+      )
+      .where(
+        and(
+          eq(inventoryTransaction.organizationId, org.id),
+          eq(ingredient.unlimitedStock, false),
+          inPeriod,
+          isWaste,
+        ),
+      )
+      .groupBy(inventoryTransaction.wasteReason)
+      .orderBy(inventoryTransaction.wasteReason);
+
+    return {
+      rows: rows.map(({ wastedCost, ...row }) => ({
+        ...row,
+        ...(canReadPurchasing && { wastedCost }),
+      })),
+      wasteByReason: wasteByReason.map(({ cost, ...reason }) => ({
+        ...reason,
+        ...(canReadPurchasing && { cost }),
+      })),
+    };
   }
 }

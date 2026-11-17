@@ -442,7 +442,9 @@
       "total": "Total",
       "uncategorized": "Uncategorized",
       "unit": "Unit",
-      "variance": "Variance"
+      "variance": "Variance",
+      "wasted": "Waste",
+      "wastedCost": "Waste cost"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",

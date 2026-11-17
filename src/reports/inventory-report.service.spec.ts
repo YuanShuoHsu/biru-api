@@ -41,7 +41,7 @@ describe('InventoryReportService', () => {
   const row = (
     ingredientId: string,
     unitCode: string,
-    amounts: Partial<Record<string, string>>,
+    amounts: Partial<Record<string, string | null>>,
   ) => ({
     ingredientId,
     name: { 'zh-TW': ingredientId },
@@ -49,6 +49,8 @@ describe('InventoryReportService', () => {
     opening: '0.000',
     received: '0.000',
     consumed: '0.000',
+    wasted: '0.000',
+    wastedCost: '0.00',
     adjusted: '0.000',
     closing: '0.000',
     theoreticalConsumption: '0.000',
@@ -283,30 +285,108 @@ describe('InventoryReportService', () => {
     ]);
   });
 
-  it('報廢在加入報廢欄前計入調整，讓期末仍等於期初加進貨減耗用加調整', async () => {
-    await client.exec(
-      `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
-         ('cream', 'org', '{"zh-TW":"cream"}', 'MLT', 690, 6);
-       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, waste_reason, created_at) values
-         ('cream-stock', 'cream', 'org', 1000, null, '2026-10-21T02:00:00Z'::timestamptz at time zone 'UTC'),
-         ('cream-waste', 'cream', 'org', -300, 'expired', '2026-10-22T02:00:00Z'::timestamptz at time zone 'UTC'),
-         ('cream-loss', 'cream', 'org', -10, null, '2026-10-22T03:00:00Z'::timestamptz at time zone 'UTC');`,
-    );
-
-    const { rows } = await service.getInventoryReport('biru', {
+  describe('報廢', () => {
+    const day = {
       since: '2026-10-22T00:00:00+08:00',
       until: '2026-10-23T00:00:00+08:00',
+    };
+
+    beforeAll(async () => {
+      await client.exec(
+        `insert into ingredient (id, organization_id, name, unit_code, inventory_level, sort_order) values
+         ('cream', 'org', '{"zh-TW":"cream"}', 'MLT', 660, 6),
+         ('sugar', 'org', '{"zh-TW":"sugar"}', 'GRM', 95, 7);
+       insert into ingredient (id, organization_id, name, unit_code, unlimited_stock) values
+         ('ice', 'org', '{"zh-TW":"ice"}', 'GRM', true);
+       insert into inventory_transaction (id, ingredient_id, organization_id, quantity, waste_reason, waste_batch_id, unit_cost, created_at) values
+         ('cream-stock', 'cream', 'org', 1000, null, null, 0.05, '2026-10-21T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('sugar-stock', 'sugar', 'org', 100, null, null, null, '2026-10-21T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-expired', 'cream', 'org', -300, 'expired', null, 0.05, '2026-10-22T02:00:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-spilled', 'cream', 'org', -20, 'spilled', null, 0.05, '2026-10-22T02:30:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-wrong', 'cream', 'org', -10, 'madeWrong', 'wrong-latte', 0.05, '2026-10-22T03:00:00Z'::timestamptz at time zone 'UTC'),
+         ('sugar-wrong', 'sugar', 'org', -5, 'madeWrong', 'wrong-latte', null, '2026-10-22T03:00:00Z'::timestamptz at time zone 'UTC'),
+         ('cream-loss', 'cream', 'org', -10, null, null, null, '2026-10-22T04:00:00Z'::timestamptz at time zone 'UTC'),
+         ('ice-expired', 'ice', 'org', -100, 'expired', null, 0.05, '2026-10-22T05:00:00Z'::timestamptz at time zone 'UTC');`,
+      );
     });
 
-    expect(rows.find(({ ingredientId }) => ingredientId === 'cream')).toEqual(
-      row('cream', 'MLT', {
-        opening: '1000.000',
-        adjusted: '-310.000',
-        closing: '690.000',
-        actualConsumption: '310.000',
-        variance: '310.000',
-      }),
-    );
+    it('報廢另列為報廢量與成本，不算進調整與實際耗用，差異只剩盤點調減；成品報廢的多筆異動算一次，依原因彙總和明細一樣不含不限量的食材', async () => {
+      const { rows, wasteByReason } = await service.getInventoryReport(
+        'biru',
+        day,
+        true,
+      );
+
+      expect(
+        rows.filter(({ ingredientId }) =>
+          ['cream', 'sugar'].includes(ingredientId),
+        ),
+      ).toEqual([
+        row('cream', 'MLT', {
+          opening: '1000.000',
+          wasted: '330.000',
+          wastedCost: '16.50',
+          adjusted: '-10.000',
+          closing: '660.000',
+          actualConsumption: '10.000',
+          variance: '10.000',
+        }),
+        row('sugar', 'GRM', {
+          opening: '100.000',
+          wasted: '5.000',
+          wastedCost: null,
+          closing: '95.000',
+        }),
+      ]);
+      expect(wasteByReason).toEqual([
+        { reason: 'expired', occurrences: 1, cost: '15.00' },
+        { reason: 'spilled', occurrences: 1, cost: '1.00' },
+        { reason: 'madeWrong', occurrences: 1, cost: null },
+      ]);
+    });
+
+    it('沒有 purchasing 權限時不回傳報廢成本', async () => {
+      const { rows, wasteByReason } = await service.getInventoryReport(
+        'biru',
+        day,
+        false,
+      );
+
+      expect(rows.every((row) => !('wastedCost' in row))).toBe(true);
+      expect(wasteByReason).toEqual([
+        { reason: 'expired', occurrences: 1 },
+        { reason: 'spilled', occurrences: 1 },
+        { reason: 'madeWrong', occurrences: 1 },
+      ]);
+    });
+
+    it('每個食材的期末等於期初加入庫減耗用減報廢加調整，實際耗用等於期初加入庫減報廢減期末', async () => {
+      const { rows } = await service.getInventoryReport('biru', {
+        since: '2026-09-25T00:00:00+08:00',
+        until: '2026-10-24T00:00:00+08:00',
+      });
+      const amount = (value: string) => Math.round(Number(value) * 1000);
+
+      expect(rows.some(({ wasted }) => amount(wasted) > 0)).toBe(true);
+      for (const row of rows) {
+        expect(amount(row.closing)).toBe(
+          amount(row.opening) +
+            amount(row.received) -
+            amount(row.consumed) -
+            amount(row.wasted) +
+            amount(row.adjusted),
+        );
+        expect(amount(row.actualConsumption)).toBe(
+          amount(row.opening) +
+            amount(row.received) -
+            amount(row.wasted) -
+            amount(row.closing),
+        );
+        expect(amount(row.variance)).toBe(
+          amount(row.actualConsumption) - amount(row.theoreticalConsumption),
+        );
+      }
+    });
   });
 
   it('理論耗用計入品項與加料上客製選項的食譜', async () => {

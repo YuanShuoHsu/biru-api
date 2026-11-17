@@ -6,6 +6,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
 import { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
@@ -71,10 +72,12 @@ export class ReportsController {
   findInventory(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: ReportRangeQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<InventoryReportResponseDto> {
     return this.inventoryReportService.getInventoryReport(
       organizationSlug,
       query,
+      canReadPurchasing,
     );
   }
 
@@ -86,9 +89,10 @@ export class ReportsController {
   exportInventory(
     @Param('organizationSlug') organizationSlug: string,
     @Query() query: ReportRangeQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<StreamableFile> {
     return this.reportCsvService
-      .inventory(organizationSlug, query)
+      .inventory(organizationSlug, query, canReadPurchasing)
       .then((csv) => csvFile(csv, 'inventory-report.csv'));
   }
   @Get('personnel')

@@ -442,7 +442,9 @@
       "total": "合计",
       "uncategorized": "未分类",
       "unit": "单位",
-      "variance": "差异"
+      "variance": "差异",
+      "wasted": "报废",
+      "wastedCost": "报废成本"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",

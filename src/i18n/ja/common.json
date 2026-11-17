@@ -442,7 +442,9 @@
       "total": "合計",
       "uncategorized": "未分類",
       "unit": "単位",
-      "variance": "差異"
+      "variance": "差異",
+      "wasted": "廃棄",
+      "wastedCost": "廃棄コスト"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",

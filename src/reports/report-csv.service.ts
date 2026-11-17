@@ -114,10 +114,12 @@ export class ReportCsvService {
   async inventory(
     organizationSlug: string,
     query: ReportRangeQueryDto,
+    canReadPurchasing: boolean,
   ): Promise<string> {
     const { rows } = await this.inventoryReportService.getInventoryReport(
       organizationSlug,
       query,
+      canReadPurchasing,
     );
     const lang = toLanguage(I18nContext.current()?.lang);
     const t = (key: CsvColumn) =>
@@ -126,6 +128,8 @@ export class ReportCsvService {
       'opening',
       'received',
       'consumed',
+      'wasted',
+      ...(canReadPurchasing ? (['wastedCost'] as const) : []),
       'adjusted',
       'closing',
       'theoreticalConsumption',

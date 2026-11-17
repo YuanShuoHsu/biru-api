@@ -179,28 +179,50 @@ describe('ReportCsvService', () => {
     );
   });
 
-  it('writes one inventory row per ingredient with its unit', async () => {
+  const milk = {
+    ingredientId: 'milk',
+    name: { 'zh-TW': '牛奶' },
+    unitCode: 'MLT',
+    opening: '1000.000',
+    received: '500.000',
+    consumed: '300.000',
+    wasted: '50.000',
+    adjusted: '-20.000',
+    closing: '1130.000',
+    theoreticalConsumption: '280.000',
+    actualConsumption: '320.000',
+    variance: '40.000',
+  };
+
+  it('writes one inventory row per ingredient with its unit and the waste cost', async () => {
     inventoryReportService.getInventoryReport.mockResolvedValue({
-      rows: [
-        {
-          ingredientId: 'milk',
-          name: { 'zh-TW': '牛奶' },
-          unitCode: 'MLT',
-          opening: '1000.000',
-          received: '500.000',
-          consumed: '300.000',
-          adjusted: '-20.000',
-          closing: '1180.000',
-          theoreticalConsumption: '280.000',
-          actualConsumption: '320.000',
-          variance: '40.000',
-        },
+      rows: [{ ...milk, wastedCost: '2.50' }],
+      wasteByReason: [
+        { reason: 'expired', occurrences: 2, cost: '2.00' },
+        { reason: 'madeWrong', occurrences: 1, cost: null },
       ],
     });
 
-    await expect(service.inventory('biru', range)).resolves.toBe(
-      '\uFEFF食材,單位,期初,入庫,耗用,調整,期末,理論耗用,實際耗用,差異\r\n' +
-        '牛奶,毫升,1000.000,500.000,300.000,-20.000,1180.000,280.000,320.000,40.000\r\n',
+    await expect(service.inventory('biru', range, true)).resolves.toBe(
+      '\uFEFF食材,單位,期初,入庫,耗用,報廢,報廢成本,調整,期末,理論耗用,實際耗用,差異\r\n' +
+        '牛奶,毫升,1000.000,500.000,300.000,50.000,2.50,-20.000,1130.000,280.000,320.000,40.000\r\n',
+    );
+    expect(inventoryReportService.getInventoryReport).toHaveBeenCalledWith(
+      'biru',
+      range,
+      true,
+    );
+  });
+
+  it('leaves the waste cost out without purchasing access', async () => {
+    inventoryReportService.getInventoryReport.mockResolvedValue({
+      rows: [milk],
+      wasteByReason: [{ reason: 'expired', occurrences: 2, cost: null }],
+    });
+
+    await expect(service.inventory('biru', range, false)).resolves.toBe(
+      '\uFEFF食材,單位,期初,入庫,耗用,報廢,調整,期末,理論耗用,實際耗用,差異\r\n' +
+        '牛奶,毫升,1000.000,500.000,300.000,50.000,-20.000,1130.000,280.000,320.000,40.000\r\n',
     );
   });
 });

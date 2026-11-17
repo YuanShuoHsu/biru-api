@@ -497,6 +497,8 @@ export type I18nTranslations = {
                 "uncategorized": string;
                 "unit": string;
                 "variance": string;
+                "wasted": string;
+                "wastedCost": string;
             };
             "paymentMethods": {
                 "ApplePay": string;

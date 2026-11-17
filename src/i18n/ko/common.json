@@ -442,7 +442,9 @@
       "total": "합계",
       "uncategorized": "미분류",
       "unit": "단위",
-      "variance": "차이"
+      "variance": "차이",
+      "wasted": "폐기",
+      "wastedCost": "폐기 비용"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
