@@ -44,12 +44,16 @@ describe('CouponsService 領券、發券與優惠券異動同時發生', () => {
     });
   });
 
-  const changedAfterLookup = async (changes: Partial<Coupon>) => {
+  const staleLookup = async () => {
     const found = await db.query.coupon.findFirst();
     const findFirst = vi
       .spyOn(db.query.coupon, 'findFirst')
       .mockResolvedValueOnce(found);
     onTestFinished(() => findFirst.mockRestore());
+  };
+
+  const changedAfterLookup = async (changes: Partial<Coupon>) => {
+    await staleLookup();
     await db.update(coupon).set(changes);
   };
 
@@ -77,6 +81,31 @@ describe('CouponsService 領券、發券與優惠券異動同時發生', () => {
     await expect(service.claim('summer', 'member')).rejects.toMatchObject({
       status: 400,
       response: { code: 'usedUp' },
+    });
+    await expect(db.query.userCoupon.findMany()).resolves.toHaveLength(1);
+  });
+
+  it('領取時優惠券剛被刪除回 notFound，發放回 couponNotFound', async () => {
+    await staleLookup();
+    await db.delete(coupon);
+    await expect(service.claim('summer', 'member')).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'notFound' },
+    });
+
+    await db.insert(coupon).values({
+      code: 'SUMMER',
+      discountType: 'fixed',
+      discountValue: '50',
+      id: 'summer',
+    });
+    await staleLookup();
+    await db.delete(coupon);
+    await expect(
+      service.grant('summer', 'member@example.com', 'admin'),
+    ).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'couponNotFound' },
     });
   });
 
@@ -107,5 +136,6 @@ describe('CouponsService 領券、發券與優惠券異動同時發生', () => {
     await expect(
       service.grant('summer', 'member@example.com', 'admin'),
     ).rejects.toMatchObject({ status: 400, response: { code: 'usedUp' } });
+    await expect(db.query.userCoupon.findMany()).resolves.toHaveLength(1);
   });
 });
