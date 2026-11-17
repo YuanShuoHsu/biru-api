@@ -36,6 +36,7 @@ import {
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { pgErrorCode } from '../common/utils/pg-errors.js';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
@@ -85,6 +86,12 @@ import {
 } from './request-batch.js';
 
 const RETENTION_DAYS = 30;
+
+const retentionCutoff = () => {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
+  return cutoff;
+};
 
 type Row = typeof deletedRecord.$inferSelect;
 
@@ -363,6 +370,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       SELECT DISTINCT ON (d.batch_id) d.*
       FROM deleted_record d
       WHERE d.table_name IN (${restorable})
+        AND d.deleted_at >= ${utcTimestampParam(retentionCutoff())}
         ${
           scope
             ? sql`
@@ -608,7 +616,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ({ tableName }) =>
         isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
     );
-    if (!root) throw notFoundError('batchNotFound');
+    if (!root || root.deletedAt < retentionCutoff())
+      throw notFoundError('batchNotFound');
 
     if (
       scope &&
@@ -966,12 +975,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   async purgeExpired(): Promise<number> {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
-
     const { rowCount } = await this.db
       .delete(deletedRecord)
-      .where(lt(deletedRecord.deletedAt, cutoff));
+      .where(lt(deletedRecord.deletedAt, retentionCutoff()));
 
     return rowCount ?? 0;
   }
