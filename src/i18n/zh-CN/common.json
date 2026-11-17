@@ -133,8 +133,10 @@
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
   "checklists": {
+    "checklistActionNoteRequired": "数值超出范围时，请填写处理说明后再保存。",
     "checklistItemInvalidRange": "数值项目的下限不能大于上限。",
     "checklistItemNotFound": "找不到要更新的检查项目，可能已被删除。请刷新后再试。",
+    "checklistItemValueRequired": "勾选项目请填写是否勾选，数值项目请填写数值。",
     "checklistTemplateNotFound": "找不到这份检查表模板，可能已被删除。"
   },
   "coupons": {

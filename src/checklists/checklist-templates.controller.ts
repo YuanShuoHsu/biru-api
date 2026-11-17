@@ -48,11 +48,13 @@ export class ChecklistTemplatesController {
   @Get()
   @OrganizationMember('organizationSlug')
   @ApiOkResponse({ isArray: true, type: ChecklistTemplateDto })
-  @ApiOperation({ summary: '列出例行檢查表範本與項目' })
+  @ApiOperation({
+    summary: '列出例行檢查表範本與項目；門市第一次讀取時建立預設範本',
+  })
   findAll(
     @OrganizationId() organizationId: string,
   ): Promise<ChecklistTemplateDto[]> {
-    return this.templatesService.findAll(organizationId);
+    return this.templatesService.findAllWithDefaults(organizationId);
   }
 
   @Post()

@@ -187,8 +187,10 @@ export type I18nTranslations = {
             "scheduleInvalid": string;
         };
         "checklists": {
+            "checklistActionNoteRequired": string;
             "checklistItemInvalidRange": string;
             "checklistItemNotFound": string;
+            "checklistItemValueRequired": string;
             "checklistTemplateNotFound": string;
         };
         "coupons": {

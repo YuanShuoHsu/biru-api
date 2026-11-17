@@ -27,7 +27,7 @@ import {
   type ChecklistTiming,
 } from '../../db/schema/checklists.js';
 
-const MEASUREMENT_LIMIT = 99999;
+export const MEASUREMENT_LIMIT = 99999;
 
 export class ChecklistTemplateItemInputDto {
   @ApiProperty({ description: '既有項目的 id，帶上就更新該項目；不帶就新增' })

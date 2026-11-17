@@ -133,8 +133,10 @@
     "scheduleInvalid": "開始時間必須早於結束時間"
   },
   "checklists": {
+    "checklistActionNoteRequired": "數值超出範圍時，請填寫處置說明後再儲存。",
     "checklistItemInvalidRange": "數值項目的下限不能大於上限。",
     "checklistItemNotFound": "找不到要更新的檢查項目，可能已被刪除。請重新整理後再試。",
+    "checklistItemValueRequired": "勾選項目請填寫是否勾選，數值項目請填寫數值。",
     "checklistTemplateNotFound": "找不到這份檢查表範本，可能已被刪除。"
   },
   "coupons": {
