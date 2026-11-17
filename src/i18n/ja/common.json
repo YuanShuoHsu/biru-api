@@ -426,7 +426,6 @@
       "mode": "注文方法",
       "net": "純売上",
       "noJobTitle": "職種未設定",
-      "occurrences": "廃棄回数",
       "opening": "期首在庫",
       "orders": "注文数",
       "paymentMethod": "支払方法",
@@ -442,8 +441,7 @@
       "unit": "単位",
       "variance": "差異",
       "wasted": "廃棄",
-      "wastedCost": "廃棄コスト",
-      "wasteReason": "廃棄理由"
+      "wastedCost": "廃棄コスト"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -462,13 +460,6 @@
       "KGM": "キログラム",
       "LTR": "リットル",
       "MLT": "ミリリットル"
-    },
-    "wasteReasons": {
-      "damaged": "破損",
-      "expired": "期限切れ",
-      "madeWrong": "作り間違い",
-      "other": "その他",
-      "spilled": "こぼした"
     }
   },
   "sharedCarts": {

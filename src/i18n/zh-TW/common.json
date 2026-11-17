@@ -426,7 +426,6 @@
       "mode": "點餐方式",
       "net": "淨額",
       "noJobTitle": "未設定職位",
-      "occurrences": "報廢次數",
       "opening": "期初",
       "orders": "訂單數",
       "paymentMethod": "付款方式",
@@ -442,8 +441,7 @@
       "unit": "單位",
       "variance": "差異",
       "wasted": "報廢",
-      "wastedCost": "報廢成本",
-      "wasteReason": "報廢原因"
+      "wastedCost": "報廢成本"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -462,13 +460,6 @@
       "KGM": "公斤",
       "LTR": "公升",
       "MLT": "毫升"
-    },
-    "wasteReasons": {
-      "damaged": "損壞",
-      "expired": "過期",
-      "madeWrong": "做錯",
-      "other": "其他",
-      "spilled": "打翻"
     }
   },
   "sharedCarts": {

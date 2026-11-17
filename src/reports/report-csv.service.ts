@@ -116,12 +116,11 @@ export class ReportCsvService {
     query: ReportRangeQueryDto,
     canReadPurchasing: boolean,
   ): Promise<string> {
-    const { rows, wasteByReason } =
-      await this.inventoryReportService.getInventoryReport(
-        organizationSlug,
-        query,
-        canReadPurchasing,
-      );
+    const { rows } = await this.inventoryReportService.getInventoryReport(
+      organizationSlug,
+      query,
+      canReadPurchasing,
+    );
     const lang = toLanguage(I18nContext.current()?.lang);
     const t = (key: CsvColumn) =>
       this.i18n.t(`common.reports.csv.${key}`, { lang });
@@ -145,23 +144,6 @@ export class ReportCsvService {
         this.i18n.t(`common.reports.units.${row.unitCode}`, { lang }),
         ...columns.map((column) => row[column]),
       ]),
-      ...(wasteByReason.length
-        ? [
-            [],
-            [
-              t('wasteReason'),
-              t('occurrences'),
-              ...(canReadPurchasing ? [t('wastedCost')] : []),
-            ],
-            ...wasteByReason.map((waste) => [
-              this.i18n.t(`common.reports.wasteReasons.${waste.reason}`, {
-                lang,
-              }),
-              waste.occurrences,
-              ...(canReadPurchasing ? [waste.cost] : []),
-            ]),
-          ]
-        : []),
     ]);
   }
   async personnel(organizationSlug: string, month: string): Promise<string> {

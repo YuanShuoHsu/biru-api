@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import type { I18nService } from 'nestjs-i18n';
 
-import { unitCodeEnum, wasteReasonEnum } from '../db/schema/inventory.js';
+import { unitCodeEnum } from '../db/schema/inventory.js';
 import { paymentMethodEnum } from '../db/schema/orders.js';
 import { languagesEnum } from '../db/schema/enums.js';
 import type { I18nTranslations } from '../generated/i18n.generated.js';
@@ -33,18 +33,17 @@ const i18n = {
 
 describe('report csv labels', () => {
   it.each(languagesEnum.enumValues)(
-    '%s labels every payment method, unit and waste reason',
+    '%s labels every payment method and unit',
     (lang) => {
-      const { paymentMethods, units, wasteReasons } = translations(lang)
-        .reports as Record<string, Record<string, string>>;
+      const { paymentMethods, units } = translations(lang).reports as Record<
+        string,
+        Record<string, string>
+      >;
       expect(Object.keys(paymentMethods).sort()).toEqual(
         [...paymentMethodEnum.enumValues].sort(),
       );
       expect(Object.keys(units).sort()).toEqual(
         [...unitCodeEnum.enumValues].sort(),
-      );
-      expect(Object.keys(wasteReasons).sort()).toEqual(
-        [...wasteReasonEnum.enumValues].sort(),
       );
     },
   );
@@ -195,7 +194,7 @@ describe('ReportCsvService', () => {
     variance: '40.000',
   };
 
-  it('writes one inventory row per ingredient with its unit and the waste cost, then the waste by reason', async () => {
+  it('writes one inventory row per ingredient with its unit and the waste cost', async () => {
     inventoryReportService.getInventoryReport.mockResolvedValue({
       rows: [{ ...milk, wastedCost: '2.50' }],
       wasteByReason: [
@@ -206,11 +205,7 @@ describe('ReportCsvService', () => {
 
     await expect(service.inventory('biru', range, true)).resolves.toBe(
       '\uFEFF食材,單位,期初,入庫,耗用,報廢,報廢成本,調整,期末,理論耗用,實際耗用,差異\r\n' +
-        '牛奶,毫升,1000.000,500.000,300.000,50.000,2.50,-20.000,1130.000,280.000,320.000,40.000\r\n' +
-        '\r\n' +
-        '報廢原因,報廢次數,報廢成本\r\n' +
-        '過期,2,2.00\r\n' +
-        '做錯,1,\r\n',
+        '牛奶,毫升,1000.000,500.000,300.000,50.000,2.50,-20.000,1130.000,280.000,320.000,40.000\r\n',
     );
     expect(inventoryReportService.getInventoryReport).toHaveBeenCalledWith(
       'biru',
@@ -219,10 +214,10 @@ describe('ReportCsvService', () => {
     );
   });
 
-  it('leaves the waste cost out without purchasing access and the reasons out when nothing was wasted', async () => {
+  it('leaves the waste cost out without purchasing access', async () => {
     inventoryReportService.getInventoryReport.mockResolvedValue({
       rows: [milk],
-      wasteByReason: [],
+      wasteByReason: [{ reason: 'expired', occurrences: 2, cost: null }],
     });
 
     await expect(service.inventory('biru', range, false)).resolves.toBe(

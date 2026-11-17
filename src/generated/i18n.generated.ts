@@ -480,7 +480,6 @@ export type I18nTranslations = {
                 "mode": string;
                 "net": string;
                 "noJobTitle": string;
-                "occurrences": string;
                 "opening": string;
                 "orders": string;
                 "paymentMethod": string;
@@ -497,7 +496,6 @@ export type I18nTranslations = {
                 "variance": string;
                 "wasted": string;
                 "wastedCost": string;
-                "wasteReason": string;
             };
             "paymentMethods": {
                 "ApplePay": string;
@@ -516,13 +514,6 @@ export type I18nTranslations = {
                 "KGM": string;
                 "LTR": string;
                 "MLT": string;
-            };
-            "wasteReasons": {
-                "damaged": string;
-                "expired": string;
-                "madeWrong": string;
-                "other": string;
-                "spilled": string;
             };
         };
         "sharedCarts": {

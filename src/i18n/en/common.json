@@ -426,7 +426,6 @@
       "mode": "Order mode",
       "net": "Net",
       "noJobTitle": "No job title",
-      "occurrences": "Times wasted",
       "opening": "Opening",
       "orders": "Orders",
       "paymentMethod": "Payment method",
@@ -442,8 +441,7 @@
       "unit": "Unit",
       "variance": "Variance",
       "wasted": "Waste",
-      "wastedCost": "Waste cost",
-      "wasteReason": "Waste reason"
+      "wastedCost": "Waste cost"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -462,13 +460,6 @@
       "KGM": "kg",
       "LTR": "L",
       "MLT": "ml"
-    },
-    "wasteReasons": {
-      "damaged": "Damaged",
-      "expired": "Expired",
-      "madeWrong": "Made wrong",
-      "other": "Other",
-      "spilled": "Spilled"
     }
   },
   "sharedCarts": {
