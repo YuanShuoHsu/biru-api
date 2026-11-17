@@ -7,7 +7,17 @@ import {
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import { and, asc, eq, ilike, inArray, lt, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lt,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AttendanceActor } from '../attendance/attendance-actor.js';
@@ -85,6 +95,12 @@ import {
 } from './request-batch.js';
 
 const RETENTION_DAYS = 30;
+
+const retentionCutoff = () => {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
+  return cutoff;
+};
 
 type Row = typeof deletedRecord.$inferSelect;
 
@@ -363,6 +379,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       SELECT DISTINCT ON (d.batch_id) d.*
       FROM deleted_record d
       WHERE d.table_name IN (${restorable})
+        AND d.deleted_at >= ${sql.param(retentionCutoff(), deletedRecord.deletedAt)}
         ${
           scope
             ? sql`
@@ -600,7 +617,12 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     const batch = await this.db
       .select()
       .from(deletedRecord)
-      .where(eq(deletedRecord.batchId, batchId))
+      .where(
+        and(
+          eq(deletedRecord.batchId, batchId),
+          gte(deletedRecord.deletedAt, retentionCutoff()),
+        ),
+      )
       .orderBy(asc(deletedRecord.id));
 
     const batchTables = new Set(batch.map(({ tableName }) => tableName));
@@ -966,12 +988,9 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
   }
 
   async purgeExpired(): Promise<number> {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
-
     const { rowCount } = await this.db
       .delete(deletedRecord)
-      .where(lt(deletedRecord.deletedAt, cutoff));
+      .where(lt(deletedRecord.deletedAt, retentionCutoff()));
 
     return rowCount ?? 0;
   }

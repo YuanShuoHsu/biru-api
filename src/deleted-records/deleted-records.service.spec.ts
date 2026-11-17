@@ -174,6 +174,15 @@ describe('DeletedRecordsService.list', () => {
     await client.close();
   });
 
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const ids = (result: { data: { batchId: number }[] }) =>
     result.data.map(({ batchId }) => batchId);
 
@@ -293,6 +302,24 @@ describe('DeletedRecordsService.list', () => {
         { organizationId: 'org1', role: 'admin', closed: false },
       ),
     ).rejects.toMatchObject({ response: { code: 'forbidden' }, status: 403 });
+  });
+
+  it('超過 30 天保留期的批次不列出也不能還原，即使每日清除還沒執行', async () => {
+    vi.setSystemTime(new Date('2026-11-01T12:00:00Z'));
+
+    expect(
+      ids(await service.list({ sortBy: 'deletedAt', sortDirection: 'asc' })),
+    ).toEqual([3, 5]);
+    await expect(
+      service.restore([1], {
+        id: 'admin',
+        name: 'admin',
+        email: 'admin@example.com',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'batchNotFound' },
+      status: 404,
+    });
   });
 
   it('平台視角一律可以還原', async () => {
