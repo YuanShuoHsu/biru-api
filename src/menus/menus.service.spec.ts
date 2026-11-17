@@ -586,6 +586,24 @@ describe('MenusService localized text filters and sorting', () => {
       );
     });
   });
+  it.each([
+    { id: 'missing', menuItemId: 'latte' },
+    { id: 'latte-ice', menuItemId: 'americano' },
+  ])(
+    '掛載的選項群組不存在或不屬於該品項時，單筆與批次移除都回 404：%j',
+    async ({ id, menuItemId }) => {
+      const notFound = {
+        response: { code: 'menuItemModifierGroupNotFound' },
+        status: 404,
+      };
+      await expect(
+        service.deleteMenuItemModifierGroup({ id, menuItemId }),
+      ).rejects.toMatchObject(notFound);
+      await expect(
+        service.deleteMenuItemModifierGroups(menuItemId, [id]),
+      ).rejects.toMatchObject(notFound);
+    },
+  );
   describe('加購對象', () => {
     const rejected = {
       response: { code: 'addOnTargetRequired' },
