@@ -81,8 +81,8 @@ describe('ChecklistRunsService', () => {
       ['冷藏冷凍溫度', 'anytime'],
     ]);
     expect(created[2].items).toMatchObject([
-      { type: 'number', unit: '°C', minValue: null, maxValue: 7 },
-      { type: 'number', unit: '°C', minValue: null, maxValue: -12 },
+      { type: 'number', unit: '°C', minValue: 0, maxValue: 7 },
+      { type: 'number', unit: '°C', minValue: null, maxValue: -18 },
     ]);
 
     for (const { id } of created) await templates.remove('biru', id);

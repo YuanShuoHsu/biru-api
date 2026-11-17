@@ -30,11 +30,16 @@ export const DEFAULT_CHECKLIST_TEMPLATES: CreateChecklistTemplateDto[] = [
   {
     name: '冷藏冷凍溫度',
     timing: 'anytime',
-    // https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=L0040122&flno=7
-    // https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=L0040122&flno=8
+    // https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=L0040122&flno=4
     items: [
-      { label: '冷藏庫溫度', type: 'number', unit: '°C', maxValue: 7 },
-      { label: '冷凍庫溫度', type: 'number', unit: '°C', maxValue: -12 },
+      {
+        label: '冷藏庫溫度',
+        type: 'number',
+        unit: '°C',
+        minValue: 0,
+        maxValue: 7,
+      },
+      { label: '冷凍庫溫度', type: 'number', unit: '°C', maxValue: -18 },
     ],
   },
 ];
