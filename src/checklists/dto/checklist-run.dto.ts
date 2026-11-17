@@ -114,6 +114,10 @@ export class ChecklistRunDto {
   timing: ChecklistTiming;
   @ApiProperty({ nullable: true, type: Date }) startedAt: Date | null;
   @ApiProperty({ nullable: true, type: Date }) completedAt: Date | null;
+  @ApiProperty({
+    description: '已填項目數：勾選為是或已填數值，與完成判斷同一規則',
+  })
+  filledCount: number;
   @ApiProperty({ type: [ChecklistRunItemDto] }) items: ChecklistRunItemDto[];
 }
 
