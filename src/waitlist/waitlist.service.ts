@@ -120,13 +120,13 @@ const STALE_TICKET_MS = 24 * 60 * 60 * 1000;
 const PERSONAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const PUBLIC_CALLED_TICKET_LIMIT = 5;
 
-const inTodayQueue = (organizationId: string) =>
+const inTodayQueue = (organizationId: string, now = new Date()) =>
   and(
     eq(waitlistTicket.organizationId, organizationId),
     or(
       inArray(waitlistTicket.status, [...WAITLIST_ACTIVE_STATUSES]),
-      gte(waitlistTicket.serviceDate, platformDateString(new Date())),
-      gte(waitlistTicket.endedAt, new Date(platformMidnight(Date.now()))),
+      gte(waitlistTicket.serviceDate, platformDateString(now)),
+      gte(waitlistTicket.endedAt, new Date(platformMidnight(now.getTime()))),
     ),
   );
 
@@ -459,14 +459,13 @@ export class WaitlistService {
         byStaff ? 'staff' : 'guest',
       );
 
-    const serviceDate = platformDateString(new Date());
-
     const { created, ticket } = await this.db.transaction(async (tx) => {
       await tx
         .select({ id: organization.id })
         .from(organization)
         .where(eq(organization.id, org.id))
         .for('update');
+      const now = new Date();
 
       const duplicate = await findReplay(tx);
       if (duplicate) return { created: false, ticket: duplicate };
@@ -501,7 +500,10 @@ export class WaitlistService {
         .select({ value: max(waitlistTicket.number) })
         .from(waitlistTicket)
         .where(
-          and(inTodayQueue(org.id), eq(waitlistTicket.prefix, group.prefix)),
+          and(
+            inTodayQueue(org.id, now),
+            eq(waitlistTicket.prefix, group.prefix),
+          ),
         );
 
       const [inserted] = await tx
@@ -509,7 +511,7 @@ export class WaitlistService {
         .values({
           id: randomUUID(),
           organizationId: org.id,
-          serviceDate,
+          serviceDate: platformDateString(now),
           prefix: group.prefix,
           number: (lastNumber || 0) + 1,
           partySize: dto.partySize,
@@ -520,7 +522,7 @@ export class WaitlistService {
           idempotencyKey,
           idempotencyFingerprint,
           userId,
-          createdAt: new Date(),
+          createdAt: now,
         })
         .returning();
 
