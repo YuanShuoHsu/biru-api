@@ -7,17 +7,7 @@ import {
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-import {
-  and,
-  asc,
-  eq,
-  gte,
-  ilike,
-  inArray,
-  lt,
-  sql,
-  type SQL,
-} from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AttendanceActor } from '../attendance/attendance-actor.js';
@@ -46,6 +36,7 @@ import {
   escapeLike,
 } from '../common/utils/data-grid-filters.js';
 import { pgErrorCode } from '../common/utils/pg-errors.js';
+import { utcTimestampParam } from '../common/utils/stats-buckets.js';
 import {
   ATTENDANCE_LEGAL_STATUSES,
   ATTENDANCE_TERMINATION_REASONS,
@@ -379,7 +370,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       SELECT DISTINCT ON (d.batch_id) d.*
       FROM deleted_record d
       WHERE d.table_name IN (${restorable})
-        AND d.deleted_at >= ${sql.param(retentionCutoff(), deletedRecord.deletedAt)}
+        AND d.deleted_at >= ${utcTimestampParam(retentionCutoff())}
         ${
           scope
             ? sql`
@@ -617,12 +608,7 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
     const batch = await this.db
       .select()
       .from(deletedRecord)
-      .where(
-        and(
-          eq(deletedRecord.batchId, batchId),
-          gte(deletedRecord.deletedAt, retentionCutoff()),
-        ),
-      )
+      .where(eq(deletedRecord.batchId, batchId))
       .orderBy(asc(deletedRecord.id));
 
     const batchTables = new Set(batch.map(({ tableName }) => tableName));
@@ -630,7 +616,8 @@ export class DeletedRecordsService implements OnApplicationBootstrap {
       ({ tableName }) =>
         isRestorable(tableName) && !isPreDeletedChild(tableName, batchTables),
     );
-    if (!root) throw notFoundError('batchNotFound');
+    if (!root || root.deletedAt < retentionCutoff())
+      throw notFoundError('batchNotFound');
 
     if (
       scope &&
