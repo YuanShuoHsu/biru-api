@@ -4,7 +4,6 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { I18nContext } from 'nestjs-i18n';
 
-import { platformDateString } from '../common/constants/timezone.js';
 import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
@@ -484,6 +483,17 @@ describe('WaitlistService.confirmTicket', () => {
 });
 
 describe('WaitlistService.transitionTicket', () => {
+  beforeAll(() => {
+    vi.useFakeTimers({
+      now: new Date('2026-10-06T04:00:00Z'),
+      toFake: ['Date'],
+    });
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   const transition = (
     from: string,
     to: 'called' | 'waiting' = 'called',
@@ -491,8 +501,8 @@ describe('WaitlistService.transitionTicket', () => {
     phoneNumber: string | null = '+886912345678',
     savedGroups: typeof groups = groups,
     ended: { endedAt: Date; serviceDate: string } = {
-      endedAt: new Date(),
-      serviceDate: platformDateString(new Date()),
+      endedAt: new Date('2026-10-06T03:00:00Z'),
+      serviceDate: '2026-10-06',
     },
   ) => {
     const ticket = {
@@ -616,16 +626,18 @@ describe('WaitlistService.transitionTicket', () => {
     ['noShow', 'called'],
     ['seated', 'called'],
   ] as const)(
-    'refuses to revert a %s ticket that ended before today and is no longer on the board',
+    'refuses to revert a %s ticket that ended before today’s midnight and is no longer on the board',
     async (from, to) => {
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const { lock, result, set } = transition(
         from,
         to,
         undefined,
         undefined,
         undefined,
-        { endedAt: yesterday, serviceDate: platformDateString(yesterday) },
+        {
+          endedAt: new Date('2026-10-05T15:59:59.999Z'),
+          serviceDate: '2026-10-05',
+        },
       );
 
       await expect(result).rejects.toThrow('waitlistTicketOffBoard');
@@ -634,7 +646,7 @@ describe('WaitlistService.transitionTicket', () => {
     },
   );
 
-  it('reverts a ticket from yesterday that ended today and is still on the board', async () => {
+  it('reverts a ticket from yesterday that ended at today’s midnight and is still on the board', async () => {
     const { result } = transition(
       'seated',
       'called',
@@ -642,10 +654,8 @@ describe('WaitlistService.transitionTicket', () => {
       undefined,
       undefined,
       {
-        endedAt: new Date(),
-        serviceDate: platformDateString(
-          new Date(Date.now() - 24 * 60 * 60 * 1000),
-        ),
+        endedAt: new Date('2026-10-05T16:00:00Z'),
+        serviceDate: '2026-10-05',
       },
     );
 
