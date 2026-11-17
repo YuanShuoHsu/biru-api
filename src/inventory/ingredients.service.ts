@@ -311,6 +311,7 @@ export class IngredientsService {
   async create(
     organizationId: string,
     { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
+    createdBy?: string,
   ): Promise<IngredientResponseDto> {
     const priceCurrency = await getOrganizationCurrency(
       this.db,
@@ -340,7 +341,7 @@ export class IngredientsService {
       await this.inventoryTransactionsService.create(
         row.id,
         { inventoryLevel, note: transactionNote },
-        { tx },
+        { createdBy, tx },
       );
 
       return { ...row, inventoryLevel, unitPrice };
@@ -358,6 +359,7 @@ export class IngredientsService {
   async update(
     ingredientId: string,
     { inventoryLevel, transactionNote, ...dto }: UpdateIngredientDto,
+    createdBy?: string,
   ): Promise<IngredientResponseDto> {
     const [existing] = await this.db
       .select({
@@ -437,7 +439,7 @@ export class IngredientsService {
       await this.inventoryTransactionsService.create(
         row.id,
         { inventoryLevel, note: transactionNote },
-        { tx },
+        { createdBy, tx },
       );
 
       return { ...row, inventoryLevel, unitPrice };

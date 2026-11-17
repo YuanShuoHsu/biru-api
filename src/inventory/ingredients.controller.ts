@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
 
@@ -55,8 +56,9 @@ export class IngredientsController {
   update(
     @Param('ingredientId') ingredientId: string,
     @Body() dto: UpdateIngredientDto,
+    @Session() session: UserSession,
   ): Promise<IngredientResponseDto> {
-    return this.ingredientsService.update(ingredientId, dto);
+    return this.ingredientsService.update(ingredientId, dto, session.user.id);
   }
 
   @Delete()
@@ -91,9 +93,11 @@ export class IngredientsController {
     @Param('ingredientId') ingredientId: string,
     @Body() dto: CreateInventoryTransactionDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+    @Session() session: UserSession,
   ): Promise<InventoryTransactionResponseDto> {
     return this.inventoryTransactionsService.create(ingredientId, dto, {
       canReadPurchasing,
+      createdBy: session.user.id,
     });
   }
 
@@ -105,11 +109,13 @@ export class IngredientsController {
     @Param('ingredientId') ingredientId: string,
     @Body() dto: CreateIngredientWasteDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+    @Session() session: UserSession,
   ): Promise<InventoryTransactionResponseDto> {
     return this.inventoryTransactionsService.waste(
       ingredientId,
       dto,
       canReadPurchasing,
+      session.user.id,
     );
   }
 }

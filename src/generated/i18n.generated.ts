@@ -269,6 +269,7 @@ export type I18nTranslations = {
             "supplierNotFound": string;
             "unlimitedStockWaste": string;
             "wasteExceedsStock": string;
+            "wasteRecipeMissing": string;
         };
         "invoices": {
             "allowanceIssued": string;

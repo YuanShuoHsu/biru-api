@@ -1989,6 +1989,13 @@
       "when": 1794618762791,
       "tag": "0283_checklists",
       "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1794827582943,
+      "tag": "0284_inventory_transaction_created_by",
+      "breakpoints": true
     }
   ]
 }

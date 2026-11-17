@@ -31,17 +31,25 @@ import {
   type InventoryTransaction,
   type WasteReason,
 } from '../db/schema/inventory.js';
-import { offer } from '../db/schema/menus.js';
+import {
+  menu,
+  menuItem,
+  modifier,
+  modifierGroup,
+  offer,
+} from '../db/schema/menus.js';
 import { order, orderItem } from '../db/schema/orders.js';
 import { DRIZZLE, type DrizzleDB } from '../drizzle/drizzle.module.js';
 import {
   LOW_STOCK_REACHED_EVENT,
   type LowStockReachedEvent,
 } from '../events/low-stock-reached.event.js';
+import { notFoundError as menuNotFoundError } from '../menus/menu-errors.js';
 
 import { CreateIngredientBatchDto } from './dto/create-ingredient-batch.dto.js';
 import { CreateIngredientWasteDto } from './dto/create-ingredient-waste.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
+import { CreateProductWasteDto } from './dto/create-product-waste.dto.js';
 import {
   INVENTORY_TRANSACTION_DATE_FILTER_FIELDS,
   INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
@@ -220,13 +228,14 @@ export class InventoryTransactionsService {
     dto: CreateInventoryTransactionDto,
     {
       canReadPurchasing = true,
+      createdBy,
       tx,
-    }: { canReadPurchasing?: boolean; tx?: Tx } = {},
+    }: { canReadPurchasing?: boolean; createdBy?: string; tx?: Tx } = {},
   ): Promise<InventoryTransactionResponseDto> {
     const created = tx
-      ? await this.write(ingredientId, dto, tx)
+      ? await this.write(ingredientId, dto, tx, createdBy)
       : await this.db.transaction((opened) =>
-          this.write(ingredientId, dto, opened),
+          this.write(ingredientId, dto, opened, createdBy),
         );
 
     const { unitCost, ...rest } = created;
@@ -238,6 +247,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     dto: CreateInventoryTransactionDto,
     tx: Tx,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const [found] = await tx
       .select({
@@ -258,6 +268,7 @@ export class InventoryTransactionsService {
       .insert(inventoryTransaction)
       .values({
         id: randomUUID(),
+        createdBy,
         ingredientId,
         note: dto.note,
         organizationId: found.organizationId,
@@ -281,6 +292,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     { note, quantity }: CreateIngredientBatchDto,
     canReadPurchasing = true,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const { batch, balance, lowStock } = await this.db.transaction(
       async (tx) => {
@@ -378,7 +390,12 @@ export class InventoryTransactionsService {
               unitCost: target.unitPrice?.toString() ?? null,
             },
           ],
-          { productionBatchId: randomUUID(), note, organizationId },
+          {
+            createdBy,
+            productionBatchId: randomUUID(),
+            note,
+            organizationId,
+          },
           tx,
         );
 
@@ -416,6 +433,7 @@ export class InventoryTransactionsService {
     ingredientId: string,
     { note, quantity, wasteReason }: CreateIngredientWasteDto,
     canReadPurchasing = true,
+    createdBy?: string,
   ): Promise<InventoryTransactionResponseDto> {
     const { wasted, balance, lowStock, organizationId } =
       await this.db.transaction(async (tx) => {
@@ -457,7 +475,12 @@ export class InventoryTransactionsService {
               unitCost: found.unitPrice?.toString() ?? null,
             },
           ],
-          { note, organizationId: found.organizationId, wasteReason },
+          {
+            createdBy,
+            note,
+            organizationId: found.organizationId,
+            wasteReason,
+          },
           tx,
         );
 
@@ -489,6 +512,133 @@ export class InventoryTransactionsService {
       orderNumber: null,
       reason: 'waste',
     };
+  }
+
+  async wasteProduct(
+    organizationId: string,
+    {
+      menuItemId,
+      modifierIds = [],
+      note,
+      servings,
+      wasteReason,
+    }: CreateProductWasteDto,
+    canReadPurchasing = true,
+    createdBy?: string,
+  ): Promise<InventoryTransactionResponseDto[]> {
+    const { wasted, balances, lowStock } = await this.db.transaction(
+      async (tx) => {
+        const [item] = await tx
+          .select({ id: menuItem.id })
+          .from(menuItem)
+          .innerJoin(menu, eq(menu.id, menuItem.menuId))
+          .where(
+            and(
+              eq(menuItem.id, menuItemId),
+              eq(menu.organizationId, organizationId),
+            ),
+          );
+        if (!item) throw menuNotFoundError('menuItemNotFound');
+
+        if (modifierIds.length) {
+          const modifiers = await tx
+            .select({ id: modifier.id })
+            .from(modifier)
+            .innerJoin(
+              modifierGroup,
+              eq(modifierGroup.id, modifier.modifierGroupId),
+            )
+            .innerJoin(menu, eq(menu.id, modifierGroup.menuId))
+            .where(
+              and(
+                inArray(modifier.id, modifierIds),
+                eq(menu.organizationId, organizationId),
+              ),
+            );
+          if (modifiers.length !== modifierIds.length)
+            throw menuNotFoundError('modifierNotFound');
+        }
+
+        const { quantities } = await this.ingredientUsage(
+          new Map([[menuItemId, servings]]),
+          new Map(modifierIds.map((id) => [id, servings])),
+          tx,
+        );
+        if (!quantities.size) throw badRequestError('wasteRecipeMissing');
+
+        const locked = await tx
+          .select({
+            id: ingredient.id,
+            inventoryLevel: ingredient.inventoryLevel,
+            name: ingredient.name,
+            unitPrice: unitPriceSql,
+          })
+          .from(ingredient)
+          .where(inArray(ingredient.id, [...quantities.keys()]))
+          .orderBy(asc(ingredient.id))
+          .for('update');
+
+        const shortfalls = [...quantities].flatMap(([ingredientId, used]) => {
+          const material = locked.find(({ id }) => id === ingredientId);
+          const shortfall = used - Number(material?.inventoryLevel);
+          return material && shortfall > QUANTITY_TOLERANCE
+            ? [
+                {
+                  id: material.id,
+                  name: material.name,
+                  shortfall: shortfall.toFixed(3),
+                },
+              ]
+            : [];
+        });
+        if (shortfalls.length)
+          throw badRequestError('wasteExceedsStock', {
+            ingredients: shortfalls,
+          });
+
+        const { created, lowStock } = await this.record(
+          [...quantities].map(([ingredientId, used]) => ({
+            ingredientId,
+            quantity: -used,
+            unitCost:
+              locked
+                .find(({ id }) => id === ingredientId)
+                ?.unitPrice?.toString() ?? null,
+          })),
+          {
+            createdBy,
+            note,
+            organizationId,
+            wasteBatchId: randomUUID(),
+            wasteMenuItemId: menuItemId,
+            wasteReason,
+            wasteServings: servings,
+          },
+          tx,
+        );
+
+        const balances = await tx
+          .select({ id: ingredient.id, balance: ingredient.inventoryLevel })
+          .from(ingredient)
+          .where(inArray(ingredient.id, [...quantities.keys()]));
+
+        return { wasted: created, balances, lowStock };
+      },
+    );
+
+    if (lowStock.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId,
+        ingredients: lowStock,
+      } satisfies LowStockReachedEvent);
+
+    return wasted.map(({ unitCost, ...rest }) => ({
+      ...rest,
+      ...(canReadPurchasing && { unitCost }),
+      balance: balances.find(({ id }) => id === rest.ingredientId)!.balance,
+      orderNumber: null,
+      reason: 'waste',
+    }));
   }
 
   async consume(
@@ -545,6 +695,39 @@ export class InventoryTransactionsService {
       tx,
     );
 
+    const { quantities, sourceByIngredientId } = await this.ingredientUsage(
+      servingsByMenuItemId,
+      servingsByModifierId,
+      tx,
+    );
+
+    const { lowStock } = await this.record(
+      [...quantities].map(([ingredientId, used]) => ({
+        ingredientId,
+        quantity: -used,
+      })),
+      {
+        ...(enforceStock && { sourceByIngredientId }),
+        orderId,
+        organizationId: placed.sellerId,
+      },
+      tx,
+    );
+
+    return { lowStock, offerStockChanged };
+  }
+
+  private async ingredientUsage(
+    servingsByMenuItemId: Map<string, number>,
+    servingsByModifierId: Map<string, number>,
+    tx: Tx,
+  ): Promise<{
+    quantities: Map<string, number>;
+    sourceByIngredientId: Map<string, StockSource>;
+  }> {
+    const quantities = new Map<string, number>();
+    const sourceByIngredientId = new Map<string, StockSource>();
+
     const recipes = await tx
       .select({
         id: recipe.id,
@@ -560,7 +743,7 @@ export class InventoryTransactionsService {
         ),
       )
       .orderBy(asc(recipe.menuItemId), asc(recipe.modifierId));
-    if (!recipes.length) return { lowStock: [], offerStockChanged };
+    if (!recipes.length) return { quantities, sourceByIngredientId };
 
     const materials = await tx
       .select({
@@ -580,8 +763,6 @@ export class InventoryTransactionsService {
         ),
       );
 
-    const quantities = new Map<string, number>();
-    const sourceByIngredientId = new Map<string, StockSource>();
     for (const { id, menuItemId, modifierId, recipeYield } of recipes) {
       const source = menuItemId
         ? { menuItemId }
@@ -607,20 +788,7 @@ export class InventoryTransactionsService {
       }
     }
 
-    const { lowStock } = await this.record(
-      [...quantities].map(([ingredientId, used]) => ({
-        ingredientId,
-        quantity: -used,
-      })),
-      {
-        ...(enforceStock && { sourceByIngredientId }),
-        orderId,
-        organizationId: placed.sellerId,
-      },
-      tx,
-    );
-
-    return { lowStock, offerStockChanged };
+    return { quantities, sourceByIngredientId };
   }
 
   async restoreAll(orderId: string, tx: Tx): Promise<boolean> {
@@ -790,19 +958,27 @@ export class InventoryTransactionsService {
       unitCost?: string | null;
     }[],
     {
+      createdBy,
       productionBatchId,
       sourceByIngredientId,
       note,
       orderId,
       organizationId,
+      wasteBatchId,
+      wasteMenuItemId,
       wasteReason,
+      wasteServings,
     }: {
+      createdBy?: string;
       productionBatchId?: string;
       sourceByIngredientId?: Map<string, StockSource>;
       note?: string | null;
       orderId?: string;
       organizationId: string;
+      wasteBatchId?: string;
+      wasteMenuItemId?: string;
       wasteReason?: WasteReason;
+      wasteServings?: number;
     },
     tx: Tx,
   ): Promise<{
@@ -845,6 +1021,7 @@ export class InventoryTransactionsService {
       .values(
         entries.map(({ ingredientId, quantity, unitCost }) => ({
           id: randomUUID(),
+          createdBy,
           productionBatchId,
           ingredientId,
           note,
@@ -852,7 +1029,10 @@ export class InventoryTransactionsService {
           organizationId,
           quantity: String(quantity),
           unitCost,
+          wasteBatchId,
+          wasteMenuItemId,
           wasteReason,
+          wasteServings,
         })),
       )
       .returning();

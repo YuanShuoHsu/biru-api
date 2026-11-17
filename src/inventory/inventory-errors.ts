@@ -32,6 +32,7 @@ export const inventoryErrorCodes = [
   'supplierNotFound',
   'unlimitedStockWaste',
   'wasteExceedsStock',
+  'wasteRecipeMissing',
 ] as const;
 
 type InventoryErrorCode = (typeof inventoryErrorCodes)[number];

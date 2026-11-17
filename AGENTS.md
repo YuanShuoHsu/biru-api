@@ -326,6 +326,10 @@ orders, and don't accept negative counts.
 An ingredient with `unlimitedStock` is never deducted: order consumption, batch materials and low-stock checks skip it, and
 recording waste on it is rejected with `unlimitedStockWaste` in the service, not only hidden in the admin UI.
 
+`inventory_transaction.created_by` is the user who recorded a count (the opening stock and count saved with an ingredient included), batch or waste (`session.user.id`, passed down from the
+controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —
+product waste carries no `@Audit`, so this column is its only record of who did it.
+
 ### Email Opt-in
 
 `user.emailSubscribed` is the member's email opt-in: the sign-up checkbox, which members change in the
