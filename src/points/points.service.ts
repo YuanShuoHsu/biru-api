@@ -47,11 +47,7 @@ import {
   platformMidnight,
   toPlatformTime,
 } from '../common/constants/timezone.js';
-import {
-  isCouponDeleted,
-  withinCapacity,
-  withinValidity,
-} from '../common/utils/coupons.js';
+import { withinCapacity, withinValidity } from '../common/utils/coupons.js';
 import {
   buildFilterCondition,
   buildQuickFilterCondition,
@@ -1185,24 +1181,36 @@ export class PointsService {
       ),
     });
     if (!found?.pointsCost) throw badRequestError('notRedeemable');
-    const pointsCost = found.pointsCost;
 
     const created = await this.db.transaction(async (tx) => {
-      if (found.totalLimit !== null) {
-        const [locked] = await tx
-          .select({ usedCount: coupon.usedCount })
-          .from(coupon)
-          .where(eq(coupon.id, found.id))
-          .for('update');
-        if (!locked) throw badRequestError('notRedeemable');
+      const [locked] = await tx
+        .select({
+          perUserLimit: coupon.perUserLimit,
+          pointsCost: coupon.pointsCost,
+          totalLimit: coupon.totalLimit,
+          usedCount: coupon.usedCount,
+        })
+        .from(coupon)
+        .where(
+          and(
+            eq(coupon.id, found.id),
+            eq(coupon.isActive, true),
+            isNotNull(coupon.pointsCost),
+            withinValidity(),
+          ),
+        )
+        .for('update');
+      if (!locked?.pointsCost) throw badRequestError('notRedeemable');
+      const pointsCost = locked.pointsCost;
 
+      if (locked.totalLimit !== null) {
         const [{ value: reserved }] = await tx
           .select({ value: count() })
           .from(userCoupon)
           .where(
             and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
           );
-        if (locked.usedCount + reserved >= found.totalLimit)
+        if (locked.usedCount + reserved >= locked.totalLimit)
           throw couponBadRequestError('usedUp');
       }
 
@@ -1223,7 +1231,7 @@ export class PointsService {
         .for('update');
 
       // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
-      if (found.perUserLimit !== null) {
+      if (locked.perUserLimit !== null) {
         const [{ value: redeemed }] = await tx
           .select({ value: count() })
           .from(userCoupon)
@@ -1234,7 +1242,7 @@ export class PointsService {
               eq(userCoupon.source, 'redeemed'),
             ),
           );
-        if (redeemed >= found.perUserLimit)
+        if (redeemed >= locked.perUserLimit)
           throw badRequestError('perUserLimitReached');
       }
 
@@ -1264,11 +1272,7 @@ export class PointsService {
           source: 'redeemed',
           userId,
         })
-        .returning()
-        .catch((error: unknown) => {
-          if (isCouponDeleted(error)) throw badRequestError('notRedeemable');
-          throw error;
-        });
+        .returning();
 
       await tx.insert(pointTransaction).values({
         id: randomUUID(),
