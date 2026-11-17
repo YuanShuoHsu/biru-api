@@ -32,7 +32,6 @@ import {
   userCoupon,
   type Coupon,
   type CouponIssueTrigger,
-  type UserCoupon,
 } from '../db/schema/coupons.js';
 import { DEFAULT_LANGUAGE } from '../db/schema/enums.js';
 import { menu, menuItem, menuSection } from '../db/schema/menus.js';
@@ -1125,58 +1124,59 @@ export class CouponsService {
     couponId: string,
     userId: string,
   ): Promise<UserCouponResponseDto> {
-    const found = await this.db.query.coupon.findFirst({
-      where: and(
+    const claimable = () =>
+      and(
         eq(coupon.id, couponId),
         eq(coupon.isActive, true),
         eq(coupon.isClaimable, true),
         notPointsRedeem(),
         withinValidity(),
-      ),
-    });
+      );
+    const found = await this.db.query.coupon.findFirst({ where: claimable() });
     if (!found) throw badRequestError('notFound');
 
-    let created: UserCoupon;
-    try {
-      created = await this.db.transaction(async (tx) => {
-        if (found.totalLimit !== null) {
-          const [locked] = await tx
-            .select({ usedCount: coupon.usedCount })
-            .from(coupon)
-            .where(eq(coupon.id, found.id))
-            .for('update');
-          if (!locked) throw badRequestError('notFound');
+    const { created, locked } = await this.db
+      .transaction(async (tx) => {
+        const [locked] = await tx
+          .select()
+          .from(coupon)
+          .where(claimable())
+          .for('update');
+        if (!locked) throw badRequestError('notFound');
 
+        if (locked.totalLimit !== null) {
           const [{ value: reserved }] = await tx
             .select({ value: count() })
             .from(userCoupon)
             .where(
-              and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+              and(
+                eq(userCoupon.couponId, locked.id),
+                isNull(userCoupon.usedAt),
+              ),
             );
-          if (locked.usedCount + reserved >= found.totalLimit)
+          if (locked.usedCount + reserved >= locked.totalLimit)
             throw badRequestError('usedUp');
         }
 
-        const [row] = await tx
+        const [created] = await tx
           .insert(userCoupon)
           .values({
             id: randomUUID(),
-            couponId: found.id,
+            couponId: locked.id,
             source: 'claimed',
             userId,
           })
           .returning();
-        return row;
+        return { created, locked };
+      })
+      .catch((error: unknown) => {
+        if (isUniqueViolation(error)) throw badRequestError('alreadyClaimed');
+        throw error;
       });
-    } catch (error) {
-      if (isUniqueViolation(error)) throw badRequestError('alreadyClaimed');
-      if (isCouponDeleted(error)) throw badRequestError('notFound');
-      throw error;
-    }
 
     return {
       id: created.id,
-      coupon: toCustomerCoupon(found),
+      coupon: toCustomerCoupon(locked),
       source: created.source,
       usedAt: created.usedAt,
       createdAt: created.createdAt,
@@ -1194,60 +1194,60 @@ export class CouponsService {
     });
     if (!found) throw notFoundError('couponNotFound');
 
-    if (
-      organizationId &&
-      (found.applicableOrganizationIds?.length !== 1 ||
-        found.applicableOrganizationIds[0] !== organizationId)
-    )
-      throw forbiddenError('notGrantable');
-    if (!found.isActive) throw badRequestError('grantInactive');
-    if (found.validThrough && found.validThrough < new Date())
-      throw badRequestError('grantExpired');
+    const assertGrantable = (row: Coupon) => {
+      if (
+        organizationId &&
+        (row.applicableOrganizationIds?.length !== 1 ||
+          row.applicableOrganizationIds[0] !== organizationId)
+      )
+        throw forbiddenError('notGrantable');
+      if (!row.isActive) throw badRequestError('grantInactive');
+      if (row.validThrough && row.validThrough < new Date())
+        throw badRequestError('grantExpired');
+    };
+    assertGrantable(found);
 
     const target = await this.db.query.user.findFirst({
       where: sql`lower(${user.email}) = lower(${email.trim()})`,
     });
     if (!target) throw notFoundError('memberNotFound');
 
-    const created = await this.db.transaction(async (tx) => {
-      if (found.totalLimit !== null) {
-        const [locked] = await tx
-          .select({ usedCount: coupon.usedCount })
-          .from(coupon)
-          .where(eq(coupon.id, found.id))
-          .for('update');
-        if (!locked) throw notFoundError('couponNotFound');
+    const { created, locked } = await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(coupon)
+        .where(eq(coupon.id, found.id))
+        .for('update');
+      if (!locked) throw notFoundError('couponNotFound');
+      assertGrantable(locked);
 
+      if (locked.totalLimit !== null) {
         const [{ value: reserved }] = await tx
           .select({ value: count() })
           .from(userCoupon)
           .where(
-            and(eq(userCoupon.couponId, found.id), isNull(userCoupon.usedAt)),
+            and(eq(userCoupon.couponId, locked.id), isNull(userCoupon.usedAt)),
           );
-        if (locked.usedCount + reserved >= found.totalLimit)
+        if (locked.usedCount + reserved >= locked.totalLimit)
           throw badRequestError('usedUp');
       }
 
-      const [row] = await tx
+      const [created] = await tx
         .insert(userCoupon)
         .values({
           id: randomUUID(),
-          couponId: found.id,
+          couponId: locked.id,
           grantedBy,
           source: 'granted',
           userId: target.id,
         })
-        .returning()
-        .catch((error: unknown) => {
-          if (isCouponDeleted(error)) throw notFoundError('couponNotFound');
-          throw error;
-        });
-      return row;
+        .returning();
+      return { created, locked };
     });
 
     return {
       id: created.id,
-      coupon: toCustomerCoupon(found),
+      coupon: toCustomerCoupon(locked),
       source: created.source,
       usedAt: created.usedAt,
       createdAt: created.createdAt,
