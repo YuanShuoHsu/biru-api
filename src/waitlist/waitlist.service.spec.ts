@@ -307,9 +307,9 @@ describe('WaitlistService.createTicket', () => {
     ).rejects.toMatchObject({ message: 'waitlistGroupsInUse', status: 409 });
   });
 
-  it('stamps the queue time once the store lock is held, so a ticket that waited for the lock queues behind the numbers issued before it', async () => {
+  it('stamps the queue time and the service date once the store lock is held, so a ticket that waited for the lock queues behind the numbers issued before it and is dated by the day it got them', async () => {
     const { db, service } = createService({ setting: openSetting });
-    const lockedAt = new Date('2026-10-06T04:00:05Z');
+    const lockedAt = new Date('2026-10-06T16:00:01Z');
     const values = vi.fn((row: Record<string, unknown>) => ({
       returning: () => Promise.resolve([{ ...row, status: 'waiting' }]),
     }));
@@ -343,11 +343,16 @@ describe('WaitlistService.createTicket', () => {
       }),
     });
 
+    vi.setSystemTime(new Date('2026-10-06T15:59:59Z'));
     await service.createTicket('slug', dto, null, 'zh-TW', null, true);
     vi.setSystemTime(new Date('2026-10-06T04:00:00Z'));
 
     expect(values).toHaveBeenCalledWith(
-      expect.objectContaining({ createdAt: lockedAt, number: 2 }),
+      expect.objectContaining({
+        createdAt: lockedAt,
+        number: 2,
+        serviceDate: '2026-10-07',
+      }),
     );
   });
 
