@@ -10,6 +10,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
 } from '../attendance/attendance-errors.js';
 import {
   DAY_MS,
@@ -222,7 +223,7 @@ export class PayrollWithholdingService {
             eq(attendanceEmployee.organizationId, actor.organizationId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       const national = !foreignTaxIdentityRequired(employee.legalStatus);
       if (
         national
@@ -271,7 +272,7 @@ export class PayrollWithholdingService {
             eq(attendanceEmployee.userId, actor.userId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       await tx
         .insert(payrollCertificateRequest)
         .values({

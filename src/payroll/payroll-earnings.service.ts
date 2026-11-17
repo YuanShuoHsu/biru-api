@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -26,6 +26,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
 } from '../attendance/attendance-errors.js';
 import {
   buildFilterCondition,
@@ -265,7 +266,7 @@ export class PayrollEarningsService {
           eq(payrollEarningType.organizationId, actor.organizationId),
         ),
       );
-    if (!row) throw new NotFoundException();
+    if (!row) throw notFoundError();
     return row;
   }
 
