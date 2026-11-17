@@ -1062,7 +1062,16 @@ export class CouponsService {
         notPointsRedeem(),
         withinCapacity(),
         withinValidity(),
-        ...(userId ? [] : [isNull(coupon.perUserLimit)]),
+        userId
+          ? or(
+              isNull(coupon.perUserLimit),
+              // RQB 會把 sql fragment 內的 Column 改寫成 coupon 的別名，order 的欄位須寫死別名
+              sql`(SELECT COUNT(*) FROM ${order} AS "o" WHERE "o"."user_id" = ${userId} AND lower("o"."discount_code") = lower(${coupon.code}) AND "o"."order_status" NOT IN (${sql.join(
+                ORDER_TERMINAL_STATUSES.map((status) => sql`${status}`),
+                sql`, `,
+              )}) AND (${coupon.applicableOrganizationIds} IS NULL OR "o"."seller_id" = ANY(${coupon.applicableOrganizationIds}))) < ${coupon.perUserLimit}`,
+            )
+          : isNull(coupon.perUserLimit),
         ...(walletCouponIds.length
           ? [notInArray(coupon.id, walletCouponIds)]
           : []),
