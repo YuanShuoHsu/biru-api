@@ -139,6 +139,7 @@ describe('ChecklistRunsService', () => {
         timing: 'opening',
         startedAt: null,
         completedAt: null,
+        filledCount: 0,
         items: [
           expect.objectContaining({ label: '開燈', checked: null }),
           expect.objectContaining({ ...temperature, value: null }),
@@ -179,6 +180,7 @@ describe('ChecklistRunsService', () => {
     expect(started).toMatchObject({
       id: expect.any(String),
       completedAt: null,
+      filledCount: 1,
       items: [
         { checked: true, filledByName: 'Amy', filledAt: expect.any(Date) },
         { value: null, filledByName: null },
@@ -195,6 +197,7 @@ describe('ChecklistRunsService', () => {
     expect(completed).toMatchObject({
       id: started.id,
       completedAt: expect.any(Date),
+      filledCount: 2,
       items: [{ checked: true }, { value: 4.5, outOfRange: false }],
     });
 
@@ -208,6 +211,7 @@ describe('ChecklistRunsService', () => {
     expect(reopened).toMatchObject({
       id: started.id,
       completedAt: null,
+      filledCount: 1,
       items: [{ checked: false }, { value: 4.5 }],
     });
     await expect(runCount()).resolves.toBe(1);

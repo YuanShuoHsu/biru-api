@@ -266,6 +266,11 @@ export class ChecklistRunsService {
         completedAt: run.completedAt,
         name,
         timing,
+        filledCount: items.filter(({ id }) =>
+          rows.some(
+            (row) => row.runId === run.id && row.itemId === id && isFilled(row),
+          ),
+        ).length,
         items: items.map((item) => {
           const row = rows.find(
             ({ runId, itemId }) => runId === run.id && itemId === item.id,
