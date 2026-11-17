@@ -130,6 +130,13 @@ const inTodayQueue = (organizationId: string, now = new Date()) =>
     ),
   );
 
+const endedOnTodayBoard = (
+  { endedAt, serviceDate }: Pick<WaitlistTicket, 'endedAt' | 'serviceDate'>,
+  now: Date,
+) =>
+  serviceDate >= platformDateString(now) ||
+  (!!endedAt && endedAt.getTime() >= platformMidnight(now.getTime()));
+
 const isActive = (status: WaitlistTicketStatus) =>
   (WAITLIST_ACTIVE_STATUSES as readonly WaitlistTicketStatus[]).includes(
     status,
@@ -594,6 +601,9 @@ export class WaitlistService {
           .from(organization)
           .where(eq(organization.id, ticket.organizationId))
           .for('update');
+
+        if (!endedOnTodayBoard(ticket, new Date()))
+          throw conflictError('waitlistTicketOffBoard', audience);
 
         const saved = await tx.query.waitlistSetting.findFirst({
           where: eq(waitlistSetting.organizationId, ticket.organizationId),

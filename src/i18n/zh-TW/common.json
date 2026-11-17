@@ -520,6 +520,7 @@
       "waitlistQrRequired": "請掃描門市現場的 QR code 取號。",
       "waitlistQrSessionNotFound": "請先掃描門市現場的 QR code 再取號。",
       "waitlistTicketNotFound": "找不到這張號碼牌，請重新取號。",
+      "waitlistTicketOffBoard": "這張號碼牌已無法恢復，請重新取號。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理頁面。"
     },
     "staff": {
@@ -536,6 +537,7 @@
       "waitlistQrRequired": "顧客須掃描門市現場的 QR code 才能取號。",
       "waitlistQrSessionNotFound": "找不到取號連線或已逾時。",
       "waitlistTicketNotFound": "找不到這張號碼牌，請重新整理。",
+      "waitlistTicketOffBoard": "這張號碼牌已不在今天的看板上，無法退回，請改為代客重新登記。",
       "waitlistTransitionInvalid": "號碼牌狀態已變更，請重新整理。"
     }
   }

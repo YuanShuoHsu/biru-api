@@ -4,6 +4,7 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { I18nContext } from 'nestjs-i18n';
 
+import { platformDateString } from '../common/constants/timezone.js';
 import type { SpecialOpeningHours } from '../common/utils/opening-hours.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { OrderQrService } from '../orders/order-qr.service.js';
@@ -489,8 +490,13 @@ describe('WaitlistService.transitionTicket', () => {
     queued?: { id: string },
     phoneNumber: string | null = '+886912345678',
     savedGroups: typeof groups = groups,
+    ended: { endedAt: Date; serviceDate: string } = {
+      endedAt: new Date(),
+      serviceDate: platformDateString(new Date()),
+    },
   ) => {
     const ticket = {
+      ...ended,
       calledAt: new Date('2026-10-06T12:00:00Z'),
       confirmedAt: new Date('2026-10-06T12:01:00Z'),
       id: 't',
@@ -603,6 +609,47 @@ describe('WaitlistService.transitionTicket', () => {
 
     await expect(result).rejects.toThrow('waitlistGroupChanged');
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket that ended before today and is no longer on the board',
+    async (from, to) => {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const { lock, result, set } = transition(
+        from,
+        to,
+        undefined,
+        undefined,
+        undefined,
+        { endedAt: yesterday, serviceDate: platformDateString(yesterday) },
+      );
+
+      await expect(result).rejects.toThrow('waitlistTicketOffBoard');
+      expect(lock).toHaveBeenCalledWith('update');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reverts a ticket from yesterday that ended today and is still on the board', async () => {
+    const { result } = transition(
+      'seated',
+      'called',
+      undefined,
+      undefined,
+      undefined,
+      {
+        endedAt: new Date(),
+        serviceDate: platformDateString(
+          new Date(Date.now() - 24 * 60 * 60 * 1000),
+        ),
+      },
+    );
+
+    await expect(result).resolves.toMatchObject({ status: 'called' });
   });
 
   it('does not lock the store for a transition within the queue', async () => {
