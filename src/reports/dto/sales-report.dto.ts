@@ -1,10 +1,15 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+} from '@nestjs/swagger';
 
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional } from 'class-validator';
 
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 
+import { ReportPageQueryDto } from './report-page-query.dto.js';
 import { ReportRangeQueryDto } from './report-range-query.dto.js';
 
 const ORDER_SALES_REPORT_GROUP_BYS = [
@@ -33,6 +38,46 @@ export class SalesReportQueryDto extends ReportRangeQueryDto {
   })
   @IsIn(SALES_REPORT_GROUP_BYS)
   groupBy: SalesReportGroupBy;
+}
+
+export const SALES_REPORT_STRING_FILTER_FIELDS = ['key', 'name'] as const;
+export const SALES_REPORT_NUMBER_FILTER_FIELDS = [
+  'orders',
+  'revenue',
+  'discount',
+  'refunded',
+  'net',
+  'quantity',
+  'refundedQuantity',
+] as const;
+const SALES_REPORT_FIELDS = [
+  ...SALES_REPORT_STRING_FILTER_FIELDS,
+  ...SALES_REPORT_NUMBER_FILTER_FIELDS,
+] as const;
+type SalesReportField = (typeof SALES_REPORT_FIELDS)[number];
+
+export class SalesReportPageQueryDto extends IntersectionType(
+  SalesReportQueryDto,
+  ReportPageQueryDto,
+) {
+  @ApiPropertyOptional({
+    enum: SALES_REPORT_FIELDS,
+    enumName: 'SalesReportFilterField',
+    description: 'name 依請求語系的名稱篩選',
+  })
+  @IsOptional()
+  @IsIn(SALES_REPORT_FIELDS)
+  filterField?: SalesReportField;
+
+  @ApiPropertyOptional({
+    enum: SALES_REPORT_FIELDS,
+    enumName: 'SalesReportSortField',
+    description:
+      'name 依請求語系的名稱排序，hour 的 key 依數值排序；省略時依 rows 說明的預設順序',
+  })
+  @IsOptional()
+  @IsIn(SALES_REPORT_FIELDS)
+  sortBy?: SalesReportField;
 }
 
 export class SalesReportTotalsDto {
@@ -108,11 +153,17 @@ export class SalesReportResponseDto {
 
   @ApiProperty({
     description:
-      '只列有訂單或退款的組；day／hour 依 key 由小到大，其餘依 revenue 由大到小。menuItem／category 的金額依品項小計分攤整單折扣、依退款明細分攤退款，加購計入加購品項，四捨五入到分，加總可能與 totals 差幾分；沒有退款明細（refund.items 為空）的退款無法歸到品項，只計入 totals，此時 rows 加總會少整筆退款',
+      '本頁的列，套用篩選、排序與分頁後；只列有訂單或退款的組；未指定排序時 day／hour 依 key 由小到大，其餘依 revenue 由大到小。menuItem／category 的金額依品項小計分攤整單折扣、依退款明細分攤退款，加購計入加購品項，四捨五入到分，加總可能與 totals 差幾分；沒有退款明細（refund.items 為空）的退款無法歸到品項，只計入 totals，此時 rows 加總會少整筆退款',
     type: [SalesReportRowDto],
   })
   rows: SalesReportRowDto[];
 
-  @ApiProperty({ type: SalesReportTotalsDto })
+  @ApiProperty({ description: '篩選後、分頁前的列數' })
+  total: number;
+
+  @ApiProperty({
+    type: SalesReportTotalsDto,
+    description: '整份報表的合計，不受篩選與分頁影響',
+  })
   totals: SalesReportTotalsDto;
 }

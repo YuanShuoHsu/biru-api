@@ -15,10 +15,14 @@ import { organizationNotFoundError } from '../common/utils/organizations.js';
 
 import { payrollPeriod } from '../payroll/payroll-calculation.js';
 
-import type {
-  PersonnelCostReportResponseDto,
-  PersonnelCostReportTotalsDto,
+import {
+  PERSONNEL_COST_REPORT_NUMBER_FILTER_FIELDS,
+  PERSONNEL_COST_REPORT_STRING_FILTER_FIELDS,
+  type PersonnelCostReportPageQueryDto,
+  type PersonnelCostReportResponseDto,
+  type PersonnelCostReportTotalsDto,
 } from './dto/personnel-cost-report.dto.js';
+import { numberOrNull, pageReportRows } from './report-paging.js';
 
 interface Accumulator {
   employerInsurance: bigint;
@@ -71,8 +75,9 @@ export class PersonnelCostReportService {
 
   async getPersonnelCostReport(
     organizationSlug: string,
-    month: string,
+    query: PersonnelCostReportPageQueryDto,
   ): Promise<PersonnelCostReportResponseDto> {
+    const { month } = query;
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
       columns: { id: true },
@@ -130,12 +135,31 @@ export class PersonnelCostReportService {
       statements.map(({ employeeId }) => employeeId),
     );
 
-    return {
-      month,
-      rows: [...groups].map(([jobTitle, group]) => ({
+    const page = pageReportRows(
+      [...groups].map(([jobTitle, group]) => ({
         jobTitle,
         ...toTotals(group),
       })),
+      query,
+      {
+        values: (row) => ({
+          jobTitle: row.jobTitle,
+          ...Object.fromEntries(
+            PERSONNEL_COST_REPORT_NUMBER_FILTER_FIELDS.map((field) => [
+              field,
+              numberOrNull(row[field]),
+            ]),
+          ),
+        }),
+        stringFields: PERSONNEL_COST_REPORT_STRING_FILTER_FIELDS,
+        numberFields: PERSONNEL_COST_REPORT_NUMBER_FILTER_FIELDS,
+        textFields: PERSONNEL_COST_REPORT_STRING_FILTER_FIELDS,
+      },
+    );
+
+    return {
+      month,
+      ...page,
       totals: toTotals(totals),
       unpublishedEmployees: employees.filter(
         ({ id }) => !publishedEmployeeIds.has(id),

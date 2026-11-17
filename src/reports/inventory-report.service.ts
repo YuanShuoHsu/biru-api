@@ -21,9 +21,16 @@ import { toLanguage } from '../common/utils/language.js';
 import { localizedTextSql } from '../common/utils/localized-text.js';
 import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { localize } from '../menus/menus-public.service.js';
 
-import type { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
-import type { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
+import {
+  INVENTORY_REPORT_ENUM_FILTER_FIELDS,
+  INVENTORY_REPORT_NUMBER_FILTER_FIELDS,
+  INVENTORY_REPORT_STRING_FILTER_FIELDS,
+  type InventoryReportPageQueryDto,
+  type InventoryReportResponseDto,
+} from './dto/inventory-report.dto.js';
+import { numberOrNull, pageReportRows } from './report-paging.js';
 import { parseReportRange } from './report-range.js';
 
 @Injectable()
@@ -32,10 +39,11 @@ export class InventoryReportService {
 
   async getInventoryReport(
     organizationSlug: string,
-    query: ReportRangeQueryDto,
+    query: InventoryReportPageQueryDto,
     canReadPurchasing = true,
   ): Promise<InventoryReportResponseDto> {
     const { since, until } = parseReportRange(query);
+    const lang = toLanguage(I18nContext.current()?.lang);
 
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
@@ -164,7 +172,7 @@ export class InventoryReportService {
       LEFT JOIN movement ON movement.ingredient_id = ${ingredient.id}
       LEFT JOIN theoretical ON theoretical.ingredient_id = ${ingredient.id}
       WHERE ${and(eq(ingredient.organizationId, org.id), eq(ingredient.unlimitedStock, false))}
-      ORDER BY ${ingredient.sortOrder}, ${localizedTextSql(ingredient.name, toLanguage(I18nContext.current()?.lang))}, ${ingredient.id}
+      ORDER BY ${ingredient.sortOrder}, ${localizedTextSql(ingredient.name, lang)}, ${ingredient.id}
     `);
 
     const wasteByReason = await this.db
@@ -191,11 +199,32 @@ export class InventoryReportService {
       .groupBy(inventoryTransaction.wasteReason)
       .orderBy(inventoryTransaction.wasteReason);
 
-    return {
-      rows: rows.map(({ wastedCost, ...row }) => ({
+    const numberFields = INVENTORY_REPORT_NUMBER_FILTER_FIELDS.filter(
+      (field) => canReadPurchasing || field !== 'wastedCost',
+    );
+    const page = pageReportRows(
+      rows.map(({ wastedCost, ...row }) => ({
         ...row,
         ...(canReadPurchasing && { wastedCost }),
       })),
+      query,
+      {
+        values: (row) => ({
+          name: localize(row.name, lang),
+          unitCode: row.unitCode,
+          ...Object.fromEntries(
+            numberFields.map((field) => [field, numberOrNull(row[field])]),
+          ),
+        }),
+        stringFields: INVENTORY_REPORT_STRING_FILTER_FIELDS,
+        enumFields: INVENTORY_REPORT_ENUM_FILTER_FIELDS,
+        numberFields,
+        textFields: INVENTORY_REPORT_STRING_FILTER_FIELDS,
+      },
+    );
+
+    return {
+      ...page,
       wasteByReason: wasteByReason.map(({ cost, ...reason }) => ({
         ...reason,
         ...(canReadPurchasing && { cost }),

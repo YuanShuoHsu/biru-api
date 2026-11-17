@@ -1,4 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+} from '@nestjs/swagger';
+
+import { IsIn, IsOptional } from 'class-validator';
 
 import { UNIT_FACTORS } from '../../common/constants/units.js';
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
@@ -8,6 +14,55 @@ import {
   type WasteReason,
   wasteReasonEnum,
 } from '../../db/schema/inventory.js';
+
+import { ReportPageQueryDto } from './report-page-query.dto.js';
+import { ReportRangeQueryDto } from './report-range-query.dto.js';
+
+export const INVENTORY_REPORT_STRING_FILTER_FIELDS = ['name'] as const;
+export const INVENTORY_REPORT_ENUM_FILTER_FIELDS = ['unitCode'] as const;
+export const INVENTORY_REPORT_NUMBER_FILTER_FIELDS = [
+  'opening',
+  'received',
+  'consumed',
+  'wasted',
+  'wastedCost',
+  'adjusted',
+  'closing',
+  'theoreticalConsumption',
+  'actualConsumption',
+  'variance',
+] as const;
+const INVENTORY_REPORT_FIELDS = [
+  ...INVENTORY_REPORT_STRING_FILTER_FIELDS,
+  ...INVENTORY_REPORT_ENUM_FILTER_FIELDS,
+  ...INVENTORY_REPORT_NUMBER_FILTER_FIELDS,
+] as const;
+type InventoryReportField = (typeof INVENTORY_REPORT_FIELDS)[number];
+
+export class InventoryReportPageQueryDto extends IntersectionType(
+  ReportRangeQueryDto,
+  ReportPageQueryDto,
+) {
+  @ApiPropertyOptional({
+    enum: INVENTORY_REPORT_FIELDS,
+    enumName: 'InventoryReportFilterField',
+    description:
+      'name 依請求語系的名稱篩選，數量依數值比較；無 purchasing 權限時忽略 wastedCost',
+  })
+  @IsOptional()
+  @IsIn(INVENTORY_REPORT_FIELDS)
+  filterField?: InventoryReportField;
+
+  @ApiPropertyOptional({
+    enum: INVENTORY_REPORT_FIELDS,
+    enumName: 'InventoryReportSortField',
+    description:
+      'name 依請求語系的名稱排序，數量依數值排序；無 purchasing 權限時忽略 wastedCost；省略時依 rows 說明的預設順序',
+  })
+  @IsOptional()
+  @IsIn(INVENTORY_REPORT_FIELDS)
+  sortBy?: InventoryReportField;
+}
 
 const WASTE_COST_DESCRIPTION =
   '報廢量乘以登記當下的單位成本，小數點後兩位；任一筆報廢缺單位成本時為 null，無 purchasing 權限時不回傳';
@@ -99,14 +154,17 @@ class InventoryWasteReasonDto {
 export class InventoryReportResponseDto {
   @ApiProperty({
     description:
-      '店家目前所有食材，依食材排序；數量為小數點後三位的字串，與食材庫存相同',
+      '本頁的列，套用篩選、排序與分頁後；涵蓋店家目前所有食材，未指定排序時依食材排序；數量為小數點後三位的字串，與食材庫存相同',
     type: [InventoryReportRowDto],
   })
   rows: InventoryReportRowDto[];
 
+  @ApiProperty({ description: '篩選後、分頁前的列數' })
+  total: number;
+
   @ApiProperty({
     description:
-      '區間內有報廢的原因，依原因的固定順序；各食材單位不同，只彙總次數與成本',
+      '區間內有報廢的原因，依原因的固定順序；各食材單位不同，只彙總次數與成本；涵蓋整份報表，不受篩選與分頁影響',
     type: [InventoryWasteReasonDto],
   })
   wasteByReason: InventoryWasteReasonDto[];
