@@ -48,7 +48,8 @@ describe('CouponsService.getAvailable 每人限用次數', () => {
          ('b', 'B', 'b@example.com', 'B');
        insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
-         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
+         ('other', 'Other', 'other', now(), 'TW', '桃園市', '大園區', '中正東路一段'),
+         ('outside', 'Outside', 'outside', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
     );
     await db.insert(coupon).values([
       {
@@ -110,8 +111,10 @@ describe('CouponsService.getAvailable 每人限用次數', () => {
   });
 
   it('限定門市的券只計算在適用門市的訂單', async () => {
-    await addOrder('o1', 'SCOPED', { sellerId: 'other' });
+    await addOrder('o1', 'SCOPED', { sellerId: 'outside' });
+    expect(await availableIds('a')).toContain('scoped');
 
+    await addOrder('o2', 'SCOPED', { sellerId: 'other' });
     expect(await availableIds('a')).not.toContain('scoped');
   });
 

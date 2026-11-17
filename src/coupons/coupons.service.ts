@@ -1065,7 +1065,7 @@ export class CouponsService {
         userId
           ? or(
               isNull(coupon.perUserLimit),
-              // RQB 會把 sql fragment 內的 Column 改寫成 coupon 的別名，order 的欄位須寫死別名
+              // RQB 會改寫 sql fragment 內的 Column，跨表欄位須寫死別名
               sql`(SELECT COUNT(*) FROM ${order} AS "o" WHERE "o"."user_id" = ${userId} AND lower("o"."discount_code") = lower(${coupon.code}) AND "o"."order_status" NOT IN (${sql.join(
                 ORDER_TERMINAL_STATUSES.map((status) => sql`${status}`),
                 sql`, `,
