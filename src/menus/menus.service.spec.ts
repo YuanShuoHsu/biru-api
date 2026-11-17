@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -575,11 +574,15 @@ describe('MenusService localized text filters and sorting', () => {
       { id: 'missing', menuItemId: 'latte' },
       { id: 'with-americano', menuItemId: 'americano' },
     ])('加購不存在或不屬於該品項時，更新與刪除都回 404：%j', async (where) => {
+      const notFound = {
+        response: { code: 'addOnNotFound' },
+        status: 404,
+      };
       await expect(
         service.updateMenuItemAddOn(where, { addOnMenuItemId: 'americano' }),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.deleteMenuItemAddOn(where)).rejects.toBeInstanceOf(
-        NotFoundException,
+      ).rejects.toMatchObject(notFound);
+      await expect(service.deleteMenuItemAddOn(where)).rejects.toMatchObject(
+        notFound,
       );
     });
   });
