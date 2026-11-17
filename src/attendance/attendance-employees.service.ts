@@ -204,8 +204,8 @@ export class AttendanceEmployeesService {
     return currentOccupationalIndustryRates(this.db);
   }
 
-  async employees(
-    actor: AttendanceActor,
+  private listQuery(
+    organizationScope: SQL,
     query: AttendanceEmployeePaginationQueryDto,
   ) {
     const {
@@ -231,7 +231,7 @@ export class AttendanceEmployeesService {
       workPermitStatus: workPermitStatusSql,
     };
     const where = and(
-      eq(attendanceEmployee.organizationId, actor.organizationId),
+      organizationScope,
       filterField && filterOperator
         ? buildFilterCondition(
             filterField,
@@ -270,6 +270,17 @@ export class AttendanceEmployeesService {
         : sortBy === 'workPermitStatus'
           ? workPermitOrderSql
           : (fieldMap[sortBy ?? ''] ?? user.name);
+    return { limit, offset, where, order: sort(sortColumn) };
+  }
+
+  async employees(
+    actor: AttendanceActor,
+    query: AttendanceEmployeePaginationQueryDto,
+  ) {
+    const { limit, offset, where, order } = this.listQuery(
+      eq(attendanceEmployee.organizationId, actor.organizationId),
+      query,
+    );
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -284,7 +295,7 @@ export class AttendanceEmployeesService {
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
         .where(where)
-        .orderBy(sort(sortColumn), asc(attendanceEmployee.id))
+        .orderBy(order, asc(attendanceEmployee.id))
         .limit(limit)
         .offset(offset),
       this.db
@@ -307,68 +318,10 @@ export class AttendanceEmployeesService {
     actor: AttendanceActor,
     query: AttendanceEmployeePaginationQueryDto,
   ) {
-    const {
-      limit = 10,
-      offset = 0,
-      filterField,
-      filterOperator,
-      filterValue,
-      quickFilterEnums,
-      quickFilterValue,
-      sortBy,
-      sortDirection = 'asc',
-    } = query;
-    const fieldMap: Record<string, Column | SQL> = {
-      name: user.name,
-      email: user.email,
-      jobTitle: attendanceEmployee.jobTitle,
-      hiredAt: attendanceEmployee.hiredAt,
-      terminatedAt: attendanceEmployee.terminatedAt,
-      status: employeeStatusSql,
-      employmentType: employmentTypeSql,
-      legalStatus: attendanceEmployee.legalStatus,
-      workPermitStatus: workPermitStatusSql,
-    };
-    const where = and(
+    const { limit, offset, where, order } = this.listQuery(
       eq(member.organizationId, actor.organizationId),
-      filterField && filterOperator
-        ? buildFilterCondition(
-            filterField,
-            filterOperator,
-            filterValue,
-            fieldMap,
-            ATTENDANCE_EMPLOYEE_STRING_FILTER_FIELDS,
-            ATTENDANCE_EMPLOYEE_DATE_FILTER_FIELDS,
-            ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
-          )
-        : undefined,
-      buildQuickFilterCondition({
-        enumFields: ATTENDANCE_EMPLOYEE_ENUM_FILTER_FIELDS,
-        fieldMap,
-        quickFilterEnums,
-        quickFilterValue,
-        textConditions: (value) => [
-          ilike(user.name, `%${escapeLike(value)}%`),
-          ilike(user.email, `%${escapeLike(value)}%`),
-          ilike(attendanceEmployee.jobTitle, `%${escapeLike(value)}%`),
-          ilike(
-            localTimeText(attendanceEmployee.hiredAt),
-            `%${escapeLike(value)}%`,
-          ),
-          ilike(
-            localTimeText(attendanceEmployee.terminatedAt),
-            `%${escapeLike(value)}%`,
-          ),
-        ],
-      }),
+      query,
     );
-    const sort = sortDirection === 'desc' ? desc : asc;
-    const sortColumn =
-      sortBy === 'status'
-        ? employeeStatusOrderSql
-        : sortBy === 'workPermitStatus'
-          ? workPermitOrderSql
-          : (fieldMap[sortBy ?? ''] ?? user.name);
     const [data, [{ total }]] = await Promise.all([
       this.db
         .select({
@@ -398,7 +351,7 @@ export class AttendanceEmployeesService {
           ),
         )
         .where(where)
-        .orderBy(sort(sortColumn), asc(member.id))
+        .orderBy(order, asc(member.id))
         .limit(limit)
         .offset(offset),
       this.db
