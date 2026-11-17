@@ -1575,6 +1575,22 @@ describe('PointsService.redeem', () => {
     expect(earn.remainingPoints).toBe(20);
   });
 
+  it('兌換時優惠券剛過期回 notRedeemable，不扣點', async () => {
+    await staleRead();
+    await db
+      .update(schema.coupon)
+      .set({ validThrough: new Date(Date.now() - DAY_MS) });
+
+    await expect(service.redeem(USER, 'c1')).rejects.toMatchObject({
+      response: { code: 'notRedeemable' },
+    });
+    const [earn] = await db
+      .select()
+      .from(pointTransaction)
+      .where(eq(pointTransaction.id, 'earn'));
+    expect(earn.remainingPoints).toBe(20);
+  });
+
   it('兌換時點數價格剛被調整，以調整後的價格扣點', async () => {
     await staleRead();
     await db.update(schema.coupon).set({ pointsCost: 8 });

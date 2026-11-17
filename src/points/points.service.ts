@@ -1182,14 +1182,25 @@ export class PointsService {
     });
     if (!found?.pointsCost) throw badRequestError('notRedeemable');
 
-    const created = await this.db.transaction(async (tx) => {
-      const [locked] = await tx
+    const { voucher, locked } = await this.db.transaction(async (tx) => {
+      const earns = await tx
         .select({
-          perUserLimit: coupon.perUserLimit,
-          pointsCost: coupon.pointsCost,
-          totalLimit: coupon.totalLimit,
-          usedCount: coupon.usedCount,
+          id: pointTransaction.id,
+          remainingPoints: pointTransaction.remainingPoints,
         })
+        .from(pointTransaction)
+        .where(
+          and(
+            eq(pointTransaction.userId, userId),
+            inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
+            this.notExpired(),
+          ),
+        )
+        .orderBy(...LOT_CONSUMPTION_ORDER)
+        .for('update');
+
+      const [locked] = await tx
+        .select()
         .from(coupon)
         .where(
           and(
@@ -1213,22 +1224,6 @@ export class PointsService {
         if (locked.usedCount + reserved >= locked.totalLimit)
           throw couponBadRequestError('usedUp');
       }
-
-      const earns = await tx
-        .select({
-          id: pointTransaction.id,
-          remainingPoints: pointTransaction.remainingPoints,
-        })
-        .from(pointTransaction)
-        .where(
-          and(
-            eq(pointTransaction.userId, userId),
-            inArray(pointTransaction.type, ['earn', 'revoke', 'adjust']),
-            this.notExpired(),
-          ),
-        )
-        .orderBy(...LOT_CONSUMPTION_ORDER)
-        .for('update');
 
       // 每人上限要在鎖住點數列之後才數，這把鎖同時讓同一會員的兌換排隊
       if (locked.perUserLimit !== null) {
@@ -1282,26 +1277,26 @@ export class PointsService {
         userId,
       });
 
-      return voucher;
+      return { voucher, locked };
     });
 
     return {
-      id: created.id,
+      id: voucher.id,
       coupon: {
-        id: found.id,
-        code: found.code,
-        discountCurrency: found.discountCurrency,
-        discountType: found.discountType,
-        discountValue: found.discountValue,
-        isActive: found.isActive,
-        minSubtotal: found.minSubtotal,
-        scope: found.scope,
-        validFrom: found.validFrom,
-        validThrough: found.validThrough,
+        id: locked.id,
+        code: locked.code,
+        discountCurrency: locked.discountCurrency,
+        discountType: locked.discountType,
+        discountValue: locked.discountValue,
+        isActive: locked.isActive,
+        minSubtotal: locked.minSubtotal,
+        scope: locked.scope,
+        validFrom: locked.validFrom,
+        validThrough: locked.validThrough,
       },
-      source: created.source,
-      usedAt: created.usedAt,
-      createdAt: created.createdAt,
+      source: voucher.source,
+      usedAt: voucher.usedAt,
+      createdAt: voucher.createdAt,
     };
   }
 }
