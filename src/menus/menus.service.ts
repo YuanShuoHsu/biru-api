@@ -1577,8 +1577,11 @@ export class MenusService {
     });
   }
 
-  private modifierGroupListConditions(
+  private modifierGroupListQuery(
+    scope: SQL,
     {
+      limit = 10,
+      offset = 0,
       filterField,
       filterOperator,
       filterValue,
@@ -1592,7 +1595,7 @@ export class MenusService {
       createdAt: Column;
       updatedAt: Column;
     },
-  ): { condition: SQL | undefined; orderBy: SQL[] } {
+  ) {
     const fieldMap: Record<string, Column | SQL> = {
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
@@ -1636,7 +1639,8 @@ export class MenusService {
           ? [dir(fieldMap[sortBy]), asc(columns.id)]
           : [asc(columns.sortOrder), asc(columns.id)];
 
-    const condition = and(
+    const where = and(
+      scope,
       filterCondition,
       quickFilterValue
         ? or(
@@ -1665,19 +1669,18 @@ export class MenusService {
         : undefined,
     );
 
-    return { condition, orderBy };
+    return { limit, offset, where, orderBy };
   }
 
   async modifierGroups(
     menuId: string,
     query: ModifierGroupPaginationQueryDto = {},
   ): Promise<{ data: ModifierGroup[]; total: number }> {
-    const { limit = 10, offset = 0 } = query;
-    const { condition, orderBy } = this.modifierGroupListConditions(
+    const { limit, offset, where, orderBy } = this.modifierGroupListQuery(
+      eq(modifierGroup.menuId, menuId),
       query,
       modifierGroup,
     );
-    const where = and(eq(modifierGroup.menuId, menuId), condition);
 
     const [data, [{ total }]] = await Promise.all([
       this.db
@@ -2083,14 +2086,10 @@ export class MenusService {
     data: (MenuItemModifierGroup & { modifierGroup: ModifierGroup })[];
     total: number;
   }> {
-    const { limit = 10, offset = 0 } = query;
-    const { condition, orderBy } = this.modifierGroupListConditions(
+    const { limit, offset, where, orderBy } = this.modifierGroupListQuery(
+      eq(menuItemModifierGroup.menuItemId, menuItemId),
       query,
       menuItemModifierGroup,
-    );
-    const where = and(
-      eq(menuItemModifierGroup.menuItemId, menuItemId),
-      condition,
     );
 
     const [data, [{ total }]] = await Promise.all([
