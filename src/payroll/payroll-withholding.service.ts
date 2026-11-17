@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 
@@ -495,7 +495,7 @@ export class PayrollWithholdingService {
     ]);
     if (!unit) throw conflictError('withholdingUnitRequired');
     const paid = statements.filter(isNonResident);
-    if (!paid.length) throw new NotFoundException();
+    if (!paid.length) throw notFoundError('nonResidentPaymentNotFound');
     if (
       paid.some(
         ({ employeeId }) => !identityComplete('7', identityOf(employeeId)),
