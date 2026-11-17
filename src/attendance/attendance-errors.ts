@@ -84,6 +84,7 @@ export const attendanceErrorCodes = [
   'menstrualDayLimit',
   'monthlyOvertimeExceeded',
   'noShifts',
+  'nonResidentPaymentNotFound',
   'notFound',
   'outsideShiftWindow',
   'occupationalIndustryInvalid',
@@ -168,8 +169,8 @@ export const cancelIrreversibleError = (reason: AttendanceErrorCode) =>
 export const forbiddenError = (code: AttendanceErrorCode) =>
   new ForbiddenException({ error: 'Forbidden', ...errorBody(code) });
 
-export const notFoundError = () =>
-  new NotFoundException({ error: 'Not Found', ...errorBody('notFound') });
+export const notFoundError = (code: AttendanceErrorCode = 'notFound') =>
+  new NotFoundException({ error: 'Not Found', ...errorBody(code) });
 
 export const attendanceErrorCodeOf = (
   error: unknown,
