@@ -1,0 +1,1 @@
+CREATE INDEX "waitlist_ticket_organizationId_endedAt_idx" ON "waitlist_ticket" USING btree ("organization_id","ended_at");
