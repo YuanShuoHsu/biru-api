@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   and,
@@ -33,6 +33,7 @@ import {
 import {
   badRequestError,
   conflictError,
+  notFoundError,
   runBatch,
 } from '../attendance/attendance-errors.js';
 import {
@@ -389,7 +390,7 @@ export class PayrollService {
             eq(attendanceEmployee.organizationId, actor.organizationId),
           ),
         );
-      if (!employee) throw new NotFoundException();
+      if (!employee) throw notFoundError();
       const { employeeId, effectiveFrom, ...terms } = dto;
       const date = new Date(`${effectiveFrom}T00:00:00${STORE_UTC_OFFSET}`);
       const ruleSet = await this.ruleSets.resolve(
@@ -632,7 +633,7 @@ export class PayrollService {
           eq(attendanceEmployee.organizationId, actor.organizationId),
         ),
       );
-    if (!employee) throw new NotFoundException();
+    if (!employee) throw notFoundError();
     return employee;
   }
 
@@ -1936,7 +1937,7 @@ export class PayrollService {
             eq(payrollStatement.organizationId, actor.organizationId),
           ),
         );
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       if (row.status === status) return row;
       const subject = await this.payrollEmployee(tx, actor, row.employeeId);
       await assertIndependentReview(tx, actor, 'payslip', [subject.userId]);

@@ -1,10 +1,13 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { and, asc, desc, eq, gt, like, lt, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import type { Transaction } from '../attendance/attendance-audit.js';
-import { badRequestError } from '../attendance/attendance-errors.js';
+import {
+  badRequestError,
+  notFoundError,
+} from '../attendance/attendance-errors.js';
 import {
   platformDateString,
   platformMonthStart,
@@ -180,7 +183,7 @@ export class PayrollRulesService {
           ),
         )
         .for('update');
-      if (!row) throw new NotFoundException();
+      if (!row) throw notFoundError();
       const [previous] = await tx
         .select({ rules: payrollRuleSet.rules })
         .from(payrollRuleSet)

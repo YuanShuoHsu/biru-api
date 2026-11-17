@@ -673,6 +673,14 @@ describe('Minimum wage confirmation', () => {
     expect((await confirm([]))?.stale).toBe(true);
     expect((await confirm([{ id: 'next' }]))?.stale).toBe(false);
   });
+  it('answers an unknown period with the notFound code', async () => {
+    const { service, update } = setup([[]]);
+    await expect(service.confirm('2099-01', dto)).rejects.toMatchObject({
+      status: 404,
+      response: { code: 'notFound' },
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
   it('refuses an hourly wage below the previous period', async () => {
     const { service, update } = setup([
       [{ ...pending, effectiveFrom: '2027-01' }],
