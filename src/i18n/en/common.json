@@ -520,6 +520,7 @@
       "waitlistQrRequired": "Please scan the QR code in the store to take a number.",
       "waitlistQrSessionNotFound": "Please scan the QR code in the store to take a number.",
       "waitlistTicketNotFound": "We couldn't find this ticket. Please take a new number.",
+      "waitlistTicketOffBoard": "This ticket can no longer be restored. Please take a new number.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh the page."
     },
     "staff": {
@@ -536,6 +537,7 @@
       "waitlistQrRequired": "Guests must scan the QR code in the store to take a number.",
       "waitlistQrSessionNotFound": "The QR code session wasn't found or has expired.",
       "waitlistTicketNotFound": "The ticket wasn't found. Please refresh.",
+      "waitlistTicketOffBoard": "This ticket is no longer on today's board, so it can't go back into the queue. Add the party as a new ticket.",
       "waitlistTransitionInvalid": "This ticket has changed. Please refresh."
     }
   }

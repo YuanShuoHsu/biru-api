@@ -520,6 +520,7 @@
       "waitlistQrRequired": "店内のQRコードを読み取って番号札をお取りください。",
       "waitlistQrSessionNotFound": "店内のQRコードを読み取ってから番号札をお取りください。",
       "waitlistTicketNotFound": "この整理券が見つかりません。もう一度番号札をお取りください。",
+      "waitlistTicketOffBoard": "この整理券は元に戻せません。もう一度番号札をお取りください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。ページを再読み込みしてください。"
     },
     "staff": {
@@ -536,6 +537,7 @@
       "waitlistQrRequired": "お客様は店内のQRコードを読み取らないと番号札を取れません。",
       "waitlistQrSessionNotFound": "QRコードの受付が見つからないか、有効期限が切れています。",
       "waitlistTicketNotFound": "整理券が見つかりません。再読み込みしてください。",
+      "waitlistTicketOffBoard": "この整理券は本日のボードに表示されなくなったため、元に戻せません。代理登録で新しく登録してください。",
       "waitlistTransitionInvalid": "整理券の状態が変わりました。再読み込みしてください。"
     }
   }

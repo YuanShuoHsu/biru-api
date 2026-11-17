@@ -574,6 +574,7 @@ export type I18nTranslations = {
                 "waitlistQrRequired": string;
                 "waitlistQrSessionNotFound": string;
                 "waitlistTicketNotFound": string;
+                "waitlistTicketOffBoard": string;
                 "waitlistTransitionInvalid": string;
             };
             "staff": {
@@ -590,6 +591,7 @@ export type I18nTranslations = {
                 "waitlistQrRequired": string;
                 "waitlistQrSessionNotFound": string;
                 "waitlistTicketNotFound": string;
+                "waitlistTicketOffBoard": string;
                 "waitlistTransitionInvalid": string;
             };
         };

@@ -520,6 +520,7 @@
       "waitlistQrRequired": "请扫描门店现场的二维码取号。",
       "waitlistQrSessionNotFound": "请先扫描店内的二维码再取号。",
       "waitlistTicketNotFound": "找不到这张号码牌，请重新取号。",
+      "waitlistTicketOffBoard": "这张号码牌已无法恢复，请重新取号。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新页面。"
     },
     "staff": {
@@ -536,6 +537,7 @@
       "waitlistQrRequired": "顾客须扫描门店现场的二维码才能取号。",
       "waitlistQrSessionNotFound": "找不到取号会话或已过期。",
       "waitlistTicketNotFound": "找不到这张号码牌，请刷新。",
+      "waitlistTicketOffBoard": "这张号码牌已不在今天的看板上，无法退回，请改为代客重新登记。",
       "waitlistTransitionInvalid": "号码牌状态已变更，请刷新。"
     }
   }

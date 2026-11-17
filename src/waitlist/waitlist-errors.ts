@@ -22,6 +22,7 @@ export const waitlistErrorCodes = [
   'waitlistQrRequired',
   'waitlistQrSessionNotFound',
   'waitlistTicketNotFound',
+  'waitlistTicketOffBoard',
   'waitlistTransitionInvalid',
 ] as const;
 

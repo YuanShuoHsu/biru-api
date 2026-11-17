@@ -483,14 +483,30 @@ describe('WaitlistService.confirmTicket', () => {
 });
 
 describe('WaitlistService.transitionTicket', () => {
+  beforeAll(() => {
+    vi.useFakeTimers({
+      now: new Date('2026-10-06T04:00:00Z'),
+      toFake: ['Date'],
+    });
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   const transition = (
     from: string,
     to: 'called' | 'waiting' = 'called',
     queued?: { id: string },
     phoneNumber: string | null = '+886912345678',
     savedGroups: typeof groups = groups,
+    ended: { endedAt: Date; serviceDate: string } = {
+      endedAt: new Date('2026-10-06T03:00:00Z'),
+      serviceDate: '2026-10-06',
+    },
   ) => {
     const ticket = {
+      ...ended,
       calledAt: new Date('2026-10-06T12:00:00Z'),
       confirmedAt: new Date('2026-10-06T12:01:00Z'),
       id: 't',
@@ -603,6 +619,47 @@ describe('WaitlistService.transitionTicket', () => {
 
     await expect(result).rejects.toThrow('waitlistGroupChanged');
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cancelled', 'waiting'],
+    ['noShow', 'called'],
+    ['seated', 'called'],
+  ] as const)(
+    'refuses to revert a %s ticket that ended before today’s midnight and is no longer on the board',
+    async (from, to) => {
+      const { lock, result, set } = transition(
+        from,
+        to,
+        undefined,
+        undefined,
+        undefined,
+        {
+          endedAt: new Date('2026-10-05T15:59:59.999Z'),
+          serviceDate: '2026-10-05',
+        },
+      );
+
+      await expect(result).rejects.toThrow('waitlistTicketOffBoard');
+      expect(lock).toHaveBeenCalledWith('update');
+      expect(set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reverts a ticket from yesterday that ended at today’s midnight and is still on the board', async () => {
+    const { result } = transition(
+      'seated',
+      'called',
+      undefined,
+      undefined,
+      undefined,
+      {
+        endedAt: new Date('2026-10-05T16:00:00Z'),
+        serviceDate: '2026-10-05',
+      },
+    );
+
+    await expect(result).resolves.toMatchObject({ status: 'called' });
   });
 
   it('does not lock the store for a transition within the queue', async () => {
