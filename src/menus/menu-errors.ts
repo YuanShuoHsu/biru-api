@@ -10,10 +10,13 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 
 export const menuErrorCodes = [
   'addOnMenuSectionNotFound',
+  'addOnNotFound',
   'addOnSelf',
   'addOnTargetRequired',
   'fixedSweetnessLevelRequired',
+  'menuItemModifierGroupNotFound',
   'menuItemNotFound',
+  'menuNotFound',
   'menuSectionNotFound',
   'modifierGroupAttached',
   'modifierGroupNotFound',

@@ -298,10 +298,13 @@ export type I18nTranslations = {
         };
         "menus": {
             "addOnMenuSectionNotFound": string;
+            "addOnNotFound": string;
             "addOnSelf": string;
             "addOnTargetRequired": string;
             "fixedSweetnessLevelRequired": string;
+            "menuItemModifierGroupNotFound": string;
             "menuItemNotFound": string;
+            "menuNotFound": string;
             "menuSectionNotFound": string;
             "modifierGroupAttached": string;
             "modifierGroupNotFound": string;

@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   Column,
@@ -562,7 +562,7 @@ export class MenusService {
           .delete(menuSection)
           .where(and(eq(menuSection.menuId, menuId), eq(menuSection.id, id)))
           .returning({ id: menuSection.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length) throw notFoundError('menuSectionNotFound');
       }
     });
   }
@@ -1048,7 +1048,7 @@ export class MenusService {
             and(eq(menuItem.menuSectionId, sectionId), eq(menuItem.id, id)),
           )
           .returning({ id: menuItem.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length) throw notFoundError('menuItemNotFound');
       }
     });
   }
@@ -1486,7 +1486,7 @@ export class MenusService {
   > {
     const found = await this.findMenuItemAddOnById(where.id);
     if (!found || found.menuItemId !== where.menuItemId)
-      throw new NotFoundException();
+      throw notFoundError('addOnNotFound');
     await this.validateAddOnTargets(where.menuItemId, {
       addOnMenuItemId:
         data.addOnMenuItemId === undefined
@@ -1516,7 +1516,7 @@ export class MenusService {
   > {
     const found = await this.findMenuItemAddOnById(where.id);
     if (!found || found.menuItemId !== where.menuItemId)
-      throw new NotFoundException();
+      throw notFoundError('addOnNotFound');
     await this.db.delete(menuItemAddOn).where(eq(menuItemAddOn.id, where.id));
 
     return found;
@@ -1535,7 +1535,7 @@ export class MenusService {
             ),
           )
           .returning({ id: menuItemAddOn.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length) throw notFoundError('addOnNotFound');
       }
     });
   }
@@ -1743,7 +1743,7 @@ export class MenusService {
             and(eq(modifierGroup.menuId, menuId), eq(modifierGroup.id, id)),
           )
           .returning({ id: modifierGroup.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length) throw notFoundError('modifierGroupNotFound');
       }
     });
   }
@@ -2009,7 +2009,7 @@ export class MenusService {
             and(eq(modifier.modifierGroupId, groupId), eq(modifier.id, id)),
           )
           .returning({ id: modifier.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length) throw notFoundError('modifierNotFound');
       }
     });
   }
@@ -2223,7 +2223,7 @@ export class MenusService {
         ),
       )
       .returning();
-    if (!deleted) throw new NotFoundException();
+    if (!deleted) throw notFoundError('menuItemModifierGroupNotFound');
 
     return deleted;
   }
@@ -2244,7 +2244,8 @@ export class MenusService {
             ),
           )
           .returning({ id: menuItemModifierGroup.id });
-        if (!deleted.length) throw new NotFoundException();
+        if (!deleted.length)
+          throw notFoundError('menuItemModifierGroupNotFound');
       }
     });
   }

@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  NotFoundException,
   Param,
   Patch,
   Post,
@@ -74,6 +73,7 @@ import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto.js';
 import { UpdateModifierDto } from './dto/update-modifier.dto.js';
 import { UpdateOfferDto } from './dto/update-offer.dto.js';
 import { MenuEventsInterceptor } from './interceptors/menu-events.interceptor.js';
+import { notFoundError } from './menu-errors.js';
 import { MenusService } from './menus.service.js';
 
 @ApiTags('menus')
@@ -99,7 +99,7 @@ export class MenusController {
   @ApiOperation({ summary: '取得菜單詳情' })
   async findMenu(@Param('menuId') menuId: string): Promise<MenuResponseDto> {
     const result = await this.menusService.menu({ id: menuId });
-    if (!result) throw new NotFoundException();
+    if (!result) throw notFoundError('menuNotFound');
 
     return withImageUrl('menu', result);
   }
@@ -179,7 +179,7 @@ export class MenusController {
     @Param('sectionId') sectionId: string,
   ): Promise<MenuSectionResponseDto> {
     const result = await this.menusService.menuSection({ id: sectionId });
-    if (!result) throw new NotFoundException();
+    if (!result) throw notFoundError('menuSectionNotFound');
 
     return withImageUrl('menuSection', result);
   }
@@ -298,7 +298,7 @@ export class MenusController {
       organizationId,
       canReadPurchasing,
     );
-    if (!result) throw new NotFoundException();
+    if (!result) throw notFoundError('menuItemNotFound');
 
     return withImageUrl('menuItem', result);
   }
@@ -555,7 +555,7 @@ export class MenusController {
     @Param('groupId') groupId: string,
   ): Promise<ModifierGroupResponseDto> {
     const result = await this.menusService.modifierGroup({ id: groupId });
-    if (!result) throw new NotFoundException();
+    if (!result) throw notFoundError('modifierGroupNotFound');
 
     return result;
   }

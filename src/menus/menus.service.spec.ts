@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -575,14 +574,36 @@ describe('MenusService localized text filters and sorting', () => {
       { id: 'missing', menuItemId: 'latte' },
       { id: 'with-americano', menuItemId: 'americano' },
     ])('加購不存在或不屬於該品項時，更新與刪除都回 404：%j', async (where) => {
+      const notFound = {
+        response: { code: 'addOnNotFound' },
+        status: 404,
+      };
       await expect(
         service.updateMenuItemAddOn(where, { addOnMenuItemId: 'americano' }),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(service.deleteMenuItemAddOn(where)).rejects.toBeInstanceOf(
-        NotFoundException,
+      ).rejects.toMatchObject(notFound);
+      await expect(service.deleteMenuItemAddOn(where)).rejects.toMatchObject(
+        notFound,
       );
     });
   });
+  it.each([
+    { id: 'missing', menuItemId: 'latte' },
+    { id: 'latte-ice', menuItemId: 'americano' },
+  ])(
+    '掛載的選項群組不存在或不屬於該品項時，單筆與批次移除都回 404：%j',
+    async ({ id, menuItemId }) => {
+      const notFound = {
+        response: { code: 'menuItemModifierGroupNotFound' },
+        status: 404,
+      };
+      await expect(
+        service.deleteMenuItemModifierGroup({ id, menuItemId }),
+      ).rejects.toMatchObject(notFound);
+      await expect(
+        service.deleteMenuItemModifierGroups(menuItemId, [id]),
+      ).rejects.toMatchObject(notFound);
+    },
+  );
   describe('加購對象', () => {
     const rejected = {
       response: { code: 'addOnTargetRequired' },
