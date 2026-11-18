@@ -21,7 +21,8 @@ import {
   AdjustIsolatedMarginDto,
   PlaceFuturesOrderDto,
   PreviewFuturesOrderDto,
-  QuantFundingFeeDto,
+  QuantFundingFeeHistoryQueryDto,
+  QuantFundingFeePageDto,
   QuantFuturesAccountDto,
   QuantFuturesFillDto,
   QuantFuturesFillHistoryQueryDto,
@@ -34,7 +35,8 @@ import {
   QuantFuturesSymbolSettingsDto,
   QuantOptionalSymbolQueryDto,
   QuantPositionDto,
-  QuantPositionHistoryDto,
+  QuantPositionHistoryPageDto,
+  QuantPositionHistoryQueryDto,
   SetLeverageDto,
   SetMarginModeDto,
   SetPositionModeDto,
@@ -123,13 +125,13 @@ export class QuantFuturesController {
   }
 
   @Get('position-history')
-  @ApiOperation({ summary: '取得已平倉的歷史持倉' })
+  @ApiOperation({ summary: '取得已平倉的歷史持倉（依平倉時間由新到舊分頁）' })
   findPositionHistory(
     @Param('id') id: string,
-    @Query() { symbol }: QuantOptionalSymbolQueryDto,
+    @Query() query: QuantPositionHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantPositionHistoryDto[]> {
-    return this.futures.listPositionHistory(user.id, id, symbol);
+  ): Promise<QuantPositionHistoryPageDto> {
+    return this.futures.listPositionHistory(user.id, id, query);
   }
 
   @Get('open-orders')
@@ -220,12 +222,12 @@ export class QuantFuturesController {
   }
 
   @Get('funding-fees')
-  @ApiOperation({ summary: '取得資金費收付紀錄' })
+  @ApiOperation({ summary: '取得資金費收付紀錄（依時間由新到舊分頁）' })
   findFundingFees(
     @Param('id') id: string,
-    @Query() { symbol }: QuantOptionalSymbolQueryDto,
+    @Query() query: QuantFundingFeeHistoryQueryDto,
     @Session() { user }: UserSession,
-  ): Promise<QuantFundingFeeDto[]> {
-    return this.futures.listFundingFees(user.id, id, symbol);
+  ): Promise<QuantFundingFeePageDto> {
+    return this.futures.listFundingFees(user.id, id, query);
   }
 }
