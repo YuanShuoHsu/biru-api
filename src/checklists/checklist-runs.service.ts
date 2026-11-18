@@ -216,7 +216,11 @@ export class ChecklistRunsService {
         .select()
         .from(checklistRun)
         .where(where)
-        .orderBy(desc(checklistRun.businessDate), desc(checklistRun.startedAt))
+        .orderBy(
+          desc(checklistRun.businessDate),
+          desc(checklistRun.startedAt),
+          desc(checklistRun.id),
+        )
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(checklistRun).where(where),

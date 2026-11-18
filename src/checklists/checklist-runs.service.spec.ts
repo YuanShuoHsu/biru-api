@@ -370,10 +370,14 @@ describe('ChecklistRunsService', () => {
     await expect(
       ids({ from: '2026-11-02', to: '2026-11-03', templateId: template.id }),
     ).resolves.toEqual({ ids: ['r4', 'r2'], total: 2 });
-    await expect(ids({ limit: 2, offset: 1 })).resolves.toMatchObject({
-      ids: [expect.stringMatching(/^r[23]$/), expect.stringMatching(/^r[23]$/)],
+    await expect(ids({ limit: 2, offset: 1 })).resolves.toEqual({
+      ids: ['r3', 'r2'],
       total: 4,
     });
+    const pages = await Promise.all(
+      [0, 1, 2, 3].map((offset) => ids({ limit: 1, offset })),
+    );
+    expect(pages.flatMap(({ ids }) => ids)).toEqual(['r4', 'r3', 'r2', 'r1']);
     await expect(ids({ to: '2026-11-01' })).resolves.toEqual({
       ids: ['r1'],
       total: 1,
