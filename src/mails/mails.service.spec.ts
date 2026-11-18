@@ -210,12 +210,12 @@ describe('MailsService 語系', () => {
       .update(schema.organization)
       .set({ addressCountry: 'Taiwan', streetAddress: '<b>1 號</b>' })
       .where(eq(schema.organization.id, 'store'));
-    onTestFinished(() =>
-      db
+    onTestFinished(async () => {
+      await db
         .update(schema.organization)
         .set({ addressCountry: 'TW', streetAddress: '忠孝西路一段 1 號' })
-        .where(eq(schema.organization.id, 'store')),
-    );
+        .where(eq(schema.organization.id, 'store'));
+    });
 
     await sendInvitationEmail('new@example.com', 'en-US,en;q=0.9');
 

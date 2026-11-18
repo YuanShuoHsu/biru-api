@@ -85,9 +85,9 @@ describe('App (e2e)', () => {
     ['get', '/api/users/user-1'],
     ['patch', '/api/users/user-1'],
     ['delete', '/api/users/user-1'],
-  ] as const)('已移除的 %s %s 回 404', (method, path) =>
-    request(app.getHttpServer())[method](path).expect(404),
-  );
+  ] as const)('已移除的 %s %s 回 404', async (method, path) => {
+    await request(app.getHttpServer())[method](path).expect(404);
+  });
 
   it('已移除的 /api/hello 回 404', () =>
     request(app.getHttpServer()).get('/api/hello').expect(404));
