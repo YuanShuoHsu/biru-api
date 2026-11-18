@@ -1340,6 +1340,126 @@ describe('PointsService.findAllForOrganization', () => {
         },
       ]);
     });
+
+    it('尚未入點的訂單結束時，刪掉的欠點已抵扣的他店點數退回原本那筆', async () => {
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 0.5,
+      });
+      expect((await lotOf('o2')).remainingPoints).toBe(50);
+
+      await client.query(
+        `update "order" set order_status = 'OrderReturned' where id = 'o1'`,
+      );
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect(await revokeOf('o1')).toBeUndefined();
+      expect((await lotOf('o2')).remainingPoints).toBe(100);
+      expect(await allocations()).toEqual([]);
+      expect((await service.getAllMine('amy')).balance).toBe(100);
+      await expectLotsAllocated();
+    });
+
+    it('多次部分退款從同一筆點數抵扣時，全部退回', async () => {
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      for (const ratio of [0.3, 0.3])
+        await service.revokeForOrder(db as unknown as DrizzleDB, {
+          orderBecomesTerminal: false,
+          orderId: 'o1',
+          ratio,
+        });
+      expect((await lotOf('o2')).remainingPoints).toBe(40);
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect((await lotOf('o2')).remainingPoints).toBe(100);
+      expect(await allocations()).toEqual([]);
+    });
+
+    it('扣點明細上線前就抵扣掉的部分無從退回，記下警告', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderReturned',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values({
+        id: 'legacy-revoke',
+        orderId: 'o1',
+        organizationId: ORG,
+        points: -50,
+        remainingPoints: -20,
+        type: 'revoke',
+        userId: 'amy',
+      });
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect(await revokeOf('o1')).toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('30'));
+      warn.mockRestore();
+    });
+
+    it('退回的點數先抵扣會員其他未抵完的欠點', async () => {
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+      await service.getAllMine('amy');
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 1,
+      });
+      await db.insert(pointTransaction).values({
+        id: 'debt',
+        organizationId: ORG,
+        points: -30,
+        remainingPoints: -30,
+        type: 'revoke',
+        userId: 'amy',
+      });
+
+      await client.query(
+        `update "order" set order_status = 'OrderReturned' where id = 'o1'`,
+      );
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      expect((await lotOf('o2')).remainingPoints).toBe(70);
+      expect(await allocations()).toEqual([
+        {
+          consumerTransactionId: 'debt',
+          kind: 'settle',
+          points: 30,
+          sourceOrganizationId: OTHER_ORG,
+          sourceTransactionId: (await lotOf('o2')).id,
+          userId: 'amy',
+        },
+      ]);
+      expect((await service.getAllMine('amy')).balance).toBe(70);
+      await expectLotsAllocated();
+    });
   });
 
   it('依會員 email 篩選', async () => {

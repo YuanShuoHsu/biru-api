@@ -361,6 +361,23 @@ export class PointsService {
           or(
             and(this.notExpired(), ne(pointTransaction.remainingPoints, 0)),
             orderId ? eq(pointTransaction.orderId, orderId) : undefined,
+            orderId
+              ? inArray(
+                  pointTransaction.id,
+                  tx
+                    .select({ id: pointAllocation.sourceTransactionId })
+                    .from(pointAllocation)
+                    .where(
+                      inArray(
+                        pointAllocation.consumerTransactionId,
+                        tx
+                          .select({ id: pointTransaction.id })
+                          .from(pointTransaction)
+                          .where(eq(pointTransaction.orderId, orderId)),
+                      ),
+                    ),
+                )
+              : undefined,
           ),
         ),
       )
@@ -507,14 +524,53 @@ export class PointsService {
 
     if (!earned) {
       if (orderBecomesTerminal) {
-        await tx
-          .delete(pointTransaction)
+        const pendingRevokes = and(
+          eq(pointTransaction.orderId, orderId),
+          eq(pointTransaction.type, 'revoke'),
+        );
+        const revokes = await tx
+          .select({
+            id: pointTransaction.id,
+            points: pointTransaction.points,
+            remainingPoints: pointTransaction.remainingPoints,
+          })
+          .from(pointTransaction)
+          .where(pendingRevokes);
+        if (revokes.length === 0) return;
+
+        const settled = await tx
+          .delete(pointAllocation)
           .where(
-            and(
-              eq(pointTransaction.orderId, orderId),
-              eq(pointTransaction.type, 'revoke'),
+            inArray(
+              pointAllocation.consumerTransactionId,
+              revokes.map(({ id }) => id),
             ),
+          )
+          .returning({
+            points: pointAllocation.points,
+            sourceTransactionId: pointAllocation.sourceTransactionId,
+          });
+        const unrestored =
+          revokes.reduce(
+            (sum, { points, remainingPoints }) =>
+              sum + remainingPoints - points,
+            0,
+          ) - settled.reduce((sum, { points }) => sum + points, 0);
+        if (unrestored > 0)
+          this.logger.warn(
+            `訂單 ${orderId} 的收回列刪除前已抵扣 ${unrestored} 點但沒有扣點明細，無法退回會員 ${buyer?.userId}`,
           );
+        for (const { points, sourceTransactionId } of settled)
+          await tx
+            .update(pointTransaction)
+            .set({
+              remainingPoints: sql`${pointTransaction.remainingPoints} + ${points}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(pointTransaction.id, sourceTransactionId));
+        await tx.delete(pointTransaction).where(pendingRevokes);
+        if (settled.length > 0 && buyer?.userId)
+          await this.settleDebts(tx, buyer.userId);
 
         return;
       }
