@@ -146,17 +146,23 @@ describe('資金費分頁', () => {
   });
 
   it('不同交易對同一時間結算的資金費都保留', async () => {
+    const first = Array.from({ length: 200 }, (_, index) =>
+      funding(10_000 - index),
+    );
     const { service } = setup([
-      { fundings: [funding(5000), funding(5000, '-0.1', 'ETH_USDT_PERP')] },
+      { fundings: first },
+      { fundings: [first[199], funding(9801, '-0.1', 'ETH_USDT_PERP')] },
     ]);
 
     const page = await service.listFundingFees('user', 'account', {
-      limit: 10,
+      limit: 300,
     });
 
-    expect(page.data.map(({ symbol }) => symbol)).toEqual([
-      'BTC_USDT_PERP',
-      'ETH_USDT_PERP',
+    expect(
+      page.data.slice(-2).map(({ symbol, time }) => [symbol, time]),
+    ).toEqual([
+      ['BTC_USDT_PERP', 9801],
+      ['ETH_USDT_PERP', 9801],
     ]);
     expect(page.nextEndTime).toBeNull();
   });
