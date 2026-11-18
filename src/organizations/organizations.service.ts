@@ -268,6 +268,12 @@ export class OrganizationsService {
     closed: boolean,
   ): Promise<Organization> {
     if (closed) {
+      const current = await this.db.query.organization.findFirst({
+        where: eq(organization.id, organizationId),
+      });
+      if (!current) throw organizationNotFoundError();
+      if (current.closedAt) return current;
+
       const [[{ orders }], [{ unreconciledOrders }], [{ tickets }]] =
         await Promise.all([
           this.db
