@@ -348,6 +348,7 @@
     "notEnabled": "点数功能尚未启用",
     "notRedeemable": "此优惠券无法用点数兑换",
     "perUserLimitReached": "您已兑换过此优惠券",
+    "reportMonthNotStarted": "对账月份尚未开始",
     "settingNotFound": "点数规则尚未设置"
   },
   "quant": {

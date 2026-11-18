@@ -348,6 +348,7 @@
     "notEnabled": "Points are not enabled yet",
     "notRedeemable": "This coupon cannot be redeemed with points",
     "perUserLimitReached": "You have already redeemed this coupon",
+    "reportMonthNotStarted": "The report month has not started yet",
     "settingNotFound": "Point rules have not been set up yet"
   },
   "quant": {

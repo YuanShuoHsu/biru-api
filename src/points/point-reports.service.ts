@@ -30,6 +30,7 @@ import type {
   PointReportResponseDto,
   PointReportRowDto,
 } from './dto/point-report.dto.js';
+import { badRequestError } from './point-errors.js';
 import { PointSettingsService } from './point-settings.service.js';
 
 type Usage = { sourceId: string | null; consumerId: string; points: number };
@@ -54,6 +55,8 @@ export class PointReportsService {
 
   private period(month: string) {
     const { start, end } = payrollPeriod(month);
+    if (start.getTime() > Date.now())
+      throw badRequestError('reportMonthNotStarted');
     const asOf = new Date(Math.min(end.getTime(), Date.now()));
 
     return {
@@ -99,30 +102,32 @@ export class PointReportsService {
 
   private async lots(month: string) {
     const { start, end, asOf } = this.period(month);
+    // drizzle 在外層引用子查詢欄位時不加別名前綴，欄位別名不能和 join 進來的表的欄位同名
     const allocated = this.db
       .select({
         sourceTransactionId: pointAllocation.sourceTransactionId,
-        total: sumInt(pointAllocation.points).as('total'),
+        total: sumInt(pointAllocation.points).as('allocated_points'),
         afterAsOf: sumIntWhere(
           pointAllocation.points,
           sql`${pointAllocation.createdAt} >= ${asOf}`,
-        ).as('after_as_of'),
+        ).as('allocated_after_as_of'),
       })
       .from(pointAllocation)
       .groupBy(pointAllocation.sourceTransactionId)
       .as('allocated');
-    const createdInMonth = sql`${pointTransaction.createdAt} >= ${start} AND ${pointTransaction.createdAt} < ${end}`;
+    const issuedAt = sql`COALESCE(${order.paymentDate}, ${pointTransaction.createdAt})`;
+    const issuedInMonth = sql`${issuedAt} >= ${start} AND ${issuedAt} < ${end}`;
 
     return this.db
       .select({
         organizationId: pointTransaction.organizationId,
         earnedPoints: sumIntWhere(
           pointTransaction.points,
-          sql`${pointTransaction.type} = 'earn' AND ${createdInMonth}`,
+          sql`${pointTransaction.type} = 'earn' AND ${issuedInMonth}`,
         ),
         grantedPoints: sumIntWhere(
           pointTransaction.points,
-          sql`${pointTransaction.type} = 'adjust' AND ${createdInMonth}`,
+          sql`${pointTransaction.type} = 'adjust' AND ${issuedInMonth}`,
         ),
         expiredPoints: sumIntWhere(
           pointTransaction.remainingPoints,
@@ -130,14 +135,15 @@ export class PointReportsService {
         ),
         outstandingPoints: sumIntWhere(
           sql`${pointTransaction.remainingPoints} + COALESCE(${allocated.afterAsOf}, 0)`,
-          sql`${pointTransaction.createdAt} < ${asOf} AND (${pointTransaction.expiresAt} IS NULL OR ${pointTransaction.expiresAt} > ${asOf})`,
+          sql`${issuedAt} < ${asOf} AND (${pointTransaction.expiresAt} IS NULL OR ${pointTransaction.expiresAt} > ${asOf})`,
         ),
         unallocatedLegacyPoints: sumIntWhere(
           sql`${pointTransaction.points} - ${pointTransaction.remainingPoints} - COALESCE(${allocated.total}, 0)`,
-          sql`${pointTransaction.createdAt} < ${asOf}`,
+          sql`${issuedAt} < ${asOf}`,
         ),
       })
       .from(pointTransaction)
+      .leftJoin(order, eq(order.id, pointTransaction.orderId))
       .leftJoin(
         allocated,
         eq(allocated.sourceTransactionId, pointTransaction.id),
@@ -319,6 +325,7 @@ export class PointReportsService {
       ...organizations,
       { id: null, name: null },
     ].flatMap<PointReportCounterpartDto>(({ id, name }) => {
+      if (id === organizationId) return [];
       const pointsOf = (sourceId: string | null, consumerId: string | null) =>
         usage.find(
           (row) => row.sourceId === sourceId && row.consumerId === consumerId,

@@ -28,7 +28,7 @@ export class PointReportRowDto {
   @ApiProperty({ nullable: true, type: String })
   organizationName: string | null;
 
-  @ApiProperty({ description: '本月入帳的消費點數' })
+  @ApiProperty({ description: '本月付款訂單的消費點數，依訂單付款時間' })
   earnedPoints: number;
 
   @ApiProperty({ description: '本月人工加點' })

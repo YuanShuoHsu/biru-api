@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
@@ -33,21 +33,39 @@ describe('PointReportsService', () => {
     {
       createdAt = '2026-10-05',
       expiresAt = '2027-10-05' as string | null,
+      orderId = null as string | null,
       points,
       remaining,
       type = 'earn',
     }: {
       createdAt?: string;
       expiresAt?: string | null;
+      orderId?: string | null;
       points: number;
       remaining: number;
       type?: string;
     },
   ) =>
     client.query(
-      `insert into point_transaction (id, organization_id, points, remaining_points, type, user_id, created_at, expires_at)
-       values ($1, $2, $3, $4, $5, 'amy', $6, $7)`,
-      [id, organizationId, points, remaining, type, createdAt, expiresAt],
+      `insert into point_transaction (id, organization_id, points, remaining_points, type, user_id, created_at, expires_at, order_id)
+       values ($1, $2, $3, $4, $5, 'amy', $6, $7, $8)`,
+      [
+        id,
+        organizationId,
+        points,
+        remaining,
+        type,
+        createdAt,
+        expiresAt,
+        orderId,
+      ],
+    );
+
+  const addPaidOrder = (id: string, sellerId: string, paymentDate: string) =>
+    client.query(
+      `insert into "order" (id, customer, mode, order_number, payment_method, seller_id, subtotal, payment_date, order_status, user_id)
+       values ($1, '{"name":"客人"}', 'pickup', $1, 'Cash', $2, 100, $3, 'OrderDelivered', 'amy')`,
+      [id, sellerId, paymentDate],
     );
 
   const addAllocation = (
@@ -285,6 +303,72 @@ describe('PointReportsService', () => {
     expect(detail.rows).toEqual([
       expect.objectContaining({ organizationId: 'a', netAmount: -125 }),
     ]);
+  });
+
+  it('消費點數依訂單付款時間（Asia/Taipei 月份）入月，人工加點依建立時間', async () => {
+    await addPaidOrder('paid-first', 'a', '2026-09-30 16:00:00');
+    await addPaidOrder('paid-last', 'a', '2026-10-31 15:59:59');
+    await addPaidOrder('paid-next', 'a', '2026-10-31 16:00:00');
+    await addPaidOrder('paid-before', 'a', '2026-09-30 15:59:59');
+    for (const [id, points] of [
+      ['paid-first', 1],
+      ['paid-last', 2],
+      ['paid-next', 4],
+      ['paid-before', 8],
+    ] as const)
+      await addLot(`lot-${id}`, 'a', {
+        createdAt: '2026-11-03',
+        orderId: id,
+        points,
+        remaining: points,
+      });
+    await addLot('granted', 'a', {
+      createdAt: '2026-10-15',
+      points: 12,
+      remaining: 12,
+      type: 'adjust',
+    });
+
+    const [october, november] = await Promise.all(
+      ['2026-10', '2026-11'].map((month) => service.getReport(month)),
+    );
+
+    expect(october.rows[0]).toMatchObject({
+      earnedPoints: 105 + 1 + 2,
+      grantedPoints: 12,
+      outstandingPoints: 40 + 1 + 2 + 8 + 12,
+    });
+    expect(november.rows[0]).toMatchObject({ earnedPoints: 4 });
+  });
+
+  it('本店的點數用在本店時只算進本店使用，不列在跨店明細', async () => {
+    await addLot('own', 'a', { points: 8, remaining: 0 });
+    await redeemFrom('r5', 'own', 'a', 8, {
+      at: '2026-09-30 16:00:00',
+      sellerId: 'a',
+      discount: 8,
+    });
+
+    const [report, detail] = await Promise.all([
+      service.getReport('2026-10'),
+      service.getDetail('a', '2026-10'),
+    ]);
+
+    expect(report.rows[0]).toMatchObject({
+      usedAtOwnStorePoints: 8,
+      usedAtOtherStoresPoints: 60,
+      crossStoreNetPoints: 50,
+      discountAmount: 18,
+    });
+    expect(detail.rows.map(({ organizationId }) => organizationId)).toEqual([
+      'b',
+    ]);
+  });
+
+  it('尚未開始的月份回 400', async () => {
+    await expect(service.getReport('2099-01')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('找不到門市時回 404', async () => {
