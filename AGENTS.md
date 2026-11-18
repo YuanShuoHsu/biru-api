@@ -359,7 +359,7 @@ layers** — don't confuse them:
 Guarded by `AdminGuard` (`src/common/guards/admin.guard.ts`), which only passes for
 `role === 'admin'`. Used for cross-tenant endpoints: `UsersController`, `AdminBannersController`,
 `AdminCouponsController`, `AdminPayrollRulesController`, `AdminPointSettingsController`,
-ECPay invoice management.
+`AdminPointReportsController`, ECPay invoice management.
 
 **2. Organization membership** — `member.role`, a pgEnum of `owner | admin | member`
 (`src/db/schema/organizations.ts`). This is the main tenant-scoped mechanism:
