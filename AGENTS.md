@@ -18,6 +18,7 @@ pnpm run test:e2e        # End-to-end tests: AppModule on in-memory PGlite (db m
 
 # Code Quality
 pnpm run lint            # oxlint (type-aware)
+pnpm exec tsc --noEmit -p tsconfig.json   # Type-check specs too: build's tsconfig.build.json excludes them and lint misses type errors
 pnpm run format          # Prettier format
 
 # Database (Drizzle Kit)
@@ -34,7 +35,7 @@ pnpm vitest run src/payroll/payroll.service.spec.ts
 
 Branch from `develop` and open every PR against `develop`. GitHub's default branch is `master`, so set the base explicitly (`gh pr create --base develop`): a PR merged only into `master` never reaches `develop`, so work branched from `develop` misses it and conflicts when `master` is merged back.
 
-Every PR against `develop` or `master`, and every push to `develop`, runs `lint`, `build`, `test` and `test:e2e` in GitHub Actions (`.github/workflows/ci.yml`), with no secrets and no database; run the four locally before opening a PR.
+Every PR against `develop` or `master`, and every push to `develop`, runs `lint`, `build`, `test` and `test:e2e` in GitHub Actions (`.github/workflows/ci.yml`), with no secrets and no database; run the four locally before opening a PR, plus the `tsc` type check above, which CI doesn't run.
 
 ## Architecture
 
