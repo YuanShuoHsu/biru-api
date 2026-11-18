@@ -14,7 +14,11 @@ const errorsOf = async (dto: new () => object, body: object) =>
   );
 
 describe('ChecklistTemplate DTO', () => {
-  const base = { name: '開店', timing: 'opening', items: [] };
+  const base = {
+    name: '開店',
+    timing: 'opening',
+    items: [{ label: '開燈', type: 'check' }],
+  };
 
   it('新增時 enabled 不能送 null，不傳仍可以', async () => {
     await expect(
@@ -49,6 +53,15 @@ describe('ChecklistTemplate DTO', () => {
         ],
       }),
     ).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['新增', CreateChecklistTemplateDto],
+    ['更新', UpdateChecklistTemplateDto],
+  ])('%s時項目不能是空陣列', async (_, dto) => {
+    await expect(errorsOf(dto, { ...base, items: [] })).resolves.toEqual([
+      'items',
+    ]);
   });
 
   const item = { label: '冷藏庫', type: 'check' };

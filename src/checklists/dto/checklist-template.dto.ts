@@ -3,6 +3,7 @@ import { ApiProperty, PartialType } from '@nestjs/swagger';
 
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -101,6 +102,7 @@ export class CreateChecklistTemplateDto {
       '依陣列順序排列；更新時帶上就以這份為準：有 id 的更新、沒有 id 的新增、沒列出的刪除',
   })
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(50)
   @ArrayUnique((item?: ChecklistTemplateItemInputDto) => item?.id ?? item)
   @ValidateNested({ each: true })
