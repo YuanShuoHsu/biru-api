@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 
 import { isPrintable } from '../../common/utils/invoices.js';
 import { order } from '../../db/schema/orders.js';
@@ -40,6 +40,7 @@ import type {
 import {
   isOnline,
   pollIntervalOf,
+  PRINTER_OFFLINE_AFTER_MS,
   type PrintJobSource,
   PrintersService,
   type Tx,
@@ -148,6 +149,10 @@ export class InvoicePrinterService implements PrintJobSource {
           inArray(
             invoicePrintJob.organizationId,
             offline.map(({ organizationId }) => organizationId),
+          ),
+          lt(
+            invoicePrintJob.sentAt,
+            new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS),
           ),
         ),
       )

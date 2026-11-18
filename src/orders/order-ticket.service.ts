@@ -5,6 +5,7 @@ import {
   asc,
   eq,
   inArray,
+  lt,
   ne,
   or,
   sql,
@@ -59,6 +60,7 @@ import type {
   PrinterDto,
 } from '../printers/dto/printer.dto.js';
 import {
+  PRINTER_OFFLINE_AFTER_MS,
   type PrintJobSource,
   PrintersService,
   type Tx,
@@ -1050,6 +1052,10 @@ export class OrderTicketService implements PrintJobSource {
           inArray(
             orderTicketJob.printerId,
             offline.map(({ id }) => id),
+          ),
+          lt(
+            orderTicketJob.sentAt,
+            new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS),
           ),
         ),
       )
