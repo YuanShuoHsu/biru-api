@@ -33,6 +33,16 @@ const redact = (text: string) =>
     .replace(/https?:\/\/\S+/g, '[url]')
     .replace(/([^\s<>"'@,;:])[^\s<>"'@,;:]*@/g, '$1***@');
 
+const deviceOf = (request?: Request) => {
+  const result = new UAParser(
+    request?.headers.get('user-agent') || undefined,
+  ).getResult();
+  return {
+    browser_name: result.browser?.name || 'Unknown',
+    operating_system: result.os?.name || 'Unknown',
+  };
+};
+
 const countryName = (code: string, lang: Language) => {
   try {
     return new Intl.DisplayNames(lang, { type: 'region' }).of(code) ?? code;
@@ -213,11 +223,7 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = this.supportUrl;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -255,11 +261,7 @@ export class MailsService {
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = this.supportUrl;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -297,11 +299,7 @@ export class MailsService {
     const sign_in_url = `${baseUrl}/${lang}/auth/sign-in`;
     const support_url = this.supportUrl;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -353,11 +351,7 @@ export class MailsService {
     });
     const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -408,11 +402,7 @@ export class MailsService {
     });
     const deleteAccountUrl = `${baseUrl}/${lang}/auth/delete-account?${deleteParams.toString()}`;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -531,11 +521,7 @@ export class MailsService {
     });
     const resetPasswordUrl = `${baseUrl}/${lang}/auth/reset-password?${resetParams.toString()}`;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
@@ -615,11 +601,7 @@ export class MailsService {
     });
     const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
 
-    const userAgent = request?.headers.get('user-agent') || undefined;
-    const parser = new UAParser(userAgent);
-    const result = parser.getResult();
-    const browser_name = result.browser?.name || 'Unknown';
-    const operating_system = result.os?.name || 'Unknown';
+    const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
       to: email,
