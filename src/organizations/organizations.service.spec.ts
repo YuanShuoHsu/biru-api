@@ -215,6 +215,27 @@ describe('OrganizationsService 團隊介紹', () => {
     ).toEqual([]);
   });
 
+  it('停業門市的成員不能變更公開顯示', async () => {
+    await client.exec(
+      `update organization set closed_at = now() where id = 'biru'`,
+    );
+    try {
+      await expect(
+        service.setMemberShowcase('biru', 'm-bob', true, bob),
+      ).rejects.toMatchObject({
+        response: { code: 'organizationReadOnly' },
+        status: 403,
+      });
+    } finally {
+      await client.exec(
+        `update organization set closed_at = null where id = 'biru'`,
+      );
+    }
+    expect(
+      await service.organizationMembers('biru', { showcasedOnly: true }),
+    ).toEqual([]);
+  });
+
   it('成員本人可以開啟與關閉自己的公開顯示', async () => {
     await service.setMemberShowcase('biru', 'm-bob', true, bob);
     expect(

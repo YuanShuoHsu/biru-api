@@ -37,7 +37,10 @@ import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import { DAY_MS } from '../common/constants/timezone.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
-import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
+import {
+  organizationHasOpenWorkError,
+  organizationReadOnlyError,
+} from '../common/utils/organization-closure.js';
 import {
   findSpecialHours,
   findSpecialHoursByOrganization,
@@ -180,6 +183,12 @@ export class OrganizationsService {
     showcase: boolean,
     actor: { role: string; userId: string },
   ): Promise<{ id: string; showcase: boolean }> {
+    const store = await this.db.query.organization.findFirst({
+      where: eq(organization.id, organizationId),
+      columns: { closedAt: true },
+    });
+    if (store?.closedAt) throw organizationReadOnlyError();
+
     const target = await this.db.query.member.findFirst({
       where: and(
         eq(member.id, memberId),
