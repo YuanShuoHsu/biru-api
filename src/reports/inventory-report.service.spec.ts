@@ -6,6 +6,7 @@ import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { createPGlite } from '../../test/pglite.js';
+import type { InventoryReportPageQueryDto } from './dto/inventory-report.dto.js';
 import { InventoryReportService } from './inventory-report.service.js';
 
 describe('InventoryReportService', () => {
@@ -220,6 +221,94 @@ describe('InventoryReportService', () => {
         variance: '50.000',
       }),
     ]);
+  });
+
+  describe('分頁、排序與篩選', () => {
+    const ids = async (
+      query: Partial<InventoryReportPageQueryDto>,
+      canReadPurchasing = true,
+    ) => {
+      const report = await service.getInventoryReport(
+        'biru',
+        { ...range, ...query },
+        canReadPurchasing,
+      );
+
+      return {
+        ...report,
+        ids: report.rows.map(({ ingredientId }) => ingredientId),
+      };
+    };
+
+    it('沒有 limit 時回傳所有列，順序不變', async () => {
+      const { ids: all, total } = await ids({});
+
+      expect(all).toEqual(['milk', 'beans', 'oatmilk', 'cups']);
+      expect(total).toBe(4);
+    });
+
+    it('數量字串依數值排序，limit／offset 取一頁，total 為篩選後的列數', async () => {
+      expect((await ids({ sortBy: 'opening' })).ids).toEqual([
+        'cups',
+        'oatmilk',
+        'beans',
+        'milk',
+      ]);
+
+      const page = await ids({
+        sortBy: 'opening',
+        sortDirection: 'desc',
+        limit: 2,
+        offset: 1,
+      });
+      expect(page.ids).toEqual(['beans', 'oatmilk']);
+      expect(page.total).toBe(4);
+      expect(page.wasteByReason).toEqual((await ids({})).wasteByReason);
+
+      const filtered = await ids({
+        filterField: 'opening',
+        filterOperator: '>=',
+        filterValue: '500',
+      });
+      expect(filtered.ids).toEqual(['milk', 'beans']);
+      expect(filtered.total).toBe(2);
+    });
+
+    it('依名稱快速搜尋，依單位列舉篩選', async () => {
+      expect((await ids({ quickFilterValue: 'MILK' })).ids).toEqual([
+        'milk',
+        'oatmilk',
+      ]);
+      expect((await ids({ quickFilterEnums: ['unitCode:GRM'] })).ids).toEqual([
+        'beans',
+      ]);
+      expect(
+        (
+          await ids({
+            filterField: 'unitCode',
+            filterOperator: 'not',
+            filterValue: 'MLT',
+          })
+        ).ids,
+      ).toEqual(['beans', 'cups']);
+    });
+
+    it('沒有 purchasing 權限時忽略依報廢成本的篩選與排序', async () => {
+      expect(
+        (
+          await ids(
+            {
+              filterField: 'wastedCost',
+              filterOperator: '>',
+              filterValue: '0',
+              sortBy: 'wastedCost',
+              sortDirection: 'desc',
+            },
+            false,
+          )
+        ).ids,
+      ).toEqual(['milk', 'beans', 'oatmilk', 'cups']);
+    });
   });
 
   it('排序值與名稱相同時，依 id 排出固定順序', async () => {

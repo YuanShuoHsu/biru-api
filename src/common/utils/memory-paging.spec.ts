@@ -1,5 +1,5 @@
-import type { FilterOperator } from '../common/constants/pagination.js';
-import { pageInMemory } from './attendance-leaves.service.js';
+import type { FilterOperator } from '../constants/pagination.js';
+import { pageInMemory } from './memory-paging.js';
 
 const rows = [
   { id: 'a', startsAt: new Date('2026-03-10T02:00:00Z'), usedMinutes: 60 },

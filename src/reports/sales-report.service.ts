@@ -10,6 +10,7 @@ import {
   lt,
   sql,
 } from 'drizzle-orm';
+import { I18nContext } from 'nestjs-i18n';
 
 import { DEFAULT_LANGUAGE, type LocalizedText } from '../db/schema/enums.js';
 import { menuItem, menuSection } from '../db/schema/menus.js';
@@ -20,22 +21,28 @@ import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
 
 import { PLATFORM_TIMEZONE } from '../common/constants/timezone.js';
+import { toLanguage } from '../common/utils/language.js';
 import { organizationNotFoundError } from '../common/utils/organizations.js';
 import { utcTimestampParam } from '../common/utils/stats-buckets.js';
+import { localize } from '../menus/menus-public.service.js';
 import {
   COUNTED_AT,
   isConfirmedRefund,
   isCountedOrder,
 } from '../orders/counted-orders.js';
 
-import type {
-  ItemSalesReportGroupBy,
-  OrderSalesReportGroupBy,
-  SalesReportQueryDto,
-  SalesReportResponseDto,
-  SalesReportRowDto,
-  SalesReportTotalsDto,
+import {
+  type ItemSalesReportGroupBy,
+  type OrderSalesReportGroupBy,
+  SALES_REPORT_NUMBER_FILTER_FIELDS,
+  SALES_REPORT_STRING_FILTER_FIELDS,
+  type SalesReportPageQueryDto,
+  type SalesReportQueryDto,
+  type SalesReportResponseDto,
+  type SalesReportRowDto,
+  type SalesReportTotalsDto,
 } from './dto/sales-report.dto.js';
+import { pageReportRows } from './report-paging.js';
 import { parseReportRange } from './report-range.js';
 
 export const UNCATEGORIZED_KEY = 'uncategorized';
@@ -64,9 +71,10 @@ export class SalesReportService {
 
   async getSalesReport(
     organizationSlug: string,
-    { groupBy, ...range }: SalesReportQueryDto,
+    query: SalesReportPageQueryDto,
   ): Promise<SalesReportResponseDto> {
-    const { since, until } = parseReportRange(range);
+    const { groupBy } = query;
+    const { since, until } = parseReportRange(query);
 
     const org = await this.db.query.organization.findFirst({
       where: eq(organization.slug, organizationSlug),
@@ -102,7 +110,19 @@ export class SalesReportService {
       { orders: 0, revenue: 0, discount: 0, refunded: 0, net: 0 },
     );
 
-    return { groupBy, rows, totals };
+    const lang = toLanguage(I18nContext.current()?.lang);
+    const page = pageReportRows(rows, query, {
+      values: ({ key, name, ...amounts }) => ({
+        ...amounts,
+        key: groupBy === 'hour' ? Number(key) : key,
+        name: localize(name, lang),
+      }),
+      stringFields: SALES_REPORT_STRING_FILTER_FIELDS,
+      numberFields: SALES_REPORT_NUMBER_FILTER_FIELDS,
+      textFields: SALES_REPORT_STRING_FILTER_FIELDS,
+    });
+
+    return { groupBy, ...page, totals };
   }
 
   private async orderRows(

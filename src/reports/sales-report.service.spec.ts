@@ -1,11 +1,13 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
+import { I18nContext } from 'nestjs-i18n';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 
 import * as schema from '../db/schema/index.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 
 import { createPGlite } from '../../test/pglite.js';
+import type { SalesReportPageQueryDto } from './dto/sales-report.dto.js';
 import {
   SalesReportService,
   UNCATEGORIZED_KEY,
@@ -319,6 +321,7 @@ describe('SalesReportService', () => {
           net: -50,
         },
       ],
+      total: 3,
       totals: { orders: 3, revenue: 340, discount: 10, refunded: 50, net: 290 },
     });
   });
@@ -400,6 +403,7 @@ describe('SalesReportService', () => {
           net: 0.1,
         },
       ],
+      total: 2,
       totals: { orders: 2, revenue: 0.4, discount: 0, refunded: 0.1, net: 0.3 },
     });
   });
@@ -455,6 +459,7 @@ describe('SalesReportService', () => {
           net: 18,
         },
       ],
+      total: 4,
       totals: {
         orders: 2,
         revenue: 320,
@@ -462,6 +467,128 @@ describe('SalesReportService', () => {
         refunded: 108,
         net: 212,
       },
+    });
+  });
+
+  describe('分頁、排序與篩選', () => {
+    const itemKeys = async (
+      query: Partial<SalesReportPageQueryDto>,
+      lang?: string,
+    ) => {
+      if (lang)
+        vi.spyOn(I18nContext, 'current').mockReturnValue({
+          lang,
+        } as unknown as I18nContext);
+      const report = await service.getSalesReport('items', {
+        ...range,
+        groupBy: 'menuItem',
+        ...query,
+      });
+      vi.restoreAllMocks();
+
+      return { ...report, keys: report.rows.map(({ key }) => key) };
+    };
+
+    it('依 limit／offset 取一頁，total 為篩選後的列數，totals 仍是整份報表', async () => {
+      const all = await itemKeys({});
+      const page = await itemKeys({ limit: 2, offset: 1 });
+
+      expect(page.keys).toEqual(['cake', 'gone']);
+      expect(page.total).toBe(4);
+      expect(page.totals).toEqual(all.totals);
+      expect(page.rows[0]).toEqual(all.rows[1]);
+
+      const filtered = await itemKeys({
+        filterField: 'revenue',
+        filterOperator: '>=',
+        filterValue: '50',
+        limit: 1,
+      });
+      expect(filtered.keys).toEqual(['latte']);
+      expect(filtered.total).toBe(3);
+      expect(filtered.totals).toEqual(all.totals);
+    });
+
+    it('依數值欄位排序，同值時維持預設順序', async () => {
+      expect(
+        (await itemKeys({ sortBy: 'quantity', sortDirection: 'desc' })).keys,
+      ).toEqual(['latte', 'oat', 'cake', 'gone']);
+    });
+
+    it('名稱依請求語系的文字篩選與快速搜尋', async () => {
+      expect(
+        (
+          await itemKeys(
+            {
+              filterField: 'name',
+              filterOperator: 'contains',
+              filterValue: 'latte',
+            },
+            'en',
+          )
+        ).keys,
+      ).toEqual(['latte']);
+      expect(
+        (await itemKeys({ quickFilterValue: '拿鐵' }, 'zh-TW')).keys,
+      ).toEqual(['latte']);
+      expect(
+        (
+          await itemKeys(
+            {
+              filterField: 'name',
+              filterOperator: 'contains',
+              filterValue: 'latte',
+            },
+            'zh-TW',
+          )
+        ).keys,
+      ).toEqual([]);
+      expect(
+        (
+          await itemKeys(
+            {
+              filterField: 'name',
+              filterOperator: 'equals',
+              filterValue: '拿鐵',
+            },
+            'zh-TW',
+          )
+        ).keys,
+      ).toEqual(['latte']);
+      expect(
+        (
+          await itemKeys(
+            { sortBy: 'name', sortDirection: 'asc', limit: 1 },
+            'en',
+          )
+        ).keys,
+      ).toEqual(['latte']);
+    });
+
+    it('依小時分組時 key 依數值排序', async () => {
+      await client.query(
+        `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address)
+         values ('hours', 'Hours', 'hours', now(), 'TW', '桃園市', '大園區', '中正東路一段')`,
+      );
+      await addOrder('hours-9', {
+        orderDate: '2026-10-01T01:00:00Z',
+        sellerId: 'hours',
+        subtotal: 10,
+      });
+      await addOrder('hours-10', { sellerId: 'hours', subtotal: 20 });
+
+      const keys = async (sortDirection: 'asc' | 'desc') =>
+        (
+          await service.getSalesReport('hours', {
+            ...range,
+            groupBy: 'hour',
+            sortBy: 'key',
+            sortDirection,
+          })
+        ).rows.map(({ key }) => key);
+
+      expect(await keys('asc')).toEqual(['9', '10']);
+      expect(await keys('desc')).toEqual(['10', '9']);
     });
   });
 

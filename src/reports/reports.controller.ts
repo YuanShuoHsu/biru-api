@@ -9,13 +9,18 @@ import {
 import { HasPermission } from '../menus/decorators/permission.decorator.js';
 import { Roles } from '../menus/decorators/roles.decorator.js';
 
-import { InventoryReportResponseDto } from './dto/inventory-report.dto.js';
 import {
+  InventoryReportPageQueryDto,
+  InventoryReportResponseDto,
+} from './dto/inventory-report.dto.js';
+import {
+  PersonnelCostReportPageQueryDto,
   PersonnelCostReportQueryDto,
   PersonnelCostReportResponseDto,
 } from './dto/personnel-cost-report.dto.js';
 import { ReportRangeQueryDto } from './dto/report-range-query.dto.js';
 import {
+  SalesReportPageQueryDto,
   SalesReportQueryDto,
   SalesReportResponseDto,
 } from './dto/sales-report.dto.js';
@@ -46,7 +51,7 @@ export class ReportsController {
   @ApiOkResponse({ type: SalesReportResponseDto })
   findSales(
     @Param('organizationSlug') organizationSlug: string,
-    @Query() query: SalesReportQueryDto,
+    @Query() query: SalesReportPageQueryDto,
   ): Promise<SalesReportResponseDto> {
     return this.salesReportService.getSalesReport(organizationSlug, query);
   }
@@ -71,7 +76,7 @@ export class ReportsController {
   @ApiOkResponse({ type: InventoryReportResponseDto })
   findInventory(
     @Param('organizationSlug') organizationSlug: string,
-    @Query() query: ReportRangeQueryDto,
+    @Query() query: InventoryReportPageQueryDto,
     @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
   ): Promise<InventoryReportResponseDto> {
     return this.inventoryReportService.getInventoryReport(
@@ -101,11 +106,11 @@ export class ReportsController {
   @ApiOkResponse({ type: PersonnelCostReportResponseDto })
   findPersonnel(
     @Param('organizationSlug') organizationSlug: string,
-    @Query() query: PersonnelCostReportQueryDto,
+    @Query() query: PersonnelCostReportPageQueryDto,
   ): Promise<PersonnelCostReportResponseDto> {
     return this.personnelCostReportService.getPersonnelCostReport(
       organizationSlug,
-      query.month,
+      query,
     );
   }
 

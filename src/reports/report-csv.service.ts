@@ -150,7 +150,7 @@ export class ReportCsvService {
     const { rows, totals } =
       await this.personnelCostReportService.getPersonnelCostReport(
         organizationSlug,
-        month,
+        { month },
       );
     const lang = toLanguage(I18nContext.current()?.lang);
     const t = (key: CsvColumn) =>
