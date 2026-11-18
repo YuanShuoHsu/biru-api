@@ -89,7 +89,7 @@ const buildEnumFilterCondition = (
     case 'is':
       return eq(field, values[0]);
     case 'not':
-      return ne(field, values[0]);
+      return or(ne(field, values[0]), isNull(field));
     case 'isAnyOf':
       return values.length === 1
         ? eq(field, values[0])

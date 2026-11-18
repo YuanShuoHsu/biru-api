@@ -14,7 +14,7 @@ vi.mock('../auth/deletion-guards.js', () => ({
   getDeletableUserIds: () => Promise.resolve(new Set<string>()),
 }));
 
-describe('UsersService.listUsers banned filter', () => {
+describe('UsersService.listUsers filters', () => {
   let client: PGlite;
   let service: UsersService;
 
@@ -31,6 +31,7 @@ describe('UsersService.listUsers banned filter', () => {
         name: 'Active',
         email: 'active@example.com',
         firstName: 'A',
+        role: 'user',
       },
       {
         id: 'legacy',
@@ -45,6 +46,7 @@ describe('UsersService.listUsers banned filter', () => {
         email: 'forever@example.com',
         firstName: 'A',
         banned: true,
+        role: 'admin',
       },
       {
         id: 'expired',
@@ -103,6 +105,16 @@ describe('UsersService.listUsers banned filter', () => {
         quickFilterValue: 'zzz-no-text-match',
       }),
     ).toEqual(expected);
+  });
+
+  it('角色不是 admin 時包含沒有角色的舊帳號', async () => {
+    expect(
+      await idsOf({
+        filterField: 'role',
+        filterOperator: 'not',
+        filterValue: 'admin',
+      }),
+    ).toEqual(['active', 'expired', 'legacy', 'until']);
   });
 
   it('依停權排序時，過期的停權和使用中排在一起', async () => {
