@@ -8,7 +8,7 @@ export class PointReportQueryDto {
   month: string;
 }
 
-export class PointReportAmountsDto {
+class PointReportAmountsDto {
   @ApiProperty() earnedAmount: number;
   @ApiProperty() grantedAmount: number;
   @ApiProperty() redeemedAmount: number;

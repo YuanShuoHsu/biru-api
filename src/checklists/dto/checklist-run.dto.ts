@@ -72,7 +72,7 @@ export class ChecklistRunQueryDto extends PickType(PaginationQueryDto, [
   @IsOptional() @IsUUID() templateId?: string;
 }
 
-export class ChecklistRunItemDto {
+class ChecklistRunItemDto {
   @ApiProperty() id: string;
   @ApiProperty() label: string;
   @ApiProperty({
