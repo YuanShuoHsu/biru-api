@@ -467,6 +467,83 @@ describe('MenusService localized text filters and sorting', () => {
       expect(await itemGroupIds(sorted)).toEqual(['extras', 'ice']);
     });
 
+    it('預設依各自的排序與 id 排列', async () => {
+      expect(await groupIds({})).toEqual(['ice', 'extras']);
+      expect(await itemGroupIds({})).toEqual(['extras', 'ice']);
+    });
+
+    it('欄位篩選、排序與快速搜尋使用各自的建立時間', async () => {
+      const groups = await db.select().from(modifierGroup);
+      const links = await db.select().from(menuItemModifierGroup);
+      try {
+        await db
+          .update(modifierGroup)
+          .set({ minSelectionCount: 1, createdAt: new Date('2020-06-01') })
+          .where(eq(modifierGroup.id, 'extras'));
+        await db
+          .update(modifierGroup)
+          .set({ createdAt: new Date('2020-07-01') })
+          .where(eq(modifierGroup.id, 'ice'));
+        await db
+          .update(menuItemModifierGroup)
+          .set({ createdAt: new Date('2021-06-01') })
+          .where(eq(menuItemModifierGroup.id, 'latte-ice'));
+        await db
+          .update(menuItemModifierGroup)
+          .set({ createdAt: new Date('2021-07-01') })
+          .where(eq(menuItemModifierGroup.id, 'latte-extras'));
+
+        const minOne = {
+          filterField: 'minSelectionCount',
+          filterOperator: '=',
+          filterValue: '1',
+        } as const;
+        expect(await groupIds(minOne)).toEqual(['extras']);
+        expect(await itemGroupIds(minOne)).toEqual(['extras']);
+
+        const before2021 = {
+          filterField: 'createdAt',
+          filterOperator: 'before',
+          filterValue: '2021-01-01',
+        } as const;
+        expect(await groupIds(before2021)).toEqual(['ice', 'extras']);
+        expect(await itemGroupIds(before2021)).toEqual([]);
+
+        const byCreatedAt = {
+          sortBy: 'createdAt',
+          sortDirection: 'asc',
+        } as const;
+        expect(await groupIds(byCreatedAt)).toEqual(['extras', 'ice']);
+        expect(await itemGroupIds(byCreatedAt)).toEqual(['ice', 'extras']);
+        expect(
+          await groupIds({ sortBy: 'createdAt', sortDirection: 'desc' }),
+        ).toEqual(['ice', 'extras']);
+
+        expect(await groupIds({ quickFilterValue: '2020/' })).toEqual([
+          'ice',
+          'extras',
+        ]);
+        expect(await itemGroupIds({ quickFilterValue: '2020/' })).toEqual([]);
+        expect(await groupIds({ quickFilterValue: '2021/' })).toEqual([]);
+        expect(await itemGroupIds({ quickFilterValue: '2021/' })).toEqual([
+          'extras',
+          'ice',
+        ]);
+        expect(await itemGroupIds({ quickFilterValue: '冰' })).toEqual(['ice']);
+      } finally {
+        for (const { id, minSelectionCount, createdAt, updatedAt } of groups)
+          await db
+            .update(modifierGroup)
+            .set({ minSelectionCount, createdAt, updatedAt })
+            .where(eq(modifierGroup.id, id));
+        for (const { id, createdAt, updatedAt } of links)
+          await db
+            .update(menuItemModifierGroup)
+            .set({ createdAt, updatedAt })
+            .where(eq(menuItemModifierGroup.id, id));
+      }
+    });
+
     it('同一個選項群組不能重複掛載到同一個品項，排序也不變', async () => {
       const sortOrders = () =>
         db

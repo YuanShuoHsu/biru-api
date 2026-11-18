@@ -1577,11 +1577,9 @@ export class MenusService {
     });
   }
 
-  async modifierGroups(
-    menuId: string,
-    query: ModifierGroupPaginationQueryDto = {},
-  ): Promise<{ data: ModifierGroup[]; total: number }> {
-    const {
+  private modifierGroupListQuery(
+    scope: SQL,
+    {
       limit = 10,
       offset = 0,
       filterField,
@@ -1590,13 +1588,19 @@ export class MenusService {
       quickFilterValue,
       sortBy,
       sortDirection = 'asc',
-    } = query;
-
+    }: ModifierGroupPaginationQueryDto,
+    columns: {
+      id: Column;
+      sortOrder: Column;
+      createdAt: Column;
+      updatedAt: Column;
+    },
+  ) {
     const fieldMap: Record<string, Column | SQL> = {
       minSelectionCount: modifierGroup.minSelectionCount,
       maxSelectionCount: modifierGroup.maxSelectionCount,
-      createdAt: modifierGroup.createdAt,
-      updatedAt: modifierGroup.updatedAt,
+      createdAt: columns.createdAt,
+      updatedAt: columns.updatedAt,
     };
 
     const filterCondition =
@@ -1629,14 +1633,14 @@ export class MenusService {
                 toLanguage(I18nContext.current()?.lang),
               ),
             ),
-            asc(modifierGroup.id),
+            asc(columns.id),
           ]
         : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(modifierGroup.id)]
-          : [asc(modifierGroup.sortOrder), asc(modifierGroup.id)];
+          ? [dir(fieldMap[sortBy]), asc(columns.id)]
+          : [asc(columns.sortOrder), asc(columns.id)];
 
     const where = and(
-      eq(modifierGroup.menuId, menuId),
+      scope,
       filterCondition,
       quickFilterValue
         ? or(
@@ -1654,15 +1658,28 @@ export class MenusService {
               `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
-              localTimeText(modifierGroup.createdAt),
+              localTimeText(columns.createdAt),
               `%${escapeLike(quickFilterValue)}%`,
             ),
             ilike(
-              localTimeText(modifierGroup.updatedAt),
+              localTimeText(columns.updatedAt),
               `%${escapeLike(quickFilterValue)}%`,
             ),
           )
         : undefined,
+    );
+
+    return { limit, offset, where, orderBy };
+  }
+
+  async modifierGroups(
+    menuId: string,
+    query: ModifierGroupPaginationQueryDto = {},
+  ): Promise<{ data: ModifierGroup[]; total: number }> {
+    const { limit, offset, where, orderBy } = this.modifierGroupListQuery(
+      eq(modifierGroup.menuId, menuId),
+      query,
+      modifierGroup,
     );
 
     const [data, [{ total }]] = await Promise.all([
@@ -2069,91 +2086,10 @@ export class MenusService {
     data: (MenuItemModifierGroup & { modifierGroup: ModifierGroup })[];
     total: number;
   }> {
-    const {
-      limit = 10,
-      offset = 0,
-      filterField,
-      filterOperator,
-      filterValue,
-      quickFilterValue,
-      sortBy,
-      sortDirection = 'asc',
-    } = query;
-
-    const fieldMap: Record<string, Column | SQL> = {
-      minSelectionCount: modifierGroup.minSelectionCount,
-      maxSelectionCount: modifierGroup.maxSelectionCount,
-      createdAt: menuItemModifierGroup.createdAt,
-      updatedAt: menuItemModifierGroup.updatedAt,
-    };
-
-    const filterCondition =
-      filterField === 'displayName' && filterOperator
-        ? buildLocalizedTextFilterCondition(
-            modifierGroup.displayName,
-            filterOperator,
-            filterValue,
-          )
-        : filterField && filterOperator
-          ? buildFilterCondition(
-              filterField,
-              filterOperator,
-              filterValue,
-              fieldMap,
-              MODIFIER_GROUP_STRING_FILTER_FIELDS,
-              MODIFIER_GROUP_DATE_FILTER_FIELDS,
-              [],
-              MODIFIER_GROUP_NUMBER_FILTER_FIELDS,
-            )
-          : undefined;
-
-    const dir = sortDirection === 'desc' ? desc : asc;
-    const orderBy: SQL[] =
-      sortBy === 'displayName'
-        ? [
-            dir(
-              localizedTextSql(
-                modifierGroup.displayName,
-                toLanguage(I18nContext.current()?.lang),
-              ),
-            ),
-            asc(menuItemModifierGroup.id),
-          ]
-        : sortBy && fieldMap[sortBy]
-          ? [dir(fieldMap[sortBy]), asc(menuItemModifierGroup.id)]
-          : [
-              asc(menuItemModifierGroup.sortOrder),
-              asc(menuItemModifierGroup.id),
-            ];
-
-    const where = and(
+    const { limit, offset, where, orderBy } = this.modifierGroupListQuery(
       eq(menuItemModifierGroup.menuItemId, menuItemId),
-      filterCondition,
-      quickFilterValue
-        ? or(
-            buildLocalizedTextFilterCondition(
-              modifierGroup.displayName,
-              'contains',
-              quickFilterValue,
-            ),
-            ilike(
-              sql`${modifierGroup.minSelectionCount}::text`,
-              `%${escapeLike(quickFilterValue)}%`,
-            ),
-            ilike(
-              sql`${modifierGroup.maxSelectionCount}::text`,
-              `%${escapeLike(quickFilterValue)}%`,
-            ),
-            ilike(
-              localTimeText(menuItemModifierGroup.createdAt),
-              `%${escapeLike(quickFilterValue)}%`,
-            ),
-            ilike(
-              localTimeText(menuItemModifierGroup.updatedAt),
-              `%${escapeLike(quickFilterValue)}%`,
-            ),
-          )
-        : undefined,
+      query,
+      menuItemModifierGroup,
     );
 
     const [data, [{ total }]] = await Promise.all([
