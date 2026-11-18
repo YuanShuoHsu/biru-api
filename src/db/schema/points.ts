@@ -72,6 +72,54 @@ export const pointTransaction = pgTable(
 
 export type PointTransaction = typeof pointTransaction.$inferSelect;
 
+export const pointAllocationKindEnum = pgEnum('point_allocation_kind', [
+  'redeem',
+  'revoke',
+  'adjust',
+  'cancel',
+  'settle',
+]);
+export type PointAllocationKind =
+  (typeof pointAllocationKindEnum.enumValues)[number];
+
+export const pointAllocation = pgTable(
+  'point_allocation',
+  {
+    id: text('id').primaryKey(),
+    consumerTransactionId: text('consumer_transaction_id').references(
+      () => pointTransaction.id,
+      { onDelete: 'set null' },
+    ),
+    kind: pointAllocationKindEnum('kind').notNull(),
+    points: integer('points').notNull(),
+    sourceOrganizationId: text('source_organization_id').references(
+      () => organization.id,
+      { onDelete: 'cascade' },
+    ),
+    sourceTransactionId: text('source_transaction_id')
+      .notNull()
+      .references(() => pointTransaction.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (table) => [
+    index('pointAllocation_sourceOrganizationId_createdAt_idx').on(
+      table.sourceOrganizationId,
+      table.createdAt,
+    ),
+    index('pointAllocation_consumerTransactionId_idx').on(
+      table.consumerTransactionId,
+    ),
+    index('pointAllocation_sourceTransactionId_idx').on(
+      table.sourceTransactionId,
+    ),
+    index('pointAllocation_userId_idx').on(table.userId),
+    check('point_allocation_points_positive', sql`${table.points} > 0`),
+  ],
+);
+
 export const POINT_SETTING_ID = 'brand';
 
 export const pointSetting = pgTable(
