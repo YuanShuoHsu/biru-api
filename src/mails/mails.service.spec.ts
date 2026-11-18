@@ -223,6 +223,26 @@ describe('MailsService 語系', () => {
     expect(sent[0].html).toContain(', Taiwan');
   });
 
+  it('安全提示寫出請求的作業系統與瀏覽器，沒有 user-agent 時寫 Unknown', async () => {
+    await service.sendVerificationEmail(
+      {
+        user: { email: 'ann@example.com', name: 'Ann', lang: 'en' },
+        url: 'http://localhost:3001/api/auth/verify-email?token=t',
+        token: 't',
+      },
+      new Request('http://localhost:3001/api/auth', {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      }),
+    );
+    await sendVerificationEmail('en');
+
+    expect(sent[0].html).toContain('from a Windows device using Chrome');
+    expect(sent[1].html).toContain('from a Unknown device using Unknown');
+  });
+
   it('其他驗證信頁尾只留產品名稱', async () => {
     await sendVerificationEmail('en');
 
