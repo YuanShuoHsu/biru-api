@@ -404,6 +404,25 @@ describe('InvoicePrinterService（PGlite）', () => {
     ]);
     await expect(service.printerOnline(ORG)).resolves.toBe(true);
 
+    const lastSeenAt = new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1);
+    await db
+      .update(printerTable)
+      .set({ lastSeenAt })
+      .where(eq(printerTable.organizationId, ORG));
+    await db.update(invoicePrintJob).set({ sentAt: lastSeenAt });
+
+    await service.markOfflineJobsUnknown();
+    expect(await jobsOf('1')).toEqual([
+      expect.objectContaining({ status: 'unknown' }),
+    ]);
+    await expect(service.printerOnline(ORG)).resolves.toBe(false);
+  });
+
+  it('離線的印表機在掃描途中回來取走的工作，不會被轉成結果不明', async () => {
+    const { printers, service } = createService();
+    await addInvoice('1');
+    const { printer } = await register(service);
+    await printers.poll(printer);
     await db
       .update(printerTable)
       .set({ lastSeenAt: new Date(Date.now() - PRINTER_OFFLINE_AFTER_MS - 1) })
@@ -411,9 +430,8 @@ describe('InvoicePrinterService（PGlite）', () => {
 
     await service.markOfflineJobsUnknown();
     expect(await jobsOf('1')).toEqual([
-      expect.objectContaining({ status: 'unknown' }),
+      expect.objectContaining({ status: 'sent' }),
     ]);
-    await expect(service.printerOnline(ORG)).resolves.toBe(false);
   });
 
   it('輪詢時記下距上次聯絡的間隔，只保留最近 5 次', async () => {
@@ -444,14 +462,14 @@ describe('InvoicePrinterService（PGlite）', () => {
     await addInvoice('1');
     const { printer } = await register(service);
     await printers.poll(printer);
-    const setPrinter = (secondsAgo: number) =>
-      db
+    const setPrinter = async (secondsAgo: number) => {
+      const lastSeenAt = new Date(Date.now() - secondsAgo * 1000);
+      await db
         .update(printerTable)
-        .set({
-          lastSeenAt: new Date(Date.now() - secondsAgo * 1000),
-          pollGapsMs: [120_000, 120_000, 120_000],
-        })
+        .set({ lastSeenAt, pollGapsMs: [120_000, 120_000, 120_000] })
         .where(eq(printerTable.organizationId, ORG));
+      await db.update(invoicePrintJob).set({ sentAt: lastSeenAt });
+    };
 
     await setPrinter(150);
     await service.markOfflineJobsUnknown();
