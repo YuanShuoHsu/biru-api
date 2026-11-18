@@ -16,7 +16,10 @@ describe.each([
   [PersonnelCostReportPageQueryDto, { month: '2026-10' }, 'totalCents'],
 ] as const)('%o', (Dto, base, sortBy) => {
   const parse = (query: Record<string, string>) =>
-    plainToInstance(Dto, { ...base, ...query });
+    plainToInstance<{ limit?: number }, Record<string, unknown>>(Dto, {
+      ...base,
+      ...query,
+    });
   const errorsOf = async (query: Record<string, string>) =>
     (await validate(parse(query))).map(({ property }) => property);
 
