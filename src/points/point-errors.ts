@@ -15,6 +15,7 @@ export const pointErrorCodes = [
   'notEnabled',
   'notRedeemable',
   'perUserLimitReached',
+  'reportMonthNotStarted',
   'settingNotFound',
 ] as const;
 

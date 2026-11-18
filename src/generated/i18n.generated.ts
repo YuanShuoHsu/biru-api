@@ -402,6 +402,7 @@ export type I18nTranslations = {
             "notEnabled": string;
             "notRedeemable": string;
             "perUserLimitReached": string;
+            "reportMonthNotStarted": string;
             "settingNotFound": string;
         };
         "quant": {
