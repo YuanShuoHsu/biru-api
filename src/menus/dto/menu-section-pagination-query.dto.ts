@@ -1,14 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
-import {
-  FILTER_OPERATORS,
-  SORT_DIRECTIONS,
-  type FilterOperator,
-  type SortDirection,
-} from '../../common/constants/pagination.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const MENU_SECTION_STRING_FILTER_FIELDS = [
   'name',
@@ -35,21 +29,10 @@ const MENU_SECTION_SORT_FIELDS = MENU_SECTION_ALL_FILTER_FIELDS;
 type MenuSectionFilterField = (typeof MENU_SECTION_ALL_FILTER_FIELDS)[number];
 type MenuSectionSortField = (typeof MENU_SECTION_SORT_FIELDS)[number];
 
-export class MenuSectionPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  offset?: number = 0;
-
+export class MenuSectionPaginationQueryDto extends OmitType(
+  PaginationQueryDto,
+  ['quickFilterEnums'] as const,
+) {
   @ApiPropertyOptional({
     enum: MENU_SECTION_ALL_FILTER_FIELDS,
     enumName: 'MenuSectionFilterField',
@@ -57,22 +40,6 @@ export class MenuSectionPaginationQueryDto {
   @IsOptional()
   @IsIn(MENU_SECTION_ALL_FILTER_FIELDS)
   filterField?: MenuSectionFilterField;
-
-  @ApiPropertyOptional({
-    enum: FILTER_OPERATORS,
-    enumName: 'FilterOperator',
-  })
-  @IsOptional()
-  @IsIn(FILTER_OPERATORS)
-  filterOperator?: FilterOperator;
-
-  @IsOptional()
-  @IsString()
-  filterValue?: string;
-
-  @IsOptional()
-  @IsString()
-  quickFilterValue?: string;
 
   @IsOptional()
   @IsIn(MENU_SECTION_SEARCH_FIELDS)
@@ -93,9 +60,4 @@ export class MenuSectionPaginationQueryDto {
   @IsOptional()
   @IsIn(MENU_SECTION_SORT_FIELDS)
   sortBy?: MenuSectionSortField;
-
-  @ApiPropertyOptional({ enum: SORT_DIRECTIONS, enumName: 'SortDirection' })
-  @IsOptional()
-  @IsIn(SORT_DIRECTIONS)
-  sortDirection?: SortDirection;
 }

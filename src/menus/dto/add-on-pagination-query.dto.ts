@@ -1,14 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional } from 'class-validator';
 
-import {
-  FILTER_OPERATORS,
-  SORT_DIRECTIONS,
-  type FilterOperator,
-  type SortDirection,
-} from '../../common/constants/pagination.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const ADD_ON_STRING_FILTER_FIELDS = [
   'addOnMenuSectionName',
@@ -30,21 +24,9 @@ const ADD_ON_SORT_FIELDS = [
 type AddOnFilterField = (typeof ADD_ON_ALL_FILTER_FIELDS)[number];
 type AddOnSortField = (typeof ADD_ON_SORT_FIELDS)[number];
 
-export class AddOnPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  offset?: number = 0;
-
+export class AddOnPaginationQueryDto extends OmitType(PaginationQueryDto, [
+  'quickFilterEnums',
+] as const) {
   @ApiPropertyOptional({
     enum: ADD_ON_ALL_FILTER_FIELDS,
     enumName: 'AddOnFilterField',
@@ -54,31 +36,10 @@ export class AddOnPaginationQueryDto {
   filterField?: AddOnFilterField;
 
   @ApiPropertyOptional({
-    enum: FILTER_OPERATORS,
-    enumName: 'FilterOperator',
-  })
-  @IsOptional()
-  @IsIn(FILTER_OPERATORS)
-  filterOperator?: FilterOperator;
-
-  @IsOptional()
-  @IsString()
-  filterValue?: string;
-
-  @IsOptional()
-  @IsString()
-  quickFilterValue?: string;
-
-  @ApiPropertyOptional({
     enum: ADD_ON_SORT_FIELDS,
     enumName: 'AddOnSortField',
   })
   @IsOptional()
   @IsIn(ADD_ON_SORT_FIELDS)
   sortBy?: AddOnSortField;
-
-  @ApiPropertyOptional({ enum: SORT_DIRECTIONS, enumName: 'SortDirection' })
-  @IsOptional()
-  @IsIn(SORT_DIRECTIONS)
-  sortDirection?: SortDirection;
 }
