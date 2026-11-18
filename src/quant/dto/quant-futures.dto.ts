@@ -198,6 +198,16 @@ export class QuantFuturesFillHistoryQueryDto extends IntersectionType(
   QuantHistoryRangeQueryDto,
 ) {}
 
+export class QuantPositionHistoryQueryDto extends IntersectionType(
+  QuantOptionalSymbolQueryDto,
+  QuantHistoryRangeQueryDto,
+) {}
+
+export class QuantFundingFeeHistoryQueryDto extends IntersectionType(
+  QuantOptionalSymbolQueryDto,
+  QuantHistoryRangeQueryDto,
+) {}
+
 export class QuantFuturesOrderPageDto {
   @ApiProperty({ type: [QuantFuturesOrderDto] }) data: QuantFuturesOrderDto[];
   @ApiProperty({
@@ -210,6 +220,27 @@ export class QuantFuturesOrderPageDto {
 
 export class QuantFuturesFillPageDto {
   @ApiProperty({ type: [QuantFuturesFillDto] }) data: QuantFuturesFillDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
+}
+
+export class QuantPositionHistoryPageDto {
+  @ApiProperty({ type: [QuantPositionHistoryDto] })
+  data: QuantPositionHistoryDto[];
+  @ApiProperty({
+    description: NEXT_END_TIME_DESCRIPTION,
+    nullable: true,
+    type: Number,
+  })
+  nextEndTime: number | null;
+}
+
+export class QuantFundingFeePageDto {
+  @ApiProperty({ type: [QuantFundingFeeDto] }) data: QuantFundingFeeDto[];
   @ApiProperty({
     description: NEXT_END_TIME_DESCRIPTION,
     nullable: true,

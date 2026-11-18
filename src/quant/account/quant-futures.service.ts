@@ -6,6 +6,7 @@ import type {
   AdjustIsolatedMarginDto,
   PlaceFuturesOrderDto,
   QuantFundingFeeDto,
+  QuantFundingFeeHistoryQueryDto,
   QuantFuturesAccountDto,
   QuantFuturesFillDto,
   QuantFuturesFillHistoryQueryDto,
@@ -16,6 +17,7 @@ import type {
   QuantFuturesSymbolSettingsDto,
   QuantPositionDto,
   QuantPositionHistoryDto,
+  QuantPositionHistoryQueryDto,
 } from '../dto/quant-futures.dto.js';
 import type { PlaceQuantOrderResponseDto } from '../dto/quant-account.dto.js';
 import { FuturesAccount } from '../engine/futures-account.js';
@@ -44,7 +46,6 @@ import { QuantAccountService } from './quant-account.service.js';
 
 // 合約端點的權重一律是 5
 const FUTURES_WEIGHT = 5;
-const HISTORY_LIMIT = 50;
 const HISTORY_BATCH = 200;
 
 const toOrder = (order: PionexFuturesOrder): QuantFuturesOrderDto => ({
@@ -74,6 +75,14 @@ const toFill = (fill: PionexFuturesFill): QuantFuturesFillDto => ({
   side: fill.side,
   size: Number(fill.size),
   time: fill.timestamp,
+});
+
+const toFundingFee = (funding: PionexFundingFee): QuantFundingFeeDto => ({
+  coin: funding.fundingCoin,
+  fee: Number(funding.fundingFee),
+  rate: Number(funding.fundingRate),
+  symbol: funding.symbol,
+  time: funding.timestamp,
 });
 
 const toPosition = (position: PionexPosition): QuantPositionDto => ({
@@ -309,16 +318,30 @@ export class QuantFuturesService {
   async listPositionHistory(
     userId: string,
     id: string,
-    symbol?: string,
-  ): Promise<QuantPositionHistoryDto[]> {
-    const { positions } = await this.get<{
-      positions: PionexHistoryPosition[];
-    }>(userId, id, '/uapi/v1/account/historyPositions', {
-      limit: HISTORY_LIMIT,
-      symbol,
+    { endTime, limit, startTime, symbol }: QuantPositionHistoryQueryDto,
+  ): Promise<HistoryPage<QuantPositionHistoryDto>> {
+    const page = await collectHistoryPage({
+      batchSize: HISTORY_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        // https://www.pionex.com/docs/api-docs/futures-api/account
+        const { positions } = await this.get<{
+          positions: PionexHistoryPosition[];
+        }>(userId, id, '/uapi/v1/account/historyPositions', {
+          endTime: cursor,
+          limit: HISTORY_BATCH,
+          startTime,
+          symbol,
+        });
+
+        return positions;
+      },
+      idOf: ({ positionId }) => positionId,
+      limit,
+      timeOf: ({ updateTime }) => updateTime,
     });
 
-    return positions.map(toPositionHistory);
+    return { ...page, data: page.data.map(toPositionHistory) };
   }
 
   async listOpenOrders(
@@ -409,22 +432,29 @@ export class QuantFuturesService {
   async listFundingFees(
     userId: string,
     id: string,
-    symbol?: string,
-  ): Promise<QuantFundingFeeDto[]> {
-    const { fundings } = await this.get<{ fundings: PionexFundingFee[] }>(
-      userId,
-      id,
-      '/uapi/v1/trade/fundingFee',
-      { limit: HISTORY_LIMIT, symbol },
-    );
+    { endTime, limit, startTime, symbol }: QuantFundingFeeHistoryQueryDto,
+  ): Promise<HistoryPage<QuantFundingFeeDto>> {
+    const page = await collectHistoryPage({
+      batchSize: HISTORY_BATCH,
+      endTime,
+      fetchBatch: async (cursor) => {
+        // https://www.pionex.com/docs/api-docs/futures-api/trade
+        const { fundings } = await this.get<{ fundings: PionexFundingFee[] }>(
+          userId,
+          id,
+          '/uapi/v1/trade/fundingFee',
+          { endTime: cursor, limit: HISTORY_BATCH, startTime, symbol },
+        );
 
-    return fundings.map((funding) => ({
-      coin: funding.fundingCoin,
-      fee: Number(funding.fundingFee),
-      rate: Number(funding.fundingRate),
-      symbol: funding.symbol,
-      time: funding.timestamp,
-    }));
+        return fundings;
+      },
+      idOf: ({ fundingFee, isolatedMode, symbol: fundingSymbol, timestamp }) =>
+        [fundingSymbol, timestamp, isolatedMode, fundingFee].join(':'),
+      limit,
+      timeOf: ({ timestamp }) => timestamp,
+    });
+
+    return { ...page, data: page.data.map(toFundingFee) };
   }
 
   async placeOrder(
