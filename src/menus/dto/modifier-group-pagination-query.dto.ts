@@ -1,14 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsOptional } from 'class-validator';
 
-import {
-  FILTER_OPERATORS,
-  SORT_DIRECTIONS,
-  type FilterOperator,
-  type SortDirection,
-} from '../../common/constants/pagination.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const MODIFIER_GROUP_STRING_FILTER_FIELDS = ['displayName'] as const;
 export const MODIFIER_GROUP_NUMBER_FILTER_FIELDS = [
@@ -31,21 +25,10 @@ type ModifierGroupFilterField =
   (typeof MODIFIER_GROUP_ALL_FILTER_FIELDS)[number];
 type ModifierGroupSortField = (typeof MODIFIER_GROUP_SORT_FIELDS)[number];
 
-export class ModifierGroupPaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  offset?: number = 0;
-
+export class ModifierGroupPaginationQueryDto extends OmitType(
+  PaginationQueryDto,
+  ['quickFilterEnums'] as const,
+) {
   @ApiPropertyOptional({
     enum: MODIFIER_GROUP_ALL_FILTER_FIELDS,
     enumName: 'ModifierGroupFilterField',
@@ -55,31 +38,10 @@ export class ModifierGroupPaginationQueryDto {
   filterField?: ModifierGroupFilterField;
 
   @ApiPropertyOptional({
-    enum: FILTER_OPERATORS,
-    enumName: 'FilterOperator',
-  })
-  @IsOptional()
-  @IsIn(FILTER_OPERATORS)
-  filterOperator?: FilterOperator;
-
-  @IsOptional()
-  @IsString()
-  filterValue?: string;
-
-  @IsOptional()
-  @IsString()
-  quickFilterValue?: string;
-
-  @ApiPropertyOptional({
     enum: MODIFIER_GROUP_SORT_FIELDS,
     enumName: 'ModifierGroupSortField',
   })
   @IsOptional()
   @IsIn(MODIFIER_GROUP_SORT_FIELDS)
   sortBy?: ModifierGroupSortField;
-
-  @ApiPropertyOptional({ enum: SORT_DIRECTIONS, enumName: 'SortDirection' })
-  @IsOptional()
-  @IsIn(SORT_DIRECTIONS)
-  sortDirection?: SortDirection;
 }
