@@ -150,6 +150,23 @@ const COUPON_SCOPE_COLUMNS = [
   'scope',
 ] satisfies (keyof Coupon)[];
 
+const grantRefusal = (row: Coupon, organizationId?: string) => {
+  if (
+    organizationId &&
+    (row.applicableOrganizationIds?.length !== 1 ||
+      row.applicableOrganizationIds[0] !== organizationId)
+  )
+    return 'notGrantable';
+  if (!row.isActive) return 'grantInactive';
+  if (row.validThrough && row.validThrough < new Date()) return 'grantExpired';
+  return null;
+};
+
+const isUsedUp = (
+  { totalLimit, usedCount }: Pick<Coupon, 'totalLimit' | 'usedCount'>,
+  reserved: number,
+) => totalLimit !== null && usedCount + reserved >= totalLimit;
+
 const isEligibleFor =
   (found: Pick<Coupon, 'menuItemIds' | 'menuSectionIds' | 'scope'>) =>
   (item: { menuItemId: string; menuSectionIds: string[] }) =>
@@ -476,12 +493,20 @@ export class CouponsService {
         : [],
       couponIds.length
         ? this.db
-            .selectDistinct({ couponId: userCoupon.couponId })
+            .select({
+              couponId: userCoupon.couponId,
+              reserved: count(
+                sql`case when ${userCoupon.usedAt} is null then 1 end`,
+              ),
+            })
             .from(userCoupon)
             .where(inArray(userCoupon.couponId, couponIds))
+            .groupBy(userCoupon.couponId)
         : [],
     ]);
-    const claimedIds = new Set(claims.map(({ couponId }) => couponId));
+    const reservedById = new Map(
+      claims.map(({ couponId, reserved }) => [couponId, reserved]),
+    );
     const sectionNameMap = new Map(
       sections.map(({ id, name }) => [id, localize(name, lang)]),
     );
@@ -491,7 +516,10 @@ export class CouponsService {
 
     const data = rows.map((row) => ({
       ...row,
-      claimed: claimedIds.has(row.id),
+      claimed: reservedById.has(row.id),
+      grantable:
+        !grantRefusal(row, organizationId) &&
+        !isUsedUp(row, reservedById.get(row.id) ?? 0),
       menuItemNames:
         row.menuItemIds?.map((id) => itemNameMap.get(id) || id) ?? null,
       menuSectionNames:
@@ -1204,15 +1232,9 @@ export class CouponsService {
     if (!found) throw notFoundError('couponNotFound');
 
     const assertGrantable = (row: Coupon) => {
-      if (
-        organizationId &&
-        (row.applicableOrganizationIds?.length !== 1 ||
-          row.applicableOrganizationIds[0] !== organizationId)
-      )
-        throw forbiddenError('notGrantable');
-      if (!row.isActive) throw badRequestError('grantInactive');
-      if (row.validThrough && row.validThrough < new Date())
-        throw badRequestError('grantExpired');
+      const refusal = grantRefusal(row, organizationId);
+      if (refusal === 'notGrantable') throw forbiddenError(refusal);
+      if (refusal) throw badRequestError(refusal);
     };
     assertGrantable(found);
 
@@ -1237,8 +1259,7 @@ export class CouponsService {
           .where(
             and(eq(userCoupon.couponId, locked.id), isNull(userCoupon.usedAt)),
           );
-        if (locked.usedCount + reserved >= locked.totalLimit)
-          throw badRequestError('usedUp');
+        if (isUsedUp(locked, reserved)) throw badRequestError('usedUp');
       }
 
       const [created] = await tx

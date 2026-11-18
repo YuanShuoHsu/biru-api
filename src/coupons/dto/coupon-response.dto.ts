@@ -63,6 +63,10 @@ export class CouponResponseDto {
 class CouponListItemDto extends CouponResponseDto {
   @ApiProperty({ description: '已有顧客持有，不可刪除（只能停用）' })
   claimed: boolean;
+  @ApiProperty({
+    description: '這個列表端點對應的發放端點目前會接受（啟用、未過期、未發完）',
+  })
+  grantable: boolean;
 }
 
 export class CouponListResponseDto {
