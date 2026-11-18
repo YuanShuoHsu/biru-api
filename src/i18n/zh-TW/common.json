@@ -247,6 +247,7 @@
     "addOnMenuSectionNotFound": "找不到這個加購分組，可能已被刪除",
     "addOnNotFound": "找不到這個加購，可能已被刪除",
     "addOnSelf": "加購品項不能是品項本身",
+    "addOnTargetAttached": "這個品項或分類已經是這個品項的加購",
     "addOnTargetRequired": "加購要指定一個品項或一個分類，只能擇一",
     "fixedSweetnessLevelRequired": "甜度設為固定時，請選擇固定甜度",
     "menuItemModifierGroupNotFound": "這個選項群組沒有掛載到這個品項，可能已被移除",

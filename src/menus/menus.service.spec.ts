@@ -697,6 +697,44 @@ describe('MenusService localized text filters and sorting', () => {
       ).rejects.toMatchObject(rejected);
     });
 
+    it.each([
+      { addOnMenuItemId: 'americano' },
+      { addOnMenuSectionId: 'toppings' },
+    ])(
+      '同一個加購品項或分類不能重複加到同一個品項，排序也不變：%j',
+      async (data) => {
+        const sortOrders = () =>
+          db
+            .select({
+              id: menuItemAddOn.id,
+              sortOrder: menuItemAddOn.sortOrder,
+            })
+            .from(menuItemAddOn)
+            .orderBy(menuItemAddOn.id);
+        const before = await sortOrders();
+
+        await expect(
+          service.createMenuItemAddOn('latte', data),
+        ).rejects.toMatchObject({
+          response: { code: 'addOnTargetAttached' },
+          status: 409,
+        });
+        expect(await sortOrders()).toEqual(before);
+      },
+    );
+
+    it('更新成品項已有的加購對象會擋下', async () => {
+      await expect(
+        service.updateMenuItemAddOn(
+          { id: 'with-toppings', menuItemId: 'latte' },
+          { addOnMenuItemId: 'americano', addOnMenuSectionId: null },
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'addOnTargetAttached' },
+        status: 409,
+      });
+    });
+
     it('更新時把唯一的對象清掉會擋下，另指定一個品項才通過', async () => {
       const where = { id: 'with-toppings', menuItemId: 'latte' };
 
@@ -704,15 +742,15 @@ describe('MenusService localized text filters and sorting', () => {
         service.updateMenuItemAddOn(where, { addOnMenuSectionId: null }),
       ).rejects.toMatchObject(rejected);
       await expect(
-        service.updateMenuItemAddOn(where, { addOnMenuItemId: 'americano' }),
+        service.updateMenuItemAddOn(where, { addOnMenuItemId: 'mocha' }),
       ).rejects.toMatchObject(rejected);
       await expect(
         service.updateMenuItemAddOn(where, {
-          addOnMenuItemId: 'americano',
+          addOnMenuItemId: 'mocha',
           addOnMenuSectionId: null,
         }),
       ).resolves.toMatchObject({
-        addOnMenuItemId: 'americano',
+        addOnMenuItemId: 'mocha',
         addOnMenuSectionId: null,
       });
     });

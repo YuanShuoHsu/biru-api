@@ -301,6 +301,7 @@ export type I18nTranslations = {
             "addOnMenuSectionNotFound": string;
             "addOnNotFound": string;
             "addOnSelf": string;
+            "addOnTargetAttached": string;
             "addOnTargetRequired": string;
             "fixedSweetnessLevelRequired": string;
             "menuItemModifierGroupNotFound": string;

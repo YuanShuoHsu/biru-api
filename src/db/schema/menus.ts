@@ -255,6 +255,14 @@ export const menuItemAddOn = pgTable(
     index('menuItemAddOn_menuItemId_idx').on(table.menuItemId),
     index('menuItemAddOn_addOnMenuItemId_idx').on(table.addOnMenuItemId),
     index('menuItemAddOn_addOnMenuSectionId_idx').on(table.addOnMenuSectionId),
+    uniqueIndex('menuItemAddOn_menuItemId_addOnMenuItemId_uidx').on(
+      table.menuItemId,
+      table.addOnMenuItemId,
+    ),
+    uniqueIndex('menuItemAddOn_menuItemId_addOnMenuSectionId_uidx').on(
+      table.menuItemId,
+      table.addOnMenuSectionId,
+    ),
   ],
 );
 

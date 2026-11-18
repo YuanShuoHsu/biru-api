@@ -12,6 +12,7 @@ export const menuErrorCodes = [
   'addOnMenuSectionNotFound',
   'addOnNotFound',
   'addOnSelf',
+  'addOnTargetAttached',
   'addOnTargetRequired',
   'fixedSweetnessLevelRequired',
   'menuItemModifierGroupNotFound',
