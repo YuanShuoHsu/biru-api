@@ -103,7 +103,8 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `catalog.ts` — `catalogSection`, `catalogItem`, `catalogItemAddOn`, `catalogModifierGroup`, `catalogModifier`, `catalogItemModifierGroup` (the brand catalog, `docs/menu-catalog.md`)
 - `orders.ts` — `order`, `orderItem`
 - `coupons.ts` — `coupon`, `userCoupon`
-- `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules)
+- `points.ts` — `pointTransaction`, `pointSetting` (the single brand-wide row of point rules), `pointAllocation` (one row per
+  reduction of a lot's `remainingPoints`: the lot, its issuing store and the consuming transaction)
 - `attendance.ts` — `attendanceEmployee`, `attendanceShift`, `attendanceEvent`, `attendanceRequest`,
   `attendanceLeaveType`, `attendanceLeaveCase`, `attendanceAudit`, settings and templates
 - `payroll.ts` — `payrollRuleSet`, `payrollTerms`, `payrollStatement`, `payrollEarningType`, `payrollEarning`, `payrollWithholdingUnit`, `payrollTaxIdentity`, `payrollCertificateRequest`

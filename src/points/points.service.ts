@@ -32,6 +32,7 @@ import {
 import { organization } from '../db/schema/organizations.js';
 import {
   POINT_SETTING_ID,
+  pointAllocation,
   pointSetting,
   pointTransaction,
   type PointTransaction,
@@ -155,6 +156,8 @@ const LOT_CONSUMPTION_ORDER = [
   asc(pointTransaction.createdAt),
   asc(pointTransaction.id),
 ];
+
+type LotAllocation = Omit<typeof pointAllocation.$inferInsert, 'id'>;
 
 const toCents = (amount: string | null) => Math.round(Number(amount) * 100);
 
@@ -327,6 +330,7 @@ export class PointsService {
     for (const orderId of drainableOrderIds)
       await this.db.transaction((tx) =>
         this.revokeForOrder(tx, {
+          kind: 'cancel',
           orderBecomesTerminal: true,
           orderId,
           ratio: 1,
@@ -387,6 +391,7 @@ export class PointsService {
         a.id.localeCompare(b.id),
     );
     const settled = new Map<string, number>();
+    const allocations: LotAllocation[] = [];
     for (const debt of debts)
       for (const lot of lots) {
         if (debt.remainingPoints === 0) break;
@@ -396,6 +401,14 @@ export class PointsService {
         debt.remainingPoints += consumed;
         settled.set(lot.id, lot.remainingPoints);
         settled.set(debt.id, debt.remainingPoints);
+        allocations.push({
+          consumerTransactionId: debt.id,
+          kind: 'settle',
+          points: consumed,
+          sourceOrganizationId: lot.organizationId,
+          sourceTransactionId: lot.id,
+          userId,
+        });
       }
 
     for (const [id, remainingPoints] of settled)
@@ -403,6 +416,20 @@ export class PointsService {
         .update(pointTransaction)
         .set({ remainingPoints, updatedAt: new Date() })
         .where(eq(pointTransaction.id, id));
+    await this.recordAllocations(tx, allocations);
+  }
+
+  private async recordAllocations(
+    tx: Pick<DrizzleDB, 'insert'>,
+    allocations: LotAllocation[],
+  ): Promise<void> {
+    if (allocations.length === 0) return;
+
+    await tx
+      .insert(pointAllocation)
+      .values(
+        allocations.map((allocation) => ({ id: randomUUID(), ...allocation })),
+      );
   }
 
   private async separateLegacyDebt(
@@ -443,10 +470,16 @@ export class PointsService {
   async revokeForOrder(
     tx: Pick<DrizzleDB, 'delete' | 'insert' | 'select' | 'update'>,
     {
+      kind = 'revoke',
       orderBecomesTerminal,
       orderId,
       ratio,
-    }: { orderBecomesTerminal: boolean; orderId: string; ratio: number },
+    }: {
+      kind?: 'cancel' | 'revoke';
+      orderBecomesTerminal: boolean;
+      orderId: string;
+      ratio: number;
+    },
   ): Promise<void> {
     const [buyer] = await tx
       .select({ userId: order.userId })
@@ -531,8 +564,9 @@ export class PointsService {
         })
         .where(eq(pointTransaction.id, earned.id));
 
+    const revokeId = randomUUID();
     await tx.insert(pointTransaction).values({
-      id: randomUUID(),
+      id: revokeId,
       expiresAt: earned.expiresAt,
       orderId,
       organizationId: earned.organizationId,
@@ -542,6 +576,17 @@ export class PointsService {
       type: 'revoke',
       userId: earned.userId,
     });
+    if (deducted > 0)
+      await this.recordAllocations(tx, [
+        {
+          consumerTransactionId: revokeId,
+          kind,
+          points: deducted,
+          sourceOrganizationId: earned.organizationId,
+          sourceTransactionId: earned.id,
+          userId: earned.userId,
+        },
+      ]);
     if (deducted < revoking) await this.settleDebts(tx, earned.userId);
   }
 
@@ -900,6 +945,8 @@ export class PointsService {
           });
       }
 
+      const adjustId = randomUUID();
+      const allocations: LotAllocation[] = [];
       if (points < 0) {
         const holdings = await tx
           .select({
@@ -936,6 +983,14 @@ export class PointsService {
               updatedAt: new Date(),
             })
             .where(eq(pointTransaction.id, holding.id));
+          allocations.push({
+            consumerTransactionId: adjustId,
+            kind: 'adjust',
+            points: consumed,
+            sourceOrganizationId: organizationId,
+            sourceTransactionId: holding.id,
+            userId: target.id,
+          });
           deficit -= consumed;
         }
       }
@@ -943,7 +998,7 @@ export class PointsService {
       const [row] = await tx
         .insert(pointTransaction)
         .values({
-          id: randomUUID(),
+          id: adjustId,
           adjustedBy,
           createdAt: new Date(),
           expiresAt: points > 0 ? toExpiresAt(new Date()) : null,
@@ -955,6 +1010,7 @@ export class PointsService {
           userId: target.id,
         })
         .returning();
+      await this.recordAllocations(tx, allocations);
       if (points > 0) await this.settleDebts(tx, target.id);
 
       return row;
@@ -1186,6 +1242,7 @@ export class PointsService {
       const earns = await tx
         .select({
           id: pointTransaction.id,
+          organizationId: pointTransaction.organizationId,
           remainingPoints: pointTransaction.remainingPoints,
         })
         .from(pointTransaction)
@@ -1244,6 +1301,8 @@ export class PointsService {
       const balance = earns.reduce((sum, e) => sum + e.remainingPoints, 0);
       if (balance < pointsCost) throw badRequestError('insufficient');
 
+      const redeemId = randomUUID();
+      const allocations: LotAllocation[] = [];
       let deficit = pointsCost;
       for (const earn of earns) {
         if (deficit === 0) break;
@@ -1256,6 +1315,14 @@ export class PointsService {
             updatedAt: new Date(),
           })
           .where(eq(pointTransaction.id, earn.id));
+        allocations.push({
+          consumerTransactionId: redeemId,
+          kind: 'redeem',
+          points: consumed,
+          sourceOrganizationId: earn.organizationId,
+          sourceTransactionId: earn.id,
+          userId,
+        });
         deficit -= consumed;
       }
 
@@ -1270,12 +1337,13 @@ export class PointsService {
         .returning();
 
       await tx.insert(pointTransaction).values({
-        id: randomUUID(),
+        id: redeemId,
         points: -pointsCost,
         type: 'redeem',
         userCouponId: voucher.id,
         userId,
       });
+      await this.recordAllocations(tx, allocations);
 
       return { voucher, locked };
     });

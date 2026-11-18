@@ -2,13 +2,13 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { Logger } from '@nestjs/common';
-import { eq, inArray, isNotNull, lt } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, lt } from 'drizzle-orm';
 
 import { createPGlite } from '../../test/pglite.js';
 import { DAY_MS, platformMidnight } from '../common/constants/timezone.js';
 import * as schema from '../db/schema/index.js';
 import { order } from '../db/schema/orders.js';
-import { pointTransaction } from '../db/schema/points.js';
+import { pointAllocation, pointTransaction } from '../db/schema/points.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import type { MailsService } from '../mails/mails.service.js';
 import { POINTS_SNAPSHOT_SET } from '../orders/points-snapshot.js';
@@ -1034,6 +1034,310 @@ describe('PointsService.findAllForOrganization', () => {
       ).toEqual([]);
       expect(await remainingByType('o2')).toEqual([
         { remainingPoints: 30, type: 'earn' },
+      ]);
+    });
+  });
+
+  describe('扣點明細', () => {
+    const lotOf = async (orderId: string) => {
+      const [lot] = await db
+        .select()
+        .from(pointTransaction)
+        .where(
+          and(
+            eq(pointTransaction.orderId, orderId),
+            eq(pointTransaction.type, 'earn'),
+          ),
+        );
+      return lot;
+    };
+
+    const revokeOf = async (orderId: string) => {
+      const [row] = await db
+        .select()
+        .from(pointTransaction)
+        .where(
+          and(
+            eq(pointTransaction.orderId, orderId),
+            eq(pointTransaction.type, 'revoke'),
+          ),
+        );
+      return row;
+    };
+
+    const allocations = () =>
+      db
+        .select({
+          consumerTransactionId: pointAllocation.consumerTransactionId,
+          kind: pointAllocation.kind,
+          points: pointAllocation.points,
+          sourceOrganizationId: pointAllocation.sourceOrganizationId,
+          sourceTransactionId: pointAllocation.sourceTransactionId,
+          userId: pointAllocation.userId,
+        })
+        .from(pointAllocation)
+        .orderBy(pointAllocation.kind, pointAllocation.sourceTransactionId);
+
+    const expectLotsAllocated = async () => {
+      const [lots, rows] = await Promise.all([
+        db
+          .select()
+          .from(pointTransaction)
+          .where(
+            and(
+              inArray(pointTransaction.type, ['earn', 'adjust']),
+              gt(pointTransaction.points, 0),
+            ),
+          ),
+        db.select().from(pointAllocation),
+      ]);
+      expect(lots.length).toBeGreaterThan(0);
+      for (const lot of lots)
+        expect(
+          rows
+            .filter((row) => row.sourceTransactionId === lot.id)
+            .reduce((sum, row) => sum + row.points, 0),
+        ).toBe(lot.points - lot.remainingPoints);
+    };
+
+    const redeemFor = async (pointsCost: number) => {
+      await client.query(
+        `insert into coupon (id, code, discount_type, discount_value, points_cost) values ('alloc', 'ALLOC', 'fixed', 10, $1)
+         on conflict (id) do update set points_cost = excluded.points_cost`,
+        [pointsCost],
+      );
+      await service.redeem('amy', 'alloc');
+      const [row] = await db
+        .select()
+        .from(pointTransaction)
+        .where(eq(pointTransaction.type, 'redeem'));
+      return row;
+    };
+
+    it('兌換依扣點順序記下每筆被扣的點數與發點門市', async () => {
+      await addPaidOrder('o1', ORG, 'amy');
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { paymentDate: '2026-03-01' });
+
+      const redeemed = await redeemFor(15);
+
+      const rows = await allocations();
+      expect(rows).toHaveLength(2);
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          {
+            consumerTransactionId: redeemed.id,
+            kind: 'redeem',
+            points: 10,
+            sourceOrganizationId: ORG,
+            sourceTransactionId: (await lotOf('o1')).id,
+            userId: 'amy',
+          },
+          {
+            consumerTransactionId: redeemed.id,
+            kind: 'redeem',
+            points: 5,
+            sourceOrganizationId: OTHER_ORG,
+            sourceTransactionId: (await lotOf('o2')).id,
+            userId: 'amy',
+          },
+        ]),
+      );
+      await expectLotsAllocated();
+    });
+
+    it('部分退款收回記在收回列，來源是該訂單的點數', async () => {
+      await addPaidOrder('o1', ORG, 'amy');
+      await service.getAllMine('amy');
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: false,
+        orderId: 'o1',
+        ratio: 0.5,
+      });
+
+      expect(await allocations()).toEqual([
+        {
+          consumerTransactionId: (await revokeOf('o1')).id,
+          kind: 'revoke',
+          points: 5,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: (await lotOf('o1')).id,
+          userId: 'amy',
+        },
+      ]);
+      await expectLotsAllocated();
+    });
+
+    it('全額退款收不回的部分立即從他店點數抵扣，記為 settle', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await addPaidOrder('o2', OTHER_ORG, 'amy', {
+        paymentDate: '2026-03-01',
+        unitPrice: '1000',
+      });
+      const redeemed = await redeemFor(70);
+
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      const [o1, o2, revoked] = [
+        await lotOf('o1'),
+        await lotOf('o2'),
+        await revokeOf('o1'),
+      ];
+      expect(await allocations()).toEqual([
+        {
+          consumerTransactionId: redeemed.id,
+          kind: 'redeem',
+          points: 70,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: o1.id,
+          userId: 'amy',
+        },
+        {
+          consumerTransactionId: revoked.id,
+          kind: 'revoke',
+          points: 30,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: o1.id,
+          userId: 'amy',
+        },
+        {
+          consumerTransactionId: revoked.id,
+          kind: 'settle',
+          points: 70,
+          sourceOrganizationId: OTHER_ORG,
+          sourceTransactionId: o2.id,
+          userId: 'amy',
+        },
+      ]);
+      await expectLotsAllocated();
+    });
+
+    it('取消訂單收回剩餘點數記為 cancel，欠點之後從新取得的點數抵扣', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await redeemFor(70);
+      await client.query(
+        `update "order" set order_status = 'OrderCancelled' where id = 'o1'`,
+      );
+      await service.getAllMine('amy');
+      await addPaidOrder('o2', OTHER_ORG, 'amy', {
+        paymentDate: '2026-03-01',
+        unitPrice: '1000',
+      });
+
+      expect((await service.getAllMine('amy')).balance).toBe(30);
+
+      const revoked = await revokeOf('o1');
+      expect(revoked.remainingPoints).toBe(0);
+      expect(
+        (await allocations()).filter(({ kind }) => kind !== 'redeem'),
+      ).toEqual([
+        {
+          consumerTransactionId: revoked.id,
+          kind: 'cancel',
+          points: 30,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: (await lotOf('o1')).id,
+          userId: 'amy',
+        },
+        {
+          consumerTransactionId: revoked.id,
+          kind: 'settle',
+          points: 70,
+          sourceOrganizationId: OTHER_ORG,
+          sourceTransactionId: (await lotOf('o2')).id,
+          userId: 'amy',
+        },
+      ]);
+      await expectLotsAllocated();
+    });
+
+    it('補點抵扣欠點時來源是補點列', async () => {
+      await addPaidOrder('o1', ORG, 'amy', { unitPrice: '1000' });
+      await redeemFor(100);
+      await service.revokeForOrder(db as unknown as DrizzleDB, {
+        orderBecomesTerminal: true,
+        orderId: 'o1',
+        ratio: 1,
+      });
+
+      const created = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '補償', points: 40 },
+        'bob',
+        'admin',
+      );
+
+      expect(
+        (await allocations()).filter(({ kind }) => kind === 'settle'),
+      ).toEqual([
+        {
+          consumerTransactionId: (await revokeOf('o1')).id,
+          kind: 'settle',
+          points: 40,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: created.id,
+          userId: 'amy',
+        },
+      ]);
+      await expectLotsAllocated();
+    });
+
+    it('人工扣點記在扣點列，只扣本店的點數', async () => {
+      await addPaidOrder('o1', ORG, 'amy');
+      await addPaidOrder('o2', OTHER_ORG, 'amy');
+
+      const created = await service.adjustForOrganization(
+        'biru',
+        { email: 'amy@example.com', note: '誤發', points: -4 },
+        'bob',
+        'admin',
+      );
+
+      expect(await allocations()).toEqual([
+        {
+          consumerTransactionId: created.id,
+          kind: 'adjust',
+          points: 4,
+          sourceOrganizationId: ORG,
+          sourceTransactionId: (await lotOf('o1')).id,
+          userId: 'amy',
+        },
+      ]);
+      await expectLotsAllocated();
+    });
+
+    it('舊版 earn 上的欠點改為收回列後抵扣，明細的使用方是新的收回列', async () => {
+      await addPaidOrder('o1', ORG, 'amy', {
+        orderStatus: 'OrderCancelled',
+        unitPrice: '1000',
+      });
+      await db.insert(pointTransaction).values({
+        id: 'legacy',
+        expiresAt: new Date('2027-02-01T15:59:59.999Z'),
+        orderId: 'o1',
+        organizationId: ORG,
+        points: 100,
+        remainingPoints: -70,
+        type: 'earn',
+        userId: 'amy',
+      });
+      await addPaidOrder('o2', OTHER_ORG, 'amy', { unitPrice: '1000' });
+
+      await service.getAllMine('amy');
+
+      expect(await allocations()).toEqual([
+        {
+          consumerTransactionId: (await revokeOf('o1')).id,
+          kind: 'settle',
+          points: 70,
+          sourceOrganizationId: OTHER_ORG,
+          sourceTransactionId: (await lotOf('o2')).id,
+          userId: 'amy',
+        },
       ]);
     });
   });
