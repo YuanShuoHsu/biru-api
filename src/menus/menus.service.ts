@@ -600,6 +600,7 @@ export class MenusService {
     data: CreateMenuItemDto,
   ): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = data;
+    assertPromoDateRange(offerData?.priceSpecification);
 
     const section = await this.db.query.menuSection.findFirst({
       where: eq(menuSection.id, sectionId),
@@ -911,6 +912,7 @@ export class MenusService {
     data: UpdateMenuItemDto;
   }): Promise<MenuItemWithRecipe> {
     const { offer: offerData, ...itemData } = params.data;
+    assertPromoDateRange(offerData?.priceSpecification);
 
     const touchesDrinkOptions = DRINK_OPTION_FIELDS.some(
       (field) => itemData[field] !== undefined,
