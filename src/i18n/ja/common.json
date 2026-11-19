@@ -272,6 +272,10 @@
     "printerNotFound": "プリンターが見つかりません。削除された可能性があります",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
+  "operatingCosts": {
+    "operatingCostExists": "このカテゴリには同じ適用開始月の固定費がすでにあります。そちらを編集してください",
+    "operatingCostNotFound": "この固定費が見つかりません。削除された可能性があります"
+  },
   "orderTickets": {
     "modes": {
       "counter": "店頭お持ち帰り",

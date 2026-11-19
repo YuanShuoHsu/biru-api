@@ -45,6 +45,7 @@ import { MailsModule } from './mails/mails.module.js';
 import { MailsService } from './mails/mails.service.js';
 import { RolesGuard } from './menus/guards/roles.guard.js';
 import { MenusModule } from './menus/menus.module.js';
+import { OperatingCostsModule } from './operating-costs/operating-costs.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
@@ -128,6 +129,7 @@ import { WaitlistModule } from './waitlist/waitlist.module.js';
     InventoryModule,
     MailsModule,
     MenusModule,
+    OperatingCostsModule,
     OrdersModule,
     OrganizationsModule,
     PayrollModule,

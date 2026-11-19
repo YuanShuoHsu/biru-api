@@ -207,6 +207,7 @@ const AUDIT_TARGETS: Partial<
 > = {
   banner: { resource: 'banner' },
   cash_device: { resource: 'cashDevice' },
+  operating_cost: { resource: 'operatingCost' },
   catalog_item: { resource: 'catalogItem' },
   catalog_item_add_on: { resource: 'catalogItemAddOn' },
   catalog_item_modifier_group: { resource: 'catalogItemModifierGroup' },

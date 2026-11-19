@@ -272,6 +272,10 @@
     "printerNotFound": "找不到这台打印机，可能已被移除",
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
+  "operatingCosts": {
+    "operatingCostExists": "这个类别在该生效月份已有一笔固定成本，请改为编辑那一笔",
+    "operatingCostNotFound": "找不到这笔固定成本，可能已被删除"
+  },
   "orderTickets": {
     "modes": {
       "counter": "现场外带",

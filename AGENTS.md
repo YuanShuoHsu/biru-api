@@ -82,11 +82,12 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | AuditModule          | `src/audit/`           | 異動紀錄: `audit_log` unioned with `attendance_audit`                                                  |
 | DeletedRecordsModule | `src/deleted-records/` | `deleted_record` capture, listing, and restore                                                         |
 | QuantModule          | `src/quant/`           | Pionex trading bots, market data, and AI decisions                                                     |
-| ReportsModule        | `src/reports/`         | Sales and inventory reports and their CSV exports                                                      |
+| ReportsModule        | `src/reports/`         | Sales, inventory, personnel cost and break-even reports, and their CSV exports                         |
 | PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
 | HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
 | ChecklistsModule     | `src/checklists/`      | 例行檢查表: per-store checklist templates and their runs                                               |
 | CashDevicesModule    | `src/cash-devices/`    | 現金自助繳費機台: per-store cash devices and their event ledger                                        |
+| OperatingCostsModule | `src/operating-costs/` | 固定成本: per-store monthly fixed costs (rent, utilities, personnel estimate…) by effective month      |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -119,6 +120,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
 - `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, idempotency_key)` unique; a retried write must reuse its key)
+- `operating-costs.ts` — `operatingCost` (`(organization_id, category, effective_from)` unique; see Break-Even)
 - `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
@@ -337,6 +339,24 @@ recording waste on it is rejected with `unlimitedStockWaste` in the service, not
 `inventory_transaction.created_by` is the user who recorded a count (the opening stock and count saved with an ingredient included), batch or waste (`session.user.id`, passed down from the
 controller); order consumption and restore leave it null. A new staff-initiated path that writes transactions must pass it —
 product waste carries no `@Audit`, so this column is its only record of who did it.
+
+### Break-Even
+
+`GET /api/organizations/:slug/reports/break-even?month=` (`BreakEvenReportService`, `operatingCost: ['read']`, owner only)
+works on the Taiwan calendar month.
+
+- Fixed costs are `operating_cost` rows: per category, the row with the latest `effective_from` not after the month applies,
+  so a cost is entered once and carries forward; a later row with `0` ends it. Don't add per-month rows or a toggle.
+- Personnel comes from the month's published payslips (`PersonnelCostReportService`); only when the month has none does the
+  `personnel` row, an estimate, apply.
+- Revenue is tax-inclusive (counted orders less confirmed refunds, as in the sales report); 營業稅 is split out at
+  `BUSINESS_TAX_RATE` (5%, 營業稅法 §10).
+- Cost of goods is standard cost: sold servings (`orderItemMovements`) × each item's, add-on's and modifier's recipe cost at
+  current ingredient prices, so unlimited-stock ingredients count. An item with no recipe, or a recipe with an unpriced
+  ingredient, has an unknown cost and is left out of both the cost and the revenue that sets the rate; a modifier without a
+  recipe costs nothing.
+- Break-even = fixed costs ÷ ((1 − cost rate) ÷ 1.05), divided over the open days of the month from the opening hours and
+  special hours (`OpeningCalendar.isOpenOn`); a target profit is added to the fixed costs.
 
 ### Email Opt-in
 

@@ -272,6 +272,10 @@
     "printerNotFound": "The printer wasn't found. It may have been removed",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
+  "operatingCosts": {
+    "operatingCostExists": "This category already has a fixed cost for that effective month. Edit that one instead.",
+    "operatingCostNotFound": "This fixed cost could not be found. It may have been deleted."
+  },
   "orderTickets": {
     "modes": {
       "counter": "In-store takeout",

@@ -186,6 +186,7 @@ export interface SpecialOpeningHours {
 
 export interface OpeningCalendar {
   isOpenAt: (at: Date) => boolean;
+  isOpenOn: (dayNumber: number) => boolean;
   minutesUntilClose: (at: Date, enough?: number) => number;
 }
 
@@ -221,6 +222,8 @@ export const openingCalendar = (
 
   return {
     isOpenAt: (at) => minutesUntilSegmentEnd(schedulesOn, at) !== null,
+
+    isOpenOn: (dayNumber) => schedulesOn(dayNumber).length > 0,
 
     minutesUntilClose: (at, enough = Infinity) => {
       let cursor = at;

@@ -51,3 +51,17 @@ describe('cash device permissions', () => {
       );
   });
 });
+
+describe('operating cost permissions', () => {
+  it.each([
+    ['owner', true],
+    ['admin', false],
+    ['member', false],
+    ['user', false],
+  ])('%s can manage operating costs: %s', (role, expected) => {
+    for (const action of ['create', 'read', 'update', 'delete'])
+      expect(isAuthorized(role, { operatingCost: [action] }), action).toBe(
+        expected,
+      );
+  });
+});

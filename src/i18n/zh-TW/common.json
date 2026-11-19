@@ -272,6 +272,10 @@
     "printerNotFound": "找不到這台印表機，可能已被移除",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
+  "operatingCosts": {
+    "operatingCostExists": "這個類別在該生效月份已有一筆固定成本，請改為編輯那一筆",
+    "operatingCostNotFound": "找不到這筆固定成本，可能已被刪除"
+  },
   "orderTickets": {
     "modes": {
       "counter": "現場外帶",

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { BreakEvenReportService } from './break-even-report.service.js';
 import { InventoryReportService } from './inventory-report.service.js';
 import { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { ReportCsvService } from './report-csv.service.js';
@@ -9,6 +10,7 @@ import { SalesReportService } from './sales-report.service.js';
 @Module({
   controllers: [ReportsController],
   providers: [
+    BreakEvenReportService,
     InventoryReportService,
     PersonnelCostReportService,
     ReportCsvService,

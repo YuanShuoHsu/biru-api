@@ -327,6 +327,10 @@ export type I18nTranslations = {
             "printerNotFound": string;
             "selectionCountInvalid": string;
         };
+        "operatingCosts": {
+            "operatingCostExists": string;
+            "operatingCostNotFound": string;
+        };
         "orderTickets": {
             "modes": {
                 "counter": string;
