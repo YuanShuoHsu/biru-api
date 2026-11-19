@@ -313,13 +313,13 @@ export class IngredientsService {
     { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
     createdBy?: string,
   ): Promise<IngredientResponseDto> {
+    if (dto.recipeId && PURCHASED_FIELDS.some((field) => dto[field] != null))
+      throw badRequestError('purchaseFieldsOnSourcedIngredient');
     const priceCurrency = await getOrganizationCurrency(
       this.db,
       organizationId,
     );
 
-    if (dto.recipeId && PURCHASED_FIELDS.some((field) => dto[field] != null))
-      throw badRequestError('purchaseFieldsOnSourcedIngredient');
     this.assertCompatibleUnitCode(dto);
     await this.assertSupplierInOrganization(dto.supplierId, organizationId);
     if (dto.recipeId)
