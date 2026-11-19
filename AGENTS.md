@@ -535,7 +535,11 @@ value). A new variable must be added to that schema with the rule the code actua
   decrypt it: (1) set `legacy,v2:…` everywhere; (2) once all are deployed, switch to `v2:…,legacy`. Rotate
   the same way — add the new key second everywhere, then move it first. Once prefixed ciphertext exists,
   never roll back to a build without this support. Unprefixed ciphertext keeps needing `BETTER_AUTH_SECRET`
-  until it is re-encrypted; a later PR provides that script
+  until it is re-encrypted: once the new key is first everywhere, run `pnpm tsx scripts/reencrypt-fields.ts` with
+  that environment's `FIELD_ENCRYPTION_KEYS`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`, which counts each encrypted
+  column's values by key version and the rows that fail to decrypt (exit 1); `--apply` re-encrypts them with the
+  first key, skipping rows changed meanwhile, and is safe to re-run. Quant rows are per environment, so run it in
+  each; only after it reports nothing left to re-encrypt anywhere may `legacy` or an old key be dropped
 - `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_BUCKET` — S3-compatible bucket
   (Supabase Storage, path-style) for menu, banner and store photo images, member avatars and store logos; set all six S3
   variables or none: none keeps new images as base64 data URLs in Postgres, and a partial set stops the app at boot

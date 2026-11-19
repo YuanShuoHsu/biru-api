@@ -18,7 +18,7 @@ const FIELD_ENCRYPTION_PURPOSES = {
   quantCredential: 'biru-quant-credential-v1',
 } as const;
 
-type FieldEncryptionPurpose = keyof typeof FIELD_ENCRYPTION_PURPOSES;
+export type FieldEncryptionPurpose = keyof typeof FIELD_ENCRYPTION_PURPOSES;
 
 const invalidKeyEntry = (index: number, reason: string) =>
   new Error(`FIELD_ENCRYPTION_KEYS 第 ${index + 1} 項${reason}`);
@@ -80,6 +80,11 @@ export const encryptField = (
     part.toString('base64'),
   );
   return (versioned ? [versioned.version, ...parts] : parts).join('.');
+};
+
+export const fieldEncryptionVersion = (payload: string) => {
+  const parts = payload.split('.');
+  return parts.length === 4 ? parts[0] : LEGACY_VERSION;
 };
 
 const decryptionKey = (
