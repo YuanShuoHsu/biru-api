@@ -117,15 +117,20 @@ describe('OrdersService.listKitchenOrders', () => {
        from generate_series(0, $1) n`,
       [ADMIN_BOARD_COLUMN_LIMIT],
     );
+  }, 60_000);
 
+  beforeEach(() => {
     vi.useFakeTimers({
       now: new Date('2026-11-12T05:00:00Z'),
       toFake: ['Date'],
     });
-  }, 60_000);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   afterAll(async () => {
-    vi.useRealTimers();
     await client.close();
   });
 
