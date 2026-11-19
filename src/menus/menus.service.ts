@@ -147,6 +147,20 @@ const assertKeepsListing = (
     throw accessForbiddenError();
 };
 
+const ADD_ON_TARGET_UNIQUE_INDEXES = [
+  'menuItemAddOn_menuItemId_addOnMenuItemId_uidx',
+  'menuItemAddOn_menuItemId_addOnMenuSectionId_uidx',
+];
+
+const rethrowAddOnTargetAttached = (error: unknown): never => {
+  if (
+    isUniqueViolation(error) &&
+    ADD_ON_TARGET_UNIQUE_INDEXES.includes(pgConstraint(error) ?? '')
+  )
+    throw conflictError('addOnTargetAttached');
+  throw error;
+};
+
 type RecipeSummary = {
   id: string;
   name: LocalizedText;
@@ -1303,19 +1317,21 @@ export class MenusService {
   > {
     await this.validateAddOnTargets(menuItemId, data);
 
-    const created = await this.db.transaction(async (tx) => {
-      await tx
-        .update(menuItemAddOn)
-        .set({ sortOrder: sql`${menuItemAddOn.sortOrder} + 1` })
-        .where(eq(menuItemAddOn.menuItemId, menuItemId));
+    const created = await this.db
+      .transaction(async (tx) => {
+        await tx
+          .update(menuItemAddOn)
+          .set({ sortOrder: sql`${menuItemAddOn.sortOrder} + 1` })
+          .where(eq(menuItemAddOn.menuItemId, menuItemId));
 
-      const [row] = await tx
-        .insert(menuItemAddOn)
-        .values({ id: uuidv4(), menuItemId, sortOrder: 0, ...data })
-        .returning();
+        const [row] = await tx
+          .insert(menuItemAddOn)
+          .values({ id: uuidv4(), menuItemId, sortOrder: 0, ...data })
+          .returning();
 
-      return row;
-    });
+        return row;
+      })
+      .catch(rethrowAddOnTargetAttached);
 
     return this.findMenuItemAddOnById(created.id);
   }
@@ -1501,7 +1517,8 @@ export class MenusService {
     await this.db
       .update(menuItemAddOn)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(menuItemAddOn.id, where.id));
+      .where(eq(menuItemAddOn.id, where.id))
+      .catch(rethrowAddOnTargetAttached);
 
     return this.findMenuItemAddOnById(where.id);
   }

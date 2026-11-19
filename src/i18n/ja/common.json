@@ -247,6 +247,7 @@
     "addOnMenuSectionNotFound": "追加セクションが見つかりません。削除された可能性があります",
     "addOnNotFound": "追加オプションが見つかりません。削除された可能性があります",
     "addOnSelf": "追加購入商品に商品自身は指定できません",
+    "addOnTargetAttached": "この商品またはカテゴリはすでにこの商品の追加購入に設定されています",
     "addOnTargetRequired": "追加購入には商品かカテゴリをどちらか一つだけ指定してください",
     "fixedSweetnessLevelRequired": "甘さを固定にする場合は、固定の甘さを選択してください",
     "menuItemModifierGroupNotFound": "このオプショングループはこの商品に紐付けられていません。外された可能性があります",
