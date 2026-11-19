@@ -498,7 +498,7 @@ PR 6 與 5a 同時上線，PR 6 的上架頁在 5c 上線前不顯示「上架�
 17. **「下架」沿用 `offer.availability = 'Discontinued'`，不新增 `listed` 欄位？**
     預設：是；「移除上架列」只在門市管理頁的進階操作提供。
     決定：沿用 `Discontinued`、不加欄位，但員工不能自行下架，只能改有沒有供應：`Discontinued` 另需 `menu: ['update']`，見「門市層級」的下架權限。
-    理由：點餐菜單本來就隱藏 `Discontinued`，舊程式在 PR 5a 前看到的狀態一致，下架再上架也保留 id 與食譜。但這表示有 `itemAvailability` 權限的 member 現在就能下架（`src/auth/permissions.ts:94-101`），若下架應只限 `menu` 權限，就要另加欄位。
+    理由：點餐菜單本來就隱藏 `Discontinued`，舊程式在 PR 5a 前看到的狀態一致，下架再上架也保留 id 與食譜。原本只有 `itemAvailability` 權限的 member（`src/auth/permissions.ts:94-101`）也能下架；PR 0a（#467）改在服務檢查，不另加欄位，見「門市層級」的下架權限。
 18. **加購的快照（`OrderItemAddOnSnapshot`、`SharedCartItemAddOn`）也加選填的 `catalogItemId`？**
     預設：是。
     理由：熱銷數量把加購也算進去（`menu-item-sales.service.ts:33-41`），跨店彙總少了它就不完整。
