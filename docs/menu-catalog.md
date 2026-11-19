@@ -101,7 +101,7 @@
 **`catalog_item_modifier_group`**：`id`、`catalog_item_id`（cascade）、`catalog_modifier_group_id`（cascade）、`sort_order`，唯一 `(catalog_item_id, catalog_modifier_group_id)`，比照 `menus.ts:325-328`。
 服務層規則：品牌品項只能連品牌群組；獨家品項可連品牌群組或同門市的獨家群組。
 
-**`catalog_item_add_on`**：`id`、`catalog_item_id`（cascade）、`add_on_catalog_item_id`（cascade，可空）、`add_on_catalog_section_id`（cascade，可空）、`sort_order`，比照 `menus.ts:236-266`；`menu_item_add_on` 在 #527 加了唯一 `(menu_item_id, add_on_menu_item_id)` 與 `(menu_item_id, add_on_menu_section_id)`，`catalog_item_add_on`（`src/db/schema/catalog.ts:116-143`）目前沒有對應的唯一鍵。
+**`catalog_item_add_on`**：`id`、`catalog_item_id`（cascade）、`add_on_catalog_item_id`（cascade，可空）、`add_on_catalog_section_id`（cascade，可空）、`sort_order`，比照 `menus.ts:236-258`。
 加購的品項在某間門市實際出現，條件是該門市有上架那個品項；同樣不允許品牌品項加購獨家品項或獨家分類。
 
 ### 門市層級（既有表演變）
