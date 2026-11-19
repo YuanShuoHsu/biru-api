@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 import {
+  ArrayMaxSize,
   IsArray,
   IsOptional,
   IsString,
@@ -39,6 +40,7 @@ export class CreateSupplierDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(1000)
   @IsString({ each: true })
   ingredientIds?: string[];
 }
