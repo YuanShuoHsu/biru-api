@@ -118,6 +118,7 @@ const idsFromRequest = (
 
   if ('body' in idSource) {
     const value = (request.body as Row | undefined)?.[idSource.body];
+    if (typeof value === 'string') return [value];
 
     return Array.isArray(value)
       ? value.filter((item): item is string => typeof item === 'string')

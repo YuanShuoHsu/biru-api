@@ -15,6 +15,7 @@ export type AuditIdSource =
   | { column: string; organization: true };
 
 export type AuditSubTable =
+  | 'cashDeviceEvent'
   | 'checklistTemplateItem'
   | 'offer'
   | 'operatingType'

@@ -189,8 +189,11 @@ export type I18nTranslations = {
             "scheduleInvalid": string;
         };
         "cashDevices": {
+            "cashDeviceInactive": string;
             "cashDeviceInUse": string;
             "cashDeviceNotFound": string;
+            "cashDeviceRefillEmpty": string;
+            "idempotencyConflict": string;
         };
         "checklists": {
             "checklistActionNoteRequired": string;

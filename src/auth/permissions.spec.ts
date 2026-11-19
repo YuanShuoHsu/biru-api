@@ -38,4 +38,16 @@ describe('cash device permissions', () => {
         expected,
       );
   });
+
+  it.each([
+    ['owner', true],
+    ['admin', true],
+    ['member', true],
+    ['user', false],
+  ])('%s can refill and collect cash devices: %s', (role, expected) => {
+    for (const action of ['refill', 'collection'])
+      expect(isAuthorized(role, { cashDevice: [action] }), action).toBe(
+        expected,
+      );
+  });
 });

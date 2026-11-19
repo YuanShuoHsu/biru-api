@@ -134,8 +134,11 @@
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
   "cashDevices": {
+    "cashDeviceInactive": "这台现金机已停用，请先改为启用再记录补币或收钞",
     "cashDeviceInUse": "这台现金机已有交易记录，无法删除，请改为停用",
-    "cashDeviceNotFound": "找不到这台现金机，可能已被删除"
+    "cashDeviceNotFound": "找不到这台现金机，可能已被删除",
+    "cashDeviceRefillEmpty": "请至少填写一种补币面额",
+    "idempotencyConflict": "重试内容已变更，请关闭表单重新操作。"
   },
   "checklists": {
     "checklistActionNoteRequired": "数值超出范围时，请填写处理说明后再保存。",
