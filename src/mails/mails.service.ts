@@ -43,6 +43,20 @@ const deviceOf = (request?: Request) => {
   };
 };
 
+const authPageUrl = (
+  homeUrl: string,
+  page: string,
+  { email, token, url }: { email: string; token: string; url: string },
+) => {
+  const callbackURL = new URL(url).searchParams.get('callbackURL');
+  const params = new URLSearchParams({
+    email,
+    token,
+    ...(callbackURL && { redirectTo: callbackURL }),
+  });
+  return `${homeUrl}/auth/${page}?${params.toString()}`;
+};
+
 const countryName = (code: string, lang: Language) => {
   try {
     return new Intl.DisplayNames(lang, { type: 'region' }).of(code) ?? code;
@@ -342,15 +356,6 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = this.supportUrl;
 
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const verifyParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
-
     const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
@@ -369,7 +374,7 @@ export class MailsService {
         operating_system,
         productName,
         support_url,
-        url: verifyEmailUrl,
+        url: authPageUrl(home_url, 'verify-email', { email, token, url }),
       },
     });
   }
@@ -393,15 +398,6 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = this.supportUrl;
 
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const deleteParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const deleteAccountUrl = `${baseUrl}/${lang}/auth/delete-account?${deleteParams.toString()}`;
-
     const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
@@ -419,7 +415,7 @@ export class MailsService {
         operating_system,
         productName,
         support_url,
-        url: deleteAccountUrl,
+        url: authPageUrl(home_url, 'delete-account', { email, token, url }),
       },
     });
   }
@@ -512,15 +508,6 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = this.supportUrl;
 
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const resetParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const resetPasswordUrl = `${baseUrl}/${lang}/auth/reset-password?${resetParams.toString()}`;
-
     const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
@@ -538,7 +525,7 @@ export class MailsService {
         operating_system,
         productName,
         support_url,
-        url: resetPasswordUrl,
+        url: authPageUrl(home_url, 'reset-password', { email, token, url }),
       },
     });
   }
@@ -592,15 +579,6 @@ export class MailsService {
     const home_url = `${baseUrl}/${lang}`;
     const support_url = this.supportUrl;
 
-    const parsedUrl = new URL(url);
-    const callbackURL = parsedUrl.searchParams.get('callbackURL');
-    const verifyParams = new URLSearchParams({
-      email,
-      token,
-      ...(callbackURL && { redirectTo: callbackURL }),
-    });
-    const verifyEmailUrl = `${baseUrl}/${lang}/auth/verify-email?${verifyParams.toString()}`;
-
     const { browser_name, operating_system } = deviceOf(request);
 
     await this.send({
@@ -618,7 +596,7 @@ export class MailsService {
         operating_system,
         productName,
         support_url,
-        url: verifyEmailUrl,
+        url: authPageUrl(home_url, 'verify-email', { email, token, url }),
       },
     });
   }

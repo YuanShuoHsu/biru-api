@@ -554,4 +554,73 @@ describe('MailsService 語系', () => {
     ]);
     expect(sent[0].html).toContain('SMTP の設定は正しく行われています');
   });
+
+  const user = { email: 'ann@example.com', name: 'Ann', lang: 'ja' as const };
+
+  type AccountMail = (
+    args: { token: string; url: string },
+    request: Request,
+  ) => Promise<void>;
+
+  it.each<[string, string, AccountMail]>([
+    [
+      'sendVerificationEmail',
+      'verify-email',
+      (args, req) => service.sendVerificationEmail({ user, ...args }, req),
+    ],
+    [
+      'sendResetPassword',
+      'reset-password',
+      (args, req) => service.sendResetPassword({ user, ...args }, req),
+    ],
+    [
+      'sendDeleteAccountVerification',
+      'delete-account',
+      (args, req) =>
+        service.sendDeleteAccountVerification({ user, ...args }, req),
+    ],
+    [
+      'sendChangeEmailConfirmation',
+      'verify-email',
+      (args, req) =>
+        service.sendChangeEmailConfirmation(
+          { user, newEmail: 'new@example.com', ...args },
+          req,
+        ),
+    ],
+  ])(
+    '%s 連到前台 %s 頁，callbackURL 帶成 redirectTo',
+    async (_, page, send) => {
+      for (const query of ['', '&callbackURL=%2Fja%2Fauth%2Forders'])
+        await send(
+          {
+            token: 't',
+            url: `http://localhost:3001/api/auth/x?token=t${query}`,
+          },
+          request(),
+        );
+
+      expect(
+        vi
+          .mocked(sendMail)
+          .mock.calls.slice(-2)
+          .map(([{ context }]) => context?.url),
+      ).toEqual([
+        `http://localhost:3000/ja/auth/${page}?email=ann%40example.com&token=t`,
+        `http://localhost:3000/ja/auth/${page}?email=ann%40example.com&token=t&redirectTo=%2Fja%2Fauth%2Forders`,
+      ]);
+    },
+  );
+
+  it('better-auth 的連結無法解析時不寄信', async () => {
+    const calls = vi.mocked(sendMail).mock.calls.length;
+
+    await expect(
+      service.sendResetPassword(
+        { user, token: 't', url: 'not a url' },
+        request(),
+      ),
+    ).rejects.toThrow(TypeError);
+    expect(vi.mocked(sendMail).mock.calls).toHaveLength(calls);
+  });
 });
