@@ -433,6 +433,28 @@ describe('OrganizationsService 轉為真正店主', () => {
     expect(await flagOf('m-sue')).toBe(true);
   });
 
+  it('停業門市連平台管理員也不能轉正', async () => {
+    await client.exec(
+      `update organization set closed_at = now() where id = 'biru'`,
+    );
+    try {
+      await expect(
+        service.confirmOwner('biru', 'm-root', {
+          platformAdmin: true,
+          userId: 'root',
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'organizationReadOnly' },
+        status: 403,
+      });
+    } finally {
+      await client.exec(
+        `update organization set closed_at = null where id = 'biru'`,
+      );
+    }
+    expect(await flagOf('m-root')).toBe(true);
+  });
+
   it('對象不是以平台管理員身分加入的 owner 時回 409，別店成員回 404', async () => {
     const root = { platformAdmin: true, userId: 'root' };
 

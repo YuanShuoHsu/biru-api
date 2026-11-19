@@ -183,11 +183,7 @@ export class OrganizationsService {
     showcase: boolean,
     actor: { role: string; userId: string },
   ): Promise<{ id: string; showcase: boolean }> {
-    const store = await this.db.query.organization.findFirst({
-      where: eq(organization.id, organizationId),
-      columns: { closedAt: true },
-    });
-    if (store?.closedAt) throw organizationReadOnlyError();
+    await this.assertOrganizationOpen(organizationId);
 
     const target = await this.db.query.member.findFirst({
       where: and(
@@ -222,6 +218,8 @@ export class OrganizationsService {
     memberId: string,
     actor: { platformAdmin: boolean; userId: string },
   ): Promise<Member> {
+    await this.assertOrganizationOpen(organizationId);
+
     if (!actor.platformAdmin) {
       const own = await this.db.query.member.findFirst({
         where: and(
@@ -258,6 +256,14 @@ export class OrganizationsService {
     if (!target) throw notFoundError('memberNotFound');
 
     throw conflictError('notJoinedAsPlatformAdmin');
+  }
+
+  private async assertOrganizationOpen(organizationId: string) {
+    const store = await this.db.query.organization.findFirst({
+      where: eq(organization.id, organizationId),
+      columns: { closedAt: true },
+    });
+    if (store?.closedAt) throw organizationReadOnlyError();
   }
 
   async platformAdminMemberIds(organizationId: string): Promise<string[]> {
