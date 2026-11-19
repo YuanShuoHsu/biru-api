@@ -23,6 +23,7 @@ export const inventoryErrorCodes = [
   'recipeMenuItemTaken',
   'recipeModifierTaken',
   'recipeNotFound',
+  'recipeYieldUnpaired',
   'sourceRecipeHasMenuItem',
   'sourceRecipeHasModifier',
   'sourceRecipeNested',

@@ -209,6 +209,7 @@
     "recipeMenuItemTaken": "This menu item already has a recipe",
     "recipeModifierTaken": "This option already has a recipe",
     "recipeNotFound": "The recipe wasn't found. It may have been deleted",
+    "recipeYieldUnpaired": "Set the recipe's yield quantity and unit together",
     "sourceRecipeHasMenuItem": "A recipe linked to a menu item can't be an ingredient's source recipe",
     "sourceRecipeHasModifier": "A recipe linked to an option can't be an ingredient's source recipe",
     "sourceRecipeNested": "A source recipe can't use ingredients that are made from another recipe",

@@ -50,18 +50,14 @@ describe('CreateRecipeDto recipeYieldQuantity', () => {
     { recipeYieldQuantity: '0.001', recipeYieldUnitCode: 'GRM' },
     { recipeYieldQuantity: '1500.000', recipeYieldUnitCode: 'KGM' },
     { recipeYieldQuantity: null, recipeYieldUnitCode: null },
+    { recipeYieldQuantity: '1' },
+    { recipeYieldUnitCode: 'GRM' },
   ])('accepts %o', async (fields) => {
     expect(await yieldErrorsOf(CreateRecipeDto, fields)).toEqual([]);
     expect(await yieldErrorsOf(UpdateRecipeDto, fields)).toEqual([]);
   });
 
   it.each([
-    [{ recipeYieldQuantity: '1' }, ['recipeYieldQuantity']],
-    [{ recipeYieldUnitCode: 'GRM' }, ['recipeYieldUnitCode']],
-    [
-      { recipeYieldQuantity: '1', recipeYieldUnitCode: null },
-      ['recipeYieldQuantity'],
-    ],
     [
       { recipeYieldQuantity: '-1', recipeYieldUnitCode: 'GRM' },
       ['recipeYieldQuantity'],

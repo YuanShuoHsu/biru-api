@@ -256,6 +256,8 @@ export class RecipesService {
     organizationId: string,
     { menuItemId, modifierId, ...dto }: CreateRecipeDto,
   ): Promise<RecipeResponseDto> {
+    if ((dto.recipeYieldQuantity == null) !== (dto.recipeYieldUnitCode == null))
+      throw badRequestError('recipeYieldUnpaired');
     if (menuItemId && modifierId)
       throw badRequestError('recipeMenuItemAndModifier');
     if (modifierId && (dto.recipeYield ?? 1) !== 1)
@@ -296,6 +298,8 @@ export class RecipesService {
     recipeId: string,
     dto: UpdateRecipeDto,
   ): Promise<RecipeResponseDto> {
+    if ((dto.recipeYieldQuantity == null) !== (dto.recipeYieldUnitCode == null))
+      throw badRequestError('recipeYieldUnpaired');
     await this.assertSourceRecipeUpdate(recipeId, dto);
 
     const [current] = await this.db

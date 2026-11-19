@@ -10,11 +10,7 @@ import {
   IsUrl,
   Matches,
   MaxLength,
-  Validate,
   ValidateIf,
-  ValidatorConstraint,
-  type ValidationArguments,
-  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 import {
@@ -40,19 +36,6 @@ export const PURCHASED_FIELDS = [
   'eligibleQuantityUnitCode',
   'supplierId',
 ] as const;
-
-@ValidatorConstraint({ name: 'isWithoutPurchasedFields' })
-class IsWithoutPurchasedFields implements ValidatorConstraintInterface {
-  validate(_: unknown, { object }: ValidationArguments): boolean {
-    const dto = object as CreateIngredientDto;
-
-    return PURCHASED_FIELDS.every((field) => dto[field] == null);
-  }
-
-  defaultMessage(): string {
-    return `recipeId 不能與 ${PURCHASED_FIELDS.join(', ')} 同時帶`;
-  }
-}
 
 export class CreateIngredientDto {
   @ApiProperty({
@@ -97,7 +80,6 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  @Validate(IsWithoutPurchasedFields)
   recipeId?: string | null;
 
   @ApiPropertyOptional({

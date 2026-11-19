@@ -318,6 +318,8 @@ export class IngredientsService {
       organizationId,
     );
 
+    if (dto.recipeId && PURCHASED_FIELDS.some((field) => dto[field] != null))
+      throw badRequestError('purchaseFieldsOnSourcedIngredient');
     this.assertCompatibleUnitCode(dto);
     await this.assertSupplierInOrganization(dto.supplierId, organizationId);
     if (dto.recipeId)

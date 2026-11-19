@@ -264,6 +264,21 @@ describe('來源食譜', () => {
       ).toBe('modifierNotFound');
     });
 
+    it.each([
+      { recipeYieldQuantity: '1' },
+      { recipeYieldUnitCode: 'GRM' as const },
+      { recipeYieldQuantity: '1', recipeYieldUnitCode: null },
+    ])('產量與單位沒有一起帶時拒絕 %o', async (fields) => {
+      expect(
+        await codeOf(
+          recipes.create(ORG, { name: { 'zh-TW': '番茄醬' }, ...fields }),
+        ),
+      ).toBe('recipeYieldUnpaired');
+      expect(await codeOf(recipes.update('noYield', fields))).toBe(
+        'recipeYieldUnpaired',
+      );
+    });
+
     it('不能同時綁品項與選項', async () => {
       await addModifier('large', '加大');
       await addMenuItem('item', '義大利麵');
@@ -410,6 +425,24 @@ describe('來源食譜', () => {
       expect(await codeOf(ingredients.update(sauce.id, fields))).toBe(
         'purchaseFieldsOnSourcedIngredient',
       );
+    });
+
+    it.each([
+      { price: '10' },
+      { eligibleQuantity: '1' },
+      { eligibleQuantityUnitCode: 'GRM' as const },
+      { supplierId: 'supplier' },
+    ])('新增有來源食譜的食材時不能帶 %o', async (fields) => {
+      expect(
+        await codeOf(
+          ingredients.create(ORG, {
+            name: { 'zh-TW': '自製番茄醬' },
+            recipeId: 'sauceRecipe',
+            unitCode: 'GRM',
+            ...fields,
+          }),
+        ),
+      ).toBe('purchaseFieldsOnSourcedIngredient');
     });
 
     it('指定來源食譜時清掉包裝、價錢與供應商', async () => {
