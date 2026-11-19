@@ -15,7 +15,7 @@ export class KitchenOrdersQueryDto {
   printerId?: string;
 }
 
-export class KitchenOrderItemDto extends OrderItemResponseDto {
+class KitchenOrderItemDto extends OrderItemResponseDto {
   @ApiProperty({ description: '已退款的數量，等於點餐數量時不必製作' })
   refundedQuantity: number;
 }

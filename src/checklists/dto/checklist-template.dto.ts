@@ -115,7 +115,7 @@ export class UpdateChecklistTemplateDto extends PartialType(
   { skipNullProperties: false },
 ) {}
 
-export class ChecklistTemplateItemDto {
+class ChecklistTemplateItemDto {
   @ApiProperty() id: string;
   @ApiProperty() label: string;
   @ApiProperty({
