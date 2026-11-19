@@ -63,7 +63,7 @@ export const cashDeviceEvent = pgTable(
       .notNull()
       .references(() => cashDevice.id, { onDelete: 'restrict' }),
     type: cashDeviceEventTypeEnum('type').notNull(),
-    externalId: text('external_id'),
+    idempotencyKey: text('idempotency_key').notNull(),
     denominations: jsonb('denominations')
       .$type<CashDenominations>()
       .notNull()
@@ -79,9 +79,9 @@ export const cashDeviceEvent = pgTable(
     ...timestamps,
   },
   (table) => [
-    uniqueIndex('cashDeviceEvent_deviceId_externalId_idx').on(
+    uniqueIndex('cashDeviceEvent_deviceId_idempotencyKey_idx').on(
       table.deviceId,
-      table.externalId,
+      table.idempotencyKey,
     ),
     index('cashDeviceEvent_organizationId_occurredAt_idx').on(
       table.organizationId,

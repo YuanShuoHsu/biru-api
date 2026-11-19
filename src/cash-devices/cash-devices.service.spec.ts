@@ -132,7 +132,7 @@ describe('CashDevicesService', () => {
   it('已有交易紀錄的機台刪除時回 409 cashDeviceInUse 並保留機台', async () => {
     const created = await service.create('biru', { name: '櫃台' });
     await client.query(
-      `insert into cash_device_event (id, organization_id, device_id, type, external_id, amount, occurred_at)
+      `insert into cash_device_event (id, organization_id, device_id, type, idempotency_key, amount, occurred_at)
        values ('e1', 'biru', $1, 'payment', 'tx-1', 100, now())`,
       [created.id],
     );
@@ -146,21 +146,20 @@ describe('CashDevicesService', () => {
     await expect(service.findOne('biru', created.id)).resolves.toEqual(created);
   });
 
-  it('同一台機台的 external_id 不能重複，不同機台可以', async () => {
+  it('同一台機台的 idempotency_key 不能重複、不能為空，不同機台可以', async () => {
     const first = await service.create('biru', { name: '一號' });
     const second = await service.create('biru', { name: '二號' });
-    const insert = (id: string, deviceId: string, externalId: string | null) =>
+    const insert = (id: string, deviceId: string, key: string | null) =>
       client.query(
-        `insert into cash_device_event (id, organization_id, device_id, type, external_id, occurred_at)
+        `insert into cash_device_event (id, organization_id, device_id, type, idempotency_key, occurred_at)
          values ($1, 'biru', $2, 'error', $3, now())`,
-        [id, deviceId, externalId],
+        [id, deviceId, key],
       );
 
     await insert('e1', first.id, 'tx-1');
     await insert('e2', second.id, 'tx-1');
-    await insert('e3', first.id, null);
-    await insert('e4', first.id, null);
 
-    await expect(insert('e5', first.id, 'tx-1')).rejects.toThrow();
+    await expect(insert('e3', first.id, null)).rejects.toThrow();
+    await expect(insert('e4', first.id, 'tx-1')).rejects.toThrow();
   });
 });
