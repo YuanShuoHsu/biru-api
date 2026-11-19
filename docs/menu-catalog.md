@@ -32,7 +32,7 @@
 |                                                  | `menu_id`、`available_modes`、`order_ticket_printer_id`                                                                                                                                                                                                  | 門市                       |
 | `offer`（`menus.ts:205-231`）                    | `price`、`availability`、`auto_sold_out`、`available_hours`、`delivery_lead_time_minutes`、`inventory_level`、`price_specification`                                                                                                                      | 門市                       |
 |                                                  | `menu_section_id`（`on delete cascade`，`:212-214`）：三個寫入點都只帶 `menuItemId`（`menus.service.ts:610`、`:995`、`:1050`），`CreateOfferDto` 沒有這個欄位，實際上永遠是 null                                                                         | 結構（廢棄）               |
-| `menu_item_add_on`（`menus.ts:236-258`）         | `menu_item_id`、`add_on_menu_item_id`、`add_on_menu_section_id`（cascade，`:246-249`）、`sort_order`                                                                                                                                                     | 品牌                       |
+| `menu_item_add_on`（`menus.ts:236-266`）         | `menu_item_id`、`add_on_menu_item_id`、`add_on_menu_section_id`（cascade，`:246-249`）、`sort_order`，唯一 `(menu_item_id, add_on_menu_item_id)` 與 `(menu_item_id, add_on_menu_section_id)`（#527，`drizzle/0287_item_add_on_unique.sql`）              | 品牌                       |
 | `modifier_group`（`menus.ts:263-277`）           | `display_name`、`min_selection_count`、`max_selection_count`、`sort_order`；`menu_id`                                                                                                                                                                    | 品牌                       |
 | `modifier`（`menus.ts:282-302`）                 | `display_name`（not null）、`image`、`sort_order`；`modifier_group_id`（not null，`:286-289`）                                                                                                                                                           | 品牌                       |
 |                                                  | `price_adjustment`（建議值歸品牌，覆寫歸門市）、`availability`、`auto_sold_out`、`available_modes`                                                                                                                                                       | 門市                       |
@@ -101,7 +101,7 @@
 **`catalog_item_modifier_group`**：`id`、`catalog_item_id`（cascade）、`catalog_modifier_group_id`（cascade）、`sort_order`，唯一 `(catalog_item_id, catalog_modifier_group_id)`，比照 `menus.ts:325-328`。
 服務層規則：品牌品項只能連品牌群組；獨家品項可連品牌群組或同門市的獨家群組。
 
-**`catalog_item_add_on`**：`id`、`catalog_item_id`（cascade）、`add_on_catalog_item_id`（cascade，可空）、`add_on_catalog_section_id`（cascade，可空）、`sort_order`，比照 `menus.ts:236-258`。
+**`catalog_item_add_on`**：`id`、`catalog_item_id`（cascade）、`add_on_catalog_item_id`（cascade，可空）、`add_on_catalog_section_id`（cascade，可空）、`sort_order`，比照 `menus.ts:236-266`；`menu_item_add_on` 在 #527 加了唯一 `(menu_item_id, add_on_menu_item_id)` 與 `(menu_item_id, add_on_menu_section_id)`，`catalog_item_add_on`（`src/db/schema/catalog.ts:116-143`）目前沒有對應的唯一鍵。
 加購的品項在某間門市實際出現，條件是該門市有上架那個品項；同樣不允許品牌品項加購獨家品項或獨家分類。
 
 ### 門市層級（既有表演變）
