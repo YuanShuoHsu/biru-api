@@ -554,4 +554,38 @@ describe('MailsService 語系', () => {
     ]);
     expect(sent[0].html).toContain('SMTP の設定は正しく行われています');
   });
+
+  const user = { email: 'ann@example.com', name: 'Ann', lang: 'ja' as const };
+
+  it.each([
+    ['verify-email', () => service.sendVerificationEmail],
+    ['reset-password', () => service.sendResetPassword],
+    ['delete-account', () => service.sendDeleteAccountVerification],
+    ['verify-email', () => service.sendChangeEmailConfirmation],
+  ] as const)(
+    '信件連到前台 %s 頁，callbackURL 帶成 redirectTo',
+    async (page, method) => {
+      for (const query of ['', '&callbackURL=%2Fja%2Fauth%2Forders'])
+        await method().call(
+          service,
+          {
+            user,
+            newEmail: 'new@example.com',
+            token: 't',
+            url: `http://localhost:3001/api/auth/x?token=t${query}`,
+          },
+          request(),
+        );
+
+      expect(
+        vi
+          .mocked(sendMail)
+          .mock.calls.slice(-2)
+          .map(([{ context }]) => context?.url),
+      ).toEqual([
+        `http://localhost:3000/ja/auth/${page}?email=ann%40example.com&token=t`,
+        `http://localhost:3000/ja/auth/${page}?email=ann%40example.com&token=t&redirectTo=%2Fja%2Fauth%2Forders`,
+      ]);
+    },
+  );
 });
