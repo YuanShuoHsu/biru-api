@@ -174,6 +174,7 @@ const assertValidOrganizationInput = (
   )
     throw new APIError('BAD_REQUEST', {
       message: `dineInTableCount must be an integer from 1 to ${DINE_IN_MAX_TABLE_COUNT}`,
+      code: 'INVALID_DINE_IN_TABLE_COUNT',
     });
 };
 
