@@ -506,7 +506,8 @@
   },
   "storeLayout": {
     "duplicateTableNumber": "桌號 {tableNumber} 重複了。",
-    "notFound": "這家門市還沒有平面圖。"
+    "notFound": "這家門市還沒有平面圖。",
+    "tableNumberOutOfRange": "桌號 {tableNumber} 超出門市設定的內用桌數（{dineInTableCount} 桌）。"
   },
   "storePhotos": {
     "storePhotoNotFound": "找不到這張門市照片，可能已被刪除"

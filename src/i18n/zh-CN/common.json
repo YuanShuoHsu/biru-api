@@ -506,7 +506,8 @@
   },
   "storeLayout": {
     "duplicateTableNumber": "桌号 {tableNumber} 重复了。",
-    "notFound": "这家门店还没有平面图。"
+    "notFound": "这家门店还没有平面图。",
+    "tableNumberOutOfRange": "桌号 {tableNumber} 超出门店设置的堂食桌数（{dineInTableCount} 桌）。"
   },
   "storePhotos": {
     "storePhotoNotFound": "找不到这张门店照片，可能已被删除"

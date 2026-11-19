@@ -7,6 +7,7 @@ import type { I18nTranslations } from '../generated/i18n.generated.js';
 export const storeLayoutErrorCodes = [
   'duplicateTableNumber',
   'notFound',
+  'tableNumberOutOfRange',
 ] as const;
 
 export type StoreLayoutErrorCode = (typeof storeLayoutErrorCodes)[number];

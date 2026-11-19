@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { DINE_IN_MAX_TABLE_COUNT } from '../../common/constants/dine-in.js';
 import {
   STORE_LAYOUT_FLOORS,
   STORE_LAYOUT_ITEM_KINDS,
@@ -100,12 +101,12 @@ class StoreLayoutItemDto extends StoreLayoutBoxDto {
   @ApiPropertyOptional({
     description: '內用桌號；有值的項目就是內用桌，同一門市不可重複',
     minimum: 1,
-    maximum: 999,
+    maximum: DINE_IN_MAX_TABLE_COUNT,
   })
   @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(1)
-  @Max(999)
+  @Max(DINE_IN_MAX_TABLE_COUNT)
   tableNumber?: number;
 }
 
