@@ -75,6 +75,15 @@ export class InsufficientStockError extends Error {
   }
 }
 
+const reachesThreshold = (
+  level: number,
+  nextLevel: number,
+  threshold: string | null,
+) =>
+  threshold !== null &&
+  level > Number(threshold) &&
+  nextLevel <= Number(threshold);
+
 @Injectable()
 export class InventoryTransactionsService {
   constructor(
@@ -229,31 +238,35 @@ export class InventoryTransactionsService {
     {
       canReadPurchasing = true,
       createdBy,
-      tx,
-    }: { canReadPurchasing?: boolean; createdBy?: string; tx?: Tx } = {},
+    }: { canReadPurchasing?: boolean; createdBy?: string } = {},
   ): Promise<InventoryTransactionResponseDto> {
-    const created = tx
-      ? await this.write(ingredientId, dto, tx, createdBy)
-      : await this.db.transaction((opened) =>
-          this.write(ingredientId, dto, opened, createdBy),
-        );
+    const { created, lowStock } = await this.db.transaction((tx) =>
+      this.recordCount(ingredientId, dto, tx, createdBy),
+    );
+    this.notifyLowStock(created.organizationId, lowStock);
 
     const { unitCost, ...rest } = created;
 
     return { ...rest, ...(canReadPurchasing && { unitCost }) };
   }
 
-  private async write(
+  async recordCount(
     ingredientId: string,
     dto: CreateInventoryTransactionDto,
     tx: Tx,
     createdBy?: string,
-  ): Promise<InventoryTransactionResponseDto> {
+  ): Promise<{
+    created: InventoryTransactionResponseDto;
+    lowStock: LowStockReachedEvent['ingredients'];
+  }> {
     const [found] = await tx
       .select({
         organizationId: ingredient.organizationId,
         inventoryLevel: ingredient.inventoryLevel,
+        lowStockThreshold: ingredient.lowStockThreshold,
+        name: ingredient.name,
         unitPrice: unitPriceSql,
+        unlimitedStock: ingredient.unlimitedStock,
       })
       .from(ingredient)
       .where(eq(ingredient.id, ingredientId))
@@ -284,7 +297,29 @@ export class InventoryTransactionsService {
       .where(eq(ingredient.id, ingredientId))
       .returning({ balance: ingredient.inventoryLevel });
 
-    return { ...created, balance, orderNumber: null, reason: 'count' };
+    return {
+      created: { ...created, balance, orderNumber: null, reason: 'count' },
+      lowStock:
+        !found.unlimitedStock &&
+        reachesThreshold(
+          Number(found.inventoryLevel),
+          inventoryLevel,
+          found.lowStockThreshold,
+        )
+          ? [{ id: ingredientId, name: found.name }]
+          : [],
+    };
+  }
+
+  notifyLowStock(
+    organizationId: string,
+    ingredients: LowStockReachedEvent['ingredients'],
+  ): void {
+    if (ingredients.length)
+      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
+        organizationId,
+        ingredients,
+      } satisfies LowStockReachedEvent);
   }
 
   async produceBatch(
@@ -412,11 +447,7 @@ export class InventoryTransactionsService {
       },
     );
 
-    if (lowStock.length)
-      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
-        organizationId,
-        ingredients: lowStock,
-      } satisfies LowStockReachedEvent);
+    this.notifyLowStock(organizationId, lowStock);
 
     const { unitCost, ...rest } = batch;
 
@@ -497,11 +528,7 @@ export class InventoryTransactionsService {
         };
       });
 
-    if (lowStock.length)
-      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
-        organizationId,
-        ingredients: lowStock,
-      } satisfies LowStockReachedEvent);
+    this.notifyLowStock(organizationId, lowStock);
 
     const { unitCost, ...rest } = wasted;
 
@@ -626,11 +653,7 @@ export class InventoryTransactionsService {
       },
     );
 
-    if (lowStock.length)
-      this.eventEmitter.emit(LOW_STOCK_REACHED_EVENT, {
-        organizationId,
-        ingredients: lowStock,
-      } satisfies LowStockReachedEvent);
+    this.notifyLowStock(organizationId, lowStock);
 
     return wasted.map(({ unitCost, ...rest }) => ({
       ...rest,
@@ -1054,11 +1077,11 @@ export class InventoryTransactionsService {
       const nextLevel = Number(updated.inventoryLevel);
       const oversold =
         level >= -QUANTITY_TOLERANCE && nextLevel < -QUANTITY_TOLERANCE;
-      const threshold = before.lowStockThreshold;
-      const reachedThreshold =
-        threshold !== null &&
-        level > Number(threshold) &&
-        nextLevel <= Number(threshold);
+      const reachedThreshold = reachesThreshold(
+        level,
+        nextLevel,
+        before.lowStockThreshold,
+      );
 
       if (oversold || reachedThreshold)
         lowStock.push({

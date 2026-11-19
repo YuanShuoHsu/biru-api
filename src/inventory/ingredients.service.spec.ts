@@ -367,7 +367,7 @@ describe('IngredientsService unlimitedStock', () => {
     );
     service = new IngredientsService(
       db as unknown as DrizzleDB,
-      {} as InventoryTransactionsService,
+      { notifyLowStock: () => {} } as unknown as InventoryTransactionsService,
     );
   }, 60_000);
 

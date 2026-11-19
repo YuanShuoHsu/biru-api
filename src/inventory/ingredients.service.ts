@@ -338,10 +338,11 @@ export class IngredientsService {
       if (!inventoryLevel || !Number(inventoryLevel))
         return { ...row, unitPrice };
 
-      await this.inventoryTransactionsService.create(
+      await this.inventoryTransactionsService.recordCount(
         row.id,
         { inventoryLevel, note: transactionNote },
-        { createdBy, tx },
+        tx,
+        createdBy,
       );
 
       return { ...row, inventoryLevel, unitPrice };
@@ -404,7 +405,7 @@ export class IngredientsService {
         ingredientId,
       );
 
-    const updated = await this.db.transaction(async (tx) => {
+    const counted = await this.db.transaction(async (tx) => {
       const [row] = Object.keys(dto).length
         ? await tx
             .update(ingredient)
@@ -434,16 +435,22 @@ export class IngredientsService {
         inventoryLevel == null ||
         Number(inventoryLevel) === Number(row.inventoryLevel)
       )
-        return { ...row, unitPrice };
+        return { ...row, unitPrice, lowStock: [] };
 
-      await this.inventoryTransactionsService.create(
+      const { lowStock } = await this.inventoryTransactionsService.recordCount(
         row.id,
         { inventoryLevel, note: transactionNote },
-        { createdBy, tx },
+        tx,
+        createdBy,
       );
 
-      return { ...row, inventoryLevel, unitPrice };
+      return { ...row, inventoryLevel, unitPrice, lowStock };
     });
+    const { lowStock, ...updated } = counted;
+    this.inventoryTransactionsService.notifyLowStock(
+      updated.organizationId,
+      lowStock,
+    );
 
     return {
       ...updated,
