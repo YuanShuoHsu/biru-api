@@ -7,9 +7,15 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { Audit } from '../common/decorators/audit.decorator.js';
@@ -21,12 +27,16 @@ import { CreateIngredientWasteDto } from './dto/create-ingredient-waste.dto.js';
 import { UpdateIngredientDto } from './dto/create-ingredient.dto.js';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto.js';
 import { IngredientResponseDto } from './dto/ingredient-response.dto.js';
-import { InventoryTransactionPaginationQueryDto } from './dto/inventory-transaction-pagination-query.dto.js';
+import {
+  InventoryTransactionExportQueryDto,
+  InventoryTransactionPaginationQueryDto,
+} from './dto/inventory-transaction-pagination-query.dto.js';
 import {
   InventoryTransactionListResponseDto,
   InventoryTransactionResponseDto,
 } from './dto/inventory-transaction-response.dto.js';
 import { IngredientsService } from './ingredients.service.js';
+import { InventoryTransactionCsvService } from './inventory-transaction-csv.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 
@@ -36,6 +46,7 @@ import { MenuStockInterceptor } from './menu-stock.interceptor.js';
 export class IngredientsController {
   constructor(
     private readonly ingredientsService: IngredientsService,
+    private readonly inventoryTransactionCsvService: InventoryTransactionCsvService,
     private readonly inventoryTransactionsService: InventoryTransactionsService,
   ) {}
 
@@ -83,6 +94,28 @@ export class IngredientsController {
       query,
       canReadPurchasing,
     );
+  }
+
+  @Get('inventory-transactions/export.csv')
+  @Roles({ inventoryTransaction: ['read'] }, 'ingredientId')
+  @ApiOperation({ summary: '匯出食材庫存異動 CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string' } })
+  async exportTransactions(
+    @Param('ingredientId') ingredientId: string,
+    @Query() query: InventoryTransactionExportQueryDto,
+    @HasPermission({ purchasing: ['read'] }) canReadPurchasing: boolean,
+  ): Promise<StreamableFile> {
+    const csv = await this.inventoryTransactionCsvService.transactions(
+      ingredientId,
+      query,
+      canReadPurchasing,
+    );
+
+    return new StreamableFile(Buffer.from(csv), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="inventory-transactions.csv"',
+    });
   }
 
   @Post('inventory-transactions')

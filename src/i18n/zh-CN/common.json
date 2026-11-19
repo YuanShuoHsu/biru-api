@@ -426,9 +426,11 @@
     "csv": {
       "actualConsumption": "实际耗用",
       "adjusted": "调整",
+      "balance": "异动后库存",
       "category": "分类",
       "closing": "期末",
       "consumed": "耗用",
+      "createdAt": "创建时间",
       "day": "日期",
       "discount": "折扣",
       "employerInsurance": "雇主劳健保",
@@ -443,11 +445,15 @@
       "mode": "点餐方式",
       "net": "净额",
       "noJobTitle": "未设置职位",
+      "note": "备注",
       "opening": "期初",
+      "orderNumber": "订单编号",
       "orders": "订单数",
       "paymentMethod": "付款方式",
       "personnelCost": "人事成本",
       "quantity": "份数",
+      "quantityChange": "异动量",
+      "reason": "原因",
       "received": "入库",
       "refunded": "退款",
       "refundedQuantity": "退款份数",
@@ -456,9 +462,18 @@
       "total": "合计",
       "uncategorized": "未分类",
       "unit": "单位",
+      "unitCost": "单位成本",
       "variance": "差异",
       "wasted": "报废",
-      "wastedCost": "报废成本"
+      "wastedCost": "报废成本",
+      "wasteReason": "报废原因"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "制作批次",
+      "consume": "订单耗用",
+      "count": "人工盘点",
+      "restore": "退单回补",
+      "waste": "报废"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -477,6 +492,13 @@
       "KGM": "公斤",
       "LTR": "升",
       "MLT": "毫升"
+    },
+    "wasteReasons": {
+      "damaged": "损坏",
+      "expired": "过期",
+      "madeWrong": "做错",
+      "other": "其他",
+      "spilled": "打翻"
     }
   },
   "sharedCarts": {

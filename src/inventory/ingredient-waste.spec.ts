@@ -182,6 +182,44 @@ describe('登記食材報廢', () => {
     ).toBe(0);
   });
 
+  it('匯出套用列表的篩選與排序並回傳全部符合的異動，不受分頁限制', async () => {
+    for (let index = 0; index < 11; index++)
+      await service.waste('milk', { quantity: '1', wasteReason: 'spilled' });
+    await service.waste('milk', { quantity: '2', wasteReason: 'expired' });
+
+    expect((await service.findAll('milk')).data).toHaveLength(10);
+
+    const spilled = await service.findAllForExport(
+      'milk',
+      {
+        filterField: 'wasteReason',
+        filterOperator: 'is',
+        filterValue: 'spilled',
+      },
+      true,
+    );
+    expect(spilled).toHaveLength(11);
+    expect(new Set(spilled.map(({ wasteReason }) => wasteReason))).toEqual(
+      new Set(['spilled']),
+    );
+
+    const sorted = await service.findAllForExport(
+      'milk',
+      { sortBy: 'quantity', sortDirection: 'asc' },
+      false,
+    );
+    expect(sorted).toHaveLength(12);
+    expect(sorted[0]).toMatchObject({
+      quantity: '-2.000',
+      wasteReason: 'expired',
+    });
+    expect(sorted.every((row) => !('unitCost' in row))).toBe(true);
+
+    await expect(
+      service.findAllForExport('milk', { sortBy: 'unitCost' }, false),
+    ).rejects.toMatchObject({ response: { code: 'forbidden' } });
+  });
+
   it('報廢量超過帳上庫存時以 wasteExceedsStock 擋下且不寫入異動', async () => {
     const response = await responseOf(
       service.waste('milk', { quantity: '2000.001', wasteReason: 'spilled' }),

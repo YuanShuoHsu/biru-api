@@ -5,6 +5,7 @@ import { MailsModule } from '../mails/mails.module.js';
 import { IngredientsController } from './ingredients.controller.js';
 import { IngredientsService } from './ingredients.service.js';
 import { InventoryNotificationsService } from './inventory-notifications.service.js';
+import { InventoryTransactionCsvService } from './inventory-transaction-csv.service.js';
 import { InventoryTransactionsService } from './inventory-transactions.service.js';
 import { MenuStockService } from './menu-stock.service.js';
 import { MenuItemInventoryController } from './menu-item-inventory.controller.js';
@@ -28,6 +29,7 @@ import { SuppliersService } from './suppliers.service.js';
   providers: [
     IngredientsService,
     InventoryNotificationsService,
+    InventoryTransactionCsvService,
     InventoryTransactionsService,
     MenuStockService,
     RecipesService,

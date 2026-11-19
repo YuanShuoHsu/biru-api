@@ -55,6 +55,7 @@ import {
   INVENTORY_TRANSACTION_ENUM_FILTER_FIELDS,
   INVENTORY_TRANSACTION_NUMBER_FILTER_FIELDS,
   INVENTORY_TRANSACTION_STRING_FILTER_FIELDS,
+  InventoryTransactionExportQueryDto,
   InventoryTransactionPaginationQueryDto,
 } from './dto/inventory-transaction-pagination-query.dto.js';
 import {
@@ -96,9 +97,40 @@ export class InventoryTransactionsService {
     query: InventoryTransactionPaginationQueryDto = {},
     canReadPurchasing = true,
   ): Promise<{ data: InventoryTransactionResponseDto[]; total: number }> {
+    const { limit = 10, offset = 0 } = query;
+    const { rows, where } = this.ledgerQuery(
+      ingredientId,
+      query,
+      canReadPurchasing,
+    );
+    const [data, [{ total }]] = await Promise.all([
+      rows.limit(limit).offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(inventoryTransaction)
+        .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
+        .where(where),
+    ]);
+
+    return { data: data.map(this.toLedgerRow(canReadPurchasing)), total };
+  }
+
+  async findAllForExport(
+    ingredientId: string,
+    query: InventoryTransactionExportQueryDto,
+    canReadPurchasing: boolean,
+  ): Promise<InventoryTransactionResponseDto[]> {
+    const { rows } = this.ledgerQuery(ingredientId, query, canReadPurchasing);
+
+    return (await rows).map(this.toLedgerRow(canReadPurchasing));
+  }
+
+  private ledgerQuery(
+    ingredientId: string,
+    query: InventoryTransactionExportQueryDto,
+    canReadPurchasing: boolean,
+  ) {
     const {
-      limit = 10,
-      offset = 0,
       filterField,
       filterOperator,
       filterValue,
@@ -191,46 +223,41 @@ export class InventoryTransactionsService {
       }),
     );
 
-    const [rows, [{ total }]] = await Promise.all([
-      this.db
-        .select({
-          inventoryTransaction,
-          balance: ledger.balance,
-          orderNumber: order.orderNumber,
-          reason,
-        })
-        .from(inventoryTransaction)
-        .innerJoin(ledger, eq(ledger.id, inventoryTransaction.id))
-        .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
-        .where(where)
-        .orderBy(...orderBy)
-        .limit(limit)
-        .offset(offset),
-      this.db
-        .select({ total: count() })
-        .from(inventoryTransaction)
-        .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
-        .where(where),
-    ]);
+    const rows = this.db
+      .select({
+        inventoryTransaction,
+        balance: ledger.balance,
+        orderNumber: order.orderNumber,
+        reason,
+      })
+      .from(inventoryTransaction)
+      .innerJoin(ledger, eq(ledger.id, inventoryTransaction.id))
+      .leftJoin(order, eq(order.id, inventoryTransaction.orderId))
+      .where(where)
+      .orderBy(...orderBy);
 
-    return {
-      data: rows.map(
-        ({
-          inventoryTransaction: { unitCost, ...row },
-          balance,
-          orderNumber,
-          reason,
-        }) => ({
-          ...row,
-          ...(canReadPurchasing && { unitCost }),
-          balance,
-          orderNumber,
-          reason,
-        }),
-      ),
-      total,
-    };
+    return { rows, where };
   }
+
+  private toLedgerRow =
+    (canReadPurchasing: boolean) =>
+    ({
+      inventoryTransaction: { unitCost, ...row },
+      balance,
+      orderNumber,
+      reason,
+    }: {
+      inventoryTransaction: InventoryTransaction;
+      balance: string;
+      orderNumber: string | null;
+      reason: InventoryTransactionReason;
+    }): InventoryTransactionResponseDto => ({
+      ...row,
+      ...(canReadPurchasing && { unitCost }),
+      balance,
+      orderNumber,
+      reason,
+    });
 
   async create(
     ingredientId: string,

@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { IsIn, IsOptional } from 'class-validator';
 
@@ -47,3 +47,8 @@ export class InventoryTransactionPaginationQueryDto extends PaginationQueryDto {
   @IsIn(INVENTORY_TRANSACTION_SORT_FIELDS)
   sortBy?: InventoryTransactionSortField;
 }
+
+export class InventoryTransactionExportQueryDto extends OmitType(
+  InventoryTransactionPaginationQueryDto,
+  ['limit', 'offset'] as const,
+) {}

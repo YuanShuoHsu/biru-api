@@ -426,9 +426,11 @@
     "csv": {
       "actualConsumption": "Actual consumption",
       "adjusted": "Adjusted",
+      "balance": "Stock after",
       "category": "Category",
       "closing": "Closing",
       "consumed": "Consumed",
+      "createdAt": "Created at",
       "day": "Date",
       "discount": "Discount",
       "employerInsurance": "Employer insurance",
@@ -443,11 +445,15 @@
       "mode": "Order mode",
       "net": "Net",
       "noJobTitle": "No job title",
+      "note": "Notes",
       "opening": "Opening",
+      "orderNumber": "Order number",
       "orders": "Orders",
       "paymentMethod": "Payment method",
       "personnelCost": "Personnel cost",
       "quantity": "Quantity",
+      "quantityChange": "Change",
+      "reason": "Reason",
       "received": "Received",
       "refunded": "Refunded",
       "refundedQuantity": "Refunded quantity",
@@ -456,9 +462,18 @@
       "total": "Total",
       "uncategorized": "Uncategorized",
       "unit": "Unit",
+      "unitCost": "Unit cost",
       "variance": "Variance",
       "wasted": "Waste",
-      "wastedCost": "Waste cost"
+      "wastedCost": "Waste cost",
+      "wasteReason": "Waste reason"
+    },
+    "inventoryTransactionReasons": {
+      "batch": "Batch made",
+      "consume": "Order usage",
+      "count": "Stock count",
+      "restore": "Order refund",
+      "waste": "Waste"
     },
     "paymentMethods": {
       "ApplePay": "Apple Pay",
@@ -477,6 +492,13 @@
       "KGM": "kg",
       "LTR": "L",
       "MLT": "ml"
+    },
+    "wasteReasons": {
+      "damaged": "Damaged",
+      "expired": "Expired",
+      "madeWrong": "Made wrong",
+      "other": "Other",
+      "spilled": "Spilled"
     }
   },
   "sharedCarts": {

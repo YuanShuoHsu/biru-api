@@ -19,7 +19,7 @@ import {
 } from './sales-report.service.js';
 
 type CsvCell = string | number | null | undefined;
-type CsvColumn = keyof I18nTranslations['common']['reports']['csv'];
+export type CsvColumn = keyof I18nTranslations['common']['reports']['csv'];
 
 // https://owasp.org/www-community/attacks/CSV_Injection
 const NUMERIC = /^-?\d+(\.\d+)?$/;
