@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 import { trim } from '../../common/utils/trim.js';
@@ -41,7 +42,7 @@ export class CreateCashDeviceDto {
     enum: cashDeviceStatusEnum.enumValues,
     enumName: 'CashDeviceStatus',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(cashDeviceStatusEnum.enumValues)
   status?: CashDeviceStatus;
 }
