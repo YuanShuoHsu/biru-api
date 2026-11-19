@@ -134,8 +134,11 @@
     "scheduleInvalid": "開始日時は終了日時より前にしてください"
   },
   "cashDevices": {
+    "cashDeviceInactive": "この現金機は停止中です。補充や回収を記録する前に稼働中にしてください",
     "cashDeviceInUse": "この現金機には取引記録があるため削除できません。代わりに停止中にしてください",
-    "cashDeviceNotFound": "現金機が見つかりません。削除された可能性があります"
+    "cashDeviceNotFound": "現金機が見つかりません。削除された可能性があります",
+    "cashDeviceRefillEmpty": "補充する金種を1つ以上入力してください",
+    "idempotencyConflict": "再送内容が変更されています。フォームを開き直してください。"
   },
   "checklists": {
     "checklistActionNoteRequired": "範囲外の数値は、対応内容を入力してから保存してください。",

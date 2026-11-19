@@ -8,7 +8,7 @@ import type {
   AuditResourceLabel,
 } from '../../db/schema/audit.js';
 import { banner } from '../../db/schema/banners.js';
-import { cashDevice } from '../../db/schema/cash-devices.js';
+import { cashDevice, cashDeviceEvent } from '../../db/schema/cash-devices.js';
 import {
   catalogItem,
   catalogItemAddOn,
@@ -109,6 +109,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {
+  cashDeviceEvent,
   checklistTemplateItem,
   offer,
   operatingType: organizationOperatingType,
@@ -132,6 +133,7 @@ export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
     cashDevice: ['lastSeenAt'],
+    cashDeviceEvent: ['createdBy', 'deviceId', 'occurredAt'],
     order: ['heldOfferStock'],
     orderQrSecret: ['previousSecret', 'secret'],
     printer: ['digestHa1', 'lastSeenAt', 'pollGapsMs'],

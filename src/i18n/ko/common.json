@@ -134,8 +134,11 @@
     "scheduleInvalid": "시작 시간은 종료 시간보다 빨라야 합니다"
   },
   "cashDevices": {
+    "cashDeviceInactive": "이 현금 기기는 사용 중지 상태입니다. 보충이나 수거를 기록하려면 먼저 사용 중으로 설정해 주세요",
     "cashDeviceInUse": "이 현금 기기에는 거래 기록이 있어 삭제할 수 없습니다. 대신 사용 중지로 설정해 주세요",
-    "cashDeviceNotFound": "현금 기기를 찾을 수 없습니다. 삭제되었을 수 있습니다"
+    "cashDeviceNotFound": "현금 기기를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "cashDeviceRefillEmpty": "보충할 권종을 하나 이상 입력해 주세요",
+    "idempotencyConflict": "재시도 내용이 변경되었습니다. 양식을 다시 여세요."
   },
   "checklists": {
     "checklistActionNoteRequired": "범위를 벗어난 수치는 조치 내용을 입력해야 저장할 수 있습니다.",
