@@ -140,6 +140,14 @@ export const catalogItemAddOn = pgTable(
     index('catalogItemAddOn_addOnCatalogSectionId_idx').on(
       table.addOnCatalogSectionId,
     ),
+    uniqueIndex('catalogItemAddOn_catalogItemId_addOnCatalogItemId_uidx').on(
+      table.catalogItemId,
+      table.addOnCatalogItemId,
+    ),
+    uniqueIndex('catalogItemAddOn_catalogItemId_addOnCatalogSectionId_uidx').on(
+      table.catalogItemId,
+      table.addOnCatalogSectionId,
+    ),
   ],
 );
 
