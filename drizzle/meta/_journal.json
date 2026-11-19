@@ -2017,6 +2017,13 @@
       "when": 1795030197586,
       "tag": "0287_item_add_on_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1795066877541,
+      "tag": "0288_store_layout_juicer_stick_blender",
+      "breakpoints": true
     }
   ]
 }
