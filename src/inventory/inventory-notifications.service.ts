@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { and, asc, eq, inArray, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte } from 'drizzle-orm';
 
+import { notBanned } from '../common/utils/users.js';
 import { ingredient, supplier } from '../db/schema/inventory.js';
 import { member, organization } from '../db/schema/organizations.js';
 import { user } from '../db/schema/users.js';
@@ -60,11 +61,7 @@ export class InventoryNotificationsService {
           ]),
           inArray(member.role, ['owner', 'admin']),
           eq(member.joinedAsPlatformAdmin, false),
-          or(
-            isNull(user.banned),
-            eq(user.banned, false),
-            lt(user.banExpires, now),
-          ),
+          notBanned(now),
         ),
       );
 

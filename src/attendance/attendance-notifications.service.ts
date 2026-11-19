@@ -5,6 +5,7 @@ import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
 import { DAY_MS } from '../common/constants/timezone.js';
+import { notBanned } from '../common/utils/users.js';
 import {
   attendanceAnnualLeaveNotice,
   attendanceEmployee,
@@ -67,6 +68,7 @@ export class AttendanceNotificationsService {
           email: user.email,
           lang: user.lang,
           name: user.name,
+          mailable: sql<boolean>`${notBanned(new Date())}`,
         })
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
@@ -101,7 +103,7 @@ export class AttendanceNotificationsService {
       const reviewers = await this.db
         .select({ email: user.email, lang: user.lang, name: user.name })
         .from(user)
-        .where(inArray(user.id, userIds));
+        .where(and(inArray(user.id, userIds), notBanned(new Date())));
       await Promise.all(
         reviewers.map((reviewer) =>
           this.mails.sendAttendanceNotification({
@@ -153,6 +155,7 @@ export class AttendanceNotificationsService {
               isNull(attendanceEmployee.terminatedAt),
               gt(attendanceEmployee.terminatedAt, now),
             ),
+            notBanned(now),
           ),
         )
     ).filter((employee) => anniversary(employee.hiredAt, 6) <= now);
@@ -262,9 +265,12 @@ export class AttendanceNotificationsService {
           .from(attendanceEmployee)
           .innerJoin(user, eq(user.id, attendanceEmployee.userId))
           .where(
-            inArray(
-              attendanceEmployee.id,
-              due.map(({ employeeId }) => employeeId),
+            and(
+              inArray(
+                attendanceEmployee.id,
+                due.map(({ employeeId }) => employeeId),
+              ),
+              notBanned(now),
             ),
           );
 
@@ -313,7 +319,11 @@ export class AttendanceNotificationsService {
         event.organizationId,
         event.employeeId,
       );
-      if (!context || context.employee.userId === event.reviewerUserId) return;
+      if (
+        !context?.employee.mailable ||
+        context.employee.userId === event.reviewerUserId
+      )
+        return;
       const [reviewer] = await this.db
         .select({ name: user.name })
         .from(user)
