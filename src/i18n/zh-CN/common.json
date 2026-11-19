@@ -133,6 +133,10 @@
     "bannerNotFound": "找不到这则横幅，可能已被删除",
     "scheduleInvalid": "开始时间必须早于结束时间"
   },
+  "cashDevices": {
+    "cashDeviceInUse": "这台现金机已有交易记录，无法删除，请改为停用",
+    "cashDeviceNotFound": "找不到这台现金机，可能已被删除"
+  },
   "checklists": {
     "checklistActionNoteRequired": "数值超出范围时，请填写处理说明后再保存。",
     "checklistItemInvalidRange": "数值项目的下限不能大于上限。",
