@@ -13,6 +13,7 @@ interface CatalogCopy {
   menuIdColumn: string;
   columns: Record<string, string>;
   conflict?: { target: string; match: string };
+  keyTaken?: string;
 }
 
 const ID_CONFLICT = { target: 'id', match: 'c.id = s.id' };
@@ -111,6 +112,12 @@ const CATALOG_COPIES: CatalogCopy[] = [
       add_on_catalog_section_id: 's.add_on_menu_section_id',
       sort_order: 's.sort_order',
     },
+    keyTaken: `EXISTS (
+      SELECT 1 FROM catalog_item_add_on t
+      WHERE t.id <> s.id AND t.catalog_item_id = s.menu_item_id
+        AND (t.add_on_catalog_item_id = s.add_on_menu_item_id
+          OR t.add_on_catalog_section_id = s.add_on_menu_section_id)
+    )`,
   },
 ];
 
@@ -181,8 +188,10 @@ async function migrateStore(
   for (const copy of CATALOG_COPIES) {
     const where = sql`${sql.raw(copy.menuIdColumn)} = ${menuId}`;
     const conflict = copy.conflict ?? ID_CONFLICT;
+    const keyTaken = sql.raw(copy.keyTaken ?? 'false');
     const { rows } = await tx.execute<{ action: string; ids: string[] }>(sql`
       SELECT CASE
+          WHEN ${keyTaken} THEN 'keyTaken'
           WHEN c.id IS NULL THEN 'insert'
           WHEN s.updated_at > c.updated_at THEN 'overwrite'
           WHEN s.updated_at < c.updated_at THEN 'catalogNewer'
@@ -200,6 +209,10 @@ async function migrateStore(
     printIds(
       `  ${copy.catalog} newer than ${copy.source}, skipped`,
       ids.catalogNewer ?? [],
+    );
+    printIds(
+      `  ${copy.catalog} key already held by another row, skipped`,
+      ids.keyTaken ?? [],
     );
     if (!apply || (!ids.insert && !ids.overwrite)) continue;
 
@@ -221,7 +234,7 @@ async function migrateStore(
         ${sql.raw(Object.values(copy.columns).join(', '))},
         s.created_at, s.updated_at
       FROM ${sql.raw(copy.from)}
-      WHERE ${where}
+      WHERE ${where} AND NOT ${keyTaken}
       ON CONFLICT (${sql.raw(conflict.target)}) DO UPDATE SET ${sql.raw(updates)}
       WHERE ${sql.raw(copy.catalog)}.updated_at < excluded.updated_at`);
   }

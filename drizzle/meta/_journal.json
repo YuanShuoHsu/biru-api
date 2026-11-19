@@ -2031,6 +2031,13 @@
       "when": 1795084454010,
       "tag": "0289_cash_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1795089671088,
+      "tag": "0290_catalog_item_add_on_unique",
+      "breakpoints": true
     }
   ]
 }
