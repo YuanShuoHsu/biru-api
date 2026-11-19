@@ -37,7 +37,10 @@ import { PICKUP_MAX_ADVANCE_DAYS } from '../common/constants/pickup.js';
 import { DAY_MS } from '../common/constants/timezone.js';
 import type { StatsBucketQueryDto } from '../common/dto/stats-bucket-query.dto.js';
 import { accessForbiddenError } from '../common/utils/access-forbidden-error.js';
-import { organizationHasOpenWorkError } from '../common/utils/organization-closure.js';
+import {
+  organizationHasOpenWorkError,
+  organizationReadOnlyError,
+} from '../common/utils/organization-closure.js';
 import {
   findSpecialHours,
   findSpecialHoursByOrganization,
@@ -180,6 +183,8 @@ export class OrganizationsService {
     showcase: boolean,
     actor: { role: string; userId: string },
   ): Promise<{ id: string; showcase: boolean }> {
+    await this.assertOrganizationWritable(organizationId);
+
     const target = await this.db.query.member.findFirst({
       where: and(
         eq(member.id, memberId),
@@ -213,6 +218,8 @@ export class OrganizationsService {
     memberId: string,
     actor: { platformAdmin: boolean; userId: string },
   ): Promise<Member> {
+    await this.assertOrganizationWritable(organizationId);
+
     if (!actor.platformAdmin) {
       const own = await this.db.query.member.findFirst({
         where: and(
@@ -249,6 +256,14 @@ export class OrganizationsService {
     if (!target) throw notFoundError('memberNotFound');
 
     throw conflictError('notJoinedAsPlatformAdmin');
+  }
+
+  private async assertOrganizationWritable(organizationId: string) {
+    const store = await this.db.query.organization.findFirst({
+      where: eq(organization.id, organizationId),
+      columns: { closedAt: true },
+    });
+    if (store?.closedAt) throw organizationReadOnlyError();
   }
 
   async platformAdminMemberIds(organizationId: string): Promise<string[]> {
