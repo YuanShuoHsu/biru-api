@@ -69,6 +69,15 @@ describe('盤點的低庫存通知', () => {
     expect(emit).toHaveBeenCalledWith(LOW_STOCK_REACHED_EVENT, lowStockEvent);
   });
 
+  it('找不到食材時不送通知', async () => {
+    const emit = vi.spyOn(eventEmitter, 'emit');
+
+    await expect(
+      service.create('missing', { inventoryLevel: '0' }),
+    ).rejects.toThrow();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['仍在門檻以上', '2000', '1700'],
     ['原本就在門檻以下', '1500', '1000'],
@@ -107,7 +116,7 @@ describe('盤點的低庫存通知', () => {
   it('編輯食材沒有改數量時不送通知', async () => {
     const emit = vi.spyOn(eventEmitter, 'emit');
 
-    await ingredients.update('milk', { lowStockThreshold: '1900' });
+    await ingredients.update('milk', { lowStockThreshold: '2500' });
 
     expect(emit).not.toHaveBeenCalled();
   });
