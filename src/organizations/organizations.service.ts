@@ -283,6 +283,12 @@ export class OrganizationsService {
     closed: boolean,
   ): Promise<Organization> {
     if (closed) {
+      const current = await this.db.query.organization.findFirst({
+        where: eq(organization.id, organizationId),
+      });
+      if (!current) throw organizationNotFoundError();
+      if (current.closedAt) return current;
+
       const [[{ orders }], [{ unreconciledOrders }], [{ tickets }]] =
         await Promise.all([
           this.db
@@ -326,11 +332,21 @@ export class OrganizationsService {
     const [updated] = await this.db
       .update(organization)
       .set({ closedAt: closed ? new Date() : null })
-      .where(eq(organization.id, organizationId))
+      .where(
+        and(
+          eq(organization.id, organizationId),
+          closed ? isNull(organization.closedAt) : undefined,
+        ),
+      )
       .returning();
-    if (!updated) throw organizationNotFoundError();
+    if (updated) return updated;
 
-    return updated;
+    const current = await this.db.query.organization.findFirst({
+      where: eq(organization.id, organizationId),
+    });
+    if (!current) throw organizationNotFoundError();
+
+    return current;
   }
 
   async operatingType(

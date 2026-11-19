@@ -558,6 +558,15 @@ describe('OrganizationsService.setClosed', () => {
     });
   });
 
+  it('已停業的門市再停業一次，保留原本的停業時間', async () => {
+    const { closedAt } = await service.setClosed('biru', true);
+    await insertOrder('processing', 'OrderProcessing');
+
+    await expect(service.setClosed('biru', true)).resolves.toMatchObject({
+      closedAt,
+    });
+  });
+
   it('重新營業不檢查未完成的工作', async () => {
     await insertOrder('problem', 'OrderProblem');
 
