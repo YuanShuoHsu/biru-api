@@ -86,6 +86,7 @@ Every PR against `develop` or `master`, and every push to `develop`, runs `lint`
 | PushModule           | `src/push/`            | Web Push subscriptions (storage only; sending comes later)                                             |
 | HealthModule         | `src/health/`          | `GET /api/health` (Terminus): checks the database with `select 1`                                      |
 | ChecklistsModule     | `src/checklists/`      | 例行檢查表: per-store checklist templates and their runs                                               |
+| CashDevicesModule    | `src/cash-devices/`    | 現金自助繳費機台: per-store cash devices (CRUD); their events have no API yet                          |
 
 Most tenant-scoped routes are nested under `organizations/:organizationSlug/...`. Per-user
 routes live under `users/me/...` (orders, coupons, points).
@@ -117,6 +118,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
+- `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, external_id)` unique as the device transaction idempotency key)
 - `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`

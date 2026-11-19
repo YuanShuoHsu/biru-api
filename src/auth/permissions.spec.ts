@@ -25,3 +25,17 @@ describe('OR connector', () => {
     ).toBe(expected);
   });
 });
+
+describe('cash device permissions', () => {
+  it.each([
+    ['owner', true],
+    ['admin', true],
+    ['member', false],
+    ['user', false],
+  ])('%s can manage cash devices: %s', (role, expected) => {
+    for (const action of ['create', 'read', 'update', 'delete'])
+      expect(isAuthorized(role, { cashDevice: [action] }), action).toBe(
+        expected,
+      );
+  });
+});

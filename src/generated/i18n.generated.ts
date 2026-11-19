@@ -188,6 +188,10 @@ export type I18nTranslations = {
             "bannerNotFound": string;
             "scheduleInvalid": string;
         };
+        "cashDevices": {
+            "cashDeviceInUse": string;
+            "cashDeviceNotFound": string;
+        };
         "checklists": {
             "checklistActionNoteRequired": string;
             "checklistItemInvalidRange": string;

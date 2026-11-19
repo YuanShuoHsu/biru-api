@@ -133,6 +133,10 @@
     "bannerNotFound": "バナーが見つかりません。削除された可能性があります",
     "scheduleInvalid": "開始日時は終了日時より前にしてください"
   },
+  "cashDevices": {
+    "cashDeviceInUse": "この現金機には取引記録があるため削除できません。代わりに停止中にしてください",
+    "cashDeviceNotFound": "現金機が見つかりません。削除された可能性があります"
+  },
   "checklists": {
     "checklistActionNoteRequired": "範囲外の数値は、対応内容を入力してから保存してください。",
     "checklistItemInvalidRange": "数値項目の下限は上限を超えられません。",

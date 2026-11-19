@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 const modulesWithErrorCodes = [
   'attendance',
   'banners',
+  'cash-devices',
   'checklists',
   'coupons',
   'deleted-records',

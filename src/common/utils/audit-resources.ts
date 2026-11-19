@@ -8,6 +8,7 @@ import type {
   AuditResourceLabel,
 } from '../../db/schema/audit.js';
 import { banner } from '../../db/schema/banners.js';
+import { cashDevice } from '../../db/schema/cash-devices.js';
 import {
   catalogItem,
   catalogItemAddOn,
@@ -104,6 +105,7 @@ export const AUDIT_TABLES: Record<AuditResource, AuditableTable> = {
   catalogItemModifierGroup,
   catalogItemAddOn,
   checklistTemplate,
+  cashDevice,
 };
 
 export const AUDIT_SUB_TABLES: Record<AuditSubTable, AnyPgTable> = {

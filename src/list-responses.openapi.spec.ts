@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AdminAuditController } from './audit/admin-audit.controller.js';
 import { AuditController } from './audit/audit.controller.js';
 import { AdminBannersController } from './banners/admin-banners.controller.js';
+import { CashDevicesController } from './cash-devices/cash-devices.controller.js';
 import { DeletedRecordsController } from './deleted-records/deleted-records.controller.js';
 import { OrganizationDeletedRecordsController } from './deleted-records/organization-deleted-records.controller.js';
 import { IngredientsController } from './inventory/ingredients.controller.js';
@@ -23,6 +24,11 @@ const LIST_ENDPOINTS: [string, string, string][] = [
     'AuditLogResponseDto',
   ],
   ['/banners', 'BannerListResponseDto', 'BannerResponseDto'],
+  [
+    '/organizations/{organizationSlug}/cash-devices',
+    'CashDeviceListResponseDto',
+    'CashDeviceResponseDto',
+  ],
   [
     '/deleted-records',
     'DeletedRecordBatchListResponseDto',
@@ -122,6 +128,7 @@ describe('list endpoints OpenAPI', () => {
         AdminAuditController,
         AuditController,
         AdminBannersController,
+        CashDevicesController,
         DeletedRecordsController,
         OrganizationDeletedRecordsController,
         IngredientsController,
