@@ -557,20 +557,43 @@ describe('MailsService 語系', () => {
 
   const user = { email: 'ann@example.com', name: 'Ann', lang: 'ja' as const };
 
-  it.each([
-    ['verify-email', () => service.sendVerificationEmail],
-    ['reset-password', () => service.sendResetPassword],
-    ['delete-account', () => service.sendDeleteAccountVerification],
-    ['verify-email', () => service.sendChangeEmailConfirmation],
-  ] as const)(
-    '信件連到前台 %s 頁，callbackURL 帶成 redirectTo',
-    async (page, method) => {
+  type AccountMail = (
+    args: { token: string; url: string },
+    request: Request,
+  ) => Promise<void>;
+
+  it.each<[string, string, AccountMail]>([
+    [
+      'sendVerificationEmail',
+      'verify-email',
+      (args, req) => service.sendVerificationEmail({ user, ...args }, req),
+    ],
+    [
+      'sendResetPassword',
+      'reset-password',
+      (args, req) => service.sendResetPassword({ user, ...args }, req),
+    ],
+    [
+      'sendDeleteAccountVerification',
+      'delete-account',
+      (args, req) =>
+        service.sendDeleteAccountVerification({ user, ...args }, req),
+    ],
+    [
+      'sendChangeEmailConfirmation',
+      'verify-email',
+      (args, req) =>
+        service.sendChangeEmailConfirmation(
+          { user, newEmail: 'new@example.com', ...args },
+          req,
+        ),
+    ],
+  ])(
+    '%s 連到前台 %s 頁，callbackURL 帶成 redirectTo',
+    async (_, page, send) => {
       for (const query of ['', '&callbackURL=%2Fja%2Fauth%2Forders'])
-        await method().call(
-          service,
+        await send(
           {
-            user,
-            newEmail: 'new@example.com',
             token: 't',
             url: `http://localhost:3001/api/auth/x?token=t${query}`,
           },
@@ -588,4 +611,16 @@ describe('MailsService 語系', () => {
       ]);
     },
   );
+
+  it('better-auth 的連結無法解析時不寄信', async () => {
+    const calls = vi.mocked(sendMail).mock.calls.length;
+
+    await expect(
+      service.sendResetPassword(
+        { user, token: 't', url: 'not a url' },
+        request(),
+      ),
+    ).rejects.toThrow(TypeError);
+    expect(vi.mocked(sendMail).mock.calls).toHaveLength(calls);
+  });
 });
