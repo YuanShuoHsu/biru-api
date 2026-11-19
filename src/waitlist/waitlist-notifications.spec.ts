@@ -24,12 +24,13 @@ describe('WaitlistNotificationsService.onUpdated', () => {
     );
     await client.exec(`
       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');
-      insert into "user" (id, name, first_name, email, lang) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'ja'), ('bob', 'Bob', 'Bob', 'bob@example.com', 'ko');
+      insert into "user" (id, name, first_name, email, lang, email_verified) values ('amy', 'Amy', 'Amy', 'amy@example.com', 'ja', true), ('bob', 'Bob', 'Bob', 'bob@example.com', 'ko', true), ('eve', 'Eve', 'Eve', 'taken@example.com', 'ja', false);
       insert into waitlist_ticket (id, organization_id, service_date, prefix, number, party_size, locale, status, email, user_id)
         values ('member', 'org', '2026-11-19', 'A', 1, 2, 'zh-TW', 'waiting', 'Amy@Example.com', 'amy'),
                ('guest', 'org', '2026-11-19', 'A', 2, 2, 'en', 'waiting', 'guest@example.com', null),
                ('companion', 'org', '2026-11-19', 'A', 3, 2, 'zh-CN', 'waiting', 'friend@example.com', 'amy'),
-               ('staff', 'org', '2026-11-19', 'A', 4, 2, 'zh-TW', 'waiting', 'Bob@Example.com', null);
+               ('staff', 'org', '2026-11-19', 'A', 4, 2, 'zh-TW', 'waiting', 'Bob@Example.com', null),
+               ('unverified', 'org', '2026-11-19', 'A', 5, 2, 'ko', 'waiting', 'taken@example.com', null);
     `);
   }, 60_000);
 
@@ -82,6 +83,17 @@ describe('WaitlistNotificationsService.onUpdated', () => {
 
     expect(sendWaitlistNotification).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'Bob@Example.com', lang: 'ko' }),
+    );
+  });
+
+  it('email 對應的帳號沒驗證時用取號時的語言寄信', async () => {
+    await service.onUpdated({
+      organizationId: 'org',
+      ticket: { id: 'unverified', status: 'waiting' },
+    });
+
+    expect(sendWaitlistNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'taken@example.com', lang: 'ko' }),
     );
   });
 });
