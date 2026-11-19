@@ -68,7 +68,7 @@ export class AttendanceNotificationsService {
           email: user.email,
           lang: user.lang,
           name: user.name,
-          mailable: sql<boolean>`${notBanned(new Date())}`,
+          mailable: sql<boolean>`coalesce(${notBanned(new Date())}, false)`,
         })
         .from(attendanceEmployee)
         .innerJoin(user, eq(user.id, attendanceEmployee.userId))
@@ -155,7 +155,6 @@ export class AttendanceNotificationsService {
               isNull(attendanceEmployee.terminatedAt),
               gt(attendanceEmployee.terminatedAt, now),
             ),
-            notBanned(now),
           ),
         )
     ).filter((employee) => anniversary(employee.hiredAt, 6) <= now);

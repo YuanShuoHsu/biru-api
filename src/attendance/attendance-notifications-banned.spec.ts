@@ -13,7 +13,7 @@ import { AttendanceShiftsService } from './attendance-shifts.service.js';
 const ORG = 'org';
 const DAY = 24 * 60 * 60 * 1000;
 
-describe('AttendanceNotificationsService 不寄給停權帳號', () => {
+describe('AttendanceNotificationsService 停權帳號的出勤通知', () => {
   let client: PGlite;
   let service: AttendanceNotificationsService;
   const sendAttendanceNotification = vi.fn();
@@ -108,21 +108,15 @@ describe('AttendanceNotificationsService 不寄給停權帳號', () => {
     ]);
   });
 
-  it('特休通知跳過停權中的員工，之後解除停權仍會補寄', async () => {
-    const hiredAt = new Date(now.getTime() - 200 * DAY);
+  it('特休通知是法定告知，停權中的員工照樣寄', async () => {
     await client.query('update attendance_employee set hired_at = $1', [
-      hiredAt,
+      new Date(now.getTime() - 200 * DAY),
     ]);
 
     await service.notifyAnnualLeaveEntitlements(now);
+
     expect(recipientsOf(sendAnnualLeaveEntitlement)).toEqual([
       'amy@example.com',
-    ]);
-
-    sendAnnualLeaveEntitlement.mockReset();
-    await client.exec(`update "user" set banned = false where id = 'banned'`);
-    await service.notifyAnnualLeaveEntitlements(now);
-    expect(recipientsOf(sendAnnualLeaveEntitlement)).toEqual([
       'banned@example.com',
     ]);
   });
