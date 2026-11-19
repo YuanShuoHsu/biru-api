@@ -152,7 +152,7 @@
       "detail": "Please check in at the counter by {holdUntil}. Use the button below to let us know whether you're coming. If you don't arrive in time, the store may skip your number.",
       "action": "Respond to your call"
     },
-    "salutation": "Thanks,<br>The {productName} team",
+    "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
   "low_stock_digest": {
@@ -169,7 +169,7 @@
       "MLT": "mL",
       "H87": "pcs"
     },
-    "salutation": "Thanks,<br>The {productName} team",
+    "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
   "daily_sales_digest": {
@@ -187,7 +187,7 @@
     "point_adjustments": "Manual point adjustments ({count}, {total} points in total)",
     "point_adjustment": "{adjuster} adjusted {member} by {points} points: {reason}",
     "action": "Open the dashboard",
-    "salutation": "Thanks,<br>The {productName} team",
+    "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
   "platform_daily_digest": {
@@ -202,7 +202,7 @@
     "low_stock_item": "{item}, supplier: {supplier}",
     "sales_unavailable": "Sales figures for this store couldn't be loaded; check its dashboard.",
     "action": "View all stores",
-    "salutation": "Thanks,<br>The {productName} team",
+    "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
   "points_expiry_reminder": {
@@ -210,7 +210,7 @@
     "title": "Your points are expiring",
     "intro": "{points} of your points expire on {date} and can't be used after that. Redeem them before they expire.",
     "action": "View my points",
-    "salutation": "Thanks,<br>The {productName} team",
+    "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
   "smtp_test": {
