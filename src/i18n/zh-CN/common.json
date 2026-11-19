@@ -209,6 +209,7 @@
     "recipeMenuItemTaken": "这个菜单品项已经有食谱了",
     "recipeModifierTaken": "这个选项已经有食谱了",
     "recipeNotFound": "找不到这份食谱，可能已被删除",
+    "recipeYieldUnpaired": "食谱的产量与单位必须一起设定",
     "sourceRecipeHasMenuItem": "已绑定菜单品项的食谱不能作为食材的来源食谱",
     "sourceRecipeHasModifier": "已绑定选项的食谱不能作为食材的来源食谱",
     "sourceRecipeNested": "来源食谱不能使用由其他食谱制成的食材",

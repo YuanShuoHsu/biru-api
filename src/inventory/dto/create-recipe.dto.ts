@@ -10,11 +10,7 @@ import {
   Matches,
   Max,
   Min,
-  Validate,
   ValidateIf,
-  ValidatorConstraint,
-  type ValidationArguments,
-  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 import { UNIT_FACTORS } from '../../common/constants/units.js';
@@ -25,20 +21,6 @@ import {
 import { LocalizedTextDto } from '../../common/dto/localized-text.dto.js';
 import type { LocalizedText } from '../../db/schema/enums.js';
 import type { UnitCode } from '../../db/schema/inventory.js';
-
-@ValidatorConstraint({ name: 'isRecipeYieldPaired' })
-class IsRecipeYieldPaired implements ValidatorConstraintInterface {
-  validate(_: unknown, { object }: ValidationArguments): boolean {
-    const { recipeYieldQuantity, recipeYieldUnitCode } =
-      object as CreateRecipeDto;
-
-    return (recipeYieldQuantity == null) === (recipeYieldUnitCode == null);
-  }
-
-  defaultMessage(): string {
-    return 'recipeYieldQuantity 與 recipeYieldUnitCode 必須一起帶';
-  }
-}
 
 export class CreateRecipeDto {
   @ApiProperty({
@@ -79,7 +61,6 @@ export class CreateRecipeDto {
   @IsOptional()
   @Matches(/^(?!0+(\.0+)?$)\d{1,9}(\.\d{1,3})?$/)
   @IsNumberString()
-  @Validate(IsRecipeYieldPaired)
   recipeYieldQuantity?: string | null;
 
   @ApiPropertyOptional({
@@ -89,7 +70,6 @@ export class CreateRecipeDto {
   })
   @IsOptional()
   @IsIn(Object.keys(UNIT_FACTORS))
-  @Validate(IsRecipeYieldPaired)
   recipeYieldUnitCode?: UnitCode | null;
 
   @ApiPropertyOptional({

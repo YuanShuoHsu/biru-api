@@ -209,6 +209,7 @@
     "recipeMenuItemTaken": "이 메뉴 품목에는 이미 레시피가 있습니다",
     "recipeModifierTaken": "이 옵션에는 이미 레시피가 있습니다",
     "recipeNotFound": "레시피를 찾을 수 없습니다. 삭제되었을 수 있습니다",
+    "recipeYieldUnpaired": "레시피의 생산량과 단위를 함께 설정하세요",
     "sourceRecipeHasMenuItem": "메뉴 품목에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
     "sourceRecipeHasModifier": "옵션에 연결된 레시피는 재료의 원본 레시피로 사용할 수 없습니다",
     "sourceRecipeNested": "원본 레시피에는 다른 레시피로 만든 재료를 사용할 수 없습니다",

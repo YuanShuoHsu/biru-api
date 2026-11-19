@@ -313,6 +313,8 @@ export class IngredientsService {
     { inventoryLevel, transactionNote, ...dto }: CreateIngredientDto,
     createdBy?: string,
   ): Promise<IngredientResponseDto> {
+    if (dto.recipeId && PURCHASED_FIELDS.some((field) => dto[field] != null))
+      throw badRequestError('purchaseFieldsOnSourcedIngredient');
     const priceCurrency = await getOrganizationCurrency(
       this.db,
       organizationId,

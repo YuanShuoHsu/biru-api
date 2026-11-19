@@ -138,20 +138,6 @@ describe('CreateIngredientDto recipeId', () => {
     ).toEqual(['price', 'eligibleQuantity', 'eligibleQuantityUnitCode']);
   });
 
-  it.each([
-    { price: '950.00' },
-    { eligibleQuantity: '100.000' },
-    { eligibleQuantityUnitCode: 'GRM' },
-    { supplierId: 'supplier' },
-  ])('有來源食譜時拒絕 %o', async (fields) => {
-    expect(await sourcedErrorsOf(CreateIngredientDto, fields)).toEqual([
-      'recipeId',
-    ]);
-    expect(await sourcedErrorsOf(UpdateIngredientDto, fields)).toEqual([
-      'recipeId',
-    ]);
-  });
-
   it('拒絕空字串的來源食譜', async () => {
     expect(
       await sourcedErrorsOf(CreateIngredientDto, { recipeId: '' }),

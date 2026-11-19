@@ -209,6 +209,7 @@
     "recipeMenuItemTaken": "このメニュー品目にはすでにレシピがあります",
     "recipeModifierTaken": "このオプションにはすでにレシピがあります",
     "recipeNotFound": "レシピが見つかりません。削除された可能性があります",
+    "recipeYieldUnpaired": "レシピの出来高と単位は一緒に設定してください",
     "sourceRecipeHasMenuItem": "メニュー品目に紐づいたレシピは食材の元レシピにできません",
     "sourceRecipeHasModifier": "オプションに紐づいたレシピは食材の元レシピにできません",
     "sourceRecipeNested": "元レシピには、別のレシピから作る食材を使えません",

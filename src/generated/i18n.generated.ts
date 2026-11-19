@@ -264,6 +264,7 @@ export type I18nTranslations = {
             "recipeMenuItemTaken": string;
             "recipeModifierTaken": string;
             "recipeNotFound": string;
+            "recipeYieldUnpaired": string;
             "sourceRecipeHasMenuItem": string;
             "sourceRecipeHasModifier": string;
             "sourceRecipeNested": string;
