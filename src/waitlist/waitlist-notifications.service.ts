@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { organization } from '../db/schema/organizations.js';
 import { user } from '../db/schema/users.js';
 import { waitlistSetting, waitlistTicket } from '../db/schema/waitlist.js';
@@ -58,10 +58,7 @@ export class WaitlistNotificationsService {
         )
         .leftJoin(
           user,
-          and(
-            eq(user.id, waitlistTicket.userId),
-            sql`lower(${user.email}) = lower(${waitlistTicket.email})`,
-          ),
+          sql`lower(${user.email}) = lower(${waitlistTicket.email})`,
         )
         .where(eq(waitlistTicket.id, ticket.id));
       if (!found?.email) return;
