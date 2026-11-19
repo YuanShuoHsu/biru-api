@@ -96,7 +96,7 @@ export const admin = ac.newRole({
 
 export const member = ac.newRole({
   ...memberAc.statements,
-  cashDevice: ['refill', 'collection'],
+  cashDevice: ['read', 'refill', 'collection'],
   coupon: ['read'],
   inventory: ['read'],
   inventoryTransaction: ['create', 'read'],

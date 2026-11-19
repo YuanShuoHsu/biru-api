@@ -33,7 +33,7 @@ describe('cash device permissions', () => {
     ['member', false],
     ['user', false],
   ])('%s can manage cash devices: %s', (role, expected) => {
-    for (const action of ['create', 'read', 'update', 'delete'])
+    for (const action of ['create', 'update', 'delete'])
       expect(isAuthorized(role, { cashDevice: [action] }), action).toBe(
         expected,
       );
@@ -44,8 +44,8 @@ describe('cash device permissions', () => {
     ['admin', true],
     ['member', true],
     ['user', false],
-  ])('%s can refill and collect cash devices: %s', (role, expected) => {
-    for (const action of ['refill', 'collection'])
+  ])('%s can read, refill and collect cash devices: %s', (role, expected) => {
+    for (const action of ['read', 'refill', 'collection'])
       expect(isAuthorized(role, { cashDevice: [action] }), action).toBe(
         expected,
       );
