@@ -130,7 +130,11 @@ appended at max `sortOrder` + 1 or prepended at 0 with every existing row shifte
 (`src/common/utils/sort-order.ts`) renumbers upwards, so cap such fields at a domain size (e.g. `@Max(9999)`), never at
 2147483647, or the overflow 500 only moves to the next insert.
 
-Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`.
+Migrations are in `drizzle/` and applied with Drizzle Kit. The `drizzle.config.ts` at root reads `DATABASE_URL` from `.env`
+or the environment. Render runs `pnpm drizzle-kit migrate` on every deploy, and local, stage and production share one
+database, so a migration is applied to the shared database by the first deploy that contains it, with no manual step. A
+read-only check that must pass before a migration runs goes in its PR description, to be run before the PR is merged or
+its branch is deployed.
 On a brand-new database `drizzle-kit migrate` fails (exit 1, no message): it applies every pending migration in one
 transaction, and `0098` / `0105` use enum values added by `0084` / `0103`, which Postgres refuses before they commit. Build
 an empty database with `pnpm tsx scripts/migrate-fresh-db.ts` instead: it applies each migration in its own transaction and
