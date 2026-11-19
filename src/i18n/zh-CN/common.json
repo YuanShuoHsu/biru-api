@@ -270,6 +270,7 @@
     "parentSectionNotFound": "找不到上层分类，可能已被删除",
     "parentSectionSelf": "分类不能设为自己的上层分类",
     "printerNotFound": "找不到这台打印机，可能已被移除",
+    "promoDateRangeInvalid": "促销结束日不能早于开始日",
     "selectionCountInvalid": "最多选择数量不能少于最少选择数量"
   },
   "orderTickets": {

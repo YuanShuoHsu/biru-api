@@ -325,6 +325,7 @@ export type I18nTranslations = {
             "parentSectionNotFound": string;
             "parentSectionSelf": string;
             "printerNotFound": string;
+            "promoDateRangeInvalid": string;
             "selectionCountInvalid": string;
         };
         "orderTickets": {

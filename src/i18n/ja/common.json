@@ -270,6 +270,7 @@
     "parentSectionNotFound": "親セクションが見つかりません。削除された可能性があります",
     "parentSectionSelf": "カテゴリを自身の親カテゴリに設定できません",
     "printerNotFound": "プリンターが見つかりません。削除された可能性があります",
+    "promoDateRangeInvalid": "プロモーションの終了日は開始日より前にできません",
     "selectionCountInvalid": "最大選択数は最小選択数以上にしてください"
   },
   "orderTickets": {

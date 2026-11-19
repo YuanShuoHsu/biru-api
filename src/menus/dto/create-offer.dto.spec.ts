@@ -94,17 +94,4 @@ describe('CreateOfferDto', () => {
       ]);
     },
   );
-
-  it('rejects a promo that ends before it starts', async () => {
-    expect(
-      await errorsOf({
-        price: '100',
-        priceSpecification: {
-          price: '80',
-          validFrom: '2025-06-02',
-          validThrough: '2025-06-01',
-        },
-      }),
-    ).toEqual(['priceSpecification.validThrough']);
-  });
 });

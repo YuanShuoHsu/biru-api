@@ -27,6 +27,7 @@ export const menuErrorCodes = [
   'parentSectionNotFound',
   'parentSectionSelf',
   'printerNotFound',
+  'promoDateRangeInvalid',
   'selectionCountInvalid',
 ] as const;
 

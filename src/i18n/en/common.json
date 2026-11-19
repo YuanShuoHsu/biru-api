@@ -270,6 +270,7 @@
     "parentSectionNotFound": "The parent section wasn't found. It may have been deleted",
     "parentSectionSelf": "A section can't be its own parent",
     "printerNotFound": "The printer wasn't found. It may have been removed",
+    "promoDateRangeInvalid": "The promotion's end date can't be before its start date",
     "selectionCountInvalid": "Maximum selections can't be less than minimum selections"
   },
   "orderTickets": {

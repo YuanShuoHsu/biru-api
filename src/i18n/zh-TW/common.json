@@ -270,6 +270,7 @@
     "parentSectionNotFound": "找不到上層分類，可能已被刪除",
     "parentSectionSelf": "分類不能設為自己的上層分類",
     "printerNotFound": "找不到這台印表機，可能已被移除",
+    "promoDateRangeInvalid": "促銷結束日不能早於開始日",
     "selectionCountInvalid": "最多選擇數量不能少於最少選擇數量"
   },
   "orderTickets": {
