@@ -15,14 +15,16 @@ import { PersonnelCostReportService } from './personnel-cost-report.service.js';
 import { SalesReportService } from './sales-report.service.js';
 
 describe('breakEvenRevenueOf', () => {
-  it('grosses the fixed cost up by the contribution left after tax and cost of goods', () => {
-    expect(breakEvenRevenueOf(70000, 0.3)).toBe(105000);
+  it('grosses the fixed cost up by the contribution left after tax, cost of goods and payment fees', () => {
+    expect(breakEvenRevenueOf(70000, 0.3, null)).toBe(105000);
+    expect(breakEvenRevenueOf(70000, 0.3, 0.2)).toBe(150000);
   });
 
   it('is null without a cost of goods rate or without any contribution', () => {
-    expect(breakEvenRevenueOf(70000, null)).toBeNull();
-    expect(breakEvenRevenueOf(70000, 1)).toBeNull();
-    expect(breakEvenRevenueOf(70000, 1.2)).toBeNull();
+    expect(breakEvenRevenueOf(70000, null, 0.02)).toBeNull();
+    expect(breakEvenRevenueOf(70000, 1, null)).toBeNull();
+    expect(breakEvenRevenueOf(70000, 1.2, null)).toBeNull();
+    expect(breakEvenRevenueOf(70000, 0.3, 0.7)).toBeNull();
   });
 });
 
@@ -48,7 +50,8 @@ describe('BreakEvenReportService', () => {
     await client.exec(
       `insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, opening_hours) values
          ('org', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段', 'Mo-Sa 08:00-17:00'),
-         ('empty', 'Empty', 'empty', now(), 'TW', '桃園市', '大園區', '中正東路一段', null);
+         ('empty', 'Empty', 'empty', now(), 'TW', '桃園市', '大園區', '中正東路一段', null),
+         ('plan', 'Plan', 'plan', now(), 'TW', '桃園市', '大園區', '中正東路一段', null);
        insert into menu (id, organization_id, name) values ('menu', 'org', '{"zh-TW":"菜單"}');
        insert into menu_item (id, menu_id, name) values
          ('latte', 'menu', '{"zh-TW":"拿鐵"}'),
@@ -70,13 +73,44 @@ describe('BreakEvenReportService', () => {
          ('latte-beans', 'latte-recipe', 'beans', 20),
          ('cookie-butter', 'cookie-recipe', 'butter', 10),
          ('oat-oatmilk', 'oat-recipe', 'oatmilk', 200);
-       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, order_date) values
-         ('o1', '{"name":"客人"}', 'counter', '1', 'OrderDelivered', 'Cash', 'org', 315, '2026-10-05T02:00:00Z'::timestamptz at time zone 'UTC'),
-         ('o2', '{"name":"客人"}', 'counter', '2', 'OrderDelivered', 'Cash', 'org', 105, '2026-09-30T02:00:00Z'::timestamptz at time zone 'UTC');
+       insert into "order" (id, customer, mode, order_number, order_status, payment_method, seller_id, subtotal, order_date, merchant_trade_no) values
+         ('o1', '{"name":"客人"}', 'counter', '1', 'OrderDelivered', 'Cash', 'org', 315, '2026-10-05T02:00:00Z'::timestamptz at time zone 'UTC', null),
+         ('o2', '{"name":"客人"}', 'counter', '2', 'OrderDelivered', 'Cash', 'org', 105, '2026-09-30T02:00:00Z'::timestamptz at time zone 'UTC', null),
+         ('o3', '{"name":"客人"}', 'pickup', '3', 'OrderDelivered', 'Credit', 'org', 105, '2026-10-06T02:00:00Z'::timestamptz at time zone 'UTC', 'm3'),
+         ('o4', '{"name":"客人"}', 'pickup', '4', 'OrderDelivered', 'Credit', 'org', 105, '2026-10-07T02:00:00Z'::timestamptz at time zone 'UTC', 'm4');
+       insert into ecpay_payment_attempt (merchant_trade_no, order_id, charge_fee) values
+         ('m3-failed', 'o3', null),
+         ('m3', 'o3', 3.15),
+         ('m4', 'o4', null);
        insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, modifiers) values
          ('o1-latte', 'o1', 'latte', '拿鐵', 2, 105, '[{"modifierGroupId":"milk","modifierGroupName":"奶類","modifierId":"oat","modifierName":"燕麥奶","priceAdjustment":null},{"modifierGroupId":"milk","modifierGroupName":"奶類","modifierId":"less-ice","modifierName":"少冰","priceAdjustment":null}]'),
          ('o1-cake', 'o1', 'cake', '蛋糕', 1, 105, null),
-         ('o2-latte', 'o2', 'latte', '拿鐵', 1, 105, null);
+         ('o2-latte', 'o2', 'latte', '拿鐵', 1, 105, null),
+         ('o3-latte', 'o3', 'latte', '拿鐵', 1, 105, null),
+         ('o4-cake', 'o4', 'cake', '蛋糕', 1, 105, null);
+       insert into menu (id, organization_id, name) values ('plan-menu', 'plan', '{"zh-TW":"菜單"}');
+       insert into menu_item (id, menu_id, name) values
+         ('plan-latte', 'plan-menu', '{"zh-TW":"拿鐵"}'),
+         ('plan-steak', 'plan-menu', '{"zh-TW":"牛排"}'),
+         ('plan-soup', 'plan-menu', '{"zh-TW":"湯"}'),
+         ('plan-tea', 'plan-menu', '{"zh-TW":"茶"}');
+       insert into offer (id, menu_item_id, price) values
+         ('plan-latte-offer', 'plan-latte', 105),
+         ('plan-steak-offer', 'plan-steak', 210),
+         ('plan-soup-offer', 'plan-soup', 105);
+       insert into ingredient (id, organization_id, name, unit_code, price, eligible_quantity, eligible_quantity_unit_code) values
+         ('plan-beans', 'plan', '{"zh-TW":"咖啡豆"}', 'GRM', 1000, 1000, 'GRM'),
+         ('plan-stock', 'plan', '{"zh-TW":"高湯"}', 'GRM', null, null, null);
+       insert into recipe (id, organization_id, menu_item_id, name, recipe_yield) values
+         ('plan-latte-recipe', 'plan', 'plan-latte', '{"zh-TW":"拿鐵"}', 1),
+         ('plan-steak-recipe', 'plan', 'plan-steak', '{"zh-TW":"牛排"}', 1),
+         ('plan-soup-recipe', 'plan', 'plan-soup', '{"zh-TW":"湯"}', 1),
+         ('plan-tea-recipe', 'plan', 'plan-tea', '{"zh-TW":"茶"}', 1);
+       insert into recipe_ingredient (id, recipe_id, ingredient_id, required_quantity) values
+         ('plan-latte-beans', 'plan-latte-recipe', 'plan-beans', 30),
+         ('plan-steak-beans', 'plan-steak-recipe', 'plan-beans', 20),
+         ('plan-soup-stock', 'plan-soup-recipe', 'plan-stock', 100),
+         ('plan-tea-beans', 'plan-tea-recipe', 'plan-beans', 5);
        insert into operating_cost (id, organization_id, category, effective_from, monthly_amount) values
          ('rent-old', 'org', 'rent', '2026-01', 60000),
          ('rent-new', 'org', 'rent', '2026-11', 70000),
@@ -84,7 +118,8 @@ describe('BreakEvenReportService', () => {
          ('water-old', 'org', 'water', '2026-01', 1000),
          ('water-stop', 'org', 'water', '2026-09', 0),
          ('staff', 'org', 'personnel', '2026-09', 120000),
-         ('other-store', 'empty', 'rent', '2026-01', 50000);`,
+         ('other-store', 'empty', 'rent', '2026-01', 50000),
+         ('plan-rent', 'plan', 'rent', '2026-01', 50000);`,
     );
   });
 
@@ -107,35 +142,37 @@ describe('BreakEvenReportService', () => {
     expect(report.fixedCostTotal).toBe(188000);
   });
 
-  it('splits the business tax out of the month revenue and prices items by their recipes', async () => {
+  it('splits the business tax out of the month revenue and charges the recipes and the recorded payment fees', async () => {
     const report = await service.getBreakEvenReport('biru', october, now);
 
     expect(report).toMatchObject({
-      revenue: 315,
-      businessTax: 15,
-      salesExcludingTax: 300,
-      costOfGoodsSold: 60,
+      revenue: 525,
+      businessTax: 25,
+      salesExcludingTax: 500,
+      costOfGoodsSold: 80,
       unpricedItems: 1,
-      costOfGoodsSoldRate: 0.3,
-      grossMarginRate: 0.7,
-      netProfit: -187760,
+      paymentFees: 3.15,
+      unknownFeeOrders: 1,
+      preTaxProfit: -187583.15,
+      incomeTax: 0,
+      afterTaxProfit: -187583.15,
       total: 2,
     });
     expect(report.rows).toEqual([
       {
         menuItemId: 'latte',
         name: '拿鐵',
-        quantity: 2,
-        revenue: 200,
-        cost: 60,
-        grossProfit: 140,
-        grossMarginRate: 0.7,
+        quantity: 3,
+        revenue: 300,
+        cost: 80,
+        grossProfit: 220,
+        grossMarginRate: 0.7333,
       },
       {
         menuItemId: 'cake',
         name: '蛋糕',
-        quantity: 1,
-        revenue: 100,
+        quantity: 2,
+        revenue: 200,
         cost: null,
         grossProfit: null,
         grossMarginRate: null,
@@ -143,7 +180,7 @@ describe('BreakEvenReportService', () => {
     ]);
   });
 
-  it('divides the break-even and target revenue over the open days of the month', async () => {
+  it('takes the cost and fee rates from the 90 days of sales up to now and the after-tax target', async () => {
     const report = await service.getBreakEvenReport(
       'biru',
       {
@@ -154,14 +191,34 @@ describe('BreakEvenReportService', () => {
     );
 
     expect(report).toMatchObject({
+      rateSince: '2026-07-22',
+      rateUntil: '2026-10-20',
+      costRateSource: 'sales',
+      costOfGoodsSoldRate: 0.25,
+      grossMarginRate: 0.75,
+      paymentFeeRate: 0.006,
       openDays: 27,
       remainingOpenDays: 11,
-      breakEvenRevenue: 282000,
-      dailyBreakEvenRevenue: 10444.44,
-      remainingDailyBreakEvenRevenue: 25607.73,
+      breakEvenRevenue: 265429.61,
+      dailyBreakEvenRevenue: 9830.73,
+      remainingDailyBreakEvenRevenue: 24082.24,
       targetProfit: 50000,
-      targetRevenue: 357000,
-      dailyTargetRevenue: 13222.22,
+      targetPreTaxProfit: 62500,
+      targetRevenue: 353670.84,
+      dailyTargetRevenue: 13098.92,
+    });
+  });
+
+  it('estimates the cost rate from the menu recipes before there are sales', async () => {
+    const report = await service.getBreakEvenReport('plan', october, now);
+
+    expect(report).toMatchObject({
+      costRateSource: 'menu',
+      costOfGoodsSoldRate: 0.2,
+      paymentFeeRate: null,
+      fixedCostTotal: 50000,
+      breakEvenRevenue: 65625,
+      dailyBreakEvenRevenue: 2116.94,
     });
   });
 
@@ -177,12 +234,15 @@ describe('BreakEvenReportService', () => {
       remainingOpenDays: 0,
       fixedCostTotal: 50000,
       revenue: 0,
+      costRateSource: null,
       costOfGoodsSoldRate: null,
       breakEvenRevenue: null,
       dailyBreakEvenRevenue: null,
       remainingDailyBreakEvenRevenue: null,
       targetRevenue: null,
-      netProfit: -50000,
+      preTaxProfit: -50000,
+      incomeTax: 0,
+      afterTaxProfit: -50000,
       rows: [],
     });
     expect(report.personnel.source).toBe('none');

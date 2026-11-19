@@ -1,4 +1,4 @@
-import { index, pgTable, text } from 'drizzle-orm/pg-core';
+import { index, numeric, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { timestamps } from './columns.helpers.js';
 import { order } from './orders.js';
@@ -11,6 +11,7 @@ export const ecpayPaymentAttempt = pgTable(
       .notNull()
       .references(() => order.id, { onDelete: 'cascade' }),
     returnUrl: text('return_url'),
+    chargeFee: numeric('charge_fee', { precision: 10, scale: 2 }),
     ...timestamps,
   },
   (table) => [index('ecpayPaymentAttempt_orderId_idx').on(table.orderId)],

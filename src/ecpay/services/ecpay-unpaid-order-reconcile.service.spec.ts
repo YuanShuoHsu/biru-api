@@ -40,6 +40,7 @@ const setup = (
     Promise.resolve({
       MerchantTradeNo: merchantTradeNo,
       PaymentDate: '',
+      PaymentTypeChargeFee: '3',
       TradeAmt: '100',
       TradeNo: 't',
       TradeStatus: paidTradeNos.includes(merchantTradeNo)
@@ -142,7 +143,10 @@ describe('EcpayUnpaidOrderReconcileService', () => {
       'a-24',
     ]);
     expect(ordersService.recordPaymentResult).toHaveBeenCalledWith(
-      expect.objectContaining({ MerchantTradeNo: 'a-24' }),
+      expect.objectContaining({
+        MerchantTradeNo: 'a-24',
+        PaymentTypeChargeFee: '3',
+      }),
     );
     expect(cancelled(1)).toEqual([]);
   });

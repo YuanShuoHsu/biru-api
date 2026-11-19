@@ -114,7 +114,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `banners.ts` — `banner`
 - `invoices.ts` — `invoice`, `invoiceAllowance`, `invoicePrintJob`
 - `refunds.ts` — `refund`
-- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt`, `ecpayCallbackLog`
+- `ecpay-payment-attempts.ts`, `ecpay-callback-logs.ts` — `ecpayPaymentAttempt` (with the ECPay `charge_fee` once paid), `ecpayCallbackLog`
 - `inventory.ts` — `supplier`, `ingredient`, `inventoryTransaction`, `recipe`, `recipeIngredient`
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
@@ -342,8 +342,8 @@ product waste carries no `@Audit`, so this column is its only record of who did 
 
 ### Break-Even
 
-`GET /api/organizations/:slug/reports/break-even?month=` (`BreakEvenReportService`, `operatingCost: ['read']`, owner only)
-works on the Taiwan calendar month.
+`GET /api/organizations/:slug/reports/break-even?month=&targetProfit=` (`BreakEvenReportService`, `operatingCost: ['read']`,
+owner only) works on the Taiwan calendar month.
 
 - Fixed costs are `operating_cost` rows: per category, the row with the latest `effective_from` not after the month applies,
   so a cost is entered once and carries forward; a later row with `0` ends it. Don't add per-month rows or a toggle.
@@ -355,8 +355,17 @@ works on the Taiwan calendar month.
   current ingredient prices, so unlimited-stock ingredients count. An item with no recipe, or a recipe with an unpriced
   ingredient, has an unknown cost and is left out of both the cost and the revenue that sets the rate; a modifier without a
   recipe costs nothing.
-- Break-even = fixed costs ÷ ((1 − cost rate) ÷ 1.05), divided over the open days of the month from the opening hours and
-  special hours (`OpeningCalendar.isOpenOn`); a target profit is added to the fixed costs.
+- Payment fees are what ECPay reports as `PaymentTypeChargeFee` (交易手續費 + 交易處理費), stored on the paid
+  `ecpay_payment_attempt.charge_fee` by `recordPaymentResult` from both the ReturnURL notice and the reconcile query; cash
+  orders cost 0. An ECPay order without a recorded fee is counted in `unknownFeeOrders`, not guessed. The 站內付 2.0
+  payment result, once handled, must record `ChargeFee` + `ProcessFee` the same way.
+- The cost of goods and fee rates come from the `RATE_WINDOW_DAYS` (90) days of sales up to now or the month end, not the
+  month alone, so early-month figures stay stable; before there are costed sales the cost rate is the average recipe cost
+  over price of the store's menu items (`costRateSource: 'menu'`), and the fee rate stays null.
+- Break-even = fixed costs ÷ ((1 − cost rate) ÷ 1.05 − fee rate), divided over the open days of the month from the opening
+  hours and special hours (`OpeningCalendar.isOpenOn`). `targetProfit` is after 營所稅: it is grossed up with
+  `monthlyPreTaxProfitFor` before being added to the fixed costs, and `incomeTax` annualises the month (`src/reports/income-tax.ts`,
+  所得稅法 §5: 12 萬 exempt, 20%, capped at half the excess), so both are estimates of a yearly tax.
 
 ### Email Opt-in
 
