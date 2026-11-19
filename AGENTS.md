@@ -118,7 +118,7 @@ Schema files live in `src/db/schema/` and are re-exported from `index.ts`:
 - `waitlist.ts` — `waitlistSetting`, `waitlistTicket`
 - `printers.ts` — `printer`, `orderTicketJob`
 - `push.ts` — `pushSubscription`
-- `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, idempotency_key)` unique: the device's transaction number for device events, a client-generated key for staff-entered ones, so a retried write is recorded once)
+- `cash-devices.ts` — `cashDevice`, `cashDeviceEvent` (`(device_id, idempotency_key)` unique; a retried write must reuse its key)
 - `checklists.ts` — `checklistTemplate`, `checklistTemplateItem`, `checklistRun`, `checklistRunItem`, `checklistSetting`
 - `store-layout.ts` — `storeLayout`
 - `audit.ts` — `auditLog`; `deleted-records.ts` — `deletedRecord`
