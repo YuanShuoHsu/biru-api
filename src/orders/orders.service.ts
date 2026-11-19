@@ -1021,6 +1021,10 @@ export class OrdersService {
       where: and(
         eq(order.sellerId, org.id),
         eq(order.orderStatus, 'OrderProcessing'),
+        gte(
+          BOARD_AT,
+          utcTimestampParam(new Date(Date.now() - BOARD_WINDOW_MS)),
+        ),
         printerId
           ? exists(
               this.db

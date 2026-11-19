@@ -80,6 +80,18 @@ describe('OrdersService.listKitchenOrders', () => {
     });
     await addOrder('ready', { orderStatus: 'OrderPickupAvailable' });
     await addOrder('other-store', { sellerId: 'other' });
+    await addOrder('stale', {
+      createdAt: '2026-11-11 00:59:59',
+      paymentDate: '2026-11-11 00:59:59',
+    });
+    await addOrder('scheduled-stale', {
+      createdAt: '2026-11-12 01:00:00',
+      pickupTime: '2026-11-11 00:59:59',
+    });
+    await addOrder('window-edge', {
+      createdAt: '2026-11-11 05:00:00',
+      paymentDate: '2026-11-12 04:30:00',
+    });
 
     await client.exec(
       `insert into order_item (id, order_id, menu_item_id, menu_item_name, order_quantity, unit_price, prepared_at) values
@@ -107,17 +119,29 @@ describe('OrdersService.listKitchenOrders', () => {
     );
   }, 60_000);
 
+  beforeEach(() => {
+    vi.useFakeTimers({
+      now: new Date('2026-11-12T05:00:00Z'),
+      toFake: ['Date'],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   afterAll(async () => {
     await client.close();
   });
 
-  it('只列本店製作中的訂單，依預約取餐或付款時間排序，同時間依 id', async () => {
+  it('只列本店看板時間範圍內製作中的訂單，依預約取餐或付款時間排序，同時間依 id', async () => {
     await expect(idsOf('biru')).resolves.toEqual([
       'paid-early',
       'scheduled',
       'paid-late',
       'tie-a',
       'tie-b',
+      'window-edge',
     ]);
   });
 
