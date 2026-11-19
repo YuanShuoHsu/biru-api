@@ -112,6 +112,7 @@ export class CashDevicesController {
   ): Promise<void> {
     return this.cashDevicesService.remove(organizationId, cashDeviceId);
   }
+
   @Get(':cashDeviceId/events')
   @Roles({ cashDevice: ['read'] }, 'organizationSlug')
   @ApiOkResponse({ type: CashDeviceEventListResponseDto })

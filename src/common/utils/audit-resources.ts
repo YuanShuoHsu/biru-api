@@ -133,6 +133,7 @@ export const AUDIT_KEY_COLUMNS: Partial<Record<AuditLabelScope, string>> = {
 export const AUDIT_IGNORED_COLUMNS: Partial<Record<AuditLabelScope, string[]>> =
   {
     cashDevice: ['lastSeenAt'],
+    cashDeviceEvent: ['createdBy', 'deviceId', 'occurredAt'],
     order: ['heldOfferStock'],
     orderQrSecret: ['previousSecret', 'secret'],
     printer: ['digestHa1', 'lastSeenAt', 'pollGapsMs'],
