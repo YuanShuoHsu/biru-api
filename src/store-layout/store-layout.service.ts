@@ -2,10 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { eq } from 'drizzle-orm';
 
-import { getOrganizationIdBySlug } from '../common/utils/organizations.js';
+import {
+  getOrganizationIdBySlug,
+  organizationNotFoundError,
+} from '../common/utils/organizations.js';
+import { organization } from '../db/schema/organizations.js';
 import { storeLayout } from '../db/schema/store-layout.js';
 import type { DrizzleDB } from '../drizzle/drizzle.module.js';
 import { DRIZZLE } from '../drizzle/drizzle.module.js';
+import { isOpenDineInTable } from '../orders/order-qr-token.js';
 
 import type {
   StoreLayoutDataDto,
@@ -42,21 +47,28 @@ export class StoreLayoutService {
     organizationSlug: string,
     data: StoreLayoutDataDto,
   ): Promise<StoreLayoutResponseDto> {
+    const store = await this.db.query.organization.findFirst({
+      where: eq(organization.slug, organizationSlug),
+      columns: { id: true, dineInTableCount: true },
+    });
+    if (!store) throw organizationNotFoundError();
+
     const seen = new Set<number>();
     for (const { tableNumber } of data.items) {
       if (tableNumber === undefined) continue;
       if (seen.has(tableNumber))
         throw badRequestError('duplicateTableNumber', { tableNumber });
+      if (!isOpenDineInTable(store.dineInTableCount, tableNumber))
+        throw badRequestError('tableNumberOutOfRange', {
+          tableNumber,
+          dineInTableCount: store.dineInTableCount ?? 0,
+        });
       seen.add(tableNumber);
     }
 
-    const organizationId = await getOrganizationIdBySlug(
-      this.db,
-      organizationSlug,
-    );
     const [saved] = await this.db
       .insert(storeLayout)
-      .values({ organizationId, data })
+      .values({ organizationId: store.id, data })
       .onConflictDoUpdate({
         target: storeLayout.organizationId,
         set: { data },

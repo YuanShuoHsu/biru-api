@@ -505,7 +505,8 @@
   },
   "storeLayout": {
     "duplicateTableNumber": "Table number {tableNumber} is used more than once.",
-    "notFound": "This store has no floor plan yet."
+    "notFound": "This store has no floor plan yet.",
+    "tableNumberOutOfRange": "Table number {tableNumber} exceeds the store's {dineInTableCount} dine-in tables."
   },
   "storePhotos": {
     "storePhotoNotFound": "The store photo wasn't found. It may have been deleted"

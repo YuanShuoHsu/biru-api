@@ -505,7 +505,8 @@
   },
   "storeLayout": {
     "duplicateTableNumber": "テーブル番号 {tableNumber} が重複しています。",
-    "notFound": "この店舗のフロアプランはまだありません。"
+    "notFound": "この店舗のフロアプランはまだありません。",
+    "tableNumberOutOfRange": "テーブル番号 {tableNumber} は店内テーブル数（{dineInTableCount}）を超えています。"
   },
   "storePhotos": {
     "storePhotoNotFound": "店舗写真が見つかりません。削除された可能性があります"

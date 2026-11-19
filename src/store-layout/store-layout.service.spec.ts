@@ -62,7 +62,7 @@ describe('StoreLayoutService', () => {
   beforeEach(async () => {
     await client.exec(
       `truncate audit_log, organization cascade;
-       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address) values ('${ORG}', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段');`,
+       insert into organization (id, name, slug, created_at, address_country, address_locality, address_region, street_address, dine_in_table_count) values ('${ORG}', 'Biru', 'biru', now(), 'TW', '桃園市', '大園區', '中正東路一段', 10);`,
     );
   });
 
@@ -118,6 +118,33 @@ describe('StoreLayoutService', () => {
       response: { code: 'duplicateTableNumber' },
     });
     await expect(service.get('biru')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('桌號超過門市的內用桌數時回 400 且不寫入', async () => {
+    await service.update('biru', layout([10]));
+
+    await expect(service.update('biru', layout([3, 11]))).rejects.toMatchObject(
+      {
+        response: { code: 'tableNumberOutOfRange' },
+      },
+    );
+    expect((await service.get('biru')).data).toEqual(layout([10]));
+  });
+
+  it('門市沒有設定內用桌數時，任何桌號都回 400', async () => {
+    await client.exec(
+      `update organization set dine_in_table_count = null where id = '${ORG}'`,
+    );
+
+    await expect(service.update('biru', layout([1]))).rejects.toMatchObject({
+      response: { code: 'tableNumberOutOfRange' },
+    });
+    await expect(
+      service.update('biru', {
+        items: [{ ...box, kind: 'plant', label: 'plant' }],
+        seats: [],
+      }),
+    ).resolves.toMatchObject({ organizationId: ORG });
   });
 
   it('多個沒有桌號的項目不算重複桌號', async () => {

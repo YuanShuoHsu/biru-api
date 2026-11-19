@@ -560,6 +560,7 @@ export type I18nTranslations = {
         "storeLayout": {
             "duplicateTableNumber": string;
             "notFound": string;
+            "tableNumberOutOfRange": string;
         };
         "storePhotos": {
             "storePhotoNotFound": string;
