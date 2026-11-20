@@ -184,7 +184,16 @@ export interface SpecialOpeningHours {
   validThrough: string;
 }
 
+export const specialHoursOn = <T extends SpecialOpeningHours>(
+  specialHours: T[],
+  date: string,
+): T[] =>
+  specialHours.filter(
+    ({ validFrom, validThrough }) => validFrom <= date && date <= validThrough,
+  );
+
 export interface OpeningCalendar {
+  isClosedForRestOfDay: (at: Date) => boolean;
   isOpenAt: (at: Date) => boolean;
   minutesUntilClose: (at: Date, enough?: number) => number;
 }
@@ -220,6 +229,16 @@ export const openingCalendar = (
     )?.byDay ?? weeklyByDay)[weekdayOf(dayNumber)];
 
   return {
+    isClosedForRestOfDay: (at) => {
+      if (minutesUntilSegmentEnd(schedulesOn, at) !== null) return false;
+
+      const { day, minutes } = platformParts(at);
+
+      return schedulesOn(day).every(
+        ({ startMinutes }) => startMinutes <= minutes,
+      );
+    },
+
     isOpenAt: (at) => minutesUntilSegmentEnd(schedulesOn, at) !== null,
 
     minutesUntilClose: (at, enough = Infinity) => {

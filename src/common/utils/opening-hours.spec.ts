@@ -278,4 +278,23 @@ describe('opening calendar', () => {
 
     expect(calendar.minutesUntilClose(at('2026-08-31T17:00'), 120)).toBe(60);
   });
+
+  it('is closed for the rest of the day only after the last segment of that day', () => {
+    const calendar = openingCalendar(weekly, [
+      {
+        openingHours: 'Mo-Su 10:00-12:00,15:00-17:00',
+        validFrom: '2026-09-01',
+        validThrough: '2026-09-01',
+      },
+    ]);
+
+    expect(calendar.isClosedForRestOfDay(at('2026-09-01T09:00'))).toBe(false);
+    expect(calendar.isClosedForRestOfDay(at('2026-09-01T11:00'))).toBe(false);
+    expect(calendar.isClosedForRestOfDay(at('2026-09-01T13:00'))).toBe(false);
+    expect(calendar.isClosedForRestOfDay(at('2026-09-01T17:00'))).toBe(true);
+    expect(calendar.isClosedForRestOfDay(at('2026-08-31T20:00'))).toBe(true);
+    expect(
+      openingCalendar(null, []).isClosedForRestOfDay(at('2026-09-01T23:59')),
+    ).toBe(false);
+  });
 });

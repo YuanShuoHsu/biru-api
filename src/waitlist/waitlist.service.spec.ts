@@ -947,33 +947,49 @@ describe('WaitlistService.processOverdueTickets', () => {
   const overdueRow = {
     graceMinutes: 5,
     holdMinutes: 10,
+    openingHours: ALWAYS_OPEN,
     ticket: {
       calledAt: new Date('2026-10-06T03:00:00Z'),
       id: 'ticket',
       organizationId: 'org',
+      serviceDate: '2026-10-06',
       status: 'called',
     },
   };
 
-  const run = (failure: unknown) => {
-    const { db, service } = createService({});
+  const run = (
+    failure: unknown,
+    specialHours: SpecialOpeningHours[] = [],
+    openingHours: string | null = ALWAYS_OPEN,
+  ) => {
+    const { db, service } = createService({ specialHours });
     Object.assign(db, {
       select: () => ({
         from: () => ({
-          leftJoin: () => ({ where: () => Promise.resolve([overdueRow]) }),
+          innerJoin: () => ({
+            leftJoin: () => ({
+              where: () => Promise.resolve([{ ...overdueRow, openingHours }]),
+            }),
+          }),
         }),
       }),
     });
-    vi.spyOn(
-      service as unknown as { updateStatus: () => Promise<unknown> },
-      'updateStatus',
-    ).mockRejectedValue(failure);
+    const updateStatus = vi
+      .spyOn(
+        service as unknown as { updateStatus: () => Promise<unknown> },
+        'updateStatus',
+      )
+      .mockRejectedValue(failure);
     const error = vi
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
     onTestFinished(() => error.mockRestore());
 
-    return { error, result: service.processOverdueTickets(new Date(0)) };
+    return {
+      error,
+      result: service.processOverdueTickets(new Date(0)),
+      updateStatus,
+    };
   };
 
   it('自動過號遇到非預期錯誤時記錄，不往外丟', async () => {
@@ -989,6 +1005,73 @@ describe('WaitlistService.processOverdueTickets', () => {
 
     await expect(result).resolves.toBe(0);
     expect(error).not.toHaveBeenCalled();
+  });
+
+  describe('特殊營業日', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: new Date('2026-10-06T04:00:00Z') });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('今天特殊公休時不自動過號', async () => {
+      const { result, updateStatus } = run(new BadRequestException(), [
+        {
+          openingHours: null,
+          validFrom: '2026-10-06',
+          validThrough: '2026-10-06',
+        },
+      ]);
+
+      await result;
+      expect(updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('今天已過特殊時段的打烊時間時不自動過號', async () => {
+      const { result, updateStatus } = run(new BadRequestException(), [
+        {
+          openingHours: 'Tu 08:00-11:00',
+          validFrom: '2026-10-06',
+          validThrough: '2026-10-06',
+        },
+      ]);
+
+      await result;
+      expect(updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('整天特殊公休時，過了每週打烊時間仍不自動過號', async () => {
+      vi.setSystemTime(new Date('2026-10-06T13:00:00Z'));
+      const { result, updateStatus } = run(
+        new BadRequestException(),
+        [
+          {
+            openingHours: null,
+            validFrom: '2026-10-06',
+            validThrough: '2026-10-06',
+          },
+        ],
+        'Mo-Su 08:00-20:00',
+      );
+
+      await result;
+      expect(updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('提早打烊但還沒到點時照常自動過號', async () => {
+      const { result, updateStatus } = run(new BadRequestException(), [
+        {
+          openingHours: 'Tu 08:00-13:00',
+          validFrom: '2026-10-06',
+          validThrough: '2026-10-06',
+        },
+      ]);
+
+      await result;
+      expect(updateStatus).toHaveBeenCalledOnce();
+    });
   });
 });
 
