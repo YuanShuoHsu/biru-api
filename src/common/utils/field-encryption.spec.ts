@@ -4,6 +4,7 @@ import {
   decryptField,
   encryptField,
   fieldEncryptionKeys,
+  fieldEncryptionVersion,
 } from './field-encryption.js';
 
 const key = () => randomBytes(32).toString('base64');
@@ -88,6 +89,12 @@ describe('field encryption', () => {
     expect(() => decryptField(legacy)).toThrow(
       'BETTER_AUTH_SECRET is required',
     );
+  });
+
+  it('reads the version a payload was encrypted with', () => {
+    expect(fieldEncryptionVersion(encryptField('secret'))).toBe('legacy');
+    vi.stubEnv('FIELD_ENCRYPTION_KEYS', `v2:${v2},legacy`);
+    expect(fieldEncryptionVersion(encryptField('secret'))).toBe('v2');
   });
 
   it('rejects ciphertext relabelled with another configured version', () => {
