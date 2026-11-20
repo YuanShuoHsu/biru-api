@@ -2061,7 +2061,16 @@ describe('SharedCartsService', () => {
       await expect(
         service.removeParticipant(SLUG, other.cart.me.id, null, guestCookies),
       ).rejects.toMatchObject(locked);
+      await expect(
+        service.updateMe(SLUG, { nickname: '小明' }, null, guestCookies),
+      ).rejects.toMatchObject(locked);
       expect(await db.select().from(sharedCartItem)).toHaveLength(1);
+      expect((await current(host)).participants).toContainEqual(
+        expect.objectContaining({
+          id: guest.cart.me.id,
+          nickname: guest.cart.me.nickname,
+        }),
+      );
 
       const hostCookies = cookiesOf(host.issued);
       await service.addItems(SLUG, { items: [item] }, null, hostCookies);
@@ -2073,6 +2082,7 @@ describe('SharedCartsService', () => {
         hostCookies,
       );
       await service.removeItem(SLUG, added.id, null, hostCookies);
+      await service.updateMe(SLUG, { nickname: '阿美' }, null, hostCookies);
       const { cart } = await service.removeParticipant(
         SLUG,
         other.cart.me.id,
@@ -2081,6 +2091,7 @@ describe('SharedCartsService', () => {
       );
       expect(cart.items).toHaveLength(1);
       expect(cart.participants).toHaveLength(2);
+      expect(cart.me.nickname).toBe('阿美');
     });
 
     it('blocks everyone in the cart from leaving', async () => {

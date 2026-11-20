@@ -499,8 +499,12 @@ export class SharedCartsService {
     };
   }
 
-  private anonymizeSignedOut(deviceKey: string, member: SharedCartUser | null) {
-    return this.db
+  private anonymizeSignedOut(
+    deviceKey: string,
+    member: SharedCartUser | null,
+    db: DrizzleDB | Tx = this.db,
+  ) {
+    return db
       .update(sharedCartParticipant)
       .set({
         avatar: anonymousAvatar,
@@ -520,7 +524,7 @@ export class SharedCartsService {
           eq(sharedCartParticipant.deviceKey, deviceKey),
           eq(sharedCartParticipant.memberProfile, true),
           notExists(
-            this.db
+            db
               .select({ id: session.id })
               .from(session)
               .where(
@@ -979,45 +983,44 @@ export class SharedCartsService {
     return this.view(org, this.requireDeviceKey(org, cookies), member);
   }
 
-  async updateMe(
+  updateMe(
     organizationSlug: string,
     { avatar, nickname }: SharedCartProfileDto,
     member: SharedCartUser | null,
     cookies: SharedCartCookies,
   ) {
-    const org = await this.getOrg(organizationSlug);
-    if (org.closedAt) throw organizationClosedError();
-    const { active, deviceKey } = await this.requireActive(org, cookies);
+    return this.changeCart(
+      organizationSlug,
+      member,
+      cookies,
+      async (tx, { participantId }, _org, deviceKey) => {
+        if (avatar === 'member' && !member)
+          throw badRequestError('sharedCartMemberAvatarSignInRequired');
 
-    if (avatar === 'member' && !member)
-      throw badRequestError('sharedCartMemberAvatarSignInRequired');
-
-    await this.anonymizeSignedOut(deviceKey, member);
-    if (avatar !== undefined || nickname !== undefined)
-      await this.db
-        .update(sharedCartParticipant)
-        .set({
-          avatar,
-          nickname,
-          ...(avatar === 'member' &&
-            member && {
-              memberProfile: true,
-              sessionId: member.sessionId,
-              userId: member.id,
-            }),
-          ...(avatar !== undefined &&
-            avatar !== 'member' &&
-            nickname !== undefined && {
-              memberProfile: false,
-              sessionId: null,
-              userId: null,
-            }),
-        })
-        .where(eq(sharedCartParticipant.id, active.participantId));
-    if (avatar !== undefined || nickname !== undefined)
-      this.emitUpdated(active.sharedCartId);
-
-    return this.view(org, deviceKey, member);
+        await this.anonymizeSignedOut(deviceKey, member, tx);
+        if (avatar === undefined && nickname === undefined) return false;
+        await tx
+          .update(sharedCartParticipant)
+          .set({
+            avatar,
+            nickname,
+            ...(avatar === 'member' &&
+              member && {
+                memberProfile: true,
+                sessionId: member.sessionId,
+                userId: member.id,
+              }),
+            ...(avatar !== undefined &&
+              avatar !== 'member' &&
+              nickname !== undefined && {
+                memberProfile: false,
+                sessionId: null,
+                userId: null,
+              }),
+          })
+          .where(eq(sharedCartParticipant.id, participantId));
+      },
+    );
   }
 
   async leaveMe(organizationSlug: string, cookies: SharedCartCookies) {
@@ -1124,7 +1127,12 @@ export class SharedCartsService {
     organizationSlug: string,
     member: SharedCartUser | null,
     cookies: SharedCartCookies,
-    change: (tx: Tx, active: DeviceRow, org: Org) => Promise<boolean | void>,
+    change: (
+      tx: Tx,
+      active: DeviceRow,
+      org: Org,
+      deviceKey: string,
+    ) => Promise<boolean | void>,
     items?: CreateOrderItemDto[],
   ) {
     const org = await this.getOrg(organizationSlug);
@@ -1143,7 +1151,7 @@ export class SharedCartsService {
       const holder = liveCheckout(locked[0])?.participantId;
       if (holder && holder !== active.participantId)
         throw conflictError('sharedCartCheckoutLocked');
-      return change(tx, active, org);
+      return change(tx, active, org, deviceKey);
     });
     if (changed !== false) this.emitUpdated(active.sharedCartId);
 
