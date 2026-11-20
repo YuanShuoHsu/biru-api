@@ -16,7 +16,7 @@ import { AuditLogListResponseDto } from './dto/audit-log-response.dto.js';
 
 @ApiTags('audit')
 @ApiBearerAuth()
-@ApiParam({ name: 'organizationSlug' })
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/audit-logs')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}

@@ -14,6 +14,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -49,6 +50,7 @@ const eventAudit: AuditTarget = {
 };
 
 @ApiTags('cash-devices')
+@ApiParam({ name: 'organizationSlug', type: String })
 @Controller('organizations/:organizationSlug/cash-devices')
 export class CashDevicesController {
   constructor(private readonly cashDevicesService: CashDevicesService) {}
