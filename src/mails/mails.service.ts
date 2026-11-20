@@ -1154,6 +1154,7 @@ export class MailsService {
     holdUntil,
     kind,
     lang,
+    note,
     organizationName,
     partySize,
     path,
@@ -1161,8 +1162,9 @@ export class MailsService {
   }: {
     email: string;
     holdUntil: Date | null;
-    kind: 'joined' | 'called';
+    kind: 'joined' | 'called' | 'cancelled';
     lang: Language;
+    note?: string | null;
     organizationName: string;
     partySize: number;
     path: string;
@@ -1181,6 +1183,7 @@ export class MailsService {
             minute: '2-digit',
             timeZone: PLATFORM_TIMEZONE,
           }).format(holdUntil),
+        note,
         organizationName,
         partySize,
         productName,
@@ -1201,10 +1204,13 @@ export class MailsService {
           `mail.waitlist_notification.${kind}.action`,
           options,
         ),
-        detail: this.i18n.t(
-          `mail.waitlist_notification.${kind}.detail`,
-          translate,
-        ),
+        detail:
+          kind === 'cancelled' && !note
+            ? null
+            : this.i18n.t(
+                `mail.waitlist_notification.${kind}.detail`,
+                translate,
+              ),
         home_url: url,
         i18nLang: lang,
         intro: this.i18n.t(
@@ -1222,6 +1228,77 @@ export class MailsService {
         ),
         trouble_hint: this.i18n.t(
           'mail.waitlist_notification.trouble_hint',
+          options,
+        ),
+        url,
+      },
+    });
+  }
+
+  public async sendOrderStoreClosed({
+    amount,
+    email,
+    lang: recipientLang,
+    note,
+    orderNumber,
+    organizationName,
+    pickupTime,
+  }: {
+    amount: string;
+    email: string;
+    lang: Language | null;
+    note: string | null;
+    orderNumber: string;
+    organizationName: string;
+    pickupTime: Date;
+  }): Promise<void> {
+    const productName = PRODUCT_NAME;
+    const template = 'order-store-closed';
+    const lang = this.languageFor(recipientLang ?? undefined);
+    const url = `${this.configService.get<string>('NEXT_URL')}/${lang}`;
+    const options = { lang };
+    const translate = {
+      args: {
+        amount: new Intl.NumberFormat(lang, {
+          currency: 'TWD',
+          maximumFractionDigits: 0,
+          style: 'currency',
+        }).format(Number(amount)),
+        note,
+        orderNumber,
+        organizationName,
+        pickupTime: new Intl.DateTimeFormat(lang, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: PLATFORM_TIMEZONE,
+        }).format(pickupTime),
+        productName,
+      },
+      lang,
+    };
+
+    await this.send({
+      to: email,
+      subject: this.i18n.t('mail.order_store_closed.subject', translate),
+      template,
+      context: {
+        action: this.i18n.t('mail.order_store_closed.action', options),
+        detail: note && this.i18n.t('mail.order_store_closed.note', translate),
+        home_url: url,
+        i18nLang: lang,
+        intro: this.i18n.t('mail.order_store_closed.intro', translate),
+        productName,
+        refund_hint: this.i18n.t(
+          'mail.order_store_closed.refund_hint',
+          options,
+        ),
+        salutation: this.i18n.t(
+          'mail.order_store_closed.salutation',
+          translate,
+        ),
+        title: this.i18n.t('mail.order_store_closed.title', options),
+        trouble_hint: this.i18n.t(
+          'mail.order_store_closed.trouble_hint',
           options,
         ),
         url,

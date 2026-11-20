@@ -152,6 +152,23 @@
       "detail": "Please check in at the counter by {holdUntil}. Use the button below to let us know whether you're coming. If you don't arrive in time, the store may skip your number.",
       "action": "Respond to your call"
     },
+    "cancelled": {
+      "subject": "{organizationName}: waitlist number {ticketNumber} has been cancelled",
+      "title": "Your waitlist number has been cancelled",
+      "intro": "{organizationName} is closed for the rest of today due to special opening hours, so your waitlist number {ticketNumber} (party of {partySize}) has been cancelled. We're sorry for the inconvenience.",
+      "detail": "Note from the store: {note}",
+      "action": "View your waitlist status"
+    },
+    "salutation": "Thanks,<br>The {productName} Team",
+    "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
+  },
+  "order_store_closed": {
+    "subject": "{organizationName}: order {orderNumber} has been cancelled and refunded",
+    "title": "Your order has been cancelled and refunded",
+    "intro": "{organizationName} is closed at your scheduled pickup time, {pickupTime}, so order {orderNumber} has been cancelled and {amount} has been refunded in full to your original payment method. We're sorry for the inconvenience.",
+    "note": "Note from the store: {note}",
+    "refund_hint": "When the refund appears on your statement depends on your card issuer. If you would still like your order, please place a new one.",
+    "action": "Place a new order",
     "salutation": "Thanks,<br>The {productName} Team",
     "trouble_hint": "If you're having trouble with the button above, copy and paste the URL below into your web browser."
   },
